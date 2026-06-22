@@ -1,0 +1,344 @@
+/**
+ * Shared utility namespace for all foliplus map controls.
+ * Provides SVG icons, hint system, coordinate transformation, geocoding,
+ * and common UI helpers.
+ */
+(function () {
+  if (window._mapShared) return;
+
+  const SM = {
+    // ---------- SVG Icons ----------
+    SVGs: {
+      LOADING: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+    style="animation:spin 0.8s linear infinite;vertical-align:middle">
+    <path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
+      CLOSE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+    stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/>
+    <line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+      PIN_ICON: `<div style="position:relative;width:24px;height:36px;">
+    <svg width="24" height="36" viewBox="0 0 24 36">
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24
+        C24 5.4 18.6 0 12 0z" fill="var(--accent-primary)" stroke="#fff"
+        stroke-width="1.5"/>
+      <circle cx="12" cy="12" r="4.5" fill="#fff"/>
+    </svg></div>`,
+      LOCATE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+    stroke-linejoin="round">
+    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75
+    7-13c0-3.87-3.13-7-7-7z"/>
+    <circle cx="12" cy="9" r="2.5"/></svg>`,
+      GLOBE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="1.8"
+    stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <ellipse cx="12" cy="12" rx="4" ry="10"/>
+    <line x1="2" y1="12" x2="22" y2="12"/></svg>`,
+      SEARCH: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+    stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/>
+    <line x1="15.5" y1="15.5" x2="21" y2="21"/></svg>`
+    }
+  };
+
+  // ---------- Hint / Toast System ----------
+  const _hintMap = new Map(); // key -> { element, timer }
+
+  SM.registerHintIcon = function (key, iconSvg) {
+    SM._hintIcons = SM._hintIcons || {};
+    SM._hintIcons[key] = iconSvg;
+  };
+  SM._hintIcons = SM._hintIcons || {};
+  SM._hintIcons['gcoord-warn'] = SM.SVGs.SEARCH;
+
+  SM.showHint = function (key, text, duration, parent) {
+    SM.hideHint(key);
+    // Mount inside the map container by default to avoid z-index issues
+    const hintTarget = parent ||
+      document.querySelector('.leaflet-container') ||
+      document.body;
+    const el = L.DomUtil.create('div', `map-hint map-hint-${key}`, hintTarget);
+    const icon = (SM._hintIcons && SM._hintIcons[key]) || '';
+    el.innerHTML = icon ? `<span style="margin-right:6px">${icon}</span>${text}` : text;
+    el.style.cssText =
+      'position:absolute;bottom:20px;left:50%;transform:translateX(-50%);' +
+      'background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:4px;' +
+      'font-size:13px;z-index:2147483647;pointer-events:none;white-space:nowrap;' +
+      'box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;';
+    // Ensure the map container has relative positioning
+    if (hintTarget !== document.body && hintTarget !== document.documentElement) {
+      const cs = getComputedStyle(hintTarget);
+      if (cs.position === 'static') hintTarget.style.position = 'relative';
+    }
+    _hintMap.set(key, { element: el, timer: null });
+
+    const _reposition = () => {
+      let idx = 0;
+      for (let v of _hintMap.values()) {
+        v.element.style.bottom = `${20 + idx * 40}px`;
+        v.element.style.zIndex = 10000 + idx;
+        idx++;
+      }
+    };
+    _reposition();
+
+    if (duration !== 0) {
+      _hintMap.get(key).timer = setTimeout(() => SM.hideHint(key), duration || 3000);
+    }
+  };
+
+  SM.hideHint = function (key) {
+    const entry = _hintMap.get(key);
+    if (!entry) return;
+    if (entry.timer) clearTimeout(entry.timer);
+    if (entry.element) entry.element.remove();
+    _hintMap.delete(key);
+
+    let idx = 0;
+    for (let v of _hintMap.values()) {
+      v.element.style.bottom = `${20 + idx * 40}px`;
+      idx++;
+    }
+  };
+
+  SM.hideAllHints = () => {
+    for (let key of _hintMap.keys()) SM.hideHint(key);
+  };
+
+  // ---------- Coordinate Transformation ----------
+  SM._isBaiduCRS = function (map) {
+    try {
+      if (L.CRS && L.CRS.Baidu) return true;
+      const crs = map.options.crs;
+      if (crs && (crs.code || '').toLowerCase().includes('baidu')) return true;
+      const layers = map._layers;
+      for (let id in layers) {
+        if (layers[id]._url && layers[id]._url.includes('bdimg.com')) return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  SM.toWgs84 = function (map, lat, lng) {
+    if (typeof gcoord !== 'undefined') {
+      const src = SM._isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
+      const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
+      return [result[1], result[0]];
+    }
+    if (!SM._gcoordWarned) {
+      const _g = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
+      console.warn(_g('gcoord.warn'));
+      SM.showHint('gcoord-warn', _g('gcoord.warn'), 5000);
+      SM._gcoordWarned = true;
+    }
+    return [lat, lng];
+  };
+
+  /** Convert WGS84 coordinates to the map's CRS (BD09 / GCJ02 / unchanged). */
+  SM.fromWgs84 = function (map, lng, lat) {
+    if (typeof gcoord === 'undefined') {
+      if (!SM._gcoordWarned) {
+      const _g2 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
+      console.warn(_g2('gcoord.warn'));
+      SM.showHint('gcoord-warn', _g2('gcoord.warn'), 5000);
+        SM._gcoordWarned = true;
+      }
+      return [lng, lat];
+    }
+    const isBaidu = SM._isBaiduCRS(map);
+    // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip
+    const dst = isBaidu ? gcoord.BD09 : gcoord.GCJ02;
+    // Skip transformation for non-domestic maps (no Baidu/AMap tile patterns)
+    if (!isBaidu && !_isDomesticMap(map)) return [lng, lat];
+    const result = gcoord.transform([lng, lat], gcoord.WGS84, dst);
+    return result;
+  };
+
+  function _isDomesticMap(map) {
+    try {
+      const crs = map.options.crs;
+      if (crs && (crs.code || '').toLowerCase().includes('baidu')) return true;
+      const layers = map._layers;
+      for (let id in layers) {
+        if (layers[id]._url) {
+          const url = layers[id]._url;
+          if (
+            url.includes('bdimg.com') ||
+            url.includes('autonavi') ||
+            url.includes('tianditu') ||
+            url.includes('gtimg.com') ||
+            url.includes('googleapis') ||
+            url.includes('amap.com')
+          ) return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ---------- Reverse Geocoding (with throttled queue) ----------
+  const _geoCache = {};
+  let _geoPromise = Promise.resolve();
+  let _geoLastReq = 0;
+
+  SM.reverseGeocode = function (map, lat, lng) {
+    const key = `${lat},${lng}`;
+    if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
+
+    const wgs = SM.toWgs84(map, parseFloat(lat), parseFloat(lng));
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0].toFixed(6)}&lon=${wgs[1].toFixed(6)}&zoom=18&accept-language=zh`;
+
+    _geoPromise = _geoPromise.then(() => {
+      const wait = Math.max(0, 1000 - (Date.now() - _geoLastReq));
+      return new Promise(r => setTimeout(r, wait));
+    }).then(() => {
+      _geoLastReq = Date.now();
+      return fetch(url).then(r => r.json()).then(data => {
+        let addr = data.display_name || '';
+        addr = addr.split(',').map(s => s.trim())
+          .filter(s => s && !/^\d+$/.test(s))
+          .reverse().join(',');
+        _geoCache[key] = addr || 'Address not found';
+        return _geoCache[key];
+      }).catch(() => {
+        return 'Geocoding failed';
+      });
+    });
+    return _geoPromise;
+  };
+
+  SM.buildPopupHtml = function (lat, lng, addr, txt, title) {
+    const popupTitle = title || txt.POPUP_TITLE;
+    const addrHtml = (addr && addr.includes('LOADING')) ?
+      `${SM.SVGs.LOADING} ${txt.POPUP_LOADING}` :
+      (addr || txt.POPUP_LOADING);
+    return `<div style="font-size:13px;line-height:1.8">
+      <b>${popupTitle}</b><br>
+      ${txt.POPUP_LOC_LABEL}${lng},${lat}<br>
+      ${txt.POPUP_ADDR_LABEL}${addrHtml}
+    </div>`;
+  };
+
+  // ---------- Panel Interaction Helpers ----------
+  /**
+   * Create a location marker with a popup and add it to the map.
+   * @param {L.Map} map Leaflet map instance
+   * @param {number} lat Latitude
+   * @param {number} lng Longitude
+   * @param {string} addr Address string (null = pending reverse geocode)
+   * @param {object} txt Text constants (must include POPUP_* keys)
+   * @param {string} [title] Popup title (defaults to txt.POPUP_TITLE)
+   * @param {L.Marker} [existing] Existing marker to remove before creating new one
+   * @returns {L.Marker} The newly created marker
+   */
+  SM.createLocationMarker = function (
+    map, lat, lng, addr, txt, title, existing, layerGroup
+  ) {
+    if (existing) map.removeLayer(existing);
+    var target = layerGroup || map;
+    var mk = L.marker([lat, lng], {
+      icon: L.divIcon({
+        className: '',
+        html: SM.SVGs.PIN_ICON,
+        iconSize: [24, 36],
+        iconAnchor: [12, 36],
+        popupAnchor: [0, -36]
+      })
+    });
+    target.addLayer(mk);
+    mk.bindPopup(
+      SM.buildPopupHtml(lat, lng, addr, txt, title), {
+      maxWidth: 300
+    }
+    );
+    mk.openPopup();
+    if (!addr) {
+      SM.reverseGeocode(map, lat, lng).then(function (resolved) {
+        if (mk && mk.getPopup() && mk.getPopup().isOpen()) {
+          mk.setPopupContent(SM.buildPopupHtml(lat, lng, resolved, txt, title));
+        }
+      });
+    }
+    return mk;
+  };
+
+  SM.bindPanelToggle = function ({ container, toggleBtn, header }) {
+    const btn = container.querySelector(toggleBtn);
+    if (btn) {
+      L.DomEvent.on(btn, 'click', (e) => {
+        L.DomEvent.stop(e);
+        container.classList.remove('collapsed');
+        container.classList.add('expanded');
+      });
+    }
+    const hdr = container.querySelector(header);
+    if (hdr) {
+      L.DomEvent.on(hdr, 'click', (e) => {
+        L.DomEvent.stop(e);
+        container.classList.remove('expanded');
+        container.classList.add('collapsed');
+      });
+    }
+  };
+
+  SM.bindOutsideCollapse = function ({ map, container }) {
+    const handler = (e) => {
+      if (!container.contains(e.target) && container.classList.contains('expanded')) {
+        container.classList.remove('expanded');
+        container.classList.add('collapsed');
+      }
+    };
+    document.addEventListener('click', handler);
+
+    // Auto-cleanup: remove listener when container is removed from DOM
+    const cleanup = () => document.removeEventListener('click', handler);
+    const obs = new MutationObserver(() => {
+      if (!document.body.contains(container)) {
+        cleanup();
+        obs.disconnect();
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+
+    return cleanup;
+  };
+
+  // ---------- Number Formatting (locale-aware) ----------
+  /**
+   * Format a number for display.
+   * @param {number} val Value to format
+   * @param {string} style 'auto' (10K/1K suffix), 'comma' (thousands separator), 'int'
+   * @param {string} locale Locale code, default 'zh-CN'
+   * @returns {string} Formatted string
+   */
+  SM.formatNumber = function (val, style, locale) {
+    style = style || 'auto';
+    locale = locale || 'zh-CN';
+    if (typeof Intl !== 'undefined' && Intl.NumberFormat) {
+      if (style === 'auto') {
+        if (val >= 10000) return (val / 10000).toFixed(1) + 'W';
+        if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+        return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(val);
+      }
+      if (style === 'comma') {
+        return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(val);
+      }
+      return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(val);
+    }
+    // Fallback: no Intl support
+    if (style === 'auto') {
+      if (val >= 10000) return (val / 10000).toFixed(1) + 'W';
+      if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+      return Math.round(val).toString();
+    }
+    return Math.round(val).toLocaleString();
+  };
+
+  window._mapShared = SM;
+})();

@@ -1,0 +1,71 @@
+.measure-ctrl.expanded {
+  box-shadow: var(--panel-shadow);
+}
+/* ── Tool Buttons ── */
+.measure-ctrl .tool-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+.measure-ctrl .tool-btn svg {
+  stroke: currentColor;
+}
+.measure-ctrl .tool-btn:hover {
+  background-color: var(--accent-light);
+  color: var(--accent-primary);
+}
+.measure-ctrl .tool-btn:hover svg {
+  stroke: var(--accent-primary);
+}
+.measure-ctrl .tool-btn.active {
+  background-color: var(--accent-light);
+  color: var(--accent-primary);
+}
+.measure-ctrl .tool-btn.active svg {
+  stroke: var(--accent-primary);
+}
+/* ── Measurement Labels ── */
+.measure-label {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: none;
+  transform: translateX(-50%);
+}
+/* ── Floating Delete Icon ── */
+.measure-del-icon {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: var(--accent-primary);
+  border: 1.5px solid var(--ctrl-bg);
+  border-radius: 50%;
+  color: var(--ctrl-bg);
+  font-size: 11px;
+  line-height: 13px;
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: none;
+  display: none;
+}
+.measure-del-icon.visible {
+  display: block;
+}
+.measure-del-icon:hover {
+  background: rgba(200, 60, 40, 0.95);
+  transform: scale(1.2);
+}

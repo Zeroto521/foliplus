@@ -1,0 +1,721 @@
+(function() {
+  // ==================== Constants ====================
+  const _CONST = {
+    INIT_DELAY_MS: 300,
+    Z_INDEX_BASE: 600,
+    DRAG_TIMEOUT_MS: 100,
+    LAYER_RECURSION_DEPTH: 10,
+    STORAGE_KEY: '_layer_order',
+    COLOR_MAP_LAYER_ID: '__color_map__',
+    COLOR_DEFAULT: '#cccccc',
+  };
+
+  // ==================== Dependencies ====================
+  const map = {{ this._parent.get_name() }};
+  const SM = window._mapShared;
+  const mapContainer = map.getContainer();
+  const _ = (key) => _LOCALE[key] || key;
+
+  const SVGS = {
+    DRAG_HANDLE: `
+      <svg width="12" height="16" viewBox="0 0 12 16" fill="none"
+        class="drag-handle">
+        <circle cx="4" cy="4" r="1.5" fill="#aaa" />
+        <circle cx="8" cy="4" r="1.5" fill="#aaa" />
+        <circle cx="4" cy="8" r="1.5" fill="#aaa" />
+        <circle cx="8" cy="8" r="1.5" fill="#aaa" />
+        <circle cx="4" cy="12" r="1.5" fill="#aaa" />
+        <circle cx="8" cy="12" r="1.5" fill="#aaa" />
+      </svg>`,
+    LIST: `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5"
+        stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="5.5" cy="5" r="2"/><line x1="10" y1="5" x2="21" y2="5"/>
+        <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
+        <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
+      </svg>`,
+    GLOBE: `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5"
+        stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+      </svg>`,
+    POINT: `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="6" fill="none" stroke="#a4a4a4"
+          stroke-width="1.5" />
+      </svg>`,
+    LINE: `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <path d="M4 20 L10 6 L16 18 L22 4" stroke="#a4a4a4"
+          stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round"/>
+      </svg>`,
+    POLYGON: `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <polygon points="12,3 21,9 18,21 6,21 3,9" fill="none"
+          stroke="#a4a4a4" stroke-width="1.5"
+          stroke-linejoin="round"/>
+      </svg>`
+  };
+
+  // ==================== Utility Class ====================
+  class LayerUtils {
+    static escapeHTML(str) {
+      return String(str).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[m]);
+    }
+
+    static getGeometryType(layer) {
+      const leaves = [];
+      const collect = (n, d) => {
+        if (!n || d > _CONST.LAYER_RECURSION_DEPTH) return;
+        if (n.getLayers && typeof n.getLayers === 'function') {
+          n.getLayers().forEach(c => collect(c, d + 1));
+        } else {
+          leaves.push(n);
+        }
+      };
+      try { collect(layer, 0); } catch (e) {}
+
+      let hasPoly = false, hasLine = false, hasPoint = false;
+      for (const leaf of leaves) {
+        if (leaf instanceof L.Polygon) hasPoly = true;
+        else if (leaf instanceof L.Polyline) hasLine = true;
+        else if (
+          leaf instanceof L.Marker ||
+          leaf instanceof L.CircleMarker ||
+          leaf instanceof L.Circle
+        ) hasPoint = true;
+      }
+      return hasPoly ? 'polygon' : hasLine ? 'line' : hasPoint ? 'point' : '';
+    }
+
+    static getTypeSVG(layer) {
+      const type = this.getGeometryType(layer);
+      if (type === 'polygon') return SVGS.POLYGON;
+      if (type === 'line') return SVGS.LINE;
+      if (type === 'point') return SVGS.POINT;
+      return SVGS.GLOBE;
+    }
+  }
+
+  // ==================== Core Manager: LayerManager ====================
+  class LayerManager {
+    constructor(mapInstance) {
+      this.map = mapInstance;
+      this.layers = [];
+      this.typeMap = new Map();
+      this.pendingRegistrations = [];
+      this.uiContainer = null;
+
+      this.colorActive = false;
+      this.currentColor = _CONST.COLOR_DEFAULT;
+      this.dragIdx = null;
+
+      // Bind method context to prevent 'this' loss when called via window._mapShared.LayerControlAPI
+      this.registerLayer = this.registerLayer.bind(this);
+      this.unregisterLayer = this.unregisterLayer.bind(this);
+      this.getLayerType = this.getLayerType.bind(this);
+      this.getLayersByType = this.getLayersByType.bind(this);
+      this.enforceOrder = this.enforceOrder.bind(this);
+
+      window._mapShared.LayerControlAPI = this;
+    }
+
+    // 初始化注入数据
+    init(initialData) {
+      this.layers = [...initialData];
+      this._loadSavedOrder();
+    }
+
+    _loadSavedOrder() {
+      try {
+        const data = localStorage.getItem(_CONST.STORAGE_KEY);
+        if (!data) return;
+        const ids = JSON.parse(data);
+        if (!Array.isArray(ids)) return;
+        const ordered = [];
+        for (const id of ids) {
+          const idx = this.layers.findIndex(l => l.id === id);
+          if (idx !== -1) ordered.push(this.layers.splice(idx, 1)[0]);
+        }
+        this.layers = ordered.concat(this.layers);
+      } catch (e) {}
+    }
+
+    _saveOrder() {
+      try {
+        localStorage.setItem(
+          _CONST.STORAGE_KEY,
+          JSON.stringify(this.layers.map(l => l.id))
+        );
+      } catch (e) {}
+    }
+
+    // Public API Methods
+    getLayerType(id) {
+      return this.typeMap.get(id)?.type ?? null;
+    }
+
+    getLayersByType(type) {
+      const result = [];
+      for (const [id, info] of this.typeMap) {
+        if (info.type === type) result.push({ id, name: info.name });
+      }
+      return result;
+    }
+
+    registerLayer(opts) {
+      if (!opts?.id) throw new Error('[LayerManager] opts.id is required');
+
+      const existingIdx = this.layers.findIndex(l => l.id === opts.id);
+      if (existingIdx !== -1) this.layers.splice(existingIdx, 1);
+
+      const layerInfo = {
+        name: opts.name ?? opts.id,
+        id: opts.id,
+        visible: true,
+        isBase: !!opts.isBase,
+        paneName: opts.paneName ?? null,
+        iconSvg: opts.iconSvg ?? null,
+      };
+      this.layers.unshift(layerInfo);
+
+      if (opts.paneName) {
+        let pane = this.map.getPane(opts.paneName);
+        if (!pane) {
+          pane = this.map.createPane(opts.paneName);
+          pane.classList.add('enhanced-layer-pane');
+        }
+        let renderer = this.map[`_renderer_${opts.paneName}`];
+        if (!renderer) {
+          renderer = L.svg({ pane: opts.paneName });
+          renderer.addTo(this.map);
+          this.map[`_renderer_${opts.paneName}`] = renderer;
+        }
+      }
+
+      if (opts.layer) window[opts.id] = opts.layer;
+      if (opts.layer && !this.map.hasLayer(opts.layer)) {
+        this.map.addLayer(opts.layer);
+      }
+
+      this.enforceOrder();
+
+      if (!this.uiContainer) {
+        this.pendingRegistrations.push(opts);
+        return null;
+      }
+
+      const oldItem = this.uiContainer.querySelector(
+        `[data-layer-id="${opts.id}"]`
+      );
+      if (oldItem) oldItem.remove();
+
+      const newItem = this._createItemDOM({ ...layerInfo, index: 0 });
+      const firstOverlay = this.uiContainer.querySelector(
+        '.layer-item[draggable="true"]'
+      );
+      if (firstOverlay) this.uiContainer.insertBefore(newItem, firstOverlay);
+      else this.uiContainer.appendChild(newItem);
+
+      this._reindexItems();
+      this._saveOrder();
+      return newItem;
+    }
+
+    unregisterLayer(id) {
+      const idx = this.layers.findIndex(l => l.id === id);
+      if (idx === -1) return false;
+      this.layers.splice(idx, 1);
+
+      const layer = this.map._layers[id] || window[id];
+      if (layer && this.map.hasLayer(layer)) {
+        this.map.removeLayer(layer);
+      }
+      if (window[id]) delete window[id];
+
+      if (this.uiContainer) {
+        const target = this.uiContainer.querySelector(
+          `[data-layer-id="${id}"]`
+        );
+        if (target) {
+          target.remove();
+          this._reindexItems();
+        }
+      }
+      requestAnimationFrame(() => this.map.invalidateSize({ animate: false }));
+      return true;
+    }
+
+    // Core Sorting Engine
+    _setLayerPaneRecursive(layer, paneName, renderer) {
+      layer.options.pane = paneName;
+      layer.options.__customRendererApplied = true;
+
+      if (layer instanceof L.Path) {
+        layer.options.renderer = renderer;
+        if (layer._renderer) {
+          layer._renderer = null;
+        }
+      }
+
+      if (layer.eachLayer) {
+        layer.eachLayer(l => this._setLayerPaneRecursive(l, paneName, renderer));
+      } else if (layer._layers) {
+        for (const k in layer._layers) {
+          if (layer._layers.hasOwnProperty(k)) {
+            this._setLayerPaneRecursive(layer._layers[k], paneName, renderer);
+          }
+        }
+      }
+    }
+
+    enforceOrder() {
+      const orderedLayers = [];
+      const layerInfos = new Map();
+
+      for (let i = 0; i < this.layers.length; i++) {
+        if (this.layers[i].isBase) continue;
+        const l_id = this.layers[i].id;
+        const layer = this.map._layers[l_id] || window[l_id] || null;
+        if (layer && this.map.hasLayer(layer)) {
+          orderedLayers.push(layer);
+          layerInfos.set(L.stamp(layer), this.layers[i]);
+        }
+      }
+
+      if (orderedLayers.length === 0) return;
+
+      const layersToMove = [];
+      for (let i = 0; i < orderedLayers.length; i++) {
+        const lyr = orderedLayers[i];
+        const info = layerInfos.get(L.stamp(lyr));
+        const paneName = info?.paneName ?? `_overlay_${L.stamp(lyr)}`;
+
+        let pane = this.map.getPane(paneName);
+        if (!pane) {
+          pane = this.map.createPane(paneName);
+          pane.classList.add('enhanced-layer-pane');
+        }
+
+        let renderer = this.map[`_renderer_${paneName}`];
+        if (!renderer) {
+          renderer = L.svg({ pane: paneName });
+          renderer.addTo(this.map);
+          this.map[`_renderer_${paneName}`] = renderer;
+        }
+
+        pane.style.zIndex = _CONST.Z_INDEX_BASE + (orderedLayers.length - i);
+
+        if (lyr.options.pane !== paneName || !lyr.options.__customRendererApplied) {
+          layersToMove.push({ layer: lyr, paneName, renderer });
+        }
+      }
+
+      if (layersToMove.length) {
+        for (const { layer } of layersToMove) this.map.removeLayer(layer);
+        for (const { layer, paneName, renderer } of layersToMove) {
+          this._setLayerPaneRecursive(layer, paneName, renderer);
+        }
+        for (const { layer } of layersToMove) this.map.addLayer(layer);
+      }
+    }
+
+    // UI Rendering & Event Binding
+    attachUI(containerDiv) {
+      this.uiContainer = containerDiv;
+      this._renderInitialList();
+      this._bindEvents();
+
+      while (this.pendingRegistrations.length) {
+        this.registerLayer(this.pendingRegistrations.shift());
+      }
+
+      setTimeout(() => this._initTypesAndVisibility(), _CONST.INIT_DELAY_MS);
+    }
+
+    _createItemDOM(info) {
+      const en = LayerUtils.escapeHTML(info.name);
+      const spacer = '<div class="layer-item-spacer"></div>';
+      const handle = info.isBase ? spacer : SVGS.DRAG_HANDLE;
+      const item = document.createElement('div');
+      item.className = 'layer-item is-active';
+      item.draggable = !info.isBase;
+      item.dataset.index = String(info.index);
+      item.dataset.layerId = String(info.id);
+      item.title = en;
+
+      item.innerHTML = `
+        ${handle}
+        <div class="checkbox-wrapper">
+          <input type="checkbox" checked data-index="${info.index}">
+        </div>
+        <label title="${en}">${en}</label>
+        <div class="type-icon-col"></div>
+      `;
+
+      const typeCol = item.querySelector('.type-icon-col');
+      const layer = this.map._layers[info.id] || window[info.id] || null;
+      typeCol.innerHTML = info.iconSvg || (
+        info.isBase ? SVGS.GLOBE : (layer ? LayerUtils.getTypeSVG(layer) : '')
+      );
+      return item;
+    }
+
+    _renderInitialList() {
+      let html = '';
+      let hasBaseMaps = false;
+
+      for (let i = 0; i < this.layers.length; i++) {
+        const l = this.layers[i];
+        if (l.isBase && !hasBaseMaps) {
+          hasBaseMaps = true;
+          html += `
+            <div class="layer-separator-container">
+              <div class="layer-separator"></div>
+              <div class="separator-label">${_('layer.base_map_label')}</div>
+            </div>`;
+        }
+        const en = LayerUtils.escapeHTML(l.name);
+        const spacer = '<div class="layer-item-spacer"></div>';
+        html += `
+          <div class="layer-item" draggable="${!l.isBase}"
+               data-index="${i}" data-layer-id="${l.id}"
+               title="${en}">
+            ${l.isBase ? spacer : SVGS.DRAG_HANDLE}
+            <div class="checkbox-wrapper">
+              <input type="checkbox" checked data-index="${i}"
+                     aria-label="${en}">
+            </div>
+            <label title="${en}">${en}</label>
+            <div class="type-icon-col"></div>
+          </div>`;
+      }
+
+      html += `
+        <div class="layer-item color-layer-item" draggable="false"
+             data-layer-id="${_CONST.COLOR_MAP_LAYER_ID}"
+             title="${_('layer.color_map_label')}">
+          <div class="layer-item-spacer"></div>
+          <div class="checkbox-wrapper">
+            <input type="color" class="color-layer-input"
+                   value="${this.currentColor}"
+                   aria-label="${_('layer.color_map_label')}">
+          </div>
+          <label>${_('layer.color_map_label')}</label>
+          <div class="type-icon-col">${SVGS.GLOBE}</div>
+        </div>`;
+
+      this.uiContainer.innerHTML = html;
+    }
+
+    _initTypesAndVisibility() {
+      const inputs = this.uiContainer.querySelectorAll('input');
+      const typeCols = this.uiContainer.querySelectorAll('.type-icon-col');
+      let anyBaseVisible = false;
+
+      for (let i = 0; i < this.layers.length; i++) {
+        const layerInfo = this.layers[i];
+        const id = layerInfo.id;
+        const layer = this.map._layers[id] || window[id] || null;
+
+        if (inputs[i]) {
+          inputs[i].checked = (layer != null && this.map.hasLayer(layer)) ||
+            (layer && layer._map != null);
+          const item = inputs[i].closest('.layer-item');
+          if (item) {
+            if (inputs[i].checked) item.classList.add('is-active');
+            else item.classList.remove('is-active');
+          }
+        }
+
+        if (typeCols[i]) {
+          if (layerInfo.isBase) {
+            typeCols[i].innerHTML = SVGS.GLOBE;
+            this.typeMap.set(id, { type: 'base', name: layerInfo.name });
+            if (inputs[i]?.checked) anyBaseVisible = true;
+          } else if (layer) {
+            typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
+            this.typeMap.set(id, {
+              type: LayerUtils.getGeometryType(layer),
+              name: layerInfo.name,
+            });
+          }
+        }
+      }
+
+      if (!anyBaseVisible) this._showColorLayer(this.currentColor);
+      this.enforceOrder();
+    }
+
+    _reindexItems() {
+      const items = this.uiContainer.querySelectorAll(
+        '.layer-item:not(.color-layer-item)'
+      );
+      for (let i = 0; i < items.length; i++) {
+        items[i].dataset.index = String(i);
+        const cb = items[i].querySelector('input[type="checkbox"]');
+        if (cb) cb.dataset.index = String(i);
+      }
+    }
+
+    // Event Handlers
+    _bindEvents() {
+      this.uiContainer.addEventListener('change', this._handleChange.bind(this));
+      this.uiContainer.addEventListener('input', this._handleInput.bind(this));
+
+      this.uiContainer.addEventListener('dragstart', this._handleDragStart.bind(this));
+      this.uiContainer.addEventListener('dragover', this._handleDragOver.bind(this));
+      this.uiContainer.addEventListener('dragleave', this._handleDragLeave.bind(this));
+      this.uiContainer.addEventListener('drop', this._handleDrop.bind(this));
+      this.uiContainer.addEventListener('dragend', this._handleDragEnd.bind(this));
+    }
+
+    _handleChange(e) {
+      const target = e.target;
+      if (target.classList.contains('color-layer-input')) {
+        this._deselectAllBaseMaps(-1);
+        this._showColorLayer(target.value);
+        this.enforceOrder();
+        return;
+      }
+      if (target.tagName.toLowerCase() !== 'input' || target.type !== 'checkbox') return;
+
+      const idx = parseInt(target.dataset.index);
+      const layerInfo = this.layers[idx];
+      const layer = this.map._layers[layerInfo.id] || window[layerInfo.id] || null;
+      const item = target.closest('.layer-item');
+
+      if (layerInfo.isBase) {
+        if (target.checked) {
+          this._hideColorLayer();
+          this._deselectAllBaseMaps(idx);
+          if (layer) {
+            this.map.addLayer(layer);
+            this.map.invalidateSize({ animate: false });
+          }
+        } else {
+          if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
+        }
+      } else {
+        if (layer) {
+          target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
+        }
+      }
+
+      if (item) target.checked ? item.classList.add('is-active') : item.classList.remove('is-active');
+      this.enforceOrder();
+    }
+
+    _handleInput(e) {
+      if (e.target.classList.contains('color-layer-input')) {
+        this._showColorLayer(e.target.value);
+      }
+    }
+
+    _handleDragStart(e) {
+      const item = e.target.closest('.layer-item');
+      if (!item) return;
+      const idx = parseInt(item.dataset.index);
+      if (this.layers[idx].isBase) {
+        e.preventDefault();
+        return;
+      }
+      this.dragIdx = idx;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    _handleDragOver(e) {
+      e.preventDefault();
+      const item = e.target.closest('.layer-item');
+      if (!item || item.classList.contains('color-layer-item')) return;
+
+      const targetIdx = parseInt(item.dataset.index);
+      if (this.layers[targetIdx].isBase) return;
+
+      const allItems = this.uiContainer.querySelectorAll('.layer-item');
+      allItems.forEach(i => i.classList.remove('drag-over-top', 'drag-over-bottom'));
+
+      if (targetIdx < this.dragIdx) item.classList.add('drag-over-top');
+      else if (targetIdx > this.dragIdx) item.classList.add('drag-over-bottom');
+    }
+
+    _handleDragLeave(e) {
+      const item = e.target.closest('.layer-item');
+      if (item) item.classList.remove('drag-over-top', 'drag-over-bottom');
+    }
+
+    _handleDrop(e) {
+      e.preventDefault();
+      const target = e.target.closest('.layer-item');
+      if (!target || this.dragIdx === null || target.classList.contains('color-layer-item')) return;
+
+      const targetIdx = parseInt(target.dataset.index);
+      if (this.dragIdx === targetIdx || this.layers[targetIdx].isBase) return;
+
+      const moved = this.layers.splice(this.dragIdx, 1)[0];
+      this.layers.splice(targetIdx, 0, moved);
+
+      const allItems = Array.from(
+        this.uiContainer.querySelectorAll('.layer-item:not(.color-layer-item)')
+      );
+      const movedItem = allItems[this.dragIdx];
+
+      if (targetIdx < this.dragIdx) {
+        target.parentNode.insertBefore(movedItem, target);
+      } else {
+        target.parentNode.insertBefore(movedItem, target.nextSibling);
+      }
+
+      this._reindexItems();
+      this.enforceOrder();
+      this._saveOrder();
+      this.dragIdx = null;
+    }
+
+    _handleDragEnd() {
+      const allItems = this.uiContainer.querySelectorAll('.layer-item');
+      allItems.forEach(i => i.classList.remove(
+        'dragging', 'drag-over-top', 'drag-over-bottom'
+      ));
+    }
+
+    // Color Map Control Logic
+    _showColorLayer(color) {
+      this.colorActive = true;
+      this.currentColor = color;
+      mapContainer.style.background = color;
+
+      for (let i = 0; i < this.layers.length; i++) {
+        if (this.layers[i].isBase) {
+          const l_id = this.layers[i].id;
+          const bLayer = this.map._layers[l_id] || window[l_id] || null;
+          if (bLayer && this.map.hasLayer(bLayer)) this.map.removeLayer(bLayer);
+        }
+      }
+
+      const tilePane = this.map.getPane('tilePane');
+      if (tilePane) {
+        tilePane.style.visibility = 'hidden';
+        tilePane.style.opacity = '0';
+      }
+
+      const inputs = this.uiContainer.querySelectorAll(
+        '.layer-item:not(.color-layer-item) input'
+      );
+      inputs.forEach((input, j) => {
+        if (this.layers[j]?.isBase) {
+          input.checked = false;
+          input.closest('.layer-item')?.classList.remove('is-active');
+        }
+      });
+
+      const ci = this.uiContainer.querySelector('.color-layer-input');
+      if (ci) ci.value = color;
+      this.uiContainer.querySelector('.color-layer-item')?.classList.add('color-active');
+    }
+
+    _hideColorLayer() {
+      this.colorActive = false;
+      mapContainer.style.background = '';
+      const tilePane = this.map.getPane('tilePane');
+      if (tilePane) {
+        tilePane.style.visibility = '';
+        tilePane.style.opacity = '';
+      }
+      this.uiContainer.querySelector('.color-layer-item')?.classList.remove('color-active');
+    }
+
+    _deselectAllBaseMaps(exceptIdx) {
+      const inputs = this.uiContainer.querySelectorAll(
+        '.layer-item:not(.color-layer-item) input'
+      );
+      for (let i = 0; i < this.layers.length; i++) {
+        if (this.layers[i].isBase && i !== exceptIdx) {
+          const l_id = this.layers[i].id;
+          const bLayer = this.map._layers[l_id] || window[l_id] || null;
+          if (bLayer && this.map.hasLayer(bLayer)) this.map.removeLayer(bLayer);
+          if (inputs[i]) {
+            inputs[i].checked = false;
+            inputs[i].closest('.layer-item')?.classList.remove('is-active');
+          }
+        }
+      }
+    }
+  }
+
+  // ==================== Initialize Manager with Data ====================
+  const initialData = [];
+  {%- for key, val in this.overlays.items() %}
+  initialData.push({
+    name: {{ key | tojson }},
+    id: "{{ val }}",
+    visible: true,
+    isBase: false
+  });
+  {%- endfor %}
+  {%- for key, val in this.base_layers.items() %}
+  initialData.push({
+    name: {{ key | tojson }},
+    id: "{{ val }}",
+    visible: true,
+    isBase: true
+  });
+  {%- endfor %}
+
+  const layerManager = new LayerManager(map);
+  layerManager.init(initialData);
+
+  // ==================== Leaflet Control Definition ====================
+  class LayerControl extends L.Control {
+    onAdd() {
+      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+
+      container.innerHTML = `
+        <div class="map-panel ctrl-compact enhanced-layer-ctrl collapsed"
+             id="{{ this.get_name() }}_ctrl">
+          <button class="toggle-btn" title="${_('layer.toggle_title')}"
+                  aria-label="${_('layer.toggle_title')}">
+            ${SVGS.LIST}
+          </button>
+          <div class="layer-panel" role="dialog"
+               aria-label="${_('layer.panel_title')}">
+            <div class="panel-header" title="${_('layer.close_title')}">
+              <span class="header-title">
+                <span class="header-icon">${SVGS.LIST}</span>
+                ${_('layer.panel_title')}
+              </span>
+              <button class="close-btn" title="${_('layer.close_title')}"
+                      aria-label="${_('layer.close_title')}">
+                ${SM.SVGs.CLOSE}
+              </button>
+            </div>
+            <div class="panel-content"></div>
+          </div>
+        </div>
+      `;
+
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.disableScrollPropagation(container);
+
+      const ctrl = container.querySelector('.enhanced-layer-ctrl');
+      const panelContent = container.querySelector('.panel-content');
+
+      SM.bindPanelToggle({
+        container: ctrl, toggleBtn: '.toggle-btn', header: '.panel-header',
+      });
+
+      layerManager.attachUI(panelContent);
+
+      return container;
+    }
+  }
+
+  new LayerControl({ position: '{{ this.position }}' }).addTo(map);
+})();
