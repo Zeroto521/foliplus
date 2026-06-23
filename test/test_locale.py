@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from foliplus.locale import EN, ZH, LocaleConfig, detect_language
 
+# LOCALE_TABLES is not in __init__; import directly from the module
+from foliplus.locale import LOCALE_TABLES as _LOCALE_TABLES
+
 
 class TestLocaleConfig:
     def test_default_locale_is_english(self):
@@ -29,6 +32,36 @@ class TestLocaleConfig:
         assert custom.language == "ja"
         assert custom.get("heatmap.title") == "Hexbin Aggregation"
         assert custom.get("nonexistent.key") == "nonexistent.key"
+
+    def test_code_property(self):
+        assert EN.code == "en"
+        assert ZH.code == "zh"
+
+    def test_all_english_keys_have_values(self):
+        """Verify every EN key has a non-empty string."""
+        table = _LOCALE_TABLES["en"]
+        for key, value in table.items():
+            assert isinstance(value, str) and value, f"EN key '{key}' is empty"
+
+    def test_all_chinese_keys_have_values(self):
+        """Verify every ZH key has a non-empty string."""
+        table = _LOCALE_TABLES["zh"]
+        for key, value in table.items():
+            assert isinstance(value, str) and value, f"ZH key '{key}' is empty"
+
+    def test_zh_has_same_keys_as_en(self):
+        """ZH must have all the same keys as EN."""
+        en_keys = set(_LOCALE_TABLES["en"].keys())
+        zh_keys = set(_LOCALE_TABLES["zh"].keys())
+        missing = en_keys - zh_keys
+        assert not missing, f"ZH is missing keys: {missing}"
+
+    def test_zh_no_extra_keys(self):
+        """ZH must not have extra keys beyond EN."""
+        en_keys = set(_LOCALE_TABLES["en"].keys())
+        zh_keys = set(_LOCALE_TABLES["zh"].keys())
+        extra = zh_keys - en_keys
+        assert not extra, f"ZH has extra keys: {extra}"
 
 
 class TestDetectLanguage:

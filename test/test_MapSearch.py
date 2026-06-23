@@ -5,9 +5,35 @@ from __future__ import annotations
 import folium
 
 from foliplus import MapSearch
+from foliplus.locale import ZH
 
 
-class TestMapSearch:
+class TestMapSearchPython:
+    """Python-side property tests."""
+
+    def test_name(self):
+        assert MapSearch()._name == "MapSearch"
+
+    def test_default_zoom(self):
+        assert MapSearch().zoom == 15
+
+    def test_custom_zoom(self):
+        assert MapSearch(zoom=16).zoom == 16
+
+    def test_default_position(self):
+        assert MapSearch().position == "topleft"
+
+    def test_custom_position(self):
+        assert MapSearch(position="bottomright").position == "bottomright"
+
+    def test_default_locale(self):
+        assert MapSearch().locale.code == "en"
+
+    def test_custom_locale(self):
+        assert MapSearch(locale=ZH).locale.code == "zh"
+
+
+class TestMapSearchRendering:
     def test_default_params(self, base_map: folium.Map):
         from conftest import render
         MapSearch().add_to(base_map)
@@ -50,3 +76,10 @@ class TestMapSearch:
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "SM.fromWgs84" in html
+
+    def test_locale_zh(self, base_map: folium.Map):
+        from conftest import render
+        MapSearch(locale=ZH).add_to(base_map)
+        html = render(base_map)
+        assert "地图搜索" in html
+        assert '"zh"' in html

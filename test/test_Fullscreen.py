@@ -3,25 +3,67 @@
 from __future__ import annotations
 
 import folium
+from conftest import render
 
 from foliplus import Fullscreen
+from foliplus.locale import ZH
 
 
-class TestFullscreen:
+class TestFullscreenPython:
+    """Python-side property tests."""
+
+    def test_name(self):
+        assert Fullscreen()._name == "Fullscreen"
+
+    def test_default_position(self):
+        assert Fullscreen().position == "bottomright"
+
+    def test_custom_position(self):
+        assert Fullscreen(position="topleft").position == "topleft"
+
+    def test_default_hide_self(self):
+        assert Fullscreen().hide_self is True
+
+    def test_custom_hide_self(self):
+        assert Fullscreen(hide_self=False).hide_self is False
+
+    def test_default_locale(self):
+        assert Fullscreen().locale.code == "en"
+
+    def test_custom_locale(self):
+        assert Fullscreen(locale=ZH).locale.code == "zh"
+
+
+class TestFullscreenRendering:
     def test_default_params(self, base_map: folium.Map):
-        from conftest import render
         Fullscreen().add_to(base_map)
         html = render(base_map)
         assert "fullscreen" in html.lower()
 
     def test_hide_self_default(self, base_map: folium.Map):
-        from conftest import render
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "hide_self" in html or "true" in html.lower()
+        # hide_self=True renders as JS: if (true) { ...
+        assert "if (true)" in html
+
+    def test_hide_self_false(self, base_map: folium.Map):
+        Fullscreen(hide_self=False).add_to(base_map)
+        html = render(base_map)
+        # hide_self=False renders as JS: if (false) { ...
+        assert "if (false)" in html
 
     def test_contains_fullscreenchange_listener(self, base_map: folium.Map):
-        from conftest import render
         Fullscreen().add_to(base_map)
         html = render(base_map)
         assert "fullscreenchange" in html
+
+    def test_custom_position_renders(self, base_map: folium.Map):
+        Fullscreen(position="topleft").add_to(base_map)
+        html = render(base_map)
+        assert "fullscreen" in html.lower()
+
+    def test_locale_zh(self, base_map: folium.Map):
+        Fullscreen(locale=ZH).add_to(base_map)
+        html = render(base_map)
+        assert "已进入全屏" in html
+        assert "fullscreen.enter" in html
