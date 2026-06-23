@@ -192,7 +192,8 @@
     if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
 
     const wgs = SM.toWgs84(map, parseFloat(lat), parseFloat(lng));
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0].toFixed(6)}&lon=${wgs[1].toFixed(6)}&zoom=18&accept-language=zh`;
+    const lang = (typeof _LOCALE !== 'undefined' && _LOCALE['locale.code']) || 'en';
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0].toFixed(6)}&lon=${wgs[1].toFixed(6)}&zoom=18&accept-language=${lang}`;
 
     _geoPromise = _geoPromise.then(() => {
       const wait = Math.max(0, 1000 - (Date.now() - _geoLastReq));
@@ -204,10 +205,12 @@
         addr = addr.split(',').map(s => s.trim())
           .filter(s => s && !/^\d+$/.test(s))
           .reverse().join(',');
-        _geoCache[key] = addr || 'Address not found';
+        const _g3 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
+        _geoCache[key] = addr || _g3('search.addr_not_found');
         return _geoCache[key];
       }).catch(() => {
-        return 'Geocoding failed';
+        const _g4 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
+        return _g4('measure.geo_fail');
       });
     });
     return _geoPromise;
