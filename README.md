@@ -5,9 +5,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/foliplus)](https://pypi.org/project/foliplus/)
 [![License](https://img.shields.io/pypi/l/foliplus)](LICENSE)
 
-**foliplus** is a practical [Folium](https://python-visualization.github.io/folium/)
-extension toolkit built to simplify spatial data visualization workflows and focus on
-your data analysis.
+**foliplus** is a pragmatic [Folium](https://python-visualization.github.io/folium) toolkit built to streamline spatial data visualization workflows, allowing you to focus entirely on the data itself.
 
 ## Features
 
