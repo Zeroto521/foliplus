@@ -8,6 +8,7 @@ from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
 
+from ._cdn import GCOORD
 from ._typing import Position
 from .locale import LocaleConfig, resolve_locale
 
@@ -35,6 +36,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         self._name = self.__class__.__name__
         self.position = position
         self.locale = resolve_locale(locale)
+        self._gcoord_version = GCOORD
 
     def _get_js(self, filename: str) -> str:
         return js_dir.joinpath(filename).read_text(encoding="utf-8")

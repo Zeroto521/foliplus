@@ -35,12 +35,12 @@
   // --- Dynamic Dependency Loader ---
   // Loads CDN scripts at runtime via shared foliplus.loadScripts.
   const _DEPS = [
-    { name: 'h3', url: 'https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js',
+    { name: 'h3', url: 'https://cdn.jsdelivr.net/npm/h3-js@{{ this._h3_version }}/dist/h3-js.umd.js',
       check: () => typeof h3 !== 'undefined' },
-    { name: 'ss', url: 'https://cdn.jsdelivr.net/npm/simple-statistics@7/' +
+    { name: 'ss', url: 'https://cdn.jsdelivr.net/npm/simple-statistics@{{ this._ss_version }}/' +
       'dist/simple-statistics.min.js',
       check: () => typeof ss !== 'undefined' },
-    { name: 'chroma', url: 'https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js',
+    { name: 'chroma', url: 'https://cdn.jsdelivr.net/npm/chroma-js@{{ this._chroma_version }}/chroma.min.js',
       check: () => typeof chroma !== 'undefined' },
   ];
 

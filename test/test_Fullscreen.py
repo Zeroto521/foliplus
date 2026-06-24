@@ -62,6 +62,13 @@ class TestFullscreenRendering:
         html = render(base_map)
         assert "fullscreen" in html.lower()
 
+    def test_contains_fullscreen_cdn(self, base_map: folium.Map):
+        Fullscreen().add_to(base_map)
+        html = render(base_map)
+        assert "leaflet.fullscreen@3" in html
+        assert "Control.FullScreen.min.js" in html
+        assert "Control.FullScreen.css" in html
+
     def test_locale_zh(self, base_map: folium.Map):
         Fullscreen(locale=ZH).add_to(base_map)
         html = render(base_map)

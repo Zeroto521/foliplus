@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional, Union
 
+from ._cdn import CHROMA_JS, H3_JS, SIMPLE_STATISTICS
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
@@ -10,26 +11,18 @@ from .locale import LocaleConfig
 class HeatmapControl(BaseControl):
     """H3 hexbin aggregation heatmap control.
 
-    **Auto-discovers** all overlay layers containing points
-    (Marker / CircleMarker / GeoJSON Point) in the layer control panel.
-    When a layer is selected, it aggregates points into H3 hexagons in real-time
-    via `h3-js <https://github.com/uber/h3-js>`_. Grid resolution adjusts
-    automatically with zoom level. Hover to see aggregated values; the panel
-    footer shows data summary and a gradient legend.
-
-    Aggregation method (count/sum) and classification method (natural breaks /
-    equal interval) are switchable in the UI. Python-side only provides
-    style and color scheme configuration.
+    Auto-discovers point layers (`Marker` / `CircleMarker` / `GeoJSON` Point) and
+    aggregates them into H3 hexagons in real-time via h3-js. Resolution auto-adjusts
+    with zoom.
 
     Parameters
     ----------
     position : str, default "topleft"
         One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
-    color_scheme : str, default "Blues"
-        Default color scheme name. Supports chroma.js / ColorBrewer palettes:
-        ``Blues``, ``Greens``, ``Reds``, ``Oranges``, ``Purples``,
-        ``YlOrRd``, ``Viridis``.
+    color_scheme : str, default "Greens"
+        Default color scheme name. Supports chroma.js / ColorBrewer palettes: ``Blues``,
+        ``Greens``, ``Reds``, ``Oranges``, ``Purples``, ``YlOrRd``, ``Viridis``.
 
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method.
@@ -41,8 +34,8 @@ class HeatmapControl(BaseControl):
         Default aggregation method.
 
     schemes : list[str], optional
-        List of available color scheme names. Can include custom hex values
-        like ``["#f00", "#0f0", "#00f"]``.
+        List of available color scheme names. Can include custom hex values like
+        ``["#f00", "#0f0", "#00f"]``.
 
     style : dict, optional
         Grid style overrides. Supported keys:
@@ -69,21 +62,21 @@ class HeatmapControl(BaseControl):
     """
 
     default_js = [
-        ("h3-js", "https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js"),
+        ("h3-js", f"https://cdn.jsdelivr.net/npm/h3-js@{H3_JS}/dist/h3-js.umd.js"),
         (
             "simple-statistics",
-            "https://cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js",
+            f"https://cdn.jsdelivr.net/npm/simple-statistics@{SIMPLE_STATISTICS}/dist/simple-statistics.min.js",
         ),
         (
             "chroma-js",
-            "https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js",
+            f"https://cdn.jsdelivr.net/npm/chroma-js@{CHROMA_JS}/chroma.min.js",
         ),
     ]
 
     def __init__(
         self,
         position: Position = "topleft",
-        color_scheme: str = "Blues",
+        color_scheme: str = "Greens",
         method: Literal["jenks", "quantile", "equal", "heads"] = "jenks",
         n_classes: int = 6,
         agg: Literal["count", "sum", "avg", "min", "max"] = "count",
@@ -118,3 +111,8 @@ class HeatmapControl(BaseControl):
             "label_color": "#fff",
             "label_format": "auto",
         } | (style or {})
+
+        # CDN versions for JS dynamic loader
+        self._h3_version = H3_JS
+        self._ss_version = SIMPLE_STATISTICS
+        self._chroma_version = CHROMA_JS

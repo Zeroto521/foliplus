@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
+from ._cdn import LEAFLET_FULLSCREEN
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
@@ -10,9 +11,9 @@ from .locale import LocaleConfig
 class Fullscreen(BaseControl):
     """Fullscreen control that hides other map components when entering fullscreen.
 
-    When toggling fullscreen, other controls (layer switcher, scale bar,
-    search box, etc.) inside ``.leaflet-control-container`` are automatically
-    hidden/shown for a cleaner view.
+    When toggling fullscreen, other controls (HeatmapControl, LayerControl, ScaleControl
+    , MapSearch, MeasureControl, etc.), inside ``.leaflet-control-container`` are
+    automatically hidden/shown for a cleaner view.
 
     Parameters
     ----------
@@ -38,13 +39,13 @@ class Fullscreen(BaseControl):
     default_js = [
         (
             "Control.Fullscreen.js",
-            "https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.min.js",
+            f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN}/Control.FullScreen.min.js",
         )
     ]
     default_css = [
         (
             "Control.FullScreen.css",
-            "https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.css",
+            f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN}/Control.FullScreen.css",
         )
     ]
 

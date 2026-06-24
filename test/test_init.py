@@ -5,6 +5,14 @@ from __future__ import annotations
 import re
 
 import foliplus
+from foliplus import Fullscreen, HeatmapControl, MeasureControl
+from foliplus._cdn import (
+    CHROMA_JS,
+    GCOORD,
+    H3_JS,
+    LEAFLET_FULLSCREEN,
+    SIMPLE_STATISTICS,
+)
 
 
 class TestVersion:
@@ -38,3 +46,46 @@ class TestVersion:
             "ScaleControl",
         }
         assert set(foliplus.__all__) == expected
+
+
+class TestCDN:
+    """CDN dependency version tests."""
+
+    def test_h3_js_version(self):
+
+        assert H3_JS == "4"
+
+    def test_simple_statistics_version(self):
+
+        assert SIMPLE_STATISTICS == "7"
+
+    def test_chroma_js_version(self):
+
+        assert CHROMA_JS == "2"
+
+    def test_leaflet_fullscreen_version(self):
+
+        assert LEAFLET_FULLSCREEN == "3"
+
+    def test_gcoord_version(self):
+
+        assert GCOORD == "1"
+
+    def test_cdn_urls_in_default_js(self):
+        """All default_js URLs follow the expected format."""
+
+        for _, url in HeatmapControl.default_js:
+            assert url.startswith("https://cdn.jsdelivr.net/npm/")
+            assert "@" in url, f"Version missing in {url}"
+
+        for _, url in MeasureControl.default_js:
+            assert url.startswith("https://cdn.jsdelivr.net/npm/")
+            assert "@" in url, f"Version missing in {url}"
+
+        for _, url in Fullscreen.default_js:
+            assert url.startswith("https://cdn.jsdelivr.net/npm/")
+            assert "@" in url, f"Version missing in {url}"
+
+        for _, url in Fullscreen.default_css:
+            assert url.startswith("https://cdn.jsdelivr.net/npm/")
+            assert "@" in url, f"Version missing in {url}"

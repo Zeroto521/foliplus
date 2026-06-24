@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
+from ._cdn import GCOORD
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
@@ -41,7 +42,7 @@ class MeasureControl(BaseControl):
     """
 
     default_js = [
-        ("gcoord", "https://cdn.jsdelivr.net/npm/gcoord/dist/gcoord.global.prod.js"),
+        ("gcoord", f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD}/dist/gcoord.global.prod.js"),
     ]
 
     def __init__(

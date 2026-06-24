@@ -105,6 +105,22 @@
   };
 
   // ==================== Coordinate Transformation ====================
+  /**
+   * Ensure gcoord library is loaded. Returns true if already available.
+   */
+  foliplus._ensureGcoord = function () {
+    if (typeof gcoord !== 'undefined') return true;
+    if (!foliplus._gcoordLoading) {
+      foliplus._gcoordLoading = true;
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/gcoord@{{ this._gcoord_version }}/dist/gcoord.global.prod.js';
+      s.onload = () => { foliplus._gcoordLoading = false; };
+      s.onerror = () => { foliplus._gcoordLoading = false; };
+      document.head.appendChild(s);
+    }
+    return false;
+  };
+
   foliplus._isBaiduCRS = function (map) {
     try {
       if (L.CRS && L.CRS.Baidu) return true;
@@ -126,20 +142,14 @@
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
     }
-    // Dynamically load gcoord if missing
-    if (!foliplus._gcoordLoading) {
-      foliplus._gcoordLoading = true;
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/gcoord/dist/gcoord.global.prod.js';
-      s.onload = () => { foliplus._gcoordLoading = false; };
-      s.onerror = () => { foliplus._gcoordLoading = false; };
-      document.head.appendChild(s);
-    }
-    if (!foliplus._gcoordWarned) {
-      foliplus._gcoordWarned = true;
-      const _g = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-      console.warn('[Shared] ' + _g('gcoord.warn'));
-      foliplus.showHint('gcoord-warn', _g('gcoord.warn'), 5000);
+    if (!foliplus._ensureGcoord()) {
+      // gcoord not yet loaded — schedule warning on next access
+      if (!foliplus._gcoordWarned) {
+        foliplus._gcoordWarned = true;
+        const _g = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
+        console.warn('[Shared] ' + _g('gcoord.warn'));
+        foliplus.showHint('gcoord-warn', _g('gcoord.warn'), 5000);
+      }
     }
     return [lat, lng];
   };
@@ -147,22 +157,16 @@
   /** Convert WGS84 coordinates to the map's CRS (BD09 / GCJ02 / unchanged). */
   foliplus.fromWgs84 = function (map, lng, lat) {
     if (typeof gcoord === 'undefined') {
-      // Dynamically load gcoord if missing (first call only)
-      if (!foliplus._gcoordLoading) {
-        foliplus._gcoordLoading = true;
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/gcoord/dist/gcoord.global.prod.js';
-        s.onload = () => { foliplus._gcoordLoading = false; };
-        s.onerror = () => { foliplus._gcoordLoading = false; };
-        document.head.appendChild(s);
+      if (!foliplus._ensureGcoord()) {
+        // gcoord not yet loaded — show warning and return unchanged
+        if (!foliplus._gcoordWarned) {
+          foliplus._gcoordWarned = true;
+          const _g2 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
+          console.warn('[Shared] ' + _g2('gcoord.warn'));
+          foliplus.showHint('gcoord-warn', _g2('gcoord.warn'), 5000);
+        }
+        return [lng, lat];
       }
-      if (!foliplus._gcoordWarned) {
-        foliplus._gcoordWarned = true;
-      const _g2 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-      console.warn('[Shared] ' + _g2('gcoord.warn'));
-      foliplus.showHint('gcoord-warn', _g2('gcoord.warn'), 5000);
-      }
-      return [lng, lat];
     }
     const isBaidu = foliplus._isBaiduCRS(map);
     // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip

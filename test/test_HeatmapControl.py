@@ -29,7 +29,7 @@ class TestHeatmapControlPython:
 
     def test_default_params(self):
         ctrl = HeatmapControl()
-        assert ctrl.color_scheme == "Blues"
+        assert ctrl.color_scheme == "Greens"
         assert ctrl.method == "jenks"
         assert ctrl.n_classes == 6
         assert ctrl.agg == "count"
@@ -39,8 +39,10 @@ class TestHeatmapControlPython:
 
     def test_custom_params(self):
         ctrl = HeatmapControl(
-            color_scheme="Reds", method="quantile",
-            n_classes=4, agg="sum",
+            color_scheme="Reds",
+            method="quantile",
+            n_classes=4,
+            agg="sum",
             schemes=["Reds", "Blues"],
             style={"border_weight": 2.0, "label_show": False},
         )
@@ -83,27 +85,30 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "h3-js@4" in html
+        assert "h3-js.umd.js" in html
 
     def test_contains_ss_dependency(self, base_map: folium.Map):
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "simple-statistics" in html
+        assert "simple-statistics.min.js" in html
 
     def test_contains_chroma_dependency(self, base_map: folium.Map):
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "chroma-js" in html
+        assert "chroma-js@2" in html
+        assert "chroma.min.js" in html
 
     def test_custom_schemes(self, base_map: folium.Map):
-        HeatmapControl(schemes=["Reds", "Blues"]).add_to(base_map)
+        HeatmapControl(schemes=["Reds", "Greens"]).add_to(base_map)
         html = render(base_map)
         assert "Reds" in html
-        assert "Blues" in html
+        assert "Greens" in html
 
     def test_custom_style(self, base_map: folium.Map):
-        HeatmapControl(
-            style={"border_weight": 2.0, "label_show": False}
-        ).add_to(base_map)
+        HeatmapControl(style={"border_weight": 2.0, "label_show": False}).add_to(
+            base_map
+        )
         html = render(base_map)
         assert "2.0" in html or "2" in html
         assert "false" in html.lower()

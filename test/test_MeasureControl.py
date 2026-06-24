@@ -45,6 +45,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "gcoord" in html
+        assert "gcoord.global.prod.js" in html
 
     def test_contains_tool_buttons(self, base_map: folium.Map):
         from conftest import render
