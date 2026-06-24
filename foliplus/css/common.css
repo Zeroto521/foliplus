@@ -68,6 +68,7 @@
   --btn-height: 30px;
   --toggle-size: 36px;
   --toggle-slider-size: 20px;
+  --toggle-off-bg: #ccc;
 
   /* ── Border Radius ── */
   --radius-sm: 3px;

@@ -38,7 +38,7 @@
   color: #fff;
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   white-space: nowrap;
   text-align: center;
   pointer-events: none;
@@ -52,9 +52,9 @@
   height: 16px;
   background: var(--accent-primary);
   border: 1.5px solid var(--ctrl-bg);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   color: var(--ctrl-bg);
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   line-height: 13px;
   text-align: center;
   cursor: pointer;

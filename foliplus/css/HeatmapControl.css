@@ -144,7 +144,7 @@
   height: 18px;
   display: flex;
   overflow: hidden;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .heatmap-ctrl .scheme-bar-block {
   flex: 1;
@@ -219,14 +219,14 @@
 .heatmap-ctrl .scheme-dropdown-bar {
   flex: 1;
   height: 18px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--btn-secondary-border);
   flex-shrink: 0;
   display: flex;
   overflow: hidden;
 }
 .heatmap-ctrl .scheme-dropdown-label {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
 }
 
 /* ══════════════════════════════════════════════════
@@ -234,10 +234,10 @@
    ══════════════════════════════════════════════════ */
 .heatmap-ctrl .border-color-input {
   flex: 1;
-  height: 30px;
+  height: var(--input-height);
   padding: 1px;
   border: 1px solid var(--input-border);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   background: none;
   box-sizing: border-box;
@@ -247,15 +247,15 @@
 }
 .heatmap-ctrl .border-color-input::-webkit-color-swatch {
   border: none;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .heatmap-ctrl .border-weight-input {
   width: 52px;
-  height: 30px;
-  font-size: 12px;
+  height: var(--input-height);
+  font-size: var(--font-size-base);
   padding: 0 6px;
   border: 1px solid var(--input-border);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--input-bg);
   color: var(--text-primary);
   outline: none;
@@ -299,9 +299,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
-  border-radius: 20px;
-  transition: background-color 0.2s;
+  background-color: var(--toggle-off-bg);
+  border-radius: var(--radius-pill);
+  transition: background-color var(--transition-fast);
 }
 .heatmap-ctrl .toggle-slider::before {
   content: "";
@@ -311,9 +311,9 @@
   left: 2px;
   bottom: 2px;
   background-color: #fff;
-  border-radius: 50%;
-  transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-round);
+  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 3px var(--ctrl-border);
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider {
   background-color: var(--accent-primary);
@@ -380,11 +380,11 @@
   gap: var(--space-sm);
 }
 .heatmap-ctrl .section-heading-icon {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   line-height: 1;
 }
 .hex-label {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   fill: #fff;
   text-anchor: middle;
@@ -401,5 +401,5 @@
 .heatmap-ctrl .no-layers {
   padding: var(--space-md) var(--space-lg);
   color: var(--text-placeholder);
-  font-size: 11px;
+  font-size: var(--font-size-sm);
 }
