@@ -31,10 +31,14 @@ jobs:
         with:
           environment-file: ${{ matrix.env }}
           create-args: python=${{ matrix.python }}
+
+      - name: Install project
+        run: pip install -e .
+
       - name: Check and Log Environment
         run: make info
 
-      - name: Run tests
+      - name: Test with Pytest
         run: make test
 
       - uses: codecov/codecov-action@v6

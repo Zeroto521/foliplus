@@ -29,9 +29,7 @@ lint:
 	pre-commit run -a -v
 
 test:
-	pytest -v -r a --color=yes \
-	  --cov=foliplus --cov-report=term-missing --cov-report=xml \
-	  test
+	pytest -v -r a --color=yes --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
 
 dist:
 	python -m build
