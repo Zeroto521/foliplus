@@ -29,20 +29,17 @@
 .layer-ctrl .type-icon-col {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   width: 14px;
   flex-shrink: 0;
   margin-left: var(--space-sm);
 }
-.layer-ctrl .layer-item.is-base-item .type-icon-col {
-  justify-content: flex-end;
-}
 .layer-ctrl .layer-separator-container {
   display: flex;
   align-items: center;
-  margin: var(--space-md) var(--space-lg) var(--space-sm);
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg) var(--space-sm) var(--space-xxl);
   flex-shrink: 0;
-  clear: both;
 }
 .layer-ctrl .layer-separator-container .section-divider {
   flex: 1;
@@ -52,11 +49,8 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-left: var(--space-md);
   white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+  flex-shrink: 0;
 }
 .layer-ctrl .separator-icon {
   font-size: var(--font-size-base);
@@ -99,7 +93,6 @@
   background: rgba(231, 76, 60, 0.06);
 }
 .layer-ctrl .layer-item .drag-handle {
-  margin-right: var(--space-sm);
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--transition-fast);
@@ -118,16 +111,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: var(--space-xl);
+  height: var(--space-xl);
   flex-shrink: 0;
 }
 .layer-ctrl .layer-item input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  width: 16px;
-  height: 16px;
+  width: var(--space-xl);
+  height: var(--space-xl);
   border: 1.5px solid var(--input-border);
   border-radius: var(--radius-sm);
   background: var(--input-bg);
@@ -160,8 +153,8 @@
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  width: 16px;
-  height: 16px;
+  width: var(--space-xl);
+  height: var(--space-xl);
   border: 1.5px solid var(--input-border);
   border-radius: 50%;
   background: var(--input-bg);
@@ -204,8 +197,8 @@
 }
 /* ── Solid color layer picker ── */
 .layer-ctrl .color-layer-input {
-  width: 20px;
-  height: 20px;
+  width: var(--space-xxl);
+  height: var(--space-xxl);
   border: 2px solid var(--input-border);
   border-radius: var(--radius-round);
   cursor: pointer;

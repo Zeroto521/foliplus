@@ -17,8 +17,9 @@ class LayerControl(BaseControl):
     Replaces Folium's default layer control with:
     - Geometry-type icons (point / line / polygon / base map) for each layer.
     - Overlay and base map layers displayed in separate groups.
-    - Drag-and-drop overlay reordering, synced to Leaflet render order.
-    - Radio-button toggle for base maps (mutually exclusive).
+    - Drag-and-drop reordering for all layers, synced to Leaflet render order.
+    - Multi-select checkboxes with z-index stacking (base maps support transparency).
+    - Color picker to replace base maps with a solid background color.
     - Collapsible panel consistent with other foliplus controls.
 
     Parameters

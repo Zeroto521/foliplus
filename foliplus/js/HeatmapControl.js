@@ -70,12 +70,12 @@
     const LABEL_COLOR = '{{ this.style.label_color }}';
     const FORMAT = '{{ this.style.label_format }}';
     const SCHEME_NAMES = {{ this.schemes | tojson }};
-  
+
     // ==================== Core: Data Aggregation & Rendering ====================
     class HeatmapManager {
       constructor(mapInstance) {
         this.map = mapInstance;
-  
+
         // State management
         this.selectedLayerId = null;
         this.pointLayers = [];
@@ -87,16 +87,16 @@
         this.currentMethod = COLOR_METHOD;
         this.N_CLASSES = N_CLASSES_DEFAULT;
         this.currentLabelShow = LABEL_SHOW;
-  
+
         this.HEATMAP_ID = '__heatmap__';
         this.PANE_NAME = '_heatmap_pane';
         this.hexLayerRegistered = false;
         this.ui = null; // Injected UI control panel instance
-  
+
         this._initLayers();
         this._bindMapEvents();
       }
-  
+
       _initLayers() {
         this.heatmapLayer = L.layerGroup();
         this.hexLayer = L.geoJSON(null, {
@@ -110,11 +110,11 @@
           interactive: false
         });
         this.labelLayer = L.layerGroup();
-  
+
         this.heatmapLayer.addLayer(this.hexLayer);
         this.heatmapLayer.addLayer(this.labelLayer);
       }
-  
+
       _bindMapEvents() {
         this.zoomTimer = null;
         this.map.on('zoomend', () => {
@@ -123,7 +123,7 @@
             if (this.selectedLayerId) this.renderHexagons();
           }, _CONST.ZOOM_DEBOUNCE_MS);
         });
-  
+
         this.layerScanTimer = null;
         this.map.on('layeradd layerremove', () => {
           if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
@@ -135,23 +135,23 @@
           }, _CONST.LAYER_SCAN_DEBOUNCE_MS);
         });
       }
-  
+
       // --- Data Extraction ---
       scanMapLayers() {
         this.pointLayers = [];
         if (!window.foliplus.LayerControlAPI) return;
-  
+
         const pointLayersInfo =
           window.foliplus.LayerControlAPI.getLayersByType('point');
         if (!pointLayersInfo.length) return;
-  
+
         const seenIds = {};
         for (const info of pointLayersInfo) {
           if (seenIds[info.id]) continue;
           seenIds[info.id] = true;
           const layer = this.map._layers[info.id] || window[info.id];
           if (!layer) continue;
-  
+
           const pts = this.extractPoints(layer);
           if (pts.length === 0) continue;
           this.pointLayers.push({
@@ -159,7 +159,7 @@
           });
         }
       }
-  
+
       extractPoints(layer) {
         const pts = [];
         const seen = {};
@@ -177,7 +177,7 @@
         walk(layer);
         return pts;
       }
-  
+
       collectFields(layers) {
         const fields = {};
         layers.forEach((info) => {
@@ -195,7 +195,7 @@
         });
         return Object.keys(fields);
       }
-  
+
       getPointValue(marker) {
         if (this.currentAgg === 'count') return 1;
         let val;
@@ -213,7 +213,7 @@
         }
         return val !== undefined && !isNaN(val) ? Number(val) : 1;
       }
-  
+
       collectSelectedPoints() {
         const pts = [];
         if (!this.selectedLayerId) return pts;
@@ -231,20 +231,20 @@
         });
         return pts;
       }
-  
+
       // --- Algorithm Configuration ---
       getH3Res(zoom) {
         const entry = _CONST.H3_RES_MAP.find(([z]) => zoom <= z);
         return entry ? entry[1] : 12;
       }
-  
+
       getColorScale(name, n) {
         if (typeof chroma !== 'undefined') {
           return chroma.scale(name).mode('lab').colors(n);
         }
         return Array(n).fill(_CONST.DEFAULT_GRAY);
       }
-  
+
       computeBreaks(data, nClasses, method) {
         if (data.length === 0) return [];
         const sorted = data.slice().sort((a, b) => a - b);
@@ -252,10 +252,10 @@
         if (n <= 2) return [sorted[0], sorted[n - 1]];
         nClasses = Math.min(nClasses, n);
         if (nClasses < 3) nClasses = Math.min(3, n);
-  
+
         const lo = sorted[0];
         const hi = sorted[n - 1];
-  
+
         if (method === 'jenks') {
           try { return ss.jenks(data, nClasses); } catch (e) {}
           return [lo, hi];
@@ -281,7 +281,7 @@
         }
         return b;
       }
-  
+
       // --- Hexagon Rendering ---
       renderHexagons() {
         if (!this.selectedLayerId) {
@@ -294,7 +294,7 @@
         const zoom = this.map.getZoom();
         const res = this.getH3Res(zoom);
         const hexCells = {};
-  
+
         pts.forEach((pt) => {
           try {
             const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
@@ -310,7 +310,7 @@
             if (pt.value > cell.max) cell.max = pt.value;
           } catch (e) {}
         });
-  
+
         const getAggValue = (cell) => {
           switch (this.currentAgg) {
             case 'count': return cell.count;
@@ -321,7 +321,7 @@
             default: return cell.count;
           }
         };
-  
+
         const allVals = Object.values(hexCells).map(getAggValue);
         if (allVals.length === 0) {
           this.hexLayer.clearLayers();
@@ -329,13 +329,13 @@
           this.unregisterHexLayer();
           return;
         }
-  
+
         const nClasses = Math.min(this.N_CLASSES, allVals.length);
         const breaks = this.computeBreaks(
           allVals, nClasses, this.currentMethod
         );
         const classColors = this.getColorScale(this.currentScheme, nClasses);
-  
+
         const valueToClassIdx = (val) => {
           if (breaks.length < 2) return 0;
           for (let i = 1; i < breaks.length; i++) {
@@ -343,7 +343,7 @@
           }
           return breaks.length - 2;
         };
-  
+
         const features = [];
         for (const [h3Idx, cell] of Object.entries(hexCells)) {
           const val = getAggValue(cell);
@@ -363,14 +363,14 @@
             });
           } catch (e) {}
         }
-  
+
         this.hexLayer.clearLayers();
         if (features.length) {
           this.hexLayer.addData({ type: 'FeatureCollection', features });
         }
-  
+
         this.registerHexLayer();
-  
+
         this.labelLayer.clearLayers();
         if (this.currentLabelShow) {
           features.forEach((feat) => {
@@ -389,9 +389,9 @@
               lng = cx / (ring.length - 1);
               lat = cy / (ring.length - 1);
             }
-  
+
             const labelStr = foliplus.formatNumber(feat.properties._value, FORMAT);
-  
+
             L.marker([lat, lng], {
               icon: L.divIcon({
                 className: 'leaflet-marker-icon heatmap-label',
@@ -407,7 +407,7 @@
           });
         }
       }
-  
+
       registerHexLayer() {
         if (this.hexLayerRegistered) return;
         this.hexLayerRegistered = true;
@@ -421,25 +421,25 @@
           iconSvg: SVG_HEX,
         });
       }
-  
+
       unregisterHexLayer() {
         if (!this.hexLayerRegistered) return;
         this.hexLayerRegistered = false;
         window.foliplus.LayerControlAPI.unregisterLayer(this.HEATMAP_ID);
       }
     }
-  
+
     // ==================== View & Control: HeatmapControl ====================
     class HeatmapControl extends L.Control {
       constructor(options, manager) {
         super(options);
         this.manager = manager;
         this.manager.ui = this;
-  
+
         this.schemeDropdown = null;
         this.expandHookDone = false;
       }
-  
+
       onAdd() {
         const wrapper = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
         this.container = L.DomUtil.create(
@@ -449,11 +449,11 @@
         );
         L.DomEvent.disableClickPropagation(wrapper);
         L.DomEvent.disableScrollPropagation(wrapper);
-  
+
         const toggleBtn = L.DomUtil.create('button', 'toggle-btn', this.container);
         toggleBtn.title = _('heatmap.title');
         toggleBtn.innerHTML = SVG_HEX;
-  
+
         const panelWrap = L.DomUtil.create('div', 'panel-wrap', this.container);
         const header = L.DomUtil.create('div', 'panel-header', panelWrap);
         header.innerHTML = `
@@ -463,7 +463,7 @@
           </span>
           <button class="close-btn" title="${_('layer.close_title')}">
             ${foliplus.SVGs.CLOSE}</button>`;
-  
+
         foliplus.bindPanelToggle({
           container: this.container,
           toggleBtn: '.toggle-btn',
@@ -472,12 +472,12 @@
         foliplus.bindOutsideCollapse({
           map: this.manager.map, container: this.container
         });
-  
+
         const content = L.DomUtil.create('div', 'panel-content', panelWrap);
         const configBody = L.DomUtil.create('div', 'config-body', content);
         const dataHeading = L.DomUtil.create('div', 'section-heading', configBody);
         dataHeading.textContent = _('heatmap.section_data');
-  
+
         const layerRow = L.DomUtil.create('div', 'form-row', configBody);
         const layerRowLabel = L.DomUtil.create('label', 'form-label', layerRow);
         layerRowLabel.textContent = _('heatmap.layer');
@@ -487,7 +487,7 @@
         this.buildLayerListItems(this.layerSelect);
         this.extraBody = L.DomUtil.create('div', 'extra-body', configBody);
         this.extraBody.style.display = 'none';
-  
+
         // Aggregation method
         const aggRow = L.DomUtil.create('div', 'form-row', this.extraBody);
         const aggRowLabel = L.DomUtil.create('label', 'form-label', aggRow);
@@ -506,7 +506,7 @@
           this.updateFieldSelector();
           this.manager.renderHexagons();
         };
-  
+
         this.fieldWrap = L.DomUtil.create(
           'div', 'form-row field-wrap hidden', this.extraBody
         );
@@ -520,12 +520,12 @@
           this.manager.currentField = this.fieldSelect.value;
           this.manager.renderHexagons();
         };
-  
+
         // Style section
         const styleHeading = L.DomUtil.create('div', 'section-heading', this.extraBody);
         styleHeading.textContent = _('heatmap.section_style');
         const styleSection = L.DomUtil.create('div', 'section-block', this.extraBody);
-  
+
         // Classification method / classes
         const classRow = L.DomUtil.create('div', 'form-row', styleSection);
         const classRowLabel = L.DomUtil.create('label', 'form-label', classRow);
@@ -544,7 +544,7 @@
           this.manager.currentMethod = this.methodSelect.value;
           this.manager.renderHexagons();
         };
-  
+
         this.classSelect = L.DomUtil.create(
           'select', 'form-select class-count-select', classControlWrap
         );
@@ -560,7 +560,7 @@
           this.updateSchemeBar();
           this.manager.renderHexagons();
         };
-  
+
         // Color scheme
         const schemeRow = L.DomUtil.create('div', 'form-row', styleSection);
         const schemeRowLabel = L.DomUtil.create('label', 'form-label', schemeRow);
@@ -574,7 +574,7 @@
         this.schemeSelectHidden = L.DomUtil.create(
           'select', 'scheme-select-hidden', this.schemeControlWrap
         );
-  
+
         SCHEME_NAMES.forEach((name) => {
           const opt = document.createElement('option');
           opt.value = name;
@@ -587,9 +587,9 @@
           this.updateSchemeBar();
           this.manager.renderHexagons();
         };
-  
+
         this.updateSchemeBar();
-  
+
         this.schemeBar.tabIndex = 0;
         this.schemeBar.setAttribute('role', 'combobox');
         this.schemeBar.setAttribute('aria-label', _('heatmap.scheme'));
@@ -614,7 +614,7 @@
             }
           }, _CONST.SCHEME_DROPDOWN_BLUR_DELAY_MS);
         };
-  
+
         // Border settings
         const borderRow = L.DomUtil.create('div', 'form-row', styleSection);
         const borderRowLabel = L.DomUtil.create('label', 'form-label', borderRow);
@@ -643,7 +643,7 @@
           this.manager.BORDER_W = parseFloat(this.borderWeightInput.value) || 1;
           this.manager.renderHexagons();
         };
-  
+
         // Label toggle
         const labelRow = L.DomUtil.create(
           'div', 'form-row section-block-last', styleSection
@@ -662,7 +662,7 @@
         };
         L.DomUtil.create('span', 'toggle-slider', labelToggle);
         L.DomUtil.create('hr', 'section-divider', this.extraBody);
-  
+
         // Bottom action buttons
         const btnRow = L.DomUtil.create('div', 'btn-row', this.extraBody);
         const clearBtn = L.DomUtil.create('button', 'btn btn-clear', btnRow);
@@ -685,7 +685,7 @@
           this.borderWeightInput.value = BORDER_W_DEFAULT;
           this.manager.BORDER_COLOR = BORDER_COLOR_DEFAULT;
           this.borderColorInput.value = BORDER_COLOR_DEFAULT;
-  
+
           this.manager.hexLayer.clearLayers();
           this.manager.labelLayer.clearLayers();
           this.manager.unregisterHexLayer();
@@ -700,7 +700,7 @@
             this.layerSelect.classList.remove('is-placeholder');
           }
         };
-  
+
         const confirmBtn = L.DomUtil.create('button', 'btn btn-confirm', btnRow);
         confirmBtn.textContent = _('heatmap.confirm');
         confirmBtn.onclick = () => {
@@ -708,7 +708,7 @@
           this.container.classList.remove('expanded');
           this.container.classList.add('collapsed');
         };
-  
+
         // Watch panel expand event to refresh dropdown
         this.observer = new MutationObserver(() => {
           if (
@@ -723,10 +723,10 @@
           }
         });
         this.observer.observe(this.container, { attributes: true });
-  
+
         return wrapper;
       }
-  
+
       // --- UI Logic Methods ---
       updateControlVisibility() {
         this.manager.scanMapLayers();
@@ -735,7 +735,7 @@
             this.manager.pointLayers.length === 0 ? 'none' : '';
         }
       }
-  
+
       buildLayerListItems(sel) {
         this.manager.scanMapLayers();
         sel.innerHTML = '';
@@ -746,20 +746,20 @@
         placeholder.selected = !this.manager.selectedLayerId;
         placeholder.className = 'placeholder-option';
         sel.appendChild(placeholder);
-  
+
         this.manager.pointLayers.forEach((info) => {
           const opt = document.createElement('option');
           opt.value = info.id;
           opt.textContent = info.name;
           sel.appendChild(opt);
         });
-  
+
         if (this.manager.selectedLayerId) {
           sel.value = this.manager.selectedLayerId;
         } else {
           sel.selectedIndex = 0;
         }
-  
+
         sel.onchange = () => {
           this.manager.selectedLayerId = sel.value || null;
           if (this.extraBody) {
@@ -768,7 +768,7 @@
           }
           if (sel.value === '') sel.classList.add('is-placeholder');
           else sel.classList.remove('is-placeholder');
-  
+
           this.updateFieldSelector();
           if (this.manager.selectedLayerId) this.manager.renderHexagons();
           else {
@@ -777,15 +777,15 @@
             this.manager.unregisterHexLayer();
           }
         };
-  
+
         if (sel.value === '') sel.classList.add('is-placeholder');
         else sel.classList.remove('is-placeholder');
       }
-  
+
       rebuildLayerDropdown() {
         if (this.layerSelect) this.buildLayerListItems(this.layerSelect);
       }
-  
+
       updateFieldSelector() {
         if (!this.fieldWrap || !this.fieldSelect) return;
         if (this.manager.currentAgg === 'count') {
@@ -793,7 +793,7 @@
           return;
         }
         this.fieldWrap.classList.remove('hidden');
-  
+
         const selected = this.manager.pointLayers.filter(
           (info) => info.id === this.manager.selectedLayerId
         );
@@ -802,10 +802,10 @@
         phOpt.value = '_auto';
         phOpt.textContent = _('heatmap.field_auto');
         phOpt.className = 'placeholder-option';
-  
+
         this.fieldSelect.innerHTML = '';
         this.fieldSelect.appendChild(phOpt);
-  
+
         fields.forEach((f) => {
           const opt = document.createElement('option');
           opt.value = f;
@@ -813,7 +813,7 @@
             ? f.substring(11) : f;
           this.fieldSelect.appendChild(opt);
         });
-  
+
         if (
           fields.includes(this.manager.currentField) ||
           this.manager.currentField === '_auto'
@@ -823,14 +823,14 @@
           this.manager.currentField = '_auto';
           this.fieldSelect.value = '_auto';
         }
-  
+
         if (this.fieldSelect.value === '_auto') {
           this.fieldSelect.classList.add('is-placeholder');
         } else {
           this.fieldSelect.classList.remove('is-placeholder');
         }
       }
-  
+
       updateSchemeBar() {
         const sampled = this.manager.getColorScale(
           this.manager.currentScheme, this.manager.N_CLASSES
@@ -844,7 +844,7 @@
           this.schemeBarInner.appendChild(block);
         }
       }
-  
+
       toggleSchemeDropdown() {
         if (this.schemeDropdown) {
           this.schemeDropdown.remove();
@@ -855,7 +855,7 @@
           'div', 'scheme-dropdown', this.schemeControlWrap
         );
         this.schemeDropdown.setAttribute('role', 'listbox');
-  
+
         let focusIdx = -1;
         SCHEME_NAMES.forEach((name, idx) => {
           const item = L.DomUtil.create(
@@ -867,7 +867,7 @@
             item.classList.add('active');
             focusIdx = idx;
           }
-  
+
           const itemBar = L.DomUtil.create('div', 'scheme-dropdown-bar', item);
           const sampled = this.manager.getColorScale(
             name, this.manager.N_CLASSES
@@ -879,13 +879,13 @@
             blk.style.background = color;
             itemBar.appendChild(blk);
           }
-  
+
           item.onclick = (ev) => {
             ev.stopPropagation();
             this.selectScheme(name);
           };
         });
-  
+
         const items = this.schemeDropdown.querySelectorAll(
           '.scheme-dropdown-item'
         );
@@ -893,7 +893,7 @@
           if (focusIdx >= 0) items[focusIdx].focus();
           else items[0].focus();
         }
-  
+
         this.schemeDropdown.onkeydown = (e) => {
           const activeIdx = Array.from(items).indexOf(document.activeElement);
           if (e.key === 'ArrowDown') {
@@ -918,7 +918,7 @@
           }
         };
       }
-  
+
       selectScheme(name) {
         this.manager.currentScheme = name;
         this.schemeSelectHidden.value = name;
@@ -930,7 +930,7 @@
         this.manager.renderHexagons();
         this.schemeBar.focus();
       }
-  
+
       initScan(attempt) {
         this.updateControlVisibility();
         if (this.manager.pointLayers.length === 0 && attempt > 0) {
@@ -939,14 +939,14 @@
         }
       }
     }
-  
+
     // ==================== Instantiation ====================
     // Instantiate manager and control, then add to map
     const heatmapManager = new HeatmapManager(map);
     const heatmapCtrl = new HeatmapControl(
       { position: '{{ this.position }}' }, heatmapManager
     );
-  
+
     heatmapCtrl.addTo(map);
     heatmapCtrl.initScan(_CONST.INIT_SCAN_ATTEMPTS);
   }

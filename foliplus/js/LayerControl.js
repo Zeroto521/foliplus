@@ -197,8 +197,9 @@
      * @param {string} opts.id       - Unique identifier for the layer.
      * @param {string} [opts.name]   - Display name (falls back to id).
      * @param {Object} [opts.layer]  - Leaflet layer instance (L.Layer).
-     * @param {boolean} [opts.isBase] - If true, treats as base map (no drag,
-     *                                  radio-style checkbox).
+     * @param {boolean} [opts.isBase] - If true, grouped under "Base Map"
+     *                                  separator. Draggable and multi-select
+     *                                  like overlays.
      * @param {string} [opts.paneName] - Custom pane name for z-order grouping.
      * @param {string} [opts.iconSvg]  - Custom SVG icon HTML for the type column.
      * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
@@ -323,7 +324,6 @@
       const layerInfos = new Map();
 
       for (let i = 0; i < this.layers.length; i++) {
-        if (this.layers[i].isBase) continue;
         const l_id = this.layers[i].id;
         const layer = this.map._layers[l_id] || window[l_id] || null;
         if (layer && this.map.hasLayer(layer)) {
@@ -384,11 +384,10 @@
 
     _createItemDOM(info) {
       const en = LayerUtils.escapeHTML(info.name);
-      const spacer = '<div class="layer-item-spacer"></div>';
-      const handle = info.isBase ? spacer : SVGS.DRAG_HANDLE;
+      const handle = SVGS.DRAG_HANDLE;
       const item = document.createElement('div');
       item.className = 'layer-item is-active' + (info.isBase ? ' is-base-item' : '');
-      item.draggable = !info.isBase;
+      item.draggable = true;
       item.dataset.index = String(info.index);
       item.dataset.layerId = String(info.id);
       item.title = en;
@@ -420,17 +419,16 @@
           hasBaseMaps = true;
           html += `
               <div class="layer-separator-container">
+              <span class="separator-label">${_('layer.base_map_label')}</span>
               <div class="section-divider"></div>
-              <div class="separator-label">${_('layer.base_map_label')}</div>
             </div>`;
         }
         const en = LayerUtils.escapeHTML(l.name);
-        const spacer = '<div class="layer-item-spacer"></div>';
         html += `
-          <div class="layer-item is-base-item" draggable="${!l.isBase}"
+          <div class="layer-item${l.isBase ? ' is-base-item' : ''}" draggable="true"
                data-index="${i}" data-layer-id="${l.id}"
                title="${en}">
-            ${l.isBase ? spacer : SVGS.DRAG_HANDLE}
+            ${SVGS.DRAG_HANDLE}
             <div class="checkbox-wrapper">
               <input type="checkbox" checked data-index="${i}"
                      aria-label="${en}">
@@ -512,6 +510,15 @@
       this.uiContainer.addEventListener('change', this._handleChange.bind(this));
       this.uiContainer.addEventListener('input', this._handleInput.bind(this));
 
+      // Clicking anywhere on the color layer item deselects all base maps
+      this.uiContainer.addEventListener('click', (e) => {
+        if (e.target.closest('.color-layer-item')) {
+          this._deselectAllBaseMaps(-1);
+          this._showColorLayer(this.currentColor);
+          this.enforceOrder();
+        }
+      });
+
       this.uiContainer.addEventListener('dragstart', this._handleDragStart.bind(this));
       this.uiContainer.addEventListener('dragover', this._handleDragOver.bind(this));
       this.uiContainer.addEventListener('dragleave', this._handleDragLeave.bind(this));
@@ -535,20 +542,10 @@
       const item = target.closest('.layer-item');
 
       if (layerInfo.isBase) {
-        if (target.checked) {
-          this._hideColorLayer();
-          this._deselectAllBaseMaps(idx);
-          if (layer) {
-            this.map.addLayer(layer);
-            this.map.invalidateSize({ animate: false });
-          }
-        } else {
-          if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
-        }
-      } else {
-        if (layer) {
-          target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
-        }
+        this._hideColorLayer();
+      }
+      if (layer) {
+        target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
       }
 
       if (item) target.checked ? item.classList.add('is-active') : item.classList.remove('is-active');
@@ -564,12 +561,7 @@
     _handleDragStart(e) {
       const item = e.target.closest('.layer-item');
       if (!item) return;
-      const idx = parseInt(item.dataset.index);
-      if (this.layers[idx].isBase) {
-        e.preventDefault();
-        return;
-      }
-      this.dragIdx = idx;
+      this.dragIdx = parseInt(item.dataset.index);
       item.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
     }
@@ -580,8 +572,6 @@
       if (!item || item.classList.contains('color-layer-item')) return;
 
       const targetIdx = parseInt(item.dataset.index);
-      if (this.layers[targetIdx].isBase) return;
-
       const allItems = this.uiContainer.querySelectorAll('.layer-item');
       allItems.forEach(i => i.classList.remove('drag-over-top', 'drag-over-bottom'));
 
@@ -600,7 +590,7 @@
       if (!target || this.dragIdx === null || target.classList.contains('color-layer-item')) return;
 
       const targetIdx = parseInt(target.dataset.index);
-      if (this.dragIdx === targetIdx || this.layers[targetIdx].isBase) return;
+      if (this.dragIdx === targetIdx) return;
 
       const moved = this.layers.splice(this.dragIdx, 1)[0];
       this.layers.splice(targetIdx, 0, moved);
