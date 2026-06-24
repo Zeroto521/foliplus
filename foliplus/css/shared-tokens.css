@@ -138,13 +138,26 @@
   stroke: var(--text-primary);
 }
 
-/* ── Global Hint ── Frosted glass effect ── */
+/* ══════════════════════════════════════════════════════════════════════
+   map-hint — Global toast notification (frosted glass)
+   ══════════════════════════════════════════════════════════════════════ */
 .map-hint {
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  background: rgba(0, 0, 0, 0.65) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: var(--radius-lg) !important;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 8px 16px;
+  white-space: nowrap;
+  z-index: 10000;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
