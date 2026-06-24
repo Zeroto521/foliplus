@@ -677,7 +677,7 @@
       const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
 
       container.innerHTML = `
-        <div class="map-panel ctrl-compact layer-ctrl collapsed"
+        <div class="map-panel ctrl-fold layer-ctrl collapsed"
              id="{{ this.get_name() }}_ctrl">
           <button class="toggle-btn" title="${_('layer.toggle_title')}"
                   aria-label="${_('layer.toggle_title')}">

@@ -177,33 +177,33 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   .ctrl-compact — Shared container for all components
+   .ctrl-fold — Shared container for all components
    Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
    Expanded: defined by component or shared extension rules
    ══════════════════════════════════════════════════════════════════════ */
-.ctrl-compact {
+.ctrl-fold {
   display: flex;
   align-items: stretch;
   background: var(--ctrl-bg);
   box-sizing: border-box;
   border-radius: var(--radius-md);
 }
-.ctrl-compact.collapsed {
+.ctrl-fold.collapsed {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   border: 0;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.65);
 }
 /* Expanded toggle-btn shared styles */
-.ctrl-compact.expanded .toggle-btn {
+.ctrl-fold.expanded .toggle-btn {
   background: transparent;
   color: var(--accent-primary);
   border-radius: 0;
 }
-.ctrl-compact.expanded .toggle-btn svg {
+.ctrl-fold.expanded .toggle-btn svg {
   stroke: var(--accent-primary);
 }
-.ctrl-compact.align-right.expanded .toggle-btn {
+.ctrl-fold.align-right.expanded .toggle-btn {
   border-right: none;
   border-left: none;
 }
@@ -211,7 +211,7 @@
 /* ── Shared Toolbar ──
    Used by MeasureControl / ExportControl
    Separator via toggle-btn border-right (avoids flex compression issues) */
-.ctrl-compact .tool-bar {
+.ctrl-fold .tool-bar {
   display: none;
   align-items: center;
   padding: 0 2px;
@@ -219,13 +219,13 @@
   flex: 1;
   min-width: 0;
 }
-.ctrl-compact.expanded .tool-bar {
+.ctrl-fold.expanded .tool-bar {
   display: flex;
 }
 /* Right-aligned layout: toggle-btn at right edge, toolbar leftwards */
-.ctrl-compact.align-right {
+.ctrl-fold.align-right {
   flex-direction: row-reverse;
 }
-.ctrl-compact.align-right .tool-bar {
+.ctrl-fold.align-right .tool-bar {
   flex-direction: row-reverse;
 }

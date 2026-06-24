@@ -26,7 +26,7 @@
     onAdd: function() {
       const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
       const ctrl = L.DomUtil.create(
-        "div", "map-search ctrl-compact collapsed", container
+        "div", "map-search ctrl-fold collapsed", container
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
       ctrl.innerHTML = `

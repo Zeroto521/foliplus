@@ -444,7 +444,7 @@
         const wrapper = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
         this.container = L.DomUtil.create(
           'div',
-          'map-panel ctrl-compact heatmap-ctrl collapsed',
+          'map-panel ctrl-fold heatmap-ctrl collapsed',
           wrapper
         );
         L.DomEvent.disableClickPropagation(wrapper);
