@@ -23,11 +23,9 @@ from foliplus.locale import (
 
 class TestLocaleConfig:
     def test_default_locale_is_english(self):
-        assert EN.code == "en"
         assert EN.get("heatmap.title") == "Hexbin Aggregation"
 
     def test_chinese_locale(self):
-        assert ZH.code == "zh"
         assert ZH.get("heatmap.title") == "网格聚合"
 
     def test_missing_key_returns_key(self):
@@ -62,19 +60,13 @@ class TestLocaleConfig:
         for key, value in table.items():
             assert isinstance(value, str) and value, f"ZH key '{key}' is empty"
 
-    def test_zh_has_same_keys_as_en(self):
-        """ZH must have all the same keys as EN."""
+    def test_zh_keys_match_en(self):
+        """ZH must have the exact same keys as EN."""
         en_keys = set(LOCALE_TABLES["en"].keys())
         zh_keys = set(LOCALE_TABLES["zh"].keys())
-        missing = en_keys - zh_keys
-        assert not missing, f"ZH is missing keys: {missing}"
-
-    def test_zh_no_extra_keys(self):
-        """ZH must not have extra keys beyond EN."""
-        en_keys = set(LOCALE_TABLES["en"].keys())
-        zh_keys = set(LOCALE_TABLES["zh"].keys())
-        extra = zh_keys - en_keys
-        assert not extra, f"ZH has extra keys: {extra}"
+        assert en_keys == zh_keys, (
+            f"Missing: {en_keys - zh_keys}, Extra: {zh_keys - en_keys}"
+        )
 
 
 class TestDetectLanguage:

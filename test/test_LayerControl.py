@@ -27,11 +27,25 @@ class TestLayerControlPython:
     def test_custom_locale(self):
         assert LayerControl(locale=ZH).locale.code == "zh"
 
-    def test_inherits_draggable(self):
-        """LayerControl inherits draggable from FoliumLayerControl."""
+    def test_render_collects_layers(self):
+        """LayerControl has render() and layer collections."""
         ctrl = LayerControl()
-        assert hasattr(ctrl, "draggable")
-        assert ctrl.draggable is False
+        assert hasattr(ctrl, "render")
+        assert hasattr(ctrl, "base_layers")
+        assert hasattr(ctrl, "overlays")
+
+    def test_render_overlays_and_base(self):
+        """render() correctly distinguishes base vs overlay layers."""
+        m = folium.Map()
+        ctrl = LayerControl().add_to(m)
+        # TileLayer with overlay=False → base layer
+        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
+        # FeatureGroup with overlay=True → overlay
+        folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
+        m.render()
+
+        assert "OSM" in ctrl.base_layers, f"OSM not in base_layers: {ctrl.base_layers}"
+        assert "Points" in ctrl.overlays, f"Points not in overlays: {ctrl.overlays}"
 
 
 class TestLayerControlRendering:

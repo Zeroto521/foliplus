@@ -17,7 +17,12 @@
   SM.registerHintIcon('fullscreen', SVG_FULLSCREEN);
 
   // Create the fullscreen control and get its container
-  const fsControl = L.control.fullscreen({{ this.options | tojson }}).addTo(map);
+  const fsControl = L.control.fullscreen({
+    position: '{{ this.position }}',
+    title: '{{ this.locale.get("fullscreen.title") }}',
+    title_cancel: '{{ this.locale.get("fullscreen.title_cancel") }}',
+    force_separate_button: false,
+  }).addTo(map);
   const fsContainer = fsControl.getContainer();
 
   // Replace the default icon and intercept default fullscreen logic

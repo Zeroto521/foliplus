@@ -6,7 +6,7 @@
   const wrap = L.control
     .scale({
       metric: {{ this.metric | tojson }},
-      imperial: {{ this.imperial | tojson }},
+      imperial: false,
       position: '{{ this.position }}'
     })
     .addTo(map)

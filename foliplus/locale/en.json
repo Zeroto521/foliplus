@@ -3,6 +3,8 @@
   "locale.code": "en",
   "fullscreen.enter": "Entered fullscreen, press Esc to exit",
   "fullscreen.exit": "Exited fullscreen",
+  "fullscreen.title": "Full Screen",
+  "fullscreen.title_cancel": "Exit Full Screen",
   "heatmap.title": "Hexbin Aggregation",
   "heatmap.layer": "Layer",
   "heatmap.layer_placeholder": "Select a point layer",

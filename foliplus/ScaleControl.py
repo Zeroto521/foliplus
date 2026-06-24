@@ -16,20 +16,17 @@ class ScaleControl(BaseControl):
     Parameters
     ----------
     position : str, default "bottomleft"
-        Control position. One of ``"topleft"``, ``"topright"``,
-        ``"bottomleft"``, ``"bottomright"``.
+        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
     metric : bool, default True
         Whether to show metric units (meters / kilometers).
 
-    imperial : bool, default False
-        Whether to show imperial units (feet / miles).
-
     show_zoom : bool, default True
         Whether to show the current map zoom level.
 
-    locale : LocaleConfig, optional
-        Localization configuration. Defaults to English.
+    locale : str or LocaleConfig, optional
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Defaults to auto-detection, falling back to English.
 
     Examples
     --------
@@ -43,13 +40,11 @@ class ScaleControl(BaseControl):
         self,
         position: Position = "bottomleft",
         metric: bool = True,
-        imperial: bool = False,
         show_zoom: bool = True,
         locale: Optional[Union[str, LocaleConfig]] = None,
     ):
         super().__init__(position=position, locale=locale)
         self.metric = metric
-        self.imperial = imperial
         self.show_zoom = show_zoom
         self._template = self._get_template(
             js_file="ScaleControl.js", css_file="ScaleControl.css"

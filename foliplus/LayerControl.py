@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import Optional, Union
 
-from folium import LayerControl as FoliumLayerControl
+from folium.map import Layer
 
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
 
 
-class LayerControl(FoliumLayerControl, BaseControl):
+class LayerControl(BaseControl):
     """Enhanced layer control with geometry-type icons, drag-and-drop ordering,
     and a collapsible panel.
 
@@ -23,20 +24,17 @@ class LayerControl(FoliumLayerControl, BaseControl):
     Parameters
     ----------
     position : str, default "topleft"
-        Control position. One of ``"topleft"``, ``"topright"``,
-        ``"bottomleft"``, ``"bottomright"``.
+        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
-    locale : LocaleConfig, optional
-        Localization configuration. Defaults to English.
-
-    **kwargs
-        Extra keyword arguments forwarded to :class:`folium.LayerControl`.
+    locale : str or LocaleConfig, optional
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Defaults to auto-detection, falling back to English.
 
     Notes
     -----
-    This control overrides the parent ``_template`` to inject custom CSS and
-    JavaScript via Jinja2. Layer identification relies on ``map._layers`` and
-    the ``window`` global variable.
+    Layer identification relies on ``map._layers`` and the ``window`` global
+    variable at runtime. The initial layer list is collected during rendering
+    by traversing the parent map's children.
 
     Examples
     --------
@@ -50,10 +48,26 @@ class LayerControl(FoliumLayerControl, BaseControl):
         self,
         position: Position = "topleft",
         locale: Optional[Union[str, LocaleConfig]] = None,
-        **kwargs,
     ):
-        FoliumLayerControl.__init__(self, position=position, **kwargs)
-        BaseControl.__init__(self, position=position, locale=locale)
+        super().__init__(position=position, locale=locale)
+        self.base_layers: OrderedDict[str, str] = OrderedDict()
+        self.overlays: OrderedDict[str, str] = OrderedDict()
         self._template = self._get_template(
             js_file="LayerControl.js", css_file="LayerControl.css", use_panel=True
         )
+
+    def render(self, **kwargs):
+        """Collect layers from the parent map before rendering."""
+        self.base_layers.clear()
+        self.overlays.clear()
+        for item in self._parent._children.values():
+            if not isinstance(item, Layer) or not item.control:
+                continue
+
+            key = item.layer_name
+            if not item.overlay:
+                self.base_layers[key] = item.get_name()
+            else:
+                self.overlays[key] = item.get_name()
+
+        super().render(**kwargs)
