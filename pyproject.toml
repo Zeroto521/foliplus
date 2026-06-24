@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "foliplus is a pragmatic Folium toolkit built to streamline spatial data visualization workflows, allowing you to focus entirely on the data itself."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "Zeroto521" }]
+authors = [{ name = "40% <@Zeroto521>", email = "Zeroto521@gmail.com" }]
 license = { text = "MIT" }
 keywords = ["folium", "leaflet", "gis", "map", "visualization"]
 classifiers = [
@@ -28,20 +28,11 @@ classifiers = [
 dependencies = ["folium>=0.14.0", "jinja2>=3.0.0"]
 
 [project.urls]
-Homepage = "https://github.com/Zeroto521/foliplus"
 Issues = "https://github.com/Zeroto521/foliplus/issues"
 Source = "https://github.com/Zeroto521/foliplus"
-Documentation = "https://github.com/Zeroto521/foliplus#readme"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-cov>=4.0", "build>=1.0", "twine>=4.0"]
-doc = [
-    "sphinx>=8.0",
-    "pydata-sphinx-theme>=0.16",
-    "myst-nb>=1.0",
-    "sphinx-copybutton>=0.5",
-    "sphinx-autodoc-typehints>=2.0",
-]
+dev = ["pytest", "pytest-cov", "build", "twine"]
 
 [tool.setuptools.dynamic]
 version = { attr = "foliplus.__version__" }
@@ -58,7 +49,33 @@ python_files = ["test_*.py"]
 addopts = "-v --tb=short --cov=foliplus --cov-report=term-missing"
 
 [tool.ruff]
-target-version = "py313"
+line-length = 88
+fix = true
 
 [tool.ruff.lint]
 select = ["UP"]
+
+[tool.coverage.run]
+source = ["foliplus"]
+branch = true
+
+[tool.coverage.report]
+ignore_errors = false
+show_missing = true
+# Regexes for lines to exclude from consideration
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+    # Don't complain about missing debug-only code
+    "def __repr__",
+    "if self.debug",
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "AbstractMethodError",
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+omit = ["*/test/*", "*/site-packages/*"]
