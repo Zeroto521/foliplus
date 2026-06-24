@@ -5,6 +5,7 @@ from folium.plugins import Fullscreen as FoliumFullscreen
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
+from typing import Union
 
 
 class Fullscreen(FoliumFullscreen, BaseControl):
@@ -24,8 +25,9 @@ class Fullscreen(FoliumFullscreen, BaseControl):
         Whether to hide the fullscreen button itself after entering fullscreen.
         Users can exit via the ``Esc`` key.
 
-    locale : LocaleConfig, optional
-        Localization configuration. Defaults to English.
+    locale : str or LocaleConfig, optional
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Defaults to auto-detection, falling back to English.
 
     **kwargs
         Extra keyword arguments forwarded to :class:`folium.plugins.Fullscreen`.
@@ -42,7 +44,7 @@ class Fullscreen(FoliumFullscreen, BaseControl):
         self,
         position: Position = "bottomright",
         hide_self: bool = True,
-        locale: Optional[LocaleConfig] = None,
+        locale: Optional[Union[str, LocaleConfig]] = None,
         **kwargs,
     ):
         FoliumFullscreen.__init__(self, position=position, **kwargs)

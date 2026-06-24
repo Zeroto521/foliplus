@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
+from typing import Optional, Union
 
 from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
 
 from ._typing import Position
-from .locale import EN, LocaleConfig
+from .locale import LocaleConfig, resolve_locale
 
 src_dir = Path(__file__).parent
 js_dir = src_dir / "js"
@@ -29,12 +29,12 @@ class BaseControl(JSCSSMixin, MacroElement):
     def __init__(
         self,
         position: Position = "topleft",
-        locale: Optional[LocaleConfig] = None,
+        locale: Optional[Union[str, LocaleConfig]] = None,
     ):
         super().__init__()
         self._name = self.__class__.__name__
         self.position = position
-        self.locale = locale or EN
+        self.locale = resolve_locale(locale)
 
     def _get_js(self, filename: str) -> str:
         return js_dir.joinpath(filename).read_text(encoding="utf-8")

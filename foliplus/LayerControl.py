@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 
 from folium import LayerControl as FoliumLayerControl
 
@@ -43,13 +43,13 @@ class LayerControl(FoliumLayerControl, BaseControl):
     >>> import folium
     >>> from foliplus import LayerControl
     >>> m = folium.Map()
-    >>> LayerControl(position="topleft").add_to(m)
+    >>> LayerControl().add_to(m)
     """
 
     def __init__(
         self,
         position: Position = "topleft",
-        locale: Optional[LocaleConfig] = None,
+        locale: Optional[Union[str, LocaleConfig]] = None,
         **kwargs,
     ):
         FoliumLayerControl.__init__(self, position=position, **kwargs)

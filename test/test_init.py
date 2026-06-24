@@ -17,9 +17,12 @@ class TestVersion:
 
     def test_all_exports(self):
         expected = [
-            "Fullscreen", "HeatmapControl", "LayerControl",
-            "MapSearch", "MeasureControl", "ScaleControl",
-            "EN", "ZH", "LocaleConfig", "detect_language",
+            "Fullscreen",
+            "HeatmapControl",
+            "LayerControl",
+            "MapSearch",
+            "MeasureControl",
+            "ScaleControl",
         ]
         for name in expected:
             assert hasattr(foliplus, name), f"Missing export: {name}"
@@ -27,8 +30,11 @@ class TestVersion:
     def test_all_matches_all(self):
         """__all__ must match actual public API."""
         expected = {
-            "Fullscreen", "HeatmapControl", "LayerControl",
-            "MapSearch", "MeasureControl", "ScaleControl",
-            "EN", "ZH", "LocaleConfig", "detect_language",
+            "Fullscreen",
+            "HeatmapControl",
+            "LayerControl",
+            "MapSearch",
+            "MeasureControl",
+            "ScaleControl",
         }
         assert set(foliplus.__all__) == expected

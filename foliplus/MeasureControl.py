@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 
 from ._typing import Position
 from .base import BaseControl
@@ -37,7 +37,7 @@ class MeasureControl(BaseControl):
     >>> import folium
     >>> from foliplus import MeasureControl
     >>> m = folium.Map()
-    >>> MeasureControl(position="topright").add_to(m)
+    >>> MeasureControl().add_to(m)
     """
 
     default_js = [
@@ -47,7 +47,7 @@ class MeasureControl(BaseControl):
     def __init__(
         self,
         position: Position = "bottomright",
-        locale: Optional[LocaleConfig] = None,
+        locale: Optional[Union[str, LocaleConfig]] = None,
     ):
         super().__init__(position=position, locale=locale)
         self._template = self._get_template(

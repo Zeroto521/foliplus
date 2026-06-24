@@ -10,7 +10,6 @@ import pytest
 from conftest import render
 
 from foliplus import (
-    ZH,
     Fullscreen,
     HeatmapControl,
     LayerControl,
@@ -18,6 +17,7 @@ from foliplus import (
     MeasureControl,
     ScaleControl,
 )
+from foliplus.locale import ZH
 
 JS_DIR = Path(__file__).parent.parent / "foliplus" / "js"
 

@@ -110,6 +110,7 @@ venv.bak/
 .history
 .ruff_cache
 .conda
+.playwright-mcp
 
 # MacOS
 .DS_Store

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 
 from ._typing import Position
 from .base import BaseControl
@@ -45,7 +45,7 @@ class ScaleControl(BaseControl):
         metric: bool = True,
         imperial: bool = False,
         show_zoom: bool = True,
-        locale: Optional[LocaleConfig] = None,
+        locale: Optional[Union[str, LocaleConfig]] = None,
     ):
         super().__init__(position=position, locale=locale)
         self.metric = metric

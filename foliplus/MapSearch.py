@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 
 from ._typing import Position
 from .base import BaseControl
@@ -35,14 +35,14 @@ class MapSearch(BaseControl):
     >>> import folium
     >>> from foliplus import MapSearch
     >>> m = folium.Map()
-    >>> MapSearch(zoom=16, position="topright").add_to(m)
+    >>> MapSearch().add_to(m)
     """
 
     def __init__(
         self,
         zoom: int = 15,
         position: Position = "topleft",
-        locale: Optional[LocaleConfig] = None,
+        locale: Optional[Union[str, LocaleConfig]] = None,
     ):
         super().__init__(position=position, locale=locale)
         self.zoom = zoom

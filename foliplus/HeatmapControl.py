@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 from ._typing import Position
 from .base import BaseControl
@@ -91,7 +91,7 @@ class HeatmapControl(BaseControl):
         agg: Literal["count", "sum", "avg", "min", "max"] = "count",
         schemes: Optional[list[str]] = None,
         style: Optional[dict] = None,
-        locale: Optional[LocaleConfig] = None,
+        locale: Optional[Union[str, LocaleConfig]] = None,
     ):
         super().__init__(position=position, locale=locale)
         self._template = self._get_template(

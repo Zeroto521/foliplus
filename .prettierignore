@@ -1,0 +1,7 @@
+# Jinja2 template files — formatting breaks {{ }} and {% %} tags
+foliplus/js/Fullscreen.js
+foliplus/js/HeatmapControl.js
+foliplus/js/LayerControl.js
+foliplus/js/MapSearch.js
+foliplus/js/MeasureControl.js
+foliplus/js/ScaleControl.js
