@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional, Union
-
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
@@ -40,7 +38,7 @@ class ScaleControl(BaseControl):
         position: Position = "bottomleft",
         metric: bool = True,
         show_zoom: bool = True,
-        locale: Optional[Union[str, LocaleConfig]] = None,
+        locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.metric = metric

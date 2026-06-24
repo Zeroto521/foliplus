@@ -37,7 +37,7 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [folium, jinja2]
-        args: [--ignore-missing-imports]
+        args: [--ignore-missing-imports, foliplus]
         pass_filenames: false
 
   # ── Spell check ──

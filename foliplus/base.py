@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Union
 
 from folium import MacroElement
 from folium.elements import JSCSSMixin
@@ -41,7 +40,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     def __init__(
         self,
         position: Position = "topleft",
-        locale: Optional[Union[str, LocaleConfig]] = None,
+        locale: str | LocaleConfig | None = None,
     ):
         super().__init__()
         self._name = self.__class__.__name__
@@ -58,8 +57,8 @@ class BaseControl(JSCSSMixin, MacroElement):
     def _get_template(
         self,
         *,
-        js_file: Optional[str] = None,
-        css_file: Optional[str] = None,
+        js_file: str | None = None,
+        css_file: str | None = None,
         use_panel: bool = False,
     ) -> Template:
         """Build a Jinja2 template with shared CSS/JS + component assets.

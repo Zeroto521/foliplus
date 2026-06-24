@@ -30,18 +30,21 @@ class TestMeasureControlPython:
 class TestMeasureControlRendering:
     def test_default_params(self, base_map: folium.Map):
         from conftest import render
+
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "measure-ctrl" in html
 
     def test_custom_position(self, base_map: folium.Map):
         from conftest import render
+
         MeasureControl(position="topleft").add_to(base_map)
         html = render(base_map)
         assert "topleft" in html
 
     def test_contains_gcoord_dependency(self, base_map: folium.Map):
         from conftest import render
+
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "gcoord" in html
@@ -49,6 +52,7 @@ class TestMeasureControlRendering:
 
     def test_contains_tool_buttons(self, base_map: folium.Map):
         from conftest import render
+
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "tool-btn" in html
@@ -56,6 +60,7 @@ class TestMeasureControlRendering:
 
     def test_locale_zh(self, base_map: folium.Map):
         from conftest import render
+
         MeasureControl(locale=ZH).add_to(base_map)
         html = render(base_map)
         assert "量算工具" in html

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional, Union
-
 from ._cdn import LEAFLET_FULLSCREEN
 from ._typing import Position
 from .base import BaseControl
@@ -53,7 +51,7 @@ class Fullscreen(BaseControl):
         self,
         position: Position = "bottomright",
         hide_self: bool = True,
-        locale: Optional[Union[str, LocaleConfig]] = None,
+        locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.hide_self = hide_self

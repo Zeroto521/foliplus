@@ -10,11 +10,13 @@ import pytest
 
 def resolve_js_unicode(text: str) -> str:
     """Decode \\uXXXX escape sequences in JS output to actual characters."""
+
     def _repl(m: re.Match) -> str:
         try:
             return chr(int(m.group(1), 16))
         except ValueError:
             return m.group(0)
+
     return re.sub(r"\\u([0-9a-fA-F]{4})", _repl, text)
 
 

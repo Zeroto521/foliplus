@@ -52,23 +52,18 @@ class TestCDN:
     """CDN dependency version tests."""
 
     def test_h3_js_version(self):
-
         assert H3_JS == "4"
 
     def test_simple_statistics_version(self):
-
         assert SIMPLE_STATISTICS == "7"
 
     def test_chroma_js_version(self):
-
         assert CHROMA_JS == "2"
 
     def test_leaflet_fullscreen_version(self):
-
         assert LEAFLET_FULLSCREEN == "3"
 
     def test_gcoord_version(self):
-
         assert GCOORD == "1"
 
     def test_cdn_urls_in_default_js(self):

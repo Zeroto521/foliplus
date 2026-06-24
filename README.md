@@ -2,7 +2,7 @@
 
 [![PyPI Version](https://img.shields.io/pypi/v/foliplus)](https://pypi.org/project/foliplus/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/foliplus)](https://pypi.org/project/foliplus/)
-[![CI](https://github.com/Zeroto521/foliplus/actions/workflows/ci.yaml/badge.svg)](https://github.com/Zeroto521/foliplus/actions/workflows/ci.yaml)
+[![Test Status](https://github.com/Zeroto521/foliplus/actions/workflows/test.yaml/badge.svg)](https://github.com/Zeroto521/foliplus/actions/workflows/test.yaml)
 [![Coverage Status](https://codecov.io/gh/Zeroto521/foliplus/branch/main/graph/badge.svg)](https://codecov.io/gh/Zeroto521/foliplus)
 [![Documentation Status](https://readthedocs.org/projects/foliplus/badge/?version=latest)](https://foliplus.readthedocs.io/en/latest/?badge=latest)
 
