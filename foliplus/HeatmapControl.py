@@ -24,8 +24,7 @@ class HeatmapControl(BaseControl):
     Parameters
     ----------
     position : str, default "topleft"
-        Panel position. One of ``"topleft"``, ``"topright"``,
-        ``"bottomleft"``, ``"bottomright"``.
+        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
     color_scheme : str, default "Blues"
         Default color scheme name. Supports chroma.js / ColorBrewer palettes:
@@ -59,8 +58,9 @@ class HeatmapControl(BaseControl):
         - ``label_format`` (str, default "auto"): number format —
           ``"auto"`` (10K/1K suffix), ``"int"``, ``"comma"`` (thousands separator)
 
-    locale : LocaleConfig, optional
-        Localization configuration. Defaults to English.
+    locale : str or LocaleConfig, optional
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Defaults to auto-detection, falling back to English.
 
     Examples
     --------

@@ -26,11 +26,11 @@ class MeasureControl(BaseControl):
     Parameters
     ----------
     position : str, default "bottomright"
-        Control position. One of ``"topleft"``, ``"topright"``,
-        ``"bottomleft"``, ``"bottomright"``.
+        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
-    locale : LocaleConfig, optional
-        Localization configuration. Defaults to English.
+    locale : str or LocaleConfig, optional
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Defaults to auto-detection, falling back to English.
 
     Examples
     --------

@@ -24,11 +24,11 @@ class MapSearch(BaseControl):
         Zoom level after coordinate search. Typically 1-18.
 
     position : str, default "topleft"
-        Control position. One of ``"topleft"``, ``"topright"``,
-        ``"bottomleft"``, ``"bottomright"``.
+        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
-    locale : LocaleConfig, optional
-        Localization configuration. Defaults to English.
+    locale : str or LocaleConfig, optional
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Defaults to auto-detection, falling back to English.
 
     Examples
     --------
