@@ -387,7 +387,7 @@
       const spacer = '<div class="layer-item-spacer"></div>';
       const handle = info.isBase ? spacer : SVGS.DRAG_HANDLE;
       const item = document.createElement('div');
-      item.className = 'layer-item is-active';
+      item.className = 'layer-item is-active' + (info.isBase ? ' is-base-item' : '');
       item.draggable = !info.isBase;
       item.dataset.index = String(info.index);
       item.dataset.layerId = String(info.id);
@@ -427,7 +427,7 @@
         const en = LayerUtils.escapeHTML(l.name);
         const spacer = '<div class="layer-item-spacer"></div>';
         html += `
-          <div class="layer-item" draggable="${!l.isBase}"
+          <div class="layer-item is-base-item" draggable="${!l.isBase}"
                data-index="${i}" data-layer-id="${l.id}"
                title="${en}">
             ${l.isBase ? spacer : SVGS.DRAG_HANDLE}

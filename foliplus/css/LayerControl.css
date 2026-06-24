@@ -34,6 +34,9 @@
   flex-shrink: 0;
   margin-left: var(--space-sm);
 }
+.layer-ctrl .layer-item.is-base-item .type-icon-col {
+  justify-content: flex-end;
+}
 .layer-ctrl .layer-separator-container {
   display: flex;
   align-items: center;
