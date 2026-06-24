@@ -18,14 +18,14 @@
   margin: 0;
   display: inline-block;
   line-height: 12px;
-  padding: 2px 5px;
+  padding: var(--space-xs) var(--space-sm);
   text-align: center;
   background: #fff;
   box-shadow: none;
 }
 .scale-zoom-label {
-  margin-left: 6px;
-  margin-right: 4px;
+  margin-left: var(--space-sm);
+  margin-right: var(--space-sm);
   font: inherit;
   color: inherit;
   line-height: normal;

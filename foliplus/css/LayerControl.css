@@ -23,7 +23,7 @@
 }
 /* ── Panel Content Overrides ── */
 .layer-ctrl .panel-content {
-  padding: 4px 0;
+  padding: var(--space-sm) 0;
   max-height: 400px;
 }
 .layer-ctrl .type-icon-col {
@@ -32,12 +32,12 @@
   justify-content: center;
   width: 14px;
   flex-shrink: 0;
-  margin-left: 4px;
+  margin-left: var(--space-sm);
 }
 .layer-ctrl .layer-separator-container {
   display: flex;
   align-items: center;
-  margin: 8px 10px 6px;
+  margin: var(--space-md) var(--space-lg) var(--space-sm);
   flex-shrink: 0;
   clear: both;
 }
@@ -49,11 +49,11 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-left: 8px;
+  margin-left: var(--space-md);
   white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-sm);
 }
 .layer-ctrl .separator-icon {
   font-size: 12px;
@@ -62,8 +62,8 @@
 .layer-ctrl .layer-item {
   display: flex;
   align-items: center;
-  padding: 6px 12px 6px 4px;
-  gap: 4px;
+  padding: var(--space-md) var(--space-lg) var(--space-md) var(--space-sm);
+  gap: var(--space-sm);
   cursor: default;
   user-select: none;
   border-radius: var(--radius-sm);
@@ -96,7 +96,7 @@
   background: rgba(231, 76, 60, 0.06);
 }
 .layer-ctrl .layer-item .drag-handle {
-  margin-right: 6px;
+  margin-right: var(--space-sm);
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--transition-fast);
@@ -106,8 +106,8 @@
 }
 /* ── Layer item spacer ── */
 .layer-ctrl .layer-item .layer-item-spacer {
-  width: 12px;
-  margin-right: 6px;
+  width: var(--space-lg);
+  margin-right: var(--space-sm);
   flex-shrink: 0;
 }
 /* ── Custom Checkbox ── */
