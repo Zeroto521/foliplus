@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "foliplus"
+dynamic = ["version"]
+description = "foliplus is a pragmatic Folium toolkit built to streamline spatial data visualization workflows, allowing you to focus entirely on the data itself."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "40% <@Zeroto521>", email = "Zeroto521@gmail.com" }]
+license = { text = "MIT" }
+keywords = ["folium", "leaflet", "gis", "map", "visualization"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+]
+dependencies = ["folium>=0.14.0", "jinja2>=3.0.0"]
+
+[project.urls]
+Issues = "https://github.com/Zeroto521/foliplus/issues"
+Source = "https://github.com/Zeroto521/foliplus"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "build", "twine"]
+
+[tool.setuptools.dynamic]
+version = { attr = "foliplus.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["foliplus*"]
+
+[tool.setuptools.package-data]
+foliplus = ["js/*.js", "css/*.css", "locale/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short --cov=foliplus --cov-report=term-missing"
+
+[tool.ruff]
+line-length = 88
+fix = true
+
+[tool.ruff.lint]
+select = ["UP"]
+
+[tool.coverage.run]
+source = ["foliplus"]
+branch = true
+
+[tool.coverage.report]
+ignore_errors = false
+show_missing = true
+# Regexes for lines to exclude from consideration
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+    # Don't complain about missing debug-only code
+    "def __repr__",
+    "if self.debug",
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "AbstractMethodError",
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+omit = ["*/test/*", "*/site-packages/*"]
