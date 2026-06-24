@@ -69,13 +69,13 @@ class TestMapSearchRendering:
         from conftest import render
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "SM.createLocationMarker" in html
+        assert "foliplus.createLocationMarker" in html
 
     def test_addr_search_uses_fromWgs84(self, base_map: folium.Map):
         from conftest import render
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "SM.fromWgs84" in html
+        assert "foliplus.fromWgs84" in html
 
     def test_locale_zh(self, base_map: folium.Map):
         from conftest import render

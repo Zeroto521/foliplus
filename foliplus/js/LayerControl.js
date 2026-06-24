@@ -12,7 +12,7 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const SM = window._mapShared;
+  const foliplus = window.foliplus;
   const mapContainer = map.getContainer();
   const _ = (key) => _LOCALE[key] || key;
 
@@ -116,14 +116,13 @@
       this.currentColor = _CONST.COLOR_DEFAULT;
       this.dragIdx = null;
 
-      // Bind method context to prevent 'this' loss when called via window._mapShared.LayerControlAPI
+      // Bind method context to prevent 'this' loss when called via window.foliplus.LayerControlAPI
       this.registerLayer = this.registerLayer.bind(this);
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
-      this.enforceOrder = this.enforceOrder.bind(this);
 
-      window._mapShared.LayerControlAPI = this;
+      window.foliplus.LayerControlAPI = this;
     }
 
     init(initialData) {
@@ -155,11 +154,30 @@
       } catch (e) {}
     }
 
-    // Public API Methods
+    // ==================== Public API Methods ====================
+    // These are exposed via window.foliplus.LayerControlAPI for runtime use.
+    //
+    // Usage:
+    //   const api = window.foliplus.LayerControlAPI;
+    //   api.registerLayer({ id: 'myLayer', name: 'My Layer', layer: leafletLayer });
+    //   api.unregisterLayer('myLayer');
+    //   const type = api.getLayerType('myLayer');
+    //   const layers = api.getLayersByType('polygon');
+
+    /**
+     * Get the geometry type of a registered layer.
+     * @param {string} id - Layer ID set when calling registerLayer().
+     * @returns {string|null} "point" | "line" | "polygon" | "base" | null
+     */
     getLayerType(id) {
       return this.typeMap.get(id)?.type ?? null;
     }
 
+    /**
+     * Get all registered layers of a given geometry type.
+     * @param {string} type - "point" | "line" | "polygon" | "base"
+     * @returns {Array<{id: string, name: string}>}
+     */
     getLayersByType(type) {
       const result = [];
       for (const [id, info] of this.typeMap) {
@@ -168,6 +186,23 @@
       return result;
     }
 
+    /**
+     * Register (or re-register) a layer with the LayerManager.
+     *
+     * The layer appears at the top of the overlay list with a checkbox,
+     * geometry type icon, and drag handle. If the UI has already been
+     * rendered, a corresponding DOM item is created immediately.
+     *
+     * @param {Object} opts
+     * @param {string} opts.id       - Unique identifier for the layer.
+     * @param {string} [opts.name]   - Display name (falls back to id).
+     * @param {Object} [opts.layer]  - Leaflet layer instance (L.Layer).
+     * @param {boolean} [opts.isBase] - If true, treats as base map (no drag,
+     *                                  radio-style checkbox).
+     * @param {string} [opts.paneName] - Custom pane name for z-order grouping.
+     * @param {string} [opts.iconSvg]  - Custom SVG icon HTML for the type column.
+     * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
+     */
     registerLayer(opts) {
       if (!opts?.id) throw new Error('[LayerManager] opts.id is required');
 
@@ -227,6 +262,15 @@
       return newItem;
     }
 
+    /**
+     * Unregister and remove a layer from the map and panel.
+     *
+     * Removes the Leaflet layer from the map, deletes the global reference,
+     * and removes the corresponding DOM item from the layer list.
+     *
+     * @param {string} id - The layer ID previously passed to registerLayer().
+     * @returns {boolean} true if layer was found and removed, false otherwise.
+     */
     unregisterLayer(id) {
       const idx = this.layers.findIndex(l => l.id === id);
       if (idx === -1) return false;
@@ -692,7 +736,7 @@
               </span>
               <button class="close-btn" title="${_('layer.close_title')}"
                       aria-label="${_('layer.close_title')}">
-                ${SM.SVGs.CLOSE}
+                ${foliplus.SVGs.CLOSE}
               </button>
             </div>
             <div class="panel-content"></div>
@@ -706,7 +750,7 @@
       const ctrl = container.querySelector('.layer-ctrl');
       const panelContent = container.querySelector('.panel-content');
 
-      SM.bindPanelToggle({
+      foliplus.bindPanelToggle({
         container: ctrl, toggleBtn: '.toggle-btn', header: '.panel-header',
       });
 

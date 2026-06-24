@@ -18,7 +18,7 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const SM = window._mapShared;
+  const foliplus = window.foliplus;
   const _ = (key) => _LOCALE[key] || key;
 
   // Hexagon SVG icon
@@ -30,10 +30,10 @@
       <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
     </svg>`;
 
-  SM.registerHintIcon('heatmap', SVG_HEX);
+  foliplus.registerHintIcon('heatmap', SVG_HEX);
 
-  // ── Dynamic dependency loader (via shared SM.loadScripts) ──
-  // Loads CDN scripts at runtime so they work regardless of HTML structure.
+  // --- Dynamic Dependency Loader ---
+  // Loads CDN scripts at runtime via shared foliplus.loadScripts.
   const _DEPS = [
     { name: 'h3', url: 'https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js',
       check: () => typeof h3 !== 'undefined' },
@@ -44,14 +44,14 @@
       check: () => typeof chroma !== 'undefined' },
   ];
 
-  SM.loadScripts(_DEPS, function (ok, failed) {
+  foliplus.loadScripts(_DEPS, function (ok, failed) {
     if (ok && typeof h3 !== 'undefined' && typeof ss !== 'undefined') {
       return run();
     }
     // Final failure — show hint + console
     const names = (failed || _DEPS.filter(d => !d.check()).map(d => d.name)).join(', ');
     console.error(`[HeatmapControl] ${_('heatmap.no_h3')}`);
-    SM.showHint('heatmap', _('heatmap.no_h3'), 0); // 0 = persistent until hidden
+    foliplus.showHint('heatmap', _('heatmap.no_h3'), 0); // 0 = persistent until hidden
   }, 2, 3000); // retry 2×, every 3s
 
   function run() {
@@ -76,7 +76,7 @@
       constructor(mapInstance) {
         this.map = mapInstance;
   
-        // 状态管理
+        // State management
         this.selectedLayerId = null;
         this.pointLayers = [];
         this.currentAgg = AGG_DEFAULT;
@@ -91,7 +91,7 @@
         this.HEATMAP_ID = '__heatmap__';
         this.PANE_NAME = '_heatmap_pane';
         this.hexLayerRegistered = false;
-        this.ui = null; // 外部注入的控制面板实例
+        this.ui = null; // Injected UI control panel instance
   
         this._initLayers();
         this._bindMapEvents();
@@ -139,10 +139,10 @@
       // --- Data Extraction ---
       scanMapLayers() {
         this.pointLayers = [];
-        if (!window._mapShared.LayerControlAPI) return;
+        if (!window.foliplus.LayerControlAPI) return;
   
         const pointLayersInfo =
-          window._mapShared.LayerControlAPI.getLayersByType('point');
+          window.foliplus.LayerControlAPI.getLayersByType('point');
         if (!pointLayersInfo.length) return;
   
         const seenIds = {};
@@ -390,7 +390,7 @@
               lat = cy / (ring.length - 1);
             }
   
-            const labelStr = SM.formatNumber(feat.properties._value, FORMAT);
+            const labelStr = foliplus.formatNumber(feat.properties._value, FORMAT);
   
             L.marker([lat, lng], {
               icon: L.divIcon({
@@ -412,7 +412,7 @@
         if (this.hexLayerRegistered) return;
         this.hexLayerRegistered = true;
         this.hexLayer.options.pane = this.PANE_NAME;
-        window._mapShared.LayerControlAPI.registerLayer({
+        window.foliplus.LayerControlAPI.registerLayer({
           name: _('heatmap.title'),
           id: this.HEATMAP_ID,
           isBase: false,
@@ -425,7 +425,7 @@
       unregisterHexLayer() {
         if (!this.hexLayerRegistered) return;
         this.hexLayerRegistered = false;
-        window._mapShared.LayerControlAPI.unregisterLayer(this.HEATMAP_ID);
+        window.foliplus.LayerControlAPI.unregisterLayer(this.HEATMAP_ID);
       }
     }
   
@@ -462,14 +462,14 @@
             ${_('heatmap.title')}
           </span>
           <button class="close-btn" title="${_('layer.close_title')}">
-            ${SM.SVGs.CLOSE}</button>`;
+            ${foliplus.SVGs.CLOSE}</button>`;
   
-        SM.bindPanelToggle({
+        foliplus.bindPanelToggle({
           container: this.container,
           toggleBtn: '.toggle-btn',
           header: '.panel-header'
         });
-        SM.bindOutsideCollapse({
+        foliplus.bindOutsideCollapse({
           map: this.manager.map, container: this.container
         });
   

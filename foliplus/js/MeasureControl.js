@@ -1,5 +1,5 @@
 (function() {
-  // ==================== Private Constants ====================  
+  // ==================== Private Constants ====================
   const _CONST = {
     COLOR_ACCENT: '#e74c3c',
     LINE_WEIGHT_FINAL: 2.5,
@@ -17,9 +17,9 @@
     FINALIZE_DELAY_MS: 50,
   };
 
-  // ==================== Globals & Shared Dependencies ====================  
+  // ==================== Globals & Shared Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const SM = window._mapShared;
+  const foliplus = window.foliplus;
 
   // ==================== Localized Text ====================
   const _ = (key) => _LOCALE[key] || key;
@@ -70,7 +70,7 @@
       <line x1="14" y1="11" x2="14" y2="17"/></svg>`
   };
 
-  SM.registerHintIcon('measure', SVGS.RULER);
+  foliplus.registerHintIcon('measure', SVGS.RULER);
 
   // ==================== Utility Classes ====================
   class MeasureUtils {
@@ -204,7 +204,7 @@
     _registerToLayerControl() {
       if (this.isRegistered) return;
       this.isRegistered = true;
-      window._mapShared.LayerControlAPI.registerLayer({
+      window.foliplus.LayerControlAPI.registerLayer({
         name: _TXT.TOOL_TOGGLE,
         id: this.MEASURE_ID,
         isBase: false,
@@ -218,7 +218,7 @@
       const hasContent = Object.keys(this.layerGroup._layers || {}).length > 0;
       if (!hasContent && this.isRegistered) {
         this.isRegistered = false;
-        window._mapShared.LayerControlAPI.unregisterLayer(this.MEASURE_ID);
+        window.foliplus.LayerControlAPI.unregisterLayer(this.MEASURE_ID);
       }
     }
 
@@ -263,13 +263,13 @@
       this.map.getContainer().style.cursor = 'crosshair';
 
       if (mode === 'marker') {
-        SM.showHint('measure', _TXT.HINT_MARKER, 0);
+        foliplus.showHint('measure', _TXT.HINT_MARKER, 0);
         this._bindMarkerMode();
       } else if (mode === 'distance') {
-        SM.showHint('measure', _TXT.HINT_DIST_START, 0);
+        foliplus.showHint('measure', _TXT.HINT_DIST_START, 0);
         this._startDistanceMode();
       } else if (mode === 'circle') {
-        SM.showHint('measure', _TXT.HINT_CIRCLE_START, 0);
+        foliplus.showHint('measure', _TXT.HINT_CIRCLE_START, 0);
         this._startCircleMode();
       }
     }
@@ -277,7 +277,7 @@
     clearActiveMode() {
       this.currentMode = null;
       this.toolBtns.forEach(btn => btn.classList.remove('active'));
-      SM.hideHint('measure');
+      foliplus.hideHint('measure');
       this.map.getContainer().style.cursor = '';
       this._cleanMapEvents();
     }
@@ -293,10 +293,10 @@
         this.cleanupFn();
         this.cleanupFn = null;
       }
-      SM.hideHint('measure');
+      foliplus.hideHint('measure');
     }
 
-    // ---------- Marker (Locate) Mode ----------
+    // --- Marker (Locate) Mode ---
     _bindMarkerMode() {
       this._onMarkerClickRef = this._handleMarkerClick.bind(this);
       this.map.on('click', this._onMarkerClickRef);
@@ -308,7 +308,7 @@
       const lat = e.latlng.lat.toFixed(6);
       const lng = e.latlng.lng.toFixed(6);
 
-      const marker = SM.createLocationMarker(
+      const marker = foliplus.createLocationMarker(
         this.map, parseFloat(lat), parseFloat(lng), null, _TXT,
         null, null, this.layerGroup
       );
@@ -316,14 +316,14 @@
       let cachedAddr = null;
       setTimeout(() => this._injectDelIcon(marker), 50);
 
-      const addr = await SM.reverseGeocode(
+      const addr = await foliplus.reverseGeocode(
         this.map, parseFloat(lat), parseFloat(lng)
       );
       cachedAddr = addr;
 
       if (marker?.getPopup?.()?.isOpen()) {
         marker.setPopupContent(
-          SM.buildPopupHtml(lat, lng, addr, _TXT)
+          foliplus.buildPopupHtml(lat, lng, addr, _TXT)
         );
       }
 
@@ -331,7 +331,7 @@
         MeasureUtils.hideAllDelIcons();
         if (cachedAddr !== null) {
           marker.setPopupContent(
-            SM.buildPopupHtml(lat, lng, cachedAddr, _TXT)
+            foliplus.buildPopupHtml(lat, lng, cachedAddr, _TXT)
           );
         }
         this._injectDelIcon(marker);
@@ -372,7 +372,7 @@
       });
     }
 
-    // ---------- Distance Measurement Mode ----------
+    // --- Distance Measurement Mode ---
     _startDistanceMode() {
       const pts = [];
       let total = 0;
@@ -620,7 +620,7 @@
       this.map.on('mousemove', onDistMove);
     }
 
-    // ---------- Circle Drawing Mode ----------
+    // --- Circle Drawing Mode ---
     _startCircleMode() {
       let center = null;
       let state = 0;
@@ -658,7 +658,7 @@
             interactive: false,
           }).addTo(this.layerGroup);
           state = 1;
-          SM.showHint('measure', _TXT.HINT_CIRCLE_RADIUS, 0);
+          foliplus.showHint('measure', _TXT.HINT_CIRCLE_RADIUS, 0);
         } else if (state === 1) {
           state = 2;
           lastFinishTime = Date.now();
@@ -903,12 +903,12 @@
         this.map.off('mousemove', onMouseMove);
         this.map.off('contextmenu', onContext);
         clearPreviews();
-        SM.hideHint('measure');
+        foliplus.hideHint('measure');
       };
     }
   }
 
-  // ==================== Initialization & Control Construction ====================  
+  // ==================== Initialization & Control Construction ====================
   const measureManager = new MeasureManager(map);
 
   class MeasureControl extends L.Control {
@@ -928,7 +928,7 @@
         </button>
         <div class="tool-bar">
           <button class="tool-btn" data-mode="marker"
-            title="${_TXT.TOOL_MARKER}">${SM.SVGs.LOCATE}</button>
+            title="${_TXT.TOOL_MARKER}">${foliplus.SVGs.LOCATE}</button>
           <button class="tool-btn" data-mode="distance"
             title="${_TXT.TOOL_DISTANCE}">${SVGS.RULER}</button>
           <button class="tool-btn" data-mode="circle"
@@ -953,7 +953,7 @@
         ctrl.classList.toggle('expanded');
       };
 
-      SM.bindOutsideCollapse({
+      foliplus.bindOutsideCollapse({
         map,
         container: ctrl,
         shouldCollapse: () => !measureManager.currentMode,
