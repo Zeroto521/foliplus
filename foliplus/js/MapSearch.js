@@ -152,7 +152,7 @@
             );
           })
           .catch(function(err) {
-            console.error(err);
+            console.error('[MapSearch] ' + _('search.addr_error'));
             _hideSearchHint();
             _showSearchHint(_('search.addr_error'), 5000);
           });

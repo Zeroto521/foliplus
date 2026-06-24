@@ -62,11 +62,8 @@
     const el = L.DomUtil.create('div', `map-hint map-hint-${key}`, hintTarget);
     const icon = (SM._hintIcons && SM._hintIcons[key]) || '';
     el.innerHTML = icon ? `<span style="margin-right:6px">${icon}</span>${text}` : text;
-    el.style.cssText =
-      'position:absolute;bottom:20px;left:50%;transform:translateX(-50%);' +
-      'background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:4px;' +
-      'font-size:13px;z-index:2147483647;pointer-events:none;white-space:nowrap;' +
-      'box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;';
+    // Style via CSS class — tokens already define .map-hint in shared-tokens.css
+    el.classList.add('map-hint');
     // Ensure the map container has relative positioning
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
       const cs = getComputedStyle(hintTarget);
@@ -129,11 +126,20 @@
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
     }
+    // Dynamically load gcoord if missing
+    if (!SM._gcoordLoading) {
+      SM._gcoordLoading = true;
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/gcoord/dist/gcoord.global.prod.js';
+      s.onload = () => { SM._gcoordLoading = false; };
+      s.onerror = () => { SM._gcoordLoading = false; };
+      document.head.appendChild(s);
+    }
     if (!SM._gcoordWarned) {
-      const _g = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-      console.warn(_g('gcoord.warn'));
-      SM.showHint('gcoord-warn', _g('gcoord.warn'), 5000);
       SM._gcoordWarned = true;
+      const _g = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
+      console.warn('[Shared] ' + _g('gcoord.warn'));
+      SM.showHint('gcoord-warn', _g('gcoord.warn'), 5000);
     }
     return [lat, lng];
   };
@@ -141,11 +147,20 @@
   /** Convert WGS84 coordinates to the map's CRS (BD09 / GCJ02 / unchanged). */
   SM.fromWgs84 = function (map, lng, lat) {
     if (typeof gcoord === 'undefined') {
+      // Dynamically load gcoord if missing (first call only)
+      if (!SM._gcoordLoading) {
+        SM._gcoordLoading = true;
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/gcoord/dist/gcoord.global.prod.js';
+        s.onload = () => { SM._gcoordLoading = false; };
+        s.onerror = () => { SM._gcoordLoading = false; };
+        document.head.appendChild(s);
+      }
       if (!SM._gcoordWarned) {
-      const _g2 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-      console.warn(_g2('gcoord.warn'));
-      SM.showHint('gcoord-warn', _g2('gcoord.warn'), 5000);
         SM._gcoordWarned = true;
+      const _g2 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
+      console.warn('[Shared] ' + _g2('gcoord.warn'));
+      SM.showHint('gcoord-warn', _g2('gcoord.warn'), 5000);
       }
       return [lng, lat];
     }
@@ -341,6 +356,52 @@
       return Math.round(val).toString();
     }
     return Math.round(val).toLocaleString();
+  };
+
+  // ---------- Dynamic Script Loader ----------
+  /**
+   * Load external JS dependencies dynamically.
+   * Retries up to `maxRetries` times with `delayMs` between attempts.
+   * Calls `callback(success)` when done.
+   */
+  SM.loadScripts = function (deps, callback, maxRetries, delayMs) {
+    maxRetries = maxRetries || 0;
+    delayMs = delayMs || 3000;
+    let retries = 0;
+
+    function attempt() {
+      const pending = deps.filter(d => !d.check());
+      if (pending.length === 0) return callback(true);
+
+      let loaded = 0, failedCount = 0;
+      pending.forEach((dep) => {
+        const s = document.createElement('script');
+        s.src = dep.url;
+        s.onload = () => {
+          setTimeout(() => {
+            if (dep.check()) loaded++;
+            else failedCount++;
+            if (loaded + failedCount === pending.length) {
+              if (failedCount === 0) callback(true);
+              else if (retries < maxRetries) { retries++; setTimeout(attempt, delayMs); }
+              else callback(false, pending.filter(d => !d.check()).map(d => d.name));
+            }
+          }, 100);
+        };
+        s.onerror = () => {
+          failedCount++;
+          const _gl = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
+          console.error(`[Shared] ${dep.name}: ${_gl('load.script_fail')}`);
+          if (loaded + failedCount === pending.length) {
+            if (retries < maxRetries) { retries++; setTimeout(attempt, delayMs); }
+            else callback(false, pending.filter(d => !d.check()).map(d => d.name));
+          }
+        };
+        document.head.appendChild(s);
+      });
+    }
+
+    attempt();
   };
 
   window._mapShared = SM;
