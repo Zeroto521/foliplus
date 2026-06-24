@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "foliplus"
 dynamic = ["version"]
-description = "A practical Folium extension toolkit built to simplify spatial data visualization workflows and focus on your data analysis."
+description = "foliplus is a pragmatic Folium toolkit built to streamline spatial data visualization workflows, allowing you to focus entirely on the data itself."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Zeroto521" }]
@@ -34,12 +34,7 @@ Source = "https://github.com/Zeroto521/foliplus"
 Documentation = "https://github.com/Zeroto521/foliplus#readme"
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "build>=1.0",
-    "twine>=4.0",
-]
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "build>=1.0", "twine>=4.0"]
 doc = [
     "sphinx>=8.0",
     "pydata-sphinx-theme>=0.16",
@@ -49,13 +44,13 @@ doc = [
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "foliplus.__version__"}
+version = { attr = "foliplus.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["foliplus*"]
 
 [tool.setuptools.package-data]
-foliplus = ["js/*.js", "css/*.css"]
+foliplus = ["js/*.js", "css/*.css", "locale/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
