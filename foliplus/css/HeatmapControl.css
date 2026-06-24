@@ -362,16 +362,7 @@
   box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
 }
 
-/* Section divider — consistent with LayerControl */
 .heatmap-ctrl .section-divider {
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--divider-color),
-    transparent
-  );
-  border: none;
   margin: 8px 10px 6px;
 }
 /* ══════════════════════════════════════════════════

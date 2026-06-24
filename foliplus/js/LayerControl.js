@@ -126,7 +126,6 @@
       window._mapShared.LayerControlAPI = this;
     }
 
-    // 初始化注入数据
     init(initialData) {
       this.layers = [...initialData];
       this._loadSavedOrder();
@@ -376,8 +375,8 @@
         if (l.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
           html += `
-            <div class="layer-separator-container">
-              <div class="layer-separator"></div>
+              <div class="layer-separator-container">
+              <div class="section-divider"></div>
               <div class="separator-label">${_('layer.base_map_label')}</div>
             </div>`;
         }

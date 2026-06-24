@@ -161,6 +161,21 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   .section-divider — Gradient horizontal divider
+   Used by HeatmapControl, LayerControl and other panel components
+   ══════════════════════════════════════════════════════════════════════ */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--divider-color),
+    transparent
+  );
+  border: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    .ctrl-compact — Shared container for all components
    Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
    Expanded: defined by component or shared extension rules

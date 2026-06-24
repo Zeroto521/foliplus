@@ -41,16 +41,8 @@
   flex-shrink: 0;
   clear: both;
 }
-.layer-ctrl .layer-separator {
+.layer-ctrl .layer-separator-container .section-divider {
   flex: 1;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--divider-color),
-    transparent
-  );
-  border: none;
 }
 .layer-ctrl .separator-label {
   font-size: var(--font-size-xs);
