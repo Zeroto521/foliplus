@@ -120,12 +120,6 @@
 .heatmap-ctrl .field-wrap.hidden {
   display: none;
 }
-.heatmap-ctrl .field-wrap .form-select.is-placeholder {
-  color: var(--text-placeholder);
-}
-.heatmap-ctrl .field-wrap .form-select option.placeholder-option {
-  color: var(--text-placeholder);
-}
 
 /* ══════════════════════════════════════════════════
    Color Scheme Bar (scheme-bar)
