@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
-
+from ._cdn import GCOORD
+from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
 
@@ -25,29 +25,33 @@ class MeasureControl(BaseControl):
     Parameters
     ----------
     position : str, default "bottomright"
-        Control position. One of ``"topleft"``, ``"topright"``,
-        ``"bottomleft"``, ``"bottomright"``.
-    locale : LocaleConfig, optional
-        Localization configuration. Defaults to English.
+        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+
+    locale : str or LocaleConfig, optional
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Defaults to auto-detection, falling back to English.
 
     Examples
     --------
     >>> import folium
     >>> from foliplus import MeasureControl
     >>> m = folium.Map()
-    >>> MeasureControl(position="topright").add_to(m)
+    >>> MeasureControl().add_to(m)
     """
 
     default_js = [
-        ("gcoord", "https://cdn.jsdelivr.net/npm/gcoord/dist/gcoord.global.prod.js"),
+        (
+            "gcoord",
+            f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD}/dist/gcoord.global.prod.js",
+        ),
     ]
 
     def __init__(
         self,
-        position: str = "bottomright",
-        locale: Optional[LocaleConfig] = None,
+        position: Position = "bottomright",
+        locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self._template = self._get_template(
-            css_file="MeasureControl.css", js_file="MeasureControl.js"
+            js_file="MeasureControl.js", css_file="MeasureControl.css"
         )

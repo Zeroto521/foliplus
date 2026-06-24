@@ -1,0 +1,222 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Design Tokens — Shared across all Folium plugins
+   Single source of truth for colors, typography, spacing, and component styles
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Colors ── */
+  --ctrl-bg: #fff;
+  --ctrl-border: rgba(0, 0, 0, 0.2);
+  --ctrl-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
+  --ctrl-hover-bg: #f4f4f4;
+  --ctrl-active-bg: #e8e8e8;
+
+  --panel-bg: #fafafa;
+  --panel-header-bg: #fafafa;
+  --panel-header-hover: #f0f0f0;
+  --panel-border: #eee;
+
+  --text-primary: #333;
+  --text-secondary: #555;
+  --text-muted: #666;
+  --text-placeholder: #aaa;
+
+  --input-bg: #fff;
+  --input-border: #ccc;
+  --input-focus-border: #e74c3c;
+  --input-focus-shadow: rgba(231, 76, 60, 0.5);
+
+  --accent-primary: #e74c3c;
+  --accent-hover: #c0392b;
+  --accent-light: #fde8e8;
+  --btn-primary-bg: var(--accent-primary);
+  --btn-primary-hover: var(--accent-hover);
+  --btn-secondary-bg: #f5f5f5;
+  --btn-secondary-border: #ddd;
+  --btn-secondary-hover: #eaeaea;
+
+  --divider-color: #e0e0e0;
+  --panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  /* ── Typography ── */
+  --font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-base: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 14px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ── Spacing ── */
+  --space-xs: 2px;
+  --space-sm: 4px;
+  --space-md: 8px;
+  --space-lg: 12px;
+  --space-xl: 16px;
+  --space-xxl: 20px;
+
+  /* ── Sizing ── */
+  --ctrl-size: 30px;
+  --panel-width: 280px;
+  --input-height: 30px;
+  --btn-height: 30px;
+  --toggle-size: 36px;
+  --toggle-slider-size: 20px;
+  --toggle-off-bg: #ccc;
+
+  /* ── Border Radius ── */
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-card: 8px;
+  --radius-btn: 6px;
+  --radius-round: 50%;
+  --radius-pill: 20px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+  /* ── Transitions ── */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+
+  /* ── Z-index ── */
+  --z-index-dropdown: 9999;
+  --z-index-pane-base: 450;
+}
+
+/* ── Animations ── */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Toggle Button ── */
+.toggle-btn {
+  background: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  min-width: var(--ctrl-size);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+  will-change: transform;
+}
+.toggle-btn:hover {
+  background-color: var(--ctrl-hover-bg);
+  transform: scale(1.08);
+}
+.toggle-btn:active {
+  transform: scale(0.92);
+}
+.toggle-btn svg {
+  stroke: var(--text-primary);
+}
+
+/* ── Map Hint (Toast Notification) ── */
+.map-hint {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 8px 16px;
+  white-space: nowrap;
+  z-index: 10000;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Section Divider ── */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--divider-color),
+    transparent
+  );
+  border: none;
+}
+
+/* ── Ctrl Fold (Shared Container) ──
+   Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
+   Expanded: defined by component or shared extension rules */
+.ctrl-fold {
+  display: flex;
+  align-items: stretch;
+  background: var(--ctrl-bg);
+  box-sizing: border-box;
+  border-radius: var(--radius-md);
+}
+.ctrl-fold.collapsed {
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  border: 0;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.65);
+}
+/* Expanded toggle-btn shared styles */
+.ctrl-fold.expanded .toggle-btn {
+  background: transparent;
+  color: var(--accent-primary);
+  border-radius: 0;
+}
+.ctrl-fold.expanded .toggle-btn svg {
+  stroke: var(--accent-primary);
+}
+.ctrl-fold.align-right.expanded .toggle-btn {
+  border-right: none;
+  border-left: none;
+}
+
+/* ── Shared Toolbar ──
+   Used by MeasureControl / ExportControl
+   Separator via toggle-btn border-right (avoids flex compression issues) */
+.ctrl-fold .tool-bar {
+  display: none;
+  align-items: center;
+  padding: 0 2px;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+}
+.ctrl-fold.expanded .tool-bar {
+  display: flex;
+}
+/* Right-aligned layout: toggle-btn at right edge, toolbar leftwards */
+.ctrl-fold.align-right {
+  flex-direction: row-reverse;
+}
+.ctrl-fold.align-right .tool-bar {
+  flex-direction: row-reverse;
+}

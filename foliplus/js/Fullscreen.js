@@ -1,8 +1,10 @@
 (function() {
+  // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const SM = window._mapShared;
+  const foliplus = window.foliplus;
   const _ = (key) => _LOCALE[key] || key;
 
+  // ==================== SVG Icons ====================
   // Fullscreen icon: four-corner arrows
   const SVG_FULLSCREEN = `
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -14,13 +16,20 @@
       <line x1="3" y1="21" x2="10" y2="14"/>
     </svg>`;
 
-  SM.registerHintIcon('fullscreen', SVG_FULLSCREEN);
+  foliplus.registerHintIcon('fullscreen', SVG_FULLSCREEN);
 
-  // Create the fullscreen control and get its container
-  const fsControl = L.control.fullscreen({{ this.options | tojson }}).addTo(map);
+  // ==================== Control Setup ====================
+  const fsControl = L.control.fullscreen({
+    position: '{{ this.position }}',
+    title: '{{ this.locale.get("fullscreen.title") }}',
+    title_cancel: '{{ this.locale.get("fullscreen.title_cancel") }}',
+    force_separate_button: false,
+  }).addTo(map);
   const fsContainer = fsControl.getContainer();
 
-  // Replace the default icon and intercept default fullscreen logic
+  // ==================== Icon Replacement ====================
+  // Replace the default fullscreen icon with custom SVG,
+  // then break native event bindings by cloning the button.
   (function replaceIcon() {
     const btn = document.querySelector('.leaflet-control-zoom-fullscreen')
       || fsContainer?.querySelector('a, button');
@@ -48,7 +57,7 @@
     });
   })();
 
-  // Listen for Fullscreen API state changes
+  // ==================== Fullscreen Event Handling ====================
   const handleFullscreenChange = () => {
     const isFull = !!document.fullscreenElement;
 
@@ -67,7 +76,7 @@
       c.style.display = isFull ? 'none' : '';
     }
 
-    SM.showHint(
+    foliplus.showHint(
       'fullscreen',
       isFull ? _('fullscreen.enter') : _('fullscreen.exit'),
       2500

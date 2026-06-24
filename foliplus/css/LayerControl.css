@@ -2,17 +2,17 @@
    LayerControl — Layer management control styles
    ═══════════════════════════════════════════════════════════════════ */
 /* ── Custom Pane Interaction Rules ── */
-/* enhanced-layer-pane is dynamically created by LayerControl._enforceLayerOrder */
-.enhanced-layer-pane {
+/* layer-pane is dynamically created by LayerControl._enforceLayerOrder */
+.layer-pane {
   pointer-events: none !important;
 }
-.enhanced-layer-pane > svg {
+.layer-pane > svg {
   pointer-events: none !important;
 }
-.enhanced-layer-pane .leaflet-interactive {
+.layer-pane .leaflet-interactive {
   pointer-events: auto;
 }
-.enhanced-layer-pane .leaflet-marker-icon:not(.heatmap-label) {
+.layer-pane .leaflet-marker-icon:not(.heatmap-label) {
   pointer-events: auto !important;
 }
 
@@ -22,56 +22,45 @@
   z-index: 1000 !important;
 }
 /* ── Panel Content Overrides ── */
-.enhanced-layer-ctrl .panel-content {
-  padding: 4px 0;
+.layer-ctrl .panel-content {
+  padding: var(--space-sm) 0;
   max-height: 400px;
 }
-.enhanced-layer-ctrl .type-icon-col {
+.layer-ctrl .type-icon-col {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   width: 14px;
   flex-shrink: 0;
-  margin-left: 4px;
+  margin-left: var(--space-sm);
 }
-.enhanced-layer-ctrl .layer-separator-container {
+.layer-ctrl .layer-separator-container {
   display: flex;
   align-items: center;
-  margin: 8px 10px 6px;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg) var(--space-sm) var(--space-xxl);
   flex-shrink: 0;
-  clear: both;
 }
-.enhanced-layer-ctrl .layer-separator {
+.layer-ctrl .layer-separator-container .section-divider {
   flex: 1;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--divider-color),
-    transparent
-  );
-  border: none;
 }
-.enhanced-layer-ctrl .separator-label {
+.layer-ctrl .separator-label {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-left: 8px;
   white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-shrink: 0;
 }
-.enhanced-layer-ctrl .separator-icon {
-  font-size: 12px;
+.layer-ctrl .separator-icon {
+  font-size: var(--font-size-base);
   line-height: 1;
 }
-.enhanced-layer-ctrl .layer-item {
+.layer-ctrl .layer-item {
   display: flex;
   align-items: center;
-  padding: 6px 12px 6px 4px;
-  gap: 4px;
+  padding: var(--space-md) var(--space-lg) var(--space-md) var(--space-sm);
+  gap: var(--space-sm);
   cursor: default;
   user-select: none;
   border-radius: var(--radius-sm);
@@ -81,58 +70,56 @@
     background-color var(--transition-fast),
     border-color var(--transition-fast);
 }
-.enhanced-layer-ctrl .layer-item[draggable="true"] {
+.layer-ctrl .layer-item[draggable="true"] {
   cursor: move;
 }
-.enhanced-layer-ctrl .layer-item:hover {
+.layer-ctrl .layer-item:hover {
   background: var(--panel-header-hover);
 }
-.enhanced-layer-ctrl .layer-item.is-active {
+.layer-ctrl .layer-item.is-active {
   border-left-color: var(--accent-primary);
   background: var(--accent-light);
 }
-.enhanced-layer-ctrl .layer-item.dragging {
+.layer-ctrl .layer-item.dragging {
   background: var(--accent-light);
   opacity: 0.7;
 }
-.enhanced-layer-ctrl .layer-item.drag-over-top {
+.layer-ctrl .layer-item.drag-over-top {
   border-top: 2px solid var(--accent-primary);
   background: rgba(231, 76, 60, 0.06);
 }
-.enhanced-layer-ctrl .layer-item.drag-over-bottom {
+.layer-ctrl .layer-item.drag-over-bottom {
   border-bottom: 2px solid var(--accent-primary);
   background: rgba(231, 76, 60, 0.06);
 }
-.enhanced-layer-ctrl .layer-item .drag-handle {
-  margin-right: 6px;
+.layer-ctrl .layer-item .drag-handle {
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
-.enhanced-layer-ctrl .layer-item:hover .drag-handle {
+.layer-ctrl .layer-item:hover .drag-handle {
   opacity: 1;
 }
 /* ── Layer item spacer ── */
-.enhanced-layer-ctrl .layer-item .layer-item-spacer {
-  width: 12px;
-  margin-right: 6px;
+.layer-ctrl .layer-item .layer-item-spacer {
+  width: var(--space-lg);
   flex-shrink: 0;
 }
 /* ── Custom Checkbox ── */
-.enhanced-layer-ctrl .layer-item .checkbox-wrapper {
+.layer-ctrl .layer-item .checkbox-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: var(--space-xl);
+  height: var(--space-xl);
   flex-shrink: 0;
 }
-.enhanced-layer-ctrl .layer-item input[type="checkbox"] {
+.layer-ctrl .layer-item input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  width: 16px;
-  height: 16px;
+  width: var(--space-xl);
+  height: var(--space-xl);
   border: 1.5px solid var(--input-border);
   border-radius: var(--radius-sm);
   background: var(--input-bg);
@@ -142,14 +129,14 @@
   transition: all var(--transition-fast);
   flex-shrink: 0;
 }
-.enhanced-layer-ctrl .layer-item input[type="checkbox"]:hover {
+.layer-ctrl .layer-item input[type="checkbox"]:hover {
   border-color: var(--accent-primary);
 }
-.enhanced-layer-ctrl .layer-item input[type="checkbox"]:checked {
+.layer-ctrl .layer-item input[type="checkbox"]:checked {
   background: var(--accent-primary);
   border-color: var(--accent-primary);
 }
-.enhanced-layer-ctrl .layer-item input[type="checkbox"]:checked::after {
+.layer-ctrl .layer-item input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
   left: 4px;
@@ -161,12 +148,12 @@
   transform: rotate(45deg);
 }
 /* ── Custom Radio Button ── */
-.enhanced-layer-ctrl .layer-item input[type="radio"] {
+.layer-ctrl .layer-item input[type="radio"] {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  width: 16px;
-  height: 16px;
+  width: var(--space-xl);
+  height: var(--space-xl);
   border: 1.5px solid var(--input-border);
   border-radius: 50%;
   background: var(--input-bg);
@@ -176,23 +163,23 @@
   transition: all var(--transition-fast);
   flex-shrink: 0;
 }
-.enhanced-layer-ctrl .layer-item input[type="radio"]:hover {
+.layer-ctrl .layer-item input[type="radio"]:hover {
   border-color: var(--accent-primary);
 }
-.enhanced-layer-ctrl .layer-item input[type="radio"]:checked {
+.layer-ctrl .layer-item input[type="radio"]:checked {
   border-color: var(--accent-primary);
 }
-.enhanced-layer-ctrl .layer-item input[type="radio"]:checked::after {
+.layer-ctrl .layer-item input[type="radio"]:checked::after {
   content: "";
   position: absolute;
   left: 3px;
   top: 3px;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--accent-primary);
 }
-.enhanced-layer-ctrl .layer-item label {
+.layer-ctrl .layer-item label {
   cursor: inherit;
   flex: 1;
   white-space: nowrap;
@@ -202,15 +189,15 @@
   font-weight: normal;
 }
 /* Keyboard focus indication */
-.enhanced-layer-ctrl :focus-visible {
+.layer-ctrl :focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 1px;
   border-radius: var(--radius-sm);
 }
 /* ── Solid color layer picker ── */
-.enhanced-layer-ctrl .color-layer-input {
-  width: 20px;
-  height: 20px;
+.layer-ctrl .color-layer-input {
+  width: var(--space-xxl);
+  height: var(--space-xxl);
   border: 2px solid var(--input-border);
   border-radius: var(--radius-round);
   cursor: pointer;
@@ -221,25 +208,25 @@
     border-color var(--transition-fast),
     box-shadow var(--transition-fast);
 }
-.enhanced-layer-ctrl .color-layer-input:hover {
+.layer-ctrl .color-layer-input:hover {
   border-color: var(--accent-primary);
 }
-.enhanced-layer-ctrl .color-layer-input::-webkit-color-swatch-wrapper {
+.layer-ctrl .color-layer-input::-webkit-color-swatch-wrapper {
   padding: 0;
 }
-.enhanced-layer-ctrl .color-layer-input::-webkit-color-swatch {
+.layer-ctrl .color-layer-input::-webkit-color-swatch {
   border: none;
   border-radius: var(--radius-round);
 }
-.enhanced-layer-ctrl .color-layer-input::-moz-color-swatch {
+.layer-ctrl .color-layer-input::-moz-color-swatch {
   border: none;
   border-radius: var(--radius-round);
 }
-.enhanced-layer-ctrl .layer-item.color-active {
+.layer-ctrl .layer-item.is-color-active {
   background: var(--accent-light);
   border-left-color: var(--accent-primary);
 }
-.enhanced-layer-ctrl .layer-item.color-active .color-layer-input {
+.layer-ctrl .layer-item.is-color-active .color-layer-input {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 2px var(--input-focus-shadow);
 }

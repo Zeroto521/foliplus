@@ -12,7 +12,7 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const SM = window._mapShared;
+  const foliplus = window.foliplus;
   const mapContainer = map.getContainer();
   const _ = (key) => _LOCALE[key] || key;
 
@@ -116,17 +116,15 @@
       this.currentColor = _CONST.COLOR_DEFAULT;
       this.dragIdx = null;
 
-      // Bind method context to prevent 'this' loss when called via window._mapShared.LayerControlAPI
+      // Bind method context to prevent 'this' loss when called via window.foliplus.LayerControlAPI
       this.registerLayer = this.registerLayer.bind(this);
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
-      this.enforceOrder = this.enforceOrder.bind(this);
 
-      window._mapShared.LayerControlAPI = this;
+      window.foliplus.LayerControlAPI = this;
     }
 
-    // 初始化注入数据
     init(initialData) {
       this.layers = [...initialData];
       this._loadSavedOrder();
@@ -156,11 +154,30 @@
       } catch (e) {}
     }
 
-    // Public API Methods
+    // ==================== Public API Methods ====================
+    // These are exposed via window.foliplus.LayerControlAPI for runtime use.
+    //
+    // Usage:
+    //   const api = window.foliplus.LayerControlAPI;
+    //   api.registerLayer({ id: 'myLayer', name: 'My Layer', layer: leafletLayer });
+    //   api.unregisterLayer('myLayer');
+    //   const type = api.getLayerType('myLayer');
+    //   const layers = api.getLayersByType('polygon');
+
+    /**
+     * Get the geometry type of a registered layer.
+     * @param {string} id - Layer ID set when calling registerLayer().
+     * @returns {string|null} "point" | "line" | "polygon" | "base" | null
+     */
     getLayerType(id) {
       return this.typeMap.get(id)?.type ?? null;
     }
 
+    /**
+     * Get all registered layers of a given geometry type.
+     * @param {string} type - "point" | "line" | "polygon" | "base"
+     * @returns {Array<{id: string, name: string}>}
+     */
     getLayersByType(type) {
       const result = [];
       for (const [id, info] of this.typeMap) {
@@ -169,6 +186,24 @@
       return result;
     }
 
+    /**
+     * Register (or re-register) a layer with the LayerManager.
+     *
+     * The layer appears at the top of the overlay list with a checkbox,
+     * geometry type icon, and drag handle. If the UI has already been
+     * rendered, a corresponding DOM item is created immediately.
+     *
+     * @param {Object} opts
+     * @param {string} opts.id       - Unique identifier for the layer.
+     * @param {string} [opts.name]   - Display name (falls back to id).
+     * @param {Object} [opts.layer]  - Leaflet layer instance (L.Layer).
+     * @param {boolean} [opts.isBase] - If true, grouped under "Base Map"
+     *                                  separator. Draggable and multi-select
+     *                                  like overlays.
+     * @param {string} [opts.paneName] - Custom pane name for z-order grouping.
+     * @param {string} [opts.iconSvg]  - Custom SVG icon HTML for the type column.
+     * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
+     */
     registerLayer(opts) {
       if (!opts?.id) throw new Error('[LayerManager] opts.id is required');
 
@@ -189,7 +224,7 @@
         let pane = this.map.getPane(opts.paneName);
         if (!pane) {
           pane = this.map.createPane(opts.paneName);
-          pane.classList.add('enhanced-layer-pane');
+          pane.classList.add('layer-pane');
         }
         let renderer = this.map[`_renderer_${opts.paneName}`];
         if (!renderer) {
@@ -228,6 +263,15 @@
       return newItem;
     }
 
+    /**
+     * Unregister and remove a layer from the map and panel.
+     *
+     * Removes the Leaflet layer from the map, deletes the global reference,
+     * and removes the corresponding DOM item from the layer list.
+     *
+     * @param {string} id - The layer ID previously passed to registerLayer().
+     * @returns {boolean} true if layer was found and removed, false otherwise.
+     */
     unregisterLayer(id) {
       const idx = this.layers.findIndex(l => l.id === id);
       if (idx === -1) return false;
@@ -280,7 +324,6 @@
       const layerInfos = new Map();
 
       for (let i = 0; i < this.layers.length; i++) {
-        if (this.layers[i].isBase) continue;
         const l_id = this.layers[i].id;
         const layer = this.map._layers[l_id] || window[l_id] || null;
         if (layer && this.map.hasLayer(layer)) {
@@ -300,7 +343,7 @@
         let pane = this.map.getPane(paneName);
         if (!pane) {
           pane = this.map.createPane(paneName);
-          pane.classList.add('enhanced-layer-pane');
+          pane.classList.add('layer-pane');
         }
 
         let renderer = this.map[`_renderer_${paneName}`];
@@ -341,11 +384,10 @@
 
     _createItemDOM(info) {
       const en = LayerUtils.escapeHTML(info.name);
-      const spacer = '<div class="layer-item-spacer"></div>';
-      const handle = info.isBase ? spacer : SVGS.DRAG_HANDLE;
+      const handle = SVGS.DRAG_HANDLE;
       const item = document.createElement('div');
-      item.className = 'layer-item is-active';
-      item.draggable = !info.isBase;
+      item.className = 'layer-item is-active' + (info.isBase ? ' is-base-item' : '');
+      item.draggable = true;
       item.dataset.index = String(info.index);
       item.dataset.layerId = String(info.id);
       item.title = en;
@@ -376,18 +418,17 @@
         if (l.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
           html += `
-            <div class="layer-separator-container">
-              <div class="layer-separator"></div>
-              <div class="separator-label">${_('layer.base_map_label')}</div>
+              <div class="layer-separator-container">
+              <span class="separator-label">${_('layer.base_map_label')}</span>
+              <div class="section-divider"></div>
             </div>`;
         }
         const en = LayerUtils.escapeHTML(l.name);
-        const spacer = '<div class="layer-item-spacer"></div>';
         html += `
-          <div class="layer-item" draggable="${!l.isBase}"
+          <div class="layer-item${l.isBase ? ' is-base-item' : ''}" draggable="true"
                data-index="${i}" data-layer-id="${l.id}"
                title="${en}">
-            ${l.isBase ? spacer : SVGS.DRAG_HANDLE}
+            ${SVGS.DRAG_HANDLE}
             <div class="checkbox-wrapper">
               <input type="checkbox" checked data-index="${i}"
                      aria-label="${en}">
@@ -469,6 +510,15 @@
       this.uiContainer.addEventListener('change', this._handleChange.bind(this));
       this.uiContainer.addEventListener('input', this._handleInput.bind(this));
 
+      // Clicking anywhere on the color layer item deselects all base maps
+      this.uiContainer.addEventListener('click', (e) => {
+        if (e.target.closest('.color-layer-item')) {
+          this._deselectAllBaseMaps(-1);
+          this._showColorLayer(this.currentColor);
+          this.enforceOrder();
+        }
+      });
+
       this.uiContainer.addEventListener('dragstart', this._handleDragStart.bind(this));
       this.uiContainer.addEventListener('dragover', this._handleDragOver.bind(this));
       this.uiContainer.addEventListener('dragleave', this._handleDragLeave.bind(this));
@@ -492,20 +542,10 @@
       const item = target.closest('.layer-item');
 
       if (layerInfo.isBase) {
-        if (target.checked) {
-          this._hideColorLayer();
-          this._deselectAllBaseMaps(idx);
-          if (layer) {
-            this.map.addLayer(layer);
-            this.map.invalidateSize({ animate: false });
-          }
-        } else {
-          if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
-        }
-      } else {
-        if (layer) {
-          target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
-        }
+        this._hideColorLayer();
+      }
+      if (layer) {
+        target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
       }
 
       if (item) target.checked ? item.classList.add('is-active') : item.classList.remove('is-active');
@@ -521,12 +561,7 @@
     _handleDragStart(e) {
       const item = e.target.closest('.layer-item');
       if (!item) return;
-      const idx = parseInt(item.dataset.index);
-      if (this.layers[idx].isBase) {
-        e.preventDefault();
-        return;
-      }
-      this.dragIdx = idx;
+      this.dragIdx = parseInt(item.dataset.index);
       item.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
     }
@@ -537,8 +572,6 @@
       if (!item || item.classList.contains('color-layer-item')) return;
 
       const targetIdx = parseInt(item.dataset.index);
-      if (this.layers[targetIdx].isBase) return;
-
       const allItems = this.uiContainer.querySelectorAll('.layer-item');
       allItems.forEach(i => i.classList.remove('drag-over-top', 'drag-over-bottom'));
 
@@ -557,7 +590,7 @@
       if (!target || this.dragIdx === null || target.classList.contains('color-layer-item')) return;
 
       const targetIdx = parseInt(target.dataset.index);
-      if (this.dragIdx === targetIdx || this.layers[targetIdx].isBase) return;
+      if (this.dragIdx === targetIdx) return;
 
       const moved = this.layers.splice(this.dragIdx, 1)[0];
       this.layers.splice(targetIdx, 0, moved);
@@ -618,7 +651,7 @@
 
       const ci = this.uiContainer.querySelector('.color-layer-input');
       if (ci) ci.value = color;
-      this.uiContainer.querySelector('.color-layer-item')?.classList.add('color-active');
+      this.uiContainer.querySelector('.color-layer-item')?.classList.add('is-color-active');
     }
 
     _hideColorLayer() {
@@ -629,7 +662,7 @@
         tilePane.style.visibility = '';
         tilePane.style.opacity = '';
       }
-      this.uiContainer.querySelector('.color-layer-item')?.classList.remove('color-active');
+      this.uiContainer.querySelector('.color-layer-item')?.classList.remove('is-color-active');
     }
 
     _deselectAllBaseMaps(exceptIdx) {
@@ -678,7 +711,7 @@
       const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
 
       container.innerHTML = `
-        <div class="map-panel ctrl-compact enhanced-layer-ctrl collapsed"
+        <div class="map-panel ctrl-fold layer-ctrl collapsed"
              id="{{ this.get_name() }}_ctrl">
           <button class="toggle-btn" title="${_('layer.toggle_title')}"
                   aria-label="${_('layer.toggle_title')}">
@@ -693,7 +726,7 @@
               </span>
               <button class="close-btn" title="${_('layer.close_title')}"
                       aria-label="${_('layer.close_title')}">
-                ${SM.SVGs.CLOSE}
+                ${foliplus.SVGs.CLOSE}
               </button>
             </div>
             <div class="panel-content"></div>
@@ -704,10 +737,10 @@
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.disableScrollPropagation(container);
 
-      const ctrl = container.querySelector('.enhanced-layer-ctrl');
+      const ctrl = container.querySelector('.layer-ctrl');
       const panelContent = container.querySelector('.panel-content');
 
-      SM.bindPanelToggle({
+      foliplus.bindPanelToggle({
         container: ctrl, toggleBtn: '.toggle-btn', header: '.panel-header',
       });
 

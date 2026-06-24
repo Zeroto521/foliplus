@@ -1,7 +1,10 @@
 (function() {
+  // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const SM = window._mapShared;
+  const foliplus = window.foliplus;
   const _ = (key) => _LOCALE[key] || key;
+
+  // ==================== Localized Text ====================
   // Wrapper so shared functions (createLocationMarker etc.) can access properties
   const _TXT = {
     get POPUP_TITLE_COORD() { return _('search.popup_title_coord'); },
@@ -13,31 +16,32 @@
     get POPUP_LOADING_PREFIX() { return 'LOADING'; },
   };
 
-  SM.registerHintIcon('map-search', SM.SVGs.SEARCH);
+  foliplus.registerHintIcon('map-search', foliplus.SVGs.SEARCH);
 
-  // Mode constants
+  // ==================== Constants ====================
   const MODE = { COORD: 'coord', ADDR: 'addr' };
 
-  function _hideSearchHint() { SM.hideHint('map-search'); }
-  function _showSearchHint(msg, duration) { SM.showHint('map-search', msg, duration); }
+  // ==================== Helper Functions ====================
+  function _hideSearchHint() { foliplus.hideHint('map-search'); }
+  function _showSearchHint(msg, duration) { foliplus.showHint('map-search', msg, duration); }
 
-  // Define and instantiate the control
+  // ==================== Control Definition ====================
   new (L.Control.extend({
     onAdd: function() {
       const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
       const ctrl = L.DomUtil.create(
-        "div", "map-search ctrl-compact collapsed", container
+        "div", "map-search ctrl-fold collapsed", container
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
       ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_('search.btn_title')}">${SM.SVGs.SEARCH}</button>
+        <button class="toggle-btn" title="${_('search.btn_title')}">${foliplus.SVGs.SEARCH}</button>
         <div class="search-form">
-          <button class="search-mode-btn" title="${_('search.mode_coord')}">${SM.SVGs.LOCATE}
+          <button class="search-mode-btn" title="${_('search.mode_coord')}">${foliplus.SVGs.LOCATE}
           </button>
           <div class="clear-wrap">
             <input type="text" placeholder="${_('search.coord_placeholder')}" />
             <button class="clear-btn" title="${_('search.clear_title')}">
-              ${SM.SVGs.CLOSE}
+              ${foliplus.SVGs.CLOSE}
             </button>
           </div>
         </div>
@@ -55,11 +59,11 @@
       function _setMode(newMode) {
         mode = newMode;
         if (mode === MODE.COORD) {
-          modeBtn.innerHTML = SM.SVGs.LOCATE;
+          modeBtn.innerHTML = foliplus.SVGs.LOCATE;
           modeBtn.title = _('search.mode_coord');
           inp.placeholder = _('search.coord_placeholder');
         } else {
-          modeBtn.innerHTML = SM.SVGs.GLOBE;
+          modeBtn.innerHTML = foliplus.SVGs.GLOBE;
           modeBtn.title = _('search.mode_addr');
           inp.placeholder = _('search.addr_placeholder');
         }
@@ -115,14 +119,14 @@
         const lng = parts[0], lat = parts[1];
         _hideSearchHint();
         map.flyTo([lat, lng], {{ this.zoom }});
-        mk = SM.createLocationMarker(
+        mk = foliplus.createLocationMarker(
           map, lat, lng, null, _LOCALE, _('search.popup_title_coord'), mk
         );
       }
 
       // Address search via Nominatim
       function _doAddrSearch(query) {
-        _showSearchHint(SM.SVGs.LOADING + ' ' + _('search.popup_loading'), 0);
+        _showSearchHint(foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0);
 
         fetch('https://nominatim.openstreetmap.org/search' +
           '?format=jsonv2&q=' + encodeURIComponent(query) +
@@ -141,18 +145,18 @@
             const displayName = item.display_name || query;
 
             // Transform coordinates from WGS84 to the map's CRS
-            const converted = SM.fromWgs84(map, lng, lat);
+            const converted = foliplus.fromWgs84(map, lng, lat);
             lng = converted[0]; lat = converted[1];
 
             const zoom = Math.min(16,
               Math.max(12, 18 - Math.floor(displayName.length / 20)));
             map.flyTo([lat, lng], zoom);
-            mk = SM.createLocationMarker(
+            mk = foliplus.createLocationMarker(
               map, lat, lng, displayName, _LOCALE, _('search.popup_title_addr'), mk
             );
           })
           .catch(function(err) {
-            console.error(err);
+            console.error('[MapSearch] ' + _('search.addr_error'));
             _hideSearchHint();
             _showSearchHint(_('search.addr_error'), 5000);
           });
@@ -174,7 +178,7 @@
       });
 
       // Collapse on outside click
-      SM.bindOutsideCollapse({
+      foliplus.bindOutsideCollapse({
         map: map, container: ctrl,
         shouldCollapse: function() { return !inp.value.trim(); },
         onCollapse: function() { _hideSearchHint(); }
