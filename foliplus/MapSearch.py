@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional, Union
-
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from ._cdn import CHROMA_JS, H3_JS, SIMPLE_STATISTICS
 from ._typing import Position

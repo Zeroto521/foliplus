@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional, Union
-
 from ._cdn import LEAFLET_FULLSCREEN
 from ._typing import Position
 from .base import BaseControl

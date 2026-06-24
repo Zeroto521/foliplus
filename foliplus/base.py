@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Union
 
 from folium import MacroElement
 from folium.elements import JSCSSMixin

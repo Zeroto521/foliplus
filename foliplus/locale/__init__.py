@@ -28,19 +28,17 @@ import locale as _stdlib_locale
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional, Union
+
 
 # ===========================================================================
 # Package root — used to locate built-in JSON locale files
 # ===========================================================================
-
 _LOCALE_DIR = Path(__file__).parent
+
 
 # ===========================================================================
 # Language code → string table (loaded from JSON files)
 # ===========================================================================
-
-
 def _load_builtin_tables() -> dict[str, dict[str, str]]:
     """Scan ``foliplus/locale/*.json`` and load each as a language table."""
     tables: dict[str, dict[str, str]] = {}
@@ -56,11 +54,10 @@ def _load_builtin_tables() -> dict[str, dict[str, str]]:
 
 LOCALE_TABLES: dict[str, dict[str, str]] = _load_builtin_tables()
 
+
 # ===========================================================================
 # Public helpers
 # ===========================================================================
-
-
 @dataclass
 class LocaleConfig:
     """Locale configuration for a control instance.
@@ -90,8 +87,6 @@ class LocaleConfig:
     def __post_init__(self):
         table = LOCALE_TABLES.get(self.language, LOCALE_TABLES["en"])
         self._strings = dict(table)
-
-    # ── Classmethods ──────────────────────────────────────────────
 
     @classmethod
     def from_file(cls, path: str | Path) -> LocaleConfig:
@@ -144,8 +139,6 @@ class LocaleConfig:
             json.dumps(self._strings, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-
-    # ── Public API ────────────────────────────────────────────────
 
     def get(self, key: str, default: str | None = None) -> str:
         """Look up a localized string by key."""
