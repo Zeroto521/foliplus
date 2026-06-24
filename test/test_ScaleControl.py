@@ -42,7 +42,7 @@ class TestScaleControlRendering:
     def test_default_params(self, base_map: folium.Map):
         ScaleControl().add_to(base_map)
         html = render(base_map)
-        assert "custom-scale-wrap" in html
+        assert "scale-wrap" in html
 
     def test_metric_default(self, base_map: folium.Map):
         ScaleControl().add_to(base_map)

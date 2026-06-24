@@ -1,4 +1,4 @@
-.custom-scale-wrap {
+.scale-wrap {
   padding: 0;
   margin: 0;
   white-space: nowrap;
@@ -10,7 +10,7 @@
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.15);
 }
-.custom-scale-wrap .leaflet-control-scale-line {
+.scale-wrap .leaflet-control-scale-line {
   border-left: 2px solid var(--text-primary);
   border-right: 2px solid var(--text-primary);
   border-top: none;

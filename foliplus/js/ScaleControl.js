@@ -12,7 +12,7 @@
     .addTo(map)
     .getContainer();
 
-  wrap.classList.add('custom-scale-wrap');
+  wrap.classList.add('scale-wrap');
 
   {% if this.show_zoom %}
   // Create a zoom level label
