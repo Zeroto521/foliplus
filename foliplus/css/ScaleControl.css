@@ -1,0 +1,33 @@
+.scale-wrap {
+  padding: 0;
+  margin: 0;
+  white-space: nowrap;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: flex-end;
+  border-radius: var(--radius-sm, 3px);
+  background: #fff;
+  border: 1px solid var(--ctrl-border);
+}
+.scale-wrap .leaflet-control-scale-line {
+  border-left: 2px solid var(--text-primary);
+  border-right: 2px solid var(--text-primary);
+  border-top: none;
+  border-bottom: 2px solid var(--text-primary);
+  margin: 0;
+  display: inline-block;
+  line-height: 12px;
+  padding: var(--space-xs) var(--space-sm);
+  text-align: center;
+  background: #fff;
+  box-shadow: none;
+}
+.scale-zoom-label {
+  margin-left: var(--space-sm);
+  margin-right: var(--space-sm);
+  font: inherit;
+  color: inherit;
+  line-height: normal;
+  background: #fff;
+}

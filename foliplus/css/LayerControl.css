@@ -1,0 +1,232 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LayerControl — Layer management control styles
+   ═══════════════════════════════════════════════════════════════════ */
+/* ── Custom Pane Interaction Rules ── */
+/* layer-pane is dynamically created by LayerControl._enforceLayerOrder */
+.layer-pane {
+  pointer-events: none !important;
+}
+.layer-pane > svg {
+  pointer-events: none !important;
+}
+.layer-pane .leaflet-interactive {
+  pointer-events: auto;
+}
+.layer-pane .leaflet-marker-icon:not(.heatmap-label) {
+  pointer-events: auto !important;
+}
+
+/* ── Canvas Pane Common Rules ── */
+/* When pane has Canvas renderer, markers float above canvas */
+.leaflet-pane.has-canvas > .leaflet-marker-icon {
+  z-index: 1000 !important;
+}
+/* ── Panel Content Overrides ── */
+.layer-ctrl .panel-content {
+  padding: var(--space-sm) 0;
+  max-height: 400px;
+}
+.layer-ctrl .type-icon-col {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 14px;
+  flex-shrink: 0;
+  margin-left: var(--space-sm);
+}
+.layer-ctrl .layer-separator-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg) var(--space-sm) var(--space-xxl);
+  flex-shrink: 0;
+}
+.layer-ctrl .layer-separator-container .section-divider {
+  flex: 1;
+}
+.layer-ctrl .separator-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.layer-ctrl .separator-icon {
+  font-size: var(--font-size-base);
+  line-height: 1;
+}
+.layer-ctrl .layer-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg) var(--space-md) var(--space-sm);
+  gap: var(--space-sm);
+  cursor: default;
+  user-select: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  border-left: 2px solid transparent;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.layer-ctrl .layer-item[draggable="true"] {
+  cursor: move;
+}
+.layer-ctrl .layer-item:hover {
+  background: var(--panel-header-hover);
+}
+.layer-ctrl .layer-item.is-active {
+  border-left-color: var(--accent-primary);
+  background: var(--accent-light);
+}
+.layer-ctrl .layer-item.dragging {
+  background: var(--accent-light);
+  opacity: 0.7;
+}
+.layer-ctrl .layer-item.drag-over-top {
+  border-top: 2px solid var(--accent-primary);
+  background: rgba(231, 76, 60, 0.06);
+}
+.layer-ctrl .layer-item.drag-over-bottom {
+  border-bottom: 2px solid var(--accent-primary);
+  background: rgba(231, 76, 60, 0.06);
+}
+.layer-ctrl .layer-item .drag-handle {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.layer-ctrl .layer-item:hover .drag-handle {
+  opacity: 1;
+}
+/* ── Layer item spacer ── */
+.layer-ctrl .layer-item .layer-item-spacer {
+  width: var(--space-lg);
+  flex-shrink: 0;
+}
+/* ── Custom Checkbox ── */
+.layer-ctrl .layer-item .checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-xl);
+  height: var(--space-xl);
+  flex-shrink: 0;
+}
+.layer-ctrl .layer-item input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: var(--space-xl);
+  height: var(--space-xl);
+  border: 1.5px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.layer-ctrl .layer-item input[type="checkbox"]:hover {
+  border-color: var(--accent-primary);
+}
+.layer-ctrl .layer-item input[type="checkbox"]:checked {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+.layer-ctrl .layer-item input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+/* ── Custom Radio Button ── */
+.layer-ctrl .layer-item input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: var(--space-xl);
+  height: var(--space-xl);
+  border: 1.5px solid var(--input-border);
+  border-radius: 50%;
+  background: var(--input-bg);
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.layer-ctrl .layer-item input[type="radio"]:hover {
+  border-color: var(--accent-primary);
+}
+.layer-ctrl .layer-item input[type="radio"]:checked {
+  border-color: var(--accent-primary);
+}
+.layer-ctrl .layer-item input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-round);
+  background: var(--accent-primary);
+}
+.layer-ctrl .layer-item label {
+  cursor: inherit;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  font-weight: normal;
+}
+/* Keyboard focus indication */
+.layer-ctrl :focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+}
+/* ── Solid color layer picker ── */
+.layer-ctrl .color-layer-input {
+  width: var(--space-xxl);
+  height: var(--space-xxl);
+  border: 2px solid var(--input-border);
+  border-radius: var(--radius-round);
+  cursor: pointer;
+  padding: 0;
+  background: none;
+  flex-shrink: 0;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+.layer-ctrl .color-layer-input:hover {
+  border-color: var(--accent-primary);
+}
+.layer-ctrl .color-layer-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.layer-ctrl .color-layer-input::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--radius-round);
+}
+.layer-ctrl .color-layer-input::-moz-color-swatch {
+  border: none;
+  border-radius: var(--radius-round);
+}
+.layer-ctrl .layer-item.is-color-active {
+  background: var(--accent-light);
+  border-left-color: var(--accent-primary);
+}
+.layer-ctrl .layer-item.is-color-active .color-layer-input {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--input-focus-shadow);
+}
