@@ -1,0 +1,7 @@
+prune test
+prune doc
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .pytest_cache
+global-exclude .coverage
+global-exclude coverage.xml
