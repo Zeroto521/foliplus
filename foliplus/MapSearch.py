@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
 
@@ -21,9 +22,11 @@ class MapSearch(BaseControl):
     ----------
     zoom : int, default 15
         Zoom level after coordinate search. Typically 1-18.
+
     position : str, default "topleft"
         Control position. One of ``"topleft"``, ``"topright"``,
         ``"bottomleft"``, ``"bottomright"``.
+
     locale : LocaleConfig, optional
         Localization configuration. Defaults to English.
 
@@ -38,11 +41,11 @@ class MapSearch(BaseControl):
     def __init__(
         self,
         zoom: int = 15,
-        position: str = "topleft",
+        position: Position = "topleft",
         locale: Optional[LocaleConfig] = None,
     ):
         super().__init__(position=position, locale=locale)
         self.zoom = zoom
         self._template = self._get_template(
-            css_file="MapSearch.css", js_file="MapSearch.js"
+            js_file="MapSearch.js", css_file="MapSearch.css"
         )

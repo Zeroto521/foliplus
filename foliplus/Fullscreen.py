@@ -1,5 +1,8 @@
+from typing import Optional
+
 from folium.plugins import Fullscreen as FoliumFullscreen
 
+from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
 
@@ -16,11 +19,14 @@ class Fullscreen(FoliumFullscreen, BaseControl):
     position : str, default "bottomright"
         Button position. One of ``"topleft"``, ``"topright"``,
         ``"bottomleft"``, ``"bottomright"``.
+
     hide_self : bool, default True
         Whether to hide the fullscreen button itself after entering fullscreen.
         Users can exit via the ``Esc`` key.
+
     locale : LocaleConfig, optional
         Localization configuration. Defaults to English.
+
     **kwargs
         Extra keyword arguments forwarded to :class:`folium.plugins.Fullscreen`.
 
@@ -29,14 +35,14 @@ class Fullscreen(FoliumFullscreen, BaseControl):
     >>> import folium
     >>> from foliplus import Fullscreen
     >>> m = folium.Map()
-    >>> Fullscreen(position="bottomright").add_to(m)
+    >>> Fullscreen().add_to(m)
     """
 
     def __init__(
         self,
-        position: str = "bottomright",
+        position: Position = "bottomright",
         hide_self: bool = True,
-        locale: LocaleConfig = None,
+        locale: Optional[LocaleConfig] = None,
         **kwargs,
     ):
         FoliumFullscreen.__init__(self, position=position, **kwargs)

@@ -1,8 +1,8 @@
 """
 Localization support for foliplus UI components.
 
-Provides language-specific string tables for all frontend UI text
-and a helper to inject the correct locale into Jinja2 templates.
+Provides language-specific string tables for all frontend UI text and a helper to inject
+the correct locale into Jinja2 templates.
 """
 
 from __future__ import annotations

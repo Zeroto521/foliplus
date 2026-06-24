@@ -8,6 +8,7 @@ from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
 
+from ._typing import Position
 from .locale import EN, LocaleConfig
 
 src_dir = Path(__file__).parent
@@ -27,7 +28,7 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     def __init__(
         self,
-        position: str = "topleft",
+        position: Position = "topleft",
         locale: Optional[LocaleConfig] = None,
     ):
         super().__init__()
@@ -35,21 +36,22 @@ class BaseControl(JSCSSMixin, MacroElement):
         self.position = position
         self.locale = locale or EN
 
-    def _get_css(self, filename: str) -> str:
-        return css_dir.joinpath(filename).read_text(encoding="utf-8")
-
     def _get_js(self, filename: str) -> str:
         return js_dir.joinpath(filename).read_text(encoding="utf-8")
 
+    def _get_css(self, filename: str) -> str:
+        return css_dir.joinpath(filename).read_text(encoding="utf-8")
+
     def _get_template(
         self,
-        css_file: Optional[str] = None,
+        *,
         js_file: Optional[str] = None,
+        css_file: Optional[str] = None,
         use_panel: bool = False,
     ) -> Template:
         """Build a Jinja2 template with shared CSS/JS + component assets."""
-        css_content = self._get_css(css_file) if css_file else ""
         js_content = self._get_js(js_file) if js_file else ""
+        css_content = self._get_css(css_file) if css_file else ""
         panel_css = self._panel if use_panel else ""
         locale_table = self.locale.get_js_table()
 

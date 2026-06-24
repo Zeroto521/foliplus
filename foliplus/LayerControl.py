@@ -4,6 +4,7 @@ from typing import Optional
 
 from folium import LayerControl as FoliumLayerControl
 
+from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
 
@@ -24,8 +25,10 @@ class LayerControl(FoliumLayerControl, BaseControl):
     position : str, default "topleft"
         Control position. One of ``"topleft"``, ``"topright"``,
         ``"bottomleft"``, ``"bottomright"``.
+
     locale : LocaleConfig, optional
         Localization configuration. Defaults to English.
+
     **kwargs
         Extra keyword arguments forwarded to :class:`folium.LayerControl`.
 
@@ -45,12 +48,12 @@ class LayerControl(FoliumLayerControl, BaseControl):
 
     def __init__(
         self,
-        position: str = "topleft",
+        position: Position = "topleft",
         locale: Optional[LocaleConfig] = None,
         **kwargs,
     ):
         FoliumLayerControl.__init__(self, position=position, **kwargs)
         BaseControl.__init__(self, position=position, locale=locale)
         self._template = self._get_template(
-            css_file="LayerControl.css", js_file="LayerControl.js", use_panel=True
+            js_file="LayerControl.js", css_file="LayerControl.css", use_panel=True
         )

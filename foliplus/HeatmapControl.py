@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
+from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
 
@@ -25,21 +26,27 @@ class HeatmapControl(BaseControl):
     position : str, default "topleft"
         Panel position. One of ``"topleft"``, ``"topright"``,
         ``"bottomleft"``, ``"bottomright"``.
+
     color_scheme : str, default "Blues"
         Default color scheme name. Supports chroma.js / ColorBrewer palettes:
         ``Blues``, ``Greens``, ``Reds``, ``Oranges``, ``Purples``,
         ``YlOrRd``, ``Viridis``.
-    method : str, default "jenks"
+
+    method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method: ``"jenks"`` (natural breaks),
         ``"quantile"``, ``"equal"`` (equal interval), ``"heads"``.
+
     n_classes : int, default 6
         Number of classification classes, range 2-9.
-    agg : str, default "count"
+
+    agg : Literal["count", "sum", "avg", "min", "max"], default "count"
         Default aggregation method: ``"count"``, ``"sum"``, ``"avg"``,
         ``"min"``, ``"max"``.
+
     schemes : list[str], optional
         List of available color scheme names. Can include custom hex values
         like ``["#f00", "#0f0", "#00f"]``.
+
     style : dict, optional
         Grid style overrides. Supported keys:
         - ``border_weight`` (float, default 1.5): border width
@@ -51,6 +58,7 @@ class HeatmapControl(BaseControl):
         - ``label_color`` (str, default "#fff"): label color
         - ``label_format`` (str, default "auto"): number format —
           ``"auto"`` (10K/1K suffix), ``"int"``, ``"comma"`` (thousands separator)
+
     locale : LocaleConfig, optional
         Localization configuration. Defaults to English.
 
@@ -59,7 +67,7 @@ class HeatmapControl(BaseControl):
     >>> import folium
     >>> from foliplus import HeatmapControl
     >>> m = folium.Map()
-    >>> HeatmapControl(position="topleft").add_to(m)
+    >>> HeatmapControl().add_to(m)
     """
 
     default_js = [
@@ -76,20 +84,18 @@ class HeatmapControl(BaseControl):
 
     def __init__(
         self,
-        position: str = "topleft",
+        position: Position = "topleft",
         color_scheme: str = "Blues",
-        method: str = "jenks",
+        method: Literal["jenks", "quantile", "equal", "heads"] = "jenks",
         n_classes: int = 6,
-        agg: str = "count",
+        agg: Literal["count", "sum", "avg", "min", "max"] = "count",
         schemes: Optional[list[str]] = None,
         style: Optional[dict] = None,
         locale: Optional[LocaleConfig] = None,
     ):
         super().__init__(position=position, locale=locale)
         self._template = self._get_template(
-            css_file="HeatmapControl.css",
-            js_file="HeatmapControl.js",
-            use_panel=True,
+            js_file="HeatmapControl.js", css_file="HeatmapControl.css", use_panel=True
         )
         self.color_scheme = color_scheme
         self.method = method

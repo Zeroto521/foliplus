@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
 
@@ -27,6 +28,7 @@ class MeasureControl(BaseControl):
     position : str, default "bottomright"
         Control position. One of ``"topleft"``, ``"topright"``,
         ``"bottomleft"``, ``"bottomright"``.
+
     locale : LocaleConfig, optional
         Localization configuration. Defaults to English.
 
@@ -44,10 +46,10 @@ class MeasureControl(BaseControl):
 
     def __init__(
         self,
-        position: str = "bottomright",
+        position: Position = "bottomright",
         locale: Optional[LocaleConfig] = None,
     ):
         super().__init__(position=position, locale=locale)
         self._template = self._get_template(
-            css_file="MeasureControl.css", js_file="MeasureControl.js"
+            js_file="MeasureControl.js", css_file="MeasureControl.css"
         )

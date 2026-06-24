@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
 
@@ -17,12 +18,16 @@ class ScaleControl(BaseControl):
     position : str, default "bottomleft"
         Control position. One of ``"topleft"``, ``"topright"``,
         ``"bottomleft"``, ``"bottomright"``.
+
     metric : bool, default True
         Whether to show metric units (meters / kilometers).
+
     imperial : bool, default False
         Whether to show imperial units (feet / miles).
+
     show_zoom : bool, default True
         Whether to show the current map zoom level.
+
     locale : LocaleConfig, optional
         Localization configuration. Defaults to English.
 
@@ -31,12 +36,12 @@ class ScaleControl(BaseControl):
     >>> import folium
     >>> from foliplus import ScaleControl
     >>> m = folium.Map()
-    >>> ScaleControl(position="bottomleft", imperial=True).add_to(m)
+    >>> ScaleControl().add_to(m)
     """
 
     def __init__(
         self,
-        position: str = "bottomleft",
+        position: Position = "bottomleft",
         metric: bool = True,
         imperial: bool = False,
         show_zoom: bool = True,
@@ -47,5 +52,5 @@ class ScaleControl(BaseControl):
         self.imperial = imperial
         self.show_zoom = show_zoom
         self._template = self._get_template(
-            css_file="ScaleControl.css", js_file="ScaleControl.js"
+            js_file="ScaleControl.js", css_file="ScaleControl.css"
         )
