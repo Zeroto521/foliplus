@@ -12,9 +12,9 @@ class MapSearch(BaseControl):
 
     Adds a collapsible search box to the map supporting two modes:
 
-    - **Coordinate search** (default): enter latitude/longitude to fly to and
-      place a marker.
-    - **Address search**: enter a keyword and geocode via Nominatim.
+    - 📍 **Coordinate search** (default): enter latitude/longitude to fly to and place a
+      marker.
+    - 🌐 **Address search**: enter a keyword and geocode via Nominatim.
 
     Switch between modes via the tool button inside the expanded panel.
 

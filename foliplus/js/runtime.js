@@ -147,7 +147,7 @@
       if (!foliplus._gcoordWarned) {
         foliplus._gcoordWarned = true;
         const _g = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-        console.warn('[Shared] ' + _g('gcoord.warn'));
+        console.warn('[foliplus] ' + _g('gcoord.warn'));
         foliplus.showHint('gcoord-warn', _g('gcoord.warn'), 5000);
       }
     }
@@ -162,7 +162,7 @@
         if (!foliplus._gcoordWarned) {
           foliplus._gcoordWarned = true;
           const _g2 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-          console.warn('[Shared] ' + _g2('gcoord.warn'));
+          console.warn('[foliplus] ' + _g2('gcoord.warn'));
           foliplus.showHint('gcoord-warn', _g2('gcoord.warn'), 5000);
         }
         return [lng, lat];
@@ -397,7 +397,7 @@
         s.onerror = () => {
           failedCount++;
           const _gl = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-          console.error(`[Shared] ${dep.name}: ${_gl('load.script_fail')}`);
+          console.error(`[foliplus] ${dep.name}: ${_gl('load.script_fail')}`);
           if (loaded + failedCount === pending.length) {
             if (retries < maxRetries) { retries++; setTimeout(attempt, delayMs); }
             else callback(false, pending.filter(d => !d.check()).map(d => d.name));

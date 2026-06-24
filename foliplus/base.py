@@ -20,7 +20,18 @@ css_dir = src_dir / "css"
 class BaseControl(JSCSSMixin, MacroElement):
     """Base class for all foliplus controls.
 
-    Handles resource loading (CSS/JS), template injection, and localization.
+    Handles resource loading (CSS/JS), template injection, and localization. All
+    foliplus components (Fullscreen, HeatmapControl, LayerControl, etc.) inherit from
+    this class.
+
+    Parameters
+    ----------
+    position : str, default "topleft"
+        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+
+    locale : str or LocaleConfig, optional
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Defaults to auto-detection, falling back to English.
     """
 
     _common = css_dir.joinpath("common.css").read_text(encoding="utf-8")
@@ -51,7 +62,26 @@ class BaseControl(JSCSSMixin, MacroElement):
         css_file: Optional[str] = None,
         use_panel: bool = False,
     ) -> Template:
-        """Build a Jinja2 template with shared CSS/JS + component assets."""
+        """Build a Jinja2 template with shared CSS/JS + component assets.
+
+        Injects ``common.css``, ``panel.css`` (if ``use_panel=True``), ``runtime.js``,
+        and the specified component JS/CSS files into a Jinja2 macro pair
+        (``html`` / ``script``) for folium's rendering pipeline.
+
+        Parameters
+        ----------
+        js_file : str, optional
+            Component JS filename (e.g. ``"LayerControl.js"``).
+        css_file : str, optional
+            Component CSS filename (e.g. ``"LayerControl.css"``).
+        use_panel : bool, default False
+            Whether to include shared panel CSS.
+
+        Returns
+        -------
+        Template
+            A Jinja2 ``Template`` instance ready for folium rendering.
+        """
         js_runtime = self._get_js(js_file) if js_file else ""
         css_common = self._get_css(css_file) if css_file else ""
         css_panel = self._panel if use_panel else ""

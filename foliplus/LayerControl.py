@@ -11,16 +11,15 @@ from .locale import LocaleConfig
 
 
 class LayerControl(BaseControl):
-    """Layer control with geometry-type icons, drag-and-drop ordering, and a collapsible
+    """Layer control with geometry-type icons, drag-and-drop order, and a collapsible
     panel.
 
     Replaces Folium's default layer control with:
-    - Geometry-type icons (point / line / polygon / base map) for each layer.
-    - Overlay and base map layers displayed in separate groups.
-    - Drag-and-drop reordering for all layers, synced to Leaflet render order.
-    - Multi-select checkboxes with z-index stacking (base maps support transparency).
-    - Color picker to replace base maps with a solid background color.
-    - Collapsible panel consistent with other foliplus controls.
+    - 📐 Geometry-type icons for quick layer identification.
+    - 🔀 Drag-and-drop reordering, synced to Leaflet render order.
+    - ✅ Multi-select checkboxes with z-index stacking.
+    - 🎨 Color picker to replace base maps with a solid background color.
+    - 📂 Collapsible panel consistent with other foliplus controls.
 
     Parameters
     ----------
@@ -33,9 +32,9 @@ class LayerControl(BaseControl):
 
     Notes
     -----
-    Layer identification relies on ``map._layers`` and the ``window`` global
-    variable at runtime. The initial layer list is collected during rendering
-    by traversing the parent map's children.
+    Layer identification relies on ``map._layers`` and the ``window`` global variable at
+    runtime. The initial layer list is collected during rendering by traversing the
+    parent map's children.
 
     Examples
     --------
@@ -58,7 +57,12 @@ class LayerControl(BaseControl):
         )
 
     def render(self, **kwargs):
-        """Collect layers from the parent map before rendering."""
+        """Collect layers from the parent map before rendering.
+
+        Traverses the parent map's ``_children`` to find ``Layer`` instances, then
+        populates ``self.base_layers`` and ``self.overlays`` according to each layer's
+        ``overlay`` flag.
+        """
         self.base_layers.clear()
         self.overlays.clear()
         for item in self._parent._children.values():
