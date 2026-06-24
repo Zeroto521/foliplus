@@ -52,7 +52,7 @@ class TestLayerControlRendering:
     def test_default_params(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "enhanced-layer-ctrl" in html
+        assert "layer-ctrl" in html
 
     def test_color_layer_item(self, base_map: folium.Map):
         LayerControl().add_to(base_map)

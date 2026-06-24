@@ -189,7 +189,7 @@
         let pane = this.map.getPane(opts.paneName);
         if (!pane) {
           pane = this.map.createPane(opts.paneName);
-          pane.classList.add('enhanced-layer-pane');
+          pane.classList.add('layer-pane');
         }
         let renderer = this.map[`_renderer_${opts.paneName}`];
         if (!renderer) {
@@ -300,7 +300,7 @@
         let pane = this.map.getPane(paneName);
         if (!pane) {
           pane = this.map.createPane(paneName);
-          pane.classList.add('enhanced-layer-pane');
+          pane.classList.add('layer-pane');
         }
 
         let renderer = this.map[`_renderer_${paneName}`];
@@ -618,7 +618,7 @@
 
       const ci = this.uiContainer.querySelector('.color-layer-input');
       if (ci) ci.value = color;
-      this.uiContainer.querySelector('.color-layer-item')?.classList.add('color-active');
+      this.uiContainer.querySelector('.color-layer-item')?.classList.add('is-color-active');
     }
 
     _hideColorLayer() {
@@ -629,7 +629,7 @@
         tilePane.style.visibility = '';
         tilePane.style.opacity = '';
       }
-      this.uiContainer.querySelector('.color-layer-item')?.classList.remove('color-active');
+      this.uiContainer.querySelector('.color-layer-item')?.classList.remove('is-color-active');
     }
 
     _deselectAllBaseMaps(exceptIdx) {
@@ -678,7 +678,7 @@
       const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
 
       container.innerHTML = `
-        <div class="map-panel ctrl-compact enhanced-layer-ctrl collapsed"
+        <div class="map-panel ctrl-compact layer-ctrl collapsed"
              id="{{ this.get_name() }}_ctrl">
           <button class="toggle-btn" title="${_('layer.toggle_title')}"
                   aria-label="${_('layer.toggle_title')}">
@@ -704,7 +704,7 @@
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.disableScrollPropagation(container);
 
-      const ctrl = container.querySelector('.enhanced-layer-ctrl');
+      const ctrl = container.querySelector('.layer-ctrl');
       const panelContent = container.querySelector('.panel-content');
 
       SM.bindPanelToggle({
