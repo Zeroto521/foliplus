@@ -32,15 +32,13 @@ class HeatmapControl(BaseControl):
         ``YlOrRd``, ``Viridis``.
 
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
-        Default classification method: ``"jenks"`` (natural breaks),
-        ``"quantile"``, ``"equal"`` (equal interval), ``"heads"``.
+        Default classification method.
 
     n_classes : int, default 6
         Number of classification classes, range 2-9.
 
     agg : Literal["count", "sum", "avg", "min", "max"], default "count"
-        Default aggregation method: ``"count"``, ``"sum"``, ``"avg"``,
-        ``"min"``, ``"max"``.
+        Default aggregation method.
 
     schemes : list[str], optional
         List of available color scheme names. Can include custom hex values

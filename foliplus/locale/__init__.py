@@ -165,9 +165,6 @@ EN = LocaleConfig("en")
 ZH = LocaleConfig("zh")
 
 
-# ── Helper: resolve locale from str / LocaleConfig / None ────────
-
-
 def resolve_locale(locale: Union[str, "LocaleConfig", None]) -> LocaleConfig:
     """Normalise a ``locale`` parameter to a :class:`LocaleConfig` instance.
 
