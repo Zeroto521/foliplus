@@ -62,7 +62,7 @@
     const el = L.DomUtil.create('div', `map-hint map-hint-${key}`, hintTarget);
     const icon = (SM._hintIcons && SM._hintIcons[key]) || '';
     el.innerHTML = icon ? `<span style="margin-right:6px">${icon}</span>${text}` : text;
-    // Style via CSS class — tokens already define .map-hint in shared-tokens.css
+    // Style via CSS class — common.css defines .map-hint
     el.classList.add('map-hint');
     // Ensure the map container has relative positioning
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {

@@ -22,9 +22,9 @@ class BaseControl(JSCSSMixin, MacroElement):
     Handles resource loading (CSS/JS), template injection, and localization.
     """
 
-    _tokens = css_dir.joinpath("shared-tokens.css").read_text(encoding="utf-8")
-    _panel = css_dir.joinpath("shared-panel.css").read_text(encoding="utf-8")
-    _shared = js_dir.joinpath("shared.js").read_text(encoding="utf-8")
+    _common = css_dir.joinpath("common.css").read_text(encoding="utf-8")
+    _panel = css_dir.joinpath("panel.css").read_text(encoding="utf-8")
+    _runtime = js_dir.joinpath("runtime.js").read_text(encoding="utf-8")
 
     def __init__(
         self,
@@ -50,24 +50,24 @@ class BaseControl(JSCSSMixin, MacroElement):
         use_panel: bool = False,
     ) -> Template:
         """Build a Jinja2 template with shared CSS/JS + component assets."""
-        js_content = self._get_js(js_file) if js_file else ""
-        css_content = self._get_css(css_file) if css_file else ""
-        panel_css = self._panel if use_panel else ""
+        js_runtime = self._get_js(js_file) if js_file else ""
+        css_common = self._get_css(css_file) if css_file else ""
+        css_panel = self._panel if use_panel else ""
         locale_table = self.locale.get_js_table()
 
         return Template(
             dedent(f"""\
             {{% macro html(this, kwargs) %}}
             <style>
-            {self._tokens}
-            {panel_css}
-            {css_content}
+            {self._common}
+            {css_panel}
+            {css_common}
             </style>
             {{% endmacro %}}
 
             {{% macro script(this, kwargs) %}}
             var _LOCALE = window._LOCALE || {locale_table};
-            {self._shared}
-            {js_content}
+            {self._runtime}
+            {js_runtime}
             {{% endmacro %}}""")
         )
