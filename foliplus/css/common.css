@@ -103,9 +103,7 @@
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   .toggle-btn — Collapse/expand button for all components
-   ══════════════════════════════════════════════════════════════════════ */
+/* ── Toggle Button ── */
 .toggle-btn {
   background: none;
   border: none;
@@ -139,9 +137,7 @@
   stroke: var(--text-primary);
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   map-hint — Global toast notification (frosted glass)
-   ══════════════════════════════════════════════════════════════════════ */
+/* ── Map Hint (Toast Notification) ── */
 .map-hint {
   position: absolute;
   left: 50%;
@@ -161,10 +157,7 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   .section-divider — Gradient horizontal divider
-   Used by HeatmapControl, LayerControl and other panel components
-   ══════════════════════════════════════════════════════════════════════ */
+/* ── Section Divider ── */
 .section-divider {
   height: 1px;
   background: linear-gradient(
@@ -176,11 +169,9 @@
   border: none;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   .ctrl-fold — Shared container for all components
+/* ── Ctrl Fold (Shared Container) ──
    Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
-   Expanded: defined by component or shared extension rules
-   ══════════════════════════════════════════════════════════════════════ */
+   Expanded: defined by component or shared extension rules */
 .ctrl-fold {
   display: flex;
   align-items: stretch;

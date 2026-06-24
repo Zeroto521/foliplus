@@ -24,9 +24,7 @@
     0 0 4px #000;
 }
 
-/* ══════════════════════════════════════════════════
-   Sections: Data / Style / Labels
-   ══════════════════════════════════════════════════ */
+/* ── Sections: Data / Style / Labels ── */
 .heatmap-ctrl .section-block {
   padding: 0;
 }
@@ -34,9 +32,7 @@
   padding-bottom: 0;
 }
 
-/* ══════════════════════════════════════════════════
-   Form Row: label + control
-   ══════════════════════════════════════════════════ */
+/* ── Form Row ── */
 .heatmap-ctrl .form-row {
   display: flex;
   align-items: center;
@@ -121,9 +117,7 @@
   display: none;
 }
 
-/* ══════════════════════════════════════════════════
-   Color Scheme Bar (scheme-bar)
-   ══════════════════════════════════════════════════ */
+/* ── Color Scheme Bar ── */
 .heatmap-ctrl .scheme-bar {
   width: 100%;
   height: var(--ctrl-size);
@@ -229,9 +223,7 @@
   font-size: var(--font-size-sm);
 }
 
-/* ══════════════════════════════════════════════════
-   Border Inputs
-   ══════════════════════════════════════════════════ */
+/* ── Border Inputs ── */
 .heatmap-ctrl .border-color-input {
   flex: 1;
   height: var(--input-height);
@@ -275,9 +267,7 @@
   -moz-appearance: textfield;
 }
 
-/* ══════════════════════════════════════════════════
-   Label Toggle — iOS-style toggle switch
-   ══════════════════════════════════════════════════ */
+/* ── Label Toggle ── */
 .heatmap-ctrl .toggle-switch {
   position: relative;
   display: inline-block;
@@ -322,9 +312,7 @@
   transform: translateX(16px);
 }
 
-/* ══════════════════════════════════════════════════
-   Bottom Buttons
-   ══════════════════════════════════════════════════ */
+/* ── Bottom Buttons ── */
 .heatmap-ctrl .btn-row {
   display: flex;
   gap: var(--space-md);
@@ -365,9 +353,7 @@
 .heatmap-ctrl .section-divider {
   margin: var(--space-md) var(--space-lg) var(--space-sm);
 }
-/* ══════════════════════════════════════════════════
-   Section Headings
-   ══════════════════════════════════════════════════ */
+/* ── Section Headings ── */
 .heatmap-ctrl .section-heading {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -397,7 +383,7 @@
     drop-shadow(0 0 8px rgba(255, 255, 255, 0.7));
 }
 
-/* 无图层提示 */
+/* No layer hint */
 .heatmap-ctrl .no-layers {
   padding: var(--space-md) var(--space-lg);
   color: var(--text-placeholder);
