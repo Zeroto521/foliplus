@@ -42,7 +42,7 @@ class MapSearch(BaseControl):
         self,
         zoom: int = 15,
         position: Position = "topleft",
-        locale: Optional[Union[str, LocaleConfig]] = None,
+        locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.zoom = zoom

@@ -53,7 +53,7 @@ class Fullscreen(BaseControl):
         self,
         position: Position = "bottomright",
         hide_self: bool = True,
-        locale: Optional[Union[str, LocaleConfig]] = None,
+        locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.hide_self = hide_self

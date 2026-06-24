@@ -80,9 +80,9 @@ class HeatmapControl(BaseControl):
         method: Literal["jenks", "quantile", "equal", "heads"] = "jenks",
         n_classes: int = 6,
         agg: Literal["count", "sum", "avg", "min", "max"] = "count",
-        schemes: Optional[list[str]] = None,
-        style: Optional[dict] = None,
-        locale: Optional[Union[str, LocaleConfig]] = None,
+        schemes: list[str] | None = None,
+        style: dict | None = None,
+        locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self._template = self._get_template(

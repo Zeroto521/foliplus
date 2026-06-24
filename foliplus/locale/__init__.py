@@ -41,20 +41,20 @@ _LOCALE_DIR = Path(__file__).parent
 # ===========================================================================
 
 
-def _load_builtin_tables() -> Dict[str, Dict[str, str]]:
+def _load_builtin_tables() -> dict[str, dict[str, str]]:
     """Scan ``foliplus/locale/*.json`` and load each as a language table."""
-    tables: Dict[str, Dict[str, str]] = {}
+    tables: dict[str, dict[str, str]] = {}
     for path in sorted(_LOCALE_DIR.glob("*.json")):
         if path.stem == "package":  # skip package metadata
             continue
         with open(path, encoding="utf-8") as f:
-            table: Dict[str, str] = json.load(f)
+            table: dict[str, str] = json.load(f)
         code = table.get("locale.code", path.stem)
         tables[code] = table
     return tables
 
 
-LOCALE_TABLES: Dict[str, Dict[str, str]] = _load_builtin_tables()
+LOCALE_TABLES: dict[str, dict[str, str]] = _load_builtin_tables()
 
 # ===========================================================================
 # Public helpers
@@ -85,7 +85,7 @@ class LocaleConfig:
     """
 
     language: str = "en"
-    _strings: Dict[str, str] = field(default_factory=dict, init=False, repr=False)
+    _strings: dict[str, str] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self):
         table = LOCALE_TABLES.get(self.language, LOCALE_TABLES["en"])
@@ -94,7 +94,7 @@ class LocaleConfig:
     # ── Classmethods ──────────────────────────────────────────────
 
     @classmethod
-    def from_file(cls, path: Union[str, Path]) -> "LocaleConfig":
+    def from_file(cls, path: str | Path) -> LocaleConfig:
         """Load locale strings from an external JSON or YAML file.
 
         The file must contain a flat dictionary of ``key: "translated text"``
@@ -123,7 +123,7 @@ class LocaleConfig:
                     "Loading YAML locale files requires PyYAML. "
                     "Install it with: pip install pyyaml"
                 )
-            raw: Dict[str, str] = yaml.safe_load(path.read_text(encoding="utf-8"))
+            raw: dict[str, str] = yaml.safe_load(path.read_text(encoding="utf-8"))
         elif path.suffix == ".json":
             raw = json.loads(path.read_text(encoding="utf-8"))
         else:
@@ -137,7 +137,7 @@ class LocaleConfig:
         obj._strings = raw
         return obj
 
-    def to_file(self, path: Union[str, Path]) -> None:
+    def to_file(self, path: str | Path) -> None:
         """Export the current string table to a JSON file."""
         path = Path(path)
         path.write_text(
@@ -147,7 +147,7 @@ class LocaleConfig:
 
     # ── Public API ────────────────────────────────────────────────
 
-    def get(self, key: str, default: Optional[str] = None) -> str:
+    def get(self, key: str, default: str | None = None) -> str:
         """Look up a localized string by key."""
         return self._strings.get(key, default or key)
 
@@ -165,7 +165,7 @@ EN = LocaleConfig("en")
 ZH = LocaleConfig("zh")
 
 
-def resolve_locale(locale: Union[str, "LocaleConfig", None]) -> LocaleConfig:
+def resolve_locale(locale: str | LocaleConfig | None) -> LocaleConfig:
     """Normalise a ``locale`` parameter to a :class:`LocaleConfig` instance.
 
     * ``None`` → auto-detect via :func:`detect_language`

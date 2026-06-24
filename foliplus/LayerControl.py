@@ -47,7 +47,7 @@ class LayerControl(BaseControl):
     def __init__(
         self,
         position: Position = "topleft",
-        locale: Optional[Union[str, LocaleConfig]] = None,
+        locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.base_layers: OrderedDict[str, str] = OrderedDict()

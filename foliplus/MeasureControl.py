@@ -42,13 +42,16 @@ class MeasureControl(BaseControl):
     """
 
     default_js = [
-        ("gcoord", f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD}/dist/gcoord.global.prod.js"),
+        (
+            "gcoord",
+            f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD}/dist/gcoord.global.prod.js",
+        ),
     ]
 
     def __init__(
         self,
         position: Position = "bottomright",
-        locale: Optional[Union[str, LocaleConfig]] = None,
+        locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self._template = self._get_template(
