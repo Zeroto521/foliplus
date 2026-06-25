@@ -17,4 +17,4 @@ class TestBaseControlRendering:
     def test_includes_runtime_js(self, base_map: folium.Map):
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "_LOCALE" in html
+        assert "_LOCALES" in html

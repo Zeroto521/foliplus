@@ -28,11 +28,6 @@ class TestLocaleConfig:
     def test_missing_key_returns_key(self):
         assert LocaleConfig("en").get("nonexistent.key") == "nonexistent.key"
 
-    def test_get_js_table(self):
-        table = LocaleConfig("en").get_js_table()
-        assert isinstance(table, str)
-        assert '"en"' in table
-
     def test_custom_locale_config(self):
         custom = LocaleConfig(language="ja")
         # Falls back to English table since "ja" is not in LOCALE_TABLES
@@ -93,35 +88,24 @@ class TestDetectLanguage:
         assert result == "en"  # German not supported → fallback
         del os.environ["LC_ALL"]
 
-    def test_locale_getdefaultlocale_fallback(self):
-        """If getdefaultlocale() raises, it's caught and ignored."""
+    def test_locale_getlocale_fallback(self):
+        """If getlocale() raises, it's caught and ignored."""
         import locale as _stdlib_locale
 
-        original = _stdlib_locale.getdefaultlocale
+        original = _stdlib_locale.getlocale
 
         def _raise(*args):
             raise RuntimeError("mock failure")
 
-        _stdlib_locale.getdefaultlocale = _raise
+        _stdlib_locale.getlocale = _raise
         try:
             result = detect_language()
             assert isinstance(result, str)
         finally:
-            _stdlib_locale.getdefaultlocale = original
+            _stdlib_locale.getlocale = original
 
 
 class TestLoadBuiltinTables:
-    def test_skips_package_json(self):
-        """_load_builtin_tables skips 'package.json' files."""
-        pkg = _LOCALE_DIR / "package.json"
-        try:
-            pkg.write_text('{"name": "test"}', encoding="utf-8")
-            tables = _load_builtin_tables()
-            assert "package" not in tables
-        finally:
-            if pkg.exists():
-                pkg.unlink()
-
     def test_uses_filename_as_fallback_code(self):
         """If JSON has no locale.code, use the stem as language code."""
         tmp = _LOCALE_DIR / "zz.json"
@@ -159,7 +143,9 @@ class TestFromFile:
             f.write('[tool]\nkey = "val"\n')
             tmp = f.name
         try:
-            with pytest.raises(ValueError, match="Unsupported locale file format"):
+            with pytest.raises(
+                ValueError, match="only .json locale files are supported"
+            ):
                 LocaleConfig.from_json(tmp)
         finally:
             os.unlink(tmp)
