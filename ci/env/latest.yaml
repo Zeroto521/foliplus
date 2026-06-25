@@ -4,7 +4,6 @@ channels:
 dependencies:
   # required
   - folium
-  - jinja2
   # testing
   - pytest
   - pytest-cov
