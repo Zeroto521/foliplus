@@ -24,7 +24,7 @@ import os
 from dataclasses import dataclass, field
 from json import dumps, loads
 from pathlib import Path
-from typing import Any, Self
+from typing import Any
 
 # ===========================================================================
 # Locale directory — used to locate built-in JSON locale files
