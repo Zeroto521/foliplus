@@ -13,8 +13,8 @@ Usage
 >>> HeatmapControl(locale="en")
 
 # LocaleConfig instance
->>> from foliplus.locale import ZH
->>> HeatmapControl(locale=ZH)
+>>> from foliplus.locale import LocaleConfig
+>>> HeatmapControl(locale=LocaleConfig("zh"))
 
 # Load from external JSON
 >>> from foliplus.locale import LocaleConfig
@@ -24,10 +24,10 @@ Usage
 from __future__ import annotations
 
 import json
-import locale as _stdlib_locale
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Self
 
 
 # ===========================================================================
@@ -89,7 +89,7 @@ class LocaleConfig:
         self._strings = dict(table)
 
     @classmethod
-    def from_file(cls, path: str | Path) -> LocaleConfig:
+    def from_file(cls, path: str | Path) -> Self:
         """Load locale strings from an external JSON file.
 
         The file must contain a flat dictionary of ``key: "translated text"``
@@ -138,11 +138,6 @@ class LocaleConfig:
     @property
     def code(self) -> str:
         return self._strings.get("locale.code", "en")
-
-
-# Pre-built instances for convenience
-EN = LocaleConfig("en")
-ZH = LocaleConfig("zh")
 
 
 def resolve_locale(locale: str | LocaleConfig | None) -> LocaleConfig:

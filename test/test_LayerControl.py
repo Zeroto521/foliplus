@@ -6,9 +6,6 @@ import folium
 from conftest import render
 
 from foliplus import LayerControl
-from foliplus.locale import ZH
-
-
 class TestLayerControlPython:
     """Python-side property tests."""
 
@@ -25,7 +22,7 @@ class TestLayerControlPython:
         assert LayerControl().locale.code == "en"
 
     def test_custom_locale(self):
-        assert LayerControl(locale=ZH).locale.code == "zh"
+        assert LayerControl(locale="zh").locale.code == "zh"
 
     def test_render_collects_layers(self):
         """LayerControl has render() and layer collections."""
@@ -95,7 +92,7 @@ class TestLayerControlRendering:
         assert "SVGS.POLYGON" in html
 
     def test_locale_zh(self, base_map: folium.Map):
-        LayerControl(locale=ZH).add_to(base_map)
+        LayerControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "图层" in html
         assert "layer.panel_title" in html

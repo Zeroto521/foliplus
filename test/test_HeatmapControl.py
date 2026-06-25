@@ -5,8 +5,9 @@ from __future__ import annotations
 import folium
 from conftest import render
 
+import pytest
+
 from foliplus import HeatmapControl
-from foliplus.locale import ZH
 
 
 class TestHeatmapControlPython:
@@ -25,7 +26,7 @@ class TestHeatmapControlPython:
         assert HeatmapControl().locale.code == "en"
 
     def test_custom_locale(self):
-        assert HeatmapControl(locale=ZH).locale.code == "zh"
+        assert HeatmapControl(locale="zh").locale.code == "zh"
 
     def test_default_params(self):
         ctrl = HeatmapControl()
@@ -114,7 +115,7 @@ class TestHeatmapControlRendering:
         assert "false" in html.lower()
 
     def test_locale_zh(self, base_map: folium.Map):
-        HeatmapControl(locale=ZH).add_to(base_map)
+        HeatmapControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "网格聚合" in html
         assert "heatmap.title" in html
