@@ -74,11 +74,38 @@ class TestDetectLanguage:
     def test_unsupported_language(self):
         assert detect_language("fr-FR") == "en"
 
+    def test_accept_priority_over_env(self):
+        """accept_language takes precedence over env vars."""
+        os.environ["LANG"] = "zh_CN.UTF-8"
+        result = detect_language("en")
+        assert result == "en"
+        del os.environ["LANG"]
+
+    def test_accept_multi_lang_falls_back(self):
+        """Multiple accept languages — only first is checked."""
+        # detect_language only uses the first language from the accept header
+        assert detect_language("fr-FR,zh;q=0.9") == "en"
+        assert detect_language("zh-CN") == "zh"
+
     def test_env_lang(self):
         """detect_language reads $LANG environment variable."""
         os.environ["LANG"] = "zh_CN.UTF-8"
         result = detect_language()
         assert result == "zh"
+        del os.environ["LANG"]
+
+    def test_env_lang_posix_falls_back(self):
+        """POSIX / C locale falls back to English."""
+        os.environ["LANG"] = "C.UTF-8"
+        result = detect_language()
+        assert result == "en"
+        del os.environ["LANG"]
+
+    def test_env_lang_posix_uppercase(self):
+        """POSIX / C locale (uppercase) falls back to English."""
+        os.environ["LANG"] = "POSIX"
+        result = detect_language()
+        assert result == "en"
         del os.environ["LANG"]
 
     def test_env_lc_all(self):
@@ -87,6 +114,29 @@ class TestDetectLanguage:
         result = detect_language()
         assert result == "en"  # German not supported → fallback
         del os.environ["LC_ALL"]
+
+    def test_env_lc_messages(self):
+        """detect_language reads $LC_MESSAGES."""
+        os.environ["LC_MESSAGES"] = "zh_CN.UTF-8"
+        result = detect_language()
+        assert result == "zh"
+        del os.environ["LC_MESSAGES"]
+
+    def test_env_order_lang_over_lc_all(self):
+        """LANG takes priority over LC_ALL in candidates list."""
+        os.environ["LANG"] = "zh_CN.UTF-8"
+        os.environ["LC_ALL"] = "en_US.UTF-8"
+        result = detect_language()
+        assert result == "zh"
+        del os.environ["LANG"]
+        del os.environ["LC_ALL"]
+
+    def test_env_empty_all_fallback_en(self):
+        """When all env vars are empty, fall back to English."""
+        for var in ("LANG", "LC_ALL", "LC_MESSAGES"):
+            os.environ.pop(var, None)
+        result = detect_language()
+        assert result == "en"
 
     def test_locale_getlocale_fallback(self):
         """If getlocale() raises, it's caught and ignored."""
@@ -165,6 +215,88 @@ class TestToFile:
         finally:
             os.unlink(tmp)
             os.rmdir(os.path.dirname(tmp))
+
+
+class TestLocaleBrowserJS:
+    """Browser-based tests for client-side locale detection."""
+
+    def test_locales_all_tables_injected(self, browser, tmp_path):
+        """All locale tables are injected into the JS runtime."""
+        import folium
+
+        from foliplus import MapSearch
+
+        m = folium.Map()
+        MapSearch().add_to(m)
+        html = m.get_root().render()
+        dest = tmp_path / "map.html"
+        dest.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        page.goto(f"file://{dest}")
+        page.wait_for_function("typeof _LOCALES !== 'undefined'", timeout=10000)
+
+        keys = page.evaluate("Object.keys(_LOCALES).sort()")
+        assert keys == ["en", "zh"]
+        assert page.evaluate("_LOCALES['en']['locale.name']") == "English"
+        assert page.evaluate("_LOCALES['zh']['locale.name']") == "中文"
+        page.close()
+
+    def test_auto_detect_zh(self, browser, tmp_path):
+        """navigator.language=zh-CN selects zh table."""
+        import folium
+
+        from foliplus import MapSearch
+
+        m = folium.Map()
+        MapSearch().add_to(m)
+        html = m.get_root().render()
+        dest = tmp_path / "map.html"
+        dest.write_text(html, encoding="utf-8")
+
+        page = browser.new_page(locale="zh-CN")
+        page.goto(f"file://{dest}")
+        page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
+        assert page.evaluate("window._LOCALE['locale.code']") == "zh"
+        assert page.evaluate("window._LOCALE['search.btn_title']") == "地图搜索"
+        page.close()
+
+    def test_auto_detect_en(self, browser, tmp_path):
+        """navigator.language=en-US selects en table."""
+        import folium
+
+        from foliplus import MapSearch
+
+        m = folium.Map()
+        MapSearch().add_to(m)
+        html = m.get_root().render()
+        dest = tmp_path / "map.html"
+        dest.write_text(html, encoding="utf-8")
+
+        page = browser.new_page(locale="en-US")
+        page.goto(f"file://{dest}")
+        page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
+        assert page.evaluate("window._LOCALE['locale.code']") == "en"
+        assert page.evaluate("window._LOCALE['search.btn_title']") == "Map Search"
+        page.close()
+
+    def test_fallback_unsupported(self, browser, tmp_path):
+        """Unsupported navigator.language falls back to en."""
+        import folium
+
+        from foliplus import MapSearch
+
+        m = folium.Map()
+        MapSearch().add_to(m)
+        html = m.get_root().render()
+        dest = tmp_path / "map.html"
+        dest.write_text(html, encoding="utf-8")
+
+        page = browser.new_page(locale="fr-FR")
+        page.goto(f"file://{dest}")
+        page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
+        assert page.evaluate("window._LOCALE['locale.code']") == "en"
+        page.close()
 
 
 class TestResolveLocale:

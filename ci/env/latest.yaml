@@ -4,7 +4,12 @@ channels:
 dependencies:
   # required
   - folium
-  # testing
+  # test (Python)
   - pytest
   - pytest-cov
   - codecov
+  # test (JS browser)
+  - playwright
+  - pip
+  - pip:
+      - pytest-playwright

@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Generator
+from typing import TYPE_CHECKING
 
 import folium
 import pytest
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Browser
 
 
 def resolve_js_unicode(text: str) -> str:
@@ -36,3 +41,20 @@ def rendered(base_map: folium.Map) -> str:
     """Render a map (after adding controls) to HTML."""
     # Controls should be added to base_map before using this fixture
     return render(base_map)
+
+
+@pytest.fixture(scope="session")
+def browser() -> Generator[Browser, None, None]:
+    """Launch a headless Chromium once per session.
+
+    Skipped if Playwright is not installed:
+        pip install playwright
+        playwright install chromium
+    """
+    pytest.importorskip("playwright")
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        yield browser
+        browser.close()
