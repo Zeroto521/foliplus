@@ -5,9 +5,6 @@ from __future__ import annotations
 import folium
 
 from foliplus import MapSearch
-from foliplus.locale import ZH
-
-
 class TestMapSearchPython:
     """Python-side property tests."""
 
@@ -30,7 +27,7 @@ class TestMapSearchPython:
         assert MapSearch().locale.code == "en"
 
     def test_custom_locale(self):
-        assert MapSearch(locale=ZH).locale.code == "zh"
+        assert MapSearch(locale="zh").locale.code == "zh"
 
 
 class TestMapSearchRendering:
@@ -87,7 +84,7 @@ class TestMapSearchRendering:
     def test_locale_zh(self, base_map: folium.Map):
         from conftest import render
 
-        MapSearch(locale=ZH).add_to(base_map)
+        MapSearch(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "地图搜索" in html
         assert '"zh"' in html

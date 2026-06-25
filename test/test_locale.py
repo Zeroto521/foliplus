@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import builtins
 import json
 import os
 import tempfile
@@ -11,9 +10,7 @@ import pytest
 
 from foliplus.locale import (
     _LOCALE_DIR,
-    EN,
     LOCALE_TABLES,
-    ZH,
     LocaleConfig,
     _load_builtin_tables,
     detect_language,
@@ -23,16 +20,16 @@ from foliplus.locale import (
 
 class TestLocaleConfig:
     def test_default_locale_is_english(self):
-        assert EN.get("heatmap.title") == "Hexbin Aggregation"
+        assert LocaleConfig("en").get("heatmap.title") == "Hexbin Aggregation"
 
     def test_chinese_locale(self):
-        assert ZH.get("heatmap.title") == "网格聚合"
+        assert LocaleConfig("zh").get("heatmap.title") == "网格聚合"
 
     def test_missing_key_returns_key(self):
-        assert EN.get("nonexistent.key") == "nonexistent.key"
+        assert LocaleConfig("en").get("nonexistent.key") == "nonexistent.key"
 
     def test_get_js_table(self):
-        table = EN.get_js_table()
+        table = LocaleConfig("en").get_js_table()
         assert isinstance(table, str)
         assert '"en"' in table
 
@@ -45,14 +42,14 @@ class TestLocaleConfig:
         assert custom.get("nonexistent.key") == "nonexistent.key"
 
     def test_code_property(self):
-        assert EN.code == "en"
-        assert ZH.code == "zh"
+        assert LocaleConfig("en").code == "en"
+        assert LocaleConfig("zh").code == "zh"
 
     def test_all_english_keys_have_values(self):
-        """Verify every EN key has a non-empty string."""
+        """Verify every locale key has a non-empty string."""
         table = LOCALE_TABLES["en"]
         for key, value in table.items():
-            assert isinstance(value, str) and value, f"EN key '{key}' is empty"
+            assert isinstance(value, str) and value, f"en key '{key}' is empty"
 
     def test_all_chinese_keys_have_values(self):
         """Verify every ZH key has a non-empty string."""
@@ -61,7 +58,7 @@ class TestLocaleConfig:
             assert isinstance(value, str) and value, f"ZH key '{key}' is empty"
 
     def test_zh_keys_match_en(self):
-        """ZH must have the exact same keys as EN."""
+        """zh must have the exact same keys as en."""
         en_keys = set(LOCALE_TABLES["en"].keys())
         zh_keys = set(LOCALE_TABLES["zh"].keys())
         assert en_keys == zh_keys, (

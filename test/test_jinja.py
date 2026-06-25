@@ -17,7 +17,7 @@ from foliplus import (
     MeasureControl,
     ScaleControl,
 )
-from foliplus.locale import ZH
+from foliplus.locale import LocaleConfig
 
 JS_DIR = Path(__file__).parent.parent / "foliplus" / "js"
 
@@ -81,7 +81,7 @@ class TestJinjaIntegrity:
 
     def test_locale_injection(self):
         m = folium.Map()
-        MapSearch(locale=ZH).add_to(m)
+        MapSearch(locale="zh").add_to(m)
         html = render(m)
         assert "search.coord_placeholder" in html
         assert '"zh"' in html
@@ -90,18 +90,19 @@ class TestJinjaIntegrity:
         """All components must render without error with Chinese locale."""
         m = folium.Map()
         components = [
-            MapSearch(locale=ZH),
-            LayerControl(locale=ZH),
-            Fullscreen(locale=ZH),
-            ScaleControl(locale=ZH),
-            MeasureControl(locale=ZH),
-            HeatmapControl(locale=ZH),
+            MapSearch(locale="zh"),
+            LayerControl(locale="zh"),
+            Fullscreen(locale="zh"),
+            ScaleControl(locale="zh"),
+            MeasureControl(locale="zh"),
+            HeatmapControl(locale="zh"),
         ]
         try:
             for comp in components:
                 comp.add_to(m)
             html = m.get_root().render()
         except Exception as e:
-            pytest.fail(f"ZH render failed: {e}")
+            pytest.fail(f"zh render failed: {e}")
+
         assert isinstance(html, str)
         assert len(html) > 0
