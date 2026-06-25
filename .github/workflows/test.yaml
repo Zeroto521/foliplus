@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   test:
-    name: ${{ matrix.python }}, ${{ matrix.env }}
+    name: py${{ matrix.python }}
     runs-on: ubuntu-latest
     defaults:
       run:
