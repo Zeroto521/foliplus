@@ -39,6 +39,7 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     def __init__(
         self,
+        *,
         position: Position = "topleft",
         locale: str | LocaleConfig | None = None,
     ):

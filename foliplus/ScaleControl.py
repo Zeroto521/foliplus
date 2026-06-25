@@ -35,6 +35,7 @@ class ScaleControl(BaseControl):
 
     def __init__(
         self,
+        *,
         position: Position = "bottomleft",
         metric: bool = True,
         show_zoom: bool = True,

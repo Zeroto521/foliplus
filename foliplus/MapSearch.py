@@ -38,6 +38,7 @@ class MapSearch(BaseControl):
 
     def __init__(
         self,
+        *,
         zoom: int = 15,
         position: Position = "topleft",
         locale: str | LocaleConfig | None = None,

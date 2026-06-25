@@ -48,6 +48,7 @@ class MeasureControl(BaseControl):
 
     def __init__(
         self,
+        *,
         position: Position = "bottomright",
         locale: str | LocaleConfig | None = None,
     ):

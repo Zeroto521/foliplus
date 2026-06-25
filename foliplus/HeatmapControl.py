@@ -75,6 +75,7 @@ class HeatmapControl(BaseControl):
 
     def __init__(
         self,
+        *,
         position: Position = "topleft",
         color_scheme: str = "Greens",
         method: Literal["jenks", "quantile", "equal", "heads"] = "jenks",

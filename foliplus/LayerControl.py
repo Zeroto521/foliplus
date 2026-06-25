@@ -45,6 +45,7 @@ class LayerControl(BaseControl):
 
     def __init__(
         self,
+        *,
         position: Position = "topleft",
         locale: str | LocaleConfig | None = None,
     ):

@@ -49,6 +49,7 @@ class Fullscreen(BaseControl):
 
     def __init__(
         self,
+        *,
         position: Position = "bottomright",
         hide_self: bool = True,
         locale: str | LocaleConfig | None = None,
