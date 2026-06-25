@@ -12,18 +12,15 @@ Usage
 >>> HeatmapControl(locale="zh")
 >>> HeatmapControl(locale="en")
 
-# LocaleConfig instance
->>> from foliplus.locale import LocaleConfig
->>> HeatmapControl(locale=LocaleConfig("zh"))
-
 # Load from external JSON
 >>> from foliplus.locale import LocaleConfig
->>> HeatmapControl(locale=LocaleConfig.from_file("my_locale.json"))
+>>> HeatmapControl(locale=LocaleConfig.from_json("my_locale.json"))
 """
 
 from __future__ import annotations
 
 import json
+import locale as _stdlib_locale
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,24 +28,20 @@ from typing import Any, Self
 
 
 # ===========================================================================
-# Package root — used to locate built-in JSON locale files
-# ===========================================================================
-_LOCALE_DIR = Path(__file__).parent
-
-
-# ===========================================================================
 # Language code → string table (loaded from JSON files)
 # ===========================================================================
 def _load_builtin_tables() -> dict[str, dict[str, str]]:
     """Scan ``foliplus/locale/*.json`` and load each as a language table."""
+
     tables: dict[str, dict[str, str]] = {}
-    for path in sorted(_LOCALE_DIR.glob("*.json")):
+    for path in sorted(Path(__file__).parent.glob("*.json")):
         if path.stem == "package":  # skip package metadata
             continue
-        with open(path, encoding="utf-8") as f:
-            table: dict[str, str] = json.load(f)
+
+        table: dict[str, str] = json.loads(path.read_text(encoding="utf-8"))
         code = table.get("locale.code", path.stem)
         tables[code] = table
+
     return tables
 
 
@@ -67,8 +60,8 @@ class LocaleConfig:
     Parameters
     ----------
     language : str, default "en"
-        Language code, e.g. ``"en"``, ``"zh"``. Falls back to English if
-        the code is not in :data:`LOCALE_TABLES`.
+        Language code, e.g. ``"en"``, ``"zh"``. Falls back to English if the code is not
+        in :data:`LOCALE_TABLES`.
 
     table : dict or None
         Optional custom string table (key → localized text).
@@ -89,11 +82,11 @@ class LocaleConfig:
         self._strings = dict(table)
 
     @classmethod
-    def from_file(cls, path: str | Path) -> Self:
+    def from_json(cls, path: str | Path) -> LocaleConfig:
         """Load locale strings from an external JSON file.
 
-        The file must contain a flat dictionary of ``key: "translated text"``
-        entries, plus a ``locale.code`` key that identifies the language.
+        The file must contain a flat dictionary of ``key: "translated text"`` entries,
+        plus a ``locale.code`` key that identifies the language.
 
         Parameters
         ----------
@@ -106,21 +99,21 @@ class LocaleConfig:
 
         Examples
         --------
-        >>> LocaleConfig.from_file("locales/ja.json")
+        >>> LocaleConfig.from_json("locales/ja.json")
         """
         path = Path(path)
         if path.suffix != ".json":
             raise ValueError(
                 f"Unsupported locale file format: {path.suffix}. Use .json."
             )
-        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
 
+        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         code: str = raw.get("locale.code", "en")
         obj = cls(language=code)
         obj._strings = raw  # type: ignore[assignment]
         return obj
 
-    def to_file(self, path: str | Path) -> None:
+    def to_json(self, path: str | Path) -> None:
         """Export the current string table to a JSON file."""
         Path(path).write_text(
             json.dumps(self._strings, ensure_ascii=False, indent=2),
@@ -165,8 +158,8 @@ def detect_language(accept_language: str = "") -> str:
 
     Falls back to ``"en"`` if none match.
     """
-    candidates: list[str] = []
 
+    candidates: list[str] = []
     if accept_language:
         candidates.append(accept_language)
 

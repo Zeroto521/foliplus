@@ -145,7 +145,7 @@ class TestFromFile:
             json.dump(data, f, ensure_ascii=False)
             tmp = f.name
         try:
-            cfg = LocaleConfig.from_file(tmp)
+            cfg = LocaleConfig.from_json(tmp)
             assert cfg.code == "fr"
             assert cfg.get("hello") == "Bonjour"
         finally:
@@ -160,7 +160,7 @@ class TestFromFile:
             tmp = f.name
         try:
             with pytest.raises(ValueError, match="Unsupported locale file format"):
-                LocaleConfig.from_file(tmp)
+                LocaleConfig.from_json(tmp)
         finally:
             os.unlink(tmp)
 
@@ -171,8 +171,8 @@ class TestToFile:
         cfg = LocaleConfig("zh")
         tmp = os.path.join(tempfile.mkdtemp(), "test_zh.json")
         try:
-            cfg.to_file(tmp)
-            loaded = LocaleConfig.from_file(tmp)
+            cfg.to_json(tmp)
+            loaded = LocaleConfig.from_json(tmp)
             assert loaded.code == "zh"
             assert loaded.get("heatmap.title") == "网格聚合"
             assert loaded.get("fullscreen.enter") == "已进入全屏，按 Esc 退出"
