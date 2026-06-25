@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from json import dumps
 from pathlib import Path
 from textwrap import dedent
 
@@ -9,7 +10,7 @@ from jinja2 import Template
 
 from ._cdn import GCOORD
 from ._typing import Position
-from .locale import LocaleConfig, resolve_locale
+from .locale import LOCALE_TABLES, LocaleConfig, resolve_locale
 
 src_dir = Path(__file__).parent
 js_dir = src_dir / "js"
@@ -39,6 +40,7 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     def __init__(
         self,
+        *,
         position: Position = "topleft",
         locale: str | LocaleConfig | None = None,
     ):
@@ -84,7 +86,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         js_runtime = self._get_js(js_file) if js_file else ""
         css_common = self._get_css(css_file) if css_file else ""
         css_panel = self._panel if use_panel else ""
-        locale_table = self.locale.get_js_table()
+        all_tables = {k: v for k, v in LOCALE_TABLES.items()}
 
         return Template(
             dedent(f"""\
@@ -97,7 +99,7 @@ class BaseControl(JSCSSMixin, MacroElement):
             {{% endmacro %}}
 
             {{% macro script(this, kwargs) %}}
-            var _LOCALE = window._LOCALE || {locale_table};
+            var _LOCALES = {dumps(all_tables, ensure_ascii=False)};
             {self._runtime}
             {js_runtime}
             {{% endmacro %}}""")

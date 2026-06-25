@@ -12,26 +12,22 @@ Usage
 >>> HeatmapControl(locale="zh")
 >>> HeatmapControl(locale="en")
 
-# LocaleConfig instance
->>> from foliplus.locale import ZH
->>> HeatmapControl(locale=ZH)
-
-# Load from external JSON/YAML
+# Load from external JSON
 >>> from foliplus.locale import LocaleConfig
->>> HeatmapControl(locale=LocaleConfig.from_file("my_locale.json"))
+>>> HeatmapControl(locale=LocaleConfig.from_json("my_locale.json"))
 """
 
 from __future__ import annotations
 
-import json
 import locale as _stdlib_locale
 import os
 from dataclasses import dataclass, field
+from json import dumps, loads
 from pathlib import Path
-
+from typing import Any, Self
 
 # ===========================================================================
-# Package root — used to locate built-in JSON locale files
+# Locale directory — used to locate built-in JSON locale files
 # ===========================================================================
 _LOCALE_DIR = Path(__file__).parent
 
@@ -41,14 +37,13 @@ _LOCALE_DIR = Path(__file__).parent
 # ===========================================================================
 def _load_builtin_tables() -> dict[str, dict[str, str]]:
     """Scan ``foliplus/locale/*.json`` and load each as a language table."""
+
     tables: dict[str, dict[str, str]] = {}
     for path in sorted(_LOCALE_DIR.glob("*.json")):
-        if path.stem == "package":  # skip package metadata
-            continue
-        with open(path, encoding="utf-8") as f:
-            table: dict[str, str] = json.load(f)
+        table: dict[str, str] = loads(path.read_text(encoding="utf-8"))
         code = table.get("locale.code", path.stem)
         tables[code] = table
+
     return tables
 
 
@@ -67,8 +62,8 @@ class LocaleConfig:
     Parameters
     ----------
     language : str, default "en"
-        Language code, e.g. ``"en"``, ``"zh"``. Falls back to English if
-        the code is not in :data:`LOCALE_TABLES`.
+        Language code, e.g. ``"en"``, ``"zh"``. Falls back to English if the code is not
+        in :data:`LOCALE_TABLES`.
 
     table : dict or None
         Optional custom string table (key → localized text).
@@ -89,16 +84,16 @@ class LocaleConfig:
         self._strings = dict(table)
 
     @classmethod
-    def from_file(cls, path: str | Path) -> LocaleConfig:
-        """Load locale strings from an external JSON or YAML file.
+    def from_json(cls, path: str | Path) -> LocaleConfig:
+        """Load locale strings from an external JSON file.
 
-        The file must contain a flat dictionary of ``key: "translated text"``
-        entries, plus a ``locale.code`` key that identifies the language.
+        The file must contain a flat dictionary of ``key: "translated text"`` entries,
+        plus a ``locale.code`` key that identifies the language.
 
         Parameters
         ----------
         path : str or Path
-            Path to a ``.json`` or ``.yaml`` / ``.yml`` file.
+            Path to a ``.json`` file.
 
         Returns
         -------
@@ -106,37 +101,23 @@ class LocaleConfig:
 
         Examples
         --------
-        >>> LocaleConfig.from_file("locales/ja.json")
-        >>> LocaleConfig.from_file("locales/fr.yaml")
+        >>> LocaleConfig.from_json("locales/ja.json")
         """
-        path = Path(path)
-        if path.suffix in (".yaml", ".yml"):
-            try:
-                import yaml  # type: ignore[import-untyped]
-            except ImportError:
-                raise ImportError(
-                    "Loading YAML locale files requires PyYAML. "
-                    "Install it with: pip install pyyaml"
-                )
-            raw: dict[str, str] = yaml.safe_load(path.read_text(encoding="utf-8"))
-        elif path.suffix == ".json":
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        else:
+        if (path := Path(path)).suffix != ".json":
             raise ValueError(
-                f"Unsupported locale file format: {path.suffix}. "
-                "Use .json, .yaml, or .yml."
+                f"only .json locale files are supported, got '{path.suffix}'"
             )
 
-        code = raw.get("locale.code", "en")
+        raw: dict[str, Any] = loads(path.read_text(encoding="utf-8"))
+        code: str = raw.get("locale.code", "en")
         obj = cls(language=code)
-        obj._strings = raw
+        obj._strings = raw  # type: ignore[assignment]
         return obj
 
-    def to_file(self, path: str | Path) -> None:
+    def to_json(self, path: str | Path) -> None:
         """Export the current string table to a JSON file."""
-        path = Path(path)
-        path.write_text(
-            json.dumps(self._strings, ensure_ascii=False, indent=2),
+        Path(path).write_text(
+            dumps(self._strings, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 
@@ -144,18 +125,9 @@ class LocaleConfig:
         """Look up a localized string by key."""
         return self._strings.get(key, default or key)
 
-    def get_js_table(self) -> str:
-        """Return the string table as a JavaScript object literal for injection."""
-        return json.dumps(self._strings, ensure_ascii=False)
-
     @property
     def code(self) -> str:
         return self._strings.get("locale.code", "en")
-
-
-# Pre-built instances for convenience
-EN = LocaleConfig("en")
-ZH = LocaleConfig("zh")
 
 
 def resolve_locale(locale: str | LocaleConfig | None) -> LocaleConfig:
@@ -173,29 +145,37 @@ def resolve_locale(locale: str | LocaleConfig | None) -> LocaleConfig:
 
 
 def detect_language(accept_language: str = "") -> str:
-    """Detect user language from the environment.
+    """Detect user language from environment variables.
 
     Checks (in order):
     1. ``accept_language`` argument (HTTP header)
-    2. ``os.environ["LANG"]`` (Unix / WSL)
-    3. ``os.environ["LC_ALL"]`` / ``os.environ["LC_MESSAGES"]``
-    4. Python's ``locale.getdefaultlocale()``
+    2. Environment variables ``LANG``, ``LC_ALL``, ``LC_MESSAGES``
+    3. :func:`locale.getlocale()`
 
-    Falls back to ``"en"`` if none match.
+    Note
+    ----
+    Server-side locale detection is unreliable across platforms (macOS, Docker, CI).
+    For browser-based usage, the frontend JavaScript reads ``navigator.language`` at
+    runtime and selects the correct locale table from ``_LOCALES`` — this function is
+    only a fallback when no other locale is specified.
+
+    Returns
+    -------
+    str
+        Language code (e.g. ``"en"``, ``"zh"``).  Falls back to ``"en"``.
     """
-    candidates: list[str] = []
 
+    candidates: list[str] = []
     if accept_language:
         candidates.append(accept_language)
 
     for env_var in ("LANG", "LC_ALL", "LC_MESSAGES"):
-        val = os.environ.get(env_var, "")
-        if val:
+        if val := os.environ.get(env_var, ""):
             candidates.append(val)
 
     try:
-        sys_lang, _ = _stdlib_locale.getdefaultlocale()  # type: ignore[deprecated]
-        if sys_lang:
+        sys_lang, _ = _stdlib_locale.getlocale()
+        if sys_lang and sys_lang.lower() not in ("c", "posix"):
             candidates.append(sys_lang)
     except Exception:
         pass

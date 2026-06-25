@@ -6,6 +6,22 @@
 (function () {
   if (window.foliplus) return;
 
+  // ------------------------------------------------------------------
+  // Browser locale auto-detection
+  // ------------------------------------------------------------------
+  // _LOCALES is injected by the Python template as a JSON object
+  // containing all built-in string tables ({"en":{…}, "zh":{…}}).
+  // Pick the one that matches the browser language, defaulting to en.
+  // ------------------------------------------------------------------
+  if (typeof _LOCALES !== 'undefined') {
+    var _navLang = (typeof navigator !== 'undefined'
+      ? (navigator.language || navigator.userLanguage || '')
+      : '');
+    var _lang = _navLang.split('-')[0].split('_')[0].toLowerCase();
+    var _LOCALE = _LOCALES[_lang] || _LOCALES['en'];
+    window._LOCALE = _LOCALE;
+  }
+
   const foliplus = {
     // --- SVG Icons ---
     SVGs: {

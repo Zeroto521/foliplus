@@ -6,7 +6,6 @@ import folium
 from conftest import render
 
 from foliplus import ScaleControl
-from foliplus.locale import ZH
 
 
 class TestScaleControlPython:
@@ -25,7 +24,7 @@ class TestScaleControlPython:
         assert ScaleControl().locale.code == "en"
 
     def test_custom_locale(self):
-        assert ScaleControl(locale=ZH).locale.code == "zh"
+        assert ScaleControl(locale="zh").locale.code == "zh"
 
     def test_default_params(self):
         ctrl = ScaleControl()
@@ -67,7 +66,7 @@ class TestScaleControlRendering:
         assert "zoomend" not in html
 
     def test_locale_zh(self, base_map: folium.Map):
-        ScaleControl(locale=ZH).add_to(base_map)
+        ScaleControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "地图层级" in html
         assert "scale.zoom_label" in html

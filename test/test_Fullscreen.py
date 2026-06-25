@@ -6,7 +6,6 @@ import folium
 from conftest import render
 
 from foliplus import Fullscreen
-from foliplus.locale import ZH
 
 
 class TestFullscreenPython:
@@ -31,7 +30,7 @@ class TestFullscreenPython:
         assert Fullscreen().locale.code == "en"
 
     def test_custom_locale(self):
-        assert Fullscreen(locale=ZH).locale.code == "zh"
+        assert Fullscreen(locale="zh").locale.code == "zh"
 
 
 class TestFullscreenRendering:
@@ -70,7 +69,7 @@ class TestFullscreenRendering:
         assert "Control.FullScreen.css" in html
 
     def test_locale_zh(self, base_map: folium.Map):
-        Fullscreen(locale=ZH).add_to(base_map)
+        Fullscreen(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "已进入全屏" in html
         assert "fullscreen.enter" in html
