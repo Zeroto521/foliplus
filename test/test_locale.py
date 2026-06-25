@@ -154,24 +154,6 @@ class TestFromFile:
         finally:
             os.unlink(tmp)
 
-    def test_yaml_file(self):
-        """Load locale from a .yaml file (requires PyYAML)."""
-        pytest.importorskip("yaml")
-        data = {"locale.code": "ja", "hello": "こんにちは"}
-        import yaml
-
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False, encoding="utf-8"
-        ) as f:
-            yaml.dump(data, f, allow_unicode=True)
-            tmp = f.name
-        try:
-            cfg = LocaleConfig.from_file(tmp)
-            assert cfg.code == "ja"
-            assert cfg.get("hello") == "こんにちは"
-        finally:
-            os.unlink(tmp)
-
     def test_unsupported_format(self):
         """Unsupported file extension raises ValueError."""
         with tempfile.NamedTemporaryFile(
@@ -184,30 +166,6 @@ class TestFromFile:
                 LocaleConfig.from_file(tmp)
         finally:
             os.unlink(tmp)
-
-    def test_yaml_without_pyyaml(self):
-        """When PyYAML is missing, from_file raises ImportError for .yaml files."""
-        original_import = builtins.__import__
-
-        def mock_import(name, *args, **kwargs):
-            if name == "yaml":
-                raise ImportError("No module named 'yaml'")
-            return original_import(name, *args, **kwargs)
-
-        builtins.__import__ = mock_import
-        try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".yml", delete=False, encoding="utf-8"
-            ) as f:
-                f.write("key: val\n")
-                tmp = f.name
-            try:
-                with pytest.raises(ImportError, match="requires PyYAML"):
-                    LocaleConfig.from_file(tmp)
-            finally:
-                os.unlink(tmp)
-        finally:
-            builtins.__import__ = original_import
 
 
 class TestToFile:

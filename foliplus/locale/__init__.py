@@ -16,7 +16,7 @@ Usage
 >>> from foliplus.locale import ZH
 >>> HeatmapControl(locale=ZH)
 
-# Load from external JSON/YAML
+# Load from external JSON
 >>> from foliplus.locale import LocaleConfig
 >>> HeatmapControl(locale=LocaleConfig.from_file("my_locale.json"))
 """
@@ -90,7 +90,7 @@ class LocaleConfig:
 
     @classmethod
     def from_file(cls, path: str | Path) -> LocaleConfig:
-        """Load locale strings from an external JSON or YAML file.
+        """Load locale strings from an external JSON file.
 
         The file must contain a flat dictionary of ``key: "translated text"``
         entries, plus a ``locale.code`` key that identifies the language.
@@ -98,7 +98,7 @@ class LocaleConfig:
         Parameters
         ----------
         path : str or Path
-            Path to a ``.json`` or ``.yaml`` / ``.yml`` file.
+            Path to a ``.json`` file.
 
         Returns
         -------
@@ -107,35 +107,22 @@ class LocaleConfig:
         Examples
         --------
         >>> LocaleConfig.from_file("locales/ja.json")
-        >>> LocaleConfig.from_file("locales/fr.yaml")
         """
         path = Path(path)
-        if path.suffix in (".yaml", ".yml"):
-            try:
-                import yaml  # type: ignore[import-untyped]
-            except ImportError:
-                raise ImportError(
-                    "Loading YAML locale files requires PyYAML. "
-                    "Install it with: pip install pyyaml"
-                )
-            raw: dict[str, str] = yaml.safe_load(path.read_text(encoding="utf-8"))
-        elif path.suffix == ".json":
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        else:
+        if path.suffix != ".json":
             raise ValueError(
-                f"Unsupported locale file format: {path.suffix}. "
-                "Use .json, .yaml, or .yml."
+                f"Unsupported locale file format: {path.suffix}. Use .json."
             )
+        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
 
-        code = raw.get("locale.code", "en")
+        code: str = raw.get("locale.code", "en")
         obj = cls(language=code)
-        obj._strings = raw
+        obj._strings = raw  # type: ignore[assignment]
         return obj
 
     def to_file(self, path: str | Path) -> None:
         """Export the current string table to a JSON file."""
-        path = Path(path)
-        path.write_text(
+        Path(path).write_text(
             json.dumps(self._strings, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
