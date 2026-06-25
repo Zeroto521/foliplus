@@ -6,6 +6,8 @@ import folium
 from conftest import render
 
 from foliplus import Fullscreen
+
+
 class TestFullscreenPython:
     """Python-side property tests."""
 

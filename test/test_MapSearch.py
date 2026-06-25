@@ -5,6 +5,8 @@ from __future__ import annotations
 import folium
 
 from foliplus import MapSearch
+
+
 class TestMapSearchPython:
     """Python-side property tests."""
 

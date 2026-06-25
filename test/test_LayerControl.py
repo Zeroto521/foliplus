@@ -6,6 +6,8 @@ import folium
 from conftest import render
 
 from foliplus import LayerControl
+
+
 class TestLayerControlPython:
     """Python-side property tests."""
 
