@@ -37,6 +37,6 @@ dist:
 	ls -l dist
 
 info:
-	@python -c "import sys,os; print(f'Python: {sys.version.split()[0]}'); print(f'Platform: {sys.platform}'); print(f'Conda Env: {os.environ.get(\"CONDA_DEFAULT_ENV\",\"-\")}')"
+	@python -c "import platform,sys,os; print(f'Python: {sys.version.split()[0]}'); print(f'Platform: {platform.platform(terse=True)}'); print(f'Conda Env: {os.environ.get(\"CONDA_DEFAULT_ENV\",\"-\")}')"
 	@python -c "from foliplus import __version__; print(f'foliplus: {__version__}')"
 	@python -c "from foliplus._cdn import H3_JS,CHROMA_JS,GCOORD,SIMPLE_STATISTICS,LEAFLET_FULLSCREEN; print(f'CDN: h3={H3_JS} ss={SIMPLE_STATISTICS} chroma={CHROMA_JS} fullscreen={LEAFLET_FULLSCREEN} gcoord={GCOORD}')"
