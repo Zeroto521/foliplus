@@ -152,9 +152,7 @@
       this.cleanupFn = null;
       this.suppressHideDel = false;
       this.toolBtns = [];
-
       this.MEASURE_ID = '__measure__';
-      this.MEASURE_PANE = '_measure_pane';
 
       this._setupLayerOverrides();
       this._bindGlobalEvents();
@@ -164,10 +162,10 @@
       const origAdd = this.layerGroup.addLayer.bind(this.layerGroup);
       this.layerGroup.addLayer = (layer) => {
         this._registerToLayerControl();
-        layer.options.pane = this.MEASURE_PANE;
+        layer.options.pane = this.MEASURE_ID;
 
         if (layer instanceof L.Path) {
-          const { renderer } = window.foliplus.LayerControlAPI.ensurePane(this.MEASURE_PANE);
+          const { renderer } = window.foliplus.LayerControlAPI.ensurePane(this.MEASURE_ID);
           layer.options.renderer = renderer;
         }
 
@@ -183,7 +181,7 @@
         id: this.MEASURE_ID,
         isBase: false,
         layer: this.layerGroup,
-        paneName: this.MEASURE_PANE,
+        paneName: this.MEASURE_ID,
         iconSvg: SVGS.RULER,
       });
     }

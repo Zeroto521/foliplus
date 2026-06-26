@@ -89,7 +89,6 @@
         this.currentLabelShow = LABEL_SHOW;
 
         this.HEATMAP_ID = '__heatmap__';
-        this.PANE_NAME = '_heatmap_pane';
         this.hexLayerRegistered = false;
         this.ui = null; // Injected UI control panel instance
 
@@ -108,7 +107,7 @@
             opacity: BORDER_OP,
           }),
           interactive: false,
-          pane: this.PANE_NAME,
+          pane: this.HEATMAP_ID,
         });
         this.labelLayer = L.layerGroup();
 
@@ -411,7 +410,7 @@
                 iconAnchor: _CONST.LABEL_ANCHOR,
               }),
               interactive: false,
-              pane: this.PANE_NAME,
+              pane: this.HEATMAP_ID,
             }).addTo(this.labelLayer);
           });
         }
@@ -426,7 +425,7 @@
           id: this.HEATMAP_ID,
           isBase: false,
           layer: this.heatmapLayer,
-          paneName: this.PANE_NAME,
+          paneName: this.HEATMAP_ID,
           iconSvg: SVG_HEX,
         });
       }
