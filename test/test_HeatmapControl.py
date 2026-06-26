@@ -5,8 +5,6 @@ from __future__ import annotations
 import folium
 from conftest import render
 
-import pytest
-
 from foliplus import HeatmapControl
 
 
@@ -154,3 +152,60 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "_heatmap_pane" in html
+
+
+class TestHeatmapControlBrowser:
+    """Browser-based smoke tests for HeatmapControl."""
+
+    def test_panel_interaction(self, browser, tmp_path):
+        """Open heatmap panel, verify layer dropdown populates.
+
+        CDN scripts (h3-js, chroma-js) are not available in CI, so hexagon
+        rendering is NOT tested here.  This test validates that the UI panel
+        opens correctly and no critical JS errors occur.
+        """
+        from foliplus import LayerControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+
+        # Add marker layers for heatmap to discover via LayerControlAPI
+        fg = folium.FeatureGroup(name="Points", show=True)
+        folium.Marker([26.08, 119.30]).add_to(fg)
+        folium.Marker([26.09, 119.31]).add_to(fg)
+        folium.Marker([26.07, 119.29]).add_to(fg)
+        fg.add_to(m)
+
+        LayerControl().add_to(m)
+        HeatmapControl().add_to(m)
+
+        html_path = tmp_path / "test_heatmap_browser.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            errors = []
+            page.on(
+                "console",
+                lambda msg: errors.append(msg.text) if msg.type == "error" else None,
+            )
+
+            page.goto(f"file://{html_path}")
+            page.wait_for_selector(".heatmap-ctrl", timeout=5000)
+
+            # Click toggle button to expand panel
+            page.click(".heatmap-ctrl .toggle-btn")
+            page.wait_for_selector(".heatmap-ctrl.expanded", timeout=3000)
+
+            # Layer select should list at least the placeholder + one layer
+            options = page.locator(".heatmap-ctrl .layer-select option")
+            assert options.count() >= 2
+
+            # Click close to collapse — verify no crash
+            page.click(".heatmap-ctrl .close-btn")
+            page.wait_for_selector(".heatmap-ctrl.collapsed", timeout=3000)
+
+            # No JS errors (CDN load failures are warnings, not errors)
+            critical = [e for e in errors if "Script error" not in e]
+            assert not critical, f"JS errors: {critical}"
+        finally:
+            page.close()
