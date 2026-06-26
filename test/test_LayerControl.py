@@ -77,6 +77,19 @@ class TestLayerControlRendering:
         assert "registerLayer" in html
         assert "unregisterLayer" in html
         assert "getLayersByType" in html
+        assert "ensurePane" in html
+
+    def test_container_marking(self, base_map: folium.Map):
+        """registerLayer auto-marks container layers with __customRendererApplied."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "__customRendererApplied" in html
+        # Only LayerControl.js should use it — HeatmapControl/MeasureControl
+        # no longer set it manually
+        assert (
+            "opts.layer.options.__customRendererApplied" in html
+            or "layer.options.__customRendererApplied" in html
+        )
 
     def test_color_layer_functions(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
