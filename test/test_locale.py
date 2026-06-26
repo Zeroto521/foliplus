@@ -274,7 +274,7 @@ class TestLocaleBrowserJS:
         dest.write_text(html, encoding="utf-8")
 
         page = browser.new_page(locale="en-US")
-        page.goto(f"file://{dest}", wait_until="domcontentloaded")
+        page.goto(f"file://{dest}", wait_until="domcontentloaded", timeout=15000)
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "en"
         assert page.evaluate("window._LOCALE['search.btn_title']") == "Map Search"

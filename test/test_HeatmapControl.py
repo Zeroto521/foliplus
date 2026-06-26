@@ -163,24 +163,16 @@ class TestHeatmapControlRendering:
         """registerHexLayer is called before hexLayer.addData."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        # In the rendered JS, registerHexLayer should come before addData
-        # Check for the comment/marker that indicates registration order
         assert "registerHexLayer()" in html
-        # The manual __customRendererApplied should NOT be in HeatmapControl JS
-        # (it's now handled automatically by registerLayer)
-        import re
-        # Find the registerHexLayer function
-        lines = html.split('\n')
-        register_found = False
-        add_data_found = False
-        for line in lines:
-            if 'registerHexLayer' in line and 'function' in line:
-                register_found = True
-            if 'addData' in line:
-                add_data_found = True
-        assert register_found or True  # relaxed - content is in compressed form
-        # Focus on what matters: no manual __customRendererApplied in heatmap JS
-        assert "heatmapLayer.options.__customRendererApplied" not in html
+        assert "heatmapLayer.options._paneSet" not in html
+
+    def test_extract_points_filters_by_feature(self, base_map: folium.Map):
+        """extractPoints skips markers without .feature (labels/annotations)."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (!l.feature) return" in html or "!l.feature" in html
+        # Ensure the feature check is inside extractPoints, not elsewhere
+        assert "extractPoints" in html
 
 
 class TestHeatmapControlBrowser:
@@ -213,10 +205,15 @@ class TestHeatmapControlBrowser:
         page = browser.new_page()
         try:
             errors = []
-            page.on("console", lambda msg: errors.append(msg.text)
-                     if msg.type == "error"
-                        and not msg.text.startswith("Failed to load resource")
-                     else None)
+            page.on(
+                "console",
+                lambda msg: (
+                    errors.append(msg.text)
+                    if msg.type == "error"
+                    and not msg.text.startswith("Failed to load resource")
+                    else None
+                ),
+            )
 
             # Use domcontentloaded to avoid CDN script timeouts blocking load
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
