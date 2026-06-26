@@ -298,11 +298,20 @@
 
     // Core Sorting Engine
     _setLayerPaneRecursive(layer, paneName, renderer) {
+      // Skip markers using L.divIcon — they create HTML elements that don't
+      // render correctly inside SVG-based custom panes.  Regular L.Marker
+      // (default icon) and L.CircleMarker (SVG path) are still moved to the
+      // custom pane so layer z-order is preserved.
+      if (layer instanceof L.Marker) {
+        const icon = layer.options?.icon;
+        if (icon instanceof L.divIcon) return;
+      }
+
       layer.options.pane = paneName;
-      layer.options.__customRendererApplied = true;
 
       if (layer instanceof L.Path) {
         layer.options.renderer = renderer;
+        layer.options.__customRendererApplied = true;
         if (layer._renderer) {
           layer._renderer = null;
         }

@@ -9,6 +9,7 @@
 /* ── Hexbin Label ── */
 .heatmap-label {
   pointer-events: none;
+  z-index: 1000 !important;
 }
 .heatmap-label .heatmap-label-inner {
   width: 100%;
