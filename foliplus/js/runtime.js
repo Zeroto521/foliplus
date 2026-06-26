@@ -349,33 +349,44 @@
   };
 
   // ==================== Number Formatting ====================
-  // Locale-aware number formatting with auto / comma / int modes.
+  // Locale-aware number formatting using Intl.NumberFormat compact notation.
+  // 'auto'  → compact abbreviations by locale: en→K/M/B, zh→万/亿, others→en fallback
+  // 'comma' → thousands separator + 1 decimal (alias: 'int')
   /**
    * Format a number for display.
    * @param {number} val Value to format
-   * @param {string} style 'auto' (10K/1K suffix), 'comma' (thousands separator), 'int'
-   * @param {string} locale Locale code, default 'zh-CN'
+   * @param {string} [style='auto'] 'auto' (compact: 1.2K/1.2万/1.2M),
+   *                                'comma' or 'int' (thousands separator: 1,234.6)
+   * @param {string} [locale] Locale code, defaults to browser language (en/zh)
    * @returns {string} Formatted string
    */
   foliplus.formatNumber = function (val, style, locale) {
     style = style || 'auto';
-    locale = locale || 'zh-CN';
+    locale = locale || (typeof _LOCALE !== 'undefined' && _LOCALE['locale.code']) || 'en';
     if (typeof Intl !== 'undefined' && Intl.NumberFormat) {
       if (style === 'auto') {
-        if (val >= 10000) return (val / 10000).toFixed(1) + 'W';
-        if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
-        return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(val);
+        return new Intl.NumberFormat(locale, {
+          notation: 'compact',
+          compactDisplay: 'short',
+          maximumFractionDigits: 1,
+        }).format(val);
       }
-      if (style === 'comma') {
-        return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(val);
-      }
-      return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(val);
+      // comma / int → thousands separator, 1 decimal
+      return new Intl.NumberFormat(locale, {
+        maximumFractionDigits: 1,
+      }).format(val);
     }
-    // Fallback: no Intl support
+    // Fallback: no Intl support — use locale-aware abbreviations
     if (style === 'auto') {
-      if (val >= 10000) return (val / 10000).toFixed(1) + 'W';
-      if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
-      return Math.round(val).toString();
+      if (locale === 'zh') {
+        if (val >= 1e8) return (val / 1e8).toFixed(1) + '亿';
+        if (val >= 10000) return (val / 10000).toFixed(1) + '万';
+      } else {
+        if (val >= 1e9) return (val / 1e9).toFixed(1) + 'B';
+        if (val >= 1e6) return (val / 1e6).toFixed(1) + 'M';
+        if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+      }
+      return Math.round(val).toLocaleString();
     }
     return Math.round(val).toLocaleString();
   };
