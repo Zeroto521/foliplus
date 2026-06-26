@@ -107,7 +107,8 @@
             weight: this.BORDER_W,
             opacity: BORDER_OP,
           }),
-          interactive: false
+          interactive: false,
+          pane: this.PANE_NAME,
         });
         this.labelLayer = L.layerGroup();
 
@@ -364,12 +365,15 @@
           } catch (e) {}
         }
 
+        // Register with LayerControl BEFORE adding data, so enforceOrder()
+        // runs while heatmapLayer is empty — avoid removeLayer/addLayer
+        // disrupting already-rendered hexagons and labels.
+        this.registerHexLayer();
+
         this.hexLayer.clearLayers();
         if (features.length) {
           this.hexLayer.addData({ type: 'FeatureCollection', features });
         }
-
-        this.registerHexLayer();
 
         this.labelLayer.clearLayers();
         if (this.currentLabelShow) {
@@ -411,7 +415,7 @@
       registerHexLayer() {
         if (this.hexLayerRegistered) return;
         this.hexLayerRegistered = true;
-        this.hexLayer.options.pane = this.PANE_NAME;
+        // hexLayer pane is already set in _initLayers
         window.foliplus.LayerControlAPI.registerLayer({
           name: _('heatmap.title'),
           id: this.HEATMAP_ID,
@@ -420,6 +424,10 @@
           paneName: this.PANE_NAME,
           iconSvg: SVG_HEX,
         });
+        // Mark the container as already-processed so enforceOrder() skips
+        // the removeLayer/addLayer cycle on visibility toggle.
+        this.heatmapLayer.options.pane = this.PANE_NAME;
+        this.heatmapLayer.options.__customRendererApplied = true;
       }
 
       unregisterHexLayer() {
