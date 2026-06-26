@@ -7,8 +7,6 @@ import json
 import folium
 from conftest import render
 
-import pytest
-
 from foliplus import HeatmapControl
 
 
