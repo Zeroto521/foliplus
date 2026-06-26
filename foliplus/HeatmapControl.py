@@ -20,7 +20,7 @@ class HeatmapControl(BaseControl):
     position : str, default "topleft"
         One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
-    color_scheme : str, default "Greens"
+    color_scheme : str, default "Reds"
         Default color scheme name. Supports chroma.js / ColorBrewer palettes: ``Blues``,
         ``Greens``, ``Reds``, ``Oranges``, ``Purples``, ``YlOrRd``, ``Viridis``.
 
@@ -76,7 +76,7 @@ class HeatmapControl(BaseControl):
     def __init__(
         self,
         position: Position = "topleft",
-        color_scheme: str = "Greens",
+        color_scheme: str = "Reds",
         method: Literal["jenks", "quantile", "equal", "heads"] = "jenks",
         n_classes: int = 6,
         agg: Literal["count", "sum", "avg", "min", "max"] = "count",
