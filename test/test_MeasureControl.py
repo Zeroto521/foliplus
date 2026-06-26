@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import folium
+from conftest import render
 
 from foliplus import MeasureControl
 
@@ -28,38 +29,28 @@ class TestMeasureControlPython:
 
 class TestMeasureControlRendering:
     def test_default_params(self, base_map: folium.Map):
-        from conftest import render
-
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "measure-ctrl" in html
 
     def test_custom_position(self, base_map: folium.Map):
-        from conftest import render
-
         MeasureControl(position="topleft").add_to(base_map)
         html = render(base_map)
         assert "topleft" in html
 
     def test_contains_gcoord_dependency(self, base_map: folium.Map):
-        from conftest import render
-
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "gcoord" in html
         assert "gcoord.global.prod.js" in html
 
     def test_contains_tool_buttons(self, base_map: folium.Map):
-        from conftest import render
-
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "tool-btn" in html
         assert "data-mode" in html
 
     def test_locale_zh(self, base_map: folium.Map):
-        from conftest import render
-
         MeasureControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "量算工具" in html
@@ -67,7 +58,6 @@ class TestMeasureControlRendering:
 
     def test_bring_to_front_on_circle_marker(self, base_map: folium.Map):
         """CircleMarkers call bringToFront() after creation (not in onAdd override)."""
-        from conftest import render
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
@@ -86,7 +76,6 @@ class TestMeasureControlRendering:
 
     def test_no_remove_layer_override(self, base_map: folium.Map):
         """removeLayer override removed — unregistration handled explicitly."""
-        from conftest import render
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
@@ -94,7 +83,6 @@ class TestMeasureControlRendering:
 
     def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
         """MeasureControl uses LayerControlAPI.ensurePane for renderer creation."""
-        from conftest import render
 
         MeasureControl().add_to(base_map)
         html = render(base_map)

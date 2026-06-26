@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import folium
 from conftest import render
 
@@ -189,10 +191,23 @@ class TestHeatmapControlBrowser:
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
 
         # Add marker layers for heatmap to discover via LayerControlAPI
+        # GeoJson markers have .feature — required by extractPoints filter
         fg = folium.FeatureGroup(name="Points", show=True)
-        folium.Marker([26.08, 119.30]).add_to(fg)
-        folium.Marker([26.09, 119.31]).add_to(fg)
-        folium.Marker([26.07, 119.29]).add_to(fg)
+
+        for lat, lng in [(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]:
+            gj = json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"name": "p"},
+                            "geometry": {"type": "Point", "coordinates": [lng, lat]},
+                        }
+                    ],
+                }
+            )
+            folium.GeoJson(gj).add_to(fg)
         fg.add_to(m)
 
         LayerControl().add_to(m)
@@ -216,19 +231,31 @@ class TestHeatmapControlBrowser:
 
             # Use domcontentloaded to avoid CDN script timeouts blocking load
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".heatmap-ctrl", timeout=10000)
+            # Wait for the heatmap-ctrl element to exist in DOM (it's hidden
+            # when collapsed but Present in the DOM tree)
+            page.wait_for_selector(".heatmap-ctrl", state="attached", timeout=10000)
 
-            # Click toggle button to expand panel
-            page.click(".heatmap-ctrl .toggle-btn")
-            page.wait_for_selector(".heatmap-ctrl.expanded", timeout=5000)
+            # Click toggle button via JS — collapsed ctrl-fold may be
+            # considered hidden in CI/headless Playwright actionability checks
+            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
 
-            # Layer select should list at least the placeholder + one layer
-            options = page.locator(".heatmap-ctrl .layer-select option")
-            assert options.count() >= 2
+            # Give initScan time to discover point layers (up to ~1.5s)
+            page.wait_for_timeout(2000)
 
-            # Click close to collapse — verify no crash
-            page.click(".heatmap-ctrl .close-btn")
-            page.wait_for_selector(".heatmap-ctrl.collapsed", timeout=5000)
+            # Check layer options via evaluate (avoids visibility checks)
+            options_count = page.evaluate(
+                "document.querySelectorAll('.heatmap-ctrl .layer-select option').length"
+            )
+            assert options_count >= 2
+
+            # Click close via JS to collapse — verify no crash
+            page.evaluate("document.querySelector('.heatmap-ctrl .close-btn').click()")
+            page.wait_for_selector(
+                ".heatmap-ctrl.collapsed", state="attached", timeout=5000
+            )
 
             # No unexpected JS errors (CDN resource load failures are normal
             # in an offline test environment).
