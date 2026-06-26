@@ -161,16 +161,6 @@
     }
 
     _setupLayerOverrides() {
-      const origOnAdd = this.layerGroup.onAdd.bind(this.layerGroup);
-      this.layerGroup.onAdd = (map) => {
-        origOnAdd(map);
-        for (const id in this.layerGroup._layers) {
-          if (this.layerGroup._layers[id] instanceof L.CircleMarker) {
-            this.layerGroup._layers[id].bringToFront();
-          }
-        }
-      };
-
       const origAdd = this.layerGroup.addLayer.bind(this.layerGroup);
       this.layerGroup.addLayer = (layer) => {
         this._registerToLayerControl();
@@ -181,18 +171,7 @@
           layer.options.renderer = renderer;
         }
 
-        const result = origAdd(layer);
-        if (layer instanceof L.CircleMarker) {
-          layer.bringToFront();
-        }
-        return result;
-      };
-
-      const origRemove = this.layerGroup.removeLayer.bind(this.layerGroup);
-      this.layerGroup.removeLayer = (layer) => {
-        const result = origRemove(layer);
-        this._unregisterFromLayerControl();
-        return result;
+        return origAdd(layer);
       };
     }
 
@@ -279,6 +258,7 @@
 
     clearAll() {
       this.layerGroup.clearLayers();
+      this._unregisterFromLayerControl();
       this.clearActiveMode();
     }
 
@@ -364,6 +344,7 @@
       L.DomEvent.on(xIcon, 'click', (ev) => {
         MeasureUtils.stopEvent(ev);
         this.layerGroup.removeLayer(marker);
+        this._unregisterFromLayerControl();
       });
     }
 
@@ -547,6 +528,7 @@
           fillOpacity: 1,
           weight: _CONST.LINE_WEIGHT_FINAL,
         }).addTo(this.layerGroup);
+        mkr.bringToFront();
         nodeMarkers.push(mkr);
 
         if (pts.length === 1) {
@@ -710,6 +692,7 @@
             fillColor: '#fff', fillOpacity: 1,
             weight: 2, interactive: false,
           }).addTo(this.layerGroup);
+          previews.node.bringToFront();
         } else {
           previews.node.setLatLng(e.latlng);
         }
@@ -780,6 +763,7 @@
           fillColor: '#fff', fillOpacity: 1,
           weight: 2, interactive: true,
         }).addTo(this.layerGroup);
+        radiusNode.bringToFront();
 
         let labelsVisible = true;
         let xVisible = false;
