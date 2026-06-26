@@ -291,8 +291,7 @@ class TestLayerControlRendering:
         # _setLayerPaneRecursive is always called
         assert "_setLayerPaneRecursive" in html
         # markerPane z-index is synced
-        assert "mp.style.zIndex = markerZ" in html or \
-               "mp.style.zIndex" in html
+        assert "mp.style.zIndex = markerZ" in html or "mp.style.zIndex" in html
 
     def test_enforce_order_still_processes_registered_layers(
         self, base_map: folium.Map
@@ -317,8 +316,10 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # _paneSet = true is set unconditionally after options.pane
-        assert "layer.options._paneSet = true" in html or \
-               "layer.options._paneSet=true" in html
+        assert (
+            "layer.options._paneSet = true" in html
+            or "layer.options._paneSet=true" in html
+        )
         # It's NOT inside an "if (layer instanceof L.Path)" block
         # (Search for the pattern: pane = paneName; then _paneSet = true)
         # The _paneSet line should appear BEFORE the Path-specific renderer code
@@ -329,8 +330,10 @@ class TestLayerControlRendering:
         """enforceOrder syncs markerPane z-index for non-paneName layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.map.getPane('markerPane')" in html or \
-               'this.map.getPane("markerPane")' in html
+        assert (
+            "this.map.getPane('markerPane')" in html
+            or 'this.map.getPane("markerPane")' in html
+        )
         assert "mp.style.zIndex = markerZ" in html
 
     def test_fallback_pane_generated(self, base_map: folium.Map):

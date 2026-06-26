@@ -72,13 +72,17 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         # bringToFront should appear after circleMarker creation calls
-        assert "mkr.bringToFront()" in html or \
-               "previews.node.bringToFront()" in html or \
-               "radiusNode.bringToFront()" in html
+        assert (
+            "mkr.bringToFront()" in html
+            or "previews.node.bringToFront()" in html
+            or "radiusNode.bringToFront()" in html
+        )
         # Old onAdd override should NOT exist
         assert "origOnAdd(map)" not in html
-        assert "this.layerGroup.onAdd" not in html or \
-               "this.layerGroup.onAdd = (map)" not in html
+        assert (
+            "this.layerGroup.onAdd" not in html
+            or "this.layerGroup.onAdd = (map)" not in html
+        )
 
     def test_no_remove_layer_override(self, base_map: folium.Map):
         """removeLayer override removed — unregistration handled explicitly."""
