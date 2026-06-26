@@ -166,6 +166,11 @@
         const seen = {};
         const walk = (l) => {
           if (l instanceof L.Marker || l instanceof L.CircleMarker) {
+            // Only count markers that have a .feature property — these are
+            // actual data markers created by df.explore / GeoJSON. Label/
+            // annotation markers (Text, divIcon) lack .feature and are
+            // skipped, avoiding double-counting in hexbin aggregation.
+            if (!l.feature) return;
             const lid = L.stamp(l);
             if (seen[lid]) return;
             seen[lid] = true;
