@@ -121,6 +121,7 @@
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
+      this.ensurePane = this.ensurePane.bind(this);
 
       window.foliplus.LayerControlAPI = this;
     }
@@ -220,19 +221,7 @@
       };
       this.layers.unshift(layerInfo);
 
-      if (opts.paneName) {
-        let pane = this.map.getPane(opts.paneName);
-        if (!pane) {
-          pane = this.map.createPane(opts.paneName);
-          pane.classList.add('layer-pane');
-        }
-        let renderer = this.map[`_renderer_${opts.paneName}`];
-        if (!renderer) {
-          renderer = L.svg({ pane: opts.paneName });
-          renderer.addTo(this.map);
-          this.map[`_renderer_${opts.paneName}`] = renderer;
-        }
-      }
+      if (opts.paneName) this.ensurePane(opts.paneName);
 
       if (opts.layer) window[opts.id] = opts.layer;
       if (opts.layer && !this.map.hasLayer(opts.layer)) {
@@ -296,6 +285,27 @@
       return true;
     }
 
+    /**
+     * Ensure a custom pane and its SVG renderer exist on the map.
+     * Creates both if needed.  Idempotent — safe to call multiple times.
+     * @param {string} paneName - Pane name (e.g. "_heatmap_pane").
+     * @returns {Object} `{pane: HTMLElement, renderer: L.SVG}`
+     */
+    ensurePane(paneName) {
+      let pane = this.map.getPane(paneName);
+      if (!pane) {
+        pane = this.map.createPane(paneName);
+        pane.classList.add('layer-pane');
+      }
+      let renderer = this.map[`_renderer_${paneName}`];
+      if (!renderer) {
+        renderer = L.svg({ pane: paneName });
+        renderer.addTo(this.map);
+        this.map[`_renderer_${paneName}`] = renderer;
+      }
+      return { pane, renderer };
+    }
+
     // Core Sorting Engine
     _setLayerPaneRecursive(layer, paneName, renderer) {
       // Skip markers using L.divIcon — they create HTML elements that don't
@@ -349,23 +359,12 @@
         const info = layerInfos.get(L.stamp(lyr));
         const paneName = info?.paneName ?? `_overlay_${L.stamp(lyr)}`;
 
-        let pane = this.map.getPane(paneName);
-        if (!pane) {
-          pane = this.map.createPane(paneName);
-          pane.classList.add('layer-pane');
-        }
+        const ep = this.ensurePane(paneName);
 
-        let renderer = this.map[`_renderer_${paneName}`];
-        if (!renderer) {
-          renderer = L.svg({ pane: paneName });
-          renderer.addTo(this.map);
-          this.map[`_renderer_${paneName}`] = renderer;
-        }
-
-        pane.style.zIndex = _CONST.Z_INDEX_BASE + (orderedLayers.length - i);
+        ep.pane.style.zIndex = _CONST.Z_INDEX_BASE + (orderedLayers.length - i);
 
         if (lyr.options.pane !== paneName || !lyr.options.__customRendererApplied) {
-          layersToMove.push({ layer: lyr, paneName, renderer });
+          layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
         }
       }
 

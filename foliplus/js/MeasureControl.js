@@ -177,12 +177,7 @@
         layer.options.pane = this.MEASURE_PANE;
 
         if (layer instanceof L.Path) {
-          let renderer = this.map[`_renderer_${this.MEASURE_PANE}`];
-          if (!renderer) {
-            renderer = L.svg({ pane: this.MEASURE_PANE });
-            renderer.addTo(this.map);
-            this.map[`_renderer_${this.MEASURE_PANE}`] = renderer;
-          }
+          const { renderer } = window.foliplus.LayerControlAPI.ensurePane(this.MEASURE_PANE);
           layer.options.renderer = renderer;
         }
 
