@@ -6,6 +6,8 @@ import folium
 from conftest import render
 
 from foliplus import ScaleControl
+
+
 class TestScaleControlPython:
     """Python-side property tests."""
 

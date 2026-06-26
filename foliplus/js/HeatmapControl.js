@@ -89,7 +89,6 @@
         this.currentLabelShow = LABEL_SHOW;
 
         this.HEATMAP_ID = '__heatmap__';
-        this.PANE_NAME = '_heatmap_pane';
         this.hexLayerRegistered = false;
         this.ui = null; // Injected UI control panel instance
 
@@ -107,7 +106,8 @@
             weight: this.BORDER_W,
             opacity: BORDER_OP,
           }),
-          interactive: false
+          interactive: false,
+          pane: this.HEATMAP_ID,
         });
         this.labelLayer = L.layerGroup();
 
@@ -165,6 +165,11 @@
         const seen = {};
         const walk = (l) => {
           if (l instanceof L.Marker || l instanceof L.CircleMarker) {
+            // Only count markers that have a .feature property — these are
+            // actual data markers created by df.explore / GeoJSON. Label/
+            // annotation markers (Text, divIcon) lack .feature and are
+            // skipped, avoiding double-counting in hexbin aggregation.
+            if (!l.feature) return;
             const lid = L.stamp(l);
             if (seen[lid]) return;
             seen[lid] = true;
@@ -364,12 +369,15 @@
           } catch (e) {}
         }
 
+        // Register with LayerControl BEFORE adding data, so enforceOrder()
+        // runs while heatmapLayer is empty — avoid removeLayer/addLayer
+        // disrupting already-rendered hexagons and labels.
+        this.registerHexLayer();
+
         this.hexLayer.clearLayers();
         if (features.length) {
           this.hexLayer.addData({ type: 'FeatureCollection', features });
         }
-
-        this.registerHexLayer();
 
         this.labelLayer.clearLayers();
         if (this.currentLabelShow) {
@@ -402,7 +410,7 @@
                 iconAnchor: _CONST.LABEL_ANCHOR,
               }),
               interactive: false,
-              pane: this.PANE_NAME,
+              pane: this.HEATMAP_ID,
             }).addTo(this.labelLayer);
           });
         }
@@ -411,13 +419,13 @@
       registerHexLayer() {
         if (this.hexLayerRegistered) return;
         this.hexLayerRegistered = true;
-        this.hexLayer.options.pane = this.PANE_NAME;
+        // hexLayer pane is already set in _initLayers
         window.foliplus.LayerControlAPI.registerLayer({
           name: _('heatmap.title'),
           id: this.HEATMAP_ID,
           isBase: false,
           layer: this.heatmapLayer,
-          paneName: this.PANE_NAME,
+          paneName: this.HEATMAP_ID,
           iconSvg: SVG_HEX,
         });
       }

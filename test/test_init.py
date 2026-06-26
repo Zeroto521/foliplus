@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 
 import foliplus
-from foliplus import Fullscreen, HeatmapControl, MeasureControl
 from foliplus._cdn import (
     CHROMA_JS,
     GCOORD,
@@ -68,6 +67,7 @@ class TestCDN:
 
     def test_cdn_urls_in_default_js(self):
         """All default_js URLs follow the expected format."""
+        from foliplus import Fullscreen, HeatmapControl, MeasureControl
 
         for _, url in HeatmapControl.default_js:
             assert url.startswith("https://cdn.jsdelivr.net/npm/")

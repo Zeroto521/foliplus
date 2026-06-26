@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   test:
-    name: ${{ matrix.python }}, ${{ matrix.env }}
+    name: py${{ matrix.python }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -32,14 +32,10 @@ jobs:
           environment-file: ${{ matrix.env }}
           create-args: python=${{ matrix.python }}
 
-      - name: Install project
-        run: pip install -e .
-
-      - name: Check and Log Environment
-        run: make info
-
-      - name: Test with Pytest
-        run: make test
+      - run: playwright install chromium
+      - run: pip install -e .
+      - run: make info
+      - run: make test
 
       - uses: codecov/codecov-action@v6
         with:

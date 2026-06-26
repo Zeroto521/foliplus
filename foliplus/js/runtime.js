@@ -6,6 +6,22 @@
 (function () {
   if (window.foliplus) return;
 
+  // ------------------------------------------------------------------
+  // Browser locale auto-detection
+  // ------------------------------------------------------------------
+  // _LOCALES is injected by the Python template as a JSON object
+  // containing all built-in string tables ({"en":{…}, "zh":{…}}).
+  // Pick the one that matches the browser language, defaulting to en.
+  // ------------------------------------------------------------------
+  if (typeof _LOCALES !== 'undefined') {
+    var _navLang = (typeof navigator !== 'undefined'
+      ? (navigator.language || navigator.userLanguage || '')
+      : '');
+    var _lang = _navLang.split('-')[0].split('_')[0].toLowerCase();
+    var _LOCALE = _LOCALES[_lang] || _LOCALES['en'];
+    window._LOCALE = _LOCALE;
+  }
+
   const foliplus = {
     // --- SVG Icons ---
     SVGs: {
@@ -333,33 +349,47 @@
   };
 
   // ==================== Number Formatting ====================
-  // Locale-aware number formatting with auto / comma / int modes.
+  // Locale-aware number formatting using Intl.NumberFormat compact notation.
+  // 'auto'  → compact abbreviations above threshold (en:≥1K, zh:≥1万),
+  //            standard grouping below (1,234).  Fallback: K/M/B or 万/亿.
+  // 'comma' → thousands separator + 1 decimal (alias: 'int')
   /**
    * Format a number for display.
    * @param {number} val Value to format
-   * @param {string} style 'auto' (10K/1K suffix), 'comma' (thousands separator), 'int'
-   * @param {string} locale Locale code, default 'zh-CN'
+   * @param {string} [style='auto'] 'auto' (compact: 1.2K/1.2万/1.2M),
+   *                                'comma' or 'int' (thousands separator: 1,234.6)
+   * @param {string} [locale] Locale code, defaults to browser language (en/zh)
    * @returns {string} Formatted string
    */
   foliplus.formatNumber = function (val, style, locale) {
     style = style || 'auto';
-    locale = locale || 'zh-CN';
+    locale = locale || (typeof _LOCALE !== 'undefined' && _LOCALE['locale.code']) || 'en';
     if (typeof Intl !== 'undefined' && Intl.NumberFormat) {
       if (style === 'auto') {
-        if (val >= 10000) return (val / 10000).toFixed(1) + 'W';
-        if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
-        return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(val);
+        // Use compact abbreviations above locale-specific threshold,
+        // standard grouping below (so zh locale gets "1,234" instead of "1234")
+        const compactThreshold = locale === 'zh' ? 10000 : 1000;
+        if (val >= compactThreshold) {
+          return new Intl.NumberFormat(locale, {
+            notation: 'compact',
+            compactDisplay: 'short',
+            maximumFractionDigits: 1,
+          }).format(val);
+        }
       }
-      if (style === 'comma') {
-        return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(val);
-      }
-      return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(val);
+      // auto below threshold, comma, int → thousands separator, 1 decimal
+      return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(val);
     }
-    // Fallback: no Intl support
+    // Fallback: no Intl support — use locale-aware abbreviations
     if (style === 'auto') {
-      if (val >= 10000) return (val / 10000).toFixed(1) + 'W';
-      if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
-      return Math.round(val).toString();
+      if (locale === 'zh') {
+        if (val >= 1e8) return (val / 1e8).toFixed(1) + '亿';
+        if (val >= 10000) return (val / 10000).toFixed(1) + '万';
+      } else {
+        if (val >= 1e9) return (val / 1e9).toFixed(1) + 'B';
+        if (val >= 1e6) return (val / 1e6).toFixed(1) + 'M';
+        if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+      }
     }
     return Math.round(val).toLocaleString();
   };
