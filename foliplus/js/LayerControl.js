@@ -233,12 +233,12 @@
       // Mark container layers (L.layerGroup, L.featureGroup, etc.) as
       // already-processed so subsequent enforceOrder() calls skip the
       // removeLayer/addLayer cycle.  Components no longer need to set
-      // __customRendererApplied manually on their container.
+      // _paneSet on their container — no manual __customRendererApplied needed.
       if (opts.paneName && opts.layer) {
         const isContainer = !(opts.layer instanceof L.Path || opts.layer instanceof L.Marker);
         if (isContainer) {
           opts.layer.options.pane = opts.paneName;
-          opts.layer.options.__customRendererApplied = true;
+          opts.layer.options._paneSet = true;
         }
       }
 
@@ -333,7 +333,7 @@
 
       if (layer instanceof L.Path) {
         layer.options.renderer = renderer;
-        layer.options.__customRendererApplied = true;
+        layer.options._paneSet = true;
         if (layer._renderer) {
           layer._renderer = null;
         }
@@ -375,7 +375,7 @@
 
         ep.pane.style.zIndex = _CONST.Z_INDEX_BASE + (orderedLayers.length - i);
 
-        if (lyr.options.pane !== paneName || !lyr.options.__customRendererApplied) {
+        if (lyr.options.pane !== paneName || !lyr.options._paneSet) {
           layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
         }
       }

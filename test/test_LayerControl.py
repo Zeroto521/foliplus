@@ -80,16 +80,13 @@ class TestLayerControlRendering:
         assert "ensurePane" in html
 
     def test_container_marking(self, base_map: folium.Map):
-        """registerLayer auto-marks container layers with __customRendererApplied."""
+        """registerLayer auto-marks container layers with _paneSet."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "__customRendererApplied" in html
+        assert "_paneSet" in html
         # Only LayerControl.js should use it — HeatmapControl/MeasureControl
         # no longer set it manually
-        assert (
-            "opts.layer.options.__customRendererApplied" in html
-            or "layer.options.__customRendererApplied" in html
-        )
+        assert "opts.layer.options._paneSet" in html or "layer.options._paneSet" in html
 
     def test_color_layer_functions(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
