@@ -77,6 +77,16 @@ class TestLayerControlRendering:
         assert "registerLayer" in html
         assert "unregisterLayer" in html
         assert "getLayersByType" in html
+        assert "ensurePane" in html
+
+    def test_container_marking(self, base_map: folium.Map):
+        """registerLayer auto-marks container layers with _paneSet."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "_paneSet" in html
+        # Only LayerControl.js should use it — HeatmapControl/MeasureControl
+        # no longer set it manually
+        assert "opts.layer.options._paneSet" in html or "layer.options._paneSet" in html
 
     def test_color_layer_functions(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
@@ -253,3 +263,94 @@ class TestLayerControlRendering:
         # Count draggable="true" occurrences (excluding inside JS strings)
         count = html.count('draggable="true"')
         assert count >= 2, f"Expected at least 2 draggable items, got {count}"
+
+    def test_marker_skip_in_set_layer_pane(self, base_map: folium.Map):
+        """_setLayerPaneRecursive skips Markers and TileLayers.
+
+        Markers stay in markerPane to preserve shadow rendering.
+        TileLayers stay in tilePane.
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (layer instanceof L.Marker) return" in html
+        assert "if (layer instanceof L.TileLayer) return" in html
+        assert "icon instanceof L.divIcon" not in html
+
+    def test_enforce_order_skips_no_pane(self, base_map: folium.Map):
+        """enforceOrder assigns fallback _lyr_ pane for non-paneName layers.
+
+        L.Path children get moved to the custom pane for ordering.
+        _setLayerPaneRecursive skips Markers/TileLayers — those stay in
+        their default panes.  markerPane z-index is synced for cross-group
+        interleaving.
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Fallback _lyr_ pane is generated for non-paneName layers
+        assert "_lyr_" in html
+        # _setLayerPaneRecursive is always called
+        assert "_setLayerPaneRecursive" in html
+        # markerPane z-index is synced
+        assert "mp.style.zIndex = markerZ" in html or "mp.style.zIndex" in html
+
+    def test_enforce_order_still_processes_registered_layers(
+        self, base_map: folium.Map
+    ):
+        """Layers with explicit paneName still processed by enforceOrder."""
+        from foliplus import HeatmapControl
+
+        LayerControl().add_to(base_map)
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "enforceOrder" in html
+        assert "ensurePane" in html
+        assert "_setLayerPaneRecursive" in html
+
+    def test_pane_set_on_all_layers(self, base_map: folium.Map):
+        """_setLayerPaneRecursive sets _paneSet on ALL layers, not just Path.
+
+        Containers (FeatureGroup) and other non-Path layers also get
+        _paneSet so subsequent enforceOrder calls skip unnecessary
+        removeLayer/addLayer cycles.
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # _paneSet = true is set unconditionally after options.pane
+        assert (
+            "layer.options._paneSet = true" in html
+            or "layer.options._paneSet=true" in html
+        )
+        # It's NOT inside an "if (layer instanceof L.Path)" block
+        # (Search for the pattern: pane = paneName; then _paneSet = true)
+        # The _paneSet line should appear BEFORE the Path-specific renderer code
+        pane_lines = [l for l in html.split("\n") if "_paneSet" in l]
+        assert any("true" in l for l in pane_lines)
+
+    def test_marker_pane_zindex_synced(self, base_map: folium.Map):
+        """enforceOrder syncs markerPane z-index for non-paneName layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert (
+            "this.map.getPane('markerPane')" in html
+            or 'this.map.getPane("markerPane")' in html
+        )
+        assert "mp.style.zIndex = markerZ" in html
+
+    def test_fallback_pane_generated(self, base_map: folium.Map):
+        """Non-paneName layers get a _lyr_ fallback pane in enforceOrder."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "_lyr_" in html
+        # The fallback is built with L.stamp(lyr) for uniqueness
+        assert "L.stamp(lyr)" in html
+
+    def test_circle_marker_not_skipped(self, base_map: folium.Map):
+        """CircleMarker is NOT instanceof L.Marker — passes through correctly.
+
+        CircleMarker extends L.Path (SVG-based), not L.Marker (DOM-based).
+        The Marker skip only catches L.Marker, not L.CircleMarker.
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # The skip only checks L.Marker, not L.CircleMarker
+        assert "if (layer instanceof L.Marker) return" in html

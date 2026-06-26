@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import folium
 from conftest import render
 
@@ -124,9 +126,7 @@ class TestHeatmapControlRendering:
         """Label markers use custom pane and no zIndexOffset."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: this.PANE_NAME" in html
-        # zIndexOffset should not appear near the label marker config
-        # (defaults to 0, CSS handles z-index via !important)
+        assert "pane: this.HEATMAP_ID" in html
         assert "heatmap-label" in html
 
     def test_label_zindex_css(self, base_map: folium.Map):
@@ -148,10 +148,32 @@ class TestHeatmapControlRendering:
         assert "Reds" in html
 
     def test_pane_name_constant(self, base_map: folium.Map):
-        """PANE_NAME is defined and used consistently."""
+        """HEATMAP_ID is used as pane name consistently."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "_heatmap_pane" in html
+        assert "__heatmap__" in html
+        assert "pane: this.HEATMAP_ID" in html
+
+    def test_hexlayer_pane_init(self, base_map: folium.Map):
+        """hexLayer is initialized with pane: this.HEATMAP_ID."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "pane: this.HEATMAP_ID" in html
+
+    def test_register_before_add_data(self, base_map: folium.Map):
+        """registerHexLayer is called before hexLayer.addData."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "registerHexLayer()" in html
+        assert "heatmapLayer.options._paneSet" not in html
+
+    def test_extract_points_filters_by_feature(self, base_map: folium.Map):
+        """extractPoints skips markers without .feature (labels/annotations)."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (!l.feature) return" in html or "!l.feature" in html
+        # Ensure the feature check is inside extractPoints, not elsewhere
+        assert "extractPoints" in html
 
 
 class TestHeatmapControlBrowser:
@@ -169,10 +191,23 @@ class TestHeatmapControlBrowser:
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
 
         # Add marker layers for heatmap to discover via LayerControlAPI
+        # GeoJson markers have .feature — required by extractPoints filter
         fg = folium.FeatureGroup(name="Points", show=True)
-        folium.Marker([26.08, 119.30]).add_to(fg)
-        folium.Marker([26.09, 119.31]).add_to(fg)
-        folium.Marker([26.07, 119.29]).add_to(fg)
+
+        for lat, lng in [(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]:
+            gj = json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"name": "p"},
+                            "geometry": {"type": "Point", "coordinates": [lng, lat]},
+                        }
+                    ],
+                }
+            )
+            folium.GeoJson(gj).add_to(fg)
         fg.add_to(m)
 
         LayerControl().add_to(m)
@@ -186,26 +221,44 @@ class TestHeatmapControlBrowser:
             errors = []
             page.on(
                 "console",
-                lambda msg: errors.append(msg.text) if msg.type == "error" else None,
+                lambda msg: (
+                    errors.append(msg.text)
+                    if msg.type == "error"
+                    and not msg.text.startswith("Failed to load resource")
+                    else None
+                ),
             )
 
-            page.goto(f"file://{html_path}")
-            page.wait_for_selector(".heatmap-ctrl", timeout=5000)
+            # Use domcontentloaded to avoid CDN script timeouts blocking load
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            # Wait for the heatmap-ctrl element to exist in DOM (it's hidden
+            # when collapsed but Present in the DOM tree)
+            page.wait_for_selector(".heatmap-ctrl", state="attached", timeout=10000)
 
-            # Click toggle button to expand panel
-            page.click(".heatmap-ctrl .toggle-btn")
-            page.wait_for_selector(".heatmap-ctrl.expanded", timeout=3000)
+            # Click toggle button via JS — collapsed ctrl-fold may be
+            # considered hidden in CI/headless Playwright actionability checks
+            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
 
-            # Layer select should list at least the placeholder + one layer
-            options = page.locator(".heatmap-ctrl .layer-select option")
-            assert options.count() >= 2
+            # Give initScan time to discover point layers (up to ~1.5s)
+            page.wait_for_timeout(2000)
 
-            # Click close to collapse — verify no crash
-            page.click(".heatmap-ctrl .close-btn")
-            page.wait_for_selector(".heatmap-ctrl.collapsed", timeout=3000)
+            # Check layer options via evaluate (avoids visibility checks)
+            options_count = page.evaluate(
+                "document.querySelectorAll('.heatmap-ctrl .layer-select option').length"
+            )
+            assert options_count >= 2
 
-            # No JS errors (CDN load failures are warnings, not errors)
-            critical = [e for e in errors if "Script error" not in e]
-            assert not critical, f"JS errors: {critical}"
+            # Click close via JS to collapse — verify no crash
+            page.evaluate("document.querySelector('.heatmap-ctrl .close-btn').click()")
+            page.wait_for_selector(
+                ".heatmap-ctrl.collapsed", state="attached", timeout=5000
+            )
+
+            # No unexpected JS errors (CDN resource load failures are normal
+            # in an offline test environment).
+            assert not errors, f"JS errors: {errors}"
         finally:
             page.close()

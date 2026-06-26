@@ -121,6 +121,7 @@
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
+      this.ensurePane = this.ensurePane.bind(this);
 
       window.foliplus.LayerControlAPI = this;
     }
@@ -220,19 +221,7 @@
       };
       this.layers.unshift(layerInfo);
 
-      if (opts.paneName) {
-        let pane = this.map.getPane(opts.paneName);
-        if (!pane) {
-          pane = this.map.createPane(opts.paneName);
-          pane.classList.add('layer-pane');
-        }
-        let renderer = this.map[`_renderer_${opts.paneName}`];
-        if (!renderer) {
-          renderer = L.svg({ pane: opts.paneName });
-          renderer.addTo(this.map);
-          this.map[`_renderer_${opts.paneName}`] = renderer;
-        }
-      }
+      if (opts.paneName) this.ensurePane(opts.paneName);
 
       if (opts.layer) window[opts.id] = opts.layer;
       if (opts.layer && !this.map.hasLayer(opts.layer)) {
@@ -240,6 +229,18 @@
       }
 
       this.enforceOrder();
+
+      // Mark container layers (L.layerGroup, L.featureGroup, etc.) as
+      // already-processed so subsequent enforceOrder() calls skip the
+      // removeLayer/addLayer cycle.  Components no longer need to set
+      // _paneSet on their container — no manual __customRendererApplied needed.
+      if (opts.paneName && opts.layer) {
+        const isContainer = !(opts.layer instanceof L.Path || opts.layer instanceof L.Marker);
+        if (isContainer) {
+          opts.layer.options.pane = opts.paneName;
+          opts.layer.options._paneSet = true;
+        }
+      }
 
       if (!this.uiContainer) {
         this.pendingRegistrations.push(opts);
@@ -296,22 +297,44 @@
       return true;
     }
 
+    /**
+     * Ensure a custom pane and its SVG renderer exist on the map.
+     * Creates both if needed.  Idempotent — safe to call multiple times.
+     * @param {string} paneName - Pane name (e.g. "_heatmap_pane").
+     * @returns {Object} `{pane: HTMLElement, renderer: L.SVG}`
+     */
+    ensurePane(paneName) {
+      let pane = this.map.getPane(paneName);
+      if (!pane) {
+        pane = this.map.createPane(paneName);
+        pane.classList.add('layer-pane');
+      }
+      let renderer = this.map[`_renderer_${paneName}`];
+      if (!renderer) {
+        renderer = L.svg({ pane: paneName });
+        renderer.addTo(this.map);
+        this.map[`_renderer_${paneName}`] = renderer;
+      }
+      return { pane, renderer };
+    }
+
     // Core Sorting Engine
     _setLayerPaneRecursive(layer, paneName, renderer) {
-      // Skip markers using L.divIcon — they create HTML elements that don't
-      // render correctly inside SVG-based custom panes.  Regular L.Marker
-      // (default icon) and L.CircleMarker (SVG path) are still moved to the
-      // custom pane so layer z-order is preserved.
-      if (layer instanceof L.Marker) {
-        const icon = layer.options?.icon;
-        if (icon instanceof L.divIcon) return;
-      }
+      // Skip Markers — both default icons (with shadow images) and divIcon.
+      // Moving them to a custom pane breaks their shadow positioning.
+      // They stay in Leaflet's default markerPane (z-index 600).
+      if (layer instanceof L.Marker) return;
+
+      // Skip TileLayers — they must stay in tilePane (z-index 200).
+      // Moving them to a custom pane with a higher z-index would put
+      // tiles above markers/shadows.
+      if (layer instanceof L.TileLayer) return;
 
       layer.options.pane = paneName;
+      layer.options._paneSet = true;
 
       if (layer instanceof L.Path) {
         layer.options.renderer = renderer;
-        layer.options.__customRendererApplied = true;
         if (layer._renderer) {
           layer._renderer = null;
         }
@@ -344,35 +367,49 @@
       if (orderedLayers.length === 0) return;
 
       const layersToMove = [];
+      let markerZ = 0; // highest z-index needed for markerPane
       for (let i = 0; i < orderedLayers.length; i++) {
         const lyr = orderedLayers[i];
         const info = layerInfos.get(L.stamp(lyr));
-        const paneName = info?.paneName ?? `_overlay_${L.stamp(lyr)}`;
+        const paneName = info?.paneName;
+        const z = _CONST.Z_INDEX_BASE + (orderedLayers.length - i);
 
-        let pane = this.map.getPane(paneName);
-        if (!pane) {
-          pane = this.map.createPane(paneName);
-          pane.classList.add('layer-pane');
+        if (paneName) {
+          // Layers registered with explicit paneName (e.g. heatmap/measure):
+          // move to a dedicated custom pane for z-order control.
+          const ep = this.ensurePane(paneName);
+          ep.pane.style.zIndex = z;
+          if (lyr.options.pane !== paneName || !lyr.options._paneSet) {
+            layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
+          }
+        } else {
+          // Layers without explicit paneName: assign a custom pane so
+          // L.Path children (polygons, polylines) can be reordered.
+          // _setLayerPaneRecursive skips Markers and TileLayers — those
+          // stay in their default panes (markerPane, tilePane).  Track
+          // the highest z-index so markerPane can be synced for proper
+          // interleaving with paneName layers.
+          const fallbackPane = `_lyr_${L.stamp(lyr)}`;
+          const ep = this.ensurePane(fallbackPane);
+          ep.pane.style.zIndex = z;
+          markerZ = Math.max(markerZ, z);
+          layersToMove.push({ layer: lyr, paneName: fallbackPane, renderer: ep.renderer });
         }
+      }
 
-        let renderer = this.map[`_renderer_${paneName}`];
-        if (!renderer) {
-          renderer = L.svg({ pane: paneName });
-          renderer.addTo(this.map);
-          this.map[`_renderer_${paneName}`] = renderer;
-        }
-
-        pane.style.zIndex = _CONST.Z_INDEX_BASE + (orderedLayers.length - i);
-
-        if (lyr.options.pane !== paneName || !lyr.options.__customRendererApplied) {
-          layersToMove.push({ layer: lyr, paneName, renderer });
-        }
+      // Sync markerPane z-index so non-paneName marker layers can sit
+      // above/below paneName custom panes based on drag order.
+      if (markerZ > 0) {
+        const mp = this.map.getPane('markerPane');
+        if (mp) mp.style.zIndex = markerZ;
       }
 
       if (layersToMove.length) {
         for (const { layer } of layersToMove) this.map.removeLayer(layer);
         for (const { layer, paneName, renderer } of layersToMove) {
-          this._setLayerPaneRecursive(layer, paneName, renderer);
+          if (paneName) {
+            this._setLayerPaneRecursive(layer, paneName, renderer);
+          }
         }
         for (const { layer } of layersToMove) this.map.addLayer(layer);
       }

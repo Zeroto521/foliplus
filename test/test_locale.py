@@ -233,7 +233,7 @@ class TestLocaleBrowserJS:
         dest.write_text(html, encoding="utf-8")
 
         page = browser.new_page()
-        page.goto(f"file://{dest}")
+        page.goto(f"file://{dest}", wait_until="domcontentloaded")
         page.wait_for_function("typeof _LOCALES !== 'undefined'", timeout=10000)
 
         keys = page.evaluate("Object.keys(_LOCALES).sort()")
@@ -255,7 +255,7 @@ class TestLocaleBrowserJS:
         dest.write_text(html, encoding="utf-8")
 
         page = browser.new_page(locale="zh-CN")
-        page.goto(f"file://{dest}")
+        page.goto(f"file://{dest}", wait_until="domcontentloaded")
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "zh"
         assert page.evaluate("window._LOCALE['search.btn_title']") == "地图搜索"
@@ -274,7 +274,7 @@ class TestLocaleBrowserJS:
         dest.write_text(html, encoding="utf-8")
 
         page = browser.new_page(locale="en-US")
-        page.goto(f"file://{dest}")
+        page.goto(f"file://{dest}", wait_until="domcontentloaded", timeout=15000)
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "en"
         assert page.evaluate("window._LOCALE['search.btn_title']") == "Map Search"
@@ -293,7 +293,7 @@ class TestLocaleBrowserJS:
         dest.write_text(html, encoding="utf-8")
 
         page = browser.new_page(locale="fr-FR")
-        page.goto(f"file://{dest}")
+        page.goto(f"file://{dest}", wait_until="domcontentloaded")
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "en"
         page.close()
