@@ -350,7 +350,8 @@
 
   // ==================== Number Formatting ====================
   // Locale-aware number formatting using Intl.NumberFormat compact notation.
-  // 'auto'  → compact abbreviations by locale: en→K/M/B, zh→万/亿, others→en fallback
+  // 'auto'  → compact abbreviations above threshold (en:≥1K, zh:≥1万),
+  //            standard grouping below (1,234).  Fallback: K/M/B or 万/亿.
   // 'comma' → thousands separator + 1 decimal (alias: 'int')
   /**
    * Format a number for display.
@@ -365,16 +366,19 @@
     locale = locale || (typeof _LOCALE !== 'undefined' && _LOCALE['locale.code']) || 'en';
     if (typeof Intl !== 'undefined' && Intl.NumberFormat) {
       if (style === 'auto') {
-        return new Intl.NumberFormat(locale, {
-          notation: 'compact',
-          compactDisplay: 'short',
-          maximumFractionDigits: 1,
-        }).format(val);
+        // Use compact abbreviations above locale-specific threshold,
+        // standard grouping below (so zh locale gets "1,234" instead of "1234")
+        const compactThreshold = locale === 'zh' ? 10000 : 1000;
+        if (val >= compactThreshold) {
+          return new Intl.NumberFormat(locale, {
+            notation: 'compact',
+            compactDisplay: 'short',
+            maximumFractionDigits: 1,
+          }).format(val);
+        }
       }
-      // comma / int → thousands separator, 1 decimal
-      return new Intl.NumberFormat(locale, {
-        maximumFractionDigits: 1,
-      }).format(val);
+      // auto below threshold, comma, int → thousands separator, 1 decimal
+      return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(val);
     }
     // Fallback: no Intl support — use locale-aware abbreviations
     if (style === 'auto') {
@@ -386,7 +390,6 @@
         if (val >= 1e6) return (val / 1e6).toFixed(1) + 'M';
         if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
       }
-      return Math.round(val).toLocaleString();
     }
     return Math.round(val).toLocaleString();
   };
