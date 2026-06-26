@@ -424,10 +424,6 @@
           paneName: this.PANE_NAME,
           iconSvg: SVG_HEX,
         });
-        // Mark the container as already-processed so enforceOrder() skips
-        // the removeLayer/addLayer cycle on visibility toggle.
-        this.heatmapLayer.options.pane = this.PANE_NAME;
-        this.heatmapLayer.options.__customRendererApplied = true;
       }
 
       unregisterHexLayer() {

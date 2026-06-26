@@ -230,6 +230,18 @@
 
       this.enforceOrder();
 
+      // Mark container layers (L.layerGroup, L.featureGroup, etc.) as
+      // already-processed so subsequent enforceOrder() calls skip the
+      // removeLayer/addLayer cycle.  Components no longer need to set
+      // __customRendererApplied manually on their container.
+      if (opts.paneName && opts.layer) {
+        const isContainer = !(opts.layer instanceof L.Path || opts.layer instanceof L.Marker);
+        if (isContainer) {
+          opts.layer.options.pane = opts.paneName;
+          opts.layer.options.__customRendererApplied = true;
+        }
+      }
+
       if (!this.uiContainer) {
         this.pendingRegistrations.push(opts);
         return null;
