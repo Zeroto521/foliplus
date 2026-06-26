@@ -375,7 +375,7 @@
         const z = _CONST.Z_INDEX_BASE + (orderedLayers.length - i);
 
         if (paneName) {
-          // Layers registered with explicit paneName (e.g. heatmap/mesure):
+          // Layers registered with explicit paneName (e.g. heatmap/measure):
           // move to a dedicated custom pane for z-order control.
           const ep = this.ensurePane(paneName);
           ep.pane.style.zIndex = z;
