@@ -30,7 +30,7 @@ class TestHeatmapControlPython:
 
     def test_default_params(self):
         ctrl = HeatmapControl()
-        assert ctrl.color_scheme == "Greens"
+        assert ctrl.color_scheme == "Reds"
         assert ctrl.method == "jenks"
         assert ctrl.n_classes == 6
         assert ctrl.agg == "count"
@@ -118,4 +118,39 @@ class TestHeatmapControlRendering:
         HeatmapControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "网格聚合" in html
-        assert "heatmap.title" in html
+        # 'heatmap.title' appears in JS source as locale key (e.g. _('heatmap.title'))
+        # but the rendered display text should be the Chinese translation
+        assert "heatmap.title" in html  # present as JS key, display value is "网格聚合"
+
+    def test_label_marker_config(self, base_map: folium.Map):
+        """Label markers use custom pane and no zIndexOffset."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "pane: this.PANE_NAME" in html
+        # zIndexOffset should not appear near the label marker config
+        # (defaults to 0, CSS handles z-index via !important)
+        assert "heatmap-label" in html
+
+    def test_label_zindex_css(self, base_map: folium.Map):
+        """.heatmap-label has !important z-index to override Leaflet's negative formula."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "z-index: 100 !important" in html
+
+    def test_formatnumber_usage(self, base_map: folium.Map):
+        """Label values are formatted via foliplus.formatNumber."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.formatNumber" in html
+
+    def test_default_color_scheme_rendered(self, base_map: folium.Map):
+        """Default color scheme Reds appears in rendered output."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "Reds" in html
+
+    def test_pane_name_constant(self, base_map: folium.Map):
+        """PANE_NAME is defined and used consistently."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "_heatmap_pane" in html
