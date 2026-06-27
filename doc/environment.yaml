@@ -1,0 +1,13 @@
+name: doc
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  # required
+  - folium
+  # doc
+  - sphinx
+  - pydata-sphinx-theme
+  - myst-nb
+  - sphinx-copybutton
+  - sphinx-design

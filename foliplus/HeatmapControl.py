@@ -39,6 +39,7 @@ class HeatmapControl(BaseControl):
 
     style : dict, optional
         Grid style overrides. Supported keys:
+
         - ``border_weight`` (float, default 1.5): border width
         - ``border_color`` (str, default "#333333"): border color
         - ``fill_opacity`` (float, default 0.7): fill opacity

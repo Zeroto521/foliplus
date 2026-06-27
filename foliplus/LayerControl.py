@@ -14,6 +14,7 @@ class LayerControl(BaseControl):
     panel.
 
     Replaces Folium's default layer control with:
+
     - 📐 Geometry-type icons for quick layer identification.
     - 🔀 Drag-and-drop reordering, synced to Leaflet render order.
     - ✅ Multi-select checkboxes with z-index stacking.

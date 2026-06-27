@@ -5,6 +5,7 @@ help:
 	@echo "'clean-build' - remove build artifacts"
 	@echo "'clean-pyc'   - remove Python cache files"
 	@echo "'clean-cov'   - remove coverage files"
+	@echo "'clean-html'  - remove built documentation"
 	@echo "'lint'        - run pre-commit hooks"
 	@echo "'test'        - run tests with coverage"
 	@echo "'dist'        - build sdist + wheel"
@@ -23,7 +24,10 @@ clean-pyc:
 clean-cov:
 	rm -rf coverage.xml .coverage
 
-clean: clean-build clean-pyc clean-cov
+clean-html:
+	rm -rf doc/source/_build
+
+clean: clean-build clean-pyc clean-cov clean-html
 
 lint:
 	pre-commit run -a -v
@@ -35,6 +39,9 @@ dist:
 	python -m build
 	twine check --strict dist/*
 	ls -l dist
+
+html:
+	cd doc/source && make html
 
 info:
 	@python -c "import platform,sys,os; print(f'Python: {sys.version.split()[0]}'); print(f'Platform: {platform.platform(terse=True)}'); print(f'Conda Env: {os.environ.get(\"CONDA_DEFAULT_ENV\",\"-\")}')"

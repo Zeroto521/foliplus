@@ -1,0 +1,4 @@
+/* Hide toctree from page body — navigation is in the sidebar only */
+.toctree-wrapper {
+  display: none;
+}

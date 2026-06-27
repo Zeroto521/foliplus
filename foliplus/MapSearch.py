@@ -8,13 +8,13 @@ from .locale import LocaleConfig
 class MapSearch(BaseControl):
     """Map search control with coordinate and address lookup modes.
 
-    Adds a collapsible search box to the map supporting two modes:
+    Adds a collapsible search box to the map supporting two modes, and switch between
+    modes via the tool button inside the expanded panel.
 
     - 📍 **Coordinate search** (default): enter latitude/longitude to fly to and place a
       marker.
     - 🌐 **Address search**: enter a keyword and geocode via Nominatim.
 
-    Switch between modes via the tool button inside the expanded panel.
 
     Parameters
     ----------

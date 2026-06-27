@@ -23,7 +23,7 @@
     position: '{{ this.position }}',
     title: '{{ this.locale.get("fullscreen.title") }}',
     title_cancel: '{{ this.locale.get("fullscreen.title_cancel") }}',
-    force_separate_button: false,
+    forceSeparateButton: true,
   }).addTo(map);
   const fsContainer = fsControl.getContainer();
 
