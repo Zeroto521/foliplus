@@ -129,7 +129,7 @@
           if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
           this.layerScanTimer = setTimeout(() => {
             if (this.ui) {
-              this.ui.updateControlVisibility();
+              this.scanMapLayers();
               this.ui.rebuildLayerDropdown();
             }
           }, _CONST.LAYER_SCAN_DEBOUNCE_MS);
@@ -419,7 +419,6 @@
       registerHexLayer() {
         if (this.hexLayerRegistered) return;
         this.hexLayerRegistered = true;
-        // hexLayer pane is already set in _initLayers
         window.foliplus.LayerControlAPI.registerLayer({
           name: _('heatmap.title'),
           id: this.HEATMAP_ID,
@@ -566,6 +565,7 @@
         this.classSelect.onchange = () => {
           this.manager.N_CLASSES = parseInt(this.classSelect.value, 10);
           this.updateSchemeBar();
+          if (this.schemeDropdown) this.refreshSchemeDropdownItems();
           this.manager.renderHexagons();
         };
 
@@ -735,15 +735,23 @@
         return wrapper;
       }
 
-      // --- UI Logic Methods ---
-      updateControlVisibility() {
-        this.manager.scanMapLayers();
-        if (this.container) {
-          this.container.style.display =
-            this.manager.pointLayers.length === 0 ? 'none' : '';
+      onRemove() {
+        // Clean up map event listeners
+        if (this.zoomTimer) clearTimeout(this.zoomTimer);
+        if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
+        this.manager.map.off('zoomend');
+        this.manager.map.off('layeradd layerremove');
+
+        // Disconnect MutationObserver
+        if (this.observer) this.observer.disconnect();
+
+        // Remove heatmap layers from map
+        if (this.manager.heatmapLayer) {
+          this.manager.map.removeLayer(this.manager.heatmapLayer);
         }
       }
 
+      // --- UI Logic Methods ---
       buildLayerListItems(sel) {
         this.manager.scanMapLayers();
         sel.innerHTML = '';
@@ -839,18 +847,33 @@
         }
       }
 
-      updateSchemeBar() {
-        const sampled = this.manager.getColorScale(
-          this.manager.currentScheme, this.manager.N_CLASSES
-        );
-        this.schemeBarInner.innerHTML = '';
-        for (const color of sampled) {
-          const block = document.createElement('div');
-          block.className = 'scheme-bar-block';
-          block.style.background = color;
-          block.style.width = `${100 / sampled.length}%`;
-          this.schemeBarInner.appendChild(block);
+      /** Render color blocks into a container. */
+      _renderColorBar(container, name, nClasses) {
+        const colors = this.manager.getColorScale(name, nClasses);
+        container.innerHTML = '';
+        for (const color of colors) {
+          const blk = document.createElement('div');
+          blk.className = 'scheme-bar-block';
+          blk.style.background = color;
+          blk.style.width = `${100 / colors.length}%`;
+          container.appendChild(blk);
         }
+      }
+
+      updateSchemeBar() {
+        this._renderColorBar(this.schemeBarInner,
+          this.manager.currentScheme, this.manager.N_CLASSES);
+      }
+
+      refreshSchemeDropdownItems() {
+        if (!this.schemeDropdown) return;
+        const items = this.schemeDropdown.querySelectorAll('.scheme-dropdown-item');
+        items.forEach((item) => {
+          const name = item.getAttribute('data-scheme-name');
+          if (!name) return;
+          const bar = item.querySelector('.scheme-dropdown-bar');
+          if (bar) this._renderColorBar(bar, name, this.manager.N_CLASSES);
+        });
       }
 
       toggleSchemeDropdown() {
@@ -870,6 +893,7 @@
             'div', 'scheme-dropdown-item', this.schemeDropdown
           );
           item.setAttribute('role', 'option');
+          item.setAttribute('data-scheme-name', name);
           item.tabIndex = -1;
           if (name === this.manager.currentScheme) {
             item.classList.add('active');
@@ -877,16 +901,7 @@
           }
 
           const itemBar = L.DomUtil.create('div', 'scheme-dropdown-bar', item);
-          const sampled = this.manager.getColorScale(
-            name, this.manager.N_CLASSES
-          );
-          for (const color of sampled) {
-            const blk = document.createElement('div');
-            blk.style.flex = '1';
-            blk.style.height = '100%';
-            blk.style.background = color;
-            itemBar.appendChild(blk);
-          }
+          this._renderColorBar(itemBar, name, this.manager.N_CLASSES);
 
           item.onclick = (ev) => {
             ev.stopPropagation();
@@ -940,10 +955,12 @@
       }
 
       initScan(attempt) {
-        this.updateControlVisibility();
+        this.manager.scanMapLayers();
         if (this.manager.pointLayers.length === 0 && attempt > 0) {
           setTimeout(() => this.initScan(attempt - 1),
             _CONST.INIT_SCAN_INTERVAL_MS);
+        } else if (this.manager.pointLayers.length === 0) {
+          foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
         }
       }
     }

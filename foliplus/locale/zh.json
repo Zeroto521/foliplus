@@ -29,6 +29,7 @@
   "heatmap.no_h3": "h3-js 库未加载成功，网格聚合功能不可用",
   "heatmap.no_ss": "simple-statistics 库未加载成功，网格聚合功能不可用",
   "heatmap.no_chroma": "chroma-js 库未加载成功，颜色分级将使用默认灰色",
+  "heatmap.no_layer": "未找到点图层 — 请添加带 .feature 的 GeoJson/Marker 图层以启用热力图",
   "heatmap.section_data": "数据",
   "heatmap.section_style": "样式",
   "layer.panel_title": "图层",
