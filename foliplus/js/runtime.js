@@ -136,6 +136,7 @@
     }
   };
 
+  /** Convert map coordinates (GCJ-02 / BD-09) to WGS-84. */
   foliplus.toWgs84 = function (map, lat, lng) {
     if (typeof gcoord !== 'undefined') {
       const src = foliplus._isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
@@ -207,6 +208,14 @@
   let _geoPromise = Promise.resolve();
   let _geoLastReq = 0;
 
+  /**
+   * Reverse geocode coordinates to an address via Nominatim.
+   * Results are cached. Requests are throttled to 1 req/s.
+   * @param {L.Map} map Leaflet map instance
+   * @param {number} lat Latitude
+   * @param {number} lng Longitude
+   * @returns {Promise<string>} Resolved address string
+   */
   foliplus.reverseGeocode = function (map, lat, lng) {
     const key = `${lat},${lng}`;
     if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
@@ -236,6 +245,15 @@
     return _geoPromise;
   };
 
+  /**
+   * Build a popup HTML string for a location marker.
+   * @param {number} lat Latitude
+   * @param {number} lng Longitude
+   * @param {string|null} addr Address text or null (triggers loading indicator)
+   * @param {object} txt Text constants object with POPUP_* keys
+   * @param {string} [title] Popup title, defaults to txt.POPUP_TITLE
+   * @returns {string} HTML string
+   */
   foliplus.buildPopupHtml = function (lat, lng, addr, txt, title) {
     const popupTitle = title || txt.POPUP_TITLE;
     const addrHtml = (addr && addr.includes('LOADING')) ?
@@ -291,6 +309,13 @@
     return mk;
   };
 
+  /**
+   * Bind click events to toggle a panel (expand / collapse).
+   * @param {object} opts
+   * @param {HTMLElement} opts.container - Panel root element
+   * @param {string} opts.toggleBtn - Selector for the toggle button
+   * @param {string} opts.header - Selector for the header (click to collapse)
+   */
   foliplus.bindPanelToggle = function ({ container, toggleBtn, header }) {
     const btn = container.querySelector(toggleBtn);
     if (btn) {
@@ -310,6 +335,14 @@
     }
   };
 
+  /**
+   * Collapse a panel when clicking outside of it.
+   * Sets up a MutationObserver to auto-cleanup when the container is removed.
+   * @param {object} opts
+   * @param {L.Map} opts.map - Leaflet map instance
+   * @param {HTMLElement} opts.container - Panel element to watch
+   * @returns {Function} Cleanup function to remove the click listener
+   */
   foliplus.bindOutsideCollapse = function ({ map, container }) {
     const handler = (e) => {
       if (!container.contains(e.target) && container.classList.contains('expanded')) {
