@@ -23,7 +23,7 @@
     position: '{{ this.position }}',
     title: _('fullscreen.title'),
     title_cancel: _('fullscreen.title_cancel'),
-    force_separate_button: false,
+    forceSeparateButton: false,
   }).addTo(map);
   const fsContainer = fsControl.getContainer();
 
