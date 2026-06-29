@@ -19,4 +19,4 @@ class TestBaseControlRendering:
 
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "_LOCALES" in html
+        assert "_LOCALES_TABLES" in html
