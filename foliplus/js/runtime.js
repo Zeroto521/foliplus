@@ -6,6 +6,9 @@
 (function () {
   if (window.foliplus) return;
 
+  /** Shared locale lookup — set by foliplus.resolveLocale before use. */
+  const _gt = (k) => _LOCALE[k] || k;
+
   const foliplus = {
     // --- SVG Icons ---
     SVGs: {
@@ -147,9 +150,8 @@
       // gcoord not yet loaded — schedule warning on next access
       if (!foliplus._gcoordWarned) {
         foliplus._gcoordWarned = true;
-        const _g = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-        console.warn('[foliplus] ' + _g('gcoord.warn'));
-        foliplus.showHint('gcoord-warn', _g('gcoord.warn'), 5000);
+        console.warn('[foliplus] ' + _gt('gcoord.warn'));
+        foliplus.showHint('gcoord-warn', _gt('gcoord.warn'), 5000);
       }
     }
     return [lat, lng];
@@ -162,9 +164,8 @@
         // gcoord not yet loaded — show warning and return unchanged
         if (!foliplus._gcoordWarned) {
           foliplus._gcoordWarned = true;
-          const _g2 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-          console.warn('[foliplus] ' + _g2('gcoord.warn'));
-          foliplus.showHint('gcoord-warn', _g2('gcoord.warn'), 5000);
+          console.warn('[foliplus] ' + _gt('gcoord.warn'));
+          foliplus.showHint('gcoord-warn', _gt('gcoord.warn'), 5000);
         }
         return [lng, lat];
       }
@@ -234,12 +235,10 @@
         addr = addr.split(',').map(s => s.trim())
           .filter(s => s && !/^\d+$/.test(s))
           .reverse().join(',');
-        const _g3 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-        _geoCache[key] = addr || _g3('search.addr_not_found');
+        _geoCache[key] = addr || _gt('search.addr_not_found');
         return _geoCache[key];
       }).catch(() => {
-        const _g4 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-        return _g4('measure.geo_fail');
+        return _gt('measure.geo_fail');
       });
     });
     return _geoPromise;
@@ -443,8 +442,7 @@
         };
         s.onerror = () => {
           failedCount++;
-          const _gl = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-          console.error(`[foliplus] ${dep.name}: ${_gl('load.script_fail')}`);
+          console.error(`[foliplus] ${dep.name}: ${_gt('load.script_fail')}`);
           if (loaded + failedCount === pending.length) {
             if (retries < maxRetries) { retries++; setTimeout(attempt, delayMs); }
             else callback(false, pending.filter(d => !d.check()).map(d => d.name));
