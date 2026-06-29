@@ -6,22 +6,6 @@
 (function () {
   if (window.foliplus) return;
 
-  // ------------------------------------------------------------------
-  // Browser locale auto-detection
-  // ------------------------------------------------------------------
-  // _LOCALES is injected by the Python template as a JSON object
-  // containing all built-in string tables ({"en":{…}, "zh":{…}}).
-  // Pick the one that matches the browser language, defaulting to en.
-  // ------------------------------------------------------------------
-  if (typeof _LOCALES !== 'undefined') {
-    var _navLang = (typeof navigator !== 'undefined'
-      ? (navigator.language || navigator.userLanguage || '')
-      : '');
-    var _lang = _navLang.split('-')[0].split('_')[0].toLowerCase();
-    var _LOCALE = _LOCALES[_lang] || _LOCALES['en'];
-    window._LOCALE = _LOCALE;
-  }
-
   const foliplus = {
     // --- SVG Icons ---
     SVGs: {
@@ -438,6 +422,33 @@
     }
 
     attempt();
+  };
+
+  // ------------------------------------------------------------------
+  // Locale resolution — called from each control's template
+  // ------------------------------------------------------------------
+  // Sets window._LOCALE to the correct language table.
+  //
+  // If `code` is non-empty and exists in `tables`, it is used directly.
+  // Otherwise the user's browser language (navigator.language) is detected
+  // and used as the key, falling back to the "en" table.
+  //
+  // Called from the Jinja2 template in base.py for every control instance:
+  //   foliplus.resolveLocale('{{ this._LOCALE_CODE }}', {...tables...});
+  //
+  // @param {string} code - Explicit locale code ("en", "zh", or "" for auto)
+  // @param {Object} tables - Dictionary of locale tables ({en: {...}, zh: {...}})
+  // ------------------------------------------------------------------
+  foliplus.resolveLocale = function (code, tables) {
+    if (!tables) return;
+    if (code && tables[code]) {
+      window._LOCALE = tables[code];
+    } else {
+      var lang = (typeof navigator !== 'undefined'
+        ? (navigator.language || navigator.userLanguage || '')
+        : '').split('-')[0].split('_')[0].toLowerCase();
+      window._LOCALE = tables[lang] || tables['en'];
+    }
   };
 
   window.foliplus = foliplus;

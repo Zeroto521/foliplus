@@ -21,10 +21,10 @@ class TestLayerControlPython:
         assert LayerControl(position="bottomright").position == "bottomright"
 
     def test_default_locale(self):
-        assert LayerControl().locale.code == "en"
+        assert LayerControl()._LOCALE_CODE == ""
 
     def test_custom_locale(self):
-        assert LayerControl(locale="zh").locale.code == "zh"
+        assert LayerControl(locale="zh")._LOCALE_CODE == "zh"
 
     def test_render_collects_layers(self):
         """LayerControl has render() and layer collections."""

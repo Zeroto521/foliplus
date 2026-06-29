@@ -10,7 +10,7 @@ from jinja2 import Template
 
 from ._cdn import GCOORD
 from ._typing import Position
-from .locale import LOCALE_TABLES, LocaleConfig, resolve_locale
+from .locale import _LOCALES_TABLES, LocaleConfig, resolve_locale
 
 src_dir = Path(__file__).parent
 js_dir = src_dir / "js"
@@ -31,7 +31,8 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     locale : str or LocaleConfig, optional
         Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
-        Defaults to auto-detection, falling back to English.
+        If omitted, the browser's ``navigator.language`` is used at runtime to
+        select the appropriate locale table, falling back to English.
     """
 
     _common = css_dir.joinpath("common.css").read_text(encoding="utf-8")
@@ -47,7 +48,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         super().__init__()
         self._name = self.__class__.__name__
         self.position = position
-        self.locale = resolve_locale(locale)
+        self._LOCALE_CODE = resolve_locale(locale).code if locale is not None else ""
         self._gcoord_version = GCOORD
 
     def _get_js(self, filename: str) -> str:
@@ -73,8 +74,10 @@ class BaseControl(JSCSSMixin, MacroElement):
         ----------
         js_file : str, optional
             Component JS filename (e.g. ``"LayerControl.js"``).
+
         css_file : str, optional
             Component CSS filename (e.g. ``"LayerControl.css"``).
+
         use_panel : bool, default False
             Whether to include shared panel CSS.
 
@@ -86,7 +89,6 @@ class BaseControl(JSCSSMixin, MacroElement):
         js_runtime = self._get_js(js_file) if js_file else ""
         css_common = self._get_css(css_file) if css_file else ""
         css_panel = self._panel if use_panel else ""
-        all_tables = {k: v for k, v in LOCALE_TABLES.items()}
 
         return Template(
             dedent(f"""\
@@ -99,8 +101,8 @@ class BaseControl(JSCSSMixin, MacroElement):
             {{% endmacro %}}
 
             {{% macro script(this, kwargs) %}}
-            var _LOCALES = {dumps(all_tables, ensure_ascii=False)};
             {self._runtime}
+            foliplus.resolveLocale('{{{{ this._LOCALE_CODE }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
             {js_runtime}
             {{% endmacro %}}""")
         )
