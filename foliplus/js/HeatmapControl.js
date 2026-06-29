@@ -566,6 +566,7 @@
         this.classSelect.onchange = () => {
           this.manager.N_CLASSES = parseInt(this.classSelect.value, 10);
           this.updateSchemeBar();
+          if (this.schemeDropdown) this.refreshSchemeDropdownItems();
           this.manager.renderHexagons();
         };
 
@@ -839,18 +840,33 @@
         }
       }
 
-      updateSchemeBar() {
-        const sampled = this.manager.getColorScale(
-          this.manager.currentScheme, this.manager.N_CLASSES
-        );
-        this.schemeBarInner.innerHTML = '';
-        for (const color of sampled) {
-          const block = document.createElement('div');
-          block.className = 'scheme-bar-block';
-          block.style.background = color;
-          block.style.width = `${100 / sampled.length}%`;
-          this.schemeBarInner.appendChild(block);
+      /** Render color blocks into a container. */
+      _renderColorBar(container, name, nClasses) {
+        const colors = this.manager.getColorScale(name, nClasses);
+        container.innerHTML = '';
+        for (const color of colors) {
+          const blk = document.createElement('div');
+          blk.className = 'scheme-bar-block';
+          blk.style.background = color;
+          blk.style.width = `${100 / colors.length}%`;
+          container.appendChild(blk);
         }
+      }
+
+      updateSchemeBar() {
+        this._renderColorBar(this.schemeBarInner,
+          this.manager.currentScheme, this.manager.N_CLASSES);
+      }
+
+      refreshSchemeDropdownItems() {
+        if (!this.schemeDropdown) return;
+        const items = this.schemeDropdown.querySelectorAll('.scheme-dropdown-item');
+        items.forEach((item) => {
+          const name = item.getAttribute('data-scheme-name');
+          if (!name) return;
+          const bar = item.querySelector('.scheme-dropdown-bar');
+          if (bar) this._renderColorBar(bar, name, this.manager.N_CLASSES);
+        });
       }
 
       toggleSchemeDropdown() {
@@ -870,6 +886,7 @@
             'div', 'scheme-dropdown-item', this.schemeDropdown
           );
           item.setAttribute('role', 'option');
+          item.setAttribute('data-scheme-name', name);
           item.tabIndex = -1;
           if (name === this.manager.currentScheme) {
             item.classList.add('active');
@@ -877,16 +894,7 @@
           }
 
           const itemBar = L.DomUtil.create('div', 'scheme-dropdown-bar', item);
-          const sampled = this.manager.getColorScale(
-            name, this.manager.N_CLASSES
-          );
-          for (const color of sampled) {
-            const blk = document.createElement('div');
-            blk.style.flex = '1';
-            blk.style.height = '100%';
-            blk.style.background = color;
-            itemBar.appendChild(blk);
-          }
+          this._renderColorBar(itemBar, name, this.manager.N_CLASSES);
 
           item.onclick = (ev) => {
             ev.stopPropagation();
