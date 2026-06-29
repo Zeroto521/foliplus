@@ -222,7 +222,7 @@
 
     const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
     const lang = (typeof _LOCALE !== 'undefined' && _LOCALE['locale.code']) || 'en';
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0].toFixed(6)}&lon=${wgs[1].toFixed(6)}&zoom=18&accept-language=${lang}`;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=18&accept-language=${lang}`;
 
     _geoPromise = _geoPromise.then(() => {
       const wait = Math.max(0, 1000 - (Date.now() - _geoLastReq));
