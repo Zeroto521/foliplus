@@ -281,8 +281,8 @@
     map, lat, lng, addr, txt, title, existing, layerGroup
   ) {
     if (existing) map.removeLayer(existing);
-    var target = layerGroup || map;
-    var mk = L.marker([lat, lng], {
+    const target = layerGroup || map;
+    const mk = L.marker([lat, lng], {
       icon: L.divIcon({
         className: '',
         html: foliplus.SVGs.PIN_ICON,
@@ -475,7 +475,7 @@
     if (code && tables[code]) {
       window._LOCALE = tables[code];
     } else {
-      var lang = (typeof navigator !== 'undefined'
+      const lang = (typeof navigator !== 'undefined'
         ? (navigator.language || navigator.userLanguage || '')
         : '').split('-')[0].split('_')[0].toLowerCase();
       window._LOCALE = tables[lang] || tables['en'];
