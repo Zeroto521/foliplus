@@ -6,9 +6,7 @@ from .locale import LocaleConfig
 
 
 class ScaleControl(BaseControl):
-    """Scale control with metric units and optional zoom level display.
-
-    Adds a scale bar to the map with an optional current zoom level label.
+    """Scale bar with metric units and optional zoom level display.
 
     Parameters
     ----------

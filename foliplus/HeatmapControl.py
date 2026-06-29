@@ -9,11 +9,7 @@ from .locale import LocaleConfig
 
 
 class HeatmapControl(BaseControl):
-    """H3 hexbin aggregation heatmap control.
-
-    Auto-discovers point layers (`Marker` / `CircleMarker` / `GeoJSON` Point) and
-    aggregates them into H3 hexagons in real-time via h3-js. Resolution auto-adjusts
-    with zoom.
+    """H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.
 
     Parameters
     ----------
@@ -62,6 +58,12 @@ class HeatmapControl(BaseControl):
     >>> from foliplus import HeatmapControl
     >>> m = folium.Map()
     >>> HeatmapControl().add_to(m)
+
+    Notes
+    -----
+    Only markers with a ``.feature`` property (GeoJSON / ``df.explore``) are counted.
+    Annotation or label markers without ``.feature`` are skipped to avoid
+    double-counting in hexbin aggregation.
     """
 
     default_js = [

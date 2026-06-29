@@ -10,10 +10,7 @@ from .locale import LocaleConfig
 
 
 class LayerControl(BaseControl):
-    """Layer control with geometry-type icons, drag-and-drop order, and a collapsible
-    panel.
-
-    Replaces Folium's default layer control with:
+    """Drag-and-drop layer ordering with geometry icons, color picker, and panes.
 
     - 📐 Geometry-type icons for quick layer identification.
     - 🔀 Drag-and-drop reordering, synced to Leaflet render order.

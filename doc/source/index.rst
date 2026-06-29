@@ -11,46 +11,43 @@ data itself.
       :padding: 2
       :link: api/foliplus.MapSearch.html
 
-      Coordinate & address search via Nominatim reverse geocoding.
+      Coordinate and address search via Nominatim reverse geocoding.
 
    .. grid-item-card:: 🗂️ LayerControl
       :padding: 2
       :link: api/foliplus.LayerControl.html
 
-      Drag-and-drop layer ordering with geometry-type SVG icons, color picker, and
-      z-index management via custom panes.
+      Drag-and-drop layer ordering with geometry icons, color picker, and panes.
 
    .. grid-item-card:: 🔥 HeatmapControl
       :padding: 2
       :link: api/foliplus.HeatmapControl.html
 
-      H3 hexbin aggregation with real-time zoom adaptation, auto-detects point layers,
-      and renders labeled hexagons.
+      H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.
 
    .. grid-item-card:: ⛶ Fullscreen
       :padding: 2
       :link: api/foliplus.Fullscreen.html
 
-      Fullscreen toggle that hides other controls for a clean viewing experience.
+      Fullscreen toggle with auto-hide for other controls.
 
    .. grid-item-card:: 📏 MeasureControl
       :padding: 2
       :link: api/foliplus.MeasureControl.html
 
-      Distance measurement, radius circle drawing, and GPS coordinate marker with
-      reverse geocoding popups.
+      Distance measurement, circle drawing, and GPS marker with geocoding.
 
    .. grid-item-card:: 📐 ScaleControl
       :padding: 2
       :link: api/foliplus.ScaleControl.html
 
-      Scale bar with metric units (m/km) and optional zoom level indicator.
+      Scale bar with metric units and optional zoom level display.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Demo
+   :caption: Quickstart
 
-   demo
+   quickstart
 
 .. toctree::
    :maxdepth: 1

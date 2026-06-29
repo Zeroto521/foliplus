@@ -8,15 +8,11 @@ from .locale import LocaleConfig
 
 
 class MapSearch(BaseControl):
-    """Map search control with coordinate and address lookup modes.
-
-    Adds a collapsible search box to the map supporting two modes, and switch between
-    modes via the tool button inside the expanded panel.
+    """Coordinate and address search via Nominatim reverse geocoding.
 
     - 📍 **Coordinate search**: enter a coordinate like `longitude, latitude` to fly to
       and place a marker.
     - 🌐 **Address search**: enter a keyword and geocode via Nominatim.
-
 
     Parameters
     ----------
