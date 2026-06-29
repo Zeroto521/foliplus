@@ -763,7 +763,8 @@
         // Disconnect MutationObserver
         if (this.observer) this.observer.disconnect();
 
-        // Remove heatmap layers from map
+        // Unregister from LayerControl and remove layers
+        this.manager.unregisterHexLayer();
         if (this.manager.heatmapLayer) {
           this.manager.map.removeLayer(this.manager.heatmapLayer);
         }
