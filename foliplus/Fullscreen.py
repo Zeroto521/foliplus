@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ._cdn import LEAFLET_FULLSCREEN
+from ._cdn import LEAFLET_FULLSCREEN_VERSION
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
@@ -37,13 +37,13 @@ class Fullscreen(BaseControl):
     default_js = [
         (
             "Control.Fullscreen.js",
-            f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN}/Control.FullScreen.min.js",
+            f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN_VERSION}/Control.FullScreen.min.js",
         )
     ]
     default_css = [
         (
             "Control.FullScreen.css",
-            f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN}/Control.FullScreen.css",
+            f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN_VERSION}/Control.FullScreen.css",
         )
     ]
 

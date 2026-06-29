@@ -6,8 +6,6 @@ from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
 
-MapSearchMode = Literal["coord", "addr"]
-
 
 class MapSearch(BaseControl):
     """Map search control with coordinate and address lookup modes.
@@ -47,7 +45,7 @@ class MapSearch(BaseControl):
     def __init__(
         self,
         position: Position = "topleft",
-        mode: MapSearchMode = "coord",
+        mode: Literal["coord", "addr"] = "coord",
         zoom: int = 15,
         locale: str | LocaleConfig | None = None,
     ):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from ._cdn import CHROMA_JS, H3_JS, SIMPLE_STATISTICS
+from ._cdn import CHROMA_VERSION, H3_VERSION, SIMPLE_STATISTICS_VERSION
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
@@ -39,6 +39,9 @@ class HeatmapControl(BaseControl):
 
     style : dict, optional
         Grid style overrides. Supported keys:
+        - ``field`` (str, optional): property name to aggregate on.
+          ``null`` / ``"auto"`` = count features per hexagon;
+          any other string = aggregate that numeric property.
         - ``border_weight`` (float, default 1.5): border width
         - ``border_color`` (str, default "#333333"): border color
         - ``fill_opacity`` (float, default 0.7): fill opacity
@@ -62,14 +65,14 @@ class HeatmapControl(BaseControl):
     """
 
     default_js = [
-        ("h3-js", f"https://cdn.jsdelivr.net/npm/h3-js@{H3_JS}/dist/h3-js.umd.js"),
+        ("h3-js", f"https://cdn.jsdelivr.net/npm/h3-js@{H3_VERSION}/dist/h3-js.umd.js"),
         (
             "simple-statistics",
-            f"https://cdn.jsdelivr.net/npm/simple-statistics@{SIMPLE_STATISTICS}/dist/simple-statistics.min.js",
+            f"https://cdn.jsdelivr.net/npm/simple-statistics@{SIMPLE_STATISTICS_VERSION}/dist/simple-statistics.min.js",
         ),
         (
             "chroma-js",
-            f"https://cdn.jsdelivr.net/npm/chroma-js@{CHROMA_JS}/chroma.min.js",
+            f"https://cdn.jsdelivr.net/npm/chroma-js@{CHROMA_VERSION}/chroma.min.js",
         ),
     ]
 
@@ -113,6 +116,6 @@ class HeatmapControl(BaseControl):
         } | (style or {})
 
         # CDN versions for JS dynamic loader
-        self._h3_version = H3_JS
-        self._ss_version = SIMPLE_STATISTICS
-        self._chroma_version = CHROMA_JS
+        self._h3_version = H3_VERSION
+        self._ss_version = SIMPLE_STATISTICS_VERSION
+        self._chroma_version = CHROMA_VERSION
