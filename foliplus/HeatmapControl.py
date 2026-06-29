@@ -11,6 +11,12 @@ from .locale import LocaleConfig
 class HeatmapControl(BaseControl):
     """H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.
 
+    .. note::
+
+        Only markers with a ``.feature`` property (GeoJSON / ``df.explore``) are
+        counted. Annotation or label markers without ``.feature`` are skipped to avoid
+        double-counting in hexbin aggregation.
+
     Parameters
     ----------
     position : str, default "topleft"
@@ -58,12 +64,6 @@ class HeatmapControl(BaseControl):
     >>> from foliplus import HeatmapControl
     >>> m = folium.Map()
     >>> HeatmapControl().add_to(m)
-
-    Notes
-    -----
-    Only markers with a ``.feature`` property (GeoJSON / ``df.explore``) are counted.
-    Annotation or label markers without ``.feature`` are skipped to avoid
-    double-counting in hexbin aggregation.
     """
 
     default_js = [
