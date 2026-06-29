@@ -19,6 +19,7 @@
   justify-content: center;
   font-weight: bold;
   white-space: nowrap;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.45);
   text-shadow:
     0 0 var(--space-xs) #000,
     0 0 var(--space-sm) #000,
