@@ -10,7 +10,7 @@
   - Map tiles no longer overlap markers after layer reordering
   - `MeasureControl`: cleaned up layer management, removed fragile workarounds
 - Fix locale detection: preference order changed to browser `Accept-Language` header
-  first, then OS locale, fixing conflicts when the two disagree ([#6](https://github.com/Zeroto521/foliplus/pull/6))
+  first, then OS locale, fixing conflicts when the two disagree ([#6](https://github.com/Zeroto521/foliplus/pull/6), [#11](https://github.com/Zeroto521/foliplus/pull/11))
 
 ## [v0.1.0] (2026-06-25)
 
