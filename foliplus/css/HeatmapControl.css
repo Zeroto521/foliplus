@@ -20,9 +20,9 @@
   font-weight: bold;
   white-space: nowrap;
   text-shadow:
-    0 0 3px #000,
-    0 0 3px #000,
-    0 0 4px #000;
+    0 0 var(--space-xs) #000,
+    0 0 var(--space-sm) #000,
+    0 0 calc(var(--space-sm) + var(--space-xs)) #000;
 }
 
 /* ── Sections: Data / Style / Labels ── */
