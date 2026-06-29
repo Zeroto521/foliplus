@@ -129,7 +129,7 @@
           if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
           this.layerScanTimer = setTimeout(() => {
             if (this.ui) {
-              this.ui.updateControlVisibility();
+              this.scanMapLayers();
               this.ui.rebuildLayerDropdown();
             }
           }, _CONST.LAYER_SCAN_DEBOUNCE_MS);
@@ -419,7 +419,6 @@
       registerHexLayer() {
         if (this.hexLayerRegistered) return;
         this.hexLayerRegistered = true;
-        // hexLayer pane is already set in _initLayers
         window.foliplus.LayerControlAPI.registerLayer({
           name: _('heatmap.title'),
           id: this.HEATMAP_ID,
@@ -736,15 +735,23 @@
         return wrapper;
       }
 
-      // --- UI Logic Methods ---
-      updateControlVisibility() {
-        this.manager.scanMapLayers();
-        if (this.container) {
-          this.container.style.display =
-            this.manager.pointLayers.length === 0 ? 'none' : '';
+      onRemove() {
+        // Clean up map event listeners
+        if (this.zoomTimer) clearTimeout(this.zoomTimer);
+        if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
+        this.manager.map.off('zoomend');
+        this.manager.map.off('layeradd layerremove');
+
+        // Disconnect MutationObserver
+        if (this.observer) this.observer.disconnect();
+
+        // Remove heatmap layers from map
+        if (this.manager.heatmapLayer) {
+          this.manager.map.removeLayer(this.manager.heatmapLayer);
         }
       }
 
+      // --- UI Logic Methods ---
       buildLayerListItems(sel) {
         this.manager.scanMapLayers();
         sel.innerHTML = '';
@@ -948,10 +955,12 @@
       }
 
       initScan(attempt) {
-        this.updateControlVisibility();
+        this.manager.scanMapLayers();
         if (this.manager.pointLayers.length === 0 && attempt > 0) {
           setTimeout(() => this.initScan(attempt - 1),
             _CONST.INIT_SCAN_INTERVAL_MS);
+        } else if (this.manager.pointLayers.length === 0) {
+          foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
         }
       }
     }

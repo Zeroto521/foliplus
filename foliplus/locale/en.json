@@ -29,6 +29,7 @@
   "heatmap.no_h3": "h3-js library failed to load, hexbin aggregation unavailable",
   "heatmap.no_ss": "simple-statistics library failed to load, hexbin aggregation unavailable",
   "heatmap.no_chroma": "chroma-js library failed to load, using default gray",
+  "heatmap.no_layer": "No point layers found — add a GeoJson/Marker layer with .feature to enable heatmap",
   "heatmap.section_data": "Data",
   "heatmap.section_style": "Style",
   "layer.panel_title": "Layers",
