@@ -25,6 +25,12 @@ data itself.
 
       H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.
 
+   .. grid-item-card:: 📐 ScaleControl
+      :padding: 2
+      :link: api/foliplus.ScaleControl.html
+
+      Scale bar with metric units and optional zoom level display.
+
    .. grid-item-card:: ⛶ Fullscreen
       :padding: 2
       :link: api/foliplus.Fullscreen.html
@@ -36,12 +42,6 @@ data itself.
       :link: api/foliplus.MeasureControl.html
 
       Distance measurement, circle drawing, and GPS marker with geocoding.
-
-   .. grid-item-card:: 📐 ScaleControl
-      :padding: 2
-      :link: api/foliplus.ScaleControl.html
-
-      Scale bar with metric units and optional zoom level display.
 
 .. toctree::
    :maxdepth: 1
