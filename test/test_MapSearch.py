@@ -32,6 +32,15 @@ class TestMapSearchPython:
     def test_custom_locale(self):
         assert MapSearch(locale="zh").locale.code == "zh"
 
+    def test_default_mode(self):
+        assert MapSearch().mode == "coord"
+
+    def test_custom_mode_addr(self):
+        assert MapSearch(mode="addr").mode == "addr"
+
+    def test_custom_mode_coord(self):
+        assert MapSearch(mode="coord").mode == "coord"
+
 
 class TestMapSearchRendering:
     def test_default_params(self, base_map: folium.Map):
@@ -75,3 +84,18 @@ class TestMapSearchRendering:
         html = render(base_map)
         assert "地图搜索" in html
         assert '"zh"' in html
+
+    def test_default_mode_coord_in_template(self, base_map: folium.Map):
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "'coord'" in html
+
+    def test_mode_addr_in_template(self, base_map: folium.Map):
+        MapSearch(mode="addr").add_to(base_map)
+        html = render(base_map)
+        assert "'addr'" in html
+
+    def test_mode_coord_in_template(self, base_map: folium.Map):
+        MapSearch(mode="coord").add_to(base_map)
+        html = render(base_map)
+        assert "'coord'" in html

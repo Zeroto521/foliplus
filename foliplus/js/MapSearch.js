@@ -53,7 +53,10 @@
       const inp = container.querySelector("input");
       const modeBtn = container.querySelector(".search-mode-btn");
       let mk = null;
-      let mode = MODE.COORD;
+      let mode = '{{ this.mode }}';
+      if (mode !== MODE.COORD && mode !== MODE.ADDR) {
+        mode = MODE.COORD;
+      }
 
       // Mode switching
       function _setMode(newMode) {
