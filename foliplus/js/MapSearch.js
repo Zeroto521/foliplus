@@ -58,6 +58,9 @@
         mode = MODE.COORD;
       }
 
+      // Apply initial mode to UI
+      _setMode(mode);
+
       // Mode switching
       function _setMode(newMode) {
         mode = newMode;
