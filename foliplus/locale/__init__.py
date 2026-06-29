@@ -19,8 +19,6 @@ Usage
 
 from __future__ import annotations
 
-import locale as _stdlib_locale
-import os
 from dataclasses import dataclass, field
 from json import dumps, loads
 from pathlib import Path
@@ -47,7 +45,7 @@ def _load_builtin_tables() -> dict[str, dict[str, str]]:
     return tables
 
 
-LOCALE_TABLES: dict[str, dict[str, str]] = _load_builtin_tables()
+_LOCALES_TABLES: dict[str, dict[str, str]] = _load_builtin_tables()
 
 
 # ===========================================================================
@@ -63,7 +61,7 @@ class LocaleConfig:
     ----------
     language : str, default "en"
         Language code, e.g. ``"en"``, ``"zh"``. Falls back to English if the code is not
-        in :data:`LOCALE_TABLES`.
+        in :data:`_LOCALES_TABLES`.
 
     table : dict or None
         Optional custom string table (key → localized text).
@@ -80,7 +78,7 @@ class LocaleConfig:
     _strings: dict[str, str] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self):
-        table = LOCALE_TABLES.get(self.language, LOCALE_TABLES["en"])
+        table = _LOCALES_TABLES.get(self.language, _LOCALES_TABLES["en"])
         self._strings = dict(table)
 
     @classmethod
@@ -130,59 +128,32 @@ class LocaleConfig:
         return self._strings.get("locale.code", "en")
 
 
-def resolve_locale(locale: str | LocaleConfig | None) -> LocaleConfig:
+def resolve_locale(locale: str | LocaleConfig) -> LocaleConfig:
     """Normalise a ``locale`` parameter to a :class:`LocaleConfig` instance.
 
-    * ``None`` → auto-detect via :func:`detect_language`
-    * ``str`` → :class:`LocaleConfig` with that language code
-    * ``LocaleConfig`` → returned as-is
-    """
-    if locale is None:
-        return LocaleConfig(detect_language())
-    if isinstance(locale, str):
-        return LocaleConfig(language=locale)
-    return locale
-
-
-def detect_language(accept_language: str = "") -> str:
-    """Detect user language from environment variables.
-
-    Checks (in order):
-    1. ``accept_language`` argument (HTTP header)
-    2. Environment variables ``LANG``, ``LC_ALL``, ``LC_MESSAGES``
-    3. :func:`locale.getlocale()`
-
-    Note
-    ----
-    Server-side locale detection is unreliable across platforms (macOS, Docker, CI).
-    For browser-based usage, the frontend JavaScript reads ``navigator.language`` at
-    runtime and selects the correct locale table from ``_LOCALES`` — this function is
-    only a fallback when no other locale is specified.
+    Parameters
+    ----------
+    locale : str or LocaleConfig
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
 
     Returns
     -------
-    str
-        Language code (e.g. ``"en"``, ``"zh"``).  Falls back to ``"en"``.
+    LocaleConfig
+
+    Raises
+    ------
+    ValueError
+        If ``locale`` is a string not in ``_LOCALES_TABLES``, or if it is neither
+        a string nor a :class:`LocaleConfig`.
     """
-
-    candidates: list[str] = []
-    if accept_language:
-        candidates.append(accept_language)
-
-    for env_var in ("LANG", "LC_ALL", "LC_MESSAGES"):
-        if val := os.environ.get(env_var, ""):
-            candidates.append(val)
-
-    try:
-        sys_lang, _ = _stdlib_locale.getlocale()
-        if sys_lang and sys_lang.lower() not in ("c", "posix"):
-            candidates.append(sys_lang)
-    except Exception:
-        pass
-
-    for c in candidates:
-        lang = c.split(",")[0].split("-")[0].split("_")[0].strip().lower()
-        if lang in LOCALE_TABLES:
-            return lang
-
-    return "en"
+    if isinstance(locale, str):
+        if locale not in _LOCALES_TABLES:
+            raise ValueError(
+                f"unsupported locale {locale!r}; available: {list(_LOCALES_TABLES)}"
+            )
+        return LocaleConfig(language=locale)
+    if isinstance(locale, LocaleConfig):
+        return locale
+    raise TypeError(
+        f"locale must be a str or LocaleConfig, got {type(locale).__name__!s}"
+    )
