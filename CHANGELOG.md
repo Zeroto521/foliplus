@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `MapSearch`: add `mode` parameter to choose default search mode (`"coord"` or `"addr"`) ([#12](https://github.com/Zeroto521/foliplus/pull/12))
+
 ### Changed
 
 - Locale system overhaul: locale resolution is now fully browser-based (`navigator.language`). Removed Python-side `detect_language()`. `resolve_locale()` now validates inputs with `ValueError`/`TypeError`. ([#6](https://github.com/Zeroto521/foliplus/pull/6), [#12](https://github.com/Zeroto521/foliplus/pull/12))
