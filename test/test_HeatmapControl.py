@@ -23,10 +23,10 @@ class TestHeatmapControlPython:
         assert HeatmapControl(position="bottomright").position == "bottomright"
 
     def test_default_locale(self):
-        assert HeatmapControl().locale.code == "en"
+        assert HeatmapControl()._LOCALE_CODE == ""
 
     def test_custom_locale(self):
-        assert HeatmapControl(locale="zh").locale.code == "zh"
+        assert HeatmapControl(locale="zh")._LOCALE_CODE == "zh"
 
     def test_default_params(self):
         ctrl = HeatmapControl()
