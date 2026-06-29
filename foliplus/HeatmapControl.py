@@ -15,6 +15,12 @@ class HeatmapControl(BaseControl):
     aggregates them into H3 hexagons in real-time via h3-js. Resolution auto-adjusts
     with zoom.
 
+    .. note::
+
+        Only markers with a ``.feature`` property (GeoJSON / ``df.explore``) are
+        counted. Annotation or label markers without ``.feature`` are skipped to avoid
+        double-counting in hexbin aggregation.
+
     Parameters
     ----------
     position : str, default "topleft"
