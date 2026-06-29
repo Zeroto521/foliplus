@@ -6,21 +6,8 @@
 (function () {
   if (window.foliplus) return;
 
-  // ------------------------------------------------------------------
-  // Browser locale auto-detection
-  // ------------------------------------------------------------------
-  // _LOCALES is injected by the Python template as a JSON object
-  // containing all built-in string tables ({"en":{…}, "zh":{…}}).
-  // Pick the one that matches the browser language, defaulting to en.
-  // ------------------------------------------------------------------
-  if (typeof _LOCALES !== 'undefined') {
-    var _navLang = (typeof navigator !== 'undefined'
-      ? (navigator.language || navigator.userLanguage || '')
-      : '');
-    var _lang = _navLang.split('-')[0].split('_')[0].toLowerCase();
-    var _LOCALE = _LOCALES[_lang] || _LOCALES['en'];
-    window._LOCALE = _LOCALE;
-  }
+  /** Shared locale lookup — set by foliplus.resolveLocale before use. */
+  const _gt = (k) => _LOCALE[k] || k;
 
   const foliplus = {
     // --- SVG Icons ---
@@ -152,6 +139,7 @@
     }
   };
 
+  /** Convert map coordinates (GCJ-02 / BD-09) to WGS-84. */
   foliplus.toWgs84 = function (map, lat, lng) {
     if (typeof gcoord !== 'undefined') {
       const src = foliplus._isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
@@ -162,9 +150,8 @@
       // gcoord not yet loaded — schedule warning on next access
       if (!foliplus._gcoordWarned) {
         foliplus._gcoordWarned = true;
-        const _g = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-        console.warn('[foliplus] ' + _g('gcoord.warn'));
-        foliplus.showHint('gcoord-warn', _g('gcoord.warn'), 5000);
+        console.warn('[foliplus] ' + _gt('gcoord.warn'));
+        foliplus.showHint('gcoord-warn', _gt('gcoord.warn'), 5000);
       }
     }
     return [lat, lng];
@@ -177,9 +164,8 @@
         // gcoord not yet loaded — show warning and return unchanged
         if (!foliplus._gcoordWarned) {
           foliplus._gcoordWarned = true;
-          const _g2 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-          console.warn('[foliplus] ' + _g2('gcoord.warn'));
-          foliplus.showHint('gcoord-warn', _g2('gcoord.warn'), 5000);
+          console.warn('[foliplus] ' + _gt('gcoord.warn'));
+          foliplus.showHint('gcoord-warn', _gt('gcoord.warn'), 5000);
         }
         return [lng, lat];
       }
@@ -223,13 +209,21 @@
   let _geoPromise = Promise.resolve();
   let _geoLastReq = 0;
 
+  /**
+   * Reverse geocode coordinates to an address via Nominatim.
+   * Results are cached. Requests are throttled to 1 req/s.
+   * @param {L.Map} map Leaflet map instance
+   * @param {number} lat Latitude
+   * @param {number} lng Longitude
+   * @returns {Promise<string>} Resolved address string
+   */
   foliplus.reverseGeocode = function (map, lat, lng) {
     const key = `${lat},${lng}`;
     if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
 
     const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
     const lang = (typeof _LOCALE !== 'undefined' && _LOCALE['locale.code']) || 'en';
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0].toFixed(6)}&lon=${wgs[1].toFixed(6)}&zoom=18&accept-language=${lang}`;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=18&accept-language=${lang}`;
 
     _geoPromise = _geoPromise.then(() => {
       const wait = Math.max(0, 1000 - (Date.now() - _geoLastReq));
@@ -241,17 +235,24 @@
         addr = addr.split(',').map(s => s.trim())
           .filter(s => s && !/^\d+$/.test(s))
           .reverse().join(',');
-        const _g3 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-        _geoCache[key] = addr || _g3('search.addr_not_found');
+        _geoCache[key] = addr || _gt('search.addr_not_found');
         return _geoCache[key];
       }).catch(() => {
-        const _g4 = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-        return _g4('measure.geo_fail');
+        return _gt('measure.geo_fail');
       });
     });
     return _geoPromise;
   };
 
+  /**
+   * Build a popup HTML string for a location marker.
+   * @param {number} lat Latitude
+   * @param {number} lng Longitude
+   * @param {string|null} addr Address text or null (triggers loading indicator)
+   * @param {object} txt Text constants object with POPUP_* keys
+   * @param {string} [title] Popup title, defaults to txt.POPUP_TITLE
+   * @returns {string} HTML string
+   */
   foliplus.buildPopupHtml = function (lat, lng, addr, txt, title) {
     const popupTitle = title || txt.POPUP_TITLE;
     const addrHtml = (addr && addr.includes('LOADING')) ?
@@ -307,6 +308,13 @@
     return mk;
   };
 
+  /**
+   * Bind click events to toggle a panel (expand / collapse).
+   * @param {object} opts
+   * @param {HTMLElement} opts.container - Panel root element
+   * @param {string} opts.toggleBtn - Selector for the toggle button
+   * @param {string} opts.header - Selector for the header (click to collapse)
+   */
   foliplus.bindPanelToggle = function ({ container, toggleBtn, header }) {
     const btn = container.querySelector(toggleBtn);
     if (btn) {
@@ -326,6 +334,14 @@
     }
   };
 
+  /**
+   * Collapse a panel when clicking outside of it.
+   * Sets up a MutationObserver to auto-cleanup when the container is removed.
+   * @param {object} opts
+   * @param {L.Map} opts.map - Leaflet map instance
+   * @param {HTMLElement} opts.container - Panel element to watch
+   * @returns {Function} Cleanup function to remove the click listener
+   */
   foliplus.bindOutsideCollapse = function ({ map, container }) {
     const handler = (e) => {
       if (!container.contains(e.target) && container.classList.contains('expanded')) {
@@ -426,8 +442,7 @@
         };
         s.onerror = () => {
           failedCount++;
-          const _gl = typeof _LOCALE !== 'undefined' ? (k) => _LOCALE[k] || k : (k) => k;
-          console.error(`[foliplus] ${dep.name}: ${_gl('load.script_fail')}`);
+          console.error(`[foliplus] ${dep.name}: ${_gt('load.script_fail')}`);
           if (loaded + failedCount === pending.length) {
             if (retries < maxRetries) { retries++; setTimeout(attempt, delayMs); }
             else callback(false, pending.filter(d => !d.check()).map(d => d.name));
@@ -438,6 +453,33 @@
     }
 
     attempt();
+  };
+
+  // ------------------------------------------------------------------
+  // Locale resolution — called from each control's template
+  // ------------------------------------------------------------------
+  // Sets window._LOCALE to the correct language table.
+  //
+  // If `code` is non-empty and exists in `tables`, it is used directly.
+  // Otherwise the user's browser language (navigator.language) is detected
+  // and used as the key, falling back to the "en" table.
+  //
+  // Called from the Jinja2 template in base.py for every control instance:
+  //   foliplus.resolveLocale('{{ this._LOCALE_CODE }}', {...tables...});
+  //
+  // @param {string} code - Explicit locale code ("en", "zh", or "" for auto)
+  // @param {Object} tables - Dictionary of locale tables ({en: {...}, zh: {...}})
+  // ------------------------------------------------------------------
+  foliplus.resolveLocale = function (code, tables) {
+    if (!tables) return;
+    if (code && tables[code]) {
+      window._LOCALE = tables[code];
+    } else {
+      var lang = (typeof navigator !== 'undefined'
+        ? (navigator.language || navigator.userLanguage || '')
+        : '').split('-')[0].split('_')[0].toLowerCase();
+      window._LOCALE = tables[lang] || tables['en'];
+    }
   };
 
   window.foliplus = foliplus;

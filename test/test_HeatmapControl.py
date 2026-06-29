@@ -23,10 +23,10 @@ class TestHeatmapControlPython:
         assert HeatmapControl(position="bottomright").position == "bottomright"
 
     def test_default_locale(self):
-        assert HeatmapControl().locale.code == "en"
+        assert HeatmapControl()._LOCALE_CODE == ""
 
     def test_custom_locale(self):
-        assert HeatmapControl(locale="zh").locale.code == "zh"
+        assert HeatmapControl(locale="zh")._LOCALE_CODE == "zh"
 
     def test_default_params(self):
         ctrl = HeatmapControl()
@@ -167,13 +167,53 @@ class TestHeatmapControlRendering:
         assert "registerHexLayer()" in html
         assert "heatmapLayer.options._paneSet" not in html
 
-    def test_extract_points_filters_by_feature(self, base_map: folium.Map):
-        """extractPoints skips markers without .feature (labels/annotations)."""
+    def test_extract_points_filters_no_feature(self, base_map: folium.Map):
+        """extractPoints only accepts markers with .feature."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "if (!l.feature) return" in html or "!l.feature" in html
-        # Ensure the feature check is inside extractPoints, not elsewhere
         assert "extractPoints" in html
+        # Must filter by .feature to skip label/annotation markers
+        assert "!l.feature" in html
+
+    def test_style_field(self, base_map: folium.Map):
+        """style.field is injected into JS template."""
+        HeatmapControl(style={"field": "value"}).add_to(base_map)
+        html = render(base_map)
+        assert '"value"' in html or "'value'" in html
+
+    def test_scheme_names_inline(self, base_map: folium.Map):
+        """schemes list is inlined as JSON array."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "Blues" in html and "Viridis" in html
+
+    def test_scheme_dropdown_items_have_data_attr(self, base_map: folium.Map):
+        """Dropdown items store scheme name for refreshSchemeDropdownItems."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "data-scheme-name" in html
+
+    def test_class_count_select_range(self, base_map: folium.Map):
+        """Class count select has options 2-9."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        for n in (2, 5, 9):
+            assert str(n) in html
+
+    def test_onremove_cleanup(self, base_map: folium.Map):
+        """onRemove exists in the JS output."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "onRemove()" in html
+        assert "observer.disconnect" in html
+        assert "manager.map.off('zoomend')" in html
+
+    def test_no_layer_hint(self, base_map: folium.Map):
+        """initScan shows no_layer hint when no point layers found."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "heatmap.no_layer" in html
+        assert "4000" in html  # hint duration
 
 
 class TestHeatmapControlBrowser:

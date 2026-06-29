@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- `MapSearch`: add `mode` parameter to choose default search mode (`"coord"` or `"addr"`) ([#12](https://github.com/Zeroto521/foliplus/pull/12))
+
+### Changed
+
+- Locale system overhaul: locale resolution is now fully browser-based (`navigator.language`). Removed Python-side `detect_language()`. `resolve_locale()` now validates inputs with `ValueError`/`TypeError`. ([#6](https://github.com/Zeroto521/foliplus/pull/6), [#11](https://github.com/Zeroto521/foliplus/pull/11))
+
 ### Fixed
 
 - `LayerControl`/`HeatmapControl`/`MeasureControl`: fix multiple accumulated bugs ([#8](https://github.com/Zeroto521/foliplus/pull/8), [#9](https://github.com/Zeroto521/foliplus/pull/9))
@@ -9,8 +17,7 @@
   - Marker shadows no longer disappear when toggling layers
   - Map tiles no longer overlap markers after layer reordering
   - `MeasureControl`: cleaned up layer management, removed fragile workarounds
-- Fix locale detection: preference order changed to browser `Accept-Language` header
-  first, then OS locale, fixing conflicts when the two disagree ([#6](https://github.com/Zeroto521/foliplus/pull/6))
+- `HeatmapControl`: add `onRemove()` cleanup, no-layer hint, always-visible UI, unify color bar rendering, fix dropdown color sync ([#14](https://github.com/Zeroto521/foliplus/pull/14))
 
 ## [v0.1.0] (2026-06-25)
 

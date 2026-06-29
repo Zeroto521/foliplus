@@ -21,10 +21,10 @@ class TestMeasureControlPython:
         assert MeasureControl(position="topleft").position == "topleft"
 
     def test_default_locale(self):
-        assert MeasureControl().locale.code == "en"
+        assert MeasureControl()._LOCALE_CODE == ""
 
     def test_custom_locale(self):
-        assert MeasureControl(locale="zh").locale.code == "zh"
+        assert MeasureControl(locale="zh")._LOCALE_CODE == "zh"
 
 
 class TestMeasureControlRendering:

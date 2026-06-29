@@ -27,10 +27,10 @@ class TestFullscreenPython:
         assert Fullscreen(hide_self=False).hide_self is False
 
     def test_default_locale(self):
-        assert Fullscreen().locale.code == "en"
+        assert Fullscreen()._LOCALE_CODE == ""
 
     def test_custom_locale(self):
-        assert Fullscreen(locale="zh").locale.code == "zh"
+        assert Fullscreen(locale="zh")._LOCALE_CODE == "zh"
 
 
 class TestFullscreenRendering:
