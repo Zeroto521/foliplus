@@ -39,6 +39,9 @@ class HeatmapControl(BaseControl):
 
     style : dict, optional
         Grid style overrides. Supported keys:
+        - ``field`` (str, optional): property name to aggregate on.
+          ``null`` / ``"auto"`` = count features per hexagon;
+          any other string = aggregate that numeric property.
         - ``border_weight`` (float, default 1.5): border width
         - ``border_color`` (str, default "#333333"): border color
         - ``fill_opacity`` (float, default 0.7): fill opacity
