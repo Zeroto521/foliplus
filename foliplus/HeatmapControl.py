@@ -45,18 +45,35 @@ class HeatmapControl(BaseControl):
 
     style : dict, optional
         Grid style overrides. Supported keys:
-        - ``field`` (str, optional): property name to aggregate on.
-          ``null`` / ``"auto"`` = count features per hexagon;
-          any other string = aggregate that numeric property.
-        - ``border_weight`` (float, default 1.5): border width
-        - ``border_color`` (str, default "#333333"): border color
-        - ``fill_opacity`` (float, default 0.7): fill opacity
-        - ``border_opacity`` (float, default 0.9): border opacity
-        - ``label_show`` (bool, default True): show aggregated value at hex center
-        - ``label_size`` (int, default 11): label font size
-        - ``label_color`` (str, default "#fff"): label color
-        - ``label_format`` (str, default "auto"): number format —
-          ``"auto"`` (10K/1K suffix), ``"int"``, ``"comma"`` (thousands separator)
+
+        - ``field`` (optional)
+          property name to aggregate on. ``null`` / ``"auto"`` counts features per
+          hexagon; any other string aggregates that numeric property.
+
+        - ``border_weight`` (float, default 1.5)
+          border width
+
+        - ``border_color`` (str, default "#333333")
+          border color
+
+        - ``fill_opacity`` (float, default 0.7)
+          fill opacity
+
+        - ``border_opacity`` (float, default 0.9)
+          border opacity
+
+        - ``label_show`` (bool, default True)
+          show aggregated value at hex center
+
+        - ``label_size`` (int, default 11)
+          label font size
+
+        - ``label_color`` (str, default "#fff")
+          label color
+
+        - ``label_format`` (str, default "auto")
+          number format: ``"auto"`` (10K/1K suffix), ``"int"``, ``"comma"``
+          (thousands separator)
 
     locale : str or LocaleConfig, optional
         Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
