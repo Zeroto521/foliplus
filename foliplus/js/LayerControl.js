@@ -137,12 +137,15 @@
         if (!data) return;
         const ids = JSON.parse(data);
         if (!Array.isArray(ids)) return;
+        const map = new Map(this.layers.map(l => [l.id, l]));
         const ordered = [];
         for (const id of ids) {
-          const idx = this.layers.findIndex(l => l.id === id);
-          if (idx !== -1) ordered.push(this.layers.splice(idx, 1)[0]);
+          if (map.has(id)) {
+            ordered.push(map.get(id));
+            map.delete(id);
+          }
         }
-        this.layers = ordered.concat(this.layers);
+        this.layers = ordered.concat([...map.values()]);
       } catch (e) {}
     }
 
@@ -298,22 +301,26 @@
     }
 
     /**
-     * Ensure a custom pane and its SVG renderer exist on the map.
-     * Creates both if needed.  Idempotent — safe to call multiple times.
-     * @param {string} paneName - Pane name (e.g. "_heatmap_pane").
-     * @returns {Object} `{pane: HTMLElement, renderer: L.SVG}`
+     * Ensure a custom pane exists on the map.
+     * Optionally creates an SVG renderer for Path layers.
+     * @param {string} paneName - Pane name.
+     * @param {boolean} [needRenderer=true] - Whether to create an SVG renderer.
+     * @returns {Object} `{pane: HTMLElement, renderer: L.SVG|null}`
      */
-    ensurePane(paneName) {
+    ensurePane(paneName, needRenderer = true) {
       let pane = this.map.getPane(paneName);
       if (!pane) {
         pane = this.map.createPane(paneName);
         pane.classList.add('layer-pane');
       }
-      let renderer = this.map[`_renderer_${paneName}`];
-      if (!renderer) {
-        renderer = L.svg({ pane: paneName });
-        renderer.addTo(this.map);
-        this.map[`_renderer_${paneName}`] = renderer;
+      let renderer = null;
+      if (needRenderer) {
+        renderer = this.map[`_renderer_${paneName}`];
+        if (!renderer) {
+          renderer = L.svg({ pane: paneName });
+          renderer.addTo(this.map);
+          this.map[`_renderer_${paneName}`] = renderer;
+        }
       }
       return { pane, renderer };
     }
@@ -324,11 +331,6 @@
       // Moving them to a custom pane breaks their shadow positioning.
       // They stay in Leaflet's default markerPane (z-index 600).
       if (layer instanceof L.Marker) return;
-
-      // Skip TileLayers — they must stay in tilePane (z-index 200).
-      // Moving them to a custom pane with a higher z-index would put
-      // tiles above markers/shadows.
-      if (layer instanceof L.TileLayer) return;
 
       layer.options.pane = paneName;
       layer.options._paneSet = true;
@@ -372,28 +374,29 @@
         const lyr = orderedLayers[i];
         const info = layerInfos.get(L.stamp(lyr));
         const paneName = info?.paneName;
-        const z = _CONST.Z_INDEX_BASE + (orderedLayers.length - i);
+        const isTile = lyr instanceof L.TileLayer;
+
+        // TileLayers use a lower z-index range (200-400) so they stay
+        // below overlayPane (400) and markerPane (600) by default.
+        const zBase = isTile ? 200 : _CONST.Z_INDEX_BASE;
+        const z = zBase + (orderedLayers.length - i);
 
         if (paneName) {
-          // Layers registered with explicit paneName (e.g. heatmap/measure):
-          // move to a dedicated custom pane for z-order control.
-          const ep = this.ensurePane(paneName);
+          const ep = this.ensurePane(paneName, !isTile);
           ep.pane.style.zIndex = z;
           if (lyr.options.pane !== paneName || !lyr.options._paneSet) {
             layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
           }
         } else {
-          // Layers without explicit paneName: assign a custom pane so
-          // L.Path children (polygons, polylines) can be reordered.
-          // _setLayerPaneRecursive skips Markers and TileLayers — those
-          // stay in their default panes (markerPane, tilePane).  Track
-          // the highest z-index so markerPane can be synced for proper
-          // interleaving with paneName layers.
           const fallbackPane = `_lyr_${L.stamp(lyr)}`;
-          const ep = this.ensurePane(fallbackPane);
+          const ep = this.ensurePane(fallbackPane, !isTile);
           ep.pane.style.zIndex = z;
-          markerZ = Math.max(markerZ, z);
-          layersToMove.push({ layer: lyr, paneName: fallbackPane, renderer: ep.renderer });
+          if (!(lyr instanceof L.TileLayer)) {
+            markerZ = Math.max(markerZ, z);
+          }
+          if (lyr.options.pane !== fallbackPane || !lyr.options._paneSet) {
+            layersToMove.push({ layer: lyr, paneName: fallbackPane, renderer: ep.renderer });
+          }
         }
       }
 
@@ -582,7 +585,7 @@
       }
       if (target.tagName.toLowerCase() !== 'input' || target.type !== 'checkbox') return;
 
-      const idx = parseInt(target.dataset.index);
+      const idx = parseInt(target.dataset.index, 10);
       const layerInfo = this.layers[idx];
       const layer = this.map._layers[layerInfo.id] || window[layerInfo.id] || null;
       const item = target.closest('.layer-item');
@@ -607,7 +610,7 @@
     _handleDragStart(e) {
       const item = e.target.closest('.layer-item');
       if (!item) return;
-      this.dragIdx = parseInt(item.dataset.index);
+      this.dragIdx = parseInt(item.dataset.index, 10);
       item.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
     }
@@ -617,7 +620,7 @@
       const item = e.target.closest('.layer-item');
       if (!item || item.classList.contains('color-layer-item')) return;
 
-      const targetIdx = parseInt(item.dataset.index);
+      const targetIdx = parseInt(item.dataset.index, 10);
       const allItems = this.uiContainer.querySelectorAll('.layer-item');
       allItems.forEach(i => i.classList.remove('drag-over-top', 'drag-over-bottom'));
 
@@ -635,7 +638,7 @@
       const target = e.target.closest('.layer-item');
       if (!target || this.dragIdx === null || target.classList.contains('color-layer-item')) return;
 
-      const targetIdx = parseInt(target.dataset.index);
+      const targetIdx = parseInt(target.dataset.index, 10);
       if (this.dragIdx === targetIdx) return;
 
       const moved = this.layers.splice(this.dragIdx, 1)[0];
