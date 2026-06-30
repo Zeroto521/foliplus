@@ -12,7 +12,7 @@
 
 ### Fixed
 
-- `LayerControl`/`HeatmapControl`/`MeasureControl`: fix multiple accumulated bugs ([#8](https://github.com/Zeroto521/foliplus/pull/8), [#9](https://github.com/Zeroto521/foliplus/pull/9))
+- `LayerControl`/`HeatmapControl`/`MeasureControl`: fix multiple accumulated bugs ([#8](https://github.com/Zeroto521/foliplus/pull/8), [#9](https://github.com/Zeroto521/foliplus/pull/9), [#18](https://github.com/Zeroto521/foliplus/pull/18))
   - Heatmap labels now display on top of hexagons instead of being hidden behind them
   - Marker shadows no longer disappear when toggling layers
   - Map tiles no longer overlap markers after layer reordering
