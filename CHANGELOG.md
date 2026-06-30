@@ -17,7 +17,7 @@
   - Marker shadows no longer disappear when toggling layers
   - Map tiles no longer overlap markers after layer reordering
   - `MeasureControl`: cleaned up layer management, removed fragile workarounds
-- `HeatmapControl`: add `onRemove()` cleanup, no-layer hint, always-visible UI, unify color bar rendering, fix dropdown color sync ([#14](https://github.com/Zeroto521/foliplus/pull/14))
+- `HeatmapControl`: add `onRemove()` cleanup, no-layer hint, always-visible UI, unify color bar rendering, fix dropdown color sync, move label to a single pane ([#14](https://github.com/Zeroto521/foliplus/pull/14), [#16](https://github.com/Zeroto521/foliplus/pull/16))
 
 ## [v0.1.0] (2026-06-25)
 
