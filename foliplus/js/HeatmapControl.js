@@ -89,6 +89,7 @@
         this.currentLabelShow = LABEL_SHOW;
 
         this.HEATMAP_ID = '__heatmap__';
+        this.LABEL_PANE = '__heatmap_label__';
         this.hexLayerRegistered = false;
         this.ui = null; // Injected UI control panel instance
 
@@ -380,6 +381,14 @@
         }
 
         this.labelLayer.clearLayers();
+
+        // Keep label pane above hexagon pane
+        let lblPane = this.map.getPane(this.LABEL_PANE);
+        let hexPane = this.map.getPane(this.HEATMAP_ID);
+        if (lblPane && hexPane) {
+          lblPane.style.zIndex = parseInt(hexPane.style.zIndex || 500, 10) + 1;
+        }
+
         if (this.currentLabelShow) {
           features.forEach((feat) => {
             let lat, lng;
@@ -410,7 +419,7 @@
                 iconAnchor: _CONST.LABEL_ANCHOR,
               }),
               interactive: false,
-              pane: this.HEATMAP_ID,
+              pane: this.LABEL_PANE,
             }).addTo(this.labelLayer);
           });
         }
@@ -427,6 +436,15 @@
           paneName: this.HEATMAP_ID,
           iconSvg: SVG_HEX,
         });
+        // Ensure label pane exists above hexagon pane
+        let lblPane = this.map.getPane(this.LABEL_PANE);
+        if (!lblPane) {
+          lblPane = this.map.createPane(this.LABEL_PANE);
+        }
+        let hexPane = this.map.getPane(this.HEATMAP_ID);
+        if (hexPane) {
+          lblPane.style.zIndex = parseInt(hexPane.style.zIndex || 500, 10) + 1;
+        }
       }
 
       unregisterHexLayer() {
@@ -745,7 +763,8 @@
         // Disconnect MutationObserver
         if (this.observer) this.observer.disconnect();
 
-        // Remove heatmap layers from map
+        // Unregister from LayerControl and remove layers
+        this.manager.unregisterHexLayer();
         if (this.manager.heatmapLayer) {
           this.manager.map.removeLayer(this.manager.heatmapLayer);
         }
