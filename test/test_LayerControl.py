@@ -265,15 +265,15 @@ class TestLayerControlRendering:
         assert count >= 2, f"Expected at least 2 draggable items, got {count}"
 
     def test_marker_skip_in_set_layer_pane(self, base_map: folium.Map):
-        """_setLayerPaneRecursive skips Markers and TileLayers.
+        """_setLayerPaneRecursive skips Markers but moves TileLayers.
 
         Markers stay in markerPane to preserve shadow rendering.
-        TileLayers stay in tilePane.
+        TileLayers are moved to custom panes for proper z-ordering.
         """
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "if (layer instanceof L.Marker) return" in html
-        assert "if (layer instanceof L.TileLayer) return" in html
+        assert "if (layer instanceof L.TileLayer) return" not in html
         assert "icon instanceof L.divIcon" not in html
 
     def test_enforce_order_skips_no_pane(self, base_map: folium.Map):
@@ -354,3 +354,67 @@ class TestLayerControlRendering:
         html = render(base_map)
         # The skip only checks L.Marker, not L.CircleMarker
         assert "if (layer instanceof L.Marker) return" in html
+
+    def test_tilelayer_zindex_base_200(self, base_map: folium.Map):
+        """TileLayers use z-index base 200 in enforceOrder."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "zBase = isTile ? 200 : _CONST.Z_INDEX_BASE" in html
+        # Both 200 and 600 appear as z-index bases
+        assert "_CONST.Z_INDEX_BASE" in html
+
+    def test_ensure_pane_need_renderer_param(self, base_map: folium.Map):
+        """ensurePane accepts needRenderer parameter, defaults to true."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "needRenderer = true" in html
+
+    def test_tile_layer_no_renderer_in_ensure_pane(self):
+        """TileLayers pass needRenderer=false to ensurePane."""
+        m = folium.Map()
+        LayerControl().add_to(m)
+        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
+        html = render(m)
+        # ensurePane with !isTile means no renderer for tile layers
+        assert "ensurePane(fallbackPane, !isTile)" in html
+        assert "ensurePane(paneName, !isTile)" in html
+
+    def test_skip_remove_add_when_pane_unchanged(self, base_map: folium.Map):
+        """enforceOrder skips removeLayer/addLayer for already-paned layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (lyr.options.pane !== fallbackPane || !lyr.options._paneSet)" in html
+        assert "layersToMove.push" in html
+
+    def test_color_layer_hides_tile_pane(self, base_map: folium.Map):
+        """_showColorLayer hides tilePane visibility and opacity."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "tilePane.style.visibility = 'hidden'" in html
+        assert "tilePane.style.opacity = '0'" in html
+
+    def test_public_api_get_layer_type(self, base_map: folium.Map):
+        """getLayerType is exposed via LayerControlAPI."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "getLayerType(id)" in html
+        assert "getLayersByType(type)" in html
+
+    def test_load_saved_order_uses_map(self, base_map: folium.Map):
+        """_loadSavedOrder uses Map-based O(n) lookup, not findIndex."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "new Map(this.layers.map" in html
+        assert "map.has(id)" in html
+        assert "map.delete(id)" in html
+
+    def test_parse_int_with_radix(self, base_map: folium.Map):
+        """All parseInt calls use radix 10."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Check that no bare parseInt(...) without radix exists
+        import re
+
+        matches = re.findall(r"parseInt\([^)]+\)", html)
+        for m in matches:
+            assert ", 10)" in m, f"Missing radix: {m}"
