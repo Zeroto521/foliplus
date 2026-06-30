@@ -25,6 +25,7 @@ clean-cov:
 	rm -rf coverage.xml .coverage
 
 clean-html:
+	rm -rf doc/_build
 	rm -rf doc/source/_build
 
 clean: clean-build clean-pyc clean-cov clean-html
