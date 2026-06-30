@@ -11,3 +11,4 @@ dependencies:
   - myst-nb
   - sphinx-copybutton
   - sphinx-design
+  - geopandas
