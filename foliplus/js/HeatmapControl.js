@@ -382,11 +382,13 @@
 
         this.labelLayer.clearLayers();
 
-        // Keep label pane above hexagon pane
+        // Keep label pane at same z-index as hex pane
+        // (DOM order ensures labels render above hexagons within same
+        // z-index; other interleaved layers manage their own panes)
         let lblPane = this.map.getPane(this.LABEL_PANE);
         let hexPane = this.map.getPane(this.HEATMAP_ID);
         if (lblPane && hexPane) {
-          lblPane.style.zIndex = parseInt(hexPane.style.zIndex || 500, 10) + 1;
+          lblPane.style.zIndex = hexPane.style.zIndex || 500;
         }
 
         if (this.currentLabelShow) {
@@ -436,14 +438,14 @@
           paneName: this.HEATMAP_ID,
           iconSvg: SVG_HEX,
         });
-        // Ensure label pane exists above hexagon pane
+        // Ensure label pane exists at same z-index as hex pane
         let lblPane = this.map.getPane(this.LABEL_PANE);
         if (!lblPane) {
           lblPane = this.map.createPane(this.LABEL_PANE);
         }
         let hexPane = this.map.getPane(this.HEATMAP_ID);
         if (hexPane) {
-          lblPane.style.zIndex = parseInt(hexPane.style.zIndex || 500, 10) + 1;
+          lblPane.style.zIndex = hexPane.style.zIndex || 500;
         }
       }
 
