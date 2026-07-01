@@ -12,3 +12,6 @@ dependencies:
   - sphinx-copybutton
   - sphinx-design
   - geopandas
+  - pip
+  - pip:
+      - my-data-toolkit
