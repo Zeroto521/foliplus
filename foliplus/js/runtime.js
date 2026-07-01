@@ -7,7 +7,7 @@
   if (window.foliplus) return;
 
   /** Shared locale lookup — set by foliplus.resolveLocale before use. */
-  const _gt = (k) => _LOCALE[k] || k;
+  const _gt = (k) => (window._LOCALE && window._LOCALE[k]) || k;
 
   const foliplus = {
     // --- SVG Icons ---
@@ -222,7 +222,7 @@
     if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
 
     const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
-    const lang = (typeof _LOCALE !== 'undefined' && _LOCALE['locale.code']) || 'en';
+    const lang = (window._LOCALE && window._LOCALE['locale.code']) || 'en';
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=18&accept-language=${lang}`;
 
     _geoPromise = _geoPromise.then(() => {

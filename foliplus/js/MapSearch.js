@@ -2,7 +2,7 @@
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const foliplus = window.foliplus;
-  const _ = (key) => _LOCALE[key] || key;
+  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
 
   // ==================== Localized Text ====================
   // Wrapper so shared functions (createLocationMarker etc.) can access properties
@@ -126,17 +126,17 @@
         _hideSearchHint();
         map.flyTo([lat, lng], {{ this.zoom }});
         mk = foliplus.createLocationMarker(
-          map, lat, lng, null, _LOCALE, _('search.popup_title_coord'), mk
+          map, lat, lng, null, _TXT, _TXT.POPUP_TITLE_COORD, mk
         );
       }
 
       // Address search via Nominatim
       function _doAddrSearch(query) {
-        _showSearchHint(foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0);
+        _showSearchHint(foliplus.SVGs.LOADING + ' ' + _TXT.POPUP_LOADING, 0);
 
         fetch('https://nominatim.openstreetmap.org/search' +
           '?format=jsonv2&q=' + encodeURIComponent(query) +
-          '&limit=1&accept-language=' + (_LOCALE['locale.code'] || 'en'))
+          '&limit=1&accept-language=' + (window._LOCALE['locale.code'] || 'en'))
           .then(function(r) { return r.json(); })
           .then(function(results) {
             _hideSearchHint();
@@ -147,8 +147,8 @@
             }
 
             const item = results[0];
-            let lat = parseFloat(item.lat), lng = parseFloat(item.lon);
             const displayName = item.display_name || query;
+            let lat = parseFloat(item.lat), lng = parseFloat(item.lon);
 
             // Transform coordinates from WGS84 to the map's CRS
             const converted = foliplus.fromWgs84(map, lng, lat);
@@ -158,7 +158,7 @@
               Math.max(12, 18 - Math.floor(displayName.length / 20)));
             map.flyTo([lat, lng], zoom);
             mk = foliplus.createLocationMarker(
-              map, lat, lng, displayName, _LOCALE, _('search.popup_title_addr'), mk
+              map, lat, lng, displayName, _TXT, _TXT.POPUP_TITLE_ADDR, mk
             );
           })
           .catch(function(err) {

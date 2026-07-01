@@ -22,7 +22,7 @@
   const foliplus = window.foliplus;
 
   // ==================== Localized Text ====================
-  const _ = (key) => _LOCALE[key] || key;
+  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
   // Thin wrapper so shared functions (createLocationMarker, buildPopupHtml)
   // can access POPUP_* properties via _LOCALE dotted keys
   const _TXT = {

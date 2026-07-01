@@ -19,7 +19,7 @@
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const foliplus = window.foliplus;
-  const _ = (key) => _LOCALE[key] || key;
+  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
 
   // Hexagon SVG icon
   const SVG_HEX = `
