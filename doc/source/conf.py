@@ -160,6 +160,6 @@ html_context = {
 
 # ── Copy button ───────────────────────────────────────────────────────
 copybutton_prompt_text = ">>> "
-copybutton_line_continuation_continuation_character = "\\"
+copybutton_line_continuation_character = "\\"
 copybutton_exclude = ".linenos, .gp"
 copybutton_selector = ":not(.prompt) > div.highlight pre"
