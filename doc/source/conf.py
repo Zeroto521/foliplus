@@ -34,7 +34,7 @@ extensions = [
 ]
 
 source_suffix = {".rst": "restructuredtext", ".md": "myst-nb", ".ipynb": "myst-nb"}
-templates_path = ["_template"]
+templates_path = []
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 
 language = "en"
@@ -160,6 +160,6 @@ html_context = {
 
 # ── Copy button ───────────────────────────────────────────────────────
 copybutton_prompt_text = ">>> "
-copybutton_line_continuation_continuation_character = "\\"
+copybutton_line_continuation_character = "\\"
 copybutton_exclude = ".linenos, .gp"
 copybutton_selector = ":not(.prompt) > div.highlight pre"

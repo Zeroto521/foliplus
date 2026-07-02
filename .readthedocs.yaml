@@ -14,8 +14,7 @@ sphinx:
   fail_on_warning: false
 
 conda:
-  environment: ci/env/latest.yaml
-
+  environment: doc/environment.yaml
 python:
   install:
     - method: pip
