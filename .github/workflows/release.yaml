@@ -14,7 +14,31 @@ permissions:
   contents: read
 
 jobs:
-  sdist:
+  sdist-main-testpypi:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    env:
+      SETUPTOOLS_SCM_OVERRIDES_FOR_FOLIPLUS: '{"version_scheme":"post-release","local_scheme":"no-local-version"}'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Fetch all history for all tags and branches
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - run: python -m pip install --upgrade build twine
+      - run: make dist
+      - run: make info
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-testpypi
+          path: dist/
+
+  sdist-tag-release:
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -27,6 +51,7 @@ jobs:
 
       - run: python -m pip install --upgrade build twine
       - run: make dist
+      - run: make info
 
       - uses: actions/upload-artifact@v7
         with:
@@ -34,13 +59,13 @@ jobs:
           path: dist/
 
   TestPyPI:
-    needs: sdist
-    if: ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/v') }}
+    needs: sdist-main-testpypi
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: release
+          name: release-testpypi
           path: dist/
 
       - run: ls dist/ -l
@@ -53,7 +78,7 @@ jobs:
           verbose: true
 
   PyPI:
-    needs: TestPyPI
+    needs: sdist-tag-release
     if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     steps:
@@ -71,7 +96,7 @@ jobs:
           verbose: true
 
   GitHub:
-    needs: TestPyPI
+    needs: sdist-tag-release
     if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     permissions:
       contents: write
