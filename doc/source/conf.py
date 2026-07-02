@@ -34,7 +34,7 @@ extensions = [
 ]
 
 source_suffix = {".rst": "restructuredtext", ".md": "myst-nb", ".ipynb": "myst-nb"}
-templates_path = ["_template"]
+templates_path = []
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 
 language = "en"
