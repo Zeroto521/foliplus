@@ -29,8 +29,9 @@ classifiers = [
 dependencies = ["folium>=0.14.0"]
 
 [project.urls]
-Issues = "https://github.com/Zeroto521/foliplus/issues"
+Documentation = "https://foliplus.readthedocs.io"
 Source = "https://github.com/Zeroto521/foliplus"
+Issues = "https://github.com/Zeroto521/foliplus/issues"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "build", "twine"]
