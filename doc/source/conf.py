@@ -104,7 +104,8 @@ intersphinx_mapping = {
 }
 
 # ── MyST-NB (Jupyter Notebook) ───────────────────────────────────────
-nb_execution_mode = "off"  # notebooks are pre-executed; set "cache" to auto-execute
+nb_execution_mode = "cache"  # auto-execute and cache results
+nb_execution_timeout = 60
 nb_mime_priority_overrides = [
     ("html", "text/html", 10),
     ("html", "image/png", 20),
