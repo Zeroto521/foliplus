@@ -105,8 +105,6 @@ class LocaleConfig:
             raise ValueError(
                 f"only .json locale files are supported, got '{path.suffix}'"
             )
-        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-
         raw: dict[str, Any] = loads(path.read_text(encoding="utf-8"))
         code: str = raw.get("locale.code", "en")
         obj = cls(language=code)
