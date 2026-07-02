@@ -19,9 +19,6 @@ class TestVersion:
         assert hasattr(foliplus, "__version__")
         assert isinstance(foliplus.__version__, str)
 
-    def test_version_format(self):
-        assert re.match(r"^\d+\.\d+\.\d+", foliplus.__version__)
-
     def test_all_exports(self):
         expected = [
             "Fullscreen",

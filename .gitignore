@@ -118,6 +118,7 @@ venv.bak/
 .ruff_cache
 .conda
 .playwright-mcp
+foliplus/_version.py
 
 # MacOS
 .DS_Store
