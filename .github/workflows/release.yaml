@@ -41,7 +41,7 @@ jobs:
       - name: Build dist for main TestPyPI (.postN)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
-          SETUPTOOLS_SCM_OVERRIDES_FOR_FOLIPLUS: '{"version_scheme":"post-release","local_scheme":"no-local-version"}'
+          SETUPTOOLS_SCM_OVERRIDES_FOR_FOLIPLUS: '{version_scheme="post-release", local_scheme="no-local-version"}'
         run: make dist
 
       - name: Build dist for PR/tag (default versioning)
