@@ -10,10 +10,8 @@ from .locale import LocaleConfig
 
 
 class LayerControl(BaseControl):
-    """Layer control with geometry-type icons, drag-and-drop order, and a collapsible
-    panel.
+    """Drag-and-drop layer ordering with geometry icons, color picker, and panes.
 
-    Replaces Folium's default layer control with:
     - 📐 Geometry-type icons for quick layer identification.
     - 🔀 Drag-and-drop reordering, synced to Leaflet render order.
     - ✅ Multi-select checkboxes with z-index stacking.
@@ -45,6 +43,7 @@ class LayerControl(BaseControl):
 
     def __init__(
         self,
+        *,
         position: Position = "topleft",
         locale: str | LocaleConfig | None = None,
     ):

@@ -1,3 +1,5 @@
+"""foliplus — pragmatic Folium map plugins for spatial data workflows."""
+
 from .Fullscreen import Fullscreen
 from .HeatmapControl import HeatmapControl
 from .LayerControl import LayerControl

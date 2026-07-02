@@ -7,7 +7,7 @@ from .locale import LocaleConfig
 
 
 class Fullscreen(BaseControl):
-    """Fullscreen control that hides other map components when entering fullscreen.
+    """Fullscreen toggle with auto-hide for other controls.
 
     When toggling fullscreen, other controls (HeatmapControl, LayerControl, ScaleControl
     , MapSearch, MeasureControl, etc.), inside ``.leaflet-control-container`` are
@@ -49,6 +49,7 @@ class Fullscreen(BaseControl):
 
     def __init__(
         self,
+        *,
         position: Position = "bottomright",
         hide_self: bool = True,
         locale: str | LocaleConfig | None = None,

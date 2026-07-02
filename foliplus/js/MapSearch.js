@@ -2,19 +2,7 @@
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const foliplus = window.foliplus;
-  const _ = (key) => _LOCALE[key] || key;
-
-  // ==================== Localized Text ====================
-  // Wrapper so shared functions (createLocationMarker etc.) can access properties
-  const _TXT = {
-    get POPUP_TITLE_COORD() { return _('search.popup_title_coord'); },
-    get POPUP_TITLE_ADDR() { return _('search.popup_title_addr'); },
-    get POPUP_TITLE() { return _('search.popup_title_coord'); },
-    get POPUP_LOC_LABEL() { return _('search.popup_loc_label'); },
-    get POPUP_ADDR_LABEL() { return _('search.popup_addr_label'); },
-    get POPUP_LOADING() { return _('search.popup_loading'); },
-    get POPUP_LOADING_PREFIX() { return 'LOADING'; },
-  };
+  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
 
   foliplus.registerHintIcon('map-search', foliplus.SVGs.SEARCH);
 
@@ -126,7 +114,7 @@
         _hideSearchHint();
         map.flyTo([lat, lng], {{ this.zoom }});
         mk = foliplus.createLocationMarker(
-          map, lat, lng, null, _LOCALE, _('search.popup_title_coord'), mk
+          map, lat, lng, null, 'search.popup', _('search.popup_title_coord'), mk
         );
       }
 
@@ -136,7 +124,7 @@
 
         fetch('https://nominatim.openstreetmap.org/search' +
           '?format=jsonv2&q=' + encodeURIComponent(query) +
-          '&limit=1&accept-language=' + (_LOCALE['locale.code'] || 'en'))
+          '&limit=1&accept-language=' + (window._LOCALE['locale.code'] || 'en'))
           .then(function(r) { return r.json(); })
           .then(function(results) {
             _hideSearchHint();
@@ -147,8 +135,8 @@
             }
 
             const item = results[0];
-            let lat = parseFloat(item.lat), lng = parseFloat(item.lon);
             const displayName = item.display_name || query;
+            let lat = parseFloat(item.lat), lng = parseFloat(item.lon);
 
             // Transform coordinates from WGS84 to the map's CRS
             const converted = foliplus.fromWgs84(map, lng, lat);
@@ -158,7 +146,7 @@
               Math.max(12, 18 - Math.floor(displayName.length / 20)));
             map.flyTo([lat, lng], zoom);
             mk = foliplus.createLocationMarker(
-              map, lat, lng, displayName, _LOCALE, _('search.popup_title_addr'), mk
+              map, lat, lng, displayName, 'search.popup', _('search.popup_title_addr'), mk
             );
           })
           .catch(function(err) {

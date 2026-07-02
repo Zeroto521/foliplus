@@ -22,31 +22,7 @@
   const foliplus = window.foliplus;
 
   // ==================== Localized Text ====================
-  const _ = (key) => _LOCALE[key] || key;
-  // Thin wrapper so shared functions (createLocationMarker, buildPopupHtml)
-  // can access POPUP_* properties via _LOCALE dotted keys
-  const _TXT = {
-    get TOOL_TOGGLE() { return _('measure.tool_toggle'); },
-    get TOOL_MARKER() { return _('measure.tool_marker'); },
-    get TOOL_DISTANCE() { return _('measure.tool_distance'); },
-    get TOOL_CIRCLE() { return _('measure.tool_circle'); },
-    get TOOL_CLEAR() { return _('measure.tool_clear'); },
-    get HINT_MARKER() { return _('measure.hint_marker'); },
-    get HINT_DIST_START() { return _('measure.hint_dist_start'); },
-    get HINT_CIRCLE_START() { return _('measure.hint_circle_start'); },
-    get HINT_CIRCLE_RADIUS() { return _('measure.hint_circle_radius'); },
-    get POPUP_TITLE() { return _('measure.popup_title'); },
-    get POPUP_LOC_LABEL() { return _('measure.popup_loc_label'); },
-    get POPUP_ADDR_LABEL() { return _('measure.popup_addr_label'); },
-    get POPUP_LOADING() { return _('measure.popup_loading'); },
-    get POPUP_LOADING_PREFIX() { return 'LOADING'; },
-    get GEO_TIMEOUT() { return _('measure.geo_timeout'); },
-    get GEO_NETWORK() { return _('measure.geo_network'); },
-    get GEO_RATE_LIMIT() { return _('measure.geo_rate_limit'); },
-    get GEO_UNAVAILABLE() { return _('measure.geo_unavailable'); },
-    get GEO_FAIL() { return _('measure.geo_fail'); },
-    get DIST_ORIGIN() { return _('measure.dist_origin'); },
-  };
+  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
 
   // ==================== SVG Icons ====================
   const SVG_ICON_ATTRS = `width="18" height="18" viewBox="0 0 24 24"
@@ -177,7 +153,7 @@
       if (this.isRegistered) return;
       this.isRegistered = true;
       window.foliplus.LayerControlAPI.registerLayer({
-        name: _TXT.TOOL_TOGGLE,
+        name: _('measure.tool_toggle'),
         id: this.MEASURE_ID,
         isBase: false,
         layer: this.layerGroup,
@@ -235,13 +211,13 @@
       this.map.getContainer().style.cursor = 'crosshair';
 
       if (mode === 'marker') {
-        foliplus.showHint('measure', _TXT.HINT_MARKER, 0);
+        foliplus.showHint('measure', _('measure.hint_marker'), 0);
         this._bindMarkerMode();
       } else if (mode === 'distance') {
-        foliplus.showHint('measure', _TXT.HINT_DIST_START, 0);
+        foliplus.showHint('measure', _('measure.hint_dist_start'), 0);
         this._startDistanceMode();
       } else if (mode === 'circle') {
-        foliplus.showHint('measure', _TXT.HINT_CIRCLE_START, 0);
+        foliplus.showHint('measure', _('measure.hint_circle_start'), 0);
         this._startCircleMode();
       }
     }
@@ -282,7 +258,7 @@
       const lng = e.latlng.lng.toFixed(6);
 
       const marker = foliplus.createLocationMarker(
-        this.map, parseFloat(lat), parseFloat(lng), null, _TXT,
+        this.map, parseFloat(lat), parseFloat(lng), null, 'measure.popup',
         null, null, this.layerGroup
       );
 
@@ -296,7 +272,7 @@
 
       if (marker?.getPopup?.()?.isOpen()) {
         marker.setPopupContent(
-          foliplus.buildPopupHtml(lat, lng, addr, _TXT)
+          foliplus.buildPopupHtml(lat, lng, addr, 'measure.popup')
         );
       }
 
@@ -304,7 +280,7 @@
         MeasureUtils.hideAllDelIcons();
         if (cachedAddr !== null) {
           marker.setPopupContent(
-            foliplus.buildPopupHtml(lat, lng, cachedAddr, _TXT)
+            foliplus.buildPopupHtml(lat, lng, cachedAddr, 'measure.popup')
           );
         }
         this._injectDelIcon(marker);
@@ -533,7 +509,7 @@
           startLbl = L.marker(e.latlng, {
             icon: L.divIcon({
               className: '',
-              html: `<div class="measure-label">${_TXT.DIST_ORIGIN}</div>`,
+              html: `<div class="measure-label">${_('measure.dist_origin')}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }),
@@ -633,7 +609,7 @@
             interactive: false,
           }).addTo(this.layerGroup);
           state = 1;
-          foliplus.showHint('measure', _TXT.HINT_CIRCLE_RADIUS, 0);
+          foliplus.showHint('measure', _('measure.hint_circle_radius'), 0);
         } else if (state === 1) {
           state = 2;
           lastFinishTime = Date.now();
@@ -900,18 +876,18 @@
       ctrl.id = '{{ this.get_name() }}_ctrl';
 
       ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_TXT.TOOL_TOGGLE}">
+        <button class="toggle-btn" title="${_('measure.tool_toggle')}">
           ${SVGS.RULER}
         </button>
         <div class="tool-bar">
           <button class="tool-btn" data-mode="marker"
-            title="${_TXT.TOOL_MARKER}">${foliplus.SVGs.LOCATE}</button>
+            title="${_('measure.tool_marker')}">${foliplus.SVGs.LOCATE}</button>
           <button class="tool-btn" data-mode="distance"
-            title="${_TXT.TOOL_DISTANCE}">${SVGS.RULER}</button>
+            title="${_('measure.tool_distance')}">${SVGS.RULER}</button>
           <button class="tool-btn" data-mode="circle"
-            title="${_TXT.TOOL_CIRCLE}">${SVGS.CIRCLE}</button>
+            title="${_('measure.tool_circle')}">${SVGS.CIRCLE}</button>
           <button class="tool-btn" data-mode="clear"
-            title="${_TXT.TOOL_CLEAR}">${SVGS.TRASH}</button>
+            title="${_('measure.tool_clear')}">${SVGS.TRASH}</button>
         </div>
       `;
 

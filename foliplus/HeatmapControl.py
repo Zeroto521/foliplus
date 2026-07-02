@@ -9,11 +9,7 @@ from .locale import LocaleConfig
 
 
 class HeatmapControl(BaseControl):
-    """H3 hexbin aggregation heatmap control.
-
-    Auto-discovers point layers (`Marker` / `CircleMarker` / `GeoJSON` Point) and
-    aggregates them into H3 hexagons in real-time via h3-js. Resolution auto-adjusts
-    with zoom.
+    """H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.
 
     .. note::
 
@@ -101,6 +97,7 @@ class HeatmapControl(BaseControl):
 
     def __init__(
         self,
+        *,
         position: Position = "topleft",
         color_scheme: str = "Reds",
         method: Literal["jenks", "quantile", "equal", "heads"] = "jenks",

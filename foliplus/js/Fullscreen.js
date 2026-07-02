@@ -2,7 +2,7 @@
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const foliplus = window.foliplus;
-  const _ = (key) => _LOCALE[key] || key;
+  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
 
   // ==================== SVG Icons ====================
   // Fullscreen icon: four-corner arrows
@@ -23,7 +23,7 @@
     position: '{{ this.position }}',
     title: _('fullscreen.title'),
     title_cancel: _('fullscreen.title_cancel'),
-    force_separate_button: false,
+    forceSeparateButton: false,
   }).addTo(map);
   const fsContainer = fsControl.getContainer();
 

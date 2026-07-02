@@ -7,7 +7,7 @@
   if (window.foliplus) return;
 
   /** Shared locale lookup — set by foliplus.resolveLocale before use. */
-  const _gt = (k) => _LOCALE[k] || k;
+  const _gt = (k) => (window._LOCALE && window._LOCALE[k]) || k;
 
   const foliplus = {
     // --- SVG Icons ---
@@ -222,7 +222,7 @@
     if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
 
     const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
-    const lang = (typeof _LOCALE !== 'undefined' && _LOCALE['locale.code']) || 'en';
+    const lang = (window._LOCALE && window._LOCALE['locale.code']) || 'en';
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=18&accept-language=${lang}`;
 
     _geoPromise = _geoPromise.then(() => {
@@ -249,19 +249,21 @@
    * @param {number} lat Latitude
    * @param {number} lng Longitude
    * @param {string|null} addr Address text or null (triggers loading indicator)
-   * @param {object} txt Text constants object with POPUP_* keys
-   * @param {string} [title] Popup title, defaults to txt.POPUP_TITLE
+   * @param {string} prefix Key prefix for lookup (e.g. 'search.popup')
+   * @param {string} [title] Explicit popup title text
    * @returns {string} HTML string
    */
-  foliplus.buildPopupHtml = function (lat, lng, addr, txt, title) {
-    const popupTitle = title || txt.POPUP_TITLE;
+  foliplus.buildPopupHtml = function (lat, lng, addr, prefix, title) {
+    const popupTitle = title || _gt(prefix + '_title');
+    const loadStr = _gt(prefix + '_loading');
     const addrHtml = (addr && addr.includes('LOADING')) ?
-      `${foliplus.SVGs.LOADING} ${txt.POPUP_LOADING}` :
-      (addr || txt.POPUP_LOADING);
+      `${foliplus.SVGs.LOADING} ${loadStr}` :
+      (addr || loadStr);
+
     return `<div style="font-size:13px;line-height:1.8">
       <b>${popupTitle}</b><br>
-      ${txt.POPUP_LOC_LABEL}${lng},${lat}<br>
-      ${txt.POPUP_ADDR_LABEL}${addrHtml}
+      ${_gt(prefix + '_loc_label')}${lng},${lat}<br>
+      ${_gt(prefix + '_addr_label')}${addrHtml}
     </div>`;
   };
 
@@ -272,13 +274,13 @@
    * @param {number} lat Latitude
    * @param {number} lng Longitude
    * @param {string} addr Address string (null = pending reverse geocode)
-   * @param {object} txt Text constants (must include POPUP_* keys)
-   * @param {string} [title] Popup title (defaults to txt.POPUP_TITLE)
+   * @param {string} prefix Key prefix for lookup (e.g. 'search.popup')
+   * @param {string} [title] Explicit popup title text
    * @param {L.Marker} [existing] Existing marker to remove before creating new one
    * @returns {L.Marker} The newly created marker
    */
   foliplus.createLocationMarker = function (
-    map, lat, lng, addr, txt, title, existing, layerGroup
+    map, lat, lng, addr, prefix, title, existing, layerGroup
   ) {
     if (existing) map.removeLayer(existing);
     const target = layerGroup || map;
@@ -293,7 +295,7 @@
     });
     target.addLayer(mk);
     mk.bindPopup(
-      foliplus.buildPopupHtml(lat, lng, addr, txt, title), {
+      foliplus.buildPopupHtml(lat, lng, addr, prefix, title), {
       maxWidth: 300
     }
     );
@@ -301,7 +303,7 @@
     if (!addr) {
       foliplus.reverseGeocode(map, lat, lng).then(function (resolved) {
         if (mk && mk.getPopup() && mk.getPopup().isOpen()) {
-          mk.setPopupContent(foliplus.buildPopupHtml(lat, lng, resolved, txt, title));
+          mk.setPopupContent(foliplus.buildPopupHtml(lat, lng, resolved, prefix, title));
         }
       });
     }

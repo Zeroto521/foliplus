@@ -7,9 +7,7 @@ from .locale import LocaleConfig
 
 
 class MeasureControl(BaseControl):
-    """Measurement tools control with locate, distance, and circle drawing modes.
-
-    Click the icon to expand the toolbar, then click a button to activate a mode:
+    """Distance measurement, circle drawing, and GPS marker with geocoding.
 
     - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
       address. Click the popup or the × on the marker to delete it.
@@ -48,6 +46,7 @@ class MeasureControl(BaseControl):
 
     def __init__(
         self,
+        *,
         position: Position = "bottomright",
         locale: str | LocaleConfig | None = None,
     ):
