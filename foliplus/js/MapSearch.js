@@ -4,18 +4,6 @@
   const foliplus = window.foliplus;
   const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
 
-  // ==================== Localized Text ====================
-  // Wrapper so shared functions (createLocationMarker etc.) can access properties
-  const _TXT = {
-    get POPUP_TITLE_COORD() { return _('search.popup_title_coord'); },
-    get POPUP_TITLE_ADDR() { return _('search.popup_title_addr'); },
-    get POPUP_TITLE() { return _('search.popup_title_coord'); },
-    get POPUP_LOC_LABEL() { return _('search.popup_loc_label'); },
-    get POPUP_ADDR_LABEL() { return _('search.popup_addr_label'); },
-    get POPUP_LOADING() { return _('search.popup_loading'); },
-    get POPUP_LOADING_PREFIX() { return 'LOADING'; },
-  };
-
   foliplus.registerHintIcon('map-search', foliplus.SVGs.SEARCH);
 
   // ==================== Constants ====================
@@ -126,13 +114,13 @@
         _hideSearchHint();
         map.flyTo([lat, lng], {{ this.zoom }});
         mk = foliplus.createLocationMarker(
-          map, lat, lng, null, _TXT, _TXT.POPUP_TITLE_COORD, mk
+          map, lat, lng, null, 'search.popup', _('search.popup_title_coord'), mk
         );
       }
 
       // Address search via Nominatim
       function _doAddrSearch(query) {
-        _showSearchHint(foliplus.SVGs.LOADING + ' ' + _TXT.POPUP_LOADING, 0);
+        _showSearchHint(foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0);
 
         fetch('https://nominatim.openstreetmap.org/search' +
           '?format=jsonv2&q=' + encodeURIComponent(query) +
@@ -158,7 +146,7 @@
               Math.max(12, 18 - Math.floor(displayName.length / 20)));
             map.flyTo([lat, lng], zoom);
             mk = foliplus.createLocationMarker(
-              map, lat, lng, displayName, _TXT, _TXT.POPUP_TITLE_ADDR, mk
+              map, lat, lng, displayName, 'search.popup', _('search.popup_title_addr'), mk
             );
           })
           .catch(function(err) {
