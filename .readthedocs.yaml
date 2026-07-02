@@ -6,7 +6,7 @@ version: 2
 build:
   os: ubuntu-lts-latest
   tools:
-    python: "mambaforge-latest"
+    python: "miniforge3-latest"
 
 sphinx:
   configuration: doc/source/conf.py
@@ -15,6 +15,7 @@ sphinx:
 
 conda:
   environment: doc/environment.yaml
+
 python:
   install:
     - method: pip
