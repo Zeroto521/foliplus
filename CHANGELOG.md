@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v0.2.0] (2026-07-01)
+
 ### Added
 
 - `MapSearch`: add `mode` parameter to choose default search mode (`"coord"` or `"addr"`) ([#12](https://github.com/Zeroto521/foliplus/pull/12))
@@ -26,5 +28,6 @@
 
 - Add foliplus control plugins: `Fullscreen`, `HeatmapControl`, `LayerControl`, `MapSearch`, `MeasureControl`, `ScaleControl`
 
-[unreleased]: https://github.com/Zeroto521/foliplus/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/Zeroto521/foliplus/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.1.0
