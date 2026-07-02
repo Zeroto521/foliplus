@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "setuptools_scm[toml]"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -36,8 +36,8 @@ Issues = "https://github.com/Zeroto521/foliplus/issues"
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "build", "twine"]
 
-[tool.setuptools.dynamic]
-version = { attr = "foliplus.__version__" }
+[tool.setuptools_scm]
+write_to = "foliplus/_version.py"
 
 [tool.setuptools.packages.find]
 include = ["foliplus*"]

@@ -1,5 +1,15 @@
 """foliplus — pragmatic Folium map plugins for spatial data workflows."""
 
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    from ._version import __version__
+except ImportError:
+    try:
+        __version__ = version("foliplus")
+    except PackageNotFoundError:
+        __version__ = "unknown"
+
 from .Fullscreen import Fullscreen
 from .HeatmapControl import HeatmapControl
 from .LayerControl import LayerControl
@@ -15,5 +25,3 @@ __all__ = [
     "MeasureControl",
     "ScaleControl",
 ]
-
-__version__ = "0.2.0"
