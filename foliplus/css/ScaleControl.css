@@ -9,18 +9,18 @@
   justify-content: flex-start;
   gap: 0;
   border-radius: var(--radius-sm);
-  background: var(--bg-panel, rgba(255, 255, 255, 0.95));
+  background: var(--ctrl-bg);
   border: 1px solid var(--ctrl-border);
   box-shadow: var(--shadow-sm);
-  height: 18px;
+  height: calc(var(--font-size-xs) + var(--space-md));
 }
 .leaflet-control.scale-wrap .leaflet-control-scale-line {
   border: 1px solid transparent;
-  border-bottom: 2px solid var(--text-primary);
-  border-left: 2px solid var(--text-primary);
-  border-right: 2px solid var(--text-primary);
+  border-bottom: var(--space-xs) solid var(--text-primary);
+  border-left: var(--space-xs) solid var(--text-primary);
+  border-right: var(--space-xs) solid var(--text-primary);
   margin: 0;
-  height: 14px;
+  height: calc(var(--font-size-xs) + var(--space-sm));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -37,7 +37,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
-  height: 14px;
+  height: calc(var(--font-size-xs) + var(--space-sm));
   display: flex;
   align-items: center;
   justify-content: center;
