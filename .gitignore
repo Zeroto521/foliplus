@@ -44,6 +44,7 @@ doc/source/api/
 
 # Sphinx build output
 doc/_build/
+doc/source/map.html
 .coverage
 .coverage.*
 .cache
