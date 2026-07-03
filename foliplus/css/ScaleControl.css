@@ -1,33 +1,45 @@
-.scale-wrap {
+.leaflet-control.scale-wrap {
   padding: 0;
   margin: 0;
   white-space: nowrap;
-  font-size: var(--font-size-base);
+  font-size: 11px;
   color: var(--text-primary);
   display: inline-flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
   border-radius: var(--radius-sm, 3px);
-  background: #fff;
+  background: var(--bg-panel, rgba(255, 255, 255, 0.95));
   border: 1px solid var(--ctrl-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  height: 24px;
 }
-.scale-wrap .leaflet-control-scale-line {
+.leaflet-control.scale-wrap .leaflet-control-scale-line {
+  border: 2px solid transparent;
+  border-bottom: 2px solid var(--text-primary);
   border-left: 2px solid var(--text-primary);
   border-right: 2px solid var(--text-primary);
-  border-top: none;
-  border-bottom: 2px solid var(--text-primary);
   margin: 0;
-  display: inline-block;
-  line-height: 12px;
-  padding: var(--space-xs) var(--space-sm);
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  box-sizing: border-box;
   text-align: center;
-  background: #fff;
+  background: transparent;
   box-shadow: none;
-}
-.scale-zoom-label {
-  margin-left: var(--space-sm);
-  margin-right: var(--space-sm);
-  font: inherit;
-  color: inherit;
+  font-size: 11px;
   line-height: normal;
-  background: #fff;
+}
+.leaflet-control.scale-wrap .scale-zoom-label {
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: normal;
 }
