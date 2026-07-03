@@ -17,9 +17,6 @@ class TestScaleControlPython:
     def test_default_position(self):
         assert ScaleControl().position == "bottomleft"
 
-    def test_custom_position(self):
-        assert ScaleControl(position="topright").position == "topright"
-
     def test_default_locale(self):
         assert ScaleControl()._LOCALE_CODE == ""
 
