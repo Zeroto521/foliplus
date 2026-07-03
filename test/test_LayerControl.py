@@ -418,3 +418,77 @@ class TestLayerControlRendering:
         matches = re.findall(r"parseInt\([^)]+\)", html)
         for m in matches:
             assert ", 10)" in m, f"Missing radix: {m}"
+
+    def test_group_normalization_present(self, base_map: folium.Map):
+        """Saved order is normalized to overlay-first, base-last groups."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "_normalizeLayerGroups" in html
+        assert "this._normalizeLayerGroups();" in html
+
+    def test_blocked_reorder_hint_present(self, base_map: folium.Map):
+        """Cross-group drag block exposes a throttled hint path."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "_showReorderBlockedHint" in html
+        assert "layer.reorder_group_only" in html
+        assert "DRAG_HINT_COOLDOWN_MS" in html
+
+    def test_type_icons_use_current_color(self, base_map: folium.Map):
+        """Geometry icons use currentColor to stay consistent with base icon tone."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert 'stroke="currentColor"' in html
+        assert "#a4a4a4" not in html
+
+
+class TestLayerControlBrowser:
+    """Browser-level interaction checks for drag/drop feedback."""
+
+    def test_cross_group_drag_shows_hint(self, browser, tmp_path):
+        """Dragging overlay toward base group should show blocked hint."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+        folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
+            m
+        )
+
+        html_path = tmp_path / "test_layer_control_drag_hint.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+
+            page.evaluate("document.querySelector('.layer-ctrl .toggle-btn').click()")
+            page.wait_for_selector(
+                ".layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_selector(
+                ".layer-item.is-base-item", state="attached", timeout=5000
+            )
+
+            ok = page.evaluate(
+                """() => {
+                    const api = window.foliplus && window.foliplus.LayerControlAPI;
+                    if (!api) return false;
+                    const overlay = document.querySelector('.layer-item:not(.is-base-item):not(.color-layer-item)');
+                    const base = document.querySelector('.layer-item.is-base-item');
+                    if (!overlay || !base) return false;
+                    api.dragIdx = parseInt(overlay.dataset.index, 10);
+                    const ev = new Event('dragover', { bubbles: true, cancelable: true });
+                    base.dispatchEvent(ev);
+                    return true;
+                }"""
+            )
+            assert ok, "Failed to dispatch simulated cross-group dragover"
+
+            page.wait_for_selector(".map-hint-layer", state="attached", timeout=5000)
+            hint_text = page.evaluate(
+                "document.querySelector('.map-hint-layer')?.textContent || ''"
+            )
+            assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
+        finally:
+            page.close()

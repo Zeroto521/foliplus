@@ -38,19 +38,19 @@
     GLOBE: window.foliplus.SVGs.GLOBE,
     POINT: `
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="6" fill="none" stroke="#a4a4a4"
+        <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor"
           stroke-width="1.5" />
       </svg>`,
     LINE: `
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-        <path d="M4 20 L10 6 L16 18 L22 4" stroke="#a4a4a4"
+        <path d="M4 20 L10 6 L16 18 L22 4" stroke="currentColor"
           stroke-width="1.5" stroke-linecap="round"
           stroke-linejoin="round"/>
       </svg>`,
     POLYGON: `
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
         <polygon points="12,3 21,9 18,21 6,21 3,9" fill="none"
-          stroke="#a4a4a4" stroke-width="1.5"
+          stroke="currentColor" stroke-width="1.5"
           stroke-linejoin="round"/>
       </svg>`,
     EYE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -138,6 +138,17 @@
     init(initialData) {
       this.layers = [...initialData];
       this._loadSavedOrder();
+      this._normalizeLayerGroups();
+    }
+
+    _normalizeLayerGroups() {
+      const overlays = [];
+      const bases = [];
+      for (const l of this.layers) {
+        if (l && l.isBase) bases.push(l);
+        else overlays.push(l);
+      }
+      this.layers = overlays.concat(bases);
     }
 
     _loadSavedOrder() {
@@ -231,7 +242,13 @@
         paneName: opts.paneName ?? null,
         iconSvg: opts.iconSvg ?? null,
       };
-      this.layers.unshift(layerInfo);
+      if (layerInfo.isBase) {
+        const firstBaseIdx = this.layers.findIndex(l => !!l.isBase);
+        if (firstBaseIdx === -1) this.layers.push(layerInfo);
+        else this.layers.splice(firstBaseIdx, 0, layerInfo);
+      } else {
+        this.layers.unshift(layerInfo);
+      }
 
       if (opts.paneName) this.ensurePane(opts.paneName);
 
@@ -259,21 +276,12 @@
         return null;
       }
 
-      const oldItem = this.uiContainer.querySelector(
-        `[data-layer-id="${opts.id}"]`
-      );
-      if (oldItem) oldItem.remove();
-
-      const newItem = this._createItemDOM({ ...layerInfo, index: 0 });
-      const firstOverlay = this.uiContainer.querySelector(
-        '.layer-item[draggable="true"]'
-      );
-      if (firstOverlay) this.uiContainer.insertBefore(newItem, firstOverlay);
-      else this.uiContainer.appendChild(newItem);
-
-      this._reindexItems();
+      // Re-render keeps separator/group boundaries correct for both overlay/base
+      // runtime registrations and avoids fragile incremental insertion logic.
+      this._renderInitialList();
+      this._initTypesAndVisibility();
       this._saveOrder();
-      return newItem;
+      return this.uiContainer.querySelector(`[data-layer-id="${opts.id}"]`);
     }
 
     /**
@@ -659,6 +667,7 @@
     }
 
     _handleDragOver(e) {
+      if (this.dragIdx === null) return;
       e.preventDefault();
       const item = e.target.closest('.layer-item');
       if (!item || item.classList.contains('color-layer-item')) return;

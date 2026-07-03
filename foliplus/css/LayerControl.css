@@ -28,6 +28,7 @@
   align-items: center;
   justify-content: flex-end;
   width: var(--font-size-lg);
+  color: var(--text-primary);
   flex-shrink: 0;
   margin-left: var(--space-sm);
 }
@@ -50,7 +51,7 @@
   flex-shrink: 0;
 }
 .layer-ctrl .separator-icon {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   line-height: 1;
 }
 .layer-ctrl .layer-item {
