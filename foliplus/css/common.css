@@ -91,9 +91,18 @@
   --transition-fast: 0.15s ease;
   --transition-normal: 0.2s ease;
 
+  /* ── Overlay ── */
+  --overlay-bg: rgba(0, 0, 0, 0.4);
+  --overlay-bg-dark: rgba(0, 0, 0, 0.55);
+
   /* ── Z-index ── */
   --z-index-dropdown: 9999;
   --z-index-pane-base: 450;
+  --z-index-info: 850;
+  --z-index-control: 1000;
+  --z-index-overlay: 11000;
+  --z-index-toolbar: 15000;
+  --z-index-hint: 20000;
 }
 
 /* ── Animations ── */

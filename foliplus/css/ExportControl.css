@@ -1,0 +1,184 @@
+/* ── Control Layers ── */
+
+/* Reset container locking when in export mode */
+.has-export-mode .leaflet-control-container,
+.has-export-mode .leaflet-top,
+.has-export-mode .leaflet-bottom {
+  z-index: auto !important;
+}
+
+/* Highlight Leaflet controls during export */
+.has-export-mode .leaflet-control {
+  z-index: calc(var(--z-index-overlay) + 1000) !important;
+}
+
+/* Info controls (scale, attribution) stay dim but visible */
+.has-export-mode .leaflet-control-scale,
+.has-export-mode .leaflet-control-attribution,
+.has-export-mode .leaflet-control-scale-line,
+.has-export-mode .leaflet-control-zoom-display {
+  z-index: var(--z-index-info) !important;
+}
+
+/* Core components at top */
+.export-ctrl,
+.measure-ctrl {
+  z-index: var(--z-index-toolbar) !important;
+}
+
+/* Hint bar above overlay */
+.has-export-mode .map-hint {
+  z-index: var(--z-index-hint) !important;
+}
+
+/* ── Container ── */
+.export-ctrl.expanded {
+  box-shadow:
+    0 0 0 1px var(--input-focus-border),
+    0 0 0 3px var(--input-focus-shadow);
+}
+
+/* ── Overlay ── */
+.export-crop-overlay {
+  position: absolute;
+  background: transparent;
+  pointer-events: none;
+  z-index: var(--z-index-overlay);
+  box-sizing: border-box;
+  /* Massive shadow for fullscreen masking */
+  box-shadow: 0 0 0 9999px var(--overlay-bg);
+}
+
+/* Deepen mask when locked */
+.export-crop-box.locked ~ .export-crop-overlay {
+  box-shadow: 0 0 0 9999px var(--overlay-bg-dark);
+}
+
+/* ── Crop Box ── */
+.export-crop-box {
+  position: absolute;
+  border: 2px dashed var(--accent-primary);
+  background: transparent;
+  cursor: move;
+  z-index: calc(var(--z-index-overlay) + 1);
+  box-sizing: border-box;
+  box-shadow: 0 0 15px var(--input-focus-shadow);
+  border-radius: 1px;
+}
+.export-crop-box.locked {
+  cursor: default;
+  border-color: var(--accent-primary);
+  border-style: solid;
+  pointer-events: none;
+  box-shadow: 0 0 20px var(--input-focus-shadow);
+}
+
+/* ── Handles ── */
+.export-crop-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--ctrl-bg);
+  border: 2px solid var(--accent-primary);
+  border-radius: var(--radius-round);
+  z-index: calc(var(--z-index-overlay) + 5);
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+.export-crop-handle.tl {
+  top: -7px;
+  left: -7px;
+  cursor: nwse-resize;
+}
+.export-crop-handle.tr {
+  top: -7px;
+  right: -7px;
+  cursor: nesw-resize;
+}
+.export-crop-handle.bl {
+  bottom: -7px;
+  left: -7px;
+  cursor: nesw-resize;
+}
+.export-crop-handle.br {
+  bottom: -7px;
+  right: -7px;
+  cursor: nwse-resize;
+}
+.export-crop-handle.t {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+.export-crop-handle.b {
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+.export-crop-handle.l {
+  left: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+.export-crop-handle.r {
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.export-crop-box.locked .export-crop-handle {
+  display: none;
+}
+
+/* ── Center Anchor ── */
+.export-crop-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  background: var(--accent-primary);
+  border: 2px solid var(--ctrl-bg);
+  border-radius: var(--radius-round);
+  z-index: calc(var(--z-index-overlay) + 3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  cursor: move;
+}
+.export-crop-box.locked .export-crop-center {
+  display: none;
+}
+
+/* ── Actions ── */
+.export-crop-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.export-crop-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  color: var(--text-secondary);
+}
+.export-crop-actions button:hover {
+  background: var(--panel-header-hover);
+}
+.export-crop-actions button.confirm {
+  color: var(--accent-primary);
+}
+.export-crop-actions button.confirm:hover {
+  background: var(--accent-light);
+}

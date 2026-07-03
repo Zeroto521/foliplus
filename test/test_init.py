@@ -21,6 +21,7 @@ class TestVersion:
 
     def test_all_exports(self):
         expected = [
+            "ExportControl",
             "Fullscreen",
             "HeatmapControl",
             "LayerControl",
@@ -34,6 +35,7 @@ class TestVersion:
     def test_all_matches_all(self):
         """__all__ must match actual public API."""
         expected = {
+            "ExportControl",
             "Fullscreen",
             "HeatmapControl",
             "LayerControl",
