@@ -65,6 +65,8 @@
   "measure.popup_addr_label": "📌 Address:",
   "measure.popup_loading": "Searching…",
   "measure.dist_origin": "Start",
+  "measure.unit_km": "km",
+  "measure.unit_m": "m",
   "measure.geo_timeout": "Request timed out, please check network",
   "measure.geo_network": "Network error, please check connection",
   "measure.geo_rate_limit": "Service rate limited, please try again later",
@@ -72,5 +74,10 @@
   "measure.geo_fail": "Lookup failed",
   "scale.zoom_label": "Zoom Level: {zoom}",
   "gcoord.warn": "gcoord library failed to load, coordinate transformation unavailable",
-  "load.script_fail": "Failed to load"
+  "load.script_fail": "Failed to load",
+  "num.k": "K",
+  "num.m": "M",
+  "num.b": "B",
+  "num.w": "10K",
+  "num.y": "100M"
 }

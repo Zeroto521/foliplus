@@ -133,7 +133,7 @@ class TestHeatmapControlRendering:
         """.heatmap-label has !important z-index to override Leaflet's negative formula."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "z-index: 100 !important" in html
+        assert "z-index: var(--z-index-pane-base) !important" in html
 
     def test_formatnumber_usage(self, base_map: folium.Map):
         """Label values are formatted via foliplus.formatNumber."""

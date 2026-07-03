@@ -11,29 +11,31 @@
     LABEL_ANCHOR: [40, 12],
     H3_RES_MAP: [
       [2, 0], [3, 1], [4, 1], [5, 2], [6, 3], [7, 3], [8, 4], [9, 5],
-      [10, 5], [11, 6], [12, 7], [13, 7], [14, 8], [15, 9], [16, 9],
+      [10, 6], [11, 6], [12, 7], [13, 7], [14, 8], [15, 9], [16, 9],
       [17, 10], [18, 11], [19, 11], [20, 12],
     ],
   };
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const foliplus = window.foliplus;
-  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
+  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
-  // Hexagon SVG icon
-  const SVG_HEX = `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
-      <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
-      <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
-      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-    </svg>`;
+  const SVGS = {
+    HEXAGON: `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+        <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
+        <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>`
+  };
 
-  foliplus.registerHintIcon('heatmap', SVG_HEX);
+  if (window.foliplus) {
+    window.foliplus.registerHintIcon('heatmap', SVGS.HEXAGON);
+  }
 
   // --- Dynamic Dependency Loader ---
-  // Loads CDN scripts at runtime via shared foliplus.loadScripts.
+  // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
   const _DEPS = [
     { name: 'h3', url: 'https://cdn.jsdelivr.net/npm/h3-js@{{ this._h3_version }}/dist/h3-js.umd.js',
       check: () => typeof h3 !== 'undefined' },
@@ -44,14 +46,14 @@
       check: () => typeof chroma !== 'undefined' },
   ];
 
-  foliplus.loadScripts(_DEPS, function (ok, failed) {
+  window.foliplus.loadScripts(_DEPS, function (ok, failed) {
     if (ok && typeof h3 !== 'undefined' && typeof ss !== 'undefined') {
       return run();
     }
     // Final failure — show hint + console
     const names = (failed || _DEPS.filter(d => !d.check()).map(d => d.name)).join(', ');
     console.error(`[HeatmapControl] ${_('heatmap.no_h3')}`);
-    foliplus.showHint('heatmap', _('heatmap.no_h3'), 0); // 0 = persistent until hidden
+    window.foliplus.showHint('heatmap', _('heatmap.no_h3'), 0); // 0 = persistent until hidden
   }, 2, 3000); // retry 2×, every 3s
 
   function run() {
@@ -409,7 +411,7 @@
               lat = cy / (ring.length - 1);
             }
 
-            const labelStr = foliplus.formatNumber(feat.properties._value, FORMAT);
+            const labelStr = window.foliplus.formatNumber(feat.properties._value, FORMAT);
 
             L.marker([lat, lng], {
               icon: L.divIcon({
@@ -436,7 +438,7 @@
           isBase: false,
           layer: this.heatmapLayer,
           paneName: this.HEATMAP_ID,
-          iconSvg: SVG_HEX,
+          iconSvg: SVGS.HEXAGON,
         });
         // Ensure label pane exists at same z-index as hex pane
         let lblPane = this.map.getPane(this.LABEL_PANE);
@@ -479,24 +481,24 @@
 
         const toggleBtn = L.DomUtil.create('button', 'toggle-btn', this.container);
         toggleBtn.title = _('heatmap.title');
-        toggleBtn.innerHTML = SVG_HEX;
+        toggleBtn.innerHTML = SVGS.HEXAGON;
 
         const panelWrap = L.DomUtil.create('div', 'panel-wrap', this.container);
         const header = L.DomUtil.create('div', 'panel-header', panelWrap);
         header.innerHTML = `
           <span class="header-title">
-            <span class="header-icon">${SVG_HEX}</span>
+            <span class="header-icon">${SVGS.HEXAGON}</span>
             ${_('heatmap.title')}
           </span>
           <button class="close-btn" title="${_('layer.close_title')}">
-            ${foliplus.SVGs.CLOSE}</button>`;
+            ${window.foliplus.SVGs.CLOSE}</button>`;
 
-        foliplus.bindPanelToggle({
+        window.foliplus.bindPanelToggle({
           container: this.container,
           toggleBtn: '.toggle-btn',
           header: '.panel-header'
         });
-        foliplus.bindOutsideCollapse({
+        window.foliplus.bindOutsideCollapse({
           map: this.manager.map, container: this.container
         });
 
@@ -981,7 +983,7 @@
           setTimeout(() => this.initScan(attempt - 1),
             _CONST.INIT_SCAN_INTERVAL_MS);
         } else if (this.manager.pointLayers.length === 0) {
-          foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
+          window.foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
         }
       }
     }

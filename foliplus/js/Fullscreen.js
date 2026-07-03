@@ -1,8 +1,7 @@
 (function() {
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const foliplus = window.foliplus;
-  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
+  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
   // ==================== SVG Icons ====================
   // Fullscreen icon: four-corner arrows
@@ -16,7 +15,9 @@
       <line x1="3" y1="21" x2="10" y2="14"/>
     </svg>`;
 
-  foliplus.registerHintIcon('fullscreen', SVG_FULLSCREEN);
+  if (window.foliplus) {
+    window.foliplus.registerHintIcon('fullscreen', SVG_FULLSCREEN);
+  }
 
   // ==================== Control Setup ====================
   const fsControl = L.control.fullscreen({
@@ -76,7 +77,7 @@
       c.style.display = isFull ? 'none' : '';
     }
 
-    foliplus.showHint(
+    window.foliplus.showHint(
       'fullscreen',
       isFull ? _('fullscreen.enter') : _('fullscreen.exit'),
       2500

@@ -65,6 +65,8 @@
   "measure.popup_addr_label": "📌 地址：",
   "measure.popup_loading": "查询中…",
   "measure.dist_origin": "起点",
+  "measure.unit_km": "km",
+  "measure.unit_m": "m",
   "measure.geo_timeout": "查询超时，请检查网络",
   "measure.geo_network": "网络错误，请检查连接",
   "measure.geo_rate_limit": "服务限流，请稍后再试",
@@ -72,5 +74,10 @@
   "measure.geo_fail": "查询失败",
   "scale.zoom_label": "地图层级: {zoom}",
   "gcoord.warn": "gcoord 库未加载成功，坐标转换不可用",
-  "load.script_fail": "加载失败"
+  "load.script_fail": "加载失败",
+  "num.w": "万",
+  "num.y": "亿",
+  "num.k": "千",
+  "num.m": "百万",
+  "num.b": "十亿"
 }
