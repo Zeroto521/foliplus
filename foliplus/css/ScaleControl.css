@@ -9,9 +9,9 @@
   justify-content: flex-start;
   gap: 0;
   border-radius: var(--radius-sm);
-  background: var(--ctrl-bg);
-  border: 1px solid var(--ctrl-border);
-  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.7);
+  border: none;
+  box-shadow: none;
   height: calc(var(--font-size-xs) + var(--space-md));
 }
 .leaflet-control.scale-wrap .leaflet-control-scale-line {
