@@ -227,7 +227,9 @@ class TestHeatmapControlRendering:
         """Auto mode keeps explicit priority and fallback for missing key values."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "const priority = ['_value', 'options.value', 'properties.value'];" in html
+        assert (
+            "const priority = ['_value', 'options.value', 'properties.value'];" in html
+        )
         assert "_readMarkerField(marker, field)" in html
         assert "if (val === undefined)" in html
 
