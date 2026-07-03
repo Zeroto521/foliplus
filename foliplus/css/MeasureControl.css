@@ -34,8 +34,8 @@
 /* ── Measurement Labels ── */
 .measure-label {
   display: inline-block;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  background: var(--measure-label-bg);
+  color: var(--neutral-0);
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
@@ -48,14 +48,14 @@
 /* ── Floating Delete Icon ── */
 .measure-del-icon {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   background: var(--accent-primary);
-  border: 1.5px solid var(--ctrl-bg);
+  border: var(--border-medium) solid var(--ctrl-bg);
   border-radius: var(--radius-round);
   color: var(--ctrl-bg);
   font-size: var(--font-size-sm);
-  line-height: 13px;
+  line-height: var(--font-size-md);
   text-align: center;
   cursor: pointer;
   pointer-events: auto;
@@ -66,6 +66,6 @@
   display: block;
 }
 .measure-del-icon:hover {
-  background: rgba(200, 60, 40, 0.95);
+  background: var(--measure-del-hover-bg);
   transform: scale(1.2);
 }

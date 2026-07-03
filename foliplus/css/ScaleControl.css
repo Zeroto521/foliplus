@@ -9,13 +9,13 @@
   justify-content: flex-start;
   gap: 0;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--ctrl-bg-translucent);
   border: none;
   box-shadow: none;
   height: calc(var(--font-size-xs) + var(--space-md));
 }
 .leaflet-control.scale-wrap .leaflet-control-scale-line {
-  border: 1px solid transparent;
+  border: var(--border-thin) solid transparent;
   border-bottom: var(--space-xs) solid var(--text-primary);
   border-left: var(--space-xs) solid var(--text-primary);
   border-right: var(--space-xs) solid var(--text-primary);
