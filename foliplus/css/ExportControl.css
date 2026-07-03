@@ -45,26 +45,29 @@
   pointer-events: none;
   z-index: var(--z-index-overlay);
   box-sizing: border-box;
-  /* Massive shadow for fullscreen masking */
-  box-shadow: 0 0 0 9999px var(--overlay-bg);
-}
-
-/* Deepen mask when locked */
-.export-crop-box.locked ~ .export-crop-overlay {
-  box-shadow: 0 0 0 9999px var(--overlay-bg-dark);
 }
 
 /* ── Crop Box ── */
 .export-crop-box {
   position: absolute;
-  border: 2px dashed var(--accent-primary);
+  border: var(--export-crop-border-width) dashed var(--accent-primary);
   background: transparent;
   cursor: move;
   z-index: calc(var(--z-index-overlay) + 1);
   box-sizing: border-box;
   box-shadow: 0 0 15px var(--input-focus-shadow);
-  border-radius: 1px;
+  border-radius: var(--space-xs);
 }
+
+.export-crop-box::before {
+  content: "";
+  position: absolute;
+  /* Align mask edge to the border centerline to avoid visual offset. */
+  inset: calc(-0.5 * var(--export-crop-border-width));
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px var(--overlay-bg);
+}
+
 .export-crop-box.locked {
   cursor: default;
   border-color: var(--accent-primary);
@@ -73,60 +76,68 @@
   box-shadow: 0 0 20px var(--input-focus-shadow);
 }
 
+.export-crop-box.locked::before {
+  box-shadow: 0 0 0 9999px var(--overlay-bg-dark);
+}
+
 /* ── Handles ── */
 .export-crop-handle {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: var(--export-crop-handle-size);
+  height: var(--export-crop-handle-size);
   background: var(--ctrl-bg);
-  border: 2px solid var(--accent-primary);
+  border: var(--export-crop-handle-border-width) solid var(--accent-primary);
   border-radius: var(--radius-round);
   z-index: calc(var(--z-index-overlay) + 5);
   pointer-events: auto;
   box-sizing: border-box;
 }
 .export-crop-handle.tl {
-  top: -7px;
-  left: -7px;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
   cursor: nwse-resize;
 }
 .export-crop-handle.tr {
-  top: -7px;
-  right: -7px;
+  top: 0;
+  right: 0;
+  transform: translate(50%, -50%);
   cursor: nesw-resize;
 }
 .export-crop-handle.bl {
-  bottom: -7px;
-  left: -7px;
+  bottom: 0;
+  left: 0;
+  transform: translate(-50%, 50%);
   cursor: nesw-resize;
 }
 .export-crop-handle.br {
-  bottom: -7px;
-  right: -7px;
+  bottom: 0;
+  right: 0;
+  transform: translate(50%, 50%);
   cursor: nwse-resize;
 }
 .export-crop-handle.t {
-  top: -7px;
+  top: 0;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   cursor: ns-resize;
 }
 .export-crop-handle.b {
-  bottom: -7px;
+  bottom: 0;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, 50%);
   cursor: ns-resize;
 }
 .export-crop-handle.l {
-  left: -7px;
+  left: 0;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
   cursor: ew-resize;
 }
 .export-crop-handle.r {
-  right: -7px;
+  right: 0;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translate(50%, -50%);
   cursor: ew-resize;
 }
 
@@ -139,11 +150,11 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 12px;
-  height: 12px;
-  margin: -6px 0 0 -6px;
+  width: var(--export-crop-center-size);
+  height: var(--export-crop-center-size);
+  margin: calc(-0.5 * var(--export-crop-center-size)) 0 0 calc(-0.5 * var(--export-crop-center-size));
   background: var(--accent-primary);
-  border: 2px solid var(--ctrl-bg);
+  border: var(--export-crop-handle-border-width) solid var(--ctrl-bg);
   border-radius: var(--radius-round);
   z-index: calc(var(--z-index-overlay) + 3);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
@@ -157,20 +168,20 @@
 /* ── Actions ── */
 .export-crop-actions {
   display: flex;
-  gap: 2px;
+  gap: var(--export-action-btn-gap);
   align-items: center;
 }
 .export-crop-actions button {
   background: none;
   border: none;
   cursor: pointer;
-  width: 28px;
-  height: 28px;
+  width: var(--export-action-btn-size);
+  height: var(--export-action-btn-size);
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   color: var(--text-secondary);
 }
 .export-crop-actions button:hover {
