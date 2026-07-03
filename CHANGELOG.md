@@ -5,6 +5,13 @@
 ### Changed
 
 - `ScaleControl`: Fixed to `bottomleft` and aligned UI style with native Leaflet elements ([#23](https://github.com/Zeroto521/foliplus/pull/23))
+- Unified control tokens and simplified shared styles ([#25](https://github.com/Zeroto521/foliplus/pull/25))
+
+### Fixed
+
+- `LayerControl`: restricted drag-and-drop reordering to within the same group (overlay ↔ overlay, base ↔ base)  ([#25](https://github.com/Zeroto521/foliplus/pull/25))
+- `LayerControl`: added blocked-reorder hint and group order normalization ([#25](https://github.com/Zeroto521/foliplus/pull/25))
+- `HeatmapControl`: fixed `_auto` field detection, including single-field cases ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 
 ## [v0.2.0] (2026-07-01)
 
