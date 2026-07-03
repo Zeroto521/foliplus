@@ -65,6 +65,8 @@
   "measure.popup_addr_label": "📌 地址：",
   "measure.popup_loading": "查询中…",
   "measure.dist_origin": "起点",
+  "measure.unit_km": "km",
+  "measure.unit_m": "m",
   "measure.geo_timeout": "查询超时，请检查网络",
   "measure.geo_network": "网络错误，请检查连接",
   "measure.geo_rate_limit": "服务限流，请稍后再试",

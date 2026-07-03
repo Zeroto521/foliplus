@@ -58,8 +58,8 @@
 
     static formatDistance(meters) {
       return meters >= 1000
-        ? (meters / 1000).toFixed(1) + ' km'
-        : Math.round(meters) + ' m';
+        ? (meters / 1000).toFixed(1) + ' ' + _('measure.unit_km')
+        : Math.round(meters) + ' ' + _('measure.unit_m');
     }
 
     static distance(lat1, lng1, lat2, lng2) {
