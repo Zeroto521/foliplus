@@ -2,12 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `ScaleControl`: Fixed to `bottomleft` and aligned UI style with native Leaflet elements ([#23](https://github.com/Zeroto521/foliplus/pull/23))
+
 ## [v0.2.0] (2026-07-01)
 
 ### Added
 
 - `MapSearch`: add `mode` parameter to choose default search mode (`"coord"` or `"addr"`) ([#12](https://github.com/Zeroto521/foliplus/pull/12))
-- Documentation is available at https://foliplus.readthedocs.io/ ([#19](https://github.com/Zeroto521/foliplus/pull/19))
+- Documentation is available at <https://foliplus.readthedocs.io> ([#19](https://github.com/Zeroto521/foliplus/pull/19))
 
 ### Changed
 
