@@ -89,6 +89,7 @@
         this.currentMethod = COLOR_METHOD;
         this.N_CLASSES = N_CLASSES_DEFAULT;
         this.currentLabelShow = LABEL_SHOW;
+        this.autoFieldKey = null;
 
         this.HEATMAP_ID = '__heatmap__';
         this.LABEL_PANE = '__heatmap_label__';
@@ -204,13 +205,43 @@
         return Object.keys(fields);
       }
 
+      pickAutoField(fields) {
+        if (!fields || fields.length === 0) return null;
+
+        const priority = ['_value', 'options.value', 'properties.value'];
+        for (const key of priority) {
+          if (fields.includes(key)) return key;
+        }
+
+        // Single-field case: always use the only numeric field.
+        if (fields.length === 1) return fields[0];
+
+        const propFields = fields.filter((f) => f.startsWith('properties.')).sort();
+        if (propFields.length > 0) return propFields[0];
+        return fields[0];
+      }
+
+      _readMarkerField(marker, field) {
+        if (!field) return undefined;
+        if (field === '_value') return marker._value;
+        if (field === 'options.value') return marker.options?.value;
+        if (field.startsWith('properties.')) {
+          const key = field.substring(11);
+          return marker.feature?.properties?.[key];
+        }
+        return undefined;
+      }
+
       getPointValue(marker) {
         if (this.currentAgg === 'count') return 1;
         let val;
         if (this.currentField === '_auto') {
-          val = marker._value ??
-            marker.options?.value ??
-            marker.feature?.properties?.value;
+          val = this._readMarkerField(marker, this.autoFieldKey);
+          if (val === undefined) {
+            val = marker._value ??
+              marker.options?.value ??
+              marker.feature?.properties?.value;
+          }
         } else if (this.currentField === '_value') {
           val = marker._value;
         } else if (this.currentField === 'options.value') {
@@ -699,6 +730,7 @@
         clearBtn.textContent = _('heatmap.clear');
         clearBtn.onclick = () => {
           this.manager.selectedLayerId = null;
+          this.manager.autoFieldKey = null;
           this.layerSelect.value = '';
           this.manager.currentAgg = AGG_DEFAULT;
           this.aggSelect.value = AGG_DEFAULT;
@@ -837,6 +869,7 @@
           (info) => info.id === this.manager.selectedLayerId
         );
         const fields = this.manager.collectFields(selected);
+        this.manager.autoFieldKey = this.manager.pickAutoField(fields);
         const phOpt = document.createElement('option');
         phOpt.value = '_auto';
         phOpt.textContent = _('heatmap.field_auto');

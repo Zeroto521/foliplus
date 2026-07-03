@@ -215,6 +215,14 @@ class TestHeatmapControlRendering:
         assert "heatmap.no_layer" in html
         assert "4000" in html  # hint duration
 
+    def test_auto_field_single_field_detection(self, base_map: folium.Map):
+        """Auto field logic should deterministically use the only numeric field."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "pickAutoField(fields)" in html
+        assert "if (fields.length === 1) return fields[0];" in html
+        assert "this.manager.autoFieldKey = this.manager.pickAutoField(fields);" in html
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""
