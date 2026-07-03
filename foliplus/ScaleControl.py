@@ -10,9 +10,6 @@ class ScaleControl(BaseControl):
 
     Parameters
     ----------
-    position : str, default "bottomleft"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
-
     metric : bool, default True
         Whether to show metric units (meters / kilometers).
 
@@ -34,12 +31,11 @@ class ScaleControl(BaseControl):
     def __init__(
         self,
         *,
-        position: Position = "bottomleft",
         metric: bool = True,
         show_zoom: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
-        super().__init__(position=position, locale=locale)
+        super().__init__(position="bottomleft", locale=locale)
         self.metric = metric
         self.show_zoom = show_zoom
         self._template = self._get_template(
