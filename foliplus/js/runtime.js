@@ -477,10 +477,14 @@
     if (code && tables[code]) {
       window._LOCALE = tables[code];
     } else {
-      const lang = (typeof navigator !== 'undefined'
-        ? (navigator.language || navigator.userLanguage || '')
-        : '').split('-')[0].split('_')[0].toLowerCase();
-      window._LOCALE = tables[lang] || tables['en'];
+      // 1. Try document language (e.g. <html lang="en">)
+      let lang = document.documentElement.lang || "";
+      // 2. Fallback to navigator language
+      if (!lang && typeof navigator !== "undefined") {
+        lang = navigator.language || navigator.userLanguage || "";
+      }
+      lang = lang.split("-")[0].split("_")[0].toLowerCase();
+      window._LOCALE = tables[lang] || tables["en"];
     }
   };
 
