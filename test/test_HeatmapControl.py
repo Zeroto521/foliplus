@@ -223,6 +223,20 @@ class TestHeatmapControlRendering:
         assert "if (fields.length === 1) return fields[0];" in html
         assert "this.manager.autoFieldKey = this.manager.pickAutoField(fields);" in html
 
+    def test_auto_field_priority_and_fallback(self, base_map: folium.Map):
+        """Auto mode keeps explicit priority and fallback for missing key values."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "const priority = ['_value', 'options.value', 'properties.value'];" in html
+        assert "_readMarkerField(marker, field)" in html
+        assert "if (val === undefined)" in html
+
+    def test_auto_field_key_resets_on_clear(self, base_map: folium.Map):
+        """Clear action resets autoFieldKey to avoid stale field selection."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.manager.autoFieldKey = null;" in html
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""

@@ -440,6 +440,8 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert 'stroke="currentColor"' in html
         assert "#a4a4a4" not in html
+        assert ".layer-ctrl .type-icon-col" in html
+        assert "color: var(--text-primary);" in html
 
 
 class TestLayerControlBrowser:
