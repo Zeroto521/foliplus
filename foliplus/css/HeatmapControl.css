@@ -1,5 +1,5 @@
 .heatmap-ctrl {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   color: var(--text-primary);
   --hm-label-width: 85px;
   --hm-select-pad-right: 22px;
@@ -52,7 +52,7 @@
 .heatmap-ctrl .form-label {
   flex-shrink: 0;
   width: var(--hm-label-width);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   text-align: right;
   white-space: nowrap;
@@ -253,7 +253,7 @@
 .heatmap-ctrl .border-weight-input {
   width: var(--hm-inline-width);
   height: var(--input-height);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   padding: 0 var(--size-6);
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);

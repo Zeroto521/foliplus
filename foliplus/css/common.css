@@ -24,6 +24,7 @@
   --alpha-30: 0.3;
   --alpha-50: 0.5;
   --alpha-70: 0.7;
+  --alpha-80: 0.8;
   --alpha-95: 0.95;
 
   /* ── Primitive Tokens: Neutral Palette ── */
@@ -79,7 +80,7 @@
   /* Effect */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-06));
-  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-70));
+  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
   --accent-shadow-sm: 0 var(--size-2) var(--size-8) rgba(var(--red-rgb), var(--alpha-30));
   --accent-shadow-md: 0 var(--size-4) var(--size-12) rgba(var(--red-rgb), var(--alpha-50));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
@@ -91,7 +92,6 @@
     sans-serif;
   --font-size-xs: 10px;
   --font-size-sm: 12px;
-  --font-size-base: 13px;
   --font-size-md: 14px;
   --font-size-lg: 16px;
 
