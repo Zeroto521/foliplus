@@ -37,6 +37,7 @@
   "layer.close_title": "收起",
   "layer.base_map_label": "基础底图",
   "layer.color_map_label": "纯色地图",
+  "layer.reorder_group_only": "仅可在同分组内排序",
   "search.coord_placeholder": "请输入：经度,纬度",
   "search.addr_placeholder": "请输入地址关键词",
   "search.coord_error": "格式错误，请输入：经度,纬度",

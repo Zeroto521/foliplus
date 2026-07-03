@@ -4,6 +4,7 @@
     INIT_DELAY_MS: 300,
     Z_INDEX_BASE: 600,
     DRAG_TIMEOUT_MS: 100,
+    DRAG_HINT_COOLDOWN_MS: 800,
     LAYER_RECURSION_DEPTH: 10,
     STORAGE_KEY: '_layer_order',
     COLOR_MAP_LAYER_ID: '__color_map__',
@@ -122,6 +123,7 @@
       this.colorActive = false;
       this.currentColor = _CONST.COLOR_DEFAULT;
       this.dragIdx = null;
+      this.lastDragHintAt = 0;
 
       // Bind method context to prevent 'this' loss when called via window.foliplus.LayerControlAPI
       this.registerLayer = this.registerLayer.bind(this);
@@ -622,6 +624,40 @@
       e.dataTransfer.effectAllowed = 'move';
     }
 
+    _canReorderBetween(fromIdx, toIdx) {
+      if (fromIdx == null || toIdx == null) return false;
+      if (fromIdx < 0 || toIdx < 0) return false;
+      if (fromIdx >= this.layers.length || toIdx >= this.layers.length) return false;
+      const from = this.layers[fromIdx];
+      const to = this.layers[toIdx];
+      if (!from || !to) return false;
+      // Keep drag-and-drop inside the same logical group.
+      // Base maps can only reorder inside base-map group;
+      // overlays can only reorder inside overlay group.
+      if (!!from.isBase !== !!to.isBase) return false;
+
+      const firstBaseIdx = this.layers.findIndex(l => !!l.isBase);
+      const hasBase = firstBaseIdx !== -1;
+
+      // Overlay group: [0, firstBaseIdx - 1] (or whole list if no base maps)
+      // Base group: [firstBaseIdx, end]
+      if (!from.isBase) {
+        const overlayEnd = hasBase ? firstBaseIdx - 1 : this.layers.length - 1;
+        return fromIdx <= overlayEnd && toIdx <= overlayEnd;
+      }
+
+      return hasBase && fromIdx >= firstBaseIdx && toIdx >= firstBaseIdx;
+    }
+
+    _showReorderBlockedHint() {
+      const now = Date.now();
+      if (now - this.lastDragHintAt < _CONST.DRAG_HINT_COOLDOWN_MS) return;
+      this.lastDragHintAt = now;
+      if (window.foliplus && typeof window.foliplus.showHint === 'function') {
+        window.foliplus.showHint('layer', _('layer.reorder_group_only'), 1200);
+      }
+    }
+
     _handleDragOver(e) {
       e.preventDefault();
       const item = e.target.closest('.layer-item');
@@ -630,6 +666,13 @@
       const targetIdx = parseInt(item.dataset.index, 10);
       const allItems = this.uiContainer.querySelectorAll('.layer-item');
       allItems.forEach(i => i.classList.remove('drag-over-top', 'drag-over-bottom'));
+
+      if (!this._canReorderBetween(this.dragIdx, targetIdx)) {
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+        this._showReorderBlockedHint();
+        return;
+      }
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
 
       if (targetIdx < this.dragIdx) item.classList.add('drag-over-top');
       else if (targetIdx > this.dragIdx) item.classList.add('drag-over-bottom');
@@ -643,10 +686,19 @@
     _handleDrop(e) {
       e.preventDefault();
       const target = e.target.closest('.layer-item');
-      if (!target || this.dragIdx === null || target.classList.contains('color-layer-item')) return;
+      if (this.dragIdx === null) return;
+      if (!target) {
+        this._showReorderBlockedHint();
+        return;
+      }
+      if (target.classList.contains('color-layer-item')) return;
 
       const targetIdx = parseInt(target.dataset.index, 10);
       if (this.dragIdx === targetIdx) return;
+      if (!this._canReorderBetween(this.dragIdx, targetIdx)) {
+        this._showReorderBlockedHint();
+        return;
+      }
 
       const moved = this.layers.splice(this.dragIdx, 1)[0];
       this.layers.splice(targetIdx, 0, moved);
