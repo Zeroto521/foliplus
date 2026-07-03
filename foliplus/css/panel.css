@@ -104,8 +104,8 @@
 }
 
 .map-panel .panel-header .header-icon {
-  width: 18px;
-  height: 18px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -116,8 +116,8 @@
 }
 
 .map-panel .panel-header .header-icon svg {
-  width: 18px;
-  height: 18px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
 }
 
 .map-panel .panel-header .header-title {

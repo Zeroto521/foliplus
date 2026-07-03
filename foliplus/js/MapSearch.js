@@ -2,7 +2,7 @@
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const foliplus = window.foliplus;
-  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
+  const _ = (k) => foliplus.gt(k);
 
   foliplus.registerHintIcon('map-search', foliplus.SVGs.SEARCH);
 

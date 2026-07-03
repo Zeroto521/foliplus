@@ -22,7 +22,7 @@
   const foliplus = window.foliplus;
 
   // ==================== Localized Text ====================
-  const _ = (key) => (window._LOCALE && window._LOCALE[key]) || key;
+  const _ = (k) => foliplus.gt(k);
 
   // ==================== SVG Icons ====================
   const SVG_ICON_ATTRS = `width="18" height="18" viewBox="0 0 24 24"

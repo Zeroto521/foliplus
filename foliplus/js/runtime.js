@@ -368,13 +368,13 @@
 
   // ==================== Number Formatting ====================
   // Locale-aware number formatting using Intl.NumberFormat compact notation.
-  // 'auto'  → compact abbreviations above threshold (en:≥1K, zh:≥1万),
-  //            standard grouping below (1,234).  Fallback: K/M/B or 万/亿.
+  // 'auto'  → compact abbreviations above threshold (en:≥1K, zh:≥10K),
+  //            standard grouping below (1,234).  Fallback: K/M/B or W/Y.
   // 'comma' → thousands separator + 1 decimal (alias: 'int')
   /**
    * Format a number for display.
    * @param {number} val Value to format
-   * @param {string} [style='auto'] 'auto' (compact: 1.2K/1.2万/1.2M),
+   * @param {string} [style='auto'] 'auto' (compact: 1.2K/1.2W/1.2M),
    *                                'comma' or 'int' (thousands separator: 1,234.6)
    * @param {string} [locale] Locale code, defaults to browser language (en/zh)
    * @returns {string} Formatted string
@@ -462,31 +462,42 @@
   // ------------------------------------------------------------------
   // Sets window._LOCALE to the correct language table.
   //
-  // If `code` is non-empty and exists in `tables`, it is used directly.
-  // Otherwise the user's browser language (navigator.language) is detected
-  // and used as the key, falling back to the "en" table.
+  // 1. Detect language from HTML lang attribute (for ReadTheDocs etc)
+  // 2. Fallback to code if provided
+  // 3. Fallback to navigator.language
+  // 4. Default to 'en'
   //
   // Called from the Jinja2 template in base.py for every control instance:
   //   foliplus.resolveLocale('{{ this._LOCALE_CODE }}', {...tables...});
-  //
-  // @param {string} code - Explicit locale code ("en", "zh", or "" for auto)
-  // @param {Object} tables - Dictionary of locale tables ({en: {...}, zh: {...}})
   // ------------------------------------------------------------------
   foliplus.resolveLocale = function (code, tables) {
     if (!tables) return;
-    if (code && tables[code]) {
-      window._LOCALE = tables[code];
-    } else {
-      // 1. Try document language (e.g. <html lang="en">)
-      let lang = document.documentElement.lang || "";
-      // 2. Fallback to navigator language
-      if (!lang && typeof navigator !== "undefined") {
-        lang = navigator.language || navigator.userLanguage || "";
-      }
-      lang = lang.split("-")[0].split("_")[0].toLowerCase();
-      window._LOCALE = tables[lang] || tables["en"];
+
+    // Priority 1: HTML lang attribute (most reliable for doc sites)
+    let lang = document.documentElement.lang || '';
+    if (lang) lang = lang.split('-')[0].split('_')[0].toLowerCase();
+
+    // Priority 2: Explicit code from Python
+    if (!tables[lang] && code && tables[code]) {
+      lang = code;
     }
+
+    // Priority 3: Browser language
+    if (!tables[lang]) {
+      lang = (typeof navigator !== 'undefined'
+        ? (navigator.language || navigator.userLanguage || '')
+        : '').split('-')[0].split('_')[0].toLowerCase();
+    }
+
+    window._LOCALE = tables[lang] || tables['en'];
   };
+
+  /** Localized string lookup helper */
+  foliplus.gt = (key) => {
+    if (!window._LOCALE) return key;
+    return window._LOCALE[key] || key;
+  };
+
 
   window.foliplus = foliplus;
 })();

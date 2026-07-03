@@ -19,7 +19,7 @@
 /* ── Canvas Pane Common Rules ── */
 /* When pane has Canvas renderer, markers float above canvas */
 .leaflet-pane.has-canvas > .leaflet-marker-icon {
-  z-index: 1000 !important;
+  z-index: var(--z-index-control) !important;
 }
 /* ── Panel Content Overrides ── */
 .layer-ctrl .panel-content {
