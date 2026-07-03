@@ -696,10 +696,7 @@
       e.preventDefault();
       const target = e.target.closest('.layer-item');
       if (this.dragIdx === null) return;
-      if (!target) {
-        this._showReorderBlockedHint();
-        return;
-      }
+      if (!target) return;
       if (target.classList.contains('color-layer-item')) return;
 
       const targetIdx = parseInt(target.dataset.index, 10);
