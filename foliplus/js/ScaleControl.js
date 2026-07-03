@@ -1,7 +1,7 @@
 (function() {
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => window.foliplus.gt(k);
+  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
   // ==================== Control Setup ====================
   const wrap = L.control

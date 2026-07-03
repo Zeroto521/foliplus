@@ -12,9 +12,8 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const foliplus = window.foliplus;
   const mapContainer = map.getContainer();
-  const _ = (k) => foliplus.gt(k);
+  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
   const SVGS = {
     DRAG_HANDLE: `
@@ -35,7 +34,7 @@
         <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
         <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
       </svg>`,
-    GLOBE: foliplus.SVGs.GLOBE,
+    GLOBE: window.foliplus.SVGs.GLOBE,
     POINT: `
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="6" fill="none" stroke="#a4a4a4"
@@ -65,7 +64,9 @@
       <line x1="1" y1="1" x2="23" y2="23"/></svg>`
   };
 
-  foliplus.registerHintIcon('layer', foliplus.SVGs.LIST || SVGS.LIST);
+  if (window.foliplus) {
+    window.foliplus.registerHintIcon('layer', window.foliplus.SVGs.LIST || SVGS.LIST);
+  }
 
   // ==================== Utility Class ====================
   class LayerUtils {
@@ -781,7 +782,7 @@
               </span>
               <button class="close-btn" title="${_('layer.close_title')}"
                       aria-label="${_('layer.close_title')}">
-                ${foliplus.SVGs.CLOSE}
+                ${window.foliplus.SVGs.CLOSE}
               </button>
             </div>
             <div class="panel-content"></div>
@@ -795,7 +796,7 @@
       const ctrl = container.querySelector('.layer-ctrl');
       const panelContent = container.querySelector('.panel-content');
 
-      foliplus.bindPanelToggle({
+      window.foliplus.bindPanelToggle({
         container: ctrl, toggleBtn: '.toggle-btn', header: '.panel-header',
       });
 

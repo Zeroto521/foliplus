@@ -19,10 +19,7 @@
 
   // ==================== Globals & Shared Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const foliplus = window.foliplus;
-
-  // ==================== Localized Text ====================
-  const _ = (k) => foliplus.gt(k);
+  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
   // ==================== SVG Icons ====================
   const SVG_ICON_ATTRS = `width="18" height="18" viewBox="0 0 24 24"
@@ -46,7 +43,9 @@
       <line x1="14" y1="11" x2="14" y2="17"/></svg>`
   };
 
-  foliplus.registerHintIcon('measure', SVGS.RULER);
+  if (window.foliplus) {
+    window.foliplus.registerHintIcon('measure', SVGS.RULER);
+  }
 
   // ==================== Utility Classes ====================
   class MeasureUtils {
@@ -211,13 +210,13 @@
       this.map.getContainer().style.cursor = 'crosshair';
 
       if (mode === 'marker') {
-        foliplus.showHint('measure', _('measure.hint_marker'), 0);
+        window.foliplus.showHint('measure', _('measure.hint_marker'), 0);
         this._bindMarkerMode();
       } else if (mode === 'distance') {
-        foliplus.showHint('measure', _('measure.hint_dist_start'), 0);
+        window.foliplus.showHint('measure', _('measure.hint_dist_start'), 0);
         this._startDistanceMode();
       } else if (mode === 'circle') {
-        foliplus.showHint('measure', _('measure.hint_circle_start'), 0);
+        window.foliplus.showHint('measure', _('measure.hint_circle_start'), 0);
         this._startCircleMode();
       }
     }
@@ -225,7 +224,7 @@
     clearActiveMode() {
       this.currentMode = null;
       this.toolBtns.forEach(btn => btn.classList.remove('active'));
-      foliplus.hideHint('measure');
+      window.foliplus.hideHint('measure');
       this.map.getContainer().style.cursor = '';
       this._cleanMapEvents();
     }
@@ -242,7 +241,7 @@
         this.cleanupFn();
         this.cleanupFn = null;
       }
-      foliplus.hideHint('measure');
+      window.foliplus.hideHint('measure');
     }
 
     // --- Marker (Locate) Mode ---
@@ -257,7 +256,7 @@
       const lat = e.latlng.lat.toFixed(6);
       const lng = e.latlng.lng.toFixed(6);
 
-      const marker = foliplus.createLocationMarker(
+      const marker = window.foliplus.createLocationMarker(
         this.map, parseFloat(lat), parseFloat(lng), null, 'measure.popup',
         null, null, this.layerGroup
       );
@@ -265,14 +264,14 @@
       let cachedAddr = null;
       setTimeout(() => this._injectDelIcon(marker), 50);
 
-      const addr = await foliplus.reverseGeocode(
+      const addr = await window.foliplus.reverseGeocode(
         this.map, parseFloat(lat), parseFloat(lng)
       );
       cachedAddr = addr;
 
       if (marker?.getPopup?.()?.isOpen()) {
         marker.setPopupContent(
-          foliplus.buildPopupHtml(lat, lng, addr, 'measure.popup')
+          window.foliplus.buildPopupHtml(lat, lng, addr, 'measure.popup')
         );
       }
 
@@ -280,7 +279,7 @@
         MeasureUtils.hideAllDelIcons();
         if (cachedAddr !== null) {
           marker.setPopupContent(
-            foliplus.buildPopupHtml(lat, lng, cachedAddr, 'measure.popup')
+            window.foliplus.buildPopupHtml(lat, lng, cachedAddr, 'measure.popup')
           );
         }
         this._injectDelIcon(marker);
@@ -609,7 +608,7 @@
             interactive: false,
           }).addTo(this.layerGroup);
           state = 1;
-          foliplus.showHint('measure', _('measure.hint_circle_radius'), 0);
+          window.foliplus.showHint('measure', _('measure.hint_circle_radius'), 0);
         } else if (state === 1) {
           state = 2;
           lastFinishTime = Date.now();
@@ -856,7 +855,7 @@
         this.map.off('mousemove', onMouseMove);
         this.map.off('contextmenu', onContext);
         clearPreviews();
-        foliplus.hideHint('measure');
+        window.foliplus.hideHint('measure');
       };
     }
   }
@@ -881,7 +880,7 @@
         </button>
         <div class="tool-bar">
           <button class="tool-btn" data-mode="marker"
-            title="${_('measure.tool_marker')}">${foliplus.SVGs.LOCATE}</button>
+            title="${_('measure.tool_marker')}">${window.foliplus.SVGs.LOCATE}</button>
           <button class="tool-btn" data-mode="distance"
             title="${_('measure.tool_distance')}">${SVGS.RULER}</button>
           <button class="tool-btn" data-mode="circle"
@@ -906,7 +905,7 @@
         ctrl.classList.toggle('expanded');
       };
 
-      foliplus.bindOutsideCollapse({
+      window.foliplus.bindOutsideCollapse({
         map,
         container: ctrl,
         shouldCollapse: () => !measureManager.currentMode,

@@ -74,5 +74,10 @@
   "measure.geo_fail": "Lookup failed",
   "scale.zoom_label": "Zoom Level: {zoom}",
   "gcoord.warn": "gcoord library failed to load, coordinate transformation unavailable",
-  "load.script_fail": "Failed to load"
+  "load.script_fail": "Failed to load",
+  "num.k": "K",
+  "num.m": "M",
+  "num.b": "B",
+  "num.w": "10K",
+  "num.y": "100M"
 }

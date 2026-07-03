@@ -1,17 +1,18 @@
 (function() {
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const foliplus = window.foliplus;
-  const _ = (k) => foliplus.gt(k);
+  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
-  foliplus.registerHintIcon('map-search', foliplus.SVGs.SEARCH);
+  if (window.foliplus) {
+    window.foliplus.registerHintIcon('map-search', window.foliplus.SVGs.SEARCH);
+  }
 
   // ==================== Constants ====================
   const MODE = { COORD: 'coord', ADDR: 'addr' };
 
   // ==================== Helper Functions ====================
-  function _hideSearchHint() { foliplus.hideHint('map-search'); }
-  function _showSearchHint(msg, duration) { foliplus.showHint('map-search', msg, duration); }
+  function _hideSearchHint() { if (window.foliplus) window.foliplus.hideHint('map-search'); }
+  function _showSearchHint(msg, duration) { if (window.foliplus) window.foliplus.showHint('map-search', msg, duration); }
 
   // ==================== Control Definition ====================
   new (L.Control.extend({
@@ -22,14 +23,14 @@
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
       ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_('search.btn_title')}">${foliplus.SVGs.SEARCH}</button>
+        <button class="toggle-btn" title="${_('search.btn_title')}">${window.foliplus.SVGs.SEARCH}</button>
         <div class="search-form">
-          <button class="search-mode-btn" title="${_('search.mode_coord')}">${foliplus.SVGs.LOCATE}
+          <button class="search-mode-btn" title="${_('search.mode_coord')}">${window.foliplus.SVGs.LOCATE}
           </button>
           <div class="clear-wrap">
             <input type="text" placeholder="${_('search.coord_placeholder')}" />
             <button class="clear-btn" title="${_('search.clear_title')}">
-              ${foliplus.SVGs.CLOSE}
+              ${window.foliplus.SVGs.CLOSE}
             </button>
           </div>
         </div>
@@ -53,11 +54,11 @@
       function _setMode(newMode) {
         mode = newMode;
         if (mode === MODE.COORD) {
-          modeBtn.innerHTML = foliplus.SVGs.LOCATE;
+          modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
           modeBtn.title = _('search.mode_coord');
           inp.placeholder = _('search.coord_placeholder');
         } else {
-          modeBtn.innerHTML = foliplus.SVGs.GLOBE;
+          modeBtn.innerHTML = window.foliplus.SVGs.GLOBE;
           modeBtn.title = _('search.mode_addr');
           inp.placeholder = _('search.addr_placeholder');
         }
@@ -113,14 +114,14 @@
         const lng = parts[0], lat = parts[1];
         _hideSearchHint();
         map.flyTo([lat, lng], {{ this.zoom }});
-        mk = foliplus.createLocationMarker(
+        mk = window.foliplus.createLocationMarker(
           map, lat, lng, null, 'search.popup', _('search.popup_title_coord'), mk
         );
       }
 
       // Address search via Nominatim
       function _doAddrSearch(query) {
-        _showSearchHint(foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0);
+        _showSearchHint(window.foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0);
 
         fetch('https://nominatim.openstreetmap.org/search' +
           '?format=jsonv2&q=' + encodeURIComponent(query) +
@@ -139,13 +140,13 @@
             let lat = parseFloat(item.lat), lng = parseFloat(item.lon);
 
             // Transform coordinates from WGS84 to the map's CRS
-            const converted = foliplus.fromWgs84(map, lng, lat);
+            const converted = window.foliplus.fromWgs84(map, lng, lat);
             lng = converted[0]; lat = converted[1];
 
             const zoom = Math.min(16,
               Math.max(12, 18 - Math.floor(displayName.length / 20)));
             map.flyTo([lat, lng], zoom);
-            mk = foliplus.createLocationMarker(
+            mk = window.foliplus.createLocationMarker(
               map, lat, lng, displayName, 'search.popup', _('search.popup_title_addr'), mk
             );
           })
@@ -172,7 +173,7 @@
       });
 
       // Collapse on outside click
-      foliplus.bindOutsideCollapse({
+      window.foliplus.bindOutsideCollapse({
         map: map, container: ctrl,
         shouldCollapse: function() { return !inp.value.trim(); },
         onCollapse: function() { _hideSearchHint(); }

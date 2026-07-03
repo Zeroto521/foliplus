@@ -3,47 +3,57 @@
  * Provides SVG icons, hint system, coordinate transformation, geocoding,
  * and common UI helpers.
  */
-(function () {
-  if (window.foliplus) return;
+(function (window, document) {
+  'use strict';
+  // 1. Ensure global namespace object exists
+  if (!window.foliplus || typeof window.foliplus !== 'object') {
+    window.foliplus = {};
+  }
+  const foliplus = window.foliplus;
 
-  /** Shared locale lookup — set by foliplus.resolveLocale before use. */
-  const _gt = (k) => (window._LOCALE && window._LOCALE[k]) || k;
+  // 2. Define core translation helper (must be available as soon as namespace exists)
+  foliplus.gt = foliplus.gt || function (k) {
+    const loc = window._LOCALE;
+    return (loc && loc[k]) ? loc[k] : k;
+  };
 
-  const foliplus = {
-    // --- SVG Icons ---
-    SVGs: {
-      LOADING: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+  // 3. Early return only if logic is already initialized
+  if (foliplus._initialized) return;
+  foliplus._initialized = true;
+
+  // --- SVG Icons ---
+  foliplus.SVGs = {
+    LOADING: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
     style="animation:spin 0.8s linear infinite;vertical-align:middle">
     <path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
-      CLOSE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    CLOSE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
     stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/>
     <line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-      PIN_ICON: `<div style="position:relative;width:24px;height:36px;">
+    PIN_ICON: `<div style="position:relative;width:24px;height:36px;">
     <svg width="24" height="36" viewBox="0 0 24 36">
       <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24
         C24 5.4 18.6 0 12 0z" fill="var(--accent-primary)" stroke="#fff"
         stroke-width="1.5"/>
       <circle cx="12" cy="12" r="4.5" fill="#fff"/>
     </svg></div>`,
-      LOCATE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+    LOCATE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
     stroke-linejoin="round">
     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75
     7-13c0-3.87-3.13-7-7-7z"/>
     <circle cx="12" cy="9" r="2.5"/></svg>`,
-      GLOBE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+    GLOBE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="1.8"
     stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="10"/>
     <ellipse cx="12" cy="12" rx="4" ry="10"/>
     <line x1="2" y1="12" x2="22" y2="12"/></svg>`,
-      SEARCH: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+    SEARCH: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
     stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/>
     <line x1="15.5" y1="15.5" x2="21" y2="21"/></svg>`
-    }
   };
 
   // ==================== Hint / Toast System ====================
@@ -150,8 +160,8 @@
       // gcoord not yet loaded — schedule warning on next access
       if (!foliplus._gcoordWarned) {
         foliplus._gcoordWarned = true;
-        console.warn('[foliplus] ' + _gt('gcoord.warn'));
-        foliplus.showHint('gcoord-warn', _gt('gcoord.warn'), 5000);
+        console.warn('[foliplus] ' + foliplus.gt('gcoord.warn'));
+        foliplus.showHint('gcoord-warn', foliplus.gt('gcoord.warn'), 5000);
       }
     }
     return [lat, lng];
@@ -164,8 +174,8 @@
         // gcoord not yet loaded — show warning and return unchanged
         if (!foliplus._gcoordWarned) {
           foliplus._gcoordWarned = true;
-          console.warn('[foliplus] ' + _gt('gcoord.warn'));
-          foliplus.showHint('gcoord-warn', _gt('gcoord.warn'), 5000);
+          console.warn('[foliplus] ' + foliplus.gt('gcoord.warn'));
+          foliplus.showHint('gcoord-warn', foliplus.gt('gcoord.warn'), 5000);
         }
         return [lng, lat];
       }
@@ -235,10 +245,10 @@
         addr = addr.split(',').map(s => s.trim())
           .filter(s => s && !/^\d+$/.test(s))
           .reverse().join(',');
-        _geoCache[key] = addr || _gt('search.addr_not_found');
+        _geoCache[key] = addr || foliplus.gt('search.addr_not_found');
         return _geoCache[key];
       }).catch(() => {
-        return _gt('measure.geo_fail');
+        return foliplus.gt('measure.geo_fail');
       });
     });
     return _geoPromise;
@@ -254,16 +264,16 @@
    * @returns {string} HTML string
    */
   foliplus.buildPopupHtml = function (lat, lng, addr, prefix, title) {
-    const popupTitle = title || _gt(prefix + '_title');
-    const loadStr = _gt(prefix + '_loading');
+    const popupTitle = title || foliplus.gt(prefix + '_title');
+    const loadStr = foliplus.gt(prefix + '_loading');
     const addrHtml = (addr && addr.includes('LOADING')) ?
       `${foliplus.SVGs.LOADING} ${loadStr}` :
       (addr || loadStr);
 
     return `<div style="font-size:13px;line-height:1.8">
       <b>${popupTitle}</b><br>
-      ${_gt(prefix + '_loc_label')}${lng},${lat}<br>
-      ${_gt(prefix + '_addr_label')}${addrHtml}
+      ${foliplus.gt(prefix + '_loc_label')}${lng},${lat}<br>
+      ${foliplus.gt(prefix + '_addr_label')}${addrHtml}
     </div>`;
   };
 
@@ -401,12 +411,12 @@
     // Fallback: no Intl support — use locale-aware abbreviations
     if (style === 'auto') {
       if (locale === 'zh') {
-        if (val >= 1e8) return (val / 1e8).toFixed(1) + '亿';
-        if (val >= 10000) return (val / 10000).toFixed(1) + '万';
+        if (val >= 1e8) return (val / 1e8).toFixed(1) + foliplus.gt('num.y');
+        if (val >= 10000) return (val / 10000).toFixed(1) + foliplus.gt('num.w');
       } else {
-        if (val >= 1e9) return (val / 1e9).toFixed(1) + 'B';
-        if (val >= 1e6) return (val / 1e6).toFixed(1) + 'M';
-        if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+        if (val >= 1e9) return (val / 1e9).toFixed(1) + foliplus.gt('num.b');
+        if (val >= 1e6) return (val / 1e6).toFixed(1) + foliplus.gt('num.m');
+        if (val >= 1000) return (val / 1000).toFixed(1) + foliplus.gt('num.k');
       }
     }
     return Math.round(val).toLocaleString();
@@ -444,7 +454,7 @@
         };
         s.onerror = () => {
           failedCount++;
-          console.error(`[foliplus] ${dep.name}: ${_gt('load.script_fail')}`);
+          console.error(`[foliplus] ${dep.name}: ${foliplus.gt('load.script_fail')}`);
           if (loaded + failedCount === pending.length) {
             if (retries < maxRetries) { retries++; setTimeout(attempt, delayMs); }
             else callback(false, pending.filter(d => !d.check()).map(d => d.name));
@@ -472,18 +482,61 @@
   // ------------------------------------------------------------------
   foliplus.resolveLocale = function (code, tables) {
     if (!tables) return;
+    let lang = '';
 
-    // Priority 1: HTML lang attribute (most reliable for doc sites)
-    let lang = document.documentElement.lang || '';
-    if (lang) lang = lang.split('-')[0].split('_')[0].toLowerCase();
-
-    // Priority 2: Explicit code from Python
-    if (!tables[lang] && code && tables[code]) {
+    // 1. Explicit code from Python (Highest priority if provided)
+    if (code && tables[code]) {
       lang = code;
     }
 
-    // Priority 3: Browser language
-    if (!tables[lang]) {
+    // 2. Detect from parent context if inside an iframe (e.g., ReadTheDocs/Sphinx same-origin iframe)
+    if (!lang) {
+      try {
+        const parentWin = window.parent;
+        if (parentWin && parentWin !== window) {
+          // Check parent URL path
+          const parentPath = parentWin.location.pathname;
+          const m = parentPath.match(/\/(en|zh)\//i);
+          if (m) lang = m[1].toLowerCase();
+
+          // Check parent HTML lang attribute
+          if (!lang) {
+            let pLang = parentWin.document.documentElement.lang || '';
+            if (pLang) {
+              pLang = pLang.split('-')[0].split('_')[0].toLowerCase();
+              if (tables[pLang]) lang = pLang;
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cross-origin iframe security restrictions
+      }
+    }
+
+    // 3. Detect from embedding referrer URL (highly reliable backup for iframes, works cross-origin)
+    if (!lang && typeof document !== 'undefined' && document.referrer) {
+      const m = document.referrer.match(/\/(en|zh)\//i);
+      if (m) lang = m[1].toLowerCase();
+    }
+
+    // 4. Detect from current window URL path (ReadTheDocs / GitHub Pages common patterns: /en/, /zh/)
+    if (!lang) {
+      const path = window.location.pathname;
+      const m = path.match(/\/(en|zh)\//i);
+      if (m) lang = m[1].toLowerCase();
+    }
+
+    // 5. HTML lang attribute (e.g. <html lang="en">)
+    if (!lang || !tables[lang]) {
+      let htmlLang = document.documentElement.lang || '';
+      if (htmlLang) {
+        htmlLang = htmlLang.split('-')[0].split('_')[0].toLowerCase();
+        if (tables[htmlLang]) lang = htmlLang;
+      }
+    }
+
+    // 6. Browser language
+    if (!lang || !tables[lang]) {
       lang = (typeof navigator !== 'undefined'
         ? (navigator.language || navigator.userLanguage || '')
         : '').split('-')[0].split('_')[0].toLowerCase();
@@ -491,13 +544,4 @@
 
     window._LOCALE = tables[lang] || tables['en'];
   };
-
-  /** Localized string lookup helper */
-  foliplus.gt = (key) => {
-    if (!window._LOCALE) return key;
-    return window._LOCALE[key] || key;
-  };
-
-
-  window.foliplus = foliplus;
-})();
+})(window, document);

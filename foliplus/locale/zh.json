@@ -74,5 +74,10 @@
   "measure.geo_fail": "查询失败",
   "scale.zoom_label": "地图层级: {zoom}",
   "gcoord.warn": "gcoord 库未加载成功，坐标转换不可用",
-  "load.script_fail": "加载失败"
+  "load.script_fail": "加载失败",
+  "num.w": "万",
+  "num.y": "亿",
+  "num.k": "千",
+  "num.m": "百万",
+  "num.b": "十亿"
 }

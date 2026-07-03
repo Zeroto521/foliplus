@@ -18,8 +18,7 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const foliplus = window.foliplus;
-  const _ = (k) => foliplus.gt(k);
+  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
   const SVGS = {
     HEXAGON: `
@@ -31,10 +30,12 @@
       </svg>`
   };
 
-  foliplus.registerHintIcon('heatmap', SVGS.HEXAGON);
+  if (window.foliplus) {
+    window.foliplus.registerHintIcon('heatmap', SVGS.HEXAGON);
+  }
 
   // --- Dynamic Dependency Loader ---
-  // Loads CDN scripts at runtime via shared foliplus.loadScripts.
+  // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
   const _DEPS = [
     { name: 'h3', url: 'https://cdn.jsdelivr.net/npm/h3-js@{{ this._h3_version }}/dist/h3-js.umd.js',
       check: () => typeof h3 !== 'undefined' },
@@ -45,14 +46,14 @@
       check: () => typeof chroma !== 'undefined' },
   ];
 
-  foliplus.loadScripts(_DEPS, function (ok, failed) {
+  window.foliplus.loadScripts(_DEPS, function (ok, failed) {
     if (ok && typeof h3 !== 'undefined' && typeof ss !== 'undefined') {
       return run();
     }
     // Final failure — show hint + console
     const names = (failed || _DEPS.filter(d => !d.check()).map(d => d.name)).join(', ');
     console.error(`[HeatmapControl] ${_('heatmap.no_h3')}`);
-    foliplus.showHint('heatmap', _('heatmap.no_h3'), 0); // 0 = persistent until hidden
+    window.foliplus.showHint('heatmap', _('heatmap.no_h3'), 0); // 0 = persistent until hidden
   }, 2, 3000); // retry 2×, every 3s
 
   function run() {
@@ -410,7 +411,7 @@
               lat = cy / (ring.length - 1);
             }
 
-            const labelStr = foliplus.formatNumber(feat.properties._value, FORMAT);
+            const labelStr = window.foliplus.formatNumber(feat.properties._value, FORMAT);
 
             L.marker([lat, lng], {
               icon: L.divIcon({
@@ -437,7 +438,7 @@
           isBase: false,
           layer: this.heatmapLayer,
           paneName: this.HEATMAP_ID,
-          iconSvg: SVG_HEX,
+          iconSvg: SVGS.HEXAGON,
         });
         // Ensure label pane exists at same z-index as hex pane
         let lblPane = this.map.getPane(this.LABEL_PANE);
@@ -480,24 +481,24 @@
 
         const toggleBtn = L.DomUtil.create('button', 'toggle-btn', this.container);
         toggleBtn.title = _('heatmap.title');
-        toggleBtn.innerHTML = SVG_HEX;
+        toggleBtn.innerHTML = SVGS.HEXAGON;
 
         const panelWrap = L.DomUtil.create('div', 'panel-wrap', this.container);
         const header = L.DomUtil.create('div', 'panel-header', panelWrap);
         header.innerHTML = `
           <span class="header-title">
-            <span class="header-icon">${SVG_HEX}</span>
+            <span class="header-icon">${SVGS.HEXAGON}</span>
             ${_('heatmap.title')}
           </span>
           <button class="close-btn" title="${_('layer.close_title')}">
-            ${foliplus.SVGs.CLOSE}</button>`;
+            ${window.foliplus.SVGs.CLOSE}</button>`;
 
-        foliplus.bindPanelToggle({
+        window.foliplus.bindPanelToggle({
           container: this.container,
           toggleBtn: '.toggle-btn',
           header: '.panel-header'
         });
-        foliplus.bindOutsideCollapse({
+        window.foliplus.bindOutsideCollapse({
           map: this.manager.map, container: this.container
         });
 
@@ -982,7 +983,7 @@
           setTimeout(() => this.initScan(attempt - 1),
             _CONST.INIT_SCAN_INTERVAL_MS);
         } else if (this.manager.pointLayers.length === 0) {
-          foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
+          window.foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
         }
       }
     }

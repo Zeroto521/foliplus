@@ -36,7 +36,6 @@ class BaseControl(JSCSSMixin, MacroElement):
     """
 
     _common = css_dir.joinpath("common.css").read_text(encoding="utf-8")
-    _panel = css_dir.joinpath("panel.css").read_text(encoding="utf-8")
     _runtime = js_dir.joinpath("runtime.js").read_text(encoding="utf-8")
 
     def __init__(
@@ -88,7 +87,9 @@ class BaseControl(JSCSSMixin, MacroElement):
         """
         js_runtime = self._get_js(js_file) if js_file else ""
         css_common = self._get_css(css_file) if css_file else ""
-        css_panel = self._panel if use_panel else ""
+        css_panel = (
+            (css_dir / "panel.css").read_text(encoding="utf-8") if use_panel else ""
+        )
 
         return Template(
             dedent(f"""\
@@ -102,7 +103,9 @@ class BaseControl(JSCSSMixin, MacroElement):
 
             {{% macro script(this, kwargs) %}}
             {self._runtime}
-            foliplus.resolveLocale('{{{{ this._LOCALE_CODE }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
+            if (window.foliplus && window.foliplus.resolveLocale) {{
+                window.foliplus.resolveLocale('{{{{ this._LOCALE_CODE }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
+            }}
             {js_runtime}
             {{% endmacro %}}""")
         )
