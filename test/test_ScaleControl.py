@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import folium
+import pytest
 from conftest import render
 
 from foliplus import ScaleControl
@@ -16,6 +17,10 @@ class TestScaleControlPython:
 
     def test_default_position(self):
         assert ScaleControl().position == "bottomleft"
+
+    def test_custom_position(self):
+        with pytest.raises(TypeError):
+            ScaleControl(position="topright")
 
     def test_default_locale(self):
         assert ScaleControl()._LOCALE_CODE == ""
