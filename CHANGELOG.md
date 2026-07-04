@@ -15,7 +15,7 @@
 
 - `LayerControl`: restricted drag-and-drop reordering to within the same group (overlay ↔ overlay, base ↔ base)  ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `LayerControl`: added blocked-reorder hint and group order normalization ([#25](https://github.com/Zeroto521/foliplus/pull/25))
-- `HeatmapControl`: fixed `_auto` field detection, including single-field cases ([#25](https://github.com/Zeroto521/foliplus/pull/25))
+- `HeatmapControl`: fixed `_auto` field detection, including single-field cases ([#28](https://github.com/Zeroto521/foliplus/pull/28))
 
 ## [v0.2.0] (2026-07-01)
 
