@@ -521,9 +521,6 @@
           this.layerGroup.removeLayer(previewDistLabel); previewDistLabel = null;
         }
         poly.addLatLng(e.latlng);
-        if (previewDistLabel) {
-          this.layerGroup.removeLayer(previewDistLabel); previewDistLabel = null;
-        }
 
         const mkr = L.circleMarker(e.latlng, {
           radius: _CONST.MARKER_RADIUS,

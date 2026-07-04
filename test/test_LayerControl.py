@@ -443,6 +443,20 @@ class TestLayerControlRendering:
         assert ".layer-ctrl .type-icon-col" in html
         assert "color: var(--text-primary);" in html
 
+    def test_icon_svg_in_render_list(self, base_map: folium.Map):
+        """Custom iconSvg is rendered in type-icon-col during initial render."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "l.iconSvg || ''" in html
+        assert "type-icon-col" in html
+
+    def test_runtime_guard_present(self, base_map: folium.Map):
+        """LayerControl logs error when foliplus runtime is missing."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus runtime not found" in html
+        assert "console.error" in html
+
 
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""

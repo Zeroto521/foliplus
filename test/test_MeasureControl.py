@@ -87,3 +87,25 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "window.foliplus.LayerControlAPI.ensurePane" in html
+
+    def test_realtime_distance_preview(self, base_map: folium.Map):
+        """Distance mode includes real-time preview label (previewDistLabel)."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "previewDistLabel" in html
+        assert "onDistMove" in html
+        assert "MeasureUtils.formatDistance(showDist)" in html
+
+    def test_format_distance_km(self, base_map: folium.Map):
+        """Distance >= 1000m shows as km."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure.unit_km" in html
+        assert "measure.unit_m" in html
+
+    def test_del_icon_class(self, base_map: folium.Map):
+        """Delete icon uses del-icon-wrap and measure-del-icon classes."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "del-icon-wrap" in html
+        assert "measure-del-icon" in html
