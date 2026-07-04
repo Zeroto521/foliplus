@@ -500,7 +500,7 @@
                      aria-label="${en}">
             </div>
             <label title="${en}">${en}</label>
-            <div class="type-icon-col"></div>
+            <div class="type-icon-col">${l.iconSvg || ''}</div>
           </div>`;
       }
 
@@ -546,6 +546,9 @@
             typeCols[i].innerHTML = SVGS.GLOBE;
             this.typeMap.set(id, { type: 'base', name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
+          } else if (layerInfo.iconSvg) {
+            typeCols[i].innerHTML = layerInfo.iconSvg;
+            this.typeMap.set(id, { type: 'custom', name: layerInfo.name });
           } else if (layer) {
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
             this.typeMap.set(id, {
