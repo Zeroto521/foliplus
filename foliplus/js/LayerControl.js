@@ -1,4 +1,10 @@
 (function() {
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || typeof window.foliplus !== 'object') {
+    console.error('[LayerControl] foliplus runtime not found — component disabled.');
+    return;
+  }
+
   // ==================== Constants ====================
   const _CONST = {
     INIT_DELAY_MS: 300,
