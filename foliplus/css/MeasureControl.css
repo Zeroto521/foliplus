@@ -31,6 +31,27 @@
 .measure-ctrl .tool-btn.active svg {
   stroke: var(--accent-primary);
 }
+.ruler-icon {
+  transform: rotate(-45deg);
+}
+/* ── Measurement Labels ── */
+.del-icon-wrap {
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+.measure-center-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--accent-primary);
+  border: 2px solid var(--neutral-0);
+  border-radius: var(--radius-round);
+}
+.measure-center-dot.is-final {
+  box-shadow: 0 0 4px rgba(0, 0, 0, var(--alpha-30));
+}
+
 /* ── Measurement Labels ── */
 .measure-label {
   display: inline-block;
@@ -55,17 +76,27 @@
   border-radius: var(--radius-round);
   color: var(--ctrl-bg);
   font-size: var(--font-size-sm);
-  line-height: var(--font-size-md);
-  text-align: center;
   cursor: pointer;
   pointer-events: auto;
   box-shadow: none;
   display: none;
+  top: -14px;
+  left: 5px;
+  right: auto;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
 }
 .measure-del-icon.visible {
-  display: block;
+  display: flex;
 }
 .measure-del-icon:hover {
   background: var(--measure-del-hover-bg);
   transform: scale(1.2);
+}
+.measure-del-icon.marker-del-icon {
+  top: -6px;
+  left: 20px;
+  right: auto;
+  margin: 0;
 }

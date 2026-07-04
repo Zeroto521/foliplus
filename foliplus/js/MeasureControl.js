@@ -32,8 +32,7 @@
     fill="none" stroke="currentColor" stroke-width="1.8"`;
 
   const SVGS = {
-    RULER: `<svg ${SVG_ICON_ATTRS} stroke-linecap="round"
-      stroke-linejoin="round" style="transform:rotate(-45deg)">
+    RULER: `<svg ${SVG_ICON_ATTRS} stroke-linecap="round" stroke-linejoin="round" class="ruler-icon">
       <rect x="1" y="7" width="22" height="9" rx="1"/>
       <path d="M5 7v3M9 7v2M13 7v3M17 7v2"/></svg>`,
     CIRCLE: `<svg ${SVG_ICON_ATTRS}>
@@ -71,9 +70,8 @@
       return L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2));
     }
 
-    static getXIcon(extraStyle) {
-      const s = extraStyle || 'position:absolute;top:-14px;left:5px;right:auto;margin:0;';
-      return `<span class="measure-del-icon" style="${s}">✕</span>`;
+    static getXIcon() {
+      return '<span class="measure-del-icon">✕</span>';
     }
 
     static hideAllDelIcons() {
@@ -314,9 +312,7 @@
       if (!iconDiv) return;
 
       const xIcon = document.createElement('span');
-      xIcon.className = 'measure-del-icon';
-      xIcon.style.cssText = 'position:absolute;top:-6px;left:20px;'
-        + 'right:auto;margin:0;';
+      xIcon.className = 'measure-del-icon marker-del-icon';
       xIcon.textContent = '✕';
       iconDiv.appendChild(xIcon);
 
@@ -425,9 +421,7 @@
           const lastLbl = segLabels[segLabels.length - 1];
           lastLbl.setIcon(L.divIcon({
             className: '',
-            html: `<div class="measure-label"
-              style="transform:translateX(-50%);white-space:nowrap;">
-              ${MeasureUtils.formatDistance(total)}</div>`,
+            html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
             iconSize: [0, 0],
             iconAnchor: [0, -10],
           }));
@@ -446,9 +440,8 @@
           const lastNode = nodeMarkers[nodeMarkers.length - 1];
           lastNodeDelMkr = L.marker(lastNode.getLatLng(), {
             icon: L.divIcon({
-              className: '',
-              html: `<div style="position:relative;width:0;height:0;">
-                ${MeasureUtils.getXIcon()}</div>`,
+              className: 'del-icon-wrap',
+              html: MeasureUtils.getXIcon(),
               iconSize: [0, 0],
               iconAnchor: [0, 0],
             }),
@@ -541,8 +534,7 @@
             );
             prevLbl.setIcon(L.divIcon({
               className: '',
-              html: `<div class="measure-label">
-                ${MeasureUtils.formatDistance(prevSeg)}</div>`,
+              html: `<div class="measure-label">${MeasureUtils.formatDistance(prevSeg)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }));
@@ -551,8 +543,7 @@
           const lbl = L.marker(pts[pts.length - 1], {
             icon: L.divIcon({
               className: '',
-              html: `<div class="measure-label">
-                ${MeasureUtils.formatDistance(total)}</div>`,
+              html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }),
@@ -604,9 +595,8 @@
           center = e.latlng;
           previews.center = L.marker(center, {
             icon: L.divIcon({
-              className: '',
-              html: '<div style="width:10px;height:10px;background:#e74c3c;'
-                + 'border:2px solid #fff;border-radius:50%;"></div>',
+              className: 'measure-center-dot',
+              html: '',
               iconSize: [10, 10],
               iconAnchor: [5, 5],
             }),
@@ -685,9 +675,7 @@
             interactive: false,
             icon: L.divIcon({
               className: '',
-              html: `<div class="measure-label"
-                style="transform:translate(-50%,-50%);">
-                ${MeasureUtils.formatDistance(r)}</div>`,
+              html: `<div class="measure-label">${MeasureUtils.formatDistance(r)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, 0],
             }),
@@ -729,9 +717,7 @@
           interactive: false,
           icon: L.divIcon({
             className: '',
-            html: `<div class="measure-label"
-              style="transform:translate(-50%,-50%);white-space:nowrap;">
-              ${MeasureUtils.formatDistance(r)}</div>`,
+            html: `<div class="measure-label">${MeasureUtils.formatDistance(r)}</div>`,
             iconSize: [0, 0],
             iconAnchor: [0, 0],
           }),
@@ -749,10 +735,8 @@
 
         const centerFinal = L.marker(centerLatLng, {
           icon: L.divIcon({
-            className: '',
-            html: '<div style="width:10px;height:10px;background:#e74c3c;'
-              + 'border:2px solid #fff;border-radius:50%;'
-              + 'box-shadow:0 0 4px rgba(0,0,0,0.3);"></div>',
+            className: 'measure-center-dot is-final',
+            html: '',
             iconSize: [10, 10],
             iconAnchor: [5, 5],
           }),
@@ -762,9 +746,8 @@
 
         const delMkr = L.marker(centerLatLng, {
           icon: L.divIcon({
-            className: '',
-            html: `<div style="position:relative;width:0;height:0;">
-              ${MeasureUtils.getXIcon()}</div>`,
+            className: 'del-icon-wrap',
+            html: MeasureUtils.getXIcon(),
             iconSize: [0, 0],
             iconAnchor: [0, 0],
           }),

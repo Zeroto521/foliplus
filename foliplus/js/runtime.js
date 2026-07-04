@@ -23,15 +23,14 @@
 
   // --- SVG Icons ---
   foliplus.SVGs = {
-    LOADING: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-    style="animation:spin 0.8s linear infinite;vertical-align:middle">
+    LOADING: `<svg class="foliplus-spin" width="14" height="14" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
     <path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
     CLOSE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
     stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/>
     <line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-    PIN_ICON: `<div style="position:relative;width:24px;height:36px;">
+    PIN_ICON: `<div class="foliplus-pin-wrap">
     <svg width="24" height="36" viewBox="0 0 24 36">
       <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24
         C24 5.4 18.6 0 12 0z" fill="var(--accent-primary)" stroke="#fff"
@@ -74,7 +73,7 @@
       document.body;
     const el = L.DomUtil.create('div', `map-hint map-hint-${key}`, hintTarget);
     const icon = (foliplus._hintIcons && foliplus._hintIcons[key]) || '';
-    el.innerHTML = icon ? `<span style="margin-right:6px">${icon}</span>${text}` : text;
+    el.innerHTML = icon ? `<span class="map-hint-icon">${icon}</span>${text}` : text;
     // Style via CSS class — common.css defines .map-hint
     el.classList.add('map-hint');
     // Ensure the map container has relative positioning
@@ -270,7 +269,7 @@
       `${foliplus.SVGs.LOADING} ${loadStr}` :
       (addr || loadStr);
 
-    return `<div style="font-size:13px;line-height:1.8">
+    return `<div class="foliplus-popup-content">
       <b>${popupTitle}</b><br>
       ${foliplus.gt(prefix + '_loc_label')}${lng},${lat}<br>
       ${foliplus.gt(prefix + '_addr_label')}${addrHtml}

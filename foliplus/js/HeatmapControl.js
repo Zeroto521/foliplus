@@ -452,10 +452,8 @@
 
             L.marker([lat, lng], {
               icon: L.divIcon({
-                className: 'leaflet-marker-icon heatmap-label',
-                html: `<div class="heatmap-label-inner" style="
-                  font-size: ${LABEL_SIZE}px; color: ${LABEL_COLOR};
-                ">${labelStr}</div>`,
+                className: 'heatmap-label',
+                html: `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`,
                 iconSize: _CONST.LABEL_SIZE,
                 iconAnchor: _CONST.LABEL_ANCHOR,
               }),

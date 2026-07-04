@@ -179,12 +179,13 @@
 
 /* ── Animations ── */
 @keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.foliplus-spin {
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
 }
 
 /* ── Toggle Button ── */
@@ -241,11 +242,26 @@
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
 }
 
+.map-hint-icon {
+  margin-right: var(--space-sm);
+}
+
 /* ── Section Divider ── */
 .section-divider {
   height: var(--border-thin);
   background: linear-gradient(to right, transparent, var(--divider-color), transparent);
   border: none;
+}
+
+.foliplus-pin-wrap {
+  position: relative;
+  width: 24px;
+  height: 36px;
+}
+
+.foliplus-popup-content {
+  font-size: var(--font-size-md);
+  line-height: 1.8;
 }
 
 /* ── Ctrl Fold (Shared Container) ──
