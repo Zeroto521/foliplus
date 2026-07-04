@@ -105,6 +105,17 @@
   fill: var(--accent-primary);
 }
 
+/* ── Visibility toggle for node/line hidden states ── */
+.measure-node-hidden {
+  opacity: 0;
+  fill-opacity: 0;
+  pointer-events: none;
+}
+.measure-line-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* ── Measurement Labels ── */
 .measure-label {
   display: inline-block;
@@ -145,7 +156,7 @@
 }
 .measure-del-icon:hover {
   background: var(--measure-del-hover-bg);
-  transform: scale(1.2);
+  transform: scale(var(--scale-hover));
 }
 .measure-del-icon.marker-del-icon {
   top: calc(-1 * var(--size-6));

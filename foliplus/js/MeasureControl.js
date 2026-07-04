@@ -176,12 +176,13 @@
     }
 
     _bindGlobalEvents() {
-      this.map.on('click', (e) => {
+      this._onMapClick = (e) => {
         if (this.suppressHideDel) return;
         const t = e.originalEvent?.target;
         if (t?.closest?.('.measure-del-icon')) return;
         MeasureUtils.hideAllDelIcons();
-      });
+      };
+      this.map.on('click', this._onMapClick);
 
       this._onKeyDown = (e) => {
         if (e.key === 'Escape' && this.currentMode) {
@@ -241,6 +242,10 @@
       this.layerGroup.clearLayers();
       this._unregisterFromLayerControl();
       this.clearActiveMode();
+      if (this._onMapClick) {
+        this.map.off('click', this._onMapClick);
+        this._onMapClick = null;
+      }
       if (this._onKeyDown) {
         document.removeEventListener('keydown', this._onKeyDown);
         this._onKeyDown = null;
@@ -799,13 +804,12 @@
             delMkr, xVisible, [radiusLabel], labelsVisible
           );
           if (radiusLine) {
-            radiusLine.setStyle({ opacity: labelsVisible ? 1 : 0 });
+            const el = radiusLine.getElement();
+            if (el) el.classList.toggle('measure-line-hidden', !labelsVisible);
           }
           if (radiusNode) {
-            radiusNode.setStyle({
-              opacity: labelsVisible ? 1 : 0,
-              fillOpacity: labelsVisible ? 1 : 0,
-            });
+            const el = radiusNode.getElement();
+            if (el) el.classList.toggle('measure-node-hidden', !labelsVisible);
           }
           if (delMkr.setZIndexOffset) {
             delMkr.setZIndexOffset(xVisible ? 2000 : 1000);
@@ -943,6 +947,10 @@
       });
 
       return container;
+    }
+
+    onRemove() {
+      measureManager.clearAll();
     }
   }
 
