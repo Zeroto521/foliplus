@@ -1,4 +1,10 @@
 (function() {
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error('[Fullscreen] foliplus runtime not found — component disabled.');
+    return;
+  }
+
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;

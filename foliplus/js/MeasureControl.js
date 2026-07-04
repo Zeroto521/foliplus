@@ -1,4 +1,10 @@
 (function() {
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error('[MeasureControl] foliplus runtime not found — component disabled.');
+    return;
+  }
+
   // ==================== Private Constants ====================
   const _CONST = {
     COLOR_ACCENT: '#e74c3c',

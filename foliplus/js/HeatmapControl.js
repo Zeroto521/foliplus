@@ -1,4 +1,10 @@
 (function() {
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error('[HeatmapControl] foliplus runtime not found — component disabled.');
+    return;
+  }
+
   // ==================== Constants ====================
   const _CONST = {
     ZOOM_DEBOUNCE_MS: 200,
