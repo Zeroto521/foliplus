@@ -36,7 +36,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  padding: var(--space-md) calc(var(--space-md) - var(--size-2)) var(--space-sm) var(--space-xxl);
+  padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-sm) var(--space-xxl);
   flex-shrink: 0;
 }
 .layer-ctrl .layer-separator-container .section-divider {
@@ -57,7 +57,7 @@
 .layer-ctrl .layer-item {
   display: flex;
   align-items: center;
-  padding: var(--space-md) calc(var(--space-md) - var(--size-2)) var(--space-md) var(--space-sm);
+  padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-md) var(--space-sm);
   gap: var(--space-sm);
   cursor: default;
   user-select: none;
@@ -137,13 +137,14 @@
 .layer-ctrl .layer-item input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
-  left: calc(var(--space-sm) + var(--border-thin));
-  top: var(--space-xs);
-  width: var(--space-sm);
-  height: var(--space-md);
-  border: solid var(--neutral-0);
-  border-width: 0 var(--border-thin) var(--border-thin) 0;
-  transform: rotate(45deg);
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: var(--size-12);
+  background-position: center;
+  background-repeat: no-repeat;
 }
 /* ── Custom Radio Button ── */
 .layer-ctrl .layer-item input[type="radio"] {
