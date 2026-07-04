@@ -75,7 +75,7 @@
 /* ── Clear Button ── */
 .map-search .clear-btn {
   position: absolute;
-  right: var(--panel-side-icon-offset);
+  right: 0;
   top: 50%;
   transform: translateY(-50%);
   width: var(--ctrl-size);

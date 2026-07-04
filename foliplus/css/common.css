@@ -127,7 +127,7 @@
   --toolbar-inline-padding: var(--space-xs);
 
   /* Component */
-  --panel-header-padding-left: calc(var(--space-md) - var(--space-xs));
+  --panel-header-padding-left: var(--space-sm);
   --panel-header-padding-right: var(--ctrl-size);
   --panel-side-icon-offset: var(--space-sm);
   --panel-max-height: 400px;

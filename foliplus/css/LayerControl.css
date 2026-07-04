@@ -36,7 +36,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg) var(--space-sm) var(--space-xxl);
+  padding: var(--space-md) calc(var(--space-md) - var(--size-2)) var(--space-sm) var(--space-xxl);
   flex-shrink: 0;
 }
 .layer-ctrl .layer-separator-container .section-divider {
@@ -57,7 +57,7 @@
 .layer-ctrl .layer-item {
   display: flex;
   align-items: center;
-  padding: var(--space-md) var(--space-lg) var(--space-md) var(--space-sm);
+  padding: var(--space-md) calc(var(--space-md) - var(--size-2)) var(--space-md) var(--space-sm);
   gap: var(--space-sm);
   cursor: default;
   user-select: none;
