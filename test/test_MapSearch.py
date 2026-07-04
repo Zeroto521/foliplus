@@ -100,6 +100,14 @@ class TestMapSearchRendering:
         html = render(base_map)
         assert "'coord'" in html
 
+    def test_coord_search_uses_fromWgs84(self, base_map: folium.Map):
+        """Coordinate search now uses fromWgs84 CRS conversion (was missing)."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        # Both _doCoordSearch and _doAddrSearch should call fromWgs84
+        count = html.count("foliplus.fromWgs84")
+        assert count >= 1, f"Expected fromWgs84 in coord search, found {count} occurrences"
+
 
 class TestMapSearchBrowser:
     """Browser-based smoke tests for MapSearch."""

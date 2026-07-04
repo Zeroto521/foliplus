@@ -109,3 +109,51 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "del-icon-wrap" in html
         assert "measure-del-icon" in html
+
+    def test_onremove_present(self, base_map: folium.Map):
+        """MeasureControl has onRemove method that calls clearAll."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "onRemove()" in html
+        assert "measureManager.clearAll()" in html
+
+    def test_css_classes_line_styles(self, base_map: folium.Map):
+        """Line styles use measure-line-solid (solid) and measure-line-dashed (dashed)."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-line-solid" in html
+        assert "measure-line-dashed" in html
+        assert "measure-line-preview" in html
+
+    def test_css_class_measure_hidden(self, base_map: folium.Map):
+        """measure-hidden class exists for visibility toggle."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-hidden" in html
+
+    def test_suppress_hide_utility(self, base_map: folium.Map):
+        """MeasureUtils.suppressHide helper is used instead of inline suppress pattern."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureUtils.suppressHide" in html
+
+    def test_node_css_classes(self, base_map: folium.Map):
+        """Node markers use CSS classes instead of inline color/weight/fill options."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-node" in html
+        assert "measure-node-final" in html
+        assert "measure-node-preview" in html
+
+    def test_circle_css_classes(self, base_map: folium.Map):
+        """Circle elements use CSS classes instead of inline color/fill options."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-circle-final" in html
+        assert "measure-circle-preview" in html
+
+    def test_toggle_visibility_utility(self, base_map: folium.Map):
+        """toggleVisibility is used for show/hide of line and node elements."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureUtils.toggleVisibility" in html

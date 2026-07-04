@@ -208,7 +208,10 @@ class TestHeatmapControlRendering:
         assert "onRemove()" in html
         assert "observer.disconnect" in html
         assert "manager.map.off('zoomend', this.manager._onZoomEnd)" in html
-        assert "manager.map.off('layeradd layerremove', this.manager._onLayerChange)" in html
+        assert (
+            "manager.map.off('layeradd layerremove', this.manager._onLayerChange)"
+            in html
+        )
 
     def test_no_layer_hint(self, base_map: folium.Map):
         """initScan shows no_layer hint when no point layers found."""
@@ -237,6 +240,24 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "this.manager.autoFieldKey = null;" in html
+
+    def test_named_handler_cleanup(self, base_map: folium.Map):
+        """_bindMapEvents uses named handlers (_onZoomEnd, _onLayerChange)."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "this._onZoomEnd" in html
+        assert "this._onLayerChange" in html
+        assert "map.on('zoomend', this._onZoomEnd)" in html
+        assert "map.on('layeradd layerremove', this._onLayerChange)" in html
+
+    def test_get_point_value_dedup(self, base_map: folium.Map):
+        """getPointValue delegates to _readMarkerField instead of duplicating branch logic."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "this._readMarkerField(marker, key)" in html
+        # Should NOT contain inline field resolution branches
+        assert "this.currentField === '_value'" not in html
+        assert "this.currentField === 'options.value'" not in html
 
 
 class TestHeatmapControlBrowser:

@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## Added
+### Added
 
 - `MeasureControl`: added real-time distance preview during measurement ([#27](https://github.com/Zeroto521/foliplus/pull/27))
 
