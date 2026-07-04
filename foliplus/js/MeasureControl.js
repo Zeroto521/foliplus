@@ -521,6 +521,9 @@
           this.layerGroup.removeLayer(previewDistLabel); previewDistLabel = null;
         }
         poly.addLatLng(e.latlng);
+        if (previewDistLabel) {
+          this.layerGroup.removeLayer(previewDistLabel); previewDistLabel = null;
+        }
 
         const mkr = L.circleMarker(e.latlng, {
           radius: _CONST.MARKER_RADIUS,
@@ -563,7 +566,8 @@
             );
             prevLbl.setIcon(L.divIcon({
               className: '',
-              html: `<div class="measure-label">${MeasureUtils.formatDistance(prevSeg)}</div>`,
+              html: `<div class="measure-label">
+              ${MeasureUtils.formatDistance(prevSeg)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }));
@@ -572,7 +576,8 @@
           const lbl = L.marker(pts[pts.length - 1], {
             icon: L.divIcon({
               className: '',
-              html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
+              html: `<div class="measure-label">
+              ${MeasureUtils.formatDistance(total)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }),
@@ -704,7 +709,8 @@
             interactive: false,
             icon: L.divIcon({
               className: '',
-              html: `<div class="measure-label">${MeasureUtils.formatDistance(r)}</div>`,
+              html: `<div class="measure-label">
+                ${MeasureUtils.formatDistance(r)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, 0],
             }),
