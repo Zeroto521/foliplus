@@ -9,7 +9,7 @@
   const _CONST = {
     ZOOM_DEBOUNCE_MS: 200,
     LAYER_SCAN_DEBOUNCE_MS: 200,
-    INIT_SCAN_ATTEMPTS: 5,
+    INIT_SCAN_ATTEMPTS: 8,
     INIT_SCAN_INTERVAL_MS: 300,
     SCHEME_DROPDOWN_BLUR_DELAY_MS: 150,
     DEFAULT_GRAY: '#999',
@@ -198,8 +198,8 @@
         layers.forEach((info) => {
           this.extractPoints(info.layer).forEach((pt) => {
             const m = pt.marker;
-            if (m._value !== undefined) fields._value = true;
-            if (m.options?.value !== undefined) fields['options.value'] = true;
+            if (typeof m._value === 'number') fields._value = true;
+            if (typeof m.options?.value === 'number') fields['options.value'] = true;
             if (m.feature?.properties) {
               Object.keys(m.feature.properties).forEach((k) => {
                 if (typeof m.feature.properties[k] === 'number')
@@ -240,7 +240,11 @@
           const key = this.currentField.substring(11);
           val = marker.feature?.properties?.[key];
         }
-        return val !== undefined && !isNaN(val) ? Number(val) : 1;
+        if (val === undefined || isNaN(val)) {
+          console.warn('[HeatmapControl] falling back to 1 for marker, field=' + this.currentField + ' autoFieldKey=' + this.autoFieldKey);
+          return 1;
+        }
+        return Number(val);
       }
 
       collectSelectedPoints() {
@@ -337,7 +341,9 @@
             cell.count += 1;
             if (pt.value < cell.min) cell.min = pt.value;
             if (pt.value > cell.max) cell.max = pt.value;
-          } catch (e) {}
+          } catch (e) {
+            console.warn('[HeatmapControl] h3.latLngToCell failed:', pt.lat, pt.lng, e);
+          }
         });
 
         const getAggValue = (cell) => {
@@ -390,7 +396,9 @@
                 _fillColor: fillColor, _h3: h3Idx
               },
             });
-          } catch (e) {}
+          } catch (e) {
+            console.warn('[HeatmapControl] h3.cellToBoundary failed:', h3Idx, e);
+          }
         }
 
         // Register with LayerControl BEFORE adding data, so enforceOrder()
@@ -763,8 +771,8 @@
 
       onRemove() {
         // Clean up map event listeners
-        if (this.zoomTimer) clearTimeout(this.zoomTimer);
-        if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
+        if (this.manager.zoomTimer) clearTimeout(this.manager.zoomTimer);
+        if (this.manager.layerScanTimer) clearTimeout(this.manager.layerScanTimer);
         this.manager.map.off('zoomend');
         this.manager.map.off('layeradd layerremove');
 

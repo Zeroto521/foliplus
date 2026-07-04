@@ -276,7 +276,28 @@ class TestHeatmapControlBrowser:
         HeatmapControl().add_to(m)
 
         html_path = tmp_path / "test_heatmap_browser.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
+        html = m.get_root().render()
+        # Stub CDN deps so the heatmap UI initializes without network.
+        html = html.replace(
+            "check: () => typeof h3 !== 'undefined'",
+            "check: () => true",
+        )
+        html = html.replace(
+            "check: () => typeof ss !== 'undefined'",
+            "check: () => true",
+        )
+        html = html.replace(
+            "check: () => typeof chroma !== 'undefined'",
+            "check: () => true",
+        )
+        html = html.replace(
+            "return run();",
+            "window.h3={latLngToCell:function(){return ''},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};"
+            "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
+            "window.chroma={scale:function(){return{mode:function(){return{colors:function(){return['#f00']}}}}}};"
+            "return run();",
+        )
+        html_path.write_text(html, encoding="utf-8")
 
         page = browser.new_page()
         try:
