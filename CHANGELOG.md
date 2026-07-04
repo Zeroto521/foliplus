@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## Added
+
+- `MeasureControl`: added real-time distance preview during measurement ([#27](https://github.com/Zeroto521/foliplus/pull/27))
+
 ### Changed
 
 - `ScaleControl`: Fixed to `bottomleft` and aligned UI style with native Leaflet elements ([#23](https://github.com/Zeroto521/foliplus/pull/23))
