@@ -7,14 +7,7 @@
 
   // ==================== Private Constants ====================
   const _CONST = {
-    COLOR_ACCENT: '#e74c3c',
-    LINE_WEIGHT_FINAL: 2.5,
-    LINE_WEIGHT_PREVIEW: 1.5,
-    DASH_ARRAY_FINAL: '6 4',
-    DASH_ARRAY_PREVIEW: '4 4',
     MARKER_RADIUS: 5,
-    CIRCLE_FILL_OPACITY: 0.25,
-    PREVIEW_CIRCLE_FILL_OPACITY: 0.08,
     DEL_ICON_RETRY_LIMIT: 10,
     POPUP_MAX_WIDTH: 260,
     CLICK_COOLDOWN_MS: 300,
@@ -128,6 +121,7 @@
       this.suppressHideDel = false;
       this.toolBtns = [];
       this.MEASURE_ID = '__measure__';
+      this.LABEL_PANE = '__measure_label__';
 
       this._setupLayerOverrides();
       this._bindGlobalEvents();
@@ -137,11 +131,23 @@
       const origAdd = this.layerGroup.addLayer.bind(this.layerGroup);
       this.layerGroup.addLayer = (layer) => {
         this._registerToLayerControl();
-        layer.options.pane = this.MEASURE_ID;
+
+        const isLabel = layer._isMeasureLabel;
+        const paneName = isLabel ? this.LABEL_PANE : this.MEASURE_ID;
+        layer.options.pane = paneName;
 
         if (layer instanceof L.Path) {
           const { renderer } = window.foliplus.LayerControlAPI.ensurePane(this.MEASURE_ID);
           layer.options.renderer = renderer;
+        } else if (isLabel) {
+          window.foliplus.LayerControlAPI.ensurePane(this.LABEL_PANE, false);
+          // Ensure label pane renders above measure pane
+          const lp = this.map.getPane(this.LABEL_PANE);
+          const mp = this.map.getPane(this.MEASURE_ID);
+          if (lp && mp) {
+            const mpZ = parseInt(mp.style.zIndex) || 500;
+            lp.style.zIndex = Math.max(mpZ + 10, 510);
+          }
         }
 
         return origAdd(layer);
@@ -333,22 +339,15 @@
     _startDistanceMode() {
       const pts = [];
       let total = 0;
-      const poly = L.polyline([], {
-        color: _CONST.COLOR_ACCENT,
-        weight: _CONST.LINE_WEIGHT_FINAL,
-        dashArray: _CONST.DASH_ARRAY_FINAL
-      }).addTo(this.layerGroup);
+      const poly = L.polyline([], { className: 'measure-line measure-line-final' })
+        .addTo(this.layerGroup);
 
       const nodeMarkers = [];
       const segLabels = [];
       let startLbl = null;
 
-      const previewLine = L.polyline([], {
-        color: _CONST.COLOR_ACCENT,
-        weight: _CONST.LINE_WEIGHT_PREVIEW,
-        dashArray: _CONST.DASH_ARRAY_PREVIEW,
-        opacity: 0.6
-      }).addTo(this.layerGroup);
+      const previewLine = L.polyline([], { className: 'measure-line measure-line-preview' })
+        .addTo(this.layerGroup);
 
       const cleanupEvents = () => {
         this.map.off('click', onDistClick);
@@ -386,8 +385,7 @@
         }
 
         const finalPoly = L.polyline(pts, {
-          color: _CONST.COLOR_ACCENT,
-          weight: _CONST.LINE_WEIGHT_FINAL,
+          className: 'measure-line measure-line-final',
           interactive: true
         }).addTo(this.layerGroup);
 
@@ -432,7 +430,8 @@
           const lastLbl = segLabels[segLabels.length - 1];
           lastLbl.setIcon(L.divIcon({
             className: '',
-            html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
+            html: `<div class="measure-label">
+              ${MeasureUtils.formatDistance(total)}</div>`,
             iconSize: [0, 0],
             iconAnchor: [0, -10],
           }));
@@ -506,12 +505,14 @@
           previewDistLabel = L.marker(e.latlng, {
             icon: L.divIcon({
               className: '',
-              html: `<div class="measure-label">${MeasureUtils.formatDistance(showDist)}</div>`,
+              html: `<div class="measure-label">
+                ${MeasureUtils.formatDistance(showDist)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }),
             interactive: false,
           }).addTo(this.layerGroup);
+          previewDistLabel._isMeasureLabel = true;
         } else {
           previewDistLabel.setLatLng(e.latlng);
           const el = previewDistLabel.getElement();
@@ -532,10 +533,7 @@
 
         const mkr = L.circleMarker(e.latlng, {
           radius: _CONST.MARKER_RADIUS,
-          color: _CONST.COLOR_ACCENT,
-          fillColor: '#fff',
-          fillOpacity: 1,
-          weight: _CONST.LINE_WEIGHT_FINAL,
+          className: 'measure-node measure-node-final',
         }).addTo(this.layerGroup);
         mkr.bringToFront();
         nodeMarkers.push(mkr);
@@ -549,6 +547,7 @@
               iconAnchor: [0, -10],
             }),
           }).addTo(this.layerGroup);
+          startLbl._isMeasureLabel = true;
         }
 
         mkr.on('click', () => {
@@ -587,6 +586,7 @@
               iconAnchor: [0, -10],
             }),
           }).addTo(this.layerGroup);
+          lbl._isMeasureLabel = true;
           segLabels.push(lbl);
         }
       };
@@ -670,11 +670,8 @@
 
         if (!previews.circle) {
           previews.circle = L.circle(center, {
-            radius: r, color: _CONST.COLOR_ACCENT,
-            weight: _CONST.LINE_WEIGHT_PREVIEW,
-            dashArray: _CONST.DASH_ARRAY_PREVIEW,
-            fillColor: _CONST.COLOR_ACCENT,
-            fillOpacity: _CONST.PREVIEW_CIRCLE_FILL_OPACITY,
+            radius: r,
+            className: 'measure-circle measure-circle-preview',
             interactive: false,
           }).addTo(this.layerGroup);
         } else {
@@ -683,10 +680,7 @@
 
         if (!previews.line) {
           previews.line = L.polyline([center, e.latlng], {
-            color: _CONST.COLOR_ACCENT,
-            weight: _CONST.LINE_WEIGHT_PREVIEW,
-            dashArray: _CONST.DASH_ARRAY_PREVIEW,
-            opacity: 0.8,
+            className: 'measure-line measure-line-preview',
             interactive: false,
           }).addTo(this.layerGroup);
         } else {
@@ -696,9 +690,8 @@
         if (!previews.node) {
           previews.node = L.circleMarker(e.latlng, {
             radius: _CONST.MARKER_RADIUS,
-            color: _CONST.COLOR_ACCENT,
-            fillColor: '#fff', fillOpacity: 1,
-            weight: _CONST.LINE_WEIGHT_FINAL, interactive: false,
+            className: 'measure-node measure-node-preview',
+            interactive: false,
           }).addTo(this.layerGroup);
           previews.node.bringToFront();
         } else {
@@ -720,6 +713,7 @@
               iconAnchor: [0, 0],
             }),
           }).addTo(this.layerGroup);
+          previews.label._isMeasureLabel = true;
         } else {
           previews.label.setLatLng(mid);
           const el = previews.label.getElement();
@@ -740,14 +734,13 @@
           || L.CRS.Earth.destination(centerLatLng, r, 90);
 
         const circle = L.circle(centerLatLng, {
-          radius: r, color: _CONST.COLOR_ACCENT, weight: 2,
-          fillColor: _CONST.COLOR_ACCENT,
-          fillOpacity: _CONST.CIRCLE_FILL_OPACITY,
+          radius: r,
+          className: 'measure-circle measure-circle-final',
           interactive: true,
         }).addTo(this.layerGroup);
 
         const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {
-          color: _CONST.COLOR_ACCENT, weight: 2, dashArray: '6 4',
+          className: 'measure-line measure-line-final',
           interactive: true,
         }).addTo(this.layerGroup);
 
@@ -762,11 +755,12 @@
             iconAnchor: [0, 0],
           }),
         }).addTo(this.layerGroup);
+        radiusLabel._isMeasureLabel = true;
 
         const radiusNode = L.circleMarker(finalTargetLatLng, {
-          radius: _CONST.MARKER_RADIUS, color: _CONST.COLOR_ACCENT,
-          fillColor: '#fff', fillOpacity: 1,
-          weight: _CONST.LINE_WEIGHT_FINAL, interactive: true,
+          radius: _CONST.MARKER_RADIUS,
+          className: 'measure-node measure-node-final',
+          interactive: true,
         }).addTo(this.layerGroup);
         radiusNode.bringToFront();
 

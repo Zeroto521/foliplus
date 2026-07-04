@@ -52,6 +52,59 @@
   box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
 }
 
+/* ── Measurement Nodes (circleMarker) ── */
+.measure-node {
+  fill: #fff;
+  fill-opacity: 1;
+}
+
+/* ── Lines (polylines) ── */
+.measure-line-final {
+  stroke-dasharray: 6 4;
+}
+.measure-line-preview {
+  stroke-dasharray: 4 4;
+  opacity: 0.6;
+}
+
+/* ── Circles ── */
+.measure-circle-final {
+  fill-opacity: 0.25;
+}
+.measure-circle-preview {
+  stroke-dasharray: 4 4;
+  fill-opacity: 0.08;
+}
+
+/* ── Shared stroke/fill for all measurement paths ── */
+.measure-node,
+.measure-line-final,
+.measure-line-preview,
+.measure-circle-final,
+.measure-circle-preview {
+  stroke: var(--accent-primary);
+}
+
+.measure-node-final,
+.measure-line-final {
+  stroke-width: 2.5;
+}
+
+.measure-circle-final {
+  stroke-width: 2;
+}
+
+.measure-node-preview,
+.measure-line-preview,
+.measure-circle-preview {
+  stroke-width: 1.5;
+}
+
+.measure-circle-final,
+.measure-circle-preview {
+  fill: var(--accent-primary);
+}
+
 /* ── Measurement Labels ── */
 .measure-label {
   display: inline-block;
