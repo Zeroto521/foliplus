@@ -119,9 +119,10 @@
 
         const lng = parts[0], lat = parts[1];
         _hideSearchHint();
-        map.flyTo([lat, lng], {{ this.zoom }});
+        const converted = window.foliplus.fromWgs84(map, lng, lat);
+        map.flyTo([converted[1], converted[0]], {{ this.zoom }});
         mk = window.foliplus.createLocationMarker(
-          map, lat, lng, null, 'search.popup', _('search.popup_title_coord'), mk
+          map, converted[1], converted[0], null, 'search.popup', _('search.popup_title_coord'), mk
         );
       }
 

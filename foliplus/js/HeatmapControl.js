@@ -127,15 +127,16 @@
 
       _bindMapEvents() {
         this.zoomTimer = null;
-        this.map.on('zoomend', () => {
+        this._onZoomEnd = () => {
           if (this.zoomTimer) clearTimeout(this.zoomTimer);
           this.zoomTimer = setTimeout(() => {
             if (this.selectedLayerId) this.renderHexagons();
           }, _CONST.ZOOM_DEBOUNCE_MS);
-        });
+        };
+        this.map.on('zoomend', this._onZoomEnd);
 
         this.layerScanTimer = null;
-        this.map.on('layeradd layerremove', () => {
+        this._onLayerChange = () => {
           if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
           this.layerScanTimer = setTimeout(() => {
             if (this.ui) {
@@ -143,7 +144,8 @@
               this.ui.rebuildLayerDropdown();
             }
           }, _CONST.LAYER_SCAN_DEBOUNCE_MS);
-        });
+        };
+        this.map.on('layeradd layerremove', this._onLayerChange);
       }
 
       // --- Data Extraction ---
@@ -229,17 +231,8 @@
 
       getPointValue(marker) {
         if (this.currentAgg === 'count') return 1;
-        let val;
-        if (this.currentField === '_auto') {
-          val = this._readMarkerField(marker, this.autoFieldKey);
-        } else if (this.currentField === '_value') {
-          val = marker._value;
-        } else if (this.currentField === 'options.value') {
-          val = marker.options?.value;
-        } else if (this.currentField.startsWith('properties.')) {
-          const key = this.currentField.substring(11);
-          val = marker.feature?.properties?.[key];
-        }
+        const key = this.currentField === '_auto' ? this.autoFieldKey : this.currentField;
+        const val = this._readMarkerField(marker, key);
         if (val === undefined || isNaN(val)) {
           console.warn('[HeatmapControl] falling back to 1 for marker, field=' + this.currentField + ' autoFieldKey=' + this.autoFieldKey);
           return 1;
@@ -773,8 +766,8 @@
         // Clean up map event listeners
         if (this.manager.zoomTimer) clearTimeout(this.manager.zoomTimer);
         if (this.manager.layerScanTimer) clearTimeout(this.manager.layerScanTimer);
-        this.manager.map.off('zoomend');
-        this.manager.map.off('layeradd layerremove');
+        this.manager.map.off('zoomend', this.manager._onZoomEnd);
+        this.manager.map.off('layeradd layerremove', this.manager._onLayerChange);
 
         // Disconnect MutationObserver
         if (this.observer) this.observer.disconnect();
