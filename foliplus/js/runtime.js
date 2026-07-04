@@ -184,8 +184,7 @@
     const dst = isBaidu ? gcoord.BD09 : gcoord.GCJ02;
     // Skip transformation for non-domestic maps (no Baidu/AMap tile patterns)
     if (!isBaidu && !_isDomesticMap(map)) return [lng, lat];
-    const result = gcoord.transform([lng, lat], gcoord.WGS84, dst);
-    return result;
+    return gcoord.transform([lng, lat], gcoord.WGS84, dst);
   };
 
   function _isDomesticMap(map) {
