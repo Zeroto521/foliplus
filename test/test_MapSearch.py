@@ -106,7 +106,9 @@ class TestMapSearchRendering:
         html = render(base_map)
         # Both _doCoordSearch and _doAddrSearch should call fromWgs84
         count = html.count("foliplus.fromWgs84")
-        assert count >= 1, f"Expected fromWgs84 in coord search, found {count} occurrences"
+        assert count >= 1, (
+            f"Expected fromWgs84 in coord search, found {count} occurrences"
+        )
 
 
 class TestMapSearchBrowser:
