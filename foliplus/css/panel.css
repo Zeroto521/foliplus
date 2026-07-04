@@ -33,10 +33,11 @@
 .map-panel .toggle-btn:hover {
   background-color: var(--ctrl-hover-bg);
   color: var(--text-primary);
+  transform: scale(var(--scale-hover));
 }
 
 .map-panel .toggle-btn:active {
-  transform: scale(0.92);
+  transform: scale(var(--scale-press));
 }
 
 /* Hide toggle when expanded */

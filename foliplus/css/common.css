@@ -5,9 +5,10 @@
 
 :root {
   /* ── Primitive Tokens: Size Scale ──
-     Prefer these base steps in component styles: 2/4/6/8/12/16/20/24
-     Rule: layout spacing follows this scale; border allows 1px for visual sharpness.
-     Rule: component/business dimensions (e.g. 30/36/280/400) can be semantic exceptions. */
+    Prefer these base steps in component styles: 2/4/6/8/12/16/20/24
+    Rule: layout spacing follows this scale; border allows 1px for visual sharpness.
+    Rule: component/business dimensions (e.g. 30/36/280/400) can be semantic exceptions.
+  */
   --size-2: 2px;
   --size-4: 4px;
   --size-6: 6px;
@@ -81,8 +82,10 @@
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-06));
   --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
-  --accent-shadow-sm: 0 var(--size-2) var(--size-8) rgba(var(--red-rgb), var(--alpha-30));
-  --accent-shadow-md: 0 var(--size-4) var(--size-12) rgba(var(--red-rgb), var(--alpha-50));
+  --accent-shadow-sm: 0 var(--size-2) var(--size-8)
+    rgba(var(--red-rgb), var(--alpha-30));
+  --accent-shadow-md: 0 var(--size-4) var(--size-12)
+    rgba(var(--red-rgb), var(--alpha-50));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
 
   /* ── Semantic Tokens: Typography ── */
@@ -114,6 +117,8 @@
   --ctrl-size: 30px;
   --input-height: 30px;
   --btn-height: 30px;
+  --scale-press: 0.92;
+  --scale-hover: 1.08;
   --toggle-off-bg: #ccc;
   --icon-size-sm: var(--size-16);
   --icon-size-md: 18px;
@@ -160,7 +165,6 @@
   /* Base */
   --shadow-sm: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-12));
   --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-12));
-  --shadow-lg: 0 var(--size-8) var(--size-24) rgba(0, 0, 0, var(--alpha-20));
   --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-12));
 
   /* Component */
@@ -168,7 +172,6 @@
 
   /* ── Semantic Tokens: Transitions ── */
   --transition-fast: 0.15s ease;
-  --transition-normal: 0.2s ease;
 
   /* ── Semantic Tokens: Z-index ── */
   --z-index-dropdown: 10000;
@@ -179,8 +182,12 @@
 
 /* ── Animations ── */
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .foliplus-spin {
@@ -213,10 +220,10 @@
 }
 .toggle-btn:hover {
   background-color: var(--ctrl-hover-bg);
-  transform: scale(1.08);
+  transform: scale(var(--scale-hover));
 }
 .toggle-btn:active {
-  transform: scale(0.92);
+  transform: scale(var(--scale-press));
 }
 .toggle-btn svg {
   stroke: var(--text-primary);
@@ -237,7 +244,7 @@
   z-index: var(--z-index-hint);
   color: var(--neutral-0);
   font-size: var(--font-size-md);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   line-height: 1.4;
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
 }
@@ -255,8 +262,8 @@
 
 .foliplus-pin-wrap {
   position: relative;
-  width: 24px;
-  height: 36px;
+  width: var(--size-24);
+  height: var(--toggle-size);
 }
 
 .foliplus-popup-content {
@@ -265,8 +272,8 @@
 }
 
 /* ── Ctrl Fold (Shared Container) ──
-   Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
-   Expanded: defined by component or shared extension rules */
+  Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
+  Expanded: defined by component or shared extension rules */
 .ctrl-fold {
   display: flex;
   align-items: stretch;
@@ -295,8 +302,8 @@
 }
 
 /* ── Shared Toolbar ──
-   Used by MeasureControl / ExportControl
-   Separator via toggle-btn border-right (avoids flex compression issues) */
+  Used by MeasureControl / ExportControl
+  Separator via toggle-btn border-right (avoids flex compression issues) */
 .ctrl-fold .tool-bar {
   display: none;
   align-items: center;

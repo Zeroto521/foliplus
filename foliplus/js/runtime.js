@@ -33,9 +33,9 @@
     PIN_ICON: `<div class="foliplus-pin-wrap">
     <svg width="24" height="36" viewBox="0 0 24 36">
       <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24
-        C24 5.4 18.6 0 12 0z" fill="var(--accent-primary)" stroke="#fff"
+        C24 5.4 18.6 0 12 0z" fill="var(--accent-primary)" stroke="var(--neutral-0)"
         stroke-width="1.5"/>
-      <circle cx="12" cy="12" r="4.5" fill="#fff"/>
+      <circle cx="12" cy="12" r="4.5" fill="var(--neutral-0)"/>
     </svg></div>`,
     LOCATE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="1.8" stroke-linecap="round"

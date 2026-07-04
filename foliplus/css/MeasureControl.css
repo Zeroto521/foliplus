@@ -45,11 +45,11 @@
   width: 10px;
   height: 10px;
   background: var(--accent-primary);
-  border: 2px solid var(--neutral-0);
+  border: var(--border-medium) solid var(--neutral-0);
   border-radius: var(--radius-round);
 }
 .measure-center-dot.is-final {
-  box-shadow: 0 0 4px rgba(0, 0, 0, var(--alpha-30));
+  box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
 }
 
 /* ── Measurement Labels ── */
@@ -95,8 +95,8 @@
   transform: scale(1.2);
 }
 .measure-del-icon.marker-del-icon {
-  top: -6px;
-  left: 20px;
+  top: calc(-1 * var(--size-6));
+  left: var(--size-20);
   right: auto;
   margin: 0;
 }
