@@ -42,8 +42,8 @@
 }
 
 .measure-center-dot {
-  width: 10px;
-  height: 10px;
+  width: var(--size-12);
+  height: var(--size-12);
   background: var(--accent-primary);
   border: var(--border-medium) solid var(--neutral-0);
   border-radius: var(--radius-round);
@@ -80,8 +80,8 @@
   pointer-events: auto;
   box-shadow: none;
   display: none;
-  top: -14px;
-  left: 5px;
+  top: calc(-1 * var(--size-12) - var(--size-2));
+  left: var(--size-4);
   right: auto;
   margin: 0;
   align-items: center;

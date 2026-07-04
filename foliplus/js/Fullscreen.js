@@ -91,4 +91,9 @@
   };
 
   document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+  // Cleanup on map unload
+  map.on('unload', function() {
+    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  });
 })();

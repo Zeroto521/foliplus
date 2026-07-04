@@ -13,8 +13,6 @@
     DASH_ARRAY_FINAL: '6 4',
     DASH_ARRAY_PREVIEW: '4 4',
     MARKER_RADIUS: 5,
-    PREVIEW_NODE_RADIUS: 4,
-    FINAL_NODE_RADIUS: 3.5,
     CIRCLE_FILL_OPACITY: 0.25,
     PREVIEW_CIRCLE_FILL_OPACITY: 0.08,
     DEL_ICON_RETRY_LIMIT: 10,
@@ -179,13 +177,15 @@
         MeasureUtils.hideAllDelIcons();
       });
 
-      document.addEventListener('keydown', (e) => {
+      this._onKeyDown = (e) => {
         if (e.key === 'Escape' && this.currentMode) {
           this.clearActiveMode();
         }
-      });
+      };
+      document.addEventListener('keydown', this._onKeyDown);
 
-      this.map.on('unload', () => this.clearAll());
+      this._onUnload = () => this.clearAll();
+      this.map.on('unload', this._onUnload);
     }
 
     attachUIBtns(btns) {
@@ -235,6 +235,14 @@
       this.layerGroup.clearLayers();
       this._unregisterFromLayerControl();
       this.clearActiveMode();
+      if (this._onKeyDown) {
+        document.removeEventListener('keydown', this._onKeyDown);
+        this._onKeyDown = null;
+      }
+      if (this._onUnload) {
+        this.map.off('unload', this._onUnload);
+        this._onUnload = null;
+      }
     }
 
     _cleanMapEvents() {
@@ -628,8 +636,8 @@
             icon: L.divIcon({
               className: 'measure-center-dot',
               html: '',
-              iconSize: [10, 10],
-              iconAnchor: [5, 5],
+              iconSize: [12, 12],
+              iconAnchor: [6, 6],
             }),
             zIndexOffset: 1000,
             interactive: false,
@@ -687,10 +695,10 @@
 
         if (!previews.node) {
           previews.node = L.circleMarker(e.latlng, {
-            radius: _CONST.PREVIEW_NODE_RADIUS,
+            radius: _CONST.MARKER_RADIUS,
             color: _CONST.COLOR_ACCENT,
             fillColor: '#fff', fillOpacity: 1,
-            weight: 2, interactive: false,
+            weight: _CONST.LINE_WEIGHT_FINAL, interactive: false,
           }).addTo(this.layerGroup);
           previews.node.bringToFront();
         } else {
@@ -756,9 +764,9 @@
         }).addTo(this.layerGroup);
 
         const radiusNode = L.circleMarker(finalTargetLatLng, {
-          radius: _CONST.FINAL_NODE_RADIUS, color: _CONST.COLOR_ACCENT,
+          radius: _CONST.MARKER_RADIUS, color: _CONST.COLOR_ACCENT,
           fillColor: '#fff', fillOpacity: 1,
-          weight: 2, interactive: true,
+          weight: _CONST.LINE_WEIGHT_FINAL, interactive: true,
         }).addTo(this.layerGroup);
         radiusNode.bringToFront();
 
@@ -769,8 +777,8 @@
           icon: L.divIcon({
             className: 'measure-center-dot is-final',
             html: '',
-            iconSize: [10, 10],
-            iconAnchor: [5, 5],
+            iconSize: [12, 12],
+            iconAnchor: [6, 6],
           }),
           zIndexOffset: 1000,
           interactive: true,

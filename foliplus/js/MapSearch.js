@@ -131,7 +131,9 @@
 
         fetch('https://nominatim.openstreetmap.org/search' +
           '?format=jsonv2&q=' + encodeURIComponent(query) +
-          '&limit=1&accept-language=' + (window._LOCALE['locale.code'] || 'en'))
+          '&limit=1&accept-language=' + (window._LOCALE['locale.code'] || 'en'), {
+          headers: { 'User-Agent': 'foliplus/1.0' }
+        })
           .then(function(r) { return r.json(); })
           .then(function(results) {
             _hideSearchHint();

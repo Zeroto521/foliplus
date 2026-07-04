@@ -1,6 +1,6 @@
 (function() {
   // ==================== Runtime Guard ====================
-  if (!window.foliplus || typeof window.foliplus !== 'object') {
+  if (!window.foliplus || !window.foliplus.SVGs) {
     console.error('[LayerControl] foliplus runtime not found — component disabled.');
     return;
   }
@@ -162,7 +162,9 @@
           }
         }
         this.layers = ordered.concat([...map.values()]);
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[LayerControl] failed to load saved layer order:', e);
+      }
     }
 
     _saveOrder() {
@@ -171,7 +173,9 @@
           _CONST.STORAGE_KEY,
           JSON.stringify(this.layers.map(l => l.id))
         );
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[LayerControl] failed to save layer order:', e);
+      }
     }
 
     // ==================== Public API Methods ====================
@@ -248,6 +252,8 @@
 
       if (opts.paneName) this.ensurePane(opts.paneName);
 
+      // NB: window[id] provides global access for HeatmapControl/others to find
+      // layers by id via scanMapLayers() fallback path.
       if (opts.layer) window[opts.id] = opts.layer;
       if (opts.layer && !this.map.hasLayer(opts.layer)) {
         this.map.addLayer(opts.layer);
@@ -491,7 +497,7 @@
     }
 
     _initTypesAndVisibility() {
-      const inputs = this.uiContainer.querySelectorAll('input');
+      const inputs = this.uiContainer.querySelectorAll('.layer-item input[type="checkbox"], .layer-item input[type="radio"]');
       const typeCols = this.uiContainer.querySelectorAll('.type-icon-col');
       let anyBaseVisible = false;
 
