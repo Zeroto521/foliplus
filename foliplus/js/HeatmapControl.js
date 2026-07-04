@@ -582,6 +582,11 @@
         this.fieldSelect = L.DomUtil.create('select', 'form-select', fieldControlWrap);
         this.fieldSelect.onchange = () => {
           this.manager.currentField = this.fieldSelect.value;
+          if (this.fieldSelect.value === '_auto') {
+            this.fieldSelect.classList.add('is-placeholder');
+          } else {
+            this.fieldSelect.classList.remove('is-placeholder');
+          }
           this.manager.renderHexagons();
         };
 
@@ -877,6 +882,7 @@
         const phOpt = document.createElement('option');
         phOpt.value = '_auto';
         phOpt.textContent = _('heatmap.field_auto');
+        phOpt.disabled = true;
         phOpt.className = 'placeholder-option';
 
         this.fieldSelect.innerHTML = '';
