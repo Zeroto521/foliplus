@@ -213,17 +213,6 @@
 
       pickAutoField(fields) {
         if (!fields || fields.length === 0) return null;
-
-        const priority = ['_value', 'options.value', 'properties.value'];
-        for (const key of priority) {
-          if (fields.includes(key)) return key;
-        }
-
-        // Single-field case: always use the only numeric field.
-        if (fields.length === 1) return fields[0];
-
-        const propFields = fields.filter((f) => f.startsWith('properties.')).sort();
-        if (propFields.length > 0) return propFields[0];
         return fields[0];
       }
 
@@ -243,11 +232,6 @@
         let val;
         if (this.currentField === '_auto') {
           val = this._readMarkerField(marker, this.autoFieldKey);
-          if (val === undefined) {
-            val = marker._value ??
-              marker.options?.value ??
-              marker.feature?.properties?.value;
-          }
         } else if (this.currentField === '_value') {
           val = marker._value;
         } else if (this.currentField === 'options.value') {
@@ -582,11 +566,7 @@
         this.fieldSelect = L.DomUtil.create('select', 'form-select', fieldControlWrap);
         this.fieldSelect.onchange = () => {
           this.manager.currentField = this.fieldSelect.value;
-          if (this.fieldSelect.value === '_auto') {
-            this.fieldSelect.classList.add('is-placeholder');
-          } else {
-            this.fieldSelect.classList.remove('is-placeholder');
-          }
+          this._syncSelect(this.fieldSelect, this.fieldSelect.value);
           this.manager.renderHexagons();
         };
 
@@ -738,38 +718,21 @@
         const clearBtn = L.DomUtil.create('button', 'btn btn-clear', btnRow);
         clearBtn.textContent = _('heatmap.clear');
         clearBtn.onclick = () => {
-          this.manager.selectedLayerId = null;
-          this.manager.autoFieldKey = null;
-          this.layerSelect.value = '';
-          this.manager.currentAgg = AGG_DEFAULT;
-          this.aggSelect.value = AGG_DEFAULT;
-          this.manager.currentField = FIELD_DEFAULT;
-          this.manager.N_CLASSES = N_CLASSES_DEFAULT;
-          this.classSelect.value = String(N_CLASSES_DEFAULT);
-          this.manager.currentMethod = COLOR_METHOD;
-          this.methodSelect.value = COLOR_METHOD;
-          this.manager.currentScheme = COLOR_SCHEME;
+          this._resetAll();
+          this._syncSelect(this.layerSelect, '');
+          this._syncSelect(this.aggSelect, AGG_DEFAULT);
+          this._syncSelect(this.classSelect, String(N_CLASSES_DEFAULT));
+          this._syncSelect(this.methodSelect, COLOR_METHOD);
           this.schemeSelectHidden.value = COLOR_SCHEME;
-          this.manager.currentLabelShow = LABEL_SHOW;
           this.labelChk.checked = LABEL_SHOW;
-          this.manager.BORDER_W = BORDER_W_DEFAULT;
           this.borderWeightInput.value = BORDER_W_DEFAULT;
-          this.manager.BORDER_COLOR = BORDER_COLOR_DEFAULT;
           this.borderColorInput.value = BORDER_COLOR_DEFAULT;
 
-          this.manager.hexLayer.clearLayers();
-          this.manager.labelLayer.clearLayers();
-          this.manager.unregisterHexLayer();
           this.updateSchemeBar();
           this.updateFieldSelector();
           this.extraBody.style.display = 'none';
           this.container.classList.remove('expanded');
           this.container.classList.add('collapsed');
-          if (this.layerSelect.value === '') {
-            this.layerSelect.classList.add('is-placeholder');
-          } else {
-            this.layerSelect.classList.remove('is-placeholder');
-          }
         };
 
         const confirmBtn = L.DomUtil.create('button', 'btn btn-confirm', btnRow);
@@ -846,9 +809,7 @@
             this.extraBody.style.display =
               this.manager.selectedLayerId ? '' : 'none';
           }
-          if (sel.value === '') sel.classList.add('is-placeholder');
-          else sel.classList.remove('is-placeholder');
-
+          this._syncSelect(sel, sel.value);
           this.updateFieldSelector();
           if (this.manager.selectedLayerId) this.manager.renderHexagons();
           else {
@@ -858,8 +819,7 @@
           }
         };
 
-        if (sel.value === '') sel.classList.add('is-placeholder');
-        else sel.classList.remove('is-placeholder');
+        this._syncSelect(sel, sel.value);
       }
 
       rebuildLayerDropdown() {
@@ -906,11 +866,7 @@
           this.fieldSelect.value = '_auto';
         }
 
-        if (this.fieldSelect.value === '_auto') {
-          this.fieldSelect.classList.add('is-placeholder');
-        } else {
-          this.fieldSelect.classList.remove('is-placeholder');
-        }
+        this._syncSelect(this.fieldSelect, this.fieldSelect.value);
       }
 
       /** Render color blocks into a container. */
@@ -975,9 +931,7 @@
           };
         });
 
-        const items = this.schemeDropdown.querySelectorAll(
-          '.scheme-dropdown-item'
-        );
+        const items = this.schemeDropdown.querySelectorAll('.scheme-dropdown-item');
         if (items.length) {
           if (focusIdx >= 0) items[focusIdx].focus();
           else items[0].focus();
@@ -1028,6 +982,28 @@
         } else if (this.manager.pointLayers.length === 0) {
           window.foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
         }
+      }
+
+      _resetAll() {
+        this.manager.selectedLayerId = null;
+        this.manager.autoFieldKey = null;
+        this.manager.currentAgg = AGG_DEFAULT;
+        this.manager.currentField = FIELD_DEFAULT;
+        this.manager.N_CLASSES = N_CLASSES_DEFAULT;
+        this.manager.currentMethod = COLOR_METHOD;
+        this.manager.currentScheme = COLOR_SCHEME;
+        this.manager.currentLabelShow = LABEL_SHOW;
+        this.manager.BORDER_W = BORDER_W_DEFAULT;
+        this.manager.BORDER_COLOR = BORDER_COLOR_DEFAULT;
+
+        this.manager.hexLayer.clearLayers();
+        this.manager.labelLayer.clearLayers();
+        this.manager.unregisterHexLayer();
+      }
+
+      _syncSelect(el, value) {
+        el.value = value;
+        el.classList.toggle('is-placeholder', !value || value === '_auto');
       }
     }
 
