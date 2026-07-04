@@ -217,7 +217,7 @@
 .heatmap-ctrl .scheme-dropdown-item.active {
   background: var(--accent-light);
   color: var(--accent-primary);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .heatmap-ctrl .scheme-dropdown-bar {
   flex: 1;
@@ -381,7 +381,7 @@
 }
 .hex-label {
   font-size: var(--font-size-sm);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   fill: var(--neutral-0);
   text-anchor: middle;
   dominant-baseline: central;

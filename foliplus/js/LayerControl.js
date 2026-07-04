@@ -1,4 +1,10 @@
 (function() {
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || typeof window.foliplus !== 'object') {
+    console.warn('[LayerControl] foliplus runtime not found — component disabled.');
+    return;
+  }
+
   // ==================== Constants ====================
   const _CONST = {
     INIT_DELAY_MS: 300,
@@ -20,12 +26,12 @@
     DRAG_HANDLE: `
       <svg width="12" height="16" viewBox="0 0 12 16" fill="none"
         class="drag-handle">
-        <circle cx="4" cy="4" r="1.5" fill="#aaa" />
-        <circle cx="8" cy="4" r="1.5" fill="#aaa" />
-        <circle cx="4" cy="8" r="1.5" fill="#aaa" />
-        <circle cx="8" cy="8" r="1.5" fill="#aaa" />
-        <circle cx="4" cy="12" r="1.5" fill="#aaa" />
-        <circle cx="8" cy="12" r="1.5" fill="#aaa" />
+        <circle cx="4" cy="4" r="1.5" fill="currentColor" />
+        <circle cx="8" cy="4" r="1.5" fill="currentColor" />
+        <circle cx="4" cy="8" r="1.5" fill="currentColor" />
+        <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+        <circle cx="4" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="8" cy="12" r="1.5" fill="currentColor" />
       </svg>`,
     LIST: `
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -53,16 +59,6 @@
           stroke="currentColor" stroke-width="1.5"
           stroke-linejoin="round"/>
       </svg>`,
-    EYE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="2"
-      stroke-linecap="round" stroke-linejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-      <circle cx="12" cy="12" r="3"/></svg>`,
-    EYE_OFF: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="2"
-      stroke-linecap="round" stroke-linejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-      <line x1="1" y1="1" x2="23" y2="23"/></svg>`
   };
 
   if (window.foliplus) {
@@ -446,33 +442,6 @@
       }
 
       setTimeout(() => this._initTypesAndVisibility(), _CONST.INIT_DELAY_MS);
-    }
-
-    _createItemDOM(info) {
-      const en = LayerUtils.escapeHTML(info.name);
-      const handle = SVGS.DRAG_HANDLE;
-      const item = document.createElement('div');
-      item.className = 'layer-item is-active' + (info.isBase ? ' is-base-item' : '');
-      item.draggable = true;
-      item.dataset.index = String(info.index);
-      item.dataset.layerId = String(info.id);
-      item.title = en;
-
-      item.innerHTML = `
-        ${handle}
-        <div class="checkbox-wrapper">
-          <input type="checkbox" checked data-index="${info.index}">
-        </div>
-        <label title="${en}">${en}</label>
-        <div class="type-icon-col"></div>
-      `;
-
-      const typeCol = item.querySelector('.type-icon-col');
-      const layer = this.map._layers[info.id] || window[info.id] || null;
-      typeCol.innerHTML = info.iconSvg || (
-        info.isBase ? SVGS.GLOBE : (layer ? LayerUtils.getTypeSVG(layer) : '')
-      );
-      return item;
     }
 
     _renderInitialList() {

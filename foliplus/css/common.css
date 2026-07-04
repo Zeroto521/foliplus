@@ -129,7 +129,6 @@
   /* Component */
   --panel-header-padding-left: var(--space-sm);
   --panel-header-padding-right: var(--ctrl-size);
-  --panel-side-icon-offset: var(--space-sm);
   --panel-max-height: 400px;
   --dropdown-max-height: 200px;
 
