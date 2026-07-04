@@ -208,7 +208,10 @@ class TestHeatmapControlRendering:
         assert "onRemove()" in html
         assert "observer.disconnect" in html
         assert "manager.map.off('zoomend', this.manager._onZoomEnd)" in html
-        assert "manager.map.off('layeradd layerremove', this.manager._onLayerChange)" in html
+        assert (
+            "manager.map.off('layeradd layerremove', this.manager._onLayerChange)"
+            in html
+        )
 
     def test_no_layer_hint(self, base_map: folium.Map):
         """initScan shows no_layer hint when no point layers found."""
