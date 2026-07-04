@@ -362,10 +362,12 @@
         nodeMarkers.forEach(m => this.layerGroup.removeLayer(m));
         segLabels.forEach(l => this.layerGroup.removeLayer(l));
         if (startLbl) this.layerGroup.removeLayer(startLbl);
+        if (previewDistLabel) this.layerGroup.removeLayer(previewDistLabel);
       };
 
       this.cleanupFn = cancelCleanup;
       let distFinished = false;
+      let previewDistLabel = null;
 
       const finishDist = () => {
         if (distFinished) return;
@@ -377,6 +379,9 @@
         distFinished = true;
         this.layerGroup.removeLayer(poly);
         this.layerGroup.removeLayer(previewLine);
+        if (previewDistLabel) {
+          this.layerGroup.removeLayer(previewDistLabel); previewDistLabel = null;
+        }
 
         const finalPoly = L.polyline(pts, {
           color: _CONST.COLOR_ACCENT,
@@ -493,12 +498,39 @@
       const onDistMove = (e) => {
         if (pts.length === 0) return;
         previewLine.setLatLngs([pts[pts.length - 1], e.latlng]);
+        const seg = MeasureUtils.distance(
+          pts[pts.length - 1].lat, pts[pts.length - 1].lng,
+          e.latlng.lat, e.latlng.lng
+        );
+        const showDist = total + seg;
+        if (!previewDistLabel) {
+          previewDistLabel = L.marker(e.latlng, {
+            icon: L.divIcon({
+              className: '',
+              html: `<div class="measure-label">
+              ${MeasureUtils.formatDistance(showDist)}</div>`,
+              iconSize: [0, 0],
+              iconAnchor: [0, -10],
+            }),
+            interactive: false,
+          }).addTo(this.layerGroup);
+        } else {
+          previewDistLabel.setLatLng(e.latlng);
+          const el = previewDistLabel.getElement();
+          if (el) {
+            const div = el.querySelector('.measure-label');
+            if (div) div.textContent = MeasureUtils.formatDistance(showDist);
+          }
+        }
       };
 
       const onDistClick = (e) => {
         if (this.currentMode !== 'distance') return;
         pts.push(e.latlng);
         poly.addLatLng(e.latlng);
+        if (previewDistLabel) {
+          this.layerGroup.removeLayer(previewDistLabel); previewDistLabel = null;
+        }
 
         const mkr = L.circleMarker(e.latlng, {
           radius: _CONST.MARKER_RADIUS,
