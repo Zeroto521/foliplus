@@ -1,7 +1,7 @@
 (function() {
   // ==================== Runtime Guard ====================
   if (!window.foliplus || typeof window.foliplus !== 'object') {
-    console.warn('[LayerControl] foliplus runtime not found — component disabled.');
+    console.error('[LayerControl] foliplus runtime not found — component disabled.');
     return;
   }
 
