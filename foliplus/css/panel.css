@@ -135,32 +135,6 @@
   color: var(--text-primary);
 }
 
-.map-panel .panel-header .close-btn {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0;
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-
-.map-panel .panel-header .close-btn:hover {
-  color: var(--accent-primary);
-  background: var(--accent-light);
-}
-
 /* ── Panel Content ── */
 .map-panel .panel-content {
   display: flex;

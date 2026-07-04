@@ -87,7 +87,8 @@
   -moz-appearance: none;
 }
 .heatmap-ctrl .form-select:focus,
-.heatmap-ctrl select:focus {
+.heatmap-ctrl select:focus,
+.heatmap-ctrl .ctrl-focus {
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }

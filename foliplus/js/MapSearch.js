@@ -35,7 +35,7 @@
           </button>
           <div class="clear-wrap">
             <input type="text" placeholder="${_('search.coord_placeholder')}" />
-            <button class="clear-btn" title="${_('search.clear_title')}">
+            <button class="ctrl-abs-btn" title="${_('search.clear_title')}">
               ${window.foliplus.SVGs.CLOSE}
             </button>
           </div>
@@ -94,7 +94,7 @@
       };
 
       // Clear input
-      const clearBtn = container.querySelector(".clear-btn");
+      const clearBtn = container.querySelector(".ctrl-abs-btn");
       clearBtn.onclick = function() {
         inp.value = "";
         if (mk) { map.removeLayer(mk); mk = null; }

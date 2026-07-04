@@ -525,7 +525,7 @@
             <span class="header-icon">${SVGS.HEXAGON}</span>
             ${_('heatmap.title')}
           </span>
-          <button class="close-btn" title="${_('layer.close_title')}">
+          <button class="close-btn ctrl-abs-btn" title="${_('layer.close_title')}">
             ${window.foliplus.SVGs.CLOSE}</button>`;
 
         window.foliplus.bindPanelToggle({

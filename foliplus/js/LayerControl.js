@@ -810,7 +810,7 @@
                 <span class="header-icon">${SVGS.LIST}</span>
                 ${_('layer.panel_title')}
               </span>
-              <button class="close-btn" title="${_('layer.close_title')}"
+              <button class="close-btn ctrl-abs-btn" title="${_('layer.close_title')}"
                       aria-label="${_('layer.close_title')}">
                 ${window.foliplus.SVGs.CLOSE}
               </button>

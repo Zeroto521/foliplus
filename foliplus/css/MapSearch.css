@@ -72,28 +72,3 @@
 .map-search input::placeholder {
   color: var(--text-placeholder);
 }
-/* ── Clear Button ── */
-.map-search .clear-btn {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0;
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-.map-search .clear-btn:hover {
-  color: var(--accent-primary);
-  background-color: var(--accent-light);
-}
