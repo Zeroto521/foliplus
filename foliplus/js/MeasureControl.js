@@ -37,10 +37,8 @@
       <path d="M5 7v3M9 7v2M13 7v3M17 7v2"/></svg>`,
     CIRCLE: `<svg ${SVG_ICON_ATTRS}>
       <circle cx="12" cy="12" r="9"/>
-      <circle cx="12" cy="12" r="1.5" fill="currentColor"
-        stroke="none"/></svg>`,
-    TRASH: `<svg ${SVG_ICON_ATTRS} stroke-linecap="round"
-      stroke-linejoin="round">
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>`,
+    TRASH: `<svg ${SVG_ICON_ATTRS} stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 6h18"/>
       <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -358,10 +356,12 @@
         nodeMarkers.forEach(m => this.layerGroup.removeLayer(m));
         segLabels.forEach(l => this.layerGroup.removeLayer(l));
         if (startLbl) this.layerGroup.removeLayer(startLbl);
+        if (previewDistLabel) this.layerGroup.removeLayer(previewDistLabel);
       };
 
       this.cleanupFn = cancelCleanup;
       let distFinished = false;
+      let previewDistLabel = null;
 
       const finishDist = () => {
         if (distFinished) return;
@@ -373,6 +373,9 @@
         distFinished = true;
         this.layerGroup.removeLayer(poly);
         this.layerGroup.removeLayer(previewLine);
+        if (previewDistLabel) {
+          this.layerGroup.removeLayer(previewDistLabel); previewDistLabel = null;
+        }
 
         const finalPoly = L.polyline(pts, {
           color: _CONST.COLOR_ACCENT,
@@ -486,11 +489,37 @@
       const onDistMove = (e) => {
         if (pts.length === 0) return;
         previewLine.setLatLngs([pts[pts.length - 1], e.latlng]);
+        const seg = MeasureUtils.distance(
+          pts[pts.length - 1].lat, pts[pts.length - 1].lng,
+          e.latlng.lat, e.latlng.lng
+        );
+        const showDist = total + seg;
+        if (!previewDistLabel) {
+          previewDistLabel = L.marker(e.latlng, {
+            icon: L.divIcon({
+              className: '',
+              html: `<div class="measure-label">${MeasureUtils.formatDistance(showDist)}</div>`,
+              iconSize: [0, 0],
+              iconAnchor: [0, -10],
+            }),
+            interactive: false,
+          }).addTo(this.layerGroup);
+        } else {
+          previewDistLabel.setLatLng(e.latlng);
+          const el = previewDistLabel.getElement();
+          if (el) {
+            const div = el.querySelector('.measure-label');
+            if (div) div.textContent = MeasureUtils.formatDistance(showDist);
+          }
+        }
       };
 
       const onDistClick = (e) => {
         if (this.currentMode !== 'distance') return;
         pts.push(e.latlng);
+        if (previewDistLabel) {
+          this.layerGroup.removeLayer(previewDistLabel); previewDistLabel = null;
+        }
         poly.addLatLng(e.latlng);
 
         const mkr = L.circleMarker(e.latlng, {
