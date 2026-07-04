@@ -69,6 +69,12 @@
       });
     }
 
+    static suppressHide(manager) {
+      manager.suppressHideDel = true;
+      setTimeout(() => { manager.suppressHideDel = false; }, 100);
+      this.hideAllDelIcons();
+    }
+
     static hideAllDelIcons() {
       document.querySelectorAll('.measure-del-icon.visible')
         .forEach(el => el.classList.remove('visible'));
@@ -417,9 +423,7 @@
 
         const handleItemClick = (e) => {
           MeasureUtils.stopEvent(e);
-          this.suppressHideDel = true;
-          setTimeout(() => { this.suppressHideDel = false; }, 100);
-          MeasureUtils.hideAllDelIcons();
+          MeasureUtils.suppressHide(this);
           toggleUI(undefined, true);
         };
 
@@ -489,7 +493,7 @@
           });
         }
 
-        // Re-sort layer ordering
+        // Re-sort layer ordering: finalPoly at bottom, then nodes, del icon, labels
         nodeMarkers.forEach(m => this.layerGroup.removeLayer(m));
         if (lastNodeDelMkr) this.layerGroup.removeLayer(lastNodeDelMkr);
         segLabels.forEach(l => this.layerGroup.removeLayer(l));
@@ -847,9 +851,7 @@
 
         const toggleCircleToggle = () => {
           if (deleted) return;
-          this.suppressHideDel = true;
-          setTimeout(() => { this.suppressHideDel = false; }, 100);
-          MeasureUtils.hideAllDelIcons();
+          MeasureUtils.suppressHide(this);
           toggleUI(undefined, true);
         };
 
