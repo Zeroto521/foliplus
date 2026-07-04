@@ -63,6 +63,12 @@
       return '<span class="measure-del-icon">✕</span>';
     }
 
+    static toggleVisibility(elements, visible) {
+      elements.forEach(el => {
+        if (el) el.classList.toggle('measure-hidden', !visible);
+      });
+    }
+
     static hideAllDelIcons() {
       document.querySelectorAll('.measure-del-icon.visible')
         .forEach(el => el.classList.remove('visible'));
@@ -344,7 +350,7 @@
     _startDistanceMode() {
       const pts = [];
       let total = 0;
-      const poly = L.polyline([], { className: 'measure-line measure-line-final' })
+      const poly = L.polyline([], { className: 'measure-line measure-line-dashed' })
         .addTo(this.layerGroup);
 
       const nodeMarkers = [];
@@ -390,7 +396,7 @@
         }
 
         const finalPoly = L.polyline(pts, {
-          className: 'measure-line measure-line-final',
+          className: 'measure-line measure-line-solid',
           interactive: true
         }).addTo(this.layerGroup);
 
@@ -745,7 +751,7 @@
         }).addTo(this.layerGroup);
 
         const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {
-          className: 'measure-line measure-line-final',
+          className: 'measure-line measure-line-dashed',
           interactive: true,
         }).addTo(this.layerGroup);
 
@@ -803,14 +809,10 @@
           MeasureUtils.applyToggle(
             delMkr, xVisible, [radiusLabel], labelsVisible
           );
-          if (radiusLine) {
-            const el = radiusLine.getElement();
-            if (el) el.classList.toggle('measure-line-hidden', !labelsVisible);
-          }
-          if (radiusNode) {
-            const el = radiusNode.getElement();
-            if (el) el.classList.toggle('measure-node-hidden', !labelsVisible);
-          }
+          MeasureUtils.toggleVisibility(
+            [radiusLine?.getElement(), radiusNode?.getElement()],
+            labelsVisible
+          );
           if (delMkr.setZIndexOffset) {
             delMkr.setZIndexOffset(xVisible ? 2000 : 1000);
           }
