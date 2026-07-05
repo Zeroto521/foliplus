@@ -129,16 +129,18 @@
       this.ensurePane = this.ensurePane.bind(this);
       this._isEnforcing = false;
       this._enforceTimer = null;
+      this._isDestroyed = false;
 
       this.map.on('layeradd', (e) => {
-        // Skip internal layers and avoid double-triggering during enforcement
-        if (this._isEnforcing || e.layer === this.map || e.layer instanceof L.Renderer) {
+        // Skip internal layers, background enforcement, and destroyed manager
+        if (this._isEnforcing || this._isDestroyed || e.layer === this.map || e.layer instanceof L.Renderer) {
           return;
         }
 
         // Debounce enforcement to avoid redundant calcs during bulk additions
         if (this._enforceTimer) clearTimeout(this._enforceTimer);
         this._enforceTimer = setTimeout(() => {
+          if (this._isDestroyed || !this.map) return;
           this.enforceOrder();
           this._enforceTimer = null;
         }, 50);

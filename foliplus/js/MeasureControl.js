@@ -160,18 +160,7 @@
           window.foliplus.LayerControlAPI.ensurePane(paneName, false);
         }
 
-        const result = (isLabel ? this.labelLayer : this.graphLayer).addLayer(layer);
-
-        // After adding, LayerControl will have managed graph/label panes if registration happened.
-        // We ensure label is slightly above graph as a secondary measure.
-        const gPane = this.map.getPane(this.graphPane);
-        const lPane = this.map.getPane(this.lblPane);
-        if (gPane && lPane) {
-          const z = parseInt(gPane.style.zIndex) || 600;
-          lPane.style.zIndex = z + 1;
-        }
-
-        return result;
+        return (isLabel ? this.labelLayer : this.graphLayer).addLayer(layer);
       };
 
       // Route removeLayer to correct sub-layer

@@ -406,15 +406,6 @@
         // disrupting already-rendered hexagons and labels.
         this._registerToLayerControl();
 
-        // After registration, LayerControl will have managed graph/label panes.
-        // We ensure label is slightly above graph to be safe.
-        const gPane = this.map.getPane(this.graphPane);
-        const lPane = this.map.getPane(this.lblPane);
-        if (gPane && lPane) {
-          const z = parseInt(gPane.style.zIndex) || 600;
-          lPane.style.zIndex = z + 1;
-        }
-
         this.graphLayer.clearLayers();
         if (features.length) {
           this.graphLayer.addData({ type: 'FeatureCollection', features });
