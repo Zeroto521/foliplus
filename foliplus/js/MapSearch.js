@@ -17,8 +17,12 @@
   const MODE = { COORD: 'coord', ADDR: 'addr' };
 
   // ==================== Helper Functions ====================
-  function _hideSearchHint() { if (window.foliplus) window.foliplus.hideHint('map-search'); }
-  function _showSearchHint(msg, duration) { if (window.foliplus) window.foliplus.showHint('map-search', msg, duration); }
+  function _hideSearchHint() {
+    if (window.foliplus) window.foliplus.hideHint('map-search');
+  }
+  function _showSearchHint(msg, duration) {
+    if (window.foliplus) window.foliplus.showHint('map-search', msg, duration);
+  }
 
   // ==================== Control Definition ====================
   new (L.Control.extend({
@@ -29,9 +33,12 @@
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
       ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_('search.btn_title')}">${window.foliplus.SVGs.SEARCH}</button>
+        <button class="toggle-btn" title="${_('search.btn_title')}">
+          ${window.foliplus.SVGs.SEARCH}
+        </button>
         <div class="search-form">
-          <button class="search-mode-btn" title="${_('search.mode_coord')}">${window.foliplus.SVGs.LOCATE}
+          <button class="search-mode-btn" title="${_('search.mode_coord')}">
+            ${window.foliplus.SVGs.LOCATE}
           </button>
           <div class="clear-wrap">
             <input type="text" placeholder="${_('search.coord_placeholder')}" />
@@ -127,13 +134,13 @@
 
       // Address search via Nominatim
       function _doAddrSearch(query) {
-        _showSearchHint(window.foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0);
+        _showSearchHint(
+          window.foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0
+        );
 
         fetch('https://nominatim.openstreetmap.org/search' +
           '?format=jsonv2&q=' + encodeURIComponent(query) +
-          '&limit=1&accept-language=' + (window._LOCALE['locale.code'] || 'en'), {
-          headers: { 'User-Agent': 'foliplus/1.0' }
-        })
+          '&limit=1&accept-language=' + (window._LOCALE['locale.code'] || 'en'))
           .then(function(r) { return r.json(); })
           .then(function(results) {
             _hideSearchHint();

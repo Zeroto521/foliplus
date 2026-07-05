@@ -234,13 +234,19 @@
         const key = this.currentField === '_auto' ? this.autoFieldKey : this.currentField;
         const val = this._readMarkerField(marker, key);
         if (val === undefined || isNaN(val)) {
-          console.warn('[HeatmapControl] falling back to 1 for marker, field=' + this.currentField + ' autoFieldKey=' + this.autoFieldKey);
+          if (!this._valueFallbackWarned) {
+            this._valueFallbackWarned = true;
+            console.warn(
+              '[HeatmapControl] falling back to 1 for missing values, field=' + this.currentField
+            );
+          }
           return 1;
         }
         return Number(val);
       }
 
       collectSelectedPoints() {
+        this._valueFallbackWarned = false;
         const pts = [];
         if (!this.selectedLayerId) return pts;
         this.pointLayers.forEach((info) => {
