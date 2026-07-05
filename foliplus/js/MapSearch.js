@@ -9,20 +9,16 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon('map-search', window.foliplus.SVGs.SEARCH);
-  }
+  window.foliplus.registerHintIcon('map-search', window.foliplus.SVGs.SEARCH);
 
   // ==================== Constants ====================
   const MODE = { COORD: 'coord', ADDR: 'addr' };
 
   // ==================== Helper Functions ====================
-  function _hideSearchHint() {
-    if (window.foliplus) window.foliplus.hideHint('map-search');
-  }
-  function _showSearchHint(msg, duration) {
-    if (window.foliplus) window.foliplus.showHint('map-search', msg, duration);
-  }
+  const _hideSearchHint = () => window.foliplus.hideHint('map-search');
+  const _showSearchHint = (msg, duration) => {
+    window.foliplus.showHint('map-search', msg, duration);
+  };
 
   // ==================== Control Definition ====================
   new (L.Control.extend({

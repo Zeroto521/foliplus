@@ -21,9 +21,7 @@
       <line x1="3" y1="21" x2="10" y2="14"/>
     </svg>`;
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon('fullscreen', SVG_FULLSCREEN);
-  }
+  window.foliplus.registerHintIcon('fullscreen', SVG_FULLSCREEN);
 
   // ==================== Control Setup ====================
   const fsControl = L.control.fullscreen({

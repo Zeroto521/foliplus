@@ -36,9 +36,7 @@
       </svg>`
   };
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon('heatmap', SVGS.HEXAGON);
-  }
+  window.foliplus.registerHintIcon('heatmap', SVGS.HEXAGON);
 
   // --- Dynamic Dependency Loader ---
   // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
@@ -152,8 +150,6 @@
       // --- Data Extraction ---
       scanMapLayers() {
         this.pointLayers = [];
-        if (!window.foliplus.LayerControlAPI) return;
-
         const pointLayersInfo =
           window.foliplus.LayerControlAPI.getLayersByType('point');
         if (!pointLayersInfo.length) return;
