@@ -196,12 +196,6 @@
   --z-index-control: 1000;
   --z-index-overlay: 11000;
   --z-index-toolbar: 15000;
-
-  /* ── Semantic Tokens: Z-index ── */
-  --z-index-dropdown: 10000;
-  --z-index-pane-base: 450;
-  --z-index-control: 1000;
-  --z-index-hint: 20000;
 }
 
 /* ── Animations ── */
