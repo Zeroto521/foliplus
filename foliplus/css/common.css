@@ -23,6 +23,7 @@
   --alpha-12: 0.12;
   --alpha-20: 0.2;
   --alpha-30: 0.3;
+  --alpha-40: 0.4;
   --alpha-50: 0.5;
   --alpha-70: 0.7;
   --alpha-80: 0.8;
@@ -186,8 +187,8 @@
   --transition-fast: 0.15s ease;
 
   /* ── Overlay ── */
-  --overlay-bg: rgba(0, 0, 0, 0.4);
-  --overlay-bg-dark: rgba(0, 0, 0, 0.55);
+  --overlay-bg: rgba(0, 0, 0, var(--alpha-40));
+  --overlay-bg-dark: rgba(0, 0, 0, var(--alpha-50));
 
   /* ── Semantic Tokens: Z-index ── */
   --z-index-dropdown: 10000;
@@ -255,7 +256,7 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--alpha-70));
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, var(--alpha-12));
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-xl);
   white-space: nowrap;

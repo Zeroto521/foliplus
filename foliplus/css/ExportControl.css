@@ -9,7 +9,7 @@
 
 /* Highlight Leaflet controls during export */
 .has-export-mode .leaflet-control {
-  z-index: calc(var(--z-index-overlay) + 1000) !important;
+  z-index: calc(var(--z-index-overlay) + var(--z-index-control)) !important;
 }
 
 /* Info controls (scale, attribution) stay dim but visible */
@@ -34,7 +34,7 @@
 /* ── Container ── */
 .export-ctrl.expanded {
   box-shadow:
-    0 0 0 1px var(--input-focus-border),
+    0 0 0 var(--border-thin) var(--input-focus-border),
     0 0 0 3px var(--input-focus-shadow);
 }
 
@@ -55,7 +55,7 @@
   cursor: move;
   z-index: calc(var(--z-index-overlay) + 1);
   box-sizing: border-box;
-  box-shadow: 0 0 15px var(--input-focus-shadow);
+  box-shadow: 0 0 var(--size-16) var(--input-focus-shadow);
   border-radius: var(--space-xs);
 }
 
@@ -73,7 +73,7 @@
   border-color: var(--accent-primary);
   border-style: solid;
   pointer-events: none;
-  box-shadow: 0 0 20px var(--input-focus-shadow);
+  box-shadow: 0 0 var(--size-20) var(--input-focus-shadow);
 }
 
 .export-crop-box.locked::before {
@@ -152,12 +152,13 @@
   left: 50%;
   width: var(--export-crop-center-size);
   height: var(--export-crop-center-size);
-  margin: calc(-0.5 * var(--export-crop-center-size)) 0 0 calc(-0.5 * var(--export-crop-center-size));
+  margin: calc(-0.5 * var(--export-crop-center-size)) 0 0
+    calc(-0.5 * var(--export-crop-center-size));
   background: var(--accent-primary);
   border: var(--export-crop-handle-border-width) solid var(--ctrl-bg);
   border-radius: var(--radius-round);
   z-index: calc(var(--z-index-overlay) + 3);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px var(--size-4) rgba(0, 0, 0, var(--alpha-40));
   pointer-events: auto;
   cursor: move;
 }
