@@ -1,6 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   MapSearch — Map Search Control (Coordinate + Address)
-   ═══════════════════════════════════════════════════════════════════ */
 .map-search.expanded {
   width: var(--panel-width);
   height: auto;
@@ -31,8 +28,8 @@
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  border-left: 1px solid var(--divider-color);
-  border-right: 1px solid var(--divider-color);
+  border-left: var(--border-thin) solid var(--divider-color);
+  border-right: var(--border-thin) solid var(--divider-color);
   transition: color var(--transition-fast), background-color var(--transition-fast);
   flex-shrink: 0;
 }
@@ -53,9 +50,9 @@
 }
 /* ── Input Field ── */
 .map-search input {
-  border: 1px solid var(--input-border);
+  border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
-  padding: 0 28px 0 var(--space-md);
+  padding: 0 calc(var(--ctrl-size) - var(--space-xs)) 0 var(--space-md);
   width: 100%;
   height: 100%;
   font-size: var(--font-size-md);
@@ -70,31 +67,8 @@
 }
 .map-search input:focus {
   border-color: var(--input-focus-border);
-  box-shadow: inset 0 0 0 2px var(--input-focus-shadow);
+  box-shadow: inset 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 .map-search input::placeholder {
   color: var(--text-placeholder);
-}
-/* ── Clear Button ── */
-.map-search .clear-btn {
-  position: absolute;
-  right: var(--space-lg);
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  padding: var(--space-xs);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-round);
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-.map-search .clear-btn:hover {
-  color: var(--accent-primary);
-  background-color: var(--accent-light);
 }

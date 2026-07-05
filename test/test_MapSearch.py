@@ -75,9 +75,12 @@ class TestMapSearchRendering:
         assert "foliplus.createLocationMarker" in html
 
     def test_addr_search_uses_fromWgs84(self, base_map: folium.Map):
+        """fromWgs84 is called in address search (Nominatim returns WGS84) but not coord search."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "foliplus.fromWgs84" in html
+        # 1 from runtime.js definition + 1 in addr search = 2
+        # Coord search should NOT call fromWgs84 (user input CRS unknown)
+        assert html.count("foliplus.fromWgs84") == 2
 
     def test_locale_zh(self, base_map: folium.Map):
         MapSearch(locale="zh").add_to(base_map)
@@ -99,6 +102,15 @@ class TestMapSearchRendering:
         MapSearch(mode="coord").add_to(base_map)
         html = render(base_map)
         assert "'coord'" in html
+
+    def test_coord_search_no_fromWgs84(self, base_map: folium.Map):
+        """Coord search does NOT call fromWgs84 (user input CRS is unknown)."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        # fromWgs84 appears 2×: once in runtime.js definition, once in addr search.
+        # Coord search must NOT add a third call.
+        assert "flyTo([lat, lng]" in html
+        assert html.count("foliplus.fromWgs84") == 2
 
 
 class TestMapSearchBrowser:

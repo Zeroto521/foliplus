@@ -30,5 +30,10 @@
 
   updateZoom();
   map.on('zoomend', updateZoom);
+
+  // Cleanup on map unload
+  map.on('unload', function() {
+    map.off('zoomend', updateZoom);
+  });
   {% endif %}
 })();

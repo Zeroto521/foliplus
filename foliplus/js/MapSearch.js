@@ -9,16 +9,16 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon('map-search', window.foliplus.SVGs.SEARCH);
-  }
+  window.foliplus.registerHintIcon('map-search', window.foliplus.SVGs.SEARCH);
 
   // ==================== Constants ====================
   const MODE = { COORD: 'coord', ADDR: 'addr' };
 
   // ==================== Helper Functions ====================
-  function _hideSearchHint() { if (window.foliplus) window.foliplus.hideHint('map-search'); }
-  function _showSearchHint(msg, duration) { if (window.foliplus) window.foliplus.showHint('map-search', msg, duration); }
+  const _hideSearchHint = () => window.foliplus.hideHint('map-search');
+  const _showSearchHint = (msg, duration) => {
+    window.foliplus.showHint('map-search', msg, duration);
+  };
 
   // ==================== Control Definition ====================
   new (L.Control.extend({
@@ -29,13 +29,16 @@
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
       ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_('search.btn_title')}">${window.foliplus.SVGs.SEARCH}</button>
+        <button class="toggle-btn" title="${_('search.btn_title')}">
+          ${window.foliplus.SVGs.SEARCH}
+        </button>
         <div class="search-form">
-          <button class="search-mode-btn" title="${_('search.mode_coord')}">${window.foliplus.SVGs.LOCATE}
+          <button class="search-mode-btn" title="${_('search.mode_coord')}">
+            ${window.foliplus.SVGs.LOCATE}
           </button>
           <div class="clear-wrap">
             <input type="text" placeholder="${_('search.coord_placeholder')}" />
-            <button class="clear-btn" title="${_('search.clear_title')}">
+            <button class="ctrl-abs-btn" title="${_('search.clear_title')}">
               ${window.foliplus.SVGs.CLOSE}
             </button>
           </div>
@@ -94,7 +97,7 @@
       };
 
       // Clear input
-      const clearBtn = container.querySelector(".clear-btn");
+      const clearBtn = container.querySelector(".ctrl-abs-btn");
       clearBtn.onclick = function() {
         inp.value = "";
         if (mk) { map.removeLayer(mk); mk = null; }
@@ -127,7 +130,9 @@
 
       // Address search via Nominatim
       function _doAddrSearch(query) {
-        _showSearchHint(window.foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0);
+        _showSearchHint(
+          window.foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0
+        );
 
         fetch('https://nominatim.openstreetmap.org/search' +
           '?format=jsonv2&q=' + encodeURIComponent(query) +

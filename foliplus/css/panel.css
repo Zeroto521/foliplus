@@ -1,8 +1,8 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Shared Panel — Common styles for panel-based components
-   LayerControl / HeatmapControl inherit this base;
-   each component only overrides its differentiated parts.
-   ══════════════════════════════════════════════════════════════════════ */
+  Shared Panel — Common styles for panel-based components
+  LayerControl / HeatmapControl inherit this base;
+  each component only overrides its differentiated parts.
+  ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Container ── */
 .map-panel {
@@ -33,10 +33,11 @@
 .map-panel .toggle-btn:hover {
   background-color: var(--ctrl-hover-bg);
   color: var(--text-primary);
+  transform: scale(var(--scale-hover));
 }
 
 .map-panel .toggle-btn:active {
-  transform: scale(0.92);
+  transform: scale(var(--scale-press));
 }
 
 /* Hide toggle when expanded */
@@ -77,8 +78,8 @@
   height: var(--ctrl-size);
   flex-shrink: 0;
   box-sizing: border-box;
-  padding: 0 30px 0 6px;
-  border-bottom: 1px solid var(--panel-border);
+  padding: 0 var(--panel-header-padding-right) 0 var(--panel-header-padding-left);
+  border-bottom: var(--border-thin) solid var(--panel-border);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
@@ -86,7 +87,7 @@
   user-select: none;
   background: var(--panel-header-bg);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-xs);
   position: relative;
 }
 
@@ -132,30 +133,6 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-}
-
-.map-panel .panel-header .close-btn {
-  position: absolute;
-  right: var(--space-lg);
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  padding: var(--space-xs);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-round);
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-
-.map-panel .panel-header .close-btn:hover {
-  color: var(--accent-primary);
-  background: var(--accent-light);
 }
 
 /* ── Panel Content ── */
