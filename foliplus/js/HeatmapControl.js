@@ -13,8 +13,6 @@
     INIT_SCAN_INTERVAL_MS: 300,
     SCHEME_DROPDOWN_BLUR_DELAY_MS: 150,
     DEFAULT_GRAY: '#999',
-    LABEL_SIZE: [80, 24],
-    LABEL_ANCHOR: [40, 12],
     H3_RES_MAP: [
       [2, 0], [3, 1], [4, 1], [5, 2], [6, 3], [7, 4], [8, 4], [9, 5],
       [10, 6], [11, 6], [12, 7], [13, 7], [14, 8], [15, 9], [16, 9],
@@ -429,8 +427,6 @@
               icon: L.divIcon({
                 className: 'heatmap-label',
                 html: `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`,
-                iconSize: _CONST.LABEL_SIZE,
-                iconAnchor: _CONST.LABEL_ANCHOR,
               }),
               interactive: false,
               pane: this.lblPane,

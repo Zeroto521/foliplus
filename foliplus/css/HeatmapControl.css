@@ -17,8 +17,7 @@
 .heatmap-label {
   pointer-events: none;
   z-index: var(--z-index-pane-base) !important;
-  width: 100%;
-  height: 100%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
