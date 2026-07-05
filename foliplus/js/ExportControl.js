@@ -1,4 +1,10 @@
 (function() {
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error('[ExportControl] foliplus runtime not found — component disabled.');
+    return;
+  }
+
   // ==================== Constants ====================
   const CONST = {
     CROP_MIN_SIZE: 40,
@@ -36,9 +42,7 @@
       </svg>`
   };
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon('export', SVGS.CAMERA);
-  }
+  window.foliplus.registerHintIcon('export', SVGS.CAMERA);
 
   // ==================== ExportManager ====================
   class ExportManager {
@@ -77,20 +81,19 @@
     }
 
     _showGlobalHint(text, duration, withLoadingIcon) {
-      if (window.foliplus) {
-        window.foliplus.showHint('export', window.foliplus.SVGs.LOADING + text, duration || 0);
-      }
+      const loading = withLoadingIcon && window.foliplus.SVGs
+        ? (window.foliplus.SVGs.LOADING + ' ')
+        : '';
+      window.foliplus.showHint('export', loading + text, duration || 0);
     }
 
     _showHintWithInfo(r, instruction) {
-      if (window.foliplus) {
-        window.foliplus.showHint(
-          'export',
-          `${_('export.label_size_prefix')} ${Math.round(r.width)} × ${Math.round(r.height)} `
-          + `${_('export.label_size_suffix')}${instruction ? ` — ${instruction}` : ''}`,
-          0
-        );
-      }
+      window.foliplus.showHint(
+        'export',
+        `${_('export.label_size_prefix')} ${Math.round(r.width)} × ${Math.round(r.height)} `
+        + `${_('export.label_size_suffix')}${instruction ? ` — ${instruction}` : ''}`,
+        0
+      );
     }
 
     // --- Calcs & Style ---
@@ -294,9 +297,7 @@
       }
 
       this.cropState = null;
-      if (window.foliplus) {
-        window.foliplus.hideHint('export');
-      }
+      window.foliplus.hideHint('export');
     }
 
     // --- Interaction & Drag Engine ---
