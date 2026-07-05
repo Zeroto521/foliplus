@@ -168,7 +168,9 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         # Check specific order: _isMeasureLabel = true BEFORE addTo
-        assert re.search(r"_isMeasureLabel\s*=\s*true;\s*\w+\.addTo\(this\.mainLayer\)", html)
+        assert re.search(
+            r"_isMeasureLabel\s*=\s*true;\s*\w+\.addTo\(this\.mainLayer\)", html
+        )
 
     def test_label_interaction_listeners(self, base_map: folium.Map):
         """Distance/Circle labels have click listeners to toggle UI."""
@@ -183,3 +185,15 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "this.graphLayer.clearLayers()" in html
         assert "this.labelLayer.clearLayers()" in html
+
+    def test_ui_fixed_labels_fix(self, base_map: folium.Map):
+        """Regression test: Labels should stay fixed (visible), only X toggles.
+        Map click should restore default (L=on, X=off).
+        """
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # Ensure map clicks use 'reset' to keep labels visible
+        assert "toggleUI(false, 'reset')" in html
+        # Ensure item clicks toggle ONLY X (undefined)
+        assert "toggleUI(undefined)" in html
+        assert "toggleUI(undefined, true)" not in html

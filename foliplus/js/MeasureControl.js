@@ -447,7 +447,7 @@
         const handleItemClick = (e) => {
           MeasureUtils.stopEvent(e);
           MeasureUtils.suppressHide(this);
-          toggleUI(undefined, true);
+          toggleUI(undefined);
         };
 
         finalPoly.on('click', handleItemClick);
@@ -460,7 +460,7 @@
         const onDistMapClick = () => {
           if (this.suppressHideDel) return;
           if (xVisible) {
-            toggleUI(false, false);
+            toggleUI(false, 'reset');
           }
         };
         this.map.on('click', onDistMapClick);
@@ -882,7 +882,7 @@
         const toggleCircleToggle = () => {
           if (deleted) return;
           MeasureUtils.suppressHide(this);
-          toggleUI(undefined, true);
+          toggleUI(undefined);
         };
 
         const attachInteraction = (layer) => {
@@ -903,7 +903,7 @@
 
         const onMapClickActive = () => {
           if (this.suppressHideDel || deleted) return;
-          if (xVisible) toggleUI(false, false);
+          if (xVisible) toggleUI(false, 'reset');
         };
         this.map.on('click', onMapClickActive);
       };
