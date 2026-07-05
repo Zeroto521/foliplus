@@ -127,7 +127,7 @@ class TestHeatmapControlRendering:
         """Label markers use custom pane and no zIndexOffset."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: this.HEATMAP_ID" in html
+        assert "pane: this.MAIN_PANE" in html
         assert "heatmap-label" in html
 
     def test_label_zindex_css(self, base_map: folium.Map):
@@ -149,17 +149,17 @@ class TestHeatmapControlRendering:
         assert "Reds" in html
 
     def test_pane_name_constant(self, base_map: folium.Map):
-        """HEATMAP_ID is used as pane name consistently."""
+        """MAIN_PANE is used as pane name consistently."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "__heatmap__" in html
-        assert "pane: this.HEATMAP_ID" in html
+        assert "pane: this.MAIN_PANE" in html
 
     def test_hexlayer_pane_init(self, base_map: folium.Map):
-        """hexLayer is initialized with pane: this.HEATMAP_ID."""
+        """hexLayer is initialized with pane: this.MAIN_PANE."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: this.HEATMAP_ID" in html
+        assert "pane: this.MAIN_PANE" in html
 
     def test_register_before_add_data(self, base_map: folium.Map):
         """registerHexLayer is called before hexLayer.addData."""

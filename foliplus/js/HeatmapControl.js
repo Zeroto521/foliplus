@@ -98,6 +98,7 @@
         this.autoFieldKey = null;
 
         this.HEATMAP_ID = '__heatmap__';
+        this.MAIN_PANE = '__heatmap_main__';
         this.LABEL_PANE = '__heatmap_label__';
         this.hexLayerRegistered = false;
         this.ui = null; // Injected UI control panel instance
@@ -117,7 +118,7 @@
             opacity: BORDER_OP,
           }),
           interactive: false,
-          pane: this.HEATMAP_ID,
+          pane: this.MAIN_PANE,
         });
         this.labelLayer = L.layerGroup();
 
@@ -416,7 +417,7 @@
         // (DOM order ensures labels render above hexagons within same
         // z-index; other interleaved layers manage their own panes)
         let lblPane = this.map.getPane(this.LABEL_PANE);
-        let hexPane = this.map.getPane(this.HEATMAP_ID);
+        let hexPane = this.map.getPane(this.MAIN_PANE);
         if (lblPane && hexPane) {
           lblPane.style.zIndex = hexPane.style.zIndex || 500;
         }
@@ -463,7 +464,7 @@
           id: this.HEATMAP_ID,
           isBase: false,
           layer: this.heatmapLayer,
-          paneName: this.HEATMAP_ID,
+          paneName: this.MAIN_PANE,
           iconSvg: SVGS.HEXAGON,
         });
         // Ensure label pane exists at same z-index as hex pane
@@ -471,7 +472,7 @@
         if (!lblPane) {
           lblPane = this.map.createPane(this.LABEL_PANE);
         }
-        let hexPane = this.map.getPane(this.HEATMAP_ID);
+        let hexPane = this.map.getPane(this.MAIN_PANE);
         if (hexPane) {
           lblPane.style.zIndex = hexPane.style.zIndex || 500;
         }

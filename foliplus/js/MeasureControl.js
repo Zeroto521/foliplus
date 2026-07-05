@@ -133,6 +133,7 @@
       this.suppressHideDel = false;
       this.toolBtns = [];
       this.MEASURE_ID = '__measure__';
+      this.MAIN_PANE = '__measure_main__';
       this.LABEL_PANE = '__measure_label__';
 
       this._setupLayerOverrides();
@@ -145,17 +146,17 @@
         this._registerToLayerControl();
 
         const isLabel = layer._isMeasureLabel;
-        const paneName = isLabel ? this.LABEL_PANE : this.MEASURE_ID;
+        const paneName = isLabel ? this.LABEL_PANE : this.MAIN_PANE;
         layer.options.pane = paneName;
 
         if (layer instanceof L.Path) {
-          const { renderer } = window.foliplus.LayerControlAPI.ensurePane(this.MEASURE_ID);
+          const { renderer } = window.foliplus.LayerControlAPI.ensurePane(this.MAIN_PANE);
           layer.options.renderer = renderer;
         } else if (isLabel) {
           window.foliplus.LayerControlAPI.ensurePane(this.LABEL_PANE, false);
           // Ensure label pane renders above measure pane
           const lp = this.map.getPane(this.LABEL_PANE);
-          const mp = this.map.getPane(this.MEASURE_ID);
+          const mp = this.map.getPane(this.MAIN_PANE);
           if (lp && mp) {
             const mpZ = parseInt(mp.style.zIndex) || 500;
             lp.style.zIndex = Math.max(mpZ + 10, 510);
@@ -174,7 +175,7 @@
         id: this.MEASURE_ID,
         isBase: false,
         layer: this.layerGroup,
-        paneName: this.MEASURE_ID,
+        paneName: this.MAIN_PANE,
         iconSvg: SVGS.RULER,
       });
     }
