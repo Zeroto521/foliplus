@@ -140,7 +140,7 @@
         // Debounce enforcement to avoid redundant calcs during bulk additions
         if (this._enforceTimer) clearTimeout(this._enforceTimer);
         this._enforceTimer = setTimeout(() => {
-          if (this._isDestroyed || !this.map) return;
+          if (this._isDestroyed || !this.map || !this.map._container) return;
           this.enforceOrder();
           this._enforceTimer = null;
         }, 50);
@@ -269,6 +269,13 @@
       }
 
       if (opts.paneName) this.ensurePane(opts.paneName);
+      if (opts.layer) {
+        const childPanes = this._discoverChildPanes(opts.layer);
+        for (const cp of childPanes) {
+          const isLabel = cp.includes('label') || cp.includes('lbl');
+          this.ensurePane(cp, !isLabel);
+        }
+      }
 
       // NB: window[id] provides global access for HeatmapControl/others to find
       // layers by id via scanMapLayers() fallback path.
@@ -373,9 +380,6 @@
 
       if (layer instanceof L.Path) {
         layer.options.renderer = renderer;
-        if (layer._renderer) {
-          layer._renderer = null;
-        }
       }
 
       if (layer.eachLayer) {
@@ -409,6 +413,11 @@
           }
         }
       };
+
+      const selfPane = layer.options?.pane;
+      if (selfPane && !this._isDefaultPane(selfPane)) {
+        panes.add(selfPane);
+      }
 
       if (layer.eachLayer) {
         layer.eachLayer(check);
@@ -453,7 +462,9 @@
           // TileLayers use a lower z-index range (200-400) so they stay
           // below overlayPane (400) and markerPane (600) by default.
           const zBase = isTile ? 200 : _CONST.Z_INDEX_BASE;
-          const z = zBase + (orderedLayers.length - i);
+          // Scale z-index steps to allow room for sub-panes (labels, etc)
+          // between major layers.
+          const z = zBase + (orderedLayers.length - i) * 10;
 
           if (paneName) {
             const ep = this.ensurePane(paneName, !isTile);

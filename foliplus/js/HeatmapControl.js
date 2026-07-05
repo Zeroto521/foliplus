@@ -119,6 +119,7 @@
           pane: this.graphPane,
         });
         this.labelLayer = L.layerGroup();
+        this.labelLayer.options.pane = this.lblPane;
 
         this.mainLayer.addLayer(this.graphLayer);
         this.mainLayer.addLayer(this.labelLayer);
@@ -397,27 +398,12 @@
           }
         }
 
-        // Register with LayerControl BEFORE adding data, so enforceOrder()
-        // runs while mainLayer is empty — avoid removeLayer/addLayer
-        // disrupting already-rendered hexagons and labels.
-        this._registerToLayerControl();
-
         this.graphLayer.clearLayers();
         if (features.length) {
           this.graphLayer.addData({ type: 'FeatureCollection', features });
         }
 
         this.labelLayer.clearLayers();
-
-        // Keep label pane at same z-index as graph pane
-        // (DOM order ensures labels render above graph elements within same
-        // z-index; other interleaved layers manage their own panes)
-        window.foliplus.LayerControlAPI.ensurePane(this.lblPane, false);
-        let graphPane = this.map.getPane(this.graphPane);
-        let lblPane = this.map.getPane(this.lblPane);
-        if (graphPane && lblPane) {
-          lblPane.style.zIndex = (parseInt(graphPane.style.zIndex) || 500) + 1;
-        }
 
         if (this.currentLabelShow) {
           features.forEach((feat) => {
@@ -451,6 +437,10 @@
             }).addTo(this.labelLayer);
           });
         }
+
+        // Register with LayerControl AFTER adding data, so enforceOrder()
+        // finds all child panes (graph and labels) correctly on first pass.
+        this._registerToLayerControl();
       }
 
       _registerToLayerControl() {
@@ -533,7 +523,7 @@
         const layerSelectWrap = L.DomUtil.create('div', 'form-control-wrap', layerRow);
         this.layerSelect = L.DomUtil.create('select', 'form-select', layerSelectWrap);
         this.layerSelect.classList.add('layer-select');
-        this.buildLayerListItems(this.layerSelect);
+
         this.extraBody = L.DomUtil.create('div', 'extra-body', configBody);
         this.extraBody.style.display = 'none';
 
@@ -570,6 +560,9 @@
           this._syncSelect(this.fieldSelect, this.fieldSelect.value);
           this.manager.renderHexagons();
         };
+
+        // Initialize layer dropdown LAST after all select refs are created
+        this.buildLayerListItems(this.layerSelect);
 
         // Style section
         const styleHeading = L.DomUtil.create('div', 'section-heading', this.extraBody);
