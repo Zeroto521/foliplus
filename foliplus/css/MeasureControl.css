@@ -31,11 +31,97 @@
 .measure-ctrl .tool-btn.active svg {
   stroke: var(--accent-primary);
 }
+.ruler-icon {
+  transform: rotate(-45deg);
+}
+/* ── Measurement Labels ── */
+.del-icon-wrap {
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+.measure-center-dot {
+  width: var(--size-12);
+  height: var(--size-12);
+  background: var(--accent-primary);
+  border: var(--border-medium) solid var(--neutral-0);
+  border-radius: var(--radius-round);
+}
+.measure-center-dot.is-final {
+  box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
+}
+
+/* ── Measurement Nodes (circleMarker) ── */
+.measure-node {
+  fill: #fff;
+  fill-opacity: 1;
+}
+
+/* ── Lines (polylines) ── */
+.measure-line-dashed {
+  stroke-dasharray: 6 4;
+}
+.measure-line-solid {
+  stroke: var(--accent-primary);
+  stroke-width: 2.5;
+}
+.measure-line-preview {
+  stroke-dasharray: 4 4;
+  opacity: 0.6;
+}
+
+/* ── Circles ── */
+.measure-circle-final {
+  fill-opacity: 0.25;
+}
+.measure-circle-preview {
+  stroke-dasharray: 4 4;
+  fill-opacity: 0.08;
+}
+
+/* ── Shared stroke/fill for all measurement paths ── */
+.measure-node,
+.measure-line-solid,
+.measure-line-dashed,
+.measure-line-preview,
+.measure-circle-final,
+.measure-circle-preview {
+  stroke: var(--accent-primary);
+}
+
+.measure-node-final,
+.measure-line-solid,
+.measure-line-dashed {
+  stroke-width: 2.5;
+}
+
+.measure-circle-final {
+  stroke-width: 2;
+}
+
+.measure-node-preview,
+.measure-line-preview,
+.measure-circle-preview {
+  stroke-width: 1.5;
+}
+
+.measure-circle-final,
+.measure-circle-preview {
+  fill: var(--accent-primary);
+}
+
+/* ── Visibility toggle for node/line hidden states ── */
+.measure-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* ── Measurement Labels ── */
 .measure-label {
   display: inline-block;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  background: var(--measure-label-bg);
+  color: var(--neutral-0);
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
@@ -48,24 +134,34 @@
 /* ── Floating Delete Icon ── */
 .measure-del-icon {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   background: var(--accent-primary);
-  border: 1.5px solid var(--ctrl-bg);
+  border: var(--border-medium) solid var(--ctrl-bg);
   border-radius: var(--radius-round);
   color: var(--ctrl-bg);
   font-size: var(--font-size-sm);
-  line-height: 13px;
-  text-align: center;
   cursor: pointer;
   pointer-events: auto;
   box-shadow: none;
   display: none;
+  top: calc(-1 * var(--size-12) - var(--size-2));
+  left: var(--size-4);
+  right: auto;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
 }
 .measure-del-icon.visible {
-  display: block;
+  display: flex;
 }
 .measure-del-icon:hover {
-  background: rgba(200, 60, 40, 0.95);
-  transform: scale(1.2);
+  background: var(--measure-del-hover-bg);
+  transform: scale(var(--scale-hover));
+}
+.measure-del-icon.marker-del-icon {
+  top: calc(-1 * var(--size-6));
+  left: var(--size-20);
+  right: auto;
+  margin: 0;
 }

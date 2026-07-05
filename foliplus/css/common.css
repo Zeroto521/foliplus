@@ -1,77 +1,153 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Design Tokens — Shared across all Folium plugins
-   Single source of truth for colors, typography, spacing, and component styles
-   ══════════════════════════════════════════════════════════════════════ */
+  Design Tokens — Shared across all Folium plugins
+  Single source of truth for colors, typography, spacing, and component styles
+  ══════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Colors ── */
-  --ctrl-bg: #fff;
-  --ctrl-border: rgba(0, 0, 0, 0.2);
-  --ctrl-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
+  /* ── Primitive Tokens: Size Scale ──
+    Prefer these base steps in component styles: 2/4/6/8/12/16/20/24
+    Rule: layout spacing follows this scale; border allows 1px for visual sharpness.
+    Rule: component/business dimensions (e.g. 30/36/280/400) can be semantic exceptions.
+  */
+  --size-2: 2px;
+  --size-4: 4px;
+  --size-6: 6px;
+  --size-8: 8px;
+  --size-12: 12px;
+  --size-16: 16px;
+  --size-20: 20px;
+  --size-24: 24px;
+
+  /* ── Primitive Tokens: Alpha Scale ── */
+  --alpha-06: 0.06;
+  --alpha-12: 0.12;
+  --alpha-20: 0.2;
+  --alpha-30: 0.3;
+  --alpha-50: 0.5;
+  --alpha-70: 0.7;
+  --alpha-80: 0.8;
+  --alpha-95: 0.95;
+
+  /* ── Primitive Tokens: Neutral Palette ── */
+  --neutral-0: #fff;
+  --neutral-100: #f5f5f5;
+  --neutral-300: #e0e0e0;
+  --neutral-500: #aaa;
+  --neutral-800: #333;
+
+  /* ── Primitive Tokens: Brand Red Palette ── */
+  --red-50: #fde8e8;
+  --red-500: #e74c3c;
+  --red-600: #c0392b;
+  --red-rgb: 231, 76, 60;
+  --red-700-rgb: 200, 60, 40;
+
+  /* ── Semantic Tokens: Colors ── */
+  /* Base */
+  --ctrl-bg: var(--neutral-0);
+  --ctrl-border: rgba(0, 0, 0, var(--alpha-20));
   --ctrl-hover-bg: #f4f4f4;
   --ctrl-active-bg: #e8e8e8;
 
-  --panel-bg: #fafafa;
-  --panel-header-bg: #fafafa;
-  --panel-header-hover: #f0f0f0;
+  --text-primary: var(--neutral-800);
+  --text-secondary: var(--neutral-500);
+  --text-muted: var(--neutral-500);
+  --text-placeholder: var(--neutral-500);
+
+  --input-bg: var(--neutral-0);
+  --input-border: var(--neutral-300);
+  --input-focus-border: var(--red-500);
+
+  --divider-color: var(--neutral-300);
+
+  /* Component */
+  --panel-header-bg: var(--neutral-100);
+  --panel-header-hover: var(--neutral-300);
   --panel-border: #eee;
 
-  --text-primary: #333;
-  --text-secondary: #555;
-  --text-muted: #666;
-  --text-placeholder: #aaa;
+  --accent-primary: var(--red-500);
+  --accent-hover: var(--red-600);
+  --accent-light: var(--red-50);
 
-  --input-bg: #fff;
-  --input-border: #ccc;
-  --input-focus-border: #e74c3c;
-  --input-focus-shadow: rgba(231, 76, 60, 0.5);
-
-  --accent-primary: #e74c3c;
-  --accent-hover: #c0392b;
-  --accent-light: #fde8e8;
   --btn-primary-bg: var(--accent-primary);
   --btn-primary-hover: var(--accent-hover);
-  --btn-secondary-bg: #f5f5f5;
-  --btn-secondary-border: #ddd;
-  --btn-secondary-hover: #eaeaea;
+  --btn-secondary-bg: var(--neutral-100);
+  --btn-secondary-border: var(--neutral-300);
+  --btn-secondary-hover: var(--neutral-300);
 
-  --divider-color: #e0e0e0;
-  --panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --measure-label-bg: rgba(0, 0, 0, var(--alpha-50));
+  --measure-del-hover-bg: rgba(var(--red-700-rgb), var(--alpha-95));
 
-  /* ── Typography ── */
+  /* Effect */
+  --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
+  --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-06));
+  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
+  --accent-shadow-sm: 0 var(--size-2) var(--size-8)
+    rgba(var(--red-rgb), var(--alpha-30));
+  --accent-shadow-md: 0 var(--size-4) var(--size-12)
+    rgba(var(--red-rgb), var(--alpha-50));
+  --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
+
+  /* ── Semantic Tokens: Typography ── */
+  /* Base */
   --font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
   --font-size-xs: 10px;
-  --font-size-sm: 11px;
-  --font-size-base: 12px;
-  --font-size-md: 13px;
-  --font-size-lg: 14px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
 
+  /* Effect */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  /* ── Spacing ── */
-  --space-xs: 2px;
-  --space-sm: 4px;
-  --space-md: 8px;
-  --space-lg: 12px;
-  --space-xl: 16px;
-  --space-xxl: 20px;
+  /* ── Semantic Tokens: Spacing ── */
+  --space-xs: var(--size-2);
+  --space-sm: var(--size-4);
+  --space-md: var(--size-8);
+  --space-lg: var(--size-12);
+  --space-xl: var(--size-16);
+  --space-xxl: var(--size-20);
 
-  /* ── Sizing ── */
+  /* ── Semantic Tokens: Sizing ── */
+  /* Base */
   --ctrl-size: 30px;
-  --panel-width: 280px;
   --input-height: 30px;
   --btn-height: 30px;
-  --toggle-size: 36px;
-  --toggle-slider-size: 20px;
+  --scale-press: 0.92;
+  --scale-hover: 1.08;
   --toggle-off-bg: #ccc;
-  --icon-size-sm: 16px;
+  --icon-size-sm: var(--size-16);
   --icon-size-md: 18px;
-  --icon-size-lg: 20px;
+
+  /* Component */
+  --toggle-size: 36px;
+  --panel-width: 280px;
+
+  /* ── Semantic Tokens: Layout Metrics ── */
+  /* Base */
+  --toolbar-inline-padding: var(--space-xs);
+
+  /* Component */
+  --panel-header-padding-left: var(--space-sm);
+  --panel-header-padding-right: var(--ctrl-size);
+  --panel-max-height: 400px;
+  --dropdown-max-height: 200px;
+
+  /* ── Semantic Tokens: Micro Visual Adjustments (Whitelist) ── */
+  /* Effect */
+  --letter-spacing-tight: 0.5px;
+  --stroke-width-emphasis: 2.5px;
+
+  /* ── Semantic Tokens: Border Width ── */
+  /* Base */
+  --border-thin: 1px;
+  /* Medium and thick intentionally equal for current visual consistency. */
+  --border-medium: var(--size-2);
+  --border-thick: var(--size-2);
 
   /* ── Export Control ── */
   --export-crop-border-width: var(--space-xs);
@@ -81,36 +157,46 @@
   --export-action-btn-size: calc(var(--ctrl-size) - var(--space-xs));
   --export-action-btn-gap: var(--space-xs);
 
-  /* ── Border Radius ── */
-  --radius-sm: 3px;
+  /* ── Semantic Tokens: Border Radius ── */
+  /* Base */
+  --radius-sm: var(--size-4);
+  --radius-md: var(--size-4);
+  --radius-lg: var(--size-6);
   --radius-xs: 2px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
   --radius-card: 8px;
   --radius-btn: 6px;
+
   --radius-round: 50%;
-  --radius-pill: 20px;
+  --radius-pill: var(--size-20);
 
-  /* ── Shadows ── */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+  /* Component */
+  --radius-card: var(--size-8);
+  --radius-btn: var(--size-6);
 
-  /* ── Transitions ── */
+  /* ── Semantic Tokens: Shadows ── */
+  /* Base */
+  --shadow-sm: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-12));
+  --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-12));
+  --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-12));
+
+  /* Component */
+  --shadow-ctrl-strong: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-50));
+
+  /* ── Semantic Tokens: Transitions ── */
   --transition-fast: 0.15s ease;
-  --transition-normal: 0.2s ease;
 
   /* ── Overlay ── */
   --overlay-bg: rgba(0, 0, 0, 0.4);
   --overlay-bg-dark: rgba(0, 0, 0, 0.55);
 
-  /* ── Z-index ── */
-  --z-index-dropdown: 9999;
+  /* ── Semantic Tokens: Z-index ── */
+  --z-index-dropdown: 10000;
   --z-index-pane-base: 450;
   --z-index-info: 850;
   --z-index-control: 1000;
   --z-index-overlay: 11000;
   --z-index-toolbar: 15000;
+
   --z-index-hint: 20000;
 }
 
@@ -122,6 +208,11 @@
   100% {
     transform: rotate(360deg);
   }
+}
+
+.foliplus-spin {
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
 }
 
 /* ── Toggle Button ── */
@@ -149,10 +240,10 @@
 }
 .toggle-btn:hover {
   background-color: var(--ctrl-hover-bg);
-  transform: scale(1.08);
+  transform: scale(var(--scale-hover));
 }
 .toggle-btn:active {
-  transform: scale(0.92);
+  transform: scale(var(--scale-press));
 }
 .toggle-btn svg {
   stroke: var(--text-primary);
@@ -165,34 +256,74 @@
   transform: translateX(-50%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, var(--alpha-70));
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-lg);
-  padding: 8px 16px;
+  padding: var(--space-md) var(--space-xl);
   white-space: nowrap;
   z-index: var(--z-index-hint);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 500;
+  color: var(--neutral-0);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
   line-height: 1.4;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
+}
+
+.map-hint-icon {
+  margin-right: var(--space-sm);
 }
 
 /* ── Section Divider ── */
 .section-divider {
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--divider-color),
-    transparent
-  );
+  height: var(--border-thin);
+  background: linear-gradient(to right, transparent, var(--divider-color), transparent);
   border: none;
 }
 
+.ctrl-abs-btn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+.ctrl-abs-btn:hover {
+  color: var(--accent-primary);
+  background: var(--accent-light);
+}
+
+.ctrl-focus {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}
+
+.foliplus-pin-wrap {
+  position: relative;
+  width: var(--size-24);
+  height: var(--toggle-size);
+}
+
+.foliplus-popup-content {
+  font-size: var(--font-size-md);
+  line-height: 1.8;
+}
+
 /* ── Ctrl Fold (Shared Container) ──
-   Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
-   Expanded: defined by component or shared extension rules */
+  Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
+  Expanded: defined by component or shared extension rules */
 .ctrl-fold {
   display: flex;
   align-items: stretch;
@@ -204,7 +335,7 @@
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   border: 0;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.65);
+  box-shadow: var(--shadow-ctrl-strong);
 }
 /* Expanded toggle-btn shared styles */
 .ctrl-fold.expanded .toggle-btn {
@@ -221,12 +352,12 @@
 }
 
 /* ── Shared Toolbar ──
-   Used by MeasureControl / ExportControl
-   Separator via toggle-btn border-right (avoids flex compression issues) */
+  Used by MeasureControl / ExportControl
+  Separator via toggle-btn border-right (avoids flex compression issues) */
 .ctrl-fold .tool-bar {
   display: none;
   align-items: center;
-  padding: 0 2px;
+  padding: 0 var(--toolbar-inline-padding);
   gap: 0;
   flex: 1;
   min-width: 0;

@@ -1,4 +1,10 @@
 (function() {
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error('[Fullscreen] foliplus runtime not found — component disabled.');
+    return;
+  }
+
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
@@ -15,9 +21,7 @@
       <line x1="3" y1="21" x2="10" y2="14"/>
     </svg>`;
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon('fullscreen', SVG_FULLSCREEN);
-  }
+  window.foliplus.registerHintIcon('fullscreen', SVG_FULLSCREEN);
 
   // ==================== Control Setup ====================
   const fsControl = L.control.fullscreen({
@@ -85,4 +89,9 @@
   };
 
   document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+  // Cleanup on map unload
+  map.on('unload', function() {
+    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  });
 })();

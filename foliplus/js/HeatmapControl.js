@@ -1,16 +1,20 @@
 (function() {
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error('[HeatmapControl] foliplus runtime not found — component disabled.');
+    return;
+  }
+
   // ==================== Constants ====================
   const _CONST = {
     ZOOM_DEBOUNCE_MS: 200,
     LAYER_SCAN_DEBOUNCE_MS: 200,
-    INIT_SCAN_ATTEMPTS: 5,
+    INIT_SCAN_ATTEMPTS: 8,
     INIT_SCAN_INTERVAL_MS: 300,
     SCHEME_DROPDOWN_BLUR_DELAY_MS: 150,
     DEFAULT_GRAY: '#999',
-    LABEL_SIZE: [80, 24],
-    LABEL_ANCHOR: [40, 12],
     H3_RES_MAP: [
-      [2, 0], [3, 1], [4, 1], [5, 2], [6, 3], [7, 3], [8, 4], [9, 5],
+      [2, 0], [3, 1], [4, 1], [5, 2], [6, 3], [7, 4], [8, 4], [9, 5],
       [10, 6], [11, 6], [12, 7], [13, 7], [14, 8], [15, 9], [16, 9],
       [17, 10], [18, 11], [19, 11], [20, 12],
     ],
@@ -30,9 +34,7 @@
       </svg>`
   };
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon('heatmap', SVGS.HEXAGON);
-  }
+  window.foliplus.registerHintIcon('heatmap', SVGS.HEXAGON);
 
   // --- Dynamic Dependency Loader ---
   // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
@@ -89,10 +91,12 @@
         this.currentMethod = COLOR_METHOD;
         this.N_CLASSES = N_CLASSES_DEFAULT;
         this.currentLabelShow = LABEL_SHOW;
+        this.autoFieldKey = null;
 
         this.HEATMAP_ID = '__heatmap__';
-        this.LABEL_PANE = '__heatmap_label__';
-        this.hexLayerRegistered = false;
+        this.graphPane = '__heatmap_graph__';
+        this.lblPane = '__heatmap_label__';
+        this.isRegistered = false;
         this.ui = null; // Injected UI control panel instance
 
         this._initLayers();
@@ -100,8 +104,8 @@
       }
 
       _initLayers() {
-        this.heatmapLayer = L.layerGroup();
-        this.hexLayer = L.geoJSON(null, {
+        this.mainLayer = L.layerGroup();
+        this.graphLayer = L.geoJSON(null, {
           style: (feat) => ({
             fillColor: feat.properties._fillColor || _CONST.DEFAULT_GRAY,
             fillOpacity: FILL_OP,
@@ -110,25 +114,27 @@
             opacity: BORDER_OP,
           }),
           interactive: false,
-          pane: this.HEATMAP_ID,
+          pane: this.graphPane,
         });
         this.labelLayer = L.layerGroup();
+        this.labelLayer.options.pane = this.lblPane;
 
-        this.heatmapLayer.addLayer(this.hexLayer);
-        this.heatmapLayer.addLayer(this.labelLayer);
+        this.mainLayer.addLayer(this.graphLayer);
+        this.mainLayer.addLayer(this.labelLayer);
       }
 
       _bindMapEvents() {
         this.zoomTimer = null;
-        this.map.on('zoomend', () => {
+        this._onZoomEnd = () => {
           if (this.zoomTimer) clearTimeout(this.zoomTimer);
           this.zoomTimer = setTimeout(() => {
             if (this.selectedLayerId) this.renderHexagons();
           }, _CONST.ZOOM_DEBOUNCE_MS);
-        });
+        };
+        this.map.on('zoomend', this._onZoomEnd);
 
         this.layerScanTimer = null;
-        this.map.on('layeradd layerremove', () => {
+        this._onLayerChange = () => {
           if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
           this.layerScanTimer = setTimeout(() => {
             if (this.ui) {
@@ -136,14 +142,13 @@
               this.ui.rebuildLayerDropdown();
             }
           }, _CONST.LAYER_SCAN_DEBOUNCE_MS);
-        });
+        };
+        this.map.on('layeradd layerremove', this._onLayerChange);
       }
 
       // --- Data Extraction ---
       scanMapLayers() {
         this.pointLayers = [];
-        if (!window.foliplus.LayerControlAPI) return;
-
         const pointLayersInfo =
           window.foliplus.LayerControlAPI.getLayersByType('point');
         if (!pointLayersInfo.length) return;
@@ -191,8 +196,8 @@
         layers.forEach((info) => {
           this.extractPoints(info.layer).forEach((pt) => {
             const m = pt.marker;
-            if (m._value !== undefined) fields._value = true;
-            if (m.options?.value !== undefined) fields['options.value'] = true;
+            if (typeof m._value === 'number') fields._value = true;
+            if (typeof m.options?.value === 'number') fields['options.value'] = true;
             if (m.feature?.properties) {
               Object.keys(m.feature.properties).forEach((k) => {
                 if (typeof m.feature.properties[k] === 'number')
@@ -204,25 +209,40 @@
         return Object.keys(fields);
       }
 
+      pickAutoField(fields) {
+        if (!fields || fields.length === 0) return null;
+        return fields[0];
+      }
+
+      _readMarkerField(marker, field) {
+        if (!field) return undefined;
+        if (field === '_value') return marker._value;
+        if (field === 'options.value') return marker.options?.value;
+        if (field.startsWith('properties.')) {
+          const key = field.substring(11);
+          return marker.feature?.properties?.[key];
+        }
+        return undefined;
+      }
+
       getPointValue(marker) {
         if (this.currentAgg === 'count') return 1;
-        let val;
-        if (this.currentField === '_auto') {
-          val = marker._value ??
-            marker.options?.value ??
-            marker.feature?.properties?.value;
-        } else if (this.currentField === '_value') {
-          val = marker._value;
-        } else if (this.currentField === 'options.value') {
-          val = marker.options?.value;
-        } else if (this.currentField.startsWith('properties.')) {
-          const key = this.currentField.substring(11);
-          val = marker.feature?.properties?.[key];
+        const key = this.currentField === '_auto' ? this.autoFieldKey : this.currentField;
+        const val = this._readMarkerField(marker, key);
+        if (val === undefined || isNaN(val)) {
+          if (!this._valueFallbackWarned) {
+            this._valueFallbackWarned = true;
+            console.warn(
+              '[HeatmapControl] falling back to 1 for missing values, field=' + this.currentField
+            );
+          }
+          return 1;
         }
-        return val !== undefined && !isNaN(val) ? Number(val) : 1;
+        return Number(val);
       }
 
       collectSelectedPoints() {
+        this._valueFallbackWarned = false;
         const pts = [];
         if (!this.selectedLayerId) return pts;
         this.pointLayers.forEach((info) => {
@@ -293,9 +313,9 @@
       // --- Hexagon Rendering ---
       renderHexagons() {
         if (!this.selectedLayerId) {
-          this.hexLayer.clearLayers();
+          this.graphLayer.clearLayers();
           this.labelLayer.clearLayers();
-          this.unregisterHexLayer();
+          this._unregisterFromLayerControl();
           return;
         }
         const pts = this.collectSelectedPoints();
@@ -316,7 +336,9 @@
             cell.count += 1;
             if (pt.value < cell.min) cell.min = pt.value;
             if (pt.value > cell.max) cell.max = pt.value;
-          } catch (e) {}
+          } catch (e) {
+            console.warn('[HeatmapControl] h3.latLngToCell failed:', pt.lat, pt.lng, e);
+          }
         });
 
         const getAggValue = (cell) => {
@@ -332,9 +354,9 @@
 
         const allVals = Object.values(hexCells).map(getAggValue);
         if (allVals.length === 0) {
-          this.hexLayer.clearLayers();
+          this.graphLayer.clearLayers();
           this.labelLayer.clearLayers();
-          this.unregisterHexLayer();
+          this._unregisterFromLayerControl();
           return;
         }
 
@@ -369,29 +391,17 @@
                 _fillColor: fillColor, _h3: h3Idx
               },
             });
-          } catch (e) {}
+          } catch (e) {
+            console.warn('[HeatmapControl] h3.cellToBoundary failed:', h3Idx, e);
+          }
         }
 
-        // Register with LayerControl BEFORE adding data, so enforceOrder()
-        // runs while heatmapLayer is empty — avoid removeLayer/addLayer
-        // disrupting already-rendered hexagons and labels.
-        this.registerHexLayer();
-
-        this.hexLayer.clearLayers();
+        this.graphLayer.clearLayers();
         if (features.length) {
-          this.hexLayer.addData({ type: 'FeatureCollection', features });
+          this.graphLayer.addData({ type: 'FeatureCollection', features });
         }
 
         this.labelLayer.clearLayers();
-
-        // Keep label pane at same z-index as hex pane
-        // (DOM order ensures labels render above hexagons within same
-        // z-index; other interleaved layers manage their own panes)
-        let lblPane = this.map.getPane(this.LABEL_PANE);
-        let hexPane = this.map.getPane(this.HEATMAP_ID);
-        if (lblPane && hexPane) {
-          lblPane.style.zIndex = hexPane.style.zIndex || 500;
-        }
 
         if (this.currentLabelShow) {
           features.forEach((feat) => {
@@ -415,46 +425,42 @@
 
             L.marker([lat, lng], {
               icon: L.divIcon({
-                className: 'leaflet-marker-icon heatmap-label',
-                html: `<div class="heatmap-label-inner" style="
-                  font-size: ${LABEL_SIZE}px; color: ${LABEL_COLOR};
-                ">${labelStr}</div>`,
-                iconSize: _CONST.LABEL_SIZE,
-                iconAnchor: _CONST.LABEL_ANCHOR,
+                className: 'heatmap-label',
+                html: `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`,
               }),
               interactive: false,
-              pane: this.LABEL_PANE,
+              pane: this.lblPane,
             }).addTo(this.labelLayer);
           });
         }
+
+        // Register with LayerControl AFTER adding data, so enforceOrder()
+        // finds all child panes (graph and labels) correctly on first pass.
+        this._registerToLayerControl();
       }
 
-      registerHexLayer() {
-        if (this.hexLayerRegistered) return;
-        this.hexLayerRegistered = true;
+      _registerToLayerControl() {
+        if (this.isRegistered) return;
+        this.isRegistered = true;
         window.foliplus.LayerControlAPI.registerLayer({
           name: _('heatmap.title'),
           id: this.HEATMAP_ID,
           isBase: false,
-          layer: this.heatmapLayer,
-          paneName: this.HEATMAP_ID,
+          layer: this.mainLayer,
           iconSvg: SVGS.HEXAGON,
         });
-        // Ensure label pane exists at same z-index as hex pane
-        let lblPane = this.map.getPane(this.LABEL_PANE);
-        if (!lblPane) {
-          lblPane = this.map.createPane(this.LABEL_PANE);
-        }
-        let hexPane = this.map.getPane(this.HEATMAP_ID);
-        if (hexPane) {
-          lblPane.style.zIndex = hexPane.style.zIndex || 500;
-        }
+
+        // The LayerControlAPI.enforceOrder() will handle the actual z-index
+        // calculation for the custom panes (__heatmap_graph__ and __heatmap_label__)
+        // based on the layer's position in the list.
       }
 
-      unregisterHexLayer() {
-        if (!this.hexLayerRegistered) return;
-        this.hexLayerRegistered = false;
+      _unregisterFromLayerControl() {
+        if (!this.isRegistered) return;
+        this.isRegistered = false;
         window.foliplus.LayerControlAPI.unregisterLayer(this.HEATMAP_ID);
+        this.graphLayer.clearLayers();
+        this.labelLayer.clearLayers();
       }
     }
 
@@ -490,7 +496,7 @@
             <span class="header-icon">${SVGS.HEXAGON}</span>
             ${_('heatmap.title')}
           </span>
-          <button class="close-btn" title="${_('layer.close_title')}">
+          <button class="close-btn ctrl-abs-btn" title="${_('layer.close_title')}">
             ${window.foliplus.SVGs.CLOSE}</button>`;
 
         window.foliplus.bindPanelToggle({
@@ -513,7 +519,7 @@
         const layerSelectWrap = L.DomUtil.create('div', 'form-control-wrap', layerRow);
         this.layerSelect = L.DomUtil.create('select', 'form-select', layerSelectWrap);
         this.layerSelect.classList.add('layer-select');
-        this.buildLayerListItems(this.layerSelect);
+
         this.extraBody = L.DomUtil.create('div', 'extra-body', configBody);
         this.extraBody.style.display = 'none';
 
@@ -547,8 +553,12 @@
         this.fieldSelect = L.DomUtil.create('select', 'form-select', fieldControlWrap);
         this.fieldSelect.onchange = () => {
           this.manager.currentField = this.fieldSelect.value;
+          this._syncSelect(this.fieldSelect, this.fieldSelect.value);
           this.manager.renderHexagons();
         };
+
+        // Initialize layer dropdown LAST after all select refs are created
+        this.buildLayerListItems(this.layerSelect);
 
         // Style section
         const styleHeading = L.DomUtil.create('div', 'section-heading', this.extraBody);
@@ -698,37 +708,21 @@
         const clearBtn = L.DomUtil.create('button', 'btn btn-clear', btnRow);
         clearBtn.textContent = _('heatmap.clear');
         clearBtn.onclick = () => {
-          this.manager.selectedLayerId = null;
-          this.layerSelect.value = '';
-          this.manager.currentAgg = AGG_DEFAULT;
-          this.aggSelect.value = AGG_DEFAULT;
-          this.manager.currentField = FIELD_DEFAULT;
-          this.manager.N_CLASSES = N_CLASSES_DEFAULT;
-          this.classSelect.value = String(N_CLASSES_DEFAULT);
-          this.manager.currentMethod = COLOR_METHOD;
-          this.methodSelect.value = COLOR_METHOD;
-          this.manager.currentScheme = COLOR_SCHEME;
+          this._resetAll();
+          this._syncSelect(this.layerSelect, '');
+          this._syncSelect(this.aggSelect, AGG_DEFAULT);
+          this._syncSelect(this.classSelect, String(N_CLASSES_DEFAULT));
+          this._syncSelect(this.methodSelect, COLOR_METHOD);
           this.schemeSelectHidden.value = COLOR_SCHEME;
-          this.manager.currentLabelShow = LABEL_SHOW;
           this.labelChk.checked = LABEL_SHOW;
-          this.manager.BORDER_W = BORDER_W_DEFAULT;
           this.borderWeightInput.value = BORDER_W_DEFAULT;
-          this.manager.BORDER_COLOR = BORDER_COLOR_DEFAULT;
           this.borderColorInput.value = BORDER_COLOR_DEFAULT;
 
-          this.manager.hexLayer.clearLayers();
-          this.manager.labelLayer.clearLayers();
-          this.manager.unregisterHexLayer();
           this.updateSchemeBar();
           this.updateFieldSelector();
           this.extraBody.style.display = 'none';
           this.container.classList.remove('expanded');
           this.container.classList.add('collapsed');
-          if (this.layerSelect.value === '') {
-            this.layerSelect.classList.add('is-placeholder');
-          } else {
-            this.layerSelect.classList.remove('is-placeholder');
-          }
         };
 
         const confirmBtn = L.DomUtil.create('button', 'btn btn-confirm', btnRow);
@@ -759,18 +753,18 @@
 
       onRemove() {
         // Clean up map event listeners
-        if (this.zoomTimer) clearTimeout(this.zoomTimer);
-        if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
-        this.manager.map.off('zoomend');
-        this.manager.map.off('layeradd layerremove');
+        if (this.manager.zoomTimer) clearTimeout(this.manager.zoomTimer);
+        if (this.manager.layerScanTimer) clearTimeout(this.manager.layerScanTimer);
+        this.manager.map.off('zoomend', this.manager._onZoomEnd);
+        this.manager.map.off('layeradd layerremove', this.manager._onLayerChange);
 
         // Disconnect MutationObserver
         if (this.observer) this.observer.disconnect();
 
         // Unregister from LayerControl and remove layers
-        this.manager.unregisterHexLayer();
-        if (this.manager.heatmapLayer) {
-          this.manager.map.removeLayer(this.manager.heatmapLayer);
+        this.manager._unregisterFromLayerControl();
+        if (this.manager.mainLayer) {
+          this.manager.map.removeLayer(this.manager.mainLayer);
         }
       }
 
@@ -805,20 +799,17 @@
             this.extraBody.style.display =
               this.manager.selectedLayerId ? '' : 'none';
           }
-          if (sel.value === '') sel.classList.add('is-placeholder');
-          else sel.classList.remove('is-placeholder');
-
+          this._syncSelect(sel, sel.value);
           this.updateFieldSelector();
           if (this.manager.selectedLayerId) this.manager.renderHexagons();
           else {
-            this.manager.hexLayer.clearLayers();
+            this.manager.graphLayer.clearLayers();
             this.manager.labelLayer.clearLayers();
-            this.manager.unregisterHexLayer();
+            this.manager._unregisterFromLayerControl();
           }
         };
 
-        if (sel.value === '') sel.classList.add('is-placeholder');
-        else sel.classList.remove('is-placeholder');
+        this._syncSelect(sel, sel.value);
       }
 
       rebuildLayerDropdown() {
@@ -837,9 +828,11 @@
           (info) => info.id === this.manager.selectedLayerId
         );
         const fields = this.manager.collectFields(selected);
+        this.manager.autoFieldKey = this.manager.pickAutoField(fields);
         const phOpt = document.createElement('option');
         phOpt.value = '_auto';
         phOpt.textContent = _('heatmap.field_auto');
+        phOpt.disabled = true;
         phOpt.className = 'placeholder-option';
 
         this.fieldSelect.innerHTML = '';
@@ -863,11 +856,7 @@
           this.fieldSelect.value = '_auto';
         }
 
-        if (this.fieldSelect.value === '_auto') {
-          this.fieldSelect.classList.add('is-placeholder');
-        } else {
-          this.fieldSelect.classList.remove('is-placeholder');
-        }
+        this._syncSelect(this.fieldSelect, this.fieldSelect.value);
       }
 
       /** Render color blocks into a container. */
@@ -932,9 +921,7 @@
           };
         });
 
-        const items = this.schemeDropdown.querySelectorAll(
-          '.scheme-dropdown-item'
-        );
+        const items = this.schemeDropdown.querySelectorAll('.scheme-dropdown-item');
         if (items.length) {
           if (focusIdx >= 0) items[focusIdx].focus();
           else items[0].focus();
@@ -985,6 +972,28 @@
         } else if (this.manager.pointLayers.length === 0) {
           window.foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
         }
+      }
+
+      _resetAll() {
+        this.manager.selectedLayerId = null;
+        this.manager.autoFieldKey = null;
+        this.manager.currentAgg = AGG_DEFAULT;
+        this.manager.currentField = FIELD_DEFAULT;
+        this.manager.N_CLASSES = N_CLASSES_DEFAULT;
+        this.manager.currentMethod = COLOR_METHOD;
+        this.manager.currentScheme = COLOR_SCHEME;
+        this.manager.currentLabelShow = LABEL_SHOW;
+        this.manager.BORDER_W = BORDER_W_DEFAULT;
+        this.manager.BORDER_COLOR = BORDER_COLOR_DEFAULT;
+
+        this.manager.graphLayer.clearLayers();
+        this.manager.labelLayer.clearLayers();
+        this.manager._unregisterFromLayerControl();
+      }
+
+      _syncSelect(el, value) {
+        el.value = value;
+        el.classList.toggle('is-placeholder', !value || value === '_auto');
       }
     }
 

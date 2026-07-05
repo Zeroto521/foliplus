@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import folium
 from conftest import render
 
@@ -70,16 +72,17 @@ class TestMeasureControlRendering:
         # Old onAdd override should NOT exist
         assert "origOnAdd(map)" not in html
         assert (
-            "this.layerGroup.onAdd" not in html
-            or "this.layerGroup.onAdd = (map)" not in html
+            "this.mainLayer.onAdd" not in html
+            or "this.mainLayer.onAdd = (map)" not in html
         )
 
-    def test_no_remove_layer_override(self, base_map: folium.Map):
-        """removeLayer override removed — unregistration handled explicitly."""
+    def test_remove_layer_routes_to_sublayer(self, base_map: folium.Map):
+        """removeLayer is overridden to route to sub-layer (three-layer architecture)."""
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.layerGroup.removeLayer =" not in html
+        assert "this.mainLayer.removeLayer = (layer) => {" in html
+        assert "this.labelLayer : this.graphLayer" in html
 
     def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
         """MeasureControl uses LayerControlAPI.ensurePane for renderer creation."""
@@ -87,3 +90,110 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "window.foliplus.LayerControlAPI.ensurePane" in html
+
+    def test_realtime_distance_preview(self, base_map: folium.Map):
+        """Distance mode includes real-time preview label (previewDistLabel)."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "previewDistLabel" in html
+        assert "onDistMove" in html
+        assert "MeasureUtils.formatDistance(showDist)" in html
+
+    def test_format_distance_km(self, base_map: folium.Map):
+        """Distance >= 1000m shows as km."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure.unit_km" in html
+        assert "measure.unit_m" in html
+
+    def test_del_icon_class(self, base_map: folium.Map):
+        """Delete icon uses del-icon-wrap and measure-del-icon classes."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "del-icon-wrap" in html
+        assert "measure-del-icon" in html
+
+    def test_onremove_present(self, base_map: folium.Map):
+        """MeasureControl has onRemove method that calls clearAll."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "onRemove()" in html
+        assert "measureManager.clearAll()" in html
+
+    def test_css_classes_line_styles(self, base_map: folium.Map):
+        """Line styles use measure-line-solid (solid) and measure-line-dashed (dashed)."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-line-solid" in html
+        assert "measure-line-dashed" in html
+        assert "measure-line-preview" in html
+
+    def test_css_class_measure_hidden(self, base_map: folium.Map):
+        """measure-hidden class exists for visibility toggle."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-hidden" in html
+
+    def test_suppress_hide_utility(self, base_map: folium.Map):
+        """MeasureUtils.suppressHide helper is used instead of inline suppress pattern."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureUtils.suppressHide" in html
+
+    def test_node_css_classes(self, base_map: folium.Map):
+        """Node markers use CSS classes instead of inline color/weight/fill options."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-node" in html
+        assert "measure-node-final" in html
+        assert "measure-node-preview" in html
+
+    def test_circle_css_classes(self, base_map: folium.Map):
+        """Circle elements use CSS classes instead of inline color/fill options."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-circle-final" in html
+        assert "measure-circle-preview" in html
+
+    def test_toggle_visibility_utility(self, base_map: folium.Map):
+        """toggleVisibility is used for show/hide of line and node elements."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureUtils.toggleVisibility" in html
+
+    def test_double_label_fix(self, base_map: folium.Map):
+        """Regression test for Bug 2: Labels are marked BEFORE addTo(mainLayer).
+        This ensures they are routed to sub-layers (labelLayer) immediately.
+        """
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # Check specific order: _isMeasureLabel = true BEFORE addTo
+        assert re.search(
+            r"_isMeasureLabel\s*=\s*true;\s*\w+\.addTo\(this\.mainLayer\)", html
+        )
+
+    def test_label_interaction_listeners(self, base_map: folium.Map):
+        """Distance/Circle labels have click listeners to toggle UI."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "segLabels.forEach(l => l.on('click', handleItemClick))" in html
+        assert "if (radiusLabel) attachInteraction(radiusLabel)" in html
+
+    def test_unregister_clears_leftover_nodes(self, base_map: folium.Map):
+        """unregisterFromLayerControl explicitly clears graph/label sub-layers."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.graphLayer.clearLayers()" in html
+        assert "this.labelLayer.clearLayers()" in html
+
+    def test_ui_fixed_labels_fix(self, base_map: folium.Map):
+        """Regression test: Labels should stay fixed (visible), only X toggles.
+        Map click should restore default (L=on, X=off).
+        """
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # Ensure map clicks use 'reset' to keep labels visible
+        assert "toggleUI(false, 'reset')" in html
+        # Ensure item clicks toggle ONLY X (undefined)
+        assert "toggleUI(undefined)" in html
+        assert "toggleUI(undefined, true)" not in html

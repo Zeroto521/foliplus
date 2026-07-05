@@ -1,29 +1,33 @@
-/* ═══════════════════════════════════════════════════════════════════
-   HeatmapControl — H3 Hexbin Aggregation
-   ═══════════════════════════════════════════════════════════════════ */
 .heatmap-ctrl {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   color: var(--text-primary);
+  --hm-label-width: 85px;
+  --hm-select-pad-right: 22px;
+  --hm-inline-height: 18px;
+  --hm-inline-width: 52px;
+  --hm-toggle-width: 36px;
+  --hm-toggle-height: var(--size-20);
+  --hm-accent-arrow-offset: var(--size-6);
+  --hm-select-arrow-width: calc(var(--size-8) + var(--size-2));
+  --hm-select-arrow-height: var(--size-6);
+  --hm-heading-letter-spacing: 0.8px;
 }
 
 /* ── Hexbin Label ── */
 .heatmap-label {
   pointer-events: none;
   z-index: var(--z-index-pane-base) !important;
-}
-.heatmap-label .heatmap-label-inner {
-  width: 100%;
-  height: 100%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
   white-space: nowrap;
-  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.45);
+  -webkit-text-stroke: var(--border-thin) rgba(0, 0, 0, var(--alpha-50));
   text-shadow:
-    0 0 var(--space-xs) #000,
-    0 0 var(--space-sm) #000,
-    0 0 calc(var(--space-sm) + var(--space-xs)) #000;
+    0 0 var(--space-xs) rgba(0, 0, 0, var(--alpha-95)),
+    0 0 var(--space-sm) rgba(0, 0, 0, var(--alpha-95)),
+    0 0 calc(var(--space-sm) + var(--space-xs)) rgba(0, 0, 0, var(--alpha-95));
 }
 
 /* ── Sections: Data / Style / Labels ── */
@@ -44,8 +48,8 @@
 }
 .heatmap-ctrl .form-label {
   flex-shrink: 0;
-  width: 85px;
-  font-size: var(--font-size-base);
+  width: var(--hm-label-width);
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   text-align: right;
   white-space: nowrap;
@@ -66,13 +70,13 @@
   width: 100%;
   height: var(--input-height);
   font-size: var(--font-size-md);
-  padding: 0 22px 0 8px;
-  border: 1px solid var(--input-border);
+  padding: 0 var(--hm-select-pad-right) 0 var(--space-md);
+  border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   background: var(--input-bg)
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E")
-    no-repeat right 8px center;
-  background-size: 10px 6px;
+    no-repeat right var(--space-md) center;
+  background-size: var(--hm-select-arrow-width) var(--hm-select-arrow-height);
   color: var(--text-primary);
   cursor: pointer;
   outline: none;
@@ -82,14 +86,15 @@
   -moz-appearance: none;
 }
 .heatmap-ctrl .form-select:focus,
-.heatmap-ctrl select:focus {
+.heatmap-ctrl select:focus,
+.heatmap-ctrl .ctrl-focus {
   border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 2px var(--input-focus-shadow);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 
 /* Class count small select */
 .heatmap-ctrl .class-count-select {
-  width: 52px;
+  width: var(--hm-inline-width);
   flex-shrink: 0;
 }
 
@@ -125,9 +130,9 @@
   height: var(--ctrl-size);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  border: 1px solid var(--btn-secondary-border);
+  border: var(--border-thin) solid var(--btn-secondary-border);
   position: relative;
-  padding-right: 18px;
+  padding-right: var(--icon-size-md);
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -137,7 +142,7 @@
 }
 .heatmap-ctrl .scheme-bar-inner {
   flex: 1;
-  height: 18px;
+  height: var(--hm-inline-height);
   display: flex;
   overflow: hidden;
   border-radius: var(--radius-sm);
@@ -149,19 +154,19 @@
 .heatmap-ctrl .scheme-bar::after {
   content: "";
   position: absolute;
-  right: 6px;
+  right: var(--hm-accent-arrow-offset);
   top: 50%;
   transform: translateY(-50%);
   width: 0;
   height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid #999;
+  border-left: var(--size-4) solid transparent;
+  border-right: var(--size-4) solid transparent;
+  border-top: var(--size-6) solid var(--text-placeholder);
   pointer-events: none;
 }
 .heatmap-ctrl .scheme-bar:hover {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px var(--input-focus-shadow);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 /* Scheme row: form-control-wrap needs relative positioning for the dropdown */
 .heatmap-ctrl .form-row:has(.scheme-bar) .form-control-wrap {
@@ -185,11 +190,11 @@
   box-sizing: border-box;
   margin-top: var(--space-xs);
   background: var(--input-bg);
-  border: 1px solid var(--input-border);
+  border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   z-index: var(--z-index-dropdown);
-  max-height: 200px;
+  max-height: var(--dropdown-max-height);
   overflow-y: auto;
   padding: var(--space-sm) 0;
 }
@@ -210,13 +215,13 @@
 .heatmap-ctrl .scheme-dropdown-item.active {
   background: var(--accent-light);
   color: var(--accent-primary);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .heatmap-ctrl .scheme-dropdown-bar {
   flex: 1;
-  height: 18px;
+  height: var(--hm-inline-height);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--btn-secondary-border);
+  border: var(--border-thin) solid var(--btn-secondary-border);
   flex-shrink: 0;
   display: flex;
   overflow: hidden;
@@ -229,26 +234,26 @@
 .heatmap-ctrl .border-color-input {
   flex: 1;
   height: var(--input-height);
-  padding: 1px;
-  border: 1px solid var(--input-border);
+  padding: var(--border-thin);
+  border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   cursor: pointer;
   background: none;
   box-sizing: border-box;
 }
 .heatmap-ctrl .border-color-input::-webkit-color-swatch-wrapper {
-  padding: 1px;
+  padding: var(--border-thin);
 }
 .heatmap-ctrl .border-color-input::-webkit-color-swatch {
   border: none;
   border-radius: var(--radius-sm);
 }
 .heatmap-ctrl .border-weight-input {
-  width: 52px;
+  width: var(--hm-inline-width);
   height: var(--input-height);
-  font-size: var(--font-size-base);
-  padding: 0 6px;
-  border: 1px solid var(--input-border);
+  font-size: var(--font-size-sm);
+  padding: 0 var(--size-6);
+  border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   background: var(--input-bg);
   color: var(--text-primary);
@@ -258,7 +263,7 @@
 }
 .heatmap-ctrl .border-weight-input:focus {
   border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 2px var(--input-focus-shadow);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 .heatmap-ctrl .border-weight-input::-webkit-outer-spin-button,
 .heatmap-ctrl .border-weight-input::-webkit-inner-spin-button {
@@ -266,6 +271,7 @@
   margin: 0;
 }
 .heatmap-ctrl .border-weight-input[type="number"] {
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 
@@ -273,8 +279,8 @@
 .heatmap-ctrl .toggle-switch {
   position: relative;
   display: inline-block;
-  width: 36px;
-  height: 20px;
+  width: var(--hm-toggle-width);
+  height: var(--hm-toggle-height);
   flex-shrink: 0;
   cursor: pointer;
 }
@@ -298,20 +304,20 @@
 .heatmap-ctrl .toggle-slider::before {
   content: "";
   position: absolute;
-  height: 16px;
-  width: 16px;
-  left: 2px;
-  bottom: 2px;
-  background-color: #fff;
+  height: var(--icon-size-sm);
+  width: var(--icon-size-sm);
+  left: var(--space-xs);
+  bottom: var(--space-xs);
+  background-color: var(--neutral-0);
   border-radius: var(--radius-round);
   transition: transform var(--transition-fast);
-  box-shadow: 0 1px 3px var(--ctrl-border);
+  box-shadow: var(--shadow-xs);
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider {
   background-color: var(--accent-primary);
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider::before {
-  transform: translateX(16px);
+  transform: translateX(var(--icon-size-sm));
 }
 
 /* ── Bottom Buttons ── */
@@ -319,12 +325,12 @@
   display: flex;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
-  border-top: 1px solid var(--divider-color);
+  border-top: var(--border-thin) solid var(--divider-color);
   background: var(--panel-header-bg);
 }
 .heatmap-ctrl .btn {
   flex: 1;
-  height: 30px;
+  height: var(--btn-height);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -337,19 +343,19 @@
 .heatmap-ctrl .btn-clear {
   background: var(--btn-secondary-bg);
   color: var(--text-muted);
-  border: 1px solid var(--btn-secondary-border);
+  border: var(--border-thin) solid var(--btn-secondary-border);
 }
 .heatmap-ctrl .btn-clear:hover {
   background: var(--btn-secondary-hover);
 }
 .heatmap-ctrl .btn-confirm {
   background: var(--btn-primary-bg);
-  color: #fff;
-  box-shadow: 0 1px 4px rgba(231, 76, 60, 0.3);
+  color: var(--neutral-0);
+  box-shadow: var(--accent-shadow-sm);
 }
 .heatmap-ctrl .btn-confirm:hover {
   background: var(--btn-primary-hover);
-  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
+  box-shadow: var(--accent-shadow-md);
 }
 
 .heatmap-ctrl .section-divider {
@@ -361,7 +367,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: var(--hm-heading-letter-spacing);
   padding: var(--space-md) var(--space-xl) var(--space-sm);
   display: flex;
   align-items: center;
@@ -373,16 +379,16 @@
 }
 .hex-label {
   font-size: var(--font-size-sm);
-  font-weight: 700;
-  fill: #fff;
+  font-weight: var(--font-weight-bold);
+  fill: var(--neutral-0);
   text-anchor: middle;
   dominant-baseline: central;
   pointer-events: none;
   paint-order: stroke fill;
-  stroke: rgba(0, 0, 0, 0.5);
-  stroke-width: 2.5px;
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 1))
-    drop-shadow(0 0 8px rgba(255, 255, 255, 0.7));
+  stroke: rgba(0, 0, 0, var(--alpha-50));
+  stroke-width: var(--stroke-width-emphasis);
+  filter: drop-shadow(0 0 var(--space-sm) rgba(255, 255, 255, var(--alpha-95)))
+    drop-shadow(0 0 var(--space-md) rgba(255, 255, 255, var(--alpha-70)));
 }
 
 /* No layer hint */

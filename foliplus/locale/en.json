@@ -37,6 +37,7 @@
   "layer.close_title": "Collapse",
   "layer.base_map_label": "Base Map",
   "layer.color_map_label": "Solid Color",
+  "layer.reorder_group_only": "Reordering is only allowed within the same group",
   "search.coord_placeholder": "Enter: longitude,latitude",
   "search.addr_placeholder": "Enter an address keyword",
   "search.coord_error": "Invalid format. Enter: longitude,latitude",
