@@ -434,6 +434,7 @@ class TestHeatmapAutoFieldBrowser:
             "window.chroma={scale:function(){return{mode:function(){return{colors:function(){return['#f00']}}}}}};"
             "return run();",
         )
+        html_path.write_text(html, encoding="utf-8")
 
         errors = []
         page.on(
