@@ -127,7 +127,7 @@ class TestHeatmapControlRendering:
         """Label markers use custom pane and no zIndexOffset."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: this.MAIN_PANE" in html
+        assert "pane: this.graphPane" in html
         assert "heatmap-label" in html
 
     def test_label_zindex_css(self, base_map: folium.Map):
@@ -149,24 +149,24 @@ class TestHeatmapControlRendering:
         assert "Reds" in html
 
     def test_pane_name_constant(self, base_map: folium.Map):
-        """MAIN_PANE is used as pane name consistently."""
+        """graphPane is used as pane name consistently."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "__heatmap__" in html
-        assert "pane: this.MAIN_PANE" in html
+        assert "pane: this.graphPane" in html
 
-    def test_hexlayer_pane_init(self, base_map: folium.Map):
-        """hexLayer is initialized with pane: this.MAIN_PANE."""
+    def test_graphlayer_pane_init(self, base_map: folium.Map):
+        """graphLayer is initialized with pane: this.graphPane."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: this.MAIN_PANE" in html
+        assert "pane: this.graphPane" in html
 
     def test_register_before_add_data(self, base_map: folium.Map):
-        """registerHexLayer is called before hexLayer.addData."""
+        """_registerToLayerControl is called before graphLayer.addData."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "registerHexLayer()" in html
-        assert "heatmapLayer.options._paneSet" not in html
+        assert "_registerToLayerControl()" in html
+        assert "mainLayer.options._paneSet" not in html
 
     def test_extract_points_filters_no_feature(self, base_map: folium.Map):
         """extractPoints only accepts markers with .feature."""

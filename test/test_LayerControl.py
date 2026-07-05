@@ -303,6 +303,27 @@ class TestLayerControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "enforceOrder" in html
+
+    def test_recursion_guard_present(self, base_map: folium.Map):
+        """Regression test for Bug 3: Recursion guard prevents infinite loop in layeradd."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this._isEnforcing = true" in html
+        assert "if (this._isEnforcing) return" in html
+
+    def test_debounced_enforce_order(self, base_map: folium.Map):
+        """enforceOrder is debounced in layeradd listener to prevent performance issues."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "setTimeout(() => {" in html
+        assert "this.enforceOrder()" in html
+
+    def test_pane_zindex_label_offset(self, base_map: folium.Map):
+        """Regression test for Bug 1: Label panes get z-index offset (+1) automatically."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "cp.includes('label') || cp.includes('lbl')" in html
+        assert "ep.pane.style.zIndex = z + 1" in html
         assert "ensurePane" in html
         assert "_setLayerPaneRecursive" in html
 

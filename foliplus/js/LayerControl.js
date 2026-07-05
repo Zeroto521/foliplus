@@ -127,6 +127,22 @@
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
+      this._isEnforcing = false;
+      this._enforceTimer = null;
+
+      this.map.on('layeradd', (e) => {
+        // Skip internal layers and avoid double-triggering during enforcement
+        if (this._isEnforcing || e.layer === this.map || e.layer instanceof L.Renderer) {
+          return;
+        }
+
+        // Debounce enforcement to avoid redundant calcs during bulk additions
+        if (this._enforceTimer) clearTimeout(this._enforceTimer);
+        this._enforceTimer = setTimeout(() => {
+          this.enforceOrder();
+          this._enforceTimer = null;
+        }, 50);
+      });
 
       window.foliplus.LayerControlAPI = this;
     }
@@ -263,8 +279,7 @@
 
       // Mark container layers (L.layerGroup, L.featureGroup, etc.) as
       // already-processed so subsequent enforceOrder() calls skip the
-      // removeLayer/addLayer cycle.  Components no longer need to set
-      // _paneSet on their container — no manual __customRendererApplied needed.
+      // removeLayer/addLayer cycle.
       if (opts.paneName && opts.layer) {
         const isContainer = !(opts.layer instanceof L.Path || opts.layer instanceof L.Marker);
         if (isContainer) {
@@ -372,68 +387,128 @@
       }
     }
 
+    /** Find all custom panes used by a container's tree.
+     *  This lets enforceOrder control z-index without requiring
+     *  orderPane/paneName from three-layer components. */
+    _discoverChildPanes(layer, depth = 0) {
+      if (depth > 5) return []; // Prevent infinite recursion
+      const panes = new Set();
+
+      const check = (l) => {
+        const p = l.options?.pane;
+        if (p && !this._isDefaultPane(p)) {
+          panes.add(p);
+        }
+        if (l.eachLayer) {
+          this._discoverChildPanes(l, depth + 1).forEach(p2 => panes.add(p2));
+        } else if (l._layers) {
+          for (const k in l._layers) {
+            this._discoverChildPanes(l._layers[k], depth + 1).forEach(p2 => panes.add(p2));
+          }
+        }
+      };
+
+      if (layer.eachLayer) {
+        layer.eachLayer(check);
+      } else if (layer._layers) {
+        for (const k in layer._layers) check(layer._layers[k]);
+      }
+      return Array.from(panes);
+    }
+
+    _isDefaultPane(pane) {
+      return pane === 'overlayPane' || pane === 'markerPane' ||
+        pane === 'tilePane' || pane === 'shadowPane' || pane === 'mapPane' ||
+        pane.startsWith('_lyr_');
+    }
+
     enforceOrder() {
-      const orderedLayers = [];
-      const layerInfos = new Map();
+      if (this._isEnforcing) return;
+      this._isEnforcing = true;
+      try {
+        const orderedLayers = [];
+        const layerInfos = new Map();
 
-      for (let i = 0; i < this.layers.length; i++) {
-        const l_id = this.layers[i].id;
-        const layer = this.map._layers[l_id] || window[l_id] || null;
-        if (layer && this.map.hasLayer(layer)) {
-          orderedLayers.push(layer);
-          layerInfos.set(L.stamp(layer), this.layers[i]);
-        }
-      }
-
-      if (orderedLayers.length === 0) return;
-
-      const layersToMove = [];
-      let markerZ = 0; // highest z-index needed for markerPane
-      for (let i = 0; i < orderedLayers.length; i++) {
-        const lyr = orderedLayers[i];
-        const info = layerInfos.get(L.stamp(lyr));
-        const paneName = info?.paneName;
-        const isTile = lyr instanceof L.TileLayer;
-
-        // TileLayers use a lower z-index range (200-400) so they stay
-        // below overlayPane (400) and markerPane (600) by default.
-        const zBase = isTile ? 200 : _CONST.Z_INDEX_BASE;
-        const z = zBase + (orderedLayers.length - i);
-
-        if (paneName) {
-          const ep = this.ensurePane(paneName, !isTile);
-          ep.pane.style.zIndex = z;
-          if (lyr.options.pane !== paneName || !lyr.options._paneSet) {
-            layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
-          }
-        } else {
-          const fallbackPane = `_lyr_${L.stamp(lyr)}`;
-          const ep = this.ensurePane(fallbackPane, !isTile);
-          ep.pane.style.zIndex = z;
-          if (!(lyr instanceof L.TileLayer)) {
-            markerZ = Math.max(markerZ, z);
-          }
-          if (lyr.options.pane !== fallbackPane || !lyr.options._paneSet) {
-            layersToMove.push({ layer: lyr, paneName: fallbackPane, renderer: ep.renderer });
+        for (let i = 0; i < this.layers.length; i++) {
+          const l_id = this.layers[i].id;
+          const layer = this.map._layers[l_id] || window[l_id] || null;
+          if (layer && this.map.hasLayer(layer)) {
+            orderedLayers.push(layer);
+            layerInfos.set(L.stamp(layer), this.layers[i]);
           }
         }
-      }
 
-      // Sync markerPane z-index so non-paneName marker layers can sit
-      // above/below paneName custom panes based on drag order.
-      if (markerZ > 0) {
-        const mp = this.map.getPane('markerPane');
-        if (mp) mp.style.zIndex = markerZ;
-      }
+        if (orderedLayers.length === 0) return;
 
-      if (layersToMove.length) {
-        for (const { layer } of layersToMove) this.map.removeLayer(layer);
-        for (const { layer, paneName, renderer } of layersToMove) {
+        const layersToMove = [];
+        let markerZ = 0; // highest z-index needed for markerPane
+        for (let i = 0; i < orderedLayers.length; i++) {
+          const lyr = orderedLayers[i];
+          const info = layerInfos.get(L.stamp(lyr));
+          const paneName = info?.paneName;
+          const isTile = lyr instanceof L.TileLayer;
+
+          // TileLayers use a lower z-index range (200-400) so they stay
+          // below overlayPane (400) and markerPane (600) by default.
+          const zBase = isTile ? 200 : _CONST.Z_INDEX_BASE;
+          const z = zBase + (orderedLayers.length - i);
+
           if (paneName) {
-            this._setLayerPaneRecursive(layer, paneName, renderer);
+            const ep = this.ensurePane(paneName, !isTile);
+            ep.pane.style.zIndex = z;
+            if (lyr.options.pane !== paneName || !lyr.options._paneSet) {
+              layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
+            }
+          } else {
+            // Auto-discover custom panes from container tree (three-layer
+            // architecture). This ensures all internal panes (graph, label, etc.)
+            // are assigned the same z-index base.
+            const childPanes = this._discoverChildPanes(lyr);
+            if (childPanes.length > 0) {
+              childPanes.forEach(cp => {
+                const ep = this.ensurePane(cp, !isTile);
+                ep.pane.style.zIndex = z;
+                // Specific sub-layer logic: if label pane, it must be slightly higher
+                if (cp.includes('label') || cp.includes('lbl')) {
+                  ep.pane.style.zIndex = z + 1;
+                }
+              });
+              lyr.options._paneSet = true;
+              // Three-layer components use custom panes, not default markerPane.
+              // Do NOT adjust markerZ — that would elevate all unmanaged point layers
+              // (e.g. static GeoJSON markers) above this dynamic layer.
+            } else {
+              const fallbackPane = `_lyr_${L.stamp(lyr)}`;
+              const ep = this.ensurePane(fallbackPane, !isTile);
+              ep.pane.style.zIndex = z;
+              if (!(lyr instanceof L.TileLayer)) {
+                markerZ = Math.max(markerZ, z);
+              }
+              if (lyr.options.pane !== fallbackPane || !lyr.options._paneSet) {
+                layersToMove.push({ layer: lyr, paneName: fallbackPane, renderer: ep.renderer });
+              }
+            }
           }
         }
-        for (const { layer } of layersToMove) this.map.addLayer(layer);
+
+        // Sync markerPane z-index so non-paneName marker layers can sit
+        // above/below paneName custom panes based on drag order.
+        if (markerZ > 0) {
+          const mp = this.map.getPane('markerPane');
+          if (mp) mp.style.zIndex = markerZ;
+        }
+
+        if (layersToMove.length) {
+          for (const { layer } of layersToMove) this.map.removeLayer(layer);
+          for (const { layer, paneName, renderer } of layersToMove) {
+            if (paneName) {
+              this._setLayerPaneRecursive(layer, paneName, renderer);
+            }
+          }
+          for (const { layer } of layersToMove) this.map.addLayer(layer);
+        }
+      } finally {
+        this._isEnforcing = false;
       }
     }
 

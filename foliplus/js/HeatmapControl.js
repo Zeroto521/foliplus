@@ -98,9 +98,9 @@
         this.autoFieldKey = null;
 
         this.HEATMAP_ID = '__heatmap__';
-        this.MAIN_PANE = '__heatmap_main__';
-        this.LABEL_PANE = '__heatmap_label__';
-        this.hexLayerRegistered = false;
+        this.graphPane = '__heatmap_graph__';
+        this.lblPane = '__heatmap_label__';
+        this.isRegistered = false;
         this.ui = null; // Injected UI control panel instance
 
         this._initLayers();
@@ -108,8 +108,8 @@
       }
 
       _initLayers() {
-        this.heatmapLayer = L.layerGroup();
-        this.hexLayer = L.geoJSON(null, {
+        this.mainLayer = L.layerGroup();
+        this.graphLayer = L.geoJSON(null, {
           style: (feat) => ({
             fillColor: feat.properties._fillColor || _CONST.DEFAULT_GRAY,
             fillOpacity: FILL_OP,
@@ -118,12 +118,12 @@
             opacity: BORDER_OP,
           }),
           interactive: false,
-          pane: this.MAIN_PANE,
+          pane: this.graphPane,
         });
         this.labelLayer = L.layerGroup();
 
-        this.heatmapLayer.addLayer(this.hexLayer);
-        this.heatmapLayer.addLayer(this.labelLayer);
+        this.mainLayer.addLayer(this.graphLayer);
+        this.mainLayer.addLayer(this.labelLayer);
       }
 
       _bindMapEvents() {
@@ -318,9 +318,9 @@
       // --- Hexagon Rendering ---
       renderHexagons() {
         if (!this.selectedLayerId) {
-          this.hexLayer.clearLayers();
+          this.graphLayer.clearLayers();
           this.labelLayer.clearLayers();
-          this.unregisterHexLayer();
+          this._unregisterFromLayerControl();
           return;
         }
         const pts = this.collectSelectedPoints();
@@ -359,9 +359,9 @@
 
         const allVals = Object.values(hexCells).map(getAggValue);
         if (allVals.length === 0) {
-          this.hexLayer.clearLayers();
+          this.graphLayer.clearLayers();
           this.labelLayer.clearLayers();
-          this.unregisterHexLayer();
+          this._unregisterFromLayerControl();
           return;
         }
 
@@ -402,24 +402,34 @@
         }
 
         // Register with LayerControl BEFORE adding data, so enforceOrder()
-        // runs while heatmapLayer is empty — avoid removeLayer/addLayer
+        // runs while mainLayer is empty — avoid removeLayer/addLayer
         // disrupting already-rendered hexagons and labels.
-        this.registerHexLayer();
+        this._registerToLayerControl();
 
-        this.hexLayer.clearLayers();
+        // After registration, LayerControl will have managed graph/label panes.
+        // We ensure label is slightly above graph to be safe.
+        const gPane = this.map.getPane(this.graphPane);
+        const lPane = this.map.getPane(this.lblPane);
+        if (gPane && lPane) {
+          const z = parseInt(gPane.style.zIndex) || 600;
+          lPane.style.zIndex = z + 1;
+        }
+
+        this.graphLayer.clearLayers();
         if (features.length) {
-          this.hexLayer.addData({ type: 'FeatureCollection', features });
+          this.graphLayer.addData({ type: 'FeatureCollection', features });
         }
 
         this.labelLayer.clearLayers();
 
-        // Keep label pane at same z-index as hex pane
-        // (DOM order ensures labels render above hexagons within same
+        // Keep label pane at same z-index as graph pane
+        // (DOM order ensures labels render above graph elements within same
         // z-index; other interleaved layers manage their own panes)
-        let lblPane = this.map.getPane(this.LABEL_PANE);
-        let hexPane = this.map.getPane(this.MAIN_PANE);
-        if (lblPane && hexPane) {
-          lblPane.style.zIndex = hexPane.style.zIndex || 500;
+        window.foliplus.LayerControlAPI.ensurePane(this.lblPane, false);
+        let graphPane = this.map.getPane(this.graphPane);
+        let lblPane = this.map.getPane(this.lblPane);
+        if (graphPane && lblPane) {
+          lblPane.style.zIndex = (parseInt(graphPane.style.zIndex) || 500) + 1;
         }
 
         if (this.currentLabelShow) {
@@ -450,38 +460,34 @@
                 iconAnchor: _CONST.LABEL_ANCHOR,
               }),
               interactive: false,
-              pane: this.LABEL_PANE,
+              pane: this.lblPane,
             }).addTo(this.labelLayer);
           });
         }
       }
 
-      registerHexLayer() {
-        if (this.hexLayerRegistered) return;
-        this.hexLayerRegistered = true;
+      _registerToLayerControl() {
+        if (this.isRegistered) return;
+        this.isRegistered = true;
         window.foliplus.LayerControlAPI.registerLayer({
           name: _('heatmap.title'),
           id: this.HEATMAP_ID,
           isBase: false,
-          layer: this.heatmapLayer,
-          paneName: this.MAIN_PANE,
+          layer: this.mainLayer,
           iconSvg: SVGS.HEXAGON,
         });
-        // Ensure label pane exists at same z-index as hex pane
-        let lblPane = this.map.getPane(this.LABEL_PANE);
-        if (!lblPane) {
-          lblPane = this.map.createPane(this.LABEL_PANE);
-        }
-        let hexPane = this.map.getPane(this.MAIN_PANE);
-        if (hexPane) {
-          lblPane.style.zIndex = hexPane.style.zIndex || 500;
-        }
+
+        // The LayerControlAPI.enforceOrder() will handle the actual z-index
+        // calculation for the custom panes (__heatmap_graph__ and __heatmap_label__)
+        // based on the layer's position in the list.
       }
 
-      unregisterHexLayer() {
-        if (!this.hexLayerRegistered) return;
-        this.hexLayerRegistered = false;
+      _unregisterFromLayerControl() {
+        if (!this.isRegistered) return;
+        this.isRegistered = false;
         window.foliplus.LayerControlAPI.unregisterLayer(this.HEATMAP_ID);
+        this.graphLayer.clearLayers();
+        this.labelLayer.clearLayers();
       }
     }
 
@@ -780,9 +786,9 @@
         if (this.observer) this.observer.disconnect();
 
         // Unregister from LayerControl and remove layers
-        this.manager.unregisterHexLayer();
-        if (this.manager.heatmapLayer) {
-          this.manager.map.removeLayer(this.manager.heatmapLayer);
+        this.manager._unregisterFromLayerControl();
+        if (this.manager.mainLayer) {
+          this.manager.map.removeLayer(this.manager.mainLayer);
         }
       }
 
@@ -821,9 +827,9 @@
           this.updateFieldSelector();
           if (this.manager.selectedLayerId) this.manager.renderHexagons();
           else {
-            this.manager.hexLayer.clearLayers();
+            this.manager.graphLayer.clearLayers();
             this.manager.labelLayer.clearLayers();
-            this.manager.unregisterHexLayer();
+            this.manager._unregisterFromLayerControl();
           }
         };
 
@@ -1004,9 +1010,9 @@
         this.manager.BORDER_W = BORDER_W_DEFAULT;
         this.manager.BORDER_COLOR = BORDER_COLOR_DEFAULT;
 
-        this.manager.hexLayer.clearLayers();
+        this.manager.graphLayer.clearLayers();
         this.manager.labelLayer.clearLayers();
-        this.manager.unregisterHexLayer();
+        this.manager._unregisterFromLayerControl();
       }
 
       _syncSelect(el, value) {

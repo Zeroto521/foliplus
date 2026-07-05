@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import folium
 from conftest import render
 
@@ -70,16 +72,17 @@ class TestMeasureControlRendering:
         # Old onAdd override should NOT exist
         assert "origOnAdd(map)" not in html
         assert (
-            "this.layerGroup.onAdd" not in html
-            or "this.layerGroup.onAdd = (map)" not in html
+            "this.mainLayer.onAdd" not in html
+            or "this.mainLayer.onAdd = (map)" not in html
         )
 
-    def test_no_remove_layer_override(self, base_map: folium.Map):
-        """removeLayer override removed — unregistration handled explicitly."""
+    def test_remove_layer_routes_to_sublayer(self, base_map: folium.Map):
+        """removeLayer is overridden to route to sub-layer (three-layer architecture)."""
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.layerGroup.removeLayer =" not in html
+        assert "this.mainLayer.removeLayer = (layer) => {" in html
+        assert "this.labelLayer : this.graphLayer" in html
 
     def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
         """MeasureControl uses LayerControlAPI.ensurePane for renderer creation."""
@@ -157,3 +160,26 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "MeasureUtils.toggleVisibility" in html
+
+    def test_double_label_fix(self, base_map: folium.Map):
+        """Regression test for Bug 2: Labels are marked BEFORE addTo(mainLayer).
+        This ensures they are routed to sub-layers (labelLayer) immediately.
+        """
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # Check specific order: _isMeasureLabel = true BEFORE addTo
+        assert re.search(r"_isMeasureLabel\s*=\s*true;\s*\w+\.addTo\(this\.mainLayer\)", html)
+
+    def test_label_interaction_listeners(self, base_map: folium.Map):
+        """Distance/Circle labels have click listeners to toggle UI."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "segLabels.forEach(l => l.on('click', handleItemClick))" in html
+        assert "if (radiusLabel) attachInteraction(radiusLabel)" in html
+
+    def test_unregister_clears_leftover_nodes(self, base_map: folium.Map):
+        """unregisterFromLayerControl explicitly clears graph/label sub-layers."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.graphLayer.clearLayers()" in html
+        assert "this.labelLayer.clearLayers()" in html
