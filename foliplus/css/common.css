@@ -43,8 +43,7 @@
   --red-rgb: 231, 76, 60;
   --red-700-rgb: 200, 60, 40;
 
-  /* ── Semantic Tokens: Colors ── */
-  /* Base */
+  /* ── Colors ── */
   --ctrl-bg: var(--neutral-0);
   --ctrl-border: rgba(0, 0, 0, var(--alpha-20));
   --ctrl-hover-bg: #f4f4f4;
@@ -89,8 +88,7 @@
     rgba(var(--red-rgb), var(--alpha-50));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
 
-  /* ── Semantic Tokens: Typography ── */
-  /* Base */
+  /* ── Typography ── */
   --font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
@@ -105,7 +103,7 @@
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  /* ── Semantic Tokens: Spacing ── */
+  /* ── Spacing ── */
   --space-xs: var(--size-2);
   --space-sm: var(--size-4);
   --space-md: var(--size-8);
@@ -113,8 +111,7 @@
   --space-xl: var(--size-16);
   --space-xxl: var(--size-20);
 
-  /* ── Semantic Tokens: Sizing ── */
-  /* Base */
+  /* ── Sizing ── */
   --ctrl-size: 30px;
   --input-height: 30px;
   --btn-height: 30px;
@@ -128,8 +125,7 @@
   --toggle-size: 36px;
   --panel-width: 280px;
 
-  /* ── Semantic Tokens: Layout Metrics ── */
-  /* Base */
+  /* ── Layout Metrics ── */
   --toolbar-inline-padding: var(--space-xs);
 
   /* Component */
@@ -138,44 +134,24 @@
   --panel-max-height: 400px;
   --dropdown-max-height: 200px;
 
-  /* ── Semantic Tokens: Micro Visual Adjustments (Whitelist) ── */
+  /* ── Micro Visual Adjustments (Whitelist) ── */
   /* Effect */
   --letter-spacing-tight: 0.5px;
   --stroke-width-emphasis: 2.5px;
 
-  /* ── Semantic Tokens: Border Width ── */
-  /* Base */
+  /* ── Border Width ── */
   --border-thin: 1px;
-  /* Medium and thick intentionally equal for current visual consistency. */
-  --border-medium: var(--size-2);
   --border-thick: var(--size-2);
 
-  /* ── Export Control ── */
-  --export-crop-border-width: var(--space-xs);
-  --export-crop-handle-size: calc(var(--space-lg) + var(--space-xs));
-  --export-crop-handle-border-width: var(--space-xs);
-  --export-crop-center-size: var(--space-lg);
-  --export-action-btn-size: calc(var(--ctrl-size) - var(--space-xs));
-  --export-action-btn-gap: var(--space-xs);
-
-  /* ── Semantic Tokens: Border Radius ── */
-  /* Base */
+  /* ── Border Radius ── */
+  --radius-xs: var(--size-2);
   --radius-sm: var(--size-4);
-  --radius-md: var(--size-4);
   --radius-lg: var(--size-6);
-  --radius-xs: 2px;
-  --radius-card: 8px;
-  --radius-btn: 6px;
-
+  --radius-card: var(--size-8);
   --radius-round: 50%;
   --radius-pill: var(--size-20);
 
-  /* Component */
-  --radius-card: var(--size-8);
-  --radius-btn: var(--size-6);
-
-  /* ── Semantic Tokens: Shadows ── */
-  /* Base */
+  /* ── Shadows ── */
   --shadow-sm: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-12));
   --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-12));
   --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-12));
@@ -183,18 +159,18 @@
   /* Component */
   --shadow-ctrl-strong: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-50));
 
-  /* ── Semantic Tokens: Transitions ── */
+  /* ── Transitions ── */
   --transition-fast: 0.15s ease;
 
   /* ── Overlay ── */
   --overlay-bg: rgba(0, 0, 0, var(--alpha-40));
   --overlay-bg-dark: rgba(0, 0, 0, var(--alpha-50));
 
-  /* ── Semantic Tokens: Z-index ── */
-  --z-index-dropdown: 10000;
+  /* ── Z-index ── */
   --z-index-pane-base: 450;
   --z-index-info: 850;
   --z-index-control: 1000;
+  --z-index-dropdown: 10000;
   --z-index-overlay: 11000;
   --z-index-toolbar: 15000;
 }
@@ -253,10 +229,10 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(var(--size-8));
+  -webkit-backdrop-filter: blur(var(--size-8));
   background: rgba(0, 0, 0, var(--alpha-70));
-  border: 1px solid rgba(255, 255, 255, var(--alpha-12));
+  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-12));
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-xl);
   white-space: nowrap;

@@ -1,3 +1,13 @@
+/* ── Export Control Tokens ── */
+.export-ctrl {
+  --export-crop-border-width: var(--space-xs);
+  --export-crop-handle-size: var(--size-12);
+  --export-crop-handle-border-width: var(--border-thick);
+  --export-crop-center-size: var(--size-12);
+  --export-action-btn-size: calc(var(--ctrl-size) - var(--space-xs));
+  --export-action-btn-gap: var(--space-xs);
+}
+
 /* ── Control Layers ── */
 
 /* Reset container locking when in export mode */
