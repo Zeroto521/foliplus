@@ -8,9 +8,6 @@ from .locale import LocaleConfig
 class ExportControl(BaseControl):
     """Capture a specific area of the map and export it as a PNG image.
 
-    Features 8-way resizing for the crop box, automatic tile loading detection,
-    and high-DPI scaling support.
-
     Parameters
     ----------
     position : str, default "bottomright"
@@ -44,8 +41,8 @@ class ExportControl(BaseControl):
 
     default_js = [
         (
-            "html2canvas",
-            "https://cdn.jsdelivr.net/npm/html2canvas/dist/html2canvas.min.js",
+            "modern-screenshot",
+            "https://cdn.jsdelivr.net/npm/modern-screenshot@4.7.0/dist/index.js",
         ),
     ]
 

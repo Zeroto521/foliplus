@@ -8,10 +8,13 @@
   // ==================== Constants ====================
   const CONST = {
     CROP_MIN_SIZE: 40,
-    TILE_WAIT_EXTRA: 450,
-    RESIZE_DELAY: 250,
+    EXPORT_DELAY: 50,
+    HINT_ERROR_DURATION: 5000,
+    HINT_SUCCESS_DURATION: 4000,
     URL_REVOKE_DELAY: 10000,
     DEFAULT_SCALE: window.devicePixelRatio || 1,
+    STORAGE_KEY: '_export_crop_rect',
+    CROP_PADDING_RATIO: 0.25,
   };
 
   // ==================== Dependencies ====================
@@ -55,10 +58,10 @@
       this.exportCtrl = null;
       this.exportToolBar = null;
       this.isExporting = false;
-      this.safetyTimeout = null;
-
       // Memorized crop area
       this.lastScreenRect = null;
+      this.savedBounds = null;
+      this._loadSavedBounds();
 
       this.dragState = {
         dragging: false,
@@ -78,6 +81,30 @@
     attachUI(ctrl, toolBar) {
       this.exportCtrl = ctrl;
       this.exportToolBar = toolBar;
+    }
+
+    _loadSavedBounds() {
+      try {
+        const data = localStorage.getItem(CONST.STORAGE_KEY);
+        if (!data) return;
+        const saved = JSON.parse(data);
+        if (saved && saved.nw && saved.se) {
+          this.savedBounds = saved;
+        }
+      } catch (e) {
+        console.warn('[ExportControl] failed to load export bounds:', e);
+      }
+    }
+
+    _saveBounds(bounds) {
+      try {
+        localStorage.setItem(CONST.STORAGE_KEY, JSON.stringify({
+          nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
+          se: { lat: bounds.se.lat, lng: bounds.se.lng },
+        }));
+      } catch (e) {
+        console.warn('[ExportControl] failed to save export bounds:', e);
+      }
     }
 
     _showGlobalHint(text, duration, withLoadingIcon) {
@@ -111,14 +138,6 @@
       }
     }
 
-    _pixelToLatLng(px, py) {
-      return this.map.containerPointToLatLng(L.point(px, py));
-    }
-
-    _latLngToPixel(latlng) {
-      return this.map.latLngToContainerPoint(latlng);
-    }
-
     // --- Crop Box Lifecycle ---
     showCropBox() {
       if (this.cropState) return;
@@ -126,8 +145,24 @@
       const mapRect = this.mapContainer.getBoundingClientRect();
       let box;
 
-      // Restore last crop area and apply bounds correction
-      if (this.lastScreenRect) {
+      // Restore from saved geoBounds (zoom/pan independent)
+      if (this.savedBounds) {
+        const nw = this.map.latLngToContainerPoint(
+          L.latLng(this.savedBounds.nw.lat, this.savedBounds.nw.lng)
+        );
+        const se = this.map.latLngToContainerPoint(
+          L.latLng(this.savedBounds.se.lat, this.savedBounds.se.lng)
+        );
+        box = {
+          left: Math.max(0, Math.min(nw.x, mapRect.width - CONST.CROP_MIN_SIZE)),
+          top: Math.max(0, Math.min(nw.y, mapRect.height - CONST.CROP_MIN_SIZE)),
+          width: Math.max(CONST.CROP_MIN_SIZE, Math.abs(se.x - nw.x)),
+          height: Math.max(CONST.CROP_MIN_SIZE, Math.abs(se.y - nw.y)),
+        };
+        // Clamp to viewport
+        box.width = Math.min(box.width, mapRect.width - box.left);
+        box.height = Math.min(box.height, mapRect.height - box.top);
+      } else if (this.lastScreenRect) {
         box = {
           left: Math.max(
             0,
@@ -150,13 +185,12 @@
           Math.min(box.height, mapRect.height - box.top)
         );
       } else {
-        const paddingW = mapRect.width * 0.25;
-        const paddingH = mapRect.height * 0.25;
+        const padding = mapRect.width * CONST.CROP_PADDING_RATIO;
         box = {
-          left: paddingW,
-          top: paddingH,
-          width: mapRect.width - paddingW * 2,
-          height: mapRect.height - paddingH * 2
+          left: padding,
+          top: padding,
+          width: mapRect.width - padding * 2,
+          height: mapRect.height - padding * 2
         };
       }
 
@@ -183,8 +217,12 @@
       cropBox.appendChild(center);
 
       this.exportToolBar.innerHTML = `
-        <button class="confirm" title="${_('export.btn_confirm')}">${SVGS.CHECK}</button>
-        <button class="cancel" title="${_('export.btn_cancel')}">${window.foliplus.SVGs.CLOSE}</button>`;
+        <button class="confirm" title="${_('export.btn_confirm')}">
+          ${SVGS.CHECK}
+        </button>
+        <button class="cancel" title="${_('export.btn_cancel')}">
+          ${window.foliplus.SVGs.CLOSE}
+        </button>`;
       this.exportCtrl.classList.remove('collapsed');
       this.exportCtrl.classList.add('expanded');
 
@@ -221,13 +259,17 @@
 
       const r = this.cropState.rect;
       this.cropState.geoBounds = {
-        nw: this._pixelToLatLng(r.left, r.top),
-        se: this._pixelToLatLng(r.left + r.width, r.top + r.height)
+        nw: this.map.containerPointToLatLng(L.point(r.left, r.top)),
+        se: this.map.containerPointToLatLng(L.point(r.left + r.width, r.top + r.height)),
       };
 
       this.cropState.actions.innerHTML = `
-        <button class="confirm" title="${_('export.btn_export')}">${SVGS.DOWNLOAD}</button>
-        <button class="cancel" title="${_('export.btn_cancel')}">${window.foliplus.SVGs.CLOSE}</button>`;
+        <button class="confirm" title="${_('export.btn_export')}">
+          ${SVGS.DOWNLOAD}
+        </button>
+        <button class="cancel" title="${_('export.btn_cancel')}">
+          ${window.foliplus.SVGs.CLOSE}
+        </button>`;
 
       this.cropState.actions.querySelector('.cancel').onclick = e => {
         e.stopPropagation();
@@ -251,8 +293,12 @@
       this.map.off('move zoom', this._onMapChange);
 
       this.cropState.actions.innerHTML = `
-        <button class="confirm" title="${_('export.btn_confirm')}">${SVGS.CHECK}</button>
-        <button class="cancel" title="${_('export.btn_cancel')}">${window.foliplus.SVGs.CLOSE}</button>`;
+        <button class="confirm" title="${_('export.btn_confirm')}">
+          ${SVGS.CHECK}
+        </button>
+        <button class="cancel" title="${_('export.btn_cancel')}">
+          ${window.foliplus.SVGs.CLOSE}
+        </button>`;
 
       this.cropState.actions.querySelector('.cancel').onclick = e => {
         e.stopPropagation();
@@ -272,6 +318,11 @@
 
       // Core logic: Save current coordinates and size before destroying selection
       this.lastScreenRect = Object.assign({}, this.cropState.rect);
+      // Save geoBounds (zoom-independent) if available
+      if (this.cropState.geoBounds) {
+        this._saveBounds(this.cropState.geoBounds);
+        this.savedBounds = this.cropState.geoBounds;
+      }
 
       this.mapContainer.classList.remove('has-export-mode');
       document.body.classList.remove('has-export-mode');
@@ -346,7 +397,6 @@
           Math.min(mapRect.height - r.height, startRect.top + dy)
         );
       } else {
-        // Feature 1: Advanced 8-way drag-and-resize logic
         if (['tl', 'l', 'bl'].includes(type)) {
           const maxDx = startRect.width - CONST.CROP_MIN_SIZE;
           const actualDx = Math.max(-startRect.left, Math.min(dx, maxDx));
@@ -399,8 +449,8 @@
       if (!this.cropState || !this.cropState.locked) return;
       const nw = this.cropState.geoBounds.nw;
       const se = this.cropState.geoBounds.se;
-      const topLeft = this._latLngToPixel(nw);
-      const bottomRight = this._latLngToPixel(se);
+      const topLeft = this.map.latLngToContainerPoint(L.latLng(nw.lat, nw.lng));
+      const bottomRight = this.map.latLngToContainerPoint(L.latLng(se.lat, se.lng));
 
       const newRect = {
         left: topLeft.x,
@@ -414,196 +464,93 @@
       this._showHintWithInfo(newRect, _('export.hint_zoom'));
     }
 
-    // --- Final Rendering & Download Engine ---
+    // --- Clamp rect to viewport bounds ---
+    _clampRectToViewport(r) {
+      const cw = this.mapContainer.clientWidth;
+      const ch = this.mapContainer.clientHeight;
+      r.left = Math.max(0, Math.min(r.left, cw - CONST.CROP_MIN_SIZE));
+      r.top = Math.max(0, Math.min(r.top, ch - CONST.CROP_MIN_SIZE));
+      r.width = Math.max(CONST.CROP_MIN_SIZE, Math.min(r.width, cw - r.left));
+      r.height = Math.max(CONST.CROP_MIN_SIZE, Math.min(r.height, ch - r.top));
+    }
+
+    // --- Export Engine ---
     doExport() {
       if (this.isExporting || !this.cropState) return;
       this.isExporting = true;
 
-      const geoBounds = this.cropState.geoBounds;
-      const r = this.cropState.rect;
-      const zoom = this.map.getZoom();
-      const cropCenter = L.latLng(
-        (geoBounds.nw.lat + geoBounds.se.lat) / 2,
-        (geoBounds.nw.lng + geoBounds.se.lng) / 2
-      );
-
-      // removeCropBox will save the last rect to lastScreenRect
+      const r = Object.assign({}, this.cropState.rect);
+      // After zoom/pan the geoBounds may extend beyond the visible map area,
+      // so clamp the crop rect to the viewport before capture.
+      this._clampRectToViewport(r);
       this.removeCropBox();
       this._showGlobalHint(_('export.status_exporting'), 0, true);
-
-      // Create a context object for resetting styles
-      const ctx = {
-        parent: this.mapContainer.parentNode,
-        nextSibling: this.mapContainer.nextSibling,
-        origStyle: this.mapContainer.style.cssText,
-        origCenter: this.map.getCenter(),
-        origZoom: this.map.getZoom(),
-        hiddenItems: [],
-        captureHint: null,
-        hintNextSibling: null,
-        r: r
-      };
-
-      const hideEls = this.mapContainer.querySelectorAll(
-        '.leaflet-control-container, .custom-scale-wrap, .export-ctrl, '
-        + '.measure-del-icon.visible'
-      );
-
-      hideEls.forEach(el => {
-        ctx.hiddenItems.push({ el, display: el.style.display });
-        el.style.display = 'none';
-      });
-
-      this.mapContainer.style.position = 'fixed';
-      this.mapContainer.style.left = '0px';
-      this.mapContainer.style.top = '0px';
-      this.mapContainer.style.width = r.width + 'px';
-      this.mapContainer.style.height = r.height + 'px';
-      this.mapContainer.style.zIndex = '-999990';
-      document.body.appendChild(this.mapContainer);
-
-      this.map.invalidateSize({ animate: false });
-      this.map.setView(cropCenter, zoom, { animate: false });
-
-      setTimeout(() => this._checkAndCapture(ctx), CONST.RESIZE_DELAY);
-    }
-
-    _checkAndCapture(ctx) {
-      const tileLayers = [];
-      this.map.eachLayer(layer => {
-        if (layer instanceof L.TileLayer) tileLayers.push(layer);
-      });
-
-      const pendingLayers = tileLayers.filter(layer => layer._loading);
-
-      if (pendingLayers.length === 0) {
-        this._performCapture(ctx);
-        return;
-      }
-
-      let isFinished = false;
-      const onLayerFinish = () => {
-        if (isFinished) return;
-        const stillLoading = pendingLayers.some(layer => layer._loading);
-        if (!stillLoading) {
-          isFinished = true;
-          clearTimeout(this.safetyTimeout);
-          this.safetyTimeout = null;
-          setTimeout(() => this._performCapture(ctx), CONST.TILE_WAIT_EXTRA);
-        }
-      };
-
-      this.safetyTimeout = setTimeout(() => {
-        if (!isFinished) {
-          isFinished = true;
-          pendingLayers.forEach(layer => layer.off('load', onLayerFinish));
-          this._performCapture(ctx);
-        }
-      }, {{ this.timeout }});
-
-      pendingLayers.forEach(layer => layer.once('load', onLayerFinish));
-      onLayerFinish();
-    }
-
-    _performCapture(ctx) {
-      if (typeof html2canvas === 'undefined') {
-        console.warn(`[ExportControl] ${_('export.err_no_canvas')}`);
-        if (window.foliplus) {
-          window.foliplus.showHint('export', _('export.err_no_canvas'), 5000);
-        }
-        this._cleanup(ctx);
-        return;
-      }
 
       let scaleValue = {{ this.scale }};
       if (typeof scaleValue !== 'number' || isNaN(scaleValue)) {
         scaleValue = CONST.DEFAULT_SCALE;
       }
+      const bg = {{ '"' + this.background + '"' if this.background else "null" }};
+      const capturer = window.modernScreenshot;
 
-      ctx.captureHint = this.mapContainer.querySelector('.map-hint');
-      ctx.hintNextSibling = ctx.captureHint ? ctx.captureHint.nextSibling : null;
-      if (ctx.captureHint) ctx.captureHint.remove();
+      if (!capturer || typeof capturer.domToCanvas !== 'function') {
+        this._showGlobalHint(
+          _('export.status_fail') + _('export.err_no_canvas'), CONST.HINT_ERROR_DURATION, false
+        );
+        this.isExporting = false;
+        return;
+      }
 
-      html2canvas(this.mapContainer, {
-        useCORS: true,
-        allowTaint: false,
-        scale: scaleValue,
-        backgroundColor: {{ '"' + this.background + '"' if this.background else "null" }},
-        width: ctx.r.width,
-        height: ctx.r.height,
-        scrollX: 0,
-        scrollY: 0,
-        onclone: doc => {
-          const hints = doc.querySelectorAll('.map-hint');
-          for (let i = 0; i < hints.length; i++) hints[i].remove();
-        }
-      }).then(canvas => {
-        if (canvas.toBlob) {
-          canvas.toBlob(blob => {
+      // Show hint, yield for animation, then capture everything (tiles + overlays)
+      // Hide controls during capture
+      const hideEls = this.mapContainer.querySelectorAll(
+        '.leaflet-control-container, .export-ctrl'
+      );
+      hideEls.forEach(el => { el.style.display = 'none'; });
+
+      setTimeout(() => {
+        capturer.domToCanvas(this.mapContainer, {
+          scale: scaleValue,
+          backgroundColor: bg || undefined,
+          fetch: {
+            requestInit: { cache: 'force-cache' },
+          },
+        }).then(canvas => {
+          // Restore hidden controls
+          hideEls.forEach(el => { el.style.display = ''; });
+          const sx = Math.round(r.left * scaleValue);
+          const sy = Math.round(r.top * scaleValue);
+          const sw = Math.round(r.width * scaleValue);
+          const sh = Math.round(r.height * scaleValue);
+
+          const out = document.createElement('canvas');
+          out.width = sw; out.height = sh;
+          out.getContext('2d').drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+          out.toBlob(blob => {
             if (!blob) {
-              this._showGlobalHint(_('export.status_fail') + _('export.err_gen_fail'), 5000, false);
+              this._showGlobalHint(
+                _('export.status_fail') + _('export.err_gen_fail'), CONST.HINT_ERROR_DURATION, false
+              );
               return;
             }
             const link = document.createElement('a');
-            const objectUrl = URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
             link.download = '{{ this.filename }}';
-            link.href = objectUrl;
-            link.rel = 'noopener';
+            link.href = url; link.rel = 'noopener';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            setTimeout(
-              () => URL.revokeObjectURL(objectUrl),
-              CONST.URL_REVOKE_DELAY
-            );
-            this._showGlobalHint(_('export.status_success'), 4000, false);
+            setTimeout(() => URL.revokeObjectURL(url), CONST.URL_REVOKE_DELAY);
+            this._showGlobalHint(_('export.status_success'), CONST.HINT_SUCCESS_DURATION, false);
+            this.isExporting = false;
           }, 'image/png');
-        } else {
-          const fallbackLink = document.createElement('a');
-          fallbackLink.download = '{{ this.filename }}';
-          fallbackLink.href = canvas.toDataURL('image/png');
-          fallbackLink.rel = 'noopener';
-          document.body.appendChild(fallbackLink);
-          fallbackLink.click();
-          document.body.removeChild(fallbackLink);
-          this._showGlobalHint(_('export.status_success'), 4000, false);
-        }
-      }).catch(err => {
-        console.error(_('export.status_fail'), err);
-        this._showGlobalHint(_('export.status_fail') + err.message, 5000, false);
-      }).finally(() => {
-        this._cleanup(ctx);
-      });
-    }
-
-    _cleanup(ctx) {
-      if (ctx.captureHint && ctx.hintNextSibling) {
-        this.mapContainer.insertBefore(ctx.captureHint, ctx.hintNextSibling);
-      } else if (ctx.captureHint) {
-        this.mapContainer.appendChild(ctx.captureHint);
-      }
-
-      if (this.safetyTimeout) {
-        clearTimeout(this.safetyTimeout);
-        this.safetyTimeout = null;
-      }
-
-      if (ctx.nextSibling) {
-        ctx.parent.insertBefore(this.mapContainer, ctx.nextSibling);
-      } else {
-        ctx.parent.appendChild(this.mapContainer);
-      }
-
-      this.mapContainer.style.cssText = ctx.origStyle;
-
-      ctx.hiddenItems.forEach(item => {
-        item.el.style.display = item.display;
-      });
-
-      this.map.setView(ctx.origCenter, ctx.origZoom, { animate: false });
-      this.map.invalidateSize({ animate: false });
-
-      this.isExporting = false;
+        }).catch(err => {
+          console.error('[ExportControl] export failed:', err);
+          this._showGlobalHint(_('export.status_fail') + (err.message || ''), CONST.HINT_ERROR_DURATION, false);
+          this.isExporting = false;
+        });
+      }, CONST.EXPORT_DELAY);
     }
   }
 
@@ -613,31 +560,29 @@
   const ControlClass = L.Control.extend({
     onAdd: function() {
       const pos = '{{ this.position }}';
-      const isLeft = pos.indexOf('left') >= 0;
-      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-      const ctrl = L.DomUtil.create(
-        'div',
-        'export-ctrl ctrl-fold collapsed',
-        container
-      );
+      const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl({
+        cssClass: 'export-ctrl',
+        toggleTitle: _('export.btn_title'),
+        toggleSvg: SVGS.CAMERA,
+        isLeft: pos.indexOf('left') >= 0,
+      });
 
-      ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_('export.btn_title')}">${SVGS.CAMERA}</button>
-        <div class="tool-bar export-crop-actions"></div>`;
-
-      if (!isLeft) ctrl.classList.add('align-right');
-      L.DomEvent.disableClickPropagation(container);
-      L.DomEvent.disableScrollPropagation(container);
-
-      const toolBar = ctrl.querySelector('.tool-bar');
+      toolBar.className = 'tool-bar export-crop-actions';
       exportManager.attachUI(ctrl, toolBar);
 
-      container.querySelector('.toggle-btn').onclick = () => {
+      toggleBtn.onclick = () => {
         if (exportManager.cropState) exportManager.removeCropBox();
         else exportManager.showCropBox();
       };
 
       return container;
+    },
+
+    onRemove: function() {
+      if (exportManager.cropState) exportManager.removeCropBox();
+      if (exportManager._onKeyDown) {
+        document.removeEventListener('keydown', exportManager._onKeyDown);
+      }
     }
   });
 

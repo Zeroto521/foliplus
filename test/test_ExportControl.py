@@ -44,8 +44,13 @@ class TestExportControlRendering:
     def test_default_params(self, base_map: folium.Map):
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "html2canvas" in html
+        assert "domToCanvas" in html
         assert "exportManager" in html
+        assert "ctrl-fold" in html
+        assert "STORAGE_KEY" in html
+        assert "_saveBounds" in html
+        assert "_loadSavedBounds" in html
+        assert "export-crop-actions" in html
 
     def test_custom_params_rendering(self, base_map: folium.Map):
         ExportControl(
@@ -59,3 +64,33 @@ class TestExportControlRendering:
         assert "1.5" in html
         assert "#000000" in html
         assert "5000" in html
+
+    def test_crop_features(self, base_map: folium.Map):
+        """Verify crop box structures: handles, center, toggle behavior."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "export-crop-handle" in html
+        assert "export-crop-center" in html
+        assert "export-crop-box" in html
+        assert "export-crop-overlay" in html
+        assert "showCropBox" in html
+        assert "lockCropBox" in html
+        assert "unlockCropBox" in html
+        assert "removeCropBox" in html
+        assert "8-way" in html or "tl" in html
+
+    def test_hooks_and_events(self, base_map: folium.Map):
+        """Key event and lifecycle hooks are present."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "bindOutsideCollapse" in html
+        assert "getBoundingClientRect" in html
+        assert "containerPointToLatLng" in html
+        assert "Object.assign" in html
+
+    def test_create_fold_shared(self, base_map: folium.Map):
+        """Uses shared createFoldControl helper from runtime."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "createFoldControl" in html
+        assert "ctrl-fold" in html
