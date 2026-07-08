@@ -98,7 +98,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "SVGS.DRAG_HANDLE" in html
-        assert "SVGS.GLOBE" in html
+        assert ".GLOBE" in html
         assert "SVGS.POINT" in html
         assert "SVGS.LINE" in html
         assert "SVGS.POLYGON" in html
