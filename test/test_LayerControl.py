@@ -102,6 +102,24 @@ class TestLayerControlRendering:
         assert "SVGS.POINT" in html
         assert "SVGS.LINE" in html
         assert "SVGS.POLYGON" in html
+        assert "SVGS.EMPTY" in html
+        assert "SVGS.UNKNOWN" in html
+
+    def test_geometry_type_empty_and_unknown(self, base_map: folium.Map):
+        """getGeometryType returns 'empty'/'unknown' for edge cases."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Empty container (no leaves) → 'empty'
+        assert "if (leaves.length === 0) return 'empty'" in html
+        # Has leaves but none match known types → 'unknown'
+        assert "if (!hasPoly && !hasLine && !hasPoint) return 'unknown'" in html
+
+    def test_type_svg_fallback(self, base_map: folium.Map):
+        """getTypeSVG returns EMPTY/UNKNOWN for non-standard layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (type === 'empty') return SVGS.EMPTY;" in html
+        assert "return SVGS.UNKNOWN;" in html
 
     def test_locale_zh(self, base_map: folium.Map):
         LayerControl(locale="zh").add_to(base_map)
