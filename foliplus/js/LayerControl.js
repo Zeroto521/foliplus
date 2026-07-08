@@ -41,7 +41,6 @@
         <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
         <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
       </svg>`,
-    GLOBE: window.foliplus.SVGs.GLOBE,
     POINT: `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor"
@@ -58,6 +57,19 @@
         <polygon points="12,3 21,9 18,21 6,21 3,9" fill="none"
           stroke="currentColor" stroke-width="1.5"
           stroke-linejoin="round"/>
+      </svg>`,
+    EMPTY: `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor"
+          stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>
+      </svg>`,
+    UNKNOWN: `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="6.5" stroke="currentColor"
+          stroke-width="1.5" fill="none"/>
+        <text x="12" y="12.5" text-anchor="middle"
+          dominant-baseline="central" font-size="12"
+          font-weight="bold" fill="currentColor">?</text>
       </svg>`,
   };
 
@@ -85,6 +97,9 @@
       };
       try { collect(layer, 0); } catch (e) {}
 
+      // No leaves at all → empty container (e.g. empty GeoDataFrame)
+      if (leaves.length === 0) return 'empty';
+
       let hasPoly = false, hasLine = false, hasPoint = false;
       for (const leaf of leaves) {
         if (leaf instanceof L.Polygon) hasPoly = true;
@@ -95,7 +110,9 @@
           leaf instanceof L.Circle
         ) hasPoint = true;
       }
-      return hasPoly ? 'polygon' : hasLine ? 'line' : hasPoint ? 'point' : '';
+      // Has leaves but none match known types → unknown
+      if (!hasPoly && !hasLine && !hasPoint) return 'unknown';
+      return hasPoly ? 'polygon' : hasLine ? 'line' : 'point';
     }
 
     static getTypeSVG(layer) {
@@ -103,7 +120,8 @@
       if (type === 'polygon') return SVGS.POLYGON;
       if (type === 'line') return SVGS.LINE;
       if (type === 'point') return SVGS.POINT;
-      return SVGS.GLOBE;
+      if (type === 'empty') return SVGS.EMPTY;
+      return SVGS.UNKNOWN;
     }
   }
 
@@ -578,7 +596,7 @@
                    aria-label="${_('layer.color_map_label')}">
           </div>
           <label>${_('layer.color_map_label')}</label>
-          <div class="type-icon-col">${SVGS.GLOBE}</div>
+          <div class="type-icon-col">${window.foliplus.SVGs.GLOBE}</div>
         </div>`;
 
       this.uiContainer.innerHTML = html;
@@ -606,7 +624,7 @@
 
         if (typeCols[i]) {
           if (layerInfo.isBase) {
-            typeCols[i].innerHTML = SVGS.GLOBE;
+            typeCols[i].innerHTML = window.foliplus.SVGs.GLOBE;
             this.typeMap.set(id, { type: 'base', name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
