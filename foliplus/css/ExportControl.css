@@ -1,5 +1,5 @@
 /* ── Export Control Tokens ── */
-.export-ctrl {
+:root {
   --export-crop-border-width: var(--space-xs);
   --export-crop-handle-size: var(--size-12);
   --export-crop-handle-border-width: var(--border-thick);
@@ -103,49 +103,49 @@
   box-sizing: border-box;
 }
 .export-crop-handle.tl {
-  top: 0;
-  left: 0;
+  top: calc(-0.5 * var(--export-crop-border-width));
+  left: calc(-0.5 * var(--export-crop-border-width));
   transform: translate(-50%, -50%);
   cursor: nwse-resize;
 }
 .export-crop-handle.tr {
-  top: 0;
-  right: 0;
+  top: calc(-0.5 * var(--export-crop-border-width));
+  right: calc(-0.5 * var(--export-crop-border-width));
   transform: translate(50%, -50%);
   cursor: nesw-resize;
 }
 .export-crop-handle.bl {
-  bottom: 0;
-  left: 0;
+  bottom: calc(-0.5 * var(--export-crop-border-width));
+  left: calc(-0.5 * var(--export-crop-border-width));
   transform: translate(-50%, 50%);
   cursor: nesw-resize;
 }
 .export-crop-handle.br {
-  bottom: 0;
-  right: 0;
+  bottom: calc(-0.5 * var(--export-crop-border-width));
+  right: calc(-0.5 * var(--export-crop-border-width));
   transform: translate(50%, 50%);
   cursor: nwse-resize;
 }
 .export-crop-handle.t {
-  top: 0;
+  top: calc(-0.5 * var(--export-crop-border-width));
   left: 50%;
   transform: translate(-50%, -50%);
   cursor: ns-resize;
 }
 .export-crop-handle.b {
-  bottom: 0;
+  bottom: calc(-0.5 * var(--export-crop-border-width));
   left: 50%;
   transform: translate(-50%, 50%);
   cursor: ns-resize;
 }
 .export-crop-handle.l {
-  left: 0;
+  left: calc(-0.5 * var(--export-crop-border-width));
   top: 50%;
   transform: translate(-50%, -50%);
   cursor: ew-resize;
 }
 .export-crop-handle.r {
-  right: 0;
+  right: calc(-0.5 * var(--export-crop-border-width));
   top: 50%;
   transform: translate(50%, -50%);
   cursor: ew-resize;
