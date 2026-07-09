@@ -1,7 +1,7 @@
 (function() {
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[LayerControl] foliplus runtime not found — component disabled.');
+    console.error('[LayerControl] foliplus runtime not found — plugin disabled.');
     return;
   }
 
