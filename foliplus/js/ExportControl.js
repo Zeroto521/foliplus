@@ -124,9 +124,9 @@
         catch { imgFail++; }
       }
 
-      // Marker divIcon (awesome-marker, Leaflet divIcon, etc.)
-      // Use getComputedStyle to read background-image from CSS classes
-      for (const el of this.container.querySelectorAll('.leaflet-marker-icon')) {
+      // Marker icons (awesome-marker uses CSS sprites)
+      let markerDrawn = 0, markerSkipped = 0;
+      for (const el of this.container.querySelectorAll('.awesome-marker, .leaflet-marker-icon, [class*="marker-icon"]')) {
         const r = el.getBoundingClientRect();
         const l = r.left - contRect.left;
         const t = r.top - contRect.top;
@@ -137,23 +137,47 @@
         const dw = w * scale; const dh = h * scale;
         if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
 
-        // Try computed background-image (from CSS classes)
         const cs = window.getComputedStyle(el);
         const bg = cs.backgroundImage;
+        console.log('[Export] marker bg:', bg ? bg.substring(0, 80) : 'none', 'class:', el.className);
+
         if (bg && bg !== 'none' && bg.includes('url(')) {
           const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
           if (m && m[1]) {
-            const ok = await this._loadAndDraw(ctx, m[1], dx, dy, dw, dh);
-            if (ok) { imgOk++; continue; }
+            // awesome-marker CSS sprite: load full image, crop using
+            // background-position.  Sprite is scaled to element size.
+            const sprite = await this._loadSprite(m[1]);
+            if (sprite && sprite.naturalWidth) {
+              const natW = sprite.naturalWidth;
+              const natH = sprite.naturalHeight;
+              const bp = cs.backgroundPosition || '0 0';
+              const [bpx, bpy] = bp.split(' ').map(v => parseFloat(v) || 0);
+              // The CSS background-size defines how the sprite is displayed
+              const bs = cs.backgroundSize || 'auto';
+              const bsw = parseFloat(bs.split(' ')[0]) || w;
+              // sprite:CSS ratio — converts CSS background-position to native pixels
+              const ratio = natW / bsw;
+              const sx = Math.abs(bpx) * ratio;
+              const sy = Math.abs(bpy) * ratio;
+              // Each icon occupies (w * ratio) pixels in the sprite
+              const sw = w * ratio;
+              const sh = h * ratio;
+              try {
+                ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
+                markerDrawn++;
+              } catch { markerSkipped++; }
+              continue;
+            }
           }
         }
-        // Fallback: draw inner <img> elements
         for (const ii of el.querySelectorAll('img')) {
           if (!ii.complete || !ii.naturalWidth) continue;
-          try { ctx.drawImage(ii, dx, dy, dw, dh); imgOk++; } catch {}
+          try { ctx.drawImage(ii, dx, dy, dw, dh); markerDrawn++; } catch {}
         }
+        markerSkipped++;
       }
-      console.log('[Export] images drawn:', imgOk, 'fail:', imgFail);
+      console.log('[Export] markers drawn:', markerDrawn, 'skipped:', markerSkipped);
+      imgOk += markerDrawn;
       console.log('[Export] images drawn:', imgOk, 'fail:', imgFail);
 
       // Layer 2: SVG overlay — search ALL panes for SVG elements
@@ -204,20 +228,34 @@
       return canvas;
     }
 
-    // Load image with CORS (same as html2canvas useCORS mode).
-    // Uses original URL — no cache-busting — so browser reuses cached
-    // CORS response. If CORS fails, skip (don't taint canvas).
-    // Returns true if drawn, false if skipped.
-    _loadAndDraw(ctx, src, dx, dy, dw, dh) {
+    // Load an image with CORS, return the loaded Image element
+    _loadSprite(src) {
+      return new Promise(resolve => {
+        const i = new Image();
+        i.crossOrigin = 'anonymous';
+        i.onload = () => resolve(i);
+        i.onerror = () => resolve(null);
+        i.src = src;
+      });
+    }
+
+    // Load image with CORS. Optional sprite crop (sx, sy, sw, sh).
+    _loadAndDraw(ctx, src, dx, dy, dw, dh, sx, sy, sw, sh) {
       return new Promise(resolve => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => {
-          try { ctx.drawImage(img, dx, dy, dw, dh); resolve(true); }
-          catch (e) { console.warn('[Export] drawImage error:', e); resolve(false); }
+          try {
+            if (sx !== undefined) {
+              ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+            } else {
+              ctx.drawImage(img, dx, dy, dw, dh);
+            }
+            resolve(true);
+          } catch (e) { resolve(false); }
         };
-        img.onerror = () => { console.warn('[Export] CORS failed:', src.substring(0, 80)); resolve(false); };
-        img.src = src; // original URL, no cache-busting
+        img.onerror = () => resolve(false);
+        img.src = src;
       });
     }
   }
