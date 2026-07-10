@@ -39,13 +39,6 @@ class ExportControl(BaseControl):
     >>> ExportControl(position="bottomright").add_to(m)
     """
 
-    default_js = [
-        (
-            "modern-screenshot",
-            "https://cdn.jsdelivr.net/npm/modern-screenshot@4.7.0/dist/index.js",
-        ),
-    ]
-
     def __init__(
         self,
         *,

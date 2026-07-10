@@ -62,7 +62,7 @@
   "export.status_exporting": "Rendering map...",
   "export.status_success": "Export successful",
   "export.status_fail": "Export failed: ",
-  "export.err_no_canvas": "modern-screenshot library failed to load, export unavailable",
+  "export.err_render_fail": "Failed to render map image, please try again",
   "export.err_gen_fail": "Could not generate image",
   "export.label_size_prefix": "Image Size:",
   "export.label_size_suffix": "px",
