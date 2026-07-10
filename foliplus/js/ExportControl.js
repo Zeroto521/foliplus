@@ -101,13 +101,12 @@
 
       const cw = rect.width * scale;
       const ch = rect.height * scale;
-      const contW = this.container.clientWidth;
-      const contH = this.container.clientHeight;
+      const contRect = this.container.getBoundingClientRect();
+      const contW = contRect.width;
+      const contH = contRect.height;
 
       // Layer 1: Tiles + images — use getBoundingClientRect for absolute position
-      // (most reliable regardless of pane nesting)
       let imgOk = 0, imgFail = 0;
-      const contRect = this.container.getBoundingClientRect();
       for (const img of this.container.querySelectorAll('img')) {
         if (!img.src || !img.complete || !img.naturalWidth) continue;
         const r = img.getBoundingClientRect();
@@ -118,53 +117,43 @@
         if (w < 1 || h < 1) continue;
         const dx = (l - rect.left) * scale;
         const dy = (t - rect.top) * scale;
-        const dw = w * scale;
-        const dh = h * scale;
+        const dw = (r.width || w) * scale;
+        const dh = (r.height || h) * scale;
         if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
-        // try original img first (CORS-safe after pre-setup)
         try { ctx.drawImage(img, dx, dy, dw, dh); imgOk++; }
-        catch { /* tainted — skip */ }
+        catch { imgFail++; }
       }
 
-      // Marker div content — render innerHTML as text (divIcon with icons)
-      // df.explore creates L.divIcon with Fa icons as innerHTML
+      // Marker divIcon (awesome-marker, Leaflet divIcon, etc.)
+      // Use getComputedStyle to read background-image from CSS classes
       for (const el of this.container.querySelectorAll('.leaflet-marker-icon')) {
-        const bg = el.style.backgroundImage;
-        if (bg && bg.includes('url(')) {
+        const r = el.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width; const h = r.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale; const dh = h * scale;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+
+        // Try computed background-image (from CSS classes)
+        const cs = window.getComputedStyle(el);
+        const bg = cs.backgroundImage;
+        if (bg && bg !== 'none' && bg.includes('url(')) {
           const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
           if (m && m[1]) {
-            const r = el.getBoundingClientRect();
-            const l = r.left - contRect.left;
-            const t = r.top - contRect.top;
-            const dx = (l - rect.left) * scale;
-            const dy = (t - rect.top) * scale;
-            const dw = r.width * scale;
-            const dh = r.height * scale;
-            if (dx + dw >= 0 && dy + dh >= 0 && dx <= cw && dy <= ch) {
-              const ok = await this._loadAndDraw(ctx, m[1], dx, dy, dw, dh);
-              if (ok) imgOk++;
-            }
+            const ok = await this._loadAndDraw(ctx, m[1], dx, dy, dw, dh);
+            if (ok) { imgOk++; continue; }
           }
         }
-        // Draw innerHTML (for divIcon with inline SVG/icons)
-        const iconHtml = el.innerHTML;
-        if (iconHtml && iconHtml.length > 10) {
-          const r = el.getBoundingClientRect();
-          // Canvas can't draw HTML — but we can try to draw the <img> or <svg> inside
-          for (const innerImg of el.querySelectorAll('img')) {
-            if (!innerImg.src || !innerImg.complete) continue;
-            const l = r.left - contRect.left;
-            const t = r.top - contRect.top;
-            const dx = (l - rect.left) * scale;
-            const dy = (t - rect.top) * scale;
-            const dw = (innerImg.naturalWidth || r.width) * scale;
-            const dh = (innerImg.naturalHeight || r.height) * scale;
-            if (dx + dw >= 0 && dy + dh >= 0 && dx <= cw && dy <= ch) {
-              try { ctx.drawImage(innerImg, dx, dy, dw, dh); imgOk++; } catch {}
-            }
-          }
+        // Fallback: draw inner <img> elements
+        for (const ii of el.querySelectorAll('img')) {
+          if (!ii.complete || !ii.naturalWidth) continue;
+          try { ctx.drawImage(ii, dx, dy, dw, dh); imgOk++; } catch {}
         }
       }
+      console.log('[Export] images drawn:', imgOk, 'fail:', imgFail);
       console.log('[Export] images drawn:', imgOk, 'fail:', imgFail);
 
       // Layer 2: SVG overlay — search ALL panes for SVG elements
@@ -176,6 +165,10 @@
         if (!svgEl) continue;
         const clone = svgEl.cloneNode(true);
         clone.removeAttribute('style');
+        // Remove viewBox and set explicit width/height in pixels.
+        // Leaflet's viewBox may not match actual container dimensions,
+        // causing a scaling mismatch with tile positions.
+        clone.removeAttribute('viewBox');
         clone.setAttribute('width', String(contW));
         clone.setAttribute('height', String(contH));
 
@@ -195,7 +188,7 @@
             i.onerror = () => reject(new Error('SVG load failed'));
             i.src = url;
           });
-          // SVG matches container dimensions (contW × contH).
+          // SVG matches container coordinates.
           // Crop to rect and scale to output canvas.
           ctx.drawImage(svgImg, rect.left, rect.top, rect.width, rect.height, 0, 0, sw, sh);
           svgCount++;
