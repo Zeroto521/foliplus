@@ -105,96 +105,65 @@
       const contW = contRect.width;
       const contH = contRect.height;
 
-      // Layer 1: Tiles + images — use getBoundingClientRect for absolute position
+      // Layer 1: Tiles — fetch each unique tile URL with CORS, then
+      // createImageBitmap (always origin-clean). This avoids canvas taint
+      // from DOM img elements loaded without crossOrigin.
       let imgOk = 0, imgFail = 0;
+      const uniqueSrc = new Set();
       for (const img of this.container.querySelectorAll('img')) {
-        if (!img.src || !img.complete || !img.naturalWidth) continue;
-        const r = img.getBoundingClientRect();
+        if (img.src && img.complete && img.naturalWidth) uniqueSrc.add(img.src);
+      }
+      for (const src of uniqueSrc) {
+        // Find the corresponding DOM element for position
+        const el = [...this.container.querySelectorAll('img')].find(
+          i => i.src === src && i.complete && i.naturalWidth);
+        if (!el) { imgFail++; continue; }
+        const r = el.getBoundingClientRect();
         const l = r.left - contRect.left;
         const t = r.top - contRect.top;
-        const w = img.naturalWidth || r.width || 256;
-        const h = img.naturalHeight || r.height || 256;
-        if (w < 1 || h < 1) continue;
+        const w = el.naturalWidth || r.width || 256;
+        const h = el.naturalHeight || r.height || 256;
+        if (w < 1 || h < 1) { imgFail++; continue; }
         const dx = (l - rect.left) * scale;
         const dy = (t - rect.top) * scale;
         const dw = (r.width || w) * scale;
         const dh = (r.height || h) * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
-        try { ctx.drawImage(img, dx, dy, dw, dh); imgOk++; }
-        catch { imgFail++; }
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) { imgFail++; continue; }
+        try {
+          const resp = await fetch(src, { mode: 'cors', cache: 'force-cache' });
+          if (!resp.ok) { imgFail++; continue; }
+          const blob = await resp.blob();
+          const bitmap = await createImageBitmap(blob);
+          ctx.drawImage(bitmap, dx, dy, dw, dh);
+          bitmap.close();
+          imgOk++;
+        } catch { imgFail++; }
       }
 
-      // Marker icons (awesome-marker uses CSS sprites)
-      let markerDrawn = 0, markerSkipped = 0;
-      for (const el of this.container.querySelectorAll('.awesome-marker, .leaflet-marker-icon, [class*="marker-icon"]')) {
-        const r = el.getBoundingClientRect();
-        const l = r.left - contRect.left;
-        const t = r.top - contRect.top;
-        const w = r.width; const h = r.height;
-        if (w < 1 || h < 1) continue;
-        const dx = (l - rect.left) * scale;
-        const dy = (t - rect.top) * scale;
-        const dw = w * scale; const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
-
-        const cs = window.getComputedStyle(el);
-        const bg = cs.backgroundImage;
-        console.log('[Export] marker bg:', bg ? bg.substring(0, 80) : 'none', 'class:', el.className);
-
-        if (bg && bg !== 'none' && bg.includes('url(')) {
-          const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-          if (m && m[1]) {
-            // awesome-marker CSS sprite: load full image, crop using
-            // background-position.  Sprite is scaled to element size.
-            const sprite = await this._loadSprite(m[1]);
-            if (sprite && sprite.naturalWidth) {
-              const natW = sprite.naturalWidth;
-              const natH = sprite.naturalHeight;
-              const bp = cs.backgroundPosition || '0 0';
-              const [bpx, bpy] = bp.split(' ').map(v => parseFloat(v) || 0);
-              // The CSS background-size defines how the sprite is displayed
-              const bs = cs.backgroundSize || 'auto';
-              const bsw = parseFloat(bs.split(' ')[0]) || w;
-              // sprite:CSS ratio — converts CSS background-position to native pixels
-              const ratio = natW / bsw;
-              const sx = Math.abs(bpx) * ratio;
-              const sy = Math.abs(bpy) * ratio;
-              // Each icon occupies (w * ratio) pixels in the sprite
-              const sw = w * ratio;
-              const sh = h * ratio;
-              try {
-                ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-                markerDrawn++;
-              } catch { markerSkipped++; }
-              continue;
-            }
-          }
-        }
-        for (const ii of el.querySelectorAll('img')) {
-          if (!ii.complete || !ii.naturalWidth) continue;
-          try { ctx.drawImage(ii, dx, dy, dw, dh); markerDrawn++; } catch {}
-        }
-        markerSkipped++;
-      }
-      console.log('[Export] markers drawn:', markerDrawn, 'skipped:', markerSkipped);
-      imgOk += markerDrawn;
       console.log('[Export] images drawn:', imgOk, 'fail:', imgFail);
 
-      // Layer 2: SVG overlay — search ALL panes for SVG elements
-      // (LayerControl moves vector layers to custom _lyr_* panes)
+      // Layer 2: SVG overlay — search ALL panes for SVG elements.
+      // Leaflet's SVG layers use a viewBox to map CRS coordinates to
+      // pixel space.  We MUST keep the viewBox and set width/height
+      // to the SVG element's actual display dimensions so the internal
+      // coordinate system maps correctly to the viewport.
       const panes = this.container.querySelectorAll('.leaflet-map-pane [class*="pane"]');
       let svgCount = 0;
       for (const pane of panes) {
         const svgEl = pane.querySelector('svg');
         if (!svgEl) continue;
+        const svgRect = svgEl.getBoundingClientRect();
+        const svgL = svgRect.left - contRect.left;
+        const svgT = svgRect.top - contRect.top;
+        if (svgRect.width < 1 || svgRect.height < 1) continue;
+
         const clone = svgEl.cloneNode(true);
         clone.removeAttribute('style');
-        // Remove viewBox and set explicit width/height in pixels.
-        // Leaflet's viewBox may not match actual container dimensions,
-        // causing a scaling mismatch with tile positions.
-        clone.removeAttribute('viewBox');
-        clone.setAttribute('width', String(contW));
-        clone.setAttribute('height', String(contH));
+        // Keep the original viewBox (set by Leaflet) — it maps CRS
+        // coordinates to SVG pixels.  Set width/height to the actual
+        // display size so the image renders at the correct scale.
+        clone.setAttribute('width', String(svgRect.width));
+        clone.setAttribute('height', String(svgRect.height));
 
         let src = new XMLSerializer().serializeToString(clone);
         if (!src.includes('xmlns="http://www.w3.org/2000/svg"')) {
@@ -212,9 +181,11 @@
             i.onerror = () => reject(new Error('SVG load failed'));
             i.src = url;
           });
-          // SVG matches container coordinates.
-          // Crop to rect and scale to output canvas.
-          ctx.drawImage(svgImg, rect.left, rect.top, rect.width, rect.height, 0, 0, sw, sh);
+          // The SVG is rendered at (svgL, svgT) within the container.
+          // Crop to the export rect and scale to the output canvas.
+          ctx.drawImage(svgImg,
+            rect.left - svgL, rect.top - svgT, rect.width, rect.height,
+            0, 0, sw, sh);
           svgCount++;
         } finally {
           URL.revokeObjectURL(url);
@@ -222,41 +193,215 @@
       }
       console.log('[Export] SVGs drawn:', svgCount);
 
-      // Layer 3: Markers — already captured in Layer 1 above
-      // (all <img> in .leaflet-map-pane are searched, including marker icons)
+      // Layer 3: Markers — draw each element with background-image using
+      // direct sprite cropping via createImageBitmap (always origin-clean).
+      //
+      // Formula:
+      //   spriteCSS_W = background-size CSS pixel width (natural if 'auto')
+      //   ratio = spriteNaturalWidth / spriteCSS_W
+      //   sourceX = abs(background-position-x) * ratio
+      //   sourceY = abs(background-position-y) * ratio
+      //   sourceW = renderWidth * ratio
+      //   sourceH = renderHeight * ratio
+      //
+      // Collect drawable marker elements (roots + sub-elements with bg)
+      const drawableEls = [];
+      const mp = this.container.querySelector('.leaflet-marker-pane');
+      console.log('[Export] marker-pane found:', !!mp, '| container:', this.container.className);
+      const markerRoots = mp
+        ? mp.querySelectorAll('.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]')
+        : this.container.querySelectorAll('.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]');
+      console.log('[Export] marker roots found:', markerRoots.length);
+      for (const root of markerRoots) {
+        drawableEls.push(root);
+        for (const sub of root.querySelectorAll('*')) {
+          const scs = window.getComputedStyle(sub);
+          if (scs.backgroundImage && scs.backgroundImage.includes('url(') && scs.backgroundImage !== 'none') {
+            drawableEls.push(sub);
+          }
+        }
+      }
+      console.log('[Export] total drawable marker elements:', drawableEls.length);
+      // First pass: load unique sprites
+      const spriteMap = new Map();
+      const loadQueue = [];
+      for (const el of drawableEls) {
+        const cs = window.getComputedStyle(el);
+        const bg = cs.backgroundImage;
+        if (!bg || bg === 'none') continue;
+        const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
+        if (m && !m[1].startsWith('data:') && !spriteMap.has(m[1])) {
+          const url = m[1];
+          spriteMap.set(url, null);
+          loadQueue.push(
+            fetch(url, { mode: 'cors', cache: 'force-cache' })
+              .then(r => r.ok ? r.blob() : null)
+              .then(blob => blob ? createImageBitmap(blob) : null)
+              .then(bmp => spriteMap.set(url, bmp))
+              .catch(() => {})
+          );
+        }
+      }
+      await Promise.all(loadQueue);
+      // Second pass: draw sprite backgrounds
+      let markerOk = 0, markerFail = 0;
+      // Store drawn marker root positions for FontAwesome overlay
+      const drawnMarkers = []; // {dx, dy, dw, dh, root}
+      for (const el of drawableEls) {
+        const r = el.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width; const h = r.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale; const dh = h * scale;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        const cs = window.getComputedStyle(el);
+        const bg = cs.backgroundImage;
+        if (!bg || bg === 'none') continue;
+        const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
+        if (!m) continue;
+        const sprite = spriteMap.get(m[1]);
+        if (!sprite) { markerFail++; continue; }
+        const bgs = cs.backgroundSize || 'auto';
+        const bgsParts = bgs.trim().split(/\s+/);
+        let cssBgW, cssBgH;
+        if (bgs === 'auto' || bgs === 'auto auto') {
+          const dpr = window.devicePixelRatio || 1;
+          cssBgW = sprite.width / dpr;
+          cssBgH = sprite.height / dpr;
+        } else if (bgs.includes('%')) {
+          cssBgW = w * (parseFloat(bgsParts[0]) || 100) / 100;
+          cssBgH = h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100) / 100;
+        } else {
+          cssBgW = parseFloat(bgsParts[0]) || sprite.width;
+          cssBgH = parseFloat(bgsParts[1] || bgsParts[0]) || sprite.height;
+        }
+        const ratioX = sprite.width / cssBgW;
+        const ratioY = sprite.height / cssBgH;
+        const bp = cs.backgroundPosition || '0 0';
+        const bpParts = bp.trim().split(/\s+/);
+        const sx = Math.abs(parseFloat(bpParts[0]) || 0) * ratioX;
+        const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
+        const sw = w * ratioX;
+        const sh = h * ratioY;
+        if (sx + sw > sprite.width || sy + sh > sprite.height) { markerFail++; continue; }
+        try {
+          ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
+          markerOk++;
+        } catch { markerFail++; }
+      }
+
+      // Layer 3b: FontAwesome icons — draw ::before pseudo-element text
+      // for each marker root's <i> element (the icon inside the pin).
+      let faCount = 0;
+      for (const root of markerRoots) {
+        const r = root.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width; const h = r.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale; const dh = h * scale;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+
+        // Find the <i> icon element inside the marker
+        const iconEl = root.querySelector('i');
+        if (!iconEl) continue;
+
+        // Read ::before pseudo-element styles
+        const before = window.getComputedStyle(iconEl, '::before');
+        const content = before.content;
+        console.log('[Export] FA icon:', iconEl.className, 'content:', content,
+          'fontFamily:', before.fontFamily,
+          'fontSize:', before.fontSize,
+          'color:', before.color);
+
+        // FontAwesome uses CSS content like "\f276" for glyph codepoints.
+        // Browser returns content as '"\\f276"' (quoted + escaped).
+        let iconText = '';
+        if (content && content !== 'none') {
+          const raw = content.replace(/['"]/g, '');  // "\\f276" -> \\f276
+          // Try direct unicode (FontAwesome 5+ ligature mode)
+          if (raw.length === 1) {
+            iconText = raw;
+          }
+          // Try escaped codepoint (FontAwesome 4.7 style)
+          const match = raw.match(/^\\([0-9a-fA-F]+)/);
+          if (match) {
+            iconText = String.fromCharCode(parseInt(match[1], 16));
+          }
+          // Try '\\XXXX' (double-escaped from getComputedStyle)
+          const match2 = raw.match(/^\\\\f([0-9a-fA-F]+)/);
+          if (match2) {
+            iconText = String.fromCharCode(parseInt('f' + match2[1], 16));
+          }
+        }
+        console.log('[Export] FA parsed iconText:', JSON.stringify(iconText), 'length:', iconText.length);
+
+        // Get icon styles from the <i> element (font-family, size, color)
+        const iconCS = window.getComputedStyle(iconEl);
+        let fontSize = parseFloat(iconCS.fontSize) || 14;
+        let fontFamily = iconCS.fontFamily || 'FontAwesome';
+        const color = iconCS.color || '#fff';
+        // FontAwesome 6 Solid requires weight 900; get it from ::before
+        let fontWeight = before.fontWeight || iconCS.fontWeight || '900';
+        if (fontWeight === 'normal') fontWeight = '400';
+        if (fontWeight === 'bold') fontWeight = '700';
+
+        // getComputedStyle already returns the font-family as a CSS-safe value
+        // (may include quotes for names with spaces). Do NOT add extra quotes.
+
+        // Center the icon within the marker
+        let iconDX = dx;
+        let iconDY = dy;
+        let iconDW = dw;
+        let iconDH = dh;
+
+        // If the <i> has its own positioning, use the iconEl's rect
+        const ir = iconEl.getBoundingClientRect();
+        const il = ir.left - contRect.left;
+        const it = ir.top - contRect.top;
+        if (ir.width > 0 && ir.height > 0) {
+          iconDX = (il - rect.left) * scale;
+          iconDY = (it - rect.top) * scale;
+          iconDW = ir.width * scale;
+          iconDH = ir.height * scale;
+        }
+
+        // Scale font size for high-DPI
+        fontSize = fontSize * scale;
+
+        // Ensure font is loaded in canvas context before drawing.
+        // FontAwesome loads asynchronously via @font-face; without this
+        // wait, canvas fillText may render a blank/tofu glyph.
+        const fontSpec = fontWeight + ' ' + fontSize + 'px ' + fontFamily;
+        try {
+          await document.fonts.load(fontSpec);
+        } catch { /* font may not load, try drawing anyway */ }
+        // If still not loaded, wait for ready
+        if (!document.fonts.check(fontSpec)) {
+          try { await document.fonts.ready; } catch {}
+        }
+
+        ctx.save();
+        ctx.font = fontSpec;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+
+        // Center text in the icon area
+        const cx = iconDX + iconDW / 2;
+        const cy = iconDY + iconDH / 2;
+        ctx.fillText(iconText, cx, cy);
+        ctx.restore();
+        faCount++;
+      }
+      console.log('[Export] FontAwesome icons drawn:', faCount);
 
       return canvas;
-    }
-
-    // Load an image with CORS, return the loaded Image element
-    _loadSprite(src) {
-      return new Promise(resolve => {
-        const i = new Image();
-        i.crossOrigin = 'anonymous';
-        i.onload = () => resolve(i);
-        i.onerror = () => resolve(null);
-        i.src = src;
-      });
-    }
-
-    // Load image with CORS. Optional sprite crop (sx, sy, sw, sh).
-    _loadAndDraw(ctx, src, dx, dy, dw, dh, sx, sy, sw, sh) {
-      return new Promise(resolve => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          try {
-            if (sx !== undefined) {
-              ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-            } else {
-              ctx.drawImage(img, dx, dy, dw, dh);
-            }
-            resolve(true);
-          } catch (e) { resolve(false); }
-        };
-        img.onerror = () => resolve(false);
-        img.src = src;
-      });
     }
   }
 
@@ -587,6 +732,12 @@
       new LeafletRenderer(this.map).render(r, scaleValue, bg || undefined)
         .then(canvas => {
           hideEls.forEach(el => { el.style.display = ''; });
+          // Debug: preview canvas on page
+          const prevImg = document.createElement('img');
+          prevImg.src = canvas.toDataURL('image/png');
+          prevImg.style.cssText = 'position:fixed;bottom:10px;right:10px;z-index:99999;max-width:400px;max-height:300px;border:2px solid red;background:#fff;box-shadow:0 0 20px rgba(0,0,0,.5)';
+          document.body.appendChild(prevImg);
+          setTimeout(() => prevImg.remove(), 10000);
           canvas.toBlob(blob => {
             if (!blob) {
               this._showGlobalHint(_('export.status_fail') + _('export.err_gen_fail'), CONST.HINT_ERROR_DURATION, false);
