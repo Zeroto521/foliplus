@@ -87,7 +87,57 @@
       this.container = map.getContainer();
     }
 
-    async render(rect, scale, bg) {
+    // Get the first active TileLayer on the map
+    _getTileLayer() {
+      let tileLayer = null;
+      this.map.eachLayer(l => {
+        if (l instanceof L.TileLayer && this.map.hasLayer(l)) tileLayer = l;
+      });
+      return tileLayer;
+    }
+
+    // Calculate all tile coordinates that cover the given geo bounds at the given zoom.
+    // Returns [{x, y, url}]
+    _calcTiles(tileLayer, bounds, zoom) {
+      const crs = this.map.options.crs || L.CRS.EPSG3857;
+      const tileSize = tileLayer.options.tileSize || 256;
+      const subdomains = tileLayer.options.subdomains || 'abc';
+      const urlTemplate = tileLayer._url || '';
+
+      // Get bounds in EPSG:3857
+      const nw = crs.latLngToPoint(L.latLng(bounds.nw.lat, bounds.nw.lng), zoom);
+      const se = crs.latLngToPoint(L.latLng(bounds.se.lat, bounds.se.lng), zoom);
+
+      // Tile coordinates (Leaflet origin is top-left, tiles start at 0,0)
+      const minTx = Math.floor(nw.x / tileSize);
+      const maxTx = Math.ceil(se.x / tileSize) - 1;
+      const minTy = Math.floor(nw.y / tileSize);
+      const maxTy = Math.ceil(se.y / tileSize) - 1;
+
+      const tiles = [];
+      const globalTileSize = crs.infinite ? tileSize : 256;
+      const maxTile = crs.infinite ? Infinity : Math.pow(2, zoom);
+
+      for (let tx = minTx; tx <= maxTx; tx++) {
+        for (let ty = minTy; ty <= maxTy; ty++) {
+          if (tx < 0 || ty < 0 || tx >= maxTile || ty >= maxTile) continue;
+          // Build URL
+          let url = urlTemplate;
+          const subIdx = ((tx + ty) % (typeof subdomains === 'string' ? subdomains.length : 1));
+          const sub = typeof subdomains === 'string' ? subdomains[subIdx] : subdomains[0];
+          url = url.replace('{s}', sub).replace('{x}', tx).replace('{y}', ty).replace('{z}', zoom);
+          // Also handle {r} for retina
+          url = url.replace('{r}', '');
+          // Tile pixel position within the container viewport at this zoom
+          const tileLeft = tx * tileSize;
+          const tileTop = ty * tileSize;
+          tiles.push({ x: tx, y: ty, z: zoom, url, left: tileLeft, top: tileTop, size: tileSize });
+        }
+      }
+      return tiles;
+    }
+
+    async render(rect, scale, bg, geoBounds) {
       const sw = Math.round(rect.width * scale);
       const sh = Math.round(rect.height * scale);
       if (sw < 1 || sh < 1) throw new Error('Crop area too small');
@@ -105,39 +155,82 @@
       const contW = contRect.width;
       const contH = contRect.height;
 
-      // Layer 1: Tiles — fetch each unique tile URL with CORS, then
-      // createImageBitmap (always origin-clean). This avoids canvas taint
-      // from DOM img elements loaded without crossOrigin.
+      // Layer 1: Tiles — If geo bounds are available, compute tile
+      // coordinates ourselves so we can export areas beyond the viewport.
+      // Otherwise fall back to DOM images.
       let imgOk = 0, imgFail = 0;
-      const uniqueSrc = new Set();
-      for (const img of this.container.querySelectorAll('img')) {
-        if (img.src && img.complete && img.naturalWidth) uniqueSrc.add(img.src);
-      }
-      for (const src of uniqueSrc) {
-        // Find the corresponding DOM element for position
-        const el = [...this.container.querySelectorAll('img')].find(
-          i => i.src === src && i.complete && i.naturalWidth);
-        if (!el) { imgFail++; continue; }
-        const r = el.getBoundingClientRect();
-        const l = r.left - contRect.left;
-        const t = r.top - contRect.top;
-        const w = el.naturalWidth || r.width || 256;
-        const h = el.naturalHeight || r.height || 256;
-        if (w < 1 || h < 1) { imgFail++; continue; }
-        const dx = (l - rect.left) * scale;
-        const dy = (t - rect.top) * scale;
-        const dw = (r.width || w) * scale;
-        const dh = (r.height || h) * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) { imgFail++; continue; }
-        try {
-          const resp = await fetch(src, { mode: 'cors', cache: 'force-cache' });
-          if (!resp.ok) { imgFail++; continue; }
-          const blob = await resp.blob();
-          const bitmap = await createImageBitmap(blob);
-          ctx.drawImage(bitmap, dx, dy, dw, dh);
-          bitmap.close();
-          imgOk++;
-        } catch { imgFail++; }
+
+      if (geoBounds && geoBounds.nw) {
+        const tileLayer = this._getTileLayer();
+        if (tileLayer) {
+          const zoom = this.map.getZoom();
+          const tiles = this._calcTiles(tileLayer, geoBounds, zoom);
+          // Viewport offset: pixel position of the viewport origin
+          // in the CRS pixel space at the current zoom
+          const crs = this.map.options.crs || L.CRS.EPSG3857;
+          const viewportCenter = crs.latLngToPoint(this.map.getCenter(), zoom);
+          const halfVpW = contW / 2;
+          const halfVpH = contH / 2;
+          const vpLeft = viewportCenter.x - halfVpW;
+          const vpTop = viewportCenter.y - halfVpH;
+
+          // Calculate the pixel origin of the crop area within the viewport
+          // (same as before: rect.left/rect.top are viewport-relative)
+          for (const tile of tiles) {
+            // Tile position in viewport pixels
+            const tileVpX = tile.left - vpLeft;
+            const tileVpY = tile.top - vpTop;
+            const dx = (tileVpX - rect.left) * scale;
+            const dy = (tileVpY - rect.top) * scale;
+            const dw = tile.size * scale;
+            const dh = tile.size * scale;
+            if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+            // Also skip tiles far outside the export area
+            if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
+            if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height) continue;
+
+            try {
+              const resp = await fetch(tile.url, { mode: 'cors', cache: 'force-cache' });
+              if (!resp.ok) { imgFail++; continue; }
+              const blob = await resp.blob();
+              const bitmap = await createImageBitmap(blob);
+              ctx.drawImage(bitmap, dx, dy, dw, dh);
+              bitmap.close();
+              imgOk++;
+            } catch { imgFail++; }
+          }
+        }
+      } else {
+        // Fallback: use DOM images (original approach)
+        const uniqueSrc = new Set();
+        for (const img of this.container.querySelectorAll('img')) {
+          if (img.src && img.complete && img.naturalWidth) uniqueSrc.add(img.src);
+        }
+        for (const src of uniqueSrc) {
+          const el = [...this.container.querySelectorAll('img')].find(
+            i => i.src === src && i.complete && i.naturalWidth);
+          if (!el) { imgFail++; continue; }
+          const r = el.getBoundingClientRect();
+          const l = r.left - contRect.left;
+          const t = r.top - contRect.top;
+          const w = el.naturalWidth || r.width || 256;
+          const h = el.naturalHeight || r.height || 256;
+          if (w < 1 || h < 1) { imgFail++; continue; }
+          const dx = (l - rect.left) * scale;
+          const dy = (t - rect.top) * scale;
+          const dw = (r.width || w) * scale;
+          const dh = (r.height || h) * scale;
+          if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) { imgFail++; continue; }
+          try {
+            const resp = await fetch(src, { mode: 'cors', cache: 'force-cache' });
+            if (!resp.ok) { imgFail++; continue; }
+            const blob = await resp.blob();
+            const bitmap = await createImageBitmap(blob);
+            ctx.drawImage(bitmap, dx, dy, dw, dh);
+            bitmap.close();
+            imgOk++;
+          } catch { imgFail++; }
+        }
       }
 
       console.log('[Export] images drawn:', imgOk, 'fail:', imgFail);
@@ -158,6 +251,9 @@
         if (svgRect.width < 1 || svgRect.height < 1) continue;
 
         const clone = svgEl.cloneNode(true);
+        // Set overflow visible so paths outside the current viewBox
+        // are still rendered (user may have zoomed in, crop > viewport).
+        clone.setAttribute('overflow', 'visible');
         clone.removeAttribute('style');
         // Keep the original viewBox (set by Leaflet) — it maps CRS
         // coordinates to SVG pixels.  Set width/height to the actual
@@ -705,31 +801,22 @@
       this._showHintWithInfo(newRect, _('export.hint_zoom'));
     }
 
-    _clampRectToViewport(r) {
-      const cw = this.mapContainer.clientWidth;
-      const ch = this.mapContainer.clientHeight;
-      r.left = Math.max(0, Math.min(r.left, cw - CONST.CROP_MIN_SIZE));
-      r.top = Math.max(0, Math.min(r.top, ch - CONST.CROP_MIN_SIZE));
-      r.width = Math.max(CONST.CROP_MIN_SIZE, Math.min(r.width, cw - r.left));
-      r.height = Math.max(CONST.CROP_MIN_SIZE, Math.min(r.height, ch - r.top));
-    }
-
     doExport() {
       if (this.isExporting || !this.cropState) return;
       this.isExporting = true;
       const r = Object.assign({}, this.cropState.rect);
-      this._clampRectToViewport(r);
+      const geoBounds = this.cropState.geoBounds;
       this.removeCropBox();
-      this._showGlobalHint(_('export.status_exporting'), 0, true);
 
       let scaleValue = {{ this.scale }};
       if (typeof scaleValue !== 'number' || isNaN(scaleValue)) scaleValue = CONST.DEFAULT_SCALE;
       const bg = {{ '"' + this.background + '"' if this.background else "null" }};
 
+      this._showGlobalHint(_('export.status_exporting'), 0, true);
       const hideEls = this.mapContainer.querySelectorAll('.leaflet-control-container, .export-ctrl');
       hideEls.forEach(el => { el.style.display = 'none'; });
 
-      new LeafletRenderer(this.map).render(r, scaleValue, bg || undefined)
+      new LeafletRenderer(this.map).render(r, scaleValue, bg || undefined, geoBounds)
         .then(canvas => {
           hideEls.forEach(el => { el.style.display = ''; });
           // Debug: preview canvas on page
