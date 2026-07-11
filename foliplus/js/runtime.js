@@ -41,12 +41,11 @@
     CLOSE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-    PIN_ICON: `<div class="foliplus-pin-wrap">
-      <svg width="24" height="36" viewBox="0 0 24 36">
-        <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
-          fill="var(--accent-primary)" stroke="var(--neutral-0)" stroke-width="1.5"/>
-        <circle cx="12" cy="12" r="4.5" fill="var(--neutral-0)"/>
-      </svg></div>`,
+    PIN_ICON: `<div class="foliplus-pin-wrap"><svg width="24" height="36" viewBox="0 0 24 36">
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
+        fill="var(--accent-primary)" stroke="var(--neutral-0)" stroke-width="1.5"/>
+      <circle cx="12" cy="12" r="4.5" fill="var(--neutral-0)"/>
+    </svg></div>`,
     LOCATE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
@@ -121,7 +120,7 @@
     el.innerHTML = icon ? `<span class="map-hint-icon">${icon}</span>${text}` : text;
     el.classList.add("map-hint");
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
-      const cs = getComputedStyle(hintTarget);
+      const cs = window.getComputedStyle(hintTarget);
       if (cs.position === "static") hintTarget.style.position = "relative";
     }
     const storeKey = append ? key + "-" + Date.now() : key;
@@ -175,7 +174,10 @@
 
   // ==================== Coordinate Transformation ====================
   /**
-   * Ensure gcoord library is loaded. Returns true if already available.
+   * Ensure gcoord library is loaded.
+   * If not loaded, dynamically injects the CDN script and returns false.
+   *
+   * @returns {boolean} True if gcoord is already available, false otherwise
    */
   foliplus._ensureGcoord = function () {
     if (typeof gcoord !== "undefined") return true;
@@ -401,6 +403,7 @@
    * @param {string} prefix Key prefix for lookup (e.g. 'search.popup')
    * @param {string} [title] Explicit popup title text
    * @param {L.Marker} [existing] Existing marker to remove before creating new one
+   * @param {L.LayerGroup} [layerGroup] Optional layer group to add the marker to
    * @returns {L.Marker} The newly created marker
    */
   foliplus.createLocationMarker = function (
@@ -677,14 +680,14 @@
     // 3. Detect from embedding referrer URL (highly reliable backup for iframes, works cross-origin)
     if (!lang && typeof document !== "undefined" && document.referrer) {
       const m = document.referrer.match(/\/(en|zh)\//i);
-      if (m) lang = m[1].toLowerCase();
+      if (m && tables[m[1].toLowerCase()]) lang = m[1].toLowerCase();
     }
 
     // 4. Detect from current window URL path (ReadTheDocs / GitHub Pages common patterns: /en/, /zh/)
     if (!lang) {
       const path = window.location.pathname;
       const m = path.match(/\/(en|zh)\//i);
-      if (m) lang = m[1].toLowerCase();
+      if (m && tables[m[1].toLowerCase()]) lang = m[1].toLowerCase();
     }
 
     // 5. HTML lang attribute (e.g. <html lang="en">)
