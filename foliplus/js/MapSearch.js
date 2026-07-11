@@ -1,7 +1,7 @@
 (function() {
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[MapSearch] foliplus runtime not found — plugin disabled.');
+    console.error('[MapSearch] foliplus runtime not found, plugin disabled.');
     return;
   }
 
