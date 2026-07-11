@@ -23,8 +23,8 @@
 
   // --- SVG Icons ---
   foliplus.SVGs = {
-    LOADING: `<svg class="foliplus-spin" width="14" height="14" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+    LOADING: `<svg class="foliplus-spin" width="14" height="14" viewBox="0 0 24 24"
+    fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
     <path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
     CLOSE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
@@ -58,6 +58,17 @@
   // ==================== Hint / Toast System ====================
   const _hintMap = new Map(); // key -> { element, timer }
 
+  /**
+   * Register an SVG icon for a hint type. The icon is prepended to the
+   * hint text when `showHint(key, ...)` is called with a matching key.
+   *
+   * @param {string} key     - Unique hint type identifier (e.g. 'export', 'measure')
+   * @param {string} iconSvg - SVG markup string to display before the text
+   *
+   * @example
+   *   foliplus.registerHintIcon('export', '<svg>...</svg>');
+   *   foliplus.showHint('export', 'Exporting...'); // shows icon + text
+   */
   foliplus.registerHintIcon = function (key, iconSvg) {
     foliplus._hintIcons = foliplus._hintIcons || {};
     foliplus._hintIcons[key] = iconSvg;
@@ -65,23 +76,49 @@
   foliplus._hintIcons = foliplus._hintIcons || {};
   foliplus._hintIcons['gcoord-warn'] = foliplus.SVGs.SEARCH;
 
-  foliplus.showHint = function (key, text, duration, parent) {
-    foliplus.hideHint(key);
-    // Mount inside the map container by default to avoid z-index issues
-    const hintTarget = parent ||
-      document.querySelector('.leaflet-container') ||
-      document.body;
-    const el = L.DomUtil.create('div', `map-hint map-hint-${key}`, hintTarget);
+  /**
+   * Display a hint toast at the bottom-center of the viewport.
+   * Hints are mounted on `document.body` and use `position: fixed`
+   * so they remain visible regardless of container resizing.
+   *
+   * @param {string}  key      - Hint type identifier. Overrides previous hint
+   *                             with the same key unless `append=true`.
+   * @param {string}  text     - The hint message text.
+   * @param {number}  [duration=3000] - Time in ms before auto-hide.
+   *                                    Use `0` for persistent (until `hideHint`).
+   * @param {Element} [parent=document.body] - Container element for the hint.
+   * @param {boolean} [append=false] - If `true`, appends a new hint instance
+   *                                   without removing existing ones with the
+   *                                   same key. The instance auto-clears after
+   *                                   `duration` ms. Keys are suffixed with a
+   *                                   timestamp for individual removal.
+   *
+   * @example
+   *   // Persistent hint (replaces previous 'export' hint)
+   *   foliplus.showHint('export', 'Locked — zoom to adjust', 0);
+   *
+   *   // Temporary appended hint (does not overwrite persistent one)
+   *   foliplus.showHint('export', 'Restored previous area', 3000, document.body, true);
+   *
+   *   // Remove all hints of a type
+   *   foliplus.hideHint('export');
+   *   // Remove appended instances individually
+   *   foliplus.hideHint('export-1234567890');
+   */
+  foliplus.showHint = function (key, text, duration, parent, append) {
+    if (!append) foliplus.hideHint(key);
+    const hintTarget = parent || document.body;
+    const cls = append ? `map-hint map-hint-${key}-${Date.now()}` : `map-hint map-hint-${key}`;
+    const el = L.DomUtil.create('div', cls, hintTarget);
     const icon = (foliplus._hintIcons && foliplus._hintIcons[key]) || '';
     el.innerHTML = icon ? `<span class="map-hint-icon">${icon}</span>${text}` : text;
-    // Style via CSS class — common.css defines .map-hint
     el.classList.add('map-hint');
-    // Ensure the map container has relative positioning
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
       const cs = getComputedStyle(hintTarget);
       if (cs.position === 'static') hintTarget.style.position = 'relative';
     }
-    _hintMap.set(key, { element: el, timer: null });
+    const storeKey = append ? key + '-' + Date.now() : key;
+    _hintMap.set(storeKey, { element: el, timer: null });
 
     const _reposition = () => {
       let idx = 0;
@@ -94,16 +131,21 @@
     _reposition();
 
     if (duration !== 0) {
-      _hintMap.get(key).timer = setTimeout(() => foliplus.hideHint(key), duration || 3000);
+      _hintMap.get(storeKey).timer =
+        setTimeout(() => foliplus.hideHint(storeKey), duration || 3000);
     }
   };
 
   foliplus.hideHint = function (key) {
-    const entry = _hintMap.get(key);
-    if (!entry) return;
-    if (entry.timer) clearTimeout(entry.timer);
-    if (entry.element) entry.element.remove();
-    _hintMap.delete(key);
+    // Also clear appended instances (keys start with key+'-')
+    for (const k of _hintMap.keys()) {
+      if (k === key || k.startsWith(key + '-')) {
+        const entry = _hintMap.get(k);
+        if (entry.timer) clearTimeout(entry.timer);
+        if (entry.element) entry.element.remove();
+        _hintMap.delete(k);
+      }
+    }
 
     let idx = 0;
     for (let v of _hintMap.values()) {
@@ -483,9 +525,7 @@
     let lang = '';
 
     // 1. Explicit code from Python (Highest priority if provided)
-    if (code && tables[code]) {
-      lang = code;
-    }
+    if (code && tables[code]) lang = code;
 
     // 2. Detect from parent context if inside an iframe (e.g., ReadTheDocs/Sphinx same-origin iframe)
     if (!lang) {
