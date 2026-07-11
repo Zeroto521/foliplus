@@ -154,10 +154,6 @@
     }
   };
 
-  foliplus.hideAllHints = () => {
-    for (let key of _hintMap.keys()) foliplus.hideHint(key);
-  };
-
   // ==================== Coordinate Transformation ====================
   /**
    * Ensure gcoord library is loaded. Returns true if already available.
