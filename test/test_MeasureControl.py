@@ -176,7 +176,7 @@ class TestMeasureControlRendering:
         """Distance/Circle labels have click listeners to toggle UI."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "segLabels.forEach(l => l.on('click', handleItemClick))" in html
+        assert 'segLabels.forEach((l) => l.on("click", handleItemClick))' in html
         assert "if (radiusLabel) attachInteraction(radiusLabel)" in html
 
     def test_unregister_clears_leftover_nodes(self, base_map: folium.Map):
@@ -193,7 +193,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         # Ensure map clicks use 'reset' to keep labels visible
-        assert "toggleUI(false, 'reset')" in html
+        assert 'toggleUI(false, "reset")' in html
         # Ensure item clicks toggle ONLY X (undefined)
         assert "toggleUI(undefined)" in html
         assert "toggleUI(undefined, true)" not in html

@@ -110,15 +110,15 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # Empty container (no leaves) → 'empty'
-        assert "if (leaves.length === 0) return 'empty'" in html
+        assert 'if (leaves.length === 0) return "empty"' in html
         # Has leaves but none match known types → 'unknown'
-        assert "if (!hasPoly && !hasLine && !hasPoint) return 'unknown'" in html
+        assert 'if (!hasPoly && !hasLine && !hasPoint) return "unknown"' in html
 
     def test_type_svg_fallback(self, base_map: folium.Map):
         """getTypeSVG returns EMPTY/UNKNOWN for non-standard layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "if (type === 'empty') return SVGS.EMPTY;" in html
+        assert 'if (type === "empty") return SVGS.EMPTY;' in html
         assert "return SVGS.UNKNOWN;" in html
 
     def test_locale_zh(self, base_map: folium.Map):
@@ -340,7 +340,7 @@ class TestLayerControlRendering:
         """Regression test for Bug 1: Label panes get z-index offset (+1) automatically."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "cp.includes('label') || cp.includes('lbl')" in html
+        assert 'cp.includes("label") || cp.includes("lbl")' in html
         assert "ep.pane.style.zIndex = z + 1" in html
         assert "ensurePane" in html
         assert "_setLayerPaneRecursive" in html
@@ -429,8 +429,8 @@ class TestLayerControlRendering:
         """_showColorLayer hides tilePane visibility and opacity."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "tilePane.style.visibility = 'hidden'" in html
-        assert "tilePane.style.opacity = '0'" in html
+        assert 'tilePane.style.visibility = "hidden"' in html
+        assert 'tilePane.style.opacity = "0"' in html
 
     def test_public_api_get_layer_type(self, base_map: folium.Map):
         """getLayerType is exposed via LayerControlAPI."""
@@ -486,7 +486,7 @@ class TestLayerControlRendering:
         """Custom iconSvg is rendered in type-icon-col during initial render."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "l.iconSvg || ''" in html
+        assert 'l.iconSvg || ""' in html
         assert "type-icon-col" in html
 
     def test_runtime_guard_present(self, base_map: folium.Map):

@@ -23,8 +23,7 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) =>
-    window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k;
+  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   window.foliplus.registerHintIcon(CONST.name, window.foliplus.SVGs.SEARCH);
 
@@ -37,15 +36,8 @@
   // ==================== Control Definition ====================
   new (L.Control.extend({
     onAdd: function () {
-      const container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control",
-      );
-      const ctrl = L.DomUtil.create(
-        "div",
-        "map-search ctrl-fold collapsed",
-        container,
-      );
+      const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+      const ctrl = L.DomUtil.create("div", "map-search ctrl-fold collapsed", container);
       ctrl.id = "{{ this.get_name() }}_ctrl";
       ctrl.innerHTML = `
         <button class="toggle-btn" title="${_("search.btn_title")}">
@@ -206,8 +198,7 @@
               CONST.zoomMax,
               Math.max(
                 CONST.zoomMin,
-                CONST.zoomBase -
-                  Math.floor(displayName.length / CONST.zoomDivisor),
+                CONST.zoomBase - Math.floor(displayName.length / CONST.zoomDivisor),
               ),
             );
             map.flyTo([lat, lng], zoom);
@@ -222,9 +213,7 @@
             );
           })
           .catch(function (err) {
-            console.error(
-              `[${CONST.name}] ` + _("search.addr_error"),
-            );
+            console.error(`[${CONST.name}] ` + _("search.addr_error"));
             _hideSearchHint();
             _showSearchHint(_("search.addr_error"), CONST.hintError);
           });

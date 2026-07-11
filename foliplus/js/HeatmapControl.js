@@ -1,4 +1,4 @@
-(function() {
+(function () {
   // ==================== Constants ====================
   const CONST = {
     name: "HeatmapControl",
@@ -12,8 +12,24 @@
     LOAD_SCRIPT_INTERVAL_MS: 3000,
     DEFAULT_GRAY: "#999",
     H3_RES_MAP: [
-      [2, 0], [3, 1], [4, 1], [5, 2], [6, 3], [7, 4], [8, 4], [9, 5], [10, 6], [11, 6],
-      [12, 7], [13, 7], [14, 8], [15, 9], [16, 9], [17, 10], [18, 11], [19, 11],
+      [2, 0],
+      [3, 1],
+      [4, 1],
+      [5, 2],
+      [6, 3],
+      [7, 4],
+      [8, 4],
+      [9, 5],
+      [10, 6],
+      [11, 6],
+      [12, 7],
+      [13, 7],
+      [14, 8],
+      [15, 9],
+      [16, 9],
+      [17, 10],
+      [18, 11],
+      [19, 11],
       [20, 12],
     ],
     H3_RES_FALLBACK: 12,
@@ -31,7 +47,7 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
+  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   const SVGS = {
     HEXAGON: `
@@ -55,7 +71,8 @@
     },
     {
       name: "ss",
-      url: CONST.jsdelivr +
+      url:
+        CONST.jsdelivr +
         "simple-statistics@{{ this._ss_version }}/dist/simple-statistics.min.js",
       check: () => typeof ss !== "undefined",
     },
@@ -66,17 +83,27 @@
     },
   ];
 
-  window.foliplus.loadScripts(DEPS, function(ok, failed) {
-    if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") {
-      return run();
-    }
-    // Final failure — show hint + console
-    const names = (failed || DEPS.filter(d => !d.check()).map(d => d.name)).join(", ");
-    const msgKey = names.includes("ss") ? "heatmap.no_ss"
-      : names.includes("chroma") ? "heatmap.no_chroma" : "heatmap.no_h3";
-    console.error(`[${CONST.name}] ${_(msgKey)} (${names})`);
-    window.foliplus.showHint("heatmap", _(msgKey), 0);
-  }, CONST.LOAD_SCRIPT_RETRIES, CONST.LOAD_SCRIPT_INTERVAL_MS);
+  window.foliplus.loadScripts(
+    DEPS,
+    function (ok, failed) {
+      if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") {
+        return run();
+      }
+      // Final failure — show hint + console
+      const names = (failed || DEPS.filter((d) => !d.check()).map((d) => d.name)).join(
+        ", ",
+      );
+      const msgKey = names.includes("ss")
+        ? "heatmap.no_ss"
+        : names.includes("chroma")
+          ? "heatmap.no_chroma"
+          : "heatmap.no_h3";
+      console.error(`[${CONST.name}] ${_(msgKey)} (${names})`);
+      window.foliplus.showHint("heatmap", _(msgKey), 0);
+    },
+    CONST.LOAD_SCRIPT_RETRIES,
+    CONST.LOAD_SCRIPT_INTERVAL_MS,
+  );
 
   function run() {
     // ==================== Injected Variables ====================
@@ -164,7 +191,8 @@
       // --- Data Extraction ---
       scanMapLayers() {
         this.pointLayers = [];
-        const pointLayersInfo = window.foliplus.LayerControlAPI.getLayersByType("point");
+        const pointLayersInfo =
+          window.foliplus.LayerControlAPI.getLayersByType("point");
         if (!pointLayersInfo.length) return;
 
         const seenIds = {};
@@ -177,7 +205,10 @@
           const pts = this.extractPoints(layer);
           if (pts.length === 0) continue;
           this.pointLayers.push({
-            id: info.id, name: info.name, layer, count: pts.length
+            id: info.id,
+            name: info.name,
+            layer,
+            count: pts.length,
           });
         }
       }
@@ -241,13 +272,14 @@
 
       getPointValue(marker) {
         if (this.currentAgg === "count") return 1;
-        const key = this.currentField === "_auto" ? this.autoFieldKey : this.currentField;
+        const key =
+          this.currentField === "_auto" ? this.autoFieldKey : this.currentField;
         const val = this._readMarkerField(marker, key);
         if (val === undefined || isNaN(val)) {
           if (!this._valueFallbackWarned) {
             this._valueFallbackWarned = true;
             console.warn(
-              `[${CONST.name}] falling back to 1 for missing values, field=${this.currentField}`
+              `[${CONST.name}] falling back to 1 for missing values, field=${this.currentField}`,
             );
           }
           return 1;
@@ -299,7 +331,9 @@
         const hi = sorted[n - 1];
 
         if (method === "jenks") {
-          try { return ss.jenks(data, nClasses); } catch (e) {}
+          try {
+            return ss.jenks(data, nClasses);
+          } catch (e) {}
           return [lo, hi];
         }
         if (method === "quantile") {
@@ -312,7 +346,7 @@
         if (method === "heads") {
           const b = [lo];
           for (let i = 1; i < nClasses; i++) {
-            b.push(sorted[Math.min(Math.floor(i * n / nClasses), n - 1)]);
+            b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
           }
           return b.concat(hi);
         }
@@ -355,12 +389,18 @@
 
         const getAggValue = (cell) => {
           switch (this.currentAgg) {
-            case "count": return cell.count;
-            case "sum": return cell.sum;
-            case "avg": return cell.count > 0 ? cell.sum / cell.count : 0;
-            case "min": return cell.min;
-            case "max": return cell.max;
-            default: return cell.count;
+            case "count":
+              return cell.count;
+            case "sum":
+              return cell.sum;
+            case "avg":
+              return cell.count > 0 ? cell.sum / cell.count : 0;
+            case "min":
+              return cell.min;
+            case "max":
+              return cell.max;
+            default:
+              return cell.count;
           }
         };
 
@@ -397,8 +437,10 @@
               type: "Feature",
               geometry: { type: "Polygon", coordinates: [coords] },
               properties: {
-                _value: val, _classIdx: classIdx,
-                _fillColor: fillColor, _h3: h3Idx
+                _value: val,
+                _classIdx: classIdx,
+                _fillColor: fillColor,
+                _h3: h3Idx,
               },
             });
           } catch (e) {
@@ -422,7 +464,8 @@
               lng = centerLatLng[1];
             } catch (e) {
               const ring = feat.geometry.coordinates[0];
-              let cx = 0, cy = 0;
+              let cx = 0,
+                cy = 0;
               for (let j = 0; j < ring.length - 1; j++) {
                 cx += ring[j][0];
                 cy += ring[j][1];
@@ -431,7 +474,10 @@
               lat = cy / (ring.length - 1);
             }
 
-            const labelStr = window.foliplus.formatNumber(feat.properties._value, FORMAT);
+            const labelStr = window.foliplus.formatNumber(
+              feat.properties._value,
+              FORMAT,
+            );
             const html = `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`;
 
             L.marker([lat, lng], {
@@ -486,7 +532,9 @@
       onAdd() {
         const wrapper = L.DomUtil.create("div", "leaflet-bar leaflet-control");
         this.container = L.DomUtil.create(
-          "div", "map-panel ctrl-fold heatmap-ctrl collapsed", wrapper
+          "div",
+          "map-panel ctrl-fold heatmap-ctrl collapsed",
+          wrapper,
         );
         L.DomEvent.disableClickPropagation(wrapper);
         L.DomEvent.disableScrollPropagation(wrapper);
@@ -506,10 +554,13 @@
             ${window.foliplus.SVGs.CLOSE}</button>`;
 
         window.foliplus.bindPanelToggle({
-          container: this.container, toggleBtn: ".toggle-btn", header: ".panel-header"
+          container: this.container,
+          toggleBtn: ".toggle-btn",
+          header: ".panel-header",
         });
         window.foliplus.bindOutsideCollapse({
-          map: this.manager.map, container: this.container
+          map: this.manager.map,
+          container: this.container,
         });
 
         const content = L.DomUtil.create("div", "panel-content", panelWrap);
@@ -522,7 +573,9 @@
         layerRowLabel.textContent = _("heatmap.layer");
         const layerSelectWrap = L.DomUtil.create("div", "form-control-wrap", layerRow);
         this.layerSelect = L.DomUtil.create(
-          "select", "form-select layer-select", layerSelectWrap
+          "select",
+          "form-select layer-select",
+          layerSelectWrap,
         );
 
         this.extraBody = L.DomUtil.create("div", "extra-body", configBody);
@@ -548,12 +601,16 @@
         };
 
         this.fieldWrap = L.DomUtil.create(
-          "div", "form-row field-wrap hidden", this.extraBody
+          "div",
+          "form-row field-wrap hidden",
+          this.extraBody,
         );
         const fieldLabel = L.DomUtil.create("label", "form-label", this.fieldWrap);
         fieldLabel.textContent = _("heatmap.field");
         const fieldControlWrap = L.DomUtil.create(
-          "div", "form-control-wrap", this.fieldWrap
+          "div",
+          "form-control-wrap",
+          this.fieldWrap,
         );
         this.fieldSelect = L.DomUtil.create("select", "form-select", fieldControlWrap);
         this.fieldSelect.onchange = () => {
@@ -575,7 +632,9 @@
         const classRowLabel = L.DomUtil.create("label", "form-label", classRow);
         classRowLabel.textContent = _("heatmap.class_method");
         const classControlWrap = L.DomUtil.create(
-          "div", "form-control-wrap form-control-inline", classRow
+          "div",
+          "form-control-wrap form-control-inline",
+          classRow,
         );
         this.methodSelect = L.DomUtil.create("select", "form-select", classControlWrap);
         this.methodSelect.innerHTML = `
@@ -590,7 +649,9 @@
         };
 
         this.classSelect = L.DomUtil.create(
-          "select", "form-select class-count-select", classControlWrap
+          "select",
+          "form-select class-count-select",
+          classControlWrap,
         );
         for (let ci = 2; ci <= 9; ci++) {
           const co = document.createElement("option");
@@ -611,12 +672,20 @@
         const schemeRowLabel = L.DomUtil.create("label", "form-label", schemeRow);
         schemeRowLabel.textContent = _("heatmap.scheme");
         this.schemeControlWrap = L.DomUtil.create(
-          "div", "form-control-wrap", schemeRow
+          "div",
+          "form-control-wrap",
+          schemeRow,
         );
         this.schemeBar = L.DomUtil.create("div", "scheme-bar", this.schemeControlWrap);
-        this.schemeBarInner = L.DomUtil.create("div", "scheme-bar-inner", this.schemeBar);
+        this.schemeBarInner = L.DomUtil.create(
+          "div",
+          "scheme-bar-inner",
+          this.schemeBar,
+        );
         this.schemeSelectHidden = L.DomUtil.create(
-          "select", "scheme-select-hidden", this.schemeControlWrap
+          "select",
+          "scheme-select-hidden",
+          this.schemeControlWrap,
         );
 
         SCHEME_NAMES.forEach((name) => {
@@ -664,10 +733,14 @@
         const borderRowLabel = L.DomUtil.create("label", "form-label", borderRow);
         borderRowLabel.textContent = _("heatmap.border");
         const borderControlWrap = L.DomUtil.create(
-          "div", "form-control-wrap form-control-inline", borderRow
+          "div",
+          "form-control-wrap form-control-inline",
+          borderRow,
         );
         this.borderColorInput = L.DomUtil.create(
-          "input", "border-color-input", borderControlWrap
+          "input",
+          "border-color-input",
+          borderControlWrap,
         );
         this.borderColorInput.type = "color";
         this.borderColorInput.value = this.manager.BORDER_COLOR;
@@ -676,7 +749,9 @@
           this.manager.renderHexagons();
         };
         this.borderWeightInput = L.DomUtil.create(
-          "input", "border-weight-input", borderControlWrap
+          "input",
+          "border-weight-input",
+          borderControlWrap,
         );
         this.borderWeightInput.type = "number";
         this.borderWeightInput.min = 0;
@@ -690,12 +765,18 @@
 
         // Label toggle
         const labelRow = L.DomUtil.create(
-          "div", "form-row section-block-last", styleSection
+          "div",
+          "form-row section-block-last",
+          styleSection,
         );
         const labelRowText = L.DomUtil.create("label", "form-label", labelRow);
         labelRowText.textContent = _("heatmap.label");
         const labelControlWrap = L.DomUtil.create("div", "form-control-wrap", labelRow);
-        const labelToggle = L.DomUtil.create("label", "toggle-switch", labelControlWrap);
+        const labelToggle = L.DomUtil.create(
+          "label",
+          "toggle-switch",
+          labelControlWrap,
+        );
         this.labelChk = L.DomUtil.create("input", "", labelToggle);
         this.labelChk.type = "checkbox";
         this.labelChk.checked = this.manager.currentLabelShow;
@@ -824,7 +905,7 @@
         this.fieldWrap.classList.remove("hidden");
 
         const selected = this.manager.pointLayers.filter(
-          (info) => info.id === this.manager.selectedLayerId
+          (info) => info.id === this.manager.selectedLayerId,
         );
         const fields = this.manager.collectFields(selected);
         this.manager.autoFieldKey = this.manager.pickAutoField(fields);
@@ -872,8 +953,11 @@
       }
 
       updateSchemeBar() {
-        this._renderColorBar(this.schemeBarInner,
-          this.manager.currentScheme, this.manager.N_CLASSES);
+        this._renderColorBar(
+          this.schemeBarInner,
+          this.manager.currentScheme,
+          this.manager.N_CLASSES,
+        );
       }
 
       refreshSchemeDropdownItems() {
@@ -894,14 +978,18 @@
           return;
         }
         this.schemeDropdown = L.DomUtil.create(
-          "div", "scheme-dropdown", this.schemeControlWrap
+          "div",
+          "scheme-dropdown",
+          this.schemeControlWrap,
         );
         this.schemeDropdown.setAttribute("role", "listbox");
 
         let focusIdx = -1;
         SCHEME_NAMES.forEach((name, idx) => {
           const item = L.DomUtil.create(
-            "div", "scheme-dropdown-item", this.schemeDropdown
+            "div",
+            "scheme-dropdown-item",
+            this.schemeDropdown,
           );
           item.setAttribute("role", "option");
           item.setAttribute("data-scheme-name", name);
@@ -997,7 +1085,8 @@
     // Instantiate manager and control, then add to map
     const heatmapManager = new HeatmapManager(map);
     const heatmapCtrl = new HeatmapControl(
-      { position: "{{ this.position }}" }, heatmapManager
+      { position: "{{ this.position }}" },
+      heatmapManager,
     );
 
     heatmapCtrl.addTo(map);

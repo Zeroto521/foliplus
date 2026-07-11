@@ -19,25 +19,28 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
+  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   window.foliplus.registerHintIcon(CONST.name, CONST.SVG);
 
   // ==================== Control Setup ====================
-  const fsControl = L.control.fullscreen({
-    position: '{{ this.position }}',
-    title: _(`${CONST.name}.title`),
-    title_cancel: _(`${CONST.name}.title_cancel`),
-    forceSeparateButton: false,
-  }).addTo(map);
+  const fsControl = L.control
+    .fullscreen({
+      position: "{{ this.position }}",
+      title: _(`${CONST.name}.title`),
+      title_cancel: _(`${CONST.name}.title_cancel`),
+      forceSeparateButton: false,
+    })
+    .addTo(map);
   const fsContainer = fsControl.getContainer();
 
   // ==================== Icon Replacement ====================
   // Replace the default fullscreen icon with custom SVG,
   // then break native event bindings by cloning the button.
   (function replaceIcon() {
-    const btn = document.querySelector('.leaflet-control-zoom-fullscreen')
-      || fsContainer?.querySelector('a, button');
+    const btn =
+      document.querySelector(".leaflet-control-zoom-fullscreen") ||
+      fsContainer?.querySelector("a, button");
 
     if (!btn) {
       setTimeout(replaceIcon, 100);
@@ -45,13 +48,13 @@
     }
 
     btn.innerHTML = CONST.SVG;
-    btn.style.backgroundImage = 'none';
+    btn.style.backgroundImage = "none";
 
     // Break native event bindings by cloning and replacing the button
     const newBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(newBtn, btn);
 
-    newBtn.addEventListener('click', (e) => {
+    newBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (document.fullscreenElement) {
@@ -67,31 +70,32 @@
     const isFull = !!document.fullscreenElement;
 
     // Toggle visibility of sibling controls
-    const controls = map.getContainer()
-      .querySelectorAll('.leaflet-control, .custom-scale-wrap');
+    const controls = map
+      .getContainer()
+      .querySelectorAll(".leaflet-control, .custom-scale-wrap");
 
     for (const c of controls) {
       // Hide/show self based on backend template parameter
       if (c === fsContainer || fsContainer.contains(c)) {
         if ({{ this.hide_self | tojson }}) {
-          c.style.display = isFull ? 'none' : '';
+          c.style.display = isFull ? "none" : "";
         }
         continue;
       }
-      c.style.display = isFull ? 'none' : '';
+      c.style.display = isFull ? "none" : "";
     }
 
     window.foliplus.showHint(
       CONST.name,
       isFull ? _(`${CONST.name}.enter`) : _(`${CONST.name}.exit`),
-      2500
+      2500,
     );
   };
 
-  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener("fullscreenchange", handleFullscreenChange);
 
   // Cleanup on map unload
-  map.on('unload', function() {
-    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  map.on("unload", function () {
+    document.removeEventListener("fullscreenchange", handleFullscreenChange);
   });
 })();
