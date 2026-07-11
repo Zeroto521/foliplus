@@ -126,8 +126,9 @@
           const subIdx = ((tx + ty) % (typeof subdomains === 'string' ? subdomains.length : 1));
           const sub = typeof subdomains === 'string' ? subdomains[subIdx] : subdomains[0];
           url = url.replace('{s}', sub).replace('{x}', tx).replace('{y}', ty).replace('{z}', zoom);
-          // Also handle {r} for retina
-          url = url.replace('{r}', '');
+          // Also handle {r} for retina — Leaflet replaces with @2x on retina
+          const isRetina = window.devicePixelRatio > 1;
+          url = url.replace('{r}', isRetina ? '@2x' : '');
           // Tile pixel position within the container viewport at this zoom
           const tileLeft = tx * tileSize;
           const tileTop = ty * tileSize;
@@ -159,6 +160,8 @@
       // coordinates ourselves so we can export areas beyond the viewport.
       // Otherwise fall back to DOM images.
       let imgOk = 0, imgFail = 0;
+
+      window.foliplus.showHint('export', _('export.hint_loading_tiles'), 0);
 
       if (geoBounds && geoBounds.nw) {
         const tileLayer = this._getTileLayer();
@@ -236,10 +239,10 @@
       console.log('[Export] images drawn:', imgOk, 'fail:', imgFail);
 
       // Layer 2: SVG overlay — search ALL panes for SVG elements.
-      // Leaflet's SVG layers use a viewBox to map CRS coordinates to
-      // pixel space.  We MUST keep the viewBox and set width/height
-      // to the SVG element's actual display dimensions so the internal
-      // coordinate system maps correctly to the viewport.
+      // Leaflet's SVG layers have viewBox = "0 0 <w> <h>" and paths
+      // are positioned in container-relative pixel coordinates.
+      // We serialize each SVG, set explicit width/height (keeping viewBox),
+      // then crop to the export area.
       const panes = this.container.querySelectorAll('.leaflet-map-pane [class*="pane"]');
       let svgCount = 0;
       for (const pane of panes) {
@@ -251,13 +254,8 @@
         if (svgRect.width < 1 || svgRect.height < 1) continue;
 
         const clone = svgEl.cloneNode(true);
-        // Set overflow visible so paths outside the current viewBox
-        // are still rendered (user may have zoomed in, crop > viewport).
-        clone.setAttribute('overflow', 'visible');
         clone.removeAttribute('style');
-        // Keep the original viewBox (set by Leaflet) — it maps CRS
-        // coordinates to SVG pixels.  Set width/height to the actual
-        // display size so the image renders at the correct scale.
+        // Keep viewBox, set width/height to actual display size
         clone.setAttribute('width', String(svgRect.width));
         clone.setAttribute('height', String(svgRect.height));
 
@@ -277,8 +275,9 @@
             i.onerror = () => reject(new Error('SVG load failed'));
             i.src = url;
           });
-          // The SVG is rendered at (svgL, svgT) within the container.
-          // Crop to the export rect and scale to the output canvas.
+          // Crop to export rect in the SVG's coordinate space:
+          // The SVG is positioned at (svgL, svgT) within the container.
+          // We want to extract (rect.left - svgL, rect.top - svgT, rect.w, rect.h).
           ctx.drawImage(svgImg,
             rect.left - svgL, rect.top - svgT, rect.width, rect.height,
             0, 0, sw, sh);
@@ -289,7 +288,8 @@
       }
       console.log('[Export] SVGs drawn:', svgCount);
 
-      // Layer 3: Markers — draw each element with background-image using
+      // Layer 3: Markers — draw each element with background-image
+      window.foliplus.showHint('export', _('export.hint_loading_markers'), 0);
       // direct sprite cropping via createImageBitmap (always origin-clean).
       //
       // Formula:
@@ -598,18 +598,19 @@
       let box;
 
       if (this.savedBounds) {
+        // Restore from saved geo bounds.  Do NOT clamp — the rect may
+        // extend beyond the viewport if the user zoomed in.  The locked
+        // state will use the original geoBounds directly.
         const nw = this.map.latLngToContainerPoint(
           L.latLng(this.savedBounds.nw.lat, this.savedBounds.nw.lng));
         const se = this.map.latLngToContainerPoint(
           L.latLng(this.savedBounds.se.lat, this.savedBounds.se.lng));
         box = {
-          left: Math.max(0, Math.min(nw.x, mapRect.width - CONST.CROP_MIN_SIZE)),
-          top: Math.max(0, Math.min(nw.y, mapRect.height - CONST.CROP_MIN_SIZE)),
-          width: Math.max(CONST.CROP_MIN_SIZE, Math.abs(se.x - nw.x)),
-          height: Math.max(CONST.CROP_MIN_SIZE, Math.abs(se.y - nw.y)),
+          left: Math.min(nw.x, se.x),
+          top: Math.min(nw.y, se.y),
+          width: Math.max(1, Math.abs(se.x - nw.x)),
+          height: Math.max(1, Math.abs(se.y - nw.y)),
         };
-        box.width = Math.min(box.width, mapRect.width - box.left);
-        box.height = Math.min(box.height, mapRect.height - box.top);
       } else if (this.lastScreenRect) {
         box = {
           left: Math.max(0, Math.min(this.lastScreenRect.left, mapRect.width - CONST.CROP_MIN_SIZE)),
@@ -656,7 +657,7 @@
 
       this.cropState = { overlay, box: cropBox, rect: box, locked: false, actions: this.exportToolBar };
       this._updateBoxStyle(cropBox, box);
-      this._showHintWithInfo(box, _('export.hint_unlocked'));
+      this._showHintWithInfo(box, _('export.hint_initial'));
       cropBox.addEventListener('mousedown', this._onMouseDown);
       this.exportToolBar.querySelector('.cancel').onclick = e => { e.stopPropagation(); this.removeCropBox(); };
       this.exportToolBar.querySelector('.confirm').onclick = e => { e.stopPropagation(); this.lockCropBox(); };
@@ -668,10 +669,15 @@
       this.cropState.locked = true;
       this.cropState.box.classList.add('locked');
       const r = this.cropState.rect;
-      this.cropState.geoBounds = {
-        nw: this.map.containerPointToLatLng(L.point(r.left, r.top)),
-        se: this.map.containerPointToLatLng(L.point(r.left + r.width, r.top + r.height)),
-      };
+      // Save the exact geo bounds at lock time. These are the authoritative
+      // coordinates used for export and restoration.
+      if (!this.cropState._savedGeoBounds) {
+        this.cropState._savedGeoBounds = {
+          nw: this.map.containerPointToLatLng(L.point(r.left, r.top)),
+          se: this.map.containerPointToLatLng(L.point(r.left + r.width, r.top + r.height)),
+        };
+      }
+      this.cropState.geoBounds = this.cropState._savedGeoBounds;
       this.cropState.actions.innerHTML = `
         <button class="confirm" title="${_('export.btn_export')}">${SVGS.DOWNLOAD}</button>
         <button class="cancel" title="${_('export.btn_cancel')}">${window.foliplus.SVGs.CLOSE}</button>`;
@@ -813,39 +819,56 @@
       const bg = {{ '"' + this.background + '"' if this.background else "null" }};
 
       this._showGlobalHint(_('export.status_exporting'), 0, true);
-      const hideEls = this.mapContainer.querySelectorAll('.leaflet-control-container, .export-ctrl');
-      hideEls.forEach(el => { el.style.display = 'none'; });
 
-      new LeafletRenderer(this.map).render(r, scaleValue, bg || undefined, geoBounds)
-        .then(canvas => {
-          hideEls.forEach(el => { el.style.display = ''; });
-          // Debug: preview canvas on page
-          const prevImg = document.createElement('img');
-          prevImg.src = canvas.toDataURL('image/png');
-          prevImg.style.cssText = 'position:fixed;bottom:10px;right:10px;z-index:99999;max-width:400px;max-height:300px;border:2px solid red;background:#fff;box-shadow:0 0 20px rgba(0,0,0,.5)';
-          document.body.appendChild(prevImg);
-          setTimeout(() => prevImg.remove(), 10000);
-          canvas.toBlob(blob => {
-            if (!blob) {
-              this._showGlobalHint(_('export.status_fail') + _('export.err_gen_fail'), CONST.HINT_ERROR_DURATION, false);
-              this.isExporting = false; return;
-            }
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.download = '{{ this.filename }}';
-            link.href = url; link.rel = 'noopener';
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(url), CONST.URL_REVOKE_DELAY);
-            this._showGlobalHint(_('export.status_success'), CONST.HINT_SUCCESS_DURATION, false);
+      const doRender = () => {
+        const hideEls = this.mapContainer.querySelectorAll('.leaflet-control-container, .export-ctrl');
+        hideEls.forEach(el => { el.style.display = 'none'; });
+
+        // Use the raw rect from geoBounds — do NOT clamp to viewport.
+        // The rect may extend beyond the viewport (user zoomed in).
+        // The renderer handles this via viewBox expansion (SVG) and
+        // independent tile calculation (tiles).
+        if (geoBounds && geoBounds.nw) {
+          const nw = this.map.latLngToContainerPoint(L.latLng(geoBounds.nw.lat, geoBounds.nw.lng));
+          const se = this.map.latLngToContainerPoint(L.latLng(geoBounds.se.lat, geoBounds.se.lng));
+          r.left = Math.min(nw.x, se.x);
+          r.top = Math.min(nw.y, se.y);
+          r.width = Math.abs(se.x - nw.x);
+          r.height = Math.abs(se.y - nw.y);
+        }
+
+        new LeafletRenderer(this.map).render(r, scaleValue, bg || undefined, geoBounds)
+          .then(canvas => {
+            hideEls.forEach(el => { el.style.display = ''; });
+            const prevImg = document.createElement('img');
+            prevImg.src = canvas.toDataURL('image/png');
+            prevImg.style.cssText = 'position:fixed;bottom:10px;right:10px;z-index:99999;max-width:400px;max-height:300px;border:2px solid red;background:#fff;box-shadow:0 0 20px rgba(0,0,0,.5)';
+            document.body.appendChild(prevImg);
+            setTimeout(() => prevImg.remove(), 200);
+            canvas.toBlob(blob => {
+              if (!blob) {
+                this._showGlobalHint(_('export.status_fail') + _('export.err_gen_fail'), CONST.HINT_ERROR_DURATION, false);
+                this.isExporting = false; return;
+              }
+              const link = document.createElement('a');
+              const url = URL.createObjectURL(blob);
+              link.download = '{{ this.filename }}';
+              link.href = url; link.rel = 'noopener';
+              document.body.appendChild(link); link.click(); document.body.removeChild(link);
+              setTimeout(() => URL.revokeObjectURL(url), CONST.URL_REVOKE_DELAY);
+              this._showGlobalHint(_('export.status_success'), CONST.HINT_SUCCESS_DURATION, false);
+              this.isExporting = false;
+            }, 'image/png');
+          })
+          .catch(err => {
+            hideEls.forEach(el => { el.style.display = ''; });
+            console.error('[ExportControl] render failed:', err);
+            this._showGlobalHint(_('export.status_fail') + (err.message || ''), CONST.HINT_ERROR_DURATION, false);
             this.isExporting = false;
-          }, 'image/png');
-        })
-        .catch(err => {
-          hideEls.forEach(el => { el.style.display = ''; });
-          console.error('[ExportControl] render failed:', err);
-          this._showGlobalHint(_('export.status_fail') + (err.message || ''), CONST.HINT_ERROR_DURATION, false);
-          this.isExporting = false;
-        });
+          });
+      };
+
+      doRender();
     }
   }
 
@@ -867,10 +890,17 @@
         if (exportManager.cropState) {
           exportManager.removeCropBox();
         } else if (exportManager.savedBounds) {
-          // Restore previous selection — show & lock in one step
           exportManager.showCropBox();
-          // Wait for crop box to render, then lock immediately
-          requestAnimationFrame(() => exportManager.lockCropBox());
+          // Restore exact geo bounds without recalculating from screen rect
+          requestAnimationFrame(() => {
+            if (exportManager.cropState && !exportManager.cropState.locked) {
+              exportManager.cropState._savedGeoBounds = {
+                nw: { lat: exportManager.savedBounds.nw.lat, lng: exportManager.savedBounds.nw.lng },
+                se: { lat: exportManager.savedBounds.se.lat, lng: exportManager.savedBounds.se.lng },
+              };
+              exportManager.lockCropBox();
+            }
+          });
         } else {
           exportManager.showCropBox();
         }
