@@ -18,7 +18,7 @@
 
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[HeatmapControl] foliplus runtime not found, plugin disabled.');
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
@@ -238,7 +238,7 @@
           if (!this._valueFallbackWarned) {
             this._valueFallbackWarned = true;
             console.warn(
-              '[HeatmapControl] falling back to 1 for missing values, field=' + this.currentField
+              `[${CONST.name}] falling back to 1 for missing values, field=${this.currentField}`
             );
           }
           return 1;
@@ -342,7 +342,7 @@
             if (pt.value < cell.min) cell.min = pt.value;
             if (pt.value > cell.max) cell.max = pt.value;
           } catch (e) {
-            console.warn('[HeatmapControl] h3.latLngToCell failed:', pt.lat, pt.lng, e);
+            console.warn(`[${CONST.name}] h3.latLngToCell failed:`, pt.lat, pt.lng, e);
           }
         });
 
@@ -397,7 +397,7 @@
               },
             });
           } catch (e) {
-            console.warn('[HeatmapControl] h3.cellToBoundary failed:', h3Idx, e);
+            console.warn(`[${CONST.name}] h3.cellToBoundary failed:`, h3Idx, e);
           }
         }
 
