@@ -263,10 +263,6 @@
    * @param {number} lng - Longitude in WGS-84
    * @param {number} lat - Latitude in WGS-84
    * @returns {number[]} [lng, lat] in map CRS
-   *
-   * @example
-   *   const mapCrs = foliplus.fromWgs84(map, 121.47, 31.23);
-   *   // → [121.475, 31.235] (approx. GCJ-02 for domestic map)
    */
   foliplus.fromWgs84 = function (map, lng, lat) {
     if (typeof gcoord === "undefined") {
@@ -500,6 +496,40 @@
     return cleanup;
   };
 
+  /**
+   * Create a fold (expand/collapse) control container with toggle button and toolbar.
+   * Shared by MeasureControl and ExportControl for consistent UI.
+   * @param {object} opts
+   * @param {string} opts.cssClass - Unique CSS class, e.g. 'measure-ctrl' or 'export-ctrl'
+   * @param {string} opts.toggleTitle - Tooltip for the toggle button
+   * @param {string} opts.toggleSvg - SVG HTML for the toggle icon
+   * @param {boolean} opts.isLeft - Whether position is left-aligned
+   * @returns {object} { container, ctrl, toolBar, toggleBtn }
+   */
+  foliplus.createFoldControl = function (opts) {
+    var container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+    var ctrl = L.DomUtil.create(
+      "div",
+      opts.cssClass + " ctrl-fold collapsed",
+      container,
+    );
+    ctrl.innerHTML =
+      '<button class="toggle-btn" title="' +
+      opts.toggleTitle +
+      '">' +
+      opts.toggleSvg +
+      '</button><div class="tool-bar"></div>';
+    if (!opts.isLeft) ctrl.classList.add("align-right");
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+    return {
+      container: container,
+      ctrl: ctrl,
+      toolBar: ctrl.querySelector(".tool-bar"),
+      toggleBtn: ctrl.querySelector(".toggle-btn"),
+    };
+  };
+
   // ==================== Number Formatting ====================
   // Locale-aware number formatting using Intl.NumberFormat compact notation.
   // 'auto'  → compact abbreviations above threshold (en:≥1K, zh:≥10K),
@@ -634,15 +664,15 @@
    * Sets `window._LOCALE` so that `foliplus.gt(key)` returns the correct translation.
    *
    * Called automatically from each control's Jinja2 template:
-   *   `foliplus.resolveLocale('{{ this._LOCALE_CODE }}', {...tables...});`
+   *   `foliplus.resolveLocale('{{ this._LOCALE_CODE }}'{, tables...});`
    *
    * @param {string} code   - Locale code from Python (e.g. '' for auto-detect)
    * @param {Object} tables - Map of locale code → translation table
-   *                          e.g. `{ en: { 'export.btn_title': 'Export Map' }, zh: {...} }`
+   *                          e.g. `{ en: { title: 'Export Map' }, zh: { title: '导出地图' }}`
    *
    * @example
    *   // Called from template:
-   *   foliplus.resolveLocale('zh', { en: {...}, zh: {...} });
+   *   foliplus.resolveLocale('zh', { en: { title: 'Export Map' }, zh: { title: '导出地图' }});
    *   // → window._LOCALE = zh table
    *   foliplus.gt('export.btn_title') // → '导出地图'
    */
