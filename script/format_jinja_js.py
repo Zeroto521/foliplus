@@ -17,16 +17,16 @@ from __future__ import annotations
 import re
 import sys
 from argparse import ArgumentParser
+from difflib import unified_diff
 from pathlib import Path
-from subprocess import CompletedProcess, run
-from tempfile import NamedTemporaryFile
+from subprocess import run
 from types import SimpleNamespace
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-JS_DIR = REPO_ROOT / "foliplus" / "js"
-_PRETTIER = REPO_ROOT / "node_modules" / ".bin" / "prettier"
+REPO = Path(__file__).resolve().parent.parent
+JS_DIR = REPO / "foliplus" / "js"
+_PRETTIER = REPO / "node_modules" / ".bin" / "prettier"
 
-STATUS = SimpleNamespace(OK="✓", FAIL="✗", SKIP="-")
+STATUS = SimpleNamespace(OK="✓", FAIL="✗", SKIP="–")
 
 _JINJA2_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\{\{.*?\}\}"),
@@ -36,18 +36,14 @@ _JINJA2_PATTERNS: tuple[re.Pattern[str], ...] = (
 
 
 # ── helpers ──────────────────────────────────────────────────────────
-def _ensure_prettier() -> None:
+def _check_prettier() -> None:
     if _PRETTIER.is_file():
         return
-    print(
-        "prettier not found. Run `npm install` from the project root.",
-        file=sys.stderr,
-    )
+    print("prettier not found. Run `npm install`.", file=sys.stderr)
     sys.exit(1)
 
 
 def _placehold(content: str) -> tuple[str, dict[str, str]]:
-    """Replace Jinja2 tags with __JINJA2_NNNN__ placeholders."""
     mapping: dict[str, str] = {}
     n = 0
 
@@ -70,60 +66,60 @@ def _restore(cleaned: str, mapping: dict[str, str]) -> str:
     return cleaned
 
 
-def _msg(status: str, filepath: Path, detail: str = "") -> None:
-    rel = filepath.relative_to(REPO_ROOT)
-    if detail:
-        print(f"  {status} {rel}  {detail}")
-    else:
-        print(f"  {status} {rel}")
+def _fmt(status: str, filepath: Path, detail: str = "") -> str:
+    rel = filepath.relative_to(REPO)
+    return f"  {status} {rel}" + (f"  {detail}" if detail else "")
 
 
 # ── core ─────────────────────────────────────────────────────────────
-def _run_prettier(filepath: Path, check_only: bool = False) -> CompletedProcess:
-    cmd = [str(_PRETTIER), "--stdin-filepath", str(filepath)]
-    if check_only:
-        cmd.append("--check")
-    return run(
-        cmd,
-        input=filepath.read_text(encoding="utf-8"),
+def _diff(original: str, formatted: str) -> str:
+    return "".join(
+        unified_diff(
+            original.splitlines(keepends=True),
+            formatted.splitlines(keepends=True),
+            fromfile="original",
+            tofile="formatted",
+        )
+    )
+
+
+def _prettify(content: str, filepath: Path) -> str:
+    """Run prettier on content, return formatted output."""
+    result = run(
+        [str(_PRETTIER), "--stdin-filepath", str(filepath)],
+        input=content,
         capture_output=True,
         text=True,
-        cwd=REPO_ROOT,
+        cwd=REPO,
     )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+    return result.stdout
 
 
 def format_file(filepath: Path, check_only: bool = False) -> bool:
     original = filepath.read_text(encoding="utf-8")
     cleaned, mapping = _placehold(original)
 
-    if not mapping:
-        result = _run_prettier(filepath, check_only=check_only)
-        if result.returncode != 0:
-            _msg(STATUS.FAIL, filepath, (result.stdout or result.stderr).strip())
-            return False
-        if not check_only:
-            filepath.write_text(result.stdout, encoding="utf-8")
-            _msg(STATUS.OK, filepath)
+    try:
+        formatted = _prettify(cleaned, filepath)
+    except RuntimeError as e:
+        print(_fmt(STATUS.FAIL, filepath, str(e)))
+        return False
+
+    if mapping:
+        formatted = _restore(formatted, mapping)
+
+    if formatted == original:
         return True
 
-    with NamedTemporaryFile(
-        mode="w", suffix=".js", delete=False, encoding="utf-8", dir=REPO_ROOT
-    ) as f:
-        tmp = Path(f.name)
-        f.write(cleaned)
+    if check_only:
+        print(_fmt(STATUS.FAIL, filepath, "needs formatting"))
+        print(_diff(original, formatted))
+        return False
 
-    try:
-        result = _run_prettier(tmp, check_only=check_only)
-        if result.returncode != 0:
-            _msg(STATUS.FAIL, filepath, (result.stdout or result.stderr).strip())
-            return False
-        if not check_only:
-            restored = _restore(result.stdout, mapping)
-            filepath.write_text(restored, encoding="utf-8")
-            _msg(STATUS.OK, filepath)
-    finally:
-        tmp.unlink(missing_ok=True)
-
+    filepath.write_text(formatted, encoding="utf-8")
+    print(_fmt(STATUS.OK, filepath))
     return True
 
 
@@ -135,7 +131,7 @@ def main() -> int:
     )
     parser.add_argument("--check", action="store_true", help="Check only, no write")
     args = parser.parse_args()
-    _ensure_prettier()
+    _check_prettier()
 
     ok = True
     for fp in (
@@ -144,7 +140,7 @@ def main() -> int:
         else sorted(JS_DIR.glob("*.js"))
     ):
         if not fp.exists():
-            _msg(STATUS.SKIP, fp, "not found")
+            print(_fmt(STATUS.SKIP, fp, "not found"))
             continue
         if not format_file(fp, check_only=args.check):
             ok = False
