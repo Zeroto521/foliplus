@@ -403,8 +403,8 @@ class TestHeatmapAutoFieldBrowser:
         html = m.get_root().render()
         # Expose heatmapCtrl for test assertions
         html = html.replace(
-            "heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(_CONST.INIT_SCAN_ATTEMPTS);",
-            "window.__heatmapCtrl = heatmapCtrl;\n    heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(_CONST.INIT_SCAN_ATTEMPTS);",
+            "heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);",
+            "window.__heatmapCtrl = heatmapCtrl;\n    heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);",
         )
 
         html_path = tmp_path / "test_heatmap_autofield.html"

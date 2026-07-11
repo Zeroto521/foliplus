@@ -398,9 +398,9 @@ class TestLayerControlRendering:
         """TileLayers use z-index base 200 in enforceOrder."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "zBase = isTile ? 200 : _CONST.Z_INDEX_BASE" in html
+        assert "zBase = isTile ? 200 : CONST.Z_INDEX_BASE" in html
         # Both 200 and 600 appear as z-index bases
-        assert "_CONST.Z_INDEX_BASE" in html
+        assert "CONST.Z_INDEX_BASE" in html
 
     def test_ensure_pane_need_renderer_param(self, base_map: folium.Map):
         """ensurePane accepts needRenderer parameter, defaults to true."""
