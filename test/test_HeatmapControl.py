@@ -127,7 +127,7 @@ class TestHeatmapControlRendering:
         """Label markers use custom pane and no zIndexOffset."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: this.graphPane" in html
+        assert "pane: CONST.GRAPH_PANE" in html
         assert "heatmap-label" in html
 
     def test_label_zindex_css(self, base_map: folium.Map):
@@ -153,13 +153,13 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "__heatmap__" in html
-        assert "pane: this.graphPane" in html
+        assert "pane: CONST.GRAPH_PANE" in html
 
     def test_graphlayer_pane_init(self, base_map: folium.Map):
         """graphLayer is initialized with pane: this.graphPane."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: this.graphPane" in html
+        assert "pane: CONST.GRAPH_PANE" in html
 
     def test_register_before_add_data(self, base_map: folium.Map):
         """_registerToLayerControl is called before graphLayer.addData."""
@@ -207,9 +207,9 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "onRemove()" in html
         assert "observer.disconnect" in html
-        assert "manager.map.off('zoomend', this.manager._onZoomEnd)" in html
+        assert 'manager.map.off("zoomend", this.manager._onZoomEnd)' in html
         assert (
-            "manager.map.off('layeradd layerremove', this.manager._onLayerChange)"
+            'manager.map.off("layeradd layerremove", this.manager._onLayerChange)'
             in html
         )
 
@@ -247,8 +247,8 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "this._onZoomEnd" in html
         assert "this._onLayerChange" in html
-        assert "map.on('zoomend', this._onZoomEnd)" in html
-        assert "map.on('layeradd layerremove', this._onLayerChange)" in html
+        assert 'map.on("zoomend", this._onZoomEnd)' in html
+        assert 'map.on("layeradd layerremove", this._onLayerChange)' in html
 
     def test_get_point_value_dedup(self, base_map: folium.Map):
         """getPointValue delegates to _readMarkerField instead of duplicating branch logic."""
