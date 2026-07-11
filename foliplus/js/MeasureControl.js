@@ -1,7 +1,7 @@
 (function() {
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[MeasureControl] foliplus runtime not found — component disabled.');
+    console.error('[MeasureControl] foliplus runtime not found, plugin disabled.');
     return;
   }
 
@@ -916,38 +916,26 @@
 
   class MeasureControl extends L.Control {
     onAdd() {
-      const position = '{{ this.position }}';
-      const isLeft = position.indexOf('left') >= 0;
+      const pos = '{{ this.position }}';
+      const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl({
+        cssClass: 'measure-ctrl',
+        toggleTitle: _('measure.tool_toggle'),
+        toggleSvg: SVGS.RULER,
+        isLeft: pos.indexOf('left') >= 0,
+      });
 
-      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-      const ctrl = L.DomUtil.create(
-        'div', 'measure-ctrl ctrl-fold collapsed', container
-      );
-      ctrl.id = '{{ this.get_name() }}_ctrl';
-
-      ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_('measure.tool_toggle')}">
-          ${SVGS.RULER}
-        </button>
-        <div class="tool-bar">
-          <button class="tool-btn" data-mode="marker"
-            title="${_('measure.tool_marker')}">${window.foliplus.SVGs.LOCATE}</button>
-          <button class="tool-btn" data-mode="distance"
-            title="${_('measure.tool_distance')}">${SVGS.RULER}</button>
-          <button class="tool-btn" data-mode="circle"
-            title="${_('measure.tool_circle')}">${SVGS.CIRCLE}</button>
-          <button class="tool-btn" data-mode="clear"
-            title="${_('measure.tool_clear')}">${SVGS.TRASH}</button>
-        </div>
+      toolBar.innerHTML = `
+        <button class="tool-btn" data-mode="marker"
+          title="${_('measure.tool_marker')}">${window.foliplus.SVGs.LOCATE}</button>
+        <button class="tool-btn" data-mode="distance"
+          title="${_('measure.tool_distance')}">${SVGS.RULER}</button>
+        <button class="tool-btn" data-mode="circle"
+          title="${_('measure.tool_circle')}">${SVGS.CIRCLE}</button>
+        <button class="tool-btn" data-mode="clear"
+          title="${_('measure.tool_clear')}">${SVGS.TRASH}</button>
       `;
 
-      if (!isLeft) ctrl.classList.add('align-right');
-      L.DomEvent.disableClickPropagation(container);
-      L.DomEvent.disableScrollPropagation(container);
-
-      const toggleBtn = container.querySelector('.toggle-btn');
-      const toolBtns = container.querySelectorAll('.tool-btn');
-
+      const toolBtns = toolBar.querySelectorAll('.tool-btn');
       measureManager.attachUIBtns(toolBtns);
 
       toggleBtn.onclick = (e) => {
