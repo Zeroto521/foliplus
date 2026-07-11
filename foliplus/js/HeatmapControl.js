@@ -8,12 +8,19 @@
     INIT_SCAN_ATTEMPTS: 8,
     INIT_SCAN_INTERVAL_MS: 300,
     SCHEME_DROPDOWN_BLUR_DELAY_MS: 150,
+    LOAD_SCRIPT_RETRIES: 2,
+    LOAD_SCRIPT_INTERVAL_MS: 3000,
     DEFAULT_GRAY: "#999",
     H3_RES_MAP: [
-      [2, 0], [3, 1], [4, 1], [5, 2], [6, 3], [7, 4], [8, 4], [9, 5],
-      [10, 6], [11, 6], [12, 7], [13, 7], [14, 8], [15, 9], [16, 9],
-      [17, 10], [18, 11], [19, 11], [20, 12],
+      [2, 0], [3, 1], [4, 1], [5, 2], [6, 3], [7, 4], [8, 4], [9, 5], [10, 6], [11, 6],
+      [12, 7], [13, 7], [14, 8], [15, 9], [16, 9], [17, 10], [18, 11], [19, 11],
+      [20, 12],
     ],
+    H3_RES_FALLBACK: 12,
+    HEATMAP_ID: "__heatmap__",
+    GRAPH_PANE: "__heatmap_graph__",
+    LABEL_PANE: "__heatmap_label__",
+    LABEL_MARKER_CLASS: "heatmap-label",
   };
 
   // ==================== Runtime Guard ====================
@@ -66,11 +73,10 @@
     // Final failure — show hint + console
     const names = (failed || DEPS.filter(d => !d.check()).map(d => d.name)).join(", ");
     const msgKey = names.includes("ss") ? "heatmap.no_ss"
-      : names.includes("chroma") ? "heatmap.no_chroma"
-      : "heatmap.no_h3";
+      : names.includes("chroma") ? "heatmap.no_chroma" : "heatmap.no_h3";
     console.error(`[${CONST.name}] ${_(msgKey)} (${names})`);
     window.foliplus.showHint("heatmap", _(msgKey), 0);
-  }, 2, 3000); // retry 2×, every 3s
+  }, CONST.LOAD_SCRIPT_RETRIES, CONST.LOAD_SCRIPT_INTERVAL_MS);
 
   function run() {
     // ==================== Injected Variables ====================
@@ -106,10 +112,6 @@
         this.N_CLASSES = N_CLASSES_DEFAULT;
         this.currentLabelShow = LABEL_SHOW;
         this.autoFieldKey = null;
-
-        this.HEATMAP_ID = "__heatmap__";
-        this.graphPane = "__heatmap_graph__";
-        this.lblPane = "__heatmap_label__";
         this.isRegistered = false;
         this.ui = null; // Injected UI control panel instance
 
@@ -128,11 +130,10 @@
             opacity: BORDER_OP,
           }),
           interactive: false,
-          pane: this.graphPane,
+          pane: CONST.GRAPH_PANE,
         });
         this.labelLayer = L.layerGroup();
-        this.labelLayer.options.pane = this.lblPane;
-
+        this.labelLayer.options.pane = CONST.LABEL_PANE;
         this.mainLayer.addLayer(this.graphLayer);
         this.mainLayer.addLayer(this.labelLayer);
       }
@@ -276,7 +277,7 @@
       // --- Algorithm Configuration ---
       getH3Res(zoom) {
         const entry = CONST.H3_RES_MAP.find(([z]) => zoom <= z);
-        return entry ? entry[1] : 12;
+        return entry ? entry[1] : CONST.H3_RES_FALLBACK;
       }
 
       getColorScale(name, n) {
@@ -340,9 +341,7 @@
           try {
             const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
             if (!hexCells[h3Idx]) {
-              hexCells[h3Idx] = {
-                sum: 0, count: 0, min: Infinity, max: -Infinity
-              };
+              hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
             }
             const cell = hexCells[h3Idx];
             cell.sum += pt.value;
@@ -433,14 +432,12 @@
             }
 
             const labelStr = window.foliplus.formatNumber(feat.properties._value, FORMAT);
+            const html = `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`;
 
             L.marker([lat, lng], {
-              icon: L.divIcon({
-                className: "heatmap-label",
-                html: `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`,
-              }),
+              icon: L.divIcon({ className: CONST.LABEL_MARKER_CLASS, html }),
               interactive: false,
-              pane: this.lblPane,
+              pane: CONST.LABEL_PANE,
             }).addTo(this.labelLayer);
           });
         }
@@ -455,7 +452,7 @@
         this.isRegistered = true;
         window.foliplus.LayerControlAPI.registerLayer({
           name: _("heatmap.title"),
-          id: this.HEATMAP_ID,
+          id: CONST.HEATMAP_ID,
           isBase: false,
           layer: this.mainLayer,
           iconSvg: SVGS.HEXAGON,
@@ -469,7 +466,7 @@
       _unregisterFromLayerControl() {
         if (!this.isRegistered) return;
         this.isRegistered = false;
-        window.foliplus.LayerControlAPI.unregisterLayer(this.HEATMAP_ID);
+        window.foliplus.LayerControlAPI.unregisterLayer(CONST.HEATMAP_ID);
         this.graphLayer.clearLayers();
         this.labelLayer.clearLayers();
       }
@@ -509,9 +506,7 @@
             ${window.foliplus.SVGs.CLOSE}</button>`;
 
         window.foliplus.bindPanelToggle({
-          container: this.container,
-          toggleBtn: ".toggle-btn",
-          header: ".panel-header"
+          container: this.container, toggleBtn: ".toggle-btn", header: ".panel-header"
         });
         window.foliplus.bindOutsideCollapse({
           map: this.manager.map, container: this.container
@@ -526,8 +521,9 @@
         const layerRowLabel = L.DomUtil.create("label", "form-label", layerRow);
         layerRowLabel.textContent = _("heatmap.layer");
         const layerSelectWrap = L.DomUtil.create("div", "form-control-wrap", layerRow);
-        this.layerSelect = L.DomUtil.create("select", "form-select", layerSelectWrap);
-        this.layerSelect.classList.add("layer-select");
+        this.layerSelect = L.DomUtil.create(
+          "select", "form-select layer-select", layerSelectWrap
+        );
 
         this.extraBody = L.DomUtil.create("div", "extra-body", configBody);
         this.extraBody.style.display = "none";
@@ -556,7 +552,9 @@
         );
         const fieldLabel = L.DomUtil.create("label", "form-label", this.fieldWrap);
         fieldLabel.textContent = _("heatmap.field");
-        const fieldControlWrap = L.DomUtil.create("div", "form-control-wrap", this.fieldWrap);
+        const fieldControlWrap = L.DomUtil.create(
+          "div", "form-control-wrap", this.fieldWrap
+        );
         this.fieldSelect = L.DomUtil.create("select", "form-select", fieldControlWrap);
         this.fieldSelect.onchange = () => {
           this.manager.currentField = this.fieldSelect.value;
@@ -691,13 +689,13 @@
         };
 
         // Label toggle
-        const labelRow = L.DomUtil.create("div", "form-row section-block-last", styleSection);
+        const labelRow = L.DomUtil.create(
+          "div", "form-row section-block-last", styleSection
+        );
         const labelRowText = L.DomUtil.create("label", "form-label", labelRow);
         labelRowText.textContent = _("heatmap.label");
         const labelControlWrap = L.DomUtil.create("div", "form-control-wrap", labelRow);
-        const labelToggle = L.DomUtil.create(
-          "label", "toggle-switch", labelControlWrap
-        );
+        const labelToggle = L.DomUtil.create("label", "toggle-switch", labelControlWrap);
         this.labelChk = L.DomUtil.create("input", "", labelToggle);
         this.labelChk.type = "checkbox";
         this.labelChk.checked = this.manager.currentLabelShow;
@@ -740,10 +738,7 @@
 
         // Watch panel expand event to refresh dropdown
         this.observer = new MutationObserver(() => {
-          if (
-            this.container.classList.contains("expanded") &&
-            !this.expandHookDone
-          ) {
+          if (this.container.classList.contains("expanded") && !this.expandHookDone) {
             this.expandHookDone = true;
             this.rebuildLayerDropdown();
           }
@@ -801,8 +796,7 @@
         sel.onchange = () => {
           this.manager.selectedLayerId = sel.value || null;
           if (this.extraBody) {
-            this.extraBody.style.display =
-              this.manager.selectedLayerId ? "" : "none";
+            this.extraBody.style.display = this.manager.selectedLayerId ? "" : "none";
           }
           this._syncSelect(sel, sel.value);
           this.updateFieldSelector();
@@ -834,6 +828,7 @@
         );
         const fields = this.manager.collectFields(selected);
         this.manager.autoFieldKey = this.manager.pickAutoField(fields);
+
         const phOpt = document.createElement("option");
         phOpt.value = "_auto";
         phOpt.textContent = _("heatmap.field_auto");
@@ -935,12 +930,10 @@
           const activeIdx = Array.from(items).indexOf(document.activeElement);
           if (e.key === "ArrowDown") {
             e.preventDefault();
-            const next = (activeIdx + 1) % items.length;
-            items[next].focus();
+            items[(activeIdx + 1) % items.length].focus();
           } else if (e.key === "ArrowUp") {
             e.preventDefault();
-            const prev = (activeIdx - 1 + items.length) % items.length;
-            items[prev].focus();
+            items[(activeIdx - 1 + items.length) % items.length].focus();
           } else if (e.key === "Enter") {
             e.preventDefault();
             const active = document.activeElement;
@@ -971,8 +964,7 @@
       initScan(attempt) {
         this.manager.scanMapLayers();
         if (this.manager.pointLayers.length === 0 && attempt > 0) {
-          setTimeout(() => this.initScan(attempt - 1),
-            CONST.INIT_SCAN_INTERVAL_MS);
+          setTimeout(() => this.initScan(attempt - 1), CONST.INIT_SCAN_INTERVAL_MS);
         } else if (this.manager.pointLayers.length === 0) {
           window.foliplus.showHint("heatmap", _("heatmap.no_layer"), 4000);
         }
