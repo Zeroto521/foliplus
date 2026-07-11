@@ -1,18 +1,19 @@
 (function() {
-  // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[MeasureControl] foliplus runtime not found, plugin disabled.');
-    return;
-  }
-
-  // ==================== Private Constants ====================
-  const _CONST = {
+  // ==================== Constants ====================
+  const CONST = {
+    name: "MeasureControl",
     MARKER_RADIUS: 5,
     DEL_ICON_RETRY_LIMIT: 10,
     POPUP_MAX_WIDTH: 260,
     CLICK_COOLDOWN_MS: 300,
     FINALIZE_DELAY_MS: 50,
   };
+
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
+    return;
+  }
 
   // ==================== Globals & Shared Dependencies ====================
   const map = {{ this._parent.get_name() }};
@@ -96,7 +97,7 @@
         if (el) {
           const icon = el.querySelector('.measure-del-icon');
           if (icon) icon.classList.toggle('visible', show);
-        } else if (retries < _CONST.DEL_ICON_RETRY_LIMIT) {
+        } else if (retries < CONST.DEL_ICON_RETRY_LIMIT) {
           setTimeout(() => applyDelIcon(mkr, show, retries + 1), 50);
         }
       };
@@ -562,7 +563,7 @@
         poly.addLatLng(e.latlng);
 
         const mkr = L.circleMarker(e.latlng, {
-          radius: _CONST.MARKER_RADIUS,
+          radius: CONST.MARKER_RADIUS,
           className: 'measure-node measure-node-final',
         }).addTo(this.mainLayer);
         mkr.bringToFront();
@@ -660,7 +661,7 @@
       const onMapClick = (e) => {
         if (this.currentMode !== 'circle' || (state !== 0 && state !== 1)) return;
         const now = Date.now();
-        if (now - lastFinishTime < _CONST.CLICK_COOLDOWN_MS) return;
+        if (now - lastFinishTime < CONST.CLICK_COOLDOWN_MS) return;
 
         if (state === 0) {
           center = e.latlng;
@@ -689,7 +690,7 @@
           this.clearActiveMode();
           setTimeout(
             () => finalizeCircle(savedCenter, r, savedTarget),
-            _CONST.FINALIZE_DELAY_MS
+            CONST.FINALIZE_DELAY_MS
           );
         }
       };
@@ -721,7 +722,7 @@
 
         if (!previews.node) {
           previews.node = L.circleMarker(e.latlng, {
-            radius: _CONST.MARKER_RADIUS,
+            radius: CONST.MARKER_RADIUS,
             className: 'measure-node measure-node-preview',
             interactive: false,
           }).addTo(this.mainLayer);
@@ -792,7 +793,7 @@
         radiusLabel.addTo(this.mainLayer);
 
         const radiusNode = L.circleMarker(finalTargetLatLng, {
-          radius: _CONST.MARKER_RADIUS,
+          radius: CONST.MARKER_RADIUS,
           className: 'measure-node measure-node-final',
           interactive: true,
         }).addTo(this.mainLayer);
