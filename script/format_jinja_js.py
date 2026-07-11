@@ -111,6 +111,8 @@ def format_file(filepath: Path, check_only: bool = False) -> bool:
         formatted = _restore(formatted, mapping)
 
     if formatted == original:
+        if not check_only:
+            print(_fmt(STATUS.OK, filepath))
         return True
 
     if check_only:
