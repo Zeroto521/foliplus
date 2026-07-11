@@ -1,7 +1,10 @@
 (function() {
+  // ==================== Constants ====================
+  const CONST = { name: "MapSearch", COORD: 'coord', ADDR: 'addr' };
+
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[MapSearch] foliplus runtime not found, plugin disabled.');
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
@@ -10,9 +13,6 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
   window.foliplus.registerHintIcon('map-search', window.foliplus.SVGs.SEARCH);
-
-  // ==================== Constants ====================
-  const MODE = { COORD: 'coord', ADDR: 'addr' };
 
   // ==================== Helper Functions ====================
   const _hideSearchHint = () => window.foliplus.hideHint('map-search');
@@ -52,8 +52,8 @@
       const modeBtn = container.querySelector(".search-mode-btn");
       let mk = null;
       let mode = '{{ this.mode }}';
-      if (mode !== MODE.COORD && mode !== MODE.ADDR) {
-        mode = MODE.COORD;
+      if (mode !== CONST.COORD && mode !== CONST.ADDR) {
+        mode = CONST.COORD;
       }
 
       // Apply initial mode to UI
@@ -62,7 +62,7 @@
       // Mode switching
       function _setMode(newMode) {
         mode = newMode;
-        if (mode === MODE.COORD) {
+        if (mode === CONST.COORD) {
           modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
           modeBtn.title = _('search.mode_coord');
           inp.placeholder = _('search.coord_placeholder');
@@ -79,7 +79,7 @@
 
       modeBtn.onclick = function(e) {
         e.stopPropagation();
-        _setMode(mode === MODE.COORD ? MODE.ADDR : MODE.COORD);
+        _setMode(mode === CONST.COORD ? CONST.ADDR : CONST.COORD);
       };
 
       // Expand / collapse
@@ -105,7 +105,7 @@
       };
 
       inp.addEventListener("input", function() {
-        inp.placeholder = mode === MODE.COORD
+        inp.placeholder = mode === CONST.COORD
           ? _('search.coord_placeholder') : _('search.addr_placeholder');
       });
 
@@ -162,7 +162,7 @@
             );
           })
           .catch(function(err) {
-            console.error('[MapSearch] ' + _('search.addr_error'));
+            console.error(`[${CONST.name}] ` + _('search.addr_error'));
             _hideSearchHint();
             _showSearchHint(_('search.addr_error'), 5000);
           });
@@ -179,7 +179,7 @@
         if (e.key === "Enter") {
           const raw = inp.value.trim();
           if (!raw) return;
-          mode === MODE.COORD ? _doCoordSearch(raw) : _doAddrSearch(raw);
+          mode === CONST.COORD ? _doCoordSearch(raw) : _doAddrSearch(raw);
         }
       });
 

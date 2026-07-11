@@ -1,12 +1,7 @@
 (function() {
-  // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[LayerControl] foliplus runtime not found, plugin disabled.');
-    return;
-  }
-
   // ==================== Constants ====================
-  const _CONST = {
+  const CONST = {
+    name: "LayerControl",
     INIT_DELAY_MS: 300,
     Z_INDEX_BASE: 600,
     DRAG_TIMEOUT_MS: 100,
@@ -16,6 +11,12 @@
     COLOR_MAP_LAYER_ID: '__color_map__',
     COLOR_DEFAULT: '#cccccc',
   };
+
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
+    return;
+  }
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
@@ -88,7 +89,7 @@
     static getGeometryType(layer) {
       const leaves = [];
       const collect = (n, d) => {
-        if (!n || d > _CONST.LAYER_RECURSION_DEPTH) return;
+        if (!n || d > CONST.LAYER_RECURSION_DEPTH) return;
         if (n.getLayers && typeof n.getLayers === 'function') {
           n.getLayers().forEach(c => collect(c, d + 1));
         } else {
@@ -135,7 +136,7 @@
       this.uiContainer = null;
 
       this.colorActive = false;
-      this.currentColor = _CONST.COLOR_DEFAULT;
+      this.currentColor = CONST.COLOR_DEFAULT;
       this.dragIdx = null;
       this.lastDragHintAt = 0;
 
@@ -185,7 +186,7 @@
 
     _loadSavedOrder() {
       try {
-        const data = localStorage.getItem(_CONST.STORAGE_KEY);
+        const data = localStorage.getItem(CONST.STORAGE_KEY);
         if (!data) return;
         const ids = JSON.parse(data);
         if (!Array.isArray(ids)) return;
@@ -199,18 +200,18 @@
         }
         this.layers = ordered.concat([...map.values()]);
       } catch (e) {
-        console.warn('[LayerControl] failed to load saved layer order:', e);
+        console.warn(`[${CONST.name}] failed to load saved layer order:`, e);
       }
     }
 
     _saveOrder() {
       try {
         localStorage.setItem(
-          _CONST.STORAGE_KEY,
+          CONST.STORAGE_KEY,
           JSON.stringify(this.layers.map(l => l.id))
         );
       } catch (e) {
-        console.warn('[LayerControl] failed to save layer order:', e);
+        console.warn(`[${CONST.name}] failed to save layer order:`, e);
       }
     }
 
@@ -479,7 +480,7 @@
 
           // TileLayers use a lower z-index range (200-400) so they stay
           // below overlayPane (400) and markerPane (600) by default.
-          const zBase = isTile ? 200 : _CONST.Z_INDEX_BASE;
+          const zBase = isTile ? 200 : CONST.Z_INDEX_BASE;
           // Scale z-index steps to allow room for sub-panes (labels, etc)
           // between major layers.
           const z = zBase + (orderedLayers.length - i) * 10;
@@ -553,7 +554,7 @@
         this.registerLayer(this.pendingRegistrations.shift());
       }
 
-      setTimeout(() => this._initTypesAndVisibility(), _CONST.INIT_DELAY_MS);
+      setTimeout(() => this._initTypesAndVisibility(), CONST.INIT_DELAY_MS);
     }
 
     _renderInitialList() {
@@ -587,7 +588,7 @@
 
       html += `
         <div class="layer-item color-layer-item" draggable="false"
-             data-layer-id="${_CONST.COLOR_MAP_LAYER_ID}"
+             data-layer-id="${CONST.COLOR_MAP_LAYER_ID}"
              title="${_('layer.color_map_label')}">
           <div class="layer-item-spacer"></div>
           <div class="checkbox-wrapper">
@@ -743,7 +744,7 @@
 
     _showReorderBlockedHint() {
       const now = Date.now();
-      if (now - this.lastDragHintAt < _CONST.DRAG_HINT_COOLDOWN_MS) return;
+      if (now - this.lastDragHintAt < CONST.DRAG_HINT_COOLDOWN_MS) return;
       this.lastDragHintAt = now;
       if (window.foliplus && typeof window.foliplus.showHint === 'function') {
         window.foliplus.showHint('layer', _('layer.reorder_group_only'), 1200);

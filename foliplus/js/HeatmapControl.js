@@ -1,12 +1,8 @@
 (function() {
-  // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[HeatmapControl] foliplus runtime not found, plugin disabled.');
-    return;
-  }
-
   // ==================== Constants ====================
-  const _CONST = {
+  const CONST = {
+    name: "HeatmapControl",
+    jsdelivr: "https://cdn.jsdelivr.net/npm/",
     ZOOM_DEBOUNCE_MS: 200,
     LAYER_SCAN_DEBOUNCE_MS: 200,
     INIT_SCAN_ATTEMPTS: 8,
@@ -19,6 +15,12 @@
       [17, 10], [18, 11], [19, 11], [20, 12],
     ],
   };
+
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error('[HeatmapControl] foliplus runtime not found, plugin disabled.');
+    return;
+  }
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
@@ -38,24 +40,27 @@
 
   // --- Dynamic Dependency Loader ---
   // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
-  const _DEPS = [
-    { name: 'h3', url: 'https://cdn.jsdelivr.net/npm/h3-js@{{ this._h3_version }}/dist/h3-js.umd.js',
+  const DEPS = [
+    { name: 'h3', url: CONST.jsdelivr + 'h3-js@{{ this._h3_version }}/dist/h3-js.umd.js',
       check: () => typeof h3 !== 'undefined' },
-    { name: 'ss', url: 'https://cdn.jsdelivr.net/npm/simple-statistics@{{ this._ss_version }}/' +
+    { name: 'ss', url: CONST.jsdelivr + 'simple-statistics@{{ this._ss_version }}/' +
       'dist/simple-statistics.min.js',
       check: () => typeof ss !== 'undefined' },
-    { name: 'chroma', url: 'https://cdn.jsdelivr.net/npm/chroma-js@{{ this._chroma_version }}/chroma.min.js',
+    { name: 'chroma', url: CONST.jsdelivr + 'chroma-js@{{ this._chroma_version }}/chroma.min.js',
       check: () => typeof chroma !== 'undefined' },
   ];
 
-  window.foliplus.loadScripts(_DEPS, function (ok, failed) {
+  window.foliplus.loadScripts(DEPS, function (ok, failed) {
     if (ok && typeof h3 !== 'undefined' && typeof ss !== 'undefined') {
       return run();
     }
     // Final failure — show hint + console
-    const names = (failed || _DEPS.filter(d => !d.check()).map(d => d.name)).join(', ');
-    console.error(`[HeatmapControl] ${_('heatmap.no_h3')}`);
-    window.foliplus.showHint('heatmap', _('heatmap.no_h3'), 0); // 0 = persistent until hidden
+    const names = (failed || DEPS.filter(d => !d.check()).map(d => d.name)).join(', ');
+    const msgKey = names.includes('ss') ? 'heatmap.no_ss'
+      : names.includes('chroma') ? 'heatmap.no_chroma'
+      : 'heatmap.no_h3';
+    console.error(`[${CONST.name}] ${_(msgKey)} (${names})`);
+    window.foliplus.showHint('heatmap', _(msgKey), 0);
   }, 2, 3000); // retry 2×, every 3s
 
   function run() {
@@ -107,7 +112,7 @@
         this.mainLayer = L.layerGroup();
         this.graphLayer = L.geoJSON(null, {
           style: (feat) => ({
-            fillColor: feat.properties._fillColor || _CONST.DEFAULT_GRAY,
+            fillColor: feat.properties._fillColor || CONST.DEFAULT_GRAY,
             fillOpacity: FILL_OP,
             color: this.BORDER_COLOR,
             weight: this.BORDER_W,
@@ -129,7 +134,7 @@
           if (this.zoomTimer) clearTimeout(this.zoomTimer);
           this.zoomTimer = setTimeout(() => {
             if (this.selectedLayerId) this.renderHexagons();
-          }, _CONST.ZOOM_DEBOUNCE_MS);
+          }, CONST.ZOOM_DEBOUNCE_MS);
         };
         this.map.on('zoomend', this._onZoomEnd);
 
@@ -141,7 +146,7 @@
               this.scanMapLayers();
               this.ui.rebuildLayerDropdown();
             }
-          }, _CONST.LAYER_SCAN_DEBOUNCE_MS);
+          }, CONST.LAYER_SCAN_DEBOUNCE_MS);
         };
         this.map.on('layeradd layerremove', this._onLayerChange);
       }
@@ -262,7 +267,7 @@
 
       // --- Algorithm Configuration ---
       getH3Res(zoom) {
-        const entry = _CONST.H3_RES_MAP.find(([z]) => zoom <= z);
+        const entry = CONST.H3_RES_MAP.find(([z]) => zoom <= z);
         return entry ? entry[1] : 12;
       }
 
@@ -270,7 +275,7 @@
         if (typeof chroma !== 'undefined') {
           return chroma.scale(name).mode('lab').colors(n);
         }
-        return Array(n).fill(_CONST.DEFAULT_GRAY);
+        return Array(n).fill(CONST.DEFAULT_GRAY);
       }
 
       computeBreaks(data, nClasses, method) {
@@ -652,7 +657,7 @@
               this.schemeDropdown.remove();
               this.schemeDropdown = null;
             }
-          }, _CONST.SCHEME_DROPDOWN_BLUR_DELAY_MS);
+          }, CONST.SCHEME_DROPDOWN_BLUR_DELAY_MS);
         };
 
         // Border settings
@@ -968,7 +973,7 @@
         this.manager.scanMapLayers();
         if (this.manager.pointLayers.length === 0 && attempt > 0) {
           setTimeout(() => this.initScan(attempt - 1),
-            _CONST.INIT_SCAN_INTERVAL_MS);
+            CONST.INIT_SCAN_INTERVAL_MS);
         } else if (this.manager.pointLayers.length === 0) {
           window.foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
         }
@@ -1005,6 +1010,6 @@
     );
 
     heatmapCtrl.addTo(map);
-    heatmapCtrl.initScan(_CONST.INIT_SCAN_ATTEMPTS);
+    heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);
   }
 })();
