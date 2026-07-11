@@ -11,7 +11,17 @@
   }
   const foliplus = window.foliplus;
 
-  // 2. Define core translation helper (must be available as soon as namespace exists)
+  /**
+   * Translate a locale key to its localized value.
+   * Falls back to the key itself if no translation is found.
+   *
+   * @param {string} k - Locale key (e.g. 'export.btn_title', 'heatmap.title')
+   * @returns {string} Localized string, or the key if not found
+   *
+   * @example
+   *   foliplus.gt('export.btn_title') // → 'Export Map' (en) / '导出地图' (zh)
+   *   foliplus.gt('nonexistent.key')  // → 'nonexistent.key'
+   */
   foliplus.gt = foliplus.gt || function (k) {
     const loc = window._LOCALE;
     return (loc && loc[k]) ? loc[k] : k;
@@ -136,6 +146,16 @@
     }
   };
 
+  /**
+   * Remove a hint (and any appended instances sharing the key prefix).
+   * Repositions remaining hints after removal.
+   *
+   * @param {string} key - Hint key to remove (also removes `key-{timestamp}` appended instances)
+   *
+   * @example
+   *   foliplus.hideHint('export');            // removes all export hints
+   *   foliplus.hideHint('gcoord-warn');       // removes gcoord warning
+   */
   foliplus.hideHint = function (key) {
     // Also clear appended instances (keys start with key+'-')
     for (const k of _hintMap.keys()) {
@@ -186,7 +206,21 @@
     }
   };
 
-  /** Convert map coordinates (GCJ-02 / BD-09) to WGS-84. */
+  /**
+   * Convert map-displayed coordinates (GCJ-02 / BD-09) to WGS-84.
+   * Automatically detects the map CRS (Baidu → BD09, domestic → GCJ02).
+   * If gcoord library is not yet loaded, schedules async loading and
+   * returns the input coordinates unchanged (with a console warning).
+   *
+   * @param {L.Map} map - Leaflet map instance
+   * @param {number} lat - Latitude in map CRS
+   * @param {number} lng - Longitude in map CRS
+   * @returns {number[]} [lat, lng] in WGS-84
+   *
+   * @example
+   *   const wgs = foliplus.toWgs84(map, 31.23, 121.47);
+   *   // → [31.225, 121.464] (approx. WGS-84)
+   */
   foliplus.toWgs84 = function (map, lat, lng) {
     if (typeof gcoord !== 'undefined') {
       const src = foliplus._isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
@@ -204,7 +238,20 @@
     return [lat, lng];
   };
 
-  /** Convert WGS84 coordinates to the map's CRS (BD09 / GCJ02 / unchanged). */
+  /**
+   * Convert WGS-84 coordinates to the map's display CRS (BD09 / GCJ02).
+   * Automatically detects the map CRS. Non-domestic maps (no Baidu/AMap
+   * tile patterns) are returned unchanged.
+   *
+   * @param {L.Map} map - Leaflet map instance
+   * @param {number} lng - Longitude in WGS-84
+   * @param {number} lat - Latitude in WGS-84
+   * @returns {number[]} [lng, lat] in map CRS
+   *
+   * @example
+   *   const mapCrs = foliplus.fromWgs84(map, 121.47, 31.23);
+   *   // → [121.475, 31.235] (approx. GCJ-02 for domestic map)
+   */
   foliplus.fromWgs84 = function (map, lng, lat) {
     if (typeof gcoord === 'undefined') {
       if (!foliplus._ensureGcoord()) {
@@ -290,6 +337,7 @@
     return _geoPromise;
   };
 
+  // ==================== HTML Builder ====================
   /**
    * Build a popup HTML string for a location marker.
    * @param {number} lat Latitude
@@ -313,7 +361,6 @@
     </div>`;
   };
 
-  // ==================== Panel Interaction Helpers ====================
   /**
    * Create a location marker with a popup and add it to the map.
    * @param {L.Map} map Leaflet map instance
@@ -489,9 +536,29 @@
 
   // ==================== Dynamic Script Loader ====================
   /**
-   * Load external JS dependencies dynamically.
+   * Load external JS dependencies dynamically, with retry support.
+   * Each dependency is an object `{ url, check, name }` where `check` is
+   * a function returning `true` when the script is loaded.
    * Retries up to `maxRetries` times with `delayMs` between attempts.
-   * Calls `callback(success)` when done.
+   *
+   * @param {Array<{url: string, check: function, name: string}>} deps
+   *        Dependencies to load. Each object requires:
+   *          - `url`:   CDN URL of the script
+   *          - `check`: function that returns `true` when loaded
+   *          - `name`:  human-readable name for error messages
+   * @param {function(boolean, string[])} callback
+   *        Called with `(success, failedNames)` when all retries are exhausted.
+   *        `success=true` if all loaded, otherwise `failedNames` lists failures.
+   * @param {number} [maxRetries=0] - Max retry attempts per failed script
+   * @param {number} [delayMs=3000] - Delay between retries in milliseconds
+   *
+   * @example
+   *   foliplus.loadScripts([
+   *     { url: '/h3.js',  check: () => typeof h3 !== 'undefined',  name: 'h3-js' },
+   *     { url: '/chroma.js', check: () => typeof chroma !== 'undefined', name: 'chroma-js' },
+   *   ], (ok, fails) => {
+   *     if (!ok) console.warn('Failed:', fails);
+   *   }, 2, 3000);
    */
   foliplus.loadScripts = function (deps, callback, maxRetries, delayMs) {
     maxRetries = maxRetries || 0;
@@ -532,9 +599,7 @@
     attempt();
   };
 
-  // ------------------------------------------------------------------
-  // Locale resolution — called from each control's template
-  // ------------------------------------------------------------------
+  // ==================== Locale resolution ====================
   // Sets window._LOCALE to the correct language table.
   //
   // 1. Detect language from HTML lang attribute (for ReadTheDocs etc)
