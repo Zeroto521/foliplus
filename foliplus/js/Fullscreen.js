@@ -1,7 +1,19 @@
-(function() {
+(function () {
+  const CONST = {
+    name: "Fullscreen",
+    SVG: `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 3 21 3 21 9"/>
+        <polyline points="9 21 3 21 3 15"/>
+        <line x1="21" y1="3" x2="14" y2="10"/>
+        <line x1="3" y1="21" x2="10" y2="14"/>
+      </svg>`,
+  };
+
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[Fullscreen] foliplus runtime not found, plugin disabled.');
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
@@ -9,25 +21,13 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
 
-  // ==================== SVG Icons ====================
-  // Fullscreen icon: four-corner arrows
-  const SVG_FULLSCREEN = `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="2" stroke-linecap="round"
-      stroke-linejoin="round">
-      <polyline points="15 3 21 3 21 9"/>
-      <polyline points="9 21 3 21 3 15"/>
-      <line x1="21" y1="3" x2="14" y2="10"/>
-      <line x1="3" y1="21" x2="10" y2="14"/>
-    </svg>`;
-
-  window.foliplus.registerHintIcon('fullscreen', SVG_FULLSCREEN);
+  window.foliplus.registerHintIcon(CONST.name, CONST.SVG);
 
   // ==================== Control Setup ====================
   const fsControl = L.control.fullscreen({
     position: '{{ this.position }}',
-    title: _('fullscreen.title'),
-    title_cancel: _('fullscreen.title_cancel'),
+    title: _(`${CONST.name}.title`),
+    title_cancel: _(`${CONST.name}.title_cancel`),
     forceSeparateButton: false,
   }).addTo(map);
   const fsContainer = fsControl.getContainer();
@@ -44,7 +44,7 @@
       return;
     }
 
-    btn.innerHTML = SVG_FULLSCREEN;
+    btn.innerHTML = CONST.SVG;
     btn.style.backgroundImage = 'none';
 
     // Break native event bindings by cloning and replacing the button
@@ -82,8 +82,8 @@
     }
 
     window.foliplus.showHint(
-      'fullscreen',
-      isFull ? _('fullscreen.enter') : _('fullscreen.exit'),
+      CONST.name,
+      isFull ? _(`${CONST.name}.enter`) : _(`${CONST.name}.exit`),
       2500
     );
   };
