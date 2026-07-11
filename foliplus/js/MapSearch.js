@@ -1,12 +1,23 @@
 (function () {
   // ==================== Constants ====================
-  const CONST = { name: "MapSearch", COORD: "coord", ADDR: "addr" };
+  const CONST = {
+    name: "MapSearch",
+    COORD: "coord",
+    ADDR: "addr",
+    nominatimUrl: "https://nominatim.openstreetmap.org/search",
+    nominatimFormat: "jsonv2",
+    nominatimLimit: 1,
+    zoomMax: 16,
+    zoomMin: 12,
+    zoomBase: 18,
+    zoomDivisor: 20,
+    hintError: 5000,
+    hintForever: 0,
+  };
 
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error(
-      `[${CONST.name}] foliplus runtime not found, plugin disabled.`,
-    );
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
@@ -15,12 +26,12 @@
   const _ = (k) =>
     window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k;
 
-  window.foliplus.registerHintIcon("map-search", window.foliplus.SVGs.SEARCH);
+  window.foliplus.registerHintIcon(CONST.name, window.foliplus.SVGs.SEARCH);
 
   // ==================== Helper Functions ====================
-  const _hideSearchHint = () => window.foliplus.hideHint("map-search");
+  const _hideSearchHint = () => window.foliplus.hideHint(CONST.name);
   const _showSearchHint = (msg, duration) => {
-    window.foliplus.showHint("map-search", msg, duration);
+    window.foliplus.showHint(CONST.name, msg, duration);
   };
 
   // ==================== Control Definition ====================
@@ -64,7 +75,6 @@
         mode = CONST.COORD;
       }
 
-      // Apply initial mode to UI
       _setMode(mode);
 
       // Mode switching
@@ -134,7 +144,7 @@
           .map(Number);
 
         if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-          _showSearchHint(_("search.coord_error"), 5000);
+          _showSearchHint(_("search.coord_error"), CONST.hintError);
           inp.value = "";
           return;
         }
@@ -158,14 +168,18 @@
       function _doAddrSearch(query) {
         _showSearchHint(
           window.foliplus.SVGs.LOADING + " " + _("search.popup_loading"),
-          0,
+          CONST.hintForever,
         );
 
         fetch(
-          "https://nominatim.openstreetmap.org/search" +
-            "?format=jsonv2&q=" +
+          CONST.nominatimUrl +
+            "?format=" +
+            CONST.nominatimFormat +
+            "&q=" +
             encodeURIComponent(query) +
-            "&limit=1&accept-language=" +
+            "&limit=" +
+            CONST.nominatimLimit +
+            "&accept-language=" +
             (window._LOCALE["locale.code"] || "en"),
         )
           .then(function (r) {
@@ -174,7 +188,7 @@
           .then(function (results) {
             _hideSearchHint();
             if (!results || results.length === 0) {
-              _showSearchHint(_("search.addr_not_found"), 5000);
+              _showSearchHint(_("search.addr_not_found"), CONST.hintError);
               inp.value = "";
               return;
             }
@@ -184,14 +198,17 @@
             let lat = parseFloat(item.lat);
             let lng = parseFloat(item.lon);
 
-            // Transform coordinates from WGS84 to the map's CRS
             const converted = window.foliplus.fromWgs84(map, lng, lat);
             lng = converted[0];
             lat = converted[1];
 
             const zoom = Math.min(
-              16,
-              Math.max(12, 18 - Math.floor(displayName.length / 20)),
+              CONST.zoomMax,
+              Math.max(
+                CONST.zoomMin,
+                CONST.zoomBase -
+                  Math.floor(displayName.length / CONST.zoomDivisor),
+              ),
             );
             map.flyTo([lat, lng], zoom);
             mk = window.foliplus.createLocationMarker(
@@ -209,7 +226,7 @@
               `[${CONST.name}] ` + _("search.addr_error"),
             );
             _hideSearchHint();
-            _showSearchHint(_("search.addr_error"), 5000);
+            _showSearchHint(_("search.addr_error"), CONST.hintError);
           });
       }
 
