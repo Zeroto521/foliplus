@@ -116,7 +116,7 @@ class TestToFile:
             loaded = LocaleConfig.from_json(tmp)
             assert loaded.code == "zh"
             assert loaded.get("heatmap.title") == "网格聚合"
-            assert loaded.get("fullscreen.enter") == "已进入全屏，按 Esc 退出"
+            assert loaded.get("Fullscreen.enter") == "已进入全屏，按 Esc 退出"
         finally:
             os.unlink(tmp)
             os.rmdir(os.path.dirname(tmp))

@@ -416,15 +416,15 @@ class TestHeatmapAutoFieldBrowser:
         # Also inject stubs for h3/ss/chroma so the heatmap initialisation and
         # render path succeed without CDN scripts.
         html = html.replace(
-            "check: () => typeof h3 !== 'undefined'",
+            'check: () => typeof h3 !== "undefined"',
             "check: () => true",
         )
         html = html.replace(
-            "check: () => typeof ss !== 'undefined'",
+            'check: () => typeof ss !== "undefined"',
             "check: () => true",
         )
         html = html.replace(
-            "check: () => typeof chroma !== 'undefined'",
+            'check: () => typeof chroma !== "undefined"',
             "check: () => true",
         )
         html = html.replace(
