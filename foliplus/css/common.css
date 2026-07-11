@@ -172,6 +172,7 @@
   --z-index-control: 1000;
   --z-index-dropdown: 10000;
   --z-index-overlay: 11000;
+  --z-index-hint: 13000;
   --z-index-toolbar: 15000;
 }
 
@@ -226,7 +227,7 @@
 
 /* ── Map Hint (Toast Notification) ── */
 .map-hint {
-  position: absolute;
+  position: fixed;
   left: 50%;
   transform: translateX(-50%);
   backdrop-filter: blur(var(--size-8));

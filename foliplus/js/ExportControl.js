@@ -161,7 +161,6 @@
       // Otherwise fall back to DOM images.
       let imgOk = 0, imgFail = 0;
 
-      window.foliplus.showHint('export', _('export.hint_loading_tiles'), 0);
 
       if (geoBounds && geoBounds.nw) {
         const tileLayer = this._getTileLayer();
@@ -289,7 +288,6 @@
       console.log('[Export] SVGs drawn:', svgCount);
 
       // Layer 3: Markers — draw each element with background-image
-      window.foliplus.showHint('export', _('export.hint_loading_markers'), 0);
       // direct sprite cropping via createImageBitmap (always origin-clean).
       //
       // Formula:
@@ -573,7 +571,7 @@
     _showHintWithInfo(r, instruction) {
       window.foliplus.showHint(
         'export',
-        `${_('export.label_size_prefix')} ${Math.round(r.width)} × ${Math.round(r.height)} `
+        `${_('export.label_size_prefix')}${Math.round(r.width)} × ${Math.round(r.height)} `
         + `${_('export.label_size_suffix')}${instruction ? ` — ${instruction}` : ''}`,
         0
       );
@@ -657,7 +655,7 @@
 
       this.cropState = { overlay, box: cropBox, rect: box, locked: false, actions: this.exportToolBar };
       this._updateBoxStyle(cropBox, box);
-      this._showHintWithInfo(box, _('export.hint_initial'));
+      this._showHintWithInfo(box, _('export.hint_unlocked'));
       cropBox.addEventListener('mousedown', this._onMouseDown);
       this.exportToolBar.querySelector('.cancel').onclick = e => { e.stopPropagation(); this.removeCropBox(); };
       this.exportToolBar.querySelector('.confirm').onclick = e => { e.stopPropagation(); this.lockCropBox(); };
@@ -804,7 +802,7 @@
       const newRect = { left: tl.x, top: tl.y, width: Math.abs(br.x - tl.x), height: Math.abs(br.y - tl.y) };
       this.cropState.rect = newRect;
       this._updateBoxStyle(this.cropState.box, newRect);
-      this._showHintWithInfo(newRect, _('export.hint_zoom'));
+      this._showHintWithInfo(newRect, _('export.hint_locked'));
     }
 
     doExport() {
@@ -820,14 +818,20 @@
 
       this._showGlobalHint(_('export.status_exporting'), 0, true);
 
+      // Detect if crop area extends beyond the viewport.
+      // Only enlarge container when absolutely necessary (crop > viewport).
+      const vpW = this.mapContainer.clientWidth;
+      const vpH = this.mapContainer.clientHeight;
+      const needsBigger = (
+        r.width > vpW * 1.02 || r.height > vpH * 1.02 ||
+        r.left < -vpW * 0.02 || r.top < -vpH * 0.02 ||
+        r.left + r.width > vpW * 1.02 || r.top + r.height > vpH * 1.02
+      );
+
       const doRender = () => {
         const hideEls = this.mapContainer.querySelectorAll('.leaflet-control-container, .export-ctrl');
         hideEls.forEach(el => { el.style.display = 'none'; });
 
-        // Use the raw rect from geoBounds — do NOT clamp to viewport.
-        // The rect may extend beyond the viewport (user zoomed in).
-        // The renderer handles this via viewBox expansion (SVG) and
-        // independent tile calculation (tiles).
         if (geoBounds && geoBounds.nw) {
           const nw = this.map.latLngToContainerPoint(L.latLng(geoBounds.nw.lat, geoBounds.nw.lng));
           const se = this.map.latLngToContainerPoint(L.latLng(geoBounds.se.lat, geoBounds.se.lng));
@@ -844,7 +848,7 @@
             prevImg.src = canvas.toDataURL('image/png');
             prevImg.style.cssText = 'position:fixed;bottom:10px;right:10px;z-index:99999;max-width:400px;max-height:300px;border:2px solid red;background:#fff;box-shadow:0 0 20px rgba(0,0,0,.5)';
             document.body.appendChild(prevImg);
-            setTimeout(() => prevImg.remove(), 200);
+            setTimeout(() => prevImg.remove(), 3000);
             canvas.toBlob(blob => {
               if (!blob) {
                 this._showGlobalHint(_('export.status_fail') + _('export.err_gen_fail'), CONST.HINT_ERROR_DURATION, false);
@@ -867,6 +871,46 @@
             this.isExporting = false;
           });
       };
+
+      if (needsBigger && geoBounds && geoBounds.nw) {
+        const cropBounds = L.latLngBounds(
+          L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
+          L.latLng(geoBounds.se.lat, geoBounds.se.lng)
+        );
+        const savedStyles = {};
+        ['width','height','minHeight','maxHeight','overflow'].forEach(p => {
+          savedStyles[p] = this.mapContainer.style[p];
+        });
+        const savedCenter = this.map.getCenter();
+        const savedZoom = this.map.getZoom();
+        const savedAnim = this.map.options.zoomAnimation;
+        this.map.options.zoomAnimation = false;
+
+        const bigW = Math.max(vpW, r.left + r.width) + 200;
+        const bigH = Math.max(vpH, r.top + r.height) + 200;
+        this.mapContainer.style.width = Math.ceil(bigW) + 'px';
+        this.mapContainer.style.height = Math.ceil(bigH) + 'px';
+        this.mapContainer.style.minHeight = Math.ceil(bigH) + 'px';
+        this.mapContainer.style.overflow = 'hidden';
+
+        const cropCenter = cropBounds.getCenter();
+        this.map.invalidateSize(false);
+        this.map.once('moveend', () => {
+          setTimeout(() => {
+            doRender();
+            setTimeout(() => {
+              this.map.options.zoomAnimation = savedAnim;
+              Object.keys(savedStyles).forEach(p => {
+                this.mapContainer.style[p] = savedStyles[p];
+              });
+              this.map.invalidateSize(false);
+              this.map.setView(savedCenter, savedZoom, { animate: false });
+            }, 200);
+          }, 1500);
+        });
+        this.map.setView(cropCenter, savedZoom, { animate: false });
+        return;
+      }
 
       doRender();
     }
@@ -899,6 +943,7 @@
                 se: { lat: exportManager.savedBounds.se.lat, lng: exportManager.savedBounds.se.lng },
               };
               exportManager.lockCropBox();
+              window.foliplus.showHint('export', _('export.hint_restore'), 3000, document.body, true);
             }
           });
         } else {
