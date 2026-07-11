@@ -38,9 +38,7 @@
       <line x1="14" y1="11" x2="14" y2="17"/></svg>`,
   };
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon("measure", SVGS.RULER);
-  }
+  window.foliplus.registerHintIcon("measure", SVGS.RULER);
 
   // ==================== Utility Classes ====================
   class MeasureUtils {

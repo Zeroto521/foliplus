@@ -74,9 +74,7 @@
       </svg>`,
   };
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon("layer", window.foliplus.SVGs.LIST || SVGS.LIST);
-  }
+  window.foliplus.registerHintIcon("layer", SVGS.LIST);
 
   // ==================== Utility Class ====================
   class LayerUtils {
