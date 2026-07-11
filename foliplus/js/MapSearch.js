@@ -1,44 +1,52 @@
-(function() {
+(function () {
   // ==================== Constants ====================
-  const CONST = { name: "MapSearch", COORD: 'coord', ADDR: 'addr' };
+  const CONST = { name: "MapSearch", COORD: "coord", ADDR: "addr" };
 
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
+    console.error(
+      `[${CONST.name}] foliplus runtime not found, plugin disabled.`,
+    );
     return;
   }
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
+  const _ = (k) =>
+    window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k;
 
-  window.foliplus.registerHintIcon('map-search', window.foliplus.SVGs.SEARCH);
+  window.foliplus.registerHintIcon("map-search", window.foliplus.SVGs.SEARCH);
 
   // ==================== Helper Functions ====================
-  const _hideSearchHint = () => window.foliplus.hideHint('map-search');
+  const _hideSearchHint = () => window.foliplus.hideHint("map-search");
   const _showSearchHint = (msg, duration) => {
-    window.foliplus.showHint('map-search', msg, duration);
+    window.foliplus.showHint("map-search", msg, duration);
   };
 
   // ==================== Control Definition ====================
   new (L.Control.extend({
-    onAdd: function() {
-      const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+    onAdd: function () {
+      const container = L.DomUtil.create(
+        "div",
+        "leaflet-bar leaflet-control",
+      );
       const ctrl = L.DomUtil.create(
-        "div", "map-search ctrl-fold collapsed", container
+        "div",
+        "map-search ctrl-fold collapsed",
+        container,
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
       ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_('search.btn_title')}">
+        <button class="toggle-btn" title="${_("search.btn_title")}">
           ${window.foliplus.SVGs.SEARCH}
         </button>
         <div class="search-form">
-          <button class="search-mode-btn" title="${_('search.mode_coord')}">
+          <button class="search-mode-btn" title="${_("search.mode_coord")}">
             ${window.foliplus.SVGs.LOCATE}
           </button>
           <div class="clear-wrap">
-            <input type="text" placeholder="${_('search.coord_placeholder')}" />
-            <button class="ctrl-abs-btn" title="${_('search.clear_title')}">
+            <input type="text" placeholder="${_("search.coord_placeholder")}" />
+            <button class="ctrl-abs-btn" title="${_("search.clear_title")}">
               ${window.foliplus.SVGs.CLOSE}
             </button>
           </div>
@@ -51,7 +59,7 @@
       const inp = container.querySelector("input");
       const modeBtn = container.querySelector(".search-mode-btn");
       let mk = null;
-      let mode = '{{ this.mode }}';
+      let mode = "{{ this.mode }}";
       if (mode !== CONST.COORD && mode !== CONST.ADDR) {
         mode = CONST.COORD;
       }
@@ -64,26 +72,29 @@
         mode = newMode;
         if (mode === CONST.COORD) {
           modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
-          modeBtn.title = _('search.mode_coord');
-          inp.placeholder = _('search.coord_placeholder');
+          modeBtn.title = _("search.mode_coord");
+          inp.placeholder = _("search.coord_placeholder");
         } else {
           modeBtn.innerHTML = window.foliplus.SVGs.GLOBE;
-          modeBtn.title = _('search.mode_addr');
-          inp.placeholder = _('search.addr_placeholder');
+          modeBtn.title = _("search.mode_addr");
+          inp.placeholder = _("search.addr_placeholder");
         }
-        inp.value = '';
-        if (mk) { map.removeLayer(mk); mk = null; }
+        inp.value = "";
+        if (mk) {
+          map.removeLayer(mk);
+          mk = null;
+        }
         _hideSearchHint();
         inp.focus();
       }
 
-      modeBtn.onclick = function(e) {
+      modeBtn.onclick = function (e) {
         e.stopPropagation();
         _setMode(mode === CONST.COORD ? CONST.ADDR : CONST.COORD);
       };
 
       // Expand / collapse
-      container.querySelector(".toggle-btn").onclick = function(e) {
+      container.querySelector(".toggle-btn").onclick = function (e) {
         e.stopPropagation();
         if (ctrl.classList.contains("expanded")) {
           ctrl.classList.remove("expanded");
@@ -98,78 +109,112 @@
 
       // Clear input
       const clearBtn = container.querySelector(".ctrl-abs-btn");
-      clearBtn.onclick = function() {
+      clearBtn.onclick = function () {
         inp.value = "";
-        if (mk) { map.removeLayer(mk); mk = null; }
+        if (mk) {
+          map.removeLayer(mk);
+          mk = null;
+        }
         inp.focus();
       };
 
-      inp.addEventListener("input", function() {
-        inp.placeholder = mode === CONST.COORD
-          ? _('search.coord_placeholder') : _('search.addr_placeholder');
+      inp.addEventListener("input", function () {
+        inp.placeholder =
+          mode === CONST.COORD
+            ? _("search.coord_placeholder")
+            : _("search.addr_placeholder");
       });
 
       // Coordinate search
       function _doCoordSearch(raw) {
-        const parts = raw.replace(/\uff0c/g, ",").replace(/\s+/g, "")
-          .split(",").map(Number);
+        const parts = raw
+          .replace(/\uff0c/g, ",")
+          .replace(/\s+/g, "")
+          .split(",")
+          .map(Number);
 
         if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-          _showSearchHint(_('search.coord_error'), 5000);
-          inp.value = '';
+          _showSearchHint(_("search.coord_error"), 5000);
+          inp.value = "";
           return;
         }
 
-        const lng = parts[0], lat = parts[1];
+        const lng = parts[0];
+        const lat = parts[1];
         _hideSearchHint();
         map.flyTo([lat, lng], {{ this.zoom }});
         mk = window.foliplus.createLocationMarker(
-          map, lat, lng, null, 'search.popup', _('search.popup_title_coord'), mk
+          map,
+          lat,
+          lng,
+          null,
+          "search.popup",
+          _("search.popup_title_coord"),
+          mk,
         );
       }
 
       // Address search via Nominatim
       function _doAddrSearch(query) {
         _showSearchHint(
-          window.foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0
+          window.foliplus.SVGs.LOADING + " " + _("search.popup_loading"),
+          0,
         );
 
-        fetch('https://nominatim.openstreetmap.org/search' +
-          '?format=jsonv2&q=' + encodeURIComponent(query) +
-          '&limit=1&accept-language=' + (window._LOCALE['locale.code'] || 'en'))
-          .then(function(r) { return r.json(); })
-          .then(function(results) {
+        fetch(
+          "https://nominatim.openstreetmap.org/search" +
+            "?format=jsonv2&q=" +
+            encodeURIComponent(query) +
+            "&limit=1&accept-language=" +
+            (window._LOCALE["locale.code"] || "en"),
+        )
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (results) {
             _hideSearchHint();
             if (!results || results.length === 0) {
-              _showSearchHint(_('search.addr_not_found'), 5000);
-              inp.value = '';
+              _showSearchHint(_("search.addr_not_found"), 5000);
+              inp.value = "";
               return;
             }
 
             const item = results[0];
             const displayName = item.display_name || query;
-            let lat = parseFloat(item.lat), lng = parseFloat(item.lon);
+            let lat = parseFloat(item.lat);
+            let lng = parseFloat(item.lon);
 
             // Transform coordinates from WGS84 to the map's CRS
             const converted = window.foliplus.fromWgs84(map, lng, lat);
-            lng = converted[0]; lat = converted[1];
+            lng = converted[0];
+            lat = converted[1];
 
-            const zoom = Math.min(16,
-              Math.max(12, 18 - Math.floor(displayName.length / 20)));
+            const zoom = Math.min(
+              16,
+              Math.max(12, 18 - Math.floor(displayName.length / 20)),
+            );
             map.flyTo([lat, lng], zoom);
             mk = window.foliplus.createLocationMarker(
-              map, lat, lng, displayName, 'search.popup', _('search.popup_title_addr'), mk
+              map,
+              lat,
+              lng,
+              displayName,
+              "search.popup",
+              _("search.popup_title_addr"),
+              mk,
             );
           })
-          .catch(function(err) {
-            console.error(`[${CONST.name}] ` + _('search.addr_error'));
+          .catch(function (err) {
+            console.error(
+              `[${CONST.name}] ` + _("search.addr_error"),
+            );
             _hideSearchHint();
-            _showSearchHint(_('search.addr_error'), 5000);
+            _showSearchHint(_("search.addr_error"), 5000);
           });
       }
 
       // Keyboard events
-      inp.addEventListener("keydown", function(e) {
+      inp.addEventListener("keydown", function (e) {
         if (e.key === "Escape") {
           ctrl.classList.remove("expanded");
           ctrl.classList.add("collapsed");
@@ -185,14 +230,19 @@
 
       // Collapse on outside click
       window.foliplus.bindOutsideCollapse({
-        map: map, container: ctrl,
-        shouldCollapse: function() { return !inp.value.trim(); },
-        onCollapse: function() { _hideSearchHint(); }
+        map: map,
+        container: ctrl,
+        shouldCollapse: function () {
+          return !inp.value.trim();
+        },
+        onCollapse: function () {
+          _hideSearchHint();
+        },
       });
 
       return container;
-    }
+    },
   }))({
-    position: "{{ this.position }}"
+    position: "{{ this.position }}",
   }).addTo(map);
 })();
