@@ -48,7 +48,7 @@
             ${window.foliplus.SVGs.LOCATE}
           </button>
           <div class="clear-wrap">
-            <input type="text" placeholder="${_("search.coord_placeholder")}" />
+            <input type="text" placeholder="${_("search.coord_placeholder")}"/>
             <button class="ctrl-abs-btn" title="${_("search.clear_title")}">
               ${window.foliplus.SVGs.CLOSE}
             </button>
