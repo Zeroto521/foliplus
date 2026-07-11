@@ -191,6 +191,16 @@
     return false;
   };
 
+  /**
+   * Detect whether the map uses Baidu coordinate system (BD-09).
+   * Checks L.CRS.Baidu, crs.code, and tile URL patterns.
+   *
+   * @param {L.Map} map - Leaflet map instance
+   * @returns {boolean} True if the map uses Baidu CRS
+   *
+   * @example
+   *   foliplus._isBaiduCRS(map) // → true if Baidu tiles are used
+   */
   foliplus._isBaiduCRS = function (map) {
     try {
       if (L.CRS && L.CRS.Baidu) return true;
@@ -272,6 +282,13 @@
     return gcoord.transform([lng, lat], gcoord.WGS84, dst);
   };
 
+  /**
+   * Detect whether a map uses domestic Chinese tile providers.
+   * Checks Baidu, AutoNavi, Tianditu, Tencent, Google, and AMap URL patterns.
+   *
+   * @param {L.Map} map - Leaflet map instance
+   * @returns {boolean} True if the map uses domestic tile providers
+   */
   function _isDomesticMap(map) {
     try {
       const crs = map.options.crs;
@@ -600,16 +617,26 @@
   };
 
   // ==================== Locale resolution ====================
-  // Sets window._LOCALE to the correct language table.
-  //
-  // 1. Detect language from HTML lang attribute (for ReadTheDocs etc)
-  // 2. Fallback to code if provided
-  // 3. Fallback to navigator.language
-  // 4. Default to 'en'
-  //
-  // Called from the Jinja2 template in base.py for every control instance:
-  //   foliplus.resolveLocale('{{ this._LOCALE_CODE }}', {...tables...});
-  // ------------------------------------------------------------------
+  /**
+   * Resolve the locale table for the current page by checking (in order):
+   * explicit code, parent iframe path, referrer URL, document URL path,
+   * HTML lang attribute, and browser language. Defaults to `tables['en']`.
+   *
+   * Sets `window._LOCALE` so that `foliplus.gt(key)` returns the correct translation.
+   *
+   * Called automatically from each control's Jinja2 template:
+   *   `foliplus.resolveLocale('{{ this._LOCALE_CODE }}', {...tables...});`
+   *
+   * @param {string} code   - Locale code from Python (e.g. '' for auto-detect)
+   * @param {Object} tables - Map of locale code → translation table
+   *                          e.g. `{ en: { 'export.btn_title': 'Export Map' }, zh: {...} }`
+   *
+   * @example
+   *   // Called from template:
+   *   foliplus.resolveLocale('zh', { en: {...}, zh: {...} });
+   *   // → window._LOCALE = zh table
+   *   foliplus.gt('export.btn_title') // → '导出地图'
+   */
   foliplus.resolveLocale = function (code, tables) {
     if (!tables) return;
     let lang = '';
