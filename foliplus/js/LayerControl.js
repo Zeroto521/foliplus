@@ -171,6 +171,16 @@
       this.enforceTimer = null;
       this.isDestroyed = false;
 
+      this.defaultPanes = new Set([
+        "overlayPane",
+        "markerPane",
+        "tilePane",
+        "shadowPane",
+        "mapPane",
+      ]);
+      this.fallbackPanes = new Set();
+      this.labelPanes = new Set();
+
       this.map.on("layeradd", (e) => {
         // Skip internal layers, background enforcement, and destroyed manager
         if (
@@ -314,8 +324,9 @@
       if (opts.layer) {
         const childPanes = this.discoverChildPanes(opts.layer);
         for (const cp of childPanes) {
-          const isLabel = cp.includes("label") || cp.includes("lbl");
-          this.ensurePane(cp, !isLabel);
+          if (cp.includes("label") || cp.includes("lbl"))
+            this.labelPanes.add(cp);
+          this.ensurePane(cp, !this.labelPanes.has(cp));
         }
       }
 
@@ -335,7 +346,7 @@
         );
         if (isContainer) {
           opts.layer.options.pane = opts.paneName;
-          opts.layer.options._paneSet = true;
+          opts.layer.options.paneSet = true;
         }
       }
 
@@ -578,7 +589,7 @@
       if (layer instanceof L.Marker) return;
 
       layer.options.pane = paneName;
-      layer.options._paneSet = true;
+      layer.options.paneSet = true;
 
       if (layer instanceof L.Path) layer.options.renderer = renderer;
 
@@ -623,12 +634,8 @@
 
     isDefaultPane(pane) {
       return (
-        pane === "overlayPane" ||
-        pane === "markerPane" ||
-        pane === "tilePane" ||
-        pane === "shadowPane" ||
-        pane === "mapPane" ||
-        pane.startsWith("_lyr_")
+        this.defaultPanes.has(pane) ||
+        this.fallbackPanes.has(pane)
       );
     }
 
@@ -668,7 +675,7 @@
           if (paneName) {
             const ep = this.ensurePane(paneName, !isTile);
             ep.pane.style.zIndex = z;
-            if (lyr.options.pane !== paneName || !lyr.options._paneSet)
+            if (lyr.options.pane !== paneName || !lyr.options.paneSet)
               layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
           } else {
             // Auto-discover custom panes from container tree (three-layer
@@ -679,20 +686,21 @@
               childPanes.forEach((cp) => {
                 const ep = this.ensurePane(cp, !isTile);
                 ep.pane.style.zIndex = z;
-                // Specific sub-layer logic: if label pane, it must be slightly higher
-                if (cp.includes("label") || cp.includes("lbl"))
+                // Label panes get +1 offset so they always render above graph
+                if (this.labelPanes.has(cp))
                   ep.pane.style.zIndex = z + 1;
               });
-              lyr.options._paneSet = true;
+              lyr.options.paneSet = true;
               // Three-layer components use custom panes, not default markerPane.
               // Do NOT adjust markerZ — that would elevate all unmanaged point layers
               // (e.g. static GeoJSON markers) above this dynamic layer.
             } else {
               const fallbackPane = `_lyr_${L.stamp(lyr)}`;
+              this.fallbackPanes.add(fallbackPane);
               const ep = this.ensurePane(fallbackPane, !isTile);
               ep.pane.style.zIndex = z;
               if (!(lyr instanceof L.TileLayer)) markerZ = Math.max(markerZ, z);
-              if (lyr.options.pane !== fallbackPane || !lyr.options._paneSet) {
+              if (lyr.options.pane !== fallbackPane || !lyr.options.paneSet) {
                 layersToMove.push({
                   layer: lyr,
                   paneName: fallbackPane,
