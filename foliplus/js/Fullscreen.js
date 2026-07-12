@@ -6,10 +6,8 @@
     ICON: `
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="15 3 21 3 21 9"/>
-        <polyline points="9 21 3 21 3 15"/>
-        <line x1="21" y1="3" x2="14" y2="10"/>
-        <line x1="3" y1="21" x2="10" y2="14"/>
+        <path d="M14 10V4h6v6M10 14v6H4v-6"/>
+        <path d="M10 4v6H4M14 20v-6h6M14 4v6h6M10 20v-6H4"/>
       </svg>`,
   };
 
@@ -24,6 +22,7 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   window.foliplus.registerHintIcon(CONST.name, CONST.ICON);
+  window.foliplus.registerHintIcon(CONST.name, CONST.MAXIMIZE);
 
   // ==================== Control Setup ====================
   const fsControl = L.control
@@ -50,6 +49,7 @@
     }
 
     btn.innerHTML = CONST.ICON;
+    btn.innerHTML = CONST.MAXIMIZE;
     btn.classList.add("fullscreen-btn");
 
     // Break native event bindings by cloning and replacing the button
@@ -68,18 +68,30 @@
   const handleFullscreenChange = () => {
     const isFull = !!document.fullscreenElement;
 
-    // Toggle visibility of sibling controls
-    const controls = map
-      .getContainer()
-      .querySelectorAll(".leaflet-control, .custom-scale-wrap");
+    // Swap icon between expand and minimize
+    const container = document.querySelector(
+      ".leaflet-control-zoom-fullscreen.fullscreen-btn",
+    );
+    if (container) container.innerHTML = isFull ? CONST.MINIMIZE : CONST.MAXIMIZE;
 
-    for (const c of controls) {
-      // Hide/show self based on backend template parameter
-      if (c === fsContainer || fsContainer.contains(c)) {
-        if ({{ this.hide_self | tojson }}) c.style.display = isFull ? "none" : "";
-        continue;
+    if ({{ this.hide_controls | tojson }}) {
+      // Toggle visibility of sibling controls
+      const controls = map
+        .getContainer()
+        .querySelectorAll(".leaflet-control, .custom-scale-wrap");
+
+      for (const c of controls) {
+        // Hide/show self based on backend template parameter
+        if (
+          c.classList.contains("leaflet-control-zoom-fullscreen") ||
+          c.classList.contains("fullscreen-btn") ||
+          c.querySelector(".fullscreen-btn")
+        ) {
+          if ({{ this.hide_self | tojson }}) c.style.display = isFull ? "none" : "";
+          continue;
+        }
+        c.style.display = isFull ? "none" : "";
       }
-      c.style.display = isFull ? "none" : "";
     }
 
     window.foliplus.showHint(
