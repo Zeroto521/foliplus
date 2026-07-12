@@ -39,8 +39,11 @@ _JINJA2_PATTERNS: tuple[re.Pattern[str], ...] = (
 def _check_prettier() -> None:
     if _PRETTIER.is_file():
         return
-    print("prettier not found. Run `npm install`.", file=sys.stderr)
-    sys.exit(1)
+    # Auto-install if not present (works in pre-commit CI)
+    ret = run(["npm", "install"], cwd=REPO, capture_output=True)
+    if ret.returncode != 0 or not _PRETTIER.is_file():
+        print("prettier not found. Run `npm install`.", file=sys.stderr)
+        sys.exit(1)
 
 
 def _placehold(content: str) -> tuple[str, dict[str, str]]:
