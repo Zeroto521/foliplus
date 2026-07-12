@@ -10,12 +10,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Fix PROJ data path on ReadTheDocs (conda env)
-if "CONDA_PREFIX" in os.environ:
-    _proj_dir = os.path.join(os.environ["CONDA_PREFIX"], "share", "proj")
-    if os.path.isdir(_proj_dir):
-        os.environ.setdefault("PROJ_LIB", _proj_dir)
-
 import foliplus
 from foliplus import __version__
 
