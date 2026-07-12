@@ -125,6 +125,11 @@
         this.currentScheme = CONST.COLOR_SCHEME;
         this.currentMethod = CONST.COLOR_METHOD;
         this.autoFieldKey = null;
+        this.N_CLASSES = CONST.N_CLASSES_DEFAULT;
+        this.BORDER_W = CONST.BORDER_W_DEFAULT;
+        this.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
+        this.currentLabelShow = CONST.LABEL_SHOW;
+        this.valueFallbackWarned = false;
         // Hexagon polygons are added directly to this.mg.graphLayer in
         // renderHexagons().  The heatmap only registers in LayerControl
         // when renderHexagons() calls this.mg.register() with data.
@@ -452,14 +457,16 @@
               feat.properties.value,
               CONST.FORMAT,
             );
-            L.marker([lat, lng], {
-              icon: L.divIcon({
-                className: "heatmap-label",
-                html: `<span style="font-size:${CONST.LABEL_SIZE}px;color:${CONST.LABEL_COLOR}">${labelStr}</span>`,
+            this.mg.addLabel(
+              L.marker([lat, lng], {
+                icon: L.divIcon({
+                  className: "heatmap-label",
+                  html: `<span style="font-size:${CONST.LABEL_SIZE}px;color:${CONST.LABEL_COLOR}">${labelStr}</span>`,
+                }),
+                interactive: false,
+                pane: CONST.LABEL_PANE,
               }),
-              interactive: false,
-              pane: CONST.LABEL_PANE,
-            }).addTo(this.mg.labelLayer);
+            );
           });
         }
       }
@@ -789,8 +796,6 @@
         if (this.observer) this.observer.disconnect();
 
         this.manager.mg.clearAll();
-        if (this.manager.mg?.mainLayer)
-          this.manager.map.removeLayer(this.manager.mg.mainLayer);
       }
 
       // --- UI Logic Methods ---

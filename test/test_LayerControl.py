@@ -78,6 +78,21 @@ class TestLayerControlRendering:
         assert "unregisterLayer" in html
         assert "getLayersByType" in html
         assert "ensurePane" in html
+        # createManagedGroup convenience API
+        assert "addGraph" in html
+        assert "addLabel" in html
+        assert "removeGraph" in html
+        assert "removeLabel" in html
+        assert "clearGraph" in html
+        assert "clearLabels" in html
+        assert "clearAll" in html
+
+    def test_bring_to_front_guard(self, base_map: folium.Map):
+        """bringToFront monkey patch prevents parentNode errors during pane migration."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "origBringToFront" in html
+        assert "this._path && this._path.parentNode" in html
 
     def test_container_marking(self, base_map: folium.Map):
         """registerLayer auto-marks container layers with _paneSet."""

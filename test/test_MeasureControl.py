@@ -179,7 +179,13 @@ class TestMeasureControlRendering:
         assert "if (radiusLabel) attachInteraction(radiusLabel)" in html
 
     def test_unregister_clears_leftover_nodes(self, base_map: folium.Map):
-        """unregisterFromLayerControl explicitly clears graph/label sub-layers."""
+        """clearAll handles unregister + layer cleanup for MeasureControl."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.mg.clearAll()" in html
+
+    def test_clear_all_in_clear_all(self, base_map: folium.Map):
+        """MeasureManager.clearAll delegates to this.mg.clearAll()."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "this.mg.clearAll()" in html

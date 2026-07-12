@@ -162,11 +162,12 @@ class TestHeatmapControlRendering:
         assert "graphPane: CONST.GRAPH_PANE" in html
 
     def test_register_before_add_data(self, base_map: folium.Map):
-        """createManagedGroup auto-registers via _mg.register()."""
+        """renderHexagons uses addGraph which auto-registers in LayerControl."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "this.mg.register()" in html
-        assert "mainLayer.options._paneSet" not in html
+        assert "this.mg.addGraph(gj)" in html
+        assert "this.mg.clearAll()" in html
+        assert "this.mg.addLabel(" in html
 
     def test_extract_points_filters_no_feature(self, base_map: folium.Map):
         """extractPoints only accepts markers with .feature."""
