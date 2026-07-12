@@ -208,22 +208,22 @@
       }
     }
 
-    _bindGlobalEvents() {
-      this._onMapClick = (e) => {
+    bindGlobalEvents() {
+      this.onMapClick = (e) => {
         if (this.suppressHideDel) return;
         const t = e.originalEvent?.target;
         if (t?.closest?.(".measure-del-icon")) return;
         MeasureUtils.hideAllDelIcons();
       };
-      this.map.on("click", this._onMapClick);
+      this.map.on("click", this.onMapClick);
 
-      this._onKeyDown = (e) => {
+      this.onKeyDown = (e) => {
         if (e.key === "Escape" && this.currentMode) this.clearActiveMode();
       };
-      document.addEventListener("keydown", this._onKeyDown);
+      document.addEventListener("keydown", this.onKeyDown);
 
-      this._onUnload = () => this.clearAll();
-      this.map.on("unload", this._onUnload);
+      this.onUnload = () => this.clearAll();
+      this.map.on("unload", this.onUnload);
     }
 
     setMode(mode) {
@@ -236,7 +236,7 @@
         return;
       }
 
-      this._cleanMapEvents();
+      this.cleanMapEvents();
       this.currentMode = mode;
 
       this.toolBtns.forEach((btn) =>
@@ -247,13 +247,13 @@
 
       if (mode === "marker") {
         window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_marker`), 0);
-        this._bindMarkerMode();
+        this.bindMarkerMode();
       } else if (mode === "distance") {
         window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_dist_start`), 0);
-        this._startDistanceMode();
+        this.startDistanceMode();
       } else if (mode === "circle") {
         window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_circle_start`), 0);
-        this._startCircleMode();
+        this.startCircleMode();
       }
     }
 
@@ -262,7 +262,7 @@
       this.toolBtns.forEach((btn) => btn.classList.remove("active"));
       window.foliplus.hideHint(CONST.name);
       this.map.getContainer().classList.remove("is-measuring");
-      this._cleanMapEvents();
+      this.cleanMapEvents();
     }
 
     clearAll() {
@@ -270,24 +270,24 @@
       this.labelLayer.clearLayers();
       this._unregisterFromLayerControl();
       this.clearActiveMode();
-      if (this._onMapClick) {
-        this.map.off("click", this._onMapClick);
-        this._onMapClick = null;
+      if (this.onMapClick) {
+        this.map.off("click", this.onMapClick);
+        this.onMapClick = null;
       }
-      if (this._onKeyDown) {
-        document.removeEventListener("keydown", this._onKeyDown);
-        this._onKeyDown = null;
+      if (this.onKeyDown) {
+        document.removeEventListener("keydown", this.onKeyDown);
+        this.onKeyDown = null;
       }
-      if (this._onUnload) {
-        this.map.off("unload", this._onUnload);
-        this._onUnload = null;
+      if (this.onUnload) {
+        this.map.off("unload", this.onUnload);
+        this.onUnload = null;
       }
     }
 
-    _cleanMapEvents() {
-      if (this._onMarkerClickRef) {
-        this.map.off("click", this._onMarkerClickRef);
-        this._onMarkerClickRef = null;
+    cleanMapEvents() {
+      if (this.onMarkerClickRef) {
+        this.map.off("click", this.onMarkerClickRef);
+        this.onMarkerClickRef = null;
       }
       if (this.cleanupFn) {
         this.cleanupFn();
@@ -297,13 +297,13 @@
     }
 
     // --- Marker (Locate) Mode ---
-    _bindMarkerMode() {
-      this._onMarkerClickRef = this._handleMarkerClick.bind(this);
-      this.map.on("click", this._onMarkerClickRef);
-      this.cleanupFn = () => this.map.off("click", this._onMarkerClickRef);
+    bindMarkerMode() {
+      this.onMarkerClickRef = this.handleMarkerClick.bind(this);
+      this.map.on("click", this.onMarkerClickRef);
+      this.cleanupFn = () => this.map.off("click", this.onMarkerClickRef);
     }
 
-    async _handleMarkerClick(e) {
+    async handleMarkerClick(e) {
       if (this.currentMode !== "marker") return;
       const lat = e.latlng.lat.toFixed(6);
       const lng = e.latlng.lng.toFixed(6);
@@ -322,7 +322,7 @@
       );
 
       let cachedAddr = null;
-      setTimeout(() => this._injectDelIcon(marker), CONST.DEL_ICON_RETRY_DELAY_MS);
+      setTimeout(() => this.injectDelIcon(marker), CONST.DEL_ICON_RETRY_DELAY_MS);
 
       const addr = await window.foliplus.reverseGeocode(
         this.map,
@@ -360,7 +360,7 @@
             ),
           );
         }
-        this._injectDelIcon(marker);
+        this.injectDelIcon(marker);
         const el = marker.getElement();
         if (el) {
           const icon = el.querySelector(".measure-del-icon");
@@ -377,7 +377,7 @@
       });
     }
 
-    _injectDelIcon(marker) {
+    injectDelIcon(marker) {
       const el = marker.getElement();
       if (!el) return;
       if (el.querySelector(".measure-del-icon")) return;
@@ -398,7 +398,7 @@
     }
 
     // --- Distance Measurement Mode ---
-    _startDistanceMode() {
+    startDistanceMode() {
       const pts = [];
       let total = 0;
       const poly = L.polyline([], {
@@ -687,7 +687,7 @@
     }
 
     // --- Circle Drawing Mode ---
-    _startCircleMode() {
+    startCircleMode() {
       let center = null;
       let state = 0;
       let lastFinishTime = 0;

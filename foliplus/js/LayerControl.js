@@ -158,26 +158,26 @@
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
-      this._isEnforcing = false;
-      this._enforceTimer = null;
-      this._isDestroyed = false;
+      this.isEnforcing = false;
+      this.enforceTimer = null;
+      this.isDestroyed = false;
 
       this.map.on("layeradd", (e) => {
         // Skip internal layers, background enforcement, and destroyed manager
         if (
-          this._isEnforcing ||
-          this._isDestroyed ||
+          this.isEnforcing ||
+          this.isDestroyed ||
           e.layer === this.map ||
           e.layer instanceof L.Renderer
         )
           return;
 
         // Debounce enforcement to avoid redundant calcs during bulk additions
-        if (this._enforceTimer) clearTimeout(this._enforceTimer);
-        this._enforceTimer = setTimeout(() => {
-          if (this._isDestroyed || !this.map || !this.map._container) return;
+        if (this.enforceTimer) clearTimeout(this.enforceTimer);
+        this.enforceTimer = setTimeout(() => {
+          if (this.isDestroyed || !this.map || !this.map._container) return;
           this.enforceOrder();
-          this._enforceTimer = null;
+          this.enforceTimer = null;
         }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
       });
 
@@ -186,11 +186,11 @@
 
     init(initialData) {
       this.layers = [...initialData];
-      this._loadSavedOrder();
-      this._normalizeLayerGroups();
+      this.loadSavedOrder();
+      this.normalizeLayerGroups();
     }
 
-    _normalizeLayerGroups() {
+    normalizeLayerGroups() {
       const overlays = [];
       const bases = [];
       for (const l of this.layers) {
@@ -200,7 +200,7 @@
       this.layers = overlays.concat(bases);
     }
 
-    _loadSavedOrder() {
+    loadSavedOrder() {
       try {
         const data = localStorage.getItem(CONST.STORAGE_KEY);
         if (!data) return;
@@ -220,7 +220,7 @@
       }
     }
 
-    _saveOrder() {
+    saveOrder() {
       try {
         localStorage.setItem(
           CONST.STORAGE_KEY,
@@ -303,7 +303,7 @@
 
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
-        const childPanes = this._discoverChildPanes(opts.layer);
+        const childPanes = this.discoverChildPanes(opts.layer);
         for (const cp of childPanes) {
           const isLabel = cp.includes("label") || cp.includes("lbl");
           this.ensurePane(cp, !isLabel);
@@ -337,9 +337,9 @@
 
       // Re-render keeps separator/group boundaries correct for both overlay/base
       // runtime registrations and avoids fragile incremental insertion logic.
-      this._renderInitialList();
-      this._initTypesAndVisibility();
-      this._saveOrder();
+      this.renderInitialList();
+      this.initTypesAndVisibility();
+      this.saveOrder();
       return this.uiContainer.querySelector(`[data-layer-id="${opts.id}"]`);
     }
 
@@ -361,13 +361,13 @@
       if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
       if (window[id]) delete window[id];
       // Recursively clear all sub-layers to prevent stale data on re-register
-      this._clearAllLayers(layer);
+      this.clearAllLayers(layer);
 
       if (this.uiContainer) {
         const target = this.uiContainer.querySelector(`[data-layer-id="${id}"]`);
         if (target) {
           target.remove();
-          this._reindexItems();
+          this.reindexItems();
         }
       }
       requestAnimationFrame(() => this.map.invalidateSize({ animate: false }));
@@ -375,7 +375,7 @@
     }
 
     /** Recursively clear all nested sub-layers. */
-    _clearAllLayers(layer) {
+    clearAllLayers(layer) {
       if (!layer) return;
       if (typeof layer.clearLayers === "function") layer.clearLayers();
       if (layer.eachLayer) layer.eachLayer((l) => this._clearAllLayers(l));
@@ -407,7 +407,7 @@
     }
 
     // Core Sorting Engine
-    _setLayerPaneRecursive(layer, paneName, renderer) {
+    setLayerPaneRecursive(layer, paneName, renderer) {
       // Skip Markers — both default icons (with shadow images) and divIcon.
       // Moving them to a custom pane breaks their shadow positioning.
       // They stay in Leaflet's default markerPane (z-index 600).
@@ -419,11 +419,11 @@
       if (layer instanceof L.Path) layer.options.renderer = renderer;
 
       if (layer.eachLayer) {
-        layer.eachLayer((l) => this._setLayerPaneRecursive(l, paneName, renderer));
+        layer.eachLayer((l) => this.setLayerPaneRecursive(l, paneName, renderer));
       } else if (layer._layers) {
         for (const k in layer._layers) {
           if (layer._layers.hasOwnProperty(k)) {
-            this._setLayerPaneRecursive(layer._layers[k], paneName, renderer);
+            this.setLayerPaneRecursive(layer._layers[k], paneName, renderer);
           }
         }
       }
@@ -432,18 +432,18 @@
     /** Find all custom panes used by a container's tree.
      *  This lets enforceOrder control z-index without requiring
      *  orderPane/paneName from three-layer components. */
-    _discoverChildPanes(layer, depth = 0) {
+    discoverChildPanes(layer, depth = 0) {
       if (depth > CONST.PANE_RECURSION_DEPTH) return []; // Prevent infinite recursion
       const panes = new Set();
 
       const check = (l) => {
         const p = l.options?.pane;
-        if (p && !this._isDefaultPane(p)) panes.add(p);
+        if (p && !this.isDefaultPane(p)) panes.add(p);
         if (l.eachLayer) {
-          this._discoverChildPanes(l, depth + 1).forEach((p2) => panes.add(p2));
+          this.discoverChildPanes(l, depth + 1).forEach((p2) => panes.add(p2));
         } else if (l._layers) {
           for (const k in l._layers) {
-            this._discoverChildPanes(l._layers[k], depth + 1).forEach((p2) =>
+            this.discoverChildPanes(l._layers[k], depth + 1).forEach((p2) =>
               panes.add(p2),
             );
           }
@@ -451,13 +451,13 @@
       };
 
       const selfPane = layer.options?.pane;
-      if (selfPane && !this._isDefaultPane(selfPane)) panes.add(selfPane);
+      if (selfPane && !this.isDefaultPane(selfPane)) panes.add(selfPane);
       if (layer.eachLayer) layer.eachLayer(check);
       else if (layer._layers) for (const k in layer._layers) check(layer._layers[k]);
       return Array.from(panes);
     }
 
-    _isDefaultPane(pane) {
+    isDefaultPane(pane) {
       return (
         pane === "overlayPane" ||
         pane === "markerPane" ||
@@ -469,8 +469,8 @@
     }
 
     enforceOrder() {
-      if (this._isEnforcing) return;
-      this._isEnforcing = true;
+      if (this.isEnforcing) return;
+      this.isEnforcing = true;
       try {
         const orderedLayers = [];
         const layerInfos = new Map();
@@ -510,7 +510,7 @@
             // Auto-discover custom panes from container tree (three-layer
             // architecture). This ensures all internal panes (graph, label, etc.)
             // are assigned the same z-index base.
-            const childPanes = this._discoverChildPanes(lyr);
+            const childPanes = this.discoverChildPanes(lyr);
             if (childPanes.length > 0) {
               childPanes.forEach((cp) => {
                 const ep = this.ensurePane(cp, !isTile);
@@ -549,29 +549,29 @@
         if (layersToMove.length) {
           for (const { layer } of layersToMove) this.map.removeLayer(layer);
           for (const { layer, paneName, renderer } of layersToMove) {
-            if (paneName) this._setLayerPaneRecursive(layer, paneName, renderer);
+            if (paneName) this.setLayerPaneRecursive(layer, paneName, renderer);
           }
           for (const { layer } of layersToMove) this.map.addLayer(layer);
         }
       } finally {
-        this._isEnforcing = false;
+        this.isEnforcing = false;
       }
     }
 
     // UI Rendering & Event Binding
     attachUI(containerDiv) {
       this.uiContainer = containerDiv;
-      this._renderInitialList();
-      this._bindEvents();
+      this.renderInitialList();
+      this.bindEvents();
 
       while (this.pendingRegistrations.length) {
         this.registerLayer(this.pendingRegistrations.shift());
       }
 
-      setTimeout(() => this._initTypesAndVisibility(), CONST.INIT_DELAY_MS);
+      setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
     }
 
-    _renderInitialList() {
+    renderInitialList() {
       let html = "";
       let hasBaseMaps = false;
 
@@ -614,7 +614,7 @@
       this.uiContainer.innerHTML = html;
     }
 
-    _initTypesAndVisibility() {
+    initTypesAndVisibility() {
       const inputs = this.uiContainer.querySelectorAll(
         '.layer-item input[type="checkbox"], .layer-item input[type="radio"]',
       );
@@ -659,11 +659,11 @@
         }
       }
 
-      if (!anyBaseVisible) this._showColorLayer(this.currentColor);
+      if (!anyBaseVisible) this.showColorLayer(this.currentColor);
       this.enforceOrder();
     }
 
-    _reindexItems() {
+    reindexItems() {
       const items = this.uiContainer.querySelectorAll(
         ".layer-item:not(.color-layer-item)",
       );
@@ -675,31 +675,31 @@
     }
 
     // Event Handlers
-    _bindEvents() {
-      this.uiContainer.addEventListener("change", this._handleChange.bind(this));
-      this.uiContainer.addEventListener("input", this._handleInput.bind(this));
+    bindEvents() {
+      this.uiContainer.addEventListener("change", this.handleChange.bind(this));
+      this.uiContainer.addEventListener("input", this.handleInput.bind(this));
 
       // Clicking anywhere on the color layer item deselects all base maps
       this.uiContainer.addEventListener("click", (e) => {
         if (e.target.closest(".color-layer-item")) {
-          this._deselectAllBaseMaps(-1);
-          this._showColorLayer(this.currentColor);
+          this.deselectAllBaseMaps(-1);
+          this.showColorLayer(this.currentColor);
           this.enforceOrder();
         }
       });
 
-      this.uiContainer.addEventListener("dragstart", this._handleDragStart.bind(this));
-      this.uiContainer.addEventListener("dragover", this._handleDragOver.bind(this));
-      this.uiContainer.addEventListener("dragleave", this._handleDragLeave.bind(this));
-      this.uiContainer.addEventListener("drop", this._handleDrop.bind(this));
-      this.uiContainer.addEventListener("dragend", this._handleDragEnd.bind(this));
+      this.uiContainer.addEventListener("dragstart", this.handleDragStart.bind(this));
+      this.uiContainer.addEventListener("dragover", this.handleDragOver.bind(this));
+      this.uiContainer.addEventListener("dragleave", this.handleDragLeave.bind(this));
+      this.uiContainer.addEventListener("drop", this.handleDrop.bind(this));
+      this.uiContainer.addEventListener("dragend", this.handleDragEnd.bind(this));
     }
 
-    _handleChange(e) {
+    handleChange(e) {
       const target = e.target;
       if (target.classList.contains("color-layer-input")) {
-        this._deselectAllBaseMaps(-1);
-        this._showColorLayer(target.value);
+        this.deselectAllBaseMaps(-1);
+        this.showColorLayer(target.value);
         this.enforceOrder();
         return;
       }
@@ -711,7 +711,7 @@
       const layer = this.map._layers[layerInfo.id] || window[layerInfo.id] || null;
       const item = target.closest(".layer-item");
 
-      if (layerInfo.isBase) this._hideColorLayer();
+      if (layerInfo.isBase) this.hideColorLayer();
       if (layer) {
         target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
       }
@@ -722,13 +722,13 @@
       this.enforceOrder();
     }
 
-    _handleInput(e) {
+    handleInput(e) {
       if (e.target.classList.contains("color-layer-input")) {
-        this._showColorLayer(e.target.value);
+        this.showColorLayer(e.target.value);
       }
     }
 
-    _handleDragStart(e) {
+    handleDragStart(e) {
       const item = e.target.closest(".layer-item");
       if (!item) return;
       this.dragIdx = parseInt(item.dataset.index, 10);
@@ -736,7 +736,7 @@
       e.dataTransfer.effectAllowed = "move";
     }
 
-    _canReorderBetween(fromIdx, toIdx) {
+    canReorderBetween(fromIdx, toIdx) {
       if (fromIdx == null || toIdx == null) return false;
       if (fromIdx < 0 || toIdx < 0) return false;
       if (fromIdx >= this.layers.length || toIdx >= this.layers.length) return false;
@@ -761,7 +761,7 @@
       return hasBase && fromIdx >= firstBaseIdx && toIdx >= firstBaseIdx;
     }
 
-    _showReorderBlockedHint() {
+    showReorderBlockedHint() {
       const now = Date.now();
       if (now - this.lastDragHintAt < CONST.DRAG_HINT_COOLDOWN_MS) return;
       this.lastDragHintAt = now;
@@ -774,7 +774,7 @@
       }
     }
 
-    _handleDragOver(e) {
+    handleDragOver(e) {
       if (this.dragIdx === null) return;
       e.preventDefault();
       const item = e.target.closest(".layer-item");
@@ -784,9 +784,9 @@
       const allItems = this.uiContainer.querySelectorAll(".layer-item");
       allItems.forEach((i) => i.classList.remove("drag-over-top", "drag-over-bottom"));
 
-      if (!this._canReorderBetween(this.dragIdx, targetIdx)) {
+      if (!this.canReorderBetween(this.dragIdx, targetIdx)) {
         if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
-        this._showReorderBlockedHint();
+        this.showReorderBlockedHint();
         return;
       }
       if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
@@ -795,12 +795,12 @@
       else if (targetIdx > this.dragIdx) item.classList.add("drag-over-bottom");
     }
 
-    _handleDragLeave(e) {
+    handleDragLeave(e) {
       const item = e.target.closest(".layer-item");
       if (item) item.classList.remove("drag-over-top", "drag-over-bottom");
     }
 
-    _handleDrop(e) {
+    handleDrop(e) {
       e.preventDefault();
       const target = e.target.closest(".layer-item");
       if (this.dragIdx === null) return;
@@ -809,8 +809,8 @@
 
       const targetIdx = parseInt(target.dataset.index, 10);
       if (this.dragIdx === targetIdx) return;
-      if (!this._canReorderBetween(this.dragIdx, targetIdx)) {
-        this._showReorderBlockedHint();
+      if (!this.canReorderBetween(this.dragIdx, targetIdx)) {
+        this.showReorderBlockedHint();
         return;
       }
 
@@ -825,13 +825,13 @@
       if (targetIdx < this.dragIdx) target.parentNode.insertBefore(movedItem, target);
       else target.parentNode.insertBefore(movedItem, target.nextSibling);
 
-      this._reindexItems();
+      this.reindexItems();
       this.enforceOrder();
-      this._saveOrder();
+      this.saveOrder();
       this.dragIdx = null;
     }
 
-    _handleDragEnd() {
+    handleDragEnd() {
       const allItems = this.uiContainer.querySelectorAll(".layer-item");
       allItems.forEach((i) =>
         i.classList.remove("dragging", "drag-over-top", "drag-over-bottom"),
@@ -839,7 +839,7 @@
     }
 
     // Color Map Control Logic
-    _showColorLayer(color) {
+    showColorLayer(color) {
       this.colorActive = true;
       this.currentColor = color;
       mapContainer.style.background = color;
@@ -875,7 +875,7 @@
         ?.classList.add("is-color-active");
     }
 
-    _hideColorLayer() {
+    hideColorLayer() {
       this.colorActive = false;
       mapContainer.style.background = "";
       const tilePane = this.map.getPane("tilePane");
@@ -888,7 +888,7 @@
         ?.classList.remove("is-color-active");
     }
 
-    _deselectAllBaseMaps(exceptIdx) {
+    deselectAllBaseMaps(exceptIdx) {
       const inputs = this.uiContainer.querySelectorAll(
         ".layer-item:not(.color-layer-item) input",
       );
