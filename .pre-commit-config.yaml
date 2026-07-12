@@ -50,6 +50,7 @@ repos:
   - repo: local
     hooks:
       - id: format-jinja-js
+        name: format-jinja-js
         entry: python script/format_jinja_js.py --check
         language: system
         types_or: [javascript]
