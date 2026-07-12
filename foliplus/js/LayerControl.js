@@ -829,11 +829,8 @@
       );
       const movedItem = allItems[this.dragIdx];
 
-      if (targetIdx < this.dragIdx) {
-        target.parentNode.insertBefore(movedItem, target);
-      } else {
-        target.parentNode.insertBefore(movedItem, target.nextSibling);
-      }
+      if (targetIdx < this.dragIdx) target.parentNode.insertBefore(movedItem, target);
+      else target.parentNode.insertBefore(movedItem, target.nextSibling);
 
       this._reindexItems();
       this.enforceOrder();

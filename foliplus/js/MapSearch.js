@@ -35,7 +35,7 @@
 
   // ==================== Control Definition ====================
   new (L.Control.extend({
-    onAdd: function () {
+    onAdd: () => {
       const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
       const ctrl = L.DomUtil.create("div", "map-search ctrl-fold collapsed", container);
       ctrl.id = "{{ this.get_name() }}_ctrl";
@@ -88,15 +88,15 @@
         }
         _hideSearchHint();
         inp.focus();
-      }
+      };
 
-      modeBtn.onclick = function (e) {
+      modeBtn.onclick = (e) => {
         e.stopPropagation();
         _setMode(mode === CONST.COORD ? CONST.ADDR : CONST.COORD);
       };
 
       // Expand / collapse
-      container.querySelector(".toggle-btn").onclick = function (e) {
+      container.querySelector(".toggle-btn").onclick = (e) => {
         e.stopPropagation();
         if (ctrl.classList.contains("expanded")) {
           ctrl.classList.remove("expanded");
@@ -111,7 +111,7 @@
 
       // Clear input
       const clearBtn = container.querySelector(".ctrl-abs-btn");
-      clearBtn.onclick = function () {
+      clearBtn.onclick = () => {
         inp.value = "";
         if (mk) {
           map.removeLayer(mk);
@@ -120,7 +120,7 @@
         inp.focus();
       };
 
-      inp.addEventListener("input", function () {
+      inp.addEventListener("input", () => {
         inp.placeholder =
           mode === CONST.COORD
             ? `${CONST.name}.coord_placeholder`
@@ -128,7 +128,7 @@
       });
 
       // Coordinate search
-      function _doCoordSearch(raw) {
+      const _doCoordSearch = (raw) => {
         const parts = raw
           .replace(/\uff0c/g, ",")
           .replace(/\s+/g, "")
@@ -154,10 +154,10 @@
           `${CONST.name}.popup_title_coord`,
           mk,
         );
-      }
+      };
 
       // Address search via Nominatim
-      function _doAddrSearch(query) {
+      const _doAddrSearch = (query) => {
         _showSearchHint(
           window.foliplus.SVGs.LOADING + " " + _(`${CONST.name}.popup_loading`),
           CONST.hintForever,
@@ -174,10 +174,8 @@
             "&accept-language=" +
             (window._LOCALE["locale.code"] || "en"),
         )
-          .then(function (r) {
-            return r.json();
-          })
-          .then(function (results) {
+          .then((r) => r.json())
+          .then((results) => {
             _hideSearchHint();
             if (!results || results.length === 0) {
               _showSearchHint(_(`${CONST.name}.addr_not_found`), CONST.hintError);
@@ -212,15 +210,15 @@
               mk,
             );
           })
-          .catch(function (err) {
+          .catch((err) => {
             console.error(`[${CONST.name}] ${_(CONST.name + ".addr_error")}`);
             _hideSearchHint();
             _showSearchHint(_(CONST.name + ".addr_error"), CONST.hintError);
           });
-      }
+      };
 
       // Keyboard events
-      inp.addEventListener("keydown", function (e) {
+      inp.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
           ctrl.classList.remove("expanded");
           ctrl.classList.add("collapsed");

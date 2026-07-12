@@ -86,7 +86,7 @@
    *   foliplus.registerHintIcon('export', '<svg>...</svg>');
    *   foliplus.showHint('export', 'Exporting...'); // shows icon + text
    */
-  foliplus.registerHintIcon = function (key, iconSvg) {
+  foliplus.registerHintIcon = (key, iconSvg) => {
     foliplus._hintIcons = foliplus._hintIcons || {};
     foliplus._hintIcons[key] = iconSvg;
   };
@@ -122,7 +122,7 @@
    *   // Remove appended instances individually
    *   foliplus.hideHint('export-1234567890');
    */
-  foliplus.showHint = function (key, text, duration, parent, append) {
+  foliplus.showHint = (key, text, duration, parent, append) => {
     if (!append) foliplus.hideHint(key);
     const hintTarget = parent || document.body;
     const cls = append
@@ -167,7 +167,7 @@
    *   foliplus.hideHint('export');            // removes all export hints
    *   foliplus.hideHint('gcoord-warn');       // removes gcoord warning
    */
-  foliplus.hideHint = function (key) {
+  foliplus.hideHint = (key) => {
     // Also clear appended instances (keys start with key+'-')
     for (const k of _hintMap.keys()) {
       if (k === key || k.startsWith(key + "-")) {
@@ -192,7 +192,7 @@
    *
    * @returns {boolean} True if gcoord is already available, false otherwise
    */
-  foliplus._ensureGcoord = function () {
+  foliplus._ensureGcoord = () => {
     if (typeof gcoord !== "undefined") return true;
     if (!foliplus._gcoordLoading) {
       foliplus._gcoordLoading = true;
@@ -220,7 +220,7 @@
    * @example
    *   foliplus._isBaiduCRS(map) // → true if Baidu tiles are used
    */
-  foliplus._isBaiduCRS = function (map) {
+  foliplus._isBaiduCRS = (map) => {
     try {
       if (L.CRS && L.CRS.Baidu) return true;
       const crs = map.options.crs;
@@ -250,7 +250,7 @@
    *   const wgs = foliplus.toWgs84(map, 31.23, 121.47);
    *   // → [31.225, 121.464] (approx. WGS-84)
    */
-  foliplus.toWgs84 = function (map, lat, lng) {
+  foliplus.toWgs84 = (map, lat, lng) => {
     if (typeof gcoord !== "undefined") {
       const src = foliplus._isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
@@ -277,7 +277,7 @@
    * @param {number} lat - Latitude in WGS-84
    * @returns {number[]} [lng, lat] in map CRS
    */
-  foliplus.fromWgs84 = function (map, lng, lat) {
+  foliplus.fromWgs84 = (map, lng, lat) => {
     if (typeof gcoord === "undefined") {
       if (!foliplus._ensureGcoord()) {
         // gcoord not yet loaded — show warning and return unchanged
@@ -304,7 +304,7 @@
    * @param {L.Map} map - Leaflet map instance
    * @returns {boolean} True if the map uses domestic tile providers
    */
-  function _isDomesticMap(map) {
+  const _isDomesticMap = (map) => {
     try {
       const crs = map.options.crs;
       if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
@@ -327,7 +327,7 @@
     } catch (e) {
       return false;
     }
-  }
+  };
 
   // ==================== Reverse Geocoding ====================
   // Uses throttled queue (1 req/s) and response cache.
@@ -343,7 +343,7 @@
    * @param {number} lng Longitude
    * @returns {Promise<string>} Resolved address string
    */
-  foliplus.reverseGeocode = function (map, lat, lng) {
+  foliplus.reverseGeocode = (map, lat, lng) => {
     const key = `${lat},${lng}`;
     if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
 
@@ -388,7 +388,7 @@
    * @param {string} [title] Explicit popup title text
    * @returns {string} HTML string
    */
-  foliplus.buildPopupHtml = function (lat, lng, addr, prefix, title) {
+  foliplus.buildPopupHtml = (lat, lng, addr, prefix, title) => {
     const popupTitle = title || foliplus.gt(prefix + "_title");
     const loadStr = foliplus.gt(prefix + "_loading");
     const addrHtml =
@@ -415,7 +415,7 @@
    * @param {L.LayerGroup} [layerGroup] Optional layer group to add the marker to
    * @returns {L.Marker} The newly created marker
    */
-  foliplus.createLocationMarker = function (
+  foliplus.createLocationMarker = (
     map,
     lat,
     lng,
@@ -424,7 +424,7 @@
     title,
     existing,
     layerGroup,
-  ) {
+  ) => {
     if (existing) map.removeLayer(existing);
     const target = layerGroup || map;
     const mk = L.marker([lat, lng], {
@@ -442,7 +442,7 @@
     });
     mk.openPopup();
     if (!addr) {
-      foliplus.reverseGeocode(map, lat, lng).then(function (resolved) {
+      foliplus.reverseGeocode(map, lat, lng).then((resolved) => {
         if (mk && mk.getPopup() && mk.getPopup().isOpen()) {
           mk.setPopupContent(
             foliplus.buildPopupHtml(lat, lng, resolved, prefix, title),
@@ -460,7 +460,7 @@
    * @param {string} opts.toggleBtn - Selector for the toggle button
    * @param {string} opts.header - Selector for the header (click to collapse)
    */
-  foliplus.bindPanelToggle = function ({ container, toggleBtn, header }) {
+  foliplus.bindPanelToggle = ({ container, toggleBtn, header }) => {
     const btn = container.querySelector(toggleBtn);
     if (btn) {
       L.DomEvent.on(btn, "click", (e) => {
@@ -487,7 +487,7 @@
    * @param {HTMLElement} opts.container - Panel element to watch
    * @returns {Function} Cleanup function to remove the click listener
    */
-  foliplus.bindOutsideCollapse = function ({ map, container }) {
+  foliplus.bindOutsideCollapse = ({ map, container }) => {
     const handler = (e) => {
       if (!container.contains(e.target) && container.classList.contains("expanded")) {
         container.classList.remove("expanded");
@@ -519,7 +519,7 @@
    * @param {boolean} opts.isLeft - Whether position is left-aligned
    * @returns {object} { container, ctrl, toolBar, toggleBtn }
    */
-  foliplus.createFoldControl = function (opts) {
+  foliplus.createFoldControl = (opts) => {
     var container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
     var ctrl = L.DomUtil.create(
       "div",
@@ -556,7 +556,7 @@
    * @param {string} [locale] Locale code, defaults to browser language (en/zh)
    * @returns {string} Formatted string
    */
-  foliplus.formatNumber = function (val, style, locale) {
+  foliplus.formatNumber = (val, style, locale) => {
     style = style || "auto";
     locale =
       locale || (typeof _LOCALE !== "undefined" && _LOCALE["locale.code"]) || "en";
@@ -622,12 +622,12 @@
    *     localeMap: { ss: 'HeatmapControl.no_ss', default: 'HeatmapControl.no_h3' },
    *   });
    */
-  foliplus.loadScripts = function (deps, callback, maxRetries, delayMs) {
+  foliplus.loadScripts = (deps, callback, maxRetries, delayMs, hintOpts) => {
     maxRetries = maxRetries || 0;
     delayMs = delayMs || 3000;
     let retries = 0;
 
-    function attempt() {
+    const attempt = () => {
       const pending = deps.filter((d) => !d.check());
       if (pending.length === 0) return callback(true);
 
@@ -712,7 +712,7 @@
    *   // → window._LOCALE = zh table
    *   foliplus.gt('export.btn_title') // → '导出地图'
    */
-  foliplus.resolveLocale = function (code, tables) {
+  foliplus.resolveLocale = (code, tables) => {
     if (!tables) return;
     let lang = "";
 

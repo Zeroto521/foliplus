@@ -57,11 +57,8 @@
     newBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        map.getContainer().requestFullscreen();
-      }
+      if (document.fullscreenElement) document.exitFullscreen();
+      else map.getContainer().requestFullscreen();
     });
   })();
 
@@ -96,7 +93,7 @@
   document.addEventListener("fullscreenchange", handleFullscreenChange);
 
   // Cleanup on map unload
-  map.on("unload", function () {
+  map.on("unload", () => {
     document.removeEventListener("fullscreenchange", handleFullscreenChange);
   });
 })();
