@@ -3,11 +3,13 @@
     name: "Fullscreen",
     RETRY_INTERVAL_MS: 100,
     HINT_DURATION_MS: 2500,
-    ICON: `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 10V4h6v6M10 14v6H4v-6"/>
-        <path d="M10 4v6H4M14 20v-6h6M14 4v6h6M10 20v-6H4"/>
+    MAXIMIZE: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+      </svg>`,
+    MINIMIZE: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
       </svg>`,
   };
 
@@ -21,7 +23,6 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  window.foliplus.registerHintIcon(CONST.name, CONST.ICON);
   window.foliplus.registerHintIcon(CONST.name, CONST.MAXIMIZE);
 
   // ==================== Control Setup ====================
@@ -48,7 +49,6 @@
       return;
     }
 
-    btn.innerHTML = CONST.ICON;
     btn.innerHTML = CONST.MAXIMIZE;
     btn.classList.add("fullscreen-btn");
 
