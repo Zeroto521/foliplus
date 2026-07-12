@@ -88,7 +88,7 @@
         }
         _hideSearchHint();
         inp.focus();
-      };
+      }
 
       modeBtn.onclick = (e) => {
         e.stopPropagation();
@@ -150,8 +150,10 @@
           lat,
           lng,
           null,
-          `${CONST.name}.popup`,
           `${CONST.name}.popup_title_coord`,
+          `${CONST.name}.popup_loading`,
+          `${CONST.name}.popup_loc_label`,
+          `${CONST.name}.popup_addr_label`,
           mk,
         );
       };
@@ -205,8 +207,10 @@
               lat,
               lng,
               displayName,
-              `${CONST.name}.popup`,
               `${CONST.name}.popup_title_addr`,
+              `${CONST.name}.popup_loading`,
+              `${CONST.name}.popup_loc_label`,
+              `${CONST.name}.popup_addr_label`,
               mk,
             );
           })

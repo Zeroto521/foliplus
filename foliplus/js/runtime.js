@@ -368,11 +368,11 @@
               .filter((s) => s && !/^\d+$/.test(s))
               .reverse()
               .join(",");
-            _geoCache[key] = addr || foliplus.gt("search.addr_not_found");
+            _geoCache[key] = addr || foliplus.gt("MapSearch.addr_not_found");
             return _geoCache[key];
           })
           .catch(() => {
-            return foliplus.gt("measure.geo_fail");
+            return foliplus.gt("MeasureControl.geo_fail");
           });
       });
     return _geoPromise;
@@ -384,22 +384,25 @@
    * @param {number} lat Latitude
    * @param {number} lng Longitude
    * @param {string|null} addr Address text or null (triggers loading indicator)
-   * @param {string} prefix Key prefix for lookup (e.g. 'search.popup')
-   * @param {string} [title] Explicit popup title text
+   * @param {string} title Locale key for popup title (e.g. 'MeasureControl.popup_title')
+   * @param {string} loading Locale key for loading text (e.g. 'MeasureControl.popup_loading')
+   * @param {string} locLabel Locale key for location label (e.g. 'MeasureControl.popup_loc_label')
+   * @param {string} addrLabel Locale key for address label (e.g. 'MeasureControl.popup_addr_label')
    * @returns {string} HTML string
    */
-  foliplus.buildPopupHtml = (lat, lng, addr, prefix, title) => {
-    const popupTitle = title || foliplus.gt(prefix + "_title");
-    const loadStr = foliplus.gt(prefix + "_loading");
+  foliplus.buildPopupHtml = (lat, lng, addr, title, loading, locLabel, addrLabel) => {
+    const popupTitle = foliplus.gt(title);
+    const loadStr = foliplus.gt(loading);
     const addrHtml =
       addr && addr.includes("LOADING")
         ? `${foliplus.SVGs.LOADING} ${loadStr}`
         : addr || loadStr;
 
-    return `<div class="foliplus-popup-content">
+    return `
+    <div class="foliplus-popup-content">
       <b>${popupTitle}</b><br>
-      ${foliplus.gt(prefix + "_loc_label")}${lng},${lat}<br>
-      ${foliplus.gt(prefix + "_addr_label")}${addrHtml}
+      ${foliplus.gt(locLabel)}${lng},${lat}<br>
+      ${foliplus.gt(addrLabel)}${addrHtml}
     </div>`;
   };
 
@@ -409,8 +412,10 @@
    * @param {number} lat Latitude
    * @param {number} lng Longitude
    * @param {string} addr Address string (null = pending reverse geocode)
-   * @param {string} prefix Key prefix for lookup (e.g. 'search.popup')
-   * @param {string} [title] Explicit popup title text
+   * @param {string} title Locale key for popup title
+   * @param {string} loading Locale key for loading text
+   * @param {string} locLabel Locale key for location label
+   * @param {string} addrLabel Locale key for address label
    * @param {L.Marker} [existing] Existing marker to remove before creating new one
    * @param {L.LayerGroup} [layerGroup] Optional layer group to add the marker to
    * @returns {L.Marker} The newly created marker
@@ -420,8 +425,10 @@
     lat,
     lng,
     addr,
-    prefix,
     title,
+    loading,
+    locLabel,
+    addrLabel,
     existing,
     layerGroup,
   ) => {
@@ -437,15 +444,26 @@
       }),
     });
     target.addLayer(mk);
-    mk.bindPopup(foliplus.buildPopupHtml(lat, lng, addr, prefix, title), {
-      maxWidth: 300,
-    });
+    mk.bindPopup(
+      foliplus.buildPopupHtml(lat, lng, addr, title, loading, locLabel, addrLabel),
+      {
+        maxWidth: 300,
+      },
+    );
     mk.openPopup();
     if (!addr) {
       foliplus.reverseGeocode(map, lat, lng).then((resolved) => {
         if (mk && mk.getPopup() && mk.getPopup().isOpen()) {
           mk.setPopupContent(
-            foliplus.buildPopupHtml(lat, lng, resolved, prefix, title),
+            foliplus.buildPopupHtml(
+              lat,
+              lng,
+              resolved,
+              title,
+              loading,
+              locLabel,
+              addrLabel,
+            ),
           );
         }
       });

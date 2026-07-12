@@ -74,9 +74,7 @@
     for (const c of controls) {
       // Hide/show self based on backend template parameter
       if (c === fsContainer || fsContainer.contains(c)) {
-        if ({{ this.hide_self | tojson }}) {
-          c.style.display = isFull ? "none" : "";
-        }
+        if ({{ this.hide_self | tojson }}) c.style.display = isFull ? "none" : "";
         continue;
       }
       c.style.display = isFull ? "none" : "";

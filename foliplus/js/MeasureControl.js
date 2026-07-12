@@ -312,8 +312,10 @@
         parseFloat(lat),
         parseFloat(lng),
         null,
-        `${CONST.name}.popup`,
-        null,
+        `${CONST.name}.popup_title`,
+        `${CONST.name}.popup_loading`,
+        `${CONST.name}.popup_loc_label`,
+        `${CONST.name}.popup_addr_label`,
         null,
         this.mainLayer,
       );
@@ -330,7 +332,15 @@
 
       if (marker?.getPopup?.()?.isOpen()) {
         marker.setPopupContent(
-          window.foliplus.buildPopupHtml(lat, lng, addr, `${CONST.name}.popup`),
+          window.foliplus.buildPopupHtml(
+            lat,
+            lng,
+            addr,
+            `${CONST.name}.popup_title`,
+            `${CONST.name}.popup_loading`,
+            `${CONST.name}.popup_loc_label`,
+            `${CONST.name}.popup_addr_label`,
+          ),
         );
       }
 
@@ -338,7 +348,15 @@
         MeasureUtils.hideAllDelIcons();
         if (cachedAddr !== null) {
           marker.setPopupContent(
-            window.foliplus.buildPopupHtml(lat, lng, cachedAddr, `${CONST.name}.popup`),
+            window.foliplus.buildPopupHtml(
+              lat,
+              lng,
+              cachedAddr,
+              `${CONST.name}.popup_title`,
+              `${CONST.name}.popup_loading`,
+              `${CONST.name}.popup_loc_label`,
+              `${CONST.name}.popup_addr_label`,
+            ),
           );
         }
         this._injectDelIcon(marker);
