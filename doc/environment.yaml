@@ -13,6 +13,7 @@ dependencies:
   - sphinx-design
   - proj
   - geopandas
+  - proj
   - pip
   - pip:
       - my-data-toolkit
