@@ -1,4 +1,4 @@
-(function() {
+(function () {
   // ==================== Constants ====================
   const CONST = {
     name: "HeatmapControl",
@@ -8,12 +8,42 @@
     INIT_SCAN_ATTEMPTS: 8,
     INIT_SCAN_INTERVAL_MS: 300,
     SCHEME_DROPDOWN_BLUR_DELAY_MS: 150,
-    DEFAULT_GRAY: '#999',
+    LOAD_SCRIPT_RETRIES: 2,
+    LOAD_SCRIPT_INTERVAL_MS: 3000,
+    NO_LAYER_HINT_MS: 4000,
+    DEFAULT_GRAY: "#999",
     H3_RES_MAP: [
-      [2, 0], [3, 1], [4, 1], [5, 2], [6, 3], [7, 4], [8, 4], [9, 5],
-      [10, 6], [11, 6], [12, 7], [13, 7], [14, 8], [15, 9], [16, 9],
-      [17, 10], [18, 11], [19, 11], [20, 12],
+      [2, 0],
+      [3, 1],
+      [4, 1],
+      [5, 2],
+      [6, 3],
+      [7, 4],
+      [8, 4],
+      [9, 5],
+      [10, 6],
+      [11, 6],
+      [12, 7],
+      [13, 7],
+      [14, 8],
+      [15, 9],
+      [16, 9],
+      [17, 10],
+      [18, 11],
+      [19, 11],
+      [20, 12],
     ],
+    H3_RES_FALLBACK: 12,
+    HEATMAP_ID: "__heatmap__",
+    GRAPH_PANE: "__heatmap_graph__",
+    LABEL_PANE: "__heatmap_label__",
+    HEXAGON: `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+        <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
+        <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>`,
   };
 
   // ==================== Runtime Guard ====================
@@ -24,63 +54,67 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
+  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  const SVGS = {
-    HEXAGON: `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
-        <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
-        <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
-        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-      </svg>`
-  };
-
-  window.foliplus.registerHintIcon('heatmap', SVGS.HEXAGON);
+  window.foliplus.registerHintIcon(CONST.name, CONST.HEXAGON);
 
   // --- Dynamic Dependency Loader ---
   // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
   const DEPS = [
-    { name: 'h3', url: CONST.jsdelivr + 'h3-js@{{ this._h3_version }}/dist/h3-js.umd.js',
-      check: () => typeof h3 !== 'undefined' },
-    { name: 'ss', url: CONST.jsdelivr + 'simple-statistics@{{ this._ss_version }}/' +
-      'dist/simple-statistics.min.js',
-      check: () => typeof ss !== 'undefined' },
-    { name: 'chroma', url: CONST.jsdelivr + 'chroma-js@{{ this._chroma_version }}/chroma.min.js',
-      check: () => typeof chroma !== 'undefined' },
+    {
+      name: "h3",
+      url: CONST.jsdelivr + "h3-js@{{ this._h3_version }}/dist/h3-js.umd.js",
+      check: () => typeof h3 !== "undefined",
+    },
+    {
+      name: "ss",
+      url:
+        CONST.jsdelivr +
+        "simple-statistics@{{ this._ss_version }}/dist/simple-statistics.min.js",
+      check: () => typeof ss !== "undefined",
+    },
+    {
+      name: "chroma",
+      url: CONST.jsdelivr + "chroma-js@{{ this._chroma_version }}/chroma.min.js",
+      check: () => typeof chroma !== "undefined",
+    },
   ];
 
-  window.foliplus.loadScripts(DEPS, function (ok, failed) {
-    if (ok && typeof h3 !== 'undefined' && typeof ss !== 'undefined') {
-      return run();
-    }
-    // Final failure — show hint + console
-    const names = (failed || DEPS.filter(d => !d.check()).map(d => d.name)).join(', ');
-    const msgKey = names.includes('ss') ? 'heatmap.no_ss'
-      : names.includes('chroma') ? 'heatmap.no_chroma'
-      : 'heatmap.no_h3';
-    console.error(`[${CONST.name}] ${_(msgKey)} (${names})`);
-    window.foliplus.showHint('heatmap', _(msgKey), 0);
-  }, 2, 3000); // retry 2×, every 3s
+  window.foliplus.loadScripts(
+    DEPS,
+    (ok) => {
+      if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();
+    },
+    CONST.LOAD_SCRIPT_RETRIES,
+    CONST.LOAD_SCRIPT_INTERVAL_MS,
+    {
+      hintKey: CONST.name,
+      localeMap: {
+        ss: `${CONST.name}.no_ss`,
+        chroma: `${CONST.name}.no_chroma`,
+        default: `${CONST.name}.no_h3`,
+      },
+    },
+  );
 
   function run() {
     // ==================== Injected Variables ====================
-    const AGG_DEFAULT = '{{ this.agg }}';
-    const FIELD_DEFAULT = '{{ this.style.field }}';
-    const COLOR_SCHEME = '{{ this.color_scheme }}';
-    const COLOR_METHOD = '{{ this.method }}';
+    const AGG_DEFAULT = "{{ this.agg }}";
+    const FIELD_DEFAULT = "{{ this.style.field }}";
+    const COLOR_SCHEME = "{{ this.color_scheme }}";
+    const COLOR_METHOD = "{{ this.method }}";
     const N_CLASSES_DEFAULT = {{ this.n_classes }};
     const BORDER_W_DEFAULT = {{ this.style.border_weight }};
-    const BORDER_COLOR_DEFAULT = '{{ this.style.border_color }}';
+    const BORDER_COLOR_DEFAULT = "{{ this.style.border_color }}";
     const FILL_OP = {{ this.style.fill_opacity }};
     const BORDER_OP = {{ this.style.border_opacity }};
     const LABEL_SHOW = {{ "true" if this.style.label_show else "false" }};
     const LABEL_SIZE = {{ this.style.label_size }};
-    const LABEL_COLOR = '{{ this.style.label_color }}';
-    const FORMAT = '{{ this.style.label_format }}';
+    const LABEL_COLOR = "{{ this.style.label_color }}";
+    const FORMAT = "{{ this.style.label_format }}";
     const SCHEME_NAMES = {{ this.schemes | tojson }};
 
-    // ==================== Core: Data Aggregation & Rendering ====================
+    // ==================== Core: Data Aggregation & Rendering ===
     class HeatmapManager {
       constructor(mapInstance) {
         this.map = mapInstance;
@@ -97,10 +131,6 @@
         this.N_CLASSES = N_CLASSES_DEFAULT;
         this.currentLabelShow = LABEL_SHOW;
         this.autoFieldKey = null;
-
-        this.HEATMAP_ID = '__heatmap__';
-        this.graphPane = '__heatmap_graph__';
-        this.lblPane = '__heatmap_label__';
         this.isRegistered = false;
         this.ui = null; // Injected UI control panel instance
 
@@ -119,11 +149,10 @@
             opacity: BORDER_OP,
           }),
           interactive: false,
-          pane: this.graphPane,
+          pane: CONST.GRAPH_PANE,
         });
         this.labelLayer = L.layerGroup();
-        this.labelLayer.options.pane = this.lblPane;
-
+        this.labelLayer.options.pane = CONST.LABEL_PANE;
         this.mainLayer.addLayer(this.graphLayer);
         this.mainLayer.addLayer(this.labelLayer);
       }
@@ -136,7 +165,7 @@
             if (this.selectedLayerId) this.renderHexagons();
           }, CONST.ZOOM_DEBOUNCE_MS);
         };
-        this.map.on('zoomend', this._onZoomEnd);
+        this.map.on("zoomend", this._onZoomEnd);
 
         this.layerScanTimer = null;
         this._onLayerChange = () => {
@@ -148,14 +177,14 @@
             }
           }, CONST.LAYER_SCAN_DEBOUNCE_MS);
         };
-        this.map.on('layeradd layerremove', this._onLayerChange);
+        this.map.on("layeradd layerremove", this._onLayerChange);
       }
 
       // --- Data Extraction ---
       scanMapLayers() {
         this.pointLayers = [];
         const pointLayersInfo =
-          window.foliplus.LayerControlAPI.getLayersByType('point');
+          window.foliplus.LayerControlAPI.getLayersByType("point");
         if (!pointLayersInfo.length) return;
 
         const seenIds = {};
@@ -168,7 +197,10 @@
           const pts = this.extractPoints(layer);
           if (pts.length === 0) continue;
           this.pointLayers.push({
-            id: info.id, name: info.name, layer, count: pts.length
+            id: info.id,
+            name: info.name,
+            layer,
+            count: pts.length,
           });
         }
       }
@@ -188,9 +220,7 @@
             seen[lid] = true;
             const ll = l.getLatLng();
             pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
-          } else if (l.getLayers) {
-            l.getLayers().forEach(walk);
-          }
+          } else if (l.getLayers) l.getLayers().forEach(walk);
         };
         walk(layer);
         return pts;
@@ -201,11 +231,11 @@
         layers.forEach((info) => {
           this.extractPoints(info.layer).forEach((pt) => {
             const m = pt.marker;
-            if (typeof m._value === 'number') fields._value = true;
-            if (typeof m.options?.value === 'number') fields['options.value'] = true;
+            if (typeof m._value === "number") fields._value = true;
+            if (typeof m.options?.value === "number") fields["options.value"] = true;
             if (m.feature?.properties) {
               Object.keys(m.feature.properties).forEach((k) => {
-                if (typeof m.feature.properties[k] === 'number')
+                if (typeof m.feature.properties[k] === "number")
                   fields[`properties.${k}`] = true;
               });
             }
@@ -221,9 +251,9 @@
 
       _readMarkerField(marker, field) {
         if (!field) return undefined;
-        if (field === '_value') return marker._value;
-        if (field === 'options.value') return marker.options?.value;
-        if (field.startsWith('properties.')) {
+        if (field === "_value") return marker._value;
+        if (field === "options.value") return marker.options?.value;
+        if (field.startsWith("properties.")) {
           const key = field.substring(11);
           return marker.feature?.properties?.[key];
         }
@@ -231,14 +261,15 @@
       }
 
       getPointValue(marker) {
-        if (this.currentAgg === 'count') return 1;
-        const key = this.currentField === '_auto' ? this.autoFieldKey : this.currentField;
+        if (this.currentAgg === "count") return 1;
+        const key =
+          this.currentField === "_auto" ? this.autoFieldKey : this.currentField;
         const val = this._readMarkerField(marker, key);
         if (val === undefined || isNaN(val)) {
           if (!this._valueFallbackWarned) {
             this._valueFallbackWarned = true;
             console.warn(
-              `[${CONST.name}] falling back to 1 for missing values, field=${this.currentField}`
+              `[${CONST.name}] ${_(`${CONST.name}.value_fallback`).replace("{field}", this.currentField)}`,
             );
           }
           return 1;
@@ -268,13 +299,12 @@
       // --- Algorithm Configuration ---
       getH3Res(zoom) {
         const entry = CONST.H3_RES_MAP.find(([z]) => zoom <= z);
-        return entry ? entry[1] : 12;
+        return entry ? entry[1] : CONST.H3_RES_FALLBACK;
       }
 
       getColorScale(name, n) {
-        if (typeof chroma !== 'undefined') {
-          return chroma.scale(name).mode('lab').colors(n);
-        }
+        if (typeof chroma !== "undefined")
+          return chroma.scale(name).mode("lab").colors(n);
         return Array(n).fill(CONST.DEFAULT_GRAY);
       }
 
@@ -289,29 +319,26 @@
         const lo = sorted[0];
         const hi = sorted[n - 1];
 
-        if (method === 'jenks') {
-          try { return ss.jenks(data, nClasses); } catch (e) {}
+        if (method === "jenks") {
+          try {
+            return ss.jenks(data, nClasses);
+          } catch (e) {}
           return [lo, hi];
         }
-        if (method === 'quantile') {
+        if (method === "quantile") {
           const b = [lo];
-          for (let i = 1; i < nClasses; i++) {
-            b.push(ss.quantile(sorted, i / nClasses));
-          }
+          for (let i = 1; i < nClasses; i++) b.push(ss.quantile(sorted, i / nClasses));
           return b.concat(hi);
         }
-        if (method === 'heads') {
+        if (method === "heads") {
           const b = [lo];
-          for (let i = 1; i < nClasses; i++) {
-            b.push(sorted[Math.min(Math.floor(i * n / nClasses), n - 1)]);
-          }
+          for (let i = 1; i < nClasses; i++)
+            b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
           return b.concat(hi);
         }
         const step = (hi - lo) / nClasses;
         const b = [];
-        for (let i = 0; i <= nClasses; i++) {
-          b.push(lo + step * i);
-        }
+        for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
         return b;
       }
 
@@ -331,29 +358,37 @@
         pts.forEach((pt) => {
           try {
             const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-            if (!hexCells[h3Idx]) {
-              hexCells[h3Idx] = {
-                sum: 0, count: 0, min: Infinity, max: -Infinity
-              };
-            }
+            if (!hexCells[h3Idx])
+              hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
             const cell = hexCells[h3Idx];
             cell.sum += pt.value;
             cell.count += 1;
             if (pt.value < cell.min) cell.min = pt.value;
             if (pt.value > cell.max) cell.max = pt.value;
           } catch (e) {
-            console.warn(`[${CONST.name}] h3.latLngToCell failed:`, pt.lat, pt.lng, e);
+            console.warn(
+              `[${CONST.name}] ${_(`${CONST.name}.h3_cell_fail`)}`,
+              pt.lat,
+              pt.lng,
+              e,
+            );
           }
         });
 
         const getAggValue = (cell) => {
           switch (this.currentAgg) {
-            case 'count': return cell.count;
-            case 'sum': return cell.sum;
-            case 'avg': return cell.count > 0 ? cell.sum / cell.count : 0;
-            case 'min': return cell.min;
-            case 'max': return cell.max;
-            default: return cell.count;
+            case "count":
+              return cell.count;
+            case "sum":
+              return cell.sum;
+            case "avg":
+              return cell.count > 0 ? cell.sum / cell.count : 0;
+            case "min":
+              return cell.min;
+            case "max":
+              return cell.max;
+            default:
+              return cell.count;
           }
         };
 
@@ -366,16 +401,12 @@
         }
 
         const nClasses = Math.min(this.N_CLASSES, allVals.length);
-        const breaks = this.computeBreaks(
-          allVals, nClasses, this.currentMethod
-        );
+        const breaks = this.computeBreaks(allVals, nClasses, this.currentMethod);
         const classColors = this.getColorScale(this.currentScheme, nClasses);
 
         const valueToClassIdx = (val) => {
           if (breaks.length < 2) return 0;
-          for (let i = 1; i < breaks.length; i++) {
-            if (val <= breaks[i]) return i - 1;
-          }
+          for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
           return breaks.length - 2;
         };
 
@@ -389,23 +420,27 @@
             const coords = boundary.map((p) => [p[1], p[0]]);
             coords.push(coords[0]);
             features.push({
-              type: 'Feature',
-              geometry: { type: 'Polygon', coordinates: [coords] },
+              type: "Feature",
+              geometry: { type: "Polygon", coordinates: [coords] },
               properties: {
-                _value: val, _classIdx: classIdx,
-                _fillColor: fillColor, _h3: h3Idx
+                _value: val,
+                _classIdx: classIdx,
+                _fillColor: fillColor,
+                _h3: h3Idx,
               },
             });
           } catch (e) {
-            console.warn(`[${CONST.name}] h3.cellToBoundary failed:`, h3Idx, e);
+            console.warn(
+              `[${CONST.name}] ${_(`${CONST.name}.h3_boundary_fail`)}`,
+              h3Idx,
+              e,
+            );
           }
         }
 
         this.graphLayer.clearLayers();
-        if (features.length) {
-          this.graphLayer.addData({ type: 'FeatureCollection', features });
-        }
-
+        if (features.length)
+          this.graphLayer.addData({ type: "FeatureCollection", features });
         this.labelLayer.clearLayers();
 
         if (this.currentLabelShow) {
@@ -417,7 +452,8 @@
               lng = centerLatLng[1];
             } catch (e) {
               const ring = feat.geometry.coordinates[0];
-              let cx = 0, cy = 0;
+              let cx = 0,
+                cy = 0;
               for (let j = 0; j < ring.length - 1; j++) {
                 cx += ring[j][0];
                 cy += ring[j][1];
@@ -426,15 +462,17 @@
               lat = cy / (ring.length - 1);
             }
 
-            const labelStr = window.foliplus.formatNumber(feat.properties._value, FORMAT);
-
+            const labelStr = window.foliplus.formatNumber(
+              feat.properties._value,
+              FORMAT,
+            );
             L.marker([lat, lng], {
               icon: L.divIcon({
-                className: 'heatmap-label',
+                className: "heatmap-label",
                 html: `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`,
               }),
               interactive: false,
-              pane: this.lblPane,
+              pane: CONST.LABEL_PANE,
             }).addTo(this.labelLayer);
           });
         }
@@ -448,22 +486,18 @@
         if (this.isRegistered) return;
         this.isRegistered = true;
         window.foliplus.LayerControlAPI.registerLayer({
-          name: _('heatmap.title'),
-          id: this.HEATMAP_ID,
+          name: _(`${CONST.name}.title`),
+          id: CONST.HEATMAP_ID,
           isBase: false,
           layer: this.mainLayer,
-          iconSvg: SVGS.HEXAGON,
+          iconSvg: CONST.HEXAGON,
         });
-
-        // The LayerControlAPI.enforceOrder() will handle the actual z-index
-        // calculation for the custom panes (__heatmap_graph__ and __heatmap_label__)
-        // based on the layer's position in the list.
       }
 
       _unregisterFromLayerControl() {
         if (!this.isRegistered) return;
         this.isRegistered = false;
-        window.foliplus.LayerControlAPI.unregisterLayer(this.HEATMAP_ID);
+        window.foliplus.LayerControlAPI.unregisterLayer(CONST.HEATMAP_ID);
         this.graphLayer.clearLayers();
         this.labelLayer.clearLayers();
       }
@@ -481,65 +515,70 @@
       }
 
       onAdd() {
-        const wrapper = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+        const wrapper = L.DomUtil.create("div", "leaflet-bar leaflet-control");
         this.container = L.DomUtil.create(
-          'div',
-          'map-panel ctrl-fold heatmap-ctrl collapsed',
-          wrapper
+          "div",
+          "map-panel ctrl-fold heatmap-ctrl collapsed",
+          wrapper,
         );
         L.DomEvent.disableClickPropagation(wrapper);
         L.DomEvent.disableScrollPropagation(wrapper);
 
-        const toggleBtn = L.DomUtil.create('button', 'toggle-btn', this.container);
-        toggleBtn.title = _('heatmap.title');
-        toggleBtn.innerHTML = SVGS.HEXAGON;
+        const toggleBtn = L.DomUtil.create("button", "toggle-btn", this.container);
+        toggleBtn.title = _(`${CONST.name}.title`);
+        toggleBtn.innerHTML = CONST.HEXAGON;
 
-        const panelWrap = L.DomUtil.create('div', 'panel-wrap', this.container);
-        const header = L.DomUtil.create('div', 'panel-header', panelWrap);
+        const panelWrap = L.DomUtil.create("div", "panel-wrap", this.container);
+        const header = L.DomUtil.create("div", "panel-header", panelWrap);
         header.innerHTML = `
           <span class="header-title">
-            <span class="header-icon">${SVGS.HEXAGON}</span>
-            ${_('heatmap.title')}
+            <span class="header-icon">${CONST.HEXAGON}</span>
+            ${_(`${CONST.name}.title`)}
           </span>
-          <button class="close-btn ctrl-abs-btn" title="${_('layer.close_title')}">
-            ${window.foliplus.SVGs.CLOSE}</button>`;
+          <button class="close-btn ctrl-abs-btn" title="${_(`${CONST.name}.close_title`)}">
+            ${window.foliplus.SVGs.CLOSE}
+          </button>`;
 
         window.foliplus.bindPanelToggle({
           container: this.container,
-          toggleBtn: '.toggle-btn',
-          header: '.panel-header'
+          toggleBtn: ".toggle-btn",
+          header: ".panel-header",
         });
         window.foliplus.bindOutsideCollapse({
-          map: this.manager.map, container: this.container
+          map: this.manager.map,
+          container: this.container,
         });
 
-        const content = L.DomUtil.create('div', 'panel-content', panelWrap);
-        const configBody = L.DomUtil.create('div', 'config-body', content);
-        const dataHeading = L.DomUtil.create('div', 'section-heading', configBody);
-        dataHeading.textContent = _('heatmap.section_data');
+        const content = L.DomUtil.create("div", "panel-content", panelWrap);
+        const configBody = L.DomUtil.create("div", "config-body", content);
+        const dataHeading = L.DomUtil.create("div", "section-heading", configBody);
+        dataHeading.textContent = _(`${CONST.name}.section_data`);
 
-        const layerRow = L.DomUtil.create('div', 'form-row', configBody);
-        const layerRowLabel = L.DomUtil.create('label', 'form-label', layerRow);
-        layerRowLabel.textContent = _('heatmap.layer');
-        const layerSelectWrap = L.DomUtil.create('div', 'form-control-wrap', layerRow);
-        this.layerSelect = L.DomUtil.create('select', 'form-select', layerSelectWrap);
-        this.layerSelect.classList.add('layer-select');
+        const layerRow = L.DomUtil.create("div", "form-row", configBody);
+        const layerRowLabel = L.DomUtil.create("label", "form-label", layerRow);
+        layerRowLabel.textContent = _(`${CONST.name}.layer`);
+        const layerSelectWrap = L.DomUtil.create("div", "form-control-wrap", layerRow);
+        this.layerSelect = L.DomUtil.create(
+          "select",
+          "form-select layer-select",
+          layerSelectWrap,
+        );
 
-        this.extraBody = L.DomUtil.create('div', 'extra-body', configBody);
-        this.extraBody.style.display = 'none';
+        this.extraBody = L.DomUtil.create("div", "extra-body", configBody);
+        this.extraBody.style.display = "none";
 
         // Aggregation method
-        const aggRow = L.DomUtil.create('div', 'form-row', this.extraBody);
-        const aggRowLabel = L.DomUtil.create('label', 'form-label', aggRow);
-        aggRowLabel.textContent = _('heatmap.agg_method');
-        const aggControlWrap = L.DomUtil.create('div', 'form-control-wrap', aggRow);
-        this.aggSelect = L.DomUtil.create('select', 'form-select', aggControlWrap);
+        const aggRow = L.DomUtil.create("div", "form-row", this.extraBody);
+        const aggRowLabel = L.DomUtil.create("label", "form-label", aggRow);
+        aggRowLabel.textContent = _(`${CONST.name}.agg_method`);
+        const aggControlWrap = L.DomUtil.create("div", "form-control-wrap", aggRow);
+        this.aggSelect = L.DomUtil.create("select", "form-select", aggControlWrap);
         this.aggSelect.innerHTML = `
-          <option value="count">${_('heatmap.agg_count')}</option>
-          <option value="sum">${_('heatmap.agg_sum')}</option>
-          <option value="avg">${_('heatmap.agg_avg')}</option>
-          <option value="min">${_('heatmap.agg_min')}</option>
-          <option value="max">${_('heatmap.agg_max')}</option>`;
+          <option value="count">${_(`${CONST.name}.agg_count`)}</option>
+          <option value="sum">${_(`${CONST.name}.agg_sum`)}</option>
+          <option value="avg">${_(`${CONST.name}.agg_avg`)}</option>
+          <option value="min">${_(`${CONST.name}.agg_min`)}</option>
+          <option value="max">${_(`${CONST.name}.agg_max`)}</option>`;
         this.aggSelect.value = this.manager.currentAgg;
         this.aggSelect.onchange = () => {
           this.manager.currentAgg = this.aggSelect.value;
@@ -548,14 +587,18 @@
         };
 
         this.fieldWrap = L.DomUtil.create(
-          'div', 'form-row field-wrap hidden', this.extraBody
+          "div",
+          "form-row field-wrap hidden",
+          this.extraBody,
         );
-        const fieldLabel = L.DomUtil.create('label', 'form-label', this.fieldWrap);
-        fieldLabel.textContent = _('heatmap.field');
+        const fieldLabel = L.DomUtil.create("label", "form-label", this.fieldWrap);
+        fieldLabel.textContent = _(`${CONST.name}.field`);
         const fieldControlWrap = L.DomUtil.create(
-          'div', 'form-control-wrap', this.fieldWrap
+          "div",
+          "form-control-wrap",
+          this.fieldWrap,
         );
-        this.fieldSelect = L.DomUtil.create('select', 'form-select', fieldControlWrap);
+        this.fieldSelect = L.DomUtil.create("select", "form-select", fieldControlWrap);
         this.fieldSelect.onchange = () => {
           this.manager.currentField = this.fieldSelect.value;
           this._syncSelect(this.fieldSelect, this.fieldSelect.value);
@@ -566,23 +609,25 @@
         this.buildLayerListItems(this.layerSelect);
 
         // Style section
-        const styleHeading = L.DomUtil.create('div', 'section-heading', this.extraBody);
-        styleHeading.textContent = _('heatmap.section_style');
-        const styleSection = L.DomUtil.create('div', 'section-block', this.extraBody);
+        const styleHeading = L.DomUtil.create("div", "section-heading", this.extraBody);
+        styleHeading.textContent = _(`${CONST.name}.section_style`);
+        const styleSection = L.DomUtil.create("div", "section-block", this.extraBody);
 
         // Classification method / classes
-        const classRow = L.DomUtil.create('div', 'form-row', styleSection);
-        const classRowLabel = L.DomUtil.create('label', 'form-label', classRow);
-        classRowLabel.textContent = _('heatmap.class_method');
+        const classRow = L.DomUtil.create("div", "form-row", styleSection);
+        const classRowLabel = L.DomUtil.create("label", "form-label", classRow);
+        classRowLabel.textContent = _(`${CONST.name}.class_method`);
         const classControlWrap = L.DomUtil.create(
-          'div', 'form-control-wrap form-control-inline', classRow
+          "div",
+          "form-control-wrap form-control-inline",
+          classRow,
         );
-        this.methodSelect = L.DomUtil.create('select', 'form-select', classControlWrap);
+        this.methodSelect = L.DomUtil.create("select", "form-select", classControlWrap);
         this.methodSelect.innerHTML = `
-          <option value="jenks">${_('heatmap.jenks')}</option>
-          <option value="quantile">${_('heatmap.quantile')}</option>
-          <option value="equal">${_('heatmap.equal')}</option>
-          <option value="heads">${_('heatmap.heads')}</option>`;
+          <option value="jenks">${_(`${CONST.name}.jenks`)}</option>
+          <option value="quantile">${_(`${CONST.name}.quantile`)}</option>
+          <option value="equal">${_(`${CONST.name}.equal`)}</option>
+          <option value="heads">${_(`${CONST.name}.heads`)}</option>`;
         this.methodSelect.value = this.manager.currentMethod;
         this.methodSelect.onchange = () => {
           this.manager.currentMethod = this.methodSelect.value;
@@ -590,10 +635,12 @@
         };
 
         this.classSelect = L.DomUtil.create(
-          'select', 'form-select class-count-select', classControlWrap
+          "select",
+          "form-select class-count-select",
+          classControlWrap,
         );
         for (let ci = 2; ci <= 9; ci++) {
-          const co = document.createElement('option');
+          const co = document.createElement("option");
           co.value = ci;
           co.textContent = ci;
           this.classSelect.appendChild(co);
@@ -607,21 +654,28 @@
         };
 
         // Color scheme
-        const schemeRow = L.DomUtil.create('div', 'form-row', styleSection);
-        const schemeRowLabel = L.DomUtil.create('label', 'form-label', schemeRow);
-        schemeRowLabel.textContent = _('heatmap.scheme');
+        const schemeRow = L.DomUtil.create("div", "form-row", styleSection);
+        const schemeRowLabel = L.DomUtil.create("label", "form-label", schemeRow);
+        schemeRowLabel.textContent = _(`${CONST.name}.scheme`);
         this.schemeControlWrap = L.DomUtil.create(
-          'div', 'form-control-wrap', schemeRow
+          "div",
+          "form-control-wrap",
+          schemeRow,
         );
-        this.schemeBar = L.DomUtil.create('div', 'scheme-bar', this.schemeControlWrap);
+        this.schemeBar = L.DomUtil.create("div", "scheme-bar", this.schemeControlWrap);
         this.schemeBarInner = L.DomUtil.create(
-          'div', 'scheme-bar-inner', this.schemeBar);
+          "div",
+          "scheme-bar-inner",
+          this.schemeBar,
+        );
         this.schemeSelectHidden = L.DomUtil.create(
-          'select', 'scheme-select-hidden', this.schemeControlWrap
+          "select",
+          "scheme-select-hidden",
+          this.schemeControlWrap,
         );
 
         SCHEME_NAMES.forEach((name) => {
-          const opt = document.createElement('option');
+          const opt = document.createElement("option");
           opt.value = name;
           opt.textContent = name;
           this.schemeSelectHidden.appendChild(opt);
@@ -636,14 +690,14 @@
         this.updateSchemeBar();
 
         this.schemeBar.tabIndex = 0;
-        this.schemeBar.setAttribute('role', 'combobox');
-        this.schemeBar.setAttribute('aria-label', _('heatmap.scheme'));
+        this.schemeBar.setAttribute("role", "combobox");
+        this.schemeBar.setAttribute("aria-label", _(`${CONST.name}.scheme`));
         this.schemeBar.onclick = (e) => {
           e.stopPropagation();
           this.toggleSchemeDropdown();
         };
         this.schemeBar.onkeydown = (e) => {
-          if (['Enter', ' ', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+          if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(e.key)) {
             e.preventDefault();
             this.toggleSchemeDropdown();
           }
@@ -661,25 +715,31 @@
         };
 
         // Border settings
-        const borderRow = L.DomUtil.create('div', 'form-row', styleSection);
-        const borderRowLabel = L.DomUtil.create('label', 'form-label', borderRow);
-        borderRowLabel.textContent = _('heatmap.border');
+        const borderRow = L.DomUtil.create("div", "form-row", styleSection);
+        const borderRowLabel = L.DomUtil.create("label", "form-label", borderRow);
+        borderRowLabel.textContent = _(`${CONST.name}.border`);
         const borderControlWrap = L.DomUtil.create(
-          'div', 'form-control-wrap form-control-inline', borderRow
+          "div",
+          "form-control-wrap form-control-inline",
+          borderRow,
         );
         this.borderColorInput = L.DomUtil.create(
-          'input', 'border-color-input', borderControlWrap
+          "input",
+          "border-color-input",
+          borderControlWrap,
         );
-        this.borderColorInput.type = 'color';
+        this.borderColorInput.type = "color";
         this.borderColorInput.value = this.manager.BORDER_COLOR;
         this.borderColorInput.onchange = () => {
           this.manager.BORDER_COLOR = this.borderColorInput.value;
           this.manager.renderHexagons();
         };
         this.borderWeightInput = L.DomUtil.create(
-          'input', 'border-weight-input', borderControlWrap
+          "input",
+          "border-weight-input",
+          borderControlWrap,
         );
-        this.borderWeightInput.type = 'number';
+        this.borderWeightInput.type = "number";
         this.borderWeightInput.min = 0;
         this.borderWeightInput.max = 10;
         this.borderWeightInput.step = 0.5;
@@ -691,30 +751,35 @@
 
         // Label toggle
         const labelRow = L.DomUtil.create(
-          'div', 'form-row section-block-last', styleSection
+          "div",
+          "form-row section-block-last",
+          styleSection,
         );
-        const labelRowText = L.DomUtil.create('label', 'form-label', labelRow);
-        labelRowText.textContent = _('heatmap.label');
-        const labelControlWrap = L.DomUtil.create('div', 'form-control-wrap', labelRow);
+        const labelRowText = L.DomUtil.create("label", "form-label", labelRow);
+        labelRowText.textContent = _(`${CONST.name}.label`);
+        const labelControlWrap = L.DomUtil.create("div", "form-control-wrap", labelRow);
         const labelToggle = L.DomUtil.create(
-          'label', 'toggle-switch', labelControlWrap);
-        this.labelChk = L.DomUtil.create('input', '', labelToggle);
-        this.labelChk.type = 'checkbox';
+          "label",
+          "toggle-switch",
+          labelControlWrap,
+        );
+        this.labelChk = L.DomUtil.create("input", "", labelToggle);
+        this.labelChk.type = "checkbox";
         this.labelChk.checked = this.manager.currentLabelShow;
         this.labelChk.onchange = () => {
           this.manager.currentLabelShow = this.labelChk.checked;
           this.manager.renderHexagons();
         };
-        L.DomUtil.create('span', 'toggle-slider', labelToggle);
-        L.DomUtil.create('hr', 'section-divider', this.extraBody);
+        L.DomUtil.create("span", "toggle-slider", labelToggle);
+        L.DomUtil.create("hr", "section-divider", this.extraBody);
 
         // Bottom action buttons
-        const btnRow = L.DomUtil.create('div', 'btn-row', this.extraBody);
-        const clearBtn = L.DomUtil.create('button', 'btn btn-clear', btnRow);
-        clearBtn.textContent = _('heatmap.clear');
+        const btnRow = L.DomUtil.create("div", "btn-row", this.extraBody);
+        const clearBtn = L.DomUtil.create("button", "btn btn-clear", btnRow);
+        clearBtn.textContent = _(`${CONST.name}.clear`);
         clearBtn.onclick = () => {
           this._resetAll();
-          this._syncSelect(this.layerSelect, '');
+          this._syncSelect(this.layerSelect, "");
           this._syncSelect(this.aggSelect, AGG_DEFAULT);
           this._syncSelect(this.classSelect, String(N_CLASSES_DEFAULT));
           this._syncSelect(this.methodSelect, COLOR_METHOD);
@@ -725,31 +790,27 @@
 
           this.updateSchemeBar();
           this.updateFieldSelector();
-          this.extraBody.style.display = 'none';
-          this.container.classList.remove('expanded');
-          this.container.classList.add('collapsed');
+          this.extraBody.style.display = "none";
+          this.container.classList.remove("expanded");
+          this.container.classList.add("collapsed");
         };
 
-        const confirmBtn = L.DomUtil.create('button', 'btn btn-confirm', btnRow);
-        confirmBtn.textContent = _('heatmap.confirm');
+        const confirmBtn = L.DomUtil.create("button", "btn btn-confirm", btnRow);
+        confirmBtn.textContent = _(`${CONST.name}.confirm`);
         confirmBtn.onclick = () => {
           this.manager.renderHexagons();
-          this.container.classList.remove('expanded');
-          this.container.classList.add('collapsed');
+          this.container.classList.remove("expanded");
+          this.container.classList.add("collapsed");
         };
 
         // Watch panel expand event to refresh dropdown
         this.observer = new MutationObserver(() => {
-          if (
-            this.container.classList.contains('expanded') &&
-            !this.expandHookDone
-          ) {
+          if (this.container.classList.contains("expanded") && !this.expandHookDone) {
             this.expandHookDone = true;
             this.rebuildLayerDropdown();
           }
-          if (this.container.classList.contains('collapsed')) {
+          if (this.container.classList.contains("collapsed"))
             this.expandHookDone = false;
-          }
         });
         this.observer.observe(this.container, { attributes: true });
 
@@ -760,49 +821,44 @@
         // Clean up map event listeners
         if (this.manager.zoomTimer) clearTimeout(this.manager.zoomTimer);
         if (this.manager.layerScanTimer) clearTimeout(this.manager.layerScanTimer);
-        this.manager.map.off('zoomend', this.manager._onZoomEnd);
-        this.manager.map.off('layeradd layerremove', this.manager._onLayerChange);
+        this.manager.map.off("zoomend", this.manager._onZoomEnd);
+        this.manager.map.off("layeradd layerremove", this.manager._onLayerChange);
 
         // Disconnect MutationObserver
         if (this.observer) this.observer.disconnect();
 
         // Unregister from LayerControl and remove layers
         this.manager._unregisterFromLayerControl();
-        if (this.manager.mainLayer) {
+        if (this.manager.mainLayer)
           this.manager.map.removeLayer(this.manager.mainLayer);
-        }
       }
 
       // --- UI Logic Methods ---
       buildLayerListItems(sel) {
         this.manager.scanMapLayers();
-        sel.innerHTML = '';
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = _('heatmap.layer_placeholder');
+        sel.innerHTML = "";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = _(`${CONST.name}.layer_placeholder`);
         placeholder.disabled = true;
         placeholder.selected = !this.manager.selectedLayerId;
-        placeholder.className = 'placeholder-option';
+        placeholder.className = "placeholder-option";
         sel.appendChild(placeholder);
 
         this.manager.pointLayers.forEach((info) => {
-          const opt = document.createElement('option');
+          const opt = document.createElement("option");
           opt.value = info.id;
           opt.textContent = info.name;
           sel.appendChild(opt);
         });
 
-        if (this.manager.selectedLayerId) {
-          sel.value = this.manager.selectedLayerId;
-        } else {
-          sel.selectedIndex = 0;
-        }
+        if (this.manager.selectedLayerId) sel.value = this.manager.selectedLayerId;
+        else sel.selectedIndex = 0;
 
         sel.onchange = () => {
           this.manager.selectedLayerId = sel.value || null;
           if (this.extraBody) {
-            this.extraBody.style.display =
-              this.manager.selectedLayerId ? '' : 'none';
+            this.extraBody.style.display = this.manager.selectedLayerId ? "" : "none";
           }
           this._syncSelect(sel, sel.value);
           this.updateFieldSelector();
@@ -823,42 +879,42 @@
 
       updateFieldSelector() {
         if (!this.fieldWrap || !this.fieldSelect) return;
-        if (this.manager.currentAgg === 'count') {
-          this.fieldWrap.classList.add('hidden');
+        if (this.manager.currentAgg === "count") {
+          this.fieldWrap.classList.add("hidden");
           return;
         }
-        this.fieldWrap.classList.remove('hidden');
+        this.fieldWrap.classList.remove("hidden");
 
         const selected = this.manager.pointLayers.filter(
-          (info) => info.id === this.manager.selectedLayerId
+          (info) => info.id === this.manager.selectedLayerId,
         );
         const fields = this.manager.collectFields(selected);
         this.manager.autoFieldKey = this.manager.pickAutoField(fields);
-        const phOpt = document.createElement('option');
-        phOpt.value = '_auto';
-        phOpt.textContent = _('heatmap.field_auto');
-        phOpt.disabled = true;
-        phOpt.className = 'placeholder-option';
 
-        this.fieldSelect.innerHTML = '';
+        const phOpt = document.createElement("option");
+        phOpt.value = "_auto";
+        phOpt.textContent = _(`${CONST.name}.field_auto`);
+        phOpt.disabled = true;
+        phOpt.className = "placeholder-option";
+
+        this.fieldSelect.innerHTML = "";
         this.fieldSelect.appendChild(phOpt);
 
         fields.forEach((f) => {
-          const opt = document.createElement('option');
+          const opt = document.createElement("option");
           opt.value = f;
-          opt.textContent = f.startsWith('properties.')
-            ? f.substring(11) : f;
+          opt.textContent = f.startsWith("properties.") ? f.substring(11) : f;
           this.fieldSelect.appendChild(opt);
         });
 
         if (
           fields.includes(this.manager.currentField) ||
-          this.manager.currentField === '_auto'
+          this.manager.currentField === "_auto"
         ) {
           this.fieldSelect.value = this.manager.currentField;
         } else {
-          this.manager.currentField = '_auto';
-          this.fieldSelect.value = '_auto';
+          this.manager.currentField = "_auto";
+          this.fieldSelect.value = "_auto";
         }
 
         this._syncSelect(this.fieldSelect, this.fieldSelect.value);
@@ -867,10 +923,10 @@
       /** Render color blocks into a container. */
       _renderColorBar(container, name, nClasses) {
         const colors = this.manager.getColorScale(name, nClasses);
-        container.innerHTML = '';
+        container.innerHTML = "";
         for (const color of colors) {
-          const blk = document.createElement('div');
-          blk.className = 'scheme-bar-block';
+          const blk = document.createElement("div");
+          blk.className = "scheme-bar-block";
           blk.style.background = color;
           blk.style.width = `${100 / colors.length}%`;
           container.appendChild(blk);
@@ -878,17 +934,20 @@
       }
 
       updateSchemeBar() {
-        this._renderColorBar(this.schemeBarInner,
-          this.manager.currentScheme, this.manager.N_CLASSES);
+        this._renderColorBar(
+          this.schemeBarInner,
+          this.manager.currentScheme,
+          this.manager.N_CLASSES,
+        );
       }
 
       refreshSchemeDropdownItems() {
         if (!this.schemeDropdown) return;
-        const items = this.schemeDropdown.querySelectorAll('.scheme-dropdown-item');
+        const items = this.schemeDropdown.querySelectorAll(".scheme-dropdown-item");
         items.forEach((item) => {
-          const name = item.getAttribute('data-scheme-name');
+          const name = item.getAttribute("data-scheme-name");
           if (!name) return;
-          const bar = item.querySelector('.scheme-dropdown-bar');
+          const bar = item.querySelector(".scheme-dropdown-bar");
           if (bar) this._renderColorBar(bar, name, this.manager.N_CLASSES);
         });
       }
@@ -900,24 +959,28 @@
           return;
         }
         this.schemeDropdown = L.DomUtil.create(
-          'div', 'scheme-dropdown', this.schemeControlWrap
+          "div",
+          "scheme-dropdown",
+          this.schemeControlWrap,
         );
-        this.schemeDropdown.setAttribute('role', 'listbox');
+        this.schemeDropdown.setAttribute("role", "listbox");
 
         let focusIdx = -1;
         SCHEME_NAMES.forEach((name, idx) => {
           const item = L.DomUtil.create(
-            'div', 'scheme-dropdown-item', this.schemeDropdown
+            "div",
+            "scheme-dropdown-item",
+            this.schemeDropdown,
           );
-          item.setAttribute('role', 'option');
-          item.setAttribute('data-scheme-name', name);
+          item.setAttribute("role", "option");
+          item.setAttribute("data-scheme-name", name);
           item.tabIndex = -1;
           if (name === this.manager.currentScheme) {
-            item.classList.add('active');
+            item.classList.add("active");
             focusIdx = idx;
           }
 
-          const itemBar = L.DomUtil.create('div', 'scheme-dropdown-bar', item);
+          const itemBar = L.DomUtil.create("div", "scheme-dropdown-bar", item);
           this._renderColorBar(itemBar, name, this.manager.N_CLASSES);
 
           item.onclick = (ev) => {
@@ -926,7 +989,7 @@
           };
         });
 
-        const items = this.schemeDropdown.querySelectorAll('.scheme-dropdown-item');
+        const items = this.schemeDropdown.querySelectorAll(".scheme-dropdown-item");
         if (items.length) {
           if (focusIdx >= 0) items[focusIdx].focus();
           else items[0].focus();
@@ -934,22 +997,20 @@
 
         this.schemeDropdown.onkeydown = (e) => {
           const activeIdx = Array.from(items).indexOf(document.activeElement);
-          if (e.key === 'ArrowDown') {
+          if (e.key === "ArrowDown") {
             e.preventDefault();
-            const next = (activeIdx + 1) % items.length;
-            items[next].focus();
-          } else if (e.key === 'ArrowUp') {
+            items[(activeIdx + 1) % items.length].focus();
+          } else if (e.key === "ArrowUp") {
             e.preventDefault();
-            const prev = (activeIdx - 1 + items.length) % items.length;
-            items[prev].focus();
-          } else if (e.key === 'Enter') {
+            items[(activeIdx - 1 + items.length) % items.length].focus();
+          } else if (e.key === "Enter") {
             e.preventDefault();
             const active = document.activeElement;
-            if (active?.classList.contains('scheme-dropdown-item')) {
+            if (active?.classList.contains("scheme-dropdown-item")) {
               const idx = Array.from(items).indexOf(active);
               this.selectScheme(SCHEME_NAMES[idx]);
             }
-          } else if (e.key === 'Escape') {
+          } else if (e.key === "Escape") {
             this.schemeDropdown.remove();
             this.schemeDropdown = null;
             this.schemeBar.focus();
@@ -972,10 +1033,13 @@
       initScan(attempt) {
         this.manager.scanMapLayers();
         if (this.manager.pointLayers.length === 0 && attempt > 0) {
-          setTimeout(() => this.initScan(attempt - 1),
-            CONST.INIT_SCAN_INTERVAL_MS);
+          setTimeout(() => this.initScan(attempt - 1), CONST.INIT_SCAN_INTERVAL_MS);
         } else if (this.manager.pointLayers.length === 0) {
-          window.foliplus.showHint('heatmap', _('heatmap.no_layer'), 4000);
+          window.foliplus.showHint(
+            CONST.name,
+            _(`${CONST.name}.no_layer`),
+            CONST.NO_LAYER_HINT_MS,
+          );
         }
       }
 
@@ -998,7 +1062,7 @@
 
       _syncSelect(el, value) {
         el.value = value;
-        el.classList.toggle('is-placeholder', !value || value === '_auto');
+        el.classList.toggle("is-placeholder", !value || value === "_auto");
       }
     }
 
@@ -1006,7 +1070,8 @@
     // Instantiate manager and control, then add to map
     const heatmapManager = new HeatmapManager(map);
     const heatmapCtrl = new HeatmapControl(
-      { position: '{{ this.position }}' }, heatmapManager
+      { position: "{{ this.position }}" },
+      heatmapManager,
     );
 
     heatmapCtrl.addTo(map);

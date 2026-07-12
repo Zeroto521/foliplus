@@ -110,22 +110,22 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # Empty container (no leaves) → 'empty'
-        assert "if (leaves.length === 0) return 'empty'" in html
+        assert 'if (leaves.length === 0) return "empty"' in html
         # Has leaves but none match known types → 'unknown'
-        assert "if (!hasPoly && !hasLine && !hasPoint) return 'unknown'" in html
+        assert 'if (!hasPoly && !hasLine && !hasPoint) return "unknown"' in html
 
     def test_type_svg_fallback(self, base_map: folium.Map):
         """getTypeSVG returns EMPTY/UNKNOWN for non-standard layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "if (type === 'empty') return SVGS.EMPTY;" in html
+        assert 'if (type === "empty") return SVGS.EMPTY;' in html
         assert "return SVGS.UNKNOWN;" in html
 
     def test_locale_zh(self, base_map: folium.Map):
         LayerControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "图层" in html
-        assert "layer.panel_title" in html
+        assert "LayerControl.panel_title" in html
 
     def test_position_renders(self, base_map: folium.Map):
         LayerControl(position="bottomright").add_to(base_map)
@@ -218,9 +218,9 @@ class TestLayerControlRendering:
         """Default (en) locale keys rendered."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layer.toggle_title" in html
-        assert "layer.panel_title" in html
-        assert "layer.base_map_label" in html
+        assert "LayerControl.toggle_title" in html
+        assert "LayerControl.panel_title" in html
+        assert "LayerControl.base_map_label" in html
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """click handler on color-layer-item present in rendered code."""
@@ -329,6 +329,13 @@ class TestLayerControlRendering:
         assert "this._isEnforcing = true" in html
         assert "if (this._isEnforcing) return" in html
 
+    def test_error_keys_injected(self, base_map: folium.Map):
+        """LayerControl error keys appear in rendered HTML."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "LayerControl.load_order_fail" in html
+        assert "LayerControl.save_order_fail" in html
+
     def test_debounced_enforce_order(self, base_map: folium.Map):
         """enforceOrder is debounced in layeradd listener to prevent performance issues."""
         LayerControl().add_to(base_map)
@@ -340,7 +347,7 @@ class TestLayerControlRendering:
         """Regression test for Bug 1: Label panes get z-index offset (+1) automatically."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "cp.includes('label') || cp.includes('lbl')" in html
+        assert 'cp.includes("label") || cp.includes("lbl")' in html
         assert "ep.pane.style.zIndex = z + 1" in html
         assert "ensurePane" in html
         assert "_setLayerPaneRecursive" in html
@@ -370,8 +377,8 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert (
-            "this.map.getPane('markerPane')" in html
-            or 'this.map.getPane("markerPane")' in html
+            'this.map.getPane("markerPane")' in html
+            or "this.map.getPane('markerPane')" in html
         )
         assert "mp.style.zIndex = markerZ" in html
 
@@ -398,9 +405,10 @@ class TestLayerControlRendering:
         """TileLayers use z-index base 200 in enforceOrder."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "zBase = isTile ? 200 : CONST.Z_INDEX_BASE" in html
+        assert "zBase = isTile ? CONST.TILE_Z_INDEX_BASE : CONST.Z_INDEX_BASE" in html
         # Both 200 and 600 appear as z-index bases
         assert "CONST.Z_INDEX_BASE" in html
+        assert "CONST.TILE_Z_INDEX_BASE" in html
 
     def test_ensure_pane_need_renderer_param(self, base_map: folium.Map):
         """ensurePane accepts needRenderer parameter, defaults to true."""
@@ -429,8 +437,8 @@ class TestLayerControlRendering:
         """_showColorLayer hides tilePane visibility and opacity."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "tilePane.style.visibility = 'hidden'" in html
-        assert "tilePane.style.opacity = '0'" in html
+        assert 'tilePane.style.visibility = "hidden"' in html
+        assert 'tilePane.style.opacity = "0"' in html
 
     def test_public_api_get_layer_type(self, base_map: folium.Map):
         """getLayerType is exposed via LayerControlAPI."""
@@ -470,7 +478,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "_showReorderBlockedHint" in html
-        assert "layer.reorder_group_only" in html
+        assert "LayerControl.reorder_group_only" in html
         assert "DRAG_HINT_COOLDOWN_MS" in html
 
     def test_type_icons_use_current_color(self, base_map: folium.Map):
@@ -486,7 +494,7 @@ class TestLayerControlRendering:
         """Custom iconSvg is rendered in type-icon-col during initial render."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "l.iconSvg || ''" in html
+        assert 'l.iconSvg || ""' in html
         assert "type-icon-col" in html
 
     def test_runtime_guard_present(self, base_map: folium.Map):
@@ -517,7 +525,7 @@ class TestLayerControlBrowser:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
 
-            page.evaluate("document.querySelector('.layer-ctrl .toggle-btn').click()")
+            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
             page.wait_for_selector(
                 ".layer-ctrl.expanded", state="attached", timeout=5000
             )
@@ -529,20 +537,22 @@ class TestLayerControlBrowser:
                 """() => {
                     const api = window.foliplus && window.foliplus.LayerControlAPI;
                     if (!api) return false;
-                    const overlay = document.querySelector('.layer-item:not(.is-base-item):not(.color-layer-item)');
-                    const base = document.querySelector('.layer-item.is-base-item');
+                    const overlay = document.querySelector(".layer-item:not(.is-base-item):not(.color-layer-item)");
+                    const base = document.querySelector(".layer-item.is-base-item");
                     if (!overlay || !base) return false;
                     api.dragIdx = parseInt(overlay.dataset.index, 10);
-                    const ev = new Event('dragover', { bubbles: true, cancelable: true });
+                    const ev = new Event("dragover", { bubbles: true, cancelable: true });
                     base.dispatchEvent(ev);
                     return true;
                 }"""
             )
             assert ok, "Failed to dispatch simulated cross-group dragover"
 
-            page.wait_for_selector(".map-hint-layer", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".map-hint-LayerControl", state="attached", timeout=5000
+            )
             hint_text = page.evaluate(
-                "document.querySelector('.map-hint-layer')?.textContent || ''"
+                'document.querySelector(".map-hint-LayerControl")?.textContent || ""'
             )
             assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
         finally:

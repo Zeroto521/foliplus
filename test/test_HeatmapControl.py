@@ -119,7 +119,7 @@ class TestHeatmapControlRendering:
         HeatmapControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "网格聚合" in html
-        # 'heatmap.title' appears in JS source as locale key (e.g. _('heatmap.title'))
+        # 'HeatmapControl.title' appears in JS source as locale key (e.g. _('HeatmapControl.title'))
         # but the rendered display text should be the Chinese translation
         assert "heatmap.title" in html  # present as JS key, display value is "网格聚合"
 
@@ -127,7 +127,7 @@ class TestHeatmapControlRendering:
         """Label markers use custom pane and no zIndexOffset."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: this.graphPane" in html
+        assert "pane: CONST.GRAPH_PANE" in html
         assert "heatmap-label" in html
 
     def test_label_zindex_css(self, base_map: folium.Map):
@@ -153,13 +153,13 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "__heatmap__" in html
-        assert "pane: this.graphPane" in html
+        assert "pane: CONST.GRAPH_PANE" in html
 
     def test_graphlayer_pane_init(self, base_map: folium.Map):
         """graphLayer is initialized with pane: this.graphPane."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: this.graphPane" in html
+        assert "pane: CONST.GRAPH_PANE" in html
 
     def test_register_before_add_data(self, base_map: folium.Map):
         """_registerToLayerControl is called before graphLayer.addData."""
@@ -207,9 +207,9 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "onRemove()" in html
         assert "observer.disconnect" in html
-        assert "manager.map.off('zoomend', this.manager._onZoomEnd)" in html
+        assert 'manager.map.off("zoomend", this.manager._onZoomEnd)' in html
         assert (
-            "manager.map.off('layeradd layerremove', this.manager._onLayerChange)"
+            'manager.map.off("layeradd layerremove", this.manager._onLayerChange)'
             in html
         )
 
@@ -217,7 +217,7 @@ class TestHeatmapControlRendering:
         """initScan shows no_layer hint when no point layers found."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "heatmap.no_layer" in html
+        assert "HeatmapControl.no_layer" in html
         assert "4000" in html  # hint duration
 
     def test_auto_field_single_field_detection(self, base_map: folium.Map):
@@ -247,8 +247,8 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "this._onZoomEnd" in html
         assert "this._onLayerChange" in html
-        assert "map.on('zoomend', this._onZoomEnd)" in html
-        assert "map.on('layeradd layerremove', this._onLayerChange)" in html
+        assert 'map.on("zoomend", this._onZoomEnd)' in html
+        assert 'map.on("layeradd layerremove", this._onLayerChange)' in html
 
     def test_get_point_value_dedup(self, base_map: folium.Map):
         """getPointValue delegates to _readMarkerField instead of duplicating branch logic."""
@@ -258,6 +258,15 @@ class TestHeatmapControlRendering:
         # Should NOT contain inline field resolution branches
         assert "this.currentField === '_value'" not in html
         assert "this.currentField === 'options.value'" not in html
+
+    def test_error_keys_injected(self, base_map: folium.Map):
+        """Error/warning locale keys appear in rendered HTML."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "HeatmapControl.value_fallback" in html
+        assert "HeatmapControl.h3_cell_fail" in html
+        assert "HeatmapControl.h3_boundary_fail" in html
+        assert "HeatmapControl.close_title" in html
 
 
 class TestHeatmapControlBrowser:
@@ -416,15 +425,15 @@ class TestHeatmapAutoFieldBrowser:
         # Also inject stubs for h3/ss/chroma so the heatmap initialisation and
         # render path succeed without CDN scripts.
         html = html.replace(
-            "check: () => typeof h3 !== 'undefined'",
+            'check: () => typeof h3 !== "undefined"',
             "check: () => true",
         )
         html = html.replace(
-            "check: () => typeof ss !== 'undefined'",
+            'check: () => typeof ss !== "undefined"',
             "check: () => true",
         )
         html = html.replace(
-            "check: () => typeof chroma !== 'undefined'",
+            'check: () => typeof chroma !== "undefined"',
             "check: () => true",
         )
         html = html.replace(

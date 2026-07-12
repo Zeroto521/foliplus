@@ -190,9 +190,14 @@
   }
 }
 
-.foliplus-spin {
+.spin {
   animation: spin 0.8s linear infinite;
   vertical-align: middle;
+}
+
+/* ── Fullscreen button (remove Leaflet's built-in bg icon) ── */
+.fullscreen-btn {
+  background-image: none !important;
 }
 
 /* ── Toggle Button ── */
@@ -290,13 +295,13 @@
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 
-.foliplus-pin-wrap {
+.pin-wrap {
   position: relative;
   width: var(--size-24);
   height: var(--toggle-size);
 }
 
-.foliplus-popup-content {
+.popup-content {
   font-size: var(--font-size-md);
   line-height: 1.8;
 }

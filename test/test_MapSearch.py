@@ -91,17 +91,17 @@ class TestMapSearchRendering:
     def test_default_mode_coord_in_template(self, base_map: folium.Map):
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "'coord'" in html
+        assert '"coord"' in html
 
     def test_mode_addr_in_template(self, base_map: folium.Map):
         MapSearch(mode="addr").add_to(base_map)
         html = render(base_map)
-        assert "'addr'" in html
+        assert '"addr"' in html
 
     def test_mode_coord_in_template(self, base_map: folium.Map):
         MapSearch(mode="coord").add_to(base_map)
         html = render(base_map)
-        assert "'coord'" in html
+        assert '"coord"' in html
 
     def test_coord_search_no_fromWgs84(self, base_map: folium.Map):
         """Coord search does NOT call fromWgs84 (user input CRS is unknown)."""

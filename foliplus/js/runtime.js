@@ -6,9 +6,7 @@
 (function (window, document) {
   "use strict";
   // 1. Ensure global namespace object exists
-  if (!window.foliplus || typeof window.foliplus !== "object") {
-    window.foliplus = {};
-  }
+  if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {};
   const foliplus = window.foliplus;
 
   /**
@@ -33,30 +31,77 @@
   if (foliplus._initialized) return;
   foliplus._initialized = true;
 
+  // Private state (closure-scoped, not exposed on foliplus)
+  let _hintIcons = {};
+  let _gcoordLoading = false;
+  let _gcoordWarned = false;
+
+  // ==================== Constants ====================
+  const HINT = {
+    BOTTOM_BASE: 20,
+    STACK_GAP: 40,
+    Z_BASE: 10000,
+    DEFAULT_DURATION: 3000,
+  };
+  const GEO = {
+    THROTTLE_MS: 1000,
+    NOMINATIM_ZOOM: 18,
+  };
+  const PIN = {
+    SIZE: [24, 36],
+    ANCHOR: [12, 36],
+    POPUP_ANCHOR: [0, -36],
+  };
+  const POPUP = {
+    MAX_WIDTH: 300,
+    DEFAULT_LOCALE_1000: 1000, // en compact threshold
+    DEFAULT_LOCALE_10000: 10000, // zh compact threshold
+  };
+  const FALLBACK = {
+    K: 1000,
+    W: 10000,
+    M: 1e6,
+    B: 1e9,
+    Y: 1e8,
+  };
+
   // --- SVG Icons ---
   foliplus.SVGs = {
-    LOADING: `<svg class="foliplus-spin" width="14" height="14" viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-      <path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
-    CLOSE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-    PIN_ICON: `<div class="foliplus-pin-wrap"><svg width="24" height="36" viewBox="0 0 24 36">
-      <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
-        fill="var(--accent-primary)" stroke="var(--neutral-0)" stroke-width="1.5"/>
-      <circle cx="12" cy="12" r="4.5" fill="var(--neutral-0)"/>
-    </svg></div>`,
-    LOCATE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-      <circle cx="12" cy="9" r="2.5"/></svg>`,
-    GLOBE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/>
-      <line x1="2" y1="12" x2="22" y2="12"/></svg>`,
-    SEARCH: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/></svg>`,
+    LOADING: `
+      <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M21 12a9 9 0 1 1-6.2-8.6"/>
+      </svg>`,
+    CLOSE: `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>`,
+    PIN_ICON: `
+      <div class="pin-wrap">
+        <svg width="24" height="36" viewBox="0 0 24 36">
+          <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
+              fill="var(--accent-primary)" stroke="var(--neutral-0)" stroke-width="1.5"/>
+        <circle cx="12" cy="12" r="4.5" fill="var(--neutral-0)"/>
+        </svg>
+      </div>`,
+    LOCATE: `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+        <circle cx="12" cy="9" r="2.5"/>
+      </svg>`,
+    GLOBE: `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+      </svg>`,
+    SEARCH: `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/>
+      </svg>`,
   };
 
   // ==================== Hint / Toast System ====================
@@ -73,12 +118,10 @@
    *   foliplus.registerHintIcon('export', '<svg>...</svg>');
    *   foliplus.showHint('export', 'Exporting...'); // shows icon + text
    */
-  foliplus.registerHintIcon = function (key, iconSvg) {
-    foliplus._hintIcons = foliplus._hintIcons || {};
-    foliplus._hintIcons[key] = iconSvg;
+  foliplus.registerHintIcon = (key, iconSvg) => {
+    _hintIcons[key] = iconSvg;
   };
-  foliplus._hintIcons = foliplus._hintIcons || {};
-  foliplus._hintIcons["gcoord-warn"] = foliplus.SVGs.SEARCH;
+  _hintIcons["MapSearch"] = foliplus.SVGs.SEARCH;
 
   /**
    * Display a hint toast at the bottom-center of the viewport.
@@ -109,14 +152,14 @@
    *   // Remove appended instances individually
    *   foliplus.hideHint('export-1234567890');
    */
-  foliplus.showHint = function (key, text, duration, parent, append) {
+  foliplus.showHint = (key, text, duration, parent, append) => {
     if (!append) foliplus.hideHint(key);
     const hintTarget = parent || document.body;
     const cls = append
       ? `map-hint map-hint-${key}-${Date.now()}`
       : `map-hint map-hint-${key}`;
     const el = L.DomUtil.create("div", cls, hintTarget);
-    const icon = (foliplus._hintIcons && foliplus._hintIcons[key]) || "";
+    const icon = (_hintIcons && _hintIcons[key]) || "";
     el.innerHTML = icon ? `<span class="map-hint-icon">${icon}</span>${text}` : text;
     el.classList.add("map-hint");
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
@@ -129,8 +172,8 @@
     const _reposition = () => {
       let idx = 0;
       for (let v of _hintMap.values()) {
-        v.element.style.bottom = `${20 + idx * 40}px`;
-        v.element.style.zIndex = 10000 + idx;
+        v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
+        v.element.style.zIndex = HINT.Z_BASE + idx;
         idx++;
       }
     };
@@ -139,7 +182,7 @@
     if (duration !== 0) {
       _hintMap.get(storeKey).timer = setTimeout(
         () => foliplus.hideHint(storeKey),
-        duration || 3000,
+        duration || HINT.DEFAULT_DURATION,
       );
     }
   };
@@ -154,7 +197,7 @@
    *   foliplus.hideHint('export');            // removes all export hints
    *   foliplus.hideHint('gcoord-warn');       // removes gcoord warning
    */
-  foliplus.hideHint = function (key) {
+  foliplus.hideHint = (key) => {
     // Also clear appended instances (keys start with key+'-')
     for (const k of _hintMap.keys()) {
       if (k === key || k.startsWith(key + "-")) {
@@ -167,7 +210,7 @@
 
     let idx = 0;
     for (let v of _hintMap.values()) {
-      v.element.style.bottom = `${20 + idx * 40}px`;
+      v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
       idx++;
     }
   };
@@ -179,19 +222,15 @@
    *
    * @returns {boolean} True if gcoord is already available, false otherwise
    */
-  foliplus._ensureGcoord = function () {
+  const _ensureGcoord = () => {
     if (typeof gcoord !== "undefined") return true;
-    if (!foliplus._gcoordLoading) {
-      foliplus._gcoordLoading = true;
+    if (!_gcoordLoading) {
+      _gcoordLoading = true;
       const s = document.createElement("script");
       s.src =
         "https://cdn.jsdelivr.net/npm/gcoord@{{ this._gcoord_version }}/dist/gcoord.global.prod.js";
-      s.onload = () => {
-        foliplus._gcoordLoading = false;
-      };
-      s.onerror = () => {
-        foliplus._gcoordLoading = false;
-      };
+      s.onload = () => (_gcoordLoading = false);
+      s.onerror = () => (_gcoordLoading = false);
       document.head.appendChild(s);
     }
     return false;
@@ -205,9 +244,9 @@
    * @returns {boolean} True if the map uses Baidu CRS
    *
    * @example
-   *   foliplus._isBaiduCRS(map) // → true if Baidu tiles are used
+   *   _isBaiduCRS(map) // → true if Baidu tiles are used
    */
-  foliplus._isBaiduCRS = function (map) {
+  const _isBaiduCRS = (map) => {
     try {
       if (L.CRS && L.CRS.Baidu) return true;
       const crs = map.options.crs;
@@ -237,18 +276,18 @@
    *   const wgs = foliplus.toWgs84(map, 31.23, 121.47);
    *   // → [31.225, 121.464] (approx. WGS-84)
    */
-  foliplus.toWgs84 = function (map, lat, lng) {
+  foliplus.toWgs84 = (map, lat, lng) => {
     if (typeof gcoord !== "undefined") {
-      const src = foliplus._isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
+      const src = _isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
     }
-    if (!foliplus._ensureGcoord()) {
+    if (!_ensureGcoord()) {
       // gcoord not yet loaded — schedule warning on next access
-      if (!foliplus._gcoordWarned) {
-        foliplus._gcoordWarned = true;
+      if (!_gcoordWarned) {
+        _gcoordWarned = true;
         console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-        foliplus.showHint("gcoord-warn", foliplus.gt("gcoord.warn"), 5000);
+        foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
       }
     }
     return [lat, lng];
@@ -264,19 +303,19 @@
    * @param {number} lat - Latitude in WGS-84
    * @returns {number[]} [lng, lat] in map CRS
    */
-  foliplus.fromWgs84 = function (map, lng, lat) {
+  foliplus.fromWgs84 = (map, lng, lat) => {
     if (typeof gcoord === "undefined") {
-      if (!foliplus._ensureGcoord()) {
+      if (!_ensureGcoord()) {
         // gcoord not yet loaded — show warning and return unchanged
-        if (!foliplus._gcoordWarned) {
-          foliplus._gcoordWarned = true;
+        if (!_gcoordWarned) {
+          _gcoordWarned = true;
           console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-          foliplus.showHint("gcoord-warn", foliplus.gt("gcoord.warn"), 5000);
+          foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
         }
         return [lng, lat];
       }
     }
-    const isBaidu = foliplus._isBaiduCRS(map);
+    const isBaidu = _isBaiduCRS(map);
     // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip
     const dst = isBaidu ? gcoord.BD09 : gcoord.GCJ02;
     // Skip transformation for non-domestic maps (no Baidu/AMap tile patterns)
@@ -291,7 +330,7 @@
    * @param {L.Map} map - Leaflet map instance
    * @returns {boolean} True if the map uses domestic tile providers
    */
-  function _isDomesticMap(map) {
+  const _isDomesticMap = (map) => {
     try {
       const crs = map.options.crs;
       if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
@@ -314,7 +353,7 @@
     } catch (e) {
       return false;
     }
-  }
+  };
 
   // ==================== Reverse Geocoding ====================
   // Uses throttled queue (1 req/s) and response cache.
@@ -330,17 +369,17 @@
    * @param {number} lng Longitude
    * @returns {Promise<string>} Resolved address string
    */
-  foliplus.reverseGeocode = function (map, lat, lng) {
+  foliplus.reverseGeocode = (map, lat, lng) => {
     const key = `${lat},${lng}`;
     if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
 
     const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
     const lang = (window._LOCALE && window._LOCALE["locale.code"]) || "en";
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=18&accept-language=${lang}`;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
 
     _geoPromise = _geoPromise
       .then(() => {
-        const wait = Math.max(0, 1000 - (Date.now() - _geoLastReq));
+        const wait = Math.max(0, GEO.THROTTLE_MS - (Date.now() - _geoLastReq));
         return new Promise((r) => setTimeout(r, wait));
       })
       .then(() => {
@@ -355,12 +394,10 @@
               .filter((s) => s && !/^\d+$/.test(s))
               .reverse()
               .join(",");
-            _geoCache[key] = addr || foliplus.gt("search.addr_not_found");
+            _geoCache[key] = addr || foliplus.gt("MapSearch.addr_not_found");
             return _geoCache[key];
           })
-          .catch(() => {
-            return foliplus.gt("measure.geo_fail");
-          });
+          .catch(() => foliplus.gt("MeasureControl.geo_fail"));
       });
     return _geoPromise;
   };
@@ -371,22 +408,25 @@
    * @param {number} lat Latitude
    * @param {number} lng Longitude
    * @param {string|null} addr Address text or null (triggers loading indicator)
-   * @param {string} prefix Key prefix for lookup (e.g. 'search.popup')
-   * @param {string} [title] Explicit popup title text
+   * @param {string} title Locale key for popup title (e.g. 'MeasureControl.popup_title')
+   * @param {string} loading Locale key for loading text (e.g. 'MeasureControl.popup_loading')
+   * @param {string} locLabel Locale key for location label (e.g. 'MeasureControl.popup_loc_label')
+   * @param {string} addrLabel Locale key for address label (e.g. 'MeasureControl.popup_addr_label')
    * @returns {string} HTML string
    */
-  foliplus.buildPopupHtml = function (lat, lng, addr, prefix, title) {
-    const popupTitle = title || foliplus.gt(prefix + "_title");
-    const loadStr = foliplus.gt(prefix + "_loading");
+  foliplus.buildPopupHtml = (lat, lng, addr, title, loading, locLabel, addrLabel) => {
+    const popupTitle = foliplus.gt(title);
+    const loadStr = foliplus.gt(loading);
     const addrHtml =
       addr && addr.includes("LOADING")
         ? `${foliplus.SVGs.LOADING} ${loadStr}`
         : addr || loadStr;
 
-    return `<div class="foliplus-popup-content">
+    return `
+    <div class="popup-content">
       <b>${popupTitle}</b><br>
-      ${foliplus.gt(prefix + "_loc_label")}${lng},${lat}<br>
-      ${foliplus.gt(prefix + "_addr_label")}${addrHtml}
+      ${foliplus.gt(locLabel)}${lng},${lat}<br>
+      ${foliplus.gt(addrLabel)}${addrHtml}
     </div>`;
   };
 
@@ -396,43 +436,58 @@
    * @param {number} lat Latitude
    * @param {number} lng Longitude
    * @param {string} addr Address string (null = pending reverse geocode)
-   * @param {string} prefix Key prefix for lookup (e.g. 'search.popup')
-   * @param {string} [title] Explicit popup title text
+   * @param {string} title Locale key for popup title
+   * @param {string} loading Locale key for loading text
+   * @param {string} locLabel Locale key for location label
+   * @param {string} addrLabel Locale key for address label
    * @param {L.Marker} [existing] Existing marker to remove before creating new one
    * @param {L.LayerGroup} [layerGroup] Optional layer group to add the marker to
    * @returns {L.Marker} The newly created marker
    */
-  foliplus.createLocationMarker = function (
+  foliplus.createLocationMarker = (
     map,
     lat,
     lng,
     addr,
-    prefix,
     title,
+    loading,
+    locLabel,
+    addrLabel,
     existing,
     layerGroup,
-  ) {
+  ) => {
     if (existing) map.removeLayer(existing);
     const target = layerGroup || map;
     const mk = L.marker([lat, lng], {
       icon: L.divIcon({
         className: "",
         html: foliplus.SVGs.PIN_ICON,
-        iconSize: [24, 36],
-        iconAnchor: [12, 36],
-        popupAnchor: [0, -36],
+        iconSize: PIN.SIZE,
+        iconAnchor: PIN.ANCHOR,
+        popupAnchor: PIN.POPUP_ANCHOR,
       }),
     });
     target.addLayer(mk);
-    mk.bindPopup(foliplus.buildPopupHtml(lat, lng, addr, prefix, title), {
-      maxWidth: 300,
-    });
+    mk.bindPopup(
+      foliplus.buildPopupHtml(lat, lng, addr, title, loading, locLabel, addrLabel),
+      {
+        maxWidth: POPUP.MAX_WIDTH,
+      },
+    );
     mk.openPopup();
     if (!addr) {
-      foliplus.reverseGeocode(map, lat, lng).then(function (resolved) {
+      foliplus.reverseGeocode(map, lat, lng).then((resolved) => {
         if (mk && mk.getPopup() && mk.getPopup().isOpen()) {
           mk.setPopupContent(
-            foliplus.buildPopupHtml(lat, lng, resolved, prefix, title),
+            foliplus.buildPopupHtml(
+              lat,
+              lng,
+              resolved,
+              title,
+              loading,
+              locLabel,
+              addrLabel,
+            ),
           );
         }
       });
@@ -447,7 +502,7 @@
    * @param {string} opts.toggleBtn - Selector for the toggle button
    * @param {string} opts.header - Selector for the header (click to collapse)
    */
-  foliplus.bindPanelToggle = function ({ container, toggleBtn, header }) {
+  foliplus.bindPanelToggle = ({ container, toggleBtn, header }) => {
     const btn = container.querySelector(toggleBtn);
     if (btn) {
       L.DomEvent.on(btn, "click", (e) => {
@@ -474,7 +529,7 @@
    * @param {HTMLElement} opts.container - Panel element to watch
    * @returns {Function} Cleanup function to remove the click listener
    */
-  foliplus.bindOutsideCollapse = function ({ map, container }) {
+  foliplus.bindOutsideCollapse = ({ map, container }) => {
     const handler = (e) => {
       if (!container.contains(e.target) && container.classList.contains("expanded")) {
         container.classList.remove("expanded");
@@ -506,19 +561,19 @@
    * @param {boolean} opts.isLeft - Whether position is left-aligned
    * @returns {object} { container, ctrl, toolBar, toggleBtn }
    */
-  foliplus.createFoldControl = function (opts) {
+  foliplus.createFoldControl = (opts) => {
     var container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
     var ctrl = L.DomUtil.create(
       "div",
-      opts.cssClass + " ctrl-fold collapsed",
+      `${opts.cssClass} ctrl-fold collapsed`,
       container,
     );
-    ctrl.innerHTML =
-      '<button class="toggle-btn" title="' +
-      opts.toggleTitle +
-      '">' +
-      opts.toggleSvg +
-      '</button><div class="tool-bar"></div>';
+    ctrl.innerHTML = `
+      <button class="toggle-btn" title="${opts.toggleTitle}">
+        ${opts.toggleSvg}
+      </button>
+      <div class="tool-bar"></div>
+    `;
     if (!opts.isLeft) ctrl.classList.add("align-right");
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
@@ -543,7 +598,7 @@
    * @param {string} [locale] Locale code, defaults to browser language (en/zh)
    * @returns {string} Formatted string
    */
-  foliplus.formatNumber = function (val, style, locale) {
+  foliplus.formatNumber = (val, style, locale) => {
     style = style || "auto";
     locale =
       locale || (typeof _LOCALE !== "undefined" && _LOCALE["locale.code"]) || "en";
@@ -551,8 +606,7 @@
       if (style === "auto") {
         // Use compact abbreviations above locale-specific threshold,
         // standard grouping below (so zh locale gets "1,234" instead of "1234")
-        const compactThreshold = locale === "zh" ? 10000 : 1000;
-        if (val >= compactThreshold) {
+        if (val >= (locale === "zh" ? FALLBACK.W : FALLBACK.K)) {
           return new Intl.NumberFormat(locale, {
             notation: "compact",
             compactDisplay: "short",
@@ -566,12 +620,17 @@
     // Fallback: no Intl support — use locale-aware abbreviations
     if (style === "auto") {
       if (locale === "zh") {
-        if (val >= 1e8) return (val / 1e8).toFixed(1) + foliplus.gt("num.y");
-        if (val >= 10000) return (val / 10000).toFixed(1) + foliplus.gt("num.w");
+        if (val >= FALLBACK.Y)
+          return (val / FALLBACK.Y).toFixed(1) + foliplus.gt("num.y");
+        if (val >= FALLBACK.W)
+          return (val / FALLBACK.W).toFixed(1) + foliplus.gt("num.w");
       } else {
-        if (val >= 1e9) return (val / 1e9).toFixed(1) + foliplus.gt("num.b");
-        if (val >= 1e6) return (val / 1e6).toFixed(1) + foliplus.gt("num.m");
-        if (val >= 1000) return (val / 1000).toFixed(1) + foliplus.gt("num.k");
+        if (val >= FALLBACK.B)
+          return (val / FALLBACK.B).toFixed(1) + foliplus.gt("num.b");
+        if (val >= FALLBACK.M)
+          return (val / FALLBACK.M).toFixed(1) + foliplus.gt("num.m");
+        if (val >= FALLBACK.K)
+          return (val / FALLBACK.K).toFixed(1) + foliplus.gt("num.k");
       }
     }
     return Math.round(val).toLocaleString();
@@ -594,23 +653,44 @@
    *        `success=true` if all loaded, otherwise `failedNames` lists failures.
    * @param {number} [maxRetries=0] - Max retry attempts per failed script
    * @param {number} [delayMs=3000] - Delay between retries in milliseconds
+   * @param {Object} [hintOpts] - Optional hint configuration for auto-showing
+   *        failure toast. When provided, a hint is automatically shown on
+   *        final failure using the first matching key. Requires:
+   *          - `hintKey`:  hint type key (e.g. 'HeatmapControl')
+   *          - `localeMap`: object mapping dependency names to locale keys,
+   *                         e.g. `{ ss: 'HeatmapControl.no_ss',
+   *                                 chroma: 'HeatmapControl.no_chroma',
+   *                                 default: 'HeatmapControl.no_h3' }`
    *
    * @example
-   *   foliplus.loadScripts([
-   *     { url: '/h3.js',  check: () => typeof h3 !== 'undefined',  name: 'h3-js' },
-   *     { url: '/chroma.js', check: () => typeof chroma !== 'undefined', name: 'chroma-js' },
-   *   ], (ok, fails) => {
-   *     if (!ok) console.warn('Failed:', fails);
-   *   }, 2, 3000);
+   *   foliplus.loadScripts([...], (ok) => { if (ok) run(); }, 2, 3000, {
+   *     hintKey: 'HeatmapControl',
+   *     localeMap: { ss: 'HeatmapControl.no_ss', default: 'HeatmapControl.no_h3' },
+   *   });
    */
-  foliplus.loadScripts = function (deps, callback, maxRetries, delayMs) {
+  foliplus.loadScripts = (deps, callback, maxRetries, delayMs, hintOpts) => {
     maxRetries = maxRetries || 0;
     delayMs = delayMs || 3000;
     let retries = 0;
 
-    function attempt() {
+    const attempt = () => {
       const pending = deps.filter((d) => !d.check());
       if (pending.length === 0) return callback(true);
+
+      const showFailureHint = (failedNames) => {
+        if (hintOpts && hintOpts.hintKey && hintOpts.localeMap) {
+          const failedStr = failedNames.join(", ");
+          let msgKey = hintOpts.localeMap.default;
+          for (const name of failedNames) {
+            if (hintOpts.localeMap[name]) {
+              msgKey = hintOpts.localeMap[name];
+              break;
+            }
+          }
+          console.error(`[${hintOpts.hintKey}] ${foliplus.gt(msgKey)} (${failedStr})`);
+          foliplus.showHint(hintOpts.hintKey, foliplus.gt(msgKey), 0);
+        }
+      };
 
       let loaded = 0,
         failedCount = 0;
@@ -626,11 +706,13 @@
               else if (retries < maxRetries) {
                 retries++;
                 setTimeout(attempt, delayMs);
-              } else
-                callback(
-                  false,
-                  pending.filter((d) => !d.check()).map((d) => d.name),
-                );
+              } else {
+                const failedNames = pending
+                  .filter((d) => !d.check())
+                  .map((d) => d.name);
+                callback(false, failedNames);
+                showFailureHint(failedNames);
+              }
             }
           }, 100);
         };
@@ -641,16 +723,16 @@
             if (retries < maxRetries) {
               retries++;
               setTimeout(attempt, delayMs);
-            } else
-              callback(
-                false,
-                pending.filter((d) => !d.check()).map((d) => d.name),
-              );
+            } else {
+              const failedNames = pending.filter((d) => !d.check()).map((d) => d.name);
+              callback(false, failedNames);
+              showFailureHint(failedNames);
+            }
           }
         };
         document.head.appendChild(s);
       });
-    }
+    };
 
     attempt();
   };
@@ -676,7 +758,7 @@
    *   // → window._LOCALE = zh table
    *   foliplus.gt('export.btn_title') // → '导出地图'
    */
-  foliplus.resolveLocale = function (code, tables) {
+  foliplus.resolveLocale = (code, tables) => {
     if (!tables) return;
     let lang = "";
 

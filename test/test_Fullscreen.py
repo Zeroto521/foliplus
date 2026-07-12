@@ -72,4 +72,4 @@ class TestFullscreenRendering:
         Fullscreen(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "已进入全屏" in html
-        assert "fullscreen.enter" in html
+        assert "Fullscreen.enter" in html

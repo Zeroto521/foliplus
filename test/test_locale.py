@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -16,13 +18,107 @@ from foliplus.locale import (
     resolve_locale,
 )
 
+# Locale keys used across all JS files (resolved from CONST.name patterns).
+# Keep this list in sync with foliplus/js/*.js to catch missing translations.
+_JS_USED_KEYS = {
+    # Fullscreen
+    "Fullscreen.title",
+    "Fullscreen.title_cancel",
+    "Fullscreen.enter",
+    "Fullscreen.exit",
+    # HeatmapControl
+    "HeatmapControl.title",
+    "HeatmapControl.close_title",
+    "HeatmapControl.section_data",
+    "HeatmapControl.layer",
+    "HeatmapControl.layer_placeholder",
+    "HeatmapControl.agg_method",
+    "HeatmapControl.agg_count",
+    "HeatmapControl.agg_sum",
+    "HeatmapControl.agg_avg",
+    "HeatmapControl.agg_min",
+    "HeatmapControl.agg_max",
+    "HeatmapControl.field",
+    "HeatmapControl.field_auto",
+    "HeatmapControl.section_style",
+    "HeatmapControl.class_method",
+    "HeatmapControl.jenks",
+    "HeatmapControl.quantile",
+    "HeatmapControl.equal",
+    "HeatmapControl.heads",
+    "HeatmapControl.scheme",
+    "HeatmapControl.border",
+    "HeatmapControl.label",
+    "HeatmapControl.clear",
+    "HeatmapControl.confirm",
+    "HeatmapControl.value_fallback",
+    "HeatmapControl.h3_cell_fail",
+    "HeatmapControl.h3_boundary_fail",
+    "HeatmapControl.no_layer",
+    "HeatmapControl.no_h3",
+    "HeatmapControl.no_ss",
+    "HeatmapControl.no_chroma",
+    # LayerControl
+    "LayerControl.toggle_title",
+    "LayerControl.panel_title",
+    "LayerControl.close_title",
+    "LayerControl.base_map_label",
+    "LayerControl.color_map_label",
+    "LayerControl.reorder_group_only",
+    "LayerControl.load_order_fail",
+    "LayerControl.save_order_fail",
+    # MapSearch
+    "MapSearch.btn_title",
+    "MapSearch.mode_coord",
+    "MapSearch.coord_placeholder",
+    "MapSearch.clear_title",
+    "MapSearch.mode_addr",
+    "MapSearch.addr_placeholder",
+    "MapSearch.coord_error",
+    "MapSearch.popup_title_coord",
+    "MapSearch.popup_title_addr",
+    "MapSearch.popup_loading",
+    "MapSearch.popup_loc_label",
+    "MapSearch.popup_addr_label",
+    "MapSearch.addr_not_found",
+    "MapSearch.addr_error",
+    # MeasureControl
+    "MeasureControl.unit_km",
+    "MeasureControl.unit_m",
+    "MeasureControl.tool_toggle",
+    "MeasureControl.tool_marker",
+    "MeasureControl.tool_distance",
+    "MeasureControl.tool_circle",
+    "MeasureControl.tool_clear",
+    "MeasureControl.hint_marker",
+    "MeasureControl.hint_dist_start",
+    "MeasureControl.hint_circle_start",
+    "MeasureControl.hint_circle_radius",
+    "MeasureControl.popup_title",
+    "MeasureControl.popup_loading",
+    "MeasureControl.popup_loc_label",
+    "MeasureControl.popup_addr_label",
+    "MeasureControl.dist_origin",
+    "MeasureControl.geo_fail",
+    # ScaleControl
+    "ScaleControl.zoom_label",
+    # Runtime / global
+    "gcoord.warn",
+    "load.script_fail",
+    "num.k",
+    "num.m",
+    "num.b",
+    "num.w",
+    "num.y",
+}
+
 
 class TestLocaleConfig:
     def test_default_locale_is_english(self):
-        assert LocaleConfig("en").get("heatmap.title") == "Hexbin Aggregation"
+        assert LocaleConfig("en").get("HeatmapControl.title") == "Hexbin Aggregation"
 
     def test_chinese_locale(self):
-        assert LocaleConfig("zh").get("heatmap.title") == "网格聚合"
+        assert LocaleConfig("zh").get("HeatmapControl.title") == "网格聚合"
 
     def test_missing_key_returns_key(self):
         assert LocaleConfig("en").get("nonexistent.key") == "nonexistent.key"
@@ -32,7 +128,7 @@ class TestLocaleConfig:
         # Falls back to English table since "ja" is not in _LOCALES_TABLES
         assert custom.code == "en"
         assert custom.language == "ja"
-        assert custom.get("heatmap.title") == "Hexbin Aggregation"
+        assert custom.get("HeatmapControl.title") == "Hexbin Aggregation"
         assert custom.get("nonexistent.key") == "nonexistent.key"
 
     def test_code_property(self):
@@ -115,8 +211,8 @@ class TestToFile:
             cfg.to_json(tmp)
             loaded = LocaleConfig.from_json(tmp)
             assert loaded.code == "zh"
-            assert loaded.get("heatmap.title") == "网格聚合"
-            assert loaded.get("fullscreen.enter") == "已进入全屏，按 Esc 退出"
+            assert loaded.get("HeatmapControl.title") == "网格聚合"
+            assert loaded.get("Fullscreen.enter") == "已进入全屏，按 Esc 退出"
         finally:
             os.unlink(tmp)
             os.rmdir(os.path.dirname(tmp))
@@ -150,7 +246,7 @@ class TestLocaleBrowserJS:
         page.goto(f"file://{dest}", wait_until="domcontentloaded")
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "zh"
-        assert page.evaluate("window._LOCALE['search.btn_title']") == "地图搜索"
+        assert page.evaluate("window._LOCALE['MapSearch.btn_title']") == "地图搜索"
         page.close()
 
     def test_auto_detect_en(self, browser, tmp_path):
@@ -169,7 +265,7 @@ class TestLocaleBrowserJS:
         page.goto(f"file://{dest}", wait_until="domcontentloaded", timeout=15000)
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "en"
-        assert page.evaluate("window._LOCALE['search.btn_title']") == "Map Search"
+        assert page.evaluate("window._LOCALE['MapSearch.btn_title']") == "Map Search"
         page.close()
 
     def test_fallback_unsupported(self, browser, tmp_path):
@@ -230,3 +326,85 @@ class TestResolveLocale:
         result = resolve_locale("zh")
         assert result.code == "zh"
         assert result.get("locale.name") == "中文"
+
+
+class TestAllKeysCoverJS:
+    """Verify that all locale keys used in JS files exist in both locale files."""
+
+    def test_js_keys_exist_in_en(self):
+        """Every JS-used key must have a non-empty value in en.json."""
+        table = _LOCALES_TABLES["en"]
+        missing = {k for k in _JS_USED_KEYS if k not in table}
+        empty = {k for k in _JS_USED_KEYS if k in table and not table[k]}
+        assert not missing, f"Keys missing from en.json: {sorted(missing)}"
+        assert not empty, f"Keys with empty values in en.json: {sorted(empty)}"
+
+    def test_js_keys_exist_in_zh(self):
+        """Every JS-used key must have a non-empty value in zh.json."""
+        table = _LOCALES_TABLES["zh"]
+        missing = {k for k in _JS_USED_KEYS if k not in table}
+        empty = {k for k in _JS_USED_KEYS if k in table and not table[k]}
+        assert not missing, f"Keys missing from zh.json: {sorted(missing)}"
+        assert not empty, f"Keys with empty values in zh.json: {sorted(empty)}"
+
+    def test_no_old_style_keys_in_locale(self):
+        """No old-style locale keys (without CONST.name prefix) remain."""
+        table = _LOCALES_TABLES["en"]
+        old_style = {
+            k
+            for k in table
+            if k.startswith("search.")
+            or k.startswith("measure.")
+            or k.startswith("layer.")
+            or k.startswith("scale.")
+            or k.startswith("heatmap.")
+        }
+        assert not old_style, f"Old-style keys still present: {sorted(old_style)}"
+
+    def test_js_keys_have_correct_prefix(self):
+        """Every JS-used key must start with its CONST.name prefix."""
+        for key in _JS_USED_KEYS:
+            # Global keys don't need prefix check
+            if key.startswith(("num.", "load.", "gcoord.")):
+                continue
+            # Each control key must start with its component name
+            assert (
+                not key.startswith("search.")
+                and not key.startswith("measure.")
+                and not key.startswith("layer.")
+                and not key.startswith("scale.")
+                and not key.startswith("heatmap.")
+            ), f"Old-style key: {key}"
+
+
+class TestLocaleErrors:
+    """Error/warning locale keys are injected into rendered HTML."""
+
+    def test_heatmap_error_keys_in_html(self, base_map):
+        """HeatmapControl error keys appear in rendered HTML."""
+        from foliplus import HeatmapControl
+
+        HeatmapControl().add_to(base_map)
+        html = base_map.get_root().render()
+        assert "HeatmapControl.value_fallback" in html
+        assert "HeatmapControl.h3_cell_fail" in html
+        assert "HeatmapControl.h3_boundary_fail" in html
+        assert "HeatmapControl.close_title" in html
+
+    def test_layer_error_keys_in_html(self, base_map):
+        """LayerControl error keys appear in rendered HTML."""
+        from foliplus import LayerControl
+
+        LayerControl().add_to(base_map)
+        html = base_map.get_root().render()
+        assert "LayerControl.load_order_fail" in html
+        assert "LayerControl.save_order_fail" in html
+
+    def test_runtime_error_keys_present(self, base_map):
+        """Runtime error keys (gcoord, load) appear in rendered HTML."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = base_map.get_root().render()
+        assert "gcoord.warn" in html
+        assert "load.script_fail" in html

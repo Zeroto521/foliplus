@@ -56,7 +56,7 @@ class TestMeasureControlRendering:
         MeasureControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "量算工具" in html
-        assert "measure.tool_toggle" in html
+        assert "MeasureControl.tool_toggle" in html
 
     def test_bring_to_front_on_circle_marker(self, base_map: folium.Map):
         """CircleMarkers call bringToFront() after creation (not in onAdd override)."""
@@ -103,8 +103,8 @@ class TestMeasureControlRendering:
         """Distance >= 1000m shows as km."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "measure.unit_km" in html
-        assert "measure.unit_m" in html
+        assert "MeasureControl.unit_km" in html
+        assert "MeasureControl.unit_m" in html
 
     def test_del_icon_class(self, base_map: folium.Map):
         """Delete icon uses del-icon-wrap and measure-del-icon classes."""
@@ -176,7 +176,7 @@ class TestMeasureControlRendering:
         """Distance/Circle labels have click listeners to toggle UI."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "segLabels.forEach(l => l.on('click', handleItemClick))" in html
+        assert 'segLabels.forEach((l) => l.on("click", handleItemClick))' in html
         assert "if (radiusLabel) attachInteraction(radiusLabel)" in html
 
     def test_unregister_clears_leftover_nodes(self, base_map: folium.Map):
@@ -193,7 +193,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         # Ensure map clicks use 'reset' to keep labels visible
-        assert "toggleUI(false, 'reset')" in html
+        assert 'toggleUI(false, "reset")' in html
         # Ensure item clicks toggle ONLY X (undefined)
         assert "toggleUI(undefined)" in html
         assert "toggleUI(undefined, true)" not in html
