@@ -74,7 +74,7 @@
     );
     if (container) container.innerHTML = isFull ? CONST.MINIMIZE : CONST.MAXIMIZE;
 
-    if ({{ this.hide_controls | tojson }}) {
+    if ({{ this.hide_others | tojson }}) {
       // Toggle visibility of sibling controls
       const controls = map
         .getContainer()
