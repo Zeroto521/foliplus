@@ -239,6 +239,9 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--alpha-70));
@@ -255,7 +258,8 @@
 }
 
 .map-hint-icon {
-  margin-right: var(--space-sm);
+  display: inline-flex;
+  align-items: center;
 }
 
 /* ── Section Divider ── */
