@@ -360,8 +360,8 @@
       const layer = this.map._layers[id] || window[id];
       if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
       if (window[id]) delete window[id];
-      // Clear cached sub-layers to prevent stale references
-      if (layer && typeof layer.clearLayers === "function") layer.clearLayers();
+      // Recursively clear all sub-layers to prevent stale data on re-register
+      this._clearAllLayers(layer);
 
       if (this.uiContainer) {
         const target = this.uiContainer.querySelector(`[data-layer-id="${id}"]`);
@@ -372,6 +372,13 @@
       }
       requestAnimationFrame(() => this.map.invalidateSize({ animate: false }));
       return true;
+    }
+
+    /** Recursively clear all nested sub-layers. */
+    _clearAllLayers(layer) {
+      if (!layer) return;
+      if (typeof layer.clearLayers === "function") layer.clearLayers();
+      if (layer.eachLayer) layer.eachLayer((l) => this._clearAllLayers(l));
     }
 
     /**

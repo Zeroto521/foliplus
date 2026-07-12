@@ -345,8 +345,6 @@
       // --- Hexagon Rendering ---
       renderHexagons() {
         if (!this.selectedLayerId) {
-          this.graphLayer.clearLayers();
-          this.labelLayer.clearLayers();
           this._unregisterFromLayerControl();
           return;
         }
@@ -394,8 +392,6 @@
 
         const allVals = Object.values(hexCells).map(getAggValue);
         if (allVals.length === 0) {
-          this.graphLayer.clearLayers();
-          this.labelLayer.clearLayers();
           this._unregisterFromLayerControl();
           return;
         }
@@ -438,10 +434,10 @@
           }
         }
 
+        this.labelLayer.clearLayers();
         this.graphLayer.clearLayers();
         if (features.length)
           this.graphLayer.addData({ type: "FeatureCollection", features });
-        this.labelLayer.clearLayers();
 
         if (this.currentLabelShow) {
           features.forEach((feat) => {
@@ -861,11 +857,7 @@
           this._syncSelect(sel, sel.value);
           this.updateFieldSelector();
           if (this.manager.selectedLayerId) this.manager.renderHexagons();
-          else {
-            this.manager.graphLayer.clearLayers();
-            this.manager.labelLayer.clearLayers();
-            this.manager._unregisterFromLayerControl();
-          }
+          else this.manager._unregisterFromLayerControl();
         };
 
         this._syncSelect(sel, sel.value);
@@ -1053,8 +1045,6 @@
         this.manager.BORDER_W = BORDER_W_DEFAULT;
         this.manager.BORDER_COLOR = BORDER_COLOR_DEFAULT;
 
-        this.manager.graphLayer.clearLayers();
-        this.manager.labelLayer.clearLayers();
         this.manager._unregisterFromLayerControl();
       }
 
