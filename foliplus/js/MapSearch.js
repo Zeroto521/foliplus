@@ -123,8 +123,8 @@
       inp.addEventListener("input", () => {
         inp.placeholder =
           mode === CONST.COORD
-            ? `${CONST.name}.coord_placeholder`
-            : `${CONST.name}.addr_placeholder`;
+            ? _(`${CONST.name}.coord_placeholder`)
+            : _(`${CONST.name}.addr_placeholder`);
       });
 
       // Coordinate search
