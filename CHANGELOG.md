@@ -7,7 +7,6 @@
 - `Fullscreen`: added `hide_others` parameter (default `true`) to hide all other map controls in fullscreen; icon now switches between maximize/minimize ([#33](https://github.com/Zeroto521/foliplus/pull/33))
 - `MeasureControl`: added real-time distance preview during measurement ([#27](https://github.com/Zeroto521/foliplus/pull/27))
 - `LayerControl`: added `EMPTY` and `UNKNOWN` SVG icons for layer type display ([#29](https://github.com/Zeroto521/foliplus/pull/29), [#35](https://github.com/Zeroto521/foliplus/pull/35))
-- `ExportControl`: replaced `modern-screenshot` with native `LeafletRenderer` for map canvas export, eliminating third-party dependency ([#30](https://github.com/Zeroto521/foliplus/pull/30))
 
 ### Changed
 
@@ -16,7 +15,6 @@
 - `LayerControl`: centralized z-index engine with `*10` step spacing between layers to reserve room for sub-panes (graph / label) ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `LayerControl`: auto-discover child custom panes (`__heatmap_graph__`, `__heatmap_label__`, etc.) on layer registration and create them before `addLayer`, removing the need for manual `ensurePane` calls from child components ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `HeatmapControl`, `MeasureControl`: label z-index offset (`+1`) is now applied automatically by `LayerControl` when a pane name contains "label" or "lbl" ([#25](https://github.com/Zeroto521/foliplus/pull/25))
-- `ExportControl`: rewrote export engine with native `LeafletRenderer` — renders tiles + SVG overlay via Canvas API, no third-party library needed ([#30](https://github.com/Zeroto521/foliplus/pull/30))
 
 ### Fixed
 
