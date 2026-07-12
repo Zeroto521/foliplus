@@ -607,14 +607,20 @@
    *        `success=true` if all loaded, otherwise `failedNames` lists failures.
    * @param {number} [maxRetries=0] - Max retry attempts per failed script
    * @param {number} [delayMs=3000] - Delay between retries in milliseconds
+   * @param {Object} [hintOpts] - Optional hint configuration for auto-showing
+   *        failure toast. When provided, a hint is automatically shown on
+   *        final failure using the first matching key. Requires:
+   *          - `hintKey`:  hint type key (e.g. 'HeatmapControl')
+   *          - `localeMap`: object mapping dependency names to locale keys,
+   *                         e.g. `{ ss: 'HeatmapControl.no_ss',
+   *                                 chroma: 'HeatmapControl.no_chroma',
+   *                                 default: 'HeatmapControl.no_h3' }`
    *
    * @example
-   *   foliplus.loadScripts([
-   *     { url: '/h3.js',  check: () => typeof h3 !== 'undefined',  name: 'h3-js' },
-   *     { url: '/chroma.js', check: () => typeof chroma !== 'undefined', name: 'chroma-js' },
-   *   ], (ok, fails) => {
-   *     if (!ok) console.warn('Failed:', fails);
-   *   }, 2, 3000);
+   *   foliplus.loadScripts([...], (ok) => { if (ok) run(); }, 2, 3000, {
+   *     hintKey: 'HeatmapControl',
+   *     localeMap: { ss: 'HeatmapControl.no_ss', default: 'HeatmapControl.no_h3' },
+   *   });
    */
   foliplus.loadScripts = function (deps, callback, maxRetries, delayMs) {
     maxRetries = maxRetries || 0;
@@ -624,6 +630,21 @@
     function attempt() {
       const pending = deps.filter((d) => !d.check());
       if (pending.length === 0) return callback(true);
+
+      const showFailureHint = (failedNames) => {
+        if (hintOpts && hintOpts.hintKey && hintOpts.localeMap) {
+          const failedStr = failedNames.join(", ");
+          let msgKey = hintOpts.localeMap.default;
+          for (const name of failedNames) {
+            if (hintOpts.localeMap[name]) {
+              msgKey = hintOpts.localeMap[name];
+              break;
+            }
+          }
+          console.error(`[${hintOpts.hintKey}] ${foliplus.gt(msgKey)} (${failedStr})`);
+          foliplus.showHint(hintOpts.hintKey, foliplus.gt(msgKey), 0);
+        }
+      };
 
       let loaded = 0,
         failedCount = 0;
@@ -639,11 +660,13 @@
               else if (retries < maxRetries) {
                 retries++;
                 setTimeout(attempt, delayMs);
-              } else
-                callback(
-                  false,
-                  pending.filter((d) => !d.check()).map((d) => d.name),
-                );
+              } else {
+                const failedNames = pending
+                  .filter((d) => !d.check())
+                  .map((d) => d.name);
+                callback(false, failedNames);
+                showFailureHint(failedNames);
+              }
             }
           }, 100);
         };
@@ -654,16 +677,16 @@
             if (retries < maxRetries) {
               retries++;
               setTimeout(attempt, delayMs);
-            } else
-              callback(
-                false,
-                pending.filter((d) => !d.check()).map((d) => d.name),
-              );
+            } else {
+              const failedNames = pending.filter((d) => !d.check()).map((d) => d.name);
+              callback(false, failedNames);
+              showFailureHint(failedNames);
+            }
           }
         };
         document.head.appendChild(s);
       });
-    }
+    };
 
     attempt();
   };

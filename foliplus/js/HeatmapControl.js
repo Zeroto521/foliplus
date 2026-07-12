@@ -84,24 +84,19 @@
 
   window.foliplus.loadScripts(
     DEPS,
-    function (ok, failed) {
-      if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") {
-        return run();
-      }
-      // Final failure — show hint + console
-      const names = (failed || DEPS.filter((d) => !d.check()).map((d) => d.name)).join(
-        ", ",
-      );
-      const msgKey = names.includes("ss")
-        ? "heatmap.no_ss"
-        : names.includes("chroma")
-          ? "heatmap.no_chroma"
-          : "heatmap.no_h3";
-      console.error(`[${CONST.name}] ${_(msgKey)} (${names})`);
-      window.foliplus.showHint(CONST.name, _(msgKey), 0);
+    (ok) => {
+      if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();
     },
     CONST.LOAD_SCRIPT_RETRIES,
     CONST.LOAD_SCRIPT_INTERVAL_MS,
+    {
+      hintKey: CONST.name,
+      localeMap: {
+        ss: `${CONST.name}.no_ss`,
+        chroma: `${CONST.name}.no_chroma`,
+        default: `${CONST.name}.no_h3`,
+      },
+    },
   );
 
   function run() {
