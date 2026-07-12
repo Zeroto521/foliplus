@@ -1,7 +1,9 @@
 (function () {
   const CONST = {
     name: "Fullscreen",
-    SVG: `
+    RETRY_INTERVAL_MS: 100,
+    HINT_DURATION_MS: 2500,
+    ICON: `
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="15 3 21 3 21 9"/>
@@ -21,7 +23,7 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  window.foliplus.registerHintIcon(CONST.name, CONST.SVG);
+  window.foliplus.registerHintIcon(CONST.name, CONST.ICON);
 
   // ==================== Control Setup ====================
   const fsControl = L.control
@@ -43,12 +45,12 @@
       fsContainer?.querySelector("a, button");
 
     if (!btn) {
-      setTimeout(replaceIcon, 100);
+      setTimeout(replaceIcon, CONST.RETRY_INTERVAL_MS);
       return;
     }
 
-    btn.innerHTML = CONST.SVG;
-    btn.style.backgroundImage = "none";
+    btn.innerHTML = CONST.ICON;
+    btn.classList.add("fullscreen-btn");
 
     // Break native event bindings by cloning and replacing the button
     const newBtn = btn.cloneNode(true);
@@ -83,7 +85,7 @@
     window.foliplus.showHint(
       CONST.name,
       isFull ? _(`${CONST.name}.enter`) : _(`${CONST.name}.exit`),
-      2500,
+      CONST.HINT_DURATION_MS,
       isFull ? map.getContainer() : null,
     );
   };

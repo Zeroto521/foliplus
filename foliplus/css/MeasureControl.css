@@ -1,6 +1,10 @@
 .measure-ctrl.expanded {
   box-shadow: var(--panel-shadow);
 }
+/* ── Crosshair cursor when measuring ── */
+.is-measuring {
+  cursor: crosshair;
+}
 /* ── Tool Buttons ── */
 .measure-ctrl .tool-btn {
   background: none;

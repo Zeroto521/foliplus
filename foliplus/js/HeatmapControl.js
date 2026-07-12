@@ -36,6 +36,13 @@
     HEATMAP_ID: "__heatmap__",
     GRAPH_PANE: "__heatmap_graph__",
     LABEL_PANE: "__heatmap_label__",
+    HEXAGON: `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+        <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
+        <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>`,
   };
 
   // ==================== Runtime Guard ====================
@@ -48,17 +55,7 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  const SVGS = {
-    HEXAGON: `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
-        <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
-        <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
-        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-      </svg>`,
-  };
-
-  window.foliplus.registerHintIcon(CONST.name, SVGS.HEXAGON);
+  window.foliplus.registerHintIcon(CONST.name, CONST.HEXAGON);
 
   // --- Dynamic Dependency Loader ---
   // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
@@ -222,9 +219,7 @@
             seen[lid] = true;
             const ll = l.getLatLng();
             pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
-          } else if (l.getLayers) {
-            l.getLayers().forEach(walk);
-          }
+          } else if (l.getLayers) l.getLayers().forEach(walk);
         };
         walk(layer);
         return pts;
@@ -307,9 +302,8 @@
       }
 
       getColorScale(name, n) {
-        if (typeof chroma !== "undefined") {
+        if (typeof chroma !== "undefined")
           return chroma.scale(name).mode("lab").colors(n);
-        }
         return Array(n).fill(CONST.DEFAULT_GRAY);
       }
 
@@ -332,9 +326,7 @@
         }
         if (method === "quantile") {
           const b = [lo];
-          for (let i = 1; i < nClasses; i++) {
-            b.push(ss.quantile(sorted, i / nClasses));
-          }
+          for (let i = 1; i < nClasses; i++) b.push(ss.quantile(sorted, i / nClasses));
           return b.concat(hi);
         }
         if (method === "heads") {
@@ -346,9 +338,7 @@
         }
         const step = (hi - lo) / nClasses;
         const b = [];
-        for (let i = 0; i <= nClasses; i++) {
-          b.push(lo + step * i);
-        }
+        for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
         return b;
       }
 
@@ -377,7 +367,12 @@
             if (pt.value < cell.min) cell.min = pt.value;
             if (pt.value > cell.max) cell.max = pt.value;
           } catch (e) {
-            console.warn(`[${CONST.name}] ${_(`${CONST.name}.h3_cell_fail`)}`, pt.lat, pt.lng, e);
+            console.warn(
+              `[${CONST.name}] ${_(`${CONST.name}.h3_cell_fail`)}`,
+              pt.lat,
+              pt.lng,
+              e,
+            );
           }
         });
 
@@ -412,9 +407,7 @@
 
         const valueToClassIdx = (val) => {
           if (breaks.length < 2) return 0;
-          for (let i = 1; i < breaks.length; i++) {
-            if (val <= breaks[i]) return i - 1;
-          }
+          for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
           return breaks.length - 2;
         };
 
@@ -438,15 +431,17 @@
               },
             });
           } catch (e) {
-            console.warn(`[${CONST.name}] ${_(`${CONST.name}.h3_boundary_fail`)}`, h3Idx, e);
+            console.warn(
+              `[${CONST.name}] ${_(`${CONST.name}.h3_boundary_fail`)}`,
+              h3Idx,
+              e,
+            );
           }
         }
 
         this.graphLayer.clearLayers();
-        if (features.length) {
+        if (features.length)
           this.graphLayer.addData({ type: "FeatureCollection", features });
-        }
-
         this.labelLayer.clearLayers();
 
         if (this.currentLabelShow) {
@@ -496,7 +491,7 @@
           id: CONST.HEATMAP_ID,
           isBase: false,
           layer: this.mainLayer,
-          iconSvg: SVGS.HEXAGON,
+          iconSvg: CONST.HEXAGON,
         });
       }
 
@@ -532,17 +527,18 @@
 
         const toggleBtn = L.DomUtil.create("button", "toggle-btn", this.container);
         toggleBtn.title = _(`${CONST.name}.title`);
-        toggleBtn.innerHTML = SVGS.HEXAGON;
+        toggleBtn.innerHTML = CONST.HEXAGON;
 
         const panelWrap = L.DomUtil.create("div", "panel-wrap", this.container);
         const header = L.DomUtil.create("div", "panel-header", panelWrap);
         header.innerHTML = `
           <span class="header-title">
-            <span class="header-icon">${SVGS.HEXAGON}</span>
+            <span class="header-icon">${CONST.HEXAGON}</span>
             ${_(`${CONST.name}.title`)}
           </span>
           <button class="close-btn ctrl-abs-btn" title="${_(`${CONST.name}.close_title`)}">
-            ${window.foliplus.SVGs.CLOSE}</button>`;
+            ${window.foliplus.SVGs.CLOSE}
+          </button>`;
 
         window.foliplus.bindPanelToggle({
           container: this.container,
@@ -814,9 +810,8 @@
             this.expandHookDone = true;
             this.rebuildLayerDropdown();
           }
-          if (this.container.classList.contains("collapsed")) {
+          if (this.container.classList.contains("collapsed"))
             this.expandHookDone = false;
-          }
         });
         this.observer.observe(this.container, { attributes: true });
 
@@ -835,9 +830,8 @@
 
         // Unregister from LayerControl and remove layers
         this.manager._unregisterFromLayerControl();
-        if (this.manager.mainLayer) {
+        if (this.manager.mainLayer)
           this.manager.map.removeLayer(this.manager.mainLayer);
-        }
       }
 
       // --- UI Logic Methods ---
@@ -859,11 +853,8 @@
           sel.appendChild(opt);
         });
 
-        if (this.manager.selectedLayerId) {
-          sel.value = this.manager.selectedLayerId;
-        } else {
-          sel.selectedIndex = 0;
-        }
+        if (this.manager.selectedLayerId) sel.value = this.manager.selectedLayerId;
+        else sel.selectedIndex = 0;
 
         sel.onchange = () => {
           this.manager.selectedLayerId = sel.value || null;

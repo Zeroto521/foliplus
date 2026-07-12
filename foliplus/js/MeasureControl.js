@@ -3,10 +3,16 @@
   const CONST = {
     name: "MeasureControl",
     MARKER_RADIUS: 5,
-    DEL_ICON_RETRY_LIMIT: 10,
     POPUP_MAX_WIDTH: 260,
     CLICK_COOLDOWN_MS: 300,
     FINALIZE_DELAY_MS: 50,
+    DEL_ICON_RETRY_LIMIT: 10,
+    DEL_ICON_RETRY_DELAY_MS: 50,
+    SUPPRESS_HIDE_DELAY_MS: 100,
+    Z_INDEX_OFFSET: 1000,
+    CENTER_DOT_SIZE: [12, 12],
+    CENTER_DOT_ANCHOR: [6, 6],
+    LABEL_ANCHOR: [0, -10],
   };
 
   // ==================== Runtime Guard ====================
@@ -24,8 +30,7 @@
     stroke="currentColor" stroke-width="1.8"`;
   const SVGS = {
     RULER: `
-      <svg ${SVG_ICON_ATTRS} stroke-linecap="round" stroke-linejoin="round"
-           class="ruler-icon">
+      <svg ${SVG_ICON_ATTRS} stroke-linecap="round" stroke-linejoin="round" class="ruler-icon">
         <rect x="1" y="7" width="22" height="9" rx="1"/>
         <path d="M5 7v3M9 7v2M13 7v3M17 7v2"/>
       </svg>`,
@@ -71,7 +76,7 @@
       manager.suppressHideDel = true;
       setTimeout(() => {
         manager.suppressHideDel = false;
-      }, 100);
+      }, CONST.SUPPRESS_HIDE_DELAY_MS);
       this.hideAllDelIcons();
     }
 
@@ -98,7 +103,10 @@
           const icon = el.querySelector(".measure-del-icon");
           if (icon) icon.classList.toggle("visible", show);
         } else if (retries < CONST.DEL_ICON_RETRY_LIMIT) {
-          setTimeout(() => applyDelIcon(mkr, show, retries + 1), 50);
+          setTimeout(
+            () => applyDelIcon(mkr, show, retries + 1),
+            CONST.DEL_ICON_RETRY_DELAY_MS,
+          );
         }
       };
 
@@ -159,9 +167,7 @@
             this.graphPane,
           );
           layer.options.renderer = renderer;
-        } else {
-          window.foliplus.LayerControlAPI.ensurePane(paneName, false);
-        }
+        } else window.foliplus.LayerControlAPI.ensurePane(paneName, false);
 
         return (isLabel ? this.labelLayer : this.graphLayer).addLayer(layer);
       };
@@ -214,18 +220,12 @@
       this.map.on("click", this._onMapClick);
 
       this._onKeyDown = (e) => {
-        if (e.key === "Escape" && this.currentMode) {
-          this.clearActiveMode();
-        }
+        if (e.key === "Escape" && this.currentMode) this.clearActiveMode();
       };
       document.addEventListener("keydown", this._onKeyDown);
 
       this._onUnload = () => this.clearAll();
       this.map.on("unload", this._onUnload);
-    }
-
-    attachUIBtns(btns) {
-      this.toolBtns = btns;
     }
 
     setMode(mode) {
@@ -245,7 +245,7 @@
         btn.classList.toggle("active", btn.dataset.mode === mode),
       );
 
-      this.map.getContainer().style.cursor = "crosshair";
+      this.map.getContainer().classList.add("is-measuring");
 
       if (mode === "marker") {
         window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_marker`), 0);
@@ -263,7 +263,7 @@
       this.currentMode = null;
       this.toolBtns.forEach((btn) => btn.classList.remove("active"));
       window.foliplus.hideHint(CONST.name);
-      this.map.getContainer().style.cursor = "";
+      this.map.getContainer().classList.remove("is-measuring");
       this._cleanMapEvents();
     }
 
@@ -321,7 +321,7 @@
       );
 
       let cachedAddr = null;
-      setTimeout(() => this._injectDelIcon(marker), 50);
+      setTimeout(() => this._injectDelIcon(marker), CONST.DEL_ICON_RETRY_DELAY_MS);
 
       const addr = await window.foliplus.reverseGeocode(
         this.map,
@@ -504,7 +504,7 @@
               className: "",
               html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
               iconSize: [0, 0],
-              iconAnchor: [0, -10],
+              iconAnchor: CONST.LABEL_ANCHOR,
             }),
           );
         }
@@ -541,7 +541,7 @@
                 });
               }
             }
-          }, 50);
+          }, CONST.DEL_ICON_RETRY_DELAY_MS);
 
           lastNodeDelMkr.on("click", (e) => {
             const t = e.originalEvent?.target;
@@ -581,7 +581,7 @@
               className: "",
               html: `<div class="measure-label">${MeasureUtils.formatDistance(showDist)}</div>`,
               iconSize: [0, 0],
-              iconAnchor: [0, -10],
+              iconAnchor: CONST.LABEL_ANCHOR,
             }),
             interactive: false,
           });
@@ -619,7 +619,7 @@
               className: "",
               html: `<div class="measure-label">${_(`${CONST.name}.dist_origin`)}</div>`,
               iconSize: [0, 0],
-              iconAnchor: [0, -10],
+              iconAnchor: CONST.LABEL_ANCHOR,
             }),
           });
           startLbl._isMeasureLabel = true;
@@ -653,7 +653,7 @@
                 className: "",
                 html: `<div class="measure-label">${MeasureUtils.formatDistance(prevSeg)}</div>`,
                 iconSize: [0, 0],
-                iconAnchor: [0, -10],
+                iconAnchor: CONST.LABEL_ANCHOR,
               }),
             );
           }
@@ -663,7 +663,7 @@
               className: "",
               html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
               iconSize: [0, 0],
-              iconAnchor: [0, -10],
+              iconAnchor: CONST.LABEL_ANCHOR,
             }),
           });
           lbl._isMeasureLabel = true;
@@ -725,10 +725,10 @@
             icon: L.divIcon({
               className: "measure-center-dot",
               html: "",
-              iconSize: [12, 12],
-              iconAnchor: [6, 6],
+              iconSize: CONST.CENTER_DOT_SIZE,
+              iconAnchor: CONST.CENTER_DOT_ANCHOR,
             }),
-            zIndexOffset: 1000,
+            zIndexOffset: CONST.Z_INDEX_OFFSET,
             interactive: false,
           }).addTo(this.mainLayer);
           state = 1;
@@ -871,10 +871,10 @@
           icon: L.divIcon({
             className: "measure-center-dot is-final",
             html: "",
-            iconSize: [12, 12],
-            iconAnchor: [6, 6],
+            iconSize: CONST.CENTER_DOT_SIZE,
+            iconAnchor: CONST.CENTER_DOT_ANCHOR,
           }),
-          zIndexOffset: 1000,
+          zIndexOffset: CONST.Z_INDEX_OFFSET,
           interactive: true,
         }).addTo(this.mainLayer);
 
@@ -886,7 +886,7 @@
             iconAnchor: [0, 0],
           }),
           interactive: true,
-          zIndexOffset: 1000,
+          zIndexOffset: CONST.Z_INDEX_OFFSET,
         }).addTo(this.mainLayer);
 
         const toggleUI = (showX, toggleLabels) => {
@@ -903,7 +903,10 @@
             [radiusLine?.getElement(), radiusNode?.getElement()],
             labelsVisible,
           );
-          if (delMkr.setZIndexOffset) delMkr.setZIndexOffset(xVisible ? 2000 : 1000);
+          if (delMkr.setZIndexOffset)
+            delMkr.setZIndexOffset(
+              xVisible ? CONST.Z_INDEX_OFFSET * 2 : CONST.Z_INDEX_OFFSET,
+            );
         };
         toggleUI(false, "reset");
 
@@ -931,7 +934,7 @@
               });
             }
           }
-        }, 50);
+        }, CONST.DEL_ICON_RETRY_DELAY_MS);
 
         const toggleCircleToggle = () => {
           if (deleted) return;
@@ -1001,9 +1004,7 @@
         <button class="tool-btn" data-mode="clear"
           title="${_(`${CONST.name}.tool_clear`)}">${SVGS.TRASH}</button>
       `;
-
-      const toolBtns = toolBar.querySelectorAll(".tool-btn");
-      measureManager.attachUIBtns(toolBtns);
+      this.toolBtns = toolBar.querySelectorAll(".tool-btn");
 
       toggleBtn.onclick = (e) => {
         e.stopPropagation();
@@ -1018,7 +1019,7 @@
         onCollapse: () => measureManager.clearActiveMode(),
       });
 
-      toolBtns.forEach((btn) => {
+      this.toolBtns.forEach((btn) => {
         btn.onclick = (e) => {
           e.stopPropagation();
           measureManager.setMode(btn.dataset.mode);

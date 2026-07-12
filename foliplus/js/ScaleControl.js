@@ -32,10 +32,6 @@
 
   updateZoom();
   map.on("zoomend", updateZoom);
-
-  // Cleanup on map unload
-  map.on("unload", () => {
-    map.off("zoomend", updateZoom);
-  });
+  map.on("unload", () => map.off("zoomend", updateZoom));
   {% endif %};
 })();

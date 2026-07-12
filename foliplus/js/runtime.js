@@ -38,10 +38,39 @@
   let _gcoordLoading = false;
   let _gcoordWarned = false;
 
+  // ==================== Constants ====================
+  const HINT = {
+    BOTTOM_BASE: 20,
+    STACK_GAP: 40,
+    Z_BASE: 10000,
+    DEFAULT_DURATION: 3000,
+  };
+  const GEO = {
+    THROTTLE_MS: 1000,
+    NOMINATIM_ZOOM: 18,
+  };
+  const PIN = {
+    SIZE: [24, 36],
+    ANCHOR: [12, 36],
+    POPUP_ANCHOR: [0, -36],
+  };
+  const POPUP = {
+    MAX_WIDTH: 300,
+    DEFAULT_LOCALE_1000: 1000, // en compact threshold
+    DEFAULT_LOCALE_10000: 10000, // zh compact threshold
+  };
+  const FALLBACK = {
+    K: 1000,
+    W: 10000,
+    M: 1e6,
+    B: 1e9,
+    Y: 1e8,
+  };
+
   // --- SVG Icons ---
   foliplus.SVGs = {
     LOADING: `
-      <svg class="foliplus-spin" width="14" height="14" viewBox="0 0 24 24" fill="none"
+      <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <path d="M21 12a9 9 0 1 1-6.2-8.6"/>
       </svg>`,
@@ -51,7 +80,7 @@
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>`,
     PIN_ICON: `
-      <div class="foliplus-pin-wrap">
+      <div class="pin-wrap">
         <svg width="24" height="36" viewBox="0 0 24 36">
           <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
               fill="var(--accent-primary)" stroke="var(--neutral-0)" stroke-width="1.5"/>
@@ -145,8 +174,8 @@
     const _reposition = () => {
       let idx = 0;
       for (let v of _hintMap.values()) {
-        v.element.style.bottom = `${20 + idx * 40}px`;
-        v.element.style.zIndex = 10000 + idx;
+        v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
+        v.element.style.zIndex = HINT.Z_BASE + idx;
         idx++;
       }
     };
@@ -155,7 +184,7 @@
     if (duration !== 0) {
       _hintMap.get(storeKey).timer = setTimeout(
         () => foliplus.hideHint(storeKey),
-        duration || 3000,
+        duration || HINT.DEFAULT_DURATION,
       );
     }
   };
@@ -183,7 +212,7 @@
 
     let idx = 0;
     for (let v of _hintMap.values()) {
-      v.element.style.bottom = `${20 + idx * 40}px`;
+      v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
       idx++;
     }
   };
@@ -348,11 +377,11 @@
 
     const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
     const lang = (window._LOCALE && window._LOCALE["locale.code"]) || "en";
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=18&accept-language=${lang}`;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
 
     _geoPromise = _geoPromise
       .then(() => {
-        const wait = Math.max(0, 1000 - (Date.now() - _geoLastReq));
+        const wait = Math.max(0, GEO.THROTTLE_MS - (Date.now() - _geoLastReq));
         return new Promise((r) => setTimeout(r, wait));
       })
       .then(() => {
@@ -396,7 +425,7 @@
         : addr || loadStr;
 
     return `
-    <div class="foliplus-popup-content">
+    <div class="popup-content">
       <b>${popupTitle}</b><br>
       ${foliplus.gt(locLabel)}${lng},${lat}<br>
       ${foliplus.gt(addrLabel)}${addrHtml}
@@ -435,16 +464,16 @@
       icon: L.divIcon({
         className: "",
         html: foliplus.SVGs.PIN_ICON,
-        iconSize: [24, 36],
-        iconAnchor: [12, 36],
-        popupAnchor: [0, -36],
+        iconSize: PIN.SIZE,
+        iconAnchor: PIN.ANCHOR,
+        popupAnchor: PIN.POPUP_ANCHOR,
       }),
     });
     target.addLayer(mk);
     mk.bindPopup(
       foliplus.buildPopupHtml(lat, lng, addr, title, loading, locLabel, addrLabel),
       {
-        maxWidth: 300,
+        maxWidth: POPUP.MAX_WIDTH,
       },
     );
     mk.openPopup();
@@ -579,8 +608,7 @@
       if (style === "auto") {
         // Use compact abbreviations above locale-specific threshold,
         // standard grouping below (so zh locale gets "1,234" instead of "1234")
-        const compactThreshold = locale === "zh" ? 10000 : 1000;
-        if (val >= compactThreshold) {
+        if (val >= (locale === "zh" ? FALLBACK.W : FALLBACK.K)) {
           return new Intl.NumberFormat(locale, {
             notation: "compact",
             compactDisplay: "short",
@@ -594,12 +622,17 @@
     // Fallback: no Intl support — use locale-aware abbreviations
     if (style === "auto") {
       if (locale === "zh") {
-        if (val >= 1e8) return (val / 1e8).toFixed(1) + foliplus.gt("num.y");
-        if (val >= 10000) return (val / 10000).toFixed(1) + foliplus.gt("num.w");
+        if (val >= FALLBACK.Y)
+          return (val / FALLBACK.Y).toFixed(1) + foliplus.gt("num.y");
+        if (val >= FALLBACK.W)
+          return (val / FALLBACK.W).toFixed(1) + foliplus.gt("num.w");
       } else {
-        if (val >= 1e9) return (val / 1e9).toFixed(1) + foliplus.gt("num.b");
-        if (val >= 1e6) return (val / 1e6).toFixed(1) + foliplus.gt("num.m");
-        if (val >= 1000) return (val / 1000).toFixed(1) + foliplus.gt("num.k");
+        if (val >= FALLBACK.B)
+          return (val / FALLBACK.B).toFixed(1) + foliplus.gt("num.b");
+        if (val >= FALLBACK.M)
+          return (val / FALLBACK.M).toFixed(1) + foliplus.gt("num.m");
+        if (val >= FALLBACK.K)
+          return (val / FALLBACK.K).toFixed(1) + foliplus.gt("num.k");
       }
     }
     return Math.round(val).toLocaleString();

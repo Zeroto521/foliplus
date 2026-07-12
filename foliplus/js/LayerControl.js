@@ -3,10 +3,16 @@
   const CONST = {
     name: "LayerControl",
     INIT_DELAY_MS: 300,
+    ENFORCE_ORDER_DEBOUNCE_MS: 50,
     Z_INDEX_BASE: 600,
+    Z_INDEX_STEP: 10,
+    PANE_RECURSION_DEPTH: 5,
     DRAG_TIMEOUT_MS: 100,
     DRAG_HINT_COOLDOWN_MS: 800,
+    DRAG_HINT_DURATION_MS: 1200,
     LAYER_RECURSION_DEPTH: 10,
+    MARKER_Z_OFFSET: 1000,
+    MARKER_Z_OFFSET_HOVER: 2000,
     STORAGE_KEY: "_layer_order",
     COLOR_MAP_LAYER_ID: "__color_map__",
     COLOR_DEFAULT: "#cccccc",
@@ -58,12 +64,11 @@
     EMPTY: `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor"
-          stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>
+              stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>
       </svg>`,
     UNKNOWN: `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="6.5" stroke="currentColor" stroke-width="1.5"
-                fill="none"/>
+        <circle cx="12" cy="12" r="6.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
         <text x="12" y="12.5" text-anchor="middle" dominant-baseline="central"
               font-size="12" font-weight="bold" fill="currentColor">?</text>
       </svg>`,
@@ -163,9 +168,8 @@
           this._isDestroyed ||
           e.layer === this.map ||
           e.layer instanceof L.Renderer
-        ) {
+        )
           return;
-        }
 
         // Debounce enforcement to avoid redundant calcs during bulk additions
         if (this._enforceTimer) clearTimeout(this._enforceTimer);
@@ -173,7 +177,7 @@
           if (this._isDestroyed || !this.map || !this.map._container) return;
           this.enforceOrder();
           this._enforceTimer = null;
-        }, 50);
+        }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
       });
 
       window.foliplus.LayerControlAPI = this;
@@ -294,9 +298,7 @@
         const firstBaseIdx = this.layers.findIndex((l) => !!l.isBase);
         if (firstBaseIdx === -1) this.layers.push(layerInfo);
         else this.layers.splice(firstBaseIdx, 0, layerInfo);
-      } else {
-        this.layers.unshift(layerInfo);
-      }
+      } else this.layers.unshift(layerInfo);
 
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
@@ -310,9 +312,7 @@
       // NB: window[id] provides global access for HeatmapControl/others to find
       // layers by id via scanMapLayers() fallback path.
       if (opts.layer) window[opts.id] = opts.layer;
-      if (opts.layer && !this.map.hasLayer(opts.layer)) {
-        this.map.addLayer(opts.layer);
-      }
+      if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
 
       this.enforceOrder();
 
@@ -357,9 +357,7 @@
       this.layers.splice(idx, 1);
 
       const layer = this.map._layers[id] || window[id];
-      if (layer && this.map.hasLayer(layer)) {
-        this.map.removeLayer(layer);
-      }
+      if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
       if (window[id]) delete window[id];
 
       if (this.uiContainer) {
@@ -408,9 +406,7 @@
       layer.options.pane = paneName;
       layer.options._paneSet = true;
 
-      if (layer instanceof L.Path) {
-        layer.options.renderer = renderer;
-      }
+      if (layer instanceof L.Path) layer.options.renderer = renderer;
 
       if (layer.eachLayer) {
         layer.eachLayer((l) => this._setLayerPaneRecursive(l, paneName, renderer));
@@ -427,14 +423,12 @@
      *  This lets enforceOrder control z-index without requiring
      *  orderPane/paneName from three-layer components. */
     _discoverChildPanes(layer, depth = 0) {
-      if (depth > 5) return []; // Prevent infinite recursion
+      if (depth > CONST.PANE_RECURSION_DEPTH) return []; // Prevent infinite recursion
       const panes = new Set();
 
       const check = (l) => {
         const p = l.options?.pane;
-        if (p && !this._isDefaultPane(p)) {
-          panes.add(p);
-        }
+        if (p && !this._isDefaultPane(p)) panes.add(p);
         if (l.eachLayer) {
           this._discoverChildPanes(l, depth + 1).forEach((p2) => panes.add(p2));
         } else if (l._layers) {
@@ -447,15 +441,9 @@
       };
 
       const selfPane = layer.options?.pane;
-      if (selfPane && !this._isDefaultPane(selfPane)) {
-        panes.add(selfPane);
-      }
-
-      if (layer.eachLayer) {
-        layer.eachLayer(check);
-      } else if (layer._layers) {
-        for (const k in layer._layers) check(layer._layers[k]);
-      }
+      if (selfPane && !this._isDefaultPane(selfPane)) panes.add(selfPane);
+      if (layer.eachLayer) layer.eachLayer(check);
+      else if (layer._layers) for (const k in layer._layers) check(layer._layers[k]);
       return Array.from(panes);
     }
 
@@ -501,7 +489,7 @@
           const zBase = isTile ? 200 : CONST.Z_INDEX_BASE;
           // Scale z-index steps to allow room for sub-panes (labels, etc)
           // between major layers.
-          const z = zBase + (orderedLayers.length - i) * 10;
+          const z = zBase + (orderedLayers.length - i) * CONST.Z_INDEX_STEP;
 
           if (paneName) {
             const ep = this.ensurePane(paneName, !isTile);
@@ -531,9 +519,7 @@
               const fallbackPane = `_lyr_${L.stamp(lyr)}`;
               const ep = this.ensurePane(fallbackPane, !isTile);
               ep.pane.style.zIndex = z;
-              if (!(lyr instanceof L.TileLayer)) {
-                markerZ = Math.max(markerZ, z);
-              }
+              if (!(lyr instanceof L.TileLayer)) markerZ = Math.max(markerZ, z);
               if (lyr.options.pane !== fallbackPane || !lyr.options._paneSet) {
                 layersToMove.push({
                   layer: lyr,
@@ -555,9 +541,7 @@
         if (layersToMove.length) {
           for (const { layer } of layersToMove) this.map.removeLayer(layer);
           for (const { layer, paneName, renderer } of layersToMove) {
-            if (paneName) {
-              this._setLayerPaneRecursive(layer, paneName, renderer);
-            }
+            if (paneName) this._setLayerPaneRecursive(layer, paneName, renderer);
           }
           for (const { layer } of layersToMove) this.map.addLayer(layer);
         }
@@ -715,13 +699,10 @@
       const layer = this.map._layers[layerInfo.id] || window[layerInfo.id] || null;
       const item = target.closest(".layer-item");
 
-      if (layerInfo.isBase) {
-        this._hideColorLayer();
-      }
+      if (layerInfo.isBase) this._hideColorLayer();
       if (layer) {
         target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
       }
-
       if (item)
         target.checked
           ? item.classList.add("is-active")
@@ -776,7 +757,7 @@
         window.foliplus.showHint(
           CONST.name,
           _(CONST.name + ".reorder_group_only"),
-          1200,
+          CONST.DRAG_HINT_DURATION_MS,
         );
       }
     }
@@ -941,14 +922,12 @@
       const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
 
       container.innerHTML = `
-        <div class="map-panel ctrl-fold layer-ctrl collapsed"
-             id="{{ this.get_name() }}_ctrl">
+        <div class="map-panel ctrl-fold layer-ctrl collapsed" id="{{ this.get_name() }}_ctrl">
           <button class="toggle-btn" title="${_(CONST.name + ".toggle_title")}"
                   aria-label="${_(CONST.name + ".toggle_title")}">
             ${SVGS.LIST}
           </button>
-          <div class="layer-panel" role="dialog"
-               aria-label="${_(CONST.name + ".panel_title")}">
+          <div class="layer-panel" role="dialog" aria-label="${_(CONST.name + ".panel_title")}">
             <div class="panel-header" title="${_(CONST.name + ".close_title")}">
               <span class="header-title">
                 <span class="header-icon">${SVGS.LIST}</span>
@@ -967,16 +946,13 @@
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.disableScrollPropagation(container);
 
-      const ctrl = container.querySelector(".layer-ctrl");
-      const panelContent = container.querySelector(".panel-content");
-
       window.foliplus.bindPanelToggle({
-        container: ctrl,
+        container: container.querySelector(".layer-ctrl"),
         toggleBtn: ".toggle-btn",
         header: ".panel-header",
       });
 
-      layerManager.attachUI(panelContent);
+      layerManager.attachUI(container.querySelector(".panel-content"));
 
       return container;
     }
