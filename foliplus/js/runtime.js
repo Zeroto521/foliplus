@@ -33,6 +33,11 @@
   if (foliplus._initialized) return;
   foliplus._initialized = true;
 
+  // Private state (closure-scoped, not exposed on foliplus)
+  let _hintIcons = {};
+  let _gcoordLoading = false;
+  let _gcoordWarned = false;
+
   // --- SVG Icons ---
   foliplus.SVGs = {
     LOADING: `
@@ -87,11 +92,9 @@
    *   foliplus.showHint('export', 'Exporting...'); // shows icon + text
    */
   foliplus.registerHintIcon = (key, iconSvg) => {
-    foliplus._hintIcons = foliplus._hintIcons || {};
-    foliplus._hintIcons[key] = iconSvg;
+    _hintIcons[key] = iconSvg;
   };
-  foliplus._hintIcons = foliplus._hintIcons || {};
-  foliplus._hintIcons["MapSearch"] = foliplus.SVGs.SEARCH;
+  _hintIcons["MapSearch"] = foliplus.SVGs.SEARCH;
 
   /**
    * Display a hint toast at the bottom-center of the viewport.
@@ -129,7 +132,7 @@
       ? `map-hint map-hint-${key}-${Date.now()}`
       : `map-hint map-hint-${key}`;
     const el = L.DomUtil.create("div", cls, hintTarget);
-    const icon = (foliplus._hintIcons && foliplus._hintIcons[key]) || "";
+    const icon = (_hintIcons && _hintIcons[key]) || "";
     el.innerHTML = icon ? `<span class="map-hint-icon">${icon}</span>${text}` : text;
     el.classList.add("map-hint");
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
@@ -192,19 +195,15 @@
    *
    * @returns {boolean} True if gcoord is already available, false otherwise
    */
-  foliplus._ensureGcoord = () => {
+  const _ensureGcoord = () => {
     if (typeof gcoord !== "undefined") return true;
-    if (!foliplus._gcoordLoading) {
-      foliplus._gcoordLoading = true;
+    if (!_gcoordLoading) {
+      _gcoordLoading = true;
       const s = document.createElement("script");
       s.src =
         "https://cdn.jsdelivr.net/npm/gcoord@{{ this._gcoord_version }}/dist/gcoord.global.prod.js";
-      s.onload = () => {
-        foliplus._gcoordLoading = false;
-      };
-      s.onerror = () => {
-        foliplus._gcoordLoading = false;
-      };
+      s.onload = () => (_gcoordLoading = false);
+      s.onerror = () => (_gcoordLoading = false);
       document.head.appendChild(s);
     }
     return false;
@@ -218,9 +217,9 @@
    * @returns {boolean} True if the map uses Baidu CRS
    *
    * @example
-   *   foliplus._isBaiduCRS(map) // → true if Baidu tiles are used
+   *   _isBaiduCRS(map) // → true if Baidu tiles are used
    */
-  foliplus._isBaiduCRS = (map) => {
+  const _isBaiduCRS = (map) => {
     try {
       if (L.CRS && L.CRS.Baidu) return true;
       const crs = map.options.crs;
@@ -252,14 +251,14 @@
    */
   foliplus.toWgs84 = (map, lat, lng) => {
     if (typeof gcoord !== "undefined") {
-      const src = foliplus._isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
+      const src = _isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
     }
-    if (!foliplus._ensureGcoord()) {
+    if (!_ensureGcoord()) {
       // gcoord not yet loaded — schedule warning on next access
-      if (!foliplus._gcoordWarned) {
-        foliplus._gcoordWarned = true;
+      if (!_gcoordWarned) {
+        _gcoordWarned = true;
         console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
         foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
       }
@@ -279,17 +278,17 @@
    */
   foliplus.fromWgs84 = (map, lng, lat) => {
     if (typeof gcoord === "undefined") {
-      if (!foliplus._ensureGcoord()) {
+      if (!_ensureGcoord()) {
         // gcoord not yet loaded — show warning and return unchanged
-        if (!foliplus._gcoordWarned) {
-          foliplus._gcoordWarned = true;
+        if (!_gcoordWarned) {
+          _gcoordWarned = true;
           console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
           foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
         }
         return [lng, lat];
       }
     }
-    const isBaidu = foliplus._isBaiduCRS(map);
+    const isBaidu = _isBaiduCRS(map);
     // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip
     const dst = isBaidu ? gcoord.BD09 : gcoord.GCJ02;
     // Skip transformation for non-domestic maps (no Baidu/AMap tile patterns)
@@ -539,15 +538,15 @@
     var container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
     var ctrl = L.DomUtil.create(
       "div",
-      opts.cssClass + " ctrl-fold collapsed",
+      `${opts.cssClass} ctrl-fold collapsed`,
       container,
     );
-    ctrl.innerHTML =
-      '<button class="toggle-btn" title="' +
-      opts.toggleTitle +
-      '">' +
-      opts.toggleSvg +
-      '</button><div class="tool-bar"></div>';
+    ctrl.innerHTML = `
+      <button class="toggle-btn" title="${opts.toggleTitle}">
+        ${opts.toggleSvg}
+      </button>
+      <div class="tool-bar"></div>
+    `;
     if (!opts.isLeft) ctrl.classList.add("align-right");
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
