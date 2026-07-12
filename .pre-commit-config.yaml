@@ -51,8 +51,9 @@ repos:
     hooks:
       - id: format-jinja-js
         name: format-jinja-js
-        entry: python script/format_jinja_js.py --check
-        language: system
+        entry: node script/format_jinja_js.js
+        language: node
         types_or: [javascript]
         files: ^foliplus/js/
         pass_filenames: false
+        additional_dependencies: [prettier]

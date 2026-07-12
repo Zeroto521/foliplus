@@ -19,6 +19,7 @@ import sys
 from argparse import ArgumentParser
 from difflib import unified_diff
 from pathlib import Path
+from shutil import which
 from subprocess import run
 from types import SimpleNamespace
 
@@ -32,6 +33,15 @@ _JINJA2_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\{%-?\s*.*?\s*-?%\}", re.DOTALL),
     re.compile(r"\{#.*?#\}"),
 )
+
+
+def _find_prettier() -> str | None:
+    """Locate prettier on PATH or in node_modules."""
+    if exe := which("prettier"):
+        return exe
+
+    local = REPO / "node_modules/.bin/prettier"
+    return str(local) if local.is_file() else None
 
 
 # ── helpers ──────────────────────────────────────────────────────────
@@ -77,8 +87,11 @@ def _diff(original: str, formatted: str) -> str:
 
 def _prettify(content: str, filepath: Path) -> str:
     """Run prettier on content, return formatted output."""
+    if not (prettier := _find_prettier()):
+        raise RuntimeError("prettier not found on PATH or in node_modules")
+
     result = run(
-        ["npx", "--yes", "prettier", "--stdin-filepath", str(filepath)],
+        [prettier, "--stdin-filepath", str(filepath)],
         input=content,
         capture_output=True,
         text=True,
