@@ -384,7 +384,7 @@
           return;
         }
 
-        const nClasses = Math.min(CONST.N_CLASSES_DEFAULT, allVals.length);
+        const nClasses = Math.min(this.N_CLASSES, allVals.length);
         const breaks = this.computeBreaks(allVals, nClasses, this.currentMethod);
         const classColors = this.getColorScale(this.currentScheme, nClasses);
 
@@ -423,8 +423,8 @@
             style: (feat) => ({
               fillColor: feat.properties.fillColor || CONST.DEFAULT_GRAY,
               fillOpacity: CONST.FILL_OP,
-              color: CONST.BORDER_COLOR_DEFAULT,
-              weight: CONST.BORDER_W_DEFAULT,
+              color: this.BORDER_COLOR,
+              weight: this.BORDER_W,
               opacity: CONST.BORDER_OP,
             }),
             interactive: false,
@@ -434,7 +434,7 @@
           this.mg.addGraph(gj);
         }
 
-        if (CONST.LABEL_SHOW) {
+        if (this.currentLabelShow) {
           features.forEach((feat) => {
             let lat, lng;
             try {
