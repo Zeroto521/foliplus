@@ -24,7 +24,6 @@ from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parent.parent
 JS_DIR = REPO / "foliplus" / "js"
-_PRETTIER = REPO / "node_modules" / ".bin" / "prettier"
 
 STATUS = SimpleNamespace(OK="✓", FAIL="✗", SKIP="–")
 
@@ -36,16 +35,6 @@ _JINJA2_PATTERNS: tuple[re.Pattern[str], ...] = (
 
 
 # ── helpers ──────────────────────────────────────────────────────────
-def _check_prettier() -> None:
-    if _PRETTIER.is_file():
-        return
-    # Auto-install if not present (works in pre-commit CI)
-    ret = run(["npm", "install"], cwd=REPO, capture_output=True)
-    if ret.returncode != 0 or not _PRETTIER.is_file():
-        print("prettier not found. Run `npm install`.", file=sys.stderr)
-        sys.exit(1)
-
-
 def _placehold(content: str) -> tuple[str, dict[str, str]]:
     mapping: dict[str, str] = {}
     n = 0
@@ -89,7 +78,7 @@ def _diff(original: str, formatted: str) -> str:
 def _prettify(content: str, filepath: Path) -> str:
     """Run prettier on content, return formatted output."""
     result = run(
-        [str(_PRETTIER), "--stdin-filepath", str(filepath)],
+        ["npx", "--yes", "prettier", "--stdin-filepath", str(filepath)],
         input=content,
         capture_output=True,
         text=True,
@@ -136,7 +125,6 @@ def main() -> int:
     )
     parser.add_argument("--check", action="store_true", help="Check only, no write")
     args = parser.parse_args()
-    _check_prettier()
 
     ok = True
     for fp in (
