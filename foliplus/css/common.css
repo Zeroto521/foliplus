@@ -258,6 +258,11 @@
   margin-right: var(--space-sm);
 }
 
+/* ── Leaflet container font consistency ── */
+.leaflet-container {
+  font-family: var(--font-family);
+}
+
 /* ── Section Divider ── */
 .section-divider {
   height: var(--border-thin);
