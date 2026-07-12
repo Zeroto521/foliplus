@@ -82,7 +82,7 @@ class TestJinjaIntegrity:
         m = folium.Map()
         MapSearch(locale="zh").add_to(m)
         html = render(m)
-        assert "search.coord_placeholder" in html
+        assert "MapSearch.coord_placeholder" in html
         assert '"zh"' in html
 
     def test_all_components_render_with_zh(self):

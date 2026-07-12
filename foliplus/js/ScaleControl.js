@@ -1,7 +1,9 @@
 (function () {
+  const name = "ScaleControl";
+
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error("[ScaleControl] foliplus runtime not found, plugin disabled.");
+    console.error(`[${name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
@@ -25,14 +27,14 @@
   // ==================== Zoom Label ====================
   const zoomLabel = L.DomUtil.create("span", "scale-zoom-label", wrap);
   const updateZoom = () => {
-    zoomLabel.textContent = _("scale.zoom_label").replace("{zoom}", map.getZoom());
+    zoomLabel.textContent = _(`${name}.zoom_label`).replace("{zoom}", map.getZoom());
   };
 
   updateZoom();
   map.on("zoomend", updateZoom);
 
   // Cleanup on map unload
-  map.on("unload", function () {
+  map.on("unload", () => {
     map.off("zoomend", updateZoom);
   });
   {% endif %};

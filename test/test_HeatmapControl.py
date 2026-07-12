@@ -119,7 +119,7 @@ class TestHeatmapControlRendering:
         HeatmapControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "网格聚合" in html
-        # 'heatmap.title' appears in JS source as locale key (e.g. _('heatmap.title'))
+        # 'HeatmapControl.title' appears in JS source as locale key (e.g. _('HeatmapControl.title'))
         # but the rendered display text should be the Chinese translation
         assert "heatmap.title" in html  # present as JS key, display value is "网格聚合"
 
@@ -217,7 +217,7 @@ class TestHeatmapControlRendering:
         """initScan shows no_layer hint when no point layers found."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "heatmap.no_layer" in html
+        assert "HeatmapControl.no_layer" in html
         assert "4000" in html  # hint duration
 
     def test_auto_field_single_field_detection(self, base_map: folium.Map):

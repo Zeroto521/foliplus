@@ -22,7 +22,6 @@
   // ==================== SVG Icons ====================
   const SVG_ICON_ATTRS = `width="18" height="18" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="1.8"`;
-
   const SVGS = {
     RULER: `
       <svg ${SVG_ICON_ATTRS} stroke-linecap="round" stroke-linejoin="round"
@@ -42,7 +41,7 @@
       </svg>`,
   };
 
-  window.foliplus.registerHintIcon("measure", SVGS.RULER);
+  window.foliplus.registerHintIcon(CONST.name, SVGS.RULER);
 
   // ==================== Utility Classes ====================
   class MeasureUtils {
@@ -54,8 +53,8 @@
 
     static formatDistance(meters) {
       return meters >= 1000
-        ? (meters / 1000).toFixed(1) + " " + _("measure.unit_km")
-        : Math.round(meters) + " " + _("measure.unit_m");
+        ? (meters / 1000).toFixed(1) + " " + _(`${CONST.name}.unit_km`)
+        : Math.round(meters) + " " + _(`${CONST.name}.unit_m`);
     }
 
     static distance(lat1, lng1, lat2, lng2) {
@@ -189,7 +188,7 @@
       if (this.isRegistered) return;
       this.isRegistered = true;
       window.foliplus.LayerControlAPI.registerLayer({
-        name: _("measure.tool_toggle"),
+        name: _(`${CONST.name}.tool_toggle`),
         id: this.MEASURE_ID,
         isBase: false,
         layer: this.mainLayer,
@@ -253,13 +252,21 @@
       this.map.getContainer().style.cursor = "crosshair";
 
       if (mode === "marker") {
-        window.foliplus.showHint("measure", _("measure.hint_marker"), 0);
+        window.foliplus.showHint(`${CONST.name}`, _(`${CONST.name}.hint_marker`), 0);
         this._bindMarkerMode();
       } else if (mode === "distance") {
-        window.foliplus.showHint("measure", _("measure.hint_dist_start"), 0);
+        window.foliplus.showHint(
+          `${CONST.name}`,
+          _(`${CONST.name}.hint_dist_start`),
+          0,
+        );
         this._startDistanceMode();
       } else if (mode === "circle") {
-        window.foliplus.showHint("measure", _("measure.hint_circle_start"), 0);
+        window.foliplus.showHint(
+          `${CONST.name}`,
+          _(`${CONST.name}.hint_circle_start`),
+          0,
+        );
         this._startCircleMode();
       }
     }
@@ -267,7 +274,7 @@
     clearActiveMode() {
       this.currentMode = null;
       this.toolBtns.forEach((btn) => btn.classList.remove("active"));
-      window.foliplus.hideHint("measure");
+      window.foliplus.hideHint(`${CONST.name}`);
       this.map.getContainer().style.cursor = "";
       this._cleanMapEvents();
     }
@@ -297,7 +304,7 @@
         this.cleanupFn();
         this.cleanupFn = null;
       }
-      window.foliplus.hideHint("measure");
+      window.foliplus.hideHint(`${CONST.name}`);
     }
 
     // --- Marker (Locate) Mode ---
@@ -317,7 +324,7 @@
         parseFloat(lat),
         parseFloat(lng),
         null,
-        "measure.popup",
+        `${CONST.name}.popup`,
         null,
         null,
         this.mainLayer,
@@ -335,7 +342,7 @@
 
       if (marker?.getPopup?.()?.isOpen()) {
         marker.setPopupContent(
-          window.foliplus.buildPopupHtml(lat, lng, addr, "measure.popup"),
+          window.foliplus.buildPopupHtml(lat, lng, addr, `${CONST.name}.popup`),
         );
       }
 
@@ -343,7 +350,7 @@
         MeasureUtils.hideAllDelIcons();
         if (cachedAddr !== null) {
           marker.setPopupContent(
-            window.foliplus.buildPopupHtml(lat, lng, cachedAddr, "measure.popup"),
+            window.foliplus.buildPopupHtml(lat, lng, cachedAddr, `${CONST.name}.popup`),
           );
         }
         this._injectDelIcon(marker);
@@ -489,8 +496,7 @@
           lastLbl.setIcon(
             L.divIcon({
               className: "",
-              html: `<div class="measure-label">
-              ${MeasureUtils.formatDistance(total)}</div>`,
+              html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }),
@@ -567,8 +573,7 @@
           previewDistLabel = L.marker(e.latlng, {
             icon: L.divIcon({
               className: "",
-              html: `<div class="measure-label">
-                ${MeasureUtils.formatDistance(showDist)}</div>`,
+              html: `<div class="measure-label">${MeasureUtils.formatDistance(showDist)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }),
@@ -606,7 +611,7 @@
           startLbl = L.marker(e.latlng, {
             icon: L.divIcon({
               className: "",
-              html: `<div class="measure-label">${_("measure.dist_origin")}</div>`,
+              html: `<div class="measure-label">${_(`${CONST.name}.dist_origin`)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }),
@@ -640,8 +645,7 @@
             prevLbl.setIcon(
               L.divIcon({
                 className: "",
-                html: `<div class="measure-label">
-              ${MeasureUtils.formatDistance(prevSeg)}</div>`,
+                html: `<div class="measure-label">${MeasureUtils.formatDistance(prevSeg)}</div>`,
                 iconSize: [0, 0],
                 iconAnchor: [0, -10],
               }),
@@ -651,8 +655,7 @@
           const lbl = L.marker(pts[pts.length - 1], {
             icon: L.divIcon({
               className: "",
-              html: `<div class="measure-label">
-              ${MeasureUtils.formatDistance(total)}</div>`,
+              html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, -10],
             }),
@@ -723,7 +726,11 @@
             interactive: false,
           }).addTo(this.mainLayer);
           state = 1;
-          window.foliplus.showHint("measure", _("measure.hint_circle_radius"), 0);
+          window.foliplus.showHint(
+            `${CONST.name}`,
+            _(`${CONST.name}.hint_circle_radius`),
+            0,
+          );
         } else if (state === 1) {
           state = 2;
           lastFinishTime = Date.now();
@@ -793,8 +800,7 @@
             interactive: false,
             icon: L.divIcon({
               className: "",
-              html: `<div class="measure-label">
-                ${MeasureUtils.formatDistance(r)}</div>`,
+              html: `<div class="measure-label">${MeasureUtils.formatDistance(r)}</div>`,
               iconSize: [0, 0],
               iconAnchor: [0, 0],
             }),
@@ -975,7 +981,7 @@
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
           cssClass: "measure-ctrl",
-          toggleTitle: _("measure.tool_toggle"),
+          toggleTitle: _(`${CONST.name}.tool_toggle`),
           toggleSvg: SVGS.RULER,
           isLeft: pos.indexOf("left") >= 0,
         },
@@ -983,13 +989,13 @@
 
       toolBar.innerHTML = `
         <button class="tool-btn" data-mode="marker"
-          title="${_("measure.tool_marker")}">${window.foliplus.SVGs.LOCATE}</button>
+          title="${_(`${CONST.name}.tool_marker`)}">${window.foliplus.SVGs.LOCATE}</button>
         <button class="tool-btn" data-mode="distance"
-          title="${_("measure.tool_distance")}">${SVGS.RULER}</button>
+          title="${_(`${CONST.name}.tool_distance`)}">${SVGS.RULER}</button>
         <button class="tool-btn" data-mode="circle"
-          title="${_("measure.tool_circle")}">${SVGS.CIRCLE}</button>
+          title="${_(`${CONST.name}.tool_circle`)}">${SVGS.CIRCLE}</button>
         <button class="tool-btn" data-mode="clear"
-          title="${_("measure.tool_clear")}">${SVGS.TRASH}</button>
+          title="${_(`${CONST.name}.tool_clear`)}">${SVGS.TRASH}</button>
       `;
 
       const toolBtns = toolBar.querySelectorAll(".tool-btn");

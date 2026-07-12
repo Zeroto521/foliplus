@@ -71,7 +71,7 @@ class TestScaleControlRendering:
         ScaleControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "地图层级" in html
-        assert "scale.zoom_label" in html
+        assert "ScaleControl.zoom_label" in html
 
     def test_imperial_false_in_output(self, base_map: folium.Map):
         """Scale control outputs imperial: false."""

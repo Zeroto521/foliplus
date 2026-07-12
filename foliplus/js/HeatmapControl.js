@@ -59,7 +59,7 @@
       </svg>`,
   };
 
-  window.foliplus.registerHintIcon("heatmap", SVGS.HEXAGON);
+  window.foliplus.registerHintIcon(CONST.name, SVGS.HEXAGON);
 
   // --- Dynamic Dependency Loader ---
   // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
@@ -497,16 +497,12 @@
         if (this.isRegistered) return;
         this.isRegistered = true;
         window.foliplus.LayerControlAPI.registerLayer({
-          name: _("heatmap.title"),
+          name: _(`${CONST.name}.title`),
           id: CONST.HEATMAP_ID,
           isBase: false,
           layer: this.mainLayer,
           iconSvg: SVGS.HEXAGON,
         });
-
-        // The LayerControlAPI.enforceOrder() will handle the actual z-index
-        // calculation for the custom panes (__heatmap_graph__ and __heatmap_label__)
-        // based on the layer's position in the list.
       }
 
       _unregisterFromLayerControl() {
@@ -540,7 +536,7 @@
         L.DomEvent.disableScrollPropagation(wrapper);
 
         const toggleBtn = L.DomUtil.create("button", "toggle-btn", this.container);
-        toggleBtn.title = _("heatmap.title");
+        toggleBtn.title = _(`${CONST.name}.title`);
         toggleBtn.innerHTML = SVGS.HEXAGON;
 
         const panelWrap = L.DomUtil.create("div", "panel-wrap", this.container);
@@ -548,9 +544,9 @@
         header.innerHTML = `
           <span class="header-title">
             <span class="header-icon">${SVGS.HEXAGON}</span>
-            ${_("heatmap.title")}
+            ${_(`${CONST.name}.title`)}
           </span>
-          <button class="close-btn ctrl-abs-btn" title="${_("layer.close_title")}">
+          <button class="close-btn ctrl-abs-btn" title="${_(`${CONST.name}.close_title`)}">
             ${window.foliplus.SVGs.CLOSE}</button>`;
 
         window.foliplus.bindPanelToggle({
@@ -566,11 +562,11 @@
         const content = L.DomUtil.create("div", "panel-content", panelWrap);
         const configBody = L.DomUtil.create("div", "config-body", content);
         const dataHeading = L.DomUtil.create("div", "section-heading", configBody);
-        dataHeading.textContent = _("heatmap.section_data");
+        dataHeading.textContent = _(`${CONST.name}.section_data`);
 
         const layerRow = L.DomUtil.create("div", "form-row", configBody);
         const layerRowLabel = L.DomUtil.create("label", "form-label", layerRow);
-        layerRowLabel.textContent = _("heatmap.layer");
+        layerRowLabel.textContent = _(`${CONST.name}.layer`);
         const layerSelectWrap = L.DomUtil.create("div", "form-control-wrap", layerRow);
         this.layerSelect = L.DomUtil.create(
           "select",
@@ -584,15 +580,15 @@
         // Aggregation method
         const aggRow = L.DomUtil.create("div", "form-row", this.extraBody);
         const aggRowLabel = L.DomUtil.create("label", "form-label", aggRow);
-        aggRowLabel.textContent = _("heatmap.agg_method");
+        aggRowLabel.textContent = _(`${CONST.name}.agg_method`);
         const aggControlWrap = L.DomUtil.create("div", "form-control-wrap", aggRow);
         this.aggSelect = L.DomUtil.create("select", "form-select", aggControlWrap);
         this.aggSelect.innerHTML = `
-          <option value="count">${_("heatmap.agg_count")}</option>
-          <option value="sum">${_("heatmap.agg_sum")}</option>
-          <option value="avg">${_("heatmap.agg_avg")}</option>
-          <option value="min">${_("heatmap.agg_min")}</option>
-          <option value="max">${_("heatmap.agg_max")}</option>`;
+          <option value="count">${_(`${CONST.name}.agg_count`)}</option>
+          <option value="sum">${_(`${CONST.name}.agg_sum`)}</option>
+          <option value="avg">${_(`${CONST.name}.agg_avg`)}</option>
+          <option value="min">${_(`${CONST.name}.agg_min`)}</option>
+          <option value="max">${_(`${CONST.name}.agg_max`)}</option>`;
         this.aggSelect.value = this.manager.currentAgg;
         this.aggSelect.onchange = () => {
           this.manager.currentAgg = this.aggSelect.value;
@@ -606,7 +602,7 @@
           this.extraBody,
         );
         const fieldLabel = L.DomUtil.create("label", "form-label", this.fieldWrap);
-        fieldLabel.textContent = _("heatmap.field");
+        fieldLabel.textContent = _(`${CONST.name}.field`);
         const fieldControlWrap = L.DomUtil.create(
           "div",
           "form-control-wrap",
@@ -624,13 +620,13 @@
 
         // Style section
         const styleHeading = L.DomUtil.create("div", "section-heading", this.extraBody);
-        styleHeading.textContent = _("heatmap.section_style");
+        styleHeading.textContent = _(`${CONST.name}.section_style`);
         const styleSection = L.DomUtil.create("div", "section-block", this.extraBody);
 
         // Classification method / classes
         const classRow = L.DomUtil.create("div", "form-row", styleSection);
         const classRowLabel = L.DomUtil.create("label", "form-label", classRow);
-        classRowLabel.textContent = _("heatmap.class_method");
+        classRowLabel.textContent = _(`${CONST.name}.class_method`);
         const classControlWrap = L.DomUtil.create(
           "div",
           "form-control-wrap form-control-inline",
@@ -638,10 +634,10 @@
         );
         this.methodSelect = L.DomUtil.create("select", "form-select", classControlWrap);
         this.methodSelect.innerHTML = `
-          <option value="jenks">${_("heatmap.jenks")}</option>
-          <option value="quantile">${_("heatmap.quantile")}</option>
-          <option value="equal">${_("heatmap.equal")}</option>
-          <option value="heads">${_("heatmap.heads")}</option>`;
+          <option value="jenks">${_(`${CONST.name}.jenks`)}</option>
+          <option value="quantile">${_(`${CONST.name}.quantile`)}</option>
+          <option value="equal">${_(`${CONST.name}.equal`)}</option>
+          <option value="heads">${_(`${CONST.name}.heads`)}</option>`;
         this.methodSelect.value = this.manager.currentMethod;
         this.methodSelect.onchange = () => {
           this.manager.currentMethod = this.methodSelect.value;
@@ -670,7 +666,7 @@
         // Color scheme
         const schemeRow = L.DomUtil.create("div", "form-row", styleSection);
         const schemeRowLabel = L.DomUtil.create("label", "form-label", schemeRow);
-        schemeRowLabel.textContent = _("heatmap.scheme");
+        schemeRowLabel.textContent = _(`${CONST.name}.scheme`);
         this.schemeControlWrap = L.DomUtil.create(
           "div",
           "form-control-wrap",
@@ -705,7 +701,7 @@
 
         this.schemeBar.tabIndex = 0;
         this.schemeBar.setAttribute("role", "combobox");
-        this.schemeBar.setAttribute("aria-label", _("heatmap.scheme"));
+        this.schemeBar.setAttribute("aria-label", _(`${CONST.name}.scheme`));
         this.schemeBar.onclick = (e) => {
           e.stopPropagation();
           this.toggleSchemeDropdown();
@@ -731,7 +727,7 @@
         // Border settings
         const borderRow = L.DomUtil.create("div", "form-row", styleSection);
         const borderRowLabel = L.DomUtil.create("label", "form-label", borderRow);
-        borderRowLabel.textContent = _("heatmap.border");
+        borderRowLabel.textContent = _(`${CONST.name}.border`);
         const borderControlWrap = L.DomUtil.create(
           "div",
           "form-control-wrap form-control-inline",
@@ -770,7 +766,7 @@
           styleSection,
         );
         const labelRowText = L.DomUtil.create("label", "form-label", labelRow);
-        labelRowText.textContent = _("heatmap.label");
+        labelRowText.textContent = _(`${CONST.name}.label`);
         const labelControlWrap = L.DomUtil.create("div", "form-control-wrap", labelRow);
         const labelToggle = L.DomUtil.create(
           "label",
@@ -790,7 +786,7 @@
         // Bottom action buttons
         const btnRow = L.DomUtil.create("div", "btn-row", this.extraBody);
         const clearBtn = L.DomUtil.create("button", "btn btn-clear", btnRow);
-        clearBtn.textContent = _("heatmap.clear");
+        clearBtn.textContent = _(`${CONST.name}.clear`);
         clearBtn.onclick = () => {
           this._resetAll();
           this._syncSelect(this.layerSelect, "");
@@ -810,7 +806,7 @@
         };
 
         const confirmBtn = L.DomUtil.create("button", "btn btn-confirm", btnRow);
-        confirmBtn.textContent = _("heatmap.confirm");
+        confirmBtn.textContent = _(`${CONST.name}.confirm`);
         confirmBtn.onclick = () => {
           this.manager.renderHexagons();
           this.container.classList.remove("expanded");
@@ -855,7 +851,7 @@
         sel.innerHTML = "";
         const placeholder = document.createElement("option");
         placeholder.value = "";
-        placeholder.textContent = _("heatmap.layer_placeholder");
+        placeholder.textContent = _(`${CONST.name}.layer_placeholder`);
         placeholder.disabled = true;
         placeholder.selected = !this.manager.selectedLayerId;
         placeholder.className = "placeholder-option";
@@ -912,7 +908,7 @@
 
         const phOpt = document.createElement("option");
         phOpt.value = "_auto";
-        phOpt.textContent = _("heatmap.field_auto");
+        phOpt.textContent = _(`${CONST.name}.field_auto`);
         phOpt.disabled = true;
         phOpt.className = "placeholder-option";
 
@@ -1054,7 +1050,7 @@
         if (this.manager.pointLayers.length === 0 && attempt > 0) {
           setTimeout(() => this.initScan(attempt - 1), CONST.INIT_SCAN_INTERVAL_MS);
         } else if (this.manager.pointLayers.length === 0) {
-          window.foliplus.showHint("heatmap", _("heatmap.no_layer"), 4000);
+          window.foliplus.showHint("heatmap", _(`${CONST.name}.no_layer`), 4000);
         }
       }
 

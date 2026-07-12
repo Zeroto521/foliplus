@@ -89,6 +89,7 @@
       CONST.name,
       isFull ? _(`${CONST.name}.enter`) : _(`${CONST.name}.exit`),
       2500,
+      isFull ? map.getContainer() : null,
     );
   };
 

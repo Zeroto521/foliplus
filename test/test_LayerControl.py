@@ -125,7 +125,7 @@ class TestLayerControlRendering:
         LayerControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "图层" in html
-        assert "layer.panel_title" in html
+        assert "LayerControl.panel_title" in html
 
     def test_position_renders(self, base_map: folium.Map):
         LayerControl(position="bottomright").add_to(base_map)
@@ -218,9 +218,9 @@ class TestLayerControlRendering:
         """Default (en) locale keys rendered."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layer.toggle_title" in html
-        assert "layer.panel_title" in html
-        assert "layer.base_map_label" in html
+        assert "LayerControl.toggle_title" in html
+        assert "LayerControl.panel_title" in html
+        assert "LayerControl.base_map_label" in html
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """click handler on color-layer-item present in rendered code."""
@@ -370,8 +370,8 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert (
-            "this.map.getPane('markerPane')" in html
-            or 'this.map.getPane("markerPane")' in html
+            'this.map.getPane("markerPane")' in html
+            or "this.map.getPane('markerPane')" in html
         )
         assert "mp.style.zIndex = markerZ" in html
 
@@ -470,7 +470,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "_showReorderBlockedHint" in html
-        assert "layer.reorder_group_only" in html
+        assert "LayerControl.reorder_group_only" in html
         assert "DRAG_HINT_COOLDOWN_MS" in html
 
     def test_type_icons_use_current_color(self, base_map: folium.Map):
@@ -517,7 +517,7 @@ class TestLayerControlBrowser:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
 
-            page.evaluate("document.querySelector('.layer-ctrl .toggle-btn').click()")
+            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
             page.wait_for_selector(
                 ".layer-ctrl.expanded", state="attached", timeout=5000
             )
@@ -529,20 +529,22 @@ class TestLayerControlBrowser:
                 """() => {
                     const api = window.foliplus && window.foliplus.LayerControlAPI;
                     if (!api) return false;
-                    const overlay = document.querySelector('.layer-item:not(.is-base-item):not(.color-layer-item)');
-                    const base = document.querySelector('.layer-item.is-base-item');
+                    const overlay = document.querySelector(".layer-item:not(.is-base-item):not(.color-layer-item)");
+                    const base = document.querySelector(".layer-item.is-base-item");
                     if (!overlay || !base) return false;
                     api.dragIdx = parseInt(overlay.dataset.index, 10);
-                    const ev = new Event('dragover', { bubbles: true, cancelable: true });
+                    const ev = new Event("dragover", { bubbles: true, cancelable: true });
                     base.dispatchEvent(ev);
                     return true;
                 }"""
             )
             assert ok, "Failed to dispatch simulated cross-group dragover"
 
-            page.wait_for_selector(".map-hint-layer", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".map-hint-LayerControl", state="attached", timeout=5000
+            )
             hint_text = page.evaluate(
-                "document.querySelector('.map-hint-layer')?.textContent || ''"
+                'document.querySelector(".map-hint-LayerControl")?.textContent || ""'
             )
             assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
         finally:

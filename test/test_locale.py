@@ -19,10 +19,10 @@ from foliplus.locale import (
 
 class TestLocaleConfig:
     def test_default_locale_is_english(self):
-        assert LocaleConfig("en").get("heatmap.title") == "Hexbin Aggregation"
+        assert LocaleConfig("en").get("HeatmapControl.title") == "Hexbin Aggregation"
 
     def test_chinese_locale(self):
-        assert LocaleConfig("zh").get("heatmap.title") == "网格聚合"
+        assert LocaleConfig("zh").get("HeatmapControl.title") == "网格聚合"
 
     def test_missing_key_returns_key(self):
         assert LocaleConfig("en").get("nonexistent.key") == "nonexistent.key"
@@ -32,7 +32,7 @@ class TestLocaleConfig:
         # Falls back to English table since "ja" is not in _LOCALES_TABLES
         assert custom.code == "en"
         assert custom.language == "ja"
-        assert custom.get("heatmap.title") == "Hexbin Aggregation"
+        assert custom.get("HeatmapControl.title") == "Hexbin Aggregation"
         assert custom.get("nonexistent.key") == "nonexistent.key"
 
     def test_code_property(self):
@@ -115,7 +115,7 @@ class TestToFile:
             cfg.to_json(tmp)
             loaded = LocaleConfig.from_json(tmp)
             assert loaded.code == "zh"
-            assert loaded.get("heatmap.title") == "网格聚合"
+            assert loaded.get("HeatmapControl.title") == "网格聚合"
             assert loaded.get("Fullscreen.enter") == "已进入全屏，按 Esc 退出"
         finally:
             os.unlink(tmp)
@@ -150,7 +150,7 @@ class TestLocaleBrowserJS:
         page.goto(f"file://{dest}", wait_until="domcontentloaded")
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "zh"
-        assert page.evaluate("window._LOCALE['search.btn_title']") == "地图搜索"
+        assert page.evaluate("window._LOCALE['MapSearch.btn_title']") == "地图搜索"
         page.close()
 
     def test_auto_detect_en(self, browser, tmp_path):
@@ -169,7 +169,7 @@ class TestLocaleBrowserJS:
         page.goto(f"file://{dest}", wait_until="domcontentloaded", timeout=15000)
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "en"
-        assert page.evaluate("window._LOCALE['search.btn_title']") == "Map Search"
+        assert page.evaluate("window._LOCALE['MapSearch.btn_title']") == "Map Search"
         page.close()
 
     def test_fallback_unsupported(self, browser, tmp_path):

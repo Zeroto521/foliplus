@@ -69,7 +69,7 @@
       </svg>`,
   };
 
-  window.foliplus.registerHintIcon("layer", SVGS.LIST);
+  window.foliplus.registerHintIcon(CONST.name, SVGS.LIST);
 
   // ==================== Utility Class ====================
   class LayerUtils {
@@ -277,7 +277,7 @@
      * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
      */
     registerLayer(opts) {
-      if (!opts?.id) throw new Error("[LayerManager] opts.id is required");
+      if (!opts?.id) throw new Error(`[${CONST.name}] opts.id is required`);
 
       const existingIdx = this.layers.findIndex((l) => l.id === opts.id);
       if (existingIdx !== -1) this.layers.splice(existingIdx, 1);
@@ -589,7 +589,7 @@
           hasBaseMaps = true;
           html += `
               <div class="layer-separator-container">
-              <span class="separator-label">${_("layer.base_map_label")}</span>
+              <span class="separator-label">${_(CONST.name + ".base_map_label")}</span>
               <div class="section-divider"></div>
             </div>`;
         }
@@ -611,14 +611,13 @@
       html += `
         <div class="layer-item color-layer-item" draggable="false"
              data-layer-id="${CONST.COLOR_MAP_LAYER_ID}"
-             title="${_("layer.color_map_label")}">
+             title="${_(CONST.name + ".color_map_label")}">
           <div class="layer-item-spacer"></div>
           <div class="checkbox-wrapper">
-            <input type="color" class="color-layer-input"
-                   value="${this.currentColor}"
-                   aria-label="${_("layer.color_map_label")}">
+            <input type="color" class="color-layer-input" value="${this.currentColor}"
+                   aria-label="${_(CONST.name + ".color_map_label")}">
           </div>
-          <label>${_("layer.color_map_label")}</label>
+          <label>${_(CONST.name + ".color_map_label")}</label>
           <div class="type-icon-col">${window.foliplus.SVGs.GLOBE}</div>
         </div>`;
 
@@ -776,7 +775,11 @@
       if (now - this.lastDragHintAt < CONST.DRAG_HINT_COOLDOWN_MS) return;
       this.lastDragHintAt = now;
       if (window.foliplus && typeof window.foliplus.showHint === "function") {
-        window.foliplus.showHint("layer", _("layer.reorder_group_only"), 1200);
+        window.foliplus.showHint(
+          CONST.name,
+          _(CONST.name + ".reorder_group_only"),
+          1200,
+        );
       }
     }
 
@@ -945,19 +948,19 @@
       container.innerHTML = `
         <div class="map-panel ctrl-fold layer-ctrl collapsed"
              id="{{ this.get_name() }}_ctrl">
-          <button class="toggle-btn" title="${_("layer.toggle_title")}"
-                  aria-label="${_("layer.toggle_title")}">
+          <button class="toggle-btn" title="${_(CONST.name + ".toggle_title")}"
+                  aria-label="${_(CONST.name + ".toggle_title")}">
             ${SVGS.LIST}
           </button>
           <div class="layer-panel" role="dialog"
-               aria-label="${_("layer.panel_title")}">
-            <div class="panel-header" title="${_("layer.close_title")}">
+               aria-label="${_(CONST.name + ".panel_title")}">
+            <div class="panel-header" title="${_(CONST.name + ".close_title")}">
               <span class="header-title">
                 <span class="header-icon">${SVGS.LIST}</span>
-                ${_("layer.panel_title")}
+                ${_(CONST.name + ".panel_title")}
               </span>
-              <button class="close-btn ctrl-abs-btn" title="${_("layer.close_title")}"
-                      aria-label="${_("layer.close_title")}">
+              <button class="close-btn ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
+                      aria-label="${_(CONST.name + ".close_title")}">
                 ${window.foliplus.SVGs.CLOSE}
               </button>
             </div>

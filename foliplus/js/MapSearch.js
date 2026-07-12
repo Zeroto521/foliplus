@@ -40,16 +40,16 @@
       const ctrl = L.DomUtil.create("div", "map-search ctrl-fold collapsed", container);
       ctrl.id = "{{ this.get_name() }}_ctrl";
       ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_("search.btn_title")}">
+        <button class="toggle-btn" title="${_(`${CONST.name}.btn_title`)}">
           ${window.foliplus.SVGs.SEARCH}
         </button>
         <div class="search-form">
-          <button class="search-mode-btn" title="${_("search.mode_coord")}">
+          <button class="search-mode-btn" title="${_(`${CONST.name}.mode_coord`)}">
             ${window.foliplus.SVGs.LOCATE}
           </button>
           <div class="clear-wrap">
-            <input type="text" placeholder="${_("search.coord_placeholder")}"/>
-            <button class="ctrl-abs-btn" title="${_("search.clear_title")}">
+            <input type="text" placeholder="${_(`${CONST.name}.coord_placeholder`)}"/>
+            <button class="ctrl-abs-btn" title="${_(`${CONST.name}.clear_title`)}">
               ${window.foliplus.SVGs.CLOSE}
             </button>
           </div>
@@ -74,12 +74,12 @@
         mode = newMode;
         if (mode === CONST.COORD) {
           modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
-          modeBtn.title = _("search.mode_coord");
-          inp.placeholder = _("search.coord_placeholder");
+          modeBtn.title = _(`${CONST.name}.mode_coord`);
+          inp.placeholder = _(`${CONST.name}.coord_placeholder`);
         } else {
           modeBtn.innerHTML = window.foliplus.SVGs.GLOBE;
-          modeBtn.title = _("search.mode_addr");
-          inp.placeholder = _("search.addr_placeholder");
+          modeBtn.title = _(`${CONST.name}.mode_addr`);
+          inp.placeholder = _(`${CONST.name}.addr_placeholder`);
         }
         inp.value = "";
         if (mk) {
@@ -123,8 +123,8 @@
       inp.addEventListener("input", function () {
         inp.placeholder =
           mode === CONST.COORD
-            ? _("search.coord_placeholder")
-            : _("search.addr_placeholder");
+            ? `${CONST.name}.coord_placeholder`
+            : `${CONST.name}.addr_placeholder`;
       });
 
       // Coordinate search
@@ -136,7 +136,7 @@
           .map(Number);
 
         if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-          _showSearchHint(_("search.coord_error"), CONST.hintError);
+          _showSearchHint(_(`${CONST.name}.coord_error`), CONST.hintError);
           inp.value = "";
           return;
         }
@@ -150,8 +150,8 @@
           lat,
           lng,
           null,
-          "search.popup",
-          _("search.popup_title_coord"),
+          `${CONST.name}.popup`,
+          `${CONST.name}.popup_title_coord`,
           mk,
         );
       }
@@ -159,7 +159,7 @@
       // Address search via Nominatim
       function _doAddrSearch(query) {
         _showSearchHint(
-          window.foliplus.SVGs.LOADING + " " + _("search.popup_loading"),
+          window.foliplus.SVGs.LOADING + " " + _(`${CONST.name}.popup_loading`),
           CONST.hintForever,
         );
 
@@ -180,7 +180,7 @@
           .then(function (results) {
             _hideSearchHint();
             if (!results || results.length === 0) {
-              _showSearchHint(_("search.addr_not_found"), CONST.hintError);
+              _showSearchHint(_(`${CONST.name}.addr_not_found`), CONST.hintError);
               inp.value = "";
               return;
             }
@@ -207,15 +207,15 @@
               lat,
               lng,
               displayName,
-              "search.popup",
-              _("search.popup_title_addr"),
+              `${CONST.name}.popup`,
+              `${CONST.name}.popup_title_addr`,
               mk,
             );
           })
           .catch(function (err) {
-            console.error(`[${CONST.name}] ` + _("search.addr_error"));
+            console.error(`[${CONST.name}] ${_(CONST.name + ".addr_error")}`);
             _hideSearchHint();
-            _showSearchHint(_("search.addr_error"), CONST.hintError);
+            _showSearchHint(_(CONST.name + ".addr_error"), CONST.hintError);
           });
       }
 
