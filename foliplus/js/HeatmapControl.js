@@ -10,6 +10,7 @@
     SCHEME_DROPDOWN_BLUR_DELAY_MS: 150,
     LOAD_SCRIPT_RETRIES: 2,
     LOAD_SCRIPT_INTERVAL_MS: 3000,
+    NO_LAYER_HINT_MS: 4000,
     DEFAULT_GRAY: "#999",
     H3_RES_MAP: [
       [2, 0],
@@ -1034,7 +1035,11 @@
         if (this.manager.pointLayers.length === 0 && attempt > 0) {
           setTimeout(() => this.initScan(attempt - 1), CONST.INIT_SCAN_INTERVAL_MS);
         } else if (this.manager.pointLayers.length === 0) {
-          window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layer`), 4000);
+          window.foliplus.showHint(
+            CONST.name,
+            _(`${CONST.name}.no_layer`),
+            CONST.NO_LAYER_HINT_MS,
+          );
         }
       }
 
