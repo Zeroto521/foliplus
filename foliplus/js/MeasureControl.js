@@ -252,21 +252,13 @@
       this.map.getContainer().style.cursor = "crosshair";
 
       if (mode === "marker") {
-        window.foliplus.showHint(`${CONST.name}`, _(`${CONST.name}.hint_marker`), 0);
+        window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_marker`), 0);
         this._bindMarkerMode();
       } else if (mode === "distance") {
-        window.foliplus.showHint(
-          `${CONST.name}`,
-          _(`${CONST.name}.hint_dist_start`),
-          0,
-        );
+        window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_dist_start`), 0);
         this._startDistanceMode();
       } else if (mode === "circle") {
-        window.foliplus.showHint(
-          `${CONST.name}`,
-          _(`${CONST.name}.hint_circle_start`),
-          0,
-        );
+        window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_circle_start`), 0);
         this._startCircleMode();
       }
     }
@@ -274,7 +266,7 @@
     clearActiveMode() {
       this.currentMode = null;
       this.toolBtns.forEach((btn) => btn.classList.remove("active"));
-      window.foliplus.hideHint(`${CONST.name}`);
+      window.foliplus.hideHint(CONST.name);
       this.map.getContainer().style.cursor = "";
       this._cleanMapEvents();
     }
@@ -304,7 +296,7 @@
         this.cleanupFn();
         this.cleanupFn = null;
       }
-      window.foliplus.hideHint(`${CONST.name}`);
+      window.foliplus.hideHint(CONST.name);
     }
 
     // --- Marker (Locate) Mode ---
@@ -727,7 +719,7 @@
           }).addTo(this.mainLayer);
           state = 1;
           window.foliplus.showHint(
-            `${CONST.name}`,
+            CONST.name,
             _(`${CONST.name}.hint_circle_radius`),
             0,
           );
@@ -967,7 +959,7 @@
         this.map.off("mousemove", onMouseMove);
         this.map.off("contextmenu", onContext);
         clearPreviews();
-        window.foliplus.hideHint("measure");
+        window.foliplus.hideHint(CONST.name);
       };
     }
   }

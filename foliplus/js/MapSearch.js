@@ -238,12 +238,8 @@
       window.foliplus.bindOutsideCollapse({
         map: map,
         container: ctrl,
-        shouldCollapse: function () {
-          return !inp.value.trim();
-        },
-        onCollapse: function () {
-          _hideSearchHint();
-        },
+        shouldCollapse: () => !inp.value.trim(),
+        onCollapse: () => _hideSearchHint(),
       });
 
       return container;

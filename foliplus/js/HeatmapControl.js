@@ -99,7 +99,7 @@
           ? "heatmap.no_chroma"
           : "heatmap.no_h3";
       console.error(`[${CONST.name}] ${_(msgKey)} (${names})`);
-      window.foliplus.showHint("heatmap", _(msgKey), 0);
+      window.foliplus.showHint(CONST.name, _(msgKey), 0);
     },
     CONST.LOAD_SCRIPT_RETRIES,
     CONST.LOAD_SCRIPT_INTERVAL_MS,
@@ -1050,7 +1050,7 @@
         if (this.manager.pointLayers.length === 0 && attempt > 0) {
           setTimeout(() => this.initScan(attempt - 1), CONST.INIT_SCAN_INTERVAL_MS);
         } else if (this.manager.pointLayers.length === 0) {
-          window.foliplus.showHint("heatmap", _(`${CONST.name}.no_layer`), 4000);
+          window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layer`), 4000);
         }
       }
 
