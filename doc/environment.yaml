@@ -11,9 +11,7 @@ dependencies:
   - myst-nb
   - sphinx-copybutton
   - sphinx-design
-  - proj
   - geopandas
-  - proj
   - pip
   - pip:
       - my-data-toolkit
