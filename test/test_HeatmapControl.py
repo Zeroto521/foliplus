@@ -305,14 +305,18 @@ class TestHeatmapControlBrowser:
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         fg = folium.FeatureGroup(name="Points", show=True)
         for lat, lng in [(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]:
-            gj = json.dumps({
-                "type": "FeatureCollection",
-                "features": [{
-                    "type": "Feature",
-                    "properties": {"val": lat},
-                    "geometry": {"type": "Point", "coordinates": [lng, lat]},
-                }],
-            })
+            gj = json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"val": lat},
+                            "geometry": {"type": "Point", "coordinates": [lng, lat]},
+                        }
+                    ],
+                }
+            )
             folium.GeoJson(gj).add_to(fg)
         fg.add_to(m)
         LayerControl().add_to(m)
@@ -326,11 +330,15 @@ class TestHeatmapControlBrowser:
 
         page = browser.new_page()
         errors = []
-        page.on("console", lambda msg: (
-            errors.append(msg.text)
-            if msg.type == "error" and not msg.text.startswith("Failed to load resource")
-            else None
-        ))
+        page.on(
+            "console",
+            lambda msg: (
+                errors.append(msg.text)
+                if msg.type == "error"
+                and not msg.text.startswith("Failed to load resource")
+                else None
+            ),
+        )
         page.goto(f"file://{html_path}", wait_until="domcontentloaded")
         page.wait_for_selector(".heatmap-ctrl", state="attached", timeout=10000)
         return page, errors
@@ -343,7 +351,9 @@ class TestHeatmapControlBrowser:
 
         try:
             page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
-            page.wait_for_selector(".heatmap-ctrl.expanded", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
             page.wait_for_timeout(2000)
 
             options_count = page.evaluate(
@@ -352,7 +362,9 @@ class TestHeatmapControlBrowser:
             assert options_count >= 2
 
             page.evaluate("document.querySelector('.heatmap-ctrl .close-btn').click()")
-            page.wait_for_selector(".heatmap-ctrl.collapsed", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".heatmap-ctrl.collapsed", state="attached", timeout=5000
+            )
 
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -374,9 +386,15 @@ class TestHeatmapControlBrowser:
                     currentAgg: m.currentAgg,
                 };
             }""")
-            assert vals["N_CLASSES"] == 6, f"N_CLASSES expected 6 got {vals['N_CLASSES']}"
-            assert vals["BORDER_W"] == 1.5, f"BORDER_W expected 1.5 got {vals['BORDER_W']}"
-            assert vals["BORDER_COLOR"] == "#333", f"BORDER_COLOR got {vals['BORDER_COLOR']}"
+            assert vals["N_CLASSES"] == 6, (
+                f"N_CLASSES expected 6 got {vals['N_CLASSES']}"
+            )
+            assert vals["BORDER_W"] == 1.5, (
+                f"BORDER_W expected 1.5 got {vals['BORDER_W']}"
+            )
+            assert vals["BORDER_COLOR"] == "#333", (
+                f"BORDER_COLOR got {vals['BORDER_COLOR']}"
+            )
             assert vals["currentLabelShow"] is True, "currentLabelShow should be True"
             assert vals["currentMethod"] == "jenks"
             assert vals["currentScheme"] == "Reds"
@@ -390,12 +408,16 @@ class TestHeatmapControlBrowser:
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
             page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
-            page.wait_for_selector(".heatmap-ctrl.expanded", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
             page.wait_for_timeout(2000)
 
             before = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
             # Uncheck label
-            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-switch input').click()")
+            page.evaluate(
+                "document.querySelector('.heatmap-ctrl .toggle-switch input').click()"
+            )
             after = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
             assert before is True, f"expected True, got {before}"
             assert after is False, f"expected False, got {after}"
@@ -408,7 +430,9 @@ class TestHeatmapControlBrowser:
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
             page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
-            page.wait_for_selector(".heatmap-ctrl.expanded", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
             page.wait_for_timeout(3000)
 
             # Select the first non-placeholder layer
@@ -438,7 +462,9 @@ class TestHeatmapControlBrowser:
         try:
             # Render some content first
             page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
-            page.wait_for_selector(".heatmap-ctrl.expanded", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
             page.wait_for_timeout(3000)
             opts = page.evaluate(
                 "Array.from(document.querySelector('.heatmap-ctrl .layer-select option')).slice(1).map(o => o.value)"
@@ -472,7 +498,9 @@ class TestHeatmapControlBrowser:
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
             page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
-            page.wait_for_selector(".heatmap-ctrl.expanded", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
             page.wait_for_timeout(3000)
 
             # Change some values
@@ -493,7 +521,6 @@ class TestHeatmapControlBrowser:
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
-
 
 
 class TestHeatmapAutoFieldBrowser:
