@@ -273,7 +273,7 @@
           if (!this._valueFallbackWarned) {
             this._valueFallbackWarned = true;
             console.warn(
-              `[${CONST.name}] falling back to 1 for missing values, field=${this.currentField}`,
+              `[${CONST.name}] ${_(`${CONST.name}.value_fallback`).replace("{field}", this.currentField)}`,
             );
           }
           return 1;
@@ -377,7 +377,7 @@
             if (pt.value < cell.min) cell.min = pt.value;
             if (pt.value > cell.max) cell.max = pt.value;
           } catch (e) {
-            console.warn(`[${CONST.name}] h3.latLngToCell failed:`, pt.lat, pt.lng, e);
+            console.warn(`[${CONST.name}] ${_(`${CONST.name}.h3_cell_fail`)}`, pt.lat, pt.lng, e);
           }
         });
 
@@ -438,7 +438,7 @@
               },
             });
           } catch (e) {
-            console.warn(`[${CONST.name}] h3.cellToBoundary failed:`, h3Idx, e);
+            console.warn(`[${CONST.name}] ${_(`${CONST.name}.h3_boundary_fail`)}`, h3Idx, e);
           }
         }
 

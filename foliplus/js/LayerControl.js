@@ -211,7 +211,7 @@
         }
         this.layers = ordered.concat([...map.values()]);
       } catch (e) {
-        console.warn(`[${CONST.name}] failed to load saved layer order:`, e);
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".load_order_fail")}`, e);
       }
     }
 
@@ -222,7 +222,7 @@
           JSON.stringify(this.layers.map((l) => l.id)),
         );
       } catch (e) {
-        console.warn(`[${CONST.name}] failed to save layer order:`, e);
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".save_order_fail")}`, e);
       }
     }
 
