@@ -10,12 +10,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Fix PROJ data path on ReadTheDocs (set before importing proj-dependent libs)
-if not os.environ.get("PROJ_LIB") and os.environ.get("CONDA_PREFIX"):
-    candidate = os.path.join(os.environ["CONDA_PREFIX"], "share", "proj")
-    if os.path.isdir(candidate):
-        os.environ["PROJ_LIB"] = candidate
-
 import foliplus
 from foliplus import __version__
 
