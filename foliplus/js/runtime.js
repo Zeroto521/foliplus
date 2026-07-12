@@ -125,15 +125,14 @@
 
   /**
    * Display a hint toast at the bottom-center of the viewport.
-   * Hints are mounted on `document.body` and use `position: fixed`
-   * so they remain visible regardless of container resizing.
+   * During native browser fullscreen, hints are mounted on the fullscreen
+   * element so they remain visible.
    *
    * @param {string}  key      - Hint type identifier. Overrides previous hint
    *                             with the same key unless `append=true`.
    * @param {string}  text     - The hint message text.
    * @param {number}  [duration=3000] - Time in ms before auto-hide.
    *                                    Use `0` for persistent (until `hideHint`).
-   * @param {Element} [parent=document.body] - Container element for the hint.
    * @param {boolean} [append=false] - If `true`, appends a new hint instance
    *                                   without removing existing ones with the
    *                                   same key. The instance auto-clears after
@@ -145,16 +144,16 @@
    *   foliplus.showHint('export', 'Locked — zoom to adjust', 0);
    *
    *   // Temporary appended hint (does not overwrite persistent one)
-   *   foliplus.showHint('export', 'Restored previous area', 3000, document.body, true);
+   *   foliplus.showHint('export', 'Restored previous area', 3000, true);
    *
    *   // Remove all hints of a type
    *   foliplus.hideHint('export');
    *   // Remove appended instances individually
    *   foliplus.hideHint('export-1234567890');
    */
-  foliplus.showHint = (key, text, duration, parent, append) => {
+  foliplus.showHint = (key, text, duration, append) => {
     if (!append) foliplus.hideHint(key);
-    const hintTarget = parent || document.body;
+    const hintTarget = document.fullscreenElement || document.body;
     const cls = append
       ? `map-hint map-hint-${key}-${Date.now()}`
       : `map-hint map-hint-${key}`;

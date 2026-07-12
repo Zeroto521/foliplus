@@ -98,7 +98,6 @@
       CONST.name,
       isFull ? _(`${CONST.name}.enter`) : _(`${CONST.name}.exit`),
       CONST.HINT_DURATION_MS,
-      isFull ? map.getContainer() : null,
     );
   };
 
