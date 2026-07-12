@@ -4,6 +4,7 @@
 
 ### Added
 
+- `Fullscreen`: added `hide_others` parameter (default `true`) to hide all other map controls in fullscreen; icon now switches between maximize/minimize ([#33](https://github.com/Zeroto521/foliplus/pull/33))
 - `MeasureControl`: added real-time distance preview during measurement ([#27](https://github.com/Zeroto521/foliplus/pull/27))
 - `LayerControl`: added `EMPTY` and `UNKNOWN` SVG icons for layer type display ([#29](https://github.com/Zeroto521/foliplus/pull/29))
 
