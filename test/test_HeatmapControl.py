@@ -127,7 +127,7 @@ class TestHeatmapControlRendering:
         """Label markers use custom pane and no zIndexOffset."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: CONST.GRAPH_PANE" in html
+        assert "graphPane: CONST.GRAPH_PANE" in html
         assert "heatmap-label" in html
 
     def test_label_zindex_css(self, base_map: folium.Map):
@@ -153,19 +153,19 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "__heatmap__" in html
-        assert "pane: CONST.GRAPH_PANE" in html
+        assert "graphPane: CONST.GRAPH_PANE" in html
 
     def test_graphlayer_pane_init(self, base_map: folium.Map):
         """graphLayer is initialized with pane: this.graphPane."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: CONST.GRAPH_PANE" in html
+        assert "graphPane: CONST.GRAPH_PANE" in html
 
     def test_register_before_add_data(self, base_map: folium.Map):
-        """_registerToLayerControl is called before graphLayer.addData."""
+        """createManagedGroup auto-registers via _mg.register()."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "_registerToLayerControl()" in html
+        assert "this.mg.register()" in html
         assert "mainLayer.options._paneSet" not in html
 
     def test_extract_points_filters_no_feature(self, base_map: folium.Map):
@@ -207,9 +207,9 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "onRemove()" in html
         assert "observer.disconnect" in html
-        assert 'manager.map.off("zoomend", this.manager._onZoomEnd)' in html
+        assert 'manager.map.off("zoomend", this.manager.onZoomEnd)' in html
         assert (
-            'manager.map.off("layeradd layerremove", this.manager._onLayerChange)'
+            'manager.map.off("layeradd layerremove", this.manager.onLayerChange)'
             in html
         )
 
@@ -233,7 +233,7 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "return fields[0];" in html
-        assert "_readMarkerField(marker, field)" in html
+        assert "readMarkerField(marker, field)" in html
 
     def test_auto_field_key_resets_on_clear(self, base_map: folium.Map):
         """Clear action resets autoFieldKey to avoid stale field selection."""
@@ -242,19 +242,19 @@ class TestHeatmapControlRendering:
         assert "this.manager.autoFieldKey = null;" in html
 
     def test_named_handler_cleanup(self, base_map: folium.Map):
-        """_bindMapEvents uses named handlers (_onZoomEnd, _onLayerChange)."""
+        """bindMapEvents uses named handlers (onZoomEnd, onLayerChange)."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "this._onZoomEnd" in html
-        assert "this._onLayerChange" in html
-        assert 'map.on("zoomend", this._onZoomEnd)' in html
-        assert 'map.on("layeradd layerremove", this._onLayerChange)' in html
+        assert "this.onZoomEnd" in html
+        assert "this.onLayerChange" in html
+        assert 'map.on("zoomend", this.onZoomEnd)' in html
+        assert 'map.on("layeradd layerremove", this.onLayerChange)' in html
 
     def test_get_point_value_dedup(self, base_map: folium.Map):
-        """getPointValue delegates to _readMarkerField instead of duplicating branch logic."""
+        """getPointValue delegates to readMarkerField instead of duplicating branch logic."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "this._readMarkerField(marker, key)" in html
+        assert "this.readMarkerField(marker, key)" in html
         # Should NOT contain inline field resolution branches
         assert "this.currentField === '_value'" not in html
         assert "this.currentField === 'options.value'" not in html
@@ -310,23 +310,23 @@ class TestHeatmapControlBrowser:
         html = m.get_root().render()
         # Stub CDN deps so the heatmap UI initializes without network.
         html = html.replace(
-            "check: () => typeof h3 !== 'undefined'",
+            'check: () => typeof h3 !== "undefined"',
             "check: () => true",
         )
         html = html.replace(
-            "check: () => typeof ss !== 'undefined'",
+            'check: () => typeof ss !== "undefined"',
             "check: () => true",
         )
         html = html.replace(
-            "check: () => typeof chroma !== 'undefined'",
+            'check: () => typeof chroma !== "undefined"',
             "check: () => true",
         )
         html = html.replace(
-            "return run();",
-            "window.h3={latLngToCell:function(){return ''},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};"
+            'if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();',
+            'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
             "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
-            "window.chroma={scale:function(){return{mode:function(){return{colors:function(){return['#f00']}}}}}};"
-            "return run();",
+            'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'
+            "run();",
         )
         html_path.write_text(html, encoding="utf-8")
 
@@ -437,11 +437,11 @@ class TestHeatmapAutoFieldBrowser:
             "check: () => true",
         )
         html = html.replace(
-            "return run();",
-            "window.h3={latLngToCell:function(){return ''},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};"
+            'if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();',
+            'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
             "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
-            "window.chroma={scale:function(){return{mode:function(){return{colors:function(){return['#f00']}}}}}};"
-            "return run();",
+            'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'
+            "run();",
         )
         html_path.write_text(html, encoding="utf-8")
 

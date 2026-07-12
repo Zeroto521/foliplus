@@ -77,6 +77,15 @@
 
   window.foliplus.registerHintIcon(CONST.name, SVGS.LIST);
 
+  // Guard Leaflet's bringToFront against null parentNode during enforceOrder
+  // layer migration (enforceOrder briefly removes layers from the map, and a
+  // concurrent mousemove event may call bringToFront on a detached _path).
+  const origBringToFront = L.Path.prototype.bringToFront;
+  L.Path.prototype.bringToFront = function () {
+    if (this._path && this._path.parentNode) origBringToFront.call(this);
+    return this;
+  };
+
   // ==================== Utility Class ====================
   class LayerUtils {
     static escapeHTML(str) {
@@ -378,7 +387,162 @@
     clearAllLayers(layer) {
       if (!layer) return;
       if (typeof layer.clearLayers === "function") layer.clearLayers();
-      if (layer.eachLayer) layer.eachLayer((l) => this._clearAllLayers(l));
+      if (layer.eachLayer) layer.eachLayer((l) => this.clearAllLayers(l));
+    }
+
+    /**
+     * Create a managed three-layer group for components that need
+     * graph and label sub-layers (HeatmapControl, MeasureControl, etc.).
+     *
+     * Returns `{ mainLayer, graphLayer, labelLayer }` with automated
+     * addLayer/removeLayer/clearLayers routing and LayerControl registration.
+     *
+     * @param {Object} opts
+     * @param {string} opts.id      - Unique layer ID (e.g. '__heatmap__')
+     * @param {string} opts.name    - Display name for LayerControl panel
+     * @param {string} [opts.graphPane] - Pane name for graph content (omit if no graph layer)
+     * @param {string} [opts.labelPane] - Pane name for label content (omit if no label layer)
+     * @param {string} [opts.iconSvg] - SVG icon for the type column
+     * @returns {Object} { mainLayer, graphLayer, labelLayer }
+     */
+    createManagedGroup(opts) {
+      const mainLayer = L.layerGroup();
+      const graphLayer = opts.graphPane
+        ? L.layerGroup([], { pane: opts.graphPane })
+        : null;
+      const labelLayer = opts.labelPane ? L.layerGroup() : null;
+      if (labelLayer) labelLayer.options.pane = opts.labelPane;
+      if (graphLayer) mainLayer.addLayer(graphLayer);
+      if (labelLayer) mainLayer.addLayer(labelLayer);
+
+      let registered = false;
+
+      const register = () => {
+        if (registered) return;
+        registered = true;
+        this.registerLayer({
+          name: opts.name,
+          id: opts.id,
+          isBase: false,
+          layer: mainLayer,
+          iconSvg: opts.iconSvg || null,
+        });
+      };
+
+      const unregister = () => {
+        if (!registered) return;
+        const hasContent =
+          (graphLayer && Object.keys(graphLayer._layers || {}).length > 0) ||
+          (labelLayer && Object.keys(labelLayer._layers || {}).length > 0);
+        if (!hasContent) {
+          registered = false;
+          this.unregisterLayer(opts.id);
+        }
+      };
+
+      // Save originals so overrides can fall back without recursion
+      const origAddLayer = mainLayer.addLayer.bind(mainLayer);
+      const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
+
+      // Override addLayer to route to sub-layers (no auto-register).
+      // Consumers can use the convenience methods below instead.
+      mainLayer.addLayer = (layer) => {
+        const isLabel = layer._isMeasureLabel;
+        const target = isLabel ? labelLayer : graphLayer;
+        if (target) {
+          const paneName = isLabel ? opts.labelPane : opts.graphPane;
+          layer.options.pane = paneName;
+          if (layer instanceof L.Path) {
+            const { renderer } = this.ensurePane(opts.graphPane);
+            layer._renderer = renderer;
+          } else if (paneName) this.ensurePane(paneName, false);
+          return target.addLayer(layer);
+        }
+        return origAddLayer(layer);
+      };
+
+      mainLayer.removeLayer = (layer) => {
+        if (graphLayer && graphLayer.hasLayer(layer))
+          return graphLayer.removeLayer(layer);
+        if (labelLayer && labelLayer.hasLayer(layer))
+          return labelLayer.removeLayer(layer);
+        return origRemoveLayer(layer);
+      };
+
+      mainLayer.clearLayers = () => {
+        if (graphLayer) graphLayer.clearLayers();
+        if (labelLayer) labelLayer.clearLayers();
+      };
+
+      // ── Convenience API ──────────────────────────────────────────
+      // These handle pane/renderer setup and auto-register/unregister,
+      // so consumers don't need to call register()/unregisterIfEmpty().
+      const addGraph = (layer) => {
+        if (!graphLayer) return;
+        layer.options.pane = opts.graphPane;
+        if (layer instanceof L.Path) {
+          const { renderer } = this.ensurePane(opts.graphPane);
+          layer._renderer = renderer;
+        } else if (opts.graphPane) {
+          this.ensurePane(opts.graphPane, false);
+        }
+        graphLayer.addLayer(layer);
+        register();
+      };
+
+      const addLabel = (marker) => {
+        if (!labelLayer) return;
+        if (opts.labelPane) {
+          marker.options.pane = opts.labelPane;
+          this.ensurePane(opts.labelPane, false);
+        }
+        labelLayer.addLayer(marker);
+        register();
+      };
+
+      const removeGraph = (layer) => {
+        if (!graphLayer) return;
+        graphLayer.removeLayer(layer);
+        unregister();
+      };
+
+      const removeLabel = (layer) => {
+        if (!labelLayer) return;
+        labelLayer.removeLayer(layer);
+        unregister();
+      };
+
+      const clearGraph = () => {
+        if (!graphLayer) return;
+        graphLayer.clearLayers();
+        unregister();
+      };
+
+      const clearLabels = () => {
+        if (!labelLayer) return;
+        labelLayer.clearLayers();
+        unregister();
+      };
+
+      const clearAll = () => {
+        clearGraph();
+        clearLabels();
+      };
+
+      return {
+        mainLayer,
+        graphLayer,
+        labelLayer,
+        addGraph,
+        addLabel,
+        removeGraph,
+        removeLabel,
+        clearGraph,
+        clearLabels,
+        clearAll,
+        register,
+        unregister,
+      };
     }
 
     /**
@@ -547,11 +711,20 @@
         }
 
         if (layersToMove.length) {
-          for (const { layer } of layersToMove) this.map.removeLayer(layer);
           for (const { layer, paneName, renderer } of layersToMove) {
-            if (paneName) this.setLayerPaneRecursive(layer, paneName, renderer);
+            if (paneName) {
+              this.setLayerPaneRecursive(layer, paneName, renderer);
+              // Move existing SVG elements in-place without removeLayer/addLayer,
+              // avoiding the bringToFront race on removed path elements.
+              const moveElements = (l) => {
+                if (l._path && renderer && l._path.parentNode !== renderer._container) {
+                  renderer._container.appendChild(l._path);
+                }
+                if (l.eachLayer) l.eachLayer(moveElements);
+              };
+              moveElements(layer);
+            }
           }
-          for (const { layer } of layersToMove) this.map.addLayer(layer);
         }
       } finally {
         this.isEnforcing = false;

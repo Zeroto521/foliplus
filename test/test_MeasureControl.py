@@ -81,15 +81,14 @@ class TestMeasureControlRendering:
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.mainLayer.removeLayer = (layer) => {" in html
-        assert "this.labelLayer : this.graphLayer" in html
+        assert "removeLayer" in html
 
     def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
         """MeasureControl uses LayerControlAPI.ensurePane for renderer creation."""
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "window.foliplus.LayerControlAPI.ensurePane" in html
+        assert "createManagedGroup" in html
 
     def test_realtime_distance_preview(self, base_map: folium.Map):
         """Distance mode includes real-time preview label (previewDistLabel)."""
@@ -169,7 +168,7 @@ class TestMeasureControlRendering:
         html = render(base_map)
         # Check specific order: _isMeasureLabel = true BEFORE addTo
         assert re.search(
-            r"_isMeasureLabel\s*=\s*true;\s*\w+\.addTo\(this\.mainLayer\)", html
+            r"_isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html
         )
 
     def test_label_interaction_listeners(self, base_map: folium.Map):
@@ -183,8 +182,7 @@ class TestMeasureControlRendering:
         """unregisterFromLayerControl explicitly clears graph/label sub-layers."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.graphLayer.clearLayers()" in html
-        assert "this.labelLayer.clearLayers()" in html
+        assert "this.mg.clearAll()" in html
 
     def test_ui_fixed_labels_fix(self, base_map: folium.Map):
         """Regression test: Labels should stay fixed (visible), only X toggles.

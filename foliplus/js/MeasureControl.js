@@ -13,6 +13,9 @@
     CENTER_DOT_SIZE: [12, 12],
     CENTER_DOT_ANCHOR: [6, 6],
     LABEL_ANCHOR: [0, -10],
+    MEASURE_ID: "__measure__",
+    GRAPH_PANE: "__measure_graph__",
+    LABEL_PANE: "__measure_label__",
   };
 
   // ==================== Runtime Guard ====================
@@ -135,77 +138,19 @@
   class MeasureManager {
     constructor(mapInstance) {
       this.map = mapInstance;
-      this.mainLayer = L.layerGroup();
-      this.graphLayer = L.layerGroup([], { pane: this.GRAPH_PANE });
-      this.labelLayer = L.layerGroup();
-      this.mainLayer.addLayer(this.graphLayer);
-      this.mainLayer.addLayer(this.labelLayer);
-      this.isRegistered = false;
+      this.mg = window.foliplus.LayerControlAPI.createManagedGroup({
+        id: CONST.MEASURE_ID,
+        name: _(`${CONST.name}.tool_toggle`),
+        graphPane: CONST.GRAPH_PANE,
+        labelPane: CONST.LABEL_PANE,
+        iconSvg: SVGS.RULER,
+      });
       this.currentMode = null;
       this.cleanupFn = null;
       this.suppressHideDel = false;
       this.toolBtns = [];
-      this.MEASURE_ID = "__measure__";
-      this.graphPane = "__measure_graph__";
-      this.lblPane = "__measure_label__";
 
-      this._setupLayerOverrides();
-      this._bindGlobalEvents();
-    }
-
-    _setupLayerOverrides() {
-      // Intercept addLayer to set pane and route to sub-layer
-      this.mainLayer.addLayer = (layer) => {
-        this._registerToLayerControl();
-
-        const isLabel = layer._isMeasureLabel;
-        const paneName = isLabel ? this.lblPane : this.graphPane;
-        layer.options.pane = paneName;
-
-        if (layer instanceof L.Path) {
-          const { renderer } = window.foliplus.LayerControlAPI.ensurePane(
-            this.graphPane,
-          );
-          layer.options.renderer = renderer;
-        } else window.foliplus.LayerControlAPI.ensurePane(paneName, false);
-
-        return (isLabel ? this.labelLayer : this.graphLayer).addLayer(layer);
-      };
-
-      // Route removeLayer to correct sub-layer
-      this.mainLayer.removeLayer = (layer) => {
-        return (layer._isMeasureLabel ? this.labelLayer : this.graphLayer).removeLayer(
-          layer,
-        );
-      };
-
-      // Route clearLayers to sub-layers
-      this.mainLayer.clearLayers = () => {
-        this.graphLayer.clearLayers();
-        this.labelLayer.clearLayers();
-      };
-    }
-
-    _registerToLayerControl() {
-      if (this.isRegistered) return;
-      this.isRegistered = true;
-      window.foliplus.LayerControlAPI.registerLayer({
-        name: _(`${CONST.name}.tool_toggle`),
-        id: this.MEASURE_ID,
-        isBase: false,
-        layer: this.mainLayer,
-        iconSvg: SVGS.RULER,
-      });
-    }
-
-    _unregisterFromLayerControl() {
-      const hasContent =
-        Object.keys(this.graphLayer._layers || {}).length > 0 ||
-        Object.keys(this.labelLayer._layers || {}).length > 0;
-      if (!hasContent && this.isRegistered) {
-        this.isRegistered = false;
-        window.foliplus.LayerControlAPI.unregisterLayer(this.MEASURE_ID);
-      }
+      this.bindGlobalEvents();
     }
 
     bindGlobalEvents() {
@@ -244,6 +189,7 @@
       );
 
       this.map.getContainer().classList.add("is-measuring");
+      this.mg.register();
 
       if (mode === "marker") {
         window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_marker`), 0);
@@ -266,9 +212,7 @@
     }
 
     clearAll() {
-      this.graphLayer.clearLayers();
-      this.labelLayer.clearLayers();
-      this._unregisterFromLayerControl();
+      this.mg.clearAll();
       this.clearActiveMode();
       if (this.onMapClick) {
         this.map.off("click", this.onMapClick);
@@ -318,7 +262,7 @@
         `${CONST.name}.popup_loc_label`,
         `${CONST.name}.popup_addr_label`,
         null,
-        this.mainLayer,
+        this.mg.mainLayer,
       );
 
       let cachedAddr = null;
@@ -392,8 +336,8 @@
 
       L.DomEvent.on(xIcon, "click", (ev) => {
         MeasureUtils.stopEvent(ev);
-        this.mainLayer.removeLayer(marker);
-        this._unregisterFromLayerControl();
+        this.mg.mainLayer.removeLayer(marker);
+        this.mg.unregister();
       });
     }
 
@@ -403,7 +347,7 @@
       let total = 0;
       const poly = L.polyline([], {
         className: "measure-line measure-line-dashed",
-      }).addTo(this.mainLayer);
+      }).addTo(this.mg.mainLayer);
 
       const nodeMarkers = [];
       const segLabels = [];
@@ -411,23 +355,23 @@
 
       const previewLine = L.polyline([], {
         className: "measure-line measure-line-preview",
-      }).addTo(this.mainLayer);
+      }).addTo(this.mg.mainLayer);
 
       const cleanupEvents = () => {
         this.map.off("click", onDistClick);
         this.map.off("dblclick", onDistDbl);
         this.map.off("contextmenu", onDistContext);
         this.map.off("mousemove", onDistMove);
-        this.mainLayer.removeLayer(previewLine);
+        this.mg.mainLayer.removeLayer(previewLine);
       };
 
       const cancelCleanup = () => {
         cleanupEvents();
-        this.mainLayer.removeLayer(poly);
-        nodeMarkers.forEach((m) => this.mainLayer.removeLayer(m));
-        segLabels.forEach((l) => this.mainLayer.removeLayer(l));
-        if (startLbl) this.mainLayer.removeLayer(startLbl);
-        if (previewDistLabel) this.mainLayer.removeLayer(previewDistLabel);
+        this.mg.mainLayer.removeLayer(poly);
+        nodeMarkers.forEach((m) => this.mg.mainLayer.removeLayer(m));
+        segLabels.forEach((l) => this.mg.mainLayer.removeLayer(l));
+        if (startLbl) this.mg.mainLayer.removeLayer(startLbl);
+        if (previewDistLabel) this.mg.mainLayer.removeLayer(previewDistLabel);
       };
 
       this.cleanupFn = cancelCleanup;
@@ -442,17 +386,17 @@
           return;
         }
         distFinished = true;
-        this.mainLayer.removeLayer(poly);
-        this.mainLayer.removeLayer(previewLine);
+        this.mg.mainLayer.removeLayer(poly);
+        this.mg.mainLayer.removeLayer(previewLine);
         if (previewDistLabel) {
-          this.mainLayer.removeLayer(previewDistLabel);
+          this.mg.mainLayer.removeLayer(previewDistLabel);
           previewDistLabel = null;
         }
 
         const finalPoly = L.polyline(pts, {
           className: "measure-line measure-line-solid",
           interactive: true,
-        }).addTo(this.mainLayer);
+        }).addTo(this.mg.mainLayer);
 
         let labelsVisible = true;
         let xVisible = false;
@@ -509,11 +453,11 @@
         }
 
         const deleteMeasurement = () => {
-          this.mainLayer.removeLayer(finalPoly);
-          nodeMarkers.forEach((m) => this.mainLayer.removeLayer(m));
-          segLabels.forEach((l) => this.mainLayer.removeLayer(l));
-          if (startLbl) this.mainLayer.removeLayer(startLbl);
-          if (lastNodeDelMkr) this.mainLayer.removeLayer(lastNodeDelMkr);
+          this.mg.mainLayer.removeLayer(finalPoly);
+          nodeMarkers.forEach((m) => this.mg.mainLayer.removeLayer(m));
+          segLabels.forEach((l) => this.mg.mainLayer.removeLayer(l));
+          if (startLbl) this.mg.mainLayer.removeLayer(startLbl);
+          if (lastNodeDelMkr) this.mg.mainLayer.removeLayer(lastNodeDelMkr);
           this.map.off("click", onDistMapClick);
         };
 
@@ -527,7 +471,7 @@
               iconAnchor: [0, 0],
             }),
             interactive: true,
-          }).addTo(this.mainLayer);
+          }).addTo(this.mg.mainLayer);
 
           setTimeout(() => {
             const el = lastNodeDelMkr.getElement();
@@ -550,15 +494,15 @@
         }
 
         // Re-sort layer ordering: finalPoly at bottom, then nodes, del icon, labels
-        nodeMarkers.forEach((m) => this.mainLayer.removeLayer(m));
-        if (lastNodeDelMkr) this.mainLayer.removeLayer(lastNodeDelMkr);
-        segLabels.forEach((l) => this.mainLayer.removeLayer(l));
-        if (startLbl) this.mainLayer.removeLayer(startLbl);
+        nodeMarkers.forEach((m) => this.mg.mainLayer.removeLayer(m));
+        if (lastNodeDelMkr) this.mg.mainLayer.removeLayer(lastNodeDelMkr);
+        segLabels.forEach((l) => this.mg.mainLayer.removeLayer(l));
+        if (startLbl) this.mg.mainLayer.removeLayer(startLbl);
 
-        nodeMarkers.forEach((m) => m.addTo(this.mainLayer));
-        if (lastNodeDelMkr) lastNodeDelMkr.addTo(this.mainLayer);
-        segLabels.forEach((l) => l.addTo(this.mainLayer));
-        if (startLbl) startLbl.addTo(this.mainLayer);
+        nodeMarkers.forEach((m) => m.addTo(this.mg.mainLayer));
+        if (lastNodeDelMkr) lastNodeDelMkr.addTo(this.mg.mainLayer);
+        segLabels.forEach((l) => l.addTo(this.mg.mainLayer));
+        if (startLbl) startLbl.addTo(this.mg.mainLayer);
 
         cleanupEvents();
         this.clearActiveMode();
@@ -585,7 +529,7 @@
             interactive: false,
           });
           previewDistLabel._isMeasureLabel = true;
-          previewDistLabel.addTo(this.mainLayer);
+          previewDistLabel.addTo(this.mg.mainLayer);
         } else {
           previewDistLabel.setLatLng(e.latlng);
           const el = previewDistLabel.getElement();
@@ -600,7 +544,7 @@
         if (this.currentMode !== "distance") return;
         pts.push(e.latlng);
         if (previewDistLabel) {
-          this.mainLayer.removeLayer(previewDistLabel);
+          this.mg.mainLayer.removeLayer(previewDistLabel);
           previewDistLabel = null;
         }
         poly.addLatLng(e.latlng);
@@ -608,7 +552,7 @@
         const mkr = L.circleMarker(e.latlng, {
           radius: CONST.MARKER_RADIUS,
           className: "measure-node measure-node-final",
-        }).addTo(this.mainLayer);
+        }).addTo(this.mg.mainLayer);
         mkr.bringToFront();
         nodeMarkers.push(mkr);
 
@@ -622,7 +566,7 @@
             }),
           });
           startLbl._isMeasureLabel = true;
-          startLbl.addTo(this.mainLayer);
+          startLbl.addTo(this.mg.mainLayer);
         }
 
         mkr.on("click", () => {
@@ -666,7 +610,7 @@
             }),
           });
           lbl._isMeasureLabel = true;
-          lbl.addTo(this.mainLayer);
+          lbl.addTo(this.mg.mainLayer);
           segLabels.push(lbl);
         }
       };
@@ -700,11 +644,11 @@
       };
 
       const clearPreviews = () => {
-        if (previews.center) this.mainLayer.removeLayer(previews.center);
-        if (previews.circle) this.mainLayer.removeLayer(previews.circle);
-        if (previews.line) this.mainLayer.removeLayer(previews.line);
-        if (previews.node) this.mainLayer.removeLayer(previews.node);
-        if (previews.label) this.mainLayer.removeLayer(previews.label);
+        if (previews.center) this.mg.mainLayer.removeLayer(previews.center);
+        if (previews.circle) this.mg.mainLayer.removeLayer(previews.circle);
+        if (previews.line) this.mg.mainLayer.removeLayer(previews.line);
+        if (previews.node) this.mg.mainLayer.removeLayer(previews.node);
+        if (previews.label) this.mg.mainLayer.removeLayer(previews.label);
         previews.center =
           previews.circle =
           previews.line =
@@ -729,7 +673,7 @@
             }),
             zIndexOffset: CONST.Z_INDEX_OFFSET,
             interactive: false,
-          }).addTo(this.mainLayer);
+          }).addTo(this.mg.mainLayer);
           state = 1;
           window.foliplus.showHint(
             CONST.name,
@@ -771,7 +715,7 @@
             radius: r,
             className: "measure-circle measure-circle-preview",
             interactive: false,
-          }).addTo(this.mainLayer);
+          }).addTo(this.mg.mainLayer);
         } else {
           previews.circle.setRadius(r);
         }
@@ -780,7 +724,7 @@
           previews.line = L.polyline([center, e.latlng], {
             className: "measure-line measure-line-preview",
             interactive: false,
-          }).addTo(this.mainLayer);
+          }).addTo(this.mg.mainLayer);
         } else {
           previews.line.setLatLngs([center, e.latlng]);
         }
@@ -790,7 +734,7 @@
             radius: CONST.MARKER_RADIUS,
             className: "measure-node measure-node-preview",
             interactive: false,
-          }).addTo(this.mainLayer);
+          }).addTo(this.mg.mainLayer);
           previews.node.bringToFront();
         } else {
           previews.node.setLatLng(e.latlng);
@@ -811,7 +755,7 @@
             }),
           });
           previews.label._isMeasureLabel = true;
-          previews.label.addTo(this.mainLayer);
+          previews.label.addTo(this.mg.mainLayer);
         } else {
           previews.label.setLatLng(mid);
           const el = previews.label.getElement();
@@ -835,12 +779,12 @@
           radius: r,
           className: "measure-circle measure-circle-final",
           interactive: true,
-        }).addTo(this.mainLayer);
+        }).addTo(this.mg.mainLayer);
 
         const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {
           className: "measure-line measure-line-dashed",
           interactive: true,
-        }).addTo(this.mainLayer);
+        }).addTo(this.mg.mainLayer);
 
         const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
         const midLng = (centerLatLng.lng + finalTargetLatLng.lng) / 2;
@@ -854,13 +798,13 @@
           }),
         });
         radiusLabel._isMeasureLabel = true;
-        radiusLabel.addTo(this.mainLayer);
+        radiusLabel.addTo(this.mg.mainLayer);
 
         const radiusNode = L.circleMarker(finalTargetLatLng, {
           radius: CONST.MARKER_RADIUS,
           className: "measure-node measure-node-final",
           interactive: true,
-        }).addTo(this.mainLayer);
+        }).addTo(this.mg.mainLayer);
         radiusNode.bringToFront();
 
         let labelsVisible = true;
@@ -875,7 +819,7 @@
           }),
           zIndexOffset: CONST.Z_INDEX_OFFSET,
           interactive: true,
-        }).addTo(this.mainLayer);
+        }).addTo(this.mg.mainLayer);
 
         const delMkr = L.marker(centerLatLng, {
           icon: L.divIcon({
@@ -886,7 +830,7 @@
           }),
           interactive: true,
           zIndexOffset: CONST.Z_INDEX_OFFSET,
-        }).addTo(this.mainLayer);
+        }).addTo(this.mg.mainLayer);
 
         const toggleUI = (showX, toggleLabels) => {
           const s = MeasureUtils.calcToggle(
@@ -913,12 +857,12 @@
         const deleteCircle = () => {
           if (deleted) return;
           deleted = true;
-          this.mainLayer.removeLayer(delMkr);
-          this.mainLayer.removeLayer(circle);
-          this.mainLayer.removeLayer(centerFinal);
-          if (radiusLine) this.mainLayer.removeLayer(radiusLine);
-          if (radiusNode) this.mainLayer.removeLayer(radiusNode);
-          if (radiusLabel) this.mainLayer.removeLayer(radiusLabel);
+          this.mg.mainLayer.removeLayer(delMkr);
+          this.mg.mainLayer.removeLayer(circle);
+          this.mg.mainLayer.removeLayer(centerFinal);
+          if (radiusLine) this.mg.mainLayer.removeLayer(radiusLine);
+          if (radiusNode) this.mg.mainLayer.removeLayer(radiusNode);
+          if (radiusLabel) this.mg.mainLayer.removeLayer(radiusLabel);
           this.map.off("click", onMapClickActive);
         };
 

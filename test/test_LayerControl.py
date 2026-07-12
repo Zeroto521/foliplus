@@ -91,8 +91,8 @@ class TestLayerControlRendering:
     def test_color_layer_functions(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_showColorLayer" in html
-        assert "_hideColorLayer" in html
+        assert "showColorLayer" in html
+        assert "hideColorLayer" in html
 
     def test_svg_icons_defined(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
@@ -227,7 +227,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "color-layer-item" in html
-        assert "_deselectAllBaseMaps" in html
+        assert "deselectAllBaseMaps" in html
 
     def test_drag_base_map_allowed(self):
         """No drag prevention for base maps in JS code."""
@@ -239,10 +239,10 @@ class TestLayerControlRendering:
         assert "this.layers[idx].isBase" not in html
 
     def test_hide_color_layer_function(self, base_map: folium.Map):
-        """_hideColorLayer function exists in rendered JS."""
+        """hideColorLayer function exists in rendered JS."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_hideColorLayer" in html
+        assert "hideColorLayer" in html
 
     def test_separator_in_template(self):
         """Separator label 'BASE MAP' appears before base layer items."""
@@ -283,7 +283,7 @@ class TestLayerControlRendering:
         assert count >= 2, f"Expected at least 2 draggable items, got {count}"
 
     def test_marker_skip_in_set_layer_pane(self, base_map: folium.Map):
-        """_setLayerPaneRecursive skips Markers but moves TileLayers.
+        """setLayerPaneRecursive skips Markers but moves TileLayers.
 
         Markers stay in markerPane to preserve shadow rendering.
         TileLayers are moved to custom panes for proper z-ordering.
@@ -298,7 +298,7 @@ class TestLayerControlRendering:
         """enforceOrder assigns fallback _lyr_ pane for non-paneName layers.
 
         L.Path children get moved to the custom pane for ordering.
-        _setLayerPaneRecursive skips Markers/TileLayers — those stay in
+        setLayerPaneRecursive skips Markers/TileLayers — those stay in
         their default panes.  markerPane z-index is synced for cross-group
         interleaving.
         """
@@ -306,8 +306,8 @@ class TestLayerControlRendering:
         html = render(base_map)
         # Fallback _lyr_ pane is generated for non-paneName layers
         assert "_lyr_" in html
-        # _setLayerPaneRecursive is always called
-        assert "_setLayerPaneRecursive" in html
+        # setLayerPaneRecursive is always called
+        assert "setLayerPaneRecursive" in html
         # markerPane z-index is synced
         assert "mp.style.zIndex = markerZ" in html or "mp.style.zIndex" in html
 
@@ -326,8 +326,8 @@ class TestLayerControlRendering:
         """Regression test for Bug 3: Recursion guard prevents infinite loop in layeradd."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this._isEnforcing = true" in html
-        assert "if (this._isEnforcing) return" in html
+        assert "this.isEnforcing = true" in html
+        assert "if (this.isEnforcing) return" in html
 
     def test_error_keys_injected(self, base_map: folium.Map):
         """LayerControl error keys appear in rendered HTML."""
@@ -350,10 +350,10 @@ class TestLayerControlRendering:
         assert 'cp.includes("label") || cp.includes("lbl")' in html
         assert "ep.pane.style.zIndex = z + 1" in html
         assert "ensurePane" in html
-        assert "_setLayerPaneRecursive" in html
+        assert "setLayerPaneRecursive" in html
 
     def test_pane_set_on_all_layers(self, base_map: folium.Map):
-        """_setLayerPaneRecursive sets _paneSet on ALL layers, not just Path.
+        """setLayerPaneRecursive sets _paneSet on ALL layers, not just Path.
 
         Containers (FeatureGroup) and other non-Path layers also get
         _paneSet so subsequent enforceOrder calls skip unnecessary
@@ -434,7 +434,7 @@ class TestLayerControlRendering:
         assert "layersToMove.push" in html
 
     def test_color_layer_hides_tile_pane(self, base_map: folium.Map):
-        """_showColorLayer hides tilePane visibility and opacity."""
+        """showColorLayer hides tilePane visibility and opacity."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert 'tilePane.style.visibility = "hidden"' in html
@@ -448,7 +448,7 @@ class TestLayerControlRendering:
         assert "getLayersByType(type)" in html
 
     def test_load_saved_order_uses_map(self, base_map: folium.Map):
-        """_loadSavedOrder uses Map-based O(n) lookup, not findIndex."""
+        """loadSavedOrder uses Map-based O(n) lookup, not findIndex."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "new Map(this.layers.map" in html
@@ -470,14 +470,14 @@ class TestLayerControlRendering:
         """Saved order is normalized to overlay-first, base-last groups."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_normalizeLayerGroups" in html
-        assert "this._normalizeLayerGroups();" in html
+        assert "normalizeLayerGroups" in html
+        assert "this.normalizeLayerGroups();" in html
 
     def test_blocked_reorder_hint_present(self, base_map: folium.Map):
         """Cross-group drag block exposes a throttled hint path."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_showReorderBlockedHint" in html
+        assert "showReorderBlockedHint" in html
         assert "LayerControl.reorder_group_only" in html
         assert "DRAG_HINT_COOLDOWN_MS" in html
 
