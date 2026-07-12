@@ -201,3 +201,119 @@ class TestMeasureControlRendering:
         # Ensure item clicks toggle ONLY X (undefined)
         assert "toggleUI(undefined)" in html
         assert "toggleUI(undefined, true)" not in html
+
+
+class TestMeasureControlBrowser:
+    """Browser-based tests for MeasureControl."""
+
+    def _make_page(self, browser, tmp_path):
+        """Build a page with MeasureControl and return (page, errors)."""
+        import folium
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MeasureControl().add_to(m)
+
+        html = m.get_root().render()
+        html = html.replace(
+            "const measureManager = new MeasureManager(map);",
+            "window.__measureManager = new MeasureManager(map);",
+        )
+        html_path = tmp_path / "measure_browser.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        errors = []
+        page.on(
+            "console",
+            lambda msg: (
+                errors.append(msg.text)
+                if msg.type == "error"
+                and not msg.text.startswith("Failed to load resource")
+                else None
+            ),
+        )
+        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        page.wait_for_selector(".measure-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    def test_tool_buttons_render(self, browser, tmp_path):
+        """Tool buttons are present in the DOM."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            btns = page.evaluate(
+                "document.querySelectorAll('.measure-ctrl .tool-btn').length"
+            )
+            assert btns >= 3
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_register_on_first_tool_click(self, browser, tmp_path):
+        """First tool click registers the layer (no content-guard issue)."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("document.querySelector('[data-mode=distance]').click()")
+            page.wait_for_timeout(1000)
+            registered = page.evaluate("window.__measureManager.mg.registered()")
+            assert registered, "Layer should be registered after first tool click"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_add_graph_adds_content(self, browser, tmp_path):
+        """addGraph() adds a path to graphLayer."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+            }""")
+            page.wait_for_timeout(500)
+            count = page.evaluate(
+                "Object.keys(window.__measureManager.mg.graphLayer._layers || {}).length"
+            )
+            assert count == 1
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_clear_all_empties_layers(self, browser, tmp_path):
+        """clearAll() empties graphLayer and labelLayer."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.mg.addGraph(L.circleMarker([26.08,119.30]));
+            }""")
+            page.wait_for_timeout(500)
+            page.evaluate("window.__measureManager.mg.clearAll()")
+            page.wait_for_timeout(500)
+            count = page.evaluate(
+                "Object.keys(window.__measureManager.mg.graphLayer._layers || {}).length"
+            )
+            assert count == 0, f"expected 0 got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_remove_graph_removes_single_item(self, browser, tmp_path):
+        """removeGraph removes a single layer without affecting others."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const p1 = L.polyline([[26.08,119.30],[26.09,119.31]]);
+                const p2 = L.circleMarker([26.08,119.30]);
+                mm.mg.addGraph(p1);
+                mm.mg.addGraph(p2);
+                mm.mg.removeGraph(p1);
+                const layers = mm.mg.graphLayer._layers || {};
+                window.__test = Object.keys(layers).length;
+            }""")
+            page.wait_for_timeout(500)
+            count = page.evaluate("window.__test")
+            assert count == 1, f"expected 1 layer remaining, got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
