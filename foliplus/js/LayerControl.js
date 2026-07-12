@@ -5,6 +5,7 @@
     INIT_DELAY_MS: 300,
     ENFORCE_ORDER_DEBOUNCE_MS: 50,
     Z_INDEX_BASE: 600,
+    TILE_Z_INDEX_BASE: 200,
     Z_INDEX_STEP: 10,
     PANE_RECURSION_DEPTH: 5,
     DRAG_TIMEOUT_MS: 100,
@@ -486,7 +487,7 @@
 
           // TileLayers use a lower z-index range (200-400) so they stay
           // below overlayPane (400) and markerPane (600) by default.
-          const zBase = isTile ? 200 : CONST.Z_INDEX_BASE;
+          const zBase = isTile ? CONST.TILE_Z_INDEX_BASE : CONST.Z_INDEX_BASE;
           // Scale z-index steps to allow room for sub-panes (labels, etc)
           // between major layers.
           const z = zBase + (orderedLayers.length - i) * CONST.Z_INDEX_STEP;
