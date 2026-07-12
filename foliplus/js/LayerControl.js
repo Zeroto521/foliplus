@@ -360,6 +360,8 @@
       const layer = this.map._layers[id] || window[id];
       if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
       if (window[id]) delete window[id];
+      // Clear cached sub-layers to prevent stale references
+      if (layer && typeof layer.clearLayers === "function") layer.clearLayers();
 
       if (this.uiContainer) {
         const target = this.uiContainer.querySelector(`[data-layer-id="${id}"]`);

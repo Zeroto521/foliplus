@@ -205,8 +205,6 @@
       if (!hasContent && this.isRegistered) {
         this.isRegistered = false;
         window.foliplus.LayerControlAPI.unregisterLayer(this.MEASURE_ID);
-        this.graphLayer.clearLayers();
-        this.labelLayer.clearLayers();
       }
     }
 

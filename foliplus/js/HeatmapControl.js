@@ -498,8 +498,6 @@
         if (!this.isRegistered) return;
         this.isRegistered = false;
         window.foliplus.LayerControlAPI.unregisterLayer(CONST.HEATMAP_ID);
-        this.graphLayer.clearLayers();
-        this.labelLayer.clearLayers();
       }
     }
 
