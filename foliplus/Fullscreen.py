@@ -22,6 +22,9 @@ class Fullscreen(BaseControl):
         Whether to hide the fullscreen button itself after entering fullscreen.
         Users can exit via the ``Esc`` key.
 
+    hide_others : bool, default True
+        Whether to hide other map controls after entering fullscreen.
+
     locale : str or LocaleConfig, optional
         Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
         Defaults to auto-detection, falling back to English.
@@ -52,8 +55,10 @@ class Fullscreen(BaseControl):
         *,
         position: Position = "bottomright",
         hide_self: bool = True,
+        hide_others: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.hide_self = hide_self
+        self.hide_others = hide_others
         self._template = self._get_template(js_file="Fullscreen.js")
