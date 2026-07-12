@@ -91,7 +91,7 @@
     foliplus._hintIcons[key] = iconSvg;
   };
   foliplus._hintIcons = foliplus._hintIcons || {};
-  foliplus._hintIcons["gcoord-warn"] = foliplus.SVGs.SEARCH;
+  foliplus._hintIcons["MapSearch"] = foliplus.SVGs.SEARCH;
 
   /**
    * Display a hint toast at the bottom-center of the viewport.
@@ -261,7 +261,7 @@
       if (!foliplus._gcoordWarned) {
         foliplus._gcoordWarned = true;
         console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-        foliplus.showHint("gcoord-warn", foliplus.gt("gcoord.warn"), 5000);
+        foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
       }
     }
     return [lat, lng];
@@ -284,7 +284,7 @@
         if (!foliplus._gcoordWarned) {
           foliplus._gcoordWarned = true;
           console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-          foliplus.showHint("gcoord-warn", foliplus.gt("gcoord.warn"), 5000);
+          foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
         }
         return [lng, lat];
       }
@@ -371,9 +371,7 @@
             _geoCache[key] = addr || foliplus.gt("MapSearch.addr_not_found");
             return _geoCache[key];
           })
-          .catch(() => {
-            return foliplus.gt("MeasureControl.geo_fail");
-          });
+          .catch(() => foliplus.gt("MeasureControl.geo_fail"));
       });
     return _geoPromise;
   };
