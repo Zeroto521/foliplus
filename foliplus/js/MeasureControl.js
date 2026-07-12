@@ -287,7 +287,10 @@
     }
 
     _cleanMapEvents() {
-      this.map.off("click", this._onMarkerClickRef);
+      if (this._onMarkerClickRef) {
+        this.map.off("click", this._onMarkerClickRef);
+        this._onMarkerClickRef = null;
+      }
       if (this.cleanupFn) {
         this.cleanupFn();
         this.cleanupFn = null;
