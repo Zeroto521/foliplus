@@ -36,7 +36,6 @@
     HEATMAP_ID: "__heatmap__",
     GRAPH_PANE: "__heatmap_graph__",
     LABEL_PANE: "__heatmap_label__",
-    LABEL_MARKER_CLASS: "heatmap-label",
   };
 
   // ==================== Runtime Guard ====================
@@ -478,10 +477,11 @@
               feat.properties._value,
               FORMAT,
             );
-            const html = `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`;
-
             L.marker([lat, lng], {
-              icon: L.divIcon({ className: CONST.LABEL_MARKER_CLASS, html }),
+              icon: L.divIcon({
+                className: "heatmap-label",
+                html: `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`,
+              }),
               interactive: false,
               pane: CONST.LABEL_PANE,
             }).addTo(this.labelLayer);

@@ -61,10 +61,6 @@
       return L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2));
     }
 
-    static getXIcon() {
-      return '<span class="measure-del-icon">✕</span>';
-    }
-
     static toggleVisibility(elements, visible) {
       elements.forEach((el) => {
         if (el) el.classList.toggle("measure-hidden", !visible);
@@ -509,7 +505,7 @@
           lastNodeDelMkr = L.marker(lastNode.getLatLng(), {
             icon: L.divIcon({
               className: "del-icon-wrap",
-              html: MeasureUtils.getXIcon(),
+              html: '<span class="measure-del-icon">✕</span>',
               iconSize: [0, 0],
               iconAnchor: [0, 0],
             }),
@@ -867,7 +863,7 @@
         const delMkr = L.marker(centerLatLng, {
           icon: L.divIcon({
             className: "del-icon-wrap",
-            html: MeasureUtils.getXIcon(),
+            html: '<span class="measure-del-icon">✕</span>',
             iconSize: [0, 0],
             iconAnchor: [0, 0],
           }),
@@ -889,9 +885,7 @@
             [radiusLine?.getElement(), radiusNode?.getElement()],
             labelsVisible,
           );
-          if (delMkr.setZIndexOffset) {
-            delMkr.setZIndexOffset(xVisible ? 2000 : 1000);
-          }
+          if (delMkr.setZIndexOffset) delMkr.setZIndexOffset(xVisible ? 2000 : 1000);
         };
         toggleUI(false, "reset");
 

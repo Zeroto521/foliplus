@@ -596,12 +596,10 @@
         const en = LayerUtils.escapeHTML(l.name);
         html += `
           <div class="layer-item${l.isBase ? " is-base-item" : ""}" draggable="true"
-               data-index="${i}" data-layer-id="${l.id}"
-               title="${en}">
+               data-index="${i}" data-layer-id="${l.id}" title="${en}">
             ${SVGS.DRAG_HANDLE}
             <div class="checkbox-wrapper">
-              <input type="checkbox" checked data-index="${i}"
-                     aria-label="${en}">
+              <input type="checkbox" checked data-index="${i}" aria-label="${en}">
             </div>
             <label title="${en}">${en}</label>
             <div class="type-icon-col">${l.iconSvg || ""}</div>
