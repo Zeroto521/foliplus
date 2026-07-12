@@ -633,15 +633,19 @@
         if (typeCols[i]) {
           if (layerInfo.isBase) {
             typeCols[i].innerHTML = window.foliplus.SVGs.GLOBE;
+            typeCols[i].title = _(CONST.name + ".type_base");
             this.typeMap.set(id, { type: "base", name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
+            typeCols[i].title = _(CONST.name + ".type_custom");
             this.typeMap.set(id, { type: "custom", name: layerInfo.name });
           } else if (layer) {
+            const gtype = LayerUtils.getGeometryType(layer);
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
+            typeCols[i].title = _(CONST.name + ".type_" + gtype);
             this.typeMap.set(id, {
-              type: LayerUtils.getGeometryType(layer),
+              type: gtype,
               name: layerInfo.name,
             });
           }
