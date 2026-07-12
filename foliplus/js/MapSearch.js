@@ -63,9 +63,7 @@
       const modeBtn = container.querySelector(".search-mode-btn");
       let mk = null;
       let mode = "{{ this.mode }}";
-      if (mode !== CONST.COORD && mode !== CONST.ADDR) {
-        mode = CONST.COORD;
-      }
+      if (mode !== CONST.COORD && mode !== CONST.ADDR) mode = CONST.COORD;
 
       _setMode(mode);
 

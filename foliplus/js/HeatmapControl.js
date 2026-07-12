@@ -331,9 +331,8 @@
         }
         if (method === "heads") {
           const b = [lo];
-          for (let i = 1; i < nClasses; i++) {
+          for (let i = 1; i < nClasses; i++)
             b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
-          }
           return b.concat(hi);
         }
         const step = (hi - lo) / nClasses;
@@ -358,9 +357,8 @@
         pts.forEach((pt) => {
           try {
             const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-            if (!hexCells[h3Idx]) {
+            if (!hexCells[h3Idx])
               hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
-            }
             const cell = hexCells[h3Idx];
             cell.sum += pt.value;
             cell.count += 1;

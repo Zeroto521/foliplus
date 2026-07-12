@@ -494,9 +494,8 @@
           if (paneName) {
             const ep = this.ensurePane(paneName, !isTile);
             ep.pane.style.zIndex = z;
-            if (lyr.options.pane !== paneName || !lyr.options._paneSet) {
+            if (lyr.options.pane !== paneName || !lyr.options._paneSet)
               layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
-            }
           } else {
             // Auto-discover custom panes from container tree (three-layer
             // architecture). This ensures all internal panes (graph, label, etc.)
@@ -507,9 +506,8 @@
                 const ep = this.ensurePane(cp, !isTile);
                 ep.pane.style.zIndex = z;
                 // Specific sub-layer logic: if label pane, it must be slightly higher
-                if (cp.includes("label") || cp.includes("lbl")) {
+                if (cp.includes("label") || cp.includes("lbl"))
                   ep.pane.style.zIndex = z + 1;
-                }
               });
               lyr.options._paneSet = true;
               // Three-layer components use custom panes, not default markerPane.

@@ -6,9 +6,7 @@
 (function (window, document) {
   "use strict";
   // 1. Ensure global namespace object exists
-  if (!window.foliplus || typeof window.foliplus !== "object") {
-    window.foliplus = {};
-  }
+  if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {};
   const foliplus = window.foliplus;
 
   /**

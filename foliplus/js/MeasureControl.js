@@ -490,9 +490,7 @@
 
         const onDistMapClick = () => {
           if (this.suppressHideDel) return;
-          if (xVisible) {
-            toggleUI(false, "reset");
-          }
+          if (xVisible) toggleUI(false, "reset");
         };
         this.map.on("click", onDistMapClick);
         this.cleanupFn = () => this.map.off("click", onDistMapClick);
