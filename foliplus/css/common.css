@@ -90,7 +90,6 @@
 
   /* ── Semantic Tokens: Typography ── */
   /* Base */
-  --font-family: system-ui, -apple-system, sans-serif;
   --font-size-xs: 10px;
   --font-size-sm: 12px;
   --font-size-md: 14px;
@@ -254,11 +253,6 @@
 
 .map-hint-icon {
   margin-right: var(--space-sm);
-}
-
-/* ── Leaflet container font consistency ── */
-.leaflet-container {
-  font-family: var(--font-family);
 }
 
 /* ── Section Divider ── */
