@@ -329,6 +329,13 @@ class TestLayerControlRendering:
         assert "this._isEnforcing = true" in html
         assert "if (this._isEnforcing) return" in html
 
+    def test_error_keys_injected(self, base_map: folium.Map):
+        """LayerControl error keys appear in rendered HTML."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "LayerControl.load_order_fail" in html
+        assert "LayerControl.save_order_fail" in html
+
     def test_debounced_enforce_order(self, base_map: folium.Map):
         """enforceOrder is debounced in layeradd listener to prevent performance issues."""
         LayerControl().add_to(base_map)

@@ -35,6 +35,7 @@
   "HeatmapControl.h3_boundary_fail": "h3 boundary conversion failed",
   "HeatmapControl.section_data": "Data",
   "HeatmapControl.section_style": "Style",
+  "HeatmapControl.close_title": "Close",
   "LayerControl.panel_title": "Layers",
   "LayerControl.toggle_title": "Layer Manager",
   "LayerControl.close_title": "Collapse",

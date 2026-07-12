@@ -259,6 +259,15 @@ class TestHeatmapControlRendering:
         assert "this.currentField === '_value'" not in html
         assert "this.currentField === 'options.value'" not in html
 
+    def test_error_keys_injected(self, base_map: folium.Map):
+        """Error/warning locale keys appear in rendered HTML."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "HeatmapControl.value_fallback" in html
+        assert "HeatmapControl.h3_cell_fail" in html
+        assert "HeatmapControl.h3_boundary_fail" in html
+        assert "HeatmapControl.close_title" in html
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""

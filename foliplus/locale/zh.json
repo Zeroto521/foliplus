@@ -35,6 +35,7 @@
   "HeatmapControl.h3_boundary_fail": "h3 边界转换失败",
   "HeatmapControl.section_data": "数据",
   "HeatmapControl.section_style": "样式",
+  "HeatmapControl.close_title": "关闭",
   "LayerControl.panel_title": "图层",
   "LayerControl.toggle_title": "图层管理",
   "LayerControl.close_title": "收起",
