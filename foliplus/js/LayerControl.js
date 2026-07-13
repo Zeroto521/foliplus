@@ -118,18 +118,7 @@
 
     static getGeometryType(layer) {
       const leaves = [];
-      const collect = (n, d) => {
-        if (!n || d > CONST.LAYER_RECURSION_DEPTH) return;
-        if (n.getLayers && typeof n.getLayers === "function") {
-          n.getLayers().forEach((c) => collect(c, d + 1));
-        } else {
-          leaves.push(n);
-        }
-      };
-      try {
-        collect(layer, 0);
-      } catch (e) {}
-
+      LayerUtils.forEachLeaf(layer, (l) => leaves.push(l));
       // No leaves at all → empty container (e.g. empty GeoDataFrame)
       if (leaves.length === 0) return "empty";
 
@@ -163,6 +152,47 @@
     /** Resolve a layer by id from map._layers or window fallback. */
     static findLayer(map, id) {
       return (map._layers && map._layers[id]) || window[id] || null;
+    }
+
+    /**
+     * Walk every leaf (non-container) layer in a tree.
+     * @param {Object} layer - Leaflet layer (may be a container like L.layerGroup).
+     * @param {function} fn - Called for each leaf with (leafLayer).
+     * @param {number} [depth=0] - Internal recursion depth.
+     */
+    static forEachLeaf(layer, fn, depth = 0) {
+      if (!layer || depth > CONST.LAYER_RECURSION_DEPTH) return;
+      if (typeof layer.eachLayer === "function") {
+        layer.eachLayer((c) => LayerUtils.forEachLeaf(c, fn, depth + 1));
+      } else if (layer._layers) {
+        for (const k in layer._layers) {
+          if (layer._layers.hasOwnProperty(k)) {
+            LayerUtils.forEachLeaf(layer._layers[k], fn, depth + 1);
+          }
+        }
+      } else {
+        fn(layer);
+      }
+    }
+
+    /**
+     * Walk all layers (including containers) in a tree, visiting each node.
+     * @param {Object} layer - Leaflet layer.
+     * @param {function} fn - Called for each node (container or leaf) with (nodeLayer).
+     * @param {number} [depth=0] - Internal recursion depth.
+     */
+    static forEachLayer(layer, fn, depth = 0) {
+      if (!layer || depth > CONST.LAYER_RECURSION_DEPTH) return;
+      fn(layer);
+      if (typeof layer.eachLayer === "function") {
+        layer.eachLayer((c) => LayerUtils.forEachLayer(c, fn, depth + 1));
+      } else if (layer._layers) {
+        for (const k in layer._layers) {
+          if (layer._layers.hasOwnProperty(k)) {
+            LayerUtils.forEachLayer(layer._layers[k], fn, depth + 1);
+          }
+        }
+      }
     }
   }
 
@@ -606,49 +636,28 @@
       // Skip Markers — both default icons (with shadow images) and divIcon.
       // Moving them to a custom pane breaks their shadow positioning.
       // They stay in Leaflet's default markerPane (z-index 600).
-      if (layer instanceof L.Marker) return;
-
-      layer.options.pane = paneName;
-      layer.options.paneSet = true;
-
-      if (layer instanceof L.Path) layer.options.renderer = renderer;
-
-      if (layer.eachLayer) {
-        layer.eachLayer((l) => this.setLayerPaneRecursive(l, paneName, renderer));
-      } else if (layer._layers) {
-        for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k)) {
-            this.setLayerPaneRecursive(layer._layers[k], paneName, renderer);
-          }
-        }
-      }
+      LayerUtils.forEachLayer(layer, (l) => {
+        if (l instanceof L.Marker) return;
+        l.options.pane = paneName;
+        l.options.paneSet = true;
+        if (l instanceof L.Path) l.options.renderer = renderer;
+      });
     }
 
     /** Find all custom panes used by a container's tree.
      *  This lets enforceOrder control z-index without requiring
      *  orderPane/paneName from three-layer components. */
     discoverChildPanes(layer, depth = 0) {
-      if (depth > CONST.PANE_RECURSION_DEPTH) return []; // Prevent infinite recursion
+      if (depth > CONST.PANE_RECURSION_DEPTH) return [];
       const panes = new Set();
-
-      const check = (l) => {
-        const p = l.options?.pane;
-        if (p && !this.isDefaultPane(p)) panes.add(p);
-        if (l.eachLayer) {
-          this.discoverChildPanes(l, depth + 1).forEach((p2) => panes.add(p2));
-        } else if (l._layers) {
-          for (const k in l._layers) {
-            this.discoverChildPanes(l._layers[k], depth + 1).forEach((p2) =>
-              panes.add(p2),
-            );
-          }
-        }
-      };
-
-      const selfPane = layer.options?.pane;
-      if (selfPane && !this.isDefaultPane(selfPane)) panes.add(selfPane);
-      if (layer.eachLayer) layer.eachLayer(check);
-      else if (layer._layers) for (const k in layer._layers) check(layer._layers[k]);
+      LayerUtils.forEachLayer(
+        layer,
+        (l) => {
+          const p = l.options?.pane;
+          if (p && !this.isDefaultPane(p)) panes.add(p);
+        },
+        depth,
+      );
       return Array.from(panes);
     }
 

@@ -305,7 +305,7 @@ class TestLayerControlRendering:
         """
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "if (layer instanceof L.Marker) return" in html
+        assert "l instanceof L.Marker" in html
         assert "if (layer instanceof L.TileLayer) return" not in html
         assert "icon instanceof L.divIcon" not in html
 
@@ -397,7 +397,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # The skip only checks L.Marker, not L.CircleMarker
-        assert "if (layer instanceof L.Marker) return" in html
+        assert "l instanceof L.Marker" in html
 
     def test_tilelayer_zindex_base_200(self, base_map: folium.Map):
         """TileLayers use z-index base 200 in enforceOrder."""
