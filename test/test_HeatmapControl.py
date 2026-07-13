@@ -386,9 +386,18 @@ class TestHeatmapControlBrowser:
                     currentAgg: m.currentAgg,
                 };
             }""")
-            assert vals["N_CLASSES"] == 6, f"N_CLASSES expected 6 got {vals['N_CLASSES']}"
-            assert vals["BORDER_W"] == 1.5, f"BORDER_W expected 1.5 got {vals['BORDER_W']}"
-            assert vals["BORDER_COLOR"] == "#333", f"BORDER_COLOR got {vals['BORDER_COLOR']}"
+            assert (
+                vals["N_CLASSES"] == 6,
+                (f"N_CLASSES expected 6 got {vals['N_CLASSES']}"),
+            )
+            assert (
+                vals["BORDER_W"] == 1.5,
+                (f"BORDER_W expected 1.5 got {vals['BORDER_W']}"),
+            )
+            assert (
+                vals["BORDER_COLOR"] == "#333",
+                (f"BORDER_COLOR got {vals['BORDER_COLOR']}"),
+            )
             assert vals["currentLabelShow"] is True, "currentLabelShow should be True"
             assert vals["currentMethod"] == "jenks"
             assert vals["currentScheme"] == "Reds"
