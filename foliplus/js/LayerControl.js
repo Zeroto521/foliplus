@@ -217,7 +217,6 @@
       this.getLayersByType = this.getLayersByType.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
       this.isEnforcing = false;
-      this.enforceTimer = null;
       this.isDestroyed = false;
 
       this.defaultPanes = new Set([
@@ -230,6 +229,11 @@
       this.fallbackPanes = new Set();
       this.labelPanes = new Set();
 
+      this.debouncedEnforce = foliplus.debounce(() => {
+        if (this.isDestroyed || !this.map || !this.map._container) return;
+        this.enforceOrder();
+      }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
+
       this.onLayerAdd = (e) => {
         // Skip internal layers, background enforcement, and destroyed manager
         if (
@@ -240,13 +244,7 @@
         )
           return;
 
-        // Debounce enforcement to avoid redundant calcs during bulk additions
-        if (this.enforceTimer) clearTimeout(this.enforceTimer);
-        this.enforceTimer = setTimeout(() => {
-          if (this.isDestroyed || !this.map || !this.map._container) return;
-          this.enforceOrder();
-          this.enforceTimer = null;
-        }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
+        this.debouncedEnforce();
       };
       this.map.on("layeradd", this.onLayerAdd);
 
@@ -1126,13 +1124,8 @@
     /** Release all resources. Called by LayerControl.onRemove(). */
     destroy() {
       this.isDestroyed = true;
-      if (this.map && this.onLayerAdd) {
-        this.map.off("layeradd", this.onLayerAdd);
-      }
-      if (this.enforceTimer) {
-        clearTimeout(this.enforceTimer);
-        this.enforceTimer = null;
-      }
+      if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
+      if (this.debouncedEnforce) this.debouncedEnforce.cancel();
       if (this.uiContainer) {
         this.uiContainer.innerHTML = "";
         this.uiContainer = null;

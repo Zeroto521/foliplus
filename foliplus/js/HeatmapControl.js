@@ -146,25 +146,17 @@
       }
 
       bindMapEvents() {
-        this.zoomTimer = null;
-        this.onZoomEnd = () => {
-          if (this.zoomTimer) clearTimeout(this.zoomTimer);
-          this.zoomTimer = setTimeout(() => {
-            if (this.selectedLayerId) this.renderHexagons();
-          }, CONST.ZOOM_DEBOUNCE_MS);
-        };
+        this.onZoomEnd = foliplus.debounce(() => {
+          if (this.selectedLayerId) this.renderHexagons();
+        }, CONST.ZOOM_DEBOUNCE_MS);
         this.map.on("zoomend", this.onZoomEnd);
 
-        this.layerScanTimer = null;
-        this.onLayerChange = () => {
-          if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
-          this.layerScanTimer = setTimeout(() => {
-            if (this.ui) {
-              this.scanMapLayers();
-              this.ui.rebuildLayerDropdown();
-            }
-          }, CONST.LAYER_SCAN_DEBOUNCE_MS);
-        };
+        this.onLayerChange = foliplus.debounce(() => {
+          if (this.ui) {
+            this.scanMapLayers();
+            this.ui.rebuildLayerDropdown();
+          }
+        }, CONST.LAYER_SCAN_DEBOUNCE_MS);
         this.map.on("layeradd layerremove", this.onLayerChange);
       }
 
@@ -788,8 +780,8 @@
 
       onRemove() {
         // Clean up map event listeners
-        if (this.manager.zoomTimer) clearTimeout(this.manager.zoomTimer);
-        if (this.manager.layerScanTimer) clearTimeout(this.manager.layerScanTimer);
+        if (this.manager.onZoomEnd) this.manager.onZoomEnd.cancel();
+        if (this.manager.onLayerChange) this.manager.onLayerChange.cancel();
         this.manager.map.off("zoomend", this.manager.onZoomEnd);
         this.manager.map.off("layeradd layerremove", this.manager.onLayerChange);
 
