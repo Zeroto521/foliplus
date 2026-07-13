@@ -202,6 +202,48 @@ class TestMeasureControlRendering:
         assert "toggleUI(undefined)" in html
         assert "toggleUI(undefined, true)" not in html
 
+    def test_no_layercontrol_guard(self, base_map: folium.Map):
+        """MeasureControl checks LayerControlAPI before creating MeasureManager."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "no_layercontrol" in html
+        assert "LayerControlAPI" in html
+
+    def test_set_label_text_caches_dom(self, base_map: folium.Map):
+        """MeasureUtils.setLabelText caches DOM ref on first call."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureUtils.setLabelText" in html
+        assert "marker._labelEl" in html
+        assert 'el.querySelector(".measure-label")' in html
+
+    def test_create_label_utility(self, base_map: folium.Map):
+        """MeasureUtils.createLabel returns a marker with _isMeasureLabel=true."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static createLabel" in html
+        assert "_isMeasureLabel = true" in html
+
+    def test_attach_del_click_utility(self, base_map: folium.Map):
+        """MeasureUtils.attachDelClick binds click to delete icon."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static attachDelClick" in html
+        assert "L.DomEvent.on(btn, " in html or "L.DomEvent.on(btn, 'click'" in html
+
+    def test_is_finalizing_guard(self, base_map: folium.Map):
+        """Circle mode guards against double-finalize with isFinalizing."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "isFinalizing" in html
+        assert "isFinalizing = false" in html
+
+    def test_toggle_del_icon_utility(self, base_map: folium.Map):
+        """MeasureUtils.toggleDelIcon toggles delete icon visibility."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureUtils.toggleDelIcon" in html
+
 
 class TestMeasureControlBrowser:
     """Browser-based tests for MeasureControl."""

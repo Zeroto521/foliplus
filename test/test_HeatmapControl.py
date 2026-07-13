@@ -269,6 +269,27 @@ class TestHeatmapControlRendering:
         assert "HeatmapControl.h3_boundary_fail" in html
         assert "HeatmapControl.close_title" in html
 
+    def test_no_layercontrol_guard(self, base_map: folium.Map):
+        """HeatmapControl shows guard hint when LayerControl is missing."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "no_layercontrol" in html
+        assert "LayerControl" in html
+
+    def test_render_hexagons_map_guard(self, base_map: folium.Map):
+        """renderHexagons checks map._container before proceeding."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (!this.map || !this.map._container) return" in html
+
+    def test_debounce_usage(self, base_map: folium.Map):
+        """HeatmapControl uses foliplus.debounce for zoom and layer events."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.debounce" in html
+        assert "onZoomEnd.cancel()" in html
+        assert "onLayerChange.cancel()" in html
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""

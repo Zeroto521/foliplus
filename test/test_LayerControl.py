@@ -502,6 +502,54 @@ class TestLayerControlRendering:
         assert "foliplus runtime not found" in html
         assert "console.error" in html
 
+    def test_find_layer_utility(self, base_map: folium.Map):
+        """LayerUtils.findLayer resolves layers from map._layers and window."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "LayerUtils.findLayer(this.map, id)" in html
+        assert "window[id]" in html
+
+    def test_for_each_leaf_utility(self, base_map: folium.Map):
+        """forEachLeaf and forEachLayer iterate all sub-layers correctly."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "forEachLeaf" in html
+        assert "forEachLayer" in html
+
+    def test_onremove_destroys_manager(self, base_map: folium.Map):
+        """LayerControl.onRemove calls destroy() which cleans up resources."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layerManager.destroy()" in html
+        assert "unpatchBringToFront()" in html
+
+    def test_destroy_cleans_listeners(self, base_map: folium.Map):
+        """destroy() removes layeradd listener and cancels debounce."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert 'this.map.off("layeradd", this.onLayerAdd)' in html
+        assert "this.debouncedEnforce.cancel()" in html
+
+    def test_destroy_nulls_api(self, base_map: folium.Map):
+        """destroy() clears LayerControlAPI reference when it is the active API."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "window.foliplus.LayerControlAPI === this" in html
+        assert "window.foliplus.LayerControlAPI = null" in html
+
+    def test_handleDrop_guard(self, base_map: folium.Map):
+        """handleDrop guards against dragIdx/layers array desync."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "dragIdx < 0 || this.dragIdx >= this.layers.length" in html
+
+    def test_window_id_validation(self, base_map: folium.Map):
+        """registerLayer validates opts.id before assigning to window[id]."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/" in html
+        assert "not a valid identifier" in html or "invalid_id" in html
+
 
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
