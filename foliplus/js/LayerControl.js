@@ -349,7 +349,8 @@
      * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
      */
     registerLayer(opts) {
-      if (!opts?.id) throw new Error(`[${CONST.name}] opts.id is required`);
+      if (!opts?.id)
+        throw new Error(`[${CONST.name}] ${_(CONST.name + ".id_required")}`);
 
       const existingIdx = this.layers.findIndex((l) => l.id === opts.id);
       if (existingIdx !== -1) this.layers.splice(existingIdx, 1);

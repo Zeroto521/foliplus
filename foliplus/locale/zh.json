@@ -52,6 +52,7 @@
   "LayerControl.type_point": "点图层",
   "LayerControl.type_empty": "空图层",
   "LayerControl.type_unknown": "未知图层",
+  "LayerControl.id_required": "opts.id 是必填项",
   "LayerControl.invalid_id": "跳过 window[{id}]：非法的标识符",
   "MapSearch.coord_placeholder": "请输入：经度,纬度",
   "MapSearch.addr_placeholder": "请输入地址关键词",
