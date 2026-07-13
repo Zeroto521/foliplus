@@ -184,7 +184,7 @@
   class MeasureManager {
     constructor(mapInstance) {
       this.map = mapInstance;
-      this.mg = window.foliplus.LayerControlAPI.createManagedGroup({
+      this.mg = window.foliplus.LayerControlAPI.createManagedLayers({
         id: CONST.MEASURE_ID,
         name: _(`${CONST.name}.tool_toggle`),
         graphPane: CONST.GRAPH_PANE,
@@ -948,7 +948,7 @@
   }
 
   // ==================== Initialization & Control Construction ====================
-  // Guard: LayerControl must be registered first to provide createManagedGroup
+  // Guard: LayerControl must be registered first to provide createManagedLayers
   if (!window.foliplus.LayerControlAPI) {
     console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
     window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), 0);

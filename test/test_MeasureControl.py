@@ -88,7 +88,7 @@ class TestMeasureControlRendering:
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "createManagedGroup" in html
+        assert "createManagedLayers" in html
 
     def test_realtime_distance_preview(self, base_map: folium.Map):
         """Distance mode includes real-time preview label (previewDistLabel)."""

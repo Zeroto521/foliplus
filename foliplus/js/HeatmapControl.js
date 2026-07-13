@@ -112,7 +112,7 @@
   );
 
   function run() {
-    // Guard: LayerControl must be registered first to provide createManagedGroup
+    // Guard: LayerControl must be registered first to provide createManagedLayers
     if (!window.foliplus.LayerControlAPI) {
       console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
       window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), 0);
@@ -140,7 +140,7 @@
         // Hexagon polygons are added directly to this.mg.graphLayer in
         // renderHexagons().  The heatmap only registers in LayerControl
         // when renderHexagons() calls this.mg.register() with data.
-        this.mg = window.foliplus.LayerControlAPI.createManagedGroup({
+        this.mg = window.foliplus.LayerControlAPI.createManagedLayers({
           id: CONST.HEATMAP_ID,
           name: _(`${CONST.name}.title`),
           graphPane: CONST.GRAPH_PANE,
