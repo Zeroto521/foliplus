@@ -81,10 +81,24 @@
   // layer migration (enforceOrder briefly removes layers from the map, and a
   // concurrent mousemove event may call bringToFront on a detached _path).
   const origBringToFront = L.Path.prototype.bringToFront;
-  L.Path.prototype.bringToFront = function () {
-    if (this._path && this._path.parentNode) origBringToFront.call(this);
-    return this;
-  };
+  let bringToFrontPatched = false;
+
+  function patchBringToFront() {
+    if (bringToFrontPatched) return;
+    bringToFrontPatched = true;
+    L.Path.prototype.bringToFront = function () {
+      if (this._path && this._path.parentNode) origBringToFront.call(this);
+      return this;
+    };
+  }
+
+  function unpatchBringToFront() {
+    if (!bringToFrontPatched) return;
+    bringToFrontPatched = false;
+    L.Path.prototype.bringToFront = origBringToFront;
+  }
+
+  patchBringToFront();
 
   // ==================== Utility Class ====================
   class LayerUtils {
