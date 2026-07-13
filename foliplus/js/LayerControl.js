@@ -374,7 +374,6 @@
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
         for (const cp of this.discoverChildPanes(opts.layer)) {
-          if (cp.includes("label") || cp.includes("lbl")) this.labelPanes.add(cp);
           this.ensurePane(cp, !this.labelPanes.has(cp));
         }
       }
@@ -486,6 +485,9 @@
       const register = () => {
         if (registered) return;
         registered = true;
+        // Pre-register the label pane so registerLayer can identify it
+        // without string matching on pane names.
+        if (opts.labelPane) this.labelPanes.add(opts.labelPane);
         this.registerLayer({
           name: opts.name,
           id: opts.id,
