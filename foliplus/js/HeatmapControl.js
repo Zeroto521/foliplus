@@ -137,10 +137,10 @@
         this.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
         this.currentLabelShow = CONST.LABEL_SHOW;
         this.valueFallbackWarned = false;
-        // Hexagon polygons are added directly to this.mg.graphLayer in
+        // Hexagon polygons are added directly to this.layers.graphLayer in
         // renderHexagons().  The heatmap only registers in LayerControl
-        // when renderHexagons() calls this.mg.register() with data.
-        this.mg = window.foliplus.LayerControlAPI.createManagedLayers({
+        // when renderHexagons() calls this.layers.register() with data.
+        this.layers = window.foliplus.LayerControlAPI.createManagedLayers({
           id: CONST.HEATMAP_ID,
           name: _(`${CONST.name}.title`),
           graphPane: CONST.GRAPH_PANE,
@@ -333,7 +333,7 @@
       renderHexagons() {
         if (!this.map || !this.map._container) return;
         if (!this.selectedLayerId) {
-          this.mg.clearAll();
+          this.layers.clearAll();
           return;
         }
         const pts = this.collectSelectedPoints();
@@ -380,7 +380,7 @@
 
         const allVals = Object.values(hexCells).map(getAggValue);
         if (allVals.length === 0) {
-          this.mg.clearAll();
+          this.layers.clearAll();
           return;
         }
 
@@ -417,7 +417,7 @@
           }
         }
 
-        this.mg.clearAll();
+        this.layers.clearAll();
         if (features.length) {
           const gj = L.geoJSON(null, {
             style: (feat) => ({
@@ -431,7 +431,7 @@
             pane: CONST.GRAPH_PANE,
           });
           gj.addData({ type: "FeatureCollection", features });
-          this.mg.addGraph(gj);
+          this.layers.addGraph(gj);
         }
 
         if (this.currentLabelShow) {
@@ -457,7 +457,7 @@
               feat.properties.value,
               CONST.FORMAT,
             );
-            this.mg.addLabel(
+            this.layers.addLabel(
               L.marker([lat, lng], {
                 icon: L.divIcon({
                   className: "heatmap-label",
@@ -795,7 +795,7 @@
         // Disconnect MutationObserver
         if (this.observer) this.observer.disconnect();
 
-        this.manager.mg.clearAll();
+        this.manager.layers.clearAll();
       }
 
       // --- UI Logic Methods ---
@@ -828,7 +828,7 @@
           this.syncSelect(sel, sel.value);
           this.updateFieldSelector();
           if (this.manager.selectedLayerId) this.manager.renderHexagons();
-          else this.manager.mg.clearAll();
+          else this.manager.layers.clearAll();
         };
 
         this.syncSelect(sel, sel.value);
@@ -1017,7 +1017,7 @@
         this.manager.currentLabelShow = CONST.LABEL_SHOW;
         this.manager.BORDER_W = CONST.BORDER_W_DEFAULT;
         this.manager.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
-        this.manager.mg.clearAll();
+        this.manager.layers.clearAll();
       }
 
       syncSelect(el, value) {
