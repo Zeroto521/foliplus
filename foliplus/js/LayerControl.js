@@ -371,8 +371,7 @@
 
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
-        const childPanes = this.discoverChildPanes(opts.layer);
-        for (const cp of childPanes) {
+        for (const cp of this.discoverChildPanes(opts.layer)) {
           if (cp.includes("label") || cp.includes("lbl")) this.labelPanes.add(cp);
           this.ensurePane(cp, !this.labelPanes.has(cp));
         }
@@ -398,10 +397,7 @@
       // already-processed so subsequent enforceOrder() calls skip the
       // removeLayer/addLayer cycle.
       if (opts.paneName && opts.layer) {
-        const isContainer = !(
-          opts.layer instanceof L.Path || opts.layer instanceof L.Marker
-        );
-        if (isContainer) {
+        if (!(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)) {
           opts.layer.options.pane = opts.paneName;
           opts.layer.options.paneSet = true;
         }
