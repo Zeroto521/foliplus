@@ -186,7 +186,7 @@
       this.fallbackPanes = new Set();
       this.labelPanes = new Set();
 
-      this._onLayerAdd = (e) => {
+      this.onLayerAdd = (e) => {
         // Skip internal layers, background enforcement, and destroyed manager
         if (
           this.isEnforcing ||
@@ -204,7 +204,7 @@
           this.enforceTimer = null;
         }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
       };
-      this.map.on("layeradd", this._onLayerAdd);
+      this.map.on("layeradd", this.onLayerAdd);
 
       window.foliplus.LayerControlAPI = this;
     }
@@ -1084,6 +1084,28 @@
         }
       }
     }
+
+    /** Release all resources. Called by LayerControl.onRemove(). */
+    destroy() {
+      this.isDestroyed = true;
+      if (this.map && this.onLayerAdd) {
+        this.map.off("layeradd", this.onLayerAdd);
+      }
+      if (this.enforceTimer) {
+        clearTimeout(this.enforceTimer);
+        this.enforceTimer = null;
+      }
+      if (this.uiContainer) {
+        this.uiContainer.innerHTML = "";
+        this.uiContainer = null;
+      }
+      this.layers = [];
+      this.typeMap.clear();
+      this.pendingRegistrations = [];
+      if (window.foliplus.LayerControlAPI === this) {
+        window.foliplus.LayerControlAPI = null;
+      }
+    }
   }
 
   // ==================== Initialize Manager with Data ====================
@@ -1147,6 +1169,11 @@
       layerManager.attachUI(container.querySelector(".panel-content"));
 
       return container;
+    }
+
+    onRemove() {
+      layerManager.destroy();
+      unpatchBringToFront();
     }
   }
 
