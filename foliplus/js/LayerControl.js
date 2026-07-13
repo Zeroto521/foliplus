@@ -381,7 +381,16 @@
 
       // NB: window[id] provides global access for HeatmapControl/others to find
       // layers by id via scanMapLayers() fallback path.
-      if (opts.layer) window[opts.id] = opts.layer;
+      // Guard against prototype pollution — only allow plain JS identifier-like ids.
+      if (opts.layer) {
+        if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id)) {
+          window[opts.id] = opts.layer;
+        } else {
+          console.warn(
+            `[${CONST.name}] ${_(CONST.name + ".invalid_id").replace("{id}", opts.id)}`,
+          );
+        }
+      }
       if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
 
       this.enforceOrder();

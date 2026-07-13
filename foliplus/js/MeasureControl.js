@@ -684,7 +684,12 @@
       };
 
       const onMapClick = (e) => {
-        if (isFinalizing || this.currentMode !== "circle" || (state !== 0 && state !== 1)) return;
+        if (
+          isFinalizing ||
+          this.currentMode !== "circle" ||
+          (state !== 0 && state !== 1)
+        )
+          return;
         const now = Date.now();
         if (now - lastFinishTime < CONST.CLICK_COOLDOWN_MS) return;
 
