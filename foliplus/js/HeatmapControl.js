@@ -1001,6 +1001,8 @@
             _(`${CONST.name}.no_layer`),
             CONST.NO_LAYER_HINT_MS,
           );
+        } else {
+          this.rebuildLayerDropdown();
         }
       }
 

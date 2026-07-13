@@ -324,8 +324,7 @@
       if (opts.layer) {
         const childPanes = this.discoverChildPanes(opts.layer);
         for (const cp of childPanes) {
-          if (cp.includes("label") || cp.includes("lbl"))
-            this.labelPanes.add(cp);
+          if (cp.includes("label") || cp.includes("lbl")) this.labelPanes.add(cp);
           this.ensurePane(cp, !this.labelPanes.has(cp));
         }
       }
@@ -553,6 +552,7 @@
         clearAll,
         register,
         unregister,
+        registered: () => registered,
       };
     }
 
@@ -633,10 +633,7 @@
     }
 
     isDefaultPane(pane) {
-      return (
-        this.defaultPanes.has(pane) ||
-        this.fallbackPanes.has(pane)
-      );
+      return this.defaultPanes.has(pane) || this.fallbackPanes.has(pane);
     }
 
     enforceOrder() {
@@ -687,8 +684,7 @@
                 const ep = this.ensurePane(cp, !isTile);
                 ep.pane.style.zIndex = z;
                 // Label panes get +1 offset so they always render above graph
-                if (this.labelPanes.has(cp))
-                  ep.pane.style.zIndex = z + 1;
+                if (this.labelPanes.has(cp)) ep.pane.style.zIndex = z + 1;
               });
               lyr.options.paneSet = true;
               // Three-layer components use custom panes, not default markerPane.

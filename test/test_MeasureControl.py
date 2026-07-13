@@ -216,7 +216,7 @@ class TestMeasureControlBrowser:
         html = m.get_root().render()
         html = html.replace(
             "const measureManager = new MeasureManager(map);",
-            "window.__measureManager = new MeasureManager(map);",
+            "const measureManager = new MeasureManager(map); window.__measureManager = measureManager;",
         )
         html_path = tmp_path / "measure_browser.html"
         html_path.write_text(html, encoding="utf-8")
