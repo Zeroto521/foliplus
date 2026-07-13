@@ -332,6 +332,7 @@
 
       // --- Hexagon Rendering ---
       renderHexagons() {
+        if (!this.map || !this.map._container) return;
         if (!this.selectedLayerId) {
           this.mg.clearAll();
           return;

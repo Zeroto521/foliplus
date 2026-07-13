@@ -661,6 +661,7 @@
       let center = null;
       let state = 0;
       let lastFinishTime = 0;
+      let isFinalizing = false;
       const previews = {
         center: null,
         circle: null,
@@ -675,16 +676,15 @@
         if (previews.line) this.mg.mainLayer.removeLayer(previews.line);
         if (previews.node) this.mg.mainLayer.removeLayer(previews.node);
         if (previews.label) this.mg.mainLayer.removeLayer(previews.label);
-        previews.center =
-          previews.circle =
-          previews.line =
-          previews.node =
-          previews.label =
-            null;
+        previews.center = null;
+        previews.circle = null;
+        previews.line = null;
+        previews.node = null;
+        previews.label = null;
       };
 
       const onMapClick = (e) => {
-        if (this.currentMode !== "circle" || (state !== 0 && state !== 1)) return;
+        if (isFinalizing || this.currentMode !== "circle" || (state !== 0 && state !== 1)) return;
         const now = Date.now();
         if (now - lastFinishTime < CONST.CLICK_COOLDOWN_MS) return;
 
@@ -720,10 +720,11 @@
 
           if (this.cleanupFn) this.cleanupFn();
           this.clearActiveMode();
-          setTimeout(
-            () => finalizeCircle(savedCenter, r, savedTarget),
-            CONST.FINALIZE_DELAY_MS,
-          );
+          isFinalizing = true;
+          setTimeout(() => {
+            finalizeCircle(savedCenter, r, savedTarget);
+            isFinalizing = false;
+          }, CONST.FINALIZE_DELAY_MS);
         }
       };
 
