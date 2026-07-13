@@ -152,7 +152,7 @@ class TestHeatmapControlRendering:
         """graphPane is used as pane name consistently."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "__heatmap__" in html
+        assert "foliplus_heatmap" in html
         assert "graphPane: CONST.GRAPH_PANE" in html
 
     def test_graphlayer_pane_init(self, base_map: folium.Map):

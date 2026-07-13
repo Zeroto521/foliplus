@@ -15,8 +15,10 @@
     MARKER_Z_OFFSET: 1000,
     MARKER_Z_OFFSET_HOVER: 2000,
     STORAGE_KEY: "foliplus_layer_order",
-    COLOR_MAP_LAYER_ID: "__color_map__",
+    COLOR_MAP_ID: "foliplus_color_map",
     COLOR_DEFAULT: "#cccccc",
+    RENDERER_KEY: "foliplus_renderer_",
+    FALLBACK_PANE_PREFIX: "foliplus_pane_",
   };
 
   // ==================== Runtime Guard ====================
@@ -469,7 +471,7 @@
      * @param {string} [opts.iconSvg] - SVG icon for the type column
      * @returns {Object} { mainLayer, graphLayer, labelLayer }
      */
-    createManagedGroup(opts) {
+    createManagedLayers(opts) {
       const mainLayer = L.layerGroup();
       const graphLayer = opts.graphPane
         ? L.layerGroup([], { pane: opts.graphPane })
@@ -625,11 +627,12 @@
       }
       let renderer = null;
       if (needRenderer) {
-        renderer = this.map[`_renderer_${paneName}`];
+        const key = CONST.RENDERER_KEY + paneName;
+        renderer = this.map[key];
         if (!renderer) {
           renderer = L.svg({ pane: paneName });
           renderer.addTo(this.map);
-          this.map[`_renderer_${paneName}`] = renderer;
+          this.map[key] = renderer;
         }
       }
       return { pane, renderer };
@@ -689,10 +692,10 @@
         const layersToMove = [];
         let markerZ = 0; // highest z-index needed for markerPane
         for (let i = 0; i < orderedLayers.length; i++) {
-          const lyr = orderedLayers[i];
-          const info = layerInfos.get(L.stamp(lyr));
+          const layer = orderedLayers[i];
+          const info = layerInfos.get(L.stamp(layer));
           const paneName = info?.paneName;
-          const isTile = lyr instanceof L.TileLayer;
+          const isTile = layer instanceof L.TileLayer;
 
           // TileLayers use a lower z-index range (200-400) so they stay
           // below overlayPane (400) and markerPane (600) by default.
@@ -704,13 +707,13 @@
           if (paneName) {
             const ep = this.ensurePane(paneName, !isTile);
             ep.pane.style.zIndex = z;
-            if (lyr.options.pane !== paneName || !lyr.options.paneSet)
-              layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
+            if (layer.options.pane !== paneName || !layer.options.paneSet)
+              layersToMove.push({ layer: layer, paneName, renderer: ep.renderer });
           } else {
             // Auto-discover custom panes from container tree (three-layer
             // architecture). This ensures all internal panes (graph, label, etc.)
             // are assigned the same z-index base.
-            const childPanes = this.discoverChildPanes(lyr);
+            const childPanes = this.discoverChildPanes(layer);
             if (childPanes.length > 0) {
               childPanes.forEach((cp) => {
                 const ep = this.ensurePane(cp, !isTile);
@@ -718,20 +721,20 @@
                 // Label panes get +1 offset so they always render above graph
                 if (this.labelPanes.has(cp)) ep.pane.style.zIndex = z + 1;
               });
-              lyr.options.paneSet = true;
+              layer.options.paneSet = true;
               // Three-layer components use custom panes, not default markerPane.
               // Do NOT adjust markerZ — that would elevate all unmanaged point layers
               // (e.g. static GeoJSON markers) above this dynamic layer.
             } else {
-              const fallbackPane = `_lyr_${L.stamp(lyr)}`;
-              this.fallbackPanes.add(fallbackPane);
-              const ep = this.ensurePane(fallbackPane, !isTile);
+              const fallbackPaneName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
+              this.fallbackPanes.add(fallbackPaneName);
+              const ep = this.ensurePane(fallbackPaneName, !isTile);
               ep.pane.style.zIndex = z;
-              if (!(lyr instanceof L.TileLayer)) markerZ = Math.max(markerZ, z);
-              if (lyr.options.pane !== fallbackPane || !lyr.options.paneSet) {
+              if (!(layer instanceof L.TileLayer)) markerZ = Math.max(markerZ, z);
+              if (layer.options.pane !== fallbackPaneName || !layer.options.paneSet) {
                 layersToMove.push({
-                  layer: lyr,
-                  paneName: fallbackPane,
+                  layer,
+                  paneName: fallbackPaneName,
                   renderer: ep.renderer,
                 });
               }
@@ -809,7 +812,7 @@
 
       html += `
         <div class="layer-item color-layer-item" draggable="false"
-             data-layer-id="${CONST.COLOR_MAP_LAYER_ID}"
+             data-layer-id="${CONST.COLOR_MAP_ID}"
              title="${_(CONST.name + ".color_map_label")}">
           <div class="layer-item-spacer"></div>
           <div class="checkbox-wrapper">

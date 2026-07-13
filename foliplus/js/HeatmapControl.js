@@ -34,9 +34,9 @@
       [20, 12],
     ],
     H3_RES_FALLBACK: 12,
-    HEATMAP_ID: "__heatmap__",
-    GRAPH_PANE: "__heatmap_graph__",
-    LABEL_PANE: "__heatmap_label__",
+    HEATMAP_ID: "foliplus_heatmap",
+    GRAPH_PANE: "heatmap_graph",
+    LABEL_PANE: "heatmap_label",
     HEXAGON: `
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">

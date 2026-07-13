@@ -13,9 +13,9 @@
     CENTER_DOT_SIZE: [12, 12],
     CENTER_DOT_ANCHOR: [6, 6],
     LABEL_ANCHOR: [0, -10],
-    MEASURE_ID: "__measure__",
-    GRAPH_PANE: "__measure_graph__",
-    LABEL_PANE: "__measure_label__",
+    MEASURE_ID: "foliplus_measure",
+    GRAPH_PANE: "measure_graph",
+    LABEL_PANE: "measure_label",
   };
 
   // ==================== Runtime Guard ====================
