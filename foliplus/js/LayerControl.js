@@ -14,7 +14,7 @@
     LAYER_RECURSION_DEPTH: 10,
     MARKER_Z_OFFSET: 1000,
     MARKER_Z_OFFSET_HOVER: 2000,
-    STORAGE_KEY: "_layer_order",
+    STORAGE_KEY: "foliplus_layer_order",
     COLOR_MAP_LAYER_ID: "__color_map__",
     COLOR_DEFAULT: "#cccccc",
   };
@@ -1020,6 +1020,12 @@
       if (this.dragIdx === null) return;
       if (!target) return;
       if (target.classList.contains("color-layer-item")) return;
+
+      // Guard against dragIdx/layers array desync (e.g., external modification)
+      if (this.dragIdx < 0 || this.dragIdx >= this.layers.length) {
+        this.dragIdx = null;
+        return;
+      }
 
       const targetIdx = parseInt(target.dataset.index, 10);
       if (this.dragIdx === targetIdx) return;
