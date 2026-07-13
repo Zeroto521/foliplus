@@ -145,6 +145,11 @@
       if (type === "empty") return SVGS.EMPTY;
       return SVGS.UNKNOWN;
     }
+
+    /** Resolve a layer by id from map._layers or window fallback. */
+    static findLayer(map, id) {
+      return (map._layers && map._layers[id]) || window[id] || null;
+    }
   }
 
   // ==================== Core Manager: LayerManager ====================
@@ -181,7 +186,7 @@
       this.fallbackPanes = new Set();
       this.labelPanes = new Set();
 
-      this.map.on("layeradd", (e) => {
+      this._onLayerAdd = (e) => {
         // Skip internal layers, background enforcement, and destroyed manager
         if (
           this.isEnforcing ||
@@ -198,7 +203,8 @@
           this.enforceOrder();
           this.enforceTimer = null;
         }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
-      });
+      };
+      this.map.on("layeradd", this._onLayerAdd);
 
       window.foliplus.LayerControlAPI = this;
     }
@@ -376,7 +382,7 @@
       if (idx === -1) return false;
       this.layers.splice(idx, 1);
 
-      const layer = this.map._layers[id] || window[id];
+      const layer = LayerUtils.findLayer(this.map, id);
       if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
       if (window[id]) delete window[id];
       // Recursively clear all sub-layers to prevent stale data on re-register
@@ -644,8 +650,7 @@
         const layerInfos = new Map();
 
         for (let i = 0; i < this.layers.length; i++) {
-          const l_id = this.layers[i].id;
-          const layer = this.map._layers[l_id] || window[l_id] || null;
+          const layer = LayerUtils.findLayer(this.map, this.layers[i].id);
           if (layer && this.map.hasLayer(layer)) {
             orderedLayers.push(layer);
             layerInfos.set(L.stamp(layer), this.layers[i]);
@@ -801,7 +806,7 @@
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const id = layerInfo.id;
-        const layer = this.map._layers[id] || window[id] || null;
+        const layer = LayerUtils.findLayer(this.map, id);
 
         if (inputs[i]) {
           inputs[i].checked =
@@ -885,7 +890,7 @@
 
       const idx = parseInt(target.dataset.index, 10);
       const layerInfo = this.layers[idx];
-      const layer = this.map._layers[layerInfo.id] || window[layerInfo.id] || null;
+      const layer = LayerUtils.findLayer(this.map, layerInfo.id);
       const item = target.closest(".layer-item");
 
       if (layerInfo.isBase) this.hideColorLayer();
@@ -1023,8 +1028,7 @@
 
       for (let i = 0; i < this.layers.length; i++) {
         if (this.layers[i].isBase) {
-          const l_id = this.layers[i].id;
-          const bLayer = this.map._layers[l_id] || window[l_id] || null;
+          const bLayer = LayerUtils.findLayer(this.map, this.layers[i].id);
           if (bLayer && this.map.hasLayer(bLayer)) this.map.removeLayer(bLayer);
         }
       }
@@ -1071,8 +1075,7 @@
       );
       for (let i = 0; i < this.layers.length; i++) {
         if (this.layers[i].isBase && i !== exceptIdx) {
-          const l_id = this.layers[i].id;
-          const bLayer = this.map._layers[l_id] || window[l_id] || null;
+          const bLayer = LayerUtils.findLayer(this.map, this.layers[i].id);
           if (bLayer && this.map.hasLayer(bLayer)) this.map.removeLayer(bLayer);
           if (inputs[i]) {
             inputs[i].checked = false;
