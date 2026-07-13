@@ -208,9 +208,10 @@ class TestMeasureControlBrowser:
 
     def _make_page(self, browser, tmp_path):
         """Build a page with MeasureControl and return (page, errors)."""
-        import folium
+        from foliplus import LayerControl
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
         MeasureControl().add_to(m)
 
         html = m.get_root().render()
