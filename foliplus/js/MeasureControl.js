@@ -169,6 +169,15 @@
       m._isMeasureLabel = true;
       return m;
     }
+
+    /** Update a label marker's text content. Caches DOM reference on first call. */
+    static setLabelText(marker, text) {
+      if (!marker._labelEl) {
+        const el = marker.getElement();
+        if (el) marker._labelEl = el.querySelector(".measure-label");
+      }
+      if (marker._labelEl) marker._labelEl.textContent = text;
+    }
   }
 
   // ==================== Core Manager ====================
@@ -558,11 +567,10 @@
           previewDistLabel.addTo(this.mg.mainLayer);
         } else {
           previewDistLabel.setLatLng(e.latlng);
-          const el = previewDistLabel.getElement();
-          if (el) {
-            const div = el.querySelector(".measure-label");
-            if (div) div.textContent = MeasureUtils.formatDistance(showDist);
-          }
+          MeasureUtils.setLabelText(
+            previewDistLabel,
+            MeasureUtils.formatDistance(showDist),
+          );
         }
       };
 
@@ -790,11 +798,7 @@
           previews.label.addTo(this.mg.mainLayer);
         } else {
           previews.label.setLatLng(mid);
-          const el = previews.label.getElement();
-          if (el) {
-            const div = el.querySelector(".measure-label");
-            if (div) div.textContent = MeasureUtils.formatDistance(r);
-          }
+          MeasureUtils.setLabelText(previews.label, MeasureUtils.formatDistance(r));
         }
       };
 
