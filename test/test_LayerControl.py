@@ -379,9 +379,9 @@ class TestLayerControlRendering:
         """isDefaultPane uses a Set for default pane lookup."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'defaultPanes.has(pane)' in html
-        assert 'fallbackPanes.has(pane)' in html
-        assert 'this.defaultPanes = new Set([' in html
+        assert "defaultPanes.has(pane)" in html
+        assert "fallbackPanes.has(pane)" in html
+        assert "this.defaultPanes = new Set([" in html
         assert '"overlayPane"' in html
         assert '"markerPane"' in html
         assert '"tilePane"' in html
@@ -428,7 +428,7 @@ class TestLayerControlRendering:
         """enforceOrder skips removeLayer/addLayer for already-paned layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'lyr.options.pane !== fallbackPane || !lyr.options.paneSet' in html
+        assert "lyr.options.pane !== fallbackPane || !lyr.options.paneSet" in html
         assert "layersToMove.push" in html
 
     def test_color_layer_hides_tile_pane(self, base_map: folium.Map):
