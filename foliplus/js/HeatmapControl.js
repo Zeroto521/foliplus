@@ -112,6 +112,13 @@
   );
 
   function run() {
+    // Guard: LayerControl must be registered first to provide createManagedGroup
+    if (!window.foliplus.LayerControlAPI) {
+      console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
+      window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), 0);
+      return;
+    }
+
     // ==================== Core: Data Aggregation & Rendering ===
     class HeatmapManager {
       constructor(mapInstance) {

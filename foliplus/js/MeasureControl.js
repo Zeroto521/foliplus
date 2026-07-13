@@ -948,6 +948,13 @@
   }
 
   // ==================== Initialization & Control Construction ====================
+  // Guard: LayerControl must be registered first to provide createManagedGroup
+  if (!window.foliplus.LayerControlAPI) {
+    console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
+    window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), 0);
+    return;
+  }
+
   const measureManager = new MeasureManager(map);
 
   class MeasureControl extends L.Control {
