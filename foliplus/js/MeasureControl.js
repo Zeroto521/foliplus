@@ -101,16 +101,7 @@
     static applyToggle(delMarker, xVisible, labels, labelsVisible, extraLbl) {
       const applyDelIcon = (mkr, show, retries = 0) => {
         if (!mkr) return;
-        const el = mkr.getElement();
-        if (el) {
-          const icon = el.querySelector(".measure-del-icon");
-          if (icon) icon.classList.toggle("visible", show);
-        } else if (retries < CONST.DEL_ICON_RETRY_LIMIT) {
-          setTimeout(
-            () => applyDelIcon(mkr, show, retries + 1),
-            CONST.DEL_ICON_RETRY_DELAY_MS,
-          );
-        }
+        MeasureUtils.toggleDelIcon(mkr, show, retries);
       };
 
       applyDelIcon(delMarker, xVisible);
@@ -131,6 +122,52 @@
           if (sL) sL.style.display = dsp;
         }
       }
+    }
+
+    /** Toggle a delete icon's visibility with retry. */
+    static toggleDelIcon(mkr, show, retries = 0) {
+      if (!mkr) return;
+      const el = mkr.getElement();
+      if (el) {
+        const icon = el.querySelector(".measure-del-icon");
+        if (icon) icon.classList.toggle("visible", show);
+      } else if (retries < CONST.DEL_ICON_RETRY_LIMIT) {
+        setTimeout(
+          () => MeasureUtils.toggleDelIcon(mkr, show, retries + 1),
+          CONST.DEL_ICON_RETRY_DELAY_MS,
+        );
+      }
+    }
+
+    /** Attach a click handler to a delete icon marker with retry for DOM readiness. */
+    static attachDelClick(delMkr, callback) {
+      setTimeout(() => {
+        const el = delMkr.getElement();
+        if (el) {
+          const btn = el.querySelector(".measure-del-icon");
+          if (btn) {
+            L.DomEvent.on(btn, "click", (ev) => {
+              MeasureUtils.stopEvent(ev);
+              callback();
+            });
+          }
+        }
+      }, CONST.DEL_ICON_RETRY_DELAY_MS);
+    }
+
+    /** Create a label marker with the given text. */
+    static createLabel(lat, lng, text, anchor) {
+      const m = L.marker([lat, lng], {
+        interactive: false,
+        icon: L.divIcon({
+          className: "",
+          html: `<div class="measure-label">${text}</div>`,
+          iconSize: [0, 0],
+          iconAnchor: anchor || [0, 0],
+        }),
+      });
+      m._isMeasureLabel = true;
+      return m;
     }
   }
 
@@ -473,18 +510,7 @@
             interactive: true,
           }).addTo(this.mg.mainLayer);
 
-          setTimeout(() => {
-            const el = lastNodeDelMkr.getElement();
-            if (el) {
-              const btn = el.querySelector(".measure-del-icon");
-              if (btn) {
-                L.DomEvent.on(btn, "click", (ev) => {
-                  MeasureUtils.stopEvent(ev);
-                  deleteMeasurement();
-                });
-              }
-            }
-          }, CONST.DEL_ICON_RETRY_DELAY_MS);
+          MeasureUtils.attachDelClick(lastNodeDelMkr, deleteMeasurement);
 
           lastNodeDelMkr.on("click", (e) => {
             const t = e.originalEvent?.target;
@@ -866,18 +892,7 @@
           this.map.off("click", onMapClickActive);
         };
 
-        setTimeout(() => {
-          const el = delMkr.getElement();
-          if (el) {
-            const btn = el.querySelector(".measure-del-icon");
-            if (btn) {
-              L.DomEvent.on(btn, "click", (ev) => {
-                MeasureUtils.stopEvent(ev);
-                deleteCircle();
-              });
-            }
-          }
-        }, CONST.DEL_ICON_RETRY_DELAY_MS);
+        MeasureUtils.attachDelClick(delMkr, deleteCircle);
 
         const toggleCircleToggle = () => {
           if (deleted) return;
