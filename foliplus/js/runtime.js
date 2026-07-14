@@ -621,12 +621,17 @@
       if (absVal >= threshold) {
         const frac = compactMaxFrac();
         if (locale === "zh") {
-          if (absVal >= FALLBACK.Y) return (val / FALLBACK.Y).toFixed(frac) + foliplus.gt("num.y");
-          if (absVal >= FALLBACK.W) return (val / FALLBACK.W).toFixed(frac) + foliplus.gt("num.w");
+          if (absVal >= FALLBACK.Y)
+            return (val / FALLBACK.Y).toFixed(frac) + foliplus.gt("num.y");
+          if (absVal >= FALLBACK.W)
+            return (val / FALLBACK.W).toFixed(frac) + foliplus.gt("num.w");
         } else {
-          if (absVal >= FALLBACK.B) return (val / FALLBACK.B).toFixed(frac) + foliplus.gt("num.b");
-          if (absVal >= FALLBACK.M) return (val / FALLBACK.M).toFixed(frac) + foliplus.gt("num.m");
-          if (absVal >= FALLBACK.K) return (val / FALLBACK.K).toFixed(frac) + foliplus.gt("num.k");
+          if (absVal >= FALLBACK.B)
+            return (val / FALLBACK.B).toFixed(frac) + foliplus.gt("num.b");
+          if (absVal >= FALLBACK.M)
+            return (val / FALLBACK.M).toFixed(frac) + foliplus.gt("num.m");
+          if (absVal >= FALLBACK.K)
+            return (val / FALLBACK.K).toFixed(frac) + foliplus.gt("num.k");
         }
       }
     }
