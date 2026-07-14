@@ -58,7 +58,7 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "color-layer-item" in html
         assert "color-layer-input" in html
-        assert "__color_map__" in html
+        assert "foliplus_color_map" in html
 
     def test_color_layer_default_value(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
@@ -313,7 +313,7 @@ class TestLayerControlRendering:
         """enforceOrder assigns fallback _lyr_ pane for non-paneName layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_lyr_" in html
+        assert "foliplus_pane_" in html
         assert "setLayerPaneRecursive" in html
         assert "mp.style.zIndex = markerZ" in html or "mp.style.zIndex" in html
 
@@ -353,7 +353,7 @@ class TestLayerControlRendering:
         """Regression test for Bug 1: Label panes get z-index offset (+1) automatically."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.labelPanes.add(cp)" in html
+        assert "this.labelPanes.has(cp)" in html
         assert "this.labelPanes.has(cp)" in html
         assert "ep.pane.style.zIndex = z + 1" in html
 
@@ -421,14 +421,14 @@ class TestLayerControlRendering:
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
         # ensurePane with !isTile means no renderer for tile layers
-        assert "ensurePane(fallbackPane, !isTile)" in html
+        assert "ensurePane(fallbackPaneName, !isTile)" in html
         assert "ensurePane(paneName, !isTile)" in html
 
     def test_skip_remove_add_when_pane_unchanged(self, base_map: folium.Map):
         """enforceOrder skips removeLayer/addLayer for already-paned layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layer.options.pane !== fallbackPane || !layer.options.paneSet" in html
+        assert "layer.options.pane !== fallbackPaneName || !layer.options.paneSet" in html
         assert "layersToMove.push" in html
 
     def test_color_layer_hides_tile_pane(self, base_map: folium.Map):

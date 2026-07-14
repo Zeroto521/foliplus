@@ -182,13 +182,13 @@ class TestMeasureControlRendering:
         """clearAll handles unregister + layer cleanup for MeasureControl."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.mg.clearAll()" in html
+        assert "this.layers.clearAll()" in html
 
     def test_clear_all_in_clear_all(self, base_map: folium.Map):
-        """MeasureManager.clearAll delegates to this.mg.clearAll()."""
+        """MeasureManager.clearAll delegates to this.layers.clearAll()."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.mg.clearAll()" in html
+        assert "this.layers.clearAll()" in html
 
     def test_ui_fixed_labels_fix(self, base_map: folium.Map):
         """Regression test: Labels should stay fixed (visible), only X toggles.
@@ -297,7 +297,7 @@ class TestMeasureControlBrowser:
         try:
             page.evaluate("document.querySelector('[data-mode=distance]').click()")
             page.wait_for_timeout(1000)
-            registered = page.evaluate("window.__measureManager.mg.registered()")
+            registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, "Layer should be registered after first tool click"
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -309,11 +309,11 @@ class TestMeasureControlBrowser:
         try:
             page.evaluate("""() => {
                 const mm = window.__measureManager;
-                mm.mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
             }""")
             page.wait_for_timeout(500)
             count = page.evaluate(
-                "Object.keys(window.__measureManager.mg.graphLayer._layers || {}).length"
+                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
             )
             assert count == 1
             assert not errors, f"JS errors: {errors}"
@@ -326,14 +326,14 @@ class TestMeasureControlBrowser:
         try:
             page.evaluate("""() => {
                 const mm = window.__measureManager;
-                mm.mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                mm.mg.addGraph(L.circleMarker([26.08,119.30]));
+                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.layers.addGraph(L.circleMarker([26.08,119.30]));
             }""")
             page.wait_for_timeout(500)
-            page.evaluate("window.__measureManager.mg.clearAll()")
+            page.evaluate("window.__measureManager.layers.clearAll()")
             page.wait_for_timeout(500)
             count = page.evaluate(
-                "Object.keys(window.__measureManager.mg.graphLayer._layers || {}).length"
+                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
             )
             assert count == 0, f"expected 0 got {count}"
             assert not errors, f"JS errors: {errors}"
@@ -348,10 +348,10 @@ class TestMeasureControlBrowser:
                 const mm = window.__measureManager;
                 const p1 = L.polyline([[26.08,119.30],[26.09,119.31]]);
                 const p2 = L.circleMarker([26.08,119.30]);
-                mm.mg.addGraph(p1);
-                mm.mg.addGraph(p2);
-                mm.mg.removeGraph(p1);
-                const layers = mm.mg.graphLayer._layers || {};
+                mm.layers.addGraph(p1);
+                mm.layers.addGraph(p2);
+                mm.layers.removeGraph(p1);
+                const layers = mm.layers.graphLayer._layers || {};
                 window.__test = Object.keys(layers).length;
             }""")
             page.wait_for_timeout(500)

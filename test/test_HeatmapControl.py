@@ -165,9 +165,9 @@ class TestHeatmapControlRendering:
         """renderHexagons uses addGraph which auto-registers in LayerControl."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "this.mg.addGraph(gj)" in html
-        assert "this.mg.clearAll()" in html
-        assert "this.mg.addLabel(" in html
+        assert "this.layers.addGraph(gj)" in html
+        assert "this.layers.clearAll()" in html
+        assert "this.layers.addLabel(" in html
 
     def test_extract_points_filters_no_feature(self, base_map: folium.Map):
         """extractPoints only accepts markers with .feature."""
@@ -473,7 +473,7 @@ class TestHeatmapControlBrowser:
 
             # graphLayer should have content after renderHexagons
             has_content = page.evaluate(
-                "Object.keys(window.__heatmapCtrl.manager.mg.graphLayer._layers || {}).length > 0"
+                "Object.keys(window.__heatmapCtrl.manager.layers.graphLayer._layers || {}).length > 0"
             )
             assert has_content, "graphLayer should have content after layer selection"
             assert not errors, f"JS errors: {errors}"
@@ -502,14 +502,14 @@ class TestHeatmapControlBrowser:
                 page.wait_for_timeout(2000)
 
             # Call clearAll
-            page.evaluate("window.__heatmapCtrl.manager.mg.clearAll()")
+            page.evaluate("window.__heatmapCtrl.manager.layers.clearAll()")
             page.wait_for_timeout(500)
 
             graph_empty = page.evaluate(
-                "Object.keys(window.__heatmapCtrl.manager.mg.graphLayer._layers || {}).length === 0"
+                "Object.keys(window.__heatmapCtrl.manager.layers.graphLayer._layers || {}).length === 0"
             )
             label_empty = page.evaluate(
-                "Object.keys(window.__heatmapCtrl.manager.mg.labelLayer._layers || {}).length === 0"
+                "Object.keys(window.__heatmapCtrl.manager.layers.labelLayer._layers || {}).length === 0"
             )
             assert graph_empty, "graphLayer should be empty after clearAll"
             assert label_empty, "labelLayer should be empty after clearAll"
