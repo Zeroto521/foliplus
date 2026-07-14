@@ -697,7 +697,7 @@
         );
         this.borderColorInput.type = "color";
         this.borderColorInput.value = this.manager.BORDER_COLOR;
-        this.borderColorInput.onchange = () => {
+        this.borderColorInput.oninput = () => {
           this.manager.BORDER_COLOR = this.borderColorInput.value;
           this.manager.renderHexagons();
         };
