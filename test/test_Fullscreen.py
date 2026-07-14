@@ -73,3 +73,36 @@ class TestFullscreenRendering:
         html = render(base_map)
         assert "已进入全屏" in html
         assert "Fullscreen.enter" in html
+
+    def test_css_shadow_variable(self, base_map: folium.Map):
+        """Fullscreen button uses --shadow-ctrl-strong for 悬浮感."""
+        Fullscreen().add_to(base_map)
+        html = render(base_map)
+        assert "shadow-ctrl-strong" in html
+        assert "fullscreen-btn" in html
+
+    def test_css_icon_size_variable(self, base_map: folium.Map):
+        """Fullscreen button SVG uses --icon-size-md."""
+        Fullscreen().add_to(base_map)
+        html = render(base_map)
+        assert "icon-size-md" in html
+        assert "ctrl-size" in html
+
+    def test_css_unified_button_hover(self, base_map: folium.Map):
+        """Fullscreen button shares unified hover via common.css group selector."""
+        Fullscreen().add_to(base_map)
+        html = render(base_map)
+        assert "leaflet-control-zoom-fullscreen:hover" in html
+
+    def test_zoom_svg_replacement(self, base_map: folium.Map):
+        """Zoom +/- have ::before pseudo-element with SVG icons."""
+        Fullscreen().add_to(base_map)
+        html = render(base_map)
+        assert "leaflet-control-zoom-in::before" in html
+        assert "leaflet-control-zoom-out::before" in html
+
+    def test_zoom_svg_hover_color(self, base_map: folium.Map):
+        """Zoom +/- SVG icons change to accent color on hover."""
+        Fullscreen().add_to(base_map)
+        html = render(base_map)
+        assert "e74c3c" in html
