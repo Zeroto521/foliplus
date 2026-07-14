@@ -482,12 +482,12 @@ class TestLayerControlRendering:
         assert "DRAG_HINT_COOLDOWN_MS" in html
 
     def test_type_icons_use_current_color(self, base_map: folium.Map):
-        """Geometry icons use currentColor to stay consistent with base icon tone."""
+        """Geometry icons use currentColor via CSS instead of inline SVG attributes."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'stroke="currentColor"' in html
+        assert ".type-icon-col svg" in html
+        assert "stroke: currentColor" in html
         assert "#a4a4a4" not in html
-        assert ".layer-ctrl .type-icon-col" in html
         assert "color: var(--text-primary);" in html
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):

@@ -200,14 +200,45 @@
 .tool-btn svg,
 .map-hint-icon svg,
 .header-icon svg,
-.type-icon-col svg {
+.type-icon-col svg,
+.leaflet-control-zoom-fullscreen svg {
   width: 18px;
   height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-/* ── Unified Control Button (foliplus toggle buttons) ──
-  .toggle-btn is used by MeasureControl, ExportControl, HeatmapControl
-  and other fold/unfold foliplus components.                          ── */
+/* ── Unified Component Button ──
+  Shared hover/active behavior for all foliplus and Leaflet native buttons.
+  zoom +/-, fullscreen, toggle-btn all share the same hover/active effects. ── */
+.toggle-btn,
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out,
+.leaflet-control-zoom-fullscreen {
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+  will-change: transform;
+}
+.toggle-btn:hover,
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover,
+.leaflet-control-zoom-fullscreen:hover {
+  background-color: var(--ctrl-hover-bg);
+  color: var(--accent-primary);
+  transform: scale(var(--scale-hover));
+}
+.toggle-btn:active,
+.leaflet-control-zoom-in:active,
+.leaflet-control-zoom-out:active,
+.leaflet-control-zoom-fullscreen:active {
+  transform: scale(var(--scale-press));
+}
+
 .toggle-btn {
   display: flex;
   align-items: center;
