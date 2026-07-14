@@ -699,8 +699,8 @@
           (state !== 0 && state !== 1)
         )
           return;
-        const now = Date.now();
-        if (now - lastFinishTime < CONST.CLICK_COOLDOWN_MS) return;
+
+        if (Date.now() - lastFinishTime < CONST.CLICK_COOLDOWN_MS) return;
 
         if (state === 0) {
           center = e.latlng;
@@ -757,18 +757,14 @@
             className: "measure-circle measure-circle-preview",
             interactive: false,
           }).addTo(this.layers.mainLayer);
-        } else {
-          previews.circle.setRadius(r);
-        }
+        } else previews.circle.setRadius(r);
 
         if (!previews.line) {
           previews.line = L.polyline([center, e.latlng], {
             className: "measure-line measure-line-preview",
             interactive: false,
           }).addTo(this.layers.mainLayer);
-        } else {
-          previews.line.setLatLngs([center, e.latlng]);
-        }
+        } else previews.line.setLatLngs([center, e.latlng]);
 
         if (!previews.node) {
           previews.node = L.circleMarker(e.latlng, {
@@ -777,9 +773,7 @@
             interactive: false,
           }).addTo(this.layers.mainLayer);
           previews.node.bringToFront();
-        } else {
-          previews.node.setLatLng(e.latlng);
-        }
+        } else previews.node.setLatLng(e.latlng);
 
         const mid = L.latLng(
           (center.lat + e.latlng.lat) / 2,
