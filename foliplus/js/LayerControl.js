@@ -34,44 +34,41 @@
 
   const SVGS = {
     DRAG_HANDLE: `
-      <svg width="12" height="16" viewBox="0 0 12 16" fill="none" class="drag-handle">
-        <circle cx="4" cy="4" r="1.5" fill="currentColor"/>
-        <circle cx="8" cy="4" r="1.5" fill="currentColor"/>
-        <circle cx="4" cy="8" r="1.5" fill="currentColor"/>
-        <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
-        <circle cx="4" cy="12" r="1.5" fill="currentColor"/>
+      <svg viewBox="0 0 24 24" fill="none" class="drag-handle">
+        <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="6" r="1.5" fill="currentColor"/>
         <circle cx="8" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
       </svg>`,
     LIST: `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round">
         <circle cx="5.5" cy="5" r="2"/><line x1="10" y1="5" x2="21" y2="5"/>
         <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
         <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
       </svg>`,
     POINT: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor"
-          stroke-width="1.5"/>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="6"/>
       </svg>`,
     LINE: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <path d="M4 20 L10 6 L16 18 L22 4" stroke="currentColor" stroke-width="1.5"
-              stroke-linecap="round" stroke-linejoin="round"/>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 20 L10 6 L16 18 L22 4"/>
       </svg>`,
     POLYGON: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <polygon points="12,3 21,9 18,21 6,21 3,9" fill="none" stroke="currentColor"
-                 stroke-width="1.5" stroke-linejoin="round"/>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+        <polygon points="12,3 21,9 18,21 6,21 3,9"/>
       </svg>`,
     EMPTY: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor"
-              stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="4 3"/>
       </svg>`,
     UNKNOWN: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="6.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="6.5" fill="none"/>
         <text x="12" y="12.5" text-anchor="middle" dominant-baseline="central"
               font-size="12" font-weight="bold" fill="currentColor">?</text>
       </svg>`,

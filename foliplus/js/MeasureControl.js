@@ -29,8 +29,7 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
-  const SVG_ICON_ATTRS = `width="18" height="18" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="1.8"`;
+  const SVG_ICON_ATTRS = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"`;
   const SVGS = {
     RULER: `
       <svg ${SVG_ICON_ATTRS} stroke-linecap="round" stroke-linejoin="round" class="ruler-icon">
@@ -38,7 +37,8 @@
         <path d="M5 7v3M9 7v2M13 7v3M17 7v2"/>
       </svg>`,
     CIRCLE: `
-      <svg ${SVG_ICON_ATTRS}><circle cx="12" cy="12" r="9"/>
+      <svg ${SVG_ICON_ATTRS}>
+        <circle cx="12" cy="12" r="9"/>
         <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
       </svg>`,
     TRASH: `

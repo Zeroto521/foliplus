@@ -192,13 +192,26 @@
   vertical-align: middle;
 }
 
-/* ── Fullscreen button (remove Leaflet's built-in bg icon) ── */
-.fullscreen-btn {
-  background-image: none !important;
+/* ── Common Icon Size ──
+  All SVGs in foliplus components default to 18×18.
+  PIN_ICON, drag-handle override per their context.
+── */
+.ctrl-fold svg,
+.tool-btn svg,
+.map-hint-icon svg,
+.header-icon svg,
+.type-icon-col svg {
+  width: 18px;
+  height: 18px;
 }
 
-/* ── Toggle Button ── */
+/* ── Unified Control Button (foliplus toggle buttons) ──
+  .toggle-btn is used by MeasureControl, ExportControl, HeatmapControl
+  and other fold/unfold foliplus components.                          ── */
 .toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   border-radius: 0;
@@ -209,9 +222,6 @@
   flex-shrink: 0;
   box-sizing: border-box;
   color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 0;
   margin: 0;
   transition:
@@ -229,6 +239,11 @@
 }
 .toggle-btn svg {
   stroke: var(--text-primary);
+}
+.toggle-btn:hover,
+.toggle-btn:hover svg {
+  color: var(--accent-primary);
+  stroke: var(--accent-primary);
 }
 
 /* ── Map Hint (Toast Notification) ── */

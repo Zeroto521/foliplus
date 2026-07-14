@@ -61,4 +61,6 @@ class Fullscreen(BaseControl):
         super().__init__(position=position, locale=locale)
         self.hide_self = hide_self
         self.hide_others = hide_others
-        self._template = self._get_template(js_file="Fullscreen.js")
+        self._template = self._get_template(
+            js_file="Fullscreen.js", css_file="Fullscreen.css"
+        )

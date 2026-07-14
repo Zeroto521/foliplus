@@ -27,7 +27,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: var(--font-size-lg);
+  width: 18px;
   color: var(--text-primary);
   flex-shrink: 0;
   margin-left: var(--space-sm);
@@ -94,6 +94,8 @@
 }
 .layer-ctrl .layer-item .drag-handle {
   flex-shrink: 0;
+  width: 14px;
+  height: 18px;
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
