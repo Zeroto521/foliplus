@@ -42,7 +42,7 @@
   "LayerControl.close_title": "收起",
   "LayerControl.base_map_label": "基础底图",
   "LayerControl.color_map_label": "纯色地图",
-  "LayerControl.reorder_group_only": "图层只能在统一分组内排序",
+  "LayerControl.reorder_group_only": "图层只能在同一分组内排序",
   "LayerControl.load_order_fail": "图层顺序加载失败",
   "LayerControl.save_order_fail": "图层顺序保存失败",
   "LayerControl.type_base": "基础底图",
