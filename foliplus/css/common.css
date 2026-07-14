@@ -15,6 +15,7 @@
   --size-8: 8px;
   --size-12: 12px;
   --size-16: 16px;
+  --size-18: 18px;
   --size-20: 20px;
   --size-24: 24px;
 
@@ -46,7 +47,7 @@
   /* Base */
   --ctrl-bg: var(--neutral-0);
   --ctrl-border: rgba(0, 0, 0, var(--alpha-20));
-  --ctrl-hover-bg: #f4f4f4;
+  --ctrl-hover-bg: var(--neutral-100);
   --ctrl-active-bg: #e8e8e8;
 
   --text-primary: var(--neutral-800);
@@ -118,7 +119,7 @@
   --scale-hover: 1.08;
   --toggle-off-bg: #ccc;
   --icon-size-sm: var(--size-16);
-  --icon-size-md: 18px;
+  --icon-size-md: var(--size-18);
 
   /* Component */
   --toggle-size: 36px;
@@ -155,8 +156,8 @@
   --radius-pill: var(--size-20);
 
   /* Component */
-  --radius-card: var(--size-8);
   --radius-btn: var(--size-6);
+  --radius-card: var(--size-8);
 
   /* ── Semantic Tokens: Shadows ── */
   /* Base */
@@ -202,8 +203,8 @@
 .header-icon svg,
 .type-icon-col svg,
 .leaflet-control-zoom-fullscreen svg {
-  width: 18px;
-  height: 18px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   stroke: currentColor;
   fill: none;
   stroke-width: 1.8;
@@ -255,18 +256,6 @@
   color: var(--text-primary);
   padding: 0;
   margin: 0;
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast),
-    transform var(--transition-fast);
-  will-change: transform;
-}
-.toggle-btn:hover {
-  background-color: var(--ctrl-hover-bg);
-  transform: scale(var(--scale-hover));
-}
-.toggle-btn:active {
-  transform: scale(var(--scale-press));
 }
 .toggle-btn svg {
   stroke: var(--text-primary);
@@ -373,14 +362,9 @@
 .ctrl-fold.expanded .toggle-btn {
   background: transparent;
   color: var(--accent-primary);
-  border-radius: 0;
 }
 .ctrl-fold.expanded .toggle-btn svg {
   stroke: var(--accent-primary);
-}
-.ctrl-fold.align-right.expanded .toggle-btn {
-  border-right: none;
-  border-left: none;
 }
 
 /* ── Shared Toolbar ──

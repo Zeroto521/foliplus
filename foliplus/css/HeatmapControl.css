@@ -74,7 +74,7 @@
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   background: var(--input-bg)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E")
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E")
     no-repeat right var(--space-md) center;
   background-size: var(--hm-select-arrow-width) var(--hm-select-arrow-height);
   color: var(--text-primary);

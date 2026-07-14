@@ -1,22 +1,22 @@
 /* ── Custom Pane Interaction Rules ── */
 /* layer-pane is dynamically created by LayerControl._enforceLayerOrder */
 .layer-pane {
-  pointer-events: none !important;
+  pointer-events: none;
 }
 .layer-pane > svg {
-  pointer-events: none !important;
+  pointer-events: none;
 }
 .layer-pane .leaflet-interactive {
   pointer-events: auto;
 }
 .layer-pane .leaflet-marker-icon:not(.heatmap-label) {
-  pointer-events: auto !important;
+  pointer-events: auto;
 }
 
 /* ── Canvas Pane Common Rules ── */
 /* When pane has Canvas renderer, markers float above canvas */
 .leaflet-pane.has-canvas > .leaflet-marker-icon {
-  z-index: var(--z-index-control) !important;
+  z-index: var(--z-index-control);
 }
 /* ── Panel Content Overrides ── */
 .layer-ctrl .panel-content {
@@ -27,7 +27,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: 18px;
+  width: var(--icon-size-md);
   color: var(--text-primary);
   flex-shrink: 0;
   margin-left: var(--space-sm);
@@ -95,7 +95,7 @@
 .layer-ctrl .layer-item .drag-handle {
   flex-shrink: 0;
   width: 14px;
-  height: 18px;
+  height: var(--icon-size-md);
   opacity: 0;
   transition: opacity var(--transition-fast);
 }

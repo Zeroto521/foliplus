@@ -3,9 +3,6 @@
   height: auto;
   box-shadow: var(--panel-shadow);
 }
-.map-search.expanded .toggle-btn:hover {
-  color: var(--accent-primary);
-}
 /* ── Search Form ── */
 .map-search .search-form {
   display: none;

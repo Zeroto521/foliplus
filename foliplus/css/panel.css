@@ -30,28 +30,12 @@
     background-color var(--transition-fast);
 }
 
-.map-panel .toggle-btn:hover {
-  background-color: var(--ctrl-hover-bg);
-  color: var(--text-primary);
-  transform: scale(var(--scale-hover));
-}
-
-.map-panel .toggle-btn:active {
-  transform: scale(var(--scale-press));
-}
-
 /* Hide toggle when expanded */
 .map-panel.expanded .toggle-btn {
   display: none;
 }
 
 /* ── Accent color for expanded icon (all map-panel components) ── */
-.map-panel.expanded .toggle-btn {
-  color: var(--accent-primary);
-}
-.map-panel.expanded .toggle-btn svg {
-  stroke: var(--accent-primary);
-}
 .map-panel.expanded .header-icon,
 .map-panel.expanded .header-icon svg {
   color: var(--accent-primary);
