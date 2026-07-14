@@ -58,7 +58,7 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "color-layer-item" in html
         assert "color-layer-input" in html
-        assert "__color_map__" in html
+        assert "foliplus_color_map" in html
 
     def test_color_layer_default_value(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
@@ -78,21 +78,36 @@ class TestLayerControlRendering:
         assert "unregisterLayer" in html
         assert "getLayersByType" in html
         assert "ensurePane" in html
+        # createManagedLayers convenience API
+        assert "addGraph" in html
+        assert "addLabel" in html
+        assert "removeGraph" in html
+        assert "removeLabel" in html
+        assert "clearGraph" in html
+        assert "clearLabels" in html
+        assert "clearAll" in html
+
+    def test_bring_to_front_guard(self, base_map: folium.Map):
+        """bringToFront monkey patch prevents parentNode errors during pane migration."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "origBringToFront" in html
+        assert "this._path && this._path.parentNode" in html
 
     def test_container_marking(self, base_map: folium.Map):
         """registerLayer auto-marks container layers with _paneSet."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_paneSet" in html
+        assert "paneSet" in html
         # Only LayerControl.js should use it — HeatmapControl/MeasureControl
         # no longer set it manually
-        assert "opts.layer.options._paneSet" in html or "layer.options._paneSet" in html
+        assert "opts.layer.options.paneSet" in html or "layer.options.paneSet" in html
 
     def test_color_layer_functions(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_showColorLayer" in html
-        assert "_hideColorLayer" in html
+        assert "showColorLayer" in html
+        assert "hideColorLayer" in html
 
     def test_svg_icons_defined(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
@@ -227,7 +242,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "color-layer-item" in html
-        assert "_deselectAllBaseMaps" in html
+        assert "deselectAllBaseMaps" in html
 
     def test_drag_base_map_allowed(self):
         """No drag prevention for base maps in JS code."""
@@ -239,10 +254,10 @@ class TestLayerControlRendering:
         assert "this.layers[idx].isBase" not in html
 
     def test_hide_color_layer_function(self, base_map: folium.Map):
-        """_hideColorLayer function exists in rendered JS."""
+        """hideColorLayer function exists in rendered JS."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_hideColorLayer" in html
+        assert "hideColorLayer" in html
 
     def test_separator_in_template(self):
         """Separator label 'BASE MAP' appears before base layer items."""
@@ -283,32 +298,23 @@ class TestLayerControlRendering:
         assert count >= 2, f"Expected at least 2 draggable items, got {count}"
 
     def test_marker_skip_in_set_layer_pane(self, base_map: folium.Map):
-        """_setLayerPaneRecursive skips Markers but moves TileLayers.
+        """setLayerPaneRecursive skips Markers but moves TileLayers.
 
         Markers stay in markerPane to preserve shadow rendering.
         TileLayers are moved to custom panes for proper z-ordering.
         """
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "if (layer instanceof L.Marker) return" in html
+        assert "l instanceof L.Marker" in html
         assert "if (layer instanceof L.TileLayer) return" not in html
         assert "icon instanceof L.divIcon" not in html
 
     def test_enforce_order_skips_no_pane(self, base_map: folium.Map):
-        """enforceOrder assigns fallback _lyr_ pane for non-paneName layers.
-
-        L.Path children get moved to the custom pane for ordering.
-        _setLayerPaneRecursive skips Markers/TileLayers — those stay in
-        their default panes.  markerPane z-index is synced for cross-group
-        interleaving.
-        """
+        """enforceOrder assigns fallback _lyr_ pane for non-paneName layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        # Fallback _lyr_ pane is generated for non-paneName layers
-        assert "_lyr_" in html
-        # _setLayerPaneRecursive is always called
-        assert "_setLayerPaneRecursive" in html
-        # markerPane z-index is synced
+        assert "foliplus_pane_" in html
+        assert "setLayerPaneRecursive" in html
         assert "mp.style.zIndex = markerZ" in html or "mp.style.zIndex" in html
 
     def test_enforce_order_still_processes_registered_layers(
@@ -326,8 +332,8 @@ class TestLayerControlRendering:
         """Regression test for Bug 3: Recursion guard prevents infinite loop in layeradd."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this._isEnforcing = true" in html
-        assert "if (this._isEnforcing) return" in html
+        assert "this.isEnforcing = true" in html
+        assert "if (this.isEnforcing) return" in html
 
     def test_error_keys_injected(self, base_map: folium.Map):
         """LayerControl error keys appear in rendered HTML."""
@@ -347,29 +353,16 @@ class TestLayerControlRendering:
         """Regression test for Bug 1: Label panes get z-index offset (+1) automatically."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'cp.includes("label") || cp.includes("lbl")' in html
+        assert "this.labelPanes.has(cp)" in html
+        assert "this.labelPanes.has(cp)" in html
         assert "ep.pane.style.zIndex = z + 1" in html
-        assert "ensurePane" in html
-        assert "_setLayerPaneRecursive" in html
 
     def test_pane_set_on_all_layers(self, base_map: folium.Map):
-        """_setLayerPaneRecursive sets _paneSet on ALL layers, not just Path.
-
-        Containers (FeatureGroup) and other non-Path layers also get
-        _paneSet so subsequent enforceOrder calls skip unnecessary
-        removeLayer/addLayer cycles.
-        """
+        """setLayerPaneRecursive sets paneSet on ALL layers, not just Path."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        # _paneSet = true is set unconditionally after options.pane
-        assert (
-            "layer.options._paneSet = true" in html
-            or "layer.options._paneSet=true" in html
-        )
-        # It's NOT inside an "if (layer instanceof L.Path)" block
-        # (Search for the pattern: pane = paneName; then _paneSet = true)
-        # The _paneSet line should appear BEFORE the Path-specific renderer code
-        pane_lines = [l for l in html.split("\n") if "_paneSet" in l]
+        assert "layer.options.paneSet = true" in html
+        pane_lines = [l for l in html.split("\n") if "paneSet" in l]
         assert any("true" in l for l in pane_lines)
 
     def test_marker_pane_zindex_synced(self, base_map: folium.Map):
@@ -382,13 +375,18 @@ class TestLayerControlRendering:
         )
         assert "mp.style.zIndex = markerZ" in html
 
-    def test_fallback_pane_generated(self, base_map: folium.Map):
-        """Non-paneName layers get a _lyr_ fallback pane in enforceOrder."""
+    def test_default_panes_use_set(self, base_map: folium.Map):
+        """isDefaultPane uses a Set for default pane lookup."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_lyr_" in html
-        # The fallback is built with L.stamp(lyr) for uniqueness
-        assert "L.stamp(lyr)" in html
+        assert "defaultPanes.has(pane)" in html
+        assert "fallbackPanes.has(pane)" in html
+        assert "this.defaultPanes = new Set([" in html
+        assert '"overlayPane"' in html
+        assert '"markerPane"' in html
+        assert '"tilePane"' in html
+        assert '"shadowPane"' in html
+        assert '"mapPane"' in html
 
     def test_circle_marker_not_skipped(self, base_map: folium.Map):
         """CircleMarker is NOT instanceof L.Marker — passes through correctly.
@@ -399,7 +397,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # The skip only checks L.Marker, not L.CircleMarker
-        assert "if (layer instanceof L.Marker) return" in html
+        assert "l instanceof L.Marker" in html
 
     def test_tilelayer_zindex_base_200(self, base_map: folium.Map):
         """TileLayers use z-index base 200 in enforceOrder."""
@@ -423,18 +421,20 @@ class TestLayerControlRendering:
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
         # ensurePane with !isTile means no renderer for tile layers
-        assert "ensurePane(fallbackPane, !isTile)" in html
+        assert "ensurePane(fallbackPaneName, !isTile)" in html
         assert "ensurePane(paneName, !isTile)" in html
 
     def test_skip_remove_add_when_pane_unchanged(self, base_map: folium.Map):
         """enforceOrder skips removeLayer/addLayer for already-paned layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "if (lyr.options.pane !== fallbackPane || !lyr.options._paneSet)" in html
+        assert (
+            "layer.options.pane !== fallbackPaneName || !layer.options.paneSet" in html
+        )
         assert "layersToMove.push" in html
 
     def test_color_layer_hides_tile_pane(self, base_map: folium.Map):
-        """_showColorLayer hides tilePane visibility and opacity."""
+        """showColorLayer hides tilePane visibility and opacity."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert 'tilePane.style.visibility = "hidden"' in html
@@ -448,7 +448,7 @@ class TestLayerControlRendering:
         assert "getLayersByType(type)" in html
 
     def test_load_saved_order_uses_map(self, base_map: folium.Map):
-        """_loadSavedOrder uses Map-based O(n) lookup, not findIndex."""
+        """loadSavedOrder uses Map-based O(n) lookup, not findIndex."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "new Map(this.layers.map" in html
@@ -470,14 +470,14 @@ class TestLayerControlRendering:
         """Saved order is normalized to overlay-first, base-last groups."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_normalizeLayerGroups" in html
-        assert "this._normalizeLayerGroups();" in html
+        assert "normalizeLayerGroups" in html
+        assert "this.normalizeLayerGroups();" in html
 
     def test_blocked_reorder_hint_present(self, base_map: folium.Map):
         """Cross-group drag block exposes a throttled hint path."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "_showReorderBlockedHint" in html
+        assert "showReorderBlockedHint" in html
         assert "LayerControl.reorder_group_only" in html
         assert "DRAG_HINT_COOLDOWN_MS" in html
 
@@ -503,6 +503,54 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "foliplus runtime not found" in html
         assert "console.error" in html
+
+    def test_find_layer_utility(self, base_map: folium.Map):
+        """LayerUtils.findLayer resolves layers from map._layers and window."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "LayerUtils.findLayer(this.map, id)" in html
+        assert "window[id]" in html
+
+    def test_for_each_leaf_utility(self, base_map: folium.Map):
+        """forEachLeaf and forEachLayer iterate all sub-layers correctly."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "forEachLeaf" in html
+        assert "forEachLayer" in html
+
+    def test_onremove_destroys_manager(self, base_map: folium.Map):
+        """LayerControl.onRemove calls destroy() which cleans up resources."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layerManager.destroy()" in html
+        assert "unpatchBringToFront()" in html
+
+    def test_destroy_cleans_listeners(self, base_map: folium.Map):
+        """destroy() removes layeradd listener and cancels debounce."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert 'this.map.off("layeradd", this.onLayerAdd)' in html
+        assert "this.debouncedEnforce.cancel()" in html
+
+    def test_destroy_nulls_api(self, base_map: folium.Map):
+        """destroy() clears LayerControlAPI reference when it is the active API."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "window.foliplus.LayerControlAPI === this" in html
+        assert "window.foliplus.LayerControlAPI = null" in html
+
+    def test_handleDrop_guard(self, base_map: folium.Map):
+        """handleDrop guards against dragIdx/layers array desync."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "dragIdx < 0 || this.dragIdx >= this.layers.length" in html
+
+    def test_window_id_validation(self, base_map: folium.Map):
+        """registerLayer validates opts.id before assigning to window[id]."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/" in html
+        assert "not a valid identifier" in html or "invalid_id" in html
 
 
 class TestLayerControlBrowser:
@@ -555,5 +603,170 @@ class TestLayerControlBrowser:
                 'document.querySelector(".map-hint-LayerControl")?.textContent || ""'
             )
             assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
+        finally:
+            page.close()
+
+    def test_create_managed_layers_api(self, browser, tmp_path):
+        """createManagedLayers returns expected convenience methods."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_api.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+
+            api = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                if (!api) return null;
+                const mg = api.createManagedLayers({
+                    id: '__test__',
+                    name: 'Test',
+                    graphPane: '__test_graph__',
+                    labelPane: '__test_label__',
+                });
+                return {
+                    hasAddGraph: typeof mg.addGraph === 'function',
+                    hasAddLabel: typeof mg.addLabel === 'function',
+                    hasRemoveGraph: typeof mg.removeGraph === 'function',
+                    hasRemoveLabel: typeof mg.removeLabel === 'function',
+                    hasClearGraph: typeof mg.clearGraph === 'function',
+                    hasClearLabels: typeof mg.clearLabels === 'function',
+                    hasClearAll: typeof mg.clearAll === 'function',
+                    hasRegister: typeof mg.register === 'function',
+                    hasUnregister: typeof mg.unregister === 'function',
+                    hasRegistered: typeof mg.registered === 'function',
+                    hasMainLayer: !!mg.mainLayer,
+                    hasGraphLayer: !!mg.graphLayer,
+                    hasLabelLayer: !!mg.labelLayer,
+                };
+            }""")
+            assert api is not None, "LayerControlAPI not found"
+            assert api["hasAddGraph"], "addGraph missing"
+            assert api["hasAddLabel"], "addLabel missing"
+            assert api["hasRemoveGraph"], "removeGraph missing"
+            assert api["hasRemoveLabel"], "removeLabel missing"
+            assert api["hasClearGraph"], "clearGraph missing"
+            assert api["hasClearLabels"], "clearLabels missing"
+            assert api["hasClearAll"], "clearAll missing"
+            assert api["hasRegister"], "register missing"
+            assert api["hasUnregister"], "unregister missing"
+            assert api["hasRegistered"], "registered missing"
+            assert api["hasMainLayer"], "mainLayer missing"
+            assert api["hasGraphLayer"], "graphLayer missing"
+            assert api["hasLabelLayer"], "labelLayer missing"
+        finally:
+            page.close()
+
+    def test_add_graph_sets_pane(self, browser, tmp_path):
+        """addGraph sets pane on the layer and calls register."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_addgraph.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                if (!api) return null;
+                const mg = api.createManagedLayers({
+                    id: '__test_pane__',
+                    name: 'PaneTest',
+                    graphPane: '__pane_test_graph__',
+                    labelPane: '__pane_test_label__',
+                });
+                const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
+                mg.addGraph(poly);
+                return {
+                    pane: poly.options.pane,
+                    hasRenderer: !!poly._renderer,
+                    registered: mg.registered(),
+                };
+            }""")
+            assert result is not None
+            assert result["pane"] == "__pane_test_graph__", f"got {result['pane']}"
+            assert result["hasRenderer"] is True, "renderer not set"
+            assert result["registered"] is True, "not registered after addGraph"
+        finally:
+            page.close()
+
+    def test_clear_all_unregisters(self, browser, tmp_path):
+        """clearAll clears content and unregisters the layer."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_clearall.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                if (!api) return null;
+                const mg = api.createManagedLayers({
+                    id: '__test_clear__',
+                    name: 'ClearTest',
+                    graphPane: '__test_clear_graph__',
+                });
+                mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                const beforeRegistered = mg.registered();
+                const beforeContent = Object.keys(mg.graphLayer._layers || {}).length;
+                mg.clearAll();
+                const afterRegistered = mg.registered();
+                const afterContent = Object.keys(mg.graphLayer._layers || {}).length;
+                return { beforeRegistered, beforeContent, afterRegistered, afterContent };
+            }""")
+            assert result is not None
+            assert result["beforeRegistered"] is True
+            assert result["beforeContent"] == 1
+            assert result["afterRegistered"] is False
+            assert result["afterContent"] == 0
+        finally:
+            page.close()
+
+    def test_add_label_sets_pane(self, browser, tmp_path):
+        """addLabel sets pane on the marker."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_addlabel.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                if (!api) return null;
+                const mg = api.createManagedLayers({
+                    id: '__test_label__',
+                    name: 'LabelTest',
+                    graphPane: '__test_label_graph__',
+                    labelPane: '__test_label_pane__',
+                });
+                const mkr = L.marker([26.08,119.30]);
+                mg.addLabel(mkr);
+                return { pane: mkr.options.pane, registered: mg.registered() };
+            }""")
+            assert result is not None
+            assert result["pane"] == "__test_label_pane__", f"got {result['pane']}"
+            assert result["registered"] is True
         finally:
             page.close()

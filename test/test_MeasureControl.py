@@ -81,15 +81,14 @@ class TestMeasureControlRendering:
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.mainLayer.removeLayer = (layer) => {" in html
-        assert "this.labelLayer : this.graphLayer" in html
+        assert "removeLayer" in html
 
     def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
         """MeasureControl uses LayerControlAPI.ensurePane for renderer creation."""
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "window.foliplus.LayerControlAPI.ensurePane" in html
+        assert "createManagedLayers" in html
 
     def test_realtime_distance_preview(self, base_map: folium.Map):
         """Distance mode includes real-time preview label (previewDistLabel)."""
@@ -169,7 +168,7 @@ class TestMeasureControlRendering:
         html = render(base_map)
         # Check specific order: _isMeasureLabel = true BEFORE addTo
         assert re.search(
-            r"_isMeasureLabel\s*=\s*true;\s*\w+\.addTo\(this\.mainLayer\)", html
+            r"_isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html
         )
 
     def test_label_interaction_listeners(self, base_map: folium.Map):
@@ -180,11 +179,16 @@ class TestMeasureControlRendering:
         assert "if (radiusLabel) attachInteraction(radiusLabel)" in html
 
     def test_unregister_clears_leftover_nodes(self, base_map: folium.Map):
-        """unregisterFromLayerControl explicitly clears graph/label sub-layers."""
+        """clearAll handles unregister + layer cleanup for MeasureControl."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.graphLayer.clearLayers()" in html
-        assert "this.labelLayer.clearLayers()" in html
+        assert "this.layers.clearAll()" in html
+
+    def test_clear_all_in_clear_all(self, base_map: folium.Map):
+        """MeasureManager.clearAll delegates to this.layers.clearAll()."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.layers.clearAll()" in html
 
     def test_ui_fixed_labels_fix(self, base_map: folium.Map):
         """Regression test: Labels should stay fixed (visible), only X toggles.
@@ -197,3 +201,162 @@ class TestMeasureControlRendering:
         # Ensure item clicks toggle ONLY X (undefined)
         assert "toggleUI(undefined)" in html
         assert "toggleUI(undefined, true)" not in html
+
+    def test_no_layercontrol_guard(self, base_map: folium.Map):
+        """MeasureControl checks LayerControlAPI before creating MeasureManager."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "no_layercontrol" in html
+        assert "LayerControlAPI" in html
+
+    def test_set_label_text_caches_dom(self, base_map: folium.Map):
+        """MeasureUtils.setLabelText caches DOM ref on first call."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureUtils.setLabelText" in html
+        assert "marker._labelEl" in html
+        assert 'el.querySelector(".measure-label")' in html
+
+    def test_create_label_utility(self, base_map: folium.Map):
+        """MeasureUtils.createLabel returns a marker with _isMeasureLabel=true."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static createLabel" in html
+        assert "_isMeasureLabel = true" in html
+
+    def test_attach_del_click_utility(self, base_map: folium.Map):
+        """MeasureUtils.attachDelClick binds click to delete icon."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static attachDelClick" in html
+        assert "L.DomEvent.on(btn, " in html or "L.DomEvent.on(btn, 'click'" in html
+
+    def test_is_finalizing_guard(self, base_map: folium.Map):
+        """Circle mode guards against double-finalize with isFinalizing."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "isFinalizing" in html
+        assert "isFinalizing = false" in html
+
+    def test_toggle_del_icon_utility(self, base_map: folium.Map):
+        """MeasureUtils.toggleDelIcon toggles delete icon visibility."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureUtils.toggleDelIcon" in html
+
+
+class TestMeasureControlBrowser:
+    """Browser-based tests for MeasureControl."""
+
+    def _make_page(self, browser, tmp_path):
+        """Build a page with MeasureControl and return (page, errors)."""
+        from foliplus import LayerControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        MeasureControl().add_to(m)
+
+        html = m.get_root().render()
+        html = html.replace(
+            "const measureManager = new MeasureManager(map);",
+            "const measureManager = new MeasureManager(map); window.__measureManager = measureManager;",
+        )
+        html_path = tmp_path / "measure_browser.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        errors = []
+        page.on(
+            "console",
+            lambda msg: (
+                errors.append(msg.text)
+                if msg.type == "error"
+                and not msg.text.startswith("Failed to load resource")
+                else None
+            ),
+        )
+        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        page.wait_for_selector(".measure-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    def test_tool_buttons_render(self, browser, tmp_path):
+        """Tool buttons are present in the DOM."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            btns = page.evaluate(
+                "document.querySelectorAll('.measure-ctrl .tool-btn').length"
+            )
+            assert btns >= 3
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_register_on_first_tool_click(self, browser, tmp_path):
+        """First tool click registers the layer (no content-guard issue)."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("document.querySelector('[data-mode=distance]').click()")
+            page.wait_for_timeout(1000)
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after first tool click"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_add_graph_adds_content(self, browser, tmp_path):
+        """addGraph() adds a path to graphLayer."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+            }""")
+            page.wait_for_timeout(500)
+            count = page.evaluate(
+                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
+            )
+            assert count == 1
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_clear_all_empties_layers(self, browser, tmp_path):
+        """clearAll() empties graphLayer and labelLayer."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.layers.addGraph(L.circleMarker([26.08,119.30]));
+            }""")
+            page.wait_for_timeout(500)
+            page.evaluate("window.__measureManager.layers.clearAll()")
+            page.wait_for_timeout(500)
+            count = page.evaluate(
+                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
+            )
+            assert count == 0, f"expected 0 got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_remove_graph_removes_single_item(self, browser, tmp_path):
+        """removeGraph removes a single layer without affecting others."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const p1 = L.polyline([[26.08,119.30],[26.09,119.31]]);
+                const p2 = L.circleMarker([26.08,119.30]);
+                mm.layers.addGraph(p1);
+                mm.layers.addGraph(p2);
+                mm.layers.removeGraph(p1);
+                const layers = mm.layers.graphLayer._layers || {};
+                window.__test = Object.keys(layers).length;
+            }""")
+            page.wait_for_timeout(500)
+            count = page.evaluate("window.__test")
+            assert count == 1, f"expected 1 layer remaining, got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()

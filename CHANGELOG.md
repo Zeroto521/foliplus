@@ -6,15 +6,15 @@
 
 - `Fullscreen`: added `hide_others` parameter (default `true`) to hide all other map controls in fullscreen; icon now switches between maximize/minimize ([#33](https://github.com/Zeroto521/foliplus/pull/33))
 - `MeasureControl`: added real-time distance preview during measurement ([#27](https://github.com/Zeroto521/foliplus/pull/27))
-- `LayerControl`: added `EMPTY` and `UNKNOWN` SVG icons for layer type display ([#29](https://github.com/Zeroto521/foliplus/pull/29))
+- `LayerControl`: added `EMPTY` and `UNKNOWN` SVG icons for layer type display ([#29](https://github.com/Zeroto521/foliplus/pull/29), [#35](https://github.com/Zeroto521/foliplus/pull/35))
 
 ### Changed
 
 - `ScaleControl`: Fixed to `bottomleft` and aligned UI style with native Leaflet elements ([#23](https://github.com/Zeroto521/foliplus/pull/23))
 - Unified control tokens and simplified shared styles ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `LayerControl`: centralized z-index engine with `*10` step spacing between layers to reserve room for sub-panes (graph / label) ([#25](https://github.com/Zeroto521/foliplus/pull/25))
-- `LayerControl`: auto-discover child custom panes (`__heatmap_graph__`, `__heatmap_label__`, etc.) on layer registration and create them before `addLayer`, removing the need for manual `ensurePane` calls from child components ([#25](https://github.com/Zeroto521/foliplus/pull/25))
-- `HeatmapControl`, `MeasureControl`: label z-index offset (`+1`) is now applied automatically by `LayerControl` when a pane name contains "label" or "lbl" ([#25](https://github.com/Zeroto521/foliplus/pull/25))
+- `LayerControl`: auto-discover child custom panes on layer registration and create them before `addLayer`, removing the need for manual `ensurePane` calls from child components ([#25](https://github.com/Zeroto521/foliplus/pull/25))
+- `HeatmapControl`, `MeasureControl`: label z-index offset (`+1`) is now applied automatically by `LayerControl`; label pane detection improved to use pre-registration in `createManagedLayers` instead of fragile string matching ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35))
 
 ### Fixed
 

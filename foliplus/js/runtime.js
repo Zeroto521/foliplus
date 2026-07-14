@@ -824,4 +824,34 @@
 
     window._LOCALE = tables[lang] || tables["en"];
   };
+
+  /**
+   * Shared debounce utility. Returns a debounced version of `fn` that
+   * delays invocation until `delayMs` ms after the last call.
+   * The returned function has a `.cancel()` method to clear pending timers.
+   *
+   * @param {function} fn      - The function to debounce.
+   * @param {number}   delayMs - Delay in milliseconds.
+   * @returns {function} Debounced function with `.cancel()`.
+   *
+   * @example
+   *   const cb = foliplus.debounce(() => save(), 200);
+   *   window.addEventListener("resize", cb);    // fires at most once per 200ms
+   *   cb.cancel();                               // cancel pending
+   */
+  foliplus.debounce = (fn, delayMs) => {
+    let timer = null;
+    const debounced = (...args) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        fn(...args);
+      }, delayMs);
+    };
+    debounced.cancel = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+    return debounced;
+  };
 })(window, document);

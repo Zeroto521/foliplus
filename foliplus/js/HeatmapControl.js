@@ -34,9 +34,9 @@
       [20, 12],
     ],
     H3_RES_FALLBACK: 12,
-    HEATMAP_ID: "__heatmap__",
-    GRAPH_PANE: "__heatmap_graph__",
-    LABEL_PANE: "__heatmap_label__",
+    HEATMAP_ID: "foliplus_heatmap",
+    GRAPH_PANE: "heatmap_graph",
+    LABEL_PANE: "heatmap_label",
     HEXAGON: `
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
@@ -44,6 +44,20 @@
         <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
         <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
       </svg>`,
+    AGG_DEFAULT: "{{ this.agg }}",
+    FIELD_DEFAULT: "{{ this.style.field }}",
+    COLOR_SCHEME: "{{ this.color_scheme }}",
+    COLOR_METHOD: "{{ this.method }}",
+    N_CLASSES_DEFAULT: {{ this.n_classes }},
+    BORDER_W_DEFAULT: {{ this.style.border_weight }},
+    BORDER_COLOR_DEFAULT: "{{ this.style.border_color }}",
+    FILL_OP: {{ this.style.fill_opacity }},
+    BORDER_OP: {{ this.style.border_opacity }},
+    LABEL_SHOW: {{ "true" if this.style.label_show else "false" }},
+    LABEL_SIZE: {{ this.style.label_size }},
+    LABEL_COLOR: "{{ this.style.label_color }}",
+    FORMAT: "{{ this.style.label_format }}",
+    SCHEME_NAMES: {{ this.schemes | tojson }},
   };
 
   // ==================== Runtime Guard ====================
@@ -98,21 +112,12 @@
   );
 
   function run() {
-    // ==================== Injected Variables ====================
-    const AGG_DEFAULT = "{{ this.agg }}";
-    const FIELD_DEFAULT = "{{ this.style.field }}";
-    const COLOR_SCHEME = "{{ this.color_scheme }}";
-    const COLOR_METHOD = "{{ this.method }}";
-    const N_CLASSES_DEFAULT = {{ this.n_classes }};
-    const BORDER_W_DEFAULT = {{ this.style.border_weight }};
-    const BORDER_COLOR_DEFAULT = "{{ this.style.border_color }}";
-    const FILL_OP = {{ this.style.fill_opacity }};
-    const BORDER_OP = {{ this.style.border_opacity }};
-    const LABEL_SHOW = {{ "true" if this.style.label_show else "false" }};
-    const LABEL_SIZE = {{ this.style.label_size }};
-    const LABEL_COLOR = "{{ this.style.label_color }}";
-    const FORMAT = "{{ this.style.label_format }}";
-    const SCHEME_NAMES = {{ this.schemes | tojson }};
+    // Guard: LayerControl must be registered first to provide createManagedLayers
+    if (!window.foliplus.LayerControlAPI) {
+      console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
+      window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), 0);
+      return;
+    }
 
     // ==================== Core: Data Aggregation & Rendering ===
     class HeatmapManager {
@@ -122,62 +127,44 @@
         // State management
         this.selectedLayerId = null;
         this.pointLayers = [];
-        this.currentAgg = AGG_DEFAULT;
-        this.currentField = FIELD_DEFAULT;
-        this.BORDER_W = BORDER_W_DEFAULT;
-        this.BORDER_COLOR = BORDER_COLOR_DEFAULT;
-        this.currentScheme = COLOR_SCHEME;
-        this.currentMethod = COLOR_METHOD;
-        this.N_CLASSES = N_CLASSES_DEFAULT;
-        this.currentLabelShow = LABEL_SHOW;
+        this.currentAgg = CONST.AGG_DEFAULT;
+        this.currentField = CONST.FIELD_DEFAULT;
+        this.currentScheme = CONST.COLOR_SCHEME;
+        this.currentMethod = CONST.COLOR_METHOD;
         this.autoFieldKey = null;
-        this.isRegistered = false;
+        this.N_CLASSES = CONST.N_CLASSES_DEFAULT;
+        this.BORDER_W = CONST.BORDER_W_DEFAULT;
+        this.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
+        this.currentLabelShow = CONST.LABEL_SHOW;
+        this.valueFallbackWarned = false;
+        // Hexagon polygons are added directly to this.layers.graphLayer in
+        // renderHexagons().  The heatmap only registers in LayerControl
+        // when renderHexagons() calls this.layers.register() with data.
+        this.layers = window.foliplus.LayerControlAPI.createManagedLayers({
+          id: CONST.HEATMAP_ID,
+          name: _(`${CONST.name}.title`),
+          graphPane: CONST.GRAPH_PANE,
+          labelPane: CONST.LABEL_PANE,
+          iconSvg: CONST.HEXAGON,
+        });
         this.ui = null; // Injected UI control panel instance
 
-        this._initLayers();
-        this._bindMapEvents();
+        this.bindMapEvents();
       }
 
-      _initLayers() {
-        this.mainLayer = L.layerGroup();
-        this.graphLayer = L.geoJSON(null, {
-          style: (feat) => ({
-            fillColor: feat.properties._fillColor || CONST.DEFAULT_GRAY,
-            fillOpacity: FILL_OP,
-            color: this.BORDER_COLOR,
-            weight: this.BORDER_W,
-            opacity: BORDER_OP,
-          }),
-          interactive: false,
-          pane: CONST.GRAPH_PANE,
-        });
-        this.labelLayer = L.layerGroup();
-        this.labelLayer.options.pane = CONST.LABEL_PANE;
-        this.mainLayer.addLayer(this.graphLayer);
-        this.mainLayer.addLayer(this.labelLayer);
-      }
+      bindMapEvents() {
+        this.onZoomEnd = foliplus.debounce(() => {
+          if (this.selectedLayerId) this.renderHexagons();
+        }, CONST.ZOOM_DEBOUNCE_MS);
+        this.map.on("zoomend", this.onZoomEnd);
 
-      _bindMapEvents() {
-        this.zoomTimer = null;
-        this._onZoomEnd = () => {
-          if (this.zoomTimer) clearTimeout(this.zoomTimer);
-          this.zoomTimer = setTimeout(() => {
-            if (this.selectedLayerId) this.renderHexagons();
-          }, CONST.ZOOM_DEBOUNCE_MS);
-        };
-        this.map.on("zoomend", this._onZoomEnd);
-
-        this.layerScanTimer = null;
-        this._onLayerChange = () => {
-          if (this.layerScanTimer) clearTimeout(this.layerScanTimer);
-          this.layerScanTimer = setTimeout(() => {
-            if (this.ui) {
-              this.scanMapLayers();
-              this.ui.rebuildLayerDropdown();
-            }
-          }, CONST.LAYER_SCAN_DEBOUNCE_MS);
-        };
-        this.map.on("layeradd layerremove", this._onLayerChange);
+        this.onLayerChange = foliplus.debounce(() => {
+          if (this.ui) {
+            this.scanMapLayers();
+            this.ui.rebuildLayerDropdown();
+          }
+        }, CONST.LAYER_SCAN_DEBOUNCE_MS);
+        this.map.on("layeradd layerremove", this.onLayerChange);
       }
 
       // --- Data Extraction ---
@@ -231,7 +218,7 @@
         layers.forEach((info) => {
           this.extractPoints(info.layer).forEach((pt) => {
             const m = pt.marker;
-            if (typeof m._value === "number") fields._value = true;
+            if (typeof m.value === "number") fields.value = true;
             if (typeof m.options?.value === "number") fields["options.value"] = true;
             if (m.feature?.properties) {
               Object.keys(m.feature.properties).forEach((k) => {
@@ -249,9 +236,9 @@
         return fields[0];
       }
 
-      _readMarkerField(marker, field) {
+      readMarkerField(marker, field) {
         if (!field) return undefined;
-        if (field === "_value") return marker._value;
+        if (field === "value") return marker.value;
         if (field === "options.value") return marker.options?.value;
         if (field.startsWith("properties.")) {
           const key = field.substring(11);
@@ -264,10 +251,10 @@
         if (this.currentAgg === "count") return 1;
         const key =
           this.currentField === "_auto" ? this.autoFieldKey : this.currentField;
-        const val = this._readMarkerField(marker, key);
+        const val = this.readMarkerField(marker, key);
         if (val === undefined || isNaN(val)) {
-          if (!this._valueFallbackWarned) {
-            this._valueFallbackWarned = true;
+          if (!this.valueFallbackWarned) {
+            this.valueFallbackWarned = true;
             console.warn(
               `[${CONST.name}] ${_(`${CONST.name}.value_fallback`).replace("{field}", this.currentField)}`,
             );
@@ -278,7 +265,7 @@
       }
 
       collectSelectedPoints() {
-        this._valueFallbackWarned = false;
+        this.valueFallbackWarned = false;
         const pts = [];
         if (!this.selectedLayerId) return pts;
         this.pointLayers.forEach((info) => {
@@ -344,10 +331,9 @@
 
       // --- Hexagon Rendering ---
       renderHexagons() {
+        if (!this.map || !this.map._container) return;
         if (!this.selectedLayerId) {
-          this.graphLayer.clearLayers();
-          this.labelLayer.clearLayers();
-          this._unregisterFromLayerControl();
+          this.layers.clearAll();
           return;
         }
         const pts = this.collectSelectedPoints();
@@ -394,9 +380,7 @@
 
         const allVals = Object.values(hexCells).map(getAggValue);
         if (allVals.length === 0) {
-          this.graphLayer.clearLayers();
-          this.labelLayer.clearLayers();
-          this._unregisterFromLayerControl();
+          this.layers.clearAll();
           return;
         }
 
@@ -422,12 +406,7 @@
             features.push({
               type: "Feature",
               geometry: { type: "Polygon", coordinates: [coords] },
-              properties: {
-                _value: val,
-                _classIdx: classIdx,
-                _fillColor: fillColor,
-                _h3: h3Idx,
-              },
+              properties: { value: val, classIdx, fillColor, h3: h3Idx },
             });
           } catch (e) {
             console.warn(
@@ -438,16 +417,28 @@
           }
         }
 
-        this.graphLayer.clearLayers();
-        if (features.length)
-          this.graphLayer.addData({ type: "FeatureCollection", features });
-        this.labelLayer.clearLayers();
+        this.layers.clearAll();
+        if (features.length) {
+          const gj = L.geoJSON(null, {
+            style: (feat) => ({
+              fillColor: feat.properties.fillColor || CONST.DEFAULT_GRAY,
+              fillOpacity: CONST.FILL_OP,
+              color: this.BORDER_COLOR,
+              weight: this.BORDER_W,
+              opacity: CONST.BORDER_OP,
+            }),
+            interactive: false,
+            pane: CONST.GRAPH_PANE,
+          });
+          gj.addData({ type: "FeatureCollection", features });
+          this.layers.addGraph(gj);
+        }
 
         if (this.currentLabelShow) {
           features.forEach((feat) => {
             let lat, lng;
             try {
-              const centerLatLng = h3.cellToLatLng(feat.properties._h3);
+              const centerLatLng = h3.cellToLatLng(feat.properties.h3);
               lat = centerLatLng[0];
               lng = centerLatLng[1];
             } catch (e) {
@@ -463,43 +454,21 @@
             }
 
             const labelStr = window.foliplus.formatNumber(
-              feat.properties._value,
-              FORMAT,
+              feat.properties.value,
+              CONST.FORMAT,
             );
-            L.marker([lat, lng], {
-              icon: L.divIcon({
-                className: "heatmap-label",
-                html: `<span style="font-size:${LABEL_SIZE}px;color:${LABEL_COLOR}">${labelStr}</span>`,
+            this.layers.addLabel(
+              L.marker([lat, lng], {
+                icon: L.divIcon({
+                  className: "heatmap-label",
+                  html: `<span style="font-size:${CONST.LABEL_SIZE}px;color:${CONST.LABEL_COLOR}">${labelStr}</span>`,
+                }),
+                interactive: false,
+                pane: CONST.LABEL_PANE,
               }),
-              interactive: false,
-              pane: CONST.LABEL_PANE,
-            }).addTo(this.labelLayer);
+            );
           });
         }
-
-        // Register with LayerControl AFTER adding data, so enforceOrder()
-        // finds all child panes (graph and labels) correctly on first pass.
-        this._registerToLayerControl();
-      }
-
-      _registerToLayerControl() {
-        if (this.isRegistered) return;
-        this.isRegistered = true;
-        window.foliplus.LayerControlAPI.registerLayer({
-          name: _(`${CONST.name}.title`),
-          id: CONST.HEATMAP_ID,
-          isBase: false,
-          layer: this.mainLayer,
-          iconSvg: CONST.HEXAGON,
-        });
-      }
-
-      _unregisterFromLayerControl() {
-        if (!this.isRegistered) return;
-        this.isRegistered = false;
-        window.foliplus.LayerControlAPI.unregisterLayer(CONST.HEATMAP_ID);
-        this.graphLayer.clearLayers();
-        this.labelLayer.clearLayers();
       }
     }
 
@@ -601,7 +570,7 @@
         this.fieldSelect = L.DomUtil.create("select", "form-select", fieldControlWrap);
         this.fieldSelect.onchange = () => {
           this.manager.currentField = this.fieldSelect.value;
-          this._syncSelect(this.fieldSelect, this.fieldSelect.value);
+          this.syncSelect(this.fieldSelect, this.fieldSelect.value);
           this.manager.renderHexagons();
         };
 
@@ -674,7 +643,7 @@
           this.schemeControlWrap,
         );
 
-        SCHEME_NAMES.forEach((name) => {
+        CONST.SCHEME_NAMES.forEach((name) => {
           const opt = document.createElement("option");
           opt.value = name;
           opt.textContent = name;
@@ -686,7 +655,6 @@
           this.updateSchemeBar();
           this.manager.renderHexagons();
         };
-
         this.updateSchemeBar();
 
         this.schemeBar.tabIndex = 0;
@@ -778,15 +746,15 @@
         const clearBtn = L.DomUtil.create("button", "btn btn-clear", btnRow);
         clearBtn.textContent = _(`${CONST.name}.clear`);
         clearBtn.onclick = () => {
-          this._resetAll();
-          this._syncSelect(this.layerSelect, "");
-          this._syncSelect(this.aggSelect, AGG_DEFAULT);
-          this._syncSelect(this.classSelect, String(N_CLASSES_DEFAULT));
-          this._syncSelect(this.methodSelect, COLOR_METHOD);
-          this.schemeSelectHidden.value = COLOR_SCHEME;
-          this.labelChk.checked = LABEL_SHOW;
-          this.borderWeightInput.value = BORDER_W_DEFAULT;
-          this.borderColorInput.value = BORDER_COLOR_DEFAULT;
+          this.resetAll();
+          this.syncSelect(this.layerSelect, "");
+          this.syncSelect(this.aggSelect, CONST.AGG_DEFAULT);
+          this.syncSelect(this.classSelect, String(CONST.N_CLASSES_DEFAULT));
+          this.syncSelect(this.methodSelect, CONST.COLOR_METHOD);
+          this.schemeSelectHidden.value = CONST.COLOR_SCHEME;
+          this.labelChk.checked = CONST.LABEL_SHOW;
+          this.borderWeightInput.value = CONST.BORDER_W_DEFAULT;
+          this.borderColorInput.value = CONST.BORDER_COLOR_DEFAULT;
 
           this.updateSchemeBar();
           this.updateFieldSelector();
@@ -819,18 +787,15 @@
 
       onRemove() {
         // Clean up map event listeners
-        if (this.manager.zoomTimer) clearTimeout(this.manager.zoomTimer);
-        if (this.manager.layerScanTimer) clearTimeout(this.manager.layerScanTimer);
-        this.manager.map.off("zoomend", this.manager._onZoomEnd);
-        this.manager.map.off("layeradd layerremove", this.manager._onLayerChange);
+        if (this.manager.onZoomEnd) this.manager.onZoomEnd.cancel();
+        if (this.manager.onLayerChange) this.manager.onLayerChange.cancel();
+        this.manager.map.off("zoomend", this.manager.onZoomEnd);
+        this.manager.map.off("layeradd layerremove", this.manager.onLayerChange);
 
         // Disconnect MutationObserver
         if (this.observer) this.observer.disconnect();
 
-        // Unregister from LayerControl and remove layers
-        this.manager._unregisterFromLayerControl();
-        if (this.manager.mainLayer)
-          this.manager.map.removeLayer(this.manager.mainLayer);
+        this.manager.layers.clearAll();
       }
 
       // --- UI Logic Methods ---
@@ -860,17 +825,13 @@
           if (this.extraBody) {
             this.extraBody.style.display = this.manager.selectedLayerId ? "" : "none";
           }
-          this._syncSelect(sel, sel.value);
+          this.syncSelect(sel, sel.value);
           this.updateFieldSelector();
           if (this.manager.selectedLayerId) this.manager.renderHexagons();
-          else {
-            this.manager.graphLayer.clearLayers();
-            this.manager.labelLayer.clearLayers();
-            this.manager._unregisterFromLayerControl();
-          }
+          else this.manager.layers.clearAll();
         };
 
-        this._syncSelect(sel, sel.value);
+        this.syncSelect(sel, sel.value);
       }
 
       rebuildLayerDropdown() {
@@ -917,11 +878,11 @@
           this.fieldSelect.value = "_auto";
         }
 
-        this._syncSelect(this.fieldSelect, this.fieldSelect.value);
+        this.syncSelect(this.fieldSelect, this.fieldSelect.value);
       }
 
       /** Render color blocks into a container. */
-      _renderColorBar(container, name, nClasses) {
+      renderColorBar(container, name, nClasses) {
         const colors = this.manager.getColorScale(name, nClasses);
         container.innerHTML = "";
         for (const color of colors) {
@@ -934,7 +895,7 @@
       }
 
       updateSchemeBar() {
-        this._renderColorBar(
+        this.renderColorBar(
           this.schemeBarInner,
           this.manager.currentScheme,
           this.manager.N_CLASSES,
@@ -948,7 +909,7 @@
           const name = item.getAttribute("data-scheme-name");
           if (!name) return;
           const bar = item.querySelector(".scheme-dropdown-bar");
-          if (bar) this._renderColorBar(bar, name, this.manager.N_CLASSES);
+          if (bar) this.renderColorBar(bar, name, this.manager.N_CLASSES);
         });
       }
 
@@ -966,7 +927,7 @@
         this.schemeDropdown.setAttribute("role", "listbox");
 
         let focusIdx = -1;
-        SCHEME_NAMES.forEach((name, idx) => {
+        CONST.SCHEME_NAMES.forEach((name, idx) => {
           const item = L.DomUtil.create(
             "div",
             "scheme-dropdown-item",
@@ -981,7 +942,7 @@
           }
 
           const itemBar = L.DomUtil.create("div", "scheme-dropdown-bar", item);
-          this._renderColorBar(itemBar, name, this.manager.N_CLASSES);
+          this.renderColorBar(itemBar, name, this.manager.N_CLASSES);
 
           item.onclick = (ev) => {
             ev.stopPropagation();
@@ -1008,7 +969,7 @@
             const active = document.activeElement;
             if (active?.classList.contains("scheme-dropdown-item")) {
               const idx = Array.from(items).indexOf(active);
-              this.selectScheme(SCHEME_NAMES[idx]);
+              this.selectScheme(CONST.SCHEME_NAMES[idx]);
             }
           } else if (e.key === "Escape") {
             this.schemeDropdown.remove();
@@ -1040,27 +1001,26 @@
             _(`${CONST.name}.no_layer`),
             CONST.NO_LAYER_HINT_MS,
           );
+        } else {
+          this.rebuildLayerDropdown();
         }
       }
 
-      _resetAll() {
+      resetAll() {
         this.manager.selectedLayerId = null;
         this.manager.autoFieldKey = null;
-        this.manager.currentAgg = AGG_DEFAULT;
-        this.manager.currentField = FIELD_DEFAULT;
-        this.manager.N_CLASSES = N_CLASSES_DEFAULT;
-        this.manager.currentMethod = COLOR_METHOD;
-        this.manager.currentScheme = COLOR_SCHEME;
-        this.manager.currentLabelShow = LABEL_SHOW;
-        this.manager.BORDER_W = BORDER_W_DEFAULT;
-        this.manager.BORDER_COLOR = BORDER_COLOR_DEFAULT;
-
-        this.manager.graphLayer.clearLayers();
-        this.manager.labelLayer.clearLayers();
-        this.manager._unregisterFromLayerControl();
+        this.manager.currentAgg = CONST.AGG_DEFAULT;
+        this.manager.currentField = CONST.FIELD_DEFAULT;
+        this.manager.N_CLASSES = CONST.N_CLASSES_DEFAULT;
+        this.manager.currentMethod = CONST.COLOR_METHOD;
+        this.manager.currentScheme = CONST.COLOR_SCHEME;
+        this.manager.currentLabelShow = CONST.LABEL_SHOW;
+        this.manager.BORDER_W = CONST.BORDER_W_DEFAULT;
+        this.manager.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
+        this.manager.layers.clearAll();
       }
 
-      _syncSelect(el, value) {
+      syncSelect(el, value) {
         el.value = value;
         el.classList.toggle("is-placeholder", !value || value === "_auto");
       }

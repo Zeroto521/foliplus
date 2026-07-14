@@ -14,9 +14,11 @@
     LAYER_RECURSION_DEPTH: 10,
     MARKER_Z_OFFSET: 1000,
     MARKER_Z_OFFSET_HOVER: 2000,
-    STORAGE_KEY: "_layer_order",
-    COLOR_MAP_LAYER_ID: "__color_map__",
+    STORAGE_KEY: "foliplus_layer_order",
+    COLOR_MAP_ID: "foliplus_color_map",
     COLOR_DEFAULT: "#cccccc",
+    RENDERER_KEY: "foliplus_renderer_",
+    FALLBACK_PANE_PREFIX: "foliplus_pane_",
   };
 
   // ==================== Runtime Guard ====================
@@ -77,6 +79,29 @@
 
   window.foliplus.registerHintIcon(CONST.name, SVGS.LIST);
 
+  // Guard Leaflet's bringToFront against null parentNode during enforceOrder
+  // layer migration (enforceOrder briefly removes layers from the map, and a
+  // concurrent mousemove event may call bringToFront on a detached _path).
+  const origBringToFront = L.Path.prototype.bringToFront;
+  let bringToFrontPatched = false;
+
+  function patchBringToFront() {
+    if (bringToFrontPatched) return;
+    bringToFrontPatched = true;
+    L.Path.prototype.bringToFront = function () {
+      if (this._path && this._path.parentNode) origBringToFront.call(this);
+      return this;
+    };
+  }
+
+  function unpatchBringToFront() {
+    if (!bringToFrontPatched) return;
+    bringToFrontPatched = false;
+    L.Path.prototype.bringToFront = origBringToFront;
+  }
+
+  patchBringToFront();
+
   // ==================== Utility Class ====================
   class LayerUtils {
     static escapeHTML(str) {
@@ -95,18 +120,7 @@
 
     static getGeometryType(layer) {
       const leaves = [];
-      const collect = (n, d) => {
-        if (!n || d > CONST.LAYER_RECURSION_DEPTH) return;
-        if (n.getLayers && typeof n.getLayers === "function") {
-          n.getLayers().forEach((c) => collect(c, d + 1));
-        } else {
-          leaves.push(n);
-        }
-      };
-      try {
-        collect(layer, 0);
-      } catch (e) {}
-
+      LayerUtils.forEachLeaf(layer, (l) => leaves.push(l));
       // No leaves at all → empty container (e.g. empty GeoDataFrame)
       if (leaves.length === 0) return "empty";
 
@@ -136,6 +150,52 @@
       if (type === "empty") return SVGS.EMPTY;
       return SVGS.UNKNOWN;
     }
+
+    /** Resolve a layer by id from map._layers or window fallback. */
+    static findLayer(map, id) {
+      return (map._layers && map._layers[id]) || window[id] || null;
+    }
+
+    /**
+     * Walk every leaf (non-container) layer in a tree.
+     * @param {Object} layer - Leaflet layer (may be a container like L.layerGroup).
+     * @param {function} fn - Called for each leaf with (leafLayer).
+     * @param {number} [depth=0] - Internal recursion depth.
+     */
+    static forEachLeaf(layer, fn, depth = 0) {
+      if (!layer || depth > CONST.LAYER_RECURSION_DEPTH) return;
+      if (typeof layer.eachLayer === "function") {
+        layer.eachLayer((c) => LayerUtils.forEachLeaf(c, fn, depth + 1));
+      } else if (layer._layers) {
+        for (const k in layer._layers) {
+          if (layer._layers.hasOwnProperty(k)) {
+            LayerUtils.forEachLeaf(layer._layers[k], fn, depth + 1);
+          }
+        }
+      } else {
+        fn(layer);
+      }
+    }
+
+    /**
+     * Walk all layers (including containers) in a tree, visiting each node.
+     * @param {Object} layer - Leaflet layer.
+     * @param {function} fn - Called for each node (container or leaf) with (nodeLayer).
+     * @param {number} [depth=0] - Internal recursion depth.
+     */
+    static forEachLayer(layer, fn, depth = 0) {
+      if (!layer || depth > CONST.LAYER_RECURSION_DEPTH) return;
+      fn(layer);
+      if (typeof layer.eachLayer === "function") {
+        layer.eachLayer((c) => LayerUtils.forEachLayer(c, fn, depth + 1));
+      } else if (layer._layers) {
+        for (const k in layer._layers) {
+          if (layer._layers.hasOwnProperty(k)) {
+            LayerUtils.forEachLayer(layer._layers[k], fn, depth + 1);
+          }
+        }
+      }
+    }
   }
 
   // ==================== Core Manager: LayerManager ====================
@@ -158,39 +218,48 @@
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
-      this._isEnforcing = false;
-      this._enforceTimer = null;
-      this._isDestroyed = false;
+      this.isEnforcing = false;
+      this.isDestroyed = false;
 
-      this.map.on("layeradd", (e) => {
+      this.defaultPanes = new Set([
+        "overlayPane",
+        "markerPane",
+        "tilePane",
+        "shadowPane",
+        "mapPane",
+      ]);
+      this.fallbackPanes = new Set();
+      this.labelPanes = new Set();
+
+      this.debouncedEnforce = foliplus.debounce(() => {
+        if (this.isDestroyed || !this.map || !this.map._container) return;
+        this.enforceOrder();
+      }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
+
+      this.onLayerAdd = (e) => {
         // Skip internal layers, background enforcement, and destroyed manager
         if (
-          this._isEnforcing ||
-          this._isDestroyed ||
+          this.isEnforcing ||
+          this.isDestroyed ||
           e.layer === this.map ||
           e.layer instanceof L.Renderer
         )
           return;
 
-        // Debounce enforcement to avoid redundant calcs during bulk additions
-        if (this._enforceTimer) clearTimeout(this._enforceTimer);
-        this._enforceTimer = setTimeout(() => {
-          if (this._isDestroyed || !this.map || !this.map._container) return;
-          this.enforceOrder();
-          this._enforceTimer = null;
-        }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
-      });
+        this.debouncedEnforce();
+      };
+      this.map.on("layeradd", this.onLayerAdd);
 
       window.foliplus.LayerControlAPI = this;
     }
 
     init(initialData) {
       this.layers = [...initialData];
-      this._loadSavedOrder();
-      this._normalizeLayerGroups();
+      this.loadSavedOrder();
+      this.normalizeLayerGroups();
     }
 
-    _normalizeLayerGroups() {
+    normalizeLayerGroups() {
       const overlays = [];
       const bases = [];
       for (const l of this.layers) {
@@ -200,7 +269,7 @@
       this.layers = overlays.concat(bases);
     }
 
-    _loadSavedOrder() {
+    loadSavedOrder() {
       try {
         const data = localStorage.getItem(CONST.STORAGE_KEY);
         if (!data) return;
@@ -220,7 +289,7 @@
       }
     }
 
-    _saveOrder() {
+    saveOrder() {
       try {
         localStorage.setItem(
           CONST.STORAGE_KEY,
@@ -282,7 +351,8 @@
      * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
      */
     registerLayer(opts) {
-      if (!opts?.id) throw new Error(`[${CONST.name}] opts.id is required`);
+      if (!opts?.id)
+        throw new Error(`[${CONST.name}] ${_(CONST.name + ".id_required")}`);
 
       const existingIdx = this.layers.findIndex((l) => l.id === opts.id);
       if (existingIdx !== -1) this.layers.splice(existingIdx, 1);
@@ -303,16 +373,23 @@
 
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
-        const childPanes = this._discoverChildPanes(opts.layer);
-        for (const cp of childPanes) {
-          const isLabel = cp.includes("label") || cp.includes("lbl");
-          this.ensurePane(cp, !isLabel);
+        for (const cp of this.discoverChildPanes(opts.layer)) {
+          this.ensurePane(cp, !this.labelPanes.has(cp));
         }
       }
 
       // NB: window[id] provides global access for HeatmapControl/others to find
       // layers by id via scanMapLayers() fallback path.
-      if (opts.layer) window[opts.id] = opts.layer;
+      // Guard against prototype pollution — only allow plain JS identifier-like ids.
+      if (opts.layer) {
+        if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id)) {
+          window[opts.id] = opts.layer;
+        } else {
+          console.warn(
+            `[${CONST.name}] ${_(CONST.name + ".invalid_id").replace("{id}", opts.id)}`,
+          );
+        }
+      }
       if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
 
       this.enforceOrder();
@@ -321,12 +398,9 @@
       // already-processed so subsequent enforceOrder() calls skip the
       // removeLayer/addLayer cycle.
       if (opts.paneName && opts.layer) {
-        const isContainer = !(
-          opts.layer instanceof L.Path || opts.layer instanceof L.Marker
-        );
-        if (isContainer) {
+        if (!(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)) {
           opts.layer.options.pane = opts.paneName;
-          opts.layer.options._paneSet = true;
+          opts.layer.options.paneSet = true;
         }
       }
 
@@ -337,9 +411,9 @@
 
       // Re-render keeps separator/group boundaries correct for both overlay/base
       // runtime registrations and avoids fragile incremental insertion logic.
-      this._renderInitialList();
-      this._initTypesAndVisibility();
-      this._saveOrder();
+      this.renderInitialList();
+      this.initTypesAndVisibility();
+      this.saveOrder();
       return this.uiContainer.querySelector(`[data-layer-id="${opts.id}"]`);
     }
 
@@ -357,19 +431,187 @@
       if (idx === -1) return false;
       this.layers.splice(idx, 1);
 
-      const layer = this.map._layers[id] || window[id];
+      const layer = LayerUtils.findLayer(this.map, id);
       if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
       if (window[id]) delete window[id];
+      // Recursively clear all sub-layers to prevent stale data on re-register
+      this.clearAllLayers(layer);
 
       if (this.uiContainer) {
         const target = this.uiContainer.querySelector(`[data-layer-id="${id}"]`);
         if (target) {
           target.remove();
-          this._reindexItems();
+          this.reindexItems();
         }
       }
       requestAnimationFrame(() => this.map.invalidateSize({ animate: false }));
       return true;
+    }
+
+    /** Recursively clear all nested sub-layers. */
+    clearAllLayers(layer) {
+      if (!layer) return;
+      if (typeof layer.clearLayers === "function") layer.clearLayers();
+      if (layer.eachLayer) layer.eachLayer((l) => this.clearAllLayers(l));
+    }
+
+    /**
+     * Create a managed three-layer group for components that need
+     * graph and label sub-layers (HeatmapControl, MeasureControl, etc.).
+     *
+     * Returns `{ mainLayer, graphLayer, labelLayer }` with automated
+     * addLayer/removeLayer/clearLayers routing and LayerControl registration.
+     *
+     * @param {Object} opts
+     * @param {string} opts.id      - Unique layer ID (e.g. '__heatmap__')
+     * @param {string} opts.name    - Display name for LayerControl panel
+     * @param {string} [opts.graphPane] - Pane name for graph content (omit if no graph layer)
+     * @param {string} [opts.labelPane] - Pane name for label content (omit if no label layer)
+     * @param {string} [opts.iconSvg] - SVG icon for the type column
+     * @returns {Object} { mainLayer, graphLayer, labelLayer }
+     */
+    createManagedLayers(opts) {
+      const mainLayer = L.layerGroup();
+      const graphLayer = opts.graphPane
+        ? L.layerGroup([], { pane: opts.graphPane })
+        : null;
+      const labelLayer = opts.labelPane ? L.layerGroup() : null;
+      if (labelLayer) labelLayer.options.pane = opts.labelPane;
+      if (graphLayer) mainLayer.addLayer(graphLayer);
+      if (labelLayer) mainLayer.addLayer(labelLayer);
+
+      let registered = false;
+
+      const register = () => {
+        if (registered) return;
+        registered = true;
+        // Pre-register the label pane so registerLayer can identify it
+        // without string matching on pane names.
+        if (opts.labelPane) this.labelPanes.add(opts.labelPane);
+        this.registerLayer({
+          name: opts.name,
+          id: opts.id,
+          isBase: false,
+          layer: mainLayer,
+          iconSvg: opts.iconSvg || null,
+        });
+      };
+
+      const unregister = () => {
+        if (!registered) return;
+        const hasContent =
+          (graphLayer && Object.keys(graphLayer._layers || {}).length > 0) ||
+          (labelLayer && Object.keys(labelLayer._layers || {}).length > 0);
+        if (!hasContent) {
+          registered = false;
+          this.unregisterLayer(opts.id);
+        }
+      };
+
+      // Save originals so overrides can fall back without recursion
+      const origAddLayer = mainLayer.addLayer.bind(mainLayer);
+      const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
+
+      // Override addLayer to route to sub-layers (no auto-register).
+      // Consumers can use the convenience methods below instead.
+      mainLayer.addLayer = (layer) => {
+        const isLabel = layer._isMeasureLabel;
+        const target = isLabel ? labelLayer : graphLayer;
+        if (target) {
+          const paneName = isLabel ? opts.labelPane : opts.graphPane;
+          layer.options.pane = paneName;
+          if (layer instanceof L.Path) {
+            const { renderer } = this.ensurePane(opts.graphPane);
+            layer._renderer = renderer;
+          } else if (paneName) this.ensurePane(paneName, false);
+          return target.addLayer(layer);
+        }
+        return origAddLayer(layer);
+      };
+
+      mainLayer.removeLayer = (layer) => {
+        if (graphLayer && graphLayer.hasLayer(layer))
+          return graphLayer.removeLayer(layer);
+        if (labelLayer && labelLayer.hasLayer(layer))
+          return labelLayer.removeLayer(layer);
+        return origRemoveLayer(layer);
+      };
+
+      mainLayer.clearLayers = () => {
+        if (graphLayer) graphLayer.clearLayers();
+        if (labelLayer) labelLayer.clearLayers();
+      };
+
+      // ── Convenience API ──────────────────────────────────────────
+      // These handle pane/renderer setup and auto-register/unregister,
+      // so consumers don't need to call register()/unregisterIfEmpty().
+      const addGraph = (layer) => {
+        if (!graphLayer) return;
+        layer.options.pane = opts.graphPane;
+        if (layer instanceof L.Path) {
+          const { renderer } = this.ensurePane(opts.graphPane);
+          layer._renderer = renderer;
+        } else if (opts.graphPane) {
+          this.ensurePane(opts.graphPane, false);
+        }
+        graphLayer.addLayer(layer);
+        register();
+      };
+
+      const addLabel = (marker) => {
+        if (!labelLayer) return;
+        if (opts.labelPane) {
+          marker.options.pane = opts.labelPane;
+          this.ensurePane(opts.labelPane, false);
+        }
+        labelLayer.addLayer(marker);
+        register();
+      };
+
+      const removeGraph = (layer) => {
+        if (!graphLayer) return;
+        graphLayer.removeLayer(layer);
+        unregister();
+      };
+
+      const removeLabel = (layer) => {
+        if (!labelLayer) return;
+        labelLayer.removeLayer(layer);
+        unregister();
+      };
+
+      const clearGraph = () => {
+        if (!graphLayer) return;
+        graphLayer.clearLayers();
+        unregister();
+      };
+
+      const clearLabels = () => {
+        if (!labelLayer) return;
+        labelLayer.clearLayers();
+        unregister();
+      };
+
+      const clearAll = () => {
+        clearGraph();
+        clearLabels();
+      };
+
+      return {
+        mainLayer,
+        graphLayer,
+        labelLayer,
+        addGraph,
+        addLabel,
+        removeGraph,
+        removeLabel,
+        clearGraph,
+        clearLabels,
+        clearAll,
+        register,
+        unregister,
+        registered: () => registered,
+      };
     }
 
     /**
@@ -387,88 +629,60 @@
       }
       let renderer = null;
       if (needRenderer) {
-        renderer = this.map[`_renderer_${paneName}`];
+        const key = CONST.RENDERER_KEY + paneName;
+        renderer = this.map[key];
         if (!renderer) {
           renderer = L.svg({ pane: paneName });
           renderer.addTo(this.map);
-          this.map[`_renderer_${paneName}`] = renderer;
+          this.map[key] = renderer;
         }
       }
       return { pane, renderer };
     }
 
     // Core Sorting Engine
-    _setLayerPaneRecursive(layer, paneName, renderer) {
+    setLayerPaneRecursive(layer, paneName, renderer) {
       // Skip Markers — both default icons (with shadow images) and divIcon.
       // Moving them to a custom pane breaks their shadow positioning.
       // They stay in Leaflet's default markerPane (z-index 600).
-      if (layer instanceof L.Marker) return;
-
-      layer.options.pane = paneName;
-      layer.options._paneSet = true;
-
-      if (layer instanceof L.Path) layer.options.renderer = renderer;
-
-      if (layer.eachLayer) {
-        layer.eachLayer((l) => this._setLayerPaneRecursive(l, paneName, renderer));
-      } else if (layer._layers) {
-        for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k)) {
-            this._setLayerPaneRecursive(layer._layers[k], paneName, renderer);
-          }
-        }
-      }
+      LayerUtils.forEachLayer(layer, (l) => {
+        if (l instanceof L.Marker) return;
+        l.options.pane = paneName;
+        l.options.paneSet = true;
+        if (l instanceof L.Path) l.options.renderer = renderer;
+      });
     }
 
     /** Find all custom panes used by a container's tree.
      *  This lets enforceOrder control z-index without requiring
      *  orderPane/paneName from three-layer components. */
-    _discoverChildPanes(layer, depth = 0) {
-      if (depth > CONST.PANE_RECURSION_DEPTH) return []; // Prevent infinite recursion
+    discoverChildPanes(layer, depth = 0) {
+      if (depth > CONST.PANE_RECURSION_DEPTH) return [];
       const panes = new Set();
-
-      const check = (l) => {
-        const p = l.options?.pane;
-        if (p && !this._isDefaultPane(p)) panes.add(p);
-        if (l.eachLayer) {
-          this._discoverChildPanes(l, depth + 1).forEach((p2) => panes.add(p2));
-        } else if (l._layers) {
-          for (const k in l._layers) {
-            this._discoverChildPanes(l._layers[k], depth + 1).forEach((p2) =>
-              panes.add(p2),
-            );
-          }
-        }
-      };
-
-      const selfPane = layer.options?.pane;
-      if (selfPane && !this._isDefaultPane(selfPane)) panes.add(selfPane);
-      if (layer.eachLayer) layer.eachLayer(check);
-      else if (layer._layers) for (const k in layer._layers) check(layer._layers[k]);
+      LayerUtils.forEachLayer(
+        layer,
+        (l) => {
+          const p = l.options?.pane;
+          if (p && !this.isDefaultPane(p)) panes.add(p);
+        },
+        depth,
+      );
       return Array.from(panes);
     }
 
-    _isDefaultPane(pane) {
-      return (
-        pane === "overlayPane" ||
-        pane === "markerPane" ||
-        pane === "tilePane" ||
-        pane === "shadowPane" ||
-        pane === "mapPane" ||
-        pane.startsWith("_lyr_")
-      );
+    isDefaultPane(pane) {
+      return this.defaultPanes.has(pane) || this.fallbackPanes.has(pane);
     }
 
     enforceOrder() {
-      if (this._isEnforcing) return;
-      this._isEnforcing = true;
+      if (this.isEnforcing) return;
+      this.isEnforcing = true;
       try {
         const orderedLayers = [];
         const layerInfos = new Map();
 
         for (let i = 0; i < this.layers.length; i++) {
-          const l_id = this.layers[i].id;
-          const layer = this.map._layers[l_id] || window[l_id] || null;
+          const layer = LayerUtils.findLayer(this.map, this.layers[i].id);
           if (layer && this.map.hasLayer(layer)) {
             orderedLayers.push(layer);
             layerInfos.set(L.stamp(layer), this.layers[i]);
@@ -480,10 +694,10 @@
         const layersToMove = [];
         let markerZ = 0; // highest z-index needed for markerPane
         for (let i = 0; i < orderedLayers.length; i++) {
-          const lyr = orderedLayers[i];
-          const info = layerInfos.get(L.stamp(lyr));
+          const layer = orderedLayers[i];
+          const info = layerInfos.get(L.stamp(layer));
           const paneName = info?.paneName;
-          const isTile = lyr instanceof L.TileLayer;
+          const isTile = layer instanceof L.TileLayer;
 
           // TileLayers use a lower z-index range (200-400) so they stay
           // below overlayPane (400) and markerPane (600) by default.
@@ -495,34 +709,34 @@
           if (paneName) {
             const ep = this.ensurePane(paneName, !isTile);
             ep.pane.style.zIndex = z;
-            if (lyr.options.pane !== paneName || !lyr.options._paneSet)
-              layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
+            if (layer.options.pane !== paneName || !layer.options.paneSet)
+              layersToMove.push({ layer: layer, paneName, renderer: ep.renderer });
           } else {
             // Auto-discover custom panes from container tree (three-layer
             // architecture). This ensures all internal panes (graph, label, etc.)
             // are assigned the same z-index base.
-            const childPanes = this._discoverChildPanes(lyr);
+            const childPanes = this.discoverChildPanes(layer);
             if (childPanes.length > 0) {
               childPanes.forEach((cp) => {
                 const ep = this.ensurePane(cp, !isTile);
                 ep.pane.style.zIndex = z;
-                // Specific sub-layer logic: if label pane, it must be slightly higher
-                if (cp.includes("label") || cp.includes("lbl"))
-                  ep.pane.style.zIndex = z + 1;
+                // Label panes get +1 offset so they always render above graph
+                if (this.labelPanes.has(cp)) ep.pane.style.zIndex = z + 1;
               });
-              lyr.options._paneSet = true;
+              layer.options.paneSet = true;
               // Three-layer components use custom panes, not default markerPane.
               // Do NOT adjust markerZ — that would elevate all unmanaged point layers
               // (e.g. static GeoJSON markers) above this dynamic layer.
             } else {
-              const fallbackPane = `_lyr_${L.stamp(lyr)}`;
-              const ep = this.ensurePane(fallbackPane, !isTile);
+              const fallbackPaneName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
+              this.fallbackPanes.add(fallbackPaneName);
+              const ep = this.ensurePane(fallbackPaneName, !isTile);
               ep.pane.style.zIndex = z;
-              if (!(lyr instanceof L.TileLayer)) markerZ = Math.max(markerZ, z);
-              if (lyr.options.pane !== fallbackPane || !lyr.options._paneSet) {
+              if (!(layer instanceof L.TileLayer)) markerZ = Math.max(markerZ, z);
+              if (layer.options.pane !== fallbackPaneName || !layer.options.paneSet) {
                 layersToMove.push({
-                  layer: lyr,
-                  paneName: fallbackPane,
+                  layer,
+                  paneName: fallbackPaneName,
                   renderer: ep.renderer,
                 });
               }
@@ -538,31 +752,40 @@
         }
 
         if (layersToMove.length) {
-          for (const { layer } of layersToMove) this.map.removeLayer(layer);
           for (const { layer, paneName, renderer } of layersToMove) {
-            if (paneName) this._setLayerPaneRecursive(layer, paneName, renderer);
+            if (paneName) {
+              this.setLayerPaneRecursive(layer, paneName, renderer);
+              // Move existing SVG elements in-place without removeLayer/addLayer,
+              // avoiding the bringToFront race on removed path elements.
+              const moveElements = (l) => {
+                if (l._path && renderer && l._path.parentNode !== renderer._container) {
+                  renderer._container.appendChild(l._path);
+                }
+                if (l.eachLayer) l.eachLayer(moveElements);
+              };
+              moveElements(layer);
+            }
           }
-          for (const { layer } of layersToMove) this.map.addLayer(layer);
         }
       } finally {
-        this._isEnforcing = false;
+        this.isEnforcing = false;
       }
     }
 
     // UI Rendering & Event Binding
     attachUI(containerDiv) {
       this.uiContainer = containerDiv;
-      this._renderInitialList();
-      this._bindEvents();
+      this.renderInitialList();
+      this.bindEvents();
 
       while (this.pendingRegistrations.length) {
         this.registerLayer(this.pendingRegistrations.shift());
       }
 
-      setTimeout(() => this._initTypesAndVisibility(), CONST.INIT_DELAY_MS);
+      setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
     }
 
-    _renderInitialList() {
+    renderInitialList() {
       let html = "";
       let hasBaseMaps = false;
 
@@ -591,7 +814,7 @@
 
       html += `
         <div class="layer-item color-layer-item" draggable="false"
-             data-layer-id="${CONST.COLOR_MAP_LAYER_ID}"
+             data-layer-id="${CONST.COLOR_MAP_ID}"
              title="${_(CONST.name + ".color_map_label")}">
           <div class="layer-item-spacer"></div>
           <div class="checkbox-wrapper">
@@ -605,7 +828,7 @@
       this.uiContainer.innerHTML = html;
     }
 
-    _initTypesAndVisibility() {
+    initTypesAndVisibility() {
       const inputs = this.uiContainer.querySelectorAll(
         '.layer-item input[type="checkbox"], .layer-item input[type="radio"]',
       );
@@ -615,7 +838,7 @@
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const id = layerInfo.id;
-        const layer = this.map._layers[id] || window[id] || null;
+        const layer = LayerUtils.findLayer(this.map, id);
 
         if (inputs[i]) {
           inputs[i].checked =
@@ -631,26 +854,30 @@
         if (typeCols[i]) {
           if (layerInfo.isBase) {
             typeCols[i].innerHTML = window.foliplus.SVGs.GLOBE;
+            typeCols[i].title = _(CONST.name + ".type_base");
             this.typeMap.set(id, { type: "base", name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
+            typeCols[i].title = _(CONST.name + ".type_custom");
             this.typeMap.set(id, { type: "custom", name: layerInfo.name });
           } else if (layer) {
+            const gtype = LayerUtils.getGeometryType(layer);
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
+            typeCols[i].title = _(CONST.name + ".type_" + gtype);
             this.typeMap.set(id, {
-              type: LayerUtils.getGeometryType(layer),
+              type: gtype,
               name: layerInfo.name,
             });
           }
         }
       }
 
-      if (!anyBaseVisible) this._showColorLayer(this.currentColor);
+      if (!anyBaseVisible) this.showColorLayer(this.currentColor);
       this.enforceOrder();
     }
 
-    _reindexItems() {
+    reindexItems() {
       const items = this.uiContainer.querySelectorAll(
         ".layer-item:not(.color-layer-item)",
       );
@@ -662,31 +889,31 @@
     }
 
     // Event Handlers
-    _bindEvents() {
-      this.uiContainer.addEventListener("change", this._handleChange.bind(this));
-      this.uiContainer.addEventListener("input", this._handleInput.bind(this));
+    bindEvents() {
+      this.uiContainer.addEventListener("change", this.handleChange.bind(this));
+      this.uiContainer.addEventListener("input", this.handleInput.bind(this));
 
       // Clicking anywhere on the color layer item deselects all base maps
       this.uiContainer.addEventListener("click", (e) => {
         if (e.target.closest(".color-layer-item")) {
-          this._deselectAllBaseMaps(-1);
-          this._showColorLayer(this.currentColor);
+          this.deselectAllBaseMaps(-1);
+          this.showColorLayer(this.currentColor);
           this.enforceOrder();
         }
       });
 
-      this.uiContainer.addEventListener("dragstart", this._handleDragStart.bind(this));
-      this.uiContainer.addEventListener("dragover", this._handleDragOver.bind(this));
-      this.uiContainer.addEventListener("dragleave", this._handleDragLeave.bind(this));
-      this.uiContainer.addEventListener("drop", this._handleDrop.bind(this));
-      this.uiContainer.addEventListener("dragend", this._handleDragEnd.bind(this));
+      this.uiContainer.addEventListener("dragstart", this.handleDragStart.bind(this));
+      this.uiContainer.addEventListener("dragover", this.handleDragOver.bind(this));
+      this.uiContainer.addEventListener("dragleave", this.handleDragLeave.bind(this));
+      this.uiContainer.addEventListener("drop", this.handleDrop.bind(this));
+      this.uiContainer.addEventListener("dragend", this.handleDragEnd.bind(this));
     }
 
-    _handleChange(e) {
+    handleChange(e) {
       const target = e.target;
       if (target.classList.contains("color-layer-input")) {
-        this._deselectAllBaseMaps(-1);
-        this._showColorLayer(target.value);
+        this.deselectAllBaseMaps(-1);
+        this.showColorLayer(target.value);
         this.enforceOrder();
         return;
       }
@@ -695,10 +922,10 @@
 
       const idx = parseInt(target.dataset.index, 10);
       const layerInfo = this.layers[idx];
-      const layer = this.map._layers[layerInfo.id] || window[layerInfo.id] || null;
+      const layer = LayerUtils.findLayer(this.map, layerInfo.id);
       const item = target.closest(".layer-item");
 
-      if (layerInfo.isBase) this._hideColorLayer();
+      if (layerInfo.isBase) this.hideColorLayer();
       if (layer) {
         target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
       }
@@ -709,13 +936,13 @@
       this.enforceOrder();
     }
 
-    _handleInput(e) {
+    handleInput(e) {
       if (e.target.classList.contains("color-layer-input")) {
-        this._showColorLayer(e.target.value);
+        this.showColorLayer(e.target.value);
       }
     }
 
-    _handleDragStart(e) {
+    handleDragStart(e) {
       const item = e.target.closest(".layer-item");
       if (!item) return;
       this.dragIdx = parseInt(item.dataset.index, 10);
@@ -723,7 +950,7 @@
       e.dataTransfer.effectAllowed = "move";
     }
 
-    _canReorderBetween(fromIdx, toIdx) {
+    canReorderBetween(fromIdx, toIdx) {
       if (fromIdx == null || toIdx == null) return false;
       if (fromIdx < 0 || toIdx < 0) return false;
       if (fromIdx >= this.layers.length || toIdx >= this.layers.length) return false;
@@ -748,7 +975,7 @@
       return hasBase && fromIdx >= firstBaseIdx && toIdx >= firstBaseIdx;
     }
 
-    _showReorderBlockedHint() {
+    showReorderBlockedHint() {
       const now = Date.now();
       if (now - this.lastDragHintAt < CONST.DRAG_HINT_COOLDOWN_MS) return;
       this.lastDragHintAt = now;
@@ -761,7 +988,7 @@
       }
     }
 
-    _handleDragOver(e) {
+    handleDragOver(e) {
       if (this.dragIdx === null) return;
       e.preventDefault();
       const item = e.target.closest(".layer-item");
@@ -771,9 +998,9 @@
       const allItems = this.uiContainer.querySelectorAll(".layer-item");
       allItems.forEach((i) => i.classList.remove("drag-over-top", "drag-over-bottom"));
 
-      if (!this._canReorderBetween(this.dragIdx, targetIdx)) {
+      if (!this.canReorderBetween(this.dragIdx, targetIdx)) {
         if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
-        this._showReorderBlockedHint();
+        this.showReorderBlockedHint();
         return;
       }
       if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
@@ -782,22 +1009,28 @@
       else if (targetIdx > this.dragIdx) item.classList.add("drag-over-bottom");
     }
 
-    _handleDragLeave(e) {
+    handleDragLeave(e) {
       const item = e.target.closest(".layer-item");
       if (item) item.classList.remove("drag-over-top", "drag-over-bottom");
     }
 
-    _handleDrop(e) {
+    handleDrop(e) {
       e.preventDefault();
       const target = e.target.closest(".layer-item");
       if (this.dragIdx === null) return;
       if (!target) return;
       if (target.classList.contains("color-layer-item")) return;
 
+      // Guard against dragIdx/layers array desync (e.g., external modification)
+      if (this.dragIdx < 0 || this.dragIdx >= this.layers.length) {
+        this.dragIdx = null;
+        return;
+      }
+
       const targetIdx = parseInt(target.dataset.index, 10);
       if (this.dragIdx === targetIdx) return;
-      if (!this._canReorderBetween(this.dragIdx, targetIdx)) {
-        this._showReorderBlockedHint();
+      if (!this.canReorderBetween(this.dragIdx, targetIdx)) {
+        this.showReorderBlockedHint();
         return;
       }
 
@@ -812,13 +1045,13 @@
       if (targetIdx < this.dragIdx) target.parentNode.insertBefore(movedItem, target);
       else target.parentNode.insertBefore(movedItem, target.nextSibling);
 
-      this._reindexItems();
+      this.reindexItems();
       this.enforceOrder();
-      this._saveOrder();
+      this.saveOrder();
       this.dragIdx = null;
     }
 
-    _handleDragEnd() {
+    handleDragEnd() {
       const allItems = this.uiContainer.querySelectorAll(".layer-item");
       allItems.forEach((i) =>
         i.classList.remove("dragging", "drag-over-top", "drag-over-bottom"),
@@ -826,15 +1059,14 @@
     }
 
     // Color Map Control Logic
-    _showColorLayer(color) {
+    showColorLayer(color) {
       this.colorActive = true;
       this.currentColor = color;
       mapContainer.style.background = color;
 
       for (let i = 0; i < this.layers.length; i++) {
         if (this.layers[i].isBase) {
-          const l_id = this.layers[i].id;
-          const bLayer = this.map._layers[l_id] || window[l_id] || null;
+          const bLayer = LayerUtils.findLayer(this.map, this.layers[i].id);
           if (bLayer && this.map.hasLayer(bLayer)) this.map.removeLayer(bLayer);
         }
       }
@@ -862,7 +1094,7 @@
         ?.classList.add("is-color-active");
     }
 
-    _hideColorLayer() {
+    hideColorLayer() {
       this.colorActive = false;
       mapContainer.style.background = "";
       const tilePane = this.map.getPane("tilePane");
@@ -875,20 +1107,36 @@
         ?.classList.remove("is-color-active");
     }
 
-    _deselectAllBaseMaps(exceptIdx) {
+    deselectAllBaseMaps(exceptIdx) {
       const inputs = this.uiContainer.querySelectorAll(
         ".layer-item:not(.color-layer-item) input",
       );
       for (let i = 0; i < this.layers.length; i++) {
         if (this.layers[i].isBase && i !== exceptIdx) {
-          const l_id = this.layers[i].id;
-          const bLayer = this.map._layers[l_id] || window[l_id] || null;
+          const bLayer = LayerUtils.findLayer(this.map, this.layers[i].id);
           if (bLayer && this.map.hasLayer(bLayer)) this.map.removeLayer(bLayer);
           if (inputs[i]) {
             inputs[i].checked = false;
             inputs[i].closest(".layer-item")?.classList.remove("is-active");
           }
         }
+      }
+    }
+
+    /** Release all resources. Called by LayerControl.onRemove(). */
+    destroy() {
+      this.isDestroyed = true;
+      if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
+      if (this.debouncedEnforce) this.debouncedEnforce.cancel();
+      if (this.uiContainer) {
+        this.uiContainer.innerHTML = "";
+        this.uiContainer = null;
+      }
+      this.layers = [];
+      this.typeMap.clear();
+      this.pendingRegistrations = [];
+      if (window.foliplus.LayerControlAPI === this) {
+        window.foliplus.LayerControlAPI = null;
       }
     }
   }
@@ -954,6 +1202,11 @@
       layerManager.attachUI(container.querySelector(".panel-content"));
 
       return container;
+    }
+
+    onRemove() {
+      layerManager.destroy();
+      unpatchBringToFront();
     }
   }
 
