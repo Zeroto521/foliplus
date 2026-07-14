@@ -132,3 +132,12 @@ class TestJinjaIntegrity:
         html = render(m)
         assert "gcoord.warn" in html
         assert "load.script_fail" in html
+
+    def test_debounce_utility(self):
+        """foliplus.debounce returns a debounced function with .cancel()."""
+        m = folium.Map()
+        MapSearch().add_to(m)
+        html = render(m)
+        assert "foliplus.debounce" in html
+        assert "debounced.cancel" in html
+        assert "clearTimeout(timer)" in html

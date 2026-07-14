@@ -127,7 +127,7 @@ class TestHeatmapControlRendering:
         """Label markers use custom pane and no zIndexOffset."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: CONST.GRAPH_PANE" in html
+        assert "graphPane: CONST.GRAPH_PANE" in html
         assert "heatmap-label" in html
 
     def test_label_zindex_css(self, base_map: folium.Map):
@@ -152,21 +152,22 @@ class TestHeatmapControlRendering:
         """graphPane is used as pane name consistently."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "__heatmap__" in html
-        assert "pane: CONST.GRAPH_PANE" in html
+        assert "foliplus_heatmap" in html
+        assert "graphPane: CONST.GRAPH_PANE" in html
 
     def test_graphlayer_pane_init(self, base_map: folium.Map):
         """graphLayer is initialized with pane: this.graphPane."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "pane: CONST.GRAPH_PANE" in html
+        assert "graphPane: CONST.GRAPH_PANE" in html
 
     def test_register_before_add_data(self, base_map: folium.Map):
-        """_registerToLayerControl is called before graphLayer.addData."""
+        """renderHexagons uses addGraph which auto-registers in LayerControl."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "_registerToLayerControl()" in html
-        assert "mainLayer.options._paneSet" not in html
+        assert "this.layers.addGraph(gj)" in html
+        assert "this.layers.clearAll()" in html
+        assert "this.layers.addLabel(" in html
 
     def test_extract_points_filters_no_feature(self, base_map: folium.Map):
         """extractPoints only accepts markers with .feature."""
@@ -207,9 +208,9 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "onRemove()" in html
         assert "observer.disconnect" in html
-        assert 'manager.map.off("zoomend", this.manager._onZoomEnd)' in html
+        assert 'manager.map.off("zoomend", this.manager.onZoomEnd)' in html
         assert (
-            'manager.map.off("layeradd layerremove", this.manager._onLayerChange)'
+            'manager.map.off("layeradd layerremove", this.manager.onLayerChange)'
             in html
         )
 
@@ -233,7 +234,7 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "return fields[0];" in html
-        assert "_readMarkerField(marker, field)" in html
+        assert "readMarkerField(marker, field)" in html
 
     def test_auto_field_key_resets_on_clear(self, base_map: folium.Map):
         """Clear action resets autoFieldKey to avoid stale field selection."""
@@ -242,19 +243,19 @@ class TestHeatmapControlRendering:
         assert "this.manager.autoFieldKey = null;" in html
 
     def test_named_handler_cleanup(self, base_map: folium.Map):
-        """_bindMapEvents uses named handlers (_onZoomEnd, _onLayerChange)."""
+        """bindMapEvents uses named handlers (onZoomEnd, onLayerChange)."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "this._onZoomEnd" in html
-        assert "this._onLayerChange" in html
-        assert 'map.on("zoomend", this._onZoomEnd)' in html
-        assert 'map.on("layeradd layerremove", this._onLayerChange)' in html
+        assert "this.onZoomEnd" in html
+        assert "this.onLayerChange" in html
+        assert 'map.on("zoomend", this.onZoomEnd)' in html
+        assert 'map.on("layeradd layerremove", this.onLayerChange)' in html
 
     def test_get_point_value_dedup(self, base_map: folium.Map):
-        """getPointValue delegates to _readMarkerField instead of duplicating branch logic."""
+        """getPointValue delegates to readMarkerField instead of duplicating branch logic."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "this._readMarkerField(marker, key)" in html
+        assert "this.readMarkerField(marker, key)" in html
         # Should NOT contain inline field resolution branches
         assert "this.currentField === '_value'" not in html
         assert "this.currentField === 'options.value'" not in html
@@ -268,25 +269,62 @@ class TestHeatmapControlRendering:
         assert "HeatmapControl.h3_boundary_fail" in html
         assert "HeatmapControl.close_title" in html
 
+    def test_no_layercontrol_guard(self, base_map: folium.Map):
+        """HeatmapControl shows guard hint when LayerControl is missing."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "no_layercontrol" in html
+        assert "LayerControl" in html
+
+    def test_render_hexagons_map_guard(self, base_map: folium.Map):
+        """renderHexagons checks map._container before proceeding."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (!this.map || !this.map._container) return" in html
+
+    def test_debounce_usage(self, base_map: folium.Map):
+        """HeatmapControl uses foliplus.debounce for zoom and layer events."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.debounce" in html
+        assert "onZoomEnd.cancel()" in html
+        assert "onLayerChange.cancel()" in html
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""
 
-    def test_panel_interaction(self, browser, tmp_path):
-        """Open heatmap panel, verify layer dropdown populates.
+    @staticmethod
+    def _stub_html(html: str) -> str:
+        """Apply CDN stubs so the heatmap UI initialises without network."""
+        for dep in ("h3", "ss", "chroma"):
+            html = html.replace(
+                f'check: () => typeof {dep} !== "undefined"',
+                "check: () => true",
+            )
+        html = html.replace(
+            'if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();',
+            'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
+            "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
+            'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'
+            "run();",
+        )
+        return html
 
-        CDN scripts (h3-js, chroma-js) are not available in CI, so hexagon
-        rendering is NOT tested here.  This test validates that the UI panel
-        opens correctly and no critical JS errors occur.
-        """
+    @staticmethod
+    def _expose_ctrl(html: str) -> str:
+        """Expose heatmapCtrl as window.__heatmapCtrl for runtime assertions."""
+        return html.replace(
+            "heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);",
+            "window.__heatmapCtrl = heatmapCtrl;\n    heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);",
+        )
+
+    def _make_page(self, browser, tmp_path, expose_ctrl=False):
+        """Build a page with point layers + HeatmapControl and return (page, errors)."""
         from foliplus import LayerControl
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-
-        # Add marker layers for heatmap to discover via LayerControlAPI
-        # GeoJson markers have .feature — required by extractPoints filter
         fg = folium.FeatureGroup(name="Points", show=True)
-
         for lat, lng in [(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]:
             gj = json.dumps(
                 {
@@ -294,7 +332,7 @@ class TestHeatmapControlBrowser:
                     "features": [
                         {
                             "type": "Feature",
-                            "properties": {"name": "p"},
+                            "properties": {"val": lat},
                             "geometry": {"type": "Point", "coordinates": [lng, lat]},
                         }
                     ],
@@ -302,77 +340,208 @@ class TestHeatmapControlBrowser:
             )
             folium.GeoJson(gj).add_to(fg)
         fg.add_to(m)
-
         LayerControl().add_to(m)
         HeatmapControl().add_to(m)
 
-        html_path = tmp_path / "test_heatmap_browser.html"
-        html = m.get_root().render()
-        # Stub CDN deps so the heatmap UI initializes without network.
-        html = html.replace(
-            "check: () => typeof h3 !== 'undefined'",
-            "check: () => true",
-        )
-        html = html.replace(
-            "check: () => typeof ss !== 'undefined'",
-            "check: () => true",
-        )
-        html = html.replace(
-            "check: () => typeof chroma !== 'undefined'",
-            "check: () => true",
-        )
-        html = html.replace(
-            "return run();",
-            "window.h3={latLngToCell:function(){return ''},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};"
-            "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
-            "window.chroma={scale:function(){return{mode:function(){return{colors:function(){return['#f00']}}}}}};"
-            "return run();",
-        )
+        html = self._stub_html(m.get_root().render())
+        if expose_ctrl:
+            html = self._expose_ctrl(html)
+        html_path = tmp_path / "heatmap_browser.html"
         html_path.write_text(html, encoding="utf-8")
 
         page = browser.new_page()
+        errors = []
+        page.on(
+            "console",
+            lambda msg: (
+                errors.append(msg.text)
+                if msg.type == "error"
+                and not msg.text.startswith("Failed to load resource")
+                else None
+            ),
+        )
+        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        page.wait_for_selector(".heatmap-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    # ── Tests ──────────────────────────────────────────────────────
+
+    def test_panel_interaction(self, browser, tmp_path):
+        """Open heatmap panel, verify layer dropdown populates."""
+        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
+
         try:
-            errors = []
-            page.on(
-                "console",
-                lambda msg: (
-                    errors.append(msg.text)
-                    if msg.type == "error"
-                    and not msg.text.startswith("Failed to load resource")
-                    else None
-                ),
-            )
-
-            # Use domcontentloaded to avoid CDN script timeouts blocking load
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            # Wait for the heatmap-ctrl element to exist in DOM (it's hidden
-            # when collapsed but Present in the DOM tree)
-            page.wait_for_selector(".heatmap-ctrl", state="attached", timeout=10000)
-
-            # Click toggle button via JS — collapsed ctrl-fold may be
-            # considered hidden in CI/headless Playwright actionability checks
             page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
             page.wait_for_selector(
                 ".heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-
-            # Give initScan time to discover point layers (up to ~1.5s)
             page.wait_for_timeout(2000)
 
-            # Check layer options via evaluate (avoids visibility checks)
             options_count = page.evaluate(
                 "document.querySelectorAll('.heatmap-ctrl .layer-select option').length"
             )
             assert options_count >= 2
 
-            # Click close via JS to collapse — verify no crash
             page.evaluate("document.querySelector('.heatmap-ctrl .close-btn').click()")
             page.wait_for_selector(
                 ".heatmap-ctrl.collapsed", state="attached", timeout=5000
             )
 
-            # No unexpected JS errors (CDN resource load failures are normal
-            # in an offline test environment).
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_default_values_initialized(self, browser, tmp_path):
+        """Constructor initialises all user-configurable defaults."""
+        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
+        try:
+            vals = page.evaluate("""() => {
+                const m = window.__heatmapCtrl.manager;
+                return {
+                    N_CLASSES: m.N_CLASSES,
+                    BORDER_W: m.BORDER_W,
+                    BORDER_COLOR: m.BORDER_COLOR,
+                    currentLabelShow: m.currentLabelShow,
+                    currentMethod: m.currentMethod,
+                    currentScheme: m.currentScheme,
+                    currentAgg: m.currentAgg,
+                };
+            }""")
+            assert (
+                vals["N_CLASSES"] == 6,
+                (f"N_CLASSES expected 6 got {vals['N_CLASSES']}"),
+            )
+            assert (
+                vals["BORDER_W"] == 1.5,
+                (f"BORDER_W expected 1.5 got {vals['BORDER_W']}"),
+            )
+            assert (
+                vals["BORDER_COLOR"] == "#333",
+                (f"BORDER_COLOR got {vals['BORDER_COLOR']}"),
+            )
+            assert vals["currentLabelShow"] is True, "currentLabelShow should be True"
+            assert vals["currentMethod"] == "jenks"
+            assert vals["currentScheme"] == "Reds"
+            assert vals["currentAgg"] == "count"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_label_toggle_updates_state(self, browser, tmp_path):
+        """Toggling the label checkbox updates manager.currentLabelShow."""
+        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
+        try:
+            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(2000)
+
+            before = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
+            # Uncheck label
+            page.evaluate(
+                "document.querySelector('.heatmap-ctrl .toggle-switch input').click()"
+            )
+            after = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
+            assert before is True, f"expected True, got {before}"
+            assert after is False, f"expected False, got {after}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_layer_selection_triggers_render(self, browser, tmp_path):
+        """Selecting a layer calls renderHexagons (graphLayer gets content)."""
+        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
+        try:
+            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(3000)
+
+            # Select the first non-placeholder layer
+            opts = page.evaluate(
+                "Array.from(document.querySelectorAll('.heatmap-ctrl .layer-select option')).slice(1).map(o => o.value)"
+            )
+            assert opts, "No layer options found"
+            page.evaluate(f"""() => {{
+                const sel = document.querySelector('.heatmap-ctrl .layer-select');
+                sel.value = '{opts[0]}';
+                sel.dispatchEvent(new Event('change'));
+            }}""")
+            page.wait_for_timeout(2000)
+
+            # graphLayer should have content after renderHexagons
+            has_content = page.evaluate(
+                "Object.keys(window.__heatmapCtrl.manager.layers.graphLayer._layers || {}).length > 0"
+            )
+            assert has_content, "graphLayer should have content after layer selection"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_clear_all_removes_content(self, browser, tmp_path):
+        """clearAll() empties graphLayer and labelLayer, triggering unregister."""
+        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
+        try:
+            # Render some content first
+            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(3000)
+            opts = page.evaluate(
+                'Array.from(document.querySelectorAll(".heatmap-ctrl .layer-select option")).slice(1).map(o => o.value)'
+            )
+            if opts:
+                page.evaluate(f"""() => {{
+                    const sel = document.querySelector('.heatmap-ctrl .layer-select');
+                    sel.value = '{opts[0]}';
+                    sel.dispatchEvent(new Event('change'));
+                }}""")
+                page.wait_for_timeout(2000)
+
+            # Call clearAll
+            page.evaluate("window.__heatmapCtrl.manager.layers.clearAll()")
+            page.wait_for_timeout(500)
+
+            graph_empty = page.evaluate(
+                "Object.keys(window.__heatmapCtrl.manager.layers.graphLayer._layers || {}).length === 0"
+            )
+            label_empty = page.evaluate(
+                "Object.keys(window.__heatmapCtrl.manager.layers.labelLayer._layers || {}).length === 0"
+            )
+            assert graph_empty, "graphLayer should be empty after clearAll"
+            assert label_empty, "labelLayer should be empty after clearAll"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_clear_button_works(self, browser, tmp_path):
+        """Pressing the clear button resets all controls and clears layers."""
+        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
+        try:
+            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.wait_for_selector(
+                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(3000)
+
+            # Change some values
+            page.evaluate("window.__heatmapCtrl.manager.N_CLASSES = 4")
+            # Click clear
+            page.evaluate("document.querySelector('.heatmap-ctrl .btn-clear').click()")
+            page.wait_for_timeout(500)
+
+            mgr = page.evaluate("""() => {
+                const m = window.__heatmapCtrl.manager;
+                return { N_CLASSES: m.N_CLASSES, BORDER_W: m.BORDER_W,
+                         BORDER_COLOR: m.BORDER_COLOR, currentMethod: m.currentMethod,
+                         currentScheme: m.currentScheme };
+            }""")
+            assert mgr["N_CLASSES"] == 6, f"expected 6 got {mgr['N_CLASSES']}"
+            assert mgr["BORDER_W"] == 1.5
+            assert mgr["currentMethod"] == "jenks"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -437,11 +606,11 @@ class TestHeatmapAutoFieldBrowser:
             "check: () => true",
         )
         html = html.replace(
-            "return run();",
-            "window.h3={latLngToCell:function(){return ''},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};"
+            'if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();',
+            'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
             "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
-            "window.chroma={scale:function(){return{mode:function(){return{colors:function(){return['#f00']}}}}}};"
-            "return run();",
+            'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'
+            "run();",
         )
         html_path.write_text(html, encoding="utf-8")
 
