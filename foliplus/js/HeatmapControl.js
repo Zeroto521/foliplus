@@ -620,9 +620,12 @@
           co.textContent = ci;
           this.classSelect.appendChild(co);
         }
-        this.classSelect.value = this.manager.N_CLASSES;
+        this.classSelect.value = Math.min(9, Math.max(2, this.manager.N_CLASSES));
         this.classSelect.onchange = () => {
-          this.manager.N_CLASSES = parseInt(this.classSelect.value, 10);
+          this.manager.N_CLASSES = Math.min(
+            9,
+            Math.max(2, parseInt(this.classSelect.value, 10) || 6),
+          );
           this.updateSchemeBar();
           if (this.schemeDropdown) this.refreshSchemeDropdownItems();
           this.manager.renderHexagons();
