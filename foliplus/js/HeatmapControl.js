@@ -147,6 +147,8 @@
           iconSvg: CONST.HEXAGON,
         });
         this.ui = null; // Injected UI control panel instance
+        this.ui = null;
+        this.cachedPoints = null;
 
         this.bindMapEvents();
       }
@@ -158,6 +160,7 @@
         this.map.on("zoomend", this.onZoomEnd);
 
         this.onLayerChange = foliplus.debounce(() => {
+          this.cachedPoints = null;
           if (this.ui) {
             this.scanMapLayers();
             this.ui.rebuildLayerDropdown();
@@ -265,6 +268,10 @@
 
       collectSelectedPoints() {
         this.valueFallbackWarned = false;
+        // Cache by layerId + currentAgg + currentField — invalidate on param change
+        const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
+        if (this.cachedPoints && this.cachedPoints.key === key) {
+          return this.cachedPoints.pts;
         const pts = [];
         if (!this.selectedLayerId) return pts;
         this.pointLayers.forEach((info) => {
