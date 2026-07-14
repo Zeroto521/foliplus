@@ -428,7 +428,9 @@ class TestLayerControlRendering:
         """enforceOrder skips removeLayer/addLayer for already-paned layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layer.options.pane !== fallbackPaneName || !layer.options.paneSet" in html
+        assert (
+            "layer.options.pane !== fallbackPaneName || !layer.options.paneSet" in html
+        )
         assert "layersToMove.push" in html
 
     def test_color_layer_hides_tile_pane(self, base_map: folium.Map):
