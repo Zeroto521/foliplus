@@ -15,6 +15,7 @@
   --size-8: 8px;
   --size-12: 12px;
   --size-16: 16px;
+  --size-18: 18px;
   --size-20: 20px;
   --size-24: 24px;
 
@@ -46,7 +47,7 @@
   /* Base */
   --ctrl-bg: var(--neutral-0);
   --ctrl-border: rgba(0, 0, 0, var(--alpha-20));
-  --ctrl-hover-bg: #f4f4f4;
+  --ctrl-hover-bg: var(--neutral-100);
   --ctrl-active-bg: #e8e8e8;
 
   --text-primary: var(--neutral-800);
@@ -118,7 +119,7 @@
   --scale-hover: 1.08;
   --toggle-off-bg: #ccc;
   --icon-size-sm: var(--size-16);
-  --icon-size-md: 18px;
+  --icon-size-md: var(--size-18);
 
   /* Component */
   --toggle-size: 36px;
@@ -155,8 +156,8 @@
   --radius-pill: var(--size-20);
 
   /* Component */
-  --radius-card: var(--size-8);
   --radius-btn: var(--size-6);
+  --radius-card: var(--size-8);
 
   /* ── Semantic Tokens: Shadows ── */
   /* Base */
@@ -192,13 +193,57 @@
   vertical-align: middle;
 }
 
-/* ── Fullscreen button (remove Leaflet's built-in bg icon) ── */
-.fullscreen-btn {
-  background-image: none !important;
+/* ── Common Icon Size ──
+  All SVGs in foliplus components default to 18×18.
+  PIN_ICON, drag-handle override per their context.
+── */
+.ctrl-fold svg,
+.tool-btn svg,
+.map-hint-icon svg,
+.header-icon svg,
+.type-icon-col svg,
+.leaflet-control-zoom-fullscreen svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-/* ── Toggle Button ── */
+/* ── Unified Component Button ──
+  Shared hover/active behavior for all foliplus and Leaflet native buttons.
+  zoom +/-, fullscreen, toggle-btn all share the same hover/active effects. ── */
+.toggle-btn,
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out,
+.leaflet-control-zoom-fullscreen {
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+  will-change: transform;
+}
+.toggle-btn:hover,
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover,
+.leaflet-control-zoom-fullscreen:hover {
+  background-color: var(--ctrl-hover-bg);
+  color: var(--accent-primary);
+  transform: scale(var(--scale-hover));
+}
+.toggle-btn:active,
+.leaflet-control-zoom-in:active,
+.leaflet-control-zoom-out:active,
+.leaflet-control-zoom-fullscreen:active {
+  transform: scale(var(--scale-press));
+}
+
 .toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   border-radius: 0;
@@ -209,26 +254,16 @@
   flex-shrink: 0;
   box-sizing: border-box;
   color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 0;
   margin: 0;
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast),
-    transform var(--transition-fast);
-  will-change: transform;
-}
-.toggle-btn:hover {
-  background-color: var(--ctrl-hover-bg);
-  transform: scale(var(--scale-hover));
-}
-.toggle-btn:active {
-  transform: scale(var(--scale-press));
 }
 .toggle-btn svg {
   stroke: var(--text-primary);
+}
+.toggle-btn:hover,
+.toggle-btn:hover svg {
+  color: var(--accent-primary);
+  stroke: var(--accent-primary);
 }
 
 /* ── Map Hint (Toast Notification) ── */
@@ -327,14 +362,9 @@
 .ctrl-fold.expanded .toggle-btn {
   background: transparent;
   color: var(--accent-primary);
-  border-radius: 0;
 }
 .ctrl-fold.expanded .toggle-btn svg {
   stroke: var(--accent-primary);
-}
-.ctrl-fold.align-right.expanded .toggle-btn {
-  border-right: none;
-  border-left: none;
 }
 
 /* ── Shared Toolbar ──

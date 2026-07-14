@@ -38,8 +38,7 @@
     GRAPH_PANE: "heatmap_graph",
     LABEL_PANE: "heatmap_label",
     HEXAGON: `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24">
         <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
         <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
         <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>

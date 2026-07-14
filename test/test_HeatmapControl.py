@@ -290,6 +290,27 @@ class TestHeatmapControlRendering:
         assert "onZoomEnd.cancel()" in html
         assert "onLayerChange.cancel()" in html
 
+    def test_css_variables_used(self, base_map: folium.Map):
+        """CSS design tokens are referenced in rendered output."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "var(--radius-sm)" in html
+        assert "var(--input-border)" in html
+        assert "var(--text-primary)" in html
+        assert "var(--accent-primary)" in html
+
+    def test_css_icon_size_variable(self, base_map: folium.Map):
+        """HeatmapControl SVGs use --icon-size-md via common.css."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "icon-size-md" in html
+
+    def test_css_panel_shadow(self, base_map: folium.Map):
+        """Expanded heatmap panel uses --panel-shadow."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "panel-shadow" in html
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""

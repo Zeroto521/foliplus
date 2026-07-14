@@ -58,7 +58,7 @@
 
 /* ── Measurement Nodes (circleMarker) ── */
 .measure-node {
-  fill: #fff;
+  fill: var(--neutral-0);
   fill-opacity: 1;
 }
 
@@ -68,7 +68,7 @@
 }
 .measure-line-solid {
   stroke: var(--accent-primary);
-  stroke-width: 2.5;
+  stroke-width: var(--stroke-width-emphasis);
 }
 .measure-line-preview {
   stroke-dasharray: 4 4;
@@ -97,7 +97,7 @@
 .measure-node-final,
 .measure-line-solid,
 .measure-line-dashed {
-  stroke-width: 2.5;
+  stroke-width: var(--stroke-width-emphasis);
 }
 
 .measure-circle-final {

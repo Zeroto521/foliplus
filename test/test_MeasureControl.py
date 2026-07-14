@@ -244,9 +244,26 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "MeasureUtils.toggleDelIcon" in html
 
+    def test_css_variables_used(self, base_map: folium.Map):
+        """CSS design tokens are referenced in rendered output."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "var(--ctrl-size)" in html
+        assert "var(--accent-primary)" in html
+        assert "var(--radius-sm)" in html
+        assert "var(--transition-fast)" in html
 
-class TestMeasureControlBrowser:
-    """Browser-based tests for MeasureControl."""
+    def test_css_icon_size_variable(self, base_map: folium.Map):
+        """MeasureControl SVGs use --icon-size-md via common.css."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "icon-size-md" in html
+
+    def test_css_stroke_width_emphasis(self, base_map: folium.Map):
+        """Solid measurement lines use --stroke-width-emphasis."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "stroke-width-emphasis" in html
 
     def _make_page(self, browser, tmp_path):
         """Build a page with MeasureControl and return (page, errors)."""

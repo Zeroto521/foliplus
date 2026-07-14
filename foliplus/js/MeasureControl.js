@@ -29,23 +29,24 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
-  const SVG_ICON_ATTRS = `width="18" height="18" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="1.8"`;
   const SVGS = {
     RULER: `
-      <svg ${SVG_ICON_ATTRS} stroke-linecap="round" stroke-linejoin="round" class="ruler-icon">
+      <svg viewBox="0 0 24 24" class="ruler-icon">
         <rect x="1" y="7" width="22" height="9" rx="1"/>
         <path d="M5 7v3M9 7v2M13 7v3M17 7v2"/>
       </svg>`,
     CIRCLE: `
-      <svg ${SVG_ICON_ATTRS}><circle cx="12" cy="12" r="9"/>
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"/>
         <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
       </svg>`,
     TRASH: `
-      <svg ${SVG_ICON_ATTRS} stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+      <svg viewBox="0 0 24 24">
+        <path d="M3 6h18"/>
+        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-        <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+        <line x1="10" y1="11" x2="10" y2="17"/>
+        <line x1="14" y1="11" x2="14" y2="17"/>
       </svg>`,
   };
 
@@ -698,8 +699,8 @@
           (state !== 0 && state !== 1)
         )
           return;
-        const now = Date.now();
-        if (now - lastFinishTime < CONST.CLICK_COOLDOWN_MS) return;
+
+        if (Date.now() - lastFinishTime < CONST.CLICK_COOLDOWN_MS) return;
 
         if (state === 0) {
           center = e.latlng;
@@ -756,18 +757,14 @@
             className: "measure-circle measure-circle-preview",
             interactive: false,
           }).addTo(this.layers.mainLayer);
-        } else {
-          previews.circle.setRadius(r);
-        }
+        } else previews.circle.setRadius(r);
 
         if (!previews.line) {
           previews.line = L.polyline([center, e.latlng], {
             className: "measure-line measure-line-preview",
             interactive: false,
           }).addTo(this.layers.mainLayer);
-        } else {
-          previews.line.setLatLngs([center, e.latlng]);
-        }
+        } else previews.line.setLatLngs([center, e.latlng]);
 
         if (!previews.node) {
           previews.node = L.circleMarker(e.latlng, {
@@ -776,9 +773,7 @@
             interactive: false,
           }).addTo(this.layers.mainLayer);
           previews.node.bringToFront();
-        } else {
-          previews.node.setLatLng(e.latlng);
-        }
+        } else previews.node.setLatLng(e.latlng);
 
         const mid = L.latLng(
           (center.lat + e.latlng.lat) / 2,
