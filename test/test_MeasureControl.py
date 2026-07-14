@@ -264,7 +264,6 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "stroke-width-emphasis" in html
-    """Browser-based tests for MeasureControl."""
 
     def _make_page(self, browser, tmp_path):
         """Build a page with MeasureControl and return (page, errors)."""
