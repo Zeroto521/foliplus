@@ -482,11 +482,6 @@
           layer: mainLayer,
           iconSvg: opts.iconSvg || null,
         });
-        // Wire callbacks so LayerControl checkbox controls the canvas
-        const cbs = {};
-        if (opts.onToggle) cbs.onToggle = opts.onToggle;
-        if (opts.onZIndex) cbs.onZIndex = opts.onZIndex;
-        if (Object.keys(cbs).length) this.layerCallbacks.set(opts.id, cbs);
       };
 
       const unregister = () => {
@@ -598,8 +593,6 @@
         register,
         unregister,
         registered: () => registered,
-        /** Callback invoked when the layer is shown/hidden via checkbox */
-        onToggle: null,
       };
     }
 
