@@ -552,6 +552,42 @@ class TestLayerControlRendering:
         assert "/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/" in html
         assert "not a valid identifier" in html or "invalid_id" in html
 
+    def test_create_canvas_api(self, base_map: folium.Map):
+        """createCanvas returns expected API methods."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "createCanvas" in html
+        assert "canvas" in html
+        assert "ctx" in html
+        assert "resize" in html
+        assert "destroy" in html
+        assert "updatePosition" in html
+        assert "setZIndex" in html
+        assert "setVisible" in html
+        assert "getSize" in html
+
+    def test_create_canvas_in_mapPane(self, base_map: folium.Map):
+        """createCanvas inserts canvas into leaflet-map-pane."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert 'L.DomUtil.create("canvas", "heatmap-canvas", mapPane)' in html
+        assert "mapPane" in html
+
+    def test_layer_callbacks_stored(self, base_map: folium.Map):
+        """registerLayer stores onToggle/onZIndex in layerCallbacks Map."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.layerCallbacks.set(opts.id, cbs)" in html
+        assert "cbs.onToggle" in html
+        assert "cbs.onZIndex" in html
+
+    def test_layer_callbacks_consumed(self, base_map: folium.Map):
+        """enforceOrder and handleChange consume layerCallbacks."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "cbs.onZIndex(z)" in html
+        assert "cbs.onToggle(target.checked)" in html
+
 
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
