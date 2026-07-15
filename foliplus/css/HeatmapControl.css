@@ -85,8 +85,7 @@
   -moz-appearance: none;
 }
 .heatmap-ctrl .form-select:focus,
-.heatmap-ctrl select:focus,
-.heatmap-ctrl .ctrl-focus {
+.heatmap-ctrl select:focus {
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
@@ -98,7 +97,6 @@
 }
 
 /* Placeholder select styling */
-.heatmap-ctrl select.placeholder-active,
 .heatmap-ctrl select.is-placeholder {
   color: var(--text-placeholder);
 }
@@ -224,9 +222,6 @@
   flex-shrink: 0;
   display: flex;
   overflow: hidden;
-}
-.heatmap-ctrl .scheme-dropdown-label {
-  font-size: var(--font-size-sm);
 }
 
 /* ── Border Inputs ── */
@@ -371,28 +366,4 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-}
-.heatmap-ctrl .section-heading-icon {
-  font-size: var(--font-size-sm);
-  line-height: 1;
-}
-.hex-label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  fill: var(--neutral-0);
-  text-anchor: middle;
-  dominant-baseline: central;
-  pointer-events: none;
-  paint-order: stroke fill;
-  stroke: rgba(0, 0, 0, var(--alpha-50));
-  stroke-width: var(--stroke-width-emphasis);
-  filter: drop-shadow(0 0 var(--space-sm) rgba(255, 255, 255, var(--alpha-95)))
-    drop-shadow(0 0 var(--space-md) rgba(255, 255, 255, var(--alpha-70)));
-}
-
-/* No layer hint */
-.heatmap-ctrl .no-layers {
-  padding: var(--space-md) var(--space-lg);
-  color: var(--text-placeholder);
-  font-size: var(--font-size-sm);
 }
