@@ -35,8 +35,6 @@
     ],
     H3_RES_FALLBACK: 12,
     HEATMAP_ID: "foliplus_heatmap",
-    GRAPH_PANE: "heatmap_graph",
-    LABEL_PANE: "heatmap_label",
     HEXAGON: `
       <svg viewBox="0 0 24 24">
         <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
@@ -111,7 +109,7 @@
   );
 
   function run() {
-    // Guard: LayerControl must be registered first to provide createManagedLayers
+    // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
     if (!window.foliplus.LayerControlAPI) {
       console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
       window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), 0);
@@ -136,26 +134,54 @@
         this.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
         this.currentLabelShow = CONST.LABEL_SHOW;
         this.valueFallbackWarned = false;
-        // Hexagon polygons are added directly to this.layers.graphLayer in
-        // renderHexagons().  The heatmap only registers in LayerControl
-        // when renderHexagons() calls this.layers.register() with data.
-        this.layers = window.foliplus.LayerControlAPI.createManagedLayers({
+        // Create a managed canvas via LayerControl API.
+        // Canvas lives in `.leaflet-map-pane` with position offset to cancel
+        // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
+        // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
+        this.overlay = window.foliplus.LayerControlAPI.createCanvas({
           id: CONST.HEATMAP_ID,
           name: _(`${CONST.name}.title`),
-          graphPane: CONST.GRAPH_PANE,
-          labelPane: CONST.LABEL_PANE,
           iconSvg: CONST.HEXAGON,
         });
-        this.ui = null; // Injected UI control panel instance
         this.ui = null;
         this.cachedPoints = null;
+        this.cachedFeatures = null;
 
         this.bindMapEvents();
       }
 
       bindMapEvents() {
+        // Canvas in mapPane with position offset → no transform clipping.
+        // During zoom: hide canvas, re-render at new zoom after animation.
+        // During pan (move without zoom): RAF-throttled redraw for smoothness.
+        this.isZooming = false;
+        this.moveRafId = null;
+
+        this.onZoomStart = () => {
+          this.isZooming = true;
+          if (this.overlay.canvas) this.overlay.canvas.style.display = "none";
+        };
+        this.map.on("zoomstart", this.onZoomStart);
+
+        this.redrawOnMove = () => {
+          if (this.isZooming) return;
+          if (this.moveRafId) return;
+          this.moveRafId = requestAnimationFrame(() => {
+            this.moveRafId = null;
+            if (this.overlay.canvas && this.cachedFeatures) {
+              this.redrawHeatmap();
+            }
+          });
+        };
+        this.map.on("move", this.redrawOnMove);
+
         this.onZoomEnd = foliplus.debounce(() => {
-          if (this.selectedLayerId) this.renderHexagons();
+          if (this.selectedLayerId) {
+            this.renderHexagons();
+            if (this.overlay.canvas) this.overlay.canvas.style.display = "";
+          }
+          // Always reset zooming state, even if no layer selected
+          this.isZooming = false;
         }, CONST.ZOOM_DEBOUNCE_MS);
         this.map.on("zoomend", this.onZoomEnd);
 
@@ -167,6 +193,95 @@
           }
         }, CONST.LAYER_SCAN_DEBOUNCE_MS);
         this.map.on("layeradd layerremove", this.onLayerChange);
+      }
+
+      /** Redraw the heatmap canvas from cached features. */
+      redrawHeatmap() {
+        const canvas = this.overlay.canvas;
+        const features = this.cachedFeatures;
+        if (!canvas || !features) return;
+        const ctx = this.overlay.ctx;
+        if (!ctx) return;
+        const container = this.map.getContainer();
+        const dpr = window.devicePixelRatio || 1;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
+
+        const labelCfg = this.resolveLabelStyle();
+
+        features.forEach((feat) => {
+          this.drawHexagon(ctx, feat);
+          if (this.currentLabelShow) this.drawHexLabel(ctx, feat, labelCfg);
+        });
+      }
+
+      /** Draw a single hexagon polygon (fill + stroke). */
+      drawHexagon(ctx, feat) {
+        const pts = feat.geometry.coordinates[0].map((p) =>
+          this.map.latLngToContainerPoint(L.latLng(p[1], p[0])),
+        );
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.closePath();
+        ctx.fillStyle = feat.properties.fillColor || CONST.DEFAULT_GRAY;
+        ctx.globalAlpha = CONST.FILL_OP;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        if (this.BORDER_W > 0 && CONST.BORDER_OP > 0) {
+          ctx.strokeStyle = this.BORDER_COLOR;
+          ctx.lineWidth = this.BORDER_W;
+          ctx.globalAlpha = CONST.BORDER_OP;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      /** Resolve label styling from CSS custom properties. */
+      resolveLabelStyle() {
+        const ctrlEl = this.ui?.container;
+        const cssVal = (prop, fallback) =>
+          ctrlEl
+            ? getComputedStyle(ctrlEl).getPropertyValue(prop).trim() || fallback
+            : fallback;
+        return {
+          font: `${cssVal("--heatmap-label-font-weight", "bold")} ${cssVal("--heatmap-label-font-size", `${CONST.LABEL_SIZE}px`)} ${cssVal("--heatmap-label-font-family", "sans-serif")}`,
+          color: cssVal("--heatmap-label-color", CONST.LABEL_COLOR),
+          stroke: cssVal("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
+          strokeWidth: parseFloat(cssVal("--heatmap-label-stroke-width", "3")),
+        };
+      }
+
+      /** Draw a formatted value label centered on the hexagon. */
+      drawHexLabel(ctx, feat, { font, color, stroke, strokeWidth }) {
+        let lat, lng;
+        try {
+          const center = h3.cellToLatLng(feat.properties.h3);
+          lat = center[0];
+          lng = center[1];
+        } catch (e) {
+          const coords = feat.geometry.coordinates[0];
+          let cx = 0,
+            cy = 0;
+          for (let j = 0; j < coords.length - 1; j++) {
+            cx += coords[j][0];
+            cy += coords[j][1];
+          }
+          lng = cx / (coords.length - 1);
+          lat = cy / (coords.length - 1);
+        }
+        const pt = this.map.latLngToContainerPoint(L.latLng(lat, lng));
+        const text = window.foliplus.formatNumber(feat.properties.value, CONST.FORMAT);
+        ctx.font = font;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = strokeWidth;
+        ctx.lineJoin = "round";
+        ctx.strokeText(text, pt.x, pt.y);
+        ctx.fillStyle = color;
+        ctx.fillText(text, pt.x, pt.y);
       }
 
       // --- Data Extraction ---
@@ -341,14 +456,21 @@
       renderHexagons() {
         if (!this.map || !this.map._container) return;
         if (!this.selectedLayerId) {
-          this.layers.clearAll();
+          this.clearHeatmapCanvas();
           return;
         }
         const pts = this.collectSelectedPoints();
         const zoom = this.map.getZoom();
         const res = this.getH3Res(zoom);
-        const hexCells = {};
+        const aggregated = this.aggregateData(pts, res);
+        if (!aggregated) return;
+        const features = this.buildFeatures(aggregated);
+        this.renderFeatures(features);
+      }
 
+      /** Aggregate points into H3 hex cells with current agg method. */
+      aggregateData(pts, res) {
+        const hexCells = {};
         pts.forEach((pt) => {
           try {
             const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
@@ -388,8 +510,8 @@
 
         const allVals = Object.values(hexCells).map(getAggValue);
         if (allVals.length === 0) {
-          this.layers.clearAll();
-          return;
+          this.clearHeatmapCanvas();
+          return null;
         }
 
         const nClasses = Math.min(this.N_CLASSES, allVals.length);
@@ -402,6 +524,11 @@
           return breaks.length - 2;
         };
 
+        return { hexCells, getAggValue, valueToClassIdx, classColors };
+      }
+
+      /** Build GeoJSON features from aggregated hex cells. */
+      buildFeatures({ hexCells, getAggValue, valueToClassIdx, classColors }) {
         const features = [];
         for (const [h3Idx, cell] of Object.entries(hexCells)) {
           const val = getAggValue(cell);
@@ -424,58 +551,38 @@
             );
           }
         }
+        return features;
+      }
 
-        this.layers.clearAll();
-        if (features.length) {
-          const gj = L.geoJSON(null, {
-            style: (feat) => ({
-              fillColor: feat.properties.fillColor || CONST.DEFAULT_GRAY,
-              fillOpacity: CONST.FILL_OP,
-              color: this.BORDER_COLOR,
-              weight: this.BORDER_W,
-              opacity: CONST.BORDER_OP,
-            }),
-            interactive: false,
-            pane: CONST.GRAPH_PANE,
-          });
-          gj.addData({ type: "FeatureCollection", features });
-          this.layers.addGraph(gj);
+      /** Render hexagons + labels onto the managed Canvas.
+       *  Canvas lives in mapPane with position offset cancelling the
+       *  mapPane CSS transform — no more clipping from zoom animations.
+       *  LayerControl's enforceOrder sets canvas z-index via onZIndex
+       *  callback, and checkbox visibility via onToggle callback. */
+      renderFeatures(features) {
+        if (!features.length) {
+          this.clearHeatmapCanvas();
+          return;
         }
+        this.cachedFeatures = features;
 
-        if (this.currentLabelShow) {
-          features.forEach((feat) => {
-            let lat, lng;
-            try {
-              const centerLatLng = h3.cellToLatLng(feat.properties.h3);
-              lat = centerLatLng[0];
-              lng = centerLatLng[1];
-            } catch (e) {
-              const ring = feat.geometry.coordinates[0];
-              let cx = 0,
-                cy = 0;
-              for (let j = 0; j < ring.length - 1; j++) {
-                cx += ring[j][0];
-                cy += ring[j][1];
-              }
-              lng = cx / (ring.length - 1);
-              lat = cy / (ring.length - 1);
-            }
+        this.overlay.resize();
+        this.overlay.updatePosition();
+        this.redrawHeatmap();
+        this.overlay.setVisible(true);
+        this.overlay.register();
+      }
 
-            const labelStr = window.foliplus.formatNumber(
-              feat.properties.value,
-              CONST.FORMAT,
-            );
-            this.layers.addLabel(
-              L.marker([lat, lng], {
-                icon: L.divIcon({
-                  className: "heatmap-label",
-                  html: `<span style="font-size:${CONST.LABEL_SIZE}px;color:${CONST.LABEL_COLOR}">${labelStr}</span>`,
-                }),
-                interactive: false,
-                pane: CONST.LABEL_PANE,
-              }),
-            );
-          });
+      clearHeatmapCanvas() {
+        this.cachedFeatures = null;
+        if (this.overlay) {
+          const ctx = this.overlay.ctx;
+          if (ctx) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, this.overlay.canvas.width, this.overlay.canvas.height);
+          }
+          this.overlay.setVisible(false);
+          this.overlay.unregister();
         }
       }
     }
@@ -486,12 +593,20 @@
         super(options);
         this.manager = manager;
         this.manager.ui = this;
-
         this.schemeDropdown = null;
         this.expandHookDone = false;
       }
 
       onAdd() {
+        const wrapper = this.buildHeader();
+        this.buildDataSection();
+        this.buildStyleSection();
+        this.setupObserver();
+        return wrapper;
+      }
+
+      /** Create the outer container, toggle button, and panel header. */
+      buildHeader() {
         const wrapper = L.DomUtil.create("div", "leaflet-bar leaflet-control");
         this.container = L.DomUtil.create(
           "div",
@@ -526,6 +641,12 @@
           container: this.container,
         });
 
+        return wrapper;
+      }
+
+      /** Build the data section: layer select, aggregation method, field selector. */
+      buildDataSection() {
+        const panelWrap = this.container.querySelector(".panel-wrap");
         const content = L.DomUtil.create("div", "panel-content", panelWrap);
         const configBody = L.DomUtil.create("div", "config-body", content);
         const dataHeading = L.DomUtil.create("div", "section-heading", configBody);
@@ -584,8 +705,10 @@
 
         // Initialize layer dropdown LAST after all select refs are created
         this.buildLayerListItems(this.layerSelect);
+      }
 
-        // Style section
+      /** Build the style section: classification, color scheme, border, label toggle, action buttons. */
+      buildStyleSection() {
         const styleHeading = L.DomUtil.create("div", "section-heading", this.extraBody);
         styleHeading.textContent = _(`${CONST.name}.section_style`);
         const styleSection = L.DomUtil.create("div", "section-block", this.extraBody);
@@ -781,8 +904,10 @@
           this.container.classList.remove("expanded");
           this.container.classList.add("collapsed");
         };
+      }
 
-        // Watch panel expand event to refresh dropdown
+      /** Set up MutationObserver to refresh layer dropdown on panel expand. */
+      setupObserver() {
         this.observer = new MutationObserver(() => {
           if (this.container.classList.contains("expanded") && !this.expandHookDone) {
             this.expandHookDone = true;
@@ -792,21 +917,25 @@
             this.expandHookDone = false;
         });
         this.observer.observe(this.container, { attributes: true });
-
-        return wrapper;
       }
 
       onRemove() {
         // Clean up map event listeners
+        if (this.manager.moveRafId) cancelAnimationFrame(this.manager.moveRafId);
         if (this.manager.onZoomEnd) this.manager.onZoomEnd.cancel();
         if (this.manager.onLayerChange) this.manager.onLayerChange.cancel();
+        this.manager.map.off("zoomstart", this.manager.onZoomStart);
+        this.manager.map.off("move", this.manager.redrawOnMove);
         this.manager.map.off("zoomend", this.manager.onZoomEnd);
         this.manager.map.off("layeradd layerremove", this.manager.onLayerChange);
 
         // Disconnect MutationObserver
         if (this.observer) this.observer.disconnect();
 
-        this.manager.layers.clearAll();
+        this.manager.clearHeatmapCanvas();
+        if (this.manager.overlay) this.manager.overlay.destroy();
+        this.manager.overlay = null;
+        this.manager.ui = null;
       }
 
       // --- UI Logic Methods ---
@@ -839,7 +968,7 @@
           this.syncSelect(sel, sel.value);
           this.updateFieldSelector();
           if (this.manager.selectedLayerId) this.manager.renderHexagons();
-          else this.manager.layers.clearAll();
+          else this.manager.clearHeatmapCanvas();
         };
 
         this.syncSelect(sel, sel.value);
@@ -1028,7 +1157,7 @@
         this.manager.currentLabelShow = CONST.LABEL_SHOW;
         this.manager.BORDER_W = CONST.BORDER_W_DEFAULT;
         this.manager.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
-        this.manager.layers.clearAll();
+        this.manager.clearHeatmapCanvas();
       }
 
       syncSelect(el, value) {

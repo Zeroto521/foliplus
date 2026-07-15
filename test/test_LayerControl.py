@@ -78,7 +78,7 @@ class TestLayerControlRendering:
         assert "unregisterLayer" in html
         assert "getLayersByType" in html
         assert "ensurePane" in html
-        # createManagedLayers convenience API
+        # layers() convenience API
         assert "addGraph" in html
         assert "addLabel" in html
         assert "removeGraph" in html
@@ -607,7 +607,7 @@ class TestLayerControlBrowser:
             page.close()
 
     def test_create_managed_layers_api(self, browser, tmp_path):
-        """createManagedLayers returns expected convenience methods."""
+        """layers() returns expected convenience methods."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
 
@@ -623,7 +623,7 @@ class TestLayerControlBrowser:
             api = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
                 if (!api) return null;
-                const mg = api.createManagedLayers({
+                const mg = api.createLayers({
                     id: '__test__',
                     name: 'Test',
                     graphPane: '__test_graph__',
@@ -679,7 +679,7 @@ class TestLayerControlBrowser:
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
                 if (!api) return null;
-                const mg = api.createManagedLayers({
+                const mg = api.createLayers({
                     id: '__test_pane__',
                     name: 'PaneTest',
                     graphPane: '__pane_test_graph__',
@@ -717,7 +717,7 @@ class TestLayerControlBrowser:
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
                 if (!api) return null;
-                const mg = api.createManagedLayers({
+                const mg = api.createLayers({
                     id: '__test_clear__',
                     name: 'ClearTest',
                     graphPane: '__test_clear_graph__',
@@ -755,7 +755,7 @@ class TestLayerControlBrowser:
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
                 if (!api) return null;
-                const mg = api.createManagedLayers({
+                const mg = api.createLayers({
                     id: '__test_label__',
                     name: 'LabelTest',
                     graphPane: '__test_label_graph__',

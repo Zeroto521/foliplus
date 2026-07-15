@@ -217,13 +217,17 @@
       this.fallbackPanes = new Set();
       this.labelPanes = new Set();
 
+      // Store callbacks keyed by layer id:
+      //   toggle - visibility sync (e.g. Canvas heatmap overlay)
+      //   zIndex - layer order sync (e.g. Canvas heatmap z-index)
+      this.layerCallbacks = new Map();
+
       this.debouncedEnforce = foliplus.debounce(() => {
         if (this.isDestroyed || !this.map || !this.map._container) return;
         this.enforceOrder();
       }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
       this.onLayerAdd = (e) => {
-        // Skip internal layers, background enforcement, and destroyed manager
         if (
           this.isEnforcing ||
           this.isDestroyed ||
@@ -357,6 +361,12 @@
         else this.layers.splice(firstBaseIdx, 0, layerInfo);
       } else this.layers.unshift(layerInfo);
 
+      // Store callbacks for non-Leaflet layers (e.g. Canvas heatmap)
+      const cbs = {};
+      if (opts.onToggle) cbs.onToggle = opts.onToggle;
+      if (opts.onZIndex) cbs.onZIndex = opts.onZIndex;
+      if (Object.keys(cbs).length) this.layerCallbacks.set(opts.id, cbs);
+
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
         for (const cp of this.discoverChildPanes(opts.layer)) {
@@ -364,9 +374,6 @@
         }
       }
 
-      // NB: window[id] provides global access for HeatmapControl/others to find
-      // layers by id via scanMapLayers() fallback path.
-      // Guard against prototype pollution — only allow plain JS identifier-like ids.
       if (opts.layer) {
         if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id)) {
           window[opts.id] = opts.layer;
@@ -380,9 +387,6 @@
 
       this.enforceOrder();
 
-      // Mark container layers (L.layerGroup, L.featureGroup, etc.) as
-      // already-processed so subsequent enforceOrder() calls skip the
-      // removeLayer/addLayer cycle.
       if (opts.paneName && opts.layer) {
         if (!(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)) {
           opts.layer.options.pane = opts.paneName;
@@ -395,8 +399,6 @@
         return null;
       }
 
-      // Re-render keeps separator/group boundaries correct for both overlay/base
-      // runtime registrations and avoids fragile incremental insertion logic.
       this.renderInitialList();
       this.initTypesAndVisibility();
       this.saveOrder();
@@ -431,6 +433,7 @@
         }
       }
       requestAnimationFrame(() => this.map.invalidateSize({ animate: false }));
+      this.layerCallbacks.delete(id);
       return true;
     }
 
@@ -449,14 +452,14 @@
      * addLayer/removeLayer/clearLayers routing and LayerControl registration.
      *
      * @param {Object} opts
-     * @param {string} opts.id      - Unique layer ID (e.g. '__heatmap__')
+     * @param {string} opts.id      - Unique layer ID.
      * @param {string} opts.name    - Display name for LayerControl panel
      * @param {string} [opts.graphPane] - Pane name for graph content (omit if no graph layer)
      * @param {string} [opts.labelPane] - Pane name for label content (omit if no label layer)
      * @param {string} [opts.iconSvg] - SVG icon for the type column
      * @returns {Object} { mainLayer, graphLayer, labelLayer }
      */
-    createManagedLayers(opts) {
+    createLayers(opts) {
       const mainLayer = L.layerGroup();
       const graphLayer = opts.graphPane
         ? L.layerGroup([], { pane: opts.graphPane })
@@ -471,8 +474,6 @@
       const register = () => {
         if (registered) return;
         registered = true;
-        // Pre-register the label pane so registerLayer can identify it
-        // without string matching on pane names.
         if (opts.labelPane) this.labelPanes.add(opts.labelPane);
         this.registerLayer({
           name: opts.name,
@@ -481,6 +482,11 @@
           layer: mainLayer,
           iconSvg: opts.iconSvg || null,
         });
+        // Wire callbacks so LayerControl checkbox controls the canvas
+        const cbs = {};
+        if (opts.onToggle) cbs.onToggle = opts.onToggle;
+        if (opts.onZIndex) cbs.onZIndex = opts.onZIndex;
+        if (Object.keys(cbs).length) this.layerCallbacks.set(opts.id, cbs);
       };
 
       const unregister = () => {
@@ -499,7 +505,6 @@
       const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
 
       // Override addLayer to route to sub-layers (no auto-register).
-      // Consumers can use the convenience methods below instead.
       mainLayer.addLayer = (layer) => {
         const isLabel = layer._isMeasureLabel;
         const target = isLabel ? labelLayer : graphLayer;
@@ -529,17 +534,13 @@
       };
 
       // ── Convenience API ──────────────────────────────────────────
-      // These handle pane/renderer setup and auto-register/unregister,
-      // so consumers don't need to call register()/unregisterIfEmpty().
       const addGraph = (layer) => {
         if (!graphLayer) return;
         layer.options.pane = opts.graphPane;
         if (layer instanceof L.Path) {
           const { renderer } = this.ensurePane(opts.graphPane);
           layer._renderer = renderer;
-        } else if (opts.graphPane) {
-          this.ensurePane(opts.graphPane, false);
-        }
+        } else if (opts.graphPane) this.ensurePane(opts.graphPane, false);
         graphLayer.addLayer(layer);
         register();
       };
@@ -597,6 +598,8 @@
         register,
         unregister,
         registered: () => registered,
+        /** Callback invoked when the layer is shown/hidden via checkbox */
+        onToggle: null,
       };
     }
 
@@ -624,6 +627,140 @@
         }
       }
       return { pane, renderer };
+    }
+
+    /**
+     * Create a managed canvas element that properly tracks map pan/zoom.
+     *
+     * The canvas is placed inside `.leaflet-map-pane` (same stacking context as
+     * Leaflet panes) and positioned at `(-panX, -panY)` to cancel the mapPane's
+     * CSS `transform: translate(panX, panY)`.  This makes the canvas visually
+     * align with the viewport — no more clipping from CSS transform.
+     *
+     * Drawing coordinates should use `latLngToContainerPoint` (viewport-relative).
+     * The canvas position is updated on every `move` event — no redraw needed for pan.
+     * Zoom changes require re-rendering the canvas content.
+     *
+     * @param {Object} opts
+     * @param {string} opts.id    - Unique layer ID for LayerControl registration.
+     * @param {string} [opts.name] - Display name (falls back to id).
+     * @param {string} [opts.iconSvg] - SVG icon HTML for the type column.
+     * @param {string} [opts.className] - Extra CSS class for the canvas element.
+     * @param {Function} [opts.onToggle] - Override default visibility callback(visible).
+     * @param {Function} [opts.onZIndex] - Override default z-index callback(z).
+     * @returns {Object} Managed canvas API:
+     *   - {HTMLCanvasElement} canvas  - The canvas element.
+     *   - {CanvasRenderingContext2D} ctx - 2D drawing context.
+     *   - {Function} resize          - Re-measure & resize canvas to container.
+     *   - {Function} destroy         - Remove canvas & unregister from LayerControl.
+     *   - {Function} updatePosition  - Recompute left/top from current mapPane offset.
+     *   - {Function} setZIndex(z)    - Set canvas z-index.
+     *   - {Function} setVisible(v)   - Show/hide canvas.
+     *   - {Function} getSize()       - Return {width, height} in CSS pixels.
+     */
+    createCanvas(opts) {
+      if (!opts?.id) throw new Error(`[${CONST.name}] createCanvas requires an id`);
+
+      const mapPane = this.map._mapPane;
+      if (!mapPane) throw new Error(`[${CONST.name}] mapPane not available`);
+
+      const canvas = L.DomUtil.create("canvas", "heatmap-canvas", mapPane);
+      if (opts.className) canvas.classList.add(opts.className);
+
+      const ctx = canvas.getContext("2d");
+
+      /** Resize canvas to match container dimensions (respecting DPR). */
+      const resize = () => {
+        const container = this.map.getContainer();
+        const dpr = window.devicePixelRatio || 1;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (canvas.width !== w * dpr) canvas.width = w * dpr;
+        if (canvas.height !== h * dpr) canvas.height = h * dpr;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+      };
+
+      /** Update canvas left/top to cancel current mapPane transform offset. */
+      const updatePosition = () => {
+        const pos = L.DomUtil.getPosition(mapPane);
+        canvas.style.left = -pos.x + "px";
+        canvas.style.top = -pos.y + "px";
+      };
+
+      /** Get current canvas size in CSS pixels. */
+      const getSize = () => {
+        const container = this.map.getContainer();
+        return { width: container.clientWidth, height: container.clientHeight };
+      };
+
+      resize();
+      updatePosition();
+
+      // Deferred registration: canvas() does NOT auto-register,
+      // so the layer doesn't appear in LayerControl until data is ready.
+      // Caller calls register()/unregister() when rendering/clearing.
+      const onToggle =
+        opts.onToggle ||
+        ((visible) => {
+          canvas.style.display = visible ? "" : "none";
+        });
+
+      const onZIndex =
+        opts.onZIndex ||
+        ((z) => {
+          canvas.style.zIndex = String(z);
+        });
+
+      let registered = false;
+
+      const register = () => {
+        if (registered) return;
+        registered = true;
+        this.registerLayer({
+          id: opts.id,
+          name: opts.name || opts.id,
+          iconSvg: opts.iconSvg || null,
+          onToggle,
+          onZIndex,
+        });
+      };
+
+      const unregister = () => {
+        if (!registered) return;
+        registered = false;
+        this.unregisterLayer(opts.id);
+      };
+
+      // Track map pan — update canvas position without redraw
+      const onMove = () => updatePosition();
+      this.map.on("move", onMove);
+
+      // Track map resize — re-measure canvas
+      const onResize = () => resize();
+      this.map.on("resize", onResize);
+
+      return {
+        canvas,
+        ctx,
+        resize,
+        getSize,
+        updatePosition,
+        register,
+        unregister,
+        destroy: () => {
+          this.map.off("move", onMove);
+          this.map.off("resize", onResize);
+          unregister();
+          canvas.remove();
+        },
+        setZIndex: (z) => {
+          canvas.style.zIndex = String(z);
+        },
+        setVisible: (v) => {
+          canvas.style.display = v ? "" : "none";
+        },
+      };
     }
 
     // Core Sorting Engine
@@ -664,33 +801,28 @@
       if (this.isEnforcing) return;
       this.isEnforcing = true;
       try {
-        const orderedLayers = [];
-        const layerInfos = new Map();
+        // Single pass: all registered layers (with or without Leaflet layer)
+        // get a consistent z-index based on their position in the list.
+        // Callback-only layers (e.g. Canvas heatmap) get onZIndex.
+        // Layers with a Leaflet instance also get pane migration.
+        const layersToMove = [];
+        let markerZ = 0;
 
         for (let i = 0; i < this.layers.length; i++) {
-          const layer = LayerUtils.findLayer(this.map, this.layers[i].id);
-          if (layer && this.map.hasLayer(layer)) {
-            orderedLayers.push(layer);
-            layerInfos.set(L.stamp(layer), this.layers[i]);
-          }
-        }
-
-        if (orderedLayers.length === 0) return;
-
-        const layersToMove = [];
-        let markerZ = 0; // highest z-index needed for markerPane
-        for (let i = 0; i < orderedLayers.length; i++) {
-          const layer = orderedLayers[i];
-          const info = layerInfos.get(L.stamp(layer));
-          const paneName = info?.paneName;
+          const li = this.layers[i];
+          const layer = LayerUtils.findLayer(this.map, li.id);
+          const hasLayer = layer && this.map.hasLayer(layer);
           const isTile = layer instanceof L.TileLayer;
-
-          // TileLayers use a lower z-index range (200-400) so they stay
-          // below overlayPane (400) and markerPane (600) by default.
           const zBase = isTile ? CONST.TILE_Z_INDEX_BASE : CONST.Z_INDEX_BASE;
-          // Scale z-index steps to allow room for sub-panes (labels, etc)
-          // between major layers.
-          const z = zBase + (orderedLayers.length - i) * CONST.Z_INDEX_STEP;
+          const z = zBase + (this.layers.length - i) * CONST.Z_INDEX_STEP;
+
+          // Notify custom z-index callbacks (e.g. Canvas heatmap)
+          const cbs = this.layerCallbacks.get(li.id);
+          if (cbs && cbs.onZIndex) cbs.onZIndex(z);
+
+          if (!hasLayer) continue;
+
+          const paneName = li.paneName;
 
           if (paneName) {
             const ep = this.ensurePane(paneName, !isTile);
@@ -827,9 +959,14 @@
         const layer = LayerUtils.findLayer(this.map, id);
 
         if (inputs[i]) {
+          // Callback-only layers (e.g. Canvas heatmap) have no Leaflet layer
+          // but are considered "active" by default (visible until toggled).
+          const hasLayer = layer != null;
+          const isCallbackOnly = !hasLayer && this.layerCallbacks.has(id);
           inputs[i].checked =
-            (layer != null && this.map.hasLayer(layer)) ||
-            (layer && layer._map != null);
+            isCallbackOnly ||
+            (hasLayer && this.map.hasLayer(layer)) ||
+            (hasLayer && layer._map != null);
           const item = inputs[i].closest(".layer-item");
           if (item) {
             if (inputs[i].checked) item.classList.add("is-active");
@@ -919,6 +1056,11 @@
         target.checked
           ? item.classList.add("is-active")
           : item.classList.remove("is-active");
+
+      // Notify custom callbacks (e.g. Canvas heatmap overlay)
+      const cbs = this.layerCallbacks.get(layerInfo.id);
+      if (cbs && cbs.onToggle) cbs.onToggle(target.checked);
+
       this.enforceOrder();
     }
 
@@ -1120,6 +1262,7 @@
       }
       this.layers = [];
       this.typeMap.clear();
+      this.layerCallbacks.clear();
       this.pendingRegistrations = [];
       if (window.foliplus.LayerControlAPI === this) {
         window.foliplus.LayerControlAPI = null;

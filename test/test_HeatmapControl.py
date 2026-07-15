@@ -123,18 +123,19 @@ class TestHeatmapControlRendering:
         # but the rendered display text should be the Chinese translation
         assert "heatmap.title" in html  # present as JS key, display value is "网格聚合"
 
-    def test_label_marker_config(self, base_map: folium.Map):
-        """Label markers use custom pane and no zIndexOffset."""
+    def test_label_canvas_render(self, base_map: folium.Map):
+        """Labels are drawn on the heatmap canvas via canvas()."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "graphPane: CONST.GRAPH_PANE" in html
-        assert "heatmap-label" in html
+        assert "createCanvas(" in html
+        assert "heatmap-canvas" in html
 
-    def test_label_zindex_css(self, base_map: folium.Map):
-        """.heatmap-label has !important z-index to override Leaflet's negative formula."""
+    def test_label_canvas_no_css_class(self, base_map: folium.Map):
+        """Labels use Canvas, not marker with .heatmap-label CSS class."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "z-index: var(--z-index-pane-base) !important" in html
+        assert "heatmap-canvas" in html
+        assert ".heatmap-label" not in html
 
     def test_formatnumber_usage(self, base_map: folium.Map):
         """Label values are formatted via foliplus.formatNumber."""
@@ -149,25 +150,24 @@ class TestHeatmapControlRendering:
         assert "Reds" in html
 
     def test_pane_name_constant(self, base_map: folium.Map):
-        """graphPane is used as pane name consistently."""
+        """Canvas is managed via canvas() API."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus_heatmap" in html
-        assert "graphPane: CONST.GRAPH_PANE" in html
+        assert "createCanvas(" in html
 
     def test_graphlayer_pane_init(self, base_map: folium.Map):
-        """graphLayer is initialized with pane: this.graphPane."""
+        """Canvas is created via canvas() (no graphLayer/pane)."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "graphPane: CONST.GRAPH_PANE" in html
+        assert "createCanvas(" in html
 
-    def test_register_before_add_data(self, base_map: folium.Map):
-        """renderHexagons uses addGraph which auto-registers in LayerControl."""
+    def test_canvas_rendering_all_in_one(self, base_map: folium.Map):
+        """renderHexagons uses managed canvas (this.mc) for hexagons and labels."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "this.layers.addGraph(gj)" in html
-        assert "this.layers.clearAll()" in html
-        assert "this.layers.addLabel(" in html
+        assert "this.overlay" in html
+        assert "foliplus.formatNumber" in html
 
     def test_extract_points_filters_no_feature(self, base_map: folium.Map):
         """extractPoints only accepts markers with .feature."""
@@ -471,7 +471,7 @@ class TestHeatmapControlBrowser:
             page.close()
 
     def test_layer_selection_triggers_render(self, browser, tmp_path):
-        """Selecting a layer calls renderHexagons (graphLayer gets content)."""
+        """Selecting a layer calls renderHexagons (cachedFeatures should be set)."""
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
             page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
@@ -492,17 +492,21 @@ class TestHeatmapControlBrowser:
             }}""")
             page.wait_for_timeout(2000)
 
-            # graphLayer should have content after renderHexagons
-            has_content = page.evaluate(
-                "Object.keys(window.__heatmapCtrl.manager.layers.graphLayer._layers || {}).length > 0"
+            # overlay (Canvas) should be visible with content after renderHexagons
+            has_cached = page.evaluate(
+                "window.__heatmapCtrl.manager.cachedFeatures !== null && window.__heatmapCtrl.manager.cachedFeatures !== undefined"
             )
-            assert has_content, "graphLayer should have content after layer selection"
+            canvas_visible = page.evaluate(
+                "window.__heatmapCtrl.manager.overlay.canvas && window.__heatmapCtrl.manager.overlay.canvas.style.display !== 'none'"
+            )
+            assert has_cached, "cachedFeatures should be set after layer selection"
+            assert canvas_visible, "Canvas should be visible after layer selection"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
 
     def test_clear_all_removes_content(self, browser, tmp_path):
-        """clearAll() empties graphLayer and labelLayer, triggering unregister."""
+        """clearHeatmapCanvas() clears cached data and hides the overlay."""
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
             # Render some content first
@@ -522,18 +526,18 @@ class TestHeatmapControlBrowser:
                 }}""")
                 page.wait_for_timeout(2000)
 
-            # Call clearAll
-            page.evaluate("window.__heatmapCtrl.manager.layers.clearAll()")
+            # Call clearHeatmapCanvas
+            page.evaluate("window.__heatmapCtrl.manager.clearHeatmapCanvas()")
             page.wait_for_timeout(500)
 
-            graph_empty = page.evaluate(
-                "Object.keys(window.__heatmapCtrl.manager.layers.graphLayer._layers || {}).length === 0"
+            cached_gone = page.evaluate(
+                "window.__heatmapCtrl.manager.cachedFeatures === null"
             )
-            label_empty = page.evaluate(
-                "Object.keys(window.__heatmapCtrl.manager.layers.labelLayer._layers || {}).length === 0"
+            canvas_gone = page.evaluate(
+                "!window.__heatmapCtrl.manager.overlay.canvas || window.__heatmapCtrl.manager.overlay.canvas.style.display === 'none'"
             )
-            assert graph_empty, "graphLayer should be empty after clearAll"
-            assert label_empty, "labelLayer should be empty after clearAll"
+            assert cached_gone, "cachedFeatures should be null after clear"
+            assert canvas_gone, "Canvas should be hidden after clear"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
