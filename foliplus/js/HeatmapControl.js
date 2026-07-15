@@ -168,9 +168,7 @@
           if (this.moveRafId) return;
           this.moveRafId = requestAnimationFrame(() => {
             this.moveRafId = null;
-            if (this.overlay.canvas && this.cachedFeatures) {
-              this.redrawHeatmap();
-            }
+            if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
           });
         };
         this.map.on("move", this.redrawOnMove);
