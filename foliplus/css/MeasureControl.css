@@ -101,13 +101,13 @@
 }
 
 .measure-circle-final {
-  stroke-width: 2;
+  stroke-width: var(--measure-stroke-final, 2);
 }
 
 .measure-node-preview,
 .measure-line-preview,
 .measure-circle-preview {
-  stroke-width: 1.5;
+  stroke-width: var(--measure-stroke-preview, 1.5);
 }
 
 .measure-circle-final,

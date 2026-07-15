@@ -499,11 +499,14 @@
       const origAddLayer = mainLayer.addLayer.bind(mainLayer);
       const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
 
-      // Override addLayer to route to sub-layers (no auto-register).
+      // Override addLayer to route to sub-layers and auto-register on content.
       mainLayer.addLayer = (layer) => {
-        const isLabel = layer._isMeasureLabel;
+        const isLabel = layer.isMeasureLabel;
         const target = isLabel ? labelLayer : graphLayer;
         if (target) {
+          // Ensure mainLayer is on the map for visibility while drawing,
+          // without calling registerLayer() which creates the panel checkbox.
+          if (!this.map.hasLayer(mainLayer)) this.map.addLayer(mainLayer);
           const paneName = isLabel ? opts.labelPane : opts.graphPane;
           layer.options.pane = paneName;
           if (layer instanceof L.Path) {
@@ -520,12 +523,20 @@
           return graphLayer.removeLayer(layer);
         if (labelLayer && labelLayer.hasLayer(layer))
           return labelLayer.removeLayer(layer);
-        return origRemoveLayer(layer);
+        const ret = origRemoveLayer(layer);
+        // Remove mainLayer from map when all sub-layers are empty
+        if (
+          this.map.hasLayer(mainLayer) &&
+          Object.keys(graphLayer?._layers || {}).length === 0 &&
+          Object.keys(labelLayer?._layers || {}).length === 0
+        ) this.map.removeLayer(mainLayer);
+        return ret;
       };
 
       mainLayer.clearLayers = () => {
         if (graphLayer) graphLayer.clearLayers();
         if (labelLayer) labelLayer.clearLayers();
+        if (this.map.hasLayer(mainLayer)) this.map.removeLayer(mainLayer);
       };
 
       // ── Convenience API ──────────────────────────────────────────
