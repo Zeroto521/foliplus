@@ -7,6 +7,7 @@
 - `Fullscreen`: added `hide_others` parameter (default `true`) to hide all other map controls in fullscreen; icon now switches between maximize/minimize ([#33](https://github.com/Zeroto521/foliplus/pull/33))
 - `MeasureControl`: added real-time distance preview during measurement ([#27](https://github.com/Zeroto521/foliplus/pull/27))
 - `LayerControl`: added `EMPTY` and `UNKNOWN` SVG icons for layer type display ([#29](https://github.com/Zeroto521/foliplus/pull/29), [#35](https://github.com/Zeroto521/foliplus/pull/35))
+- `LayerControl`: introduced `createCanvas()`/`createLayers()` API with deferred registration — `mainLayer.addLayer` auto-adds content to map for visibility while drawing, `register()` only creates the panel checkbox on completion; `layerCallbacks` Map for callback-only layers (Canvas heatmap) ([#38](https://github.com/Zeroto521/foliplus/pull/38), [#39](https://github.com/Zeroto521/foliplus/pull/39))
 
 ### Changed
 
@@ -17,7 +18,6 @@
 - `Fullscreen`: replaced zoom +/- text with styled SVG icons matching foliplus design, unified fullscreen button and zoom controls with consistent hover/active effects (red accent, scale) and `--shadow-ctrl-strong`; CSS extracted into `Fullscreen.css` ([#37](https://github.com/Zeroto521/foliplus/pull/37))
 - `HeatmapControl`, `MeasureControl`: label z-index offset (`+1`) is now applied automatically by `LayerControl`; label pane detection improved to use pre-registration in `createManagedLayers` instead of fragile string matching ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35))
 - `HeatmapControl`: migrated from `L.divIcon` based SVG hexagons to Canvas 2D rendering (`createCanvas` API). Significant performance improvement for large point datasets ([#38](https://github.com/Zeroto521/foliplus/pull/38))
-- `LayerControl`: introduced `createCanvas()`/`createLayers()` API with deferred registration — `mainLayer.addLayer` auto-adds content to map for visibility while drawing, `register()` only creates the panel checkbox on completion; `layerCallbacks` Map for callback-only layers (Canvas heatmap) ([#38](https://github.com/Zeroto521/foliplus/pull/38), [#39](https://github.com/Zeroto521/foliplus/pull/39))
 
 ### Fixed
 
