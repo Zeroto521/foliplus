@@ -88,7 +88,7 @@ class TestMeasureControlRendering:
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "createManagedLayers" in html
+        assert "createLayers(" in html
 
     def test_realtime_distance_preview(self, base_map: folium.Map):
         """Distance mode includes real-time preview label (previewDistLabel)."""
@@ -113,11 +113,11 @@ class TestMeasureControlRendering:
         assert "measure-del-icon" in html
 
     def test_onremove_present(self, base_map: folium.Map):
-        """MeasureControl has onRemove method that calls clearAll."""
+        """MeasureControl has onRemove method that calls destroy."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "onRemove()" in html
-        assert "measureManager.clearAll()" in html
+        assert "measureManager.destroy()" in html
 
     def test_css_classes_line_styles(self, base_map: folium.Map):
         """Line styles use measure-line-solid (solid) and measure-line-dashed (dashed)."""

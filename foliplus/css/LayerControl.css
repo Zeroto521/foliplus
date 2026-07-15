@@ -9,7 +9,7 @@
 .layer-pane .leaflet-interactive {
   pointer-events: auto;
 }
-.layer-pane .leaflet-marker-icon:not(.heatmap-label) {
+.layer-pane .leaflet-marker-icon {
   pointer-events: auto;
 }
 

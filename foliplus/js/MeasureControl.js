@@ -185,7 +185,7 @@
   class MeasureManager {
     constructor(mapInstance) {
       this.map = mapInstance;
-      this.layers = window.foliplus.LayerControlAPI.createManagedLayers({
+      this.layers = window.foliplus.LayerControlAPI.createLayers({
         id: CONST.MEASURE_ID,
         name: _(`${CONST.name}.tool_toggle`),
         graphPane: CONST.GRAPH_PANE,
@@ -261,6 +261,12 @@
     clearAll() {
       this.layers.clearAll();
       this.clearActiveMode();
+    }
+
+    /** Full cleanup including global events. Called on control removal. */
+    destroy() {
+      this.clearAll();
+      this.layers.unregister();
       if (this.onMapClick) {
         this.map.off("click", this.onMapClick);
         this.onMapClick = null;
@@ -943,7 +949,7 @@
   }
 
   // ==================== Initialization & Control Construction ====================
-  // Guard: LayerControl must be registered first to provide createManagedLayers
+  // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
   if (!window.foliplus.LayerControlAPI) {
     console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
     window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), 0);
@@ -1000,7 +1006,7 @@
     }
 
     onRemove() {
-      measureManager.clearAll();
+      measureManager.destroy();
     }
   }
 

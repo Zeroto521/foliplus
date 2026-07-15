@@ -326,11 +326,6 @@
   background: var(--accent-light);
 }
 
-.ctrl-focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
-}
-
 .pin-wrap {
   position: relative;
   width: var(--size-24);
