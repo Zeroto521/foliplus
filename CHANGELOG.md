@@ -16,6 +16,7 @@
 - `LayerControl`: auto-discover child custom panes on layer registration and create them before `addLayer`, removing the need for manual `ensurePane` calls from child components ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `Fullscreen`: replaced zoom +/- text with styled SVG icons matching foliplus design, unified fullscreen button and zoom controls with consistent hover/active effects (red accent, scale) and `--shadow-ctrl-strong`; CSS extracted into `Fullscreen.css` ([#37](https://github.com/Zeroto521/foliplus/pull/37))
 - `HeatmapControl`, `MeasureControl`: label z-index offset (`+1`) is now applied automatically by `LayerControl`; label pane detection improved to use pre-registration in `createManagedLayers` instead of fragile string matching ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35))
+- `HeatmapControl`: migrated from `L.divIcon` based SVG hexagons to Canvas 2D rendering (`createCanvas` API). Significant performance improvement for large point datasets ([#38](https://github.com/Zeroto521/foliplus/pull/38))
 
 ### Fixed
 
