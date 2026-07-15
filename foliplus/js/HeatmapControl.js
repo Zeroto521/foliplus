@@ -93,9 +93,7 @@
 
   window.foliplus.loadScripts(
     DEPS,
-    (ok) => {
-      if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();
-    },
+    (ok) => { if (ok) return run() },
     CONST.LOAD_SCRIPT_RETRIES,
     CONST.LOAD_SCRIPT_INTERVAL_MS,
     {
