@@ -160,7 +160,7 @@
 
         this.onZoomStart = () => {
           this.isZooming = true;
-          if (this.overlay.canvas) this.overlay.canvas.style.display = "none";
+          this.overlay.setVisible(false);
         };
         this.map.on("zoomstart", this.onZoomStart);
 
@@ -177,7 +177,7 @@
         this.onZoomEnd = foliplus.debounce(() => {
           if (this.selectedLayerId) {
             this.renderHexagons();
-            if (this.overlay.canvas) this.overlay.canvas.style.display = "";
+            this.overlay.setVisible(true);
           }
           // Always reset zooming state, even if no layer selected
           this.isZooming = false;
