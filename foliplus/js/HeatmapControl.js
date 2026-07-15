@@ -272,6 +272,7 @@
         const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
         if (this.cachedPoints && this.cachedPoints.key === key) {
           return this.cachedPoints.pts;
+        }
         const pts = [];
         if (!this.selectedLayerId) return pts;
         this.pointLayers.forEach((info) => {
@@ -286,6 +287,7 @@
             });
           }
         });
+        this.cachedPoints = { key, pts };
         return pts;
       }
 
