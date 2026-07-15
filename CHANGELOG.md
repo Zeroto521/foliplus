@@ -7,6 +7,7 @@
 - `Fullscreen`: added `hide_others` parameter (default `true`) to hide all other map controls in fullscreen; icon now switches between maximize/minimize ([#33](https://github.com/Zeroto521/foliplus/pull/33))
 - `MeasureControl`: added real-time distance preview during measurement ([#27](https://github.com/Zeroto521/foliplus/pull/27))
 - `LayerControl`: added `EMPTY` and `UNKNOWN` SVG icons for layer type display ([#29](https://github.com/Zeroto521/foliplus/pull/29), [#35](https://github.com/Zeroto521/foliplus/pull/35))
+- `LayerControl`: introduced `createCanvas()`/`createLayers()` API with deferred registration — `mainLayer.addLayer` auto-adds content to map for visibility while drawing, `register()` only creates the panel checkbox on completion; `layerCallbacks` Map for callback-only layers (Canvas heatmap) ([#38](https://github.com/Zeroto521/foliplus/pull/38), [#39](https://github.com/Zeroto521/foliplus/pull/39))
 
 ### Changed
 

@@ -166,9 +166,9 @@ class TestMeasureControlRendering:
         """
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # Check specific order: _isMeasureLabel = true BEFORE addTo
+        # Check specific order: isMeasureLabel = true BEFORE addTo
         assert re.search(
-            r"_isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html
+            r"isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html
         )
 
     def test_label_interaction_listeners(self, base_map: folium.Map):
@@ -214,15 +214,15 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "MeasureUtils.setLabelText" in html
-        assert "marker._labelEl" in html
+        assert "marker.labelEl" in html
         assert 'el.querySelector(".measure-label")' in html
 
     def test_create_label_utility(self, base_map: folium.Map):
-        """MeasureUtils.createLabel returns a marker with _isMeasureLabel=true."""
+        """MeasureUtils.createLabel returns a marker with isMeasureLabel=true."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "static createLabel" in html
-        assert "_isMeasureLabel = true" in html
+        assert "isMeasureLabel = true" in html
 
     def test_attach_del_click_utility(self, base_map: folium.Map):
         """MeasureUtils.attachDelClick binds click to delete icon."""
@@ -253,6 +253,36 @@ class TestMeasureControlRendering:
         assert "var(--radius-sm)" in html
         assert "var(--transition-fast)" in html
 
+    def test_remove_layers_utility(self, base_map: folium.Map):
+        """MeasureUtils.removeLayers handles null-safety and multiple layers."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static removeLayers" in html
+        assert "if (l != null)" in html
+
+    def test_build_popup_utility(self, base_map: folium.Map):
+        """MeasureUtils.buildPopup wraps buildPopupHtml with control locale keys."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static buildPopup" in html
+        assert "MeasureUtils.buildPopup" in html
+
+    def test_lazy_register_after_finish(self, base_map: folium.Map):
+        """Distance mode registers only after finishDist, not on startDistanceMode."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # register() appears in finishDist, not in startDistanceMode
+        assert "this.layers.register()" in html
+        assert "this.layers.unregister()" in html
+
+    def test_create_layers_api_used(self, base_map: folium.Map):
+        """MeasureControl uses createLayers with graphPane/labelPane."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "createLayers" in html
+        assert "graphPane" in html
+        assert "labelPane" in html
+
     def test_css_icon_size_variable(self, base_map: folium.Map):
         """MeasureControl SVGs use --icon-size-md via common.css."""
         MeasureControl().add_to(base_map)
@@ -276,7 +306,7 @@ class TestMeasureControlRendering:
         html = m.get_root().render()
         html = html.replace(
             "const measureManager = new MeasureManager(map);",
-            "const measureManager = new MeasureManager(map); window.__measureManager = measureManager;",
+            "const measureManager = new MeasureManager(map); window.__measureManager = measureManager; window.__map = map;",
         )
         html_path = tmp_path / "measure_browser.html"
         html_path.write_text(html, encoding="utf-8")
@@ -309,13 +339,37 @@ class TestMeasureControlRendering:
             page.close()
 
     def test_register_on_first_tool_click(self, browser, tmp_path):
-        """First tool click registers the layer (no content-guard issue)."""
+        """Layer not registered on tool select; only after completing measurement."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("document.querySelector('[data-mode=distance]').click()")
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(500)
+            # Tool selected — layer should NOT be registered yet
             registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert registered, "Layer should be registered after first tool click"
+            assert not registered, "Layer should NOT be registered before first click"
+            # First click — still drawing, should NOT be registered
+            page.evaluate("""() => {
+                const map = window.__map;
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            page.wait_for_timeout(500)
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert not registered, (
+                "Layer should NOT be registered after first click (still drawing)"
+            )
+            # Second click + right-click to finish
+            page.evaluate("""() => {
+                const map = window.__map;
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            page.evaluate("""() => {
+                const map = window.__map;
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after completing measurement"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
