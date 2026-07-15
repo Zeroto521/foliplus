@@ -529,7 +529,8 @@
           this.map.hasLayer(mainLayer) &&
           Object.keys(graphLayer?._layers || {}).length === 0 &&
           Object.keys(labelLayer?._layers || {}).length === 0
-        ) this.map.removeLayer(mainLayer);
+        )
+          this.map.removeLayer(mainLayer);
         return ret;
       };
 
