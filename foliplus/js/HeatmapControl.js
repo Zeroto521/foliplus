@@ -146,6 +146,7 @@
         this.ui = null;
         this.cachedPoints = null;
         this.cachedFeatures = null;
+        this.labelStyleCache = null;
 
         this.bindMapEvents();
       }
@@ -236,40 +237,27 @@
         }
       }
 
-      /** Resolve label styling from CSS custom properties. */
+      /** Resolve label styling from CSS custom properties (cached). */
       resolveLabelStyle() {
+        if (this.labelStyleCache) return this.labelStyleCache;
         const ctrlEl = this.ui?.container;
         const cssVal = (prop, fallback) =>
           ctrlEl
             ? getComputedStyle(ctrlEl).getPropertyValue(prop).trim() || fallback
             : fallback;
-        return {
+        this.labelStyleCache = {
           font: `${cssVal("--heatmap-label-font-weight", "bold")} ${cssVal("--heatmap-label-font-size", `${CONST.LABEL_SIZE}px`)} ${cssVal("--heatmap-label-font-family", "sans-serif")}`,
           color: cssVal("--heatmap-label-color", CONST.LABEL_COLOR),
           stroke: cssVal("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
           strokeWidth: parseFloat(cssVal("--heatmap-label-stroke-width", "3")),
         };
+        return this.labelStyleCache;
       }
 
       /** Draw a formatted value label centered on the hexagon. */
       drawHexLabel(ctx, feat, { font, color, stroke, strokeWidth }) {
-        let lat, lng;
-        try {
-          const center = h3.cellToLatLng(feat.properties.h3);
-          lat = center[0];
-          lng = center[1];
-        } catch (e) {
-          const coords = feat.geometry.coordinates[0];
-          let cx = 0,
-            cy = 0;
-          for (let j = 0; j < coords.length - 1; j++) {
-            cx += coords[j][0];
-            cy += coords[j][1];
-          }
-          lng = cx / (coords.length - 1);
-          lat = cy / (coords.length - 1);
-        }
-        const pt = this.map.latLngToContainerPoint(L.latLng(lat, lng));
+        const centroid = feat.properties.centroid;
+        const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
         const text = window.foliplus.formatNumber(feat.properties.value, CONST.FORMAT);
         ctx.font = font;
         ctx.textAlign = "center";
@@ -452,6 +440,8 @@
 
       // --- Hexagon Rendering ---
       renderHexagons() {
+        // Invalidate label style cache — will be re-read on next redraw
+        this.labelStyleCache = null;
         if (!this.map || !this.map._container) return;
         if (!this.selectedLayerId) {
           this.clearHeatmapCanvas();
@@ -532,14 +522,31 @@
           const val = getAggValue(cell);
           const classIdx = valueToClassIdx(val);
           const fillColor = classColors[classIdx];
+          let centroid;
+          try {
+            const center = h3.cellToLatLng(h3Idx);
+            centroid = [center[0], center[1]];
+          } catch (e) {
+            // Fallback: compute centroid from boundary polygon
+            centroid = null;
+          }
           try {
             const boundary = h3.cellToBoundary(h3Idx);
             const coords = boundary.map((p) => [p[1], p[0]]);
             coords.push(coords[0]);
+            if (!centroid) {
+              let cx = 0,
+                cy = 0;
+              for (let j = 0; j < coords.length - 1; j++) {
+                cx += coords[j][0];
+                cy += coords[j][1];
+              }
+              centroid = [cy / (coords.length - 1), cx / (coords.length - 1)];
+            }
             features.push({
               type: "Feature",
               geometry: { type: "Polygon", coordinates: [coords] },
-              properties: { value: val, classIdx, fillColor, h3: h3Idx },
+              properties: { value: val, classIdx, fillColor, h3: h3Idx, centroid },
             });
           } catch (e) {
             console.warn(
