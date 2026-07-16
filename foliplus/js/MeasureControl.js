@@ -3,7 +3,6 @@
   const CONST = {
     name: "MeasureControl",
     MARKER_RADIUS: 5,
-    POPUP_MAX_WIDTH: 260,
     CLICK_COOLDOWN_MS: 300,
     FINALIZE_DELAY_MS: 50,
     DEL_ICON_RETRY_LIMIT: 10,
