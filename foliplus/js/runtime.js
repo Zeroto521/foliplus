@@ -527,11 +527,10 @@
    * Collapse a panel when clicking outside of it.
    * Sets up a MutationObserver to auto-cleanup when the container is removed.
    * @param {object} opts
-   * @param {L.Map} opts.map - Leaflet map instance
    * @param {HTMLElement} opts.container - Panel element to watch
    * @returns {Function} Cleanup function to remove the click listener
    */
-  foliplus.bindOutsideCollapse = ({ map, container }) => {
+  foliplus.bindOutsideCollapse = ({ container }) => {
     const handler = (e) => {
       if (!container.contains(e.target) && container.classList.contains("expanded")) {
         container.classList.remove("expanded");
