@@ -105,11 +105,6 @@ _JS_USED_KEYS = {
     # Runtime / global
     "gcoord.warn",
     "load.script_fail",
-    "num.k",
-    "num.m",
-    "num.b",
-    "num.w",
-    "num.y",
 }
 
 
