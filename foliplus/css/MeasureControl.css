@@ -21,17 +21,12 @@
 .measure-ctrl .tool-btn svg {
   stroke: currentColor;
 }
-.measure-ctrl .tool-btn:hover {
-  background-color: var(--accent-light);
-  color: var(--accent-primary);
-}
-.measure-ctrl .tool-btn:hover svg {
-  stroke: var(--accent-primary);
-}
+.measure-ctrl .tool-btn:hover,
 .measure-ctrl .tool-btn.active {
   background-color: var(--accent-light);
   color: var(--accent-primary);
 }
+.measure-ctrl .tool-btn:hover svg,
 .measure-ctrl .tool-btn.active svg {
   stroke: var(--accent-primary);
 }
