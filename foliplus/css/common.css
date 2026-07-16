@@ -92,8 +92,6 @@
 
   /* ── Sizing ── */
   --ctrl-size: 30px;
-  --input-height: 30px;
-  --btn-height: 30px;
   --scale-press: 0.92;
   --scale-hover: 1.08;
   --icon-size-sm: var(--size-16);
@@ -132,6 +130,11 @@
   /* ── Transitions ── */
   --transition-fast: 0.15s ease;
 
+  /* ── Micro Visual Adjustments ── */
+  --stroke-icon: 1.8;
+  --line-height-hint: 1.4;
+  --line-height-popup: 1.8;
+
   /* ── Z-index ──
     LayerControl JS manages pane z-index dynamically.
     Hint z-index is managed by runtime.js (HINT.Z_BASE = 10000).
@@ -169,7 +172,7 @@
   height: var(--icon-size-md);
   stroke: currentColor;
   fill: none;
-  stroke-width: 1.8;
+  stroke-width: var(--stroke-icon);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -245,7 +248,7 @@
   color: var(--neutral-0);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
-  line-height: 1.4;
+  line-height: var(--line-height-hint);
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
 }
 
@@ -302,7 +305,7 @@
 
 .popup-content {
   font-size: var(--font-size-md);
-  line-height: 1.8;
+  line-height: var(--line-height-popup);
 }
 
 /* ── Ctrl Fold (Shared Container) ──

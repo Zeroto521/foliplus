@@ -3,13 +3,15 @@
   color: var(--text-primary);
   --dropdown-max-height: 200px;
   --toggle-off-bg: #ccc;
-  --accent-shadow-sm: 0 var(--size-2) var(--size-8) rgba(var(--red-rgb), var(--alpha-30));
-  --accent-shadow-md: 0 var(--size-4) var(--size-12) rgba(var(--red-rgb), var(--alpha-50));
+  --accent-shadow-sm: 0 var(--size-2) var(--size-8)
+    rgba(var(--red-rgb), var(--alpha-30));
+  --accent-shadow-md: 0 var(--size-4) var(--size-12)
+    rgba(var(--red-rgb), var(--alpha-50));
   --heatmap-label-width: 85px;
   --heatmap-select-pad-right: var(--space-xxl);
   --heatmap-inline-height: 18px;
   --heatmap-inline-width: 52px;
-  --heatmap-toggle-width: var(--toggle-size);
+  --heatmap-toggle-width: 40px;
   --heatmap-toggle-height: var(--size-20);
   --heatmap-accent-arrow-offset: var(--size-6);
   --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
@@ -18,8 +20,8 @@
   /* Label Canvas – CSS-driven parameters for Canvas text rendering */
   --heatmap-label-font-family: sans-serif;
   --heatmap-label-font-weight: bold;
-  --heatmap-label-font-size: 12px;
-  --heatmap-label-color: #fff;
+  --heatmap-label-font-size: var(--font-size-sm);
+  --heatmap-label-color: var(--neutral-0);
   --heatmap-label-stroke-color: rgba(0, 0, 0, 0.75);
   --heatmap-label-stroke-width: 3px;
 }
@@ -68,7 +70,7 @@
 .heatmap-ctrl .form-select,
 .heatmap-ctrl select {
   width: 100%;
-  height: var(--input-height);
+  height: var(--ctrl-size);
   font-size: var(--font-size-md);
   padding: 0 var(--heatmap-select-pad-right) 0 var(--space-md);
   border: var(--border-thin) solid var(--input-border);
@@ -222,7 +224,7 @@
 /* ── Border Inputs ── */
 .heatmap-ctrl .border-color-input {
   flex: 1;
-  height: var(--input-height);
+  height: var(--ctrl-size);
   padding: var(--border-thin);
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
@@ -239,7 +241,7 @@
 }
 .heatmap-ctrl .border-weight-input {
   width: var(--heatmap-inline-width);
-  height: var(--input-height);
+  height: var(--ctrl-size);
   font-size: var(--font-size-sm);
   padding: 0 var(--size-6);
   border: var(--border-thin) solid var(--input-border);
@@ -286,26 +288,26 @@
   right: 0;
   bottom: 0;
   background-color: var(--toggle-off-bg);
-  border-radius: var(--radius-lg);
+  border-radius: 10px;
   transition: background-color var(--transition-fast);
 }
 .heatmap-ctrl .toggle-slider::before {
   content: "";
   position: absolute;
-  height: var(--icon-size-sm);
-  width: var(--icon-size-sm);
-  left: var(--space-xs);
-  bottom: var(--space-xs);
+  height: var(--size-16);
+  width: var(--size-16);
+  left: var(--size-2);
+  bottom: var(--size-2);
   background-color: var(--neutral-0);
   border-radius: var(--radius-round);
   transition: transform var(--transition-fast);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider {
   background-color: var(--accent-primary);
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider::before {
-  transform: translateX(var(--icon-size-sm));
+  transform: translateX(var(--size-20));
 }
 
 /* ── Bottom Buttons ── */
@@ -318,7 +320,7 @@
 }
 .heatmap-ctrl .btn {
   flex: 1;
-  height: var(--btn-height);
+  height: var(--ctrl-size);
   border: none;
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);

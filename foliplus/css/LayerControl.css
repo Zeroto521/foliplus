@@ -154,7 +154,7 @@
 }
 /* ── Custom Radio Button ── */
 .layer-ctrl .layer-item input[type="radio"] {
-  border-radius: 50%;
+  border-radius: var(--radius-round);
 }
 .layer-ctrl .layer-item input[type="radio"]:checked {
   border-color: var(--accent-primary);
