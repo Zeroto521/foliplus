@@ -34,12 +34,6 @@
     ],
     H3_RES_FALLBACK: 12,
     HEATMAP_ID: "foliplus_heatmap",
-    HEXAGON: `
-      <svg viewBox="0 0 24 24">
-        <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
-        <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
-        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-      </svg>`,
     AGG_DEFAULT: "{{ this.agg }}",
     FIELD_DEFAULT: "{{ this.style.field }}",
     COLOR_SCHEME: "{{ this.color_scheme }}",
@@ -66,7 +60,17 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  window.foliplus.registerHintIcon(CONST.name, CONST.HEXAGON);
+  // ==================== SVG Icons ====================
+  const SVGs = {
+    HEXAGON: `
+      <svg viewBox="0 0 24 24">
+        <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
+        <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>`,
+  };
+
+  window.foliplus.registerHintIcon(CONST.name, SVGs.HEXAGON);
 
   // --- Dynamic Dependency Loader ---
   // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
@@ -140,7 +144,7 @@
         this.overlay = window.foliplus.LayerControlAPI.createCanvas({
           id: CONST.HEATMAP_ID,
           name: _(`${CONST.name}.title`),
-          iconSvg: CONST.HEXAGON,
+          iconSvg: SVGs.HEXAGON,
         });
         this.ui = null;
         this.cachedPoints = null;
@@ -622,13 +626,13 @@
 
         const toggleBtn = L.DomUtil.create("button", "toggle-btn", this.container);
         toggleBtn.title = _(`${CONST.name}.title`);
-        toggleBtn.innerHTML = CONST.HEXAGON;
+        toggleBtn.innerHTML = SVGs.HEXAGON;
 
         const panelWrap = L.DomUtil.create("div", "panel-wrap", this.container);
         const header = L.DomUtil.create("div", "panel-header", panelWrap);
         header.innerHTML = `
           <span class="header-title">
-            <span class="header-icon">${CONST.HEXAGON}</span>
+            <span class="header-icon">${SVGs.HEXAGON}</span>
             ${_(`${CONST.name}.title`)}
           </span>
           <button class="close-btn ctrl-abs-btn" title="${_(`${CONST.name}.close_title`)}">
