@@ -217,13 +217,6 @@ class TestMeasureControlRendering:
         assert "marker.labelEl" in html
         assert 'el.querySelector(".measure-label")' in html
 
-    def test_create_label_utility(self, base_map: folium.Map):
-        """MeasureUtils.createLabel returns a marker with isMeasureLabel=true."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "static createLabel" in html
-        assert "isMeasureLabel = true" in html
-
     def test_attach_del_click_utility(self, base_map: folium.Map):
         """MeasureUtils.attachDelClick binds click to delete icon."""
         MeasureControl().add_to(base_map)

@@ -157,21 +157,6 @@
       }, CONST.DEL_ICON_RETRY_DELAY_MS);
     }
 
-    /** Create a label marker with the given text. */
-    static createLabel(lat, lng, text, anchor) {
-      const m = L.marker([lat, lng], {
-        interactive: false,
-        icon: L.divIcon({
-          className: "",
-          html: `<div class="measure-label">${text}</div>`,
-          iconSize: [0, 0],
-          iconAnchor: anchor || [0, 0],
-        }),
-      });
-      m.isMeasureLabel = true;
-      return m;
-    }
-
     /** Update a label marker's text content. Caches DOM reference on first call. */
     static setLabelText(marker, text) {
       if (!marker.labelEl) {
