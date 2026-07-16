@@ -4,13 +4,13 @@
     name: "MapSearch",
     COORD: "coord",
     ADDR: "addr",
-    nominatimUrl: "https://nominatim.openstreetmap.org/search",
-    nominatimFormat: "jsonv2",
-    nominatimLimit: 1,
-    zoomMax: 16,
-    zoomMin: 12,
-    zoomBase: 18,
-    zoomDivisor: 20,
+    NOMINATIM_URL: "https://nominatim.openstreetmap.org/search",
+    NOMINATIM_FORMAT: "jsonv2",
+    NOMINATIM_LIMIT: 1,
+    ZOOM_MAX: 16,
+    ZOOM_MIN: 12,
+    ZOOM_BASE: 18,
+    ZOOM_DIVISOR: 20,
   };
 
   // ==================== Runtime Guard ====================
@@ -161,13 +161,13 @@
         );
 
         fetch(
-          CONST.nominatimUrl +
+          CONST.NOMINATIM_URL +
             "?format=" +
-            CONST.nominatimFormat +
+            CONST.NOMINATIM_FORMAT +
             "&q=" +
             encodeURIComponent(query) +
             "&limit=" +
-            CONST.nominatimLimit +
+            CONST.NOMINATIM_LIMIT +
             "&accept-language=" +
             (window._LOCALE["locale.code"] || "en"),
         )
@@ -194,10 +194,10 @@
             lat = converted[1];
 
             const zoom = Math.min(
-              CONST.zoomMax,
+              CONST.ZOOM_MAX,
               Math.max(
-                CONST.zoomMin,
-                CONST.zoomBase - Math.floor(displayName.length / CONST.zoomDivisor),
+                CONST.ZOOM_MIN,
+                CONST.ZOOM_BASE - Math.floor(displayName.length / CONST.ZOOM_DIVISOR),
               ),
             );
             map.flyTo([lat, lng], zoom);
