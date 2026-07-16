@@ -65,8 +65,6 @@
   };
   const POPUP = {
     MAX_WIDTH: 300,
-    DEFAULT_LOCALE_1000: 1000, // en compact threshold
-    DEFAULT_LOCALE_10000: 10000, // zh compact threshold
   };
   const FALLBACK = {
     K: 1000,
