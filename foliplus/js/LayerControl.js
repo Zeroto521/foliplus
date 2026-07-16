@@ -10,7 +10,6 @@
     PANE_RECURSION_DEPTH: 5,
     DRAG_TIMEOUT_MS: 100,
     DRAG_HINT_COOLDOWN_MS: 800,
-    DRAG_HINT_DURATION_MS: 1200,
     LAYER_RECURSION_DEPTH: 10,
     MARKER_Z_OFFSET: 1000,
     MARKER_Z_OFFSET_HOVER: 2000,
@@ -1116,7 +1115,7 @@
         window.foliplus.showHint(
           CONST.name,
           _(CONST.name + ".reorder_group_only"),
-          CONST.DRAG_HINT_DURATION_MS,
+          window.foliplus.HINT_DURATION.SHORT,
         );
       }
     }

@@ -42,6 +42,17 @@
     STACK_GAP: 40,
     Z_BASE: 10000,
     DEFAULT_DURATION: 3000,
+    SHORT: 1200,
+    MEDIUM: 2500,
+    LONG: 4000,
+    PERSIST: 0,
+  };
+  // Expose hint duration tiers for other components
+  foliplus.HINT_DURATION = {
+    SHORT: HINT.SHORT,
+    MEDIUM: HINT.MEDIUM,
+    LONG: HINT.LONG,
+    PERSIST: HINT.PERSIST,
   };
   const GEO = {
     THROTTLE_MS: 1000,
@@ -280,7 +291,7 @@
       if (!_gcoordWarned) {
         _gcoordWarned = true;
         console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-        foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
+        foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
       }
     }
     return [lat, lng];
@@ -303,7 +314,7 @@
         if (!_gcoordWarned) {
           _gcoordWarned = true;
           console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-          foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
+          foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
         }
         return [lng, lat];
       }
@@ -690,7 +701,7 @@
             }
           }
           console.error(`[${hintOpts.hintKey}] ${foliplus.gt(msgKey)} (${failedStr})`);
-          foliplus.showHint(hintOpts.hintKey, foliplus.gt(msgKey), 0);
+          foliplus.showHint(hintOpts.hintKey, foliplus.gt(msgKey), HINT.PERSIST);
         }
       };
 
