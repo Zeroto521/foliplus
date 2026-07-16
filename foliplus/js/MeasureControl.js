@@ -260,13 +260,25 @@
       this.map.getContainer().classList.add("is-measuring");
 
       if (mode === "marker") {
-        window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_marker`), window.foliplus.HINT_DURATION.PERSIST);
+        window.foliplus.showHint(
+          CONST.name,
+          _(`${CONST.name}.hint_marker`),
+          window.foliplus.HINT_DURATION.PERSIST,
+        );
         this.bindMarkerMode();
       } else if (mode === "distance") {
-        window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_dist_start`), window.foliplus.HINT_DURATION.PERSIST);
+        window.foliplus.showHint(
+          CONST.name,
+          _(`${CONST.name}.hint_dist_start`),
+          window.foliplus.HINT_DURATION.PERSIST,
+        );
         this.startDistanceMode();
       } else if (mode === "circle") {
-        window.foliplus.showHint(CONST.name, _(`${CONST.name}.hint_circle_start`), window.foliplus.HINT_DURATION.PERSIST);
+        window.foliplus.showHint(
+          CONST.name,
+          _(`${CONST.name}.hint_circle_start`),
+          window.foliplus.HINT_DURATION.PERSIST,
+        );
         this.startCircleMode();
       }
     }
@@ -981,7 +993,11 @@
   // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
   if (!window.foliplus.LayerControlAPI) {
     console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-    window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), window.foliplus.HINT_DURATION.PERSIST);
+    window.foliplus.showHint(
+      CONST.name,
+      _(`${CONST.name}.no_layercontrol`),
+      window.foliplus.HINT_DURATION.PERSIST,
+    );
     return;
   }
 
