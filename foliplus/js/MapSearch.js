@@ -11,8 +11,6 @@
     zoomMin: 12,
     zoomBase: 18,
     zoomDivisor: 20,
-    hintError: 5000,
-    hintForever: 0,
   };
 
   // ==================== Runtime Guard ====================
@@ -26,12 +24,6 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   window.foliplus.registerHintIcon(CONST.name, window.foliplus.SVGs.SEARCH);
-
-  // ==================== Helper Functions ====================
-  const hideSearchHint = () => window.foliplus.hideHint(CONST.name);
-  const showSearchHint = (msg, duration) => {
-    window.foliplus.showHint(CONST.name, msg, duration);
-  };
 
   // ==================== Control Definition ====================
   new (L.Control.extend({
@@ -84,7 +76,7 @@
           map.removeLayer(mk);
           mk = null;
         }
-        hideSearchHint();
+        window.foliplus.hideHint(CONST.name);
         inp.focus();
       }
 
@@ -99,7 +91,7 @@
         if (ctrl.classList.contains("expanded")) {
           ctrl.classList.remove("expanded");
           ctrl.classList.add("collapsed");
-          hideSearchHint();
+          window.foliplus.hideHint(CONST.name);
         } else {
           ctrl.classList.remove("collapsed");
           ctrl.classList.add("expanded");
@@ -134,14 +126,14 @@
           .map(Number);
 
         if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-          showSearchHint(_(`${CONST.name}.coord_error`), CONST.hintError);
+          window.foliplus.showHint(CONST.name, _(`${CONST.name}.coord_error`), window.foliplus.HINT_DURATION.LONG);
           inp.value = "";
           return;
         }
 
         const lng = parts[0];
         const lat = parts[1];
-        hideSearchHint();
+        window.foliplus.hideHint(CONST.name);
         map.flyTo([lat, lng], {{ this.zoom }});
         mk = window.foliplus.createLocationMarker(
           map,
@@ -152,15 +144,16 @@
           `${CONST.name}.popup_loading`,
           `${CONST.name}.popup_loc_label`,
           `${CONST.name}.popup_addr_label`,
-          mk,
         );
+        mk,
       };
 
       // Address search via Nominatim
       const doAddrSearch = (query) => {
-        showSearchHint(
+        window.foliplus.showHint(
+          CONST.name,
           window.foliplus.SVGs.LOADING + " " + _(`${CONST.name}.popup_loading`),
-          CONST.hintForever,
+          window.foliplus.HINT_DURATION.PERSIST,
         );
 
         fetch(
@@ -176,9 +169,9 @@
         )
           .then((r) => r.json())
           .then((results) => {
-            hideSearchHint();
+            window.foliplus.hideHint(CONST.name);
             if (!results || results.length === 0) {
-              showSearchHint(_(`${CONST.name}.addr_not_found`), CONST.hintError);
+              window.foliplus.showHint(CONST.name, _(`${CONST.name}.addr_not_found`), window.foliplus.HINT_DURATION.LONG);
               inp.value = "";
               return;
             }
@@ -214,8 +207,8 @@
           })
           .catch((err) => {
             console.error(`[${CONST.name}] ${_(CONST.name + ".addr_error")}`);
-            hideSearchHint();
-            showSearchHint(_(CONST.name + ".addr_error"), CONST.hintError);
+            window.foliplus.hideHint(CONST.name);
+            window.foliplus.showHint(CONST.name, _(CONST.name + ".addr_error"), window.foliplus.HINT_DURATION.LONG);
           });
       };
 
@@ -224,7 +217,7 @@
         if (e.key === "Escape") {
           ctrl.classList.remove("expanded");
           ctrl.classList.add("collapsed");
-          hideSearchHint();
+          window.foliplus.hideHint(CONST.name);
           return;
         }
         if (e.key === "Enter") {
@@ -239,7 +232,7 @@
         map: map,
         container: ctrl,
         shouldCollapse: () => !inp.value.trim(),
-        onCollapse: () => hideSearchHint(),
+        onCollapse: () => window.foliplus.hideHint(CONST.name),
       });
 
       return container;

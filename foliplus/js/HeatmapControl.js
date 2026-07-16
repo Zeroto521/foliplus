@@ -10,7 +10,6 @@
     SCHEME_DROPDOWN_BLUR_DELAY_MS: 150,
     LOAD_SCRIPT_RETRIES: 2,
     LOAD_SCRIPT_INTERVAL_MS: 3000,
-    NO_LAYER_HINT_MS: 4000,
     DEFAULT_GRAY: "#999",
     H3_RES_MAP: [
       [2, 0],
@@ -112,7 +111,7 @@
     // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
     if (!window.foliplus.LayerControlAPI) {
       console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-      window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), 0);
+      window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), window.foliplus.HINT_DURATION.PERSIST);
       return;
     }
 
@@ -1144,7 +1143,7 @@
           window.foliplus.showHint(
             CONST.name,
             _(`${CONST.name}.no_layer`),
-            CONST.NO_LAYER_HINT_MS,
+            window.foliplus.HINT_DURATION.LONG,
           );
         } else {
           this.rebuildLayerDropdown();
