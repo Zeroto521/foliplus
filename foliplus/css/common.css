@@ -2,7 +2,6 @@
   Design Tokens — Shared across all Folium plugins
   Single source of truth for colors, typography, spacing, and component styles
   ══════════════════════════════════════════════════════════════════════ */
-
 :root {
   /* ── Primitive Tokens: Size Scale ──
     Prefer these base steps in component styles: 2/4/6/8/12/16/20/24
@@ -15,11 +14,10 @@
   --size-8: 8px;
   --size-12: 12px;
   --size-16: 16px;
-  --size-18: 18px;
   --size-20: 20px;
   --size-24: 24px;
 
-  /* ── Primitive Tokens: Alpha Scale ── */
+  /* ── Alpha Scale ── */
   --alpha-06: 0.06;
   --alpha-12: 0.12;
   --alpha-20: 0.2;
@@ -29,31 +27,25 @@
   --alpha-80: 0.8;
   --alpha-95: 0.95;
 
-  /* ── Primitive Tokens: Neutral Palette ── */
+  /* ── Neutral Palette ── */
   --neutral-0: #fff;
   --neutral-100: #f5f5f5;
   --neutral-300: #e0e0e0;
   --neutral-500: #aaa;
   --neutral-800: #333;
 
-  /* ── Primitive Tokens: Brand Red Palette ── */
+  /* ── Brand Red Palette ── */
   --red-50: #fde8e8;
   --red-500: #e74c3c;
   --red-600: #c0392b;
   --red-rgb: 231, 76, 60;
-  --red-700-rgb: 200, 60, 40;
 
-  /* ── Semantic Tokens: Colors ── */
-  /* Base */
+  /* ── Colors ── */
   --ctrl-bg: var(--neutral-0);
-  --ctrl-border: rgba(0, 0, 0, var(--alpha-20));
   --ctrl-hover-bg: var(--neutral-100);
-  --ctrl-active-bg: #e8e8e8;
 
   --text-primary: var(--neutral-800);
-  --text-secondary: var(--neutral-500);
   --text-muted: var(--neutral-500);
-  --text-placeholder: var(--neutral-500);
 
   --input-bg: var(--neutral-0);
   --input-border: var(--neutral-300);
@@ -61,10 +53,8 @@
 
   --divider-color: var(--neutral-300);
 
-  /* Component */
   --panel-header-bg: var(--neutral-100);
   --panel-header-hover: var(--neutral-300);
-  --panel-border: #eee;
 
   --accent-primary: var(--red-500);
   --accent-hover: var(--red-600);
@@ -76,33 +66,23 @@
   --btn-secondary-border: var(--neutral-300);
   --btn-secondary-hover: var(--neutral-300);
 
-  --measure-label-bg: rgba(0, 0, 0, var(--alpha-50));
-  --measure-del-hover-bg: rgba(var(--red-700-rgb), var(--alpha-95));
-
   /* Effect */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-06));
   --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
-  --accent-shadow-sm: 0 var(--size-2) var(--size-8)
-    rgba(var(--red-rgb), var(--alpha-30));
-  --accent-shadow-md: 0 var(--size-4) var(--size-12)
-    rgba(var(--red-rgb), var(--alpha-50));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
 
-  /* ── Semantic Tokens: Typography ── */
-  /* Base */
+  /* ── Typography ── */
   --font-size-xs: 10px;
   --font-size-sm: 12px;
   --font-size-md: 14px;
-  --font-size-lg: 16px;
 
   /* Effect */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
-  --font-weight-bold: 700;
 
-  /* ── Semantic Tokens: Spacing ── */
+  /* ── Spacing ── */
   --space-xs: var(--size-2);
   --space-sm: var(--size-4);
   --space-md: var(--size-8);
@@ -110,72 +90,54 @@
   --space-xl: var(--size-16);
   --space-xxl: var(--size-20);
 
-  /* ── Semantic Tokens: Sizing ── */
-  /* Base */
+  /* ── Sizing ── */
   --ctrl-size: 30px;
   --input-height: 30px;
   --btn-height: 30px;
   --scale-press: 0.92;
   --scale-hover: 1.08;
-  --toggle-off-bg: #ccc;
   --icon-size-sm: var(--size-16);
-  --icon-size-md: var(--size-18);
+  --icon-size-md: 18px;
 
-  /* Component */
+
+  /* ── Layout Metrics ── */
   --toggle-size: 36px;
-  --panel-width: 280px;
-
-  /* ── Semantic Tokens: Layout Metrics ── */
-  /* Base */
   --toolbar-inline-padding: var(--space-xs);
-
-  /* Component */
+  --panel-width: 280px;
+  --panel-max-height: 400px;
   --panel-header-padding-left: var(--space-sm);
   --panel-header-padding-right: var(--ctrl-size);
-  --panel-max-height: 400px;
-  --dropdown-max-height: 200px;
 
-  /* ── Semantic Tokens: Micro Visual Adjustments (Whitelist) ── */
-  /* Effect */
+  /* ── Micro Visual Adjustments ── */
   --letter-spacing-tight: 0.5px;
-  --stroke-width-emphasis: 2.5px;
 
-  /* ── Semantic Tokens: Border Width ── */
-  /* Base */
+  /* ── Border Width ── */
   --border-thin: 1px;
-  /* Medium and thick intentionally equal for current visual consistency. */
   --border-medium: var(--size-2);
   --border-thick: var(--size-2);
 
-  /* ── Semantic Tokens: Border Radius ── */
-  /* Base */
+  /* ── Border Radius ── */
   --radius-sm: var(--size-4);
-  --radius-md: var(--size-4);
   --radius-lg: var(--size-6);
   --radius-round: 50%;
-  --radius-pill: var(--size-20);
-
-  /* Component */
-  --radius-btn: var(--size-6);
   --radius-card: var(--size-8);
 
-  /* ── Semantic Tokens: Shadows ── */
-  /* Base */
-  --shadow-sm: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-12));
+  /* ── Shadows ── */
   --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-12));
   --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-12));
 
   /* Component */
   --shadow-ctrl-strong: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-50));
 
-  /* ── Semantic Tokens: Transitions ── */
+  /* ── Transitions ── */
   --transition-fast: 0.15s ease;
 
-  /* ── Semantic Tokens: Z-index ── */
-  --z-index-dropdown: 10000;
-  --z-index-pane-base: 450;
+  /* ── Z-index ──
+    LayerControl JS manages pane z-index dynamically.
+    Hint z-index is managed by runtime.js (HINT.Z_BASE = 10000).
+    CSS only defines dropdown z-index (below hints). */
+  --z-index-dropdown: 9990;
   --z-index-control: 1000;
-  --z-index-hint: 20000;
 }
 
 /* ── Animations ── */
@@ -275,13 +237,11 @@
   align-items: center;
   gap: var(--space-sm);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--alpha-70));
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-xl);
   white-space: nowrap;
-  z-index: var(--z-index-hint);
   color: var(--neutral-0);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
@@ -326,6 +286,14 @@
   background: var(--accent-light);
 }
 
+/* ── Shared button reset (applied via selector group) ── */
+.map-search .search-mode-btn,
+.measure-ctrl .tool-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
 .pin-wrap {
   position: relative;
   width: var(--size-24);
@@ -345,7 +313,7 @@
   align-items: stretch;
   background: var(--ctrl-bg);
   box-sizing: border-box;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 .ctrl-fold.collapsed {
   width: var(--ctrl-size);

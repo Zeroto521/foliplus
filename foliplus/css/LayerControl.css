@@ -116,14 +116,12 @@
   height: var(--space-xl);
   flex-shrink: 0;
 }
-.layer-ctrl .layer-item input[type="checkbox"] {
+.layer-ctrl .layer-item input[type="checkbox"],
+.layer-ctrl .layer-item input[type="radio"] {
   appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
   width: var(--space-xl);
   height: var(--space-xl);
   border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
   background: var(--input-bg);
   margin: 0;
   cursor: pointer;
@@ -131,8 +129,12 @@
   transition: all var(--transition-fast);
   flex-shrink: 0;
 }
-.layer-ctrl .layer-item input[type="checkbox"]:hover {
+.layer-ctrl .layer-item input[type="checkbox"]:hover,
+.layer-ctrl .layer-item input[type="radio"]:hover {
   border-color: var(--accent-primary);
+}
+.layer-ctrl .layer-item input[type="checkbox"] {
+  border-radius: var(--radius-sm);
 }
 .layer-ctrl .layer-item input[type="checkbox"]:checked {
   background: var(--accent-primary);
@@ -152,22 +154,7 @@
 }
 /* ── Custom Radio Button ── */
 .layer-ctrl .layer-item input[type="radio"] {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  width: var(--space-xl);
-  height: var(--space-xl);
-  border: var(--border-thin) solid var(--input-border);
   border-radius: 50%;
-  background: var(--input-bg);
-  margin: 0;
-  cursor: pointer;
-  position: relative;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-.layer-ctrl .layer-item input[type="radio"]:hover {
-  border-color: var(--accent-primary);
 }
 .layer-ctrl .layer-item input[type="radio"]:checked {
   border-color: var(--accent-primary);

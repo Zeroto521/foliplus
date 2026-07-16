@@ -18,13 +18,10 @@
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   min-width: var(--ctrl-size);
-  background: none;
-  border: none;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   border-left: var(--border-thin) solid var(--divider-color);
   border-right: var(--border-thin) solid var(--divider-color);
   transition: color var(--transition-fast), background-color var(--transition-fast);
@@ -67,5 +64,5 @@
   box-shadow: inset 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 .map-search input::placeholder {
-  color: var(--text-placeholder);
+  color: var(--text-muted);
 }
