@@ -641,10 +641,7 @@
           toggleBtn: ".toggle-btn",
           header: ".panel-header",
         });
-        window.foliplus.bindOutsideCollapse({
-          map: this.manager.map,
-          container: this.container,
-        });
+        window.foliplus.bindOutsideCollapse({ container: this.container });
 
         return wrapper;
       }

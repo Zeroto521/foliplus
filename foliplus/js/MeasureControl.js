@@ -1017,12 +1017,7 @@
         ctrl.classList.toggle("expanded");
       };
 
-      window.foliplus.bindOutsideCollapse({
-        map,
-        container: ctrl,
-        shouldCollapse: () => !measureManager.currentMode,
-        onCollapse: () => measureManager.clearActiveMode(),
-      });
+      window.foliplus.bindOutsideCollapse({ container: ctrl });
 
       measureManager.toolBtns.forEach((btn) => {
         btn.onclick = (e) => {
