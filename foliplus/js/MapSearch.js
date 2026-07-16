@@ -126,7 +126,11 @@
           .map(Number);
 
         if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-          window.foliplus.showHint(CONST.name, _(`${CONST.name}.coord_error`), window.foliplus.HINT_DURATION.LONG);
+          window.foliplus.showHint(
+            CONST.name,
+            _(`${CONST.name}.coord_error`),
+            window.foliplus.HINT_DURATION.LONG,
+          );
           inp.value = "";
           return;
         }
@@ -145,7 +149,7 @@
           `${CONST.name}.popup_loc_label`,
           `${CONST.name}.popup_addr_label`,
         );
-        mk,
+        mk;
       };
 
       // Address search via Nominatim
@@ -171,7 +175,11 @@
           .then((results) => {
             window.foliplus.hideHint(CONST.name);
             if (!results || results.length === 0) {
-              window.foliplus.showHint(CONST.name, _(`${CONST.name}.addr_not_found`), window.foliplus.HINT_DURATION.LONG);
+              window.foliplus.showHint(
+                CONST.name,
+                _(`${CONST.name}.addr_not_found`),
+                window.foliplus.HINT_DURATION.LONG,
+              );
               inp.value = "";
               return;
             }
@@ -208,7 +216,11 @@
           .catch((err) => {
             console.error(`[${CONST.name}] ${_(CONST.name + ".addr_error")}`);
             window.foliplus.hideHint(CONST.name);
-            window.foliplus.showHint(CONST.name, _(CONST.name + ".addr_error"), window.foliplus.HINT_DURATION.LONG);
+            window.foliplus.showHint(
+              CONST.name,
+              _(CONST.name + ".addr_error"),
+              window.foliplus.HINT_DURATION.LONG,
+            );
           });
       };
 

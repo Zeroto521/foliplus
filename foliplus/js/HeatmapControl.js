@@ -93,7 +93,7 @@
   window.foliplus.loadScripts(
     DEPS,
     (ok) => {
-      if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();
+      if (ok) return run();
     },
     CONST.LOAD_SCRIPT_RETRIES,
     CONST.LOAD_SCRIPT_INTERVAL_MS,
@@ -111,7 +111,11 @@
     // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
     if (!window.foliplus.LayerControlAPI) {
       console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-      window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), window.foliplus.HINT_DURATION.PERSIST);
+      window.foliplus.showHint(
+        CONST.name,
+        _(`${CONST.name}.no_layercontrol`),
+        window.foliplus.HINT_DURATION.PERSIST,
+      );
       return;
     }
 
