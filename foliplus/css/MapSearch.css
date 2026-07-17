@@ -21,14 +21,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  color: var(--text-primary);
   border-left: var(--border-thin) solid var(--divider-color);
   border-right: var(--border-thin) solid var(--divider-color);
   transition: color var(--transition-fast), background-color var(--transition-fast);
   flex-shrink: 0;
 }
 .map-search .search-mode-btn:hover {
-  background-color: var(--ctrl-hover-bg);
+  background-color: var(--accent-light);
   color: var(--accent-primary);
 }
 .map-search .search-mode-btn svg {
