@@ -193,7 +193,7 @@
 .leaflet-control-zoom-in:hover,
 .leaflet-control-zoom-out:hover,
 .leaflet-control-zoom-fullscreen:hover {
-  background-color: var(--ctrl-hover-bg);
+  background-color: var(--accent-light);
   color: var(--accent-primary);
   transform: scale(var(--scale-hover));
 }
@@ -330,6 +330,10 @@
 }
 .ctrl-fold.expanded .toggle-btn svg {
   stroke: var(--accent-primary);
+}
+.ctrl-fold.expanded .toggle-btn:hover {
+  background: var(--accent-light);
+  transform: none;
 }
 
 /* ── Shared Toolbar ──
