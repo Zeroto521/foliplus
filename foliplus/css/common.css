@@ -121,7 +121,7 @@
   --icon-size-sm: var(--size-16);
   --icon-size-md: var(--size-18);
 
-  /* Component */
+  /* ── Layout Metrics ── */
   --toggle-size: 36px;
   --panel-width: 280px;
 
@@ -360,6 +360,15 @@
 }
 .ctrl-fold.expanded .toggle-btn svg {
   stroke: var(--accent-primary);
+}
+
+/* ── Separator between toggle button and tools (non-map-panel) ── */
+.ctrl-fold:not(.map-panel).expanded .toggle-btn {
+  border-right: var(--border-thin) solid var(--divider-color);
+}
+.ctrl-fold:not(.map-panel).expanded.align-right .toggle-btn {
+  border-right: none;
+  border-left: var(--border-thin) solid var(--divider-color);
 }
 
 /* ── Shared Toolbar ──
