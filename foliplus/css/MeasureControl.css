@@ -23,9 +23,20 @@
   background-color: var(--accent-light);
   color: var(--accent-primary);
 }
-.measure-ctrl .tool-btn:hover svg,
-.measure-ctrl .tool-btn.active svg {
+.measure-ctrl .tool-btn:hover svg:not(.ruler-icon),
+.measure-ctrl .tool-btn.active svg:not(.ruler-icon) {
   stroke: var(--accent-primary);
+  transform: scale(var(--scale-hover));
+}
+.measure-ctrl .tool-btn:hover .ruler-icon,
+.measure-ctrl .tool-btn.active .ruler-icon {
+  transform: rotate(-45deg) scale(var(--scale-hover));
+}
+.measure-ctrl .tool-btn:active svg:not(.ruler-icon) {
+  transform: scale(var(--scale-press));
+}
+.measure-ctrl .tool-btn:active .ruler-icon {
+  transform: rotate(-45deg) scale(var(--scale-press));
 }
 .ruler-icon {
   transform: rotate(-45deg);

@@ -31,6 +31,12 @@
   background-color: var(--accent-light);
   color: var(--accent-primary);
 }
+.map-search .search-mode-btn:hover svg {
+  transform: scale(var(--scale-hover));
+}
+.map-search .search-mode-btn:active svg {
+  transform: scale(var(--scale-press));
+}
 .map-search .search-mode-btn svg {
   stroke: currentColor;
 }

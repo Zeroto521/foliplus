@@ -197,6 +197,15 @@
   color: var(--accent-primary);
   transform: scale(var(--scale-hover));
 }
+.toggle-btn:hover svg,
+.leaflet-control-zoom-in:hover svg,
+.leaflet-control-zoom-out:hover svg,
+.leaflet-control-zoom-fullscreen:hover svg {
+  stroke: var(--accent-primary);
+}
+.toggle-btn:hover .ruler-icon {
+  transform: rotate(-45deg) scale(var(--scale-hover));
+}
 .toggle-btn:active,
 .leaflet-control-zoom-in:active,
 .leaflet-control-zoom-out:active,
@@ -210,7 +219,7 @@
   justify-content: center;
   background: none;
   border: none;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   width: var(--ctrl-size);
   height: var(--ctrl-size);
@@ -287,6 +296,9 @@
   color: var(--accent-primary);
   background: var(--accent-light);
 }
+.ctrl-abs-btn:hover svg {
+  transform: scale(var(--scale-hover));
+}
 
 /* ── Shared button reset (applied via selector group) ── */
 .map-search .search-mode-btn,
@@ -322,6 +334,7 @@
   height: var(--ctrl-size);
   border: 0;
   box-shadow: var(--shadow-ctrl-strong);
+  overflow: visible;
 }
 /* Expanded toggle-btn shared styles */
 .ctrl-fold.expanded .toggle-btn {
@@ -334,6 +347,12 @@
 .ctrl-fold.expanded .toggle-btn:hover {
   background: var(--accent-light);
   transform: none;
+}
+.ctrl-fold.expanded .toggle-btn:hover svg:not(.ruler-icon) {
+  transform: scale(var(--scale-hover));
+}
+.ctrl-fold.expanded .toggle-btn:hover .ruler-icon {
+  transform: rotate(-45deg) scale(var(--scale-hover));
 }
 
 /* ── Shared Toolbar ──
