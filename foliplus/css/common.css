@@ -100,7 +100,6 @@
 
   /* ── Layout Metrics ── */
   --toggle-size: 36px;
-  --toolbar-inline-padding: var(--space-xs);
   --panel-width: 280px;
   --panel-max-height: 400px;
   --panel-header-padding-left: var(--space-sm);
@@ -339,7 +338,6 @@
 .ctrl-fold .tool-bar {
   display: none;
   align-items: center;
-  padding: 0 var(--toolbar-inline-padding);
   gap: 0;
   flex: 1;
   min-width: 0;
