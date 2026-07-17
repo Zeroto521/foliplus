@@ -42,6 +42,13 @@
   color: var(--accent-primary);
   transform: none;
 }
+.leaflet-control-zoom-fullscreen.fullscreen-btn:hover svg {
+  transform: scale(var(--scale-hover));
+}
+.leaflet-bar .leaflet-control-zoom-in:hover::before,
+.leaflet-bar .leaflet-control-zoom-out:hover::before {
+  transform: scale(var(--scale-hover));
+}
 /* Remove last button's divider */
 .leaflet-control-zoom-fullscreen.fullscreen-btn {
   border-bottom: none;
