@@ -1,10 +1,17 @@
 /* ── Fullscreen + Zoom Controls ──
   Override Leaflet native styles for zoom +/- and fullscreen buttons.
-  Only loaded when Fullscreen is used.
-  Hover/active/scale effects come from common.css Unified Component Button. ── */
+  Only loaded when Fullscreen is used. ── */
 
-/* ── Fullscreen button ──
-   Higher specificity overrides CDN Control.FullScreen.css. */
+/* ── Zoom container ──
+   Shadow on container, not individual buttons. */
+.leaflet-bar:has(.leaflet-control-zoom-fullscreen) {
+  box-shadow: var(--shadow-ctrl-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* ── All three buttons share the same reset ── */
+.leaflet-bar .leaflet-control-zoom-in,
+.leaflet-bar .leaflet-control-zoom-out,
 .leaflet-control-zoom-fullscreen.fullscreen-btn {
   background-image: none;
   display: flex;
@@ -13,27 +20,31 @@
   min-width: var(--ctrl-size);
   min-height: var(--ctrl-size);
   box-sizing: border-box;
-  box-shadow: var(--shadow-ctrl-strong);
+  position: relative;
 }
-.leaflet-control-zoom-fullscreen.fullscreen-btn:hover {
-  background-color: var(--ctrl-hover-bg);
-  color: var(--accent-primary);
+/* Top button gets top radius, bottom button gets bottom radius */
+.leaflet-bar .leaflet-control-zoom-in {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
-
-/* ── Zoom +/- ──
-   Replace Leaflet's default text +/- with SVG icons via ::before. */
+.leaflet-control-zoom-fullscreen.fullscreen-btn {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
 .leaflet-bar .leaflet-control-zoom-in,
 .leaflet-bar .leaflet-control-zoom-out {
-  background-image: none;
   font-size: 0;
   line-height: var(--ctrl-size);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--ctrl-size);
-  min-height: var(--ctrl-size);
-  box-sizing: border-box;
-  box-shadow: var(--shadow-ctrl-strong);
+  border-bottom: var(--border-thin) solid var(--divider-color);
+}
+.leaflet-bar .leaflet-control-zoom-in:hover,
+.leaflet-bar .leaflet-control-zoom-out:hover,
+.leaflet-control-zoom-fullscreen.fullscreen-btn:hover {
+  background-color: var(--accent-light);
+  color: var(--accent-primary);
+  transform: none;
+}
+/* Remove last button's divider */
+.leaflet-control-zoom-fullscreen.fullscreen-btn {
+  border-bottom: none;
 }
 .leaflet-control-zoom-in::before,
 .leaflet-control-zoom-out::before {
@@ -56,13 +67,4 @@
 }
 .leaflet-control-zoom-out:hover::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e74c3c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
-}
-.leaflet-bar .leaflet-control-zoom-in:hover,
-.leaflet-bar .leaflet-control-zoom-out:hover {
-  background-color: var(--ctrl-hover-bg);
-  color: var(--accent-primary);
-}
-.leaflet-control-zoom-in:active,
-.leaflet-control-zoom-out:active {
-  transform: scale(var(--scale-press));
 }
