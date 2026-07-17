@@ -97,7 +97,6 @@
   --icon-size-sm: var(--size-16);
   --icon-size-md: 18px;
 
-
   /* ── Layout Metrics ── */
   --toggle-size: 36px;
   --panel-width: 280px;
@@ -353,6 +352,15 @@
 }
 .ctrl-fold.expanded .toggle-btn:hover .ruler-icon {
   transform: rotate(-45deg) scale(var(--scale-hover));
+}
+
+/* ── Separator between toggle button and tools (non-map-panel) ── */
+.ctrl-fold:not(.map-panel).expanded .toggle-btn {
+  border-right: var(--border-thin) solid var(--divider-color);
+}
+.ctrl-fold:not(.map-panel).expanded.align-right .toggle-btn {
+  border-right: none;
+  border-left: var(--border-thin) solid var(--divider-color);
 }
 
 /* ── Shared Toolbar ──
