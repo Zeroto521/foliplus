@@ -471,9 +471,10 @@
       let registered = false;
 
       const register = () => {
-        if (registered) return;
-        registered = true;
-        if (opts.labelPane) this.labelPanes.add(opts.labelPane);
+        if (!registered) {
+          registered = true;
+          if (opts.labelPane) this.labelPanes.add(opts.labelPane);
+        }
         this.registerLayer({
           name: opts.name,
           id: opts.id,
