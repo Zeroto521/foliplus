@@ -12,6 +12,8 @@ build:
       - git fetch origin --tags --force
     pre_create_environment:
       - conda config --set solver libmamba
+    post_install:
+      - make info
 
 sphinx:
   configuration: doc/source/conf.py
