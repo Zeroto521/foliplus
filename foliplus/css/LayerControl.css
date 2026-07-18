@@ -46,24 +46,16 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
-.layer-ctrl .separator-icon {
-  font-size: var(--font-size-sm);
-  line-height: 1;
-}
 /* ── Toggle-all row ── */
 .layer-ctrl .layer-separator-container.toggle-all-row {
   gap: var(--space-sm);
   padding: var(--space-md) var(--space-lg) var(--space-sm) var(--space-sm);
   border-left: var(--border-thick) solid transparent;
 }
-.layer-ctrl .toggle-all-row .spacer {
-  width: 14px;
-  flex-shrink: 0;
-}
 
 /* ── Drag handle ──
-   Shared size for all drag handles in layer rows.
-   Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
+  Shared size for all drag handles in layer rows.
+  Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
 .layer-ctrl .drag-handle {
   flex-shrink: 0;
   width: 14px;
@@ -119,11 +111,6 @@
   border-bottom: var(--border-thick) solid var(--accent-primary);
   background: var(--accent-soft-bg);
 }
-/* ── Layer item spacer (unused, kept for alignment) ── */
-.layer-ctrl .layer-item .layer-item-spacer {
-  display: none;
-}
-
 /* ── Checkbox / Radio shared styles ── */
 .layer-ctrl .checkbox-wrapper {
   display: flex;

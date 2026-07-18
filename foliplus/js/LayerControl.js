@@ -1048,10 +1048,7 @@
           // but are considered "active" by default (visible until toggled).
           const hasLayer = layer != null;
           const isCallbackOnly = !hasLayer && this.layerCallbacks.has(id);
-          inputs[i].checked =
-            isCallbackOnly ||
-            (hasLayer && this.map.hasLayer(layer)) ||
-            (hasLayer && layer._map != null);
+          inputs[i].checked = isCallbackOnly || (hasLayer && this.map.hasLayer(layer));
           const item = inputs[i].closest(".layer-item");
           if (item) {
             if (inputs[i].checked) item.classList.add("is-active");
@@ -1143,6 +1140,7 @@
         const cb = item.querySelector('input[type="checkbox"]');
         if (!cb) return;
         const idx = parseInt(cb.dataset.index, 10);
+        if (isNaN(idx) || idx < 0 || idx >= this.layers.length) return;
         const layerInfo = this.layers[idx];
         const layer = LayerUtils.findLayer(this.map, layerInfo.id);
 
@@ -1204,6 +1202,7 @@
       if (target.classList.contains("toggle-all-cb")) return;
 
       const idx = parseInt(target.dataset.index, 10);
+      if (isNaN(idx) || idx < 0 || idx >= this.layers.length) return;
       const layerInfo = this.layers[idx];
       const layer = LayerUtils.findLayer(this.map, layerInfo.id);
       const item = target.closest(".layer-item");
