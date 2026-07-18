@@ -225,9 +225,13 @@ class TestFullscreenBrowser:
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.wait_for_selector(".fullscreen-btn", state="attached", timeout=10000)
-            svg = page.evaluate("document.querySelector('.fullscreen-btn svg') !== null")
+            svg = page.evaluate(
+                "document.querySelector('.fullscreen-btn svg') !== null"
+            )
             assert svg, "No SVG icon found"
-            path_d = page.evaluate("document.querySelector('.fullscreen-btn path').getAttribute('d')")
+            path_d = page.evaluate(
+                "document.querySelector('.fullscreen-btn path').getAttribute('d')"
+            )
             # Maximize icon has M8 3H5...
             assert "M8 3H5" in path_d
             assert not errors, f"JS errors: {errors}"

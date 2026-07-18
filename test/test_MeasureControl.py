@@ -141,14 +141,14 @@ class TestMeasureControlRendering:
         """MEASURE_ID constant is used for layer registration."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "MEASURE_ID: \"foliplus_measure\"" in html
+        assert 'MEASURE_ID: "foliplus_measure"' in html
 
     def test_graph_label_pane_constants(self, base_map: folium.Map):
         """GRAPH_PANE and LABEL_PANE constants are defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "GRAPH_PANE: \"measure_graph\"" in html
-        assert "LABEL_PANE: \"measure_label\"" in html
+        assert 'GRAPH_PANE: "measure_graph"' in html
+        assert 'LABEL_PANE: "measure_label"' in html
 
     def test_stop_event_utility(self, base_map: folium.Map):
         """MeasureUtils.stopEvent stops propagation and default."""
@@ -176,7 +176,7 @@ class TestMeasureControlRendering:
         """toggleVisibility uses measure-hidden class."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "el.classList.toggle(\"measure-hidden\", !visible)" in html
+        assert 'el.classList.toggle("measure-hidden", !visible)' in html
 
     def test_suppress_hide_utility(self, base_map: folium.Map):
         """suppressHide sets a delayed flag and hides all del icons."""
@@ -304,7 +304,9 @@ class TestMeasureControlRendering:
         """Regression test: Labels are marked BEFORE addTo(mainLayer)."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert re.search(r"isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html)
+        assert re.search(
+            r"isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html
+        )
 
     def test_label_interaction_listeners(self, base_map: folium.Map):
         """Distance/Circle labels have click listeners."""

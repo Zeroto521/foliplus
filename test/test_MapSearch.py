@@ -272,7 +272,9 @@ class TestMapSearchBrowser:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(".map-search", state="attached", timeout=10000)
             page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
-            page.wait_for_selector(".map-search.expanded", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".map-search.expanded", state="attached", timeout=5000
+            )
 
             # Click mode switch button
             page.evaluate("document.querySelector('.search-mode-btn').click()")
@@ -281,7 +283,7 @@ class TestMapSearchBrowser:
             # After switch, should be address mode with GLOBE icon
             globe_icon = page.evaluate(
                 "document.querySelector('.search-mode-btn').innerHTML.indexOf('GLOBE') > -1 || "
-                "document.querySelector('.search-mode-btn').querySelector('circle[cx=\"12\"][cy=\"12\"][r=\"10\"]') !== null"
+                'document.querySelector(\'.search-mode-btn\').querySelector(\'circle[cx="12"][cy="12"][r="10"]\') !== null'
             )
             assert globe_icon, "Expected globe icon after mode switch"
 
@@ -306,7 +308,9 @@ class TestMapSearchBrowser:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(".map-search", state="attached", timeout=10000)
             page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
-            page.wait_for_selector(".map-search.expanded", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".map-search.expanded", state="attached", timeout=5000
+            )
 
             # Type something in the input
             page.evaluate("document.querySelector('input').value = '26.08,119.30'")
