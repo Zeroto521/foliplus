@@ -10,6 +10,8 @@ build:
   jobs:
     post_checkout:
       - git fetch origin --tags --force
+    pre_create_environment:
+      - conda config --set solver libmamba
 
 sphinx:
   configuration: doc/source/conf.py
