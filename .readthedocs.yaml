@@ -7,6 +7,13 @@ build:
   os: ubuntu-lts-latest
   tools:
     python: "miniforge3-latest"
+  jobs:
+    post_checkout:
+      - git fetch origin --tags --force
+    pre_create_environment:
+      - export CONDA_SOLVER=libmamba
+    post_install:
+      - make info
 
 sphinx:
   configuration: doc/source/conf.py
