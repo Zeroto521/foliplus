@@ -166,6 +166,9 @@
   background: rgba(var(--red-rgb), var(--alpha-95));
   transform: scale(var(--scale-hover));
 }
+.measure-del-icon:active {
+  transform: scale(var(--scale-press));
+}
 .measure-del-icon.marker-del-icon {
   top: calc(-1 * var(--size-6));
   left: var(--size-20);

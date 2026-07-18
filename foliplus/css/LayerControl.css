@@ -181,8 +181,8 @@
 }
 /* ── Solid color layer picker ── */
 .layer-ctrl .color-layer-input {
-  width: 18px;
-  height: 18px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   border: var(--border-thick) solid var(--input-border);
   border-radius: var(--radius-round);
   cursor: pointer;

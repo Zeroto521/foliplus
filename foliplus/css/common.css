@@ -297,6 +297,9 @@
 .ctrl-abs-btn:hover svg {
   transform: scale(var(--scale-hover));
 }
+.ctrl-abs-btn:active svg {
+  transform: scale(var(--scale-press));
+}
 
 /* ── Shared button reset (applied via selector group) ── */
 .map-search .search-mode-btn,
