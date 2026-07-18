@@ -101,7 +101,7 @@
   --toggle-size: 36px;
   --panel-width: 280px;
   --panel-max-height: 400px;
-  --panel-header-padding-left: var(--space-sm);
+  --panel-header-padding-left: var(--size-6);
   --panel-header-padding-right: var(--ctrl-size);
 
   /* ── Micro Visual Adjustments ── */
