@@ -52,7 +52,7 @@
   flex-shrink: 0;
   width: var(--heatmap-label-width);
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  color: var(--text-primary);
   text-align: right;
   white-space: nowrap;
   padding-right: var(--space-xs);
@@ -201,7 +201,7 @@
   box-sizing: border-box;
   cursor: pointer;
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 .heatmap-ctrl .scheme-dropdown-item:hover {
   background: var(--ctrl-hover-bg);
@@ -355,7 +355,7 @@
 .heatmap-ctrl .section-heading {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-muted);
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: var(--heatmap-heading-letter-spacing);
   padding: var(--space-md) var(--space-xl) var(--space-sm);
