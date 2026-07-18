@@ -104,7 +104,7 @@
 }
 /* ── Layer item spacer ── */
 .layer-ctrl .layer-item .layer-item-spacer {
-  width: var(--space-lg);
+  width: 14px;
   flex-shrink: 0;
 }
 /* ── Custom Checkbox ── */
@@ -186,8 +186,8 @@
 }
 /* ── Solid color layer picker ── */
 .layer-ctrl .color-layer-input {
-  width: var(--space-xxl);
-  height: var(--space-xxl);
+  width: 18px;
+  height: 18px;
   border: var(--border-thick) solid var(--input-border);
   border-radius: var(--radius-round);
   cursor: pointer;
