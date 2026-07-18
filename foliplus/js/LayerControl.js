@@ -914,46 +914,121 @@
     }
 
     renderInitialList() {
-      let html = "";
+      const frag = document.createDocumentFragment();
       let hasBaseMaps = false;
+      let hasOverlays = false;
 
       for (let i = 0; i < this.layers.length; i++) {
         const l = this.layers[i];
+        if (!l.isBase && !hasOverlays) {
+          hasOverlays = true;
+          frag.appendChild(
+            this.renderToggleAllRow("overlay", CONST.name + ".data_layer_label"),
+          );
+        }
         if (l.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
-          html += `
-              <div class="layer-separator-container">
-              <span class="separator-label">${_(CONST.name + ".base_map_label")}</span>
-              <div class="section-divider"></div>
-            </div>`;
+          frag.appendChild(
+            this.renderToggleAllRow("base", CONST.name + ".base_map_label"),
+          );
         }
-        const en = LayerUtils.escapeHTML(l.name);
-        html += `
-          <div class="layer-item${l.isBase ? " is-base-item" : ""}" draggable="true"
-               data-index="${i}" data-layer-id="${l.id}" title="${en}">
-            ${SVGS.DRAG_HANDLE}
-            <div class="checkbox-wrapper">
-              <input type="checkbox" checked data-index="${i}" aria-label="${en}">
-            </div>
-            <label title="${en}">${en}</label>
-            <div class="type-icon-col">${l.iconSvg || ""}</div>
-          </div>`;
+        frag.appendChild(this.renderLayerItem(l, i));
       }
 
-      html += `
-        <div class="layer-item color-layer-item" draggable="false"
-             data-layer-id="${CONST.COLOR_MAP_ID}"
-             title="${_(CONST.name + ".color_map_label")}">
-          <div class="layer-item-spacer"></div>
-          <div class="checkbox-wrapper">
-            <input type="color" class="color-layer-input" value="${this.currentColor}"
-                   aria-label="${_(CONST.name + ".color_map_label")}">
-          </div>
-          <label>${_(CONST.name + ".color_map_label")}</label>
-          <div class="type-icon-col">${SVGS.COLOR}</div>
-        </div>`;
+      frag.appendChild(this.renderColorLayerItem());
+      this.uiContainer.innerHTML = "";
+      this.uiContainer.appendChild(frag);
+    }
 
-      this.uiContainer.innerHTML = html;
+    /** Render a toggle-all row for a group (overlay or base). */
+    renderToggleAllRow(group, labelKey) {
+      const row = foliplus.dom.el("div", {
+        class: "layer-separator-container toggle-all-row",
+        "data-group": group,
+      });
+      row.insertAdjacentHTML("beforeend", SVGS.DRAG_HANDLE);
+      row.appendChild(
+        foliplus.dom.el(
+          "div",
+          { class: "checkbox-wrapper" },
+          foliplus.dom.el("input", {
+            type: "checkbox",
+            class: "toggle-all-cb",
+            checked: "",
+          }),
+        ),
+      );
+      row.appendChild(
+        foliplus.dom.el("span", { class: "separator-label" }, _(labelKey)),
+      );
+      row.appendChild(foliplus.dom.el("div", { class: "section-divider" }));
+      return row;
+    }
+
+    /** Render a single layer item row. */
+    renderLayerItem(l, index) {
+      const en = LayerUtils.escapeHTML(l.name);
+      const item = foliplus.dom.el("div", {
+        class: "layer-item" + (l.isBase ? " is-base-item" : ""),
+        draggable: "true",
+        "data-index": String(index),
+        "data-layer-id": l.id,
+        title: en,
+      });
+      item.insertAdjacentHTML("beforeend", SVGS.DRAG_HANDLE);
+      item.appendChild(
+        foliplus.dom.el(
+          "div",
+          { class: "checkbox-wrapper" },
+          foliplus.dom.el("input", {
+            type: "checkbox",
+            checked: "",
+            "data-index": String(index),
+            "aria-label": en,
+          }),
+        ),
+      );
+      item.appendChild(foliplus.dom.el("label", { title: en }, en));
+      if (l.iconSvg) {
+        item.insertAdjacentHTML(
+          "beforeend",
+          `<div class="type-icon-col">${l.iconSvg}</div>`,
+        );
+      } else {
+        item.appendChild(foliplus.dom.el("div", { class: "type-icon-col" }));
+      }
+      return item;
+    }
+
+    /** Render the solid color layer picker item. */
+    renderColorLayerItem() {
+      const item = foliplus.dom.el("div", {
+        class: "layer-item color-layer-item",
+        draggable: "false",
+        "data-layer-id": CONST.COLOR_MAP_ID,
+        title: _(CONST.name + ".color_map_label"),
+      });
+      item.insertAdjacentHTML("beforeend", SVGS.DRAG_HANDLE);
+      item.appendChild(
+        foliplus.dom.el(
+          "div",
+          { class: "checkbox-wrapper" },
+          foliplus.dom.el("input", {
+            type: "color",
+            class: "color-layer-input",
+            value: this.currentColor,
+            "aria-label": _(CONST.name + ".color_map_label"),
+          }),
+        ),
+      );
+      item.appendChild(
+        foliplus.dom.el("label", null, _(CONST.name + ".color_map_label")),
+      );
+      item.insertAdjacentHTML(
+        "beforeend",
+        `<div class="type-icon-col">${SVGS.COLOR}</div>`,
+      );
+      return item;
     }
 
     initTypesAndVisibility() {
@@ -1005,6 +1080,10 @@
 
       if (!anyBaseVisible) this.showColorLayer(this.currentColor);
       this.enforceOrder();
+
+      // Sync toggle-all checkboxes after initializing visibility
+      this.syncToggleAll("overlay");
+      this.syncToggleAll("base");
     }
 
     reindexItems() {
@@ -1028,6 +1107,7 @@
         if (e.target.closest(".color-layer-item")) {
           this.deselectAllBaseMaps(-1);
           this.showColorLayer(this.currentColor);
+          this.syncToggleAll("base");
           this.enforceOrder();
         }
       });
@@ -1037,6 +1117,75 @@
       this.uiContainer.addEventListener("dragleave", this.handleDragLeave.bind(this));
       this.uiContainer.addEventListener("drop", this.handleDrop.bind(this));
       this.uiContainer.addEventListener("dragend", this.handleDragEnd.bind(this));
+
+      // Toggle all event delegation
+      this.uiContainer.addEventListener("change", (e) => {
+        const cb = e.target.closest(".toggle-all-cb");
+        if (cb) {
+          const row = cb.closest(".toggle-all-row");
+          const group = row.dataset.group;
+          this.toggleAll(group, cb.checked);
+        }
+      });
+    }
+
+    /** Get layer items for a group, excluding the color layer item. */
+    getLayerItems(group) {
+      return this.uiContainer.querySelectorAll(
+        `.layer-item${group === "base" ? ".is-base-item" : ":not(.is-base-item):not(.color-layer-item)"}`,
+      );
+    }
+
+    toggleAll(group, newState) {
+      const items = this.getLayerItems(group);
+
+      items.forEach((item) => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        if (!cb) return;
+        const idx = parseInt(cb.dataset.index, 10);
+        const layerInfo = this.layers[idx];
+        const layer = LayerUtils.findLayer(this.map, layerInfo.id);
+
+        cb.checked = newState;
+        if (newState) item.classList.add("is-active");
+        else item.classList.remove("is-active");
+
+        if (layer) newState ? this.map.addLayer(layer) : this.map.removeLayer(layer);
+
+        const cbs = this.layerCallbacks.get(layerInfo.id);
+        if (cbs && cbs.onToggle) cbs.onToggle(newState);
+      });
+
+      // Base maps deselected → show color layer
+      if (group === "base" && !newState) {
+        this.hideColorLayer();
+        this.showColorLayer(this.currentColor);
+      } else if (group === "base" && newState) this.hideColorLayer();
+
+      this.syncToggleAll(group);
+      this.enforceOrder();
+    }
+
+    syncToggleAll(group) {
+      const row = this.uiContainer.querySelector(
+        `.toggle-all-row[data-group="${group}"]`,
+      );
+      if (!row) return;
+
+      const allCb = row.querySelector(".toggle-all-cb");
+      if (!allCb) return;
+
+      const items = this.getLayerItems(group);
+      const checkedCount = Array.from(items).filter((item) => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        return cb && cb.checked;
+      }).length;
+
+      const allChecked = items.length > 0 && checkedCount === items.length;
+      const noneChecked = checkedCount === 0;
+
+      allCb.checked = allChecked;
+      allCb.indeterminate = !allChecked && !noneChecked;
     }
 
     handleChange(e) {
@@ -1044,11 +1193,15 @@
       if (target.classList.contains("color-layer-input")) {
         this.deselectAllBaseMaps(-1);
         this.showColorLayer(target.value);
+        this.syncToggleAll("base");
         this.enforceOrder();
         return;
       }
       if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox")
         return;
+
+      // Skip toggle-all checkbox — handled by its own listener
+      if (target.classList.contains("toggle-all-cb")) return;
 
       const idx = parseInt(target.dataset.index, 10);
       const layerInfo = this.layers[idx];
@@ -1066,6 +1219,9 @@
       // Notify custom callbacks (e.g. Canvas heatmap overlay)
       const cbs = this.layerCallbacks.get(layerInfo.id);
       if (cbs && cbs.onToggle) cbs.onToggle(target.checked);
+
+      // Sync toggle-all checkbox for this group
+      this.syncToggleAll(layerInfo.isBase ? "base" : "overlay");
 
       this.enforceOrder();
     }
@@ -1225,6 +1381,7 @@
       this.uiContainer
         .querySelector(".color-layer-item")
         ?.classList.add("is-color-active");
+      this.syncToggleAll("base");
     }
 
     hideColorLayer() {

@@ -830,4 +830,52 @@
     };
     return debounced;
   };
+
+  // ==================== DOM Helper ====================
+  /**
+   * Lightweight DOM builder — create elements without string concatenation.
+   *
+   * @example
+   *   // Create a div with class and text content
+   *   foliplus.dom.el("div", { class: "my-class" }, "Hello")
+   *
+   *   // Nested children
+   *   foliplus.dom.el("div", null,
+   *     foliplus.dom.el("span", { class: "icon" }),
+   *     foliplus.dom.el("label", null, "Name")
+   *   )
+   *
+   *   // Set innerHTML by passing a { _html: "..." } child
+   *   foliplus.dom.el("div", null, { _html: "<svg>...</svg>" })
+   */
+  foliplus.dom = {
+    /**
+     * Create an element with attributes and children.
+     * @param {string} tag - HTML tag name.
+     * @param {Object|null} attrs - Attributes map (class, id, data-*, etc.).
+     * @param  {...any} children - Strings (text), {_html: str} (innerHTML),
+     *                             or DOM elements (appendChild).
+     * @returns {HTMLElement}
+     */
+    el(tag, attrs = {}, ...children) {
+      const el = document.createElement(tag);
+      if (attrs) {
+        for (const [key, val] of Object.entries(attrs)) {
+          if (val == null) continue;
+          if (key === "class") el.className = val;
+          else if (key === "style" && typeof val === "object")
+            Object.assign(el.style, val);
+          else el.setAttribute(key, String(val));
+        }
+      }
+      for (const child of children) {
+        if (child == null) continue;
+        if (typeof child === "string" || typeof child === "number")
+          el.appendChild(document.createTextNode(String(child)));
+        else if (child._html) el.insertAdjacentHTML("beforeend", child._html);
+        else if (child.nodeType) el.appendChild(child);
+      }
+      return el;
+    },
+  };
 })(window, document);
