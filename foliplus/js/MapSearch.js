@@ -240,12 +240,7 @@
       });
 
       // Collapse on outside click
-      window.foliplus.bindOutsideCollapse({
-        map: map,
-        container: ctrl,
-        shouldCollapse: () => !inp.value.trim(),
-        onCollapse: () => window.foliplus.hideHint(CONST.name),
-      });
+      window.foliplus.bindOutsideCollapse({ container: ctrl });
 
       return container;
     },
