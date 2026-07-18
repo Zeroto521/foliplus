@@ -29,6 +29,12 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   const SVGS = {
+    LIST: `
+      <svg viewBox="0 0 24 24">
+        <circle cx="5.5" cy="5" r="2"/><line x1="10" y1="5" x2="21" y2="5"/>
+        <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
+        <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
+      </svg>`,
     DRAG_HANDLE: `
       <svg viewBox="0 0 24 24" class="drag-handle">
         <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
@@ -37,12 +43,6 @@
         <circle cx="16" cy="12" r="1.5" fill="currentColor"/>
         <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
         <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
-      </svg>`,
-    LIST: `
-      <svg viewBox="0 0 24 24">
-        <circle cx="5.5" cy="5" r="2"/><line x1="10" y1="5" x2="21" y2="5"/>
-        <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
-        <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
       </svg>`,
     POINT: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>`,
     LINE: `<svg viewBox="0 0 24 24"><path d="M4 20 L10 6 L16 18 L22 4"/></svg>`,
@@ -53,9 +53,18 @@
       </svg>`,
     UNKNOWN: `
       <svg viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="6.5" fill="none"/>
+        <circle cx="12" cy="12" r="6.5"/>
         <text x="12" y="12.5" text-anchor="middle" dominant-baseline="central"
               font-size="12" font-weight="bold" fill="currentColor">?</text>
+      </svg>`,
+    COLOR: `
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.1 0 2-.9 2-2v-1c0-.6.4-1 1-1h2c3.3 0 6-2.7 6-6 0-5.5-4.5-10-10-10z"/>
+        <circle cx="7.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="16.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none"/>
+        <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/>
       </svg>`,
   };
 
@@ -150,13 +159,10 @@
         layer.eachLayer((c) => LayerUtils.forEachLeaf(c, fn, depth + 1));
       } else if (layer._layers) {
         for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k)) {
+          if (layer._layers.hasOwnProperty(k))
             LayerUtils.forEachLeaf(layer._layers[k], fn, depth + 1);
-          }
         }
-      } else {
-        fn(layer);
-      }
+      } else fn(layer);
     }
 
     /**
@@ -172,9 +178,8 @@
         layer.eachLayer((c) => LayerUtils.forEachLayer(c, fn, depth + 1));
       } else if (layer._layers) {
         for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k)) {
+          if (layer._layers.hasOwnProperty(k))
             LayerUtils.forEachLayer(layer._layers[k], fn, depth + 1);
-          }
         }
       }
     }
@@ -312,9 +317,8 @@
      */
     getLayersByType(type) {
       const result = [];
-      for (const [id, info] of this.typeMap) {
+      for (const [id, info] of this.typeMap)
         if (info.type === type) result.push({ id, name: info.name });
-      }
       return result;
     }
 
@@ -365,9 +369,8 @@
 
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
-        for (const cp of this.discoverChildPanes(opts.layer)) {
+        for (const cp of this.discoverChildPanes(opts.layer))
           this.ensurePane(cp, !this.labelPanes.has(cp));
-        }
       }
 
       if (opts.layer) {
@@ -798,14 +801,16 @@
       return this.defaultPanes.has(pane) || this.fallbackPanes.has(pane);
     }
 
+    /** Compute z-index for a layer at position i. */
+    computeZIndex(i, isTile) {
+      const zBase = isTile ? CONST.TILE_Z_INDEX_BASE : CONST.Z_INDEX_BASE;
+      return zBase + (this.layers.length - i) * CONST.Z_INDEX_STEP;
+    }
+
     enforceOrder() {
       if (this.isEnforcing) return;
       this.isEnforcing = true;
       try {
-        // Single pass: all registered layers (with or without Leaflet layer)
-        // get a consistent z-index based on their position in the list.
-        // Callback-only layers (e.g. Canvas heatmap) get onZIndex.
-        // Layers with a Leaflet instance also get pane migration.
         const layersToMove = [];
         let markerZ = 0;
 
@@ -814,80 +819,85 @@
           const layer = LayerUtils.findLayer(this.map, li.id);
           const hasLayer = layer && this.map.hasLayer(layer);
           const isTile = layer instanceof L.TileLayer;
-          const zBase = isTile ? CONST.TILE_Z_INDEX_BASE : CONST.Z_INDEX_BASE;
-          const z = zBase + (this.layers.length - i) * CONST.Z_INDEX_STEP;
+          const z = this.computeZIndex(i, isTile);
 
-          // Notify custom z-index callbacks (e.g. Canvas heatmap)
+          // 1. Notify callback-only layers (e.g. Canvas heatmap)
           const cbs = this.layerCallbacks.get(li.id);
-          if (cbs && cbs.onZIndex) cbs.onZIndex(z);
-
+          if (cbs?.onZIndex) cbs.onZIndex(z);
           if (!hasLayer) continue;
 
-          const paneName = li.paneName;
-
-          if (paneName) {
-            const ep = this.ensurePane(paneName, !isTile);
-            ep.pane.style.zIndex = z;
-            if (layer.options.pane !== paneName || !layer.options.paneSet)
-              layersToMove.push({ layer: layer, paneName, renderer: ep.renderer });
-          } else {
-            // Auto-discover custom panes from container tree (three-layer
-            // architecture). This ensures all internal panes (graph, label, etc.)
-            // are assigned the same z-index base.
-            const childPanes = this.discoverChildPanes(layer);
-            if (childPanes.length > 0) {
-              childPanes.forEach((cp) => {
-                const ep = this.ensurePane(cp, !isTile);
-                ep.pane.style.zIndex = z;
-                // Label panes get +1 offset so they always render above graph
-                if (this.labelPanes.has(cp)) ep.pane.style.zIndex = z + 1;
-              });
-              layer.options.paneSet = true;
-              // Three-layer components use custom panes, not default markerPane.
-              // Do NOT adjust markerZ — that would elevate all unmanaged point layers
-              // (e.g. static GeoJSON markers) above this dynamic layer.
-            } else {
-              const fallbackPaneName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
-              this.fallbackPanes.add(fallbackPaneName);
-              const ep = this.ensurePane(fallbackPaneName, !isTile);
-              ep.pane.style.zIndex = z;
-              if (!(layer instanceof L.TileLayer)) markerZ = Math.max(markerZ, z);
-              if (layer.options.pane !== fallbackPaneName || !layer.options.paneSet) {
-                layersToMove.push({
-                  layer,
-                  paneName: fallbackPaneName,
-                  renderer: ep.renderer,
-                });
-              }
-            }
-          }
+          // 2. Apply z-index via the appropriate mechanism
+          const zInfo = this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
+          if (zInfo.markerZ) markerZ = Math.max(markerZ, zInfo.markerZ);
         }
 
-        // Sync markerPane z-index so non-paneName marker layers can sit
-        // above/below paneName custom panes based on drag order.
+        // Sync markerPane so unmanaged marker layers sit at correct z-order
         if (markerZ > 0) {
           const mp = this.map.getPane("markerPane");
           if (mp) mp.style.zIndex = markerZ;
         }
 
-        if (layersToMove.length) {
-          for (const { layer, paneName, renderer } of layersToMove) {
-            if (paneName) {
-              this.setLayerPaneRecursive(layer, paneName, renderer);
-              // Move existing SVG elements in-place without removeLayer/addLayer,
-              // avoiding the bringToFront race on removed path elements.
-              const moveElements = (l) => {
-                if (l._path && renderer && l._path.parentNode !== renderer._container) {
-                  renderer._container.appendChild(l._path);
-                }
-                if (l.eachLayer) l.eachLayer(moveElements);
-              };
-              moveElements(layer);
-            }
-          }
-        }
+        // 3. Migrate layers to their target panes
+        this.migrateLayers(layersToMove);
       } finally {
         this.isEnforcing = false;
+      }
+    }
+
+    /** Apply z-index to a single layer using the appropriate mechanism. */
+    applyLayerZIndex({ li, layer, z, isTile, layersToMove }) {
+      const paneName = li.paneName;
+      if (paneName) {
+        // --- Mechanism A: Custom pane (Path layers with explicit paneName) ---
+        const ep = this.ensurePane(paneName, !isTile);
+        ep.pane.style.zIndex = z;
+        if (layer.options.pane !== paneName || !layer.options.paneSet)
+          layersToMove.push({ layer, paneName, renderer: ep.renderer });
+        return {};
+      }
+
+      if (isTile && typeof layer.setZIndex === "function") {
+        // --- Mechanism B: TileLayer (Leaflet's own API) ---
+        layer.setZIndex(z);
+        return {};
+      }
+
+      // --- Mechanism C: Auto-discovered / fallback panes ---
+      const childPanes = this.discoverChildPanes(layer);
+      if (childPanes.length > 0) {
+        // Three-layer components (HeatmapControl, MeasureControl, etc.)
+        childPanes.forEach((cp) => {
+          const ep = this.ensurePane(cp, !isTile);
+          ep.pane.style.zIndex = z;
+          if (this.labelPanes.has(cp)) ep.pane.style.zIndex = z + 1;
+        });
+        layer.options.paneSet = true;
+        return {};
+      }
+
+      // Unmanaged layer (GeoJSON, markers, etc.) → auto fallback pane
+      const fbName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
+      this.fallbackPanes.add(fbName);
+      const ep = this.ensurePane(fbName, !isTile);
+      ep.pane.style.zIndex = z;
+      if (layer.options.pane !== fbName || !layer.options.paneSet)
+        layersToMove.push({ layer, paneName: fbName, renderer: ep.renderer });
+      return { markerZ: z };
+    }
+
+    migrateLayers(layersToMove) {
+      if (!layersToMove.length) return;
+      for (const { layer, paneName, renderer } of layersToMove) {
+        if (!paneName) continue;
+        this.setLayerPaneRecursive(layer, paneName, renderer);
+        // Move existing SVG elements in-place without removeLayer/addLayer,
+        // avoiding the bringToFront race on removed path elements.
+        const moveElements = (l) => {
+          if (l._path && renderer && l._path.parentNode !== renderer._container)
+            renderer._container.appendChild(l._path);
+          if (l.eachLayer) l.eachLayer(moveElements);
+        };
+        moveElements(layer);
       }
     }
 
@@ -897,9 +907,8 @@
       this.renderInitialList();
       this.bindEvents();
 
-      while (this.pendingRegistrations.length) {
+      while (this.pendingRegistrations.length)
         this.registerLayer(this.pendingRegistrations.shift());
-      }
 
       setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
     }
@@ -941,7 +950,7 @@
                    aria-label="${_(CONST.name + ".color_map_label")}">
           </div>
           <label>${_(CONST.name + ".color_map_label")}</label>
-          <div class="type-icon-col">${window.foliplus.SVGs.GLOBE}</div>
+          <div class="type-icon-col">${SVGS.COLOR}</div>
         </div>`;
 
       this.uiContainer.innerHTML = html;
@@ -989,10 +998,7 @@
             const gtype = LayerUtils.getGeometryType(layer);
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
             typeCols[i].title = _(CONST.name + ".type_" + gtype);
-            this.typeMap.set(id, {
-              type: gtype,
-              name: layerInfo.name,
-            });
+            this.typeMap.set(id, { type: gtype, name: layerInfo.name });
           }
         }
       }
@@ -1050,9 +1056,8 @@
       const item = target.closest(".layer-item");
 
       if (layerInfo.isBase) this.hideColorLayer();
-      if (layer) {
+      if (layer)
         target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
-      }
       if (item)
         target.checked
           ? item.classList.add("is-active")
@@ -1066,9 +1071,8 @@
     }
 
     handleInput(e) {
-      if (e.target.classList.contains("color-layer-input")) {
+      if (e.target.classList.contains("color-layer-input"))
         this.showColorLayer(e.target.value);
-      }
     }
 
     handleDragStart(e) {
