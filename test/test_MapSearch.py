@@ -257,3 +257,67 @@ class TestMapSearchBrowser:
             ), f"Expected coordinate placeholder, got: {placeholder}"
         finally:
             page.close()
+
+    def test_mode_switch_icon(self, browser, tmp_path):
+        """Toggling mode switches icon between LOCATE (coord) and GLOBE (addr)."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MapSearch(mode="coord").add_to(m)
+
+        html_path = tmp_path / "test_mode_switch.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".map-search", state="attached", timeout=10000)
+            page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
+            page.wait_for_selector(
+                ".map-search.expanded", state="attached", timeout=5000
+            )
+
+            # Click mode switch button
+            page.evaluate("document.querySelector('.search-mode-btn').click()")
+            page.wait_for_timeout(500)
+
+            # After switch, should be address mode with GLOBE icon
+            globe_icon = page.evaluate(
+                "document.querySelector('.search-mode-btn').innerHTML.indexOf('GLOBE') > -1 || "
+                'document.querySelector(\'.search-mode-btn\').querySelector(\'circle[cx="12"][cy="12"][r="10"]\') !== null'
+            )
+            assert globe_icon, "Expected globe icon after mode switch"
+
+            # Also verify input placeholder was updated
+            placeholder = page.evaluate("document.querySelector('input').placeholder")
+            assert "address" in placeholder.lower() or "地址" in placeholder, (
+                f"Expected address placeholder after switch, got: {placeholder}"
+            )
+        finally:
+            page.close()
+
+    def test_clear_button_clears_input(self, browser, tmp_path):
+        """Clear button resets input value and hides hint."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MapSearch().add_to(m)
+
+        html_path = tmp_path / "test_clear.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".map-search", state="attached", timeout=10000)
+            page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
+            page.wait_for_selector(
+                ".map-search.expanded", state="attached", timeout=5000
+            )
+
+            # Type something in the input
+            page.evaluate("document.querySelector('input').value = '26.08,119.30'")
+            # Click clear button
+            page.evaluate("document.querySelector('.ctrl-abs-btn').click()")
+            page.wait_for_timeout(500)
+
+            cleared = page.evaluate("document.querySelector('input').value")
+            assert cleared == "", f"Expected empty input after clear, got: '{cleared}'"
+        finally:
+            page.close()

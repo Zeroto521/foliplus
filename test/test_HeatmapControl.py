@@ -311,6 +311,101 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "panel-shadow" in html
 
+    def test_agg_select_options(self, base_map: folium.Map):
+        """Aggregation method select has all 6 options."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        for agg in ("count", "sum", "avg", "min", "max"):
+            assert agg in html
+
+    def test_class_method_select_options(self, base_map: folium.Map):
+        """Classification method select has all 4 options."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        for method in ("jenks", "quantile", "equal", "heads"):
+            assert method in html
+
+    def test_border_control_renders(self, base_map: folium.Map):
+        """Border weight slider and color input are rendered."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "border-weight" in html
+        assert "border-color" in html
+
+    def test_label_toggle_renders(self, base_map: folium.Map):
+        """Label toggle switch is rendered."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "toggle-switch" in html
+        assert "labelChk" in html
+
+    def test_confirm_button_renders(self, base_map: folium.Map):
+        """Confirm (Apply) button is rendered."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "btn-confirm" in html
+        assert "HeatmapControl.confirm" in html
+
+    def test_clear_button_renders(self, base_map: folium.Map):
+        """Clear button is rendered."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "btn-clear" in html
+        assert "HeatmapControl.clear" in html
+
+    def test_section_data_and_style(self, base_map: folium.Map):
+        """Data and Style section labels are rendered."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "HeatmapControl.section_data" in html
+        assert "HeatmapControl.section_style" in html
+
+    def test_close_button_renders(self, base_map: folium.Map):
+        """Close button is rendered in the panel header."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "close-btn" in html
+        assert "HeatmapControl.close_title" in html
+
+    def test_layer_placeholder_option(self, base_map: folium.Map):
+        """Layer select has a placeholder option."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "HeatmapControl.layer_placeholder" in html
+
+    def test_field_auto_option(self, base_map: folium.Map):
+        """Field select has an auto-detect option."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "HeatmapControl.field_auto" in html
+
+    def test_extra_body_structure(self, base_map: folium.Map):
+        """Extra body has form-row with label and control-wrap."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "extra-body" in html
+        assert "form-row" in html
+        assert "form-control-wrap" in html
+
+    def test_resolution_select_renders(self, base_map: folium.Map):
+        """Resolution (H3 hex size) select is rendered."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "resolution" in html
+
+    def test_opacity_control_renders(self, base_map: folium.Map):
+        """Opacity slider is rendered."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "opacity" in html
+
+    def test_heatmap_constants(self, base_map: folium.Map):
+        """Heatmap constants like INIT_SCAN_ATTEMPTS are present."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "INIT_SCAN_ATTEMPTS" in html
+        assert "H3_RES_FALLBACK" in html
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""

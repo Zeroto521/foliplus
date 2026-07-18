@@ -5,35 +5,28 @@
 .is-measuring {
   cursor: crosshair;
 }
-/* ── Tool Buttons ── */
+/* ── Tool Buttons ──
+  Base reset and hover/active effects come from common.css unified button rules.
+  Only Measurement-specific overrides remain here. */
 .measure-ctrl .tool-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
   width: var(--ctrl-size);
   height: var(--ctrl-size);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--text-primary);
 }
 .measure-ctrl .tool-btn svg {
   stroke: currentColor;
 }
-.measure-ctrl .tool-btn:hover {
-  background-color: var(--accent-light);
-  color: var(--accent-primary);
-}
-.measure-ctrl .tool-btn:hover svg {
-  stroke: var(--accent-primary);
-}
 .measure-ctrl .tool-btn.active {
   background-color: var(--accent-light);
   color: var(--accent-primary);
 }
-.measure-ctrl .tool-btn.active svg {
+.measure-ctrl .tool-btn.active svg:not(.ruler-icon) {
   stroke: var(--accent-primary);
+  transform: scale(var(--scale-hover));
+}
+.measure-ctrl .tool-btn.active .ruler-icon {
+  transform: rotate(-45deg) scale(var(--scale-hover));
 }
 .ruler-icon {
   transform: rotate(-45deg);
@@ -49,7 +42,7 @@
   width: var(--size-12);
   height: var(--size-12);
   background: var(--accent-primary);
-  border: var(--border-medium) solid var(--neutral-0);
+  border: var(--border-thick) solid var(--neutral-0);
   border-radius: var(--radius-round);
 }
 .measure-center-dot.is-final {
@@ -68,7 +61,7 @@
 }
 .measure-line-solid {
   stroke: var(--accent-primary);
-  stroke-width: var(--stroke-width-emphasis);
+  stroke-width: 2.5px;
 }
 .measure-line-preview {
   stroke-dasharray: 4 4;
@@ -97,17 +90,17 @@
 .measure-node-final,
 .measure-line-solid,
 .measure-line-dashed {
-  stroke-width: var(--stroke-width-emphasis);
+  stroke-width: 2.5px;
 }
 
 .measure-circle-final {
-  stroke-width: var(--measure-stroke-final, 2);
+  stroke-width: 2px;
 }
 
 .measure-node-preview,
 .measure-line-preview,
 .measure-circle-preview {
-  stroke-width: var(--measure-stroke-preview, 1.5);
+  stroke-width: 1.5px;
 }
 
 .measure-circle-final,
@@ -124,7 +117,7 @@
 /* ── Measurement Labels ── */
 .measure-label {
   display: inline-block;
-  background: var(--measure-label-bg);
+  background: rgba(0, 0, 0, var(--alpha-50));
   color: var(--neutral-0);
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
@@ -141,7 +134,7 @@
   width: var(--icon-size-sm);
   height: var(--icon-size-sm);
   background: var(--accent-primary);
-  border: var(--border-medium) solid var(--ctrl-bg);
+  border: var(--border-thick) solid var(--ctrl-bg);
   border-radius: var(--radius-round);
   color: var(--ctrl-bg);
   font-size: var(--font-size-sm);
@@ -160,8 +153,11 @@
   display: flex;
 }
 .measure-del-icon:hover {
-  background: var(--measure-del-hover-bg);
+  background: rgba(var(--red-rgb), var(--alpha-95));
   transform: scale(var(--scale-hover));
+}
+.measure-del-icon:active {
+  transform: scale(var(--scale-press));
 }
 .measure-del-icon.marker-del-icon {
   top: calc(-1 * var(--size-6));
