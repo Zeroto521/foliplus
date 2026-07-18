@@ -12,6 +12,7 @@ build:
       - git fetch origin --tags --force
     pre_create_environment:
       - conda config --set solver libmamba
+      - conda info | grep -i solver
     post_install:
       - make info
 
