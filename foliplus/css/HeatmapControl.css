@@ -316,7 +316,6 @@
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
   border-top: var(--border-thin) solid var(--divider-color);
-  background: var(--panel-header-bg);
 }
 .heatmap-ctrl .btn {
   flex: 1;
