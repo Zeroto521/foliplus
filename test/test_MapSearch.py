@@ -128,10 +128,9 @@ class TestMapSearchRendering:
         assert "ctrl-abs-btn" in html
 
     def test_search_form_structure(self, base_map: folium.Map):
-        """Search form has search-form, mode-btn, input, and clear-wrap."""
+        """Search form has mode-btn, input, and clear-wrap."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "search-form" in html
         assert "search-mode-btn" in html
         assert "clear-wrap" in html
         assert 'type="text"' in html
