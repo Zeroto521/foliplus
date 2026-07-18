@@ -19,11 +19,14 @@
 - `Fullscreen`: replaced zoom +/- text with styled SVG icons matching foliplus design, unified fullscreen button and zoom controls with consistent hover/active effects (red accent, scale) and `--shadow-ctrl-strong`; CSS extracted into `Fullscreen.css` ([#37](https://github.com/Zeroto521/foliplus/pull/37))
 - `HeatmapControl`, `MeasureControl`: label z-index offset (`+1`) is now applied automatically by `LayerControl`; label pane detection improved to use pre-registration in `createManagedLayers` instead of fragile string matching ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35))
 - `HeatmapControl`: migrated from `L.divIcon` based SVG hexagons to Canvas 2D rendering (`createCanvas` API). Significant performance improvement for large point datasets ([#38](https://github.com/Zeroto521/foliplus/pull/38))
+- Unified `HINT_DURATION` constants across all components: `SHORT` (1200ms), `MEDIUM` (2500ms), `LONG` (4000ms), `PERSIST` (0 — persistent); `HeatmapControl`/`MeasureControl`/`MapSearch` updated to use these tiers ([#41](https://github.com/Zeroto521/foliplus/pull/41))
+- Unified button styles: extracted shared hover/active/scale effects into `common.css`; added `toggle-btn`/`tool-btn`/`search-mode-btn`/`ctrl-abs-btn`/`leaflet-control-zoom-*` unified reset; added `::before` zoom SVG icons with hover color change ([#37](https://github.com/Zeroto521/foliplus/pull/37))
 
 ### Fixed
 
-- `LayerControl`: restricted drag-and-drop reordering to within the same group (overlay ↔ overlay, base ↔ base)  ([#25](https://github.com/Zeroto521/foliplus/pull/25))
+- `LayerControl`: restricted drag-and-drop reordering to within the same group (overlay ↔ overlay, base ↔ base) ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `HeatmapControl`: fixed `_auto` field detection, including single-field cases ([#28](https://github.com/Zeroto521/foliplus/pull/28))
+- `MeasureControl`: labels are marked with `isMeasureLabel = true` BEFORE `addTo(mainLayer)`, ensuring correct routing to sub-layers ([#35](https://github.com/Zeroto521/foliplus/pull/35))
 
 ## [v0.2.0] (2026-07-01)
 

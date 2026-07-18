@@ -112,6 +112,75 @@ class TestMapSearchRendering:
         assert "flyTo([lat, lng]" in html
         assert html.count("foliplus.fromWgs84") == 2
 
+    def test_zoom_constant_default(self, base_map: folium.Map):
+        """ZOOM constants defined for MapSearch."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "ZOOM_MAX: 16" in html
+        assert "ZOOM_MIN: 12" in html
+        assert "ZOOM_BASE: 18" in html
+
+    def test_toggle_and_clear_button(self, base_map: folium.Map):
+        """Toggle and clear buttons are rendered."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "toggle-btn" in html
+        assert "ctrl-abs-btn" in html
+
+    def test_search_form_structure(self, base_map: folium.Map):
+        """Search form has search-form, mode-btn, input, and clear-wrap."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "search-form" in html
+        assert "search-mode-btn" in html
+        assert "clear-wrap" in html
+        assert 'type="text"' in html
+
+    def test_nominatim_constants(self, base_map: folium.Map):
+        """Nominatim API constants are defined."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "NOMINATIM_URL" in html
+        assert "NOMINATIM_FORMAT" in html
+        assert "jsonv2" in html
+
+    def test_disable_click_scroll_propagation(self, base_map: folium.Map):
+        """Click and scroll propagation are disabled."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "disableClickPropagation" in html
+        assert "disableScrollPropagation" in html
+
+    def test_mode_switch_function(self, base_map: folium.Map):
+        """Mode switch function _setMode exists."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "function _setMode(newMode)" in html
+
+    def test_location_marker_created(self, base_map: folium.Map):
+        """createLocationMarker is used for map markers."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.createLocationMarker" in html
+
+    def test_reverse_geocode_function(self, base_map: folium.Map):
+        """reverseGeocode is called for address lookup."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.reverseGeocode" in html
+
+    def test_build_popup_html(self, base_map: folium.Map):
+        """buildPopupHtml used for marker popups."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.buildPopupHtml" in html
+
+    def test_hide_hint_on_clear(self, base_map: folium.Map):
+        """hideHint is called when clearing search results."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.hideHint" in html
+
 
 class TestMapSearchBrowser:
     """Browser-based smoke tests for MapSearch."""
@@ -187,5 +256,69 @@ class TestMapSearchBrowser:
                 kw in placeholder.lower()
                 for kw in ("lat", "lng", "coord", "坐标", "latitude", "longitude")
             ), f"Expected coordinate placeholder, got: {placeholder}"
+        finally:
+            page.close()
+
+    def test_mode_switch_icon(self, browser, tmp_path):
+        """Toggling mode switches icon between LOCATE (coord) and GLOBE (addr)."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MapSearch(mode="coord").add_to(m)
+
+        html_path = tmp_path / "test_mode_switch.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".map-search", state="attached", timeout=10000)
+            page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
+            page.wait_for_selector(
+                ".map-search.expanded", state="attached", timeout=5000
+            )
+
+            # Click mode switch button
+            page.evaluate("document.querySelector('.search-mode-btn').click()")
+            page.wait_for_timeout(500)
+
+            # After switch, should be address mode with GLOBE icon
+            globe_icon = page.evaluate(
+                "document.querySelector('.search-mode-btn').innerHTML.indexOf('GLOBE') > -1 || "
+                'document.querySelector(\'.search-mode-btn\').querySelector(\'circle[cx="12"][cy="12"][r="10"]\') !== null'
+            )
+            assert globe_icon, "Expected globe icon after mode switch"
+
+            # Also verify input placeholder was updated
+            placeholder = page.evaluate("document.querySelector('input').placeholder")
+            assert "address" in placeholder.lower() or "地址" in placeholder, (
+                f"Expected address placeholder after switch, got: {placeholder}"
+            )
+        finally:
+            page.close()
+
+    def test_clear_button_clears_input(self, browser, tmp_path):
+        """Clear button resets input value and hides hint."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MapSearch().add_to(m)
+
+        html_path = tmp_path / "test_clear.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".map-search", state="attached", timeout=10000)
+            page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
+            page.wait_for_selector(
+                ".map-search.expanded", state="attached", timeout=5000
+            )
+
+            # Type something in the input
+            page.evaluate("document.querySelector('input').value = '26.08,119.30'")
+            # Click clear button
+            page.evaluate("document.querySelector('.ctrl-abs-btn').click()")
+            page.wait_for_timeout(500)
+
+            cleared = page.evaluate("document.querySelector('input').value")
+            assert cleared == "", f"Expected empty input after clear, got: '{cleared}'"
         finally:
             page.close()

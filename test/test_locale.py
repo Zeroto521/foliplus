@@ -67,6 +67,15 @@ _JS_USED_KEYS = {
     "LayerControl.reorder_group_only",
     "LayerControl.load_order_fail",
     "LayerControl.save_order_fail",
+    "LayerControl.type_base",
+    "LayerControl.type_custom",
+    "LayerControl.type_polygon",
+    "LayerControl.type_line",
+    "LayerControl.type_point",
+    "LayerControl.type_empty",
+    "LayerControl.type_unknown",
+    "LayerControl.id_required",
+    "LayerControl.invalid_id",
     # MapSearch
     "MapSearch.btn_title",
     "MapSearch.mode_coord",
@@ -105,11 +114,6 @@ _JS_USED_KEYS = {
     # Runtime / global
     "gcoord.warn",
     "load.script_fail",
-    "num.k",
-    "num.m",
-    "num.b",
-    "num.w",
-    "num.y",
 }
 
 

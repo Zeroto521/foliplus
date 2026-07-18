@@ -1,11 +1,17 @@
 .heatmap-ctrl {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
+  --dropdown-max-height: 200px;
+  --toggle-off-bg: #ccc;
+  --accent-shadow-sm: 0 var(--size-2) var(--size-8)
+    rgba(var(--red-rgb), var(--alpha-30));
+  --accent-shadow-md: 0 var(--size-4) var(--size-12)
+    rgba(var(--red-rgb), var(--alpha-50));
   --heatmap-label-width: 85px;
   --heatmap-select-pad-right: var(--space-xxl);
-  --heatmap-inline-height: var(--size-18);
+  --heatmap-inline-height: 18px;
   --heatmap-inline-width: 52px;
-  --heatmap-toggle-width: var(--toggle-size);
+  --heatmap-toggle-width: 40px;
   --heatmap-toggle-height: var(--size-20);
   --heatmap-accent-arrow-offset: var(--size-6);
   --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
@@ -14,8 +20,8 @@
   /* Label Canvas – CSS-driven parameters for Canvas text rendering */
   --heatmap-label-font-family: sans-serif;
   --heatmap-label-font-weight: bold;
-  --heatmap-label-font-size: 12px;
-  --heatmap-label-color: #fff;
+  --heatmap-label-font-size: var(--font-size-sm);
+  --heatmap-label-color: var(--neutral-0);
   --heatmap-label-stroke-color: rgba(0, 0, 0, 0.75);
   --heatmap-label-stroke-width: 3px;
 }
@@ -33,9 +39,6 @@
 .heatmap-ctrl .section-block {
   padding: 0;
 }
-.heatmap-ctrl .section-block-last {
-  padding-bottom: 0;
-}
 
 /* ── Form Row ── */
 .heatmap-ctrl .form-row {
@@ -49,7 +52,7 @@
   flex-shrink: 0;
   width: var(--heatmap-label-width);
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   text-align: right;
   white-space: nowrap;
   padding-right: var(--space-xs);
@@ -67,7 +70,7 @@
 .heatmap-ctrl .form-select,
 .heatmap-ctrl select {
   width: 100%;
-  height: var(--input-height);
+  height: var(--ctrl-size);
   font-size: var(--font-size-md);
   padding: 0 var(--heatmap-select-pad-right) 0 var(--space-md);
   border: var(--border-thin) solid var(--input-border);
@@ -81,8 +84,6 @@
   outline: none;
   box-sizing: border-box;
   appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
 }
 .heatmap-ctrl .form-select:focus,
 .heatmap-ctrl select:focus {
@@ -97,14 +98,10 @@
 }
 
 /* Placeholder select styling */
-.heatmap-ctrl select.is-placeholder {
-  color: var(--text-placeholder);
-}
-.heatmap-ctrl select option.placeholder-option {
-  color: var(--text-placeholder);
-}
+.heatmap-ctrl select.is-placeholder,
+.heatmap-ctrl select option.placeholder-option,
 .heatmap-ctrl select option.placeholder-option:disabled {
-  color: var(--text-placeholder);
+  color: var(--text-muted);
 }
 
 /* Unified container */
@@ -158,7 +155,7 @@
   height: 0;
   border-left: var(--size-4) solid transparent;
   border-right: var(--size-4) solid transparent;
-  border-top: var(--size-6) solid var(--text-placeholder);
+  border-top: var(--size-6) solid var(--text-muted);
   pointer-events: none;
 }
 .heatmap-ctrl .scheme-bar:hover {
@@ -188,7 +185,7 @@
   margin-top: var(--space-xs);
   background: var(--input-bg);
   border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
   z-index: var(--z-index-dropdown);
   max-height: var(--dropdown-max-height);
@@ -204,7 +201,7 @@
   box-sizing: border-box;
   cursor: pointer;
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 .heatmap-ctrl .scheme-dropdown-item:hover {
   background: var(--ctrl-hover-bg);
@@ -227,7 +224,7 @@
 /* ── Border Inputs ── */
 .heatmap-ctrl .border-color-input {
   flex: 1;
-  height: var(--input-height);
+  height: var(--ctrl-size);
   padding: var(--border-thin);
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
@@ -244,7 +241,7 @@
 }
 .heatmap-ctrl .border-weight-input {
   width: var(--heatmap-inline-width);
-  height: var(--input-height);
+  height: var(--ctrl-size);
   font-size: var(--font-size-sm);
   padding: 0 var(--size-6);
   border: var(--border-thin) solid var(--input-border);
@@ -266,7 +263,6 @@
 }
 .heatmap-ctrl .border-weight-input[type="number"] {
   appearance: textfield;
-  -moz-appearance: textfield;
 }
 
 /* ── Label Toggle ── */
@@ -292,26 +288,26 @@
   right: 0;
   bottom: 0;
   background-color: var(--toggle-off-bg);
-  border-radius: var(--radius-pill);
+  border-radius: 10px;
   transition: background-color var(--transition-fast);
 }
 .heatmap-ctrl .toggle-slider::before {
   content: "";
   position: absolute;
-  height: var(--icon-size-sm);
-  width: var(--icon-size-sm);
-  left: var(--space-xs);
-  bottom: var(--space-xs);
+  height: var(--size-16);
+  width: var(--size-16);
+  left: var(--size-2);
+  bottom: var(--size-2);
   background-color: var(--neutral-0);
   border-radius: var(--radius-round);
   transition: transform var(--transition-fast);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider {
   background-color: var(--accent-primary);
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider::before {
-  transform: translateX(var(--icon-size-sm));
+  transform: translateX(var(--size-20));
 }
 
 /* ── Bottom Buttons ── */
@@ -320,13 +316,12 @@
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
   border-top: var(--border-thin) solid var(--divider-color);
-  background: var(--panel-header-bg);
 }
 .heatmap-ctrl .btn {
   flex: 1;
-  height: var(--btn-height);
+  height: var(--ctrl-size);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -335,12 +330,12 @@
     box-shadow var(--transition-fast);
 }
 .heatmap-ctrl .btn-clear {
-  background: var(--btn-secondary-bg);
-  color: var(--text-muted);
-  border: var(--border-thin) solid var(--btn-secondary-border);
+  background: var(--text-muted);
+  color: var(--neutral-0);
+  border: none;
 }
 .heatmap-ctrl .btn-clear:hover {
-  background: var(--btn-secondary-hover);
+  background: var(--text-primary);
 }
 .heatmap-ctrl .btn-confirm {
   background: var(--btn-primary-bg);
@@ -359,7 +354,7 @@
 .heatmap-ctrl .section-heading {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-muted);
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: var(--heatmap-heading-letter-spacing);
   padding: var(--space-md) var(--space-xl) var(--space-sm);

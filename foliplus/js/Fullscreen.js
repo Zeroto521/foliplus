@@ -2,14 +2,6 @@
   const CONST = {
     name: "Fullscreen",
     RETRY_INTERVAL_MS: 100,
-    MAXIMIZE: `
-      <svg viewBox="0 0 24 24">
-        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-      </svg>`,
-    MINIMIZE: `
-      <svg viewBox="0 0 24 24">
-        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-      </svg>`,
   };
 
   // ==================== Runtime Guard ====================
@@ -22,7 +14,19 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  window.foliplus.registerHintIcon(CONST.name, CONST.MAXIMIZE);
+  // ==================== SVG Icons ====================
+  const SVGs = {
+    MAXIMIZE: `
+      <svg viewBox="0 0 24 24">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+      </svg>`,
+    MINIMIZE: `
+      <svg viewBox="0 0 24 24">
+        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+      </svg>`,
+  };
+
+  window.foliplus.registerHintIcon(CONST.name, SVGs.MAXIMIZE);
 
   // ==================== Control Setup ====================
   const fsControl = L.control
@@ -48,7 +52,7 @@
       return;
     }
 
-    btn.innerHTML = CONST.MAXIMIZE;
+    btn.innerHTML = SVGs.MAXIMIZE;
     btn.classList.add("fullscreen-btn");
 
     // Break native event bindings by cloning and replacing the button
@@ -71,7 +75,7 @@
     const container = document.querySelector(
       ".leaflet-control-zoom-fullscreen.fullscreen-btn",
     );
-    if (container) container.innerHTML = isFull ? CONST.MINIMIZE : CONST.MAXIMIZE;
+    if (container) container.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
 
     if ({{ this.hide_others | tojson }}) {
       // Toggle visibility of sibling controls

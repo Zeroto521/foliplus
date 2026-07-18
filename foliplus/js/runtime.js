@@ -66,13 +66,6 @@
   const POPUP = {
     MAX_WIDTH: 300,
   };
-  const FALLBACK = {
-    K: 1000,
-    W: 10000,
-    M: 1e6,
-    B: 1e9,
-    Y: 1e8,
-  };
 
   // --- SVG Icons ---
   foliplus.SVGs = {
@@ -587,10 +580,6 @@
   };
 
   // ==================== Number Formatting ====================
-  // Locale-aware number formatting using Intl.NumberFormat compact notation.
-  // 'auto'  → compact abbreviations above threshold (en:≥1K, zh:≥10K),
-  //            standard grouping below (1,234).  Fallback: K/M/B or W/Y.
-  // 'comma' → thousands separator + 1 decimal (alias: 'int')
   /**
    * Format a number for display.
    * @param {number} val Value to format
@@ -604,46 +593,28 @@
     locale =
       locale || (typeof _LOCALE !== "undefined" && _LOCALE["locale.code"]) || "en";
     const absVal = Math.abs(val);
-    const threshold = locale === "zh" ? FALLBACK.W : FALLBACK.K;
-    const compactMaxFrac = () => {
-      let divisor = threshold;
-      if (absVal >= 1e9) divisor = locale === "zh" ? 1e8 : 1e9;
-      else if (absVal >= 1e6) divisor = locale === "zh" ? 1e4 : 1e6;
-      return String(Math.floor(absVal / divisor)).length >= 3 ? 0 : 1;
-    };
-    if (typeof Intl !== "undefined" && Intl.NumberFormat) {
-      if (style === "auto" && absVal >= threshold) {
-        return new Intl.NumberFormat(locale, {
-          notation: "compact",
-          compactDisplay: "short",
-          maximumFractionDigits: compactMaxFrac(),
-        }).format(val);
-      }
-      return new Intl.NumberFormat(locale, {
-        maximumFractionDigits: absVal >= 100 ? 0 : 1,
-      }).format(val);
-    }
-    // Fallback (no Intl)
-    const fmt = (v) => Math.round(v).toLocaleString();
+
+    const fmt = (maxFrac) =>
+      new Intl.NumberFormat(locale, {
+        notation: style === "auto" && absVal >= 1000 ? "compact" : "standard",
+        compactDisplay: "short",
+        maximumFractionDigits: maxFrac,
+      });
+
     if (style === "auto") {
-      if (absVal >= threshold) {
-        const frac = compactMaxFrac();
-        if (locale === "zh") {
-          if (absVal >= FALLBACK.Y)
-            return (val / FALLBACK.Y).toFixed(frac) + foliplus.gt("num.y");
-          if (absVal >= FALLBACK.W)
-            return (val / FALLBACK.W).toFixed(frac) + foliplus.gt("num.w");
-        } else {
-          if (absVal >= FALLBACK.B)
-            return (val / FALLBACK.B).toFixed(frac) + foliplus.gt("num.b");
-          if (absVal >= FALLBACK.M)
-            return (val / FALLBACK.M).toFixed(frac) + foliplus.gt("num.m");
-          if (absVal >= FALLBACK.K)
-            return (val / FALLBACK.K).toFixed(frac) + foliplus.gt("num.k");
-        }
+      const nf = fmt(1);
+      const parts = nf.formatToParts(val);
+      const intStr = parts
+        .filter((p) => p.type === "integer")
+        .map((p) => p.value)
+        .join("");
+      if (intStr.length >= 3) {
+        return fmt(0).format(val);
       }
+      return nf.format(val);
     }
-    return absVal >= 100 ? fmt(Math.round(val)) : fmt(Math.round(val * 10) / 10);
+
+    return fmt(absVal >= 100 ? 0 : 1).format(val);
   };
 
   // ==================== Dynamic Script Loader ====================

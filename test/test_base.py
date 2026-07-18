@@ -23,3 +23,210 @@ class TestBaseControlRendering:
         # Verify locale tables are passed inline (not as a separate variable)
         assert '"locale.name": "English"' in html
         assert '"locale.name": "中文"' in html
+
+    def test_hint_system(self, base_map: folium.Map):
+        """Hint system functions are present in runtime.js."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.showHint" in html
+        assert "foliplus.hideHint" in html
+        assert "foliplus.registerHintIcon" in html
+
+    def test_hint_duration_constants(self, base_map: folium.Map):
+        """HINT_DURATION constants exposed as foliplus.HINT_DURATION."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.HINT_DURATION" in html
+        assert "HINT.SHORT" in html
+        assert "HINT.MEDIUM" in html
+        assert "HINT.LONG" in html
+        assert "HINT.PERSIST" in html
+
+    def test_format_number_auto(self, base_map: folium.Map):
+        """foliplus.formatNumber supports auto/compact style."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.formatNumber" in html
+        assert "Intl.NumberFormat" in html
+        assert "compactDisplay" in html
+
+    def test_build_popup_html(self, base_map: folium.Map):
+        """foliplus.buildPopupHtml is defined."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.buildPopupHtml" in html
+
+    def test_create_location_marker(self, base_map: folium.Map):
+        """foliplus.createLocationMarker is defined."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.createLocationMarker" in html
+
+    def test_reverse_geocode(self, base_map: folium.Map):
+        """foliplus.reverseGeocode is defined."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.reverseGeocode" in html
+
+    def test_to_wgs84_from_wgs84(self, base_map: folium.Map):
+        """foliplus.toWgs84 and fromWgs84 are defined."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.toWgs84" in html
+        assert "foliplus.fromWgs84" in html
+
+    def test_bind_panel_toggle(self, base_map: folium.Map):
+        """bindPanelToggle is defined in runtime.js."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.bindPanelToggle" in html
+
+    def test_bind_outside_collapse(self, base_map: folium.Map):
+        """bindOutsideCollapse is defined in runtime.js."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.bindOutsideCollapse" in html
+
+    def test_create_fold_control(self, base_map: folium.Map):
+        """createFoldControl is defined in runtime.js."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.createFoldControl" in html
+
+    def test_debounce_utility(self, base_map: folium.Map):
+        """foliplus.debounce utility is defined."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.debounce" in html
+        assert "clearTimeout(timer)" in html
+
+    def test_svg_icons_present(self, base_map: folium.Map):
+        """All SVG icons are defined in runtime.js."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.SVGs.LOADING" in html or "SVGs.LOADING" in html
+        assert "foliplus.SVGs.CLOSE" in html or "SVGs.CLOSE" in html
+        assert "foliplus.SVGs.PIN_ICON" in html or "SVGs.PIN_ICON" in html
+        assert "foliplus.SVGs.LOCATE" in html or "SVGs.LOCATE" in html
+        assert "foliplus.SVGs.GLOBE" in html or "SVGs.GLOBE" in html
+        assert "foliplus.SVGs.SEARCH" in html or "SVGs.SEARCH" in html
+
+    def test_load_scripts_function(self, base_map: folium.Map):
+        """loadScripts function is defined in runtime.js."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.loadScripts" in html
+
+    def test_resolve_locale_function(self, base_map: folium.Map):
+        """resolveLocale function is defined in runtime.js."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.resolveLocale" in html
+
+    def test_gt_function(self, base_map: folium.Map):
+        """foliplus.gt (get text) is defined."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.gt" in html
+
+    def test_ctrl_fold_classes(self, base_map: folium.Map):
+        """ctrl-fold is a common pattern for expand/collapse panels."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "ctrl-fold" in html
+        assert "collapsed" in html
+        assert "expanded" in html
+
+    def test_pin_icon_dimensions(self, base_map: folium.Map):
+        """PIN icon dimensions are defined."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "SIZE: [24, 36]" in html
+        assert "ANCHOR: [12, 36]" in html
+        assert "POPUP_ANCHOR: [0, -36]" in html
+
+    def test_popup_max_width(self, base_map: folium.Map):
+        """Popup max width is defined."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "MAX_WIDTH: 300" in html
+
+    def test_load_scripts_uses_promises(self, base_map: folium.Map):
+        """loadScripts returns a promise-based API."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "new Promise" in html or "resolve()" in html or "reject()" in html
+
+    def test_gcoord_detection_helpers(self, base_map: folium.Map):
+        """Coordinate detection helpers exist."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "_isBaiduCRS" in html
+        assert "_isDomesticMap" in html
+
+    def test_gcoord_loading_state(self, base_map: folium.Map):
+        """gcoord loading states are tracked."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "_gcoordLoading" in html
+        assert "_gcoordWarned" in html
+
+    def test_geo_cache_and_throttle(self, base_map: folium.Map):
+        """Reverse geocode has cache and throttle logic."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "_geoCache" in html
+        assert "THROTTLE_MS" in html
+
+    def test_all_locale_tables_injected(self, base_map: folium.Map):
+        """All locale tables are injected into HTML by base.py."""
+        from foliplus import MapSearch
+
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert '"locale.code":"en"' in html or '"locale.code": "en"' in html
+        assert '"locale.code":"zh"' in html or '"locale.code": "zh"' in html
