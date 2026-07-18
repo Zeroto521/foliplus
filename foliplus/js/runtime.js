@@ -410,7 +410,6 @@
    * @returns {string} HTML string
    */
   foliplus.buildPopupHtml = (lat, lng, addr, title, loading, locLabel, addrLabel) => {
-    const popupTitle = foliplus.gt(title);
     const loadStr = foliplus.gt(loading);
     const addrHtml =
       addr && addr.includes("LOADING")
@@ -419,7 +418,7 @@
 
     return `
     <div class="popup-content">
-      <b>${popupTitle}</b><br>
+      <b>${foliplus.gt(title)}</b><br>
       ${foliplus.gt(locLabel)}${lng},${lat}<br>
       ${foliplus.gt(addrLabel)}${addrHtml}
     </div>`;
@@ -465,9 +464,7 @@
     target.addLayer(mk);
     mk.bindPopup(
       foliplus.buildPopupHtml(lat, lng, addr, title, loading, locLabel, addrLabel),
-      {
-        maxWidth: POPUP.MAX_WIDTH,
-      },
+      { maxWidth: POPUP.MAX_WIDTH },
     );
     mk.openPopup();
     if (!addr) {
@@ -608,9 +605,8 @@
         .filter((p) => p.type === "integer")
         .map((p) => p.value)
         .join("");
-      if (intStr.length >= 3) {
-        return fmt(0).format(val);
-      }
+      if (intStr.length >= 3) return fmt(0).format(val);
+
       return nf.format(val);
     }
 
