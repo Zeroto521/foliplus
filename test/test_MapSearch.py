@@ -112,6 +112,74 @@ class TestMapSearchRendering:
         assert "flyTo([lat, lng]" in html
         assert html.count("foliplus.fromWgs84") == 2
 
+    def test_zoom_constant_default(self, base_map: folium.Map):
+        """ZOOM constants defined for MapSearch."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "ZOOM_MAX: 16" in html
+        assert "ZOOM_MIN: 12" in html
+        assert "ZOOM_BASE: 18" in html
+
+    def test_toggle_and_clear_button(self, base_map: folium.Map):
+        """Toggle and clear buttons are rendered."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "toggle-btn" in html
+        assert "ctrl-abs-btn" in html
+
+    def test_search_form_structure(self, base_map: folium.Map):
+        """Search form has mode-btn, input, and clear-wrap."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "search-mode-btn" in html
+        assert "clear-wrap" in html
+        assert 'type="text"' in html
+
+    def test_nominatim_constants(self, base_map: folium.Map):
+        """Nominatim API constants are defined."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "NOMINATIM_URL" in html
+        assert "NOMINATIM_FORMAT" in html
+        assert "jsonv2" in html
+
+    def test_disable_click_scroll_propagation(self, base_map: folium.Map):
+        """Click and scroll propagation are disabled."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "disableClickPropagation" in html
+        assert "disableScrollPropagation" in html
+
+    def test_mode_switch_function(self, base_map: folium.Map):
+        """Mode switch function _setMode exists."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "function _setMode(newMode)" in html
+
+    def test_location_marker_created(self, base_map: folium.Map):
+        """createLocationMarker is used for map markers."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.createLocationMarker" in html
+
+    def test_reverse_geocode_function(self, base_map: folium.Map):
+        """reverseGeocode is called for address lookup."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.reverseGeocode" in html
+
+    def test_build_popup_html(self, base_map: folium.Map):
+        """buildPopupHtml used for marker popups."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.buildPopupHtml" in html
+
+    def test_hide_hint_on_clear(self, base_map: folium.Map):
+        """hideHint is called when clearing search results."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.hideHint" in html
+
 
 class TestMapSearchBrowser:
     """Browser-based smoke tests for MapSearch."""

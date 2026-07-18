@@ -11,6 +11,8 @@
     ZOOM_MIN: 12,
     ZOOM_BASE: 18,
     ZOOM_DIVISOR: 20,
+    position: "{{ this.position }}",
+    zoom: {{ this.zoom }},
   };
 
   // ==================== Runtime Guard ====================
@@ -29,13 +31,17 @@
   new (L.Control.extend({
     onAdd: () => {
       const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
-      const ctrl = L.DomUtil.create("div", "map-search ctrl-fold collapsed", container);
+      const ctrl = L.DomUtil.create(
+        "div",
+        `map-search ctrl-fold collapsed${CONST.position.indexOf("right") >= 0 ? " align-right" : ""}`,
+        container,
+      );
       ctrl.id = "{{ this.get_name() }}_ctrl";
       ctrl.innerHTML = `
         <button class="toggle-btn" title="${_(`${CONST.name}.btn_title`)}">
           ${window.foliplus.SVGs.SEARCH}
         </button>
-        <div class="search-form">
+        <div class="tool-bar">
           <button class="search-mode-btn" title="${_(`${CONST.name}.mode_coord`)}">
             ${window.foliplus.SVGs.LOCATE}
           </button>
@@ -138,7 +144,7 @@
         const lng = parts[0];
         const lat = parts[1];
         window.foliplus.hideHint(CONST.name);
-        map.flyTo([lat, lng], {{ this.zoom }});
+        map.flyTo([lat, lng], CONST.zoom);
         mk = window.foliplus.createLocationMarker(
           map,
           lat,
@@ -244,7 +250,5 @@
 
       return container;
     },
-  }))({
-    position: "{{ this.position }}",
-  }).addTo(map);
+  }))({ position: CONST.position }).addTo(map);
 })();

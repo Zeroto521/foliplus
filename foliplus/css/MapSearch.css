@@ -2,16 +2,7 @@
   width: var(--panel-width);
   height: auto;
   box-shadow: var(--panel-shadow);
-}
-/* ── Search Form ── */
-.map-search .search-form {
-  display: none;
-  align-items: center;
-  height: var(--ctrl-size);
-  flex: 1;
-}
-.map-search.expanded .search-form {
-  display: flex;
+  overflow: hidden;
 }
 /* ── Mode Switch Button ── */
 .map-search .search-mode-btn {
@@ -29,6 +20,7 @@
   border-right: var(--border-thin) solid var(--divider-color);
   transition: color var(--transition-fast), background-color var(--transition-fast);
   flex-shrink: 0;
+  border-radius: 0;
 }
 .map-search .search-mode-btn:hover {
   background-color: var(--ctrl-hover-bg);
