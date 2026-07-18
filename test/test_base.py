@@ -219,7 +219,7 @@ class TestBaseControlRendering:
 
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "_geoCache" in html
+        assert "geoCache" in html
         assert "THROTTLE_MS" in html
 
     def test_all_locale_tables_injected(self, base_map: folium.Map):

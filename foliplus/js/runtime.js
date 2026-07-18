@@ -352,9 +352,9 @@
 
   // ==================== Reverse Geocoding ====================
   // Uses throttled queue (1 req/s) and response cache.
-  const _geoCache = {};
-  let _geoPromise = Promise.resolve();
-  let _geoLastReq = 0;
+  const geoCache = {};
+  let geoPromise = Promise.resolve();
+  let geoLastReq = 0;
 
   /**
    * Reverse geocode coordinates to an address via Nominatim.
@@ -366,19 +366,19 @@
    */
   foliplus.reverseGeocode = (map, lat, lng) => {
     const key = `${lat},${lng}`;
-    if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
+    if (geoCache[key]) return Promise.resolve(geoCache[key]);
 
     const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
     const lang = (window._LOCALE && window._LOCALE["locale.code"]) || "en";
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
 
-    _geoPromise = _geoPromise
+    geoPromise = geoPromise
       .then(() => {
-        const wait = Math.max(0, GEO.THROTTLE_MS - (Date.now() - _geoLastReq));
+        const wait = Math.max(0, GEO.THROTTLE_MS - (Date.now() - geoLastReq));
         return new Promise((r) => setTimeout(r, wait));
       })
       .then(() => {
-        _geoLastReq = Date.now();
+        geoLastReq = Date.now();
         return fetch(url)
           .then((r) => r.json())
           .then((data) => {
@@ -389,12 +389,12 @@
               .filter((s) => s && !/^\d+$/.test(s))
               .reverse()
               .join(",");
-            _geoCache[key] = addr || foliplus.gt("MapSearch.addr_not_found");
-            return _geoCache[key];
+            geoCache[key] = addr || foliplus.gt("MapSearch.addr_not_found");
+            return geoCache[key];
           })
           .catch(() => foliplus.gt("MeasureControl.geo_fail"));
       });
-    return _geoPromise;
+    return geoPromise;
   };
 
   // ==================== HTML Builder ====================
