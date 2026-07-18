@@ -33,6 +33,12 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   const SVGS = {
+    LIST: `
+      <svg viewBox="0 0 24 24">
+        <circle cx="5.5" cy="5" r="2"/><line x1="10" y1="5" x2="21" y2="5"/>
+        <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
+        <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
+      </svg>`,
     DRAG_HANDLE: `
       <svg viewBox="0 0 24 24" class="drag-handle">
         <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
@@ -41,12 +47,6 @@
         <circle cx="16" cy="12" r="1.5" fill="currentColor"/>
         <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
         <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
-      </svg>`,
-    LIST: `
-      <svg viewBox="0 0 24 24">
-        <circle cx="5.5" cy="5" r="2"/><line x1="10" y1="5" x2="21" y2="5"/>
-        <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
-        <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
       </svg>`,
     POINT: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>`,
     LINE: `<svg viewBox="0 0 24 24"><path d="M4 20 L10 6 L16 18 L22 4"/></svg>`,
@@ -57,9 +57,18 @@
       </svg>`,
     UNKNOWN: `
       <svg viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="6.5" fill="none"/>
+        <circle cx="12" cy="12" r="6.5"/>
         <text x="12" y="12.5" text-anchor="middle" dominant-baseline="central"
               font-size="12" font-weight="bold" fill="currentColor">?</text>
+      </svg>`,
+    COLOR: `
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.1 0 2-.9 2-2v-1c0-.6.4-1 1-1h2c3.3 0 6-2.7 6-6 0-5.5-4.5-10-10-10z"/>
+        <circle cx="7.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="16.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none"/>
+        <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/>
       </svg>`,
   };
 
@@ -945,7 +954,7 @@
                    aria-label="${_(CONST.name + ".color_map_label")}">
           </div>
           <label>${_(CONST.name + ".color_map_label")}</label>
-          <div class="type-icon-col">${window.foliplus.SVGs.GLOBE}</div>
+          <div class="type-icon-col">${SVGS.COLOR}</div>
         </div>`;
 
       this.uiContainer.innerHTML = html;
