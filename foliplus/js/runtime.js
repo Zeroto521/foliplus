@@ -239,9 +239,9 @@
    * @returns {boolean} True if the map uses Baidu CRS
    *
    * @example
-   *   _isBaiduCRS(map) // → true if Baidu tiles are used
+   *   isBaiduCRS(map) // → true if Baidu tiles are used
    */
-  const _isBaiduCRS = (map) => {
+  const isBaiduCRS = (map) => {
     try {
       if (L.CRS && L.CRS.Baidu) return true;
       const crs = map.options.crs;
@@ -273,7 +273,7 @@
    */
   foliplus.toWgs84 = (map, lat, lng) => {
     if (typeof gcoord !== "undefined") {
-      const src = _isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
+      const src = isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
     }
@@ -310,11 +310,11 @@
         return [lng, lat];
       }
     }
-    const isBaidu = _isBaiduCRS(map);
+    const isBaidu = isBaiduCRS(map);
     // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip
     const dst = isBaidu ? gcoord.BD09 : gcoord.GCJ02;
     // Skip transformation for non-domestic maps (no Baidu/AMap tile patterns)
-    if (!isBaidu && !_isDomesticMap(map)) return [lng, lat];
+    if (!isBaidu && !isDomesticMap(map)) return [lng, lat];
     return gcoord.transform([lng, lat], gcoord.WGS84, dst);
   };
 
@@ -325,7 +325,7 @@
    * @param {L.Map} map - Leaflet map instance
    * @returns {boolean} True if the map uses domestic tile providers
    */
-  const _isDomesticMap = (map) => {
+  const isDomesticMap = (map) => {
     try {
       const crs = map.options.crs;
       if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
