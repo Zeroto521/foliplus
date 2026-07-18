@@ -35,11 +35,10 @@
   line-height: var(--ctrl-size);
   border-bottom: var(--border-thin) solid var(--divider-color);
 }
+/* Override common.css button transform: zoom/fullscreen avoid button-level scale */
 .leaflet-bar .leaflet-control-zoom-in:hover,
 .leaflet-bar .leaflet-control-zoom-out:hover,
 .leaflet-control-zoom-fullscreen.fullscreen-btn:hover {
-  background-color: var(--accent-light);
-  color: var(--accent-primary);
   transform: none;
 }
 .leaflet-control-zoom-fullscreen.fullscreen-btn:hover svg {

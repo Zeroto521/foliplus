@@ -133,9 +133,9 @@
   --line-height-popup: 1.8;
 
   /* ── Z-index ──
-    LayerControl JS manages pane z-index dynamically.
-    Hint z-index is managed by runtime.js (HINT.Z_BASE = 10000).
-    CSS only defines dropdown z-index (below hints). */
+  LayerControl JS manages pane z-index dynamically.
+  Hint z-index is managed by runtime.js (HINT.Z_BASE = 10000).
+  CSS only defines dropdown z-index (below hints). */
   --z-index-dropdown: 9990;
   --z-index-control: 1000;
 }
@@ -174,67 +174,100 @@
   stroke-linejoin: round;
 }
 
-/* ── Unified Component Button ──
-  Shared hover/active behavior for all foliplus and Leaflet native buttons.
-  zoom +/-, fullscreen, toggle-btn all share the same hover/active effects. ── */
+/* ── Unified Component Button Reset ──
+  Base reset for all foliplus and Leaflet native buttons. */
 .toggle-btn,
+.tool-btn,
+.search-mode-btn,
+.ctrl-abs-btn,
 .leaflet-control-zoom-in,
 .leaflet-control-zoom-out,
 .leaflet-control-zoom-fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
   transition:
     color var(--transition-fast),
     background-color var(--transition-fast),
     transform var(--transition-fast);
   will-change: transform;
 }
+
+/* ── Unified Button Hover/Active ──
+  All buttons share the same hover background and text color.
+  Individual overrides (e.g. transform:none, ruler-icon) are in component CSS. */
 .toggle-btn:hover,
+.tool-btn:hover,
+.search-mode-btn:hover,
+.ctrl-abs-btn:hover,
 .leaflet-control-zoom-in:hover,
 .leaflet-control-zoom-out:hover,
 .leaflet-control-zoom-fullscreen:hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
+}
+
+/* toggle-btn unique: button-level scale */
+.toggle-btn:hover {
   transform: scale(var(--scale-hover));
 }
+.toggle-btn:active {
+  transform: scale(var(--scale-press));
+}
+
+/* SVG hover scale — for buttons with inline SVG */
+.tool-btn:hover svg,
+.search-mode-btn:hover svg,
+.ctrl-abs-btn:hover svg,
+.leaflet-control-zoom-fullscreen:hover svg {
+  transform: scale(var(--scale-hover));
+}
+
+/* SVG active scale */
+.tool-btn:active svg,
+.search-mode-btn:active svg,
+.ctrl-abs-btn:active svg,
+.leaflet-control-zoom-fullscreen:active svg {
+  transform: scale(var(--scale-press));
+}
+
+/* SVG hover stroke — turn icon red */
 .toggle-btn:hover svg,
+.tool-btn:hover svg,
+.search-mode-btn:hover svg,
+.ctrl-abs-btn:hover svg,
 .leaflet-control-zoom-in:hover svg,
 .leaflet-control-zoom-out:hover svg,
 .leaflet-control-zoom-fullscreen:hover svg {
   stroke: var(--accent-primary);
 }
-.toggle-btn:hover .ruler-icon {
+
+/* Ruler icon special: keep -45deg rotation */
+.toggle-btn:hover .ruler-icon,
+.tool-btn:hover .ruler-icon {
   transform: rotate(-45deg) scale(var(--scale-hover));
 }
-.toggle-btn:active,
-.leaflet-control-zoom-in:active,
-.leaflet-control-zoom-out:active,
-.leaflet-control-zoom-fullscreen:active {
-  transform: scale(var(--scale-press));
+.tool-btn:active .ruler-icon {
+  transform: rotate(-45deg) scale(var(--scale-press));
 }
 
+/* ── Toggle Button Base ── */
 .toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   min-width: var(--ctrl-size);
   flex-shrink: 0;
-  box-sizing: border-box;
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
-  padding: 0;
-  margin: 0;
 }
 .toggle-btn svg {
   stroke: var(--text-primary);
-}
-.toggle-btn:hover,
-.toggle-btn:hover svg {
-  color: var(--accent-primary);
-  stroke: var(--accent-primary);
 }
 
 /* ── Map Hint (Toast Notification) ── */
@@ -277,36 +310,11 @@
   transform: translateY(-50%);
   width: var(--ctrl-size);
   height: var(--ctrl-size);
-  background: none;
-  border: none;
-  cursor: pointer;
   color: var(--text-muted);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: 0;
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-.ctrl-abs-btn:hover {
-  color: var(--accent-primary);
-  background: var(--accent-light);
-}
-.ctrl-abs-btn:hover svg {
-  transform: scale(var(--scale-hover));
 }
 .ctrl-abs-btn:active svg {
   transform: scale(var(--scale-press));
-}
-
-/* ── Shared button reset (applied via selector group) ── */
-.map-search .search-mode-btn,
-.measure-ctrl .tool-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
 }
 
 .pin-wrap {

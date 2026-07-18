@@ -5,38 +5,28 @@
 .is-measuring {
   cursor: crosshair;
 }
-/* ── Tool Buttons ── */
+/* ── Tool Buttons ──
+  Base reset and hover/active effects come from common.css unified button rules.
+  Only Measurement-specific overrides remain here. */
 .measure-ctrl .tool-btn {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
 }
 .measure-ctrl .tool-btn svg {
   stroke: currentColor;
 }
-.measure-ctrl .tool-btn:hover,
 .measure-ctrl .tool-btn.active {
   background-color: var(--accent-light);
   color: var(--accent-primary);
 }
-.measure-ctrl .tool-btn:hover svg:not(.ruler-icon),
 .measure-ctrl .tool-btn.active svg:not(.ruler-icon) {
   stroke: var(--accent-primary);
   transform: scale(var(--scale-hover));
 }
-.measure-ctrl .tool-btn:hover .ruler-icon,
 .measure-ctrl .tool-btn.active .ruler-icon {
   transform: rotate(-45deg) scale(var(--scale-hover));
-}
-.measure-ctrl .tool-btn:active svg:not(.ruler-icon) {
-  transform: scale(var(--scale-press));
-}
-.measure-ctrl .tool-btn:active .ruler-icon {
-  transform: rotate(-45deg) scale(var(--scale-press));
 }
 .ruler-icon {
   transform: rotate(-45deg);

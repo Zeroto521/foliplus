@@ -18,24 +18,10 @@
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   min-width: var(--ctrl-size);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   color: var(--text-primary);
   border-left: var(--border-thin) solid var(--divider-color);
   border-right: var(--border-thin) solid var(--divider-color);
-  transition: color var(--transition-fast), background-color var(--transition-fast);
   flex-shrink: 0;
-}
-.map-search .search-mode-btn:hover {
-  background-color: var(--accent-light);
-  color: var(--accent-primary);
-}
-.map-search .search-mode-btn:hover svg {
-  transform: scale(var(--scale-hover));
-}
-.map-search .search-mode-btn:active svg {
-  transform: scale(var(--scale-press));
 }
 .map-search .search-mode-btn svg {
   stroke: currentColor;
