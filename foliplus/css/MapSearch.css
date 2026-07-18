@@ -19,8 +19,6 @@
   height: var(--ctrl-size);
   min-width: var(--ctrl-size);
   color: var(--text-primary);
-  border-left: var(--border-thin) solid var(--divider-color);
-  border-right: var(--border-thin) solid var(--divider-color);
   flex-shrink: 0;
 }
 .map-search .search-mode-btn svg {

@@ -11,7 +11,7 @@
 .measure-ctrl .tool-btn {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--text-primary);
 }
 .measure-ctrl .tool-btn svg {
