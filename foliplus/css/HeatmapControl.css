@@ -330,12 +330,12 @@
     box-shadow var(--transition-fast);
 }
 .heatmap-ctrl .btn-clear {
-  background: var(--btn-secondary-bg);
-  color: var(--text-muted);
-  border: var(--border-thin) solid var(--btn-secondary-border);
+  background: var(--text-muted);
+  color: var(--neutral-0);
+  border: none;
 }
 .heatmap-ctrl .btn-clear:hover {
-  background: var(--btn-secondary-hover);
+  background: var(--text-primary);
 }
 .heatmap-ctrl .btn-confirm {
   background: var(--btn-primary-bg);
