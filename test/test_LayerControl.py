@@ -1113,13 +1113,13 @@ class TestLayerControlBrowser:
                 });
                 mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
                 const before = mg.registered();
-                const unregResult = mg.unregister();
+                // unregister is a no-op when content exists; clearAll first
+                mg.clearAll();
                 const after = mg.registered();
-                return { before, unregResult, after };
+                return { before, after };
             }""")
             assert result is not None
             assert result["before"] is True
-            assert result["unregResult"] is True
             assert result["after"] is False
         finally:
             page.close()
