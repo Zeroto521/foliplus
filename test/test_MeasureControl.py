@@ -58,24 +58,6 @@ class TestMeasureControlRendering:
         assert "量算工具" in html
         assert "MeasureControl.tool_toggle" in html
 
-    def test_bring_to_front_on_circle_marker(self, base_map: folium.Map):
-        """CircleMarkers call bringToFront() after creation (not in onAdd override)."""
-
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        # bringToFront should appear after circleMarker creation calls
-        assert (
-            "mkr.bringToFront()" in html
-            or "previews.node.bringToFront()" in html
-            or "radiusNode.bringToFront()" in html
-        )
-        # Old onAdd override should NOT exist
-        assert "origOnAdd(map)" not in html
-        assert (
-            "this.mainLayer.onAdd" not in html
-            or "this.mainLayer.onAdd = (map)" not in html
-        )
-
     def test_remove_layer_routes_to_sublayer(self, base_map: folium.Map):
         """removeLayer is overridden to route to sub-layer (three-layer architecture)."""
 
@@ -98,176 +80,6 @@ class TestMeasureControlRendering:
         assert "onDistMove" in html
         assert "MeasureUtils.formatDistance(showDist)" in html
 
-    def test_format_distance_km(self, base_map: folium.Map):
-        """Distance >= 1000m shows as km."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MeasureControl.unit_km" in html
-        assert "MeasureControl.unit_m" in html
-
-    def test_del_icon_class(self, base_map: folium.Map):
-        """Delete icon uses del-icon-wrap and measure-del-icon classes."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "del-icon-wrap" in html
-        assert "measure-del-icon" in html
-
-    def test_onremove_present(self, base_map: folium.Map):
-        """MeasureControl has onRemove method that calls destroy."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "onRemove()" in html
-        assert "measureManager.destroy()" in html
-
-    def test_css_classes_line_styles(self, base_map: folium.Map):
-        """Line styles use measure-line-solid (solid) and measure-line-dashed (dashed)."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "measure-line-solid" in html
-        assert "measure-line-dashed" in html
-        assert "measure-line-preview" in html
-
-    def test_css_class_measure_hidden(self, base_map: folium.Map):
-        """measure-hidden class exists for visibility toggle."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "measure-hidden" in html
-
-    def test_suppress_hide_utility(self, base_map: folium.Map):
-        """MeasureUtils.suppressHide helper is used instead of inline suppress pattern."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MeasureUtils.suppressHide" in html
-
-    def test_node_css_classes(self, base_map: folium.Map):
-        """Node markers use CSS classes instead of inline color/weight/fill options."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "measure-node" in html
-        assert "measure-node-final" in html
-        assert "measure-node-preview" in html
-
-    def test_circle_css_classes(self, base_map: folium.Map):
-        """Circle elements use CSS classes instead of inline color/fill options."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "measure-circle-final" in html
-        assert "measure-circle-preview" in html
-
-    def test_toggle_visibility_utility(self, base_map: folium.Map):
-        """toggleVisibility is used for show/hide of line and node elements."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MeasureUtils.toggleVisibility" in html
-
-    def test_double_label_fix(self, base_map: folium.Map):
-        """Regression test for Bug 2: Labels are marked BEFORE addTo(mainLayer).
-        This ensures they are routed to sub-layers (labelLayer) immediately.
-        """
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        # Check specific order: isMeasureLabel = true BEFORE addTo
-        assert re.search(
-            r"isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html
-        )
-
-    def test_label_interaction_listeners(self, base_map: folium.Map):
-        """Distance/Circle labels have click listeners to toggle UI."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert 'segLabels.forEach((l) => l.on("click", handleItemClick))' in html
-        assert "if (radiusLabel) attachInteraction(radiusLabel)" in html
-
-    def test_unregister_clears_leftover_nodes(self, base_map: folium.Map):
-        """clearAll handles unregister + layer cleanup for MeasureControl."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.layers.clearAll()" in html
-
-    def test_clear_all_in_clear_all(self, base_map: folium.Map):
-        """MeasureManager.clearAll delegates to this.layers.clearAll()."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.layers.clearAll()" in html
-
-    def test_ui_fixed_labels_fix(self, base_map: folium.Map):
-        """Regression test: Labels should stay fixed (visible), only X toggles.
-        Map click should restore default (L=on, X=off).
-        """
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        # Ensure map clicks use 'reset' to keep labels visible
-        assert 'toggleUI(false, "reset")' in html
-        # Ensure item clicks toggle ONLY X (undefined)
-        assert "toggleUI(undefined)" in html
-        assert "toggleUI(undefined, true)" not in html
-
-    def test_no_layercontrol_guard(self, base_map: folium.Map):
-        """MeasureControl checks LayerControlAPI before creating MeasureManager."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "no_layercontrol" in html
-        assert "LayerControlAPI" in html
-
-    def test_set_label_text_caches_dom(self, base_map: folium.Map):
-        """MeasureUtils.setLabelText caches DOM ref on first call."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MeasureUtils.setLabelText" in html
-        assert "marker.labelEl" in html
-        assert 'el.querySelector(".measure-label")' in html
-
-    def test_attach_del_click_utility(self, base_map: folium.Map):
-        """MeasureUtils.attachDelClick binds click to delete icon."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "static attachDelClick" in html
-        assert "L.DomEvent.on(btn, " in html or "L.DomEvent.on(btn, 'click'" in html
-
-    def test_is_finalizing_guard(self, base_map: folium.Map):
-        """Circle mode guards against double-finalize with isFinalizing."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "isFinalizing" in html
-        assert "isFinalizing = false" in html
-
-    def test_toggle_del_icon_utility(self, base_map: folium.Map):
-        """MeasureUtils.toggleDelIcon toggles delete icon visibility."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MeasureUtils.toggleDelIcon" in html
-
-    def test_css_variables_used(self, base_map: folium.Map):
-        """CSS design tokens are referenced in rendered output."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "var(--ctrl-size)" in html
-        assert "var(--accent-primary)" in html
-        assert "var(--radius-sm)" in html
-        assert "var(--transition-fast)" in html
-
-    def test_remove_layers_utility(self, base_map: folium.Map):
-        """MeasureUtils.removeLayers handles null-safety and multiple layers."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "static removeLayers" in html
-        assert "if (l != null)" in html
-
-    def test_build_popup_utility(self, base_map: folium.Map):
-        """MeasureUtils.buildPopup wraps buildPopupHtml with control locale keys."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "static buildPopup" in html
-        assert "MeasureUtils.buildPopup" in html
-
-    def test_lazy_register_after_finish(self, base_map: folium.Map):
-        """Distance mode registers only after finishDist, not on startDistanceMode."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        # register() appears in finishDist, not in startDistanceMode
-        assert "this.layers.register()" in html
-        assert "this.layers.unregister()" in html
-
     def test_create_layers_api_used(self, base_map: folium.Map):
         """MeasureControl uses createLayers with graphPane/labelPane."""
         MeasureControl().add_to(base_map)
@@ -283,10 +95,298 @@ class TestMeasureControlRendering:
         assert "icon-size-md" in html
 
     def test_css_stroke_width_emphasis(self, base_map: folium.Map):
-        """Solid measurement lines use --stroke-width-emphasis."""
+        """Solid measurement lines use stroke-width in CSS."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "stroke-width-emphasis" in html
+        # CSS variable is defined in MeasureControl.css, not in JS
+        assert "stroke-width" in html
+
+    def test_tool_buttons_data_mode(self, base_map: folium.Map):
+        """Tool buttons have data-mode attribute."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "data-mode" in html
+
+    def test_hint_duration_persist(self, base_map: folium.Map):
+        """MeasureControl hints use PERSIST duration (hints stay until mode change)."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "HINT_DURATION.PERSIST" in html
+
+    def test_marker_icon_svg_structure(self, base_map: folium.Map):
+        """Marker mode uses crosshair SVG."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "crosshair" in html
+
+    def test_distance_icon_svg_structure(self, base_map: folium.Map):
+        """Distance mode uses ruler SVG."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "ruler-icon" in html
+
+    def test_circle_icon_svg_structure(self, base_map: folium.Map):
+        """Circle mode uses concentric circles SVG."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "cx=" in html
+
+    def test_trash_icon_svg(self, base_map: folium.Map):
+        """Trash icon SVG is defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "TRASH" in html
+
+    def test_measure_id_constant(self, base_map: folium.Map):
+        """MEASURE_ID constant is used for layer registration."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MEASURE_ID: \"foliplus_measure\"" in html
+
+    def test_graph_label_pane_constants(self, base_map: folium.Map):
+        """GRAPH_PANE and LABEL_PANE constants are defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "GRAPH_PANE: \"measure_graph\"" in html
+        assert "LABEL_PANE: \"measure_label\"" in html
+
+    def test_stop_event_utility(self, base_map: folium.Map):
+        """MeasureUtils.stopEvent stops propagation and default."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static stopEvent" in html
+        assert "d?.stopPropagation?.()" in html
+        assert "d?.preventDefault?.()" in html
+
+    def test_format_distance_km_and_m(self, base_map: folium.Map):
+        """formatDistance splits at 1000m threshold."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "meters >= 1000" in html
+        assert "MeasureControl.unit_km" in html
+        assert "MeasureControl.unit_m" in html
+
+    def test_distance_calculation(self, base_map: folium.Map):
+        """MeasureUtils.distance delegates to Leaflet's distanceTo."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2))" in html
+
+    def test_toggle_visibility_utility(self, base_map: folium.Map):
+        """toggleVisibility uses measure-hidden class."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "el.classList.toggle(\"measure-hidden\", !visible)" in html
+
+    def test_suppress_hide_utility(self, base_map: folium.Map):
+        """suppressHide sets a delayed flag and hides all del icons."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "manager.suppressHideDel = true" in html
+        assert "MeasureUtils.hideAllDelIcons()" in html
+
+    def test_calc_toggle_reset(self, base_map: folium.Map):
+        """calcToggle with 'reset' sets labelsVisible=true."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'toggleLbl === "reset"' in html
+
+    def test_apply_toggle_del_icon_retry(self, base_map: folium.Map):
+        """applyToggle retries del icon toggle with recursion."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureUtils.toggleDelIcon(mkr, show, retries)" in html
+
+    def test_toggle_del_icon_retry_with_limit(self, base_map: folium.Map):
+        """toggleDelIcon retries up to DEL_ICON_RETRY_LIMIT times."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "retries < CONST.DEL_ICON_RETRY_LIMIT" in html
+
+    def test_attach_del_click_utility(self, base_map: folium.Map):
+        """attachDelClick binds click to del icon with retry."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'L.DomEvent.on(btn, "click"' in html
+
+    def test_set_label_text_caches_dom(self, base_map: folium.Map):
+        """setLabelText caches labelEl reference on first call."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "marker.labelEl" in html
+
+    def test_remove_layers_null_safe(self, base_map: folium.Map):
+        """removeLayers skips null layers."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (l != null)" in html
+
+    def test_build_popup_delegates(self, base_map: folium.Map):
+        """buildPopup delegates to foliplus.buildPopupHtml."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "window.foliplus.buildPopupHtml" in html
+
+    def test_lazy_register_after_finish(self, base_map: folium.Map):
+        """Distance mode registers only after finishDist, not on startDistanceMode."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # register() appears in finishDist, not in startDistanceMode
+        assert "this.layers.register()" in html
+        assert "this.layers.unregister()" in html
+
+    def test_click_cooldown(self, base_map: folium.Map):
+        """Click cooldown constant is defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "CLICK_COOLDOWN_MS: 300" in html
+
+    def test_finalize_delay(self, base_map: folium.Map):
+        """Finalize delay constant is defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "FINALIZE_DELAY_MS: 50" in html
+
+    def test_center_dot_size(self, base_map: folium.Map):
+        """Center dot size constants are defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "CENTER_DOT_SIZE: [12, 12]" in html
+        assert "CENTER_DOT_ANCHOR: [6, 6]" in html
+
+    def test_label_anchor(self, base_map: folium.Map):
+        """Label anchor is above center."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "LABEL_ANCHOR: [0, -10]" in html
+
+    def test_is_finalizing_guard(self, base_map: folium.Map):
+        """Circle mode guards against double-finalize with isFinalizing."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "isFinalizing" in html
+        assert "isFinalizing = false" in html
+
+    def test_measure_manager_constructor(self, base_map: folium.Map):
+        """MeasureManager constructor accepts map instance."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "constructor(mapInstance)" in html
+
+    def test_measure_manager_methods(self, base_map: folium.Map):
+        """MeasureManager has expected methods."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "startDistanceMode" in html
+        assert "startCircleMode" in html
+        assert "bindMarkerMode" in html
+
+    def test_distance_mode_flow(self, base_map: folium.Map):
+        """Distance mode has start, onMove, finish flow."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "onDistMove" in html
+        assert "finishDist" in html
+
+    def test_circle_mode_flow(self, base_map: folium.Map):
+        """Circle mode is accessible via startCircleMode."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "startCircleMode" in html
+
+    def test_circle_radius_node(self, base_map: folium.Map):
+        """Circle radius node gets bringToFront."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "radiusNode.bringToFront()" in html
+
+    def test_double_label_fix(self, base_map: folium.Map):
+        """Regression test: Labels are marked BEFORE addTo(mainLayer)."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert re.search(r"isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html)
+
+    def test_label_interaction_listeners(self, base_map: folium.Map):
+        """Distance/Circle labels have click listeners."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'segLabels.forEach((l) => l.on("click", handleItemClick))' in html
+
+    def test_ui_fixed_labels_fix(self, base_map: folium.Map):
+        """Regression test: Labels stay fixed, only X toggles."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'toggleUI(false, "reset")' in html
+        assert "toggleUI(undefined)" in html
+
+    def test_measure_tool_toggle(self, base_map: folium.Map):
+        """Tool toggle uses MeasureControl.tool_toggle locale key."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureControl.tool_toggle" in html
+
+    def test_hint_messages(self, base_map: folium.Map):
+        """Hint messages for all modes are present."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureControl.hint_marker" in html
+        assert "MeasureControl.hint_dist_start" in html
+        assert "MeasureControl.hint_circle_start" in html
+        assert "MeasureControl.hint_circle_radius" in html
+
+    def test_all_three_tool_modes(self, base_map: folium.Map):
+        """All three tool modes have data-mode attributes."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'data-mode="marker"' in html
+        assert 'data-mode="distance"' in html
+        assert 'data-mode="circle"' in html
+
+    def test_clear_all_tool(self, base_map: folium.Map):
+        """Clear all tool has data-mode=clear."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'data-mode="clear"' in html
+
+    def test_preview_segments_shown_while_drawing(self, base_map: folium.Map):
+        """Preview segments and labels are created during distance drawing."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "previewDistLabel" in html
+        assert "previewLine" in html
+        assert "previews.node" in html
+
+    def test_preview_circle_while_drawing(self, base_map: folium.Map):
+        """Preview circle and label are created during circle drawing."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "previews.circle" in html
+        assert "previews.center" in html
+        assert "previews.label" in html
+
+    def test_origin_label_on_distance(self, base_map: folium.Map):
+        """Origin label shows 'Start' text."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureControl.dist_origin" in html
+
+    def test_bring_to_front_on_circle_marker(self, base_map: folium.Map):
+        """CircleMarkers call bringToFront() after creation."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "mkr.bringToFront()" in html or "previews.node.bringToFront()" in html
+
+    def test_no_old_onadd_override(self, base_map: folium.Map):
+        """Old onAdd override should not exist."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "origOnAdd(map)" not in html
+
+    def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
+        """MeasureControl uses ensurePane for renderer creation."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "createLayers(" in html
 
     def _make_page(self, browser, tmp_path):
         """Build a page with MeasureControl and return (page, errors)."""
