@@ -76,6 +76,7 @@ _JS_USED_KEYS = {
     "LayerControl.type_unknown",
     "LayerControl.id_required",
     "LayerControl.invalid_id",
+    "LayerControl.data_layer_label",
     # MapSearch
     "MapSearch.btn_title",
     "MapSearch.mode_coord",
