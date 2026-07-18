@@ -42,6 +42,17 @@
     STACK_GAP: 40,
     Z_BASE: 10000,
     DEFAULT_DURATION: 3000,
+    SHORT: 1200,
+    MEDIUM: 2500,
+    LONG: 4000,
+    PERSIST: 0,
+  };
+  // Expose hint duration tiers for other components
+  foliplus.HINT_DURATION = {
+    SHORT: HINT.SHORT,
+    MEDIUM: HINT.MEDIUM,
+    LONG: HINT.LONG,
+    PERSIST: HINT.PERSIST,
   };
   const GEO = {
     THROTTLE_MS: 1000,
@@ -54,8 +65,6 @@
   };
   const POPUP = {
     MAX_WIDTH: 300,
-    DEFAULT_LOCALE_1000: 1000, // en compact threshold
-    DEFAULT_LOCALE_10000: 10000, // zh compact threshold
   };
   const FALLBACK = {
     K: 1000,
@@ -280,7 +289,7 @@
       if (!_gcoordWarned) {
         _gcoordWarned = true;
         console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-        foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
+        foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
       }
     }
     return [lat, lng];
@@ -303,7 +312,7 @@
         if (!_gcoordWarned) {
           _gcoordWarned = true;
           console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-          foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), 5000);
+          foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
         }
         return [lng, lat];
       }
@@ -645,54 +654,48 @@
    * a function returning `true` when the script is loaded.
    * Retries up to `maxRetries` times with `delayMs` between attempts.
    *
-   * @param {Array<{url: string, check: function, name: string}>} deps
+   * @param {Array<{url: string, check: function, name: string, localeKey?: string}>} deps
    *        Dependencies to load. Each object requires:
    *          - `url`:   CDN URL of the script
    *          - `check`: function that returns `true` when loaded
    *          - `name`:  human-readable name for error messages
+   *          - `localeKey` (optional): locale key for failure toast
    * @param {function(boolean, string[])} callback
    *        Called with `(success, failedNames)` when all retries are exhausted.
    *        `success=true` if all loaded, otherwise `failedNames` lists failures.
    * @param {number} [maxRetries=0] - Max retry attempts per failed script
    * @param {number} [delayMs=3000] - Delay between retries in milliseconds
-   * @param {Object} [hintOpts] - Optional hint configuration for auto-showing
-   *        failure toast. When provided, a hint is automatically shown on
-   *        final failure using the first matching key. Requires:
-   *          - `hintKey`:  hint type key (e.g. 'HeatmapControl')
-   *          - `localeMap`: object mapping dependency names to locale keys,
-   *                         e.g. `{ ss: 'HeatmapControl.no_ss',
-   *                                 chroma: 'HeatmapControl.no_chroma',
-   *                                 default: 'HeatmapControl.no_h3' }`
+   * @param {string} [hintKey] - Optional component key to show failure toast.
+   *        When provided, failure toast uses each dep's `localeKey` (or falls
+   *        back to `{hintKey}.no_{name}`).
    *
    * @example
-   *   foliplus.loadScripts([...], (ok) => { if (ok) run(); }, 2, 3000, {
-   *     hintKey: 'HeatmapControl',
-   *     localeMap: { ss: 'HeatmapControl.no_ss', default: 'HeatmapControl.no_h3' },
-   *   });
+   *   foliplus.loadScripts(deps, (ok) => { if (ok) run(); }, 2, 3000, 'HeatmapControl');
    */
-  foliplus.loadScripts = (deps, callback, maxRetries, delayMs, hintOpts) => {
+  foliplus.loadScripts = (deps, callback, maxRetries, delayMs, hintKey) => {
     maxRetries = maxRetries || 0;
     delayMs = delayMs || 3000;
     let retries = 0;
 
+    const showFailureHint = (failedNames) => {
+      if (!hintKey) return;
+      const failedStr = failedNames.join(", ");
+      let msgKey = null;
+      for (const name of failedNames) {
+        const dep = deps.find((d) => d.name === name);
+        if (dep && dep.localeKey) {
+          msgKey = dep.localeKey;
+          break;
+        }
+      }
+      msgKey = msgKey || `${hintKey}.no_${failedNames[0] || "dep"}`;
+      console.error(`[${hintKey}] ${foliplus.gt(msgKey)} (${failedStr})`);
+      foliplus.showHint(hintKey, foliplus.gt(msgKey), HINT.PERSIST);
+    };
+
     const attempt = () => {
       const pending = deps.filter((d) => !d.check());
       if (pending.length === 0) return callback(true);
-
-      const showFailureHint = (failedNames) => {
-        if (hintOpts && hintOpts.hintKey && hintOpts.localeMap) {
-          const failedStr = failedNames.join(", ");
-          let msgKey = hintOpts.localeMap.default;
-          for (const name of failedNames) {
-            if (hintOpts.localeMap[name]) {
-              msgKey = hintOpts.localeMap[name];
-              break;
-            }
-          }
-          console.error(`[${hintOpts.hintKey}] ${foliplus.gt(msgKey)} (${failedStr})`);
-          foliplus.showHint(hintOpts.hintKey, foliplus.gt(msgKey), 0);
-        }
-      };
 
       let loaded = 0,
         failedCount = 0;
