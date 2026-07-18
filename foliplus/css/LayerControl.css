@@ -13,11 +13,6 @@
   pointer-events: auto;
 }
 
-/* ── Canvas Pane Common Rules ── */
-/* When pane has Canvas renderer, markers float above canvas */
-.leaflet-pane.has-canvas > .leaflet-marker-icon {
-  z-index: var(--z-index-control);
-}
 /* ── Panel Content Overrides ── */
 .layer-ctrl .panel-content {
   padding: var(--space-sm) 0;

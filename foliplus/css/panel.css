@@ -63,7 +63,7 @@
   flex-shrink: 0;
   box-sizing: border-box;
   padding: 0 var(--panel-header-padding-right) 0 var(--panel-header-padding-left);
-  border-bottom: var(--border-thin) solid #eee;
+  border-bottom: var(--border-thin) solid var(--divider-color);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
@@ -77,15 +77,6 @@
 
 .map-panel .panel-header:hover {
   background: var(--panel-header-hover);
-}
-
-.map-panel .panel-header .back-icon {
-  margin-right: var(--space-sm);
-  font-size: var(--font-size-md);
-  display: flex;
-  align-items: center;
-  color: var(--text-muted);
-  flex-shrink: 0;
 }
 
 .map-panel .panel-header .header-icon {

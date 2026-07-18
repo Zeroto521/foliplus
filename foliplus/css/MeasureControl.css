@@ -52,7 +52,7 @@
   width: var(--size-12);
   height: var(--size-12);
   background: var(--accent-primary);
-  border: var(--border-medium) solid var(--neutral-0);
+  border: var(--border-thick) solid var(--neutral-0);
   border-radius: var(--radius-round);
 }
 .measure-center-dot.is-final {
@@ -144,7 +144,7 @@
   width: var(--icon-size-sm);
   height: var(--icon-size-sm);
   background: var(--accent-primary);
-  border: var(--border-medium) solid var(--ctrl-bg);
+  border: var(--border-thick) solid var(--ctrl-bg);
   border-radius: var(--radius-round);
   color: var(--ctrl-bg);
   font-size: var(--font-size-sm);
@@ -163,7 +163,7 @@
   display: flex;
 }
 .measure-del-icon:hover {
-  background: rgba(200, 60, 40, var(--alpha-95));
+  background: rgba(var(--red-rgb), var(--alpha-95));
   transform: scale(var(--scale-hover));
 }
 .measure-del-icon.marker-del-icon {

@@ -109,7 +109,6 @@
 
   /* ── Border Width ── */
   --border-thin: 1px;
-  --border-medium: var(--size-2);
   --border-thick: var(--size-2);
 
   /* ── Border Radius ── */
