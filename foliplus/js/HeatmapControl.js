@@ -10,7 +10,6 @@
     SCHEME_DROPDOWN_BLUR_DELAY_MS: 150,
     LOAD_SCRIPT_RETRIES: 2,
     LOAD_SCRIPT_INTERVAL_MS: 3000,
-    NO_LAYER_HINT_MS: 4000,
     DEFAULT_GRAY: "#999",
     H3_RES_MAP: [
       [2, 0],
@@ -76,6 +75,7 @@
       name: "h3",
       url: CONST.jsdelivr + "h3-js@{{ this._h3_version }}/dist/h3-js.umd.js",
       check: () => typeof h3 !== "undefined",
+      localeKey: `${CONST.name}.no_h3`,
     },
     {
       name: "ss",
@@ -83,36 +83,35 @@
         CONST.jsdelivr +
         "simple-statistics@{{ this._ss_version }}/dist/simple-statistics.min.js",
       check: () => typeof ss !== "undefined",
+      localeKey: `${CONST.name}.no_ss`,
     },
     {
       name: "chroma",
       url: CONST.jsdelivr + "chroma-js@{{ this._chroma_version }}/chroma.min.js",
       check: () => typeof chroma !== "undefined",
+      localeKey: `${CONST.name}.no_chroma`,
     },
   ];
 
   window.foliplus.loadScripts(
     DEPS,
     (ok) => {
-      if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();
+      if (ok) return run();
     },
     CONST.LOAD_SCRIPT_RETRIES,
     CONST.LOAD_SCRIPT_INTERVAL_MS,
-    {
-      hintKey: CONST.name,
-      localeMap: {
-        ss: `${CONST.name}.no_ss`,
-        chroma: `${CONST.name}.no_chroma`,
-        default: `${CONST.name}.no_h3`,
-      },
-    },
+    CONST.name,
   );
 
   function run() {
     // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
     if (!window.foliplus.LayerControlAPI) {
       console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-      window.foliplus.showHint(CONST.name, _(`${CONST.name}.no_layercontrol`), 0);
+      window.foliplus.showHint(
+        CONST.name,
+        _(`${CONST.name}.no_layercontrol`),
+        window.foliplus.HINT_DURATION.PERSIST,
+      );
       return;
     }
 
@@ -1141,7 +1140,7 @@
           window.foliplus.showHint(
             CONST.name,
             _(`${CONST.name}.no_layer`),
-            CONST.NO_LAYER_HINT_MS,
+            window.foliplus.HINT_DURATION.LONG,
           );
         } else {
           this.rebuildLayerDropdown();
