@@ -414,7 +414,11 @@
       if (!iconDiv) return;
 
       iconDiv.appendChild(
-        foliplus.dom.el("span", { class: "measure-del-icon marker-del-icon" }, "✕"),
+        window.foliplus.dom.el(
+          "span",
+          { class: "measure-del-icon marker-del-icon" },
+          "✕",
+        ),
       );
 
       marker.on("click", (ev) => {
@@ -995,7 +999,7 @@
       ];
       btnConfigs.forEach(({ mode, title, svg }) => {
         toolBar.appendChild(
-          foliplus.dom.el(
+          window.foliplus.dom.el(
             "button",
             { class: "tool-btn", "data-mode": mode, title },
             { html: svg },

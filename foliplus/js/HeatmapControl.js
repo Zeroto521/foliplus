@@ -746,7 +746,7 @@
         );
         for (let ci = 2; ci <= 9; ci++) {
           this.classSelect.appendChild(
-            foliplus.dom.el("option", { value: ci }, String(ci)),
+            window.foliplus.dom.el("option", { value: ci }, String(ci)),
           );
         }
         this.classSelect.value = Math.min(9, Math.max(2, this.manager.N_CLASSES));
@@ -783,7 +783,7 @@
 
         CONST.SCHEME_NAMES.forEach((name) => {
           this.schemeSelectHidden.appendChild(
-            foliplus.dom.el("option", { value: name }, name),
+            window.foliplus.dom.el("option", { value: name }, name),
           );
         });
         this.schemeSelectHidden.value = this.manager.currentScheme;
@@ -945,7 +945,7 @@
       buildLayerListItems(sel) {
         this.manager.scanMapLayers();
         sel.innerHTML = "";
-        const placeholder = foliplus.dom.el(
+        const placeholder = window.foliplus.dom.el(
           "option",
           {
             value: "",
@@ -958,7 +958,9 @@
         sel.appendChild(placeholder);
 
         this.manager.pointLayers.forEach((info) => {
-          sel.appendChild(foliplus.dom.el("option", { value: info.id }, info.name));
+          sel.appendChild(
+            window.foliplus.dom.el("option", { value: info.id }, info.name),
+          );
         });
 
         if (this.manager.selectedLayerId) sel.value = this.manager.selectedLayerId;
@@ -996,7 +998,7 @@
         const fields = this.manager.collectFields(selected);
         this.manager.autoFieldKey = this.manager.pickAutoField(fields);
 
-        const phOpt = foliplus.dom.el(
+        const phOpt = window.foliplus.dom.el(
           "option",
           {
             value: "_auto",
@@ -1011,7 +1013,7 @@
 
         fields.forEach((f) => {
           this.fieldSelect.appendChild(
-            foliplus.dom.el(
+            window.foliplus.dom.el(
               "option",
               { value: f },
               f.startsWith("properties.") ? f.substring(11) : f,
@@ -1038,7 +1040,7 @@
         container.innerHTML = "";
         for (const color of colors) {
           container.appendChild(
-            foliplus.dom.el("div", {
+            window.foliplus.dom.el("div", {
               class: "scheme-bar-block",
               style: `background:${color};width:${100 / colors.length}%`,
             }),

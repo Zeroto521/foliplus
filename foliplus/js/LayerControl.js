@@ -943,24 +943,24 @@
 
     /** Render a toggle-all row for a group (overlay or base). */
     renderToggleAllRow(group, labelKey) {
-      return foliplus.dom.el(
+      return window.foliplus.dom.el(
         "div",
         {
           class: "layer-separator-container toggle-all-row",
           "data-group": group,
         },
         { html: SVGS.DRAG_HANDLE },
-        foliplus.dom.el(
+        window.foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
-          foliplus.dom.el("input", {
+          window.foliplus.dom.el("input", {
             type: "checkbox",
             class: "toggle-all-cb",
             checked: "",
           }),
         ),
-        foliplus.dom.el("span", { class: "separator-label" }, _(labelKey)),
-        foliplus.dom.el("div", { class: "section-divider" }),
+        window.foliplus.dom.el("span", { class: "separator-label" }, _(labelKey)),
+        window.foliplus.dom.el("div", { class: "section-divider" }),
       );
     }
 
@@ -969,23 +969,23 @@
       const en = LayerUtils.escapeHTML(l.name);
       const children = [
         { html: SVGS.DRAG_HANDLE },
-        foliplus.dom.el(
+        window.foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
-          foliplus.dom.el("input", {
+          window.foliplus.dom.el("input", {
             type: "checkbox",
             checked: "",
             "data-index": String(index),
             "aria-label": en,
           }),
         ),
-        foliplus.dom.el("label", { title: en }, en),
+        window.foliplus.dom.el("label", { title: en }, en),
       ];
       if (l.iconSvg)
         children.push({ html: `<div class="type-icon-col">${l.iconSvg}</div>` });
-      else children.push(foliplus.dom.el("div", { class: "type-icon-col" }));
+      else children.push(window.foliplus.dom.el("div", { class: "type-icon-col" }));
 
-      return foliplus.dom.el(
+      return window.foliplus.dom.el(
         "div",
         {
           class: "layer-item" + (l.isBase ? " is-base-item" : ""),
@@ -1000,7 +1000,7 @@
 
     /** Render the solid color layer picker item. */
     renderColorLayerItem() {
-      return foliplus.dom.el(
+      return window.foliplus.dom.el(
         "div",
         {
           class: "layer-item color-layer-item",
@@ -1009,17 +1009,17 @@
           title: _(CONST.name + ".color_map_label"),
         },
         { html: SVGS.DRAG_HANDLE },
-        foliplus.dom.el(
+        window.foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
-          foliplus.dom.el("input", {
+          window.foliplus.dom.el("input", {
             type: "color",
             class: "color-layer-input",
             value: this.currentColor,
             "aria-label": _(CONST.name + ".color_map_label"),
           }),
         ),
-        foliplus.dom.el("label", null, _(CONST.name + ".color_map_label")),
+        window.foliplus.dom.el("label", null, _(CONST.name + ".color_map_label")),
         { html: `<div class="type-icon-col">${SVGS.COLOR}</div>` },
       );
     }

@@ -403,16 +403,16 @@
    *
    * @example
    *   // Create a div with class and text content
-   *   foliplus.dom.el("div", { class: "my-class" }, "Hello")
+   *   window.foliplus.dom.el("div", { class: "my-class" }, "Hello")
    *
    *   // Nested children
-   *   foliplus.dom.el("div", null,
-   *     foliplus.dom.el("span", { class: "icon" }),
-   *     foliplus.dom.el("label", null, "Name")
+   *   window.foliplus.dom.el("div", null,
+   *     window.foliplus.dom.el("span", { class: "icon" }),
+   *     window.foliplus.dom.el("label", null, "Name")
    *   )
    *
    *   // Set innerHTML by passing a { html: "..." } child
-   *   foliplus.dom.el("div", null, { html: "<svg>...</svg>" })
+   *   window.foliplus.dom.el("div", null, { html: "<svg>...</svg>" })
    */
   foliplus.dom = {
     /**
@@ -463,10 +463,10 @@
         ? { html: foliplus.SVGs.LOADING + " " + loadStr }
         : addr || loadStr;
 
-    return foliplus.dom.el(
+    return window.foliplus.dom.el(
       "div",
       { class: "popup-content" },
-      foliplus.dom.el("b", null, foliplus.gt(title)),
+      window.foliplus.dom.el("b", null, foliplus.gt(title)),
       { html: "<br>" },
       foliplus.gt(locLabel) + lng + "," + lat,
       { html: "<br>" },
@@ -604,18 +604,20 @@
    * @returns {object} { container, ctrl, toolBar, toggleBtn }
    */
   foliplus.createFoldControl = (opts) => {
-    const container = foliplus.dom.el("div", { class: "leaflet-bar leaflet-control" });
-    const ctrl = foliplus.dom.el("div", {
+    const container = window.foliplus.dom.el("div", {
+      class: "leaflet-bar leaflet-control",
+    });
+    const ctrl = window.foliplus.dom.el("div", {
       class: `${opts.cssClass} ctrl-fold collapsed`,
     });
     ctrl.appendChild(
-      foliplus.dom.el(
+      window.foliplus.dom.el(
         "button",
         { class: "toggle-btn", title: opts.toggleTitle },
         { html: opts.toggleSvg },
       ),
     );
-    ctrl.appendChild(foliplus.dom.el("div", { class: "tool-bar" }));
+    ctrl.appendChild(window.foliplus.dom.el("div", { class: "tool-bar" }));
     container.appendChild(ctrl);
     if (!opts.isLeft) ctrl.classList.add("align-right");
     L.DomEvent.disableClickPropagation(container);

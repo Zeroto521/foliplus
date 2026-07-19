@@ -30,39 +30,39 @@
   // ==================== Control Definition ====================
   new (L.Control.extend({
     onAdd: () => {
-      const container = foliplus.dom.el("div", {
+      const container = window.foliplus.dom.el("div", {
         class: "leaflet-bar leaflet-control",
       });
-      const ctrl = foliplus.dom.el("div", {
+      const ctrl = window.foliplus.dom.el("div", {
         class: `map-search ctrl-fold collapsed${CONST.position.indexOf("right") >= 0 ? " align-right" : ""}`,
         id: "{{ this.get_name() }}_ctrl",
       });
       container.appendChild(ctrl);
 
-      const toggleBtn = foliplus.dom.el(
+      const toggleBtn = window.foliplus.dom.el(
         "button",
         { class: "toggle-btn", title: _(`${CONST.name}.btn_title`) },
         { html: window.foliplus.SVGs.SEARCH },
       );
-      const modeBtn = foliplus.dom.el(
+      const modeBtn = window.foliplus.dom.el(
         "button",
         { class: "search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
         { html: window.foliplus.SVGs.LOCATE },
       );
-      const inp = foliplus.dom.el("input", {
+      const inp = window.foliplus.dom.el("input", {
         type: "text",
         placeholder: _(`${CONST.name}.coord_placeholder`),
       });
-      const clearBtn = foliplus.dom.el(
+      const clearBtn = window.foliplus.dom.el(
         "button",
         { class: "ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
         { html: window.foliplus.SVGs.CLOSE },
       );
-      const toolBar = foliplus.dom.el(
+      const toolBar = window.foliplus.dom.el(
         "div",
         { class: "tool-bar" },
         modeBtn,
-        foliplus.dom.el("div", { class: "clear-wrap" }, inp, clearBtn),
+        window.foliplus.dom.el("div", { class: "clear-wrap" }, inp, clearBtn),
       );
       ctrl.appendChild(toggleBtn);
       ctrl.appendChild(toolBar);
