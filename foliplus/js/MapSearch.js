@@ -41,12 +41,12 @@
       const toggleBtn = foliplus.dom.el(
         "button",
         { class: "toggle-btn", title: _(`${CONST.name}.btn_title`) },
-        { _html: window.foliplus.SVGs.SEARCH },
+        { html: window.foliplus.SVGs.SEARCH },
       );
       const modeBtn = foliplus.dom.el(
         "button",
         { class: "search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
-        { _html: window.foliplus.SVGs.LOCATE },
+        { html: window.foliplus.SVGs.LOCATE },
       );
       const inp = foliplus.dom.el("input", {
         type: "text",
@@ -55,7 +55,7 @@
       const clearBtn = foliplus.dom.el(
         "button",
         { class: "ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
-        { _html: window.foliplus.SVGs.CLOSE },
+        { html: window.foliplus.SVGs.CLOSE },
       );
       const toolBar = foliplus.dom.el(
         "div",

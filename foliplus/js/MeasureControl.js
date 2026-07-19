@@ -994,7 +994,7 @@
           foliplus.dom.el(
             "button",
             { class: "tool-btn", "data-mode": mode, title },
-            { _html: svg },
+            { html: svg },
           ),
         );
       });

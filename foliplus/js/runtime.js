@@ -411,15 +411,15 @@
    *     foliplus.dom.el("label", null, "Name")
    *   )
    *
-   *   // Set innerHTML by passing a { _html: "..." } child
-   *   foliplus.dom.el("div", null, { _html: "<svg>...</svg>" })
+   *   // Set innerHTML by passing a { html: "..." } child
+   *   foliplus.dom.el("div", null, { html: "<svg>...</svg>" })
    */
   foliplus.dom = {
     /**
      * Create an element with attributes and children.
      * @param {string} tag - HTML tag name.
      * @param {Object|null} attrs - Attributes map (class, id, data-*, etc.).
-     * @param  {...any} children - Strings (text), {_html: str} (innerHTML),
+     * @param  {...any} children - Strings (text), {html: str} (innerHTML),
      *                             or DOM elements (appendChild).
      * @returns {HTMLElement}
      */
@@ -438,7 +438,7 @@
         if (child == null) continue;
         if (typeof child === "string" || typeof child === "number")
           el.appendChild(document.createTextNode(String(child)));
-        else if (child._html) el.insertAdjacentHTML("beforeend", child._html);
+        else if (child.html) el.insertAdjacentHTML("beforeend", child.html);
         else if (child.nodeType) el.appendChild(child);
       }
       return el;
@@ -460,16 +460,16 @@
     const loadStr = foliplus.gt(loading);
     const addrHtml =
       addr && addr.includes("LOADING")
-        ? { _html: foliplus.SVGs.LOADING + " " + loadStr }
+        ? { html: foliplus.SVGs.LOADING + " " + loadStr }
         : addr || loadStr;
 
     return foliplus.dom.el(
       "div",
       { class: "popup-content" },
       foliplus.dom.el("b", null, foliplus.gt(title)),
-      { _html: "<br>" },
+      { html: "<br>" },
       foliplus.gt(locLabel) + lng + "," + lat,
-      { _html: "<br>" },
+      { html: "<br>" },
       foliplus.gt(addrLabel),
       typeof addrHtml === "object" ? addrHtml : addrHtml,
     ).outerHTML;
@@ -612,7 +612,7 @@
       foliplus.dom.el(
         "button",
         { class: "toggle-btn", title: opts.toggleTitle },
-        { _html: opts.toggleSvg },
+        { html: opts.toggleSvg },
       ),
     );
     ctrl.appendChild(foliplus.dom.el("div", { class: "tool-bar" }));
