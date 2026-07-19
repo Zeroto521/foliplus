@@ -867,7 +867,9 @@ class TestLayerControlRendering:
         assert "registered = true" in html
         assert "this.registerLayer({" in html
 
-    def test_callback_only_visible_tracking_in_handle_change(self, base_map: folium.Map):
+    def test_callback_only_visible_tracking_in_handle_change(
+        self, base_map: folium.Map
+    ):
         """handleChange records layerInfo.visible for callback-only layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
@@ -879,7 +881,9 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "layerInfo.visible = newState" in html
 
-    def test_init_types_visibility_respects_callback_only_state(self, base_map: folium.Map):
+    def test_init_types_visibility_respects_callback_only_state(
+        self, base_map: folium.Map
+    ):
         """initTypesAndVisibility respects layerInfo.visible for callback-only layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
