@@ -12,9 +12,11 @@
     CENTER_DOT_SIZE: [12, 12],
     CENTER_DOT_ANCHOR: [6, 6],
     LABEL_ANCHOR: [0, -10],
+    LAT_LNG_PRECISION: 6,
     MEASURE_ID: "foliplus_measure",
     GRAPH_PANE: "measure_graph",
     LABEL_PANE: "measure_label",
+    position: "{{ this.position }}",
   };
 
   // ==================== Runtime Guard ====================
@@ -351,8 +353,8 @@
 
     async handleMarkerClick(e) {
       if (this.currentMode !== "marker") return;
-      const lat = e.latlng.lat.toFixed(6);
-      const lng = e.latlng.lng.toFixed(6);
+      const lat = e.latlng.lat.toFixed(CONST.LAT_LNG_PRECISION);
+      const lng = e.latlng.lng.toFixed(CONST.LAT_LNG_PRECISION);
 
       const marker = window.foliplus.createLocationMarker(
         this.map,
@@ -384,9 +386,8 @@
 
       marker.on("popupopen", () => {
         MeasureUtils.hideAllDelIcons();
-        if (cachedAddr !== null) {
+        if (cachedAddr !== null)
           marker.setPopupContent(MeasureUtils.buildPopup(lat, lng, cachedAddr));
-        }
         this.injectDelIcon(marker);
         const el = marker.getElement();
         if (el) {
@@ -970,13 +971,12 @@
 
   class MeasureControl extends L.Control {
     onAdd() {
-      const pos = "{{ this.position }}";
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
           cssClass: "measure-ctrl",
           toggleTitle: _(`${CONST.name}.tool_toggle`),
           toggleSvg: SVGS.RULER,
-          isLeft: pos.indexOf("left") >= 0,
+          isLeft: CONST.position.indexOf("left") >= 0,
         },
       );
       const btnConfigs = [
@@ -1023,5 +1023,5 @@
     }
   }
 
-  new MeasureControl({ position: "{{ this.position }}" }).addTo(map);
+  new MeasureControl({ position: CONST.position }).addTo(map);
 })();
