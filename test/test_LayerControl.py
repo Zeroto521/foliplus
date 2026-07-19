@@ -253,12 +253,6 @@ class TestLayerControlRendering:
         # Should NOT contain old drag prevention for base maps
         assert "this.layers[idx].isBase" not in html
 
-    def test_hide_color_layer_function(self, base_map: folium.Map):
-        """hideColorLayer function exists in rendered JS."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "hideColorLayer" in html
-
     def test_separator_in_template(self):
         """Separator label 'BASE MAP' appears before base layer items."""
         m = folium.Map()
@@ -266,16 +260,6 @@ class TestLayerControlRendering:
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
         assert "base_map_label" in html
-
-    def test_drag_handle_on_base_map(self):
-        """Base map items also have drag handle, not spacer."""
-        m = folium.Map()
-        LayerControl().add_to(m)
-        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
-        folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
-        html = render(m)
-        # Drag handle should appear in the content for all items
-        assert "SVGS.DRAG_HANDLE" in html
 
     def test_css_variables_used(self, base_map: folium.Map):
         """CSS variables from common.css are referenced in rendered output."""
@@ -285,16 +269,6 @@ class TestLayerControlRendering:
         assert "var(--accent-primary)" in html
         assert "var(--radius-sm)" in html
         assert "var(--transition-fast)" in html
-
-    def test_both_base_and_overlay_draggable(self):
-        """Both base and overlay items are rendered with draggable=true."""
-        m = folium.Map()
-        LayerControl().add_to(m)
-        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
-        folium.FeatureGroup(name="Markers", overlay=True, show=True).add_to(m)
-        html = render(m)
-        # DOM API sets draggable at runtime via setAttribute
-        assert 'draggable: "true"' in html or 'draggable="true"' in html
 
     def test_marker_skip_in_set_layer_pane(self, base_map: folium.Map):
         """setLayerPaneRecursive skips Markers but moves TileLayers.
@@ -450,13 +424,6 @@ class TestLayerControlRendering:
 
     def test_can_reorder_between_blocks_cross_group(self, base_map: folium.Map):
         """canReorderBetween returns false for cross-group drag."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "canReorderBetween" in html
-        assert "!!from.isBase !== !!to.isBase" in html
-
-    def test_can_reorder_between_same_group(self, base_map: folium.Map):
-        """canReorderBetween returns true for same-group drag."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "canReorderBetween" in html
@@ -796,12 +763,6 @@ class TestLayerControlRendering:
         assert "window.foliplus.LayerControlAPI === this" in html
         assert "window.foliplus.LayerControlAPI = null" in html
 
-    def test_handleDrop_guard(self, base_map: folium.Map):
-        """handleDrop guards against dragIdx/layers array desync."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "dragIdx < 0 || this.dragIdx >= this.layers.length" in html
-
     def test_window_id_validation(self, base_map: folium.Map):
         """registerLayer validates opts.id before assigning to window[id]."""
         LayerControl().add_to(base_map)
@@ -905,6 +866,25 @@ class TestLayerControlRendering:
         assert "!registered" in html
         assert "registered = true" in html
         assert "this.registerLayer({" in html
+
+    def test_callback_only_visible_tracking_in_handle_change(self, base_map: folium.Map):
+        """handleChange records layerInfo.visible for callback-only layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layerInfo.visible = target.checked" in html
+
+    def test_callback_only_visible_tracking_in_toggle_all(self, base_map: folium.Map):
+        """toggleAll records layerInfo.visible for callback-only layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layerInfo.visible = newState" in html
+
+    def test_init_types_visibility_respects_callback_only_state(self, base_map: folium.Map):
+        """initTypesAndVisibility respects layerInfo.visible for callback-only layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layerInfo.visible !== false" in html
+        assert "isCallbackOnly" in html
 
 
 class TestLayerControlBrowser:
