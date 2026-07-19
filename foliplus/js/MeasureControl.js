@@ -185,6 +185,38 @@
         `${CONST.name}.popup_addr_label`,
       );
     }
+
+    /** Create a divIcon for a label marker. */
+    static makeLabelDivIcon(html) {
+      return L.divIcon({
+        className: "",
+        html: `<div class="measure-label">${html}</div>`,
+        iconSize: [0, 0],
+        iconAnchor: CONST.LABEL_ANCHOR,
+      });
+    }
+
+    /** Create a measure node circle marker. */
+    static makeNode(latlng, className = "measure-node measure-node-final") {
+      return L.circleMarker(latlng, {
+        radius: CONST.MARKER_RADIUS,
+        className,
+      });
+    }
+
+    /** Create a delete icon marker. */
+    static makeDelIcon(latlng, opts = {}) {
+      return L.marker(latlng, {
+        icon: L.divIcon({
+          className: "del-icon-wrap",
+          html: '<span class="measure-del-icon">✕</span>',
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        }),
+        interactive: true,
+        ...opts,
+      });
+    }
   }
 
   // ==================== Core Manager ====================
@@ -380,9 +412,11 @@
       const iconDiv = el.querySelector("div");
       if (!iconDiv) return;
 
-      const xIcon = document.createElement("span");
-      xIcon.className = "measure-del-icon marker-del-icon";
-      xIcon.textContent = "✕";
+      const xIcon = foliplus.dom.el(
+        "span",
+        { class: "measure-del-icon marker-del-icon" },
+        "✕",
+      );
       iconDiv.appendChild(xIcon);
 
       L.DomEvent.on(xIcon, "click", (ev) => {
@@ -491,12 +525,7 @@
         if (segLabels.length > 0) {
           const lastLbl = segLabels[segLabels.length - 1];
           lastLbl.setIcon(
-            L.divIcon({
-              className: "",
-              html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
-              iconSize: [0, 0],
-              iconAnchor: CONST.LABEL_ANCHOR,
-            }),
+            MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
           );
         }
 
@@ -515,15 +544,9 @@
 
         if (nodeMarkers.length > 0) {
           const lastNode = nodeMarkers[nodeMarkers.length - 1];
-          lastNodeDelMkr = L.marker(lastNode.getLatLng(), {
-            icon: L.divIcon({
-              className: "del-icon-wrap",
-              html: '<span class="measure-del-icon">✕</span>',
-              iconSize: [0, 0],
-              iconAnchor: [0, 0],
-            }),
-            interactive: true,
-          }).addTo(this.layers.mainLayer);
+          lastNodeDelMkr = MeasureUtils.makeDelIcon(lastNode.getLatLng()).addTo(
+            this.layers.mainLayer,
+          );
 
           MeasureUtils.attachDelClick(lastNodeDelMkr, deleteMeasurement);
 
@@ -573,12 +596,7 @@
         const showDist = total + seg;
         if (!previewDistLabel) {
           previewDistLabel = L.marker(e.latlng, {
-            icon: L.divIcon({
-              className: "",
-              html: `<div class="measure-label">${MeasureUtils.formatDistance(showDist)}</div>`,
-              iconSize: [0, 0],
-              iconAnchor: CONST.LABEL_ANCHOR,
-            }),
+            icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(showDist)),
             interactive: false,
           });
           previewDistLabel.isMeasureLabel = true;
@@ -601,21 +619,13 @@
         }
         poly.addLatLng(e.latlng);
 
-        const mkr = L.circleMarker(e.latlng, {
-          radius: CONST.MARKER_RADIUS,
-          className: "measure-node measure-node-final",
-        }).addTo(this.layers.mainLayer);
+        const mkr = MeasureUtils.makeNode(e.latlng).addTo(this.layers.mainLayer);
         mkr.bringToFront();
         nodeMarkers.push(mkr);
 
         if (pts.length === 1) {
           startLbl = L.marker(e.latlng, {
-            icon: L.divIcon({
-              className: "",
-              html: `<div class="measure-label">${_(`${CONST.name}.dist_origin`)}</div>`,
-              iconSize: [0, 0],
-              iconAnchor: CONST.LABEL_ANCHOR,
-            }),
+            icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
           });
           startLbl.isMeasureLabel = true;
           startLbl.addTo(this.layers.mainLayer);
@@ -644,22 +654,12 @@
               pts[pts.length - 2].lng,
             );
             prevLbl.setIcon(
-              L.divIcon({
-                className: "",
-                html: `<div class="measure-label">${MeasureUtils.formatDistance(prevSeg)}</div>`,
-                iconSize: [0, 0],
-                iconAnchor: CONST.LABEL_ANCHOR,
-              }),
+              MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(prevSeg)),
             );
           }
 
           const lbl = L.marker(pts[pts.length - 1], {
-            icon: L.divIcon({
-              className: "",
-              html: `<div class="measure-label">${MeasureUtils.formatDistance(total)}</div>`,
-              iconSize: [0, 0],
-              iconAnchor: CONST.LABEL_ANCHOR,
-            }),
+            icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
           });
           lbl.isMeasureLabel = true;
           lbl.addTo(this.layers.mainLayer);
@@ -799,12 +799,7 @@
         if (!previews.label) {
           previews.label = L.marker(mid, {
             interactive: false,
-            icon: L.divIcon({
-              className: "",
-              html: `<div class="measure-label">${MeasureUtils.formatDistance(r)}</div>`,
-              iconSize: [0, 0],
-              iconAnchor: [0, 0],
-            }),
+            icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(r)),
           });
           previews.label.isMeasureLabel = true;
           previews.label.addTo(this.layers.mainLayer);
@@ -838,21 +833,14 @@
         const midLng = (centerLatLng.lng + finalTargetLatLng.lng) / 2;
         const radiusLabel = L.marker([midLat, midLng], {
           interactive: false,
-          icon: L.divIcon({
-            className: "",
-            html: `<div class="measure-label">${MeasureUtils.formatDistance(r)}</div>`,
-            iconSize: [0, 0],
-            iconAnchor: [0, 0],
-          }),
+          icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(r)),
         });
         radiusLabel.isMeasureLabel = true;
         radiusLabel.addTo(this.layers.mainLayer);
 
-        const radiusNode = L.circleMarker(finalTargetLatLng, {
-          radius: CONST.MARKER_RADIUS,
-          className: "measure-node measure-node-final",
-          interactive: true,
-        }).addTo(this.layers.mainLayer);
+        const radiusNode = MeasureUtils.makeNode(finalTargetLatLng).addTo(
+          this.layers.mainLayer,
+        );
         radiusNode.bringToFront();
 
         let labelsVisible = true;
@@ -869,14 +857,7 @@
           interactive: true,
         }).addTo(this.layers.mainLayer);
 
-        const delMkr = L.marker(centerLatLng, {
-          icon: L.divIcon({
-            className: "del-icon-wrap",
-            html: '<span class="measure-del-icon">✕</span>',
-            iconSize: [0, 0],
-            iconAnchor: [0, 0],
-          }),
-          interactive: true,
+        const delMkr = MeasureUtils.makeDelIcon(centerLatLng, {
           zIndexOffset: CONST.Z_INDEX_OFFSET,
         }).addTo(this.layers.mainLayer);
 
@@ -998,17 +979,25 @@
           isLeft: pos.indexOf("left") >= 0,
         },
       );
-
-      toolBar.innerHTML = `
-        <button class="tool-btn" data-mode="marker"
-          title="${_(`${CONST.name}.tool_marker`)}">${window.foliplus.SVGs.LOCATE}</button>
-        <button class="tool-btn" data-mode="distance"
-          title="${_(`${CONST.name}.tool_distance`)}">${SVGS.RULER}</button>
-        <button class="tool-btn" data-mode="circle"
-          title="${_(`${CONST.name}.tool_circle`)}">${SVGS.CIRCLE}</button>
-        <button class="tool-btn" data-mode="clear"
-          title="${_(`${CONST.name}.tool_clear`)}">${SVGS.TRASH}</button>
-      `;
+      const btnConfigs = [
+        {
+          mode: "marker",
+          title: _(`${CONST.name}.tool_marker`),
+          svg: window.foliplus.SVGs.LOCATE,
+        },
+        { mode: "distance", title: _(`${CONST.name}.tool_distance`), svg: SVGS.RULER },
+        { mode: "circle", title: _(`${CONST.name}.tool_circle`), svg: SVGS.CIRCLE },
+        { mode: "clear", title: _(`${CONST.name}.tool_clear`), svg: SVGS.TRASH },
+      ];
+      btnConfigs.forEach(({ mode, title, svg }) => {
+        toolBar.appendChild(
+          foliplus.dom.el(
+            "button",
+            { class: "tool-btn", "data-mode": mode, title },
+            { _html: svg },
+          ),
+        );
+      });
       measureManager.toolBtns = toolBar.querySelectorAll(".tool-btn");
 
       toggleBtn.onclick = (e) => {

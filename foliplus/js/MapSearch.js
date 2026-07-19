@@ -37,28 +37,38 @@
         container,
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
-      ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_(`${CONST.name}.btn_title`)}">
-          ${window.foliplus.SVGs.SEARCH}
-        </button>
-        <div class="tool-bar">
-          <button class="search-mode-btn" title="${_(`${CONST.name}.mode_coord`)}">
-            ${window.foliplus.SVGs.LOCATE}
-          </button>
-          <div class="clear-wrap">
-            <input type="text" placeholder="${_(`${CONST.name}.coord_placeholder`)}"/>
-            <button class="ctrl-abs-btn" title="${_(`${CONST.name}.clear_title`)}">
-              ${window.foliplus.SVGs.CLOSE}
-            </button>
-          </div>
-        </div>
-      `;
+
+      const toggleBtn = foliplus.dom.el(
+        "button",
+        { class: "toggle-btn", title: _(`${CONST.name}.btn_title`) },
+        { _html: window.foliplus.SVGs.SEARCH },
+      );
+      const modeBtn = foliplus.dom.el(
+        "button",
+        { class: "search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
+        { _html: window.foliplus.SVGs.LOCATE },
+      );
+      const inp = foliplus.dom.el("input", {
+        type: "text",
+        placeholder: _(`${CONST.name}.coord_placeholder`),
+      });
+      const clearBtn = foliplus.dom.el(
+        "button",
+        { class: "ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
+        { _html: window.foliplus.SVGs.CLOSE },
+      );
+      const toolBar = foliplus.dom.el(
+        "div",
+        { class: "tool-bar" },
+        modeBtn,
+        foliplus.dom.el("div", { class: "clear-wrap" }, inp, clearBtn),
+      );
+      ctrl.appendChild(toggleBtn);
+      ctrl.appendChild(toolBar);
 
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.disableScrollPropagation(container);
 
-      const inp = container.querySelector("input");
-      const modeBtn = container.querySelector(".search-mode-btn");
       let mk = null;
       let mode = "{{ this.mode }}";
       if (mode !== CONST.COORD && mode !== CONST.ADDR) mode = CONST.COORD;
@@ -92,7 +102,7 @@
       };
 
       // Expand / collapse
-      container.querySelector(".toggle-btn").onclick = (e) => {
+      toggleBtn.onclick = (e) => {
         e.stopPropagation();
         if (ctrl.classList.contains("expanded")) {
           ctrl.classList.remove("expanded");
@@ -106,7 +116,6 @@
       };
 
       // Clear input
-      const clearBtn = container.querySelector(".ctrl-abs-btn");
       clearBtn.onclick = () => {
         inp.value = "";
         if (mk) {

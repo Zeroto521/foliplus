@@ -374,9 +374,9 @@
       }
 
       if (opts.layer) {
-        if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id)) {
+        if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id))
           window[opts.id] = opts.layer;
-        } else {
+        else
           console.warn(
             `[${CONST.name}] ${_(CONST.name + ".invalid_id").replace("{id}", opts.id)}`,
           );
