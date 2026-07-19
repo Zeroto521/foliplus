@@ -10,6 +10,8 @@
 - `LayerControl`: introduced `createCanvas()`/`createLayers()` API with deferred registration — `mainLayer.addLayer` auto-adds content to map for visibility while drawing, `register()` only creates the panel checkbox on completion; `layerCallbacks` Map for callback-only layers (Canvas heatmap) ([#38](https://github.com/Zeroto521/foliplus/pull/38), [#39](https://github.com/Zeroto521/foliplus/pull/39))
 - `MapSearch`/`MeasureControl`: added separator between toggle button and toolbar in expanded mode ([#43](https://github.com/Zeroto521/foliplus/pull/43))
 - `MapSearch`: keeping toggle button fixed on screen side when expanded ([#45](https://github.com/Zeroto521/foliplus/pull/45))
+- `LayerControl`: added `toggleAll` / `syncToggleAll` for batch show/hide of overlay or base layers ([#47](https://github.com/Zeroto521/foliplus/pull/47))
+- `MeasureControl`: refactored HTML string concatenation to use `foliplus.dom.el`; added `LAT_LNG_PRECISION`, `makeLabelDivIcon`, `makeNode`, `makeDelIcon` static helpers to reduce code duplication ([#48](https://github.com/Zeroto521/foliplus/pull/48))
 
 ### Changed
 
