@@ -164,8 +164,8 @@
           `${CONST.name}.popup_loading`,
           `${CONST.name}.popup_loc_label`,
           `${CONST.name}.popup_addr_label`,
+          mk,
         );
-        mk;
       };
 
       // Address search via Nominatim
