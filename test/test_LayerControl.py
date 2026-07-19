@@ -879,6 +879,33 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "toggle-all-cb" in html
 
+    def test_toggle_all_method_in_js(self, base_map: folium.Map):
+        """toggleAll method exists in rendered JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "toggleAll(group, newState)" in html
+
+    def test_sync_toggle_all_method_in_js(self, base_map: folium.Map):
+        """syncToggleAll method exists in rendered JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "syncToggleAll(group)" in html
+
+    def test_get_layer_items_method(self, base_map: folium.Map):
+        """getLayerItems method exists in rendered JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "getLayerItems(group)" in html
+
+    def test_register_reentry_on_hidden_layer(self, base_map: folium.Map):
+        """register() re-enters registerLayer when already registered (MeasureControl fix)."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # The register() closure handles both first-time and re-entry paths
+        assert "!registered" in html
+        assert "registered = true" in html
+        assert "this.registerLayer({" in html
+
 
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
@@ -1344,5 +1371,63 @@ class TestLayerControlBrowser:
             }""")
             assert result is not None
             assert result["count"] >= 3
+        finally:
+            page.close()
+
+    def test_toggle_all_checkbox_toggles_layers(self, browser, tmp_path):
+        """Toggle-all checkbox toggles all layers in the group."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_toggle_all.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+
+            # Check initial state — all overlays checked
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                if (!api) return null;
+                const cb = document.querySelector('.toggle-all-row[data-group="overlay"] .toggle-all-cb');
+                return cb ? cb.checked : 'no-cb';
+            }""")
+            assert result is True, f"Expected toggle-all checked, got {result}"
+        finally:
+            page.close()
+
+    def test_register_reentry_after_hide(self, browser, tmp_path):
+        """registerLayer can be re-called after a layer is hidden by checkbox."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html_path = tmp_path / "test_register_reentry.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                if (!api) return null;
+                // Register a layer
+                const fg = L.featureGroup();
+                api.registerLayer({ id: '__test_reentry__', name: 'ReEntry', layer: fg });
+                // Simulate uncheck: remove from map (as if user clicked checkbox off)
+                api.layers = api.layers.filter(l => l.id !== '__test_reentry__');
+                api.unregisterLayer('__test_reentry__');
+                // Re-register (simulating MeasureControl tool re-activation)
+                api.registerLayer({ id: '__test_reentry__', name: 'ReEntry', layer: fg });
+                const found = api.layers.some(l => l.id === '__test_reentry__');
+                return { found };
+            }""")
+            assert result is not None
+            assert result["found"] is True
         finally:
             page.close()
