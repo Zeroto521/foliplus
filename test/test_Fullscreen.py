@@ -42,13 +42,14 @@ class TestFullscreenRendering:
     def test_hide_self_default(self, base_map: folium.Map):
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        # hide_self=True renders as JS: if (true) { ...
-        assert "if (true)" in html
+        # hide_self=True → zoom container hide block wrapped in if (true)
+        assert 'zoomContainer.style.display = isFull ? "none" : ""' in html
 
     def test_hide_self_false(self, base_map: folium.Map):
         Fullscreen(hide_self=False).add_to(base_map)
         html = render(base_map)
-        # hide_self=False renders as JS: if (false) { ...
+        # hide_self=False → zoom container hide block wrapped in if (false)
+        assert 'zoomContainer.style.display = isFull ? "none" : ""' in html
         assert "if (false)" in html
 
     def test_contains_fullscreenchange_listener(self, base_map: folium.Map):
@@ -179,6 +180,36 @@ class TestFullscreenRendering:
         html = render(base_map)
         assert "registerHintIcon" in html
         assert "SVGs.MAXIMIZE" in html
+
+    def test_hide_self_hides_zoom_container(self, base_map: folium.Map):
+        """hide_self=true hides the zoom container (leaflet-control-zoom)."""
+        Fullscreen(hide_self=True).add_to(base_map)
+        html = render(base_map)
+        assert '.leaflet-control-zoom"' in html
+        assert 'zoomContainer.style.display = isFull ? "none" : ""' in html
+
+    def test_hide_self_false_skips_zoom_hide(self, base_map: folium.Map):
+        """hide_self=false skips the zoom container hide block."""
+        Fullscreen(hide_self=False).add_to(base_map)
+        html = render(base_map)
+        # hide_self=false → if (false) { ... } — block present but skipped
+        assert "if (false)" in html
+
+    def test_hide_others_false_skips_others_block(self, base_map: folium.Map):
+        """hide_others=false wraps sibling controls in if (false)."""
+        Fullscreen(hide_others=False).add_to(base_map)
+        html = render(base_map)
+        # hide_others=false renders as: if (false) { ... }
+        assert "// Toggle visibility of sibling controls" in html
+        assert "if (false)" in html
+
+    def test_hide_self_independent_of_hide_others(self, base_map: folium.Map):
+        """hide_self still works when hide_others=false."""
+        Fullscreen(hide_self=True, hide_others=False).add_to(base_map)
+        html = render(base_map)
+        # hide_others=False → sibling controls block wrapped in if (false)
+        # hide_self=True → zoom container hide block still present
+        assert 'zoomContainer.style.display = isFull ? "none" : ""' in html
 
 
 class TestFullscreenBrowser:

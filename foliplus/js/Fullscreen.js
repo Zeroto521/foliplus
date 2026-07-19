@@ -84,17 +84,21 @@
         .querySelectorAll(".leaflet-control, .custom-scale-wrap");
 
       for (const c of controls) {
-        // Hide/show self based on backend template parameter
         if (
           c.classList.contains("leaflet-control-zoom-fullscreen") ||
           c.classList.contains("fullscreen-btn") ||
           c.querySelector(".fullscreen-btn")
-        ) {
-          if ({{ this.hide_self | tojson }}) c.style.display = isFull ? "none" : "";
+        )
           continue;
-        }
         c.style.display = isFull ? "none" : "";
       }
+    }
+
+    // Handle hide_self independently of hide_others
+    // Hide zoom +/- and fullscreen button together
+    if ({{ this.hide_self | tojson }}) {
+      const zoomContainer = map.getContainer().querySelector(".leaflet-control-zoom");
+      if (zoomContainer) zoomContainer.style.display = isFull ? "none" : "";
     }
 
     window.foliplus.showHint(
