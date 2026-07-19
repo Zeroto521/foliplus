@@ -201,8 +201,8 @@ class TestBaseControlRendering:
 
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "_isBaiduCRS" in html
-        assert "_isDomesticMap" in html
+        assert "isBaiduCRS" in html
+        assert "isDomesticMap" in html
 
     def test_gcoord_loading_state(self, base_map: folium.Map):
         """gcoord loading states are tracked."""
@@ -219,7 +219,7 @@ class TestBaseControlRendering:
 
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "_geoCache" in html
+        assert "geoCache" in html
         assert "THROTTLE_MS" in html
 
     def test_all_locale_tables_injected(self, base_map: folium.Map):

@@ -373,15 +373,6 @@
   border-left: var(--border-thin) solid var(--divider-color);
 }
 
-/* ── Separator between toggle button and tools (non-map-panel) ── */
-.ctrl-fold:not(.map-panel).expanded .toggle-btn {
-  border-right: var(--border-thin) solid var(--divider-color);
-}
-.ctrl-fold:not(.map-panel).expanded.align-right .toggle-btn {
-  border-right: none;
-  border-left: var(--border-thin) solid var(--divider-color);
-}
-
 /* ── Shared Toolbar ──
   Used by MeasureControl / ExportControl
   Separator via toggle-btn border-right (avoids flex compression issues) */

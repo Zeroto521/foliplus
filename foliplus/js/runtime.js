@@ -239,9 +239,9 @@
    * @returns {boolean} True if the map uses Baidu CRS
    *
    * @example
-   *   _isBaiduCRS(map) // → true if Baidu tiles are used
+   *   isBaiduCRS(map) // → true if Baidu tiles are used
    */
-  const _isBaiduCRS = (map) => {
+  const isBaiduCRS = (map) => {
     try {
       if (L.CRS && L.CRS.Baidu) return true;
       const crs = map.options.crs;
@@ -273,7 +273,7 @@
    */
   foliplus.toWgs84 = (map, lat, lng) => {
     if (typeof gcoord !== "undefined") {
-      const src = _isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
+      const src = isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
     }
@@ -310,11 +310,11 @@
         return [lng, lat];
       }
     }
-    const isBaidu = _isBaiduCRS(map);
+    const isBaidu = isBaiduCRS(map);
     // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip
     const dst = isBaidu ? gcoord.BD09 : gcoord.GCJ02;
     // Skip transformation for non-domestic maps (no Baidu/AMap tile patterns)
-    if (!isBaidu && !_isDomesticMap(map)) return [lng, lat];
+    if (!isBaidu && !isDomesticMap(map)) return [lng, lat];
     return gcoord.transform([lng, lat], gcoord.WGS84, dst);
   };
 
@@ -325,7 +325,7 @@
    * @param {L.Map} map - Leaflet map instance
    * @returns {boolean} True if the map uses domestic tile providers
    */
-  const _isDomesticMap = (map) => {
+  const isDomesticMap = (map) => {
     try {
       const crs = map.options.crs;
       if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
@@ -352,9 +352,9 @@
 
   // ==================== Reverse Geocoding ====================
   // Uses throttled queue (1 req/s) and response cache.
-  const _geoCache = {};
-  let _geoPromise = Promise.resolve();
-  let _geoLastReq = 0;
+  const geoCache = {};
+  let geoPromise = Promise.resolve();
+  let geoLastReq = 0;
 
   /**
    * Reverse geocode coordinates to an address via Nominatim.
@@ -366,19 +366,19 @@
    */
   foliplus.reverseGeocode = (map, lat, lng) => {
     const key = `${lat},${lng}`;
-    if (_geoCache[key]) return Promise.resolve(_geoCache[key]);
+    if (geoCache[key]) return Promise.resolve(geoCache[key]);
 
     const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
     const lang = (window._LOCALE && window._LOCALE["locale.code"]) || "en";
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
 
-    _geoPromise = _geoPromise
+    geoPromise = geoPromise
       .then(() => {
-        const wait = Math.max(0, GEO.THROTTLE_MS - (Date.now() - _geoLastReq));
+        const wait = Math.max(0, GEO.THROTTLE_MS - (Date.now() - geoLastReq));
         return new Promise((r) => setTimeout(r, wait));
       })
       .then(() => {
-        _geoLastReq = Date.now();
+        geoLastReq = Date.now();
         return fetch(url)
           .then((r) => r.json())
           .then((data) => {
@@ -389,15 +389,62 @@
               .filter((s) => s && !/^\d+$/.test(s))
               .reverse()
               .join(",");
-            _geoCache[key] = addr || foliplus.gt("MapSearch.addr_not_found");
-            return _geoCache[key];
+            geoCache[key] = addr || foliplus.gt("MapSearch.addr_not_found");
+            return geoCache[key];
           })
           .catch(() => foliplus.gt("MeasureControl.geo_fail"));
       });
-    return _geoPromise;
+    return geoPromise;
   };
 
-  // ==================== HTML Builder ====================
+  // ==================== DOM Helpers ====================
+  /**
+   * Lightweight DOM builder — create elements without string concatenation.
+   *
+   * @example
+   *   // Create a div with class and text content
+   *   foliplus.dom.el("div", { class: "my-class" }, "Hello")
+   *
+   *   // Nested children
+   *   foliplus.dom.el("div", null,
+   *     foliplus.dom.el("span", { class: "icon" }),
+   *     foliplus.dom.el("label", null, "Name")
+   *   )
+   *
+   *   // Set innerHTML by passing a { _html: "..." } child
+   *   foliplus.dom.el("div", null, { _html: "<svg>...</svg>" })
+   */
+  foliplus.dom = {
+    /**
+     * Create an element with attributes and children.
+     * @param {string} tag - HTML tag name.
+     * @param {Object|null} attrs - Attributes map (class, id, data-*, etc.).
+     * @param  {...any} children - Strings (text), {_html: str} (innerHTML),
+     *                             or DOM elements (appendChild).
+     * @returns {HTMLElement}
+     */
+    el(tag, attrs = {}, ...children) {
+      const el = document.createElement(tag);
+      if (attrs) {
+        for (const [key, val] of Object.entries(attrs)) {
+          if (val == null) continue;
+          if (key === "class") el.className = val;
+          else if (key === "style" && typeof val === "object")
+            Object.assign(el.style, val);
+          else el.setAttribute(key, String(val));
+        }
+      }
+      for (const child of children) {
+        if (child == null) continue;
+        if (typeof child === "string" || typeof child === "number")
+          el.appendChild(document.createTextNode(String(child)));
+        else if (child._html) el.insertAdjacentHTML("beforeend", child._html);
+        else if (child.nodeType) el.appendChild(child);
+      }
+      return el;
+    },
+  };
+
   /**
    * Build a popup HTML string for a location marker.
    * @param {number} lat Latitude
@@ -410,19 +457,22 @@
    * @returns {string} HTML string
    */
   foliplus.buildPopupHtml = (lat, lng, addr, title, loading, locLabel, addrLabel) => {
-    const popupTitle = foliplus.gt(title);
     const loadStr = foliplus.gt(loading);
     const addrHtml =
       addr && addr.includes("LOADING")
-        ? `${foliplus.SVGs.LOADING} ${loadStr}`
+        ? { _html: foliplus.SVGs.LOADING + " " + loadStr }
         : addr || loadStr;
 
-    return `
-    <div class="popup-content">
-      <b>${popupTitle}</b><br>
-      ${foliplus.gt(locLabel)}${lng},${lat}<br>
-      ${foliplus.gt(addrLabel)}${addrHtml}
-    </div>`;
+    return foliplus.dom.el(
+      "div",
+      { class: "popup-content" },
+      foliplus.dom.el("b", null, foliplus.gt(title)),
+      { _html: "<br>" },
+      foliplus.gt(locLabel) + lng + "," + lat,
+      { _html: "<br>" },
+      foliplus.gt(addrLabel),
+      typeof addrHtml === "object" ? addrHtml : addrHtml,
+    ).outerHTML;
   };
 
   /**
@@ -465,9 +515,7 @@
     target.addLayer(mk);
     mk.bindPopup(
       foliplus.buildPopupHtml(lat, lng, addr, title, loading, locLabel, addrLabel),
-      {
-        maxWidth: POPUP.MAX_WIDTH,
-      },
+      { maxWidth: POPUP.MAX_WIDTH },
     );
     mk.openPopup();
     if (!addr) {
@@ -556,18 +604,19 @@
    * @returns {object} { container, ctrl, toolBar, toggleBtn }
    */
   foliplus.createFoldControl = (opts) => {
-    var container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
-    var ctrl = L.DomUtil.create(
-      "div",
-      `${opts.cssClass} ctrl-fold collapsed`,
-      container,
+    const container = foliplus.dom.el("div", { class: "leaflet-bar leaflet-control" });
+    const ctrl = foliplus.dom.el("div", {
+      class: `${opts.cssClass} ctrl-fold collapsed`,
+    });
+    ctrl.appendChild(
+      foliplus.dom.el(
+        "button",
+        { class: "toggle-btn", title: opts.toggleTitle },
+        { _html: opts.toggleSvg },
+      ),
     );
-    ctrl.innerHTML = `
-      <button class="toggle-btn" title="${opts.toggleTitle}">
-        ${opts.toggleSvg}
-      </button>
-      <div class="tool-bar"></div>
-    `;
+    ctrl.appendChild(foliplus.dom.el("div", { class: "tool-bar" }));
+    container.appendChild(ctrl);
     if (!opts.isLeft) ctrl.classList.add("align-right");
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
@@ -608,9 +657,8 @@
         .filter((p) => p.type === "integer")
         .map((p) => p.value)
         .join("");
-      if (intStr.length >= 3) {
-        return fmt(0).format(val);
-      }
+      if (intStr.length >= 3) return fmt(0).format(val);
+
       return nf.format(val);
     }
 

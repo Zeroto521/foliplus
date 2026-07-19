@@ -215,9 +215,9 @@ class TestLayerControlRendering:
         LayerControl().add_to(m)
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
-        # All regular items are draggable
-        assert 'draggable="true"' in html
-        # Color layer remains non-draggable
+        # DOM API sets draggable at runtime via setAttribute
+        assert 'draggable: "true"' in html or 'draggable="true"' in html
+        # Also check color-layer-item exists (non-draggable)
         assert "color-layer-item" in html
 
     def test_enforce_order_function(self, base_map: folium.Map):
@@ -293,9 +293,8 @@ class TestLayerControlRendering:
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         folium.FeatureGroup(name="Markers", overlay=True, show=True).add_to(m)
         html = render(m)
-        # Count draggable="true" occurrences (excluding inside JS strings)
-        count = html.count('draggable="true"')
-        assert count >= 2, f"Expected at least 2 draggable items, got {count}"
+        # DOM API sets draggable at runtime via setAttribute
+        assert 'draggable: "true"' in html or 'draggable="true"' in html
 
     def test_marker_skip_in_set_layer_pane(self, base_map: folium.Map):
         """setLayerPaneRecursive skips Markers but moves TileLayers.
@@ -511,9 +510,8 @@ class TestLayerControlRendering:
         """Each layer-item has checkbox-wrapper, label, type-icon-col."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'class="checkbox-wrapper"' in html
-        assert 'class="type-icon-col"' in html
-        assert "layer-item-spacer" in html
+        assert "checkbox-wrapper" in html
+        assert "type-icon-col" in html
 
     def test_color_map_id_constant(self, base_map: folium.Map):
         """Color map uses a special constant ID for identification."""
@@ -753,7 +751,7 @@ class TestLayerControlRendering:
         """Custom iconSvg is rendered in type-icon-col during initial render."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'l.iconSvg || ""' in html
+        assert "l.iconSvg" in html
         assert "type-icon-col" in html
 
     def test_runtime_guard_present(self, base_map: folium.Map):
@@ -846,6 +844,67 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "cbs.onZIndex(z)" in html
         assert "cbs.onToggle(target.checked)" in html
+
+    def test_render_methods_use_dom_builder(self, base_map: folium.Map):
+        """renderToggleAllRow, renderLayerItem, renderColorLayerItem exist in JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "renderToggleAllRow" in html
+        assert "renderLayerItem" in html
+        assert "renderColorLayerItem" in html
+        assert "getLayerItems" in html
+
+    def test_foliplus_dom_el_in_js(self, base_map: folium.Map):
+        """foliplus.dom.el is used in LayerControl rendering."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.dom.el" in html
+
+    def test_toggle_all_row_data_group(self, base_map: folium.Map):
+        """Toggle-all rows have correct data-group attribute."""
+        m = folium.Map()
+        LayerControl().add_to(m)
+        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
+        folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
+        html = render(m)
+        # data-group is set via JS setAttribute at runtime
+        # Check JS source code contains the renderToggleAllRow calls
+        assert "renderToggleAllRow" in html
+        # Check that toggle-all-row class is used in JS
+        assert "toggle-all-row" in html
+
+    def test_toggle_all_cb_present(self, base_map: folium.Map):
+        """toggle-all-cb checkbox present in rendered HTML."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "toggle-all-cb" in html
+
+    def test_toggle_all_method_in_js(self, base_map: folium.Map):
+        """toggleAll method exists in rendered JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "toggleAll(group, newState)" in html
+
+    def test_sync_toggle_all_method_in_js(self, base_map: folium.Map):
+        """syncToggleAll method exists in rendered JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "syncToggleAll(group)" in html
+
+    def test_get_layer_items_method(self, base_map: folium.Map):
+        """getLayerItems method exists in rendered JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "getLayerItems(group)" in html
+
+    def test_register_reentry_on_hidden_layer(self, base_map: folium.Map):
+        """register() re-enters registerLayer when already registered (MeasureControl fix)."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # The register() closure handles both first-time and re-entry paths
+        assert "!registered" in html
+        assert "registered = true" in html
+        assert "this.registerLayer({" in html
 
 
 class TestLayerControlBrowser:
@@ -1312,5 +1371,63 @@ class TestLayerControlBrowser:
             }""")
             assert result is not None
             assert result["count"] >= 3
+        finally:
+            page.close()
+
+    def test_toggle_all_checkbox_toggles_layers(self, browser, tmp_path):
+        """Toggle-all checkbox toggles all layers in the group."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_toggle_all.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+
+            # Check initial state — all overlays checked
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                if (!api) return null;
+                const cb = document.querySelector('.toggle-all-row[data-group="overlay"] .toggle-all-cb');
+                return cb ? cb.checked : 'no-cb';
+            }""")
+            assert result is True, f"Expected toggle-all checked, got {result}"
+        finally:
+            page.close()
+
+    def test_register_reentry_after_hide(self, browser, tmp_path):
+        """registerLayer can be re-called after a layer is hidden by checkbox."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html_path = tmp_path / "test_register_reentry.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                if (!api) return null;
+                // Register a layer
+                const fg = L.featureGroup();
+                api.registerLayer({ id: '__test_reentry__', name: 'ReEntry', layer: fg });
+                // Simulate uncheck: remove from map (as if user clicked checkbox off)
+                api.layers = api.layers.filter(l => l.id !== '__test_reentry__');
+                api.unregisterLayer('__test_reentry__');
+                // Re-register (simulating MeasureControl tool re-activation)
+                api.registerLayer({ id: '__test_reentry__', name: 'ReEntry', layer: fg });
+                const found = api.layers.some(l => l.id === '__test_reentry__');
+                return { found };
+            }""")
+            assert result is not None
+            assert result["found"] is True
         finally:
             page.close()

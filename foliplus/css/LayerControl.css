@@ -46,10 +46,34 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
-.layer-ctrl .separator-icon {
-  font-size: var(--font-size-sm);
-  line-height: 1;
+/* ── Toggle-all row ── */
+.layer-ctrl .layer-separator-container.toggle-all-row {
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg) var(--space-sm) var(--space-sm);
+  border-left: var(--border-thick) solid transparent;
 }
+
+/* ── Drag handle ──
+  Shared size for all drag handles in layer rows.
+  Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
+.layer-ctrl .drag-handle {
+  flex-shrink: 0;
+  width: 14px;
+  height: var(--icon-size-md);
+}
+.layer-ctrl .layer-item .drag-handle {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.layer-ctrl .layer-item:hover .drag-handle {
+  opacity: 1;
+}
+.layer-ctrl .toggle-all-row .drag-handle,
+.layer-ctrl .color-layer-item .drag-handle {
+  visibility: hidden;
+}
+
+/* ── Layer item ── */
 .layer-ctrl .layer-item {
   display: flex;
   align-items: center;
@@ -87,23 +111,8 @@
   border-bottom: var(--border-thick) solid var(--accent-primary);
   background: var(--accent-soft-bg);
 }
-.layer-ctrl .layer-item .drag-handle {
-  flex-shrink: 0;
-  width: 14px;
-  height: var(--icon-size-md);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-.layer-ctrl .layer-item:hover .drag-handle {
-  opacity: 1;
-}
-/* ── Layer item spacer ── */
-.layer-ctrl .layer-item .layer-item-spacer {
-  width: 14px;
-  flex-shrink: 0;
-}
-/* ── Custom Checkbox ── */
-.layer-ctrl .layer-item .checkbox-wrapper {
+/* ── Checkbox / Radio shared styles ── */
+.layer-ctrl .checkbox-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -111,8 +120,8 @@
   height: var(--space-xl);
   flex-shrink: 0;
 }
-.layer-ctrl .layer-item input[type="checkbox"],
-.layer-ctrl .layer-item input[type="radio"] {
+.layer-ctrl input[type="checkbox"],
+.layer-ctrl input[type="radio"] {
   appearance: none;
   width: var(--space-xl);
   height: var(--space-xl);
@@ -124,18 +133,18 @@
   transition: all var(--transition-fast);
   flex-shrink: 0;
 }
-.layer-ctrl .layer-item input[type="checkbox"]:hover,
-.layer-ctrl .layer-item input[type="radio"]:hover {
+.layer-ctrl input[type="checkbox"]:hover,
+.layer-ctrl input[type="radio"]:hover {
   border-color: var(--accent-primary);
 }
-.layer-ctrl .layer-item input[type="checkbox"] {
+.layer-ctrl input[type="checkbox"] {
   border-radius: var(--radius-sm);
 }
-.layer-ctrl .layer-item input[type="checkbox"]:checked {
+.layer-ctrl input[type="checkbox"]:checked {
   background: var(--accent-primary);
   border-color: var(--accent-primary);
 }
-.layer-ctrl .layer-item input[type="checkbox"]:checked::after {
+.layer-ctrl input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
   left: 0;
@@ -148,13 +157,13 @@
   background-repeat: no-repeat;
 }
 /* ── Custom Radio Button ── */
-.layer-ctrl .layer-item input[type="radio"] {
+.layer-ctrl input[type="radio"] {
   border-radius: var(--radius-round);
 }
-.layer-ctrl .layer-item input[type="radio"]:checked {
+.layer-ctrl input[type="radio"]:checked {
   border-color: var(--accent-primary);
 }
-.layer-ctrl .layer-item input[type="radio"]:checked::after {
+.layer-ctrl input[type="radio"]:checked::after {
   content: "";
   position: absolute;
   left: var(--space-sm);
