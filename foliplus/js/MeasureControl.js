@@ -143,29 +143,23 @@
       }
     }
 
-    /** Attach a click handler to a delete icon marker with retry for DOM readiness. */
+    /** Attach a click handler to a delete icon marker via Leaflet event (survives DOM rebuild). */
     static attachDelClick(delMkr, callback) {
-      setTimeout(() => {
-        const el = delMkr.getElement();
-        if (el) {
-          const btn = el.querySelector(".measure-del-icon");
-          if (btn) {
-            L.DomEvent.on(btn, "click", (ev) => {
-              MeasureUtils.stopEvent(ev);
-              callback();
-            });
-          }
+      delMkr.on("click", (ev) => {
+        const t = ev.originalEvent?.target;
+        if (t?.classList?.contains("measure-del-icon")) {
+          MeasureUtils.stopEvent(ev);
+          callback();
         }
-      }, CONST.DEL_ICON_RETRY_DELAY_MS);
+      });
     }
 
-    /** Update a label marker's text content. Caches DOM reference on first call. */
+    /** Update a label marker's text content. Always gets fresh DOM reference. */
     static setLabelText(marker, text) {
-      if (!marker.labelEl) {
-        const el = marker.getElement();
-        if (el) marker.labelEl = el.querySelector(".measure-label");
-      }
-      if (marker.labelEl) marker.labelEl.textContent = text;
+      const el = marker.getElement();
+      if (!el) return;
+      const labelEl = el.querySelector(".measure-label");
+      if (labelEl) labelEl.textContent = text;
     }
 
     /** Remove multiple layers from a mainLayer in one call. */
@@ -267,6 +261,11 @@
         this.clearActiveMode();
         return;
       }
+
+      // Bring the measure layer to the front so it's always on top
+      // when the user activates a measurement tool, even if the layer
+      // was previously hidden and re-shown at a lower z-order.
+      this.layers.bringToFront();
 
       this.cleanMapEvents();
       this.currentMode = mode;
@@ -371,8 +370,6 @@
 
       let cachedAddr = null;
       setTimeout(() => this.injectDelIcon(marker), CONST.DEL_ICON_RETRY_DELAY_MS);
-      this.layers.register();
-
       const addr = await window.foliplus.reverseGeocode(
         this.map,
         parseFloat(lat),
@@ -405,13 +402,29 @@
       });
     }
 
-    injectDelIcon(marker) {
+    injectDelIcon(marker, retries = 0) {
       const el = marker.getElement();
-      if (!el) return;
+      if (!el) {
+        if (retries < CONST.DEL_ICON_RETRY_LIMIT) {
+          setTimeout(
+            () => this.injectDelIcon(marker, retries + 1),
+            CONST.DEL_ICON_RETRY_DELAY_MS,
+          );
+        }
+        return;
+      }
       if (el.querySelector(".measure-del-icon")) return;
 
       const iconDiv = el.querySelector("div");
-      if (!iconDiv) return;
+      if (!iconDiv) {
+        if (retries < CONST.DEL_ICON_RETRY_LIMIT) {
+          setTimeout(
+            () => this.injectDelIcon(marker, retries + 1),
+            CONST.DEL_ICON_RETRY_DELAY_MS,
+          );
+        }
+        return;
+      }
 
       iconDiv.appendChild(
         window.foliplus.dom.el(
@@ -448,10 +461,22 @@
         className: "measure-line measure-line-preview",
       });
 
-      // Empty placeholders go directly to graphLayer — bypasses mainLayer.addLayer
-      // auto-register, so LayerControl won't show the layer until real content.
-      if (this.layers.graphLayer) this.layers.graphLayer.addLayer(poly);
-      if (this.layers.graphLayer) this.layers.graphLayer.addLayer(previewLine);
+      // Create finalPoly early so it gets a stamp BEFORE any nodeMarkers.
+      // This ensures that when the layer is hidden and re-shown, the SVG
+      // elements are re-created in stamp order: line first, then circles.
+      // Otherwise, finishDist() would create finalPoly with a higher stamp
+      // than the nodeMarkers, putting the line on top of the points.
+      const finalPoly = L.polyline([], {
+        className: "measure-line measure-line-solid",
+        interactive: true,
+      });
+
+      // Add to mainLayer (not graphLayer directly) so they go through the
+      // overridden addLayer which sets the correct pane and renderer.
+      // This ensures dashed lines have the same z-index as solid lines.
+      this.layers.mainLayer.addLayer(poly);
+      this.layers.mainLayer.addLayer(previewLine);
+      this.layers.mainLayer.addLayer(finalPoly);
 
       this.cleanupFn = () => {
         this.map.off("click", onDistClick);
@@ -464,6 +489,7 @@
           previewDistLabel = null;
         }
         this.layers.mainLayer.removeLayer(poly);
+        this.layers.mainLayer.removeLayer(finalPoly);
         nodeMarkers.forEach((m) => this.layers.mainLayer.removeLayer(m));
         segLabels.forEach((l) => this.layers.mainLayer.removeLayer(l));
         if (startLbl) this.layers.mainLayer.removeLayer(startLbl);
@@ -481,13 +507,10 @@
           return;
         }
         distFinished = true;
-        // Remove temporary poly before creating final one
+        // Remove temporary dashed poly; finalPoly was created early in
+        // startDistanceMode (for correct stamp order) and just needs latlngs.
         this.layers.mainLayer.removeLayer(poly);
-
-        const finalPoly = L.polyline(pts, {
-          className: "measure-line measure-line-solid",
-          interactive: true,
-        }).addTo(this.layers.mainLayer);
+        finalPoly.setLatLngs(pts);
 
         let labelsVisible = true;
         let xVisible = false;
@@ -577,9 +600,6 @@
         segLabels.forEach((l) => l.addTo(this.layers.mainLayer));
         if (startLbl) startLbl.addTo(this.layers.mainLayer);
 
-        // Register after all final elements are placed
-        this.layers.register();
-
         // Cleanup events and preview elements, keep final layers
         this.map.off("click", onDistClick);
         this.map.off("dblclick", onDistDbl);
@@ -654,7 +674,7 @@
           );
           total += seg;
 
-          if (segLabels.length > 0) {
+          if (segLabels.length > 0 && pts.length >= 3) {
             const prevLbl = segLabels[segLabels.length - 1];
             const prevSeg = MeasureUtils.distance(
               pts[pts.length - 3].lat,
@@ -939,8 +959,6 @@
         attachInteraction(radiusNode);
         attachInteraction(centerFinal);
         if (radiusLabel) attachInteraction(radiusLabel);
-
-        this.layers.register();
 
         const onMapClickActive = () => {
           if (this.suppressHideDel || deleted) return;
