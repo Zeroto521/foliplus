@@ -11,7 +11,7 @@
 - `MapSearch`/`MeasureControl`: added separator between toggle button and toolbar in expanded mode ([#43](https://github.com/Zeroto521/foliplus/pull/43))
 - `MapSearch`: keeping toggle button fixed on screen side when expanded ([#45](https://github.com/Zeroto521/foliplus/pull/45))
 - `LayerControl`: added `toggleAll` / `syncToggleAll` for batch show/hide of overlay or base layers ([#47](https://github.com/Zeroto521/foliplus/pull/47))
-- `MeasureControl`: refactored HTML string concatenation to use `foliplus.dom.el` ([#47](https://github.com/Zeroto521/foliplus/pull/47))
+- `MeasureControl`: refactored HTML string concatenation to use `foliplus.dom.el` ([#47](https://github.com/Zeroto521/foliplus/pull/47), [#51](https://github.com/Zeroto521/foliplus/pull/51))
 
 ### Changed
 

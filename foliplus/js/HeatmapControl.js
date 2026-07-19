@@ -605,62 +605,40 @@
         this.expandHookDone = false;
       }
 
-      onAdd() {
-        const wrapper = this.buildHeader();
-        this.buildDataSection();
-        this.buildStyleSection();
-        this.setupObserver();
-        return wrapper;
+      /** Create a form-row with label + control-wrap. */
+      createFormRow(parent, labelKey, rowClass = "form-row") {
+        const row = L.DomUtil.create("div", rowClass, parent);
+        const label = L.DomUtil.create("label", "form-label", row);
+        label.textContent = _(labelKey);
+        const wrap = L.DomUtil.create("div", "form-control-wrap", row);
+        return { row, label, wrap };
       }
 
-      /** Create the outer container, toggle button, and panel header. */
-      buildHeader() {
-        const wrapper = L.DomUtil.create("div", "leaflet-bar leaflet-control");
-        this.container = L.DomUtil.create(
-          "div",
-          "map-panel ctrl-fold heatmap-ctrl collapsed",
-          wrapper,
-        );
-        L.DomEvent.disableClickPropagation(wrapper);
-        L.DomEvent.disableScrollPropagation(wrapper);
-
-        const toggleBtn = L.DomUtil.create("button", "toggle-btn", this.container);
-        toggleBtn.title = _(`${CONST.name}.title`);
-        toggleBtn.innerHTML = SVGs.HEXAGON;
-
-        const panelWrap = L.DomUtil.create("div", "panel-wrap", this.container);
-        const header = L.DomUtil.create("div", "panel-header", panelWrap);
-        header.innerHTML = `
-          <span class="header-title">
-            <span class="header-icon">${SVGs.HEXAGON}</span>
-            ${_(`${CONST.name}.title`)}
-          </span>
-          <button class="close-btn ctrl-abs-btn" title="${_(`${CONST.name}.close_title`)}">
-            ${window.foliplus.SVGs.CLOSE}
-          </button>`;
-
-        window.foliplus.bindPanelToggle({
-          container: this.container,
-          toggleBtn: ".toggle-btn",
-          header: ".panel-header",
+      onAdd() {
+        const { container, ctrl, panelContent } = window.foliplus.createPanelControl({
+          cssClass: "heatmap-ctrl",
+          toggleTitle: _(`${CONST.name}.title`),
+          toggleSvg: SVGs.HEXAGON,
+          panelTitle: _(`${CONST.name}.title`),
+          closeTitle: _(`${CONST.name}.close_title`),
         });
-        window.foliplus.bindOutsideCollapse({ container: this.container });
-
-        return wrapper;
+        this.container = ctrl;
+        this.buildDataSection(panelContent);
+        this.buildStyleSection();
+        this.setupObserver();
+        return container;
       }
 
       /** Build the data section: layer select, aggregation method, field selector. */
-      buildDataSection() {
-        const panelWrap = this.container.querySelector(".panel-wrap");
-        const content = L.DomUtil.create("div", "panel-content", panelWrap);
-        const configBody = L.DomUtil.create("div", "config-body", content);
+      buildDataSection(panelContent) {
+        const configBody = L.DomUtil.create("div", "config-body", panelContent);
         const dataHeading = L.DomUtil.create("div", "section-heading", configBody);
         dataHeading.textContent = _(`${CONST.name}.section_data`);
 
-        const layerRow = L.DomUtil.create("div", "form-row", configBody);
-        const layerRowLabel = L.DomUtil.create("label", "form-label", layerRow);
-        layerRowLabel.textContent = _(`${CONST.name}.layer`);
-        const layerSelectWrap = L.DomUtil.create("div", "form-control-wrap", layerRow);
+        const { wrap: layerSelectWrap } = this.createFormRow(
+          configBody,
+          `${CONST.name}.layer`,
+        );
         this.layerSelect = L.DomUtil.create(
           "select",
           "form-select layer-select",
@@ -671,10 +649,10 @@
         this.extraBody.style.display = "none";
 
         // Aggregation method
-        const aggRow = L.DomUtil.create("div", "form-row", this.extraBody);
-        const aggRowLabel = L.DomUtil.create("label", "form-label", aggRow);
-        aggRowLabel.textContent = _(`${CONST.name}.agg_method`);
-        const aggControlWrap = L.DomUtil.create("div", "form-control-wrap", aggRow);
+        const { wrap: aggControlWrap } = this.createFormRow(
+          this.extraBody,
+          `${CONST.name}.agg_method`,
+        );
         this.aggSelect = L.DomUtil.create("select", "form-select", aggControlWrap);
         this.aggSelect.innerHTML = `
           <option value="count">${_(`${CONST.name}.agg_count`)}</option>

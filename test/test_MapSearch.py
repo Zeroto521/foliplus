@@ -174,8 +174,8 @@ class TestMapSearchRendering:
         MapSearch(position="topleft").add_to(base_map)
         html = render(base_map)
         # align-right appears in CSS, but NOT in the JS class string for left positions
-        # Check that the JS doesn't add align-right for left positions
-        assert 'indexOf("right") >= 0' in html
+        # createFoldControl uses isLeft: position.indexOf("left") >= 0
+        assert 'indexOf("left") >= 0' in html
 
     def test_align_right_bottomright(self, base_map: folium.Map):
         """bottomright position also adds align-right."""
