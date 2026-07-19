@@ -30,20 +30,16 @@
   // ==================== Control Definition ====================
   new (L.Control.extend({
     onAdd: () => {
-      const container = window.foliplus.dom.el("div", {
-        class: "leaflet-bar leaflet-control",
-      });
-      const ctrl = window.foliplus.dom.el("div", {
-        class: `map-search ctrl-fold collapsed${CONST.position.indexOf("right") >= 0 ? " align-right" : ""}`,
-        id: "{{ this.get_name() }}_ctrl",
-      });
-      container.appendChild(ctrl);
-
-      const toggleBtn = window.foliplus.dom.el(
-        "button",
-        { class: "toggle-btn", title: _(`${CONST.name}.btn_title`) },
-        { html: window.foliplus.SVGs.SEARCH },
+      const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
+        {
+          cssClass: "map-search",
+          toggleTitle: _(`${CONST.name}.btn_title`),
+          toggleSvg: window.foliplus.SVGs.SEARCH,
+          isLeft: CONST.position.indexOf("left") >= 0,
+        },
       );
+      ctrl.id = "{{ this.get_name() }}_ctrl";
+
       const modeBtn = window.foliplus.dom.el(
         "button",
         { class: "search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
@@ -58,17 +54,10 @@
         { class: "ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
         { html: window.foliplus.SVGs.CLOSE },
       );
-      const toolBar = window.foliplus.dom.el(
-        "div",
-        { class: "tool-bar" },
-        modeBtn,
+      toolBar.appendChild(modeBtn);
+      toolBar.appendChild(
         window.foliplus.dom.el("div", { class: "clear-wrap" }, inp, clearBtn),
       );
-      ctrl.appendChild(toggleBtn);
-      ctrl.appendChild(toolBar);
-
-      L.DomEvent.disableClickPropagation(container);
-      L.DomEvent.disableScrollPropagation(container);
 
       let mk = null;
       let mode = "{{ this.mode }}";

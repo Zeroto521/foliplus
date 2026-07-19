@@ -630,6 +630,77 @@
     };
   };
 
+  /**
+   * Create a panel-style control with toggle button, header, and content area.
+   * Used by HeatmapControl and LayerControl for consistent panel UI.
+   * Automatically wires up bindPanelToggle and bindOutsideCollapse.
+   * @param {object} opts
+   * @param {string} opts.cssClass - Unique CSS class, e.g. 'heatmap-ctrl' or 'layer-ctrl'
+   * @param {string} opts.toggleTitle - Tooltip for the toggle button
+   * @param {string} opts.toggleSvg - SVG HTML for the toggle icon
+   * @param {string} opts.panelTitle - Header title text
+   * @param {string} opts.closeTitle - Tooltip for close button
+   * @returns {object} { container, ctrl, toggleBtn, panelContent }
+   */
+  foliplus.createPanelControl = (opts) => {
+    const container = window.foliplus.dom.el("div", {
+      class: "leaflet-bar leaflet-control",
+    });
+    const ctrl = window.foliplus.dom.el("div", {
+      class: `map-panel ctrl-fold ${opts.cssClass} collapsed`,
+    });
+    ctrl.appendChild(
+      window.foliplus.dom.el(
+        "button",
+        { class: "toggle-btn", title: opts.toggleTitle },
+        { html: opts.toggleSvg },
+      ),
+    );
+    const panelWrap = window.foliplus.dom.el("div", { class: "panel-wrap" });
+    const header = window.foliplus.dom.el("div", { class: "panel-header" });
+    header.appendChild(
+      window.foliplus.dom.el(
+        "span",
+        { class: "header-title" },
+        window.foliplus.dom.el(
+          "span",
+          { class: "header-icon" },
+          { html: opts.toggleSvg },
+        ),
+        opts.panelTitle,
+      ),
+    );
+    header.appendChild(
+      window.foliplus.dom.el(
+        "button",
+        { class: "close-btn ctrl-abs-btn", title: opts.closeTitle },
+        { html: window.foliplus.SVGs.CLOSE },
+      ),
+    );
+    panelWrap.appendChild(header);
+    const panelContent = window.foliplus.dom.el("div", { class: "panel-content" });
+    panelWrap.appendChild(panelContent);
+    ctrl.appendChild(panelWrap);
+    container.appendChild(ctrl);
+
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+
+    window.foliplus.bindPanelToggle({
+      container: ctrl,
+      toggleBtn: ".toggle-btn",
+      header: ".panel-header",
+    });
+    window.foliplus.bindOutsideCollapse({ container: ctrl });
+
+    return {
+      container,
+      ctrl,
+      toggleBtn: ctrl.querySelector(".toggle-btn"),
+      panelContent,
+    };
+  };
+
   // ==================== Number Formatting ====================
   /**
    * Format a number for display.
