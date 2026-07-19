@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: 0;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--ctrl-bg-translucent);
   border: none;
   box-shadow: none;
@@ -18,8 +18,9 @@
 .leaflet-control.scale-wrap .scale-zoom-label {
   height: calc(var(--font-size-xs) + var(--space-sm));
   font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   padding: 0 var(--space-md);
   box-sizing: border-box;
@@ -34,8 +35,9 @@
   text-align: center;
   background: transparent;
   box-shadow: none;
+  border-radius: 0;
 }
 .leaflet-control.scale-wrap .scale-zoom-label {
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
