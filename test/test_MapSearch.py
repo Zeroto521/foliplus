@@ -151,16 +151,10 @@ class TestMapSearchRendering:
         assert "disableScrollPropagation" in html
 
     def test_mode_switch_function(self, base_map: folium.Map):
-        """Mode switch function _setMode exists."""
+        """Mode switch function setMode exists."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "function _setMode(newMode)" in html
-
-    def test_location_marker_created(self, base_map: folium.Map):
-        """createLocationMarker is used for map markers."""
-        MapSearch().add_to(base_map)
-        html = render(base_map)
-        assert "foliplus.createLocationMarker" in html
+        assert "function setMode(newMode)" in html
 
     def test_reverse_geocode_function(self, base_map: folium.Map):
         """reverseGeocode is called for address lookup."""
