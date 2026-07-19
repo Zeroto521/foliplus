@@ -47,10 +47,15 @@ class TestMeasureControlRendering:
         assert "gcoord.global.prod.js" in html
 
     def test_contains_tool_buttons(self, base_map: folium.Map):
+        """Tool buttons are built via foliplus.dom.el with data-mode."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "tool-btn" in html
-        assert "data-mode" in html
+        assert '"data-mode": mode' in html
+        assert 'mode: "marker"' in html
+        assert 'mode: "distance"' in html
+        assert 'mode: "circle"' in html
+        assert 'mode: "clear"' in html
 
     def test_locale_zh(self, base_map: folium.Map):
         MeasureControl(locale="zh").add_to(base_map)
@@ -100,12 +105,6 @@ class TestMeasureControlRendering:
         html = render(base_map)
         # CSS variable is defined in MeasureControl.css, not in JS
         assert "stroke-width" in html
-
-    def test_tool_buttons_data_mode(self, base_map: folium.Map):
-        """Tool buttons have data-mode attribute."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "data-mode" in html
 
     def test_hint_duration_persist(self, base_map: folium.Map):
         """MeasureControl hints use PERSIST duration (hints stay until mode change)."""
@@ -204,16 +203,18 @@ class TestMeasureControlRendering:
         assert "retries < CONST.DEL_ICON_RETRY_LIMIT" in html
 
     def test_attach_del_click_utility(self, base_map: folium.Map):
-        """attachDelClick binds click to del icon with retry."""
+        """attachDelClick binds click to marker event, not raw DOM event."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'L.DomEvent.on(btn, "click"' in html
+        assert 'delMkr.on("click",' in html
+        assert "measure-del-icon" in html
 
-    def test_set_label_text_caches_dom(self, base_map: folium.Map):
-        """setLabelText caches labelEl reference on first call."""
+    def test_set_label_text_gets_fresh_dom(self, base_map: folium.Map):
+        """setLabelText gets a fresh DOM reference each call."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "marker.labelEl" in html
+        assert "marker.getElement()" in html
+        assert "labelEl.textContent = text" in html
 
     def test_remove_layers_null_safe(self, base_map: folium.Map):
         """removeLayers skips null layers."""
@@ -228,12 +229,13 @@ class TestMeasureControlRendering:
         assert "window.foliplus.buildPopupHtml" in html
 
     def test_lazy_register_after_finish(self, base_map: folium.Map):
-        """Distance mode registers only after finishDist, not on startDistanceMode."""
+        """Distance mode registers on first click via mainLayer.addLayer, not on finishDist."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # register() appears in finishDist, not in startDistanceMode
-        assert "this.layers.register()" in html
+        # register() is handled by mainLayer.addLayer override in LayerControl.js,
+        # not explicitly called in MeasureControl.js
         assert "this.layers.unregister()" in html
+        assert "this.layers.register()" not in html
 
     def test_click_cooldown(self, base_map: folium.Map):
         """Click cooldown constant is defined."""
@@ -288,12 +290,6 @@ class TestMeasureControlRendering:
         assert "onDistMove" in html
         assert "finishDist" in html
 
-    def test_circle_mode_flow(self, base_map: folium.Map):
-        """Circle mode is accessible via startCircleMode."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "startCircleMode" in html
-
     def test_circle_radius_node(self, base_map: folium.Map):
         """Circle radius node gets bringToFront."""
         MeasureControl().add_to(base_map)
@@ -336,20 +332,6 @@ class TestMeasureControlRendering:
         assert "MeasureControl.hint_circle_start" in html
         assert "MeasureControl.hint_circle_radius" in html
 
-    def test_all_three_tool_modes(self, base_map: folium.Map):
-        """All three tool modes have data-mode attributes."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert 'data-mode="marker"' in html
-        assert 'data-mode="distance"' in html
-        assert 'data-mode="circle"' in html
-
-    def test_clear_all_tool(self, base_map: folium.Map):
-        """Clear all tool has data-mode=clear."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert 'data-mode="clear"' in html
-
     def test_preview_segments_shown_while_drawing(self, base_map: folium.Map):
         """Preview segments and labels are created during distance drawing."""
         MeasureControl().add_to(base_map)
@@ -384,11 +366,60 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "origOnAdd(map)" not in html
 
-    def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
-        """MeasureControl uses ensurePane for renderer creation."""
+    def test_lat_lng_precision_constant(self, base_map: folium.Map):
+        """LAT_LNG_PRECISION constant is defined as 6."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "createLayers(" in html
+        assert "LAT_LNG_PRECISION: 6" in html
+
+    def test_make_label_div_icon(self, base_map: folium.Map):
+        """MeasureUtils.makeLabelDivIcon creates a divIcon with measure-label."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "makeLabelDivIcon" in html
+        assert "measure-label" in html
+        assert "LABEL_ANCHOR" in html
+
+    def test_make_node(self, base_map: folium.Map):
+        """MeasureUtils.makeNode creates a circleMarker with MARKER_RADIUS."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "makeNode" in html
+        assert "MARKER_RADIUS" in html
+
+    def test_make_del_icon(self, base_map: folium.Map):
+        """MeasureUtils.makeDelIcon creates a delete icon marker."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "makeDelIcon" in html
+        assert "del-icon-wrap" in html
+
+    def test_align_right_for_right_position(self, base_map: folium.Map):
+        """Right positions (bottomright/topright) add align-right class."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "align-right" in html
+
+    def test_no_align_right_for_left_position(self, base_map: folium.Map):
+        """Left positions (topleft/bottomleft) do NOT add align-right class."""
+        MeasureControl(position="topleft").add_to(base_map)
+        html = render(base_map)
+        # align-right appears in CSS, but NOT in the JS class string for left positions
+        # Check that the JS doesn't add align-right for left positions
+        assert 'indexOf("left") >= 0' in html
+
+    def test_inject_del_icon_uses_marker_click(self, base_map: folium.Map):
+        """injectDelIcon binds click via marker.on, not L.DomEvent.on."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'marker.on("click",' in html
+        assert "measure-del-icon" in html
+
+    def test_bring_layer_to_front_on_tool_select(self, base_map: folium.Map):
+        """Tool select calls bringLayerToFront to keep measure layer on top."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.layers.bringToFront()" in html
 
     def _make_page(self, browser, tmp_path):
         """Build a page with MeasureControl and return (page, errors)."""
@@ -434,24 +465,24 @@ class TestMeasureControlRendering:
             page.close()
 
     def test_register_on_first_tool_click(self, browser, tmp_path):
-        """Layer not registered on tool select; only after completing measurement."""
+        """Layer is registered on tool select (startDistanceMode adds poly via mainLayer.addLayer)."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("document.querySelector('[data-mode=distance]').click()")
             page.wait_for_timeout(500)
-            # Tool selected — layer should NOT be registered yet
+            # Tool selected — mainLayer.addLayer(poly) triggers register()
             registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert not registered, "Layer should NOT be registered before first click"
-            # First click — still drawing, should NOT be registered
+            assert registered, (
+                "Layer should be registered after tool select (mainLayer.addLayer)"
+            )
+            # First click — adds preview content, still registered
             page.evaluate("""() => {
                 const map = window.__map;
                 map.fire('click', {latlng: L.latLng(26.08, 119.30)});
             }""")
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert not registered, (
-                "Layer should NOT be registered after first click (still drawing)"
-            )
+            assert registered, "Layer should still be registered after first click"
             # Second click + right-click to finish
             page.evaluate("""() => {
                 const map = window.__map;

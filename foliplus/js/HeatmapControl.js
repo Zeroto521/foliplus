@@ -745,10 +745,9 @@
           classControlWrap,
         );
         for (let ci = 2; ci <= 9; ci++) {
-          const co = document.createElement("option");
-          co.value = ci;
-          co.textContent = ci;
-          this.classSelect.appendChild(co);
+          this.classSelect.appendChild(
+            window.foliplus.dom.el("option", { value: ci }, String(ci)),
+          );
         }
         this.classSelect.value = Math.min(9, Math.max(2, this.manager.N_CLASSES));
         this.classSelect.onchange = () => {
@@ -783,10 +782,9 @@
         );
 
         CONST.SCHEME_NAMES.forEach((name) => {
-          const opt = document.createElement("option");
-          opt.value = name;
-          opt.textContent = name;
-          this.schemeSelectHidden.appendChild(opt);
+          this.schemeSelectHidden.appendChild(
+            window.foliplus.dom.el("option", { value: name }, name),
+          );
         });
         this.schemeSelectHidden.value = this.manager.currentScheme;
         this.schemeSelectHidden.onchange = () => {
@@ -947,19 +945,22 @@
       buildLayerListItems(sel) {
         this.manager.scanMapLayers();
         sel.innerHTML = "";
-        const placeholder = document.createElement("option");
-        placeholder.value = "";
-        placeholder.textContent = _(`${CONST.name}.layer_placeholder`);
-        placeholder.disabled = true;
-        placeholder.selected = !this.manager.selectedLayerId;
-        placeholder.className = "placeholder-option";
+        const placeholder = window.foliplus.dom.el(
+          "option",
+          {
+            value: "",
+            disabled: "disabled",
+            class: "placeholder-option",
+            selected: !this.manager.selectedLayerId ? "" : undefined,
+          },
+          _(CONST.name + ".layer_placeholder"),
+        );
         sel.appendChild(placeholder);
 
         this.manager.pointLayers.forEach((info) => {
-          const opt = document.createElement("option");
-          opt.value = info.id;
-          opt.textContent = info.name;
-          sel.appendChild(opt);
+          sel.appendChild(
+            window.foliplus.dom.el("option", { value: info.id }, info.name),
+          );
         });
 
         if (this.manager.selectedLayerId) sel.value = this.manager.selectedLayerId;
@@ -997,20 +998,27 @@
         const fields = this.manager.collectFields(selected);
         this.manager.autoFieldKey = this.manager.pickAutoField(fields);
 
-        const phOpt = document.createElement("option");
-        phOpt.value = "_auto";
-        phOpt.textContent = _(`${CONST.name}.field_auto`);
-        phOpt.disabled = true;
-        phOpt.className = "placeholder-option";
+        const phOpt = window.foliplus.dom.el(
+          "option",
+          {
+            value: "_auto",
+            disabled: "disabled",
+            class: "placeholder-option",
+          },
+          _(CONST.name + ".field_auto"),
+        );
 
         this.fieldSelect.innerHTML = "";
         this.fieldSelect.appendChild(phOpt);
 
         fields.forEach((f) => {
-          const opt = document.createElement("option");
-          opt.value = f;
-          opt.textContent = f.startsWith("properties.") ? f.substring(11) : f;
-          this.fieldSelect.appendChild(opt);
+          this.fieldSelect.appendChild(
+            window.foliplus.dom.el(
+              "option",
+              { value: f },
+              f.startsWith("properties.") ? f.substring(11) : f,
+            ),
+          );
         });
 
         if (
@@ -1031,11 +1039,12 @@
         const colors = this.manager.getColorScale(name, nClasses);
         container.innerHTML = "";
         for (const color of colors) {
-          const blk = document.createElement("div");
-          blk.className = "scheme-bar-block";
-          blk.style.background = color;
-          blk.style.width = `${100 / colors.length}%`;
-          container.appendChild(blk);
+          container.appendChild(
+            window.foliplus.dom.el("div", {
+              class: "scheme-bar-block",
+              style: `background:${color};width:${100 / colors.length}%`,
+            }),
+          );
         }
       }
 
