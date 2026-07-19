@@ -345,12 +345,14 @@
         throw new Error(`[${CONST.name}] ${_(CONST.name + ".id_required")}`);
 
       const existingIdx = this.layers.findIndex((l) => l.id === opts.id);
+      const existingVisible =
+        existingIdx !== -1 ? this.layers[existingIdx].visible : true;
       if (existingIdx !== -1) this.layers.splice(existingIdx, 1);
 
       const layerInfo = {
         name: opts.name ?? opts.id,
         id: opts.id,
-        visible: true,
+        visible: existingVisible,
         isBase: !!opts.isBase,
         paneName: opts.paneName ?? null,
         iconSvg: opts.iconSvg ?? null,
@@ -374,24 +376,22 @@
       }
 
       if (opts.layer) {
-        if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id)) {
+        if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id))
           window[opts.id] = opts.layer;
-        } else {
+        else
           console.warn(
             `[${CONST.name}] ${_(CONST.name + ".invalid_id").replace("{id}", opts.id)}`,
           );
-        }
       }
-      if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
-
-      this.enforceOrder();
-
       if (opts.paneName && opts.layer) {
         if (!(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)) {
           opts.layer.options.pane = opts.paneName;
           opts.layer.options.paneSet = true;
         }
       }
+
+      if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
+      this.enforceOrder();
 
       if (!this.uiContainer) {
         this.pendingRegistrations.push(opts);
@@ -402,6 +402,30 @@
       this.initTypesAndVisibility();
       this.saveOrder();
       return this.uiContainer.querySelector(`[data-layer-id="${opts.id}"]`);
+    }
+
+    /**
+     * Bring a registered layer to the front (top of z-order).
+     *
+     * Moves the layer to index 0 in the internal `this.layers` array,
+     * re-runs enforceOrder() to recompute all pane z-indices, updates
+     * the saved order, and moves the DOM item to the top of the list.
+     *
+     * @param {string} id - Layer ID previously passed to registerLayer().
+     */
+    bringLayerToFront(id) {
+      const idx = this.layers.findIndex((l) => l.id === id);
+      if (idx <= 0) return;
+      const [item] = this.layers.splice(idx, 1);
+      this.layers.unshift(item);
+      this.enforceOrder();
+      this.saveOrder();
+      if (this.uiContainer) {
+        // Re-render the full list so DOM order matches `this.layers` order,
+        // and re-init visibility to sync checkbox data-index attributes.
+        this.renderInitialList();
+        this.initTypesAndVisibility();
+      }
     }
 
     /**
@@ -480,6 +504,7 @@
           id: opts.id,
           isBase: false,
           layer: mainLayer,
+          paneName: opts.graphPane || null,
           iconSvg: opts.iconSvg || null,
         });
       };
@@ -504,9 +529,11 @@
         const isLabel = layer.isMeasureLabel;
         const target = isLabel ? labelLayer : graphLayer;
         if (target) {
-          // Ensure mainLayer is on the map for visibility while drawing,
-          // without calling registerLayer() which creates the panel checkbox.
-          if (!this.map.hasLayer(mainLayer)) this.map.addLayer(mainLayer);
+          // When mainLayer was off the map (e.g., user unchecked the layer
+          // in LayerControl then clicked a tool), re-register the layer.
+          // This re-checks the checkbox, re-adds mainLayer to the map,
+          // and runs enforceOrder() for correct z-order.
+          if (!this.map.hasLayer(mainLayer)) register();
           const paneName = isLabel ? opts.labelPane : opts.graphPane;
           layer.options.pane = paneName;
           if (layer instanceof L.Path) {
@@ -605,6 +632,7 @@
         register,
         unregister,
         registered: () => registered,
+        bringToFront: () => this.bringLayerToFront(opts.id),
       };
     }
 
@@ -620,6 +648,12 @@
       if (!pane) {
         pane = this.map.createPane(paneName);
         pane.classList.add("layer-pane");
+        // Set an initial z-index so content in this pane is visible above
+        // the base map before enforceOrder() runs (e.g., MeasureControl
+        // dashed lines during drawing, before register() is called).
+        // enforceOrder() will override this with the correct layer z-index
+        // once the layer is registered.
+        pane.style.zIndex = String(CONST.Z_INDEX_BASE);
       }
       let renderer = null;
       if (needRenderer) {
@@ -943,93 +977,85 @@
 
     /** Render a toggle-all row for a group (overlay or base). */
     renderToggleAllRow(group, labelKey) {
-      const row = foliplus.dom.el("div", {
-        class: "layer-separator-container toggle-all-row",
-        "data-group": group,
-      });
-      row.insertAdjacentHTML("beforeend", SVGS.DRAG_HANDLE);
-      row.appendChild(
-        foliplus.dom.el(
+      return window.foliplus.dom.el(
+        "div",
+        {
+          class: "layer-separator-container toggle-all-row",
+          "data-group": group,
+        },
+        { html: SVGS.DRAG_HANDLE },
+        window.foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
-          foliplus.dom.el("input", {
+          window.foliplus.dom.el("input", {
             type: "checkbox",
             class: "toggle-all-cb",
             checked: "",
           }),
         ),
+        window.foliplus.dom.el("span", { class: "separator-label" }, _(labelKey)),
+        window.foliplus.dom.el("div", { class: "section-divider" }),
       );
-      row.appendChild(
-        foliplus.dom.el("span", { class: "separator-label" }, _(labelKey)),
-      );
-      row.appendChild(foliplus.dom.el("div", { class: "section-divider" }));
-      return row;
     }
 
     /** Render a single layer item row. */
     renderLayerItem(l, index) {
       const en = LayerUtils.escapeHTML(l.name);
-      const item = foliplus.dom.el("div", {
-        class: "layer-item" + (l.isBase ? " is-base-item" : ""),
-        draggable: "true",
-        "data-index": String(index),
-        "data-layer-id": l.id,
-        title: en,
-      });
-      item.insertAdjacentHTML("beforeend", SVGS.DRAG_HANDLE);
-      item.appendChild(
-        foliplus.dom.el(
+      const children = [
+        { html: SVGS.DRAG_HANDLE },
+        window.foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
-          foliplus.dom.el("input", {
+          window.foliplus.dom.el("input", {
             type: "checkbox",
             checked: "",
             "data-index": String(index),
             "aria-label": en,
           }),
         ),
+        window.foliplus.dom.el("label", { title: en }, en),
+      ];
+      if (l.iconSvg)
+        children.push({ html: `<div class="type-icon-col">${l.iconSvg}</div>` });
+      else children.push(window.foliplus.dom.el("div", { class: "type-icon-col" }));
+
+      return window.foliplus.dom.el(
+        "div",
+        {
+          class: "layer-item" + (l.isBase ? " is-base-item" : ""),
+          draggable: "true",
+          "data-index": String(index),
+          "data-layer-id": l.id,
+          title: en,
+        },
+        ...children,
       );
-      item.appendChild(foliplus.dom.el("label", { title: en }, en));
-      if (l.iconSvg) {
-        item.insertAdjacentHTML(
-          "beforeend",
-          `<div class="type-icon-col">${l.iconSvg}</div>`,
-        );
-      } else {
-        item.appendChild(foliplus.dom.el("div", { class: "type-icon-col" }));
-      }
-      return item;
     }
 
     /** Render the solid color layer picker item. */
     renderColorLayerItem() {
-      const item = foliplus.dom.el("div", {
-        class: "layer-item color-layer-item",
-        draggable: "false",
-        "data-layer-id": CONST.COLOR_MAP_ID,
-        title: _(CONST.name + ".color_map_label"),
-      });
-      item.insertAdjacentHTML("beforeend", SVGS.DRAG_HANDLE);
-      item.appendChild(
-        foliplus.dom.el(
+      return window.foliplus.dom.el(
+        "div",
+        {
+          class: "layer-item color-layer-item",
+          draggable: "false",
+          "data-layer-id": CONST.COLOR_MAP_ID,
+          title: _(CONST.name + ".color_map_label"),
+        },
+        { html: SVGS.DRAG_HANDLE },
+        window.foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
-          foliplus.dom.el("input", {
+          window.foliplus.dom.el("input", {
             type: "color",
             class: "color-layer-input",
             value: this.currentColor,
             "aria-label": _(CONST.name + ".color_map_label"),
           }),
         ),
+        window.foliplus.dom.el("label", null, _(CONST.name + ".color_map_label")),
+        { html: `<div class="type-icon-col">${SVGS.COLOR}</div>` },
       );
-      item.appendChild(
-        foliplus.dom.el("label", null, _(CONST.name + ".color_map_label")),
-      );
-      item.insertAdjacentHTML(
-        "beforeend",
-        `<div class="type-icon-col">${SVGS.COLOR}</div>`,
-      );
-      return item;
     }
 
     initTypesAndVisibility() {
@@ -1047,9 +1073,12 @@
         if (inputs[i]) {
           // Callback-only layers (e.g. Canvas heatmap) have no Leaflet layer
           // but are considered "active" by default (visible until toggled).
+          // Respect the user's manual toggle stored in layerInfo.visible.
           const hasLayer = layer != null;
           const isCallbackOnly = !hasLayer && this.layerCallbacks.has(id);
-          inputs[i].checked = isCallbackOnly || (hasLayer && this.map.hasLayer(layer));
+          if (isCallbackOnly) inputs[i].checked = layerInfo.visible !== false;
+          else inputs[i].checked = hasLayer && this.map.hasLayer(layer);
+
           const item = inputs[i].closest(".layer-item");
           if (item) {
             if (inputs[i].checked) item.classList.add("is-active");
@@ -1153,6 +1182,9 @@
 
         const cbs = this.layerCallbacks.get(layerInfo.id);
         if (cbs && cbs.onToggle) cbs.onToggle(newState);
+
+        // Track visibility for callback-only layers
+        if (!layer) layerInfo.visible = newState;
       });
 
       // Base maps deselected → show color layer
@@ -1219,6 +1251,10 @@
       // Notify custom callbacks (e.g. Canvas heatmap overlay)
       const cbs = this.layerCallbacks.get(layerInfo.id);
       if (cbs && cbs.onToggle) cbs.onToggle(target.checked);
+
+      // Track visibility for callback-only layers (e.g. Canvas heatmap)
+      // so initTypesAndVisibility respects the user's manual toggle.
+      if (!layer) layerInfo.visible = target.checked;
 
       // Sync toggle-all checkbox for this group
       this.syncToggleAll(layerInfo.isBase ? "base" : "overlay");
@@ -1326,10 +1362,14 @@
       const moved = this.layers.splice(this.dragIdx, 1)[0];
       this.layers.splice(targetIdx, 0, moved);
 
-      const allItems = Array.from(
-        this.uiContainer.querySelectorAll(".layer-item:not(.color-layer-item)"),
+      // Find the moved DOM element by its layer id (safer than index after splice)
+      const movedItem = this.uiContainer.querySelector(
+        `[data-layer-id="${CSS.escape(moved.id)}"]`,
       );
-      const movedItem = allItems[this.dragIdx];
+      if (!movedItem) {
+        this.dragIdx = null;
+        return;
+      }
 
       if (targetIdx < this.dragIdx) target.parentNode.insertBefore(movedItem, target);
       else target.parentNode.insertBefore(movedItem, target.nextSibling);

@@ -30,43 +30,54 @@
   // ==================== Control Definition ====================
   new (L.Control.extend({
     onAdd: () => {
-      const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
-      const ctrl = L.DomUtil.create(
-        "div",
-        `map-search ctrl-fold collapsed${CONST.position.indexOf("right") >= 0 ? " align-right" : ""}`,
-        container,
+      const container = window.foliplus.dom.el("div", {
+        class: "leaflet-bar leaflet-control",
+      });
+      const ctrl = window.foliplus.dom.el("div", {
+        class: `map-search ctrl-fold collapsed${CONST.position.indexOf("right") >= 0 ? " align-right" : ""}`,
+        id: "{{ this.get_name() }}_ctrl",
+      });
+      container.appendChild(ctrl);
+
+      const toggleBtn = window.foliplus.dom.el(
+        "button",
+        { class: "toggle-btn", title: _(`${CONST.name}.btn_title`) },
+        { html: window.foliplus.SVGs.SEARCH },
       );
-      ctrl.id = "{{ this.get_name() }}_ctrl";
-      ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_(`${CONST.name}.btn_title`)}">
-          ${window.foliplus.SVGs.SEARCH}
-        </button>
-        <div class="tool-bar">
-          <button class="search-mode-btn" title="${_(`${CONST.name}.mode_coord`)}">
-            ${window.foliplus.SVGs.LOCATE}
-          </button>
-          <div class="clear-wrap">
-            <input type="text" placeholder="${_(`${CONST.name}.coord_placeholder`)}"/>
-            <button class="ctrl-abs-btn" title="${_(`${CONST.name}.clear_title`)}">
-              ${window.foliplus.SVGs.CLOSE}
-            </button>
-          </div>
-        </div>
-      `;
+      const modeBtn = window.foliplus.dom.el(
+        "button",
+        { class: "search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
+        { html: window.foliplus.SVGs.LOCATE },
+      );
+      const inp = window.foliplus.dom.el("input", {
+        type: "text",
+        placeholder: _(`${CONST.name}.coord_placeholder`),
+      });
+      const clearBtn = window.foliplus.dom.el(
+        "button",
+        { class: "ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
+        { html: window.foliplus.SVGs.CLOSE },
+      );
+      const toolBar = window.foliplus.dom.el(
+        "div",
+        { class: "tool-bar" },
+        modeBtn,
+        window.foliplus.dom.el("div", { class: "clear-wrap" }, inp, clearBtn),
+      );
+      ctrl.appendChild(toggleBtn);
+      ctrl.appendChild(toolBar);
 
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.disableScrollPropagation(container);
 
-      const inp = container.querySelector("input");
-      const modeBtn = container.querySelector(".search-mode-btn");
       let mk = null;
       let mode = "{{ this.mode }}";
       if (mode !== CONST.COORD && mode !== CONST.ADDR) mode = CONST.COORD;
 
-      _setMode(mode);
+      setMode(mode);
 
       // Mode switching
-      function _setMode(newMode) {
+      function setMode(newMode) {
         mode = newMode;
         if (mode === CONST.COORD) {
           modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
@@ -88,11 +99,11 @@
 
       modeBtn.onclick = (e) => {
         e.stopPropagation();
-        _setMode(mode === CONST.COORD ? CONST.ADDR : CONST.COORD);
+        setMode(mode === CONST.COORD ? CONST.ADDR : CONST.COORD);
       };
 
       // Expand / collapse
-      container.querySelector(".toggle-btn").onclick = (e) => {
+      toggleBtn.onclick = (e) => {
         e.stopPropagation();
         if (ctrl.classList.contains("expanded")) {
           ctrl.classList.remove("expanded");
@@ -106,7 +117,6 @@
       };
 
       // Clear input
-      const clearBtn = container.querySelector(".ctrl-abs-btn");
       clearBtn.onclick = () => {
         inp.value = "";
         if (mk) {
@@ -154,8 +164,8 @@
           `${CONST.name}.popup_loading`,
           `${CONST.name}.popup_loc_label`,
           `${CONST.name}.popup_addr_label`,
+          mk,
         );
-        mk;
       };
 
       // Address search via Nominatim
