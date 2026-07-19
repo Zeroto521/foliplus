@@ -15,7 +15,7 @@
 
 ### Changed
 
-- `ScaleControl`: Fixed to `bottomleft` and aligned UI style with native Leaflet elements ([#23](https://github.com/Zeroto521/foliplus/pull/23))
+- `ScaleControl`: Fixed to `bottomleft` and aligned UI style with native Leaflet elements ([#23](https://github.com/Zeroto521/foliplus/pull/23), [#50](https://github.com/Zeroto521/foliplus/pull/50))
 - Unified control tokens and simplified shared styles ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `LayerControl`: centralized z-index engine with `*10` step spacing between layers to reserve room for sub-panes (graph / label) ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `LayerControl`: auto-discover child custom panes on layer registration and create them before `addLayer`, removing the need for manual `ensurePane` calls from child components ([#25](https://github.com/Zeroto521/foliplus/pull/25))
