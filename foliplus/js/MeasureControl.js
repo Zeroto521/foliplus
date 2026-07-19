@@ -413,17 +413,21 @@
       const iconDiv = el.querySelector("div");
       if (!iconDiv) return;
 
-      const xIcon = foliplus.dom.el(
-        "span",
-        { class: "measure-del-icon marker-del-icon" },
-        "✕",
+      iconDiv.appendChild(
+        foliplus.dom.el("span", { class: "measure-del-icon marker-del-icon" }, "✕"),
       );
-      iconDiv.appendChild(xIcon);
 
-      L.DomEvent.on(xIcon, "click", (ev) => {
-        MeasureUtils.stopEvent(ev);
-        this.layers.mainLayer.removeLayer(marker);
-        this.layers.unregister();
+      marker.on("click", (ev) => {
+        const target = ev.originalEvent && ev.originalEvent.target;
+        if (
+          target &&
+          target.classList &&
+          target.classList.contains("measure-del-icon")
+        ) {
+          MeasureUtils.stopEvent(ev.originalEvent);
+          this.layers.mainLayer.removeLayer(marker);
+          this.layers.unregister();
+        }
       });
     }
 

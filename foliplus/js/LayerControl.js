@@ -943,12 +943,13 @@
 
     /** Render a toggle-all row for a group (overlay or base). */
     renderToggleAllRow(group, labelKey) {
-      const row = foliplus.dom.el("div", {
-        class: "layer-separator-container toggle-all-row",
-        "data-group": group,
-      });
-      row.insertAdjacentHTML("beforeend", SVGS.DRAG_HANDLE);
-      row.appendChild(
+      return foliplus.dom.el(
+        "div",
+        {
+          class: "layer-separator-container toggle-all-row",
+          "data-group": group,
+        },
+        { html: SVGS.DRAG_HANDLE },
         foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
@@ -958,26 +959,16 @@
             checked: "",
           }),
         ),
-      );
-      row.appendChild(
         foliplus.dom.el("span", { class: "separator-label" }, _(labelKey)),
+        foliplus.dom.el("div", { class: "section-divider" }),
       );
-      row.appendChild(foliplus.dom.el("div", { class: "section-divider" }));
-      return row;
     }
 
     /** Render a single layer item row. */
     renderLayerItem(l, index) {
       const en = LayerUtils.escapeHTML(l.name);
-      const item = foliplus.dom.el("div", {
-        class: "layer-item" + (l.isBase ? " is-base-item" : ""),
-        draggable: "true",
-        "data-index": String(index),
-        "data-layer-id": l.id,
-        title: en,
-      });
-      item.insertAdjacentHTML("beforeend", SVGS.DRAG_HANDLE);
-      item.appendChild(
+      const children = [
+        { html: SVGS.DRAG_HANDLE },
         foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
@@ -988,29 +979,36 @@
             "aria-label": en,
           }),
         ),
+        foliplus.dom.el("label", { title: en }, en),
+      ];
+      if (l.iconSvg)
+        children.push({ html: `<div class="type-icon-col">${l.iconSvg}</div>` });
+      else children.push(foliplus.dom.el("div", { class: "type-icon-col" }));
+
+      return foliplus.dom.el(
+        "div",
+        {
+          class: "layer-item" + (l.isBase ? " is-base-item" : ""),
+          draggable: "true",
+          "data-index": String(index),
+          "data-layer-id": l.id,
+          title: en,
+        },
+        ...children,
       );
-      item.appendChild(foliplus.dom.el("label", { title: en }, en));
-      if (l.iconSvg) {
-        item.insertAdjacentHTML(
-          "beforeend",
-          `<div class="type-icon-col">${l.iconSvg}</div>`,
-        );
-      } else {
-        item.appendChild(foliplus.dom.el("div", { class: "type-icon-col" }));
-      }
-      return item;
     }
 
     /** Render the solid color layer picker item. */
     renderColorLayerItem() {
-      const item = foliplus.dom.el("div", {
-        class: "layer-item color-layer-item",
-        draggable: "false",
-        "data-layer-id": CONST.COLOR_MAP_ID,
-        title: _(CONST.name + ".color_map_label"),
-      });
-      item.insertAdjacentHTML("beforeend", SVGS.DRAG_HANDLE);
-      item.appendChild(
+      return foliplus.dom.el(
+        "div",
+        {
+          class: "layer-item color-layer-item",
+          draggable: "false",
+          "data-layer-id": CONST.COLOR_MAP_ID,
+          title: _(CONST.name + ".color_map_label"),
+        },
+        { html: SVGS.DRAG_HANDLE },
         foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
@@ -1021,15 +1019,9 @@
             "aria-label": _(CONST.name + ".color_map_label"),
           }),
         ),
-      );
-      item.appendChild(
         foliplus.dom.el("label", null, _(CONST.name + ".color_map_label")),
+        { html: `<div class="type-icon-col">${SVGS.COLOR}</div>` },
       );
-      item.insertAdjacentHTML(
-        "beforeend",
-        `<div class="type-icon-col">${SVGS.COLOR}</div>`,
-      );
-      return item;
     }
 
     initTypesAndVisibility() {

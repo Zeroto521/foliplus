@@ -30,13 +30,14 @@
   // ==================== Control Definition ====================
   new (L.Control.extend({
     onAdd: () => {
-      const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
-      const ctrl = L.DomUtil.create(
-        "div",
-        `map-search ctrl-fold collapsed${CONST.position.indexOf("right") >= 0 ? " align-right" : ""}`,
-        container,
-      );
-      ctrl.id = "{{ this.get_name() }}_ctrl";
+      const container = foliplus.dom.el("div", {
+        class: "leaflet-bar leaflet-control",
+      });
+      const ctrl = foliplus.dom.el("div", {
+        class: `map-search ctrl-fold collapsed${CONST.position.indexOf("right") >= 0 ? " align-right" : ""}`,
+        id: "{{ this.get_name() }}_ctrl",
+      });
+      container.appendChild(ctrl);
 
       const toggleBtn = foliplus.dom.el(
         "button",
