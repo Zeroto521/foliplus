@@ -922,6 +922,14 @@
         ep.pane.style.zIndex = z;
         if (layer.options.pane !== paneName || !layer.options.paneSet)
           layersToMove.push({ layer, paneName, renderer: ep.renderer });
+        // Also bump label panes for this layer so labels render above paths
+        const childPanes = this.discoverChildPanes(layer);
+        childPanes.forEach((cp) => {
+          if (this.labelPanes.has(cp)) {
+            const lp = this.ensurePane(cp, false);
+            lp.pane.style.zIndex = z + 1;
+          }
+        });
         return {};
       }
 

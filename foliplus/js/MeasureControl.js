@@ -597,7 +597,7 @@
           });
         }
 
-        // Re-sort layer ordering: finalPoly at bottom, then nodes, del icon, labels
+        // Re-sort layer ordering: finalPoly at bottom, then nodes, del icon, labels on top
         nodeMarkers.forEach((m) => this.layers.mainLayer.removeLayer(m));
         if (lastNodeDelMkr) this.layers.mainLayer.removeLayer(lastNodeDelMkr);
         segLabels.forEach((l) => this.layers.mainLayer.removeLayer(l));
@@ -605,6 +605,7 @@
 
         nodeMarkers.forEach((m) => m.addTo(this.layers.mainLayer));
         if (lastNodeDelMkr) lastNodeDelMkr.addTo(this.layers.mainLayer);
+        // Labels added last so they render above the line and nodes
         segLabels.forEach((l) => l.addTo(this.layers.mainLayer));
         if (startLbl) startLbl.addTo(this.layers.mainLayer);
 
@@ -867,19 +868,9 @@
           interactive: true,
         }).addTo(this.layers.mainLayer);
 
-        const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
-        const midLng = (centerLatLng.lng + finalTargetLatLng.lng) / 2;
-        const radiusLabel = L.marker([midLat, midLng], {
-          interactive: false,
-          icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(r)),
-        });
-        radiusLabel.isMeasureLabel = true;
-        radiusLabel.addTo(this.layers.mainLayer);
-
         const radiusNode = MeasureUtils.makeNode(finalTargetLatLng).addTo(
           this.layers.mainLayer,
         );
-        radiusNode.bringToFront();
 
         let labelsVisible = true;
         let xVisible = false;
@@ -898,6 +889,16 @@
         const delMkr = MeasureUtils.makeDelIcon(centerLatLng, {
           zIndexOffset: CONST.Z_INDEX_OFFSET,
         }).addTo(this.layers.mainLayer);
+
+        // Add label last so it renders on top of the circle and line
+        const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
+        const midLng = (centerLatLng.lng + finalTargetLatLng.lng) / 2;
+        const radiusLabel = L.marker([midLat, midLng], {
+          interactive: false,
+          icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(r)),
+        });
+        radiusLabel.isMeasureLabel = true;
+        radiusLabel.addTo(this.layers.mainLayer);
 
         const toggleUI = (showX, toggleLabels) => {
           const s = MeasureUtils.calcToggle(

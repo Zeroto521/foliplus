@@ -290,11 +290,25 @@ class TestMeasureControlRendering:
         assert "onDistMove" in html
         assert "finishDist" in html
 
-    def test_circle_radius_node(self, base_map: folium.Map):
-        """Circle radius node gets bringToFront."""
+    def test_label_above_circle(self, base_map: folium.Map):
+        """Label is added after circle, line, and node so it renders on top."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "radiusNode.bringToFront()" in html
+        # radiusLabel.addTo should appear after circle.addTo and radiusLine.addTo
+        label_pos = html.find("radiusLabel.addTo(this.layers.mainLayer)")
+        circle_pos = html.find(
+            ".addTo(this.layers.mainLayer);", html.find("circle = L.circle")
+        )
+        line_pos = html.find(
+            ".addTo(this.layers.mainLayer);", html.find("radiusLine = L.polyline")
+        )
+        node_pos = html.find(
+            ".addTo(this.layers.mainLayer);",
+            html.find("radiusNode = MeasureUtils.makeNode"),
+        )
+        assert label_pos > circle_pos, "Label should be added after circle"
+        assert label_pos > line_pos, "Label should be added after line"
+        assert label_pos > node_pos, "Label should be added after node"
 
     def test_double_label_fix(self, base_map: folium.Map):
         """Regression test: Labels are marked BEFORE addTo(mainLayer)."""
@@ -464,25 +478,25 @@ class TestMeasureControlRendering:
         finally:
             page.close()
 
-    def test_register_on_first_tool_click(self, browser, tmp_path):
-        """Layer is registered on tool select (startDistanceMode adds poly via mainLayer.addLayer)."""
+    def test_register_on_first_click(self, browser, tmp_path):
+        """Layer is registered on first map click, not on tool select."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("document.querySelector('[data-mode=distance]').click()")
             page.wait_for_timeout(500)
-            # Tool selected — mainLayer.addLayer(poly) triggers register()
+            # Tool selected — no registration yet (consistent with marker/circle)
             registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert registered, (
-                "Layer should be registered after tool select (mainLayer.addLayer)"
+            assert not registered, (
+                "Layer should NOT be registered after tool select — deferred until first click"
             )
-            # First click — adds preview content, still registered
+            # First click on map — triggers registration
             page.evaluate("""() => {
                 const map = window.__map;
                 map.fire('click', {latlng: L.latLng(26.08, 119.30)});
             }""")
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert registered, "Layer should still be registered after first click"
+            assert registered, "Layer should be registered after first map click"
             # Second click + right-click to finish
             page.evaluate("""() => {
                 const map = window.__map;
