@@ -9,9 +9,10 @@
   Base reset and hover/active effects come from common.css unified button rules.
   Only Measurement-specific overrides remain here. */
 .measure-ctrl .tool-btn.active {
-  background-color: var(--accent-light);
+  background-color: var(--input-bg);
   color: var(--accent-primary);
-  box-shadow: inset 0 0 0 var(--border-thick) var(--accent-primary);
+  border: var(--border-thin) solid var(--input-focus-border);
+  box-shadow: inset 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 .measure-ctrl .tool-btn.active svg:not(.ruler-icon) {
   stroke: var(--accent-primary);
