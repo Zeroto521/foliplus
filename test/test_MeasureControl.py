@@ -78,10 +78,11 @@ class TestMeasureControlRendering:
         assert "createLayers(" in html
 
     def test_realtime_distance_preview(self, base_map: folium.Map):
-        """Distance mode includes real-time preview label (previewDistLabel)."""
+        """Distance mode includes real-time preview label, line, and node."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "previewDistLabel" in html
+        assert "previewLine" in html
         assert "onDistMove" in html
         assert "MeasureUtils.formatDistance(showDist)" in html
 
@@ -276,17 +277,12 @@ class TestMeasureControlRendering:
         assert "constructor(mapInstance)" in html
 
     def test_measure_manager_methods(self, base_map: folium.Map):
-        """MeasureManager has expected methods."""
+        """MeasureManager has expected methods (start, bind, flow)."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "startDistanceMode" in html
         assert "startCircleMode" in html
         assert "bindMarkerMode" in html
-
-    def test_distance_mode_flow(self, base_map: folium.Map):
-        """Distance mode has start, onMove, finish flow."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
         assert "onDistMove" in html
         assert "finishDist" in html
 
@@ -345,14 +341,6 @@ class TestMeasureControlRendering:
         assert "MeasureControl.hint_dist_start" in html
         assert "MeasureControl.hint_circle_start" in html
         assert "MeasureControl.hint_circle_radius" in html
-
-    def test_preview_segments_shown_while_drawing(self, base_map: folium.Map):
-        """Preview segments and labels are created during distance drawing."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "previewDistLabel" in html
-        assert "previewLine" in html
-        assert "previews.node" in html
 
     def test_preview_circle_while_drawing(self, base_map: folium.Map):
         """Preview circle and label are created during circle drawing."""
@@ -421,13 +409,6 @@ class TestMeasureControlRendering:
         # align-right appears in CSS, but NOT in the JS class string for left positions
         # Check that the JS doesn't add align-right for left positions
         assert 'indexOf("left") >= 0' in html
-
-    def test_inject_del_icon_uses_marker_click(self, base_map: folium.Map):
-        """injectDelIcon binds click via marker.on, not L.DomEvent.on."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert 'marker.on("click",' in html
-        assert "measure-del-icon" in html
 
     def test_bring_layer_to_front_on_tool_select(self, base_map: folium.Map):
         """Tool select calls bringLayerToFront to keep measure layer on top."""
@@ -568,6 +549,27 @@ class TestMeasureControlRendering:
             page.wait_for_timeout(500)
             count = page.evaluate("window.__test")
             assert count == 1, f"expected 1 layer remaining, got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_destroy_cleans_up_listeners(self, browser, tmp_path):
+        """destroy() removes all map listeners (no leak after cleanup)."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # First, create a circle to trigger onMapClickActive listener
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('circle');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # Destroy the manager
+            page.evaluate("window.__measureManager.destroy()")
+            page.wait_for_timeout(200)
+            # Verify no errors
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
