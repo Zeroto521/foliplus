@@ -55,7 +55,8 @@
 /* ── Toggle-all item ── */
 .layer-ctrl .layer-separator-container.toggle-all-item {
   gap: var(--space-sm);
-  padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-sm) var(--space-sm);
+  padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-md)
+    var(--space-sm);
   border-left: var(--border-thick) solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -78,7 +79,7 @@
   padding: 0;
   margin: 0;
   width: 14px;
-  height: 14px;
+  height: var(--icon-size-md);
   flex-shrink: 0;
   color: var(--text-muted);
   transition: color var(--transition-fast);
