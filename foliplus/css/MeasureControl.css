@@ -87,7 +87,7 @@
 }
 
 .measure-circle-final {
-  stroke-width: 2px;
+  stroke-width: var(--size-2);
 }
 
 .measure-node-preview,

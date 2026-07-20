@@ -410,6 +410,14 @@ class TestMeasureControlRendering:
         # Check that the JS doesn't add align-right for left positions
         assert 'indexOf("left") >= 0' in html
 
+    def test_marker_del_icon_uses_make_del_icon(self, base_map: folium.Map):
+        """Marker mode uses makeDelIcon with iconAnchor for positioning."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "makeDelIcon" in html
+        assert "iconAnchor" in html
+        assert "injectDelIcon" not in html
+
     def test_bring_layer_to_front_on_tool_select(self, base_map: folium.Map):
         """Tool select calls bringLayerToFront to keep measure layer on top."""
         MeasureControl().add_to(base_map)

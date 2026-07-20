@@ -200,17 +200,22 @@
       });
     }
 
-    /** Create a delete icon marker. */
+    /** Create a delete icon marker.
+     * @param {Object} [opts] - Extra options. className appended to del-icon-wrap
+     *   for CSS targeting; iconAnchor overrides the default [0, 0];
+     *   remaining opts passed to L.marker (e.g. zIndexOffset).
+     */
     static makeDelIcon(latlng, opts = {}) {
+      const { className, iconAnchor, ...markerOpts } = opts;
       return L.marker(latlng, {
         icon: L.divIcon({
-          className: "del-icon-wrap",
+          className: "del-icon-wrap" + (className ? " " + className : ""),
           html: '<span class="measure-del-icon">✕</span>',
           iconSize: [0, 0],
-          iconAnchor: [0, 0],
+          iconAnchor: iconAnchor || [0, 0],
         }),
         interactive: true,
-        ...opts,
+        ...markerOpts,
       });
     }
   }
@@ -373,9 +378,13 @@
         this.layers.mainLayer,
       );
 
-      // Create a delete icon marker at the same position (consistent with distance/circle modes)
+      // Create a delete icon at the marker location, with marker-specific positioning.
+      // Pin icon 24×36 anchored [12, 36]; original X was at (20, -6) in pin-wrap
+      // → (8, -42) from latlng. Default .measure-del-icon is at (4, -14) in
+      // del-icon-wrap, so iconAnchor = [-4, 28] places the X at (8, -42).
       const delMkr = MeasureUtils.makeDelIcon(e.latlng, {
         zIndexOffset: CONST.Z_INDEX_OFFSET,
+        iconAnchor: [-4, 28],
       }).addTo(this.layers.mainLayer);
 
       let cachedAddr = null;
