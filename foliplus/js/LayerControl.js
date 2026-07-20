@@ -10,7 +10,8 @@
     PANE_RECURSION_DEPTH: 5,
     DRAG_HINT_COOLDOWN_MS: 800,
     LAYER_RECURSION_DEPTH: 10,
-    STORAGE_KEY: "foliplus_layer_order",
+    ORDER_STORAGE_KEY: "foliplus_layer_order",
+    FOLD_STORAGE_KEY: "foliplus_fold_state",
     COLOR_MAP_ID: "foliplus_color_map",
     COLOR_DEFAULT: "#cccccc",
     RENDERER_KEY: "foliplus_renderer_",
@@ -65,6 +66,14 @@
         <circle cx="16.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
         <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none"/>
         <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/>
+      </svg>`,
+    FOLD: `
+      <svg viewBox="0 0 24 24">
+        <polyline points="18 15 12 9 6 15"/>
+      </svg>`,
+    UNFOLD: `
+      <svg viewBox="0 0 24 24">
+        <polyline points="18 9 12 15 6 9"/>
       </svg>`,
   };
 
@@ -198,6 +207,7 @@
       this.currentColor = CONST.COLOR_DEFAULT;
       this.dragIdx = null;
       this.lastDragHintAt = 0;
+      this.foldedGroups = new Set();
 
       // Bind method context to prevent 'this' loss when called via window.foliplus.LayerControlAPI
       this.registerLayer = this.registerLayer.bind(this);
@@ -247,6 +257,7 @@
     init(initialData) {
       this.layers = [...initialData];
       this.loadSavedOrder();
+      this.loadFoldState();
       this.normalizeLayerGroups();
     }
 
@@ -262,7 +273,7 @@
 
     loadSavedOrder() {
       try {
-        const data = localStorage.getItem(CONST.STORAGE_KEY);
+        const data = localStorage.getItem(CONST.ORDER_STORAGE_KEY);
         if (!data) return;
         const ids = JSON.parse(data);
         if (!Array.isArray(ids)) return;
@@ -283,11 +294,34 @@
     saveOrder() {
       try {
         localStorage.setItem(
-          CONST.STORAGE_KEY,
+          CONST.ORDER_STORAGE_KEY,
           JSON.stringify(this.layers.map((l) => l.id)),
         );
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(CONST.name + ".save_order_fail")}`, e);
+      }
+    }
+
+    loadFoldState() {
+      try {
+        const data = localStorage.getItem(CONST.FOLD_STORAGE_KEY);
+        if (!data) return;
+        const groups = JSON.parse(data);
+        if (!Array.isArray(groups)) return;
+        this.foldedGroups = new Set(groups);
+      } catch (e) {
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".load_fold_fail")}`, e);
+      }
+    }
+
+    saveFoldState() {
+      try {
+        localStorage.setItem(
+          CONST.FOLD_STORAGE_KEY,
+          JSON.stringify(Array.from(this.foldedGroups)),
+        );
+      } catch (e) {
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".save_fold_fail")}`, e);
       }
     }
 
@@ -967,29 +1001,45 @@
             this.renderToggleAllRow("base", CONST.name + ".base_map_label"),
           );
         }
-        frag.appendChild(this.renderLayerItem(l, i));
+        const group = l.isBase ? "base" : "overlay";
+        const item = this.renderLayerItem(l, i);
+        if (this.foldedGroups.has(group)) item.classList.add("layer-group-folded");
+        frag.appendChild(item);
       }
 
-      frag.appendChild(this.renderColorLayerItem());
+      // Append color layer at the end so it doesn't break index alignment
+      const colorItem = this.renderColorLayerItem();
+      if (this.foldedGroups.has("base")) colorItem.classList.add("layer-group-folded");
+      frag.appendChild(colorItem);
+
       this.uiContainer.innerHTML = "";
       this.uiContainer.appendChild(frag);
     }
 
     /** Render a toggle-all row for a group (overlay or base). */
     renderToggleAllRow(group, labelKey) {
+      const isFolded = this.foldedGroups.has(group);
       return window.foliplus.dom.el(
         "div",
         {
-          class: "layer-separator-container toggle-all-row",
+          class:
+            "layer-separator-container toggle-all-item" + (isFolded ? " folded" : ""),
           "data-group": group,
         },
-        { html: SVGS.DRAG_HANDLE },
+        window.foliplus.dom.el(
+          "button",
+          {
+            class: "fold-toggle-btn",
+            title: _(CONST.name + (isFolded ? ".unfold_tooltip" : ".fold_tooltip")),
+          },
+          { html: isFolded ? SVGS.UNFOLD : SVGS.FOLD },
+        ),
         window.foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
           window.foliplus.dom.el("input", {
             type: "checkbox",
-            class: "toggle-all-cb",
+            "data-role": "toggle-all",
             checked: "",
           }),
         ),
@@ -1022,10 +1072,11 @@
       return window.foliplus.dom.el(
         "div",
         {
-          class: "layer-item" + (l.isBase ? " is-base-item" : ""),
+          class: "layer-item",
           draggable: "true",
           "data-index": String(index),
           "data-layer-id": l.id,
+          "data-layer-type": l.isBase ? "base" : "overlay",
           title: en,
         },
         ...children,
@@ -1139,6 +1190,20 @@
         }
       });
 
+      // Fold toggle: click on toggle-all-item row (excluding checkbox) toggles group visibility
+      this.uiContainer.addEventListener("click", (e) => {
+        const row = e.target.closest(".toggle-all-item");
+        if (!row) return;
+        // Don't fold/unfold when clicking the checkbox
+        if (e.target.closest('[data-role="toggle-all"]')) return;
+        const group = row.dataset.group;
+        if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
+        else this.foldedGroups.add(group);
+        this.renderInitialList();
+        this.initTypesAndVisibility();
+        this.saveFoldState();
+      });
+
       this.uiContainer.addEventListener("dragstart", this.handleDragStart.bind(this));
       this.uiContainer.addEventListener("dragover", this.handleDragOver.bind(this));
       this.uiContainer.addEventListener("dragleave", this.handleDragLeave.bind(this));
@@ -1147,9 +1212,9 @@
 
       // Toggle all event delegation
       this.uiContainer.addEventListener("change", (e) => {
-        const cb = e.target.closest(".toggle-all-cb");
+        const cb = e.target.closest('[data-role="toggle-all"]');
         if (cb) {
-          const row = cb.closest(".toggle-all-row");
+          const row = cb.closest(".toggle-all-item");
           const group = row.dataset.group;
           this.toggleAll(group, cb.checked);
         }
@@ -1159,7 +1224,7 @@
     /** Get layer items for a group, excluding the color layer item. */
     getLayerItems(group) {
       return this.uiContainer.querySelectorAll(
-        `.layer-item${group === "base" ? ".is-base-item" : ":not(.is-base-item):not(.color-layer-item)"}`,
+        `.layer-item${group === "base" ? '[data-layer-type="base"]' : ':not([data-layer-type="base"]):not(.color-layer-item)'}`,
       );
     }
 
@@ -1199,11 +1264,11 @@
 
     syncToggleAll(group) {
       const row = this.uiContainer.querySelector(
-        `.toggle-all-row[data-group="${group}"]`,
+        `.toggle-all-item[data-group="${group}"]`,
       );
       if (!row) return;
 
-      const allCb = row.querySelector(".toggle-all-cb");
+      const allCb = row.querySelector('[data-role="toggle-all"]');
       if (!allCb) return;
 
       const items = this.getLayerItems(group);
@@ -1232,7 +1297,7 @@
         return;
 
       // Skip toggle-all checkbox — handled by its own listener
-      if (target.classList.contains("toggle-all-cb")) return;
+      if (target.getAttribute("data-role") === "toggle-all") return;
 
       const idx = parseInt(target.dataset.index, 10);
       if (isNaN(idx) || idx < 0 || idx >= this.layers.length) return;
@@ -1511,7 +1576,7 @@
                 <span class="header-icon">${SVGS.LIST}</span>
                 ${_(CONST.name + ".panel_title")}
               </span>
-              <button class="close-btn ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
+              <button class="ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
                       aria-label="${_(CONST.name + ".close_title")}">
                 ${window.foliplus.SVGs.CLOSE}
               </button>

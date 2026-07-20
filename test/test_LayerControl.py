@@ -186,15 +186,15 @@ class TestLayerControlRendering:
         assert "isBase:false" in html.replace(" ", "")
 
     def test_is_base_class_on_base_items(self):
-        """Only base map items get the is-base-item CSS class."""
+        """Only base map items get the data-layer-type attribute."""
         m = folium.Map()
         LayerControl().add_to(m)
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # Base maps have the class; overlay items should be checked separately
-        assert "is-base-item" in html
+        # Base maps have the attribute; overlay items should be checked separately
+        assert 'data-layer-type="base"' in html
 
     def test_drag_handle_present(self):
         """Drag handle SVG present for all layer items."""
@@ -831,14 +831,14 @@ class TestLayerControlRendering:
         # data-group is set via JS setAttribute at runtime
         # Check JS source code contains the renderToggleAllRow calls
         assert "renderToggleAllRow" in html
-        # Check that toggle-all-row class is used in JS
-        assert "toggle-all-row" in html
+        # Check that toggle-all-item class is used in JS
+        assert "toggle-all-item" in html
 
     def test_toggle_all_cb_present(self, base_map: folium.Map):
-        """toggle-all-cb checkbox present in rendered HTML."""
+        """toggle-all checkbox present in rendered HTML."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "toggle-all-cb" in html
+        assert 'data-role="toggle-all"' in html
 
     def test_toggle_all_method_in_js(self, base_map: folium.Map):
         """toggleAll method exists in rendered JS."""
@@ -916,15 +916,15 @@ class TestLayerControlBrowser:
                 ".layer-ctrl.expanded", state="attached", timeout=5000
             )
             page.wait_for_selector(
-                ".layer-item.is-base-item", state="attached", timeout=5000
+                '.layer-item[data-layer-type="base"]', state="attached", timeout=5000
             )
 
             ok = page.evaluate(
                 """() => {
                     const api = window.foliplus && window.foliplus.LayerControlAPI;
                     if (!api) return false;
-                    const overlay = document.querySelector(".layer-item:not(.is-base-item):not(.color-layer-item)");
-                    const base = document.querySelector(".layer-item.is-base-item");
+                    const overlay = document.querySelector('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
+                    const base = document.querySelector('.layer-item[data-layer-type="base"]');
                     if (!overlay || !base) return false;
                     api.dragIdx = parseInt(overlay.dataset.index, 10);
                     const ev = new Event("dragover", { bubbles: true, cancelable: true });
@@ -1377,7 +1377,7 @@ class TestLayerControlBrowser:
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
                 if (!api) return null;
-                const cb = document.querySelector('.toggle-all-row[data-group="overlay"] .toggle-all-cb');
+                const cb = document.querySelector('.toggle-all-item[data-group="overlay"] [data-role="toggle-all"]');
                 return cb ? cb.checked : 'no-cb';
             }""")
             assert result is True, f"Expected toggle-all checked, got {result}"
@@ -1413,5 +1413,245 @@ class TestLayerControlBrowser:
             }""")
             assert result is not None
             assert result["found"] is True
+        finally:
+            page.close()
+
+    def test_fold_toggle_hides_overlay_items(self, browser, tmp_path):
+        """Clicking the overlay fold-toggle-btn hides overlay layer items."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
+            m
+        )
+        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="Overlay B", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_fold_overlay.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(
+                ".layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            # Click the overlay fold button
+            page.evaluate("""() => {
+                const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
+                if (btn) btn.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Verify overlay items are hidden
+            result = page.evaluate("""() => {
+                const items = document.querySelectorAll('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
+                return Array.from(items).map(el => getComputedStyle(el).display);
+            }""")
+            assert all(d == "none" for d in result), (
+                f"Expected all overlay items hidden, got {result}"
+            )
+
+            # Verify base items are still visible
+            base_result = page.evaluate("""() => {
+                const items = document.querySelectorAll('.layer-item[data-layer-type="base"]');
+                return Array.from(items).map(el => getComputedStyle(el).display);
+            }""")
+            assert all(d != "none" for d in base_result), (
+                f"Expected base items visible, got {base_result}"
+            )
+        finally:
+            page.close()
+
+    def test_fold_toggle_hides_base_items(self, browser, tmp_path):
+        """Clicking the base fold-toggle-btn hides base layer items."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
+            m
+        )
+        folium.TileLayer("CartoDB dark_matter", name="Dark Mode", overlay=False).add_to(
+            m
+        )
+        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_fold_base.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(
+                ".layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            # Click the base fold button
+            page.evaluate("""() => {
+                const btn = document.querySelector('.toggle-all-item[data-group="base"] .fold-toggle-btn');
+                if (btn) btn.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Verify base items are hidden
+            result = page.evaluate("""() => {
+                const items = document.querySelectorAll('.layer-item[data-layer-type="base"]');
+                return Array.from(items).map(el => getComputedStyle(el).display);
+            }""")
+            assert all(d == "none" for d in result), (
+                f"Expected all base items hidden, got {result}"
+            )
+
+            # Verify overlay items are still visible
+            overlay_result = page.evaluate("""() => {
+                const items = document.querySelectorAll('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
+                return Array.from(items).map(el => getComputedStyle(el).display);
+            }""")
+            assert all(d != "none" for d in overlay_result), (
+                f"Expected overlay items visible, got {overlay_result}"
+            )
+        finally:
+            page.close()
+
+    def test_fold_toggle_toggle_unfold(self, browser, tmp_path):
+        """Clicking the fold button again unfolds (shows) the items."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="Overlay B", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_fold_unfold.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(
+                ".layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            # Click fold button
+            page.evaluate("""() => {
+                const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
+                if (btn) btn.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Verify folded
+            folded = page.evaluate("""() => {
+                const items = document.querySelectorAll('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
+                return Array.from(items).map(el => getComputedStyle(el).display);
+            }""")
+            assert all(d == "none" for d in folded), (
+                f"Expected hidden after fold, got {folded}"
+            )
+
+            # Click fold button again to unfold
+            page.evaluate("""() => {
+                const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
+                if (btn) btn.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Verify unfolded
+            unfolded = page.evaluate("""() => {
+                const items = document.querySelectorAll('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
+                return Array.from(items).map(el => getComputedStyle(el).display);
+            }""")
+            assert all(d != "none" for d in unfolded), (
+                f"Expected visible after unfold, got {unfolded}"
+            )
+        finally:
+            page.close()
+
+    def test_fold_preserves_dom_index(self, browser, tmp_path):
+        """Folded items remain in the DOM for index alignment."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="C", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_fold_dom_index.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(
+                ".layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            # Count DOM items before fold (3 overlays + 1 default OSM base)
+            before = page.evaluate(
+                "document.querySelectorAll('.layer-item:not(.color-layer-item)').length"
+            )
+            assert before > 0, "Expected at least 1 layer item"
+
+            # Fold overlay
+            page.evaluate("""() => {
+                const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
+                if (btn) btn.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Count DOM items after fold — should still be same (not removed)
+            after = page.evaluate(
+                "document.querySelectorAll('.layer-item:not(.color-layer-item)').length"
+            )
+            assert after == before, (
+                f"Expected {before} items after fold, got {after} — DOM items should not be removed"
+            )
+        finally:
+            page.close()
+
+    def test_fold_svg_switches_on_toggle(self, browser, tmp_path):
+        """Fold button SVG changes when toggled."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_fold_svg.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(
+                ".layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            # Check initial SVG (FOLD = 1 polyline, UNFOLD = 1 polyline)
+            # Chevron ^ (points 18,15 12,9 6,15) vs v (points 18,9 12,15 6,9)
+            elem_count = page.evaluate("""() => {
+                const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
+                return btn.querySelectorAll('polyline').length;
+            }""")
+            assert elem_count == 1, f"Expected 1 polyline (FOLD SVG), got {elem_count}"
+
+            # Click to fold
+            page.evaluate("""() => {
+                const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
+                if (btn) btn.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # After fold, SVG should still have 1 polyline (rotated)
+            elem_count = page.evaluate("""() => {
+                const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
+                return btn.querySelectorAll('polyline').length;
+            }""")
+            assert elem_count == 1, (
+                f"Expected 1 polyline (UNFOLD SVG), got {elem_count}"
+            )
         finally:
             page.close()

@@ -173,6 +173,11 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* Drag handle circles need fill to be visible; override the fill:none above */
+.ctrl-fold svg.drag-handle circle,
+.layer-ctrl svg.drag-handle circle {
+  fill: currentColor;
+}
 
 /* ── Unified Component Button Reset ──
   Base reset for all foliplus and Leaflet native buttons. */
@@ -268,6 +273,17 @@
 }
 .toggle-btn svg {
   stroke: var(--text-primary);
+}
+
+/* ── Tool Button Base (used by MeasureControl toolbar, MapSearch mode switch) ── */
+.tool-btn,
+.search-mode-btn {
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  min-width: var(--ctrl-size);
+  flex-shrink: 0;
+  border-radius: 0;
+  color: var(--text-primary);
 }
 
 /* ── Map Hint (Toast Notification) ── */
