@@ -186,15 +186,15 @@ class TestLayerControlRendering:
         assert "isBase:false" in html.replace(" ", "")
 
     def test_is_base_class_on_base_items(self):
-        """Only base map items get the is-base-item CSS class."""
+        """Only base map items get the data-layer-type attribute."""
         m = folium.Map()
         LayerControl().add_to(m)
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # Base maps have the class; overlay items should be checked separately
-        assert "is-base-item" in html
+        # Base maps have the attribute; overlay items should be checked separately
+        assert 'data-layer-type="base"' in html
 
     def test_drag_handle_present(self):
         """Drag handle SVG present for all layer items."""
@@ -835,10 +835,10 @@ class TestLayerControlRendering:
         assert "toggle-all-item" in html
 
     def test_toggle_all_cb_present(self, base_map: folium.Map):
-        """toggle-all-cb checkbox present in rendered HTML."""
+        """toggle-all checkbox present in rendered HTML."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "toggle-all-cb" in html
+        assert 'data-role="toggle-all"' in html
 
     def test_toggle_all_method_in_js(self, base_map: folium.Map):
         """toggleAll method exists in rendered JS."""
@@ -916,15 +916,15 @@ class TestLayerControlBrowser:
                 ".layer-ctrl.expanded", state="attached", timeout=5000
             )
             page.wait_for_selector(
-                ".layer-item.is-base-item", state="attached", timeout=5000
+                '.layer-item[data-layer-type="base"]', state="attached", timeout=5000
             )
 
             ok = page.evaluate(
                 """() => {
                     const api = window.foliplus && window.foliplus.LayerControlAPI;
                     if (!api) return false;
-                    const overlay = document.querySelector(".layer-item:not(.is-base-item):not(.color-layer-item)");
-                    const base = document.querySelector(".layer-item.is-base-item");
+                    const overlay = document.querySelector('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
+                    const base = document.querySelector('.layer-item[data-layer-type="base"]');
                     if (!overlay || !base) return false;
                     api.dragIdx = parseInt(overlay.dataset.index, 10);
                     const ev = new Event("dragover", { bubbles: true, cancelable: true });
@@ -1377,7 +1377,7 @@ class TestLayerControlBrowser:
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
                 if (!api) return null;
-                const cb = document.querySelector('.toggle-all-item[data-group="overlay"] .toggle-all-cb');
+                const cb = document.querySelector('.toggle-all-item[data-group="overlay"] [data-role="toggle-all"]');
                 return cb ? cb.checked : 'no-cb';
             }""")
             assert result is True, f"Expected toggle-all checked, got {result}"
@@ -1447,7 +1447,7 @@ class TestLayerControlBrowser:
 
             # Verify overlay items are hidden
             result = page.evaluate("""() => {
-                const items = document.querySelectorAll('.layer-item:not(.is-base-item):not(.color-layer-item)');
+                const items = document.querySelectorAll('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
                 return Array.from(items).map(el => getComputedStyle(el).display);
             }""")
             assert all(d == "none" for d in result), (
@@ -1456,7 +1456,7 @@ class TestLayerControlBrowser:
 
             # Verify base items are still visible
             base_result = page.evaluate("""() => {
-                const items = document.querySelectorAll('.layer-item.is-base-item');
+                const items = document.querySelectorAll('.layer-item[data-layer-type="base"]');
                 return Array.from(items).map(el => getComputedStyle(el).display);
             }""")
             assert all(d != "none" for d in base_result), (
@@ -1498,7 +1498,7 @@ class TestLayerControlBrowser:
 
             # Verify base items are hidden
             result = page.evaluate("""() => {
-                const items = document.querySelectorAll('.layer-item.is-base-item');
+                const items = document.querySelectorAll('.layer-item[data-layer-type="base"]');
                 return Array.from(items).map(el => getComputedStyle(el).display);
             }""")
             assert all(d == "none" for d in result), (
@@ -1507,7 +1507,7 @@ class TestLayerControlBrowser:
 
             # Verify overlay items are still visible
             overlay_result = page.evaluate("""() => {
-                const items = document.querySelectorAll('.layer-item:not(.is-base-item):not(.color-layer-item)');
+                const items = document.querySelectorAll('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
                 return Array.from(items).map(el => getComputedStyle(el).display);
             }""")
             assert all(d != "none" for d in overlay_result), (
@@ -1544,7 +1544,7 @@ class TestLayerControlBrowser:
 
             # Verify folded
             folded = page.evaluate("""() => {
-                const items = document.querySelectorAll('.layer-item:not(.is-base-item):not(.color-layer-item)');
+                const items = document.querySelectorAll('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
                 return Array.from(items).map(el => getComputedStyle(el).display);
             }""")
             assert all(d == "none" for d in folded), (
@@ -1560,7 +1560,7 @@ class TestLayerControlBrowser:
 
             # Verify unfolded
             unfolded = page.evaluate("""() => {
-                const items = document.querySelectorAll('.layer-item:not(.is-base-item):not(.color-layer-item)');
+                const items = document.querySelectorAll('.layer-item:not([data-layer-type="base"]):not(.color-layer-item)');
                 return Array.from(items).map(el => getComputedStyle(el).display);
             }""")
             assert all(d != "none" for d in unfolded), (
@@ -1649,6 +1649,8 @@ class TestLayerControlBrowser:
                 const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
                 return btn.querySelectorAll('polyline').length;
             }""")
-            assert elem_count == 2, f"Expected 2 polylines (UNFOLD SVG), got {elem_count}"
+            assert elem_count == 2, (
+                f"Expected 2 polylines (UNFOLD SVG), got {elem_count}"
+            )
         finally:
             page.close()

@@ -1016,7 +1016,7 @@
           { class: "checkbox-wrapper" },
           window.foliplus.dom.el("input", {
             type: "checkbox",
-            class: "toggle-all-cb",
+            "data-role": "toggle-all",
             checked: "",
           }),
         ),
@@ -1049,10 +1049,11 @@
       return window.foliplus.dom.el(
         "div",
         {
-          class: "layer-item" + (l.isBase ? " is-base-item" : ""),
+          class: "layer-item",
           draggable: "true",
           "data-index": String(index),
           "data-layer-id": l.id,
+          "data-layer-type": l.isBase ? "base" : "overlay",
           title: en,
         },
         ...children,
@@ -1171,7 +1172,7 @@
         const row = e.target.closest(".toggle-all-item");
         if (!row) return;
         // Don't fold/unfold when clicking the checkbox
-        if (e.target.closest(".toggle-all-cb")) return;
+        if (e.target.closest('[data-role="toggle-all"]')) return;
         const group = row.dataset.group;
         if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
         else this.foldedGroups.add(group);
@@ -1187,7 +1188,7 @@
 
       // Toggle all event delegation
       this.uiContainer.addEventListener("change", (e) => {
-        const cb = e.target.closest(".toggle-all-cb");
+        const cb = e.target.closest('[data-role="toggle-all"]');
         if (cb) {
           const row = cb.closest(".toggle-all-item");
           const group = row.dataset.group;
@@ -1199,7 +1200,7 @@
     /** Get layer items for a group, excluding the color layer item. */
     getLayerItems(group) {
       return this.uiContainer.querySelectorAll(
-        `.layer-item${group === "base" ? ".is-base-item" : ":not(.is-base-item):not(.color-layer-item)"}`,
+        `.layer-item${group === "base" ? '[data-layer-type="base"]' : ':not([data-layer-type="base"]):not(.color-layer-item)'}`,
       );
     }
 
@@ -1243,7 +1244,7 @@
       );
       if (!row) return;
 
-      const allCb = row.querySelector(".toggle-all-cb");
+      const allCb = row.querySelector('[data-role="toggle-all"]');
       if (!allCb) return;
 
       const items = this.getLayerItems(group);
@@ -1272,7 +1273,7 @@
         return;
 
       // Skip toggle-all checkbox — handled by its own listener
-      if (target.classList.contains("toggle-all-cb")) return;
+      if (target.getAttribute("data-role") === "toggle-all") return;
 
       const idx = parseInt(target.dataset.index, 10);
       if (isNaN(idx) || idx < 0 || idx >= this.layers.length) return;
