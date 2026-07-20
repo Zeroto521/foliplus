@@ -373,8 +373,12 @@
         this.layers.mainLayer,
       );
 
+      // Create a delete icon marker at the same position (consistent with distance/circle modes)
+      const delMkr = MeasureUtils.makeDelIcon(e.latlng, {
+        zIndexOffset: CONST.Z_INDEX_OFFSET,
+      }).addTo(this.layers.mainLayer);
+
       let cachedAddr = null;
-      setTimeout(() => this.injectDelIcon(marker), CONST.DEL_ICON_RETRY_DELAY_MS);
       const addr = await window.foliplus.reverseGeocode(
         this.map,
         parseFloat(lat),
@@ -390,8 +394,7 @@
         MeasureUtils.hideAllDelIcons();
         if (cachedAddr !== null)
           marker.setPopupContent(MeasureUtils.buildPopup(lat, lng, cachedAddr));
-        this.injectDelIcon(marker);
-        const el = marker.getElement();
+        const el = delMkr.getElement();
         if (el) {
           const icon = el.querySelector(".measure-del-icon");
           if (icon) icon.classList.add("visible");
@@ -399,58 +402,19 @@
       });
 
       marker.on("popupclose", () => {
-        const el = marker.getElement();
+        const el = delMkr.getElement();
         if (el) {
           const icon = el.querySelector(".measure-del-icon");
           if (icon) icon.classList.remove("visible");
         }
       });
-    }
 
-    injectDelIcon(marker, retries = 0) {
-      const el = marker.getElement();
-      if (!el) {
-        if (retries < CONST.DEL_ICON_RETRY_LIMIT) {
-          setTimeout(
-            () => this.injectDelIcon(marker, retries + 1),
-            CONST.DEL_ICON_RETRY_DELAY_MS,
-          );
-        }
-        return;
-      }
-      if (el.querySelector(".measure-del-icon")) return;
-
-      const iconDiv = el.querySelector("div");
-      if (!iconDiv) {
-        if (retries < CONST.DEL_ICON_RETRY_LIMIT) {
-          setTimeout(
-            () => this.injectDelIcon(marker, retries + 1),
-            CONST.DEL_ICON_RETRY_DELAY_MS,
-          );
-        }
-        return;
-      }
-
-      iconDiv.appendChild(
-        window.foliplus.dom.el(
-          "span",
-          { class: "measure-del-icon marker-del-icon" },
-          "✕",
-        ),
-      );
-
-      marker.on("click", (ev) => {
-        const target = ev.originalEvent && ev.originalEvent.target;
-        if (
-          target &&
-          target.classList &&
-          target.classList.contains("measure-del-icon")
-        ) {
-          MeasureUtils.stopEvent(ev.originalEvent);
-          this.layers.mainLayer.removeLayer(marker);
-          this.layers.unregister();
-        }
-      });
+      const deleteMarker = () => {
+        this.layers.mainLayer.removeLayer(marker);
+        this.layers.mainLayer.removeLayer(delMkr);
+        this.layers.unregister();
+      };
+      MeasureUtils.attachDelClick(delMkr, deleteMarker);
     }
 
     // --- Distance Measurement Mode ---

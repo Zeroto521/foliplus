@@ -152,9 +152,3 @@
 .measure-del-icon:active {
   transform: scale(var(--scale-press));
 }
-.measure-del-icon.marker-del-icon {
-  top: calc(-1 * var(--size-6));
-  left: var(--size-20);
-  right: auto;
-  margin: 0;
-}
