@@ -10,7 +10,8 @@
     PANE_RECURSION_DEPTH: 5,
     DRAG_HINT_COOLDOWN_MS: 800,
     LAYER_RECURSION_DEPTH: 10,
-    STORAGE_KEY: "foliplus_layer_order",
+    ORDER_STORAGE_KEY: "foliplus_layer_order",
+    FOLD_STORAGE_KEY: "foliplus_fold_state",
     COLOR_MAP_ID: "foliplus_color_map",
     COLOR_DEFAULT: "#cccccc",
     RENDERER_KEY: "foliplus_renderer_",
@@ -258,6 +259,7 @@
     init(initialData) {
       this.layers = [...initialData];
       this.loadSavedOrder();
+      this.loadFoldState();
       this.normalizeLayerGroups();
     }
 
@@ -273,7 +275,7 @@
 
     loadSavedOrder() {
       try {
-        const data = localStorage.getItem(CONST.STORAGE_KEY);
+        const data = localStorage.getItem(CONST.ORDER_STORAGE_KEY);
         if (!data) return;
         const ids = JSON.parse(data);
         if (!Array.isArray(ids)) return;
@@ -294,11 +296,34 @@
     saveOrder() {
       try {
         localStorage.setItem(
-          CONST.STORAGE_KEY,
+          CONST.ORDER_STORAGE_KEY,
           JSON.stringify(this.layers.map((l) => l.id)),
         );
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(CONST.name + ".save_order_fail")}`, e);
+      }
+    }
+
+    loadFoldState() {
+      try {
+        const data = localStorage.getItem(CONST.FOLD_STORAGE_KEY);
+        if (!data) return;
+        const groups = JSON.parse(data);
+        if (!Array.isArray(groups)) return;
+        this.foldedGroups = new Set(groups);
+      } catch (e) {
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".load_fold_fail")}`, e);
+      }
+    }
+
+    saveFoldState() {
+      try {
+        localStorage.setItem(
+          CONST.FOLD_STORAGE_KEY,
+          JSON.stringify(Array.from(this.foldedGroups)),
+        );
+      } catch (e) {
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".save_fold_fail")}`, e);
       }
     }
 
@@ -1178,6 +1203,7 @@
         else this.foldedGroups.add(group);
         this.renderInitialList();
         this.initTypesAndVisibility();
+        this.saveFoldState();
       });
 
       this.uiContainer.addEventListener("dragstart", this.handleDragStart.bind(this));

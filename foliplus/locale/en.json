@@ -45,6 +45,8 @@
   "LayerControl.reorder_group_only": "Layer reordering is only allowed within the same group",
   "LayerControl.load_order_fail": "Failed to load saved layer order",
   "LayerControl.save_order_fail": "Failed to save layer order",
+  "LayerControl.load_fold_fail": "Failed to load saved fold state",
+  "LayerControl.save_fold_fail": "Failed to save fold state",
   "LayerControl.type_base": "Base Maps",
   "LayerControl.type_custom": "Custom Layer",
   "LayerControl.type_polygon": "Polygon Layer",

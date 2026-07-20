@@ -45,6 +45,8 @@
   "LayerControl.reorder_group_only": "图层只能在同一分组内排序",
   "LayerControl.load_order_fail": "图层顺序加载失败",
   "LayerControl.save_order_fail": "图层顺序保存失败",
+  "LayerControl.load_fold_fail": "图层折叠状态加载失败",
+  "LayerControl.save_fold_fail": "图层折叠状态保存失败",
   "LayerControl.type_base": "基础底图",
   "LayerControl.type_custom": "自定义图层",
   "LayerControl.type_polygon": "面图层",
