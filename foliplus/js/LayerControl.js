@@ -67,12 +67,12 @@
         <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/>
       </svg>`,
     FOLD: `
-      <svg viewBox="0 0 24 24" class="fold-icon">
+      <svg viewBox="0 0 24 24">
         <polyline points="17 11 12 6 7 11"/>
         <polyline points="17 18 12 13 7 18"/>
       </svg>`,
     UNFOLD: `
-      <svg viewBox="0 0 24 24" class="fold-icon">
+      <svg viewBox="0 0 24 24">
         <polyline points="11 6 17 12 11 18"/>
         <polyline points="5 6 11 12 5 18"/>
       </svg>`,
@@ -1551,7 +1551,7 @@
                 <span class="header-icon">${SVGS.LIST}</span>
                 ${_(CONST.name + ".panel_title")}
               </span>
-              <button class="close-btn ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
+              <button class="ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
                       aria-label="${_(CONST.name + ".close_title")}">
                 ${window.foliplus.SVGs.CLOSE}
               </button>
