@@ -823,6 +823,8 @@
       };
 
       const finalizeCircle = (centerLatLng, r, targetLatLng) => {
+        // Arrow function — `this` is captured from startCircleMode's scope
+        // (MeasureManager instance), not from the event listener call site.
         const finalTargetLatLng =
           targetLatLng || L.CRS.Earth.destination(centerLatLng, r, 90);
 
@@ -918,6 +920,9 @@
         MeasureUtils.attachDelClick(delMkr, deleteCircle);
 
         const toggleCircleToggle = () => {
+          // Arrow function — `this` and `deleted`/`toggleUI` all captured
+          // via closure from finalizeCircle (arrow) → startCircleMode (arrow),
+          // so `this` correctly refers to the MeasureManager instance.
           if (deleted) return;
           MeasureUtils.suppressHide(this);
           toggleUI(undefined);
