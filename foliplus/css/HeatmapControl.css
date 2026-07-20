@@ -2,7 +2,7 @@
   font-size: var(--font-size-sm);
   color: var(--text-primary);
   --dropdown-max-height: 200px;
-  --toggle-off-bg: #ccc;
+  --toggle-off-bg: var(--neutral-300);
   --accent-shadow-sm: 0 var(--size-2) var(--size-8)
     rgba(var(--red-rgb), var(--alpha-30));
   --accent-shadow-md: 0 var(--size-4) var(--size-12)

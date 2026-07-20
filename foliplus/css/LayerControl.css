@@ -82,7 +82,9 @@
   height: var(--icon-size-md);
   flex-shrink: 0;
   color: var(--text-muted);
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 .layer-ctrl .fold-toggle-btn:hover {
   color: var(--accent-primary);
