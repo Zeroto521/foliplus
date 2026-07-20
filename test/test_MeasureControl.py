@@ -191,17 +191,12 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert 'toggleLbl === "reset"' in html
 
-    def test_apply_toggle_del_icon_retry(self, base_map: folium.Map):
-        """applyToggle retries del icon toggle with recursion."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MeasureUtils.toggleDelIcon(mkr, show, retries)" in html
-
-    def test_toggle_del_icon_retry_with_limit(self, base_map: folium.Map):
-        """toggleDelIcon retries up to DEL_ICON_RETRY_LIMIT times."""
+    def test_toggle_del_icon_retry(self, base_map: folium.Map):
+        """toggleDelIcon retries with delay up to DEL_ICON_RETRY_LIMIT times."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "retries < CONST.DEL_ICON_RETRY_LIMIT" in html
+        assert "MeasureUtils.toggleDelIcon(mkr, show, retries + 1)" in html
 
     def test_attach_del_click_utility(self, base_map: folium.Map):
         """attachDelClick binds click to marker event, not raw DOM event."""
@@ -578,6 +573,79 @@ class TestMeasureControlRendering:
             page.evaluate("window.__measureManager.destroy()")
             page.wait_for_timeout(200)
             # Verify no errors
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_marker_del_icon_removes_marker(self, browser, tmp_path):
+        """Clicking the delete X in marker mode removes the marker pin."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('marker');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            page.wait_for_timeout(500)
+            # Click the X to delete
+            page.evaluate("""() => {
+                const x = document.querySelector('.measure-del-icon');
+                if (x) x.click();
+            }""")
+            page.wait_for_timeout(300)
+            # Verify X is gone
+            hasX = page.evaluate("!!document.querySelector('.measure-del-icon')")
+            assert not hasX, "X should be removed after clicking delete"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_distance_del_icon_removes_measurement(self, browser, tmp_path):
+        """Clicking the delete X in distance mode removes the entire measurement."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # Click the X to delete
+            page.evaluate("""() => {
+                const x = document.querySelector('.measure-del-icon');
+                if (x) x.click();
+            }""")
+            page.wait_for_timeout(300)
+            hasX = page.evaluate("!!document.querySelector('.measure-del-icon')")
+            assert not hasX, "X should be removed after clicking delete"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_circle_del_icon_removes_circle(self, browser, tmp_path):
+        """Clicking the delete X in circle mode removes the entire circle."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('circle');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # Click the X to delete
+            page.evaluate("""() => {
+                const x = document.querySelector('.measure-del-icon');
+                if (x) x.click();
+            }""")
+            page.wait_for_timeout(300)
+            hasX = page.evaluate("!!document.querySelector('.measure-del-icon')")
+            assert not hasX, "X should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
