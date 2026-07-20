@@ -471,29 +471,37 @@
         interactive: true,
       });
 
-      // Add to mainLayer (not graphLayer directly) so they go through the
-      // overridden addLayer which sets the correct pane and renderer.
-      // This ensures dashed lines have the same z-index as solid lines.
-      this.layers.mainLayer.addLayer(poly);
-      this.layers.mainLayer.addLayer(previewLine);
-      this.layers.mainLayer.addLayer(finalPoly);
+      // Create layers but don't add to map yet — registration happens on
+      // first click, consistent with marker and circle modes.
+      // Preview line is added on mousemove after first click.
+      let layersRegistered = false;
+
+      const ensureLayersAdded = () => {
+        if (layersRegistered) return;
+        layersRegistered = true;
+        this.layers.mainLayer.addLayer(poly);
+        this.layers.mainLayer.addLayer(previewLine);
+        this.layers.mainLayer.addLayer(finalPoly);
+      };
 
       this.cleanupFn = () => {
         this.map.off("click", onDistClick);
         this.map.off("dblclick", onDistDbl);
         this.map.off("contextmenu", onDistContext);
         this.map.off("mousemove", onDistMove);
-        this.layers.mainLayer.removeLayer(previewLine);
-        if (previewDistLabel) {
-          this.layers.mainLayer.removeLayer(previewDistLabel);
-          previewDistLabel = null;
+        if (layersRegistered) {
+          this.layers.mainLayer.removeLayer(previewLine);
+          if (previewDistLabel) {
+            this.layers.mainLayer.removeLayer(previewDistLabel);
+            previewDistLabel = null;
+          }
+          this.layers.mainLayer.removeLayer(poly);
+          this.layers.mainLayer.removeLayer(finalPoly);
+          nodeMarkers.forEach((m) => this.layers.mainLayer.removeLayer(m));
+          segLabels.forEach((l) => this.layers.mainLayer.removeLayer(l));
+          if (startLbl) this.layers.mainLayer.removeLayer(startLbl);
+          this.layers.unregister();
         }
-        this.layers.mainLayer.removeLayer(poly);
-        this.layers.mainLayer.removeLayer(finalPoly);
-        nodeMarkers.forEach((m) => this.layers.mainLayer.removeLayer(m));
-        segLabels.forEach((l) => this.layers.mainLayer.removeLayer(l));
-        if (startLbl) this.layers.mainLayer.removeLayer(startLbl);
-        this.layers.unregister();
       };
 
       let distFinished = false;
@@ -641,6 +649,7 @@
 
       const onDistClick = (e) => {
         if (this.currentMode !== "distance") return;
+        ensureLayersAdded();
         pts.push(e.latlng);
         if (previewDistLabel) {
           this.layers.mainLayer.removeLayer(previewDistLabel);
