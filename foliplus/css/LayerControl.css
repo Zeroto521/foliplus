@@ -123,6 +123,9 @@
 .layer-ctrl .color-layer-item .drag-handle {
   visibility: hidden;
 }
+.layer-ctrl .color-layer-item {
+  cursor: pointer;
+}
 
 /* ── Layer item ── */
 .layer-ctrl .layer-item {
