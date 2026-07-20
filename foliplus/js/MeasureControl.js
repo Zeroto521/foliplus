@@ -230,6 +230,7 @@
       this.cleanupFn = null;
       this.suppressHideDel = false;
       this.toolBtns = [];
+      this.finalizedClickHandler = null; // Track circle finalized click listener for cleanup
 
       this.bindGlobalEvents();
     }
@@ -328,6 +329,10 @@
       if (this.onUnload) {
         this.map.off("unload", this.onUnload);
         this.onUnload = null;
+      }
+      if (this.finalizedClickHandler) {
+        this.map.off("click", this.finalizedClickHandler);
+        this.finalizedClickHandler = null;
       }
     }
 
@@ -975,6 +980,7 @@
           if (xVisible) toggleUI(false, "reset");
         };
         this.map.on("click", onMapClickActive);
+        this.finalizedClickHandler = onMapClickActive;
       };
 
       this.map.on("click", onMapClick);
