@@ -173,6 +173,11 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* Drag handle circles need fill to be visible; override the fill:none above */
+.ctrl-fold svg.drag-handle circle,
+.layer-ctrl svg.drag-handle circle {
+  fill: currentColor;
+}
 
 /* ── Unified Component Button Reset ──
   Base reset for all foliplus and Leaflet native buttons. */

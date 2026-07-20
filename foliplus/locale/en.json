@@ -55,6 +55,8 @@
   "LayerControl.id_required": "opts.id is required",
   "LayerControl.invalid_id": "Skipping window[{id}]: not a valid identifier",
   "LayerControl.data_layer_label": "Data Layers",
+  "LayerControl.fold_tooltip": "Collapse layers",
+  "LayerControl.unfold_tooltip": "Expand layers",
   "MapSearch.coord_placeholder": "Please enter: longitude,latitude",
   "MapSearch.addr_placeholder": "Please enter an address keyword",
   "MapSearch.coord_error": "Invalid format. Please enter: longitude,latitude",

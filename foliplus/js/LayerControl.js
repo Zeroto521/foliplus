@@ -66,6 +66,16 @@
         <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none"/>
         <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/>
       </svg>`,
+    FOLD: `
+      <svg viewBox="0 0 24 24" class="fold-icon">
+        <polyline points="17 11 12 6 7 11"/>
+        <polyline points="17 18 12 13 7 18"/>
+      </svg>`,
+    UNFOLD: `
+      <svg viewBox="0 0 24 24" class="fold-icon">
+        <polyline points="11 6 17 12 11 18"/>
+        <polyline points="5 6 11 12 5 18"/>
+      </svg>`,
   };
 
   window.foliplus.registerHintIcon(CONST.name, SVGS.LIST);
@@ -198,6 +208,7 @@
       this.currentColor = CONST.COLOR_DEFAULT;
       this.dragIdx = null;
       this.lastDragHintAt = 0;
+      this.foldedGroups = new Set();
 
       // Bind method context to prevent 'this' loss when called via window.foliplus.LayerControlAPI
       this.registerLayer = this.registerLayer.bind(this);
@@ -967,23 +978,39 @@
             this.renderToggleAllRow("base", CONST.name + ".base_map_label"),
           );
         }
-        frag.appendChild(this.renderLayerItem(l, i));
+        const group = l.isBase ? "base" : "overlay";
+        const item = this.renderLayerItem(l, i);
+        if (this.foldedGroups.has(group)) item.classList.add("layer-group-folded");
+        frag.appendChild(item);
       }
 
-      frag.appendChild(this.renderColorLayerItem());
+      // Append color layer at the end so it doesn't break index alignment
+      const colorItem = this.renderColorLayerItem();
+      if (this.foldedGroups.has("base")) colorItem.classList.add("layer-group-folded");
+      frag.appendChild(colorItem);
+
       this.uiContainer.innerHTML = "";
       this.uiContainer.appendChild(frag);
     }
 
     /** Render a toggle-all row for a group (overlay or base). */
     renderToggleAllRow(group, labelKey) {
+      const isFolded = this.foldedGroups.has(group);
       return window.foliplus.dom.el(
         "div",
         {
-          class: "layer-separator-container toggle-all-row",
+          class:
+            "layer-separator-container toggle-all-item" + (isFolded ? " folded" : ""),
           "data-group": group,
         },
-        { html: SVGS.DRAG_HANDLE },
+        window.foliplus.dom.el(
+          "button",
+          {
+            class: "fold-toggle-btn",
+            title: _(CONST.name + (isFolded ? ".unfold_tooltip" : ".fold_tooltip")),
+          },
+          { html: isFolded ? SVGS.UNFOLD : SVGS.FOLD },
+        ),
         window.foliplus.dom.el(
           "div",
           { class: "checkbox-wrapper" },
@@ -1139,6 +1166,19 @@
         }
       });
 
+      // Fold toggle: click on toggle-all-item row (excluding checkbox) toggles group visibility
+      this.uiContainer.addEventListener("click", (e) => {
+        const row = e.target.closest(".toggle-all-item");
+        if (!row) return;
+        // Don't fold/unfold when clicking the checkbox
+        if (e.target.closest(".toggle-all-cb")) return;
+        const group = row.dataset.group;
+        if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
+        else this.foldedGroups.add(group);
+        this.renderInitialList();
+        this.initTypesAndVisibility();
+      });
+
       this.uiContainer.addEventListener("dragstart", this.handleDragStart.bind(this));
       this.uiContainer.addEventListener("dragover", this.handleDragOver.bind(this));
       this.uiContainer.addEventListener("dragleave", this.handleDragLeave.bind(this));
@@ -1149,7 +1189,7 @@
       this.uiContainer.addEventListener("change", (e) => {
         const cb = e.target.closest(".toggle-all-cb");
         if (cb) {
-          const row = cb.closest(".toggle-all-row");
+          const row = cb.closest(".toggle-all-item");
           const group = row.dataset.group;
           this.toggleAll(group, cb.checked);
         }
@@ -1199,7 +1239,7 @@
 
     syncToggleAll(group) {
       const row = this.uiContainer.querySelector(
-        `.toggle-all-row[data-group="${group}"]`,
+        `.toggle-all-item[data-group="${group}"]`,
       );
       if (!row) return;
 
