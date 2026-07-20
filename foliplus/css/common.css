@@ -275,6 +275,17 @@
   stroke: var(--text-primary);
 }
 
+/* ── Tool Button Base (used by MeasureControl toolbar, MapSearch mode switch) ── */
+.tool-btn,
+.search-mode-btn {
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  min-width: var(--ctrl-size);
+  flex-shrink: 0;
+  border-radius: 0;
+  color: var(--text-primary);
+}
+
 /* ── Map Hint (Toast Notification) ── */
 .map-hint {
   position: absolute;

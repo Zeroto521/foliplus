@@ -4,18 +4,6 @@
   box-shadow: var(--panel-shadow);
   overflow: hidden;
 }
-/* ── Mode Switch Button ── */
-.map-search .search-mode-btn {
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  min-width: var(--ctrl-size);
-  color: var(--text-primary);
-  flex-shrink: 0;
-  border-radius: 0;
-}
-.map-search .search-mode-btn svg {
-  stroke: currentColor;
-}
 /* ── Clear Button Wrapper ── */
 .map-search .clear-wrap {
   position: relative;
