@@ -69,13 +69,11 @@
       </svg>`,
     FOLD: `
       <svg viewBox="0 0 24 24">
-        <polyline points="17 11 12 6 7 11"/>
-        <polyline points="17 18 12 13 7 18"/>
+        <polyline points="18 15 12 9 6 15"/>
       </svg>`,
     UNFOLD: `
       <svg viewBox="0 0 24 24">
-        <polyline points="11 6 17 12 11 18"/>
-        <polyline points="5 6 11 12 5 18"/>
+        <polyline points="18 9 12 15 6 9"/>
       </svg>`,
   };
 

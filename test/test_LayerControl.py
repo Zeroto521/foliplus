@@ -1630,12 +1630,13 @@ class TestLayerControlBrowser:
                 ".layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            # Check initial SVG (FOLD = 2 polylines, UNFOLD = 2 polylines)
+            # Check initial SVG (FOLD = 1 polyline, UNFOLD = 1 polyline)
+            # Chevron ^ (points 18,15 12,9 6,15) vs v (points 18,9 12,15 6,9)
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
                 return btn.querySelectorAll('polyline').length;
             }""")
-            assert elem_count == 2, f"Expected 2 polylines (FOLD SVG), got {elem_count}"
+            assert elem_count == 1, f"Expected 1 polyline (FOLD SVG), got {elem_count}"
 
             # Click to fold
             page.evaluate("""() => {
@@ -1644,13 +1645,13 @@ class TestLayerControlBrowser:
             }""")
             page.wait_for_timeout(300)
 
-            # After fold, SVG should still have 2 polylines
+            # After fold, SVG should still have 1 polyline (rotated)
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.toggle-all-item[data-group="overlay"] .fold-toggle-btn');
                 return btn.querySelectorAll('polyline').length;
             }""")
-            assert elem_count == 2, (
-                f"Expected 2 polylines (UNFOLD SVG), got {elem_count}"
+            assert elem_count == 1, (
+                f"Expected 1 polyline (UNFOLD SVG), got {elem_count}"
             )
         finally:
             page.close()
