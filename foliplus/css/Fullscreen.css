@@ -12,9 +12,11 @@
 }
 
 /* ── All three buttons share the same reset ── */
-.leaflet-bar .leaflet-control-zoom-in,
-.leaflet-bar .leaflet-control-zoom-out,
-.leaflet-control-zoom-fullscreen.fullscreen-btn {
+:is(
+  .leaflet-bar .leaflet-control-zoom-in,
+  .leaflet-bar .leaflet-control-zoom-out,
+  .leaflet-control-zoom-fullscreen.fullscreen-btn
+) {
   background-image: none;
   display: flex;
   align-items: center;

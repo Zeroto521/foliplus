@@ -94,9 +94,11 @@
 }
 
 /* Placeholder select styling */
-.heatmap-ctrl select.is-placeholder,
-.heatmap-ctrl select option.placeholder-option,
-.heatmap-ctrl select option.placeholder-option:disabled {
+:is(
+  .heatmap-ctrl select.is-placeholder,
+  .heatmap-ctrl select option.placeholder-option,
+  .heatmap-ctrl select option.placeholder-option:disabled
+) {
   color: var(--text-muted);
 }
 
