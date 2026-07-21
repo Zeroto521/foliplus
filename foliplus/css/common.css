@@ -248,17 +248,6 @@
   transform: scale(var(--scale-press));
 }
 
-/* SVG hover stroke — inherited from parent button's color: var(--accent-primary) */
-/* No explicit SVG stroke rule needed — all SVGs use stroke: currentColor */
-
-/* Ruler icon special: keep -45deg rotation */
-.tool-btn:hover .ruler-icon {
-  transform: rotate(-45deg) scale(var(--scale-hover));
-}
-.tool-btn:active .ruler-icon {
-  transform: rotate(-45deg) scale(var(--scale-press));
-}
-
 /* ── Toggle Button Base ── */
 .toggle-btn {
   width: var(--ctrl-size);
@@ -362,13 +351,6 @@
 }
 .ctrl-fold.expanded .toggle-btn:hover {
   background: var(--accent-light);
-}
-/* Ruler icon retains -45deg rotation while scaling */
-.ctrl-fold.expanded .toggle-btn:hover .ruler-icon {
-  transform: rotate(-45deg) scale(var(--scale-hover));
-}
-.ctrl-fold.expanded .toggle-btn:active .ruler-icon {
-  transform: rotate(-45deg) scale(var(--scale-press));
 }
 
 /* ── Separator between toggle button and tools (non-map-panel) ── */
