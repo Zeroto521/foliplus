@@ -1032,6 +1032,7 @@
           this.manager.currentScheme,
           this.manager.N_CLASSES,
         );
+        this.schemeBar.title = this.manager.currentScheme;
       }
 
       refreshSchemeDropdownItems() {
@@ -1075,6 +1076,7 @@
 
           const itemBar = L.DomUtil.create("div", "scheme-dropdown-bar", item);
           this.renderColorBar(itemBar, name, this.manager.N_CLASSES);
+          item.title = name;
 
           item.onclick = (ev) => {
             ev.stopPropagation();
