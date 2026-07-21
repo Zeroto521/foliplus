@@ -230,7 +230,9 @@
 .tool-btn:hover svg,
 .search-mode-btn:hover svg,
 .ctrl-abs-btn:hover svg,
-.leaflet-control-zoom-fullscreen:hover svg {
+.leaflet-control-zoom-fullscreen:hover svg,
+.leaflet-control-zoom-in:hover svg,
+.leaflet-control-zoom-out:hover svg {
   transform: scale(var(--scale-hover));
 }
 
@@ -238,7 +240,9 @@
 .tool-btn:active svg,
 .search-mode-btn:active svg,
 .ctrl-abs-btn:active svg,
-.leaflet-control-zoom-fullscreen:active svg {
+.leaflet-control-zoom-fullscreen:active svg,
+.leaflet-control-zoom-in:active svg,
+.leaflet-control-zoom-out:active svg {
   transform: scale(var(--scale-press));
 }
 
@@ -378,6 +382,12 @@
 }
 .ctrl-fold.expanded .toggle-btn:hover .ruler-icon {
   transform: rotate(-45deg) scale(var(--scale-hover));
+}
+.ctrl-fold.expanded .toggle-btn:active svg:not(.ruler-icon) {
+  transform: scale(var(--scale-press));
+}
+.ctrl-fold.expanded .toggle-btn:active .ruler-icon {
+  transform: rotate(-45deg) scale(var(--scale-press));
 }
 
 /* ── Separator between toggle button and tools (non-map-panel) ── */
