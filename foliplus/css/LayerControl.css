@@ -105,6 +105,7 @@
   transform: scale(var(--scale-hover));
 }
 .layer-ctrl .fold-toggle-btn:active svg {
+  transition: none;
   transform: scale(var(--scale-press));
 }
 .layer-ctrl .fold-toggle-btn svg {

@@ -162,15 +162,15 @@
   PIN_ICON, drag-handle override per their context.
 ── */
 :is(
-  .ctrl-fold svg,
-  .tool-btn svg,
-  .map-hint-icon svg,
-  .header-icon svg,
-  .type-icon-col svg,
-  .leaflet-control-zoom-fullscreen svg,
-  .leaflet-bar .leaflet-control-zoom-in svg,
-  .leaflet-bar .leaflet-control-zoom-out svg
-) {
+  .ctrl-fold,
+  .tool-btn,
+  .map-hint-icon,
+  .header-icon,
+  .type-icon-col,
+  .leaflet-control-zoom-fullscreen,
+  .leaflet-bar .leaflet-control-zoom-in,
+  .leaflet-bar .leaflet-control-zoom-out
+) svg {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   stroke: currentColor;
@@ -232,6 +232,7 @@
   transform: scale(var(--scale-hover));
 }
 .ctrl-fold.collapsed .toggle-btn:active {
+  transition: none;
   transform: scale(var(--scale-press));
 }
 
@@ -249,7 +250,10 @@
   transform: scale(var(--scale-hover));
 }
 
-/* ── Button active (press) scale ── */
+/* ── Button active (press) scale ──
+  Scale applies instantly on press, releases smoothly via the button's
+  transition. 0.15s is too slow for a press feel — the finger lifts
+  before the animation completes. */
 :is(
   .tool-btn,
   .search-mode-btn,
@@ -259,6 +263,7 @@
   .leaflet-control-zoom-out
 ):active svg,
 .ctrl-fold.expanded .toggle-btn:active svg {
+  transition: none;
   transform: scale(var(--scale-press));
 }
 

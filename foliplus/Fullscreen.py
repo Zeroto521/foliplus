@@ -43,12 +43,6 @@ class Fullscreen(BaseControl):
             f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN_VERSION}/Control.FullScreen.min.js",
         )
     ]
-    default_css = [
-        (
-            "Control.FullScreen.css",
-            f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN_VERSION}/Control.FullScreen.css",
-        )
-    ]
 
     def __init__(
         self,
