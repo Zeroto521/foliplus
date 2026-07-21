@@ -1655,3 +1655,27 @@ class TestLayerControlBrowser:
             )
         finally:
             page.close()
+
+    def test_color_layer_pointer_cursor(self, browser, tmp_path):
+        """Color layer item shows pointer cursor on hover."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html_path = tmp_path / "test_color_cursor.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(
+                ".layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            cursor = page.evaluate("""() => {
+                const el = document.querySelector('.color-layer-item');
+                return el ? getComputedStyle(el).cursor : null;
+            }""")
+            assert cursor == "pointer", f"Expected pointer cursor, got {cursor}"
+        finally:
+            page.close()
