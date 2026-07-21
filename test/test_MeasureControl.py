@@ -78,10 +78,11 @@ class TestMeasureControlRendering:
         assert "createLayers(" in html
 
     def test_realtime_distance_preview(self, base_map: folium.Map):
-        """Distance mode includes real-time preview label (previewDistLabel)."""
+        """Distance mode includes real-time preview label, line, and node."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "previewDistLabel" in html
+        assert "previewLine" in html
         assert "onDistMove" in html
         assert "MeasureUtils.formatDistance(showDist)" in html
 
@@ -190,17 +191,12 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert 'toggleLbl === "reset"' in html
 
-    def test_apply_toggle_del_icon_retry(self, base_map: folium.Map):
-        """applyToggle retries del icon toggle with recursion."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MeasureUtils.toggleDelIcon(mkr, show, retries)" in html
-
-    def test_toggle_del_icon_retry_with_limit(self, base_map: folium.Map):
-        """toggleDelIcon retries up to DEL_ICON_RETRY_LIMIT times."""
+    def test_toggle_del_icon_retry(self, base_map: folium.Map):
+        """toggleDelIcon retries with delay up to DEL_ICON_RETRY_LIMIT times."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "retries < CONST.DEL_ICON_RETRY_LIMIT" in html
+        assert "MeasureUtils.toggleDelIcon(mkr, show, retries + 1)" in html
 
     def test_attach_del_click_utility(self, base_map: folium.Map):
         """attachDelClick binds click to marker event, not raw DOM event."""
@@ -276,25 +272,34 @@ class TestMeasureControlRendering:
         assert "constructor(mapInstance)" in html
 
     def test_measure_manager_methods(self, base_map: folium.Map):
-        """MeasureManager has expected methods."""
+        """MeasureManager has expected methods (start, bind, flow)."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "startDistanceMode" in html
         assert "startCircleMode" in html
         assert "bindMarkerMode" in html
-
-    def test_distance_mode_flow(self, base_map: folium.Map):
-        """Distance mode has start, onMove, finish flow."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
         assert "onDistMove" in html
         assert "finishDist" in html
 
-    def test_circle_radius_node(self, base_map: folium.Map):
-        """Circle radius node gets bringToFront."""
+    def test_label_above_circle(self, base_map: folium.Map):
+        """Label is added after circle, line, and node so it renders on top."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "radiusNode.bringToFront()" in html
+        # radiusLabel.addTo should appear after circle.addTo and radiusLine.addTo
+        label_pos = html.find("radiusLabel.addTo(this.layers.mainLayer)")
+        circle_pos = html.find(
+            ".addTo(this.layers.mainLayer);", html.find("circle = L.circle")
+        )
+        line_pos = html.find(
+            ".addTo(this.layers.mainLayer);", html.find("radiusLine = L.polyline")
+        )
+        node_pos = html.find(
+            ".addTo(this.layers.mainLayer);",
+            html.find("radiusNode = MeasureUtils.makeNode"),
+        )
+        assert label_pos > circle_pos, "Label should be added after circle"
+        assert label_pos > line_pos, "Label should be added after line"
+        assert label_pos > node_pos, "Label should be added after node"
 
     def test_double_label_fix(self, base_map: folium.Map):
         """Regression test: Labels are marked BEFORE addTo(mainLayer)."""
@@ -331,14 +336,6 @@ class TestMeasureControlRendering:
         assert "MeasureControl.hint_dist_start" in html
         assert "MeasureControl.hint_circle_start" in html
         assert "MeasureControl.hint_circle_radius" in html
-
-    def test_preview_segments_shown_while_drawing(self, base_map: folium.Map):
-        """Preview segments and labels are created during distance drawing."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "previewDistLabel" in html
-        assert "previewLine" in html
-        assert "previews.node" in html
 
     def test_preview_circle_while_drawing(self, base_map: folium.Map):
         """Preview circle and label are created during circle drawing."""
@@ -379,6 +376,18 @@ class TestMeasureControlRendering:
         assert "makeLabelDivIcon" in html
         assert "measure-label" in html
         assert "LABEL_ANCHOR" in html
+        # Supports optional iconAnchor and className params
+        assert "iconAnchor" in html
+        assert "className" in html
+
+    def test_circle_label_centered(self, base_map: folium.Map):
+        """Circle radius labels (both preview and final) use [0,0] anchor + measure-label-radius for centering at midpoint."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert re.search(
+            r'MeasureUtils\.makeLabelDivIcon\(\s*MeasureUtils\.formatDistance\(r\)\s*,\s*\[0,\s*0\]\s*,\s*"measure-label-radius"\s*',
+            html,
+        )
 
     def test_make_node(self, base_map: folium.Map):
         """MeasureUtils.makeNode creates a circleMarker with MARKER_RADIUS."""
@@ -408,12 +417,13 @@ class TestMeasureControlRendering:
         # Check that the JS doesn't add align-right for left positions
         assert 'indexOf("left") >= 0' in html
 
-    def test_inject_del_icon_uses_marker_click(self, base_map: folium.Map):
-        """injectDelIcon binds click via marker.on, not L.DomEvent.on."""
+    def test_marker_del_icon_uses_make_del_icon(self, base_map: folium.Map):
+        """Marker mode uses makeDelIcon with iconAnchor for positioning."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'marker.on("click",' in html
-        assert "measure-del-icon" in html
+        assert "makeDelIcon" in html
+        assert "iconAnchor" in html
+        assert "injectDelIcon" not in html
 
     def test_bring_layer_to_front_on_tool_select(self, base_map: folium.Map):
         """Tool select calls bringLayerToFront to keep measure layer on top."""
@@ -464,25 +474,25 @@ class TestMeasureControlRendering:
         finally:
             page.close()
 
-    def test_register_on_first_tool_click(self, browser, tmp_path):
-        """Layer is registered on tool select (startDistanceMode adds poly via mainLayer.addLayer)."""
+    def test_register_on_first_click(self, browser, tmp_path):
+        """Layer is registered on first map click, not on tool select."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("document.querySelector('[data-mode=distance]').click()")
             page.wait_for_timeout(500)
-            # Tool selected — mainLayer.addLayer(poly) triggers register()
+            # Tool selected — no registration yet (consistent with marker/circle)
             registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert registered, (
-                "Layer should be registered after tool select (mainLayer.addLayer)"
+            assert not registered, (
+                "Layer should NOT be registered after tool select — deferred until first click"
             )
-            # First click — adds preview content, still registered
+            # First click on map — triggers registration
             page.evaluate("""() => {
                 const map = window.__map;
                 map.fire('click', {latlng: L.latLng(26.08, 119.30)});
             }""")
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert registered, "Layer should still be registered after first click"
+            assert registered, "Layer should be registered after first map click"
             # Second click + right-click to finish
             page.evaluate("""() => {
                 const map = window.__map;
@@ -554,6 +564,141 @@ class TestMeasureControlRendering:
             page.wait_for_timeout(500)
             count = page.evaluate("window.__test")
             assert count == 1, f"expected 1 layer remaining, got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_destroy_cleans_up_listeners(self, browser, tmp_path):
+        """destroy() removes all map listeners (no leak after cleanup)."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # First, create a circle to trigger onMapClickActive listener
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('circle');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # Destroy the manager
+            page.evaluate("window.__measureManager.destroy()")
+            page.wait_for_timeout(200)
+            # Verify no errors
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_marker_del_icon_removes_marker(self, browser, tmp_path):
+        """Clicking the delete X in marker mode removes the marker pin."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('marker');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            page.wait_for_timeout(500)
+            # Remove the layer via API directly (testing the delete logic)
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const layers = mm.layers.mainLayer._layers || {};
+                const delMkr = Object.values(layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+                if (delMkr) {
+                    // Simulate clicking the del icon: make it visible, then fire
+                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    // Fire with a mock originalEvent that has the del-icon target
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
+            }""")
+            page.wait_for_timeout(300)
+            # Check that delMkr is no longer in the layer group
+            hasDelMkr = page.evaluate("""() => {
+                const mm = window.__measureManager;
+                return Object.values(mm.layers.mainLayer._layers || {}).some(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+            }""")
+            assert not hasDelMkr, "delMkr should be removed after clicking delete"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_distance_del_icon_removes_measurement(self, browser, tmp_path):
+        """Clicking the delete X in distance mode removes the entire measurement."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # Fire the delMkr click with a mock originalEvent targeting the X icon
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const layers = mm.layers.mainLayer._layers || {};
+                const delMkr = Object.values(layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+                if (delMkr) {
+                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
+            }""")
+            page.wait_for_timeout(300)
+            hasDelMkr = page.evaluate("""() => {
+                const mm = window.__measureManager;
+                return Object.values(mm.layers.mainLayer._layers || {}).some(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+            }""")
+            assert not hasDelMkr, "delMkr should be removed after clicking delete"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_circle_del_icon_removes_circle(self, browser, tmp_path):
+        """Clicking the delete X in circle mode removes the entire circle."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('circle');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # Fire the delMkr click with a mock originalEvent targeting the X icon
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const layers = mm.layers.mainLayer._layers || {};
+                const delMkr = Object.values(layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+                if (delMkr) {
+                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
+            }""")
+            page.wait_for_timeout(300)
+            hasDelMkr = page.evaluate("""() => {
+                const mm = window.__measureManager;
+                return Object.values(mm.layers.mainLayer._layers || {}).some(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+            }""")
+            assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()

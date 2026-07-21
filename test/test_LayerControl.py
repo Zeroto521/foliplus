@@ -327,8 +327,8 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "this.labelPanes.has(cp)" in html
-        assert "this.labelPanes.has(cp)" in html
-        assert "ep.pane.style.zIndex = z + 1" in html
+        assert "bumpLabelPanes" in html
+        assert "lp.pane.style.zIndex = z + 1" in html
 
     def test_pane_set_on_all_layers(self, base_map: folium.Map):
         """setLayerPaneRecursive sets paneSet on ALL layers, not just Path."""
