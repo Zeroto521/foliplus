@@ -49,7 +49,6 @@
 }
 .measure-line-solid {
   stroke: var(--accent-primary);
-  stroke-width: 2.5px;
 }
 .measure-line-preview {
   stroke-dasharray: 4 4;
@@ -77,18 +76,15 @@
 
 .measure-node-final,
 .measure-line-solid,
-.measure-line-dashed {
-  stroke-width: 2.5px;
-}
-
+.measure-line-dashed,
 .measure-circle-final {
-  stroke-width: var(--size-2);
+  stroke-width: 2.5px;
 }
 
 .measure-node-preview,
 .measure-line-preview,
 .measure-circle-preview {
-  stroke-width: 1.5px;
+  stroke-width: var(--size-2);
 }
 
 .measure-circle-final,
