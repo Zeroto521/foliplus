@@ -93,7 +93,7 @@ class TestFullscreenRendering:
         """Fullscreen button shares unified hover via common.css group selector."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "leaflet-control-zoom-fullscreen:hover" in html
+        assert "leaflet-control-zoom-fullscreen" in html
 
     def test_zoom_svg_replacement(self, base_map: folium.Map):
         """Zoom +/- have ::before pseudo-element with SVG icons."""

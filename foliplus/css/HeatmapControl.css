@@ -202,6 +202,7 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: var(--text-primary);
+  transition: background var(--transition-fast);
 }
 .heatmap-ctrl .scheme-dropdown-item:hover {
   background: var(--ctrl-hover-bg);
@@ -299,11 +300,16 @@
   bottom: var(--size-2);
   background-color: var(--neutral-0);
   border-radius: var(--radius-round);
-  transition: transform var(--transition-fast);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
   box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
 }
 .heatmap-ctrl .toggle-switch:hover .toggle-slider {
   background-color: var(--neutral-500);
+}
+.heatmap-ctrl .toggle-switch:hover .toggle-slider::before {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, var(--alpha-50));
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider {
   background-color: var(--accent-primary);

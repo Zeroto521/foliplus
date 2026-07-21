@@ -130,7 +130,8 @@
   cursor: pointer;
   pointer-events: auto;
   box-shadow: none;
-  display: none;
+  opacity: 0;
+  visibility: hidden;
   top: calc(-1 * var(--size-12) - var(--size-2));
   left: var(--size-4);
   right: auto;
@@ -138,10 +139,14 @@
   align-items: center;
   justify-content: center;
   transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast),
     transform var(--transition-fast),
     background var(--transition-fast);
 }
 .measure-del-icon.visible {
+  opacity: 1;
+  visibility: visible;
   display: flex;
 }
 .measure-del-icon:hover {
