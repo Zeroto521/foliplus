@@ -127,9 +127,6 @@
 .layer-ctrl .color-layer-item .drag-handle {
   visibility: hidden;
 }
-.layer-ctrl .color-layer-item {
-  cursor: pointer;
-}
 
 /* ── Layer item ── */
 .layer-ctrl .layer-item {
@@ -171,6 +168,10 @@
 .layer-ctrl .layer-item.drag-over-bottom {
   border-bottom: var(--border-thick) solid var(--accent-primary);
   background: var(--accent-soft-bg);
+}
+/* Color layer item overrides: pointer cursor (not draggable) */
+.layer-ctrl .color-layer-item {
+  cursor: pointer;
 }
 /* ── Checkbox styles ── */
 .layer-ctrl .checkbox-wrapper {
