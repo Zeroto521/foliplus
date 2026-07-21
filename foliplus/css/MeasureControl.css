@@ -121,6 +121,10 @@
   box-shadow: none;
   transform: translateX(-50%);
 }
+/* Radius label is centered on the midpoint horizontally and vertically */
+.measure-label-radius {
+  transform: translate(-50%, -50%);
+}
 /* ── Floating Delete Icon ── */
 .measure-del-icon {
   position: absolute;

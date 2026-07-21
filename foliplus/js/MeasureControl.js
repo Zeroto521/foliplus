@@ -182,13 +182,16 @@
       );
     }
 
-    /** Create a divIcon for a label marker. */
-    static makeLabelDivIcon(html) {
+    /** Create a divIcon for a label marker.
+     * @param {string} html - Text content for the label.
+     * @param {number[]} [iconAnchor] - Override default LABEL_ANCHOR.
+     * @param {string} [className] - Extra CSS class for the label div. */
+    static makeLabelDivIcon(html, iconAnchor, className) {
       return L.divIcon({
         className: "",
-        html: `<div class="measure-label">${html}</div>`,
+        html: `<div class="measure-label${className ? " " + className : ""}">${html}</div>`,
         iconSize: [0, 0],
-        iconAnchor: CONST.LABEL_ANCHOR,
+        iconAnchor: iconAnchor || CONST.LABEL_ANCHOR,
       });
     }
 
@@ -815,8 +818,12 @@
         );
         if (!previews.label) {
           previews.label = L.marker(mid, {
+            icon: MeasureUtils.makeLabelDivIcon(
+              MeasureUtils.formatDistance(r),
+              [0, 0],
+              "measure-label-radius",
+            ),
             interactive: false,
-            icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(r)),
           });
           previews.label.isMeasureLabel = true;
           previews.label.addTo(this.layers.mainLayer);
@@ -870,12 +877,17 @@
           zIndexOffset: CONST.Z_INDEX_OFFSET,
         }).addTo(this.layers.mainLayer);
 
-        // Add label last so it renders on top of the circle and line
+        // Add label last so it renders on top of the circle and line.
+        // Use a centered iconAnchor so the label sits exactly at the midpoint.
         const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
         const midLng = (centerLatLng.lng + finalTargetLatLng.lng) / 2;
         const radiusLabel = L.marker([midLat, midLng], {
+          icon: MeasureUtils.makeLabelDivIcon(
+            MeasureUtils.formatDistance(r),
+            [0, 0],
+            "measure-label-radius",
+          ),
           interactive: false,
-          icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(r)),
         });
         radiusLabel.isMeasureLabel = true;
         radiusLabel.addTo(this.layers.mainLayer);
