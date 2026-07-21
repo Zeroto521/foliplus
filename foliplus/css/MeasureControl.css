@@ -137,6 +137,9 @@
   margin: 0;
   align-items: center;
   justify-content: center;
+  transition:
+    transform var(--transition-fast),
+    background var(--transition-fast);
 }
 .measure-del-icon.visible {
   display: flex;
