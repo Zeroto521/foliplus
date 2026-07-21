@@ -256,6 +256,18 @@
   transform: scale(var(--scale-press));
 }
 
+/* ── Button active inset shadow ──
+  Pressed-in feedback for all interactive buttons. */
+.toggle-btn:active,
+.tool-btn:active,
+.search-mode-btn:active,
+.ctrl-abs-btn:active,
+.leaflet-control-zoom-in:active,
+.leaflet-control-zoom-out:active,
+.leaflet-control-zoom-fullscreen:active {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, var(--alpha-20));
+}
+
 /* ── Toggle Button Base ── */
 .toggle-btn {
   width: var(--ctrl-size);
