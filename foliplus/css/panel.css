@@ -26,7 +26,8 @@
 .map-panel .toggle-btn {
   transition:
     color var(--transition-fast),
-    background-color var(--transition-fast);
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 /* Hide toggle when expanded */

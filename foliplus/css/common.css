@@ -269,10 +269,7 @@
   color: var(--text-primary);
 }
 .toggle-btn svg {
-  stroke: var(--text-primary);
-}
-.toggle-btn:hover svg {
-  stroke: var(--accent-primary);
+  stroke: currentColor;
 }
 
 /* ── Tool Button Base (used by MeasureControl toolbar, MapSearch mode switch) ── */
