@@ -18,6 +18,15 @@
   padding: var(--space-sm) 0;
   max-height: var(--panel-max-height);
 }
+/* ── Layer panel container ── */
+.layer-ctrl .layer-panel {
+  display: none;
+  flex-direction: column;
+  width: 100%;
+}
+.layer-ctrl.expanded .layer-panel {
+  display: flex;
+}
 .layer-ctrl .type-icon-col {
   display: flex;
   align-items: center;

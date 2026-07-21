@@ -105,14 +105,3 @@
   overflow-y: auto;
   padding: 0;
 }
-
-/* ── Layer panel compatibility ── */
-.map-panel .layer-panel {
-  display: none;
-  flex-direction: column;
-  width: 100%;
-}
-
-.map-panel.expanded .layer-panel {
-  display: flex;
-}
