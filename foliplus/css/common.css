@@ -161,12 +161,14 @@
   All SVGs in foliplus components default to 18×18.
   PIN_ICON, drag-handle override per their context.
 ── */
-.ctrl-fold svg,
-.tool-btn svg,
-.map-hint-icon svg,
-.header-icon svg,
-.type-icon-col svg,
-.leaflet-control-zoom-fullscreen svg {
+:is(
+  .ctrl-fold svg,
+  .tool-btn svg,
+  .map-hint-icon svg,
+  .header-icon svg,
+  .type-icon-col svg,
+  .leaflet-control-zoom-fullscreen svg
+) {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   stroke: currentColor;
@@ -183,13 +185,15 @@
 
 /* ── Unified Component Button Reset ──
   Base reset for all foliplus and Leaflet native buttons. */
-.toggle-btn,
-.tool-btn,
-.search-mode-btn,
-.ctrl-abs-btn,
-.leaflet-control-zoom-in,
-.leaflet-control-zoom-out,
-.leaflet-control-zoom-fullscreen {
+:is(
+  .toggle-btn,
+  .tool-btn,
+  .search-mode-btn,
+  .ctrl-abs-btn,
+  .leaflet-control-zoom-in,
+  .leaflet-control-zoom-out,
+  .leaflet-control-zoom-fullscreen
+) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -209,13 +213,15 @@
 /* ── Unified Button Hover/Active ──
   All buttons share the same hover background and text color.
   Individual overrides (e.g. transform:none, ruler-icon) are in component CSS. */
-.toggle-btn:hover,
-.tool-btn:hover,
-.search-mode-btn:hover,
-.ctrl-abs-btn:hover,
-.leaflet-control-zoom-in:hover,
-.leaflet-control-zoom-out:hover,
-.leaflet-control-zoom-fullscreen:hover {
+:is(
+  .toggle-btn,
+  .tool-btn,
+  .search-mode-btn,
+  .ctrl-abs-btn,
+  .leaflet-control-zoom-in,
+  .leaflet-control-zoom-out,
+  .leaflet-control-zoom-fullscreen
+):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
 }
@@ -231,12 +237,15 @@
 /* ── Button hover scale ──
   Inline SVG: scale the <svg> element.
   ::before icons (zoom +/-): scale the pseudo-element. */
-.tool-btn:hover svg,
-.search-mode-btn:hover svg,
-.ctrl-abs-btn:hover svg,
-.leaflet-control-zoom-fullscreen:hover svg,
-.leaflet-control-zoom-in:hover svg,
-.leaflet-control-zoom-out:hover svg,
+:is(
+    .tool-btn,
+    .search-mode-btn,
+    .ctrl-abs-btn,
+    .leaflet-control-zoom-fullscreen,
+    .leaflet-control-zoom-in,
+    .leaflet-control-zoom-out
+  ):hover
+  svg,
 .leaflet-bar .leaflet-control-zoom-in:hover::before,
 .leaflet-bar .leaflet-control-zoom-out:hover::before,
 .ctrl-fold.expanded .toggle-btn:hover svg {
@@ -244,12 +253,15 @@
 }
 
 /* ── Button active (press) scale ── */
-.tool-btn:active svg,
-.search-mode-btn:active svg,
-.ctrl-abs-btn:active svg,
-.leaflet-control-zoom-fullscreen:active svg,
-.leaflet-control-zoom-in:active svg,
-.leaflet-control-zoom-out:active svg,
+:is(
+    .tool-btn,
+    .search-mode-btn,
+    .ctrl-abs-btn,
+    .leaflet-control-zoom-fullscreen,
+    .leaflet-control-zoom-in,
+    .leaflet-control-zoom-out
+  ):active
+  svg,
 .leaflet-bar .leaflet-control-zoom-in:active::before,
 .leaflet-bar .leaflet-control-zoom-out:active::before,
 .ctrl-fold.expanded .toggle-btn:active svg {
@@ -258,13 +270,15 @@
 
 /* ── Button active inset shadow ──
   Pressed-in feedback for all interactive buttons. */
-.toggle-btn:active,
-.tool-btn:active,
-.search-mode-btn:active,
-.ctrl-abs-btn:active,
-.leaflet-control-zoom-in:active,
-.leaflet-control-zoom-out:active,
-.leaflet-control-zoom-fullscreen:active {
+:is(
+  .toggle-btn,
+  .tool-btn,
+  .search-mode-btn,
+  .ctrl-abs-btn,
+  .leaflet-control-zoom-in,
+  .leaflet-control-zoom-out,
+  .leaflet-control-zoom-fullscreen
+):active {
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, var(--alpha-20));
 }
 
