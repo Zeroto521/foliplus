@@ -47,11 +47,7 @@
 .measure-line-dashed {
   stroke-dasharray: 6 4;
 }
-.measure-line-solid {
-  stroke: var(--accent-primary);
-}
 .measure-line-preview {
-  stroke-dasharray: 4 4;
   opacity: 0.6;
 }
 
@@ -60,11 +56,10 @@
   fill-opacity: 0.25;
 }
 .measure-circle-preview {
-  stroke-dasharray: 4 4;
   fill-opacity: 0.08;
 }
 
-/* ── Shared stroke/fill for all measurement paths ── */
+/* ── Shared stroke/fill/dasharray for all measurement paths ── */
 .measure-node,
 .measure-line-solid,
 .measure-line-dashed,
@@ -90,6 +85,12 @@
 .measure-circle-final,
 .measure-circle-preview {
   fill: var(--accent-primary);
+}
+
+/* Preview lines and circles share the same dashed pattern */
+.measure-line-preview,
+.measure-circle-preview {
+  stroke-dasharray: 4 4;
 }
 
 /* ── Visibility toggle for node/line hidden states ── */
