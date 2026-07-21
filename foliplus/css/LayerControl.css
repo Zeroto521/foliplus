@@ -255,10 +255,7 @@
   background: none;
   outline: none;
   flex-shrink: 0;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+  transition: var(--transition-input);
 }
 .layer-ctrl .color-layer-input::-webkit-color-swatch-wrapper {
   padding: 0;

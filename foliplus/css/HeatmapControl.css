@@ -84,10 +84,7 @@
   outline: none;
   box-sizing: border-box;
   appearance: none;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+  transition: var(--transition-input);
 }
 
 /* Class count small select */
@@ -129,10 +126,7 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+  transition: var(--transition-input);
 }
 .heatmap-ctrl .scheme-bar-inner {
   flex: 1;
@@ -228,10 +222,7 @@
   background: none;
   outline: none;
   box-sizing: border-box;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+  transition: var(--transition-input);
 }
 .heatmap-ctrl .border-color-input::-webkit-color-swatch-wrapper {
   padding: var(--border-thin);
@@ -252,10 +243,7 @@
   outline: none;
   box-sizing: border-box;
   text-align: center;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+  transition: var(--transition-input);
 }
 .heatmap-ctrl .border-weight-input::-webkit-outer-spin-button,
 .heatmap-ctrl .border-weight-input::-webkit-inner-spin-button {
