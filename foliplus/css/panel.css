@@ -24,7 +24,6 @@
 
 /* ── Toggle Button (visible when collapsed) ── */
 .map-panel .toggle-btn {
-  color: var(--text-muted);
   transition:
     color var(--transition-fast),
     background-color var(--transition-fast);
@@ -39,7 +38,6 @@
 .map-panel.expanded .header-icon,
 .map-panel.expanded .header-icon svg {
   color: var(--accent-primary);
-  stroke: var(--accent-primary);
 }
 
 /* ── Panel Wrapper (visible when expanded) ── */
