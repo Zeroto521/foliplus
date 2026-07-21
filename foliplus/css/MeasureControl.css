@@ -9,9 +9,10 @@
   Base reset and hover/active effects come from common.css unified button rules.
   Only Measurement-specific overrides remain here. */
 .measure-ctrl .tool-btn.active {
-  background-color: var(--accent-light);
+  background-color: var(--input-bg);
   color: var(--accent-primary);
-  box-shadow: inset 0 0 0 var(--border-thick) var(--accent-primary);
+  border: var(--border-thin) solid var(--input-focus-border);
+  box-shadow: inset 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 .measure-ctrl .tool-btn.active svg:not(.ruler-icon) {
   stroke: var(--accent-primary);
@@ -86,7 +87,7 @@
 }
 
 .measure-circle-final {
-  stroke-width: 2px;
+  stroke-width: var(--size-2);
 }
 
 .measure-node-preview,
@@ -120,6 +121,10 @@
   box-shadow: none;
   transform: translateX(-50%);
 }
+/* Radius label is centered on the midpoint horizontally and vertically */
+.measure-label-radius {
+  transform: translate(-50%, -50%);
+}
 /* ── Floating Delete Icon ── */
 .measure-del-icon {
   position: absolute;
@@ -150,10 +155,4 @@
 }
 .measure-del-icon:active {
   transform: scale(var(--scale-press));
-}
-.measure-del-icon.marker-del-icon {
-  top: calc(-1 * var(--size-6));
-  left: var(--size-20);
-  right: auto;
-  margin: 0;
 }

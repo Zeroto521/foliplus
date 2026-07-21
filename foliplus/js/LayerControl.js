@@ -913,6 +913,18 @@
       }
     }
 
+    /** Bump label panes for a layer so labels render above paths.
+     *  Used by both Mechanism A and Mechanism C. */
+    bumpLabelPanes(layer, z) {
+      const childPanes = this.discoverChildPanes(layer);
+      childPanes.forEach((cp) => {
+        if (this.labelPanes.has(cp)) {
+          const lp = this.ensurePane(cp, false);
+          lp.pane.style.zIndex = z + 1;
+        }
+      });
+    }
+
     /** Apply z-index to a single layer using the appropriate mechanism. */
     applyLayerZIndex({ li, layer, z, isTile, layersToMove }) {
       const paneName = li.paneName;
@@ -922,6 +934,7 @@
         ep.pane.style.zIndex = z;
         if (layer.options.pane !== paneName || !layer.options.paneSet)
           layersToMove.push({ layer, paneName, renderer: ep.renderer });
+        this.bumpLabelPanes(layer, z);
         return {};
       }
 
@@ -938,8 +951,8 @@
         childPanes.forEach((cp) => {
           const ep = this.ensurePane(cp, !isTile);
           ep.pane.style.zIndex = z;
-          if (this.labelPanes.has(cp)) ep.pane.style.zIndex = z + 1;
         });
+        this.bumpLabelPanes(layer, z);
         layer.options.paneSet = true;
         return {};
       }
