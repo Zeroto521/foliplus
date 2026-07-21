@@ -714,6 +714,27 @@ class TestLayerControlRendering:
         assert "#a4a4a4" not in html
         assert "color: var(--text-primary);" in html
 
+    def test_css_interaction_effects(self, base_map: folium.Map):
+        """CSS hover/active effects exist for interactive elements."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Color layer picker
+        assert "color-layer-input:hover" in html
+        assert "color-layer-input:active" in html
+        # Fold toggle button SVG
+        assert "fold-toggle-btn:hover svg" in html
+        assert "fold-toggle-btn:active svg" in html
+        # Type icon column transition
+        assert "type-icon-col svg" in html
+        assert "transition: transform" in html
+        # Layer item hover on type icon
+        assert "layer-item:hover .type-icon-col svg" in html
+        # Active state on type icon
+        assert "is-active .type-icon-col svg" in html
+        # Toggle button SVG inherits color
+        assert "toggle-btn svg" in html
+        assert "stroke: currentColor" in html
+
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""
         LayerControl().add_to(base_map)
