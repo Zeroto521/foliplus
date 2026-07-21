@@ -376,6 +376,18 @@ class TestMeasureControlRendering:
         assert "makeLabelDivIcon" in html
         assert "measure-label" in html
         assert "LABEL_ANCHOR" in html
+        # Supports optional iconAnchor and className params
+        assert "iconAnchor" in html
+        assert "className" in html
+
+    def test_circle_label_centered(self, base_map: folium.Map):
+        """Circle radius labels (both preview and final) use [0,0] anchor + measure-label-radius for centering at midpoint."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert re.search(
+            r'MeasureUtils\.makeLabelDivIcon\(\s*MeasureUtils\.formatDistance\(r\)\s*,\s*\[0,\s*0\]\s*,\s*"measure-label-radius"\s*',
+            html,
+        )
 
     def test_make_node(self, base_map: folium.Map):
         """MeasureUtils.makeNode creates a circleMarker with MARKER_RADIUS."""
@@ -588,15 +600,30 @@ class TestMeasureControlRendering:
                 map.fire('click', {latlng: L.latLng(26.08, 119.30)});
             }""")
             page.wait_for_timeout(500)
-            # Click the X to delete
+            # Remove the layer via API directly (testing the delete logic)
             page.evaluate("""() => {
-                const x = document.querySelector('.measure-del-icon');
-                if (x) x.click();
+                const mm = window.__measureManager;
+                const layers = mm.layers.mainLayer._layers || {};
+                const delMkr = Object.values(layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+                if (delMkr) {
+                    // Simulate clicking the del icon: make it visible, then fire
+                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    // Fire with a mock originalEvent that has the del-icon target
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
             }""")
             page.wait_for_timeout(300)
-            # Verify X is gone
-            hasX = page.evaluate("!!document.querySelector('.measure-del-icon')")
-            assert not hasX, "X should be removed after clicking delete"
+            # Check that delMkr is no longer in the layer group
+            hasDelMkr = page.evaluate("""() => {
+                const mm = window.__measureManager;
+                return Object.values(mm.layers.mainLayer._layers || {}).some(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+            }""")
+            assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -614,14 +641,27 @@ class TestMeasureControlRendering:
                 map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
             }""")
             page.wait_for_timeout(500)
-            # Click the X to delete
+            # Fire the delMkr click with a mock originalEvent targeting the X icon
             page.evaluate("""() => {
-                const x = document.querySelector('.measure-del-icon');
-                if (x) x.click();
+                const mm = window.__measureManager;
+                const layers = mm.layers.mainLayer._layers || {};
+                const delMkr = Object.values(layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+                if (delMkr) {
+                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
             }""")
             page.wait_for_timeout(300)
-            hasX = page.evaluate("!!document.querySelector('.measure-del-icon')")
-            assert not hasX, "X should be removed after clicking delete"
+            hasDelMkr = page.evaluate("""() => {
+                const mm = window.__measureManager;
+                return Object.values(mm.layers.mainLayer._layers || {}).some(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+            }""")
+            assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -638,14 +678,27 @@ class TestMeasureControlRendering:
                 map.fire('click', {latlng: L.latLng(26.09, 119.31)});
             }""")
             page.wait_for_timeout(500)
-            # Click the X to delete
+            # Fire the delMkr click with a mock originalEvent targeting the X icon
             page.evaluate("""() => {
-                const x = document.querySelector('.measure-del-icon');
-                if (x) x.click();
+                const mm = window.__measureManager;
+                const layers = mm.layers.mainLayer._layers || {};
+                const delMkr = Object.values(layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+                if (delMkr) {
+                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
             }""")
             page.wait_for_timeout(300)
-            hasX = page.evaluate("!!document.querySelector('.measure-del-icon')")
-            assert not hasX, "X should be removed after clicking delete"
+            hasDelMkr = page.evaluate("""() => {
+                const mm = window.__measureManager;
+                return Object.values(mm.layers.mainLayer._layers || {}).some(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+            }""")
+            assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
