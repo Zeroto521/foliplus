@@ -216,6 +216,10 @@
   border-color: var(--accent-primary);
   transform: scale(var(--scale-hover));
 }
+.layer-ctrl input[type="checkbox"]:focus {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}
 .layer-ctrl input[type="checkbox"]:checked {
   background: var(--accent-primary);
   border-color: var(--accent-primary);
@@ -259,6 +263,7 @@
   cursor: pointer;
   padding: 0;
   background: none;
+  outline: none;
   flex-shrink: 0;
   transition:
     transform var(--transition-fast),
@@ -268,6 +273,10 @@
 .layer-ctrl .color-layer-input:hover {
   border-color: var(--accent-primary);
   transform: scale(var(--scale-hover));
+}
+.layer-ctrl .color-layer-input:focus {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 .layer-ctrl .color-layer-input:active {
   transform: scale(var(--scale-press));
