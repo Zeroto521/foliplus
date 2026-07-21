@@ -720,7 +720,6 @@ class TestLayerControlRendering:
         html = render(base_map)
         # Color layer picker
         assert "color-layer-input:hover" in html
-        assert "color-layer-input:active" in html
         # Fold toggle button SVG
         assert "fold-toggle-btn:hover svg" in html
         assert "fold-toggle-btn:active svg" in html

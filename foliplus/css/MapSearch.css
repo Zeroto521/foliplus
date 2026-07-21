@@ -27,9 +27,6 @@
   box-shadow: none;
   transition: var(--transition-input);
 }
-.map-search input:active {
-  transform: scale(var(--scale-press));
-}
 .map-search input::placeholder {
   color: var(--text-muted);
 }
