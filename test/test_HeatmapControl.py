@@ -190,10 +190,12 @@ class TestHeatmapControlRendering:
         assert "Blues" in html and "Viridis" in html
 
     def test_scheme_dropdown_items_have_data_attr(self, base_map: folium.Map):
-        """Dropdown items store scheme name for refreshSchemeDropdownItems."""
+        """Dropdown items store scheme name for refreshSchemeDropdownItems and title tooltip."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "data-scheme-name" in html
+        assert "item.title = name" in html
+        assert "schemeBar.title" in html
 
     def test_class_count_select_range(self, base_map: folium.Map):
         """Class count select has options 2-9."""
