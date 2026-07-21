@@ -218,11 +218,11 @@
   color: var(--accent-primary);
 }
 
-/* toggle-btn unique: button-level scale */
-.toggle-btn:hover {
+/* Collapsed toggle-btn: button-level scale for visual pop */
+.ctrl-fold.collapsed .toggle-btn:hover {
   transform: scale(var(--scale-hover));
 }
-.toggle-btn:active {
+.ctrl-fold.collapsed .toggle-btn:active {
   transform: scale(var(--scale-press));
 }
 
@@ -232,7 +232,8 @@
 .ctrl-abs-btn:hover svg,
 .leaflet-control-zoom-fullscreen:hover svg,
 .leaflet-control-zoom-in:hover svg,
-.leaflet-control-zoom-out:hover svg {
+.leaflet-control-zoom-out:hover svg,
+.ctrl-fold.expanded .toggle-btn:hover svg {
   transform: scale(var(--scale-hover));
 }
 
@@ -242,7 +243,8 @@
 .ctrl-abs-btn:active svg,
 .leaflet-control-zoom-fullscreen:active svg,
 .leaflet-control-zoom-in:active svg,
-.leaflet-control-zoom-out:active svg {
+.leaflet-control-zoom-out:active svg,
+.ctrl-fold.expanded .toggle-btn:active svg {
   transform: scale(var(--scale-press));
 }
 
@@ -258,7 +260,6 @@
 }
 
 /* Ruler icon special: keep -45deg rotation */
-.toggle-btn:hover .ruler-icon,
 .tool-btn:hover .ruler-icon {
   transform: rotate(-45deg) scale(var(--scale-hover));
 }
@@ -333,9 +334,6 @@
   color: var(--text-muted);
   border-radius: 0;
 }
-.ctrl-abs-btn:active svg {
-  transform: scale(var(--scale-press));
-}
 
 .pin-wrap {
   position: relative;
@@ -375,16 +373,10 @@
 }
 .ctrl-fold.expanded .toggle-btn:hover {
   background: var(--accent-light);
-  transform: none;
 }
-.ctrl-fold.expanded .toggle-btn:hover svg:not(.ruler-icon) {
-  transform: scale(var(--scale-hover));
-}
+/* Ruler icon retains -45deg rotation while scaling */
 .ctrl-fold.expanded .toggle-btn:hover .ruler-icon {
   transform: rotate(-45deg) scale(var(--scale-hover));
-}
-.ctrl-fold.expanded .toggle-btn:active svg:not(.ruler-icon) {
-  transform: scale(var(--scale-press));
 }
 .ctrl-fold.expanded .toggle-btn:active .ruler-icon {
   transform: rotate(-45deg) scale(var(--scale-press));
