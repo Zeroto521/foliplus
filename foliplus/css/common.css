@@ -162,15 +162,16 @@
   PIN_ICON, drag-handle override per their context.
 ── */
 :is(
-  .ctrl-fold,
-  .tool-btn,
-  .map-hint-icon,
-  .header-icon,
-  .type-icon-col,
-  .leaflet-control-zoom-fullscreen,
-  .leaflet-bar .leaflet-control-zoom-in,
-  .leaflet-bar .leaflet-control-zoom-out
-) svg {
+    .ctrl-fold,
+    .tool-btn,
+    .map-hint-icon,
+    .header-icon,
+    .type-icon-col,
+    .leaflet-control-zoom-fullscreen,
+    .leaflet-bar .leaflet-control-zoom-in,
+    .leaflet-bar .leaflet-control-zoom-out
+  )
+  svg {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   stroke: currentColor;
@@ -211,6 +212,23 @@
     transform var(--transition-fast);
   will-change: transform;
 }
+/* Collapsed toggle-btn: button-level scale for visual pop */
+.ctrl-fold.collapsed .toggle-btn:hover {
+  transform: scale(var(--scale-hover));
+}
+/* All buttons: press scale applies instantly, releases smoothly */
+:is(
+  .toggle-btn,
+  .tool-btn,
+  .search-mode-btn,
+  .ctrl-abs-btn,
+  .leaflet-control-zoom-in,
+  .leaflet-control-zoom-out,
+  .leaflet-control-zoom-fullscreen
+):active {
+  transition: none;
+  transform: scale(var(--scale-press));
+}
 
 /* ── Unified Button Hover/Active ──
   All buttons share the same hover background and text color. */
@@ -227,44 +245,19 @@
   color: var(--accent-primary);
 }
 
-/* Collapsed toggle-btn: button-level scale for visual pop */
-.ctrl-fold.collapsed .toggle-btn:hover {
-  transform: scale(var(--scale-hover));
-}
-.ctrl-fold.collapsed .toggle-btn:active {
-  transition: none;
-  transform: scale(var(--scale-press));
-}
-
 /* ── Button hover scale ──
   Inline SVG: scale the <svg> element. */
 :is(
-  .tool-btn,
-  .search-mode-btn,
-  .ctrl-abs-btn,
-  .leaflet-control-zoom-fullscreen,
-  .leaflet-control-zoom-in,
-  .leaflet-control-zoom-out
-):hover svg,
+    .tool-btn,
+    .search-mode-btn,
+    .ctrl-abs-btn,
+    .leaflet-control-zoom-fullscreen,
+    .leaflet-control-zoom-in,
+    .leaflet-control-zoom-out
+  ):hover
+  svg,
 .ctrl-fold.expanded .toggle-btn:hover svg {
   transform: scale(var(--scale-hover));
-}
-
-/* ── Button active (press) scale ──
-  Scale applies instantly on press, releases smoothly via the button's
-  transition. 0.15s is too slow for a press feel — the finger lifts
-  before the animation completes. */
-:is(
-  .tool-btn,
-  .search-mode-btn,
-  .ctrl-abs-btn,
-  .leaflet-control-zoom-fullscreen,
-  .leaflet-control-zoom-in,
-  .leaflet-control-zoom-out
-):active svg,
-.ctrl-fold.expanded .toggle-btn:active svg {
-  transition: none;
-  transform: scale(var(--scale-press));
 }
 
 /* ── Button active inset shadow ──

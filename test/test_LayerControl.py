@@ -722,7 +722,7 @@ class TestLayerControlRendering:
         assert "color-layer-input" in html
         # Fold toggle button SVG
         assert "fold-toggle-btn:hover svg" in html
-        assert "fold-toggle-btn:active svg" in html
+        assert "fold-toggle-btn:active" in html
         # Type icon column transition
         assert "type-icon-col svg" in html
         assert "transition: transform" in html
