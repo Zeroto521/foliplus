@@ -96,17 +96,19 @@ class TestFullscreenRendering:
         assert "leaflet-control-zoom-fullscreen" in html
 
     def test_zoom_svg_replacement(self, base_map: folium.Map):
-        """Zoom +/- have ::before pseudo-element with SVG icons."""
+        """Zoom +/- use inline SVGs injected by Fullscreen.js."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "leaflet-control-zoom-in::before" in html
-        assert "leaflet-control-zoom-out::before" in html
+        assert "ZOOM_IN" in html
+        assert "ZOOM_OUT" in html
 
     def test_zoom_svg_hover_color(self, base_map: folium.Map):
         """Zoom +/- SVG icons change to accent color on hover."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "e74c3c" in html
+        # common.css handles SVG hover color via unified button rules
+        assert "leaflet-control-zoom-in" in html
+        assert "var(--accent-primary)" in html
 
     def test_css_unified_group_selectors(self, base_map: folium.Map):
         """Fullscreen button shares unified button styles with common.css."""

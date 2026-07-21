@@ -167,7 +167,9 @@
   .map-hint-icon svg,
   .header-icon svg,
   .type-icon-col svg,
-  .leaflet-control-zoom-fullscreen svg
+  .leaflet-control-zoom-fullscreen svg,
+  .leaflet-bar .leaflet-control-zoom-in svg,
+  .leaflet-bar .leaflet-control-zoom-out svg
 ) {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
@@ -211,8 +213,7 @@
 }
 
 /* ── Unified Button Hover/Active ──
-  All buttons share the same hover background and text color.
-  Individual overrides (e.g. transform:none, ruler-icon) are in component CSS. */
+  All buttons share the same hover background and text color. */
 :is(
   .toggle-btn,
   .tool-btn,
@@ -235,35 +236,28 @@
 }
 
 /* ── Button hover scale ──
-  Inline SVG: scale the <svg> element.
-  ::before icons (zoom +/-): scale the pseudo-element. */
+  Inline SVG: scale the <svg> element. */
 :is(
-    .tool-btn,
-    .search-mode-btn,
-    .ctrl-abs-btn,
-    .leaflet-control-zoom-fullscreen,
-    .leaflet-control-zoom-in,
-    .leaflet-control-zoom-out
-  ):hover
-  svg,
-.leaflet-bar .leaflet-control-zoom-in:hover::before,
-.leaflet-bar .leaflet-control-zoom-out:hover::before,
+  .tool-btn,
+  .search-mode-btn,
+  .ctrl-abs-btn,
+  .leaflet-control-zoom-fullscreen,
+  .leaflet-control-zoom-in,
+  .leaflet-control-zoom-out
+):hover svg,
 .ctrl-fold.expanded .toggle-btn:hover svg {
   transform: scale(var(--scale-hover));
 }
 
 /* ── Button active (press) scale ── */
 :is(
-    .tool-btn,
-    .search-mode-btn,
-    .ctrl-abs-btn,
-    .leaflet-control-zoom-fullscreen,
-    .leaflet-control-zoom-in,
-    .leaflet-control-zoom-out
-  ):active
-  svg,
-.leaflet-bar .leaflet-control-zoom-in:active::before,
-.leaflet-bar .leaflet-control-zoom-out:active::before,
+  .tool-btn,
+  .search-mode-btn,
+  .ctrl-abs-btn,
+  .leaflet-control-zoom-fullscreen,
+  .leaflet-control-zoom-in,
+  .leaflet-control-zoom-out
+):active svg,
 .ctrl-fold.expanded .toggle-btn:active svg {
   transform: scale(var(--scale-press));
 }

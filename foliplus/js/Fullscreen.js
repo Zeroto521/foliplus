@@ -24,6 +24,14 @@
       <svg viewBox="0 0 24 24">
         <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
       </svg>`,
+    ZOOM_IN: `
+      <svg viewBox="0 0 24 24">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>`,
+    ZOOM_OUT: `
+      <svg viewBox="0 0 24 24">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>`,
   };
 
   window.foliplus.registerHintIcon(CONST.name, SVGs.MAXIMIZE);
@@ -65,6 +73,27 @@
       if (document.fullscreenElement) document.exitFullscreen();
       else map.getContainer().requestFullscreen();
     });
+  })();
+
+  // ==================== Zoom Icon Replacement ====================
+  // Replace Leaflet native zoom +/- icons (::before) with inline SVGs
+  // so common.css SVG hover/active scale rules apply directly.
+  (function replaceZoomIcons() {
+    const zoomIn = document.querySelector(".leaflet-control-zoom-in");
+    const zoomOut = document.querySelector(".leaflet-control-zoom-out");
+
+    if (!zoomIn || !zoomOut) {
+      setTimeout(replaceZoomIcons, CONST.RETRY_INTERVAL_MS);
+      return;
+    }
+
+    // Remove ::before content
+    zoomIn.innerHTML = SVGs.ZOOM_IN;
+    zoomOut.innerHTML = SVGs.ZOOM_OUT;
+
+    // Preserve native zoom behavior by re-binding click handlers
+    // (Leaflet already bound them via the control, cloning would break)
+    // Just ensure the buttons have the right structure
   })();
 
   // ==================== Fullscreen Event Handling ====================

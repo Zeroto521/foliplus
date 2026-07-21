@@ -1,5 +1,7 @@
 /* ── Fullscreen + Zoom Controls ──
   Override Leaflet native styles for zoom +/- and fullscreen buttons.
+  SVG icons are injected inline by Fullscreen.js — common.css handles
+  hover/active scale and color via unified button rules.
   Only loaded when Fullscreen is used. ── */
 
 /* ── Zoom container ──
@@ -38,26 +40,4 @@
 /* Remove last button's divider */
 .leaflet-control-zoom-fullscreen.fullscreen-btn {
   border-bottom: none;
-}
-.leaflet-control-zoom-in::before,
-.leaflet-control-zoom-out::before {
-  content: "";
-  display: block;
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  background-size: var(--icon-size-md) var(--icon-size-md);
-  background-repeat: no-repeat;
-  background-position: center;
-}
-.leaflet-control-zoom-in::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='5' x2='12' y2='19'/%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
-}
-.leaflet-control-zoom-out::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
-}
-.leaflet-control-zoom-in:hover::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e74c3c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='5' x2='12' y2='19'/%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
-}
-.leaflet-control-zoom-out:hover::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e74c3c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
 }
