@@ -226,24 +226,30 @@
   transform: scale(var(--scale-press));
 }
 
-/* SVG hover scale — for buttons with inline SVG */
+/* ── Button hover scale ──
+  Inline SVG: scale the <svg> element.
+  ::before icons (zoom +/-): scale the pseudo-element. */
 .tool-btn:hover svg,
 .search-mode-btn:hover svg,
 .ctrl-abs-btn:hover svg,
 .leaflet-control-zoom-fullscreen:hover svg,
 .leaflet-control-zoom-in:hover svg,
 .leaflet-control-zoom-out:hover svg,
+.leaflet-bar .leaflet-control-zoom-in:hover::before,
+.leaflet-bar .leaflet-control-zoom-out:hover::before,
 .ctrl-fold.expanded .toggle-btn:hover svg {
   transform: scale(var(--scale-hover));
 }
 
-/* SVG active scale */
+/* ── Button active (press) scale ── */
 .tool-btn:active svg,
 .search-mode-btn:active svg,
 .ctrl-abs-btn:active svg,
 .leaflet-control-zoom-fullscreen:active svg,
 .leaflet-control-zoom-in:active svg,
 .leaflet-control-zoom-out:active svg,
+.leaflet-bar .leaflet-control-zoom-in:active::before,
+.leaflet-bar .leaflet-control-zoom-out:active::before,
 .ctrl-fold.expanded .toggle-btn:active svg {
   transform: scale(var(--scale-press));
 }

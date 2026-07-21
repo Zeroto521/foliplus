@@ -35,26 +35,6 @@
   line-height: var(--ctrl-size);
   border-bottom: var(--border-thin) solid var(--divider-color);
 }
-/* Override common.css button transform: zoom/fullscreen avoid button-level scale */
-.leaflet-bar .leaflet-control-zoom-in:hover,
-.leaflet-bar .leaflet-control-zoom-out:hover,
-.leaflet-control-zoom-fullscreen.fullscreen-btn:hover {
-  transform: none;
-}
-.leaflet-control-zoom-fullscreen.fullscreen-btn:hover svg {
-  transform: scale(var(--scale-hover));
-}
-.leaflet-control-zoom-fullscreen.fullscreen-btn:active svg {
-  transform: scale(var(--scale-press));
-}
-.leaflet-bar .leaflet-control-zoom-in:hover::before,
-.leaflet-bar .leaflet-control-zoom-out:hover::before {
-  transform: scale(var(--scale-hover));
-}
-.leaflet-bar .leaflet-control-zoom-in:active::before,
-.leaflet-bar .leaflet-control-zoom-out:active::before {
-  transform: scale(var(--scale-press));
-}
 /* Remove last button's divider */
 .leaflet-control-zoom-fullscreen.fullscreen-btn {
   border-bottom: none;
