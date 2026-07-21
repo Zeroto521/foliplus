@@ -390,6 +390,7 @@
         iconAnchor: [-4, 28],
       }).addTo(this.layers.mainLayer);
 
+      // X is hidden by default; shown only when popup is open (popupopen handler below).
       let cachedAddr = null;
       const addr = await window.foliplus.reverseGeocode(
         this.map,
@@ -406,19 +407,11 @@
         MeasureUtils.hideAllDelIcons();
         if (cachedAddr !== null)
           marker.setPopupContent(MeasureUtils.buildPopup(lat, lng, cachedAddr));
-        const el = delMkr.getElement();
-        if (el) {
-          const icon = el.querySelector(".measure-del-icon");
-          if (icon) icon.classList.add("visible");
-        }
+        MeasureUtils.toggleDelIcon(delMkr, true);
       });
 
       marker.on("popupclose", () => {
-        const el = delMkr.getElement();
-        if (el) {
-          const icon = el.querySelector(".measure-del-icon");
-          if (icon) icon.classList.remove("visible");
-        }
+        MeasureUtils.toggleDelIcon(delMkr, false);
       });
 
       const deleteMarker = () => {
