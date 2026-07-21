@@ -120,10 +120,10 @@ class TestMeasureControlRendering:
         assert "crosshair" in html
 
     def test_distance_icon_svg_structure(self, base_map: folium.Map):
-        """Distance mode uses ruler SVG."""
+        """Distance mode uses ruler SVG with -45deg rotation in SVG transform."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "ruler-icon" in html
+        assert "rotate(-45" in html
 
     def test_circle_icon_svg_structure(self, base_map: folium.Map):
         """Circle mode uses concentric circles SVG."""

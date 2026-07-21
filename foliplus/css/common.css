@@ -218,11 +218,11 @@
   color: var(--accent-primary);
 }
 
-/* toggle-btn unique: button-level scale */
-.toggle-btn:hover {
+/* Collapsed toggle-btn: button-level scale for visual pop */
+.ctrl-fold.collapsed .toggle-btn:hover {
   transform: scale(var(--scale-hover));
 }
-.toggle-btn:active {
+.ctrl-fold.collapsed .toggle-btn:active {
   transform: scale(var(--scale-press));
 }
 
@@ -230,7 +230,10 @@
 .tool-btn:hover svg,
 .search-mode-btn:hover svg,
 .ctrl-abs-btn:hover svg,
-.leaflet-control-zoom-fullscreen:hover svg {
+.leaflet-control-zoom-fullscreen:hover svg,
+.leaflet-control-zoom-in:hover svg,
+.leaflet-control-zoom-out:hover svg,
+.ctrl-fold.expanded .toggle-btn:hover svg {
   transform: scale(var(--scale-hover));
 }
 
@@ -238,28 +241,11 @@
 .tool-btn:active svg,
 .search-mode-btn:active svg,
 .ctrl-abs-btn:active svg,
-.leaflet-control-zoom-fullscreen:active svg {
+.leaflet-control-zoom-fullscreen:active svg,
+.leaflet-control-zoom-in:active svg,
+.leaflet-control-zoom-out:active svg,
+.ctrl-fold.expanded .toggle-btn:active svg {
   transform: scale(var(--scale-press));
-}
-
-/* SVG hover stroke — turn icon red */
-.toggle-btn:hover svg,
-.tool-btn:hover svg,
-.search-mode-btn:hover svg,
-.ctrl-abs-btn:hover svg,
-.leaflet-control-zoom-in:hover svg,
-.leaflet-control-zoom-out:hover svg,
-.leaflet-control-zoom-fullscreen:hover svg {
-  stroke: var(--accent-primary);
-}
-
-/* Ruler icon special: keep -45deg rotation */
-.toggle-btn:hover .ruler-icon,
-.tool-btn:hover .ruler-icon {
-  transform: rotate(-45deg) scale(var(--scale-hover));
-}
-.tool-btn:active .ruler-icon {
-  transform: rotate(-45deg) scale(var(--scale-press));
 }
 
 /* ── Toggle Button Base ── */
@@ -272,7 +258,7 @@
   color: var(--text-primary);
 }
 .toggle-btn svg {
-  stroke: var(--text-primary);
+  stroke: currentColor;
 }
 
 /* ── Tool Button Base (used by MeasureControl toolbar, MapSearch mode switch) ── */
@@ -329,9 +315,6 @@
   color: var(--text-muted);
   border-radius: 0;
 }
-.ctrl-abs-btn:active svg {
-  transform: scale(var(--scale-press));
-}
 
 .pin-wrap {
   position: relative;
@@ -366,18 +349,8 @@
   background: transparent;
   color: var(--accent-primary);
 }
-.ctrl-fold.expanded .toggle-btn svg {
-  stroke: var(--accent-primary);
-}
 .ctrl-fold.expanded .toggle-btn:hover {
   background: var(--accent-light);
-  transform: none;
-}
-.ctrl-fold.expanded .toggle-btn:hover svg:not(.ruler-icon) {
-  transform: scale(var(--scale-hover));
-}
-.ctrl-fold.expanded .toggle-btn:hover .ruler-icon {
-  transform: rotate(-45deg) scale(var(--scale-hover));
 }
 
 /* ── Separator between toggle button and tools (non-map-panel) ── */

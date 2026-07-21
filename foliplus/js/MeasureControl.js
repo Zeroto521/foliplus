@@ -32,9 +32,11 @@
   // ==================== SVG Icons ====================
   const SVGS = {
     RULER: `
-      <svg viewBox="0 0 24 24" class="ruler-icon">
-        <rect x="1" y="7" width="22" height="9" rx="1"/>
-        <path d="M5 7v3M9 7v2M13 7v3M17 7v2"/>
+      <svg viewBox="0 0 24 24">
+        <g transform="rotate(-45 12 12)">
+          <rect x="1" y="7" width="22" height="9" rx="1"/>
+          <path d="M5 7v3M9 7v2M13 7v3M17 7v2"/>
+        </g>
       </svg>`,
     CIRCLE: `
       <svg viewBox="0 0 24 24">

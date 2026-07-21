@@ -32,6 +32,7 @@
   width: 100%;
   height: 100%;
   display: block;
+  transition: transform var(--transition-fast);
 }
 .layer-ctrl .layer-separator-container {
   display: flex;
@@ -91,6 +92,12 @@
   background: var(--accent-soft-bg);
   border-radius: var(--radius-sm);
 }
+.layer-ctrl .fold-toggle-btn:hover svg {
+  transform: scale(var(--scale-hover));
+}
+.layer-ctrl .fold-toggle-btn:active svg {
+  transform: scale(var(--scale-press));
+}
 .layer-ctrl .fold-toggle-btn svg {
   width: 14px;
   height: 14px;
@@ -98,6 +105,7 @@
   stroke-width: var(--stroke-icon);
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: transform var(--transition-fast);
 }
 .layer-ctrl .toggle-all-item.folded .fold-toggle-btn {
   color: var(--accent-primary);
@@ -150,12 +158,18 @@
 .layer-ctrl .layer-item:hover {
   background: var(--panel-header-hover);
 }
+.layer-ctrl .layer-item:hover .type-icon-col svg {
+  transform: scale(var(--scale-hover));
+}
 .layer-ctrl .layer-item.is-active {
   border-left-color: var(--accent-primary);
   background: var(--accent-light);
 }
 .layer-ctrl .layer-item.is-active .type-icon-col {
   color: var(--accent-primary);
+}
+.layer-ctrl .layer-item.is-active .type-icon-col svg {
+  transform: scale(var(--scale-hover));
 }
 .layer-ctrl .layer-item.dragging {
   background: var(--accent-light);
@@ -192,11 +206,15 @@
   cursor: pointer;
   position: relative;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
   flex-shrink: 0;
 }
 .layer-ctrl input[type="checkbox"]:hover {
   border-color: var(--accent-primary);
+  transform: scale(var(--scale-hover));
 }
 .layer-ctrl input[type="checkbox"]:checked {
   background: var(--accent-primary);
@@ -243,11 +261,16 @@
   background: none;
   flex-shrink: 0;
   transition:
+    transform var(--transition-fast),
     border-color var(--transition-fast),
     box-shadow var(--transition-fast);
 }
 .layer-ctrl .color-layer-input:hover {
   border-color: var(--accent-primary);
+  transform: scale(var(--scale-hover));
+}
+.layer-ctrl .color-layer-input:active {
+  transform: scale(var(--scale-press));
 }
 .layer-ctrl .color-layer-input::-webkit-color-swatch-wrapper {
   padding: 0;
