@@ -22,14 +22,6 @@
   overflow: hidden;
 }
 
-/* ── Toggle Button (visible when collapsed) ── */
-.map-panel .toggle-btn {
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast),
-    transform var(--transition-fast);
-}
-
 /* Hide toggle when expanded */
 .map-panel.expanded .toggle-btn {
   display: none;

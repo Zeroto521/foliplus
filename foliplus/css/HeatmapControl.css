@@ -89,20 +89,6 @@
     box-shadow var(--transition-fast),
     transform var(--transition-fast);
 }
-.heatmap-ctrl .form-select:hover,
-.heatmap-ctrl select:hover {
-  border-color: var(--accent-primary);
-  transform: scale(var(--scale-hover));
-}
-.heatmap-ctrl .form-select:active,
-.heatmap-ctrl select:active {
-  transform: scale(var(--scale-press));
-}
-.heatmap-ctrl .form-select:focus,
-.heatmap-ctrl select:focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
-}
 
 /* Class count small select */
 .heatmap-ctrl .class-count-select {
@@ -171,14 +157,6 @@
   border-right: var(--size-4) solid transparent;
   border-top: var(--size-6) solid var(--text-muted);
   pointer-events: none;
-}
-.heatmap-ctrl .scheme-bar:hover {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
-  transform: scale(var(--scale-hover));
-}
-.heatmap-ctrl .scheme-bar:active {
-  transform: scale(var(--scale-press));
 }
 /* Scheme row: form-control-wrap needs relative positioning for the dropdown */
 .heatmap-ctrl .form-row:has(.scheme-bar) .form-control-wrap {
@@ -255,17 +233,6 @@
     box-shadow var(--transition-fast),
     transform var(--transition-fast);
 }
-.heatmap-ctrl .border-color-input:hover {
-  border-color: var(--accent-primary);
-  transform: scale(var(--scale-hover));
-}
-.heatmap-ctrl .border-color-input:active {
-  transform: scale(var(--scale-press));
-}
-.heatmap-ctrl .border-color-input:focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
-}
 .heatmap-ctrl .border-color-input::-webkit-color-swatch-wrapper {
   padding: var(--border-thin);
 }
@@ -289,17 +256,6 @@
     border-color var(--transition-fast),
     box-shadow var(--transition-fast),
     transform var(--transition-fast);
-}
-.heatmap-ctrl .border-weight-input:hover {
-  border-color: var(--accent-primary);
-  transform: scale(var(--scale-hover));
-}
-.heatmap-ctrl .border-weight-input:active {
-  transform: scale(var(--scale-press));
-}
-.heatmap-ctrl .border-weight-input:focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 .heatmap-ctrl .border-weight-input::-webkit-outer-spin-button,
 .heatmap-ctrl .border-weight-input::-webkit-inner-spin-button {

@@ -318,8 +318,60 @@
 
 .pin-wrap {
   position: relative;
-  width: var(--size-24);
-  height: var(--toggle-size);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+  Unified Input Interaction States
+  All foliplus text/select/color/checkbox inputs share the same
+  hover/focus/active visual feedback.
+  Component-specific sizing/layout stays in each CSS file.
+  ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Focus: red border + red glow ── */
+.map-search input:focus,
+.heatmap-ctrl .form-select:focus,
+.heatmap-ctrl select:focus,
+.heatmap-ctrl .border-color-input:focus,
+.heatmap-ctrl .border-weight-input:focus,
+.heatmap-ctrl .scheme-bar:focus,
+.layer-ctrl input[type="checkbox"]:focus,
+.layer-ctrl .color-layer-input:focus {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}
+
+/* ── Hover: accent border ── */
+.map-search input:hover,
+.heatmap-ctrl .form-select:hover,
+.heatmap-ctrl select:hover,
+.heatmap-ctrl .border-color-input:hover,
+.heatmap-ctrl .border-weight-input:hover,
+.heatmap-ctrl .scheme-bar:hover,
+.layer-ctrl input[type="checkbox"]:hover,
+.layer-ctrl .color-layer-input:hover {
+  border-color: var(--accent-primary);
+}
+
+/* ── Hover scale (MapSearch input excluded — container clips) ── */
+.heatmap-ctrl .form-select:hover,
+.heatmap-ctrl select:hover,
+.heatmap-ctrl .border-color-input:hover,
+.heatmap-ctrl .border-weight-input:hover,
+.heatmap-ctrl .scheme-bar:hover,
+.layer-ctrl input[type="checkbox"]:hover,
+.layer-ctrl .color-layer-input:hover {
+  transform: scale(var(--scale-hover));
+}
+
+/* ── Active (press) scale ── */
+.heatmap-ctrl .form-select:active,
+.heatmap-ctrl select:active,
+.heatmap-ctrl .border-color-input:active,
+.heatmap-ctrl .border-weight-input:active,
+.heatmap-ctrl .scheme-bar:active,
+.layer-ctrl input[type="checkbox"]:active,
+.layer-ctrl .color-layer-input:active {
+  transform: scale(var(--scale-press));
 }
 
 .popup-content {
