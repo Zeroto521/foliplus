@@ -24,7 +24,7 @@
 - `HeatmapControl`, `MeasureControl`: label z-index offset (`+1`) is now applied automatically by `LayerControl`; label pane detection improved to use pre-registration in `createManagedLayers` instead of fragile string matching ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35), [#53](https://github.com/Zeroto521/foliplus/pull/53))
 - `HeatmapControl`: migrated from `L.divIcon` based SVG hexagons to Canvas 2D rendering (`createCanvas` API). Significant performance improvement for large point datasets ([#38](https://github.com/Zeroto521/foliplus/pull/38))
 - Unified `HINT_DURATION` constants across all components: `SHORT` (1200ms), `MEDIUM` (2500ms), `LONG` (4000ms), `PERSIST` (0 — persistent); `HeatmapControl`/`MeasureControl`/`MapSearch` updated to use these tiers ([#41](https://github.com/Zeroto521/foliplus/pull/41))
-- Unified button styles: extracted shared hover/active/scale effects into `common.css`; added `toggle-btn`/`tool-btn`/`search-mode-btn`/`ctrl-abs-btn`/`leaflet-control-zoom-*` unified reset; added `::before` zoom SVG icons with hover color change ([#37](https://github.com/Zeroto521/foliplus/pull/37))
+- Unified button styles: extracted shared hover/active/scale effects into `common.css`; added `toggle-btn`/`tool-btn`/`search-mode-btn`/`ctrl-abs-btn`/`leaflet-control-zoom-*` unified reset; added `::before` zoom SVG icons with hover color change ([#37](https://github.com/Zeroto521/foliplus/pull/37), [#56](https://github.com/Zeroto521/foliplus/pull/56))
 
 ### Fixed
 
