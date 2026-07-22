@@ -26,10 +26,6 @@
 .fs-bar .tool-btn {
   border-bottom: var(--border-thin) solid var(--divider-color);
 }
-.fs-bar .tool-btn:active {
-  transition: transform 0s;
-  transform: scale(var(--scale-press));
-}
 .fs-bar .fullscreen-btn {
   border-bottom: none;
 }

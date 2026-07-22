@@ -219,7 +219,7 @@
   transform: scale(var(--scale-hover));
 }
 
-/* All buttons: press scale applies instantly, releases smoothly
+/* All buttons: press scale uses inherited transition (--transition-fast, 0.15s)
   MUST come AFTER :hover so it wins on same specificity (0,2,0). */
 :is(
   .toggle-btn,
@@ -227,7 +227,6 @@
   .search-mode-btn,
   .ctrl-abs-btn
 ):active {
-  transition: transform 0s;
   transform: scale(var(--scale-press));
 }
 
