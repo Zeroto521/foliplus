@@ -8,6 +8,7 @@ dependencies:
   # test (Python)
   - pytest
   - pytest-cov
+  - pytest-xdist
   - codecov
   # test (JS browser)
   - playwright
