@@ -1,3 +1,20 @@
+/* ── H3 HEX icon layered fills ── */
+.hf-bg {
+  fill: currentColor;
+  opacity: 0.06;
+  stroke: none;
+}
+.hf-center {
+  fill: currentColor;
+  opacity: var(--alpha-15);
+  stroke: none;
+}
+.hf-secondary {
+  fill: currentColor;
+  opacity: 0.08;
+  stroke: none;
+}
+
 .heatmap-ctrl {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
