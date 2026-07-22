@@ -161,14 +161,7 @@
   All SVGs in foliplus components default to 18×18.
   PIN_ICON, drag-handle override per their context.
 ── */
-:is(
-    .ctrl-fold,
-    .tool-btn,
-    .map-hint-icon,
-    .header-icon,
-    .type-icon-col
-  )
-  svg {
+:is(.ctrl-fold, .tool-btn, .map-hint-icon, .header-icon, .type-icon-col) svg {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   stroke: currentColor;
@@ -185,12 +178,7 @@
 
 /* ── Unified Component Button Reset ──
   Base reset for all foliplus buttons. */
-:is(
-  .toggle-btn,
-  .tool-btn,
-  .search-mode-btn,
-  .ctrl-abs-btn
-) {
+:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -208,12 +196,7 @@
 }
 /* ── Unified Button Hover ──
   All buttons share the same hover background, text color, and scale. */
-:is(
-  .toggle-btn,
-  .tool-btn,
-  .search-mode-btn,
-  .ctrl-abs-btn
-):hover {
+:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
   transform: scale(var(--scale-hover));
@@ -221,25 +204,21 @@
 
 /* All buttons: press scale uses inherited transition (--transition-fast, 0.15s)
   MUST come AFTER :hover so it wins on same specificity (0,2,0). */
-:is(
-  .toggle-btn,
-  .tool-btn,
-  .search-mode-btn,
-  .ctrl-abs-btn
-):active {
+:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn):active {
   transform: scale(var(--scale-press));
 }
 
-/* ── Button hover scale ──
-  Inline SVG: scale the <svg> element. */
-:is(
-    .tool-btn,
-    .search-mode-btn,
-    .ctrl-abs-btn
-  ):hover
-  svg,
+/* ── Button hover/active SVG scale ──
+  SVG-level parallax for buttons that also have button-level scale.
+  toggle-btn added via expanded context for fold controls. */
+:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):hover svg,
 .ctrl-fold.expanded .toggle-btn:hover svg {
   transform: scale(var(--scale-hover));
+}
+:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):active svg,
+.ctrl-fold.expanded .toggle-btn:active svg {
+  transition: transform var(--transition-fast);
+  transform: scale(var(--scale-press));
 }
 
 /* ── Toggle Button Base ── */
@@ -302,8 +281,7 @@
 .ctrl-abs-btn {
   position: absolute;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: calc(50% - var(--ctrl-size) / 2);
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   color: var(--text-muted);

@@ -108,6 +108,10 @@
 .layer-ctrl .fold-toggle-btn:active {
   transform: scale(var(--scale-press));
 }
+.layer-ctrl .fold-toggle-btn:active svg {
+  transition: transform var(--transition-fast);
+  transform: scale(var(--scale-press));
+}
 .layer-ctrl .fold-toggle-btn svg {
   width: 14px;
   height: 14px;
