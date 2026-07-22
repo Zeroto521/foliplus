@@ -134,7 +134,9 @@
       const updateUI = () => {
         const isFull = !!getFullscreenEl() || map._isFullscreen;
         fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
-        fsBtn.title = isFull ? _(`${CONST.name}.title_cancel`) : _(`${CONST.name}.title`);
+        fsBtn.title = isFull
+          ? _(`${CONST.name}.title_cancel`)
+          : _(`${CONST.name}.title`);
 
         if ({{ this.hide_others | tojson }}) {
           const controls = map
