@@ -27,6 +27,15 @@
 .layer-ctrl.expanded .layer-panel {
   display: flex;
 }
+/* ── LAYERS icon: stacked diamond opacity ── */
+.layer-ctrl .toggle-btn svg polygon:nth-child(2),
+.layer-ctrl .header-icon svg polygon:nth-child(2) {
+  opacity: var(--alpha-70);
+}
+.layer-ctrl .toggle-btn svg polygon:nth-child(3),
+.layer-ctrl .header-icon svg polygon:nth-child(3) {
+  opacity: var(--alpha-30);
+}
 .layer-ctrl .type-icon-col {
   display: flex;
   align-items: center;
