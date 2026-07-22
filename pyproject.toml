@@ -34,7 +34,7 @@ Source = "https://github.com/Zeroto521/foliplus"
 Issues = "https://github.com/Zeroto521/foliplus/issues"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "build", "twine"]
+dev = ["pytest", "pytest-cov", "pytest-xdist", "build", "twine"]
 
 [tool.setuptools_scm]
 write_to = "foliplus/_version.py"
@@ -49,6 +49,9 @@ foliplus = ["js/*.js", "css/*.css", "locale/*.json"]
 testpaths = ["test"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short --cov=foliplus --cov-report=term-missing"
+markers = [
+  "browser: marks tests that require a Playwright browser (e.g., Browser test classes)",
+]
 
 [tool.ruff]
 line-length = 88
