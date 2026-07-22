@@ -134,7 +134,7 @@ class TestFullscreenRendering:
         html = render(base_map)
         # JS creates buttons via window.foliplus.dom.el("button", ...)
         # (multi-line in rendered output, so check for the pattern)
-        assert 'dom.el(' in html and '"button"' in html
+        assert "dom.el(" in html and '"button"' in html
         # No old <a> tag patterns in button creation
         assert 'L.DomUtil.create("a"' not in html
 
