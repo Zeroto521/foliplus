@@ -206,18 +206,6 @@
     transform var(--transition-fast);
   will-change: transform;
 }
-/* All buttons: press scale applies instantly, releases smoothly
-  No color override — hover bg naturally shrinks with the button. */
-:is(
-  .toggle-btn,
-  .tool-btn,
-  .search-mode-btn,
-  .ctrl-abs-btn
-):active {
-  transition: transform 0s;
-  transform: scale(var(--scale-press));
-}
-
 /* ── Unified Button Hover ──
   All buttons share the same hover background, text color, and scale. */
 :is(
@@ -229,6 +217,18 @@
   background-color: var(--accent-light);
   color: var(--accent-primary);
   transform: scale(var(--scale-hover));
+}
+
+/* All buttons: press scale applies instantly, releases smoothly
+  MUST come AFTER :hover so it wins on same specificity (0,2,0). */
+:is(
+  .toggle-btn,
+  .tool-btn,
+  .search-mode-btn,
+  .ctrl-abs-btn
+):active {
+  transition: transform 0s;
+  transform: scale(var(--scale-press));
 }
 
 /* ── Button hover scale ──

@@ -94,7 +94,8 @@
   color: var(--text-muted);
   transition:
     color var(--transition-fast),
-    background var(--transition-fast);
+    background var(--transition-fast),
+    transform var(--transition-fast);
 }
 .layer-ctrl .fold-toggle-btn:hover {
   color: var(--accent-primary);
