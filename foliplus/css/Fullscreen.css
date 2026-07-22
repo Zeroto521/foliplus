@@ -10,7 +10,6 @@
   box-shadow: var(--shadow-ctrl-strong);
   border-radius: var(--radius-sm);
   background: var(--ctrl-bg);
-  overflow: hidden;
 }
 
 /* ── Top button gets top radius ── */
@@ -26,6 +25,10 @@
 /* ── Divider between buttons ── */
 .fs-bar .tool-btn {
   border-bottom: var(--border-thin) solid var(--divider-color);
+}
+.fs-bar .tool-btn:active {
+  transition: transform 0s;
+  transform: scale(var(--scale-press));
 }
 .fs-bar .fullscreen-btn {
   border-bottom: none;

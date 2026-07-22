@@ -206,11 +206,8 @@
     transform var(--transition-fast);
   will-change: transform;
 }
-/* Collapsed toggle-btn: button-level scale for visual pop */
-.ctrl-fold.collapsed .toggle-btn:hover {
-  transform: scale(var(--scale-hover));
-}
-/* All buttons: press scale applies instantly, releases smoothly */
+/* All buttons: press scale applies instantly, releases smoothly
+  No color override — hover bg naturally shrinks with the button. */
 :is(
   .toggle-btn,
   .tool-btn,
@@ -222,7 +219,7 @@
 }
 
 /* ── Unified Button Hover ──
-  All buttons share the same hover background and text color. */
+  All buttons share the same hover background, text color, and scale. */
 :is(
   .toggle-btn,
   .tool-btn,
@@ -231,6 +228,7 @@
 ):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
+  transform: scale(var(--scale-hover));
 }
 
 /* ── Button hover scale ──
