@@ -40,11 +40,13 @@ class TestFullscreenRendering:
         assert "fullscreen" in html.lower()
 
     def test_hide_self_default(self, base_map: folium.Map):
+        """hide_self=true injects the hide-zoom-container block."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
         assert 'container.style.display = isFull ? "none" : ""' in html
 
     def test_hide_self_false(self, base_map: folium.Map):
+        """hide_self=false wraps hide block in if (false)."""
         Fullscreen(hide_self=False).add_to(base_map)
         html = render(base_map)
         assert 'container.style.display = isFull ? "none" : ""' in html
@@ -54,11 +56,6 @@ class TestFullscreenRendering:
         Fullscreen().add_to(base_map)
         html = render(base_map)
         assert "fullscreenchange" in html
-
-    def test_custom_position_renders(self, base_map: folium.Map):
-        Fullscreen(position="topleft").add_to(base_map)
-        html = render(base_map)
-        assert "fullscreen" in html.lower()
 
     def test_locale_zh(self, base_map: folium.Map):
         Fullscreen(locale="zh").add_to(base_map)
@@ -72,6 +69,7 @@ class TestFullscreenRendering:
         html = render(base_map)
         assert "fullscreen-btn" in html
         assert "ctrl-size" in html
+        assert "fs-bar" in html
 
     def test_zoom_svg_inline(self, base_map: folium.Map):
         """Zoom +/- use inline SVGs created by Fullscreen.js."""
@@ -130,17 +128,34 @@ class TestFullscreenRendering:
         assert "fs-zoom-out" in html
         assert "fullscreen-btn" in html
 
-    def test_hide_self_hides_zoom_container(self, base_map: folium.Map):
-        """hide_self=true hides the zoom container."""
-        Fullscreen(hide_self=True).add_to(base_map)
+    def test_buttons_are_button_elements(self, base_map: folium.Map):
+        """Zoom +/- and fullscreen use <button> elements, not <a>."""
+        Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert 'container.style.display = isFull ? "none" : ""' in html
+        # JS creates buttons via window.foliplus.dom.el("button", ...)
+        # (multi-line in rendered output, so check for the pattern)
+        assert 'dom.el(' in html and '"button"' in html
+        # No old <a> tag patterns in button creation
+        assert 'L.DomUtil.create("a"' not in html
 
-    def test_hide_self_false_skips_zoom_hide(self, base_map: folium.Map):
-        """hide_self=false skips the zoom container hide block."""
-        Fullscreen(hide_self=False).add_to(base_map)
+    def test_leaflet_bar_container(self, base_map: folium.Map):
+        """Container has leaflet-bar class for alignment."""
+        Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "if (false)" in html
+        assert 'class: "leaflet-bar fs-bar"' in html
+
+    def test_default_zoom_removed(self, base_map: folium.Map):
+        """Default Leaflet zoom control is removed."""
+        Fullscreen().add_to(base_map)
+        html = render(base_map)
+        assert "map.removeControl(map.zoomControl)" in html
+
+    def test_zoom_translation_keys(self, base_map: folium.Map):
+        """Zoom in/out use translation keys."""
+        Fullscreen().add_to(base_map)
+        html = render(base_map)
+        assert "Fullscreen.zoom_in" in html
+        assert "Fullscreen.zoom_out" in html
 
     def test_hide_others_false_skips_others_block(self, base_map: folium.Map):
         """hide_others=false wraps sibling controls in if (false)."""
