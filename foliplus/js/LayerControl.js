@@ -30,11 +30,11 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   const SVGS = {
-    LIST: `
+    LAYERS: `
       <svg viewBox="0 0 24 24">
-        <circle cx="5.5" cy="5" r="2"/><line x1="10" y1="5" x2="21" y2="5"/>
-        <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
-        <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
+        <polygon points="12 2 22 7 12 12 2 7"/>
+        <polygon points="2 11 12 16 22 11"/>
+        <polygon points="2 16 12 21 22 16"/>
       </svg>`,
     DRAG_HANDLE: `
       <svg viewBox="0 0 24 24" class="drag-handle">
@@ -77,7 +77,7 @@
       </svg>`,
   };
 
-  window.foliplus.registerHintIcon(CONST.name, SVGS.LIST);
+  window.foliplus.registerHintIcon(CONST.name, SVGS.LAYERS);
 
   // Guard Leaflet's bringToFront against null parentNode during enforceOrder
   // layer migration (enforceOrder briefly removes layers from the map, and a
@@ -1581,12 +1581,12 @@
         <div class="map-panel ctrl-fold layer-ctrl collapsed" id="{{ this.get_name() }}_ctrl">
           <button class="toggle-btn" title="${_(CONST.name + ".toggle_title")}"
                   aria-label="${_(CONST.name + ".toggle_title")}">
-            ${SVGS.LIST}
+            ${SVGS.LAYERS}
           </button>
           <div class="layer-panel" role="dialog" aria-label="${_(CONST.name + ".panel_title")}">
             <div class="panel-header" title="${_(CONST.name + ".close_title")}">
               <span class="header-title">
-                <span class="header-icon">${SVGS.LIST}</span>
+                <span class="header-icon">${SVGS.LAYERS}</span>
                 ${_(CONST.name + ".panel_title")}
               </span>
               <button class="ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
