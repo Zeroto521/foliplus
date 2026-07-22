@@ -166,10 +166,7 @@
     .tool-btn,
     .map-hint-icon,
     .header-icon,
-    .type-icon-col,
-    .leaflet-control-zoom-fullscreen,
-    .leaflet-bar .leaflet-control-zoom-in,
-    .leaflet-bar .leaflet-control-zoom-out
+    .type-icon-col
   )
   svg {
   width: var(--icon-size-md);
@@ -187,15 +184,12 @@
 }
 
 /* ── Unified Component Button Reset ──
-  Base reset for all foliplus and Leaflet native buttons. */
+  Base reset for all foliplus buttons. */
 :is(
   .toggle-btn,
   .tool-btn,
   .search-mode-btn,
-  .ctrl-abs-btn,
-  .leaflet-control-zoom-in,
-  .leaflet-control-zoom-out,
-  .leaflet-control-zoom-fullscreen
+  .ctrl-abs-btn
 ) {
   display: flex;
   align-items: center;
@@ -221,25 +215,19 @@
   .toggle-btn,
   .tool-btn,
   .search-mode-btn,
-  .ctrl-abs-btn,
-  .leaflet-control-zoom-in,
-  .leaflet-control-zoom-out,
-  .leaflet-control-zoom-fullscreen
+  .ctrl-abs-btn
 ):active {
-  transition: none;
+  transition: transform 0s;
   transform: scale(var(--scale-press));
 }
 
-/* ── Unified Button Hover/Active ──
+/* ── Unified Button Hover ──
   All buttons share the same hover background and text color. */
 :is(
   .toggle-btn,
   .tool-btn,
   .search-mode-btn,
-  .ctrl-abs-btn,
-  .leaflet-control-zoom-in,
-  .leaflet-control-zoom-out,
-  .leaflet-control-zoom-fullscreen
+  .ctrl-abs-btn
 ):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
@@ -250,28 +238,11 @@
 :is(
     .tool-btn,
     .search-mode-btn,
-    .ctrl-abs-btn,
-    .leaflet-control-zoom-fullscreen,
-    .leaflet-control-zoom-in,
-    .leaflet-control-zoom-out
+    .ctrl-abs-btn
   ):hover
   svg,
 .ctrl-fold.expanded .toggle-btn:hover svg {
   transform: scale(var(--scale-hover));
-}
-
-/* ── Button active inset shadow ──
-  Pressed-in feedback for all interactive buttons. */
-:is(
-  .toggle-btn,
-  .tool-btn,
-  .search-mode-btn,
-  .ctrl-abs-btn,
-  .leaflet-control-zoom-in,
-  .leaflet-control-zoom-out,
-  .leaflet-control-zoom-fullscreen
-):active {
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, var(--alpha-20));
 }
 
 /* ── Toggle Button Base ── */

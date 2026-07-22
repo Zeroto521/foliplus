@@ -156,6 +156,6 @@
   transform: scale(var(--scale-hover));
 }
 .measure-del-icon:active {
-  transition: none;
+  transition: transform 0s;
   transform: scale(var(--scale-press));
 }
