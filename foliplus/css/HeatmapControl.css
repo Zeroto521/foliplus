@@ -84,11 +84,7 @@
   outline: none;
   box-sizing: border-box;
   appearance: none;
-}
-.heatmap-ctrl .form-select:focus,
-.heatmap-ctrl select:focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  transition: var(--transition-input);
 }
 
 /* Class count small select */
@@ -98,9 +94,11 @@
 }
 
 /* Placeholder select styling */
-.heatmap-ctrl select.is-placeholder,
-.heatmap-ctrl select option.placeholder-option,
-.heatmap-ctrl select option.placeholder-option:disabled {
+:is(
+  .heatmap-ctrl select.is-placeholder,
+  .heatmap-ctrl select option.placeholder-option,
+  .heatmap-ctrl select option.placeholder-option:disabled
+) {
   color: var(--text-muted);
 }
 
@@ -130,9 +128,7 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  transition:
-    box-shadow var(--transition-fast),
-    border-color var(--transition-fast);
+  transition: var(--transition-input);
 }
 .heatmap-ctrl .scheme-bar-inner {
   flex: 1;
@@ -144,6 +140,9 @@
 .heatmap-ctrl .scheme-bar-block {
   flex: 1;
   height: 100%;
+  transition:
+    filter var(--transition-fast),
+    opacity var(--transition-fast);
 }
 .heatmap-ctrl .scheme-bar::after {
   content: "";
@@ -157,10 +156,6 @@
   border-right: var(--size-4) solid transparent;
   border-top: var(--size-6) solid var(--text-muted);
   pointer-events: none;
-}
-.heatmap-ctrl .scheme-bar:hover {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 /* Scheme row: form-control-wrap needs relative positioning for the dropdown */
 .heatmap-ctrl .form-row:has(.scheme-bar) .form-control-wrap {
@@ -202,6 +197,7 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: var(--text-primary);
+  transition: background var(--transition-fast);
 }
 .heatmap-ctrl .scheme-dropdown-item:hover {
   background: var(--ctrl-hover-bg);
@@ -230,7 +226,9 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   background: none;
+  outline: none;
   box-sizing: border-box;
+  transition: var(--transition-input);
 }
 .heatmap-ctrl .border-color-input::-webkit-color-swatch-wrapper {
   padding: var(--border-thin);
@@ -251,10 +249,7 @@
   outline: none;
   box-sizing: border-box;
   text-align: center;
-}
-.heatmap-ctrl .border-weight-input:focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  transition: var(--transition-input);
 }
 .heatmap-ctrl .border-weight-input::-webkit-outer-spin-button,
 .heatmap-ctrl .border-weight-input::-webkit-inner-spin-button {
@@ -300,11 +295,22 @@
   bottom: var(--size-2);
   background-color: var(--neutral-0);
   border-radius: var(--radius-round);
-  transition: transform var(--transition-fast);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
   box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
+}
+.heatmap-ctrl .toggle-switch:hover .toggle-slider {
+  background-color: var(--neutral-500);
+}
+.heatmap-ctrl .toggle-switch:hover .toggle-slider::before {
+  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider {
   background-color: var(--accent-primary);
+}
+.heatmap-ctrl .toggle-switch:hover input:checked + .toggle-slider {
+  background-color: var(--btn-primary-hover);
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider::before {
   transform: translateX(var(--size-20));
@@ -325,26 +331,38 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  color: var(--neutral-0);
   transition:
     background var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+.heatmap-ctrl .btn:hover,
+.heatmap-ctrl .btn:active {
+  color: var(--neutral-0);
 }
 .heatmap-ctrl .btn-clear {
   background: var(--text-muted);
-  color: var(--neutral-0);
   border: none;
 }
 .heatmap-ctrl .btn-clear:hover {
   background: var(--text-primary);
+  transform: scale(var(--scale-hover));
+}
+.heatmap-ctrl .btn-clear:active {
+  transform: scale(var(--scale-press));
 }
 .heatmap-ctrl .btn-confirm {
   background: var(--btn-primary-bg);
-  color: var(--neutral-0);
   box-shadow: var(--accent-shadow-sm);
 }
 .heatmap-ctrl .btn-confirm:hover {
   background: var(--btn-primary-hover);
   box-shadow: var(--accent-shadow-md);
+  transform: scale(var(--scale-hover));
+}
+.heatmap-ctrl .btn-confirm:active {
+  transform: scale(var(--scale-press));
 }
 
 .heatmap-ctrl .section-divider {

@@ -126,6 +126,8 @@
 
   /* ── Transitions ── */
   --transition-fast: 0.15s ease;
+  --transition-input:
+    border-color var(--transition-fast), box-shadow var(--transition-fast);
 
   /* ── Micro Visual Adjustments ── */
   --stroke-icon: 1.8;
@@ -159,12 +161,7 @@
   All SVGs in foliplus components default to 18×18.
   PIN_ICON, drag-handle override per their context.
 ── */
-.ctrl-fold svg,
-.tool-btn svg,
-.map-hint-icon svg,
-.header-icon svg,
-.type-icon-col svg,
-.leaflet-control-zoom-fullscreen svg {
+:is(.ctrl-fold, .tool-btn, .map-hint-icon, .header-icon, .type-icon-col) svg {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   stroke: currentColor;
@@ -180,14 +177,8 @@
 }
 
 /* ── Unified Component Button Reset ──
-  Base reset for all foliplus and Leaflet native buttons. */
-.toggle-btn,
-.tool-btn,
-.search-mode-btn,
-.ctrl-abs-btn,
-.leaflet-control-zoom-in,
-.leaflet-control-zoom-out,
-.leaflet-control-zoom-fullscreen {
+  Base reset for all foliplus buttons. */
+:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -203,48 +194,32 @@
     transform var(--transition-fast);
   will-change: transform;
 }
-
-/* ── Unified Button Hover/Active ──
-  All buttons share the same hover background and text color.
-  Individual overrides (e.g. transform:none, ruler-icon) are in component CSS. */
-.toggle-btn:hover,
-.tool-btn:hover,
-.search-mode-btn:hover,
-.ctrl-abs-btn:hover,
-.leaflet-control-zoom-in:hover,
-.leaflet-control-zoom-out:hover,
-.leaflet-control-zoom-fullscreen:hover {
+/* ── Unified Button Hover ──
+  All buttons share the same hover background, text color, and scale.
+  Component-specific buttons (e.g. HeatmapControl btn-clear) override
+  color in their own CSS to keep their text white. */
+:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
-}
-
-/* Collapsed toggle-btn: button-level scale for visual pop */
-.ctrl-fold.collapsed .toggle-btn:hover {
   transform: scale(var(--scale-hover));
 }
-.ctrl-fold.collapsed .toggle-btn:active {
+
+/* All buttons: press scale uses inherited transition (--transition-fast, 0.15s)
+  MUST come AFTER :hover so it wins on same specificity (0,2,0). */
+:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn):active {
   transform: scale(var(--scale-press));
 }
 
-/* SVG hover scale — for buttons with inline SVG */
-.tool-btn:hover svg,
-.search-mode-btn:hover svg,
-.ctrl-abs-btn:hover svg,
-.leaflet-control-zoom-fullscreen:hover svg,
-.leaflet-control-zoom-in:hover svg,
-.leaflet-control-zoom-out:hover svg,
+/* ── Button hover/active SVG scale ──
+  SVG-level parallax for buttons that also have button-level scale.
+  toggle-btn added via expanded context for fold controls. */
+:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):hover svg,
 .ctrl-fold.expanded .toggle-btn:hover svg {
   transform: scale(var(--scale-hover));
 }
-
-/* SVG active scale */
-.tool-btn:active svg,
-.search-mode-btn:active svg,
-.ctrl-abs-btn:active svg,
-.leaflet-control-zoom-fullscreen:active svg,
-.leaflet-control-zoom-in:active svg,
-.leaflet-control-zoom-out:active svg,
+:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):active svg,
 .ctrl-fold.expanded .toggle-btn:active svg {
+  transition: transform var(--transition-fast);
   transform: scale(var(--scale-press));
 }
 
@@ -308,8 +283,7 @@
 .ctrl-abs-btn {
   position: absolute;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: calc(50% - var(--ctrl-size) / 2);
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   color: var(--text-muted);
@@ -320,6 +294,28 @@
   position: relative;
   width: var(--size-24);
   height: var(--toggle-size);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+  Unified Input Interaction States
+  All foliplus text/select/color/checkbox inputs share the same
+  hover/focus/active visual feedback.
+  Component-specific sizing/layout stays in each CSS file.
+  ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Hover/Focus: red border + red glow ── */
+:is(
+  .map-search input,
+  .heatmap-ctrl .form-select,
+  .heatmap-ctrl select,
+  .heatmap-ctrl .border-color-input,
+  .heatmap-ctrl .border-weight-input,
+  .heatmap-ctrl .scheme-bar,
+  .layer-ctrl input[type="checkbox"],
+  .layer-ctrl .color-layer-input
+):is(:hover, :focus) {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 
 .popup-content {

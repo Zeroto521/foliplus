@@ -5,6 +5,8 @@
   "Fullscreen.exit": "已退出全屏",
   "Fullscreen.title": "全屏",
   "Fullscreen.title_cancel": "退出全屏",
+  "Fullscreen.zoom_in": "放大",
+  "Fullscreen.zoom_out": "缩小",
   "HeatmapControl.title": "网格聚合",
   "HeatmapControl.layer": "图层",
   "HeatmapControl.layer_placeholder": "选择点图层",

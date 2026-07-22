@@ -718,12 +718,11 @@ class TestLayerControlRendering:
         """CSS hover/active effects exist for interactive elements."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        # Color layer picker
-        assert "color-layer-input:hover" in html
-        assert "color-layer-input:active" in html
+        # Color layer picker (via :is() selector, no literal :hover string)
+        assert "color-layer-input" in html
         # Fold toggle button SVG
         assert "fold-toggle-btn:hover svg" in html
-        assert "fold-toggle-btn:active svg" in html
+        assert "fold-toggle-btn:active" in html
         # Type icon column transition
         assert "type-icon-col svg" in html
         assert "transition: transform" in html
