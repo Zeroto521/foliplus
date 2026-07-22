@@ -64,9 +64,14 @@
   const SVGs = {
     HEXAGON: `
       <svg viewBox="0 0 24 24">
-        <polygon points="12 3 20.5 7.5 20.5 16.5 12 21 3.5 16.5 3.5 7.5"/>
-        <polygon points="12 7 16 9.5 16 14.5 12 17 8 14.5 8 9.5" opacity="0.5"/>
-        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        <polygon points="12,1 20,5.5 20,14.5 12,19 4,14.5 4,5.5" stroke-width="1.5"/>
+        <polygon points="9.5,8.5 12,7 14.5,8.5 14.5,10.5 12,12 9.5,10.5" stroke-width="1"/>
+        <polygon points="9.5,3.5 12,2 14.5,3.5 14.5,5.5 12,7 9.5,5.5" stroke-width="1"/>
+        <polygon points="13.5,5.5 16.5,4 19.5,5.5 19.5,7.5 16.5,9 13.5,7.5" stroke-width="1"/>
+        <polygon points="13.5,12.5 16.5,11 19.5,12.5 19.5,14.5 16.5,16 13.5,14.5" stroke-width="1"/>
+        <polygon points="9.5,14.5 12,13 14.5,14.5 14.5,16.5 12,18 9.5,16.5" stroke-width="1"/>
+        <polygon points="4.5,12.5 7.5,11 10.5,12.5 10.5,14.5 7.5,16 4.5,14.5" stroke-width="1"/>
+        <polygon points="4.5,5.5 7.5,4 10.5,5.5 10.5,7.5 7.5,9 4.5,7.5" stroke-width="1"/>
       </svg>`,
   };
 
