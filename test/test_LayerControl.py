@@ -128,6 +128,8 @@ class TestLayerControlRendering:
         assert 'if (leaves.length === 0) return "empty"' in html
         # Has leaves but none match known types → 'unknown'
         assert 'if (!hasPoly && !hasLine && !hasPoint) return "unknown"' in html
+        # Mixed geometry types → 'unknown'
+        assert 'if (typeCount > 1) return "unknown"' in html
 
     def test_type_svg_fallback(self, base_map: folium.Map):
         """getTypeSVG returns EMPTY/UNKNOWN for non-standard layers."""

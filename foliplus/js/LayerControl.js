@@ -54,9 +54,9 @@
       </svg>`,
     UNKNOWN: `
       <svg viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="6.5"/>
-        <text x="12" y="12.5" text-anchor="middle" dominant-baseline="central"
-              font-size="12" font-weight="bold" fill="currentColor">?</text>
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+        <circle cx="12" cy="17" r="0.8" fill="currentColor" stroke="none"/>
       </svg>`,
     COLOR: `
       <svg viewBox="0 0 24 24">
@@ -139,6 +139,9 @@
       }
       // Has leaves but none match known types → unknown
       if (!hasPoly && !hasLine && !hasPoint) return "unknown";
+      // Mixed geometry types (e.g. GeometryCollection with Point+Line+Polygon) → unknown
+      const typeCount = hasPoly + hasLine + hasPoint;
+      if (typeCount > 1) return "unknown";
       return hasPoly ? "polygon" : hasLine ? "line" : "point";
     }
 
