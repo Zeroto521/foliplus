@@ -144,13 +144,6 @@
     filter var(--transition-fast),
     opacity var(--transition-fast);
 }
-.heatmap-ctrl .scheme-bar-inner:hover .scheme-bar-block {
-  opacity: var(--alpha-70);
-}
-.heatmap-ctrl .scheme-bar-inner:hover .scheme-bar-block:hover {
-  opacity: 1;
-  filter: brightness(1.15);
-}
 .heatmap-ctrl .scheme-bar::after {
   content: "";
   position: absolute;
