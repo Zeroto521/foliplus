@@ -1,15 +1,17 @@
-.PHONY : help clean lint test dist info
+.PHONY : help clean lint test dist info test-browser test-python
 
 help:
-	@echo "'clean'       - remove all build/cache artifacts"
-	@echo "'clean-build' - remove build artifacts"
-	@echo "'clean-pyc'   - remove Python cache files"
-	@echo "'clean-cov'   - remove coverage files"
-	@echo "'clean-html'  - remove built documentation"
-	@echo "'lint'        - run pre-commit hooks"
-	@echo "'test'        - run tests with coverage"
-	@echo "'dist'        - build sdist + wheel"
-	@echo "'info'        - show environment info"
+	@echo "'clean'        - remove all build/cache artifacts"
+	@echo "'clean-build'  - remove build artifacts"
+	@echo "'clean-pyc'    - remove Python cache files"
+	@echo "'clean-cov'    - remove coverage files"
+	@echo "'clean-html'   - remove built documentation"
+	@echo "'lint'         - run pre-commit hooks"
+	@echo "'test'         - run all tests with coverage"
+	@echo "'test-python'  - run Python-only tests (skip browser)"
+	@echo "'test-browser' - run browser tests"
+	@echo "'dist'         - build sdist + wheel"
+	@echo "'info'         - show environment info"
 
 clean-build:
 	rm -fr build/
@@ -22,7 +24,7 @@ clean-pyc:
 	find . -name '*~' -exec rm -f {} +
 
 clean-cov:
-	rm -rf coverage.xml .coverage
+	rm -rf coverage.xml .coverage coverage/
 
 clean-html:
 	rm -rf doc/_build
@@ -33,8 +35,17 @@ clean: clean-build clean-pyc clean-cov clean-html
 lint:
 	pre-commit run -a -v
 
+# Parallel test workers. Use CPU count by default, override with JOBS=N.
+JOBS ?= auto
+
 test:
-	pytest -v -r a --color=yes --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
+
+test-python:
+	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
+
+test-browser:
+	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
 
 dist:
 	python -m build
