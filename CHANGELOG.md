@@ -24,7 +24,8 @@
 - `HeatmapControl`, `MeasureControl`: label z-index offset (`+1`) is now applied automatically by `LayerControl`; label pane detection improved to use pre-registration in `createManagedLayers` instead of fragile string matching ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35), [#53](https://github.com/Zeroto521/foliplus/pull/53))
 - `HeatmapControl`: migrated from `L.divIcon` based SVG hexagons to Canvas 2D rendering (`createCanvas` API). Significant performance improvement for large point datasets ([#38](https://github.com/Zeroto521/foliplus/pull/38))
 - Unified `HINT_DURATION` constants across all components: `SHORT` (1200ms), `MEDIUM` (2500ms), `LONG` (4000ms), `PERSIST` (0 — persistent); `HeatmapControl`/`MeasureControl`/`MapSearch` updated to use these tiers ([#41](https://github.com/Zeroto521/foliplus/pull/41))
-- Unified button interaction system: all interactive buttons now share consistent hover (red accent + `scale(1.08)`) and active (`scale(0.92)`) effects via `common.css` design tokens; SVG colors inherit from parent button via `currentColor`, eliminating redundant hover stroke rules; applied to `toggle-btn`/`tool-btn`/`search-mode-btn`/`ctrl-abs-btn`/`leaflet-control-zoom-*` and their nested SVGs ([#37](https://github.com/Zeroto521/foliplus/pull/37), [#56](https://github.com/Zeroto521/foliplus/pull/56))
+- Unified button interaction system: `toggle-btn`, `tool-btn`, `search-mode-btn`, `ctrl-abs-btn` now share a single `:is()` rule in `common.css` for consistent hover (`scale(1.08)` + red accent) and active (`scale(0.92)`) effects ([#37](https://github.com/Zeroto521/foliplus/pull/37), [#56](https://github.com/Zeroto521/foliplus/pull/56), [#58](https://github.com/Zeroto521/foliplus/pull/58))
+- `Fullscreen`: no external CDN dependencies, rewritten `Fullscreen` ([#58](https://github.com/Zeroto521/foliplus/pull/58))
 
 ### Fixed
 

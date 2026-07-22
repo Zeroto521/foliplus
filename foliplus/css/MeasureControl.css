@@ -60,25 +60,27 @@
 }
 
 /* ── Shared stroke/fill/dasharray for all measurement paths ── */
-.measure-node,
-.measure-line-solid,
-.measure-line-dashed,
-.measure-line-preview,
-.measure-circle-final,
-.measure-circle-preview {
+:is(
+  .measure-node,
+  .measure-line-solid,
+  .measure-line-dashed,
+  .measure-line-preview,
+  .measure-circle-final,
+  .measure-circle-preview
+) {
   stroke: var(--accent-primary);
 }
 
-.measure-node-final,
-.measure-line-solid,
-.measure-line-dashed,
-.measure-circle-final {
+:is(
+  .measure-node-final,
+  .measure-line-solid,
+  .measure-line-dashed,
+  .measure-circle-final
+) {
   stroke-width: 2.5px;
 }
 
-.measure-node-preview,
-.measure-line-preview,
-.measure-circle-preview {
+:is(.measure-node-preview, .measure-line-preview, .measure-circle-preview) {
   stroke-width: var(--size-2);
 }
 
@@ -130,15 +132,23 @@
   cursor: pointer;
   pointer-events: auto;
   box-shadow: none;
-  display: none;
+  opacity: 0;
+  visibility: hidden;
   top: calc(-1 * var(--size-12) - var(--size-2));
   left: var(--size-4);
   right: auto;
   margin: 0;
   align-items: center;
   justify-content: center;
+  transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast),
+    transform var(--transition-fast),
+    background var(--transition-fast);
 }
 .measure-del-icon.visible {
+  opacity: 1;
+  visibility: visible;
   display: flex;
 }
 .measure-del-icon:hover {

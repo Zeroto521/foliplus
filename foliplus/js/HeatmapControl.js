@@ -785,16 +785,25 @@
             this.toggleSchemeDropdown();
           }
         };
-        this.schemeBar.onblur = () => {
-          setTimeout(() => {
-            if (
-              this.schemeDropdown &&
-              !this.schemeDropdown.contains(document.activeElement)
-            ) {
-              this.schemeDropdown.remove();
-              this.schemeDropdown = null;
-            }
-          }, CONST.SCHEME_DROPDOWN_BLUR_DELAY_MS);
+
+        // Close scheme dropdown when clicking outside
+        this.closeSchemeDropdown = (e) => {
+          if (
+            this.schemeDropdown &&
+            !this.schemeBar.contains(e.target) &&
+            !this.schemeDropdown.contains(e.target)
+          ) {
+            this.schemeDropdown.remove();
+            this.schemeDropdown = null;
+            document.removeEventListener("click", this.closeSchemeDropdown);
+          }
+        };
+        // Wrap toggleSchemeDropdown to also register outside-click listener
+        const origToggle = this.toggleSchemeDropdown.bind(this);
+        this.toggleSchemeDropdown = () => {
+          origToggle();
+          if (this.schemeDropdown)
+            document.addEventListener("click", this.closeSchemeDropdown);
         };
 
         // Border settings

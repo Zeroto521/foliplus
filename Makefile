@@ -49,4 +49,4 @@ info:
 	@python -c "from foliplus import __version__; print(f'foliplus: {__version__}')"
 	@python -c "import folium; print(f'folium: {folium.__version__}')"
 	@python -c "import folium, os, re; folium_dir = os.path.dirname(folium.__file__); fp = os.path.join(folium_dir, 'folium.py'); c = open(fp).read(); m = re.search(r'leaflet@([\d.]+)', c); print(f'Leaflet: {m.group(1)}' if m else 'Leaflet: unknown')"
-	@python -c "from foliplus._cdn import H3_VERSION,CHROMA_VERSION,GCOORD_VERSION,SIMPLE_STATISTICS_VERSION,LEAFLET_FULLSCREEN_VERSION; print(f'CDN: h3={H3_VERSION} ss={SIMPLE_STATISTICS_VERSION} chroma={CHROMA_VERSION} fullscreen={LEAFLET_FULLSCREEN_VERSION} gcoord={GCOORD_VERSION}')"
+	@python -c "from foliplus._cdn import H3_VERSION,CHROMA_VERSION,GCOORD_VERSION,SIMPLE_STATISTICS_VERSION; print(f'CDN: h3={H3_VERSION} ss={SIMPLE_STATISTICS_VERSION} chroma={CHROMA_VERSION} gcoord={GCOORD_VERSION}')"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from ._cdn import LEAFLET_FULLSCREEN_VERSION
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
@@ -36,19 +35,6 @@ class Fullscreen(BaseControl):
     >>> m = folium.Map()
     >>> Fullscreen().add_to(m)
     """
-
-    default_js = [
-        (
-            "Control.Fullscreen.js",
-            f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN_VERSION}/Control.FullScreen.min.js",
-        )
-    ]
-    default_css = [
-        (
-            "Control.FullScreen.css",
-            f"https://cdn.jsdelivr.net/npm/leaflet.fullscreen@{LEAFLET_FULLSCREEN_VERSION}/Control.FullScreen.css",
-        )
-    ]
 
     def __init__(
         self,
