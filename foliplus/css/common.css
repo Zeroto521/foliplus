@@ -195,7 +195,9 @@
   will-change: transform;
 }
 /* ── Unified Button Hover ──
-  All buttons share the same hover background, text color, and scale. */
+  All buttons share the same hover background, text color, and scale.
+  Component-specific buttons (e.g. HeatmapControl btn-clear) override
+  color in their own CSS to keep their text white. */
 :is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);

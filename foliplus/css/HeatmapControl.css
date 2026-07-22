@@ -338,14 +338,18 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  color: var(--neutral-0);
   transition:
     background var(--transition-fast),
     box-shadow var(--transition-fast),
     transform var(--transition-fast);
 }
+.heatmap-ctrl .btn:hover,
+.heatmap-ctrl .btn:active {
+  color: var(--neutral-0);
+}
 .heatmap-ctrl .btn-clear {
   background: var(--text-muted);
-  color: var(--neutral-0);
   border: none;
 }
 .heatmap-ctrl .btn-clear:hover {
@@ -357,7 +361,6 @@
 }
 .heatmap-ctrl .btn-confirm {
   background: var(--btn-primary-bg);
-  color: var(--neutral-0);
   box-shadow: var(--accent-shadow-sm);
 }
 .heatmap-ctrl .btn-confirm:hover {
