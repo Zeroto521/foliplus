@@ -67,14 +67,8 @@
         <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none"/>
         <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/>
       </svg>`,
-    FOLD: `
-      <svg viewBox="0 0 24 24">
-        <polyline points="18 15 12 9 6 15"/>
-      </svg>`,
-    UNFOLD: `
-      <svg viewBox="0 0 24 24">
-        <polyline points="18 9 12 15 6 9"/>
-      </svg>`,
+    FOLD: `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`,
+    UNFOLD: `<svg viewBox="0 0 24 24"><polyline points="18 9 12 15 6 9"/></svg>`,
   };
 
   window.foliplus.registerHintIcon(CONST.name, SVGS.LAYERS);
