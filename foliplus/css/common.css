@@ -213,12 +213,10 @@
 /* ── Button hover/active SVG scale ──
   SVG-level parallax for buttons that also have button-level scale.
   toggle-btn added via expanded context for fold controls. */
-:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):hover svg,
-.ctrl-fold.expanded .toggle-btn:hover svg {
+:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):hover svg {
   transform: scale(var(--scale-hover));
 }
-:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):active svg,
-.ctrl-fold.expanded .toggle-btn:active svg {
+:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):active svg {
   transition: transform var(--transition-fast);
   transform: scale(var(--scale-press));
 }

@@ -367,6 +367,7 @@
   transform: scale(var(--scale-hover));
 }
 .heatmap-ctrl .btn-clear:active {
+  background: var(--text-primary);
   transform: scale(var(--scale-press));
 }
 .heatmap-ctrl .btn-confirm {
@@ -379,6 +380,8 @@
   transform: scale(var(--scale-hover));
 }
 .heatmap-ctrl .btn-confirm:active {
+  background: var(--btn-primary-hover);
+  box-shadow: var(--accent-shadow-md);
   transform: scale(var(--scale-press));
 }
 
