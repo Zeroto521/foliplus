@@ -304,7 +304,7 @@
   background-color: var(--neutral-500);
 }
 .heatmap-ctrl .toggle-switch:hover .toggle-slider::before {
-  box-shadow: 0 1px 6px rgba(0, 0, 0, var(--alpha-50));
+  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider {
   background-color: var(--accent-primary);
