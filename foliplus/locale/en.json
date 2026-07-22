@@ -5,6 +5,8 @@
   "Fullscreen.exit": "Exited fullscreen",
   "Fullscreen.title": "Full Screen",
   "Fullscreen.title_cancel": "Exit Full Screen",
+  "Fullscreen.zoom_in": "Zoom in",
+  "Fullscreen.zoom_out": "Zoom out",
   "HeatmapControl.title": "Hexbin Aggregation",
   "HeatmapControl.layer": "Layer",
   "HeatmapControl.layer_placeholder": "Select a point layer",

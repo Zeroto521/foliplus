@@ -88,8 +88,8 @@
         "button",
         {
           class: "tool-btn fs-zoom-in",
-          "aria-label": _("Fullscreen.zoom_in"),
-          title: _("Fullscreen.zoom_in"),
+          "aria-label": _(`${CONST.name}.zoom_in`),
+          title: _(`${CONST.name}.zoom_in`),
         },
         { html: SVGs.ZOOM_IN },
       );
@@ -104,8 +104,8 @@
         "button",
         {
           class: "tool-btn fs-zoom-out",
-          "aria-label": _("Fullscreen.zoom_out"),
-          title: _("Fullscreen.zoom_out"),
+          "aria-label": _(`${CONST.name}.zoom_out`),
+          title: _(`${CONST.name}.zoom_out`),
         },
         { html: SVGs.ZOOM_OUT },
       );
@@ -120,8 +120,8 @@
         "button",
         {
           class: "tool-btn fullscreen-btn",
-          "aria-label": _("Fullscreen.title"),
-          title: _("Fullscreen.title"),
+          "aria-label": _(`${CONST.name}.title`),
+          title: _(`${CONST.name}.title`),
         },
         { html: SVGs.MAXIMIZE },
       );
@@ -134,7 +134,7 @@
       const updateUI = () => {
         const isFull = !!getFullscreenEl() || map._isFullscreen;
         fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
-        fsBtn.title = isFull ? _("Fullscreen.title_cancel") : _("Fullscreen.title");
+        fsBtn.title = isFull ? _(`${CONST.name}.title_cancel`) : _(`${CONST.name}.title`);
 
         if ({{ this.hide_others | tojson }}) {
           const controls = map
