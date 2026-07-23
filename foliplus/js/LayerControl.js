@@ -153,7 +153,9 @@
 
     /** Resolve a layer by id from map._layers or window fallback. */
     static findLayer(map, id) {
-      return layerRegistry.get(id) || (map._layers && map._layers[id]) || window[id] || null;
+      return (
+        layerRegistry.get(id) || (map._layers && map._layers[id]) || window[id] || null
+      );
     }
 
     /**
