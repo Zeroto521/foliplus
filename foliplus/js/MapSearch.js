@@ -6,9 +6,11 @@
       COORD: "coord",
       ADDR: "addr",
     },
-    NOMINATIM_URL: "https://nominatim.openstreetmap.org/search",
-    NOMINATIM_FORMAT: "jsonv2",
-    NOMINATIM_LIMIT: 1,
+    NOMINATIM: {
+      URL: "https://nominatim.openstreetmap.org/search",
+      FORMAT: "jsonv2",
+      LIMIT: 1,
+    },
     ZOOM: {
       MAX: 16,
       MIN: 12,
@@ -170,13 +172,13 @@
         );
 
         fetch(
-          CONST.NOMINATIM_URL +
+          CONST.NOMINATIM.URL +
             "?format=" +
-            CONST.NOMINATIM_FORMAT +
+            CONST.NOMINATIM.FORMAT +
             "&q=" +
             encodeURIComponent(query) +
             "&limit=" +
-            CONST.NOMINATIM_LIMIT +
+            CONST.NOMINATIM.LIMIT +
             "&accept-language=" +
             (window._LOCALE["locale.code"] || "en"),
         )
