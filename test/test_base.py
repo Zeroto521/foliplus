@@ -135,14 +135,6 @@ class TestBaseControlRendering:
         assert "foliplus.SVGs.GLOBE" in html or "SVGs.GLOBE" in html
         assert "foliplus.SVGs.SEARCH" in html or "SVGs.SEARCH" in html
 
-    def test_load_scripts_function(self, base_map: folium.Map):
-        """loadScripts function is defined in runtime.js."""
-        from foliplus import MapSearch
-
-        MapSearch().add_to(base_map)
-        html = render(base_map)
-        assert "foliplus.loadScripts" in html
-
     def test_resolve_locale_function(self, base_map: folium.Map):
         """resolveLocale function is defined in runtime.js."""
         from foliplus import MapSearch
@@ -187,14 +179,6 @@ class TestBaseControlRendering:
         html = render(base_map)
         assert "MAX_WIDTH: 300" in html
 
-    def test_load_scripts_uses_promises(self, base_map: folium.Map):
-        """loadScripts returns a promise-based API."""
-        from foliplus import MapSearch
-
-        MapSearch().add_to(base_map)
-        html = render(base_map)
-        assert "new Promise" in html or "resolve()" in html or "reject()" in html
-
     def test_gcoord_detection_helpers(self, base_map: folium.Map):
         """Coordinate detection helpers exist."""
         from foliplus import MapSearch
@@ -203,15 +187,6 @@ class TestBaseControlRendering:
         html = render(base_map)
         assert "isBaiduCRS" in html
         assert "isDomesticMap" in html
-
-    def test_gcoord_loading_state(self, base_map: folium.Map):
-        """gcoord loading states are tracked."""
-        from foliplus import MapSearch
-
-        MapSearch().add_to(base_map)
-        html = render(base_map)
-        assert "_gcoordLoading" in html
-        assert "_gcoordWarned" in html
 
     def test_geo_cache_and_throttle(self, base_map: folium.Map):
         """Reverse geocode has cache and throttle logic."""

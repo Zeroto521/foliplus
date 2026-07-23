@@ -414,14 +414,9 @@ class TestHeatmapControlBrowser:
 
     @staticmethod
     def _stub_html(html: str) -> str:
-        """Apply CDN stubs so the heatmap UI initialises without network."""
-        for dep in ("h3", "ss", "chroma"):
-            html = html.replace(
-                f'check: () => typeof {dep} !== "undefined"',
-                "check: () => true",
-            )
+        """Inject CDN stubs so the heatmap UI initialises without network."""
         html = html.replace(
-            'if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();',
+            "run();",
             'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
             "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
             'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'
@@ -712,23 +707,10 @@ class TestHeatmapAutoFieldBrowser:
 
         page = browser.new_page()
 
-        # Stub loadScripts so the heatmap UI initializes without network deps.
-        # Also inject stubs for h3/ss/chroma so the heatmap initialisation and
+        # Inject stubs for h3/ss/chroma so the heatmap initialisation and
         # render path succeed without CDN scripts.
         html = html.replace(
-            'check: () => typeof h3 !== "undefined"',
-            "check: () => true",
-        )
-        html = html.replace(
-            'check: () => typeof ss !== "undefined"',
-            "check: () => true",
-        )
-        html = html.replace(
-            'check: () => typeof chroma !== "undefined"',
-            "check: () => true",
-        )
-        html = html.replace(
-            'if (ok && typeof h3 !== "undefined" && typeof ss !== "undefined") return run();',
+            "run();",
             'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
             "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
             'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'

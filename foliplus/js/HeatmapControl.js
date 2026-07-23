@@ -2,7 +2,6 @@
   // ==================== Constants ====================
   const CONST = {
     name: "HeatmapControl",
-    jsdelivr: "https://cdn.jsdelivr.net/npm/",
     ZOOM_DEBOUNCE_MS: 200,
     LAYER_SCAN_DEBOUNCE_MS: 200,
     INIT_SCAN_ATTEMPTS: 8,
@@ -80,42 +79,6 @@
   };
 
   window.foliplus.registerHintIcon(CONST.name, SVGs.HEXAGON);
-
-  // --- Dynamic Dependency Loader ---
-  // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
-  const CDN = (window.foliplus && window.foliplus.CDN) || {};
-  const DEPS = [
-    {
-      name: "h3",
-      url: CONST.jsdelivr + "h3-js@" + (CDN.H3 || "4") + "/dist/h3-js.umd.js",
-      check: () => typeof h3 !== "undefined",
-      localeKey: `${CONST.name}.no_h3`,
-    },
-    {
-      name: "ss",
-      url:
-        CONST.jsdelivr +
-        "simple-statistics@" + (CDN.SS || "7") + "/dist/simple-statistics.min.js",
-      check: () => typeof ss !== "undefined",
-      localeKey: `${CONST.name}.no_ss`,
-    },
-    {
-      name: "chroma",
-      url: CONST.jsdelivr + "chroma-js@" + (CDN.CHROMA || "2") + "/chroma.min.js",
-      check: () => typeof chroma !== "undefined",
-      localeKey: `${CONST.name}.no_chroma`,
-    },
-  ];
-
-  window.foliplus.loadScripts(
-    DEPS,
-    (ok) => {
-      if (ok) return run();
-    },
-    CONST.LOAD_SCRIPT_RETRIES,
-    CONST.LOAD_SCRIPT_INTERVAL_MS,
-    CONST.name,
-  );
 
   function run() {
     // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
