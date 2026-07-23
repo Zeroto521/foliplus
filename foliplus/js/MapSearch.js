@@ -34,8 +34,8 @@
   window.foliplus.registerHintIcon(CONST.name, window.foliplus.SVGs.SEARCH);
 
   // ==================== Control Definition ====================
-    class MapSearchControl extends L.Control {
-      onAdd() {
+  class MapSearchControl extends L.Control {
+    onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
           cssClass: "map-search",
@@ -67,7 +67,8 @@
 
       let mk = null;
       let mode = "{{ this.mode }}";
-      if (mode !== CONST.MODE.COORD && mode !== CONST.MODE.ADDR) mode = CONST.MODE.COORD;
+      if (mode !== CONST.MODE.COORD && mode !== CONST.MODE.ADDR)
+        mode = CONST.MODE.COORD;
 
       setMode(mode);
 
