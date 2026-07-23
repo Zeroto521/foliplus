@@ -153,7 +153,7 @@
 
     /** Resolve a layer by id from map._layers or window fallback. */
     static findLayer(map, id) {
-      return (map._layers && map._layers[id]) || layerRegistry.get(id) || null;
+      return layerRegistry.get(id) || (map._layers && map._layers[id]) || window[id] || null;
     }
 
     /**
@@ -214,6 +214,7 @@
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
+      this.findLayer = this.findLayer.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
       this.isEnforcing = false;
       this.isDestroyed = false;
@@ -332,6 +333,7 @@
     //   const api = window.foliplus.LayerControlAPI;
     //   api.registerLayer({ id: 'myLayer', name: 'My Layer', layer: leafletLayer });
     //   api.unregisterLayer('myLayer');
+    //   api.findLayer('myLayer');
     //   const type = api.getLayerType('myLayer');
     //   const layers = api.getLayersByType('polygon');
 
@@ -354,6 +356,15 @@
       for (const [id, info] of this.typeMap)
         if (info.type === type) result.push({ id, name: info.name });
       return result;
+    }
+
+    /**
+     * Resolve a registered layer by id from map._layers or internal registry.
+     * @param {string} id - Layer ID.
+     * @returns {Object|null} Leaflet layer or null.
+     */
+    findLayer(id) {
+      return LayerUtils.findLayer(this.map, id);
     }
 
     /**
@@ -1544,9 +1555,9 @@
       this.typeMap.clear();
       this.layerCallbacks.clear();
       this.pendingRegistrations = [];
-      if (window.foliplus.LayerControlAPI === this) {
+      layerRegistry.clear();
+      if (window.foliplus.LayerControlAPI === this)
         window.foliplus.LayerControlAPI = null;
-      }
     }
   }
 
