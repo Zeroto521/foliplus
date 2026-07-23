@@ -101,23 +101,42 @@
   pointer-events: none;
 }
 
-/* ── Finish flash animation ── */
-@keyframes measure-flash {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  25%,
-  75% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0;
+/* ── Finish animations ── */
+
+/* Dash sweep: animate stroke-dashoffset → 0, drawing the line from start to end. */
+@keyframes measure-dash-sweep {
+  to {
+    stroke-dashoffset: 0;
   }
 }
-.measure-line-solid.is-flash,
-.measure-circle-final.is-flash {
-  animation: measure-flash 0.6s ease-in-out 2;
+.measure-line-solid.is-dash-sweep {
+  stroke-dasharray: var(--sweep-length, 1000) var(--sweep-length, 1000);
+  animation: measure-dash-sweep 0.5s ease-in-out;
+}
+
+/* Ripple: scale up from center while fading out, like a water ripple. */
+@keyframes measure-ripple {
+  0% {
+    opacity: 0.6;
+    r: var(--ripple-r, 0);
+  }
+  100% {
+    opacity: 0;
+    r: calc(var(--ripple-r, 0) + 30);
+  }
+}
+.measure-circle-final.is-ripple::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--ripple-y, 0) * 1px);
+  left: calc(var(--ripple-x, 0) * 1px);
+  width: calc(var(--ripple-r, 0) * 2px);
+  height: calc(var(--ripple-r, 0) * 2px);
+  border-radius: 50%;
+  border: 2.5px solid var(--accent-primary);
+  transform: translate(-50%, -50%);
+  animation: measure-ripple 0.7s ease-out forwards;
+  pointer-events: none;
 }
 
 /* ── Measurement Labels ── */

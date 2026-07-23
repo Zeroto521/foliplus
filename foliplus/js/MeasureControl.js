@@ -496,10 +496,18 @@
         this.layers.mainLayer.removeLayer(poly);
         finalPoly.setLatLngs(pts);
 
-        // Flash the final polyline to provide visual feedback
+        // Dash-sweep animation: draw the line from start to end
         if (finalPoly._path) {
-          finalPoly._path.classList.add("is-flash");
-          setTimeout(() => finalPoly._path.classList.remove("is-flash"), 1200);
+          const len = finalPoly._path.getTotalLength?.() || 0;
+          if (len > 0) {
+            finalPoly._path.style.setProperty("--sweep-length", len);
+            finalPoly._path.style.strokeDashoffset = len;
+            finalPoly._path.classList.add("is-dash-sweep");
+            setTimeout(
+              () => finalPoly._path.classList.remove("is-dash-sweep"),
+              600,
+            );
+          }
         }
 
         let labelsVisible = true;
@@ -851,10 +859,14 @@
           interactive: true,
         }).addTo(this.layers.mainLayer);
 
-        // Flash the circle to provide visual feedback
+        // Ripple animation: expanding ring from center
         if (circle._path) {
-          circle._path.classList.add("is-flash");
-          setTimeout(() => circle._path.classList.remove("is-flash"), 1200);
+          const containerPoint = this.map.latLngToContainerPoint(centerLatLng);
+          circle._path.style.setProperty("--ripple-r", r.toFixed(0));
+          circle._path.style.setProperty("--ripple-x", containerPoint.x.toFixed(0));
+          circle._path.style.setProperty("--ripple-y", containerPoint.y.toFixed(0));
+          circle._path.classList.add("is-ripple");
+          setTimeout(() => circle._path.classList.remove("is-ripple"), 800);
         }
 
         const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {
