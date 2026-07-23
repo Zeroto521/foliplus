@@ -83,10 +83,11 @@
 
   // --- Dynamic Dependency Loader ---
   // Loads CDN scripts at runtime via shared window.foliplus.loadScripts.
+  const CDN = (window.foliplus && window.foliplus.CDN) || {};
   const DEPS = [
     {
       name: "h3",
-      url: CONST.jsdelivr + "h3-js@{{ this._h3_version }}/dist/h3-js.umd.js",
+      url: CONST.jsdelivr + "h3-js@" + (CDN.H3 || "4") + "/dist/h3-js.umd.js",
       check: () => typeof h3 !== "undefined",
       localeKey: `${CONST.name}.no_h3`,
     },
@@ -94,13 +95,13 @@
       name: "ss",
       url:
         CONST.jsdelivr +
-        "simple-statistics@{{ this._ss_version }}/dist/simple-statistics.min.js",
+        "simple-statistics@" + (CDN.SS || "7") + "/dist/simple-statistics.min.js",
       check: () => typeof ss !== "undefined",
       localeKey: `${CONST.name}.no_ss`,
     },
     {
       name: "chroma",
-      url: CONST.jsdelivr + "chroma-js@{{ this._chroma_version }}/chroma.min.js",
+      url: CONST.jsdelivr + "chroma-js@" + (CDN.CHROMA || "2") + "/chroma.min.js",
       check: () => typeof chroma !== "undefined",
       localeKey: `${CONST.name}.no_chroma`,
     },

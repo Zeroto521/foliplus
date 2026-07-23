@@ -5,10 +5,14 @@ from pathlib import Path
 from textwrap import dedent
 
 from folium import MacroElement
-from folium.elements import JSCSSMixin
 from jinja2 import Template
 
-from ._cdn import GCOORD_VERSION
+from ._cdn import (
+    CHROMA_VERSION,
+    GCOORD_VERSION,
+    H3_VERSION,
+    SIMPLE_STATISTICS_VERSION,
+)
 from ._typing import Position
 from .locale import _LOCALES_TABLES, LocaleConfig, resolve_locale
 
@@ -17,7 +21,7 @@ js_dir = src_dir / "js"
 css_dir = src_dir / "css"
 
 
-class BaseControl(JSCSSMixin, MacroElement):
+class BaseControl(MacroElement):
     """Base class for all foliplus controls.
 
     Handles resource loading (CSS/JS), template injection, and localization. All
@@ -48,7 +52,6 @@ class BaseControl(JSCSSMixin, MacroElement):
         self._name = self.__class__.__name__
         self.position = position
         self._LOCALE_CODE = resolve_locale(locale).code if locale is not None else ""
-        self._gcoord_version = GCOORD_VERSION
 
     def _get_js(self, filename: str) -> str:
         return js_dir.joinpath(filename).read_text(encoding="utf-8")
@@ -106,6 +109,15 @@ class BaseControl(JSCSSMixin, MacroElement):
             if (window.foliplus && window.foliplus.resolveLocale) {{
                 window.foliplus.resolveLocale('{{{{ this._LOCALE_CODE }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
             }}
+            (function() {{
+                if (!window.foliplus) window.foliplus = {{}};
+                window.foliplus.CDN = {{
+                    H3: "{H3_VERSION}",
+                    SS: "{SIMPLE_STATISTICS_VERSION}",
+                    CHROMA: "{CHROMA_VERSION}",
+                    GCOORD: "{GCOORD_VERSION}",
+                }};
+            }})();
             {js_runtime}
             {{% endmacro %}}""")
         )

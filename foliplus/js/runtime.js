@@ -223,7 +223,7 @@
       _gcoordLoading = true;
       const s = document.createElement("script");
       s.src =
-        "https://cdn.jsdelivr.net/npm/gcoord@{{ this._gcoord_version }}/dist/gcoord.global.prod.js";
+        "https://cdn.jsdelivr.net/npm/gcoord@" + (foliplus.CDN ? foliplus.CDN.GCOORD : "1") + "/dist/gcoord.global.prod.js";
       s.onload = () => (_gcoordLoading = false);
       s.onerror = () => (_gcoordLoading = false);
       document.head.appendChild(s);

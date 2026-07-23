@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from ._cdn import GCOORD_VERSION
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
@@ -36,13 +35,6 @@ class MeasureControl(BaseControl):
     >>> m = folium.Map()
     >>> MeasureControl().add_to(m)
     """
-
-    default_js = [
-        (
-            "gcoord",
-            f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD_VERSION}/dist/gcoord.global.prod.js",
-        ),
-    ]
 
     def __init__(
         self,
