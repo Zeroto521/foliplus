@@ -414,14 +414,28 @@ class TestHeatmapControlBrowser:
 
     @staticmethod
     def _stub_html(html: str) -> str:
-        """Inject CDN stubs so the heatmap UI initialises without network."""
+        """Remove blocking CDN <script> tags and inject stubs for h3/ss/chroma."""
         html = html.replace(
-            "run();",
-            'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
-            "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
-            'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'
-            "run();",
+            '<script src="https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js"></script>',
+            "",
         )
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js"></script>',
+            "",
+        )
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"></script>',
+            "",
+        )
+        # Inject stubs before the HeatmapControl IIFE
+        idx = html.find("// ==================== SVG Icons ====================")
+        if idx > 0:
+            stub = (
+                'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
+                "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
+                'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'
+            )
+            html = html[:idx] + stub + html[idx:]
         return html
 
     @staticmethod
@@ -526,7 +540,7 @@ class TestHeatmapControlBrowser:
             assert vals["BORDER_W"] == 1.5, (
                 f"BORDER_W expected 1.5 got {vals['BORDER_W']}"
             )
-            assert vals["BORDER_COLOR"] == "#333", (
+            assert vals["BORDER_COLOR"] in ("#333", "#333333"), (
                 f"BORDER_COLOR got {vals['BORDER_COLOR']}"
             )
             assert vals["currentLabelShow"] is True, "currentLabelShow should be True"
@@ -704,15 +718,28 @@ class TestHeatmapAutoFieldBrowser:
 
         page = browser.new_page()
 
-        # Inject stubs for h3/ss/chroma so the heatmap initialisation and
-        # render path succeed without CDN scripts.
+        # Remove blocking CDN <script> tags
         html = html.replace(
-            "run();",
-            'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
-            "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
-            'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'
-            "run();",
+            '<script src="https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js"></script>',
+            "",
         )
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js"></script>',
+            "",
+        )
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"></script>',
+            "",
+        )
+        # Inject stubs for h3/ss/chroma before the HeatmapControl IIFE
+        idx = html.find("// ==================== SVG Icons ====================")
+        if idx > 0:
+            stub = (
+                'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
+                "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
+                'window.chroma={scale:function(){return{mode:function(){return{colors:function(){return["#f00"]}}}}}};'
+            )
+            html = html[:idx] + stub + html[idx:]
         html_path.write_text(html, encoding="utf-8")
 
         errors = []
