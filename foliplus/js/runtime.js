@@ -254,6 +254,9 @@
       const src = isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
+    } else {
+      console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
+      foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
     }
     return [lat, lng];
   };

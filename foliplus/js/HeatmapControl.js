@@ -255,7 +255,7 @@
       for (const info of pointLayersInfo) {
         if (seenIds[info.id]) continue;
         seenIds[info.id] = true;
-        const layer = this.map._layers[info.id] || window[info.id];
+        const layer = window.foliplus.LayerControlAPI.findLayer(info.id);
         if (!layer) continue;
 
         const pts = this.extractPoints(layer);
