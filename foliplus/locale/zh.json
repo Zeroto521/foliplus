@@ -94,6 +94,5 @@
   "MeasureControl.geo_fail": "查询失败",
   "MeasureControl.no_layercontrol": "MeasureControl 组件依赖 LayerControl，请先添加 LayerControl 组件",
   "ScaleControl.zoom_label": "地图层级：{zoom}",
-  "gcoord.warn": "gcoord 加载失败，坐标转换不可用",
-  "load.script_fail": "加载失败"
+  "gcoord.warn": "gcoord 加载失败，坐标转换不可用"
 }
