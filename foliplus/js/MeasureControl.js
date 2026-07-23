@@ -55,6 +55,18 @@
 
   window.foliplus.registerHintIcon(CONST.name, SVGS.RULER);
 
+  // ==================== Initialization & Control Construction ====================
+  // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
+  if (!window.foliplus.LayerControlAPI) {
+    console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
+    window.foliplus.showHint(
+      CONST.name,
+      _(`${CONST.name}.no_layercontrol`),
+      window.foliplus.HINT_DURATION.PERSIST,
+    );
+    return;
+  }
+
   // ==================== Utility Classes ====================
   class MeasureUtils {
     static stopEvent(e) {
@@ -1010,18 +1022,6 @@
         window.foliplus.hideHint(CONST.name);
       };
     }
-  }
-
-  // ==================== Initialization & Control Construction ====================
-  // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
-  if (!window.foliplus.LayerControlAPI) {
-    console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-    window.foliplus.showHint(
-      CONST.name,
-      _(`${CONST.name}.no_layercontrol`),
-      window.foliplus.HINT_DURATION.PERSIST,
-    );
-    return;
   }
 
   const measureManager = new MeasureManager(map);
