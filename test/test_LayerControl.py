@@ -403,11 +403,12 @@ class TestLayerControlRendering:
         assert "--- Mechanism C: Auto-discovered / fallback panes" in html
 
     def test_migrate_layers_extracted(self, base_map: folium.Map):
-        """migrateLayers is a standalone method."""
+        """migrateLayers is a standalone method with DocumentFragment batching."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "migrateLayers(layersToMove)" in html
-        assert "moveElements(layer)" in html
+        assert "DocumentFragment" in html
+        assert "groups.get(container).push(l._path)" in html
 
     def test_enforce_order_try_finally(self, base_map: folium.Map):
         """enforceOrder uses try/finally to reset isEnforcing."""
