@@ -101,6 +101,40 @@
   pointer-events: none;
 }
 
+/* ── Finish animations ── */
+/* All animation parameters use CSS custom properties with sensible defaults. */
+
+/* Dash sweep: stroke-dashoffset → 0, drawing the line from start to end. */
+@keyframes measure-dash-sweep {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.measure-line-solid.is-dash-sweep {
+  stroke-dasharray: var(--sweep-length, 1000) var(--sweep-length, 1000);
+  stroke-dashoffset: var(--sweep-length, 1000);
+  animation: measure-dash-sweep var(--sweep-duration, 0.5s) ease-in-out;
+  filter: drop-shadow(0 0 3px var(--accent-primary));
+}
+
+/* Ripple: stroke swells outward from the circle. */
+@keyframes measure-ripple {
+  0% {
+    opacity: var(--ripple-opacity-start, 0.6);
+    stroke-width: var(--ripple-stroke-start, 2.5px);
+  }
+  100% {
+    opacity: 0;
+    stroke-width: var(--ripple-stroke-end, 30px);
+  }
+}
+.measure-ripple {
+  fill: none;
+  stroke: var(--accent-primary);
+  animation: measure-ripple var(--ripple-duration, 0.7s) ease-out forwards;
+  pointer-events: none;
+}
+
 /* ── Measurement Labels ── */
 .measure-label {
   display: inline-block;

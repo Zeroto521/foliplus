@@ -431,6 +431,53 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "this.layers.bringToFront()" in html
 
+    # ── Finish animation tests ──
+
+    def test_dash_sweep_animation_classes(self, base_map: folium.Map):
+        """Distance finishDist adds is-dash-sweep class with --sweep-length."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "is-dash-sweep" in html
+        assert "--sweep-length" in html
+        assert "getTotalLength" in html
+        assert "animationend" in html
+
+    def test_dash_sweep_drop_shadow(self, base_map: folium.Map):
+        """Dash sweep line has drop-shadow filter for glow effect."""
+        import pathlib
+
+        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        assert "drop-shadow" in css
+        assert "is-dash-sweep" in css
+
+    def test_ripple_animation_classes(self, base_map: folium.Map):
+        """Circle finalizeCircle creates a measure-ripple circle with animationend cleanup."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-ripple" in html
+        assert "interactive: false" in html
+        assert "removeLayer(ripple)" in html
+        assert "animationend" in html
+
+    def test_ripple_css_variables(self, base_map: folium.Map):
+        """Ripple animation uses CSS custom properties for all parameters."""
+        import pathlib
+
+        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        assert "--ripple-duration" in css
+        assert "--ripple-opacity-start" in css
+        assert "--ripple-stroke-start" in css
+        assert "--ripple-stroke-end" in css
+        assert "measure-ripple" in css
+
+    def test_dash_sweep_css_variables(self, base_map: folium.Map):
+        """Dash sweep animation uses CSS custom properties for all parameters."""
+        import pathlib
+
+        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        assert "--sweep-length" in css
+        assert "--sweep-duration" in css
+
     def _make_page(self, browser, tmp_path):
         """Build a page with MeasureControl and return (page, errors)."""
         from foliplus import LayerControl

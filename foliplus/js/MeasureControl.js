@@ -496,6 +496,21 @@
         this.layers.mainLayer.removeLayer(poly);
         finalPoly.setLatLngs(pts);
 
+        // Dash-sweep animation: draw the line from start to end
+        if (finalPoly._path) {
+          const len = finalPoly._path.getTotalLength?.() || 0;
+          if (len > 0) {
+            finalPoly._path.style.setProperty("--sweep-length", len);
+            finalPoly._path.classList.add("is-dash-sweep");
+            const onEnd = () => {
+              finalPoly._path.removeEventListener("animationend", onEnd);
+              finalPoly._path.classList.remove("is-dash-sweep");
+              finalPoly._path.style.removeProperty("--sweep-length");
+            };
+            finalPoly._path.addEventListener("animationend", onEnd);
+          }
+        }
+
         let labelsVisible = true;
         let xVisible = false;
         let lastNodeDelMkr = null;
@@ -844,6 +859,21 @@
           className: "measure-circle measure-circle-final",
           interactive: true,
         }).addTo(this.layers.mainLayer);
+
+        // Ripple: expanding ring from center
+        const ripple = L.circle(centerLatLng, {
+          radius: r,
+          className: "measure-ripple",
+          interactive: false,
+        }).addTo(this.layers.mainLayer);
+        const rippleEl = ripple._path;
+        if (rippleEl) {
+          const onEnd = () => {
+            rippleEl.removeEventListener("animationend", onEnd);
+            this.layers.mainLayer.removeLayer(ripple);
+          };
+          rippleEl.addEventListener("animationend", onEnd);
+        }
 
         const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {
           className: "measure-line measure-line-dashed",
