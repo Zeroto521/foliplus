@@ -231,6 +231,10 @@
       this.fallbackPanes = new Set();
       this.labelPanes = new Set();
 
+      // Cache for discoverChildPanes: layerId → string[] (pane names).
+      // Cleared when layers are registered/unregistered.
+      this.paneCache = new Map();
+
       // Store callbacks keyed by layer id:
       //   toggle - visibility sync (e.g. Canvas heatmap overlay)
       //   zIndex - layer order sync (e.g. Canvas heatmap z-index)
@@ -430,6 +434,7 @@
             `[${CONST.name}] ${_(CONST.name + ".invalid_id").replace("{id}", opts.id)}`,
           );
       }
+      this.paneCache.clear();
       if (opts.paneName && opts.layer) {
         if (!(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)) {
           opts.layer.options.pane = opts.paneName;
@@ -492,6 +497,7 @@
       const layer = LayerUtils.findLayer(this.map, id);
       if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
       layerRegistry.delete(id);
+      this.paneCache.clear();
       // Recursively clear all sub-layers to prevent stale data on re-register
       this.clearAllLayers(layer);
 
@@ -863,10 +869,12 @@
     }
 
     /** Find all custom panes used by a container's tree.
-     *  This lets enforceOrder control z-index without requiring
-     *  orderPane/paneName from three-layer components. */
+     *  Results are cached by layer stamp; call `paneCache.clear()`
+     *  when layer structure changes (register/unregister). */
     discoverChildPanes(layer, depth = 0) {
       if (depth > CONST.PANE_RECURSION_DEPTH) return [];
+      const key = L.stamp(layer);
+      if (this.paneCache.has(key)) return this.paneCache.get(key);
       const panes = new Set();
       LayerUtils.forEachLayer(
         layer,
@@ -876,7 +884,9 @@
         },
         depth,
       );
-      return Array.from(panes);
+      const result = Array.from(panes);
+      this.paneCache.set(key, result);
+      return result;
     }
 
     isDefaultPane(pane) {
@@ -982,17 +992,27 @@
 
     migrateLayers(layersToMove) {
       if (!layersToMove.length) return;
+      // Group by renderer container so we can batch-append via DocumentFragment.
+      const groups = new Map();
       for (const { layer, paneName, renderer } of layersToMove) {
         if (!paneName) continue;
         this.setLayerPaneRecursive(layer, paneName, renderer);
-        // Move existing SVG elements in-place without removeLayer/addLayer,
-        // avoiding the bringToFront race on removed path elements.
-        const moveElements = (l) => {
-          if (l._path && renderer && l._path.parentNode !== renderer._container)
-            renderer._container.appendChild(l._path);
-          if (l.eachLayer) l.eachLayer(moveElements);
+        const container = renderer?._container;
+        if (!container) continue;
+        if (!groups.has(container)) groups.set(container, []);
+        const collect = (l) => {
+          if (l._path && l._path.parentNode !== container)
+            groups.get(container).push(l._path);
+          if (l.eachLayer) l.eachLayer(collect);
         };
-        moveElements(layer);
+        collect(layer);
+      }
+      // Batch-append per container to avoid repeated layout thrash
+      for (const [container, paths] of groups) {
+        if (!paths.length) continue;
+        const frag = document.createDocumentFragment();
+        for (const p of paths) frag.appendChild(p);
+        container.appendChild(frag);
       }
     }
 
@@ -1557,6 +1577,7 @@
       this.typeMap.clear();
       this.layerCallbacks.clear();
       this.pendingRegistrations = [];
+      this.paneCache.clear();
       layerRegistry.clear();
       if (window.foliplus.LayerControlAPI === this)
         window.foliplus.LayerControlAPI = null;
