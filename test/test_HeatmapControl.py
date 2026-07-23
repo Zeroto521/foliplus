@@ -408,6 +408,42 @@ class TestHeatmapControlRendering:
         assert "INIT_SCAN_ATTEMPTS" in html
         assert "H3_RES_FALLBACK" in html
 
+    # ── Performance optimization tests ──
+
+    def test_cached_aggregation_key(self, base_map: folium.Map):
+        """renderHexagons builds an aggregation cache key from all params."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.cachedAgg" in html
+        assert "this.cachedAgg.key" in html
+        assert "this.cachedAgg.data" in html
+        assert "aggKey" in html
+
+    def test_cached_aggregation_invalidation(self, base_map: folium.Map):
+        """cachedAgg is cleared on layer change and clearHeatmapCanvas."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.cachedAgg = null" in html
+
+    def test_viewport_culling(self, base_map: folium.Map):
+        """redrawHeatmap skips hexagons outside the visible map bounds."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "bounds.contains(L.latLng(c[0], c[1]))" in html
+
+    def test_render_all_flag(self, base_map: folium.Map):
+        """renderAll flag disables viewport culling when set to true."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.renderAll" in html
+        assert "renderAll ? null : this.map.getBounds()" in html
+
+    def test_canvas_font_caching(self, base_map: folium.Map):
+        """drawHexLabel uses cached font string to avoid repeated Canvas font parsing."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (ctx.font !== font) ctx.font = font" in html
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""
