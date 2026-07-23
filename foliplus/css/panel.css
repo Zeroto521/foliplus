@@ -22,40 +22,15 @@
   overflow: hidden;
 }
 
-/* ── Toggle Button (visible when collapsed) ── */
-.map-panel .toggle-btn {
-  color: var(--text-secondary);
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-
-.map-panel .toggle-btn:hover {
-  background-color: var(--ctrl-hover-bg);
-  color: var(--text-primary);
-  transform: scale(var(--scale-hover));
-}
-
-.map-panel .toggle-btn:active {
-  transform: scale(var(--scale-press));
-}
-
 /* Hide toggle when expanded */
 .map-panel.expanded .toggle-btn {
   display: none;
 }
 
 /* ── Accent color for expanded icon (all map-panel components) ── */
-.map-panel.expanded .toggle-btn {
-  color: var(--accent-primary);
-}
-.map-panel.expanded .toggle-btn svg {
-  stroke: var(--accent-primary);
-}
 .map-panel.expanded .header-icon,
 .map-panel.expanded .header-icon svg {
   color: var(--accent-primary);
-  stroke: var(--accent-primary);
 }
 
 /* ── Panel Wrapper (visible when expanded) ── */
@@ -79,29 +54,20 @@
   flex-shrink: 0;
   box-sizing: border-box;
   padding: 0 var(--panel-header-padding-right) 0 var(--panel-header-padding-left);
-  border-bottom: var(--border-thin) solid var(--panel-border);
+  border-bottom: var(--border-thin) solid var(--divider-color);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   cursor: pointer;
   user-select: none;
   background: var(--panel-header-bg);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   box-shadow: var(--shadow-xs);
   position: relative;
 }
 
 .map-panel .panel-header:hover {
   background: var(--panel-header-hover);
-}
-
-.map-panel .panel-header .back-icon {
-  margin-right: var(--space-sm);
-  font-size: var(--font-size-md);
-  display: flex;
-  align-items: center;
-  color: var(--text-muted);
-  flex-shrink: 0;
 }
 
 .map-panel .panel-header .header-icon {
@@ -114,11 +80,6 @@
   margin-right: var(--space-sm);
   position: relative;
   left: 0;
-}
-
-.map-panel .panel-header .header-icon svg {
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
 }
 
 .map-panel .panel-header .header-title {
@@ -143,15 +104,4 @@
   overflow-x: hidden;
   overflow-y: auto;
   padding: 0;
-}
-
-/* ── Layer panel compatibility ── */
-.map-panel .layer-panel {
-  display: none;
-  flex-direction: column;
-  width: 100%;
-}
-
-.map-panel.expanded .layer-panel {
-  display: flex;
 }

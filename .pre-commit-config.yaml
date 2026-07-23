@@ -25,7 +25,7 @@ repos:
 
   # ── Lint & Format (ruff) ──
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.20
+    rev: v0.15.22
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -33,7 +33,7 @@ repos:
 
   # ── Python type checking ──
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.1.0
+    rev: v2.3.0
     hooks:
       - id: mypy
         additional_dependencies: [folium, jinja2]
@@ -42,6 +42,18 @@ repos:
 
   # ── Spell check ──
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: v2.4.3
     hooks:
       - id: codespell
+
+  # ── JS / Jinja2 formatting (custom script) ──
+  - repo: local
+    hooks:
+      - id: format-jinja-js
+        name: format-jinja-js
+        entry: node script/format_jinja_js.js
+        language: node
+        types_or: [javascript]
+        files: ^foliplus/js/
+        pass_filenames: false
+        additional_dependencies: [prettier]

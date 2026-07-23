@@ -2,7 +2,6 @@
   Design Tokens — Shared across all Folium plugins
   Single source of truth for colors, typography, spacing, and component styles
   ══════════════════════════════════════════════════════════════════════ */
-
 :root {
   /* ── Primitive Tokens: Size Scale ──
     Prefer these base steps in component styles: 2/4/6/8/12/16/20/24
@@ -18,41 +17,35 @@
   --size-20: 20px;
   --size-24: 24px;
 
-  /* ── Primitive Tokens: Alpha Scale ── */
-  --alpha-06: 0.06;
-  --alpha-12: 0.12;
+  /* ── Alpha Scale ── */
+  --alpha-05: 0.05;
+  --alpha-15: 0.15;
   --alpha-20: 0.2;
   --alpha-30: 0.3;
-  --alpha-40: 0.4;
   --alpha-50: 0.5;
   --alpha-70: 0.7;
   --alpha-80: 0.8;
   --alpha-95: 0.95;
 
-  /* ── Primitive Tokens: Neutral Palette ── */
+  /* ── Neutral Palette ── */
   --neutral-0: #fff;
   --neutral-100: #f5f5f5;
   --neutral-300: #e0e0e0;
   --neutral-500: #aaa;
   --neutral-800: #333;
 
-  /* ── Primitive Tokens: Brand Red Palette ── */
+  /* ── Brand Red Palette ── */
   --red-50: #fde8e8;
   --red-500: #e74c3c;
   --red-600: #c0392b;
   --red-rgb: 231, 76, 60;
-  --red-700-rgb: 200, 60, 40;
 
   /* ── Colors ── */
   --ctrl-bg: var(--neutral-0);
-  --ctrl-border: rgba(0, 0, 0, var(--alpha-20));
-  --ctrl-hover-bg: #f4f4f4;
-  --ctrl-active-bg: #e8e8e8;
+  --ctrl-hover-bg: var(--neutral-100);
 
   --text-primary: var(--neutral-800);
-  --text-secondary: var(--neutral-500);
   --text-muted: var(--neutral-500);
-  --text-placeholder: var(--neutral-500);
 
   --input-bg: var(--neutral-0);
   --input-border: var(--neutral-300);
@@ -60,10 +53,8 @@
 
   --divider-color: var(--neutral-300);
 
-  /* Component */
   --panel-header-bg: var(--neutral-100);
   --panel-header-hover: var(--neutral-300);
-  --panel-border: #eee;
 
   --accent-primary: var(--red-500);
   --accent-hover: var(--red-600);
@@ -75,33 +66,21 @@
   --btn-secondary-border: var(--neutral-300);
   --btn-secondary-hover: var(--neutral-300);
 
-  --measure-label-bg: rgba(0, 0, 0, var(--alpha-50));
-  --measure-del-hover-bg: rgba(var(--red-700-rgb), var(--alpha-95));
-
   /* Effect */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
-  --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-06));
+  --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
   --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
-  --accent-shadow-sm: 0 var(--size-2) var(--size-8)
-    rgba(var(--red-rgb), var(--alpha-30));
-  --accent-shadow-md: 0 var(--size-4) var(--size-12)
-    rgba(var(--red-rgb), var(--alpha-50));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
 
   /* ── Typography ── */
-  --font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif;
   --font-size-xs: 10px;
   --font-size-sm: 12px;
   --font-size-md: 14px;
-  --font-size-lg: 16px;
 
   /* Effect */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
-  --font-weight-bold: 700;
 
   /* ── Spacing ── */
   --space-xs: var(--size-2);
@@ -113,67 +92,54 @@
 
   /* ── Sizing ── */
   --ctrl-size: 30px;
-  --input-height: 30px;
-  --btn-height: 30px;
   --scale-press: 0.92;
   --scale-hover: 1.08;
-  --toggle-off-bg: #ccc;
   --icon-size-sm: var(--size-16);
   --icon-size-md: 18px;
 
-  /* Component */
+  /* ── Layout Metrics ── */
   --toggle-size: 36px;
   --panel-width: 280px;
-
-  /* ── Layout Metrics ── */
-  --toolbar-inline-padding: var(--space-xs);
-
-  /* Component */
-  --panel-header-padding-left: var(--space-sm);
-  --panel-header-padding-right: var(--ctrl-size);
   --panel-max-height: 400px;
-  --dropdown-max-height: 200px;
+  --panel-header-padding-left: var(--size-6);
+  --panel-header-padding-right: var(--ctrl-size);
 
-  /* ── Micro Visual Adjustments (Whitelist) ── */
-  /* Effect */
+  /* ── Micro Visual Adjustments ── */
   --letter-spacing-tight: 0.5px;
-  --stroke-width-emphasis: 2.5px;
 
   /* ── Border Width ── */
   --border-thin: 1px;
   --border-thick: var(--size-2);
 
   /* ── Border Radius ── */
-  --radius-xs: var(--size-2);
   --radius-sm: var(--size-4);
   --radius-lg: var(--size-6);
-  --radius-card: var(--size-8);
   --radius-round: 50%;
-  --radius-pill: var(--size-20);
+  --radius-card: var(--size-8);
 
   /* ── Shadows ── */
-  --shadow-sm: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-12));
-  --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-12));
-  --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-12));
+  --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-15));
+  --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-15));
 
   /* Component */
   --shadow-ctrl-strong: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-50));
 
   /* ── Transitions ── */
   --transition-fast: 0.15s ease;
+  --transition-input:
+    border-color var(--transition-fast), box-shadow var(--transition-fast);
 
-  /* ── Overlay ── */
-  --overlay-bg: rgba(0, 0, 0, var(--alpha-40));
-  --overlay-bg-dark: rgba(0, 0, 0, var(--alpha-50));
+  /* ── Micro Visual Adjustments ── */
+  --stroke-icon: 1.8;
+  --line-height-hint: 1.4;
+  --line-height-popup: 1.8;
 
-  /* ── Z-index ── */
-  --z-index-pane-base: 450;
-  --z-index-info: 850;
+  /* ── Z-index ──
+  LayerControl JS manages pane z-index dynamically.
+  Hint z-index is managed by runtime.js (HINT.Z_BASE = 10000).
+  CSS only defines dropdown z-index (below hints). */
+  --z-index-dropdown: 9990;
   --z-index-control: 1000;
-  --z-index-dropdown: 10000;
-  --z-index-overlay: 11000;
-  --z-index-hint: 13000;
-  --z-index-toolbar: 15000;
 }
 
 /* ── Animations ── */
@@ -186,67 +152,125 @@
   }
 }
 
-.foliplus-spin {
+.spin {
   animation: spin 0.8s linear infinite;
   vertical-align: middle;
 }
 
-/* ── Toggle Button ── */
-.toggle-btn {
-  background: none;
-  border: none;
-  border-radius: 0;
-  cursor: pointer;
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  min-width: var(--ctrl-size);
-  flex-shrink: 0;
-  box-sizing: border-box;
-  color: var(--text-primary);
+/* ── Common Icon Size ──
+  All SVGs in foliplus components default to 18×18.
+  PIN_ICON, drag-handle override per their context.
+── */
+:is(.ctrl-fold, .tool-btn, .map-hint-icon, .header-icon, .type-icon-col) svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  stroke: currentColor;
+  fill: none;
+  stroke-width: var(--stroke-icon);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* Drag handle circles need fill to be visible; override the fill:none above */
+.ctrl-fold svg.drag-handle circle,
+.layer-ctrl svg.drag-handle circle {
+  fill: currentColor;
+}
+
+/* ── Unified Component Button Reset ──
+  Base reset for all foliplus buttons. */
+:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn) {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
   padding: 0;
   margin: 0;
+  box-sizing: border-box;
   transition:
     color var(--transition-fast),
     background-color var(--transition-fast),
     transform var(--transition-fast);
   will-change: transform;
 }
-.toggle-btn:hover {
-  background-color: var(--ctrl-hover-bg);
+/* ── Unified Button Hover ──
+  All buttons share the same hover background, text color, and scale.
+  Component-specific buttons (e.g. HeatmapControl btn-clear) override
+  color in their own CSS to keep their text white. */
+:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn):hover {
+  background-color: var(--accent-light);
+  color: var(--accent-primary);
   transform: scale(var(--scale-hover));
 }
-.toggle-btn:active {
+
+/* All buttons: press scale uses inherited transition (--transition-fast, 0.15s)
+  MUST come AFTER :hover so it wins on same specificity (0,2,0). */
+:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn):active {
   transform: scale(var(--scale-press));
 }
+
+/* ── Button hover/active SVG scale ──
+  SVG-level parallax for buttons that also have button-level scale.
+  toggle-btn added via expanded context for fold controls. */
+:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):hover svg {
+  transform: scale(var(--scale-hover));
+}
+:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):active svg {
+  transition: transform var(--transition-fast);
+  transform: scale(var(--scale-press));
+}
+
+/* ── Toggle Button Base ── */
+.toggle-btn {
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  min-width: var(--ctrl-size);
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
 .toggle-btn svg {
-  stroke: var(--text-primary);
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
+/* ── Tool Button Base (used by MeasureControl toolbar, MapSearch mode switch) ── */
+.tool-btn,
+.search-mode-btn {
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  min-width: var(--ctrl-size);
+  flex-shrink: 0;
+  border-radius: 0;
+  color: var(--text-primary);
 }
 
 /* ── Map Hint (Toast Notification) ── */
 .map-hint {
-  position: fixed;
+  position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  backdrop-filter: blur(var(--size-8));
-  -webkit-backdrop-filter: blur(var(--size-8));
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--alpha-70));
-  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-12));
+  border: 1px solid rgba(255, 255, 255, var(--alpha-15));
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-xl);
   white-space: nowrap;
-  z-index: var(--z-index-hint);
   color: var(--neutral-0);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
-  line-height: 1.4;
+  line-height: var(--line-height-hint);
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
 }
 
 .map-hint-icon {
-  margin-right: var(--space-sm);
+  display: inline-flex;
+  align-items: center;
 }
 
 /* ── Section Divider ── */
@@ -259,42 +283,44 @@
 .ctrl-abs-btn {
   position: absolute;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: calc(50% - var(--ctrl-size) / 2);
   width: var(--ctrl-size);
   height: var(--ctrl-size);
-  background: none;
-  border: none;
-  cursor: pointer;
   color: var(--text-muted);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: 0;
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-.ctrl-abs-btn:hover {
-  color: var(--accent-primary);
-  background: var(--accent-light);
 }
 
-.ctrl-focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
-}
-
-.foliplus-pin-wrap {
+.pin-wrap {
   position: relative;
   width: var(--size-24);
   height: var(--toggle-size);
 }
 
-.foliplus-popup-content {
+/* ══════════════════════════════════════════════════════════════════════
+  Unified Input Interaction States
+  All foliplus text/select/color/checkbox inputs share the same
+  hover/focus/active visual feedback.
+  Component-specific sizing/layout stays in each CSS file.
+  ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Hover/Focus: red border + red glow ── */
+:is(
+  .map-search input,
+  .heatmap-ctrl .form-select,
+  .heatmap-ctrl select,
+  .heatmap-ctrl .border-color-input,
+  .heatmap-ctrl .border-weight-input,
+  .heatmap-ctrl .scheme-bar,
+  .layer-ctrl input[type="checkbox"],
+  .layer-ctrl .color-layer-input
+):is(:hover, :focus) {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}
+
+.popup-content {
   font-size: var(--font-size-md);
-  line-height: 1.8;
+  line-height: var(--line-height-popup);
 }
 
 /* ── Ctrl Fold (Shared Container) ──
@@ -305,26 +331,31 @@
   align-items: stretch;
   background: var(--ctrl-bg);
   box-sizing: border-box;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 .ctrl-fold.collapsed {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   border: 0;
   box-shadow: var(--shadow-ctrl-strong);
+  overflow: visible;
 }
 /* Expanded toggle-btn shared styles */
 .ctrl-fold.expanded .toggle-btn {
   background: transparent;
   color: var(--accent-primary);
-  border-radius: 0;
 }
-.ctrl-fold.expanded .toggle-btn svg {
-  stroke: var(--accent-primary);
+.ctrl-fold.expanded .toggle-btn:hover {
+  background: var(--accent-light);
 }
-.ctrl-fold.align-right.expanded .toggle-btn {
+
+/* ── Separator between toggle button and tools (non-map-panel) ── */
+.ctrl-fold:not(.map-panel).expanded .toggle-btn {
+  border-right: var(--border-thin) solid var(--divider-color);
+}
+.ctrl-fold:not(.map-panel).expanded.align-right .toggle-btn {
   border-right: none;
-  border-left: none;
+  border-left: var(--border-thin) solid var(--divider-color);
 }
 
 /* ── Shared Toolbar ──
@@ -333,7 +364,6 @@
 .ctrl-fold .tool-bar {
   display: none;
   align-items: center;
-  padding: 0 var(--toolbar-inline-padding);
   gap: 0;
   flex: 1;
   min-width: 0;

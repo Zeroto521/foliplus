@@ -8,7 +8,6 @@ from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
 
-from ._cdn import GCOORD_VERSION
 from ._typing import Position
 from .locale import _LOCALES_TABLES, LocaleConfig, resolve_locale
 
@@ -48,7 +47,6 @@ class BaseControl(JSCSSMixin, MacroElement):
         self._name = self.__class__.__name__
         self.position = position
         self._LOCALE_CODE = resolve_locale(locale).code if locale is not None else ""
-        self._gcoord_version = GCOORD_VERSION
 
     def _get_js(self, filename: str) -> str:
         return js_dir.joinpath(filename).read_text(encoding="utf-8")
@@ -85,7 +83,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         Template
             A Jinja2 ``Template`` instance ready for folium rendering.
         """
-        js_runtime = self._get_js(js_file) if js_file else ""
+        js = self._get_js(js_file) if js_file else ""
         css_common = self._get_css(css_file) if css_file else ""
         css_panel = (
             (css_dir / "panel.css").read_text(encoding="utf-8") if use_panel else ""
@@ -106,6 +104,6 @@ class BaseControl(JSCSSMixin, MacroElement):
             if (window.foliplus && window.foliplus.resolveLocale) {{
                 window.foliplus.resolveLocale('{{{{ this._LOCALE_CODE }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
             }}
-            {js_runtime}
+            {js}
             {{% endmacro %}}""")
         )

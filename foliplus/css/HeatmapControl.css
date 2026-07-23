@@ -1,41 +1,60 @@
+/* ── H3 HEX icon layered fills ── */
+.hf-bg {
+  fill: currentColor;
+  opacity: 0.06;
+  stroke: none;
+}
+.hf-center {
+  fill: currentColor;
+  opacity: var(--alpha-15);
+  stroke: none;
+}
+.hf-secondary {
+  fill: currentColor;
+  opacity: 0.08;
+  stroke: none;
+}
+
 .heatmap-ctrl {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
-  --hm-label-width: 85px;
-  --hm-select-pad-right: 22px;
-  --hm-inline-height: 18px;
-  --hm-inline-width: 52px;
-  --hm-toggle-width: 36px;
-  --hm-toggle-height: var(--size-20);
-  --hm-accent-arrow-offset: var(--size-6);
-  --hm-select-arrow-width: calc(var(--size-8) + var(--size-2));
-  --hm-select-arrow-height: var(--size-6);
-  --hm-heading-letter-spacing: 0.8px;
+  --dropdown-max-height: 200px;
+  --toggle-off-bg: var(--neutral-300);
+  --accent-shadow-sm: 0 var(--size-2) var(--size-8)
+    rgba(var(--red-rgb), var(--alpha-30));
+  --accent-shadow-md: 0 var(--size-4) var(--size-12)
+    rgba(var(--red-rgb), var(--alpha-50));
+  --heatmap-label-width: 85px;
+  --heatmap-select-pad-right: var(--space-xxl);
+  --heatmap-inline-height: 18px;
+  --heatmap-inline-width: 52px;
+  --heatmap-toggle-width: 40px;
+  --heatmap-toggle-height: var(--size-20);
+  --heatmap-accent-arrow-offset: var(--size-6);
+  --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
+  --heatmap-select-arrow-width: var(--size-8);
+  --heatmap-select-arrow-height: var(--size-6);
+  /* Label Canvas – CSS-driven parameters for Canvas text rendering */
+  --heatmap-label-font-family: sans-serif;
+  --heatmap-label-font-weight: bold;
+  --heatmap-label-font-size: var(--font-size-sm);
+  --heatmap-label-color: var(--neutral-0);
+  --heatmap-label-stroke-color: rgba(0, 0, 0, 0.75);
+  --heatmap-label-stroke-width: 3px;
 }
 
-/* ── Hexbin Label ── */
-.heatmap-label {
+/* ── Heatmap Canvas (inside mapPane, offset by -panX/-panY) ── */
+.heatmap-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   pointer-events: none;
-  z-index: var(--z-index-pane-base) !important;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  white-space: nowrap;
-  -webkit-text-stroke: var(--border-thin) rgba(0, 0, 0, var(--alpha-50));
-  text-shadow:
-    0 0 var(--space-xs) rgba(0, 0, 0, var(--alpha-95)),
-    0 0 var(--space-sm) rgba(0, 0, 0, var(--alpha-95)),
-    0 0 calc(var(--space-sm) + var(--space-xs)) rgba(0, 0, 0, var(--alpha-95));
+  image-rendering: auto;
 }
 
 /* ── Sections: Data / Style / Labels ── */
 .heatmap-ctrl .section-block {
   padding: 0;
-}
-.heatmap-ctrl .section-block-last {
-  padding-bottom: 0;
 }
 
 /* ── Form Row ── */
@@ -48,9 +67,9 @@
 }
 .heatmap-ctrl .form-label {
   flex-shrink: 0;
-  width: var(--hm-label-width);
+  width: var(--heatmap-label-width);
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   text-align: right;
   white-space: nowrap;
   padding-right: var(--space-xs);
@@ -68,46 +87,36 @@
 .heatmap-ctrl .form-select,
 .heatmap-ctrl select {
   width: 100%;
-  height: var(--input-height);
+  height: var(--ctrl-size);
   font-size: var(--font-size-md);
-  padding: 0 var(--hm-select-pad-right) 0 var(--space-md);
+  padding: 0 var(--heatmap-select-pad-right) 0 var(--space-md);
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   background: var(--input-bg)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E")
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E")
     no-repeat right var(--space-md) center;
-  background-size: var(--hm-select-arrow-width) var(--hm-select-arrow-height);
+  background-size: var(--heatmap-select-arrow-width) var(--heatmap-select-arrow-height);
   color: var(--text-primary);
   cursor: pointer;
   outline: none;
   box-sizing: border-box;
   appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-}
-.heatmap-ctrl .form-select:focus,
-.heatmap-ctrl select:focus,
-.heatmap-ctrl .ctrl-focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  transition: var(--transition-input);
 }
 
 /* Class count small select */
 .heatmap-ctrl .class-count-select {
-  width: var(--hm-inline-width);
+  width: var(--heatmap-inline-width);
   flex-shrink: 0;
 }
 
 /* Placeholder select styling */
-.heatmap-ctrl select.placeholder-active,
-.heatmap-ctrl select.is-placeholder {
-  color: var(--text-placeholder);
-}
-.heatmap-ctrl select option.placeholder-option {
-  color: var(--text-placeholder);
-}
-.heatmap-ctrl select option.placeholder-option:disabled {
-  color: var(--text-placeholder);
+:is(
+  .heatmap-ctrl select.is-placeholder,
+  .heatmap-ctrl select option.placeholder-option,
+  .heatmap-ctrl select option.placeholder-option:disabled
+) {
+  color: var(--text-muted);
 }
 
 /* Unified container */
@@ -136,13 +145,11 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  transition:
-    box-shadow var(--transition-fast),
-    border-color var(--transition-fast);
+  transition: var(--transition-input);
 }
 .heatmap-ctrl .scheme-bar-inner {
   flex: 1;
-  height: var(--hm-inline-height);
+  height: var(--heatmap-inline-height);
   display: flex;
   overflow: hidden;
   border-radius: var(--radius-sm);
@@ -150,23 +157,22 @@
 .heatmap-ctrl .scheme-bar-block {
   flex: 1;
   height: 100%;
+  transition:
+    filter var(--transition-fast),
+    opacity var(--transition-fast);
 }
 .heatmap-ctrl .scheme-bar::after {
   content: "";
   position: absolute;
-  right: var(--hm-accent-arrow-offset);
+  right: var(--heatmap-accent-arrow-offset);
   top: 50%;
   transform: translateY(-50%);
   width: 0;
   height: 0;
   border-left: var(--size-4) solid transparent;
   border-right: var(--size-4) solid transparent;
-  border-top: var(--size-6) solid var(--text-placeholder);
+  border-top: var(--size-6) solid var(--text-muted);
   pointer-events: none;
-}
-.heatmap-ctrl .scheme-bar:hover {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 /* Scheme row: form-control-wrap needs relative positioning for the dropdown */
 .heatmap-ctrl .form-row:has(.scheme-bar) .form-control-wrap {
@@ -191,7 +197,7 @@
   margin-top: var(--space-xs);
   background: var(--input-bg);
   border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
   z-index: var(--z-index-dropdown);
   max-height: var(--dropdown-max-height);
@@ -207,7 +213,8 @@
   box-sizing: border-box;
   cursor: pointer;
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  transition: background var(--transition-fast);
 }
 .heatmap-ctrl .scheme-dropdown-item:hover {
   background: var(--ctrl-hover-bg);
@@ -219,27 +226,26 @@
 }
 .heatmap-ctrl .scheme-dropdown-bar {
   flex: 1;
-  height: var(--hm-inline-height);
+  height: var(--heatmap-inline-height);
   border-radius: var(--radius-sm);
   border: var(--border-thin) solid var(--btn-secondary-border);
   flex-shrink: 0;
   display: flex;
   overflow: hidden;
 }
-.heatmap-ctrl .scheme-dropdown-label {
-  font-size: var(--font-size-sm);
-}
 
 /* ── Border Inputs ── */
 .heatmap-ctrl .border-color-input {
   flex: 1;
-  height: var(--input-height);
+  height: var(--ctrl-size);
   padding: var(--border-thin);
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   cursor: pointer;
   background: none;
+  outline: none;
   box-sizing: border-box;
+  transition: var(--transition-input);
 }
 .heatmap-ctrl .border-color-input::-webkit-color-swatch-wrapper {
   padding: var(--border-thin);
@@ -249,8 +255,8 @@
   border-radius: var(--radius-sm);
 }
 .heatmap-ctrl .border-weight-input {
-  width: var(--hm-inline-width);
-  height: var(--input-height);
+  width: var(--heatmap-inline-width);
+  height: var(--ctrl-size);
   font-size: var(--font-size-sm);
   padding: 0 var(--size-6);
   border: var(--border-thin) solid var(--input-border);
@@ -260,10 +266,7 @@
   outline: none;
   box-sizing: border-box;
   text-align: center;
-}
-.heatmap-ctrl .border-weight-input:focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  transition: var(--transition-input);
 }
 .heatmap-ctrl .border-weight-input::-webkit-outer-spin-button,
 .heatmap-ctrl .border-weight-input::-webkit-inner-spin-button {
@@ -272,15 +275,14 @@
 }
 .heatmap-ctrl .border-weight-input[type="number"] {
   appearance: textfield;
-  -moz-appearance: textfield;
 }
 
 /* ── Label Toggle ── */
 .heatmap-ctrl .toggle-switch {
   position: relative;
   display: inline-block;
-  width: var(--hm-toggle-width);
-  height: var(--hm-toggle-height);
+  width: var(--heatmap-toggle-width);
+  height: var(--heatmap-toggle-height);
   flex-shrink: 0;
   cursor: pointer;
 }
@@ -298,26 +300,37 @@
   right: 0;
   bottom: 0;
   background-color: var(--toggle-off-bg);
-  border-radius: var(--radius-pill);
+  border-radius: 10px;
   transition: background-color var(--transition-fast);
 }
 .heatmap-ctrl .toggle-slider::before {
   content: "";
   position: absolute;
-  height: var(--icon-size-sm);
-  width: var(--icon-size-sm);
-  left: var(--space-xs);
-  bottom: var(--space-xs);
+  height: var(--size-16);
+  width: var(--size-16);
+  left: var(--size-2);
+  bottom: var(--size-2);
   background-color: var(--neutral-0);
   border-radius: var(--radius-round);
-  transition: transform var(--transition-fast);
-  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
+}
+.heatmap-ctrl .toggle-switch:hover .toggle-slider {
+  background-color: var(--neutral-500);
+}
+.heatmap-ctrl .toggle-switch:hover .toggle-slider::before {
+  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
 }
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider {
   background-color: var(--accent-primary);
 }
+.heatmap-ctrl .toggle-switch:hover input:checked + .toggle-slider {
+  background-color: var(--btn-primary-hover);
+}
 .heatmap-ctrl .toggle-switch input:checked + .toggle-slider::before {
-  transform: translateX(var(--icon-size-sm));
+  transform: translateX(var(--size-20));
 }
 
 /* ── Bottom Buttons ── */
@@ -326,36 +339,50 @@
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
   border-top: var(--border-thin) solid var(--divider-color);
-  background: var(--panel-header-bg);
 }
 .heatmap-ctrl .btn {
   flex: 1;
-  height: var(--btn-height);
+  height: var(--ctrl-size);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  color: var(--neutral-0);
   transition:
     background var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+.heatmap-ctrl .btn:hover,
+.heatmap-ctrl .btn:active {
+  color: var(--neutral-0);
 }
 .heatmap-ctrl .btn-clear {
-  background: var(--btn-secondary-bg);
-  color: var(--text-muted);
-  border: var(--border-thin) solid var(--btn-secondary-border);
+  background: var(--text-muted);
+  border: none;
 }
 .heatmap-ctrl .btn-clear:hover {
-  background: var(--btn-secondary-hover);
+  background: var(--text-primary);
+  transform: scale(var(--scale-hover));
+}
+.heatmap-ctrl .btn-clear:active {
+  background: var(--text-primary);
+  transform: scale(var(--scale-press));
 }
 .heatmap-ctrl .btn-confirm {
   background: var(--btn-primary-bg);
-  color: var(--neutral-0);
   box-shadow: var(--accent-shadow-sm);
 }
 .heatmap-ctrl .btn-confirm:hover {
   background: var(--btn-primary-hover);
   box-shadow: var(--accent-shadow-md);
+  transform: scale(var(--scale-hover));
+}
+.heatmap-ctrl .btn-confirm:active {
+  background: var(--btn-primary-hover);
+  box-shadow: var(--accent-shadow-md);
+  transform: scale(var(--scale-press));
 }
 
 .heatmap-ctrl .section-divider {
@@ -365,35 +392,11 @@
 .heatmap-ctrl .section-heading {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-muted);
+  color: var(--text-primary);
   text-transform: uppercase;
-  letter-spacing: var(--hm-heading-letter-spacing);
+  letter-spacing: var(--heatmap-heading-letter-spacing);
   padding: var(--space-md) var(--space-xl) var(--space-sm);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-}
-.heatmap-ctrl .section-heading-icon {
-  font-size: var(--font-size-sm);
-  line-height: 1;
-}
-.hex-label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  fill: var(--neutral-0);
-  text-anchor: middle;
-  dominant-baseline: central;
-  pointer-events: none;
-  paint-order: stroke fill;
-  stroke: rgba(0, 0, 0, var(--alpha-50));
-  stroke-width: var(--stroke-width-emphasis);
-  filter: drop-shadow(0 0 var(--space-sm) rgba(255, 255, 255, var(--alpha-95)))
-    drop-shadow(0 0 var(--space-md) rgba(255, 255, 255, var(--alpha-70)));
-}
-
-/* No layer hint */
-.heatmap-ctrl .no-layers {
-  padding: var(--space-md) var(--space-lg);
-  color: var(--text-placeholder);
-  font-size: var(--font-size-sm);
 }

@@ -8,11 +8,23 @@
   align-items: center;
   justify-content: flex-start;
   gap: 0;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--ctrl-bg-translucent);
   border: none;
   box-shadow: none;
   height: calc(var(--font-size-xs) + var(--space-sm));
+}
+.leaflet-control.scale-wrap .leaflet-control-scale-line,
+.leaflet-control.scale-wrap .scale-zoom-label {
+  height: calc(var(--font-size-xs) + var(--space-sm));
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 var(--space-md);
+  box-sizing: border-box;
+  line-height: normal;
 }
 .leaflet-control.scale-wrap .leaflet-control-scale-line {
   border: var(--border-thin) solid transparent;
@@ -20,26 +32,12 @@
   border-left: var(--space-xs) solid var(--text-primary);
   border-right: var(--space-xs) solid var(--text-primary);
   margin: 0;
-  height: calc(var(--font-size-xs) + var(--space-sm));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 var(--space-md);
-  box-sizing: border-box;
   text-align: center;
   background: transparent;
   box-shadow: none;
-  font-size: var(--font-size-xs);
-  line-height: normal;
+  border-radius: 0;
 }
 .leaflet-control.scale-wrap .scale-zoom-label {
-  padding: 0 var(--space-md);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  height: calc(var(--font-size-xs) + var(--space-sm));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: normal;
 }

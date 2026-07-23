@@ -2,43 +2,7 @@
   width: var(--panel-width);
   height: auto;
   box-shadow: var(--panel-shadow);
-}
-.map-search.expanded .toggle-btn:hover {
-  color: var(--accent-primary);
-}
-/* ── Search Form ── */
-.map-search .search-form {
-  display: none;
-  align-items: center;
-  height: var(--ctrl-size);
-  flex: 1;
-}
-.map-search.expanded .search-form {
-  display: flex;
-}
-/* ── Mode Switch Button ── */
-.map-search .search-mode-btn {
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  min-width: var(--ctrl-size);
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  border-left: var(--border-thin) solid var(--divider-color);
-  border-right: var(--border-thin) solid var(--divider-color);
-  transition: color var(--transition-fast), background-color var(--transition-fast);
-  flex-shrink: 0;
-}
-.map-search .search-mode-btn:hover {
-  background-color: var(--ctrl-hover-bg);
-  color: var(--accent-primary);
-}
-.map-search .search-mode-btn svg {
-  stroke: currentColor;
+  overflow: hidden;
 }
 /* ── Clear Button Wrapper ── */
 .map-search .clear-wrap {
@@ -61,14 +25,8 @@
   background: var(--input-bg);
   box-sizing: border-box;
   box-shadow: none;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-.map-search input:focus {
-  border-color: var(--input-focus-border);
-  box-shadow: inset 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  transition: var(--transition-input);
 }
 .map-search input::placeholder {
-  color: var(--text-placeholder);
+  color: var(--text-muted);
 }

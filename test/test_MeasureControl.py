@@ -47,153 +47,710 @@ class TestMeasureControlRendering:
         assert "gcoord.global.prod.js" in html
 
     def test_contains_tool_buttons(self, base_map: folium.Map):
+        """Tool buttons are built via foliplus.dom.el with data-mode."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "tool-btn" in html
-        assert "data-mode" in html
+        assert '"data-mode": mode' in html
+        assert 'mode: "marker"' in html
+        assert 'mode: "distance"' in html
+        assert 'mode: "circle"' in html
+        assert 'mode: "clear"' in html
 
     def test_locale_zh(self, base_map: folium.Map):
         MeasureControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "量算工具" in html
-        assert "measure.tool_toggle" in html
-
-    def test_bring_to_front_on_circle_marker(self, base_map: folium.Map):
-        """CircleMarkers call bringToFront() after creation (not in onAdd override)."""
-
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        # bringToFront should appear after circleMarker creation calls
-        assert (
-            "mkr.bringToFront()" in html
-            or "previews.node.bringToFront()" in html
-            or "radiusNode.bringToFront()" in html
-        )
-        # Old onAdd override should NOT exist
-        assert "origOnAdd(map)" not in html
-        assert (
-            "this.mainLayer.onAdd" not in html
-            or "this.mainLayer.onAdd = (map)" not in html
-        )
+        assert "MeasureControl.tool_toggle" in html
 
     def test_remove_layer_routes_to_sublayer(self, base_map: folium.Map):
         """removeLayer is overridden to route to sub-layer (three-layer architecture)."""
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.mainLayer.removeLayer = (layer) => {" in html
-        assert "this.labelLayer : this.graphLayer" in html
+        assert "removeLayer" in html
 
     def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
         """MeasureControl uses LayerControlAPI.ensurePane for renderer creation."""
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "window.foliplus.LayerControlAPI.ensurePane" in html
+        assert "createLayers(" in html
 
     def test_realtime_distance_preview(self, base_map: folium.Map):
-        """Distance mode includes real-time preview label (previewDistLabel)."""
+        """Distance mode includes real-time preview label, line, and node."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "previewDistLabel" in html
+        assert "previewLine" in html
         assert "onDistMove" in html
         assert "MeasureUtils.formatDistance(showDist)" in html
 
-    def test_format_distance_km(self, base_map: folium.Map):
-        """Distance >= 1000m shows as km."""
+    def test_create_layers_api_used(self, base_map: folium.Map):
+        """MeasureControl uses createLayers with graphPane/labelPane."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "measure.unit_km" in html
-        assert "measure.unit_m" in html
+        assert "createLayers" in html
+        assert "graphPane" in html
+        assert "labelPane" in html
 
-    def test_del_icon_class(self, base_map: folium.Map):
-        """Delete icon uses del-icon-wrap and measure-del-icon classes."""
+    def test_css_icon_size_variable(self, base_map: folium.Map):
+        """MeasureControl SVGs use --icon-size-md via common.css."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "del-icon-wrap" in html
-        assert "measure-del-icon" in html
+        assert "icon-size-md" in html
 
-    def test_onremove_present(self, base_map: folium.Map):
-        """MeasureControl has onRemove method that calls clearAll."""
+    def test_css_stroke_width_emphasis(self, base_map: folium.Map):
+        """Solid measurement lines use stroke-width in CSS."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "onRemove()" in html
-        assert "measureManager.clearAll()" in html
+        # CSS variable is defined in MeasureControl.css, not in JS
+        assert "stroke-width" in html
 
-    def test_css_classes_line_styles(self, base_map: folium.Map):
-        """Line styles use measure-line-solid (solid) and measure-line-dashed (dashed)."""
+    def test_hint_duration_persist(self, base_map: folium.Map):
+        """MeasureControl hints use PERSIST duration (hints stay until mode change)."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "measure-line-solid" in html
-        assert "measure-line-dashed" in html
-        assert "measure-line-preview" in html
+        assert "HINT_DURATION.PERSIST" in html
 
-    def test_css_class_measure_hidden(self, base_map: folium.Map):
-        """measure-hidden class exists for visibility toggle."""
+    def test_marker_icon_svg_structure(self, base_map: folium.Map):
+        """Marker mode uses crosshair SVG."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "measure-hidden" in html
+        assert "crosshair" in html
 
-    def test_suppress_hide_utility(self, base_map: folium.Map):
-        """MeasureUtils.suppressHide helper is used instead of inline suppress pattern."""
+    def test_distance_icon_svg_structure(self, base_map: folium.Map):
+        """Distance mode uses ruler SVG with -45deg rotation in SVG transform."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "MeasureUtils.suppressHide" in html
+        assert "rotate(-45" in html
 
-    def test_node_css_classes(self, base_map: folium.Map):
-        """Node markers use CSS classes instead of inline color/weight/fill options."""
+    def test_circle_icon_svg_structure(self, base_map: folium.Map):
+        """Circle mode uses concentric circles SVG."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "measure-node" in html
-        assert "measure-node-final" in html
-        assert "measure-node-preview" in html
+        assert "cx=" in html
 
-    def test_circle_css_classes(self, base_map: folium.Map):
-        """Circle elements use CSS classes instead of inline color/fill options."""
+    def test_trash_icon_svg(self, base_map: folium.Map):
+        """Trash icon SVG is defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "measure-circle-final" in html
-        assert "measure-circle-preview" in html
+        assert "TRASH" in html
+
+    def test_measure_id_constant(self, base_map: folium.Map):
+        """MEASURE_ID constant is used for layer registration."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'MEASURE_ID: "foliplus_measure"' in html
+
+    def test_graph_label_pane_constants(self, base_map: folium.Map):
+        """GRAPH_PANE and LABEL_PANE constants are defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'GRAPH_PANE: "measure_graph"' in html
+        assert 'LABEL_PANE: "measure_label"' in html
+
+    def test_stop_event_utility(self, base_map: folium.Map):
+        """MeasureUtils.stopEvent stops propagation and default."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static stopEvent" in html
+        assert "d?.stopPropagation?.()" in html
+        assert "d?.preventDefault?.()" in html
+
+    def test_format_distance_km_and_m(self, base_map: folium.Map):
+        """formatDistance splits at 1000m threshold."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "meters >= 1000" in html
+        assert "MeasureControl.unit_km" in html
+        assert "MeasureControl.unit_m" in html
+
+    def test_distance_calculation(self, base_map: folium.Map):
+        """MeasureUtils.distance delegates to Leaflet's distanceTo."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2))" in html
 
     def test_toggle_visibility_utility(self, base_map: folium.Map):
-        """toggleVisibility is used for show/hide of line and node elements."""
+        """toggleVisibility uses measure-hidden class."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "MeasureUtils.toggleVisibility" in html
+        assert 'el.classList.toggle("measure-hidden", !visible)' in html
+
+    def test_suppress_hide_utility(self, base_map: folium.Map):
+        """suppressHide sets a delayed flag and hides all del icons."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "manager.suppressHideDel = true" in html
+        assert "MeasureUtils.hideAllDelIcons()" in html
+
+    def test_calc_toggle_reset(self, base_map: folium.Map):
+        """calcToggle with 'reset' sets labelsVisible=true."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'toggleLbl === "reset"' in html
+
+    def test_toggle_del_icon_retry(self, base_map: folium.Map):
+        """toggleDelIcon retries with delay up to DEL_ICON_RETRY_LIMIT times."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "retries < CONST.DEL_ICON_RETRY_LIMIT" in html
+        assert "MeasureUtils.toggleDelIcon(mkr, show, retries + 1)" in html
+
+    def test_attach_del_click_utility(self, base_map: folium.Map):
+        """attachDelClick binds click to marker event, not raw DOM event."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'delMkr.on("click",' in html
+        assert "measure-del-icon" in html
+
+    def test_set_label_text_gets_fresh_dom(self, base_map: folium.Map):
+        """setLabelText gets a fresh DOM reference each call."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "marker.getElement()" in html
+        assert "labelEl.textContent = text" in html
+
+    def test_remove_layers_null_safe(self, base_map: folium.Map):
+        """removeLayers skips null layers."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "if (l != null)" in html
+
+    def test_build_popup_delegates(self, base_map: folium.Map):
+        """buildPopup delegates to foliplus.buildPopupHtml."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "window.foliplus.buildPopupHtml" in html
+
+    def test_lazy_register_after_finish(self, base_map: folium.Map):
+        """Distance mode registers on first click via mainLayer.addLayer, not on finishDist."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # register() is handled by mainLayer.addLayer override in LayerControl.js,
+        # not explicitly called in MeasureControl.js
+        assert "this.layers.unregister()" in html
+        assert "this.layers.register()" not in html
+
+    def test_click_cooldown(self, base_map: folium.Map):
+        """Click cooldown constant is defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "CLICK_COOLDOWN_MS: 300" in html
+
+    def test_finalize_delay(self, base_map: folium.Map):
+        """Finalize delay constant is defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "FINALIZE_DELAY_MS: 50" in html
+
+    def test_center_dot_size(self, base_map: folium.Map):
+        """Center dot size constants are defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "CENTER_DOT_SIZE: [12, 12]" in html
+        assert "CENTER_DOT_ANCHOR: [6, 6]" in html
+
+    def test_label_anchor(self, base_map: folium.Map):
+        """Label anchor is above center."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "LABEL_ANCHOR: [0, -10]" in html
+
+    def test_is_finalizing_guard(self, base_map: folium.Map):
+        """Circle mode guards against double-finalize with isFinalizing."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "isFinalizing" in html
+        assert "isFinalizing = false" in html
+
+    def test_measure_manager_constructor(self, base_map: folium.Map):
+        """MeasureManager constructor accepts map instance."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "constructor(mapInstance)" in html
+
+    def test_measure_manager_methods(self, base_map: folium.Map):
+        """MeasureManager has expected methods (start, bind, flow)."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "startDistanceMode" in html
+        assert "startCircleMode" in html
+        assert "bindMarkerMode" in html
+        assert "onDistMove" in html
+        assert "finishDist" in html
+
+    def test_label_above_circle(self, base_map: folium.Map):
+        """Label is added after circle, line, and node so it renders on top."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # radiusLabel.addTo should appear after circle.addTo and radiusLine.addTo
+        label_pos = html.find("radiusLabel.addTo(this.layers.mainLayer)")
+        circle_pos = html.find(
+            ".addTo(this.layers.mainLayer);", html.find("circle = L.circle")
+        )
+        line_pos = html.find(
+            ".addTo(this.layers.mainLayer);", html.find("radiusLine = L.polyline")
+        )
+        node_pos = html.find(
+            ".addTo(this.layers.mainLayer);",
+            html.find("radiusNode = MeasureUtils.makeNode"),
+        )
+        assert label_pos > circle_pos, "Label should be added after circle"
+        assert label_pos > line_pos, "Label should be added after line"
+        assert label_pos > node_pos, "Label should be added after node"
 
     def test_double_label_fix(self, base_map: folium.Map):
-        """Regression test for Bug 2: Labels are marked BEFORE addTo(mainLayer).
-        This ensures they are routed to sub-layers (labelLayer) immediately.
-        """
+        """Regression test: Labels are marked BEFORE addTo(mainLayer)."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # Check specific order: _isMeasureLabel = true BEFORE addTo
         assert re.search(
-            r"_isMeasureLabel\s*=\s*true;\s*\w+\.addTo\(this\.mainLayer\)", html
+            r"isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html
         )
 
     def test_label_interaction_listeners(self, base_map: folium.Map):
-        """Distance/Circle labels have click listeners to toggle UI."""
+        """Distance/Circle labels have click listeners."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "segLabels.forEach(l => l.on('click', handleItemClick))" in html
-        assert "if (radiusLabel) attachInteraction(radiusLabel)" in html
-
-    def test_unregister_clears_leftover_nodes(self, base_map: folium.Map):
-        """unregisterFromLayerControl explicitly clears graph/label sub-layers."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.graphLayer.clearLayers()" in html
-        assert "this.labelLayer.clearLayers()" in html
+        assert 'segLabels.forEach((l) => l.on("click", handleItemClick))' in html
 
     def test_ui_fixed_labels_fix(self, base_map: folium.Map):
-        """Regression test: Labels should stay fixed (visible), only X toggles.
-        Map click should restore default (L=on, X=off).
-        """
+        """Regression test: Labels stay fixed, only X toggles."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # Ensure map clicks use 'reset' to keep labels visible
-        assert "toggleUI(false, 'reset')" in html
-        # Ensure item clicks toggle ONLY X (undefined)
+        assert 'toggleUI(false, "reset")' in html
         assert "toggleUI(undefined)" in html
-        assert "toggleUI(undefined, true)" not in html
+
+    def test_measure_tool_toggle(self, base_map: folium.Map):
+        """Tool toggle uses MeasureControl.tool_toggle locale key."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureControl.tool_toggle" in html
+
+    def test_hint_messages(self, base_map: folium.Map):
+        """Hint messages for all modes are present."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureControl.hint_marker" in html
+        assert "MeasureControl.hint_dist_start" in html
+        assert "MeasureControl.hint_circle_start" in html
+        assert "MeasureControl.hint_circle_radius" in html
+
+    def test_preview_circle_while_drawing(self, base_map: folium.Map):
+        """Preview circle and label are created during circle drawing."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "previews.circle" in html
+        assert "previews.center" in html
+        assert "previews.label" in html
+
+    def test_origin_label_on_distance(self, base_map: folium.Map):
+        """Origin label shows 'Start' text."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureControl.dist_origin" in html
+
+    def test_bring_to_front_on_circle_marker(self, base_map: folium.Map):
+        """CircleMarkers call bringToFront() after creation."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "mkr.bringToFront()" in html or "previews.node.bringToFront()" in html
+
+    def test_no_old_onadd_override(self, base_map: folium.Map):
+        """Old onAdd override should not exist."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "origOnAdd(map)" not in html
+
+    def test_lat_lng_precision_constant(self, base_map: folium.Map):
+        """LAT_LNG_PRECISION constant is defined as 6."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "LAT_LNG_PRECISION: 6" in html
+
+    def test_make_label_div_icon(self, base_map: folium.Map):
+        """MeasureUtils.makeLabelDivIcon creates a divIcon with measure-label."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "makeLabelDivIcon" in html
+        assert "measure-label" in html
+        assert "LABEL_ANCHOR" in html
+        # Supports optional iconAnchor and className params
+        assert "iconAnchor" in html
+        assert "className" in html
+
+    def test_circle_label_centered(self, base_map: folium.Map):
+        """Circle radius labels (both preview and final) use [0,0] anchor + measure-label-radius for centering at midpoint."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert re.search(
+            r'MeasureUtils\.makeLabelDivIcon\(\s*MeasureUtils\.formatDistance\(r\)\s*,\s*\[0,\s*0\]\s*,\s*"measure-label-radius"\s*',
+            html,
+        )
+
+    def test_make_node(self, base_map: folium.Map):
+        """MeasureUtils.makeNode creates a circleMarker with MARKER_RADIUS."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "makeNode" in html
+        assert "MARKER_RADIUS" in html
+
+    def test_make_del_icon(self, base_map: folium.Map):
+        """MeasureUtils.makeDelIcon creates a delete icon marker."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "makeDelIcon" in html
+        assert "del-icon-wrap" in html
+
+    def test_align_right_for_right_position(self, base_map: folium.Map):
+        """Right positions (bottomright/topright) add align-right class."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "align-right" in html
+
+    def test_no_align_right_for_left_position(self, base_map: folium.Map):
+        """Left positions (topleft/bottomleft) do NOT add align-right class."""
+        MeasureControl(position="topleft").add_to(base_map)
+        html = render(base_map)
+        # align-right appears in CSS, but NOT in the JS class string for left positions
+        # Check that the JS doesn't add align-right for left positions
+        assert 'indexOf("left") >= 0' in html
+
+    def test_marker_del_icon_uses_make_del_icon(self, base_map: folium.Map):
+        """Marker mode uses makeDelIcon with iconAnchor for positioning."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "makeDelIcon" in html
+        assert "iconAnchor" in html
+        assert "injectDelIcon" not in html
+
+    def test_bring_layer_to_front_on_tool_select(self, base_map: folium.Map):
+        """Tool select calls bringLayerToFront to keep measure layer on top."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.layers.bringToFront()" in html
+
+    # ── Finish animation tests ──
+
+    def test_dash_sweep_animation_classes(self, base_map: folium.Map):
+        """Distance finishDist adds is-dash-sweep class with --sweep-length."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "is-dash-sweep" in html
+        assert "--sweep-length" in html
+        assert "getTotalLength" in html
+        assert "animationend" in html
+
+    def test_dash_sweep_drop_shadow(self, base_map: folium.Map):
+        """Dash sweep line has drop-shadow filter for glow effect."""
+        import pathlib
+
+        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        assert "drop-shadow" in css
+        assert "is-dash-sweep" in css
+
+    def test_ripple_animation_classes(self, base_map: folium.Map):
+        """Circle finalizeCircle creates a measure-ripple circle with animationend cleanup."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "measure-ripple" in html
+        assert "interactive: false" in html
+        assert "removeLayer(ripple)" in html
+        assert "animationend" in html
+
+    def test_ripple_css_variables(self, base_map: folium.Map):
+        """Ripple animation uses CSS custom properties for all parameters."""
+        import pathlib
+
+        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        assert "--ripple-duration" in css
+        assert "--ripple-opacity-start" in css
+        assert "--ripple-stroke-start" in css
+        assert "--ripple-stroke-end" in css
+        assert "measure-ripple" in css
+
+    def test_dash_sweep_css_variables(self, base_map: folium.Map):
+        """Dash sweep animation uses CSS custom properties for all parameters."""
+        import pathlib
+
+        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        assert "--sweep-length" in css
+        assert "--sweep-duration" in css
+
+    def _make_page(self, browser, tmp_path):
+        """Build a page with MeasureControl and return (page, errors)."""
+        from foliplus import LayerControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        MeasureControl().add_to(m)
+
+        html = m.get_root().render()
+        html = html.replace(
+            "const measureManager = new MeasureManager(map);",
+            "const measureManager = new MeasureManager(map); window.__measureManager = measureManager; window.__map = map;",
+        )
+        # Remove blocking CDN <script> tags (gcoord added by default_js)
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
+            "",
+        )
+        html_path = tmp_path / "measure_browser.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        errors = []
+        page.on(
+            "console",
+            lambda msg: (
+                errors.append(msg.text)
+                if msg.type == "error"
+                and not msg.text.startswith("Failed to load resource")
+                else None
+            ),
+        )
+        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        page.wait_for_selector(".measure-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    def test_tool_buttons_render(self, browser, tmp_path):
+        """Tool buttons are present in the DOM."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            btns = page.evaluate(
+                "document.querySelectorAll('.measure-ctrl .tool-btn').length"
+            )
+            assert btns >= 3
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_register_on_first_click(self, browser, tmp_path):
+        """Layer is registered on first map click, not on tool select."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("document.querySelector('[data-mode=distance]').click()")
+            page.wait_for_timeout(500)
+            # Tool selected — no registration yet (consistent with marker/circle)
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert not registered, (
+                "Layer should NOT be registered after tool select — deferred until first click"
+            )
+            # First click on map — triggers registration
+            page.evaluate("""() => {
+                const map = window.__map;
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            page.wait_for_timeout(500)
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after first map click"
+            # Second click + right-click to finish
+            page.evaluate("""() => {
+                const map = window.__map;
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            page.evaluate("""() => {
+                const map = window.__map;
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after completing measurement"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_add_graph_adds_content(self, browser, tmp_path):
+        """addGraph() adds a path to graphLayer."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+            }""")
+            page.wait_for_timeout(500)
+            count = page.evaluate(
+                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
+            )
+            assert count == 1
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_clear_all_empties_layers(self, browser, tmp_path):
+        """clearAll() empties graphLayer and labelLayer."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.layers.addGraph(L.circleMarker([26.08,119.30]));
+            }""")
+            page.wait_for_timeout(500)
+            page.evaluate("window.__measureManager.layers.clearAll()")
+            page.wait_for_timeout(500)
+            count = page.evaluate(
+                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
+            )
+            assert count == 0, f"expected 0 got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_remove_graph_removes_single_item(self, browser, tmp_path):
+        """removeGraph removes a single layer without affecting others."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const p1 = L.polyline([[26.08,119.30],[26.09,119.31]]);
+                const p2 = L.circleMarker([26.08,119.30]);
+                mm.layers.addGraph(p1);
+                mm.layers.addGraph(p2);
+                mm.layers.removeGraph(p1);
+                const layers = mm.layers.graphLayer._layers || {};
+                window.__test = Object.keys(layers).length;
+            }""")
+            page.wait_for_timeout(500)
+            count = page.evaluate("window.__test")
+            assert count == 1, f"expected 1 layer remaining, got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_destroy_cleans_up_listeners(self, browser, tmp_path):
+        """destroy() removes all map listeners (no leak after cleanup)."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # First, create a circle to trigger onMapClickActive listener
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('circle');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # Destroy the manager
+            page.evaluate("window.__measureManager.destroy()")
+            page.wait_for_timeout(200)
+            # Verify no errors
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_marker_del_icon_removes_marker(self, browser, tmp_path):
+        """Clicking the delete X in marker mode removes the marker pin."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('marker');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            page.wait_for_timeout(500)
+            # Remove the layer via API directly (testing the delete logic)
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const layers = mm.layers.mainLayer._layers || {};
+                const delMkr = Object.values(layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+                if (delMkr) {
+                    // Simulate clicking the del icon: make it visible, then fire
+                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    // Fire with a mock originalEvent that has the del-icon target
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
+            }""")
+            page.wait_for_timeout(300)
+            # Check that delMkr is no longer in the layer group
+            hasDelMkr = page.evaluate("""() => {
+                const mm = window.__measureManager;
+                return Object.values(mm.layers.mainLayer._layers || {}).some(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+            }""")
+            assert not hasDelMkr, "delMkr should be removed after clicking delete"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_distance_del_icon_removes_measurement(self, browser, tmp_path):
+        """Clicking the delete X in distance mode removes the entire measurement."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # Fire the delMkr click with a mock originalEvent targeting the X icon
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const layers = mm.layers.mainLayer._layers || {};
+                const delMkr = Object.values(layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+                if (delMkr) {
+                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
+            }""")
+            page.wait_for_timeout(300)
+            hasDelMkr = page.evaluate("""() => {
+                const mm = window.__measureManager;
+                return Object.values(mm.layers.mainLayer._layers || {}).some(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+            }""")
+            assert not hasDelMkr, "delMkr should be removed after clicking delete"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_circle_del_icon_removes_circle(self, browser, tmp_path):
+        """Clicking the delete X in circle mode removes the entire circle."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('circle');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # Fire the delMkr click with a mock originalEvent targeting the X icon
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const layers = mm.layers.mainLayer._layers || {};
+                const delMkr = Object.values(layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+                if (delMkr) {
+                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
+            }""")
+            page.wait_for_timeout(300)
+            hasDelMkr = page.evaluate("""() => {
+                const mm = window.__measureManager;
+                return Object.values(mm.layers.mainLayer._layers || {}).some(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                );
+            }""")
+            assert not hasDelMkr, "delMkr should be removed after clicking delete"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()

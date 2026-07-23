@@ -30,6 +30,14 @@ def render(m: folium.Map) -> str:
     return resolve_js_unicode(m.get_root().render())
 
 
+def pytest_collection_modifyitems(config, items):
+    """Auto-mark test classes ending with 'Browser' as pytest.mark.browser."""
+    for item in items:
+        cls = item.getparent(pytest.Class)
+        if cls is not None and cls.name.endswith("Browser"):
+            item.add_marker(pytest.mark.browser)
+
+
 @pytest.fixture
 def base_map() -> folium.Map:
     """Provide a fresh map for each test."""

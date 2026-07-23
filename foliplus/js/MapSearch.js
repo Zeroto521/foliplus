@@ -1,94 +1,103 @@
-(function() {
+(function () {
+  // ==================== Constants ====================
+  const CONST = {
+    name: "MapSearch",
+    COORD: "coord",
+    ADDR: "addr",
+    NOMINATIM_URL: "https://nominatim.openstreetmap.org/search",
+    NOMINATIM_FORMAT: "jsonv2",
+    NOMINATIM_LIMIT: 1,
+    ZOOM_MAX: 16,
+    ZOOM_MIN: 12,
+    ZOOM_BASE: 18,
+    ZOOM_DIVISOR: 20,
+    position: "{{ this.position }}",
+    zoom: {{ this.zoom }},
+  };
+
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[MapSearch] foliplus runtime not found, plugin disabled.');
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
+  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  window.foliplus.registerHintIcon('map-search', window.foliplus.SVGs.SEARCH);
-
-  // ==================== Constants ====================
-  const MODE = { COORD: 'coord', ADDR: 'addr' };
-
-  // ==================== Helper Functions ====================
-  const _hideSearchHint = () => window.foliplus.hideHint('map-search');
-  const _showSearchHint = (msg, duration) => {
-    window.foliplus.showHint('map-search', msg, duration);
-  };
+  window.foliplus.registerHintIcon(CONST.name, window.foliplus.SVGs.SEARCH);
 
   // ==================== Control Definition ====================
   new (L.Control.extend({
-    onAdd: function() {
-      const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
-      const ctrl = L.DomUtil.create(
-        "div", "map-search ctrl-fold collapsed", container
+    onAdd: () => {
+      const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
+        {
+          cssClass: "map-search",
+          toggleTitle: _(`${CONST.name}.btn_title`),
+          toggleSvg: window.foliplus.SVGs.SEARCH,
+          isLeft: CONST.position.indexOf("left") >= 0,
+        },
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
-      ctrl.innerHTML = `
-        <button class="toggle-btn" title="${_('search.btn_title')}">
-          ${window.foliplus.SVGs.SEARCH}
-        </button>
-        <div class="search-form">
-          <button class="search-mode-btn" title="${_('search.mode_coord')}">
-            ${window.foliplus.SVGs.LOCATE}
-          </button>
-          <div class="clear-wrap">
-            <input type="text" placeholder="${_('search.coord_placeholder')}" />
-            <button class="ctrl-abs-btn" title="${_('search.clear_title')}">
-              ${window.foliplus.SVGs.CLOSE}
-            </button>
-          </div>
-        </div>
-      `;
 
-      L.DomEvent.disableClickPropagation(container);
-      L.DomEvent.disableScrollPropagation(container);
+      const modeBtn = window.foliplus.dom.el(
+        "button",
+        { class: "search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
+        { html: window.foliplus.SVGs.LOCATE },
+      );
+      const inp = window.foliplus.dom.el("input", {
+        type: "text",
+        placeholder: _(`${CONST.name}.coord_placeholder`),
+      });
+      const clearBtn = window.foliplus.dom.el(
+        "button",
+        { class: "ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
+        { html: window.foliplus.SVGs.CLOSE },
+      );
+      toolBar.appendChild(modeBtn);
+      toolBar.appendChild(
+        window.foliplus.dom.el("div", { class: "clear-wrap" }, inp, clearBtn),
+      );
 
-      const inp = container.querySelector("input");
-      const modeBtn = container.querySelector(".search-mode-btn");
       let mk = null;
-      let mode = '{{ this.mode }}';
-      if (mode !== MODE.COORD && mode !== MODE.ADDR) {
-        mode = MODE.COORD;
-      }
+      let mode = "{{ this.mode }}";
+      if (mode !== CONST.COORD && mode !== CONST.ADDR) mode = CONST.COORD;
 
-      // Apply initial mode to UI
-      _setMode(mode);
+      setMode(mode);
 
       // Mode switching
-      function _setMode(newMode) {
+      function setMode(newMode) {
         mode = newMode;
-        if (mode === MODE.COORD) {
+        if (mode === CONST.COORD) {
           modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
-          modeBtn.title = _('search.mode_coord');
-          inp.placeholder = _('search.coord_placeholder');
+          modeBtn.title = _(`${CONST.name}.mode_coord`);
+          inp.placeholder = _(`${CONST.name}.coord_placeholder`);
         } else {
           modeBtn.innerHTML = window.foliplus.SVGs.GLOBE;
-          modeBtn.title = _('search.mode_addr');
-          inp.placeholder = _('search.addr_placeholder');
+          modeBtn.title = _(`${CONST.name}.mode_addr`);
+          inp.placeholder = _(`${CONST.name}.addr_placeholder`);
         }
-        inp.value = '';
-        if (mk) { map.removeLayer(mk); mk = null; }
-        _hideSearchHint();
+        inp.value = "";
+        if (mk) {
+          map.removeLayer(mk);
+          mk = null;
+        }
+        window.foliplus.hideHint(CONST.name);
         inp.focus();
       }
 
-      modeBtn.onclick = function(e) {
+      modeBtn.onclick = (e) => {
         e.stopPropagation();
-        _setMode(mode === MODE.COORD ? MODE.ADDR : MODE.COORD);
+        setMode(mode === CONST.COORD ? CONST.ADDR : CONST.COORD);
       };
 
       // Expand / collapse
-      container.querySelector(".toggle-btn").onclick = function(e) {
+      toggleBtn.onclick = (e) => {
         e.stopPropagation();
         if (ctrl.classList.contains("expanded")) {
           ctrl.classList.remove("expanded");
           ctrl.classList.add("collapsed");
-          _hideSearchHint();
+          window.foliplus.hideHint(CONST.name);
         } else {
           ctrl.classList.remove("collapsed");
           ctrl.classList.add("expanded");
@@ -97,102 +106,148 @@
       };
 
       // Clear input
-      const clearBtn = container.querySelector(".ctrl-abs-btn");
-      clearBtn.onclick = function() {
+      clearBtn.onclick = () => {
         inp.value = "";
-        if (mk) { map.removeLayer(mk); mk = null; }
+        if (mk) {
+          map.removeLayer(mk);
+          mk = null;
+        }
         inp.focus();
       };
 
-      inp.addEventListener("input", function() {
-        inp.placeholder = mode === MODE.COORD
-          ? _('search.coord_placeholder') : _('search.addr_placeholder');
+      inp.addEventListener("input", () => {
+        inp.placeholder =
+          mode === CONST.COORD
+            ? _(`${CONST.name}.coord_placeholder`)
+            : _(`${CONST.name}.addr_placeholder`);
       });
 
       // Coordinate search
-      function _doCoordSearch(raw) {
-        const parts = raw.replace(/\uff0c/g, ",").replace(/\s+/g, "")
-          .split(",").map(Number);
+      const doCoordSearch = (raw) => {
+        const parts = raw
+          .replace(/\uff0c/g, ",")
+          .replace(/\s+/g, "")
+          .split(",")
+          .map(Number);
 
         if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-          _showSearchHint(_('search.coord_error'), 5000);
-          inp.value = '';
+          window.foliplus.showHint(
+            CONST.name,
+            _(`${CONST.name}.coord_error`),
+            window.foliplus.HINT_DURATION.LONG,
+          );
+          inp.value = "";
           return;
         }
 
-        const lng = parts[0], lat = parts[1];
-        _hideSearchHint();
-        map.flyTo([lat, lng], {{ this.zoom }});
+        const lng = parts[0];
+        const lat = parts[1];
+        window.foliplus.hideHint(CONST.name);
+        map.flyTo([lat, lng], CONST.zoom);
         mk = window.foliplus.createLocationMarker(
-          map, lat, lng, null, 'search.popup', _('search.popup_title_coord'), mk
+          map,
+          lat,
+          lng,
+          null,
+          `${CONST.name}.popup_title_coord`,
+          `${CONST.name}.popup_loading`,
+          `${CONST.name}.popup_loc_label`,
+          `${CONST.name}.popup_addr_label`,
+          mk,
         );
-      }
+      };
 
       // Address search via Nominatim
-      function _doAddrSearch(query) {
-        _showSearchHint(
-          window.foliplus.SVGs.LOADING + ' ' + _('search.popup_loading'), 0
+      const doAddrSearch = (query) => {
+        window.foliplus.showHint(
+          CONST.name,
+          window.foliplus.SVGs.LOADING + " " + _(`${CONST.name}.popup_loading`),
+          window.foliplus.HINT_DURATION.PERSIST,
         );
 
-        fetch('https://nominatim.openstreetmap.org/search' +
-          '?format=jsonv2&q=' + encodeURIComponent(query) +
-          '&limit=1&accept-language=' + (window._LOCALE['locale.code'] || 'en'))
-          .then(function(r) { return r.json(); })
-          .then(function(results) {
-            _hideSearchHint();
+        fetch(
+          CONST.NOMINATIM_URL +
+            "?format=" +
+            CONST.NOMINATIM_FORMAT +
+            "&q=" +
+            encodeURIComponent(query) +
+            "&limit=" +
+            CONST.NOMINATIM_LIMIT +
+            "&accept-language=" +
+            (window._LOCALE["locale.code"] || "en"),
+        )
+          .then((r) => r.json())
+          .then((results) => {
+            window.foliplus.hideHint(CONST.name);
             if (!results || results.length === 0) {
-              _showSearchHint(_('search.addr_not_found'), 5000);
-              inp.value = '';
+              window.foliplus.showHint(
+                CONST.name,
+                _(`${CONST.name}.addr_not_found`),
+                window.foliplus.HINT_DURATION.LONG,
+              );
+              inp.value = "";
               return;
             }
 
             const item = results[0];
             const displayName = item.display_name || query;
-            let lat = parseFloat(item.lat), lng = parseFloat(item.lon);
+            let lat = parseFloat(item.lat);
+            let lng = parseFloat(item.lon);
 
-            // Transform coordinates from WGS84 to the map's CRS
             const converted = window.foliplus.fromWgs84(map, lng, lat);
-            lng = converted[0]; lat = converted[1];
+            lng = converted[0];
+            lat = converted[1];
 
-            const zoom = Math.min(16,
-              Math.max(12, 18 - Math.floor(displayName.length / 20)));
+            const zoom = Math.min(
+              CONST.ZOOM_MAX,
+              Math.max(
+                CONST.ZOOM_MIN,
+                CONST.ZOOM_BASE - Math.floor(displayName.length / CONST.ZOOM_DIVISOR),
+              ),
+            );
             map.flyTo([lat, lng], zoom);
             mk = window.foliplus.createLocationMarker(
-              map, lat, lng, displayName, 'search.popup', _('search.popup_title_addr'), mk
+              map,
+              lat,
+              lng,
+              displayName,
+              `${CONST.name}.popup_title_addr`,
+              `${CONST.name}.popup_loading`,
+              `${CONST.name}.popup_loc_label`,
+              `${CONST.name}.popup_addr_label`,
+              mk,
             );
           })
-          .catch(function(err) {
-            console.error('[MapSearch] ' + _('search.addr_error'));
-            _hideSearchHint();
-            _showSearchHint(_('search.addr_error'), 5000);
+          .catch((err) => {
+            console.error(`[${CONST.name}] ${_(CONST.name + ".addr_error")}`);
+            window.foliplus.hideHint(CONST.name);
+            window.foliplus.showHint(
+              CONST.name,
+              _(CONST.name + ".addr_error"),
+              window.foliplus.HINT_DURATION.LONG,
+            );
           });
-      }
+      };
 
       // Keyboard events
-      inp.addEventListener("keydown", function(e) {
+      inp.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
           ctrl.classList.remove("expanded");
           ctrl.classList.add("collapsed");
-          _hideSearchHint();
+          window.foliplus.hideHint(CONST.name);
           return;
         }
         if (e.key === "Enter") {
           const raw = inp.value.trim();
           if (!raw) return;
-          mode === MODE.COORD ? _doCoordSearch(raw) : _doAddrSearch(raw);
+          mode === CONST.COORD ? doCoordSearch(raw) : doAddrSearch(raw);
         }
       });
 
       // Collapse on outside click
-      window.foliplus.bindOutsideCollapse({
-        map: map, container: ctrl,
-        shouldCollapse: function() { return !inp.value.trim(); },
-        onCollapse: function() { _hideSearchHint(); }
-      });
+      window.foliplus.bindOutsideCollapse({ container: ctrl });
 
       return container;
-    }
-  }))({
-    position: "{{ this.position }}"
-  }).addTo(map);
+    },
+  }))({ position: CONST.position }).addTo(map);
 })();

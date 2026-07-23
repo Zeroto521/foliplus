@@ -1,106 +1,129 @@
-(function() {
-  // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[LayerControl] foliplus runtime not found, plugin disabled.');
-    return;
-  }
-
+(function () {
   // ==================== Constants ====================
-  const _CONST = {
+  const CONST = {
+    name: "LayerControl",
     INIT_DELAY_MS: 300,
+    ENFORCE_ORDER_DEBOUNCE_MS: 50,
     Z_INDEX_BASE: 600,
-    DRAG_TIMEOUT_MS: 100,
+    TILE_Z_INDEX_BASE: 200,
+    Z_INDEX_STEP: 10,
+    PANE_RECURSION_DEPTH: 5,
     DRAG_HINT_COOLDOWN_MS: 800,
     LAYER_RECURSION_DEPTH: 10,
-    STORAGE_KEY: '_layer_order',
-    COLOR_MAP_LAYER_ID: '__color_map__',
-    COLOR_DEFAULT: '#cccccc',
+    ORDER_STORAGE_KEY: "foliplus_layer_order",
+    FOLD_STORAGE_KEY: "foliplus_fold_state",
+    COLOR_MAP_ID: "foliplus_color_map",
+    COLOR_DEFAULT: "#cccccc",
+    RENDERER_KEY: "foliplus_renderer_",
+    FALLBACK_PANE_PREFIX: "foliplus_pane_",
   };
+
+  // ==================== Runtime Guard ====================
+  if (!window.foliplus || !window.foliplus.SVGs) {
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
+    return;
+  }
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const mapContainer = map.getContainer();
-  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
+  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
+
+  // ==================== Layer Registry ====================
+  const layerRegistry = new Map();
 
   const SVGS = {
+    LAYERS: `
+      <svg viewBox="0 0 24 24">
+        <polygon points="12 2 22 7 12 12 2 7"/>
+        <polygon points="2 11 12 16 22 11"/>
+        <polygon points="2 16 12 21 22 16"/>
+      </svg>`,
     DRAG_HANDLE: `
-      <svg width="12" height="16" viewBox="0 0 12 16" fill="none"
-        class="drag-handle">
-        <circle cx="4" cy="4" r="1.5" fill="currentColor" />
-        <circle cx="8" cy="4" r="1.5" fill="currentColor" />
-        <circle cx="4" cy="8" r="1.5" fill="currentColor" />
-        <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-        <circle cx="4" cy="12" r="1.5" fill="currentColor" />
-        <circle cx="8" cy="12" r="1.5" fill="currentColor" />
+      <svg viewBox="0 0 24 24" class="drag-handle">
+        <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="6" r="1.5" fill="currentColor"/>
+        <circle cx="8" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
       </svg>`,
-    LIST: `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="1.5"
-        stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="5.5" cy="5" r="2"/><line x1="10" y1="5" x2="21" y2="5"/>
-        <circle cx="5.5" cy="12" r="2"/><line x1="10" y1="12" x2="21" y2="12"/>
-        <circle cx="5.5" cy="19" r="2"/><line x1="10" y1="19" x2="21" y2="19"/>
-      </svg>`,
-    POINT: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor"
-          stroke-width="1.5" />
-      </svg>`,
-    LINE: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <path d="M4 20 L10 6 L16 18 L22 4" stroke="currentColor"
-          stroke-width="1.5" stroke-linecap="round"
-          stroke-linejoin="round"/>
-      </svg>`,
-    POLYGON: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <polygon points="12,3 21,9 18,21 6,21 3,9" fill="none"
-          stroke="currentColor" stroke-width="1.5"
-          stroke-linejoin="round"/>
-      </svg>`,
+    POINT: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>`,
+    LINE: `<svg viewBox="0 0 24 24"><path d="M4 20 L10 6 L16 18 L22 4"/></svg>`,
+    POLYGON: `<svg viewBox="0 0 24 24"><polygon points="12,3 21,9 18,21 6,21 3,9"/></svg>`,
     EMPTY: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor"
-          stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>
+      <svg viewBox="0 0 24 24">
+        <rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="4 3"/>
       </svg>`,
     UNKNOWN: `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="6.5" stroke="currentColor"
-          stroke-width="1.5" fill="none"/>
-        <text x="12" y="12.5" text-anchor="middle"
-          dominant-baseline="central" font-size="12"
-          font-weight="bold" fill="currentColor">?</text>
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+        <circle cx="12" cy="17" r="0.8" fill="currentColor" stroke="none"/>
       </svg>`,
+    COLOR: `
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.1 0 2-.9 2-2v-1c0-.6.4-1 1-1h2c3.3 0 6-2.7 6-6 0-5.5-4.5-10-10-10z"/>
+        <circle cx="7.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="16.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none"/>
+        <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/>
+      </svg>`,
+    FOLD: `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`,
+    UNFOLD: `<svg viewBox="0 0 24 24"><polyline points="18 9 12 15 6 9"/></svg>`,
   };
 
-  if (window.foliplus) {
-    window.foliplus.registerHintIcon('layer', window.foliplus.SVGs.LIST || SVGS.LIST);
+  window.foliplus.registerHintIcon(CONST.name, SVGS.LAYERS);
+
+  // Guard Leaflet's bringToFront against null parentNode during enforceOrder
+  // layer migration (enforceOrder briefly removes layers from the map, and a
+  // concurrent mousemove event may call bringToFront on a detached _path).
+  const origBringToFront = L.Path.prototype.bringToFront;
+  let bringToFrontPatched = false;
+
+  function patchBringToFront() {
+    if (bringToFrontPatched) return;
+    bringToFrontPatched = true;
+    L.Path.prototype.bringToFront = function () {
+      if (this._path && this._path.parentNode) origBringToFront.call(this);
+      return this;
+    };
   }
+
+  function unpatchBringToFront() {
+    if (!bringToFrontPatched) return;
+    bringToFrontPatched = false;
+    L.Path.prototype.bringToFront = origBringToFront;
+  }
+
+  patchBringToFront();
 
   // ==================== Utility Class ====================
   class LayerUtils {
     static escapeHTML(str) {
-      return String(str).replace(/[&<>"']/g, m => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      })[m]);
+      return String(str).replace(
+        /[&<>"']/g,
+        (m) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          })[m],
+      );
     }
 
     static getGeometryType(layer) {
       const leaves = [];
-      const collect = (n, d) => {
-        if (!n || d > _CONST.LAYER_RECURSION_DEPTH) return;
-        if (n.getLayers && typeof n.getLayers === 'function') {
-          n.getLayers().forEach(c => collect(c, d + 1));
-        } else {
-          leaves.push(n);
-        }
-      };
-      try { collect(layer, 0); } catch (e) {}
-
+      LayerUtils.forEachLeaf(layer, (l) => leaves.push(l));
       // No leaves at all → empty container (e.g. empty GeoDataFrame)
-      if (leaves.length === 0) return 'empty';
+      if (leaves.length === 0) return "empty";
 
-      let hasPoly = false, hasLine = false, hasPoint = false;
+      let hasPoly = false,
+        hasLine = false,
+        hasPoint = false;
       for (const leaf of leaves) {
         if (leaf instanceof L.Polygon) hasPoly = true;
         else if (leaf instanceof L.Polyline) hasLine = true;
@@ -108,20 +131,68 @@
           leaf instanceof L.Marker ||
           leaf instanceof L.CircleMarker ||
           leaf instanceof L.Circle
-        ) hasPoint = true;
+        )
+          hasPoint = true;
       }
       // Has leaves but none match known types → unknown
-      if (!hasPoly && !hasLine && !hasPoint) return 'unknown';
-      return hasPoly ? 'polygon' : hasLine ? 'line' : 'point';
+      if (!hasPoly && !hasLine && !hasPoint) return "unknown";
+      // Mixed geometry types (e.g. GeometryCollection with Point+Line+Polygon) → unknown
+      const typeCount = hasPoly + hasLine + hasPoint;
+      if (typeCount > 1) return "unknown";
+      return hasPoly ? "polygon" : hasLine ? "line" : "point";
     }
 
     static getTypeSVG(layer) {
       const type = this.getGeometryType(layer);
-      if (type === 'polygon') return SVGS.POLYGON;
-      if (type === 'line') return SVGS.LINE;
-      if (type === 'point') return SVGS.POINT;
-      if (type === 'empty') return SVGS.EMPTY;
+      if (type === "polygon") return SVGS.POLYGON;
+      if (type === "line") return SVGS.LINE;
+      if (type === "point") return SVGS.POINT;
+      if (type === "empty") return SVGS.EMPTY;
       return SVGS.UNKNOWN;
+    }
+
+    /** Resolve a layer by id from map._layers or window fallback. */
+    static findLayer(map, id) {
+      return (
+        layerRegistry.get(id) || (map._layers && map._layers[id]) || window[id] || null
+      );
+    }
+
+    /**
+     * Walk every leaf (non-container) layer in a tree.
+     * @param {Object} layer - Leaflet layer (may be a container like L.layerGroup).
+     * @param {function} fn - Called for each leaf with (leafLayer).
+     * @param {number} [depth=0] - Internal recursion depth.
+     */
+    static forEachLeaf(layer, fn, depth = 0) {
+      if (!layer || depth > CONST.LAYER_RECURSION_DEPTH) return;
+      if (typeof layer.eachLayer === "function") {
+        layer.eachLayer((c) => LayerUtils.forEachLeaf(c, fn, depth + 1));
+      } else if (layer._layers) {
+        for (const k in layer._layers) {
+          if (layer._layers.hasOwnProperty(k))
+            LayerUtils.forEachLeaf(layer._layers[k], fn, depth + 1);
+        }
+      } else fn(layer);
+    }
+
+    /**
+     * Walk all layers (including containers) in a tree, visiting each node.
+     * @param {Object} layer - Leaflet layer.
+     * @param {function} fn - Called for each node (container or leaf) with (nodeLayer).
+     * @param {number} [depth=0] - Internal recursion depth.
+     */
+    static forEachLayer(layer, fn, depth = 0) {
+      if (!layer || depth > CONST.LAYER_RECURSION_DEPTH) return;
+      fn(layer);
+      if (typeof layer.eachLayer === "function") {
+        layer.eachLayer((c) => LayerUtils.forEachLayer(c, fn, depth + 1));
+      } else if (layer._layers) {
+        for (const k in layer._layers) {
+          if (layer._layers.hasOwnProperty(k))
+            LayerUtils.forEachLayer(layer._layers[k], fn, depth + 1);
+        }
+      }
     }
   }
 
@@ -135,45 +206,65 @@
       this.uiContainer = null;
 
       this.colorActive = false;
-      this.currentColor = _CONST.COLOR_DEFAULT;
+      this.currentColor = CONST.COLOR_DEFAULT;
       this.dragIdx = null;
       this.lastDragHintAt = 0;
+      this.foldedGroups = new Set();
 
       // Bind method context to prevent 'this' loss when called via window.foliplus.LayerControlAPI
       this.registerLayer = this.registerLayer.bind(this);
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
+      this.findLayer = this.findLayer.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
-      this._isEnforcing = false;
-      this._enforceTimer = null;
-      this._isDestroyed = false;
+      this.isEnforcing = false;
+      this.isDestroyed = false;
 
-      this.map.on('layeradd', (e) => {
-        // Skip internal layers, background enforcement, and destroyed manager
-        if (this._isEnforcing || this._isDestroyed || e.layer === this.map || e.layer instanceof L.Renderer) {
+      this.defaultPanes = new Set([
+        "overlayPane",
+        "markerPane",
+        "tilePane",
+        "shadowPane",
+        "mapPane",
+      ]);
+      this.fallbackPanes = new Set();
+      this.labelPanes = new Set();
+
+      // Store callbacks keyed by layer id:
+      //   toggle - visibility sync (e.g. Canvas heatmap overlay)
+      //   zIndex - layer order sync (e.g. Canvas heatmap z-index)
+      this.layerCallbacks = new Map();
+
+      this.debouncedEnforce = foliplus.debounce(() => {
+        if (this.isDestroyed || !this.map || !this.map._container) return;
+        this.enforceOrder();
+      }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
+
+      this.onLayerAdd = (e) => {
+        if (
+          this.isEnforcing ||
+          this.isDestroyed ||
+          e.layer === this.map ||
+          e.layer instanceof L.Renderer
+        )
           return;
-        }
 
-        // Debounce enforcement to avoid redundant calcs during bulk additions
-        if (this._enforceTimer) clearTimeout(this._enforceTimer);
-        this._enforceTimer = setTimeout(() => {
-          if (this._isDestroyed || !this.map || !this.map._container) return;
-          this.enforceOrder();
-          this._enforceTimer = null;
-        }, 50);
-      });
+        this.debouncedEnforce();
+      };
+      this.map.on("layeradd", this.onLayerAdd);
 
       window.foliplus.LayerControlAPI = this;
     }
 
     init(initialData) {
       this.layers = [...initialData];
-      this._loadSavedOrder();
-      this._normalizeLayerGroups();
+      this.loadSavedOrder();
+      this.loadFoldState();
+      this.normalizeLayerGroups();
     }
 
-    _normalizeLayerGroups() {
+    normalizeLayerGroups() {
       const overlays = [];
       const bases = [];
       for (const l of this.layers) {
@@ -183,13 +274,13 @@
       this.layers = overlays.concat(bases);
     }
 
-    _loadSavedOrder() {
+    loadSavedOrder() {
       try {
-        const data = localStorage.getItem(_CONST.STORAGE_KEY);
+        const data = localStorage.getItem(CONST.ORDER_STORAGE_KEY);
         if (!data) return;
         const ids = JSON.parse(data);
         if (!Array.isArray(ids)) return;
-        const map = new Map(this.layers.map(l => [l.id, l]));
+        const map = new Map(this.layers.map((l) => [l.id, l]));
         const ordered = [];
         for (const id of ids) {
           if (map.has(id)) {
@@ -199,18 +290,41 @@
         }
         this.layers = ordered.concat([...map.values()]);
       } catch (e) {
-        console.warn('[LayerControl] failed to load saved layer order:', e);
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".load_order_fail")}`, e);
       }
     }
 
-    _saveOrder() {
+    saveOrder() {
       try {
         localStorage.setItem(
-          _CONST.STORAGE_KEY,
-          JSON.stringify(this.layers.map(l => l.id))
+          CONST.ORDER_STORAGE_KEY,
+          JSON.stringify(this.layers.map((l) => l.id)),
         );
       } catch (e) {
-        console.warn('[LayerControl] failed to save layer order:', e);
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".save_order_fail")}`, e);
+      }
+    }
+
+    loadFoldState() {
+      try {
+        const data = localStorage.getItem(CONST.FOLD_STORAGE_KEY);
+        if (!data) return;
+        const groups = JSON.parse(data);
+        if (!Array.isArray(groups)) return;
+        this.foldedGroups = new Set(groups);
+      } catch (e) {
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".load_fold_fail")}`, e);
+      }
+    }
+
+    saveFoldState() {
+      try {
+        localStorage.setItem(
+          CONST.FOLD_STORAGE_KEY,
+          JSON.stringify(Array.from(this.foldedGroups)),
+        );
+      } catch (e) {
+        console.warn(`[${CONST.name}] ${_(CONST.name + ".save_fold_fail")}`, e);
       }
     }
 
@@ -221,6 +335,7 @@
     //   const api = window.foliplus.LayerControlAPI;
     //   api.registerLayer({ id: 'myLayer', name: 'My Layer', layer: leafletLayer });
     //   api.unregisterLayer('myLayer');
+    //   api.findLayer('myLayer');
     //   const type = api.getLayerType('myLayer');
     //   const layers = api.getLayersByType('polygon');
 
@@ -240,10 +355,18 @@
      */
     getLayersByType(type) {
       const result = [];
-      for (const [id, info] of this.typeMap) {
+      for (const [id, info] of this.typeMap)
         if (info.type === type) result.push({ id, name: info.name });
-      }
       return result;
+    }
+
+    /**
+     * Resolve a registered layer by id from map._layers or internal registry.
+     * @param {string} id - Layer ID.
+     * @returns {Object|null} Leaflet layer or null.
+     */
+    findLayer(id) {
+      return LayerUtils.findLayer(this.map, id);
     }
 
     /**
@@ -265,67 +388,91 @@
      * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
      */
     registerLayer(opts) {
-      if (!opts?.id) throw new Error('[LayerManager] opts.id is required');
+      if (!opts?.id)
+        throw new Error(`[${CONST.name}] ${_(CONST.name + ".id_required")}`);
 
-      const existingIdx = this.layers.findIndex(l => l.id === opts.id);
+      const existingIdx = this.layers.findIndex((l) => l.id === opts.id);
+      const existingVisible =
+        existingIdx !== -1 ? this.layers[existingIdx].visible : true;
       if (existingIdx !== -1) this.layers.splice(existingIdx, 1);
 
       const layerInfo = {
         name: opts.name ?? opts.id,
         id: opts.id,
-        visible: true,
+        visible: existingVisible,
         isBase: !!opts.isBase,
         paneName: opts.paneName ?? null,
         iconSvg: opts.iconSvg ?? null,
       };
       if (layerInfo.isBase) {
-        const firstBaseIdx = this.layers.findIndex(l => !!l.isBase);
+        const firstBaseIdx = this.layers.findIndex((l) => !!l.isBase);
         if (firstBaseIdx === -1) this.layers.push(layerInfo);
         else this.layers.splice(firstBaseIdx, 0, layerInfo);
-      } else {
-        this.layers.unshift(layerInfo);
-      }
+      } else this.layers.unshift(layerInfo);
+
+      // Store callbacks for non-Leaflet layers (e.g. Canvas heatmap)
+      const cbs = {};
+      if (opts.onToggle) cbs.onToggle = opts.onToggle;
+      if (opts.onZIndex) cbs.onZIndex = opts.onZIndex;
+      if (Object.keys(cbs).length) this.layerCallbacks.set(opts.id, cbs);
 
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
-        const childPanes = this._discoverChildPanes(opts.layer);
-        for (const cp of childPanes) {
-          const isLabel = cp.includes('label') || cp.includes('lbl');
-          this.ensurePane(cp, !isLabel);
-        }
+        for (const cp of this.discoverChildPanes(opts.layer))
+          this.ensurePane(cp, !this.labelPanes.has(cp));
       }
 
-      // NB: window[id] provides global access for HeatmapControl/others to find
-      // layers by id via scanMapLayers() fallback path.
-      if (opts.layer) window[opts.id] = opts.layer;
-      if (opts.layer && !this.map.hasLayer(opts.layer)) {
-        this.map.addLayer(opts.layer);
+      if (opts.layer) {
+        if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id))
+          layerRegistry.set(opts.id, opts.layer);
+        else
+          console.warn(
+            `[${CONST.name}] ${_(CONST.name + ".invalid_id").replace("{id}", opts.id)}`,
+          );
       }
-
-      this.enforceOrder();
-
-      // Mark container layers (L.layerGroup, L.featureGroup, etc.) as
-      // already-processed so subsequent enforceOrder() calls skip the
-      // removeLayer/addLayer cycle.
       if (opts.paneName && opts.layer) {
-        const isContainer = !(opts.layer instanceof L.Path || opts.layer instanceof L.Marker);
-        if (isContainer) {
+        if (!(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)) {
           opts.layer.options.pane = opts.paneName;
-          opts.layer.options._paneSet = true;
+          opts.layer.options.paneSet = true;
         }
       }
+
+      if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
+      this.enforceOrder();
 
       if (!this.uiContainer) {
         this.pendingRegistrations.push(opts);
         return null;
       }
 
-      // Re-render keeps separator/group boundaries correct for both overlay/base
-      // runtime registrations and avoids fragile incremental insertion logic.
-      this._renderInitialList();
-      this._initTypesAndVisibility();
-      this._saveOrder();
+      this.renderInitialList();
+      this.initTypesAndVisibility();
+      this.saveOrder();
       return this.uiContainer.querySelector(`[data-layer-id="${opts.id}"]`);
+    }
+
+    /**
+     * Bring a registered layer to the front (top of z-order).
+     *
+     * Moves the layer to index 0 in the internal `this.layers` array,
+     * re-runs enforceOrder() to recompute all pane z-indices, updates
+     * the saved order, and moves the DOM item to the top of the list.
+     *
+     * @param {string} id - Layer ID previously passed to registerLayer().
+     */
+    bringLayerToFront(id) {
+      const idx = this.layers.findIndex((l) => l.id === id);
+      if (idx <= 0) return;
+      const [item] = this.layers.splice(idx, 1);
+      this.layers.unshift(item);
+      this.enforceOrder();
+      this.saveOrder();
+      if (this.uiContainer) {
+        // Re-render the full list so DOM order matches `this.layers` order,
+        // and re-init visibility to sync checkbox data-index attributes.
+        this.renderInitialList();
+        this.initTypesAndVisibility();
+      }
     }
 
     /**
@@ -338,27 +485,202 @@
      * @returns {boolean} true if layer was found and removed, false otherwise.
      */
     unregisterLayer(id) {
-      const idx = this.layers.findIndex(l => l.id === id);
+      const idx = this.layers.findIndex((l) => l.id === id);
       if (idx === -1) return false;
       this.layers.splice(idx, 1);
 
-      const layer = this.map._layers[id] || window[id];
-      if (layer && this.map.hasLayer(layer)) {
-        this.map.removeLayer(layer);
-      }
-      if (window[id]) delete window[id];
+      const layer = LayerUtils.findLayer(this.map, id);
+      if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
+      layerRegistry.delete(id);
+      // Recursively clear all sub-layers to prevent stale data on re-register
+      this.clearAllLayers(layer);
 
       if (this.uiContainer) {
-        const target = this.uiContainer.querySelector(
-          `[data-layer-id="${id}"]`
-        );
+        const target = this.uiContainer.querySelector(`[data-layer-id="${id}"]`);
         if (target) {
           target.remove();
-          this._reindexItems();
+          this.reindexItems();
         }
       }
       requestAnimationFrame(() => this.map.invalidateSize({ animate: false }));
+      this.layerCallbacks.delete(id);
       return true;
+    }
+
+    /** Recursively clear all nested sub-layers. */
+    clearAllLayers(layer) {
+      if (!layer) return;
+      if (typeof layer.clearLayers === "function") layer.clearLayers();
+      if (layer.eachLayer) layer.eachLayer((l) => this.clearAllLayers(l));
+    }
+
+    /**
+     * Create a managed three-layer group for components that need
+     * graph and label sub-layers (HeatmapControl, MeasureControl, etc.).
+     *
+     * Returns `{ mainLayer, graphLayer, labelLayer }` with automated
+     * addLayer/removeLayer/clearLayers routing and LayerControl registration.
+     *
+     * @param {Object} opts
+     * @param {string} opts.id      - Unique layer ID.
+     * @param {string} opts.name    - Display name for LayerControl panel
+     * @param {string} [opts.graphPane] - Pane name for graph content (omit if no graph layer)
+     * @param {string} [opts.labelPane] - Pane name for label content (omit if no label layer)
+     * @param {string} [opts.iconSvg] - SVG icon for the type column
+     * @returns {Object} { mainLayer, graphLayer, labelLayer }
+     */
+    createLayers(opts) {
+      const mainLayer = L.layerGroup();
+      const graphLayer = opts.graphPane
+        ? L.layerGroup([], { pane: opts.graphPane })
+        : null;
+      const labelLayer = opts.labelPane ? L.layerGroup() : null;
+      if (labelLayer) labelLayer.options.pane = opts.labelPane;
+      if (graphLayer) mainLayer.addLayer(graphLayer);
+      if (labelLayer) mainLayer.addLayer(labelLayer);
+
+      let registered = false;
+
+      const register = () => {
+        if (!registered) {
+          registered = true;
+          if (opts.labelPane) this.labelPanes.add(opts.labelPane);
+        }
+        this.registerLayer({
+          name: opts.name,
+          id: opts.id,
+          isBase: false,
+          layer: mainLayer,
+          paneName: opts.graphPane || null,
+          iconSvg: opts.iconSvg || null,
+        });
+      };
+
+      const unregister = () => {
+        if (!registered) return;
+        const hasContent =
+          (graphLayer && Object.keys(graphLayer._layers || {}).length > 0) ||
+          (labelLayer && Object.keys(labelLayer._layers || {}).length > 0);
+        if (!hasContent) {
+          registered = false;
+          this.unregisterLayer(opts.id);
+        }
+      };
+
+      // Save originals so overrides can fall back without recursion
+      const origAddLayer = mainLayer.addLayer.bind(mainLayer);
+      const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
+
+      // Override addLayer to route to sub-layers and auto-register on content.
+      mainLayer.addLayer = (layer) => {
+        const isLabel = layer.isMeasureLabel;
+        const target = isLabel ? labelLayer : graphLayer;
+        if (target) {
+          // When mainLayer was off the map (e.g., user unchecked the layer
+          // in LayerControl then clicked a tool), re-register the layer.
+          // This re-checks the checkbox, re-adds mainLayer to the map,
+          // and runs enforceOrder() for correct z-order.
+          if (!this.map.hasLayer(mainLayer)) register();
+          const paneName = isLabel ? opts.labelPane : opts.graphPane;
+          layer.options.pane = paneName;
+          if (layer instanceof L.Path) {
+            const { renderer } = this.ensurePane(opts.graphPane);
+            layer._renderer = renderer;
+          } else if (paneName) this.ensurePane(paneName, false);
+          return target.addLayer(layer);
+        }
+        return origAddLayer(layer);
+      };
+
+      mainLayer.removeLayer = (layer) => {
+        if (graphLayer && graphLayer.hasLayer(layer))
+          return graphLayer.removeLayer(layer);
+        if (labelLayer && labelLayer.hasLayer(layer))
+          return labelLayer.removeLayer(layer);
+        const ret = origRemoveLayer(layer);
+        // Remove mainLayer from map when all sub-layers are empty
+        if (
+          this.map.hasLayer(mainLayer) &&
+          Object.keys(graphLayer?._layers || {}).length === 0 &&
+          Object.keys(labelLayer?._layers || {}).length === 0
+        )
+          this.map.removeLayer(mainLayer);
+        return ret;
+      };
+
+      mainLayer.clearLayers = () => {
+        if (graphLayer) graphLayer.clearLayers();
+        if (labelLayer) labelLayer.clearLayers();
+        if (this.map.hasLayer(mainLayer)) this.map.removeLayer(mainLayer);
+      };
+
+      // ── Convenience API ──────────────────────────────────────────
+      const addGraph = (layer) => {
+        if (!graphLayer) return;
+        layer.options.pane = opts.graphPane;
+        if (layer instanceof L.Path) {
+          const { renderer } = this.ensurePane(opts.graphPane);
+          layer._renderer = renderer;
+        } else if (opts.graphPane) this.ensurePane(opts.graphPane, false);
+        graphLayer.addLayer(layer);
+        register();
+      };
+
+      const addLabel = (marker) => {
+        if (!labelLayer) return;
+        if (opts.labelPane) {
+          marker.options.pane = opts.labelPane;
+          this.ensurePane(opts.labelPane, false);
+        }
+        labelLayer.addLayer(marker);
+        register();
+      };
+
+      const removeGraph = (layer) => {
+        if (!graphLayer) return;
+        graphLayer.removeLayer(layer);
+        unregister();
+      };
+
+      const removeLabel = (layer) => {
+        if (!labelLayer) return;
+        labelLayer.removeLayer(layer);
+        unregister();
+      };
+
+      const clearGraph = () => {
+        if (!graphLayer) return;
+        graphLayer.clearLayers();
+        unregister();
+      };
+
+      const clearLabels = () => {
+        if (!labelLayer) return;
+        labelLayer.clearLayers();
+        unregister();
+      };
+
+      const clearAll = () => {
+        clearGraph();
+        clearLabels();
+      };
+
+      return {
+        mainLayer,
+        graphLayer,
+        labelLayer,
+        addGraph,
+        addLabel,
+        removeGraph,
+        removeLabel,
+        clearGraph,
+        clearLabels,
+        clearAll,
+        register,
+        unregister,
+        registered: () => registered,
+        bringToFront: () => this.bringLayerToFront(opts.id),
+      };
     }
 
     /**
@@ -372,281 +694,505 @@
       let pane = this.map.getPane(paneName);
       if (!pane) {
         pane = this.map.createPane(paneName);
-        pane.classList.add('layer-pane');
+        pane.classList.add("layer-pane");
+        // Set an initial z-index so content in this pane is visible above
+        // the base map before enforceOrder() runs (e.g., MeasureControl
+        // dashed lines during drawing, before register() is called).
+        // enforceOrder() will override this with the correct layer z-index
+        // once the layer is registered.
+        pane.style.zIndex = String(CONST.Z_INDEX_BASE);
       }
       let renderer = null;
       if (needRenderer) {
-        renderer = this.map[`_renderer_${paneName}`];
+        const key = CONST.RENDERER_KEY + paneName;
+        renderer = this.map[key];
         if (!renderer) {
           renderer = L.svg({ pane: paneName });
           renderer.addTo(this.map);
-          this.map[`_renderer_${paneName}`] = renderer;
+          this.map[key] = renderer;
         }
       }
       return { pane, renderer };
     }
 
+    /**
+     * Create a managed canvas element that properly tracks map pan/zoom.
+     *
+     * The canvas is placed inside `.leaflet-map-pane` (same stacking context as
+     * Leaflet panes) and positioned at `(-panX, -panY)` to cancel the mapPane's
+     * CSS `transform: translate(panX, panY)`.  This makes the canvas visually
+     * align with the viewport — no more clipping from CSS transform.
+     *
+     * Drawing coordinates should use `latLngToContainerPoint` (viewport-relative).
+     * The canvas position is updated on every `move` event — no redraw needed for pan.
+     * Zoom changes require re-rendering the canvas content.
+     *
+     * @param {Object} opts
+     * @param {string} opts.id    - Unique layer ID for LayerControl registration.
+     * @param {string} [opts.name] - Display name (falls back to id).
+     * @param {string} [opts.iconSvg] - SVG icon HTML for the type column.
+     * @param {string} [opts.className] - Extra CSS class for the canvas element.
+     * @param {Function} [opts.onToggle] - Override default visibility callback(visible).
+     * @param {Function} [opts.onZIndex] - Override default z-index callback(z).
+     * @returns {Object} Managed canvas API:
+     *   - {HTMLCanvasElement} canvas  - The canvas element.
+     *   - {CanvasRenderingContext2D} ctx - 2D drawing context.
+     *   - {Function} resize          - Re-measure & resize canvas to container.
+     *   - {Function} destroy         - Remove canvas & unregister from LayerControl.
+     *   - {Function} updatePosition  - Recompute left/top from current mapPane offset.
+     *   - {Function} setZIndex(z)    - Set canvas z-index.
+     *   - {Function} setVisible(v)   - Show/hide canvas.
+     *   - {Function} getSize()       - Return {width, height} in CSS pixels.
+     */
+    createCanvas(opts) {
+      if (!opts?.id) throw new Error(`[${CONST.name}] createCanvas requires an id`);
+
+      const mapPane = this.map._mapPane;
+      if (!mapPane) throw new Error(`[${CONST.name}] mapPane not available`);
+
+      const canvas = L.DomUtil.create("canvas", "heatmap-canvas", mapPane);
+      if (opts.className) canvas.classList.add(opts.className);
+
+      const ctx = canvas.getContext("2d");
+
+      /** Resize canvas to match container dimensions (respecting DPR). */
+      const resize = () => {
+        const container = this.map.getContainer();
+        const dpr = window.devicePixelRatio || 1;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (canvas.width !== w * dpr) canvas.width = w * dpr;
+        if (canvas.height !== h * dpr) canvas.height = h * dpr;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+      };
+
+      /** Update canvas left/top to cancel current mapPane transform offset. */
+      const updatePosition = () => {
+        const pos = L.DomUtil.getPosition(mapPane);
+        canvas.style.left = -pos.x + "px";
+        canvas.style.top = -pos.y + "px";
+      };
+
+      /** Get current canvas size in CSS pixels. */
+      const getSize = () => {
+        const container = this.map.getContainer();
+        return { width: container.clientWidth, height: container.clientHeight };
+      };
+
+      resize();
+      updatePosition();
+
+      // Deferred registration: canvas() does NOT auto-register,
+      // so the layer doesn't appear in LayerControl until data is ready.
+      // Caller calls register()/unregister() when rendering/clearing.
+      const onToggle =
+        opts.onToggle ||
+        ((visible) => {
+          canvas.style.display = visible ? "" : "none";
+        });
+
+      const onZIndex =
+        opts.onZIndex ||
+        ((z) => {
+          canvas.style.zIndex = String(z);
+        });
+
+      let registered = false;
+
+      const register = () => {
+        if (registered) return;
+        registered = true;
+        this.registerLayer({
+          id: opts.id,
+          name: opts.name || opts.id,
+          iconSvg: opts.iconSvg || null,
+          onToggle,
+          onZIndex,
+        });
+      };
+
+      const unregister = () => {
+        if (!registered) return;
+        registered = false;
+        this.unregisterLayer(opts.id);
+      };
+
+      // Track map pan — update canvas position without redraw
+      const onMove = () => updatePosition();
+      this.map.on("move", onMove);
+
+      // Track map resize — re-measure canvas
+      const onResize = () => resize();
+      this.map.on("resize", onResize);
+
+      return {
+        canvas,
+        ctx,
+        resize,
+        getSize,
+        updatePosition,
+        register,
+        unregister,
+        destroy: () => {
+          this.map.off("move", onMove);
+          this.map.off("resize", onResize);
+          unregister();
+          canvas.remove();
+        },
+        setZIndex: (z) => {
+          canvas.style.zIndex = String(z);
+        },
+        setVisible: (v) => {
+          canvas.style.display = v ? "" : "none";
+        },
+      };
+    }
+
     // Core Sorting Engine
-    _setLayerPaneRecursive(layer, paneName, renderer) {
+    setLayerPaneRecursive(layer, paneName, renderer) {
       // Skip Markers — both default icons (with shadow images) and divIcon.
       // Moving them to a custom pane breaks their shadow positioning.
       // They stay in Leaflet's default markerPane (z-index 600).
-      if (layer instanceof L.Marker) return;
-
-      layer.options.pane = paneName;
-      layer.options._paneSet = true;
-
-      if (layer instanceof L.Path) {
-        layer.options.renderer = renderer;
-      }
-
-      if (layer.eachLayer) {
-        layer.eachLayer(l => this._setLayerPaneRecursive(l, paneName, renderer));
-      } else if (layer._layers) {
-        for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k)) {
-            this._setLayerPaneRecursive(layer._layers[k], paneName, renderer);
-          }
-        }
-      }
+      LayerUtils.forEachLayer(layer, (l) => {
+        if (l instanceof L.Marker) return;
+        l.options.pane = paneName;
+        l.options.paneSet = true;
+        if (l instanceof L.Path) l.options.renderer = renderer;
+      });
     }
 
     /** Find all custom panes used by a container's tree.
      *  This lets enforceOrder control z-index without requiring
      *  orderPane/paneName from three-layer components. */
-    _discoverChildPanes(layer, depth = 0) {
-      if (depth > 5) return []; // Prevent infinite recursion
+    discoverChildPanes(layer, depth = 0) {
+      if (depth > CONST.PANE_RECURSION_DEPTH) return [];
       const panes = new Set();
-
-      const check = (l) => {
-        const p = l.options?.pane;
-        if (p && !this._isDefaultPane(p)) {
-          panes.add(p);
-        }
-        if (l.eachLayer) {
-          this._discoverChildPanes(l, depth + 1).forEach(p2 => panes.add(p2));
-        } else if (l._layers) {
-          for (const k in l._layers) {
-            this._discoverChildPanes(l._layers[k], depth + 1).forEach(p2 => panes.add(p2));
-          }
-        }
-      };
-
-      const selfPane = layer.options?.pane;
-      if (selfPane && !this._isDefaultPane(selfPane)) {
-        panes.add(selfPane);
-      }
-
-      if (layer.eachLayer) {
-        layer.eachLayer(check);
-      } else if (layer._layers) {
-        for (const k in layer._layers) check(layer._layers[k]);
-      }
+      LayerUtils.forEachLayer(
+        layer,
+        (l) => {
+          const p = l.options?.pane;
+          if (p && !this.isDefaultPane(p)) panes.add(p);
+        },
+        depth,
+      );
       return Array.from(panes);
     }
 
-    _isDefaultPane(pane) {
-      return pane === 'overlayPane' || pane === 'markerPane' ||
-        pane === 'tilePane' || pane === 'shadowPane' || pane === 'mapPane' ||
-        pane.startsWith('_lyr_');
+    isDefaultPane(pane) {
+      return this.defaultPanes.has(pane) || this.fallbackPanes.has(pane);
+    }
+
+    /** Compute z-index for a layer at position i. */
+    computeZIndex(i, isTile) {
+      const zBase = isTile ? CONST.TILE_Z_INDEX_BASE : CONST.Z_INDEX_BASE;
+      return zBase + (this.layers.length - i) * CONST.Z_INDEX_STEP;
     }
 
     enforceOrder() {
-      if (this._isEnforcing) return;
-      this._isEnforcing = true;
+      if (this.isEnforcing) return;
+      this.isEnforcing = true;
       try {
-        const orderedLayers = [];
-        const layerInfos = new Map();
+        const layersToMove = [];
+        let markerZ = 0;
 
         for (let i = 0; i < this.layers.length; i++) {
-          const l_id = this.layers[i].id;
-          const layer = this.map._layers[l_id] || window[l_id] || null;
-          if (layer && this.map.hasLayer(layer)) {
-            orderedLayers.push(layer);
-            layerInfos.set(L.stamp(layer), this.layers[i]);
-          }
+          const li = this.layers[i];
+          const layer = LayerUtils.findLayer(this.map, li.id);
+          const hasLayer = layer && this.map.hasLayer(layer);
+          const isTile = layer instanceof L.TileLayer;
+          const z = this.computeZIndex(i, isTile);
+
+          // 1. Notify callback-only layers (e.g. Canvas heatmap)
+          const cbs = this.layerCallbacks.get(li.id);
+          if (cbs?.onZIndex) cbs.onZIndex(z);
+          if (!hasLayer) continue;
+
+          // 2. Apply z-index via the appropriate mechanism
+          const zInfo = this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
+          if (zInfo.markerZ) markerZ = Math.max(markerZ, zInfo.markerZ);
         }
 
-        if (orderedLayers.length === 0) return;
-
-        const layersToMove = [];
-        let markerZ = 0; // highest z-index needed for markerPane
-        for (let i = 0; i < orderedLayers.length; i++) {
-          const lyr = orderedLayers[i];
-          const info = layerInfos.get(L.stamp(lyr));
-          const paneName = info?.paneName;
-          const isTile = lyr instanceof L.TileLayer;
-
-          // TileLayers use a lower z-index range (200-400) so they stay
-          // below overlayPane (400) and markerPane (600) by default.
-          const zBase = isTile ? 200 : _CONST.Z_INDEX_BASE;
-          // Scale z-index steps to allow room for sub-panes (labels, etc)
-          // between major layers.
-          const z = zBase + (orderedLayers.length - i) * 10;
-
-          if (paneName) {
-            const ep = this.ensurePane(paneName, !isTile);
-            ep.pane.style.zIndex = z;
-            if (lyr.options.pane !== paneName || !lyr.options._paneSet) {
-              layersToMove.push({ layer: lyr, paneName, renderer: ep.renderer });
-            }
-          } else {
-            // Auto-discover custom panes from container tree (three-layer
-            // architecture). This ensures all internal panes (graph, label, etc.)
-            // are assigned the same z-index base.
-            const childPanes = this._discoverChildPanes(lyr);
-            if (childPanes.length > 0) {
-              childPanes.forEach(cp => {
-                const ep = this.ensurePane(cp, !isTile);
-                ep.pane.style.zIndex = z;
-                // Specific sub-layer logic: if label pane, it must be slightly higher
-                if (cp.includes('label') || cp.includes('lbl')) {
-                  ep.pane.style.zIndex = z + 1;
-                }
-              });
-              lyr.options._paneSet = true;
-              // Three-layer components use custom panes, not default markerPane.
-              // Do NOT adjust markerZ — that would elevate all unmanaged point layers
-              // (e.g. static GeoJSON markers) above this dynamic layer.
-            } else {
-              const fallbackPane = `_lyr_${L.stamp(lyr)}`;
-              const ep = this.ensurePane(fallbackPane, !isTile);
-              ep.pane.style.zIndex = z;
-              if (!(lyr instanceof L.TileLayer)) {
-                markerZ = Math.max(markerZ, z);
-              }
-              if (lyr.options.pane !== fallbackPane || !lyr.options._paneSet) {
-                layersToMove.push({ layer: lyr, paneName: fallbackPane, renderer: ep.renderer });
-              }
-            }
-          }
-        }
-
-        // Sync markerPane z-index so non-paneName marker layers can sit
-        // above/below paneName custom panes based on drag order.
+        // Sync markerPane so unmanaged marker layers sit at correct z-order
         if (markerZ > 0) {
-          const mp = this.map.getPane('markerPane');
+          const mp = this.map.getPane("markerPane");
           if (mp) mp.style.zIndex = markerZ;
         }
 
-        if (layersToMove.length) {
-          for (const { layer } of layersToMove) this.map.removeLayer(layer);
-          for (const { layer, paneName, renderer } of layersToMove) {
-            if (paneName) {
-              this._setLayerPaneRecursive(layer, paneName, renderer);
-            }
-          }
-          for (const { layer } of layersToMove) this.map.addLayer(layer);
-        }
+        // 3. Migrate layers to their target panes
+        this.migrateLayers(layersToMove);
       } finally {
-        this._isEnforcing = false;
+        this.isEnforcing = false;
+      }
+    }
+
+    /** Bump label panes for a layer so labels render above paths.
+     *  Used by both Mechanism A and Mechanism C. */
+    bumpLabelPanes(layer, z) {
+      const childPanes = this.discoverChildPanes(layer);
+      childPanes.forEach((cp) => {
+        if (this.labelPanes.has(cp)) {
+          const lp = this.ensurePane(cp, false);
+          lp.pane.style.zIndex = z + 1;
+        }
+      });
+    }
+
+    /** Apply z-index to a single layer using the appropriate mechanism. */
+    applyLayerZIndex({ li, layer, z, isTile, layersToMove }) {
+      const paneName = li.paneName;
+      if (paneName) {
+        // --- Mechanism A: Custom pane (Path layers with explicit paneName) ---
+        const ep = this.ensurePane(paneName, !isTile);
+        ep.pane.style.zIndex = z;
+        if (layer.options.pane !== paneName || !layer.options.paneSet)
+          layersToMove.push({ layer, paneName, renderer: ep.renderer });
+        this.bumpLabelPanes(layer, z);
+        return {};
+      }
+
+      if (isTile && typeof layer.setZIndex === "function") {
+        // --- Mechanism B: TileLayer (Leaflet's own API) ---
+        layer.setZIndex(z);
+        return {};
+      }
+
+      // --- Mechanism C: Auto-discovered / fallback panes ---
+      const childPanes = this.discoverChildPanes(layer);
+      if (childPanes.length > 0) {
+        // Three-layer components (HeatmapControl, MeasureControl, etc.)
+        childPanes.forEach((cp) => {
+          const ep = this.ensurePane(cp, !isTile);
+          ep.pane.style.zIndex = z;
+        });
+        this.bumpLabelPanes(layer, z);
+        layer.options.paneSet = true;
+        return {};
+      }
+
+      // Unmanaged layer (GeoJSON, markers, etc.) → auto fallback pane
+      const fbName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
+      this.fallbackPanes.add(fbName);
+      const ep = this.ensurePane(fbName, !isTile);
+      ep.pane.style.zIndex = z;
+      if (layer.options.pane !== fbName || !layer.options.paneSet)
+        layersToMove.push({ layer, paneName: fbName, renderer: ep.renderer });
+      return { markerZ: z };
+    }
+
+    migrateLayers(layersToMove) {
+      if (!layersToMove.length) return;
+      for (const { layer, paneName, renderer } of layersToMove) {
+        if (!paneName) continue;
+        this.setLayerPaneRecursive(layer, paneName, renderer);
+        // Move existing SVG elements in-place without removeLayer/addLayer,
+        // avoiding the bringToFront race on removed path elements.
+        const moveElements = (l) => {
+          if (l._path && renderer && l._path.parentNode !== renderer._container)
+            renderer._container.appendChild(l._path);
+          if (l.eachLayer) l.eachLayer(moveElements);
+        };
+        moveElements(layer);
       }
     }
 
     // UI Rendering & Event Binding
     attachUI(containerDiv) {
       this.uiContainer = containerDiv;
-      this._renderInitialList();
-      this._bindEvents();
+      this.renderInitialList();
+      this.bindEvents();
 
-      while (this.pendingRegistrations.length) {
+      while (this.pendingRegistrations.length)
         this.registerLayer(this.pendingRegistrations.shift());
-      }
 
-      setTimeout(() => this._initTypesAndVisibility(), _CONST.INIT_DELAY_MS);
+      setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
     }
 
-    _renderInitialList() {
-      let html = '';
+    renderInitialList() {
+      const frag = document.createDocumentFragment();
       let hasBaseMaps = false;
+      let hasOverlays = false;
 
       for (let i = 0; i < this.layers.length; i++) {
         const l = this.layers[i];
+        if (!l.isBase && !hasOverlays) {
+          hasOverlays = true;
+          frag.appendChild(
+            this.renderToggleAllRow("overlay", CONST.name + ".data_layer_label"),
+          );
+        }
         if (l.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
-          html += `
-              <div class="layer-separator-container">
-              <span class="separator-label">${_('layer.base_map_label')}</span>
-              <div class="section-divider"></div>
-            </div>`;
+          frag.appendChild(
+            this.renderToggleAllRow("base", CONST.name + ".base_map_label"),
+          );
         }
-        const en = LayerUtils.escapeHTML(l.name);
-        html += `
-          <div class="layer-item${l.isBase ? ' is-base-item' : ''}" draggable="true"
-               data-index="${i}" data-layer-id="${l.id}"
-               title="${en}">
-            ${SVGS.DRAG_HANDLE}
-            <div class="checkbox-wrapper">
-              <input type="checkbox" checked data-index="${i}"
-                     aria-label="${en}">
-            </div>
-            <label title="${en}">${en}</label>
-            <div class="type-icon-col">${l.iconSvg || ''}</div>
-          </div>`;
+        const group = l.isBase ? "base" : "overlay";
+        const item = this.renderLayerItem(l, i);
+        if (this.foldedGroups.has(group)) item.classList.add("layer-group-folded");
+        frag.appendChild(item);
       }
 
-      html += `
-        <div class="layer-item color-layer-item" draggable="false"
-             data-layer-id="${_CONST.COLOR_MAP_LAYER_ID}"
-             title="${_('layer.color_map_label')}">
-          <div class="layer-item-spacer"></div>
-          <div class="checkbox-wrapper">
-            <input type="color" class="color-layer-input"
-                   value="${this.currentColor}"
-                   aria-label="${_('layer.color_map_label')}">
-          </div>
-          <label>${_('layer.color_map_label')}</label>
-          <div class="type-icon-col">${window.foliplus.SVGs.GLOBE}</div>
-        </div>`;
+      // Append color layer at the end so it doesn't break index alignment
+      const colorItem = this.renderColorLayerItem();
+      if (this.foldedGroups.has("base")) colorItem.classList.add("layer-group-folded");
+      frag.appendChild(colorItem);
 
-      this.uiContainer.innerHTML = html;
+      this.uiContainer.innerHTML = "";
+      this.uiContainer.appendChild(frag);
     }
 
-    _initTypesAndVisibility() {
-      const inputs = this.uiContainer.querySelectorAll('.layer-item input[type="checkbox"], .layer-item input[type="radio"]');
-      const typeCols = this.uiContainer.querySelectorAll('.type-icon-col');
+    /** Render a toggle-all row for a group (overlay or base). */
+    renderToggleAllRow(group, labelKey) {
+      const isFolded = this.foldedGroups.has(group);
+      return window.foliplus.dom.el(
+        "div",
+        {
+          class:
+            "layer-separator-container toggle-all-item" + (isFolded ? " folded" : ""),
+          "data-group": group,
+        },
+        window.foliplus.dom.el(
+          "button",
+          {
+            class: "fold-toggle-btn",
+            title: _(CONST.name + (isFolded ? ".unfold_tooltip" : ".fold_tooltip")),
+          },
+          { html: isFolded ? SVGS.UNFOLD : SVGS.FOLD },
+        ),
+        window.foliplus.dom.el(
+          "div",
+          { class: "checkbox-wrapper" },
+          window.foliplus.dom.el("input", {
+            type: "checkbox",
+            "data-role": "toggle-all",
+            checked: "",
+          }),
+        ),
+        window.foliplus.dom.el("span", { class: "separator-label" }, _(labelKey)),
+        window.foliplus.dom.el("div", { class: "section-divider" }),
+      );
+    }
+
+    /** Render a single layer item row. */
+    renderLayerItem(l, index) {
+      const en = LayerUtils.escapeHTML(l.name);
+      const children = [
+        { html: SVGS.DRAG_HANDLE },
+        window.foliplus.dom.el(
+          "div",
+          { class: "checkbox-wrapper" },
+          window.foliplus.dom.el("input", {
+            type: "checkbox",
+            checked: "",
+            "data-index": String(index),
+            "aria-label": en,
+          }),
+        ),
+        window.foliplus.dom.el("label", { title: en }, en),
+      ];
+      if (l.iconSvg)
+        children.push({ html: `<div class="type-icon-col">${l.iconSvg}</div>` });
+      else children.push(window.foliplus.dom.el("div", { class: "type-icon-col" }));
+
+      return window.foliplus.dom.el(
+        "div",
+        {
+          class: "layer-item",
+          draggable: "true",
+          "data-index": String(index),
+          "data-layer-id": l.id,
+          "data-layer-type": l.isBase ? "base" : "overlay",
+          title: en,
+        },
+        ...children,
+      );
+    }
+
+    /** Render the solid color layer picker item. */
+    renderColorLayerItem() {
+      return window.foliplus.dom.el(
+        "div",
+        {
+          class: "layer-item color-layer-item",
+          draggable: "false",
+          "data-layer-id": CONST.COLOR_MAP_ID,
+          title: _(CONST.name + ".color_map_label"),
+        },
+        { html: SVGS.DRAG_HANDLE },
+        window.foliplus.dom.el(
+          "div",
+          { class: "checkbox-wrapper" },
+          window.foliplus.dom.el("input", {
+            type: "color",
+            class: "color-layer-input",
+            value: this.currentColor,
+            "aria-label": _(CONST.name + ".color_map_label"),
+          }),
+        ),
+        window.foliplus.dom.el("label", null, _(CONST.name + ".color_map_label")),
+        { html: `<div class="type-icon-col">${SVGS.COLOR}</div>` },
+      );
+    }
+
+    initTypesAndVisibility() {
+      const inputs = this.uiContainer.querySelectorAll(
+        '.layer-item input[type="checkbox"], .layer-item input[type="radio"]',
+      );
+      const typeCols = this.uiContainer.querySelectorAll(".type-icon-col");
       let anyBaseVisible = false;
 
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const id = layerInfo.id;
-        const layer = this.map._layers[id] || window[id] || null;
+        const layer = LayerUtils.findLayer(this.map, id);
 
         if (inputs[i]) {
-          inputs[i].checked = (layer != null && this.map.hasLayer(layer)) ||
-            (layer && layer._map != null);
-          const item = inputs[i].closest('.layer-item');
+          // Callback-only layers (e.g. Canvas heatmap) have no Leaflet layer
+          // but are considered "active" by default (visible until toggled).
+          // Respect the user's manual toggle stored in layerInfo.visible.
+          const hasLayer = layer != null;
+          const isCallbackOnly = !hasLayer && this.layerCallbacks.has(id);
+          if (isCallbackOnly) inputs[i].checked = layerInfo.visible !== false;
+          else inputs[i].checked = hasLayer && this.map.hasLayer(layer);
+
+          const item = inputs[i].closest(".layer-item");
           if (item) {
-            if (inputs[i].checked) item.classList.add('is-active');
-            else item.classList.remove('is-active');
+            if (inputs[i].checked) item.classList.add("is-active");
+            else item.classList.remove("is-active");
           }
         }
 
         if (typeCols[i]) {
           if (layerInfo.isBase) {
             typeCols[i].innerHTML = window.foliplus.SVGs.GLOBE;
-            this.typeMap.set(id, { type: 'base', name: layerInfo.name });
+            typeCols[i].title = _(CONST.name + ".type_base");
+            this.typeMap.set(id, { type: "base", name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
-            this.typeMap.set(id, { type: 'custom', name: layerInfo.name });
+            typeCols[i].title = _(CONST.name + ".type_custom");
+            this.typeMap.set(id, { type: "custom", name: layerInfo.name });
           } else if (layer) {
+            const gtype = LayerUtils.getGeometryType(layer);
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
-            this.typeMap.set(id, {
-              type: LayerUtils.getGeometryType(layer),
-              name: layerInfo.name,
-            });
+            typeCols[i].title = _(CONST.name + ".type_" + gtype);
+            this.typeMap.set(id, { type: gtype, name: layerInfo.name });
           }
         }
       }
 
-      if (!anyBaseVisible) this._showColorLayer(this.currentColor);
+      if (!anyBaseVisible) this.showColorLayer(this.currentColor);
       this.enforceOrder();
+
+      // Sync toggle-all checkboxes after initializing visibility
+      this.syncToggleAll("overlay");
+      this.syncToggleAll("base");
     }
 
-    _reindexItems() {
+    reindexItems() {
       const items = this.uiContainer.querySelectorAll(
-        '.layer-item:not(.color-layer-item)'
+        ".layer-item:not(.color-layer-item)",
       );
       for (let i = 0; i < items.length; i++) {
         items[i].dataset.index = String(i);
@@ -656,67 +1202,171 @@
     }
 
     // Event Handlers
-    _bindEvents() {
-      this.uiContainer.addEventListener('change', this._handleChange.bind(this));
-      this.uiContainer.addEventListener('input', this._handleInput.bind(this));
+    bindEvents() {
+      this.uiContainer.addEventListener("change", this.handleChange.bind(this));
+      this.uiContainer.addEventListener("input", this.handleInput.bind(this));
 
       // Clicking anywhere on the color layer item deselects all base maps
-      this.uiContainer.addEventListener('click', (e) => {
-        if (e.target.closest('.color-layer-item')) {
-          this._deselectAllBaseMaps(-1);
-          this._showColorLayer(this.currentColor);
+      this.uiContainer.addEventListener("click", (e) => {
+        if (e.target.closest(".color-layer-item")) {
+          this.deselectAllBaseMaps(-1);
+          this.showColorLayer(this.currentColor);
+          this.syncToggleAll("base");
           this.enforceOrder();
         }
       });
 
-      this.uiContainer.addEventListener('dragstart', this._handleDragStart.bind(this));
-      this.uiContainer.addEventListener('dragover', this._handleDragOver.bind(this));
-      this.uiContainer.addEventListener('dragleave', this._handleDragLeave.bind(this));
-      this.uiContainer.addEventListener('drop', this._handleDrop.bind(this));
-      this.uiContainer.addEventListener('dragend', this._handleDragEnd.bind(this));
+      // Fold toggle: click on toggle-all-item row (excluding checkbox) toggles group visibility
+      this.uiContainer.addEventListener("click", (e) => {
+        const row = e.target.closest(".toggle-all-item");
+        if (!row) return;
+        // Don't fold/unfold when clicking the checkbox
+        if (e.target.closest('[data-role="toggle-all"]')) return;
+        const group = row.dataset.group;
+        if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
+        else this.foldedGroups.add(group);
+        this.renderInitialList();
+        this.initTypesAndVisibility();
+        this.saveFoldState();
+      });
+
+      this.uiContainer.addEventListener("dragstart", this.handleDragStart.bind(this));
+      this.uiContainer.addEventListener("dragover", this.handleDragOver.bind(this));
+      this.uiContainer.addEventListener("dragleave", this.handleDragLeave.bind(this));
+      this.uiContainer.addEventListener("drop", this.handleDrop.bind(this));
+      this.uiContainer.addEventListener("dragend", this.handleDragEnd.bind(this));
+
+      // Toggle all event delegation
+      this.uiContainer.addEventListener("change", (e) => {
+        const cb = e.target.closest('[data-role="toggle-all"]');
+        if (cb) {
+          const row = cb.closest(".toggle-all-item");
+          const group = row.dataset.group;
+          this.toggleAll(group, cb.checked);
+        }
+      });
     }
 
-    _handleChange(e) {
-      const target = e.target;
-      if (target.classList.contains('color-layer-input')) {
-        this._deselectAllBaseMaps(-1);
-        this._showColorLayer(target.value);
-        this.enforceOrder();
-        return;
-      }
-      if (target.tagName.toLowerCase() !== 'input' || target.type !== 'checkbox') return;
+    /** Get layer items for a group, excluding the color layer item. */
+    getLayerItems(group) {
+      return this.uiContainer.querySelectorAll(
+        `.layer-item${group === "base" ? '[data-layer-type="base"]' : ':not([data-layer-type="base"]):not(.color-layer-item)'}`,
+      );
+    }
 
-      const idx = parseInt(target.dataset.index, 10);
-      const layerInfo = this.layers[idx];
-      const layer = this.map._layers[layerInfo.id] || window[layerInfo.id] || null;
-      const item = target.closest('.layer-item');
+    toggleAll(group, newState) {
+      const items = this.getLayerItems(group);
 
-      if (layerInfo.isBase) {
-        this._hideColorLayer();
-      }
-      if (layer) {
-        target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
-      }
+      items.forEach((item) => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        if (!cb) return;
+        const idx = parseInt(cb.dataset.index, 10);
+        if (isNaN(idx) || idx < 0 || idx >= this.layers.length) return;
+        const layerInfo = this.layers[idx];
+        const layer = LayerUtils.findLayer(this.map, layerInfo.id);
 
-      if (item) target.checked ? item.classList.add('is-active') : item.classList.remove('is-active');
+        cb.checked = newState;
+        if (newState) item.classList.add("is-active");
+        else item.classList.remove("is-active");
+
+        if (layer) newState ? this.map.addLayer(layer) : this.map.removeLayer(layer);
+
+        const cbs = this.layerCallbacks.get(layerInfo.id);
+        if (cbs && cbs.onToggle) cbs.onToggle(newState);
+
+        // Track visibility for callback-only layers
+        if (!layer) layerInfo.visible = newState;
+      });
+
+      // Base maps deselected → show color layer
+      if (group === "base" && !newState) {
+        this.hideColorLayer();
+        this.showColorLayer(this.currentColor);
+      } else if (group === "base" && newState) this.hideColorLayer();
+
+      this.syncToggleAll(group);
       this.enforceOrder();
     }
 
-    _handleInput(e) {
-      if (e.target.classList.contains('color-layer-input')) {
-        this._showColorLayer(e.target.value);
-      }
+    syncToggleAll(group) {
+      const row = this.uiContainer.querySelector(
+        `.toggle-all-item[data-group="${group}"]`,
+      );
+      if (!row) return;
+
+      const allCb = row.querySelector('[data-role="toggle-all"]');
+      if (!allCb) return;
+
+      const items = this.getLayerItems(group);
+      const checkedCount = Array.from(items).filter((item) => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        return cb && cb.checked;
+      }).length;
+
+      const allChecked = items.length > 0 && checkedCount === items.length;
+      const noneChecked = checkedCount === 0;
+
+      allCb.checked = allChecked;
+      allCb.indeterminate = !allChecked && !noneChecked;
     }
 
-    _handleDragStart(e) {
-      const item = e.target.closest('.layer-item');
+    handleChange(e) {
+      const target = e.target;
+      if (target.classList.contains("color-layer-input")) {
+        this.deselectAllBaseMaps(-1);
+        this.showColorLayer(target.value);
+        this.syncToggleAll("base");
+        this.enforceOrder();
+        return;
+      }
+      if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox")
+        return;
+
+      // Skip toggle-all checkbox — handled by its own listener
+      if (target.getAttribute("data-role") === "toggle-all") return;
+
+      const idx = parseInt(target.dataset.index, 10);
+      if (isNaN(idx) || idx < 0 || idx >= this.layers.length) return;
+      const layerInfo = this.layers[idx];
+      const layer = LayerUtils.findLayer(this.map, layerInfo.id);
+      const item = target.closest(".layer-item");
+
+      if (layerInfo.isBase) this.hideColorLayer();
+      if (layer)
+        target.checked ? this.map.addLayer(layer) : this.map.removeLayer(layer);
+      if (item)
+        target.checked
+          ? item.classList.add("is-active")
+          : item.classList.remove("is-active");
+
+      // Notify custom callbacks (e.g. Canvas heatmap overlay)
+      const cbs = this.layerCallbacks.get(layerInfo.id);
+      if (cbs && cbs.onToggle) cbs.onToggle(target.checked);
+
+      // Track visibility for callback-only layers (e.g. Canvas heatmap)
+      // so initTypesAndVisibility respects the user's manual toggle.
+      if (!layer) layerInfo.visible = target.checked;
+
+      // Sync toggle-all checkbox for this group
+      this.syncToggleAll(layerInfo.isBase ? "base" : "overlay");
+
+      this.enforceOrder();
+    }
+
+    handleInput(e) {
+      if (e.target.classList.contains("color-layer-input"))
+        this.showColorLayer(e.target.value);
+    }
+
+    handleDragStart(e) {
+      const item = e.target.closest(".layer-item");
       if (!item) return;
       this.dragIdx = parseInt(item.dataset.index, 10);
-      item.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
+      item.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
     }
 
-    _canReorderBetween(fromIdx, toIdx) {
+    canReorderBetween(fromIdx, toIdx) {
       if (fromIdx == null || toIdx == null) return false;
       if (fromIdx < 0 || toIdx < 0) return false;
       if (fromIdx >= this.layers.length || toIdx >= this.layers.length) return false;
@@ -728,7 +1378,7 @@
       // overlays can only reorder inside overlay group.
       if (!!from.isBase !== !!to.isBase) return false;
 
-      const firstBaseIdx = this.layers.findIndex(l => !!l.isBase);
+      const firstBaseIdx = this.layers.findIndex((l) => !!l.isBase);
       const hasBase = firstBaseIdx !== -1;
 
       // Overlay group: [0, firstBaseIdx - 1] (or whole list if no base maps)
@@ -741,164 +1391,196 @@
       return hasBase && fromIdx >= firstBaseIdx && toIdx >= firstBaseIdx;
     }
 
-    _showReorderBlockedHint() {
+    showReorderBlockedHint() {
       const now = Date.now();
-      if (now - this.lastDragHintAt < _CONST.DRAG_HINT_COOLDOWN_MS) return;
+      if (now - this.lastDragHintAt < CONST.DRAG_HINT_COOLDOWN_MS) return;
       this.lastDragHintAt = now;
-      if (window.foliplus && typeof window.foliplus.showHint === 'function') {
-        window.foliplus.showHint('layer', _('layer.reorder_group_only'), 1200);
+      if (window.foliplus && typeof window.foliplus.showHint === "function") {
+        window.foliplus.showHint(
+          CONST.name,
+          _(CONST.name + ".reorder_group_only"),
+          window.foliplus.HINT_DURATION.SHORT,
+        );
       }
     }
 
-    _handleDragOver(e) {
+    handleDragOver(e) {
       if (this.dragIdx === null) return;
       e.preventDefault();
-      const item = e.target.closest('.layer-item');
-      if (!item || item.classList.contains('color-layer-item')) return;
+      const item = e.target.closest(".layer-item");
+      if (!item || item.classList.contains("color-layer-item")) return;
 
       const targetIdx = parseInt(item.dataset.index, 10);
-      const allItems = this.uiContainer.querySelectorAll('.layer-item');
-      allItems.forEach(i => i.classList.remove('drag-over-top', 'drag-over-bottom'));
+      const allItems = this.uiContainer.querySelectorAll(".layer-item");
+      allItems.forEach((i) => i.classList.remove("drag-over-top", "drag-over-bottom"));
 
-      if (!this._canReorderBetween(this.dragIdx, targetIdx)) {
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
-        this._showReorderBlockedHint();
+      if (!this.canReorderBetween(this.dragIdx, targetIdx)) {
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+        this.showReorderBlockedHint();
         return;
       }
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 
-      if (targetIdx < this.dragIdx) item.classList.add('drag-over-top');
-      else if (targetIdx > this.dragIdx) item.classList.add('drag-over-bottom');
+      if (targetIdx < this.dragIdx) item.classList.add("drag-over-top");
+      else if (targetIdx > this.dragIdx) item.classList.add("drag-over-bottom");
     }
 
-    _handleDragLeave(e) {
-      const item = e.target.closest('.layer-item');
-      if (item) item.classList.remove('drag-over-top', 'drag-over-bottom');
+    handleDragLeave(e) {
+      const item = e.target.closest(".layer-item");
+      if (item) item.classList.remove("drag-over-top", "drag-over-bottom");
     }
 
-    _handleDrop(e) {
+    handleDrop(e) {
       e.preventDefault();
-      const target = e.target.closest('.layer-item');
+      const target = e.target.closest(".layer-item");
       if (this.dragIdx === null) return;
       if (!target) return;
-      if (target.classList.contains('color-layer-item')) return;
+      if (target.classList.contains("color-layer-item")) return;
+
+      // Guard against dragIdx/layers array desync (e.g., external modification)
+      if (this.dragIdx < 0 || this.dragIdx >= this.layers.length) {
+        this.dragIdx = null;
+        return;
+      }
 
       const targetIdx = parseInt(target.dataset.index, 10);
       if (this.dragIdx === targetIdx) return;
-      if (!this._canReorderBetween(this.dragIdx, targetIdx)) {
-        this._showReorderBlockedHint();
+      if (!this.canReorderBetween(this.dragIdx, targetIdx)) {
+        this.showReorderBlockedHint();
         return;
       }
 
       const moved = this.layers.splice(this.dragIdx, 1)[0];
       this.layers.splice(targetIdx, 0, moved);
 
-      const allItems = Array.from(
-        this.uiContainer.querySelectorAll('.layer-item:not(.color-layer-item)')
+      // Find the moved DOM element by its layer id (safer than index after splice)
+      const movedItem = this.uiContainer.querySelector(
+        `[data-layer-id="${CSS.escape(moved.id)}"]`,
       );
-      const movedItem = allItems[this.dragIdx];
-
-      if (targetIdx < this.dragIdx) {
-        target.parentNode.insertBefore(movedItem, target);
-      } else {
-        target.parentNode.insertBefore(movedItem, target.nextSibling);
+      if (!movedItem) {
+        this.dragIdx = null;
+        return;
       }
 
-      this._reindexItems();
+      if (targetIdx < this.dragIdx) target.parentNode.insertBefore(movedItem, target);
+      else target.parentNode.insertBefore(movedItem, target.nextSibling);
+
+      this.reindexItems();
       this.enforceOrder();
-      this._saveOrder();
+      this.saveOrder();
       this.dragIdx = null;
     }
 
-    _handleDragEnd() {
-      const allItems = this.uiContainer.querySelectorAll('.layer-item');
-      allItems.forEach(i => i.classList.remove(
-        'dragging', 'drag-over-top', 'drag-over-bottom'
-      ));
+    handleDragEnd() {
+      const allItems = this.uiContainer.querySelectorAll(".layer-item");
+      allItems.forEach((i) =>
+        i.classList.remove("dragging", "drag-over-top", "drag-over-bottom"),
+      );
     }
 
     // Color Map Control Logic
-    _showColorLayer(color) {
+    showColorLayer(color) {
       this.colorActive = true;
       this.currentColor = color;
       mapContainer.style.background = color;
 
       for (let i = 0; i < this.layers.length; i++) {
         if (this.layers[i].isBase) {
-          const l_id = this.layers[i].id;
-          const bLayer = this.map._layers[l_id] || window[l_id] || null;
+          const bLayer = LayerUtils.findLayer(this.map, this.layers[i].id);
           if (bLayer && this.map.hasLayer(bLayer)) this.map.removeLayer(bLayer);
         }
       }
 
-      const tilePane = this.map.getPane('tilePane');
+      const tilePane = this.map.getPane("tilePane");
       if (tilePane) {
-        tilePane.style.visibility = 'hidden';
-        tilePane.style.opacity = '0';
+        tilePane.style.visibility = "hidden";
+        tilePane.style.opacity = "0";
       }
 
       const inputs = this.uiContainer.querySelectorAll(
-        '.layer-item:not(.color-layer-item) input'
+        ".layer-item:not(.color-layer-item) input",
       );
       inputs.forEach((input, j) => {
         if (this.layers[j]?.isBase) {
           input.checked = false;
-          input.closest('.layer-item')?.classList.remove('is-active');
+          input.closest(".layer-item")?.classList.remove("is-active");
         }
       });
 
-      const ci = this.uiContainer.querySelector('.color-layer-input');
+      const ci = this.uiContainer.querySelector(".color-layer-input");
       if (ci) ci.value = color;
-      this.uiContainer.querySelector('.color-layer-item')?.classList.add('is-color-active');
+      this.uiContainer
+        .querySelector(".color-layer-item")
+        ?.classList.add("is-color-active");
+      this.syncToggleAll("base");
     }
 
-    _hideColorLayer() {
+    hideColorLayer() {
       this.colorActive = false;
-      mapContainer.style.background = '';
-      const tilePane = this.map.getPane('tilePane');
+      mapContainer.style.background = "";
+      const tilePane = this.map.getPane("tilePane");
       if (tilePane) {
-        tilePane.style.visibility = '';
-        tilePane.style.opacity = '';
+        tilePane.style.visibility = "";
+        tilePane.style.opacity = "";
       }
-      this.uiContainer.querySelector('.color-layer-item')?.classList.remove('is-color-active');
+      this.uiContainer
+        .querySelector(".color-layer-item")
+        ?.classList.remove("is-color-active");
     }
 
-    _deselectAllBaseMaps(exceptIdx) {
+    deselectAllBaseMaps(exceptIdx) {
       const inputs = this.uiContainer.querySelectorAll(
-        '.layer-item:not(.color-layer-item) input'
+        ".layer-item:not(.color-layer-item) input",
       );
       for (let i = 0; i < this.layers.length; i++) {
         if (this.layers[i].isBase && i !== exceptIdx) {
-          const l_id = this.layers[i].id;
-          const bLayer = this.map._layers[l_id] || window[l_id] || null;
+          const bLayer = LayerUtils.findLayer(this.map, this.layers[i].id);
           if (bLayer && this.map.hasLayer(bLayer)) this.map.removeLayer(bLayer);
           if (inputs[i]) {
             inputs[i].checked = false;
-            inputs[i].closest('.layer-item')?.classList.remove('is-active');
+            inputs[i].closest(".layer-item")?.classList.remove("is-active");
           }
         }
       }
+    }
+
+    /** Release all resources. Called by LayerControl.onRemove(). */
+    destroy() {
+      this.isDestroyed = true;
+      if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
+      if (this.debouncedEnforce) this.debouncedEnforce.cancel();
+      if (this.uiContainer) {
+        this.uiContainer.innerHTML = "";
+        this.uiContainer = null;
+      }
+      this.layers = [];
+      this.typeMap.clear();
+      this.layerCallbacks.clear();
+      this.pendingRegistrations = [];
+      layerRegistry.clear();
+      if (window.foliplus.LayerControlAPI === this)
+        window.foliplus.LayerControlAPI = null;
     }
   }
 
   // ==================== Initialize Manager with Data ====================
   const initialData = [];
-  {%- for key, val in this.overlays.items() %}
+  {%- for key, val in this.overlays.items() %};
   initialData.push({
     name: {{ key | tojson }},
     id: "{{ val }}",
     visible: true,
-    isBase: false
+    isBase: false,
   });
-  {%- endfor %}
-  {%- for key, val in this.base_layers.items() %}
+  {%- endfor %};
+  {%- for key, val in this.base_layers.items() %};
   initialData.push({
     name: {{ key | tojson }},
     id: "{{ val }}",
     visible: true,
-    isBase: true
+    isBase: true,
   });
-  {%- endfor %}
+  {%- endfor %};
 
   const layerManager = new LayerManager(map);
   layerManager.init(initialData);
@@ -906,24 +1588,22 @@
   // ==================== Leaflet Control Definition ====================
   class LayerControl extends L.Control {
     onAdd() {
-      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+      const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
 
       container.innerHTML = `
-        <div class="map-panel ctrl-fold layer-ctrl collapsed"
-             id="{{ this.get_name() }}_ctrl">
-          <button class="toggle-btn" title="${_('layer.toggle_title')}"
-                  aria-label="${_('layer.toggle_title')}">
-            ${SVGS.LIST}
+        <div class="map-panel ctrl-fold layer-ctrl collapsed" id="{{ this.get_name() }}_ctrl">
+          <button class="toggle-btn" title="${_(CONST.name + ".toggle_title")}"
+                  aria-label="${_(CONST.name + ".toggle_title")}">
+            ${SVGS.LAYERS}
           </button>
-          <div class="layer-panel" role="dialog"
-               aria-label="${_('layer.panel_title')}">
-            <div class="panel-header" title="${_('layer.close_title')}">
+          <div class="layer-panel" role="dialog" aria-label="${_(CONST.name + ".panel_title")}">
+            <div class="panel-header" title="${_(CONST.name + ".close_title")}">
               <span class="header-title">
-                <span class="header-icon">${SVGS.LIST}</span>
-                ${_('layer.panel_title')}
+                <span class="header-icon">${SVGS.LAYERS}</span>
+                ${_(CONST.name + ".panel_title")}
               </span>
-              <button class="close-btn ctrl-abs-btn" title="${_('layer.close_title')}"
-                      aria-label="${_('layer.close_title')}">
+              <button class="ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
+                      aria-label="${_(CONST.name + ".close_title")}">
                 ${window.foliplus.SVGs.CLOSE}
               </button>
             </div>
@@ -935,18 +1615,22 @@
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.disableScrollPropagation(container);
 
-      const ctrl = container.querySelector('.layer-ctrl');
-      const panelContent = container.querySelector('.panel-content');
-
       window.foliplus.bindPanelToggle({
-        container: ctrl, toggleBtn: '.toggle-btn', header: '.panel-header',
+        container: container.querySelector(".layer-ctrl"),
+        toggleBtn: ".toggle-btn",
+        header: ".panel-header",
       });
 
-      layerManager.attachUI(panelContent);
+      layerManager.attachUI(container.querySelector(".panel-content"));
 
       return container;
     }
+
+    onRemove() {
+      layerManager.destroy();
+      unpatchBringToFront();
+    }
   }
 
-  new LayerControl({ position: '{{ this.position }}' }).addTo(map);
+  new LayerControl({ position: "{{ this.position }}" }).addTo(map);
 })();

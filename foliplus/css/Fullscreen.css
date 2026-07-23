@@ -1,0 +1,51 @@
+/* ── Fullscreen / Zoom Controls ──
+  Custom container with three tool-btn buttons.
+  Hover/active effects inherited from common.css unified button rules.
+  Only loaded when Fullscreen is used. ── */
+
+/* ── Button container ── */
+.fs-bar {
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-ctrl-strong);
+  border-radius: var(--radius-sm);
+  background: var(--ctrl-bg);
+}
+
+/* ── Top button gets top radius ── */
+.fs-bar .fs-zoom-in {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+/* ── Bottom button gets bottom radius ── */
+.fs-bar .fullscreen-btn {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+/* ── Divider between buttons ── */
+.fs-bar .tool-btn {
+  border-bottom: var(--border-thin) solid var(--divider-color);
+}
+.fs-bar .fullscreen-btn {
+  border-bottom: none;
+}
+
+/* ── Fullscreen container styles ──
+  Required for the fullscreen API to work correctly.
+  Copied from leaflet.fullscreen CDN CSS. */
+/* stylelint-disable-next-line selector-no-vendor-prefix */
+:is(
+  .leaflet-container:-webkit-full-screen,
+  .leaflet-container:fullscreen,
+  .leaflet-pseudo-fullscreen
+) {
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 99999;
+}
+
+.leaflet-pseudo-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+}

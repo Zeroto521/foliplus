@@ -20,6 +20,16 @@ from foliplus import (
 
 JS_DIR = Path(__file__).parent.parent / "foliplus" / "js"
 
+# All controls with their CONST.name value
+_CONTROLS = {
+    "Fullscreen": Fullscreen,
+    "HeatmapControl": HeatmapControl,
+    "LayerControl": LayerControl,
+    "MapSearch": MapSearch,
+    "MeasureControl": MeasureControl,
+    "ScaleControl": ScaleControl,
+}
+
 
 class TestJinjaIntegrity:
     """Verify JS files contain valid Jinja2 template tags."""
@@ -82,7 +92,7 @@ class TestJinjaIntegrity:
         m = folium.Map()
         MapSearch(locale="zh").add_to(m)
         html = render(m)
-        assert "search.coord_placeholder" in html
+        assert "MapSearch.coord_placeholder" in html
         assert '"zh"' in html
 
     def test_all_components_render_with_zh(self):
@@ -105,3 +115,29 @@ class TestJinjaIntegrity:
 
         assert isinstance(html, str)
         assert len(html) > 0
+
+    def test_const_name_consistency(self):
+        """Each component's CONST.name matches its Python _name."""
+        for expected_name, cls in _CONTROLS.items():
+            instance = cls()
+            assert instance._name == expected_name, (
+                f"{cls.__name__}._name expected '{expected_name}', "
+                f"got '{instance._name}'"
+            )
+
+    def test_runtime_error_keys_injected(self):
+        """Runtime error keys (gcoord.warn, load.script_fail) appear in HTML."""
+        m = folium.Map()
+        MapSearch().add_to(m)
+        html = render(m)
+        assert "gcoord.warn" in html
+        assert "load.script_fail" in html
+
+    def test_debounce_utility(self):
+        """foliplus.debounce returns a debounced function with .cancel()."""
+        m = folium.Map()
+        MapSearch().add_to(m)
+        html = render(m)
+        assert "foliplus.debounce" in html
+        assert "debounced.cancel" in html
+        assert "clearTimeout(timer)" in html

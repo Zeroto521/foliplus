@@ -6,11 +6,10 @@ import re
 
 import foliplus
 from foliplus._cdn import (
-    CHROMA_VERSION,
-    GCOORD_VERSION,
-    H3_VERSION,
-    LEAFLET_FULLSCREEN_VERSION,
-    SIMPLE_STATISTICS_VERSION,
+    CHROMA,
+    GCOORD,
+    H3,
+    SS,
 )
 
 
@@ -50,19 +49,16 @@ class TestCDN:
     """CDN dependency version tests."""
 
     def test_h3_js_version(self):
-        assert H3_VERSION == "4"
+        assert H3 == "4"
 
-    def test_simple_statistics_version(self):
-        assert SIMPLE_STATISTICS_VERSION == "7"
+    def test_SS(self):
+        assert SS == "7"
 
     def test_chroma_js_version(self):
-        assert CHROMA_VERSION == "2"
+        assert CHROMA == "2"
 
-    def test_leaflet_fullscreen_version(self):
-        assert LEAFLET_FULLSCREEN_VERSION == "3"
-
-    def test_gcoord_version(self):
-        assert GCOORD_VERSION == "1"
+    def test_GCOORD(self):
+        assert GCOORD == "1"
 
     def test_cdn_urls_in_default_js(self):
         """All default_js URLs follow the expected format."""

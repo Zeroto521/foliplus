@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from ._cdn import CHROMA_VERSION, H3_VERSION, SIMPLE_STATISTICS_VERSION
+from ._cdn import CHROMA, H3, SS
 from ._typing import Position
 from .base import BaseControl
 from .locale import LocaleConfig
@@ -84,14 +84,14 @@ class HeatmapControl(BaseControl):
     """
 
     default_js = [
-        ("h3-js", f"https://cdn.jsdelivr.net/npm/h3-js@{H3_VERSION}/dist/h3-js.umd.js"),
+        ("h3-js", f"https://cdn.jsdelivr.net/npm/h3-js@{H3}/dist/h3-js.umd.js"),
         (
             "simple-statistics",
-            f"https://cdn.jsdelivr.net/npm/simple-statistics@{SIMPLE_STATISTICS_VERSION}/dist/simple-statistics.min.js",
+            f"https://cdn.jsdelivr.net/npm/simple-statistics@{SS}/dist/simple-statistics.min.js",
         ),
         (
             "chroma-js",
-            f"https://cdn.jsdelivr.net/npm/chroma-js@{CHROMA_VERSION}/chroma.min.js",
+            f"https://cdn.jsdelivr.net/npm/chroma-js@{CHROMA}/chroma.min.js",
         ),
     ]
 
@@ -134,8 +134,3 @@ class HeatmapControl(BaseControl):
             "label_color": "#fff",
             "label_format": "auto",
         } | (style or {})
-
-        # CDN versions for JS dynamic loader
-        self._h3_version = H3_VERSION
-        self._ss_version = SIMPLE_STATISTICS_VERSION
-        self._chroma_version = CHROMA_VERSION
