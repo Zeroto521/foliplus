@@ -415,6 +415,20 @@ class TestHeatmapControlBrowser:
     @staticmethod
     def _stub_html(html: str) -> str:
         """Inject CDN stubs so the heatmap UI initialises without network."""
+        # Remove blocking CDN <script> tags from <head> (added by default_js)
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js"></script>',
+            "",
+        )
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js"></script>',
+            "",
+        )
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"></script>',
+            "",
+        )
+        # Inject stubs for h3/ss/chroma before run()
         html = html.replace(
             "run();",
             'window.h3={latLngToCell:function(){return ""},cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},cellToLatLng:function(){return [0,0]}};'
