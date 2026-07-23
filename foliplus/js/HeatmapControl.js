@@ -1151,5 +1151,4 @@
 
     heatmapCtrl.addTo(map);
     heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);
-  }
 })();
