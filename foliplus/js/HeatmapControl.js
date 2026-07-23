@@ -80,19 +80,18 @@
 
   window.foliplus.registerHintIcon(CONST.name, SVGs.HEXAGON);
 
-  function run() {
-    // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
-    if (!window.foliplus.LayerControlAPI) {
-      console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-      window.foliplus.showHint(
-        CONST.name,
-        _(`${CONST.name}.no_layercontrol`),
-        window.foliplus.HINT_DURATION.PERSIST,
-      );
-      return;
-    }
+  // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
+  if (!window.foliplus.LayerControlAPI) {
+    console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
+    window.foliplus.showHint(
+      CONST.name,
+      _(`${CONST.name}.no_layercontrol`),
+      window.foliplus.HINT_DURATION.PERSIST,
+    );
+    return;
+  }
 
-    // ==================== Core: Data Aggregation & Rendering ===
+  // ==================== Core: Data Aggregation & Rendering ===
     class HeatmapManager {
       constructor(mapInstance) {
         this.map = mapInstance;
