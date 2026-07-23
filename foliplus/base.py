@@ -105,10 +105,6 @@ class BaseControl(MacroElement):
             {{% endmacro %}}
 
             {{% macro script(this, kwargs) %}}
-            {self._runtime}
-            if (window.foliplus && window.foliplus.resolveLocale) {{
-                window.foliplus.resolveLocale('{{{{ this._LOCALE_CODE }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
-            }}
             (function() {{
                 if (!window.foliplus) window.foliplus = {{}};
                 window.foliplus.CDN = {{
@@ -118,6 +114,10 @@ class BaseControl(MacroElement):
                     GCOORD: "{GCOORD_VERSION}",
                 }};
             }})();
+            {self._runtime}
+            if (window.foliplus && window.foliplus.resolveLocale) {{
+                window.foliplus.resolveLocale('{{{{ this._LOCALE_CODE }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
+            }}
             {js_runtime}
             {{% endmacro %}}""")
         )

@@ -35,6 +35,7 @@
   let _hintIcons = {};
   let _gcoordLoading = false;
   let _gcoordWarned = false;
+  let _gcoordFailed = false;
 
   // ==================== Constants ====================
   const HINT = {
@@ -219,13 +220,22 @@
    */
   const _ensureGcoord = () => {
     if (typeof gcoord !== "undefined") return true;
+    if (_gcoordFailed) return false;
     if (!_gcoordLoading) {
       _gcoordLoading = true;
       const s = document.createElement("script");
       s.src =
         "https://cdn.jsdelivr.net/npm/gcoord@" + (foliplus.CDN ? foliplus.CDN.GCOORD : "1") + "/dist/gcoord.global.prod.js";
-      s.onload = () => (_gcoordLoading = false);
-      s.onerror = () => (_gcoordLoading = false);
+      s.onload = () => { _gcoordLoading = false; };
+      s.onerror = () => {
+        _gcoordLoading = false;
+        _gcoordFailed = true;
+        if (!_gcoordWarned) {
+          _gcoordWarned = true;
+          console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
+          foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
+        }
+      };
       document.head.appendChild(s);
     }
     return false;
@@ -277,14 +287,7 @@
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
     }
-    if (!_ensureGcoord()) {
-      // gcoord not yet loaded — schedule warning on next access
-      if (!_gcoordWarned) {
-        _gcoordWarned = true;
-        console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-        foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
-      }
-    }
+    _ensureGcoord();
     return [lat, lng];
   };
 
