@@ -403,11 +403,12 @@ class TestLayerControlRendering:
         assert "--- Mechanism C: Auto-discovered / fallback panes" in html
 
     def test_migrate_layers_extracted(self, base_map: folium.Map):
-        """migrateLayers is a standalone method."""
+        """migrateLayers is a standalone method with DocumentFragment batching."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "migrateLayers(layersToMove)" in html
-        assert "moveElements(layer)" in html
+        assert "DocumentFragment" in html
+        assert "groups.get(container).push(l._path)" in html
 
     def test_enforce_order_try_finally(self, base_map: folium.Map):
         """enforceOrder uses try/finally to reset isEnforcing."""
@@ -524,6 +525,18 @@ class TestLayerControlRendering:
         assert "fallbackPanes" in html
         assert "this.map.getPane(paneName)" in html
 
+    def test_destroy_clears_pane_cache(self, base_map: folium.Map):
+        """destroy() clears paneCache to prevent stale cache entries."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "paneCache.clear()" in html
+
+    def test_destroy_clears_layer_registry(self, base_map: folium.Map):
+        """destroy() clears layerRegistry to prevent stale references."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layerRegistry.clear()" in html
+
     def test_destroy_flag(self, base_map: folium.Map):
         """destroy sets isDestroyed flag to prevent post-cleanup actions."""
         LayerControl().add_to(base_map)
@@ -536,6 +549,18 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "this.isEnforcing ||" in html
         assert "this.isDestroyed ||" in html
+
+    def test_register_clears_pane_cache(self, base_map: folium.Map):
+        """registerLayer clears paneCache when layer structure changes."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "paneCache.clear()" in html
+
+    def test_unregister_clears_pane_cache(self, base_map: folium.Map):
+        """unregisterLayer clears paneCache when layer is removed."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "paneCache.clear()" in html
 
     def test_debounced_enforce_cancels_on_destroy(self, base_map: folium.Map):
         """debouncedEnforce skips execution when destroyed."""
@@ -776,11 +801,12 @@ class TestLayerControlRendering:
         assert "console.error" in html
 
     def test_find_layer_utility(self, base_map: folium.Map):
-        """LayerUtils.findLayer resolves layers from map._layers and layerRegistry."""
+        """LayerUtils.findLayer and LayerControlAPI.findLayer resolve layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "LayerUtils.findLayer(this.map, id)" in html
         assert "layerRegistry.get(id)" in html
+        assert "this.findLayer = this.findLayer.bind(this)" in html
 
     def test_for_each_leaf_utility(self, base_map: folium.Map):
         """forEachLeaf and forEachLayer iterate all sub-layers correctly."""
