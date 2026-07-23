@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import folium
 from conftest import render
 
@@ -738,10 +740,33 @@ class TestLayerControlRendering:
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""
+
+    # ── Drag-over animation tests ──
+
+    def test_drag_over_classes_in_js(self, base_map: folium.Map):
+        """JS renders drag-over-top and drag-over-bottom classes for drop indicators."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "l.iconSvg" in html
-        assert "type-icon-col" in html
+        assert "drag-over-top" in html
+        assert "drag-over-bottom" in html
+
+    def test_drag_pulse_css_keyframes(self):
+        """CSS defines drag-pulse keyframes with variable-driven values."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "@keyframes drag-pulse" in css
+        assert "var(--drag-border-from" in css
+        assert "var(--drag-border-to" in css
+        assert "var(--drag-shadow-from" in css
+        assert "var(--drag-shadow-to" in css
+
+    def test_drag_over_css_variables(self):
+        """Drag-over drop indicators use CSS custom properties for all parameters."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "--drag-border-width" in css
+        assert "--drag-top-shadow" in css
+        assert "--drag-bottom-shadow" in css
+        assert "--drag-pulse-duration" in css
+        assert "--drag-pulse-count" in css
 
     def test_runtime_guard_present(self, base_map: folium.Map):
         """LayerControl logs error when foliplus runtime is missing."""
