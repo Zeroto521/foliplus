@@ -271,6 +271,7 @@
   foliplus.fromWgs84 = (map, lng, lat) => {
     if (typeof gcoord === "undefined") {
       console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
+      foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
       return [lng, lat];
     }
     const isBaidu = isBaiduCRS(map);
