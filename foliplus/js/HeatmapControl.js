@@ -121,7 +121,9 @@
       this.ui = null;
       this.cachedPoints = null;
       this.cachedFeatures = null;
+      this.cachedAgg = null;
       this.labelStyleCache = null;
+      this.renderAll = false;
 
       this.bindMapEvents();
     }
@@ -161,6 +163,7 @@
 
       this.onLayerChange = foliplus.debounce(() => {
         this.cachedPoints = null;
+        this.cachedAgg = null;
         if (this.ui) {
           this.scanMapLayers();
           this.ui.rebuildLayerDropdown();
@@ -182,8 +185,17 @@
       ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
 
       const labelCfg = this.resolveLabelStyle();
+      // Viewport culling: skip hexagons outside the visible map bounds.
+      // Set renderAll = true (e.g. before export) to disable culling.
+      const bounds = this.renderAll ? null : this.map.getBounds();
+      const isVisible = (feat) => {
+        if (!bounds) return true;
+        const c = feat.properties.centroid;
+        return c && bounds.contains(L.latLng(c[0], c[1]));
+      };
 
       features.forEach((feat) => {
+        if (!isVisible(feat)) return;
         this.drawHexagon(ctx, feat);
         if (this.currentLabelShow) this.drawHexLabel(ctx, feat, labelCfg);
       });
@@ -220,8 +232,9 @@
         ctrlEl
           ? getComputedStyle(ctrlEl).getPropertyValue(prop).trim() || fallback
           : fallback;
+      const font = `${cssVal("--heatmap-label-font-weight", "bold")} ${cssVal("--heatmap-label-font-size", `${CONST.LABEL_SIZE}px`)} ${cssVal("--heatmap-label-font-family", "sans-serif")}`;
       this.labelStyleCache = {
-        font: `${cssVal("--heatmap-label-font-weight", "bold")} ${cssVal("--heatmap-label-font-size", `${CONST.LABEL_SIZE}px`)} ${cssVal("--heatmap-label-font-family", "sans-serif")}`,
+        font,
         color: cssVal("--heatmap-label-color", CONST.LABEL_COLOR),
         stroke: cssVal("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
         strokeWidth: parseFloat(cssVal("--heatmap-label-stroke-width", "3")),
@@ -234,7 +247,8 @@
       const centroid = feat.properties.centroid;
       const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
       const text = window.foliplus.formatNumber(feat.properties.value, CONST.FORMAT);
-      ctx.font = font;
+      // Use cached font string to avoid repeated Canvas font parsing
+      if (ctx.font !== font) ctx.font = font;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.strokeStyle = stroke;
@@ -423,7 +437,15 @@
       const pts = this.collectSelectedPoints();
       const zoom = this.map.getZoom();
       const res = this.getH3Res(zoom);
-      const aggregated = this.aggregateData(pts, res);
+      // Aggregation cache key: layer + agg + field + res + method + scheme + nClasses
+      const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.N_CLASSES}`;
+      let aggregated;
+      if (this.cachedAgg && this.cachedAgg.key === aggKey)
+        aggregated = this.cachedAgg.data;
+      else {
+        aggregated = this.aggregateData(pts, res);
+        if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
+      }
       if (!aggregated) return;
       const features = this.buildFeatures(aggregated);
       this.renderFeatures(features);
@@ -553,6 +575,7 @@
 
     clearHeatmapCanvas() {
       this.cachedFeatures = null;
+      this.cachedAgg = null;
       if (this.overlay) {
         const ctx = this.overlay.ctx;
         if (ctx) {
