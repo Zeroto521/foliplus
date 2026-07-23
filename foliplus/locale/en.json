@@ -94,6 +94,5 @@
   "MeasureControl.geo_fail": "Lookup failed",
   "MeasureControl.no_layercontrol": "MeasureControl requires LayerControl, please add LayerControl to the map first",
   "ScaleControl.zoom_label": "Zoom Level: {zoom}",
-  "gcoord.warn": "gcoord library failed to load, coordinate transformation unavailable",
-  "load.script_fail": "Failed to load"
+  "gcoord.warn": "gcoord library failed to load, coordinate transformation unavailable"
 }

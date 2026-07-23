@@ -116,7 +116,6 @@ _JS_USED_KEYS = {
     "ScaleControl.zoom_label",
     # Runtime / global
     "gcoord.warn",
-    "load.script_fail",
 }
 
 
@@ -414,4 +413,3 @@ class TestLocaleErrors:
         MapSearch().add_to(base_map)
         html = base_map.get_root().render()
         assert "gcoord.warn" in html
-        assert "load.script_fail" in html
