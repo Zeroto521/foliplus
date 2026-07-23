@@ -501,11 +501,11 @@
           const len = finalPoly._path.getTotalLength?.() || 0;
           if (len > 0) {
             finalPoly._path.style.setProperty("--sweep-length", len);
-            finalPoly._path.style.strokeDashoffset = len;
             finalPoly._path.classList.add("is-dash-sweep");
             const onEnd = () => {
               finalPoly._path.removeEventListener("animationend", onEnd);
               finalPoly._path.classList.remove("is-dash-sweep");
+              finalPoly._path.style.removeProperty("--sweep-length");
             };
             finalPoly._path.addEventListener("animationend", onEnd);
           }
