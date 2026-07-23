@@ -503,10 +503,11 @@
             finalPoly._path.style.setProperty("--sweep-length", len);
             finalPoly._path.style.strokeDashoffset = len;
             finalPoly._path.classList.add("is-dash-sweep");
-            setTimeout(
-              () => finalPoly._path.classList.remove("is-dash-sweep"),
-              600,
-            );
+            const onEnd = () => {
+              finalPoly._path.removeEventListener("animationend", onEnd);
+              finalPoly._path.classList.remove("is-dash-sweep");
+            };
+            finalPoly._path.addEventListener("animationend", onEnd);
           }
         }
 
@@ -859,14 +860,19 @@
           interactive: true,
         }).addTo(this.layers.mainLayer);
 
-        // Ripple animation: expanding ring from center
-        if (circle._path) {
-          const containerPoint = this.map.latLngToContainerPoint(centerLatLng);
-          circle._path.style.setProperty("--ripple-r", r.toFixed(0));
-          circle._path.style.setProperty("--ripple-x", containerPoint.x.toFixed(0));
-          circle._path.style.setProperty("--ripple-y", containerPoint.y.toFixed(0));
-          circle._path.classList.add("is-ripple");
-          setTimeout(() => circle._path.classList.remove("is-ripple"), 800);
+        // Ripple: expanding ring from center
+        const ripple = L.circle(centerLatLng, {
+          radius: r,
+          className: "measure-ripple",
+          interactive: false,
+        }).addTo(this.layers.mainLayer);
+        const rippleEl = ripple._path;
+        if (rippleEl) {
+          const onEnd = () => {
+            rippleEl.removeEventListener("animationend", onEnd);
+            this.layers.mainLayer.removeLayer(ripple);
+          };
+          rippleEl.addEventListener("animationend", onEnd);
         }
 
         const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {

@@ -111,31 +111,26 @@
 }
 .measure-line-solid.is-dash-sweep {
   stroke-dasharray: var(--sweep-length, 1000) var(--sweep-length, 1000);
-  animation: measure-dash-sweep 0.5s ease-in-out;
+  animation: measure-dash-sweep var(--sweep-duration, 0.5s) ease-in-out;
 }
 
-/* Ripple: scale up from center while fading out, like a water ripple. */
+/* Ripple: expanding ring from center, like a water ripple. */
 @keyframes measure-ripple {
   0% {
     opacity: 0.6;
-    r: var(--ripple-r, 0);
+    transform: scale(1);
   }
   100% {
     opacity: 0;
-    r: calc(var(--ripple-r, 0) + 30);
+    transform: scale(var(--ripple-scale, 1.3));
   }
 }
-.measure-circle-final.is-ripple::after {
-  content: "";
-  position: absolute;
-  top: calc(var(--ripple-y, 0) * 1px);
-  left: calc(var(--ripple-x, 0) * 1px);
-  width: calc(var(--ripple-r, 0) * 2px);
-  height: calc(var(--ripple-r, 0) * 2px);
-  border-radius: 50%;
-  border: 2.5px solid var(--accent-primary);
-  transform: translate(-50%, -50%);
-  animation: measure-ripple 0.7s ease-out forwards;
+.measure-ripple {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-width: 2.5px;
+  animation: measure-ripple var(--ripple-duration, 0.7s) ease-out forwards;
+  transform-origin: center;
   pointer-events: none;
 }
 
