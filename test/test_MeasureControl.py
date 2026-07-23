@@ -444,6 +444,11 @@ class TestMeasureControlRendering:
             "const measureManager = new MeasureManager(map);",
             "const measureManager = new MeasureManager(map); window.__measureManager = measureManager; window.__map = map;",
         )
+        # Remove blocking CDN <script> tags (gcoord added by default_js)
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
+            "",
+        )
         html_path = tmp_path / "measure_browser.html"
         html_path.write_text(html, encoding="utf-8")
 

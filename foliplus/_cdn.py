@@ -5,9 +5,9 @@ across all controls.
 """
 
 # HeatmapControl
-H3_VERSION = "4"
-SIMPLE_STATISTICS_VERSION = "7"
-CHROMA_VERSION = "2"
+H3 = "4"
+SS = "7"
+CHROMA = "2"
 
 # MeasureControl
-GCOORD_VERSION = "1"
+GCOORD = "1"

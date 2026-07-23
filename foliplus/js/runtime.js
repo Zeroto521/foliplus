@@ -33,8 +33,6 @@
 
   // Private state (closure-scoped, not exposed on foliplus)
   let _hintIcons = {};
-  let _gcoordLoading = false;
-  let _gcoordWarned = false;
 
   // ==================== Constants ====================
   const HINT = {
@@ -212,26 +210,6 @@
 
   // ==================== Coordinate Transformation ====================
   /**
-   * Ensure gcoord library is loaded.
-   * If not loaded, dynamically injects the CDN script and returns false.
-   *
-   * @returns {boolean} True if gcoord is already available, false otherwise
-   */
-  const _ensureGcoord = () => {
-    if (typeof gcoord !== "undefined") return true;
-    if (!_gcoordLoading) {
-      _gcoordLoading = true;
-      const s = document.createElement("script");
-      s.src =
-        "https://cdn.jsdelivr.net/npm/gcoord@{{ this._gcoord_version }}/dist/gcoord.global.prod.js";
-      s.onload = () => (_gcoordLoading = false);
-      s.onerror = () => (_gcoordLoading = false);
-      document.head.appendChild(s);
-    }
-    return false;
-  };
-
-  /**
    * Detect whether the map uses Baidu coordinate system (BD-09).
    * Checks L.CRS.Baidu, crs.code, and tile URL patterns.
    *
@@ -277,14 +255,6 @@
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
     }
-    if (!_ensureGcoord()) {
-      // gcoord not yet loaded — schedule warning on next access
-      if (!_gcoordWarned) {
-        _gcoordWarned = true;
-        console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-        foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
-      }
-    }
     return [lat, lng];
   };
 
@@ -300,15 +270,9 @@
    */
   foliplus.fromWgs84 = (map, lng, lat) => {
     if (typeof gcoord === "undefined") {
-      if (!_ensureGcoord()) {
-        // gcoord not yet loaded — show warning and return unchanged
-        if (!_gcoordWarned) {
-          _gcoordWarned = true;
-          console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-          foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
-        }
-        return [lng, lat];
-      }
+      console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
+      foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
+      return [lng, lat];
     }
     const isBaidu = isBaiduCRS(map);
     // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip
@@ -736,101 +700,6 @@
     }
 
     return fmt(absVal >= 100 ? 0 : 1).format(val);
-  };
-
-  // ==================== Dynamic Script Loader ====================
-  /**
-   * Load external JS dependencies dynamically, with retry support.
-   * Each dependency is an object `{ url, check, name }` where `check` is
-   * a function returning `true` when the script is loaded.
-   * Retries up to `maxRetries` times with `delayMs` between attempts.
-   *
-   * @param {Array<{url: string, check: function, name: string, localeKey?: string}>} deps
-   *        Dependencies to load. Each object requires:
-   *          - `url`:   CDN URL of the script
-   *          - `check`: function that returns `true` when loaded
-   *          - `name`:  human-readable name for error messages
-   *          - `localeKey` (optional): locale key for failure toast
-   * @param {function(boolean, string[])} callback
-   *        Called with `(success, failedNames)` when all retries are exhausted.
-   *        `success=true` if all loaded, otherwise `failedNames` lists failures.
-   * @param {number} [maxRetries=0] - Max retry attempts per failed script
-   * @param {number} [delayMs=3000] - Delay between retries in milliseconds
-   * @param {string} [hintKey] - Optional component key to show failure toast.
-   *        When provided, failure toast uses each dep's `localeKey` (or falls
-   *        back to `{hintKey}.no_{name}`).
-   *
-   * @example
-   *   foliplus.loadScripts(deps, (ok) => { if (ok) run(); }, 2, 3000, 'HeatmapControl');
-   */
-  foliplus.loadScripts = (deps, callback, maxRetries, delayMs, hintKey) => {
-    maxRetries = maxRetries || 0;
-    delayMs = delayMs || 3000;
-    let retries = 0;
-
-    const showFailureHint = (failedNames) => {
-      if (!hintKey) return;
-      const failedStr = failedNames.join(", ");
-      let msgKey = null;
-      for (const name of failedNames) {
-        const dep = deps.find((d) => d.name === name);
-        if (dep && dep.localeKey) {
-          msgKey = dep.localeKey;
-          break;
-        }
-      }
-      msgKey = msgKey || `${hintKey}.no_${failedNames[0] || "dep"}`;
-      console.error(`[${hintKey}] ${foliplus.gt(msgKey)} (${failedStr})`);
-      foliplus.showHint(hintKey, foliplus.gt(msgKey), HINT.PERSIST);
-    };
-
-    const attempt = () => {
-      const pending = deps.filter((d) => !d.check());
-      if (pending.length === 0) return callback(true);
-
-      let loaded = 0,
-        failedCount = 0;
-      pending.forEach((dep) => {
-        const s = document.createElement("script");
-        s.src = dep.url;
-        s.onload = () => {
-          setTimeout(() => {
-            if (dep.check()) loaded++;
-            else failedCount++;
-            if (loaded + failedCount === pending.length) {
-              if (failedCount === 0) callback(true);
-              else if (retries < maxRetries) {
-                retries++;
-                setTimeout(attempt, delayMs);
-              } else {
-                const failedNames = pending
-                  .filter((d) => !d.check())
-                  .map((d) => d.name);
-                callback(false, failedNames);
-                showFailureHint(failedNames);
-              }
-            }
-          }, 100);
-        };
-        s.onerror = () => {
-          failedCount++;
-          console.error(`[foliplus] ${dep.name}: ${foliplus.gt("load.script_fail")}`);
-          if (loaded + failedCount === pending.length) {
-            if (retries < maxRetries) {
-              retries++;
-              setTimeout(attempt, delayMs);
-            } else {
-              const failedNames = pending.filter((d) => !d.check()).map((d) => d.name);
-              callback(false, failedNames);
-              showFailureHint(failedNames);
-            }
-          }
-        };
-        document.head.appendChild(s);
-      });
-    };
-
-    attempt();
   };
 
   // ==================== Locale resolution ====================
