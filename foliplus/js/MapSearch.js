@@ -34,8 +34,8 @@
   window.foliplus.registerHintIcon(CONST.name, window.foliplus.SVGs.SEARCH);
 
   // ==================== Control Definition ====================
-  new (L.Control.extend({
-    onAdd: () => {
+    class MapSearchControl extends L.Control {
+      onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
           cssClass: "map-search",
@@ -254,6 +254,8 @@
       window.foliplus.bindOutsideCollapse({ container: ctrl });
 
       return container;
-    },
-  }))({ position: CONST.position }).addTo(map);
+    }
+  }
+
+  new MapSearchControl({ position: CONST.position }).addTo(map);
 })();
