@@ -7,10 +7,12 @@
     NOMINATIM_URL: "https://nominatim.openstreetmap.org/search",
     NOMINATIM_FORMAT: "jsonv2",
     NOMINATIM_LIMIT: 1,
-    ZOOM_MAX: 16,
-    ZOOM_MIN: 12,
-    ZOOM_BASE: 18,
-    ZOOM_DIVISOR: 20,
+    ZOOM: {
+      MAX: 16,
+      MIN: 12,
+      BASE: 18,
+      DIVISOR: 20,
+    },
     position: "{{ this.position }}",
     zoom: {{ this.zoom }},
   };
@@ -199,10 +201,10 @@
             lat = converted[1];
 
             const zoom = Math.min(
-              CONST.ZOOM_MAX,
+              CONST.ZOOM.MAX,
               Math.max(
-                CONST.ZOOM_MIN,
-                CONST.ZOOM_BASE - Math.floor(displayName.length / CONST.ZOOM_DIVISOR),
+                CONST.ZOOM.MIN,
+                CONST.ZOOM.BASE - Math.floor(displayName.length / CONST.ZOOM.DIVISOR),
               ),
             );
             map.flyTo([lat, lng], zoom);
