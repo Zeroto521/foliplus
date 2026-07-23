@@ -544,10 +544,10 @@ class TestLayerControlRendering:
         )
 
     def test_unregister_removes_global_ref(self, base_map: folium.Map):
-        """unregisterLayer deletes window[id] reference."""
+        """unregisterLayer cleans up layerRegistry entry."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "if (window[id]) delete window[id]" in html
+        assert "layerRegistry.delete(id)" in html
 
     def test_unregister_returns_bool(self, base_map: folium.Map):
         """unregisterLayer returns false when layer not found."""
@@ -751,11 +751,11 @@ class TestLayerControlRendering:
         assert "console.error" in html
 
     def test_find_layer_utility(self, base_map: folium.Map):
-        """LayerUtils.findLayer resolves layers from map._layers and window."""
+        """LayerUtils.findLayer resolves layers from map._layers and layerRegistry."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "LayerUtils.findLayer(this.map, id)" in html
-        assert "window[id]" in html
+        assert "layerRegistry.get(id)" in html
 
     def test_for_each_leaf_utility(self, base_map: folium.Map):
         """forEachLeaf and forEachLayer iterate all sub-layers correctly."""
@@ -786,7 +786,7 @@ class TestLayerControlRendering:
         assert "window.foliplus.LayerControlAPI = null" in html
 
     def test_window_id_validation(self, base_map: folium.Map):
-        """registerLayer validates opts.id before assigning to window[id]."""
+        """registerLayer validates opts.id before assigning to layerRegistry."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/" in html

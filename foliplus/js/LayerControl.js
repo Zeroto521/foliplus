@@ -29,6 +29,9 @@
   const mapContainer = map.getContainer();
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
+  // ==================== Layer Registry ====================
+  const layerRegistry = new Map();
+
   const SVGS = {
     LAYERS: `
       <svg viewBox="0 0 24 24">
@@ -150,7 +153,7 @@
 
     /** Resolve a layer by id from map._layers or window fallback. */
     static findLayer(map, id) {
-      return (map._layers && map._layers[id]) || window[id] || null;
+      return (map._layers && map._layers[id]) || layerRegistry.get(id) || null;
     }
 
     /**
@@ -408,7 +411,7 @@
 
       if (opts.layer) {
         if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id))
-          window[opts.id] = opts.layer;
+          layerRegistry.set(opts.id, opts.layer);
         else
           console.warn(
             `[${CONST.name}] ${_(CONST.name + ".invalid_id").replace("{id}", opts.id)}`,
@@ -475,7 +478,7 @@
 
       const layer = LayerUtils.findLayer(this.map, id);
       if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
-      if (window[id]) delete window[id];
+      layerRegistry.delete(id);
       // Recursively clear all sub-layers to prevent stale data on re-register
       this.clearAllLayers(layer);
 
