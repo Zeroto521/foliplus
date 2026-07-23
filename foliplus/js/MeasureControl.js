@@ -496,6 +496,12 @@
         this.layers.mainLayer.removeLayer(poly);
         finalPoly.setLatLngs(pts);
 
+        // Flash the final polyline to provide visual feedback
+        if (finalPoly._path) {
+          finalPoly._path.classList.add("is-flash");
+          setTimeout(() => finalPoly._path.classList.remove("is-flash"), 1200);
+        }
+
         let labelsVisible = true;
         let xVisible = false;
         let lastNodeDelMkr = null;
@@ -844,6 +850,12 @@
           className: "measure-circle measure-circle-final",
           interactive: true,
         }).addTo(this.layers.mainLayer);
+
+        // Flash the circle to provide visual feedback
+        if (circle._path) {
+          circle._path.classList.add("is-flash");
+          setTimeout(() => circle._path.classList.remove("is-flash"), 1200);
+        }
 
         const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {
           className: "measure-line measure-line-dashed",
