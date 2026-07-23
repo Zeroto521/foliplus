@@ -114,23 +114,21 @@
   animation: measure-dash-sweep var(--sweep-duration, 0.5s) ease-in-out;
 }
 
-/* Ripple: expanding ring from center, like a water ripple. */
+/* Ripple: stroke swells outward from the circle, like a water ripple. */
 @keyframes measure-ripple {
   0% {
     opacity: 0.6;
-    transform: scale(1);
+    stroke-width: 2.5px;
   }
   100% {
     opacity: 0;
-    transform: scale(var(--ripple-scale, 1.3));
+    stroke-width: 30px;
   }
 }
 .measure-ripple {
   fill: none;
   stroke: var(--accent-primary);
-  stroke-width: 2.5px;
   animation: measure-ripple var(--ripple-duration, 0.7s) ease-out forwards;
-  transform-origin: center;
   pointer-events: none;
 }
 
