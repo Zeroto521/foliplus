@@ -2,8 +2,10 @@
   // ==================== Constants ====================
   const CONST = {
     name: "MapSearch",
-    COORD: "coord",
-    ADDR: "addr",
+    MODE: {
+      COORD: "coord",
+      ADDR: "addr",
+    },
     NOMINATIM_URL: "https://nominatim.openstreetmap.org/search",
     NOMINATIM_FORMAT: "jsonv2",
     NOMINATIM_LIMIT: 1,
@@ -63,14 +65,14 @@
 
       let mk = null;
       let mode = "{{ this.mode }}";
-      if (mode !== CONST.COORD && mode !== CONST.ADDR) mode = CONST.COORD;
+      if (mode !== CONST.MODE.COORD && mode !== CONST.MODE.ADDR) mode = CONST.MODE.COORD;
 
       setMode(mode);
 
       // Mode switching
       function setMode(newMode) {
         mode = newMode;
-        if (mode === CONST.COORD) {
+        if (mode === CONST.MODE.COORD) {
           modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
           modeBtn.title = _(`${CONST.name}.mode_coord`);
           inp.placeholder = _(`${CONST.name}.coord_placeholder`);
@@ -90,7 +92,7 @@
 
       modeBtn.onclick = (e) => {
         e.stopPropagation();
-        setMode(mode === CONST.COORD ? CONST.ADDR : CONST.COORD);
+        setMode(mode === CONST.MODE.COORD ? CONST.MODE.ADDR : CONST.MODE.COORD);
       };
 
       // Expand / collapse
@@ -119,7 +121,7 @@
 
       inp.addEventListener("input", () => {
         inp.placeholder =
-          mode === CONST.COORD
+          mode === CONST.MODE.COORD
             ? _(`${CONST.name}.coord_placeholder`)
             : _(`${CONST.name}.addr_placeholder`);
       });
@@ -242,7 +244,7 @@
         if (e.key === "Enter") {
           const raw = inp.value.trim();
           if (!raw) return;
-          mode === CONST.COORD ? doCoordSearch(raw) : doAddrSearch(raw);
+          mode === CONST.MODE.COORD ? doCoordSearch(raw) : doAddrSearch(raw);
         }
       });
 
