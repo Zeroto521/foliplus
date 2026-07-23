@@ -442,8 +442,8 @@ class TestHeatmapControlBrowser:
     def _expose_ctrl(html: str) -> str:
         """Expose heatmapCtrl as window.__heatmapCtrl for runtime assertions."""
         return html.replace(
-            "heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);",
-            "window.__heatmapCtrl = heatmapCtrl;\n    heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);",
+            "heatmapCtrl.addTo(map);",
+            "window.__heatmapCtrl = heatmapCtrl; heatmapCtrl.addTo(map);",
         )
 
     def _make_page(self, browser, tmp_path, expose_ctrl=False):
@@ -709,8 +709,8 @@ class TestHeatmapAutoFieldBrowser:
         html = m.get_root().render()
         # Expose heatmapCtrl for test assertions
         html = html.replace(
-            "heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);",
-            "window.__heatmapCtrl = heatmapCtrl;\n    heatmapCtrl.addTo(map);\n    heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);",
+            "heatmapCtrl.addTo(map);",
+            "window.__heatmapCtrl = heatmapCtrl; heatmapCtrl.addTo(map);",
         )
 
         html_path = tmp_path / "test_heatmap_autofield.html"
