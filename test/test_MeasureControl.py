@@ -162,7 +162,7 @@ class TestMeasureControlRendering:
         """formatDistance splits at 1000m threshold."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "meters >= 1000" in html
+        assert "meters >= CONST.FORMAT.KM_THRESHOLD" in html
         assert "MeasureControl.unit_km" in html
         assert "MeasureControl.unit_m" in html
 
@@ -176,7 +176,7 @@ class TestMeasureControlRendering:
         """toggleVisibility uses measure-hidden class."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'el.classList.toggle("measure-hidden", !visible)' in html
+        assert "el.classList.toggle(CONST.CLASSES.HIDDEN, !visible)" in html
 
     def test_suppress_hide_utility(self, base_map: folium.Map):
         """suppressHide sets a delayed flag and hides all del icons."""
@@ -189,7 +189,7 @@ class TestMeasureControlRendering:
         """calcToggle with 'reset' sets labelsVisible=true."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'toggleLbl === "reset"' in html
+        assert 'toggleLbl === CONST.CLASSES.RESET' in html
 
     def test_toggle_del_icon_retry(self, base_map: folium.Map):
         """toggleDelIcon retries with delay up to DEL_ICON_RETRY_LIMIT times."""
@@ -320,7 +320,7 @@ class TestMeasureControlRendering:
         """Regression test: Labels stay fixed, only X toggles."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'toggleUI(false, "reset")' in html
+        assert 'toggleUI(false, CONST.CLASSES.RESET)' in html
         assert "toggleUI(undefined)" in html
 
     def test_measure_tool_toggle(self, base_map: folium.Map):
@@ -386,7 +386,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert re.search(
-            r'MeasureUtils\.makeLabelDivIcon\(\s*MeasureUtils\.formatDistance\(r\)\s*,\s*\[0,\s*0\]\s*,\s*"measure-label-radius"\s*',
+            r"MeasureUtils\.makeLabelDivIcon\(\s*MeasureUtils\.formatDistance\(r\)\s*,\s*\[0,\s*0\]\s*,\s*CONST\.LABEL\.CLASS_RADIUS\s*",
             html,
         )
 

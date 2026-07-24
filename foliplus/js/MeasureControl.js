@@ -10,6 +10,12 @@
     },
     DEL_ICON: {
       RETRY_LIMIT: 10,
+      ANCHOR: [0, 0],
+      MARKER_ANCHOR: [-4, 28],
+      SIZE: [0, 0],
+      CHAR: "✕",
+      CLASS: "measure-del-icon",
+      WRAP_CLASS: "del-icon-wrap",
     },
     MARKER: {
       RADIUS: 5,
@@ -17,12 +23,19 @@
     CENTER_DOT: {
       SIZE: [12, 12],
       ANCHOR: [6, 6],
+      CLASS: "measure-center-dot",
+      CLASS_FINAL: "measure-center-dot is-final",
     },
     LABEL: {
       ANCHOR: [0, -10],
+      SIZE: [0, 0],
+      CLASS: "measure-label",
+      CLASS_RADIUS: "measure-label-radius",
     },
     FORMAT: {
       LAT_LNG_PRECISION: 6,
+      KM_THRESHOLD: 1000,
+      KM_DECIMALS: 1,
     },
     Z_INDEX: {
       OFFSET: 1000,
@@ -31,6 +44,28 @@
     PANES: {
       GRAPH: "measure_graph",
       LABEL: "measure_label",
+    },
+    CLASSES: {
+      LINE_DASHED: "measure-line measure-line-dashed",
+      LINE_PREVIEW: "measure-line measure-line-preview",
+      LINE_SOLID: "measure-line measure-line-solid",
+      CIRCLE_PREVIEW: "measure-circle measure-circle-preview",
+      CIRCLE_FINAL: "measure-circle measure-circle-final",
+      NODE_FINAL: "measure-node measure-node-final",
+      NODE_PREVIEW: "measure-node measure-node-preview",
+      RIPPLE: "measure-ripple",
+      DASH_SWEEP: "is-dash-sweep",
+      HIDDEN: "measure-hidden",
+      VISIBLE: "visible",
+      ACTIVE: "active",
+      IS_MEASURING: "is-measuring",
+      COLLAPSED: "collapsed",
+      EXPANDED: "expanded",
+      RESET: "reset",
+      DIST_ORIGIN: "dist_origin",
+    },
+    STYLE: {
+      SWEEP_LENGTH: "--sweep-length",
     },
     position: "{{ this.position }}",
   };
@@ -92,8 +127,10 @@
     }
 
     static formatDistance(meters) {
-      return meters >= 1000
-        ? (meters / 1000).toFixed(1) + " " + _(`${CONST.name}.unit_km`)
+      return meters >= CONST.FORMAT.KM_THRESHOLD
+        ? (meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS) +
+            " " +
+            _(`${CONST.name}.unit_km`)
         : Math.round(meters) + " " + _(`${CONST.name}.unit_m`);
     }
 
@@ -103,7 +140,7 @@
 
     static toggleVisibility(elements, visible) {
       elements.forEach((el) => {
-        if (el) el.classList.toggle("measure-hidden", !visible);
+        if (el) el.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
       });
     }
 
@@ -117,8 +154,8 @@
 
     static hideAllDelIcons() {
       document
-        .querySelectorAll(".measure-del-icon.visible")
-        .forEach((el) => el.classList.remove("visible"));
+        .querySelectorAll(`.${CONST.DEL_ICON.CLASS}.${CONST.CLASSES.VISIBLE}`)
+        .forEach((el) => el.classList.remove(CONST.CLASSES.VISIBLE));
     }
 
     static calcToggle(curX, curLabels, showX, toggleLbl) {
@@ -126,7 +163,7 @@
       let newL = curLabels;
       if (toggleLbl === true) newL = !curLabels;
       else if (toggleLbl === false) newL = false;
-      else if (toggleLbl === "reset") newL = true;
+      else if (toggleLbl === CONST.CLASSES.RESET) newL = true;
       return { xVisible: newX, labelsVisible: newL };
     }
 
@@ -142,7 +179,7 @@
       labels.forEach((m) => {
         const el = m.getElement();
         if (el) {
-          const lbl = el.querySelector(".measure-label");
+          const lbl = el.querySelector(`.${CONST.LABEL.CLASS}`);
           if (lbl) lbl.style.display = dsp;
         }
       });
@@ -150,7 +187,7 @@
       if (extraLbl) {
         const sEl = extraLbl.getElement();
         if (sEl) {
-          const sL = sEl.querySelector(".measure-label");
+          const sL = sEl.querySelector(`.${CONST.LABEL.CLASS}`);
           if (sL) sL.style.display = dsp;
         }
       }
@@ -163,8 +200,8 @@
       if (!mkr) return;
       const el = mkr.getElement();
       if (el) {
-        const icon = el.querySelector(".measure-del-icon");
-        if (icon) icon.classList.toggle("visible", show);
+        const icon = el.querySelector(`.${CONST.DEL_ICON.CLASS}`);
+        if (icon) icon.classList.toggle(CONST.CLASSES.VISIBLE, show);
       } else if (retries < CONST.DEL_ICON.RETRY_LIMIT) {
         setTimeout(
           () => MeasureUtils.toggleDelIcon(mkr, show, retries + 1),
@@ -177,7 +214,7 @@
     static attachDelClick(delMkr, callback) {
       delMkr.on("click", (ev) => {
         const t = ev.originalEvent?.target;
-        if (t?.classList?.contains("measure-del-icon")) {
+        if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
           MeasureUtils.stopEvent(ev);
           callback();
         }
@@ -219,14 +256,14 @@
     static makeLabelDivIcon(html, iconAnchor, className) {
       return L.divIcon({
         className: "",
-        html: `<div class="measure-label${className ? " " + className : ""}">${html}</div>`,
-        iconSize: [0, 0],
+        html: `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}">${html}</div>`,
+        iconSize: CONST.LABEL.SIZE,
         iconAnchor: iconAnchor || CONST.LABEL.ANCHOR,
       });
     }
 
     /** Create a measure node circle marker. */
-    static makeNode(latlng, className = "measure-node measure-node-final") {
+    static makeNode(latlng, className = CONST.CLASSES.NODE_FINAL) {
       return L.circleMarker(latlng, {
         radius: CONST.MARKER.RADIUS,
         className,
@@ -242,10 +279,10 @@
       const { className, iconAnchor, ...markerOpts } = opts;
       return L.marker(latlng, {
         icon: L.divIcon({
-          className: "del-icon-wrap" + (className ? " " + className : ""),
-          html: '<span class="measure-del-icon">✕</span>',
-          iconSize: [0, 0],
-          iconAnchor: iconAnchor || [0, 0],
+          className: CONST.DEL_ICON.WRAP_CLASS + (className ? " " + className : ""),
+          html: `<span class="${CONST.DEL_ICON.CLASS}">${CONST.DEL_ICON.CHAR}</span>`,
+          iconSize: CONST.DEL_ICON.SIZE,
+          iconAnchor: iconAnchor || CONST.DEL_ICON.ANCHOR,
         }),
         interactive: true,
         ...markerOpts,
@@ -307,7 +344,7 @@
 
       const delMkr = MeasureUtils.makeDelIcon(e.latlng, {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: [-4, 28],
+        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
       }).addTo(this.layers.mainLayer);
 
       let cachedAddr = null;
@@ -350,15 +387,13 @@
 
       const pts = [];
       let total = 0;
-      const poly = L.polyline([], { className: "measure-line measure-line-dashed" });
+      const poly = L.polyline([], { className: CONST.CLASSES.LINE_DASHED });
       const nodeMarkers = [];
       const segLabels = [];
       let startLbl = null;
-      const previewLine = L.polyline([], {
-        className: "measure-line measure-line-preview",
-      });
+      const previewLine = L.polyline([], { className: CONST.CLASSES.LINE_PREVIEW });
       const finalPoly = L.polyline([], {
-        className: "measure-line measure-line-solid",
+        className: CONST.CLASSES.LINE_SOLID,
         interactive: true,
       });
       let layersRegistered = false;
@@ -408,12 +443,12 @@
         if (finalPoly._path) {
           const len = finalPoly._path.getTotalLength?.() || 0;
           if (len > 0) {
-            finalPoly._path.style.setProperty("--sweep-length", len);
-            finalPoly._path.classList.add("is-dash-sweep");
+            finalPoly._path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, len);
+            finalPoly._path.classList.add(CONST.CLASSES.DASH_SWEEP);
             const onEnd = () => {
               finalPoly._path.removeEventListener("animationend", onEnd);
-              finalPoly._path.classList.remove("is-dash-sweep");
-              finalPoly._path.style.removeProperty("--sweep-length");
+              finalPoly._path.classList.remove(CONST.CLASSES.DASH_SWEEP);
+              finalPoly._path.style.removeProperty(CONST.STYLE.SWEEP_LENGTH);
             };
             finalPoly._path.addEventListener("animationend", onEnd);
           }
@@ -452,11 +487,11 @@
         segLabels.forEach((l) => l.on("click", handleItemClick));
         if (startLbl) startLbl.on("click", handleItemClick);
 
-        toggleUI(false, "reset");
+        toggleUI(false, CONST.CLASSES.RESET);
 
         const onDistMapClick = () => {
           if (manager.suppressHideDel) return;
-          if (xVisible) toggleUI(false, "reset");
+          if (xVisible) toggleUI(false, CONST.CLASSES.RESET);
         };
         map.on("click", onDistMapClick);
         // After finalization, mode cleanup should only remove the map click listener,
@@ -491,7 +526,7 @@
           MeasureUtils.attachDelClick(lastNodeDelMkr, deleteMeasurement);
           lastNodeDelMkr.on("click", (e) => {
             const t = e.originalEvent?.target;
-            if (t?.classList?.contains("measure-del-icon")) return;
+            if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
             handleItemClick(e);
           });
         }
@@ -664,7 +699,7 @@
           center = e.latlng;
           previews.center = L.marker(center, {
             icon: L.divIcon({
-              className: "measure-center-dot",
+              className: CONST.CENTER_DOT.CLASS,
               html: "",
               iconSize: CONST.CENTER_DOT.SIZE,
               iconAnchor: CONST.CENTER_DOT.ANCHOR,
@@ -710,14 +745,14 @@
         if (!previews.circle) {
           previews.circle = L.circle(center, {
             radius: r,
-            className: "measure-circle measure-circle-preview",
+            className: CONST.CLASSES.CIRCLE_PREVIEW,
             interactive: false,
           }).addTo(layers.mainLayer);
         } else previews.circle.setRadius(r);
 
         if (!previews.line) {
           previews.line = L.polyline([center, e.latlng], {
-            className: "measure-line measure-line-preview",
+            className: CONST.CLASSES.LINE_PREVIEW,
             interactive: false,
           }).addTo(layers.mainLayer);
         } else previews.line.setLatLngs([center, e.latlng]);
@@ -725,7 +760,7 @@
         if (!previews.node) {
           previews.node = L.circleMarker(e.latlng, {
             radius: CONST.MARKER.RADIUS,
-            className: "measure-node measure-node-preview",
+            className: CONST.CLASSES.NODE_PREVIEW,
             interactive: false,
           }).addTo(layers.mainLayer);
           previews.node.bringToFront();
@@ -740,7 +775,7 @@
             icon: MeasureUtils.makeLabelDivIcon(
               MeasureUtils.formatDistance(r),
               [0, 0],
-              "measure-label-radius",
+              CONST.LABEL.CLASS_RADIUS,
             ),
             interactive: false,
           });
@@ -763,13 +798,13 @@
 
         const circle = L.circle(centerLatLng, {
           radius: r,
-          className: "measure-circle measure-circle-final",
+          className: CONST.CLASSES.CIRCLE_FINAL,
           interactive: true,
         }).addTo(layers.mainLayer);
 
         const ripple = L.circle(centerLatLng, {
           radius: r,
-          className: "measure-ripple",
+          className: CONST.CLASSES.RIPPLE,
           interactive: false,
         }).addTo(layers.mainLayer);
         const rippleEl = ripple._path;
@@ -782,7 +817,7 @@
         }
 
         const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {
-          className: "measure-line measure-line-dashed",
+          className: CONST.CLASSES.LINE_DASHED,
           interactive: true,
         }).addTo(layers.mainLayer);
         const radiusNode = MeasureUtils.makeNode(finalTargetLatLng).addTo(
@@ -794,7 +829,7 @@
 
         const centerFinal = L.marker(centerLatLng, {
           icon: L.divIcon({
-            className: "measure-center-dot is-final",
+            className: CONST.CENTER_DOT.CLASS_FINAL,
             html: "",
             iconSize: CONST.CENTER_DOT.SIZE,
             iconAnchor: CONST.CENTER_DOT.ANCHOR,
@@ -813,7 +848,7 @@
           icon: MeasureUtils.makeLabelDivIcon(
             MeasureUtils.formatDistance(r),
             [0, 0],
-            "measure-label-radius",
+            CONST.LABEL.CLASS_RADIUS,
           ),
           interactive: false,
         });
@@ -847,7 +882,7 @@
             },
           );
         };
-        toggleUI(false, "reset");
+        toggleUI(false, CONST.CLASSES.RESET);
 
         let deleted = false;
         const deleteCircle = () => {
@@ -877,7 +912,7 @@
         const attachInteraction = (layer) => {
           layer.on("click", (e) => {
             const t = e.originalEvent?.target;
-            if (t?.classList?.contains("measure-del-icon")) return;
+            if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
             MeasureUtils.stopEvent(e);
             toggleCircleToggle();
           });
@@ -892,7 +927,7 @@
 
         const onMapClickActive = () => {
           if (manager.suppressHideDel || deleted) return;
-          if (xVisible) toggleUI(false, "reset");
+          if (xVisible) toggleUI(false, CONST.CLASSES.RESET);
         };
         map.on("click", onMapClickActive);
         manager.finalizedClickHandler = onMapClickActive;
@@ -948,7 +983,7 @@
       this.onMapClick = (e) => {
         if (this.suppressHideDel) return;
         const t = e.originalEvent?.target;
-        if (t?.closest?.(".measure-del-icon")) return;
+        if (t?.closest?.(`.${CONST.DEL_ICON.CLASS}`)) return;
         MeasureUtils.hideAllDelIcons();
       };
       this.map.on("click", this.onMapClick);
@@ -981,10 +1016,10 @@
       this.currentMode = mode;
 
       this.toolBtns.forEach((btn) =>
-        btn.classList.toggle("active", btn.dataset.mode === mode),
+        btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
       );
 
-      this.map.getContainer().classList.add("is-measuring");
+      this.map.getContainer().classList.add(CONST.CLASSES.IS_MEASURING);
 
       if (mode === "marker") {
         window.foliplus.showHint(
@@ -1015,9 +1050,9 @@
 
     clearActiveMode() {
       this.currentMode = null;
-      this.toolBtns.forEach((btn) => btn.classList.remove("active"));
+      this.toolBtns.forEach((btn) => btn.classList.remove(CONST.CLASSES.ACTIVE));
       window.foliplus.hideHint(CONST.name);
-      this.map.getContainer().classList.remove("is-measuring");
+      this.map.getContainer().classList.remove(CONST.CLASSES.IS_MEASURING);
       this.cleanMapEvents();
     }
 
@@ -1091,7 +1126,7 @@
       // del-icon-wrap, so iconAnchor = [-4, 28] places the X at (8, -42).
       const delMkr = MeasureUtils.makeDelIcon(e.latlng, {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: [-4, 28],
+        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
       }).addTo(this.layers.mainLayer);
 
       // X is hidden by default; shown only when popup is open (popupopen handler below).
@@ -1130,14 +1165,12 @@
     startDistanceMode() {
       const pts = [];
       let total = 0;
-      const poly = L.polyline([], { className: "measure-line measure-line-dashed" });
+      const poly = L.polyline([], { className: CONST.CLASSES.LINE_DASHED });
       const nodeMarkers = [];
       const segLabels = [];
       let startLbl = null;
 
-      const previewLine = L.polyline([], {
-        className: "measure-line measure-line-preview",
-      });
+      const previewLine = L.polyline([], { className: CONST.CLASSES.LINE_PREVIEW });
 
       // Create finalPoly early so it gets a stamp BEFORE any nodeMarkers.
       // This ensures that when the layer is hidden and re-shown, the SVG
@@ -1145,7 +1178,7 @@
       // Otherwise, finishDist() would create finalPoly with a higher stamp
       // than the nodeMarkers, putting the line on top of the points.
       const finalPoly = L.polyline([], {
-        className: "measure-line measure-line-solid",
+        className: CONST.CLASSES.LINE_SOLID,
         interactive: true,
       });
 
@@ -1202,12 +1235,12 @@
         if (finalPoly._path) {
           const len = finalPoly._path.getTotalLength?.() || 0;
           if (len > 0) {
-            finalPoly._path.style.setProperty("--sweep-length", len);
-            finalPoly._path.classList.add("is-dash-sweep");
+            finalPoly._path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, len);
+            finalPoly._path.classList.add(CONST.CLASSES.DASH_SWEEP);
             const onEnd = () => {
               finalPoly._path.removeEventListener("animationend", onEnd);
-              finalPoly._path.classList.remove("is-dash-sweep");
-              finalPoly._path.style.removeProperty("--sweep-length");
+              finalPoly._path.classList.remove(CONST.CLASSES.DASH_SWEEP);
+              finalPoly._path.style.removeProperty(CONST.STYLE.SWEEP_LENGTH);
             };
             finalPoly._path.addEventListener("animationend", onEnd);
           }
@@ -1246,11 +1279,11 @@
         segLabels.forEach((l) => l.on("click", handleItemClick));
         if (startLbl) startLbl.on("click", handleItemClick);
 
-        toggleUI(false, "reset");
+        toggleUI(false, CONST.CLASSES.RESET);
 
         const onDistMapClick = () => {
           if (this.suppressHideDel) return;
-          if (xVisible) toggleUI(false, "reset");
+          if (xVisible) toggleUI(false, CONST.CLASSES.RESET);
         };
         this.map.on("click", onDistMapClick);
         this.cleanupFn = () => this.map.off("click", onDistMapClick);
@@ -1455,7 +1488,7 @@
           center = e.latlng;
           previews.center = L.marker(center, {
             icon: L.divIcon({
-              className: "measure-center-dot",
+              className: CONST.CENTER_DOT.CLASS,
               html: "",
               iconSize: CONST.CENTER_DOT.SIZE,
               iconAnchor: CONST.CENTER_DOT.ANCHOR,
@@ -1503,14 +1536,14 @@
         if (!previews.circle) {
           previews.circle = L.circle(center, {
             radius: r,
-            className: "measure-circle measure-circle-preview",
+            className: CONST.CLASSES.CIRCLE_PREVIEW,
             interactive: false,
           }).addTo(this.layers.mainLayer);
         } else previews.circle.setRadius(r);
 
         if (!previews.line) {
           previews.line = L.polyline([center, e.latlng], {
-            className: "measure-line measure-line-preview",
+            className: CONST.CLASSES.LINE_PREVIEW,
             interactive: false,
           }).addTo(this.layers.mainLayer);
         } else previews.line.setLatLngs([center, e.latlng]);
@@ -1518,7 +1551,7 @@
         if (!previews.node) {
           previews.node = L.circleMarker(e.latlng, {
             radius: CONST.MARKER.RADIUS,
-            className: "measure-node measure-node-preview",
+            className: CONST.CLASSES.NODE_PREVIEW,
             interactive: false,
           }).addTo(this.layers.mainLayer);
           previews.node.bringToFront();
@@ -1533,7 +1566,7 @@
             icon: MeasureUtils.makeLabelDivIcon(
               MeasureUtils.formatDistance(r),
               [0, 0],
-              "measure-label-radius",
+              CONST.LABEL.CLASS_RADIUS,
             ),
             interactive: false,
           });
@@ -1558,14 +1591,14 @@
 
         const circle = L.circle(centerLatLng, {
           radius: r,
-          className: "measure-circle measure-circle-final",
+          className: CONST.CLASSES.CIRCLE_FINAL,
           interactive: true,
         }).addTo(this.layers.mainLayer);
 
         // Ripple: expanding ring from center
         const ripple = L.circle(centerLatLng, {
           radius: r,
-          className: "measure-ripple",
+          className: CONST.CLASSES.RIPPLE,
           interactive: false,
         }).addTo(this.layers.mainLayer);
         const rippleEl = ripple._path;
@@ -1578,7 +1611,7 @@
         }
 
         const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {
-          className: "measure-line measure-line-dashed",
+          className: CONST.CLASSES.LINE_DASHED,
           interactive: true,
         }).addTo(this.layers.mainLayer);
 
@@ -1591,7 +1624,7 @@
 
         const centerFinal = L.marker(centerLatLng, {
           icon: L.divIcon({
-            className: "measure-center-dot is-final",
+            className: CONST.CENTER_DOT.CLASS_FINAL,
             html: "",
             iconSize: CONST.CENTER_DOT.SIZE,
             iconAnchor: CONST.CENTER_DOT.ANCHOR,
@@ -1612,7 +1645,7 @@
           icon: MeasureUtils.makeLabelDivIcon(
             MeasureUtils.formatDistance(r),
             [0, 0],
-            "measure-label-radius",
+            CONST.LABEL.CLASS_RADIUS,
           ),
           interactive: false,
         });
@@ -1646,7 +1679,7 @@
             },
           );
         };
-        toggleUI(false, "reset");
+        toggleUI(false, CONST.CLASSES.RESET);
 
         let deleted = false;
         const deleteCircle = () => {
@@ -1679,7 +1712,7 @@
         const attachInteraction = (layer) => {
           layer.on("click", (e) => {
             const t = e.originalEvent?.target;
-            if (t?.classList?.contains("measure-del-icon")) return;
+            if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
             MeasureUtils.stopEvent(e);
             toggleCircleToggle();
           });
@@ -1694,7 +1727,7 @@
 
         const onMapClickActive = () => {
           if (this.suppressHideDel || deleted) return;
-          if (xVisible) toggleUI(false, "reset");
+          if (xVisible) toggleUI(false, CONST.CLASSES.RESET);
         };
         this.map.on("click", onMapClickActive);
         this.finalizedClickHandler = onMapClickActive;
@@ -1754,8 +1787,8 @@
 
       toggleBtn.onclick = (e) => {
         e.stopPropagation();
-        ctrl.classList.toggle("collapsed");
-        ctrl.classList.toggle("expanded");
+        ctrl.classList.toggle(CONST.CLASSES.COLLAPSED);
+        ctrl.classList.toggle(CONST.CLASSES.EXPANDED);
       };
 
       window.foliplus.bindOutsideCollapse({ container: ctrl });
