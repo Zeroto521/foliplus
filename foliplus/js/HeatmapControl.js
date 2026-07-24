@@ -55,6 +55,20 @@
       FORMAT: "{{ this.style.label_format }}",
     },
     SCHEME_NAMES: {{ this.schemes | tojson }},
+    CLASSES: {
+      FORM_ROW: "form-row",
+      FORM_LABEL: "form-label",
+      FORM_CONTROL_WRAP: "form-control-wrap",
+      FORM_SELECT: "form-select",
+      HIDDEN: "hidden",
+      COLLAPSED: "collapsed",
+      EXPANDED: "expanded",
+      PLACEHOLDER_OPTION: "placeholder-option",
+      SCHEME_DROPDOWN_ITEM: "scheme-dropdown-item",
+    },
+    SEL: {
+      SCHEME_DROPDOWN_ITEM: ".scheme-dropdown-item",
+    },
   };
 
   // ==================== Runtime Guard ====================
@@ -615,11 +629,11 @@
     }
 
     /** Create a form-row with label + control-wrap. */
-    createFormRow(parent, labelKey, rowClass = "form-row") {
+    createFormRow(parent, labelKey, rowClass = CONST.CLASSES.FORM_ROW) {
       const row = L.DomUtil.create("div", rowClass, parent);
-      const label = L.DomUtil.create("label", "form-label", row);
+      const label = L.DomUtil.create("label", CONST.CLASSES.FORM_LABEL, row);
       label.textContent = _(labelKey);
-      const wrap = L.DomUtil.create("div", "form-control-wrap", row);
+      const wrap = L.DomUtil.create("div", CONST.CLASSES.FORM_CONTROL_WRAP, row);
       return { row, label, wrap };
     }
 
@@ -662,7 +676,11 @@
         this.extraBody,
         `${CONST.name}.agg_method`,
       );
-      this.aggSelect = L.DomUtil.create("select", "form-select", aggControlWrap);
+      this.aggSelect = L.DomUtil.create(
+        "select",
+        CONST.CLASSES.FORM_SELECT,
+        aggControlWrap,
+      );
       this.aggSelect.innerHTML = `
           <option value="count">${_(`${CONST.name}.agg_count`)}</option>
           <option value="sum">${_(`${CONST.name}.agg_sum`)}</option>
@@ -681,14 +699,22 @@
         "form-row field-wrap hidden",
         this.extraBody,
       );
-      const fieldLabel = L.DomUtil.create("label", "form-label", this.fieldWrap);
+      const fieldLabel = L.DomUtil.create(
+        "label",
+        CONST.CLASSES.FORM_LABEL,
+        this.fieldWrap,
+      );
       fieldLabel.textContent = _(`${CONST.name}.field`);
       const fieldControlWrap = L.DomUtil.create(
         "div",
-        "form-control-wrap",
+        CONST.CLASSES.FORM_CONTROL_WRAP,
         this.fieldWrap,
       );
-      this.fieldSelect = L.DomUtil.create("select", "form-select", fieldControlWrap);
+      this.fieldSelect = L.DomUtil.create(
+        "select",
+        CONST.CLASSES.FORM_SELECT,
+        fieldControlWrap,
+      );
       this.fieldSelect.onchange = () => {
         this.m.currentField = this.fieldSelect.value;
         this.syncSelect(this.fieldSelect, this.fieldSelect.value);
@@ -706,15 +732,23 @@
       const styleSection = L.DomUtil.create("div", "section-block", this.extraBody);
 
       // Classification method / classes
-      const classRow = L.DomUtil.create("div", "form-row", styleSection);
-      const classRowLabel = L.DomUtil.create("label", "form-label", classRow);
+      const classRow = L.DomUtil.create("div", CONST.CLASSES.FORM_ROW, styleSection);
+      const classRowLabel = L.DomUtil.create(
+        "label",
+        CONST.CLASSES.FORM_LABEL,
+        classRow,
+      );
       classRowLabel.textContent = _(`${CONST.name}.class_method`);
       const classControlWrap = L.DomUtil.create(
         "div",
         "form-control-wrap form-control-inline",
         classRow,
       );
-      this.methodSelect = L.DomUtil.create("select", "form-select", classControlWrap);
+      this.methodSelect = L.DomUtil.create(
+        "select",
+        CONST.CLASSES.FORM_SELECT,
+        classControlWrap,
+      );
       this.methodSelect.innerHTML = `
           <option value="jenks">${_(`${CONST.name}.jenks`)}</option>
           <option value="quantile">${_(`${CONST.name}.quantile`)}</option>
@@ -748,10 +782,18 @@
       };
 
       // Color scheme
-      const schemeRow = L.DomUtil.create("div", "form-row", styleSection);
-      const schemeRowLabel = L.DomUtil.create("label", "form-label", schemeRow);
+      const schemeRow = L.DomUtil.create("div", CONST.CLASSES.FORM_ROW, styleSection);
+      const schemeRowLabel = L.DomUtil.create(
+        "label",
+        CONST.CLASSES.FORM_LABEL,
+        schemeRow,
+      );
       schemeRowLabel.textContent = _(`${CONST.name}.scheme`);
-      this.schemeControlWrap = L.DomUtil.create("div", "form-control-wrap", schemeRow);
+      this.schemeControlWrap = L.DomUtil.create(
+        "div",
+        CONST.CLASSES.FORM_CONTROL_WRAP,
+        schemeRow,
+      );
       this.schemeBar = L.DomUtil.create("div", "scheme-bar", this.schemeControlWrap);
       this.schemeBarInner = L.DomUtil.create("div", "scheme-bar-inner", this.schemeBar);
       this.schemeSelectHidden = L.DomUtil.create(
@@ -808,8 +850,12 @@
       };
 
       // Border settings
-      const borderRow = L.DomUtil.create("div", "form-row", styleSection);
-      const borderRowLabel = L.DomUtil.create("label", "form-label", borderRow);
+      const borderRow = L.DomUtil.create("div", CONST.CLASSES.FORM_ROW, styleSection);
+      const borderRowLabel = L.DomUtil.create(
+        "label",
+        CONST.CLASSES.FORM_LABEL,
+        borderRow,
+      );
       borderRowLabel.textContent = _(`${CONST.name}.border`);
       const borderControlWrap = L.DomUtil.create(
         "div",
@@ -848,9 +894,17 @@
         "form-row section-block-last",
         styleSection,
       );
-      const labelRowText = L.DomUtil.create("label", "form-label", labelRow);
+      const labelRowText = L.DomUtil.create(
+        "label",
+        CONST.CLASSES.FORM_LABEL,
+        labelRow,
+      );
       labelRowText.textContent = _(`${CONST.name}.label`);
-      const labelControlWrap = L.DomUtil.create("div", "form-control-wrap", labelRow);
+      const labelControlWrap = L.DomUtil.create(
+        "div",
+        CONST.CLASSES.FORM_CONTROL_WRAP,
+        labelRow,
+      );
       const labelToggle = L.DomUtil.create("label", "toggle-switch", labelControlWrap);
       this.labelChk = L.DomUtil.create("input", "", labelToggle);
       this.labelChk.type = "checkbox";
@@ -880,27 +934,31 @@
         this.updateSchemeBar();
         this.updateFieldSelector();
         this.extraBody.style.display = "none";
-        this.container.classList.remove("expanded");
-        this.container.classList.add("collapsed");
+        this.container.classList.remove(CONST.CLASSES.EXPANDED);
+        this.container.classList.add(CONST.CLASSES.COLLAPSED);
       };
 
       const confirmBtn = L.DomUtil.create("button", "btn btn-confirm", btnRow);
       confirmBtn.textContent = _(`${CONST.name}.confirm`);
       confirmBtn.onclick = () => {
         this.m.renderHexagons();
-        this.container.classList.remove("expanded");
-        this.container.classList.add("collapsed");
+        this.container.classList.remove(CONST.CLASSES.EXPANDED);
+        this.container.classList.add(CONST.CLASSES.COLLAPSED);
       };
     }
 
     /** Set up MutationObserver to refresh layer dropdown on panel expand. */
     setupObserver() {
       this.observer = new MutationObserver(() => {
-        if (this.container.classList.contains("expanded") && !this.expandHookDone) {
+        if (
+          this.container.classList.contains(CONST.CLASSES.EXPANDED) &&
+          !this.expandHookDone
+        ) {
           this.expandHookDone = true;
           this.rebuildLayerDropdown();
         }
-        if (this.container.classList.contains("collapsed")) this.expandHookDone = false;
+        if (this.container.classList.contains(CONST.CLASSES.COLLAPSED))
+          this.expandHookDone = false;
       });
       this.observer.observe(this.container, { attributes: true });
     }
@@ -933,7 +991,7 @@
         {
           value: "",
           disabled: "disabled",
-          class: "placeholder-option",
+          class: CONST.CLASSES.PLACEHOLDER_OPTION,
           selected: !this.m.selectedLayerId ? "" : undefined,
         },
         _(`${CONST.name}.layer_placeholder`),
@@ -970,10 +1028,10 @@
     updateFieldSelector() {
       if (!this.fieldWrap || !this.fieldSelect) return;
       if (this.m.currentAgg === "count") {
-        this.fieldWrap.classList.add("hidden");
+        this.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
         return;
       }
-      this.fieldWrap.classList.remove("hidden");
+      this.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
 
       const selected = this.m.pointLayers.filter(
         (info) => info.id === this.m.selectedLayerId,
@@ -986,7 +1044,7 @@
         {
           value: "_auto",
           disabled: "disabled",
-          class: "placeholder-option",
+          class: CONST.CLASSES.PLACEHOLDER_OPTION,
         },
         _(`${CONST.name}.field_auto`),
       );
@@ -1035,7 +1093,9 @@
 
     refreshSchemeDropdownItems() {
       if (!this.schemeDropdown) return;
-      const items = this.schemeDropdown.querySelectorAll(".scheme-dropdown-item");
+      const items = this.schemeDropdown.querySelectorAll(
+        CONST.SEL.SCHEME_DROPDOWN_ITEM,
+      );
       items.forEach((item) => {
         const name = item.getAttribute("data-scheme-name");
         if (!name) return;
@@ -1061,7 +1121,7 @@
       CONST.SCHEME_NAMES.forEach((name, idx) => {
         const item = L.DomUtil.create(
           "div",
-          "scheme-dropdown-item",
+          CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
           this.schemeDropdown,
         );
         item.setAttribute("role", "option");
@@ -1082,7 +1142,9 @@
         };
       });
 
-      const items = this.schemeDropdown.querySelectorAll(".scheme-dropdown-item");
+      const items = this.schemeDropdown.querySelectorAll(
+        CONST.SEL.SCHEME_DROPDOWN_ITEM,
+      );
       if (items.length) {
         if (focusIdx >= 0) items[focusIdx].focus();
         else items[0].focus();
@@ -1099,7 +1161,7 @@
         } else if (e.key === "Enter") {
           e.preventDefault();
           const active = document.activeElement;
-          if (active?.classList.contains("scheme-dropdown-item")) {
+          if (active?.classList.contains(CONST.CLASSES.SCHEME_DROPDOWN_ITEM)) {
             const idx = Array.from(items).indexOf(active);
             this.selectScheme(CONST.SCHEME_NAMES[idx]);
           }

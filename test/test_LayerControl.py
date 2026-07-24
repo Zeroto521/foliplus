@@ -512,7 +512,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "this.uiContainer.querySelector" in html
-        assert 'data-layer-id="${opts.id}' in html
+        assert 'CONST.DATA.LAYER_ID]: l.id' in html
 
     def test_register_layer_pending_when_no_ui(self, base_map: folium.Map):
         """registerLayer queues registrations when UI not yet rendered."""

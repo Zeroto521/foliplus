@@ -64,6 +64,12 @@
   const POPUP = {
     MAX_WIDTH: 300,
   };
+  const CLASSES = {
+    COLLAPSED: "collapsed",
+    EXPANDED: "expanded",
+    TOGGLE_BTN: "toggle-btn",
+    LEAFLET_BAR: "leaflet-bar leaflet-control",
+  };
 
   // --- SVG Icons ---
   foliplus.SVGs = {
@@ -529,16 +535,16 @@
     if (btn) {
       L.DomEvent.on(btn, "click", (e) => {
         L.DomEvent.stop(e);
-        container.classList.remove("collapsed");
-        container.classList.add("expanded");
+        container.classList.remove(CLASSES.COLLAPSED);
+        container.classList.add(CLASSES.EXPANDED);
       });
     }
     const hdr = container.querySelector(header);
     if (hdr) {
       L.DomEvent.on(hdr, "click", (e) => {
         L.DomEvent.stop(e);
-        container.classList.remove("expanded");
-        container.classList.add("collapsed");
+        container.classList.remove(CLASSES.EXPANDED);
+        container.classList.add(CLASSES.COLLAPSED);
       });
     }
   };
@@ -552,9 +558,12 @@
    */
   foliplus.bindOutsideCollapse = ({ container }) => {
     const handler = (e) => {
-      if (!container.contains(e.target) && container.classList.contains("expanded")) {
-        container.classList.remove("expanded");
-        container.classList.add("collapsed");
+      if (
+        !container.contains(e.target) &&
+        container.classList.contains(CLASSES.EXPANDED)
+      ) {
+        container.classList.remove(CLASSES.EXPANDED);
+        container.classList.add(CLASSES.COLLAPSED);
       }
     };
     document.addEventListener("click", handler);
@@ -584,15 +593,15 @@
    */
   foliplus.createFoldControl = (opts) => {
     const container = window.foliplus.dom.el("div", {
-      class: "leaflet-bar leaflet-control",
+      class: CLASSES.LEAFLET_BAR,
     });
     const ctrl = window.foliplus.dom.el("div", {
-      class: `${opts.cssClass} ctrl-fold collapsed`,
+      class: `${opts.cssClass} ctrl-fold ${CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
       window.foliplus.dom.el(
         "button",
-        { class: "toggle-btn", title: opts.toggleTitle },
+        { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
         { html: opts.toggleSvg },
       ),
     );
@@ -623,15 +632,15 @@
    */
   foliplus.createPanelControl = (opts) => {
     const container = window.foliplus.dom.el("div", {
-      class: "leaflet-bar leaflet-control",
+      class: CLASSES.LEAFLET_BAR,
     });
     const ctrl = window.foliplus.dom.el("div", {
-      class: `map-panel ctrl-fold ${opts.cssClass} collapsed`,
+      class: `map-panel ctrl-fold ${opts.cssClass} ${CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
       window.foliplus.dom.el(
         "button",
-        { class: "toggle-btn", title: opts.toggleTitle },
+        { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
         { html: opts.toggleSvg },
       ),
     );

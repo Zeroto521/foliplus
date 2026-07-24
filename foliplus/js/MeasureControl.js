@@ -67,6 +67,11 @@
     STYLE: {
       SWEEP_LENGTH: "--sweep-length",
     },
+    SEL: {
+      LABEL: ".measure-label",
+      DEL_ICON: ".measure-del-icon",
+      TOOL_BTN: ".tool-btn",
+    },
     position: "{{ this.position }}",
   };
 
@@ -154,7 +159,7 @@
 
     static hideAllDelIcons() {
       document
-        .querySelectorAll(`.${CONST.DEL_ICON.CLASS}.${CONST.CLASSES.VISIBLE}`)
+        .querySelectorAll(`${CONST.SEL.DEL_ICON}.${CONST.CLASSES.VISIBLE}`)
         .forEach((el) => el.classList.remove(CONST.CLASSES.VISIBLE));
     }
 
@@ -179,7 +184,7 @@
       labels.forEach((m) => {
         const el = m.getElement();
         if (el) {
-          const lbl = el.querySelector(`.${CONST.LABEL.CLASS}`);
+          const lbl = el.querySelector(CONST.SEL.LABEL);
           if (lbl) lbl.style.display = dsp;
         }
       });
@@ -187,7 +192,7 @@
       if (extraLbl) {
         const sEl = extraLbl.getElement();
         if (sEl) {
-          const sL = sEl.querySelector(`.${CONST.LABEL.CLASS}`);
+          const sL = sEl.querySelector(CONST.SEL.LABEL);
           if (sL) sL.style.display = dsp;
         }
       }
@@ -200,7 +205,7 @@
       if (!mkr) return;
       const el = mkr.getElement();
       if (el) {
-        const icon = el.querySelector(`.${CONST.DEL_ICON.CLASS}`);
+        const icon = el.querySelector(CONST.SEL.DEL_ICON);
         if (icon) icon.classList.toggle(CONST.CLASSES.VISIBLE, show);
       } else if (retries < CONST.DEL_ICON.RETRY_LIMIT) {
         setTimeout(
@@ -225,7 +230,7 @@
     static setLabelText(marker, text) {
       const el = marker.getElement();
       if (!el) return;
-      const labelEl = el.querySelector(".measure-label");
+      const labelEl = el.querySelector(CONST.SEL.LABEL);
       if (labelEl) labelEl.textContent = text;
     }
 
@@ -983,7 +988,7 @@
       this.onMapClick = (e) => {
         if (this.suppressHideDel) return;
         const t = e.originalEvent?.target;
-        if (t?.closest?.(`.${CONST.DEL_ICON.CLASS}`)) return;
+        if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
         MeasureUtils.hideAllDelIcons();
       };
       this.map.on("click", this.onMapClick);
@@ -1783,7 +1788,7 @@
           ),
         );
       });
-      this.manager.toolBtns = toolBar.querySelectorAll(".tool-btn");
+      this.manager.toolBtns = toolBar.querySelectorAll(CONST.SEL.TOOL_BTN);
 
       toggleBtn.onclick = (e) => {
         e.stopPropagation();
