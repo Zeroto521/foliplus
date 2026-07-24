@@ -58,6 +58,8 @@
   "LayerControl.type_unknown": "Unknown Layer",
   "LayerControl.id_required": "opts.id is required",
   "LayerControl.invalid_id": "Skipping window[{id}]: not a valid identifier",
+  "LayerControl.require_canvas_id": "createCanvas requires an id",
+  "LayerControl.mapPane_not_available": "mapPane not available",
   "LayerControl.data_layer_label": "Data Layers",
   "LayerControl.fold_tooltip": "Collapse layers",
   "LayerControl.unfold_tooltip": "Expand layers",

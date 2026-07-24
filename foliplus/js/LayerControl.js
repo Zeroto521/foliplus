@@ -766,10 +766,10 @@
      *   - {Function} getSize()       - Return {width, height} in CSS pixels.
      */
     createCanvas(opts) {
-      if (!opts?.id) throw new Error(`[${CONST.name}] createCanvas requires an id`);
+      if (!opts?.id) throw new Error(`[${CONST.name}] ${_(CONST.name + ".require_canvas_id")}`);
 
       const mapPane = this.map._mapPane;
-      if (!mapPane) throw new Error(`[${CONST.name}] mapPane not available`);
+      if (!mapPane) throw new Error(`[${CONST.name}] ${_(CONST.name + ".mapPane_not_available")}`);
 
       const canvas = L.DomUtil.create("canvas", "heatmap-canvas", mapPane);
       if (opts.className) canvas.classList.add(opts.className);
