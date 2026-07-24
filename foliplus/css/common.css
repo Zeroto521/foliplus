@@ -328,11 +328,11 @@
 /* ── Hover/Focus: red border + red glow ── */
 :is(
   .foliplus-map-search input,
-  .foliplus-heatmap-ctrl .foliplus-form-select,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
   .foliplus-heatmap-ctrl select,
-  .foliplus-heatmap-ctrl .foliplus-border-color-input,
-  .foliplus-heatmap-ctrl .foliplus-border-weight-input,
-  .foliplus-heatmap-ctrl .foliplus-scheme-bar,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
   .foliplus-layer-ctrl input[type="checkbox"],
   .foliplus-layer-ctrl .foliplus-color-layer-input
 ):is(:hover, :focus) {
