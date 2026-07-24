@@ -83,14 +83,14 @@
       }
 
       // Build container — leaflet-bar for alignment with other foliplus controls
-      const container = window.foliplus.dom.el("div", { class: "leaflet-bar fs-bar" });
+      const container = window.foliplus.dom.el("div", { class: "leaflet-bar fullscreen-bar" });
       container.id = CONST.containerId();
 
       // Zoom in button — <button> element with tool-btn class
       const zoomInBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "tool-btn fs-zoom-in",
+          class: "tool-btn fullscreen-zoom-in",
           "aria-label": _(`${CONST.name}.zoom_in`),
           title: _(`${CONST.name}.zoom_in`),
         },
@@ -106,7 +106,7 @@
       const zoomOutBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "tool-btn fs-zoom-out",
+          class: "tool-btn fullscreen-zoom-out",
           "aria-label": _(`${CONST.name}.zoom_out`),
           title: _(`${CONST.name}.zoom_out`),
         },

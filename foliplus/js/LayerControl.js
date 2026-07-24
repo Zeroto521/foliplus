@@ -27,10 +27,10 @@
     RENDERER_KEY: "foliplus_renderer_",
     FALLBACK_PANE_PREFIX: "foliplus_pane_",
     CLASSES: {
-      ACTIVE: "is-active",
+      ACTIVE: "active",
       CHECKBOX_WRAPPER: "checkbox-wrapper",
       GROUP_FOLDED: "layer-group-folded",
-      COLOR_ACTIVE: "is-color-active",
+      COLOR_ACTIVE: "color-active",
       COLOR_INPUT: "color-layer-input",
       COLOR_ITEM: "color-layer-item",
       DRAG_OVER_TOP: "drag-over-top",
@@ -63,7 +63,7 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
-  const SVGS = {
+  const SVGs = {
     LAYERS: `
       <svg viewBox="0 0 24 24">
         <polygon points="12 2 22 7 12 12 2 7"/>
@@ -106,7 +106,7 @@
     UNFOLD: `<svg viewBox="0 0 24 24"><polyline points="18 9 12 15 6 9"/></svg>`,
   };
 
-  window.foliplus.registerHintIcon(CONST.name, SVGS.LAYERS);
+  window.foliplus.registerHintIcon(CONST.name, SVGs.LAYERS);
 
   // ==================== BringToFront Guard (monkey-patch) ====================
   // Guard Leaflet's bringToFront against null parentNode during enforceOrder
@@ -177,11 +177,11 @@
 
     static getTypeSVG(layer) {
       const type = this.getGeometryType(layer);
-      if (type === "polygon") return SVGS.POLYGON;
-      if (type === "line") return SVGS.LINE;
-      if (type === "point") return SVGS.POINT;
-      if (type === "empty") return SVGS.EMPTY;
-      return SVGS.UNKNOWN;
+      if (type === "polygon") return SVGs.POLYGON;
+      if (type === "line") return SVGs.LINE;
+      if (type === "point") return SVGs.POINT;
+      if (type === "empty") return SVGs.EMPTY;
+      return SVGs.UNKNOWN;
     }
 
     /** Resolve a layer by id from map._layers or window fallback. */
@@ -1164,7 +1164,7 @@
             class: "fold-toggle-btn",
             title: _(CONST.name + (isFolded ? ".unfold_tooltip" : ".fold_tooltip")),
           },
-          { html: isFolded ? SVGS.UNFOLD : SVGS.FOLD },
+          { html: isFolded ? SVGs.UNFOLD : SVGs.FOLD },
         ),
         window.foliplus.dom.el(
           "div",
@@ -1183,7 +1183,7 @@
     renderLayerItem(l, index) {
       const en = LayerUtils.escapeHTML(l.name);
       const children = [
-        { html: SVGS.DRAG_HANDLE },
+        { html: SVGs.DRAG_HANDLE },
         window.foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.CHECKBOX_WRAPPER },
@@ -1227,7 +1227,7 @@
           [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
           title: _(`${CONST.name}.color_map_label`),
         },
-        { html: SVGS.DRAG_HANDLE },
+        { html: SVGs.DRAG_HANDLE },
         window.foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.CHECKBOX_WRAPPER },
@@ -1239,7 +1239,7 @@
           }),
         ),
         window.foliplus.dom.el("label", null, _(`${CONST.name}.color_map_label`)),
-        { html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${SVGS.COLOR}</div>` },
+        { html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${SVGs.COLOR}</div>` },
       );
     }
 
@@ -1666,12 +1666,12 @@
         <div class="map-panel ctrl-fold layer-ctrl collapsed" id="{{ this.get_name() }}_ctrl">
           <button class="toggle-btn" title="${_(CONST.name + ".toggle_title")}"
                   aria-label="${_(CONST.name + ".toggle_title")}">
-            ${SVGS.LAYERS}
+            ${SVGs.LAYERS}
           </button>
           <div class="layer-panel" role="dialog" aria-label="${_(CONST.name + ".panel_title")}">
             <div class="panel-header" title="${_(CONST.name + ".close_title")}">
               <span class="header-title">
-                <span class="header-icon">${SVGS.LAYERS}</span>
+                <span class="header-icon">${SVGs.LAYERS}</span>
                 ${_(CONST.name + ".panel_title")}
               </span>
               <button class="ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"

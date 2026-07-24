@@ -24,7 +24,7 @@
       SIZE: [12, 12],
       ANCHOR: [6, 6],
       CLASS: "measure-center-dot",
-      CLASS_FINAL: "measure-center-dot is-final",
+      CLASS_FINAL: "measure-center-dot final",
     },
     LABEL: {
       ANCHOR: [0, -10],
@@ -54,11 +54,11 @@
       NODE_FINAL: "measure-node measure-node-final",
       NODE_PREVIEW: "measure-node measure-node-preview",
       RIPPLE: "measure-ripple",
-      DASH_SWEEP: "is-dash-sweep",
+      DASH_SWEEP: "dash-sweep",
       HIDDEN: "measure-hidden",
       VISIBLE: "visible",
       ACTIVE: "active",
-      IS_MEASURING: "is-measuring",
+      IS_MEASURING: "measuring",
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
       RESET: "reset",
@@ -86,7 +86,7 @@
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
-  const SVGS = {
+  const SVGs = {
     RULER: `
       <svg viewBox="0 0 24 24">
         <g transform="rotate(-45 12 12)">
@@ -109,7 +109,7 @@
       </svg>`,
   };
 
-  window.foliplus.registerHintIcon(CONST.name, SVGS.RULER);
+  window.foliplus.registerHintIcon(CONST.name, SVGs.RULER);
 
   // ==================== Initialization & Control Construction ====================
   // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
@@ -972,7 +972,7 @@
         name: _(`${CONST.name}.tool_toggle`),
         graphPane: CONST.PANES.GRAPH,
         labelPane: CONST.PANES.LABEL,
-        iconSvg: SVGS.RULER,
+        iconSvg: SVGs.RULER,
       });
       this.currentMode = null;
       this.cleanupFn = null;
@@ -1775,9 +1775,9 @@
           title: _(`${CONST.name}.tool_marker`),
           svg: window.foliplus.SVGs.LOCATE,
         },
-        { mode: "distance", title: _(`${CONST.name}.tool_distance`), svg: SVGS.RULER },
-        { mode: "circle", title: _(`${CONST.name}.tool_circle`), svg: SVGS.CIRCLE },
-        { mode: "clear", title: _(`${CONST.name}.tool_clear`), svg: SVGS.TRASH },
+        { mode: "distance", title: _(`${CONST.name}.tool_distance`), svg: SVGs.RULER },
+        { mode: "circle", title: _(`${CONST.name}.tool_circle`), svg: SVGs.CIRCLE },
+        { mode: "clear", title: _(`${CONST.name}.tool_clear`), svg: SVGs.TRASH },
       ];
       btnConfigs.forEach(({ mode, title, svg }) => {
         toolBar.appendChild(

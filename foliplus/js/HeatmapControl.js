@@ -1216,7 +1216,7 @@
 
     syncSelect(el, value) {
       el.value = value;
-      el.classList.toggle("is-placeholder", !value || value === "_auto");
+      el.classList.toggle("placeholder", !value || value === "_auto");
     }
   }
 

@@ -27,10 +27,10 @@ class TestMapSearchPython:
         assert MapSearch(position="bottomright").position == "bottomright"
 
     def test_default_locale(self):
-        assert MapSearch()._LOCALE_CODE == ""
+        assert MapSearch()._locale_code == ""
 
     def test_custom_locale(self):
-        assert MapSearch(locale="zh")._LOCALE_CODE == "zh"
+        assert MapSearch(locale="zh")._locale_code == "zh"
 
     def test_default_mode(self):
         assert MapSearch().mode == "coord"

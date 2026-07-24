@@ -2,7 +2,7 @@
   box-shadow: var(--panel-shadow);
 }
 /* ── Crosshair cursor when measuring ── */
-.is-measuring {
+.measuring {
   cursor: crosshair;
 }
 /* ── Tool Buttons ──
@@ -33,7 +33,7 @@
   border: var(--border-thick) solid var(--neutral-0);
   border-radius: var(--radius-round);
 }
-.measure-center-dot.is-final {
+.measure-center-dot.final {
   box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
 }
 
@@ -110,7 +110,7 @@
     stroke-dashoffset: 0;
   }
 }
-.measure-line-solid.is-dash-sweep {
+.measure-line-solid.dash-sweep {
   stroke-dasharray: var(--sweep-length, 1000) var(--sweep-length, 1000);
   stroke-dashoffset: var(--sweep-length, 1000);
   animation: measure-dash-sweep var(--sweep-duration, 0.5s) ease-in-out;

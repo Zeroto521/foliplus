@@ -184,14 +184,14 @@
 .layer-ctrl .layer-item:hover .type-icon-col svg {
   transform: scale(var(--scale-hover));
 }
-.layer-ctrl .layer-item.is-active {
+.layer-ctrl .layer-item.active {
   border-left-color: var(--accent-primary);
   background: var(--accent-light);
 }
-.layer-ctrl .layer-item.is-active .type-icon-col {
+.layer-ctrl .layer-item.active .type-icon-col {
   color: var(--accent-primary);
 }
-.layer-ctrl .layer-item.is-active .type-icon-col svg {
+.layer-ctrl .layer-item.active .type-icon-col svg {
   transform: scale(var(--scale-hover));
 }
 .layer-ctrl .layer-item.dragging {
@@ -328,14 +328,14 @@
   border: none;
   border-radius: var(--radius-round);
 }
-.layer-ctrl .layer-item.is-color-active {
+.layer-ctrl .layer-item.color-active {
   background: var(--accent-light);
   border-left-color: var(--accent-primary);
 }
-.layer-ctrl .layer-item.is-color-active .type-icon-col {
+.layer-ctrl .layer-item.color-active .type-icon-col {
   color: var(--accent-primary);
 }
-.layer-ctrl .layer-item.is-color-active .color-layer-input {
+.layer-ctrl .layer-item.color-active .color-layer-input {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }

@@ -23,10 +23,10 @@ class TestScaleControlPython:
             ScaleControl(position="topright")
 
     def test_default_locale(self):
-        assert ScaleControl()._LOCALE_CODE == ""
+        assert ScaleControl()._locale_code == ""
 
     def test_custom_locale(self):
-        assert ScaleControl(locale="zh")._LOCALE_CODE == "zh"
+        assert ScaleControl(locale="zh")._locale_code == "zh"
 
     def test_default_params(self):
         ctrl = ScaleControl()

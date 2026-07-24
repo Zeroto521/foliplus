@@ -6,6 +6,7 @@ import re
 
 import folium
 from conftest import render
+import pathlib
 
 from foliplus import MeasureControl
 
@@ -23,10 +24,10 @@ class TestMeasureControlPython:
         assert MeasureControl(position="topleft").position == "topleft"
 
     def test_default_locale(self):
-        assert MeasureControl()._LOCALE_CODE == ""
+        assert MeasureControl()._locale_code == ""
 
     def test_custom_locale(self):
-        assert MeasureControl(locale="zh")._LOCALE_CODE == "zh"
+        assert MeasureControl(locale="zh")._locale_code == "zh"
 
 
 class TestMeasureControlRendering:
@@ -189,7 +190,7 @@ class TestMeasureControlRendering:
         """calcToggle with 'reset' sets labelsVisible=true."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'toggleLbl === CONST.CLASSES.RESET' in html
+        assert "toggleLbl === CONST.CLASSES.RESET" in html
 
     def test_toggle_del_icon_retry(self, base_map: folium.Map):
         """toggleDelIcon retries with delay up to DEL_ICON_RETRY_LIMIT times."""
@@ -320,7 +321,7 @@ class TestMeasureControlRendering:
         """Regression test: Labels stay fixed, only X toggles."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'toggleUI(false, CONST.CLASSES.RESET)' in html
+        assert "toggleUI(false, CONST.CLASSES.RESET)" in html
         assert "toggleUI(undefined)" in html
 
     def test_measure_tool_toggle(self, base_map: folium.Map):
@@ -438,18 +439,17 @@ class TestMeasureControlRendering:
         """Distance finishDist adds is-dash-sweep class with --sweep-length."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "is-dash-sweep" in html
+        assert "dash-sweep" in html
         assert "--sweep-length" in html
         assert "getTotalLength" in html
         assert "animationend" in html
 
     def test_dash_sweep_drop_shadow(self, base_map: folium.Map):
         """Dash sweep line has drop-shadow filter for glow effect."""
-        import pathlib
 
         css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
         assert "drop-shadow" in css
-        assert "is-dash-sweep" in css
+        assert "dash-sweep" in css
 
     def test_ripple_animation_classes(self, base_map: folium.Map):
         """Circle finalizeCircle creates a measure-ripple circle with animationend cleanup."""
@@ -462,7 +462,6 @@ class TestMeasureControlRendering:
 
     def test_ripple_css_variables(self, base_map: folium.Map):
         """Ripple animation uses CSS custom properties for all parameters."""
-        import pathlib
 
         css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
         assert "--ripple-duration" in css
@@ -473,7 +472,6 @@ class TestMeasureControlRendering:
 
     def test_dash_sweep_css_variables(self, base_map: folium.Map):
         """Dash sweep animation uses CSS custom properties for all parameters."""
-        import pathlib
 
         css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
         assert "--sweep-length" in css

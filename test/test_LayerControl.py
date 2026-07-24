@@ -23,10 +23,10 @@ class TestLayerControlPython:
         assert LayerControl(position="bottomright").position == "bottomright"
 
     def test_default_locale(self):
-        assert LayerControl()._LOCALE_CODE == ""
+        assert LayerControl()._locale_code == ""
 
     def test_custom_locale(self):
-        assert LayerControl(locale="zh")._LOCALE_CODE == "zh"
+        assert LayerControl(locale="zh")._locale_code == "zh"
 
     def test_render_collects_layers(self):
         """LayerControl has render() and layer collections."""
@@ -114,13 +114,13 @@ class TestLayerControlRendering:
     def test_svg_icons_defined(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "SVGS.DRAG_HANDLE" in html
+        assert "SVGs.DRAG_HANDLE" in html
         assert ".GLOBE" in html
-        assert "SVGS.POINT" in html
-        assert "SVGS.LINE" in html
-        assert "SVGS.POLYGON" in html
-        assert "SVGS.EMPTY" in html
-        assert "SVGS.UNKNOWN" in html
+        assert "SVGs.POINT" in html
+        assert "SVGs.LINE" in html
+        assert "SVGs.POLYGON" in html
+        assert "SVGs.EMPTY" in html
+        assert "SVGs.UNKNOWN" in html
 
     def test_geometry_type_empty_and_unknown(self, base_map: folium.Map):
         """getGeometryType returns 'empty'/'unknown' for edge cases."""
@@ -137,8 +137,8 @@ class TestLayerControlRendering:
         """getTypeSVG returns EMPTY/UNKNOWN for non-standard layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'if (type === "empty") return SVGS.EMPTY;' in html
-        assert "return SVGS.UNKNOWN;" in html
+        assert 'if (type === "empty") return SVGs.EMPTY;' in html
+        assert "return SVGs.UNKNOWN;" in html
 
     def test_locale_zh(self, base_map: folium.Map):
         LayerControl(locale="zh").add_to(base_map)
@@ -211,7 +211,7 @@ class TestLayerControlRendering:
         # Drag handle SVG circles (6 dots) present
         assert "drag-handle" in html
         # All items use drag handle (no more base-map-only spacer logic)
-        assert "SVGS.DRAG_HANDLE" in html
+        assert "SVGs.DRAG_HANDLE" in html
 
     def test_draggable_all_items(self):
         """All layer items except color-layer-item have draggable=true."""
@@ -438,10 +438,7 @@ class TestLayerControlRendering:
         """handleDrop returns early when dragIdx is invalid."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert (
-            "this.m.dragIdx < 0 || this.m.dragIdx >= this.m.layers.length"
-            in html
-        )
+        assert "this.m.dragIdx < 0 || this.m.dragIdx >= this.m.layers.length" in html
 
     def test_ensure_pane_no_renderer_false(self, base_map: folium.Map):
         """ensurePane accepts needRenderer=false for label/overlay panes."""
@@ -512,7 +509,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "this.uiContainer.querySelector" in html
-        assert 'CONST.DATA.LAYER_ID]: l.id' in html
+        assert "CONST.DATA.LAYER_ID]: l.id" in html
 
     def test_register_layer_pending_when_no_ui(self, base_map: folium.Map):
         """registerLayer queues registrations when UI not yet rendered."""
@@ -761,7 +758,7 @@ class TestLayerControlRendering:
         # Layer item hover on type icon
         assert "layer-item:hover .type-icon-col svg" in html
         # Active state on type icon
-        assert "is-active .type-icon-col svg" in html
+        assert "active .type-icon-col svg" in html
         # Toggle button SVG inherits color
         assert "toggle-btn svg" in html
         assert "stroke: currentColor" in html

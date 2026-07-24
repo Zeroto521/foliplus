@@ -112,7 +112,7 @@
 
 /* Placeholder select styling */
 :is(
-  .heatmap-ctrl select.is-placeholder,
+  .heatmap-ctrl select.placeholder,
   .heatmap-ctrl select option.placeholder-option,
   .heatmap-ctrl select option.placeholder-option:disabled
 ) {

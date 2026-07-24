@@ -4,7 +4,7 @@
   Only loaded when Fullscreen is used. ── */
 
 /* ── Button container ── */
-.fs-bar {
+.fullscreen-bar {
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-ctrl-strong);
@@ -13,20 +13,20 @@
 }
 
 /* ── Top button gets top radius ── */
-.fs-bar .fs-zoom-in {
+.fullscreen-bar .fullscreen-zoom-in {
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 /* ── Bottom button gets bottom radius ── */
-.fs-bar .fullscreen-btn {
+.fullscreen-bar .fullscreen-btn {
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 /* ── Divider between buttons ── */
-.fs-bar .tool-btn {
+.fullscreen-bar .tool-btn {
   border-bottom: var(--border-thin) solid var(--divider-color);
 }
-.fs-bar .fullscreen-btn {
+.fullscreen-bar .fullscreen-btn {
   border-bottom: none;
 }
 

@@ -27,10 +27,10 @@ class TestFullscreenPython:
         assert Fullscreen(hide_self=False).hide_self is False
 
     def test_default_locale(self):
-        assert Fullscreen()._LOCALE_CODE == ""
+        assert Fullscreen()._locale_code == ""
 
     def test_custom_locale(self):
-        assert Fullscreen(locale="zh")._LOCALE_CODE == "zh"
+        assert Fullscreen(locale="zh")._locale_code == "zh"
 
 
 class TestFullscreenRendering:
@@ -69,7 +69,7 @@ class TestFullscreenRendering:
         html = render(base_map)
         assert "fullscreen-btn" in html
         assert "ctrl-size" in html
-        assert "fs-bar" in html
+        assert "fullscreen-bar" in html
 
     def test_zoom_svg_inline(self, base_map: folium.Map):
         """Zoom +/- use inline SVGs created by Fullscreen.js."""
@@ -124,8 +124,8 @@ class TestFullscreenRendering:
         """Custom zoom +/- buttons are created by Fullscreen.js."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "fs-zoom-in" in html
-        assert "fs-zoom-out" in html
+        assert "fullscreen-zoom-in" in html
+        assert "fullscreen-zoom-out" in html
         assert "fullscreen-btn" in html
 
     def test_buttons_are_button_elements(self, base_map: folium.Map):
@@ -142,7 +142,7 @@ class TestFullscreenRendering:
         """Container has leaflet-bar class for alignment."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert 'class: "leaflet-bar fs-bar"' in html
+        assert 'class: "leaflet-bar fullscreen-bar"' in html
 
     def test_default_zoom_removed(self, base_map: folium.Map):
         """Default Leaflet zoom control is removed."""
