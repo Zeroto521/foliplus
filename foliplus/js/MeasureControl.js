@@ -14,8 +14,8 @@
       MARKER_ANCHOR: [-4, 28],
       SIZE: [0, 0],
       CHAR: "✕",
-      CLASS: "measure-del-icon",
-      WRAP_CLASS: "del-icon-wrap",
+      CLASS: "foliplus-measure-del-icon",
+      WRAP_CLASS: "foliplus-del-icon-wrap",
     },
     MARKER: {
       RADIUS: 5,
@@ -23,14 +23,14 @@
     CENTER_DOT: {
       SIZE: [12, 12],
       ANCHOR: [6, 6],
-      CLASS: "measure-center-dot",
-      CLASS_FINAL: "measure-center-dot final",
+      CLASS: "foliplus-measure-center-dot",
+      CLASS_FINAL: "foliplus-measure-center-dot foliplus-final",
     },
     LABEL: {
       ANCHOR: [0, -10],
       SIZE: [0, 0],
-      CLASS: "measure-label",
-      CLASS_RADIUS: "measure-label-radius",
+      CLASS: "foliplus-measure-label",
+      CLASS_RADIUS: "foliplus-measure-label-radius",
     },
     FORMAT: {
       LAT_LNG_PRECISION: 6,
@@ -46,19 +46,19 @@
       LABEL: "measure_label",
     },
     CLASSES: {
-      LINE_DASHED: "measure-line measure-line-dashed",
-      LINE_PREVIEW: "measure-line measure-line-preview",
-      LINE_SOLID: "measure-line measure-line-solid",
-      CIRCLE_PREVIEW: "measure-circle measure-circle-preview",
-      CIRCLE_FINAL: "measure-circle measure-circle-final",
-      NODE_FINAL: "measure-node measure-node-final",
-      NODE_PREVIEW: "measure-node measure-node-preview",
-      RIPPLE: "measure-ripple",
-      DASH_SWEEP: "dash-sweep",
-      HIDDEN: "measure-hidden",
+      LINE_DASHED: "foliplus-measure-line foliplus-measure-line-dashed",
+      LINE_PREVIEW: "foliplus-measure-line foliplus-measure-line-preview",
+      LINE_SOLID: "foliplus-measure-line foliplus-measure-line-solid",
+      CIRCLE_PREVIEW: "foliplus-measure-circle foliplus-measure-circle-preview",
+      CIRCLE_FINAL: "foliplus-measure-circle foliplus-measure-circle-final",
+      NODE_FINAL: "foliplus-measure-node foliplus-measure-node-final",
+      NODE_PREVIEW: "foliplus-measure-node foliplus-measure-node-preview",
+      RIPPLE: "foliplus-measure-ripple",
+      DASH_SWEEP: "foliplus-dash-sweep",
+      HIDDEN: "foliplus-measure-hidden",
       VISIBLE: "visible",
       ACTIVE: "active",
-      IS_MEASURING: "measuring",
+      IS_MEASURING: "foliplus-measuring",
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
       RESET: "reset",
@@ -68,9 +68,9 @@
       SWEEP_LENGTH: "--sweep-length",
     },
     SEL: {
-      LABEL: ".measure-label",
-      DEL_ICON: ".measure-del-icon",
-      TOOL_BTN: ".tool-btn",
+      LABEL: ".foliplus-measure-label",
+      DEL_ICON: ".foliplus-measure-del-icon",
+      TOOL_BTN: ".foliplus-tool-btn",
     },
     position: "{{ this.position }}",
   };
@@ -1323,7 +1323,7 @@
 
           lastNodeDelMkr.on("click", (e) => {
             const t = e.originalEvent?.target;
-            if (t?.classList?.contains("measure-del-icon")) return;
+            if (t?.classList?.contains("foliplus-measure-del-icon")) return;
             handleItemClick(e);
           });
         }
@@ -1763,7 +1763,7 @@
     onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
-          cssClass: "measure-ctrl",
+          cssClass: "foliplus-measure-ctrl",
           toggleTitle: _(`${CONST.name}.tool_toggle`),
           toggleSvg: SVGs.RULER,
           isLeft: CONST.position.indexOf("left") >= 0,
@@ -1783,7 +1783,7 @@
         toolBar.appendChild(
           window.foliplus.dom.el(
             "button",
-            { class: "tool-btn", "data-mode": mode, title },
+            { class: "foliplus-tool-btn", "data-mode": mode, title },
             { html: svg },
           ),
         );

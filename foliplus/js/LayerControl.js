@@ -27,27 +27,28 @@
     RENDERER_KEY: "foliplus_renderer_",
     FALLBACK_PANE_PREFIX: "foliplus_pane_",
     CLASSES: {
+      LAYER_ITEM: "foliplus-layer-item",
       ACTIVE: "active",
-      CHECKBOX_WRAPPER: "checkbox-wrapper",
-      GROUP_FOLDED: "layer-group-folded",
-      COLOR_ACTIVE: "color-active",
-      COLOR_INPUT: "color-layer-input",
-      COLOR_ITEM: "color-layer-item",
-      DRAG_OVER_TOP: "drag-over-top",
-      DRAG_OVER_BOTTOM: "drag-over-bottom",
-      DRAGGING: "dragging",
-      TYPE_ICON_COL: "type-icon-col",
-      TOGGLE_ALL_ITEM: "toggle-all-item",
+      CHECKBOX_WRAPPER: "foliplus-checkbox-wrapper",
+      GROUP_FOLDED: "foliplus-layer-group-folded",
+      COLOR_ACTIVE: "foliplus-color-active",
+      COLOR_INPUT: "foliplus-color-layer-input",
+      COLOR_ITEM: "foliplus-color-layer-item",
+      DRAG_OVER_TOP: "foliplus-drag-over-top",
+      DRAG_OVER_BOTTOM: "foliplus-drag-over-bottom",
+      DRAGGING: "foliplus-dragging",
+      TYPE_ICON_COL: "foliplus-type-icon-col",
+      TOGGLE_ALL_ITEM: "foliplus-toggle-all-item",
     },
     DATA: {
       INDEX: "data-index",
       LAYER_ID: "data-layer-id",
     },
     SEL: {
-      LAYER_ITEM: ".layer-item",
-      COLOR_ITEM: ".color-layer-item",
-      COLOR_INPUT: ".color-layer-input",
-      TOGGLE_ALL: ".toggle-all-item",
+      LAYER_ITEM: ".foliplus-layer-item",
+      COLOR_ITEM: ".foliplus-color-layer-item",
+      COLOR_INPUT: ".foliplus-color-layer-input",
+      TOGGLE_ALL: ".foliplus-toggle-all-item",
     },
   };
 
@@ -71,7 +72,7 @@
         <polygon points="2 16 12 21 22 16"/>
       </svg>`,
     DRAG_HANDLE: `
-      <svg viewBox="0 0 24 24" class="drag-handle">
+      <svg viewBox="0 0 24 24" class="foliplus-drag-handle">
         <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
         <circle cx="16" cy="6" r="1.5" fill="currentColor"/>
         <circle cx="8" cy="12" r="1.5" fill="currentColor"/>
@@ -742,7 +743,7 @@
       let pane = this.map.getPane(paneName);
       if (!pane) {
         pane = this.map.createPane(paneName);
-        pane.classList.add("layer-pane");
+        pane.classList.add("foliplus-layer-pane");
         // Set an initial z-index so content in this pane is visible above
         // the base map before enforceOrder() runs (e.g., MeasureControl
         // dashed lines during drawing, before register() is called).
@@ -800,7 +801,7 @@
       if (!mapPane)
         throw new Error(`[${CONST.name}] ${_(CONST.name + ".mapPane_not_available")}`);
 
-      const canvas = L.DomUtil.create("canvas", "heatmap-canvas", mapPane);
+      const canvas = L.DomUtil.create("canvas", "foliplus-heatmap-canvas", mapPane);
       if (opts.className) canvas.classList.add(opts.className);
 
       const ctx = canvas.getContext("2d");
@@ -1153,15 +1154,14 @@
         "div",
         {
           class:
-            "layer-separator-container " +
-            CONST.CLASSES.TOGGLE_ALL_ITEM +
-            (isFolded ? " folded" : ""),
+            `foliplus-layer-separator-container ${CONST.CLASSES.TOGGLE_ALL_ITEM}` +
+            (isFolded ? " foliplus-folded" : ""),
           "data-group": group,
         },
         window.foliplus.dom.el(
           "button",
           {
-            class: "fold-toggle-btn",
+            class: "foliplus-fold-toggle-btn",
             title: _(CONST.name + (isFolded ? ".unfold_tooltip" : ".fold_tooltip")),
           },
           { html: isFolded ? SVGs.UNFOLD : SVGs.FOLD },
@@ -1175,8 +1175,12 @@
             checked: "",
           }),
         ),
-        window.foliplus.dom.el("span", { class: "separator-label" }, _(labelKey)),
-        window.foliplus.dom.el("div", { class: "section-divider" }),
+        window.foliplus.dom.el(
+          "span",
+          { class: "foliplus-separator-label" },
+          _(labelKey),
+        ),
+        window.foliplus.dom.el("div", { class: "foliplus-section-divider" }),
       );
     }
 
@@ -1207,7 +1211,7 @@
       return window.foliplus.dom.el(
         "div",
         {
-          class: "layer-item",
+          class: CONST.CLASSES.LAYER_ITEM,
           draggable: "true",
           [CONST.DATA.INDEX]: String(index),
           [CONST.DATA.LAYER_ID]: l.id,
@@ -1222,7 +1226,7 @@
       return window.foliplus.dom.el(
         "div",
         {
-          class: `layer-item ${CONST.CLASSES.COLOR_ITEM}`,
+          class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
           draggable: "false",
           [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
           title: _(`${CONST.name}.color_map_label`),
@@ -1245,7 +1249,7 @@
 
     initTypesAndVisibility() {
       const inputs = this.m.uiContainer.querySelectorAll(
-        '.layer-item input[type="checkbox"], .layer-item input[type="radio"]',
+        `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
       );
       const typeCols = this.m.uiContainer.querySelectorAll(
         "." + CONST.CLASSES.TYPE_ICON_COL,
@@ -1663,23 +1667,24 @@
       const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
 
       container.innerHTML = `
-        <div class="map-panel ctrl-fold layer-ctrl collapsed" id="{{ this.get_name() }}_ctrl">
-          <button class="toggle-btn" title="${_(CONST.name + ".toggle_title")}"
+        <div class="foliplus-map-panel foliplus-ctrl-fold foliplus-layer-ctrl
+             collapsed" id="{{ this.get_name() }}_ctrl">
+          <button class="foliplus-toggle-btn" title="${_(CONST.name + ".toggle_title")}"
                   aria-label="${_(CONST.name + ".toggle_title")}">
             ${SVGs.LAYERS}
           </button>
-          <div class="layer-panel" role="dialog" aria-label="${_(CONST.name + ".panel_title")}">
-            <div class="panel-header" title="${_(CONST.name + ".close_title")}">
-              <span class="header-title">
-                <span class="header-icon">${SVGs.LAYERS}</span>
+          <div class="foliplus-layer-panel" role="dialog" aria-label="${_(CONST.name + ".panel_title")}">
+            <div class="foliplus-panel-header" title="${_(CONST.name + ".close_title")}">
+              <span class="foliplus-header-title">
+                <span class="foliplus-header-icon">${SVGs.LAYERS}</span>
                 ${_(CONST.name + ".panel_title")}
               </span>
-              <button class="ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
+              <button class="foliplus-ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
                       aria-label="${_(CONST.name + ".close_title")}">
                 ${window.foliplus.SVGs.CLOSE}
               </button>
             </div>
-            <div class="panel-content"></div>
+            <div class="foliplus-panel-content"></div>
           </div>
         </div>
       `;
@@ -1688,12 +1693,12 @@
       L.DomEvent.disableScrollPropagation(container);
 
       window.foliplus.bindPanelToggle({
-        container: container.querySelector(".layer-ctrl"),
-        toggleBtn: ".toggle-btn",
-        header: ".panel-header",
+        container: container.querySelector(".foliplus-layer-ctrl"),
+        toggleBtn: ".foliplus-toggle-btn",
+        header: ".foliplus-panel-header",
       });
 
-      this.manager.attachUI(container.querySelector(".panel-content"));
+      this.manager.attachUI(container.querySelector(".foliplus-panel-content"));
 
       return container;
     }

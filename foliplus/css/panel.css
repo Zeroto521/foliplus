@@ -14,7 +14,7 @@
 }
 
 /* ── Expanded State ── */
-.foliplus-map-panel.foliplus-expanded {
+.foliplus-map-panel.expanded {
   width: var(--panel-width);
   flex-direction: column;
   border-radius: var(--radius-card);
@@ -23,13 +23,13 @@
 }
 
 /* Hide toggle when expanded */
-.foliplus-map-panel.foliplus-expanded .foliplus-toggle-btn {
+.foliplus-map-panel.expanded .foliplus-toggle-btn {
   display: none;
 }
 
 /* ── Accent color for expanded icon (all map-panel components) ── */
-.foliplus-map-panel.foliplus-expanded .foliplus-header-icon,
-.foliplus-map-panel.foliplus-expanded .foliplus-header-icon svg {
+.foliplus-map-panel.expanded .foliplus-header-icon,
+.foliplus-map-panel.expanded .foliplus-header-icon svg {
   color: var(--accent-primary);
 }
 
@@ -40,7 +40,7 @@
   width: 100%;
 }
 
-.foliplus-map-panel.foliplus-expanded .foliplus-panel-wrap {
+.foliplus-map-panel.expanded .foliplus-panel-wrap {
   display: flex;
   flex: 1;
   overflow: hidden;

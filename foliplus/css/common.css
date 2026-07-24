@@ -355,7 +355,7 @@
   box-sizing: border-box;
   border-radius: var(--radius-sm);
 }
-.foliplus-ctrl-fold.foliplus-collapsed {
+.foliplus-ctrl-fold.collapsed {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   border: 0;
@@ -363,19 +363,19 @@
   overflow: visible;
 }
 /* Expanded toggle-btn shared styles */
-.foliplus-ctrl-fold.foliplus-expanded .foliplus-toggle-btn {
+.foliplus-ctrl-fold.expanded .foliplus-toggle-btn {
   background: transparent;
   color: var(--accent-primary);
 }
-.foliplus-ctrl-fold.foliplus-expanded .foliplus-toggle-btn:hover {
+.foliplus-ctrl-fold.expanded .foliplus-toggle-btn:hover {
   background: var(--accent-light);
 }
 
 /* ── Separator between toggle button and tools (non-map-panel) ── */
-.foliplus-ctrl-fold:not(.foliplus-map-panel).foliplus-expanded .foliplus-toggle-btn {
+.foliplus-ctrl-fold:not(.foliplus-map-panel).expanded .foliplus-toggle-btn {
   border-right: var(--border-thin) solid var(--divider-color);
 }
-.foliplus-ctrl-fold:not(.foliplus-map-panel).foliplus-expanded.foliplus-align-right
+.foliplus-ctrl-fold:not(.foliplus-map-panel).expanded.foliplus-align-right
   .foliplus-toggle-btn {
   border-right: none;
   border-left: var(--border-thin) solid var(--divider-color);
@@ -391,7 +391,7 @@
   flex: 1;
   min-width: 0;
 }
-.foliplus-ctrl-fold.foliplus-expanded .foliplus-tool-bar {
+.foliplus-ctrl-fold.expanded .foliplus-tool-bar {
   display: flex;
 }
 /* Right-aligned layout: toggle-btn at right edge, toolbar leftwards */

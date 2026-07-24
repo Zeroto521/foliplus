@@ -53,7 +53,7 @@
     onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
-          cssClass: "map-search",
+          cssClass: "foliplus-map-search",
           toggleTitle: _(`${CONST.name}.btn_title`),
           toggleSvg: SVGs.SEARCH,
           isLeft: CONST.UI.position.indexOf("left") >= 0,
@@ -63,7 +63,7 @@
 
       const modeBtn = window.foliplus.dom.el(
         "button",
-        { class: "search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
+        { class: "foliplus-search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
         { html: window.foliplus.SVGs.LOCATE },
       );
       const inp = window.foliplus.dom.el("input", {
@@ -72,12 +72,12 @@
       });
       const clearBtn = window.foliplus.dom.el(
         "button",
-        { class: "ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
+        { class: "foliplus-ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
         { html: window.foliplus.SVGs.CLOSE },
       );
       toolBar.appendChild(modeBtn);
       toolBar.appendChild(
-        window.foliplus.dom.el("div", { class: "clear-wrap" }, inp, clearBtn),
+        window.foliplus.dom.el("div", { class: "foliplus-clear-wrap" }, inp, clearBtn),
       );
 
       let mk = null;

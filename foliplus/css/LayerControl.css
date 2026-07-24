@@ -24,7 +24,7 @@
   flex-direction: column;
   width: 100%;
 }
-.foliplus-layer-ctrl.foliplus-expanded .foliplus-layer-panel {
+.foliplus-layer-ctrl.expanded .foliplus-layer-panel {
   display: flex;
 }
 /* ── LAYERS icon: stacked diamond opacity ── */

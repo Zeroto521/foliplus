@@ -67,19 +67,19 @@
   const CLASSES = {
     COLLAPSED: "collapsed",
     EXPANDED: "expanded",
-    TOGGLE_BTN: "toggle-btn",
+    TOGGLE_BTN: "foliplus-toggle-btn",
     LEAFLET_BAR: "leaflet-bar leaflet-control",
   };
 
   // --- SVG Icons ---
   foliplus.SVGs = {
-    LOADING: `<svg class="spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
+    LOADING: `<svg class="foliplus-spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
     CLOSE: `
       <svg viewBox="0 0 24 24">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>`,
     PIN_ICON: `
-      <div class="pin-wrap">
+      <div class="foliplus-pin-wrap">
         <svg width="24" height="36" viewBox="0 0 24 36">
           <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
               fill="#e74c3c" stroke="#fff" stroke-width="1.5"/>
@@ -149,12 +149,14 @@
     if (!append) foliplus.hideHint(key);
     const hintTarget = document.fullscreenElement || document.body;
     const cls = append
-      ? `map-hint map-hint-${key}-${Date.now()}`
-      : `map-hint map-hint-${key}`;
+      ? `foliplus-map-hint foliplus-map-hint-${key}-${Date.now()}`
+      : `foliplus-map-hint foliplus-map-hint-${key}`;
     const el = L.DomUtil.create("div", cls, hintTarget);
     const icon = (hintIcons && hintIcons[key]) || "";
-    el.innerHTML = icon ? `<span class="map-hint-icon">${icon}</span>${text}` : text;
-    el.classList.add("map-hint");
+    el.innerHTML = icon
+      ? `<span class="foliplus-map-hint-icon">${icon}</span>${text}`
+      : text;
+    el.classList.add("foliplus-map-hint");
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
       const cs = window.getComputedStyle(hintTarget);
       if (cs.position === "static") hintTarget.style.position = "relative";
@@ -241,7 +243,10 @@
   function ensureGcoord() {
     if (typeof gcoord === "undefined") {
       console.warn(`[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`);
-      foliplus.showHint(`[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`, HINT.LONG);
+      foliplus.showHint(
+        `[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`,
+        HINT.LONG,
+      );
       return false;
     }
     return true;
@@ -450,7 +455,7 @@
 
     return window.foliplus.dom.el(
       "div",
-      { class: "popup-content" },
+      { class: "foliplus-popup-content" },
       window.foliplus.dom.el("b", null, foliplus.gt(title)),
       { html: "<br>" },
       foliplus.gt(locLabel) + lng + "," + lat,
@@ -596,7 +601,7 @@
       class: CLASSES.LEAFLET_BAR,
     });
     const ctrl = window.foliplus.dom.el("div", {
-      class: `${opts.cssClass} ctrl-fold ${CLASSES.COLLAPSED}`,
+      class: `${opts.cssClass} foliplus-ctrl-fold ${CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
       window.foliplus.dom.el(
@@ -605,16 +610,16 @@
         { html: opts.toggleSvg },
       ),
     );
-    ctrl.appendChild(window.foliplus.dom.el("div", { class: "tool-bar" }));
+    ctrl.appendChild(window.foliplus.dom.el("div", { class: "foliplus-tool-bar" }));
     container.appendChild(ctrl);
-    if (!opts.isLeft) ctrl.classList.add("align-right");
+    if (!opts.isLeft) ctrl.classList.add("foliplus-align-right");
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
     return {
       container: container,
       ctrl: ctrl,
-      toolBar: ctrl.querySelector(".tool-bar"),
-      toggleBtn: ctrl.querySelector(".toggle-btn"),
+      toolBar: ctrl.querySelector(".foliplus-tool-bar"),
+      toggleBtn: ctrl.querySelector(".foliplus-toggle-btn"),
     };
   };
 
@@ -635,7 +640,7 @@
       class: CLASSES.LEAFLET_BAR,
     });
     const ctrl = window.foliplus.dom.el("div", {
-      class: `map-panel ctrl-fold ${opts.cssClass} ${CLASSES.COLLAPSED}`,
+      class: `foliplus-map-panel foliplus-ctrl-fold ${opts.cssClass} ${CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
       window.foliplus.dom.el(
@@ -644,15 +649,15 @@
         { html: opts.toggleSvg },
       ),
     );
-    const panelWrap = window.foliplus.dom.el("div", { class: "panel-wrap" });
-    const header = window.foliplus.dom.el("div", { class: "panel-header" });
+    const panelWrap = window.foliplus.dom.el("div", { class: "foliplus-panel-wrap" });
+    const header = window.foliplus.dom.el("div", { class: "foliplus-panel-header" });
     header.appendChild(
       window.foliplus.dom.el(
         "span",
-        { class: "header-title" },
+        { class: "foliplus-header-title" },
         window.foliplus.dom.el(
           "span",
-          { class: "header-icon" },
+          { class: "foliplus-header-icon" },
           { html: opts.toggleSvg },
         ),
         opts.panelTitle,
@@ -661,12 +666,14 @@
     header.appendChild(
       window.foliplus.dom.el(
         "button",
-        { class: "close-btn ctrl-abs-btn", title: opts.closeTitle },
+        { class: "foliplus-close-btn foliplus-ctrl-abs-btn", title: opts.closeTitle },
         { html: window.foliplus.SVGs.CLOSE },
       ),
     );
     panelWrap.appendChild(header);
-    const panelContent = window.foliplus.dom.el("div", { class: "panel-content" });
+    const panelContent = window.foliplus.dom.el("div", {
+      class: "foliplus-panel-content",
+    });
     panelWrap.appendChild(panelContent);
     ctrl.appendChild(panelWrap);
     container.appendChild(ctrl);
@@ -676,15 +683,15 @@
 
     window.foliplus.bindPanelToggle({
       container: ctrl,
-      toggleBtn: ".toggle-btn",
-      header: ".panel-header",
+      toggleBtn: ".foliplus-toggle-btn",
+      header: ".foliplus-panel-header",
     });
     window.foliplus.bindOutsideCollapse({ container: ctrl });
 
     return {
       container,
       ctrl,
-      toggleBtn: ctrl.querySelector(".toggle-btn"),
+      toggleBtn: ctrl.querySelector(".foliplus-toggle-btn"),
       panelContent,
     };
   };

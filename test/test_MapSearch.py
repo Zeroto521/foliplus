@@ -57,7 +57,7 @@ class TestMapSearchRendering:
     def test_contains_css(self, base_map: folium.Map):
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert ".map-search" in html
+        assert ".foliplus-map-search" in html
 
     def test_contains_nominatim_url(self, base_map: folium.Map):
         MapSearch().add_to(base_map)

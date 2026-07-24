@@ -1,4 +1,4 @@
-.foliplus-measure-ctrl.foliplus-expanded {
+.foliplus-measure-ctrl.expanded {
   box-shadow: var(--panel-shadow);
 }
 /* ── Crosshair cursor when measuring ── */
@@ -185,7 +185,7 @@
     transform var(--transition-fast),
     background var(--transition-fast);
 }
-.foliplus-measure-del-icon.foliplus-visible {
+.foliplus-measure-del-icon.visible {
   opacity: 1;
   visibility: visible;
   display: flex;

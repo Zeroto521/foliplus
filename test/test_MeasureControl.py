@@ -204,7 +204,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert 'delMkr.on("click",' in html
-        assert "measure-del-icon" in html
+        assert "foliplus-measure-del-icon" in html
 
     def test_set_label_text_gets_fresh_dom(self, base_map: folium.Map):
         """setLabelText gets a fresh DOM reference each call."""
@@ -403,7 +403,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "makeDelIcon" in html
-        assert "del-icon-wrap" in html
+        assert "foliplus-del-icon-wrap" in html
 
     def test_align_right_for_right_position(self, base_map: folium.Map):
         """Right positions (bottomright/topright) add align-right class."""
@@ -510,7 +510,7 @@ class TestMeasureControlRendering:
             ),
         )
         page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-        page.wait_for_selector(".measure-ctrl", state="attached", timeout=10000)
+        page.wait_for_selector(".foliplus-measure-ctrl", state="attached", timeout=10000)
         return page, errors
 
     def test_tool_buttons_render(self, browser, tmp_path):
@@ -518,7 +518,7 @@ class TestMeasureControlRendering:
         page, errors = self._make_page(browser, tmp_path)
         try:
             btns = page.evaluate(
-                "document.querySelectorAll('.measure-ctrl .tool-btn').length"
+                "document.querySelectorAll('.foliplus-measure-ctrl .foliplus-tool-btn').length"
             )
             assert btns >= 3
             assert not errors, f"JS errors: {errors}"
@@ -656,11 +656,11 @@ class TestMeasureControlRendering:
                 const mm = window.__measureManager;
                 const layers = mm.layers.mainLayer._layers || {};
                 const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
                 );
                 if (delMkr) {
                     // Simulate clicking the del icon: make it visible, then fire
-                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
                     if (icon) icon.classList.add('visible');
                     // Fire with a mock originalEvent that has the del-icon target
                     delMkr.fire('click', { originalEvent: { target: icon } });
@@ -671,7 +671,7 @@ class TestMeasureControlRendering:
             hasDelMkr = page.evaluate("""() => {
                 const mm = window.__measureManager;
                 return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
@@ -697,10 +697,10 @@ class TestMeasureControlRendering:
                 const mm = window.__measureManager;
                 const layers = mm.layers.mainLayer._layers || {};
                 const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
                 );
                 if (delMkr) {
-                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
                     if (icon) icon.classList.add('visible');
                     delMkr.fire('click', { originalEvent: { target: icon } });
                 }
@@ -709,7 +709,7 @@ class TestMeasureControlRendering:
             hasDelMkr = page.evaluate("""() => {
                 const mm = window.__measureManager;
                 return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
@@ -734,10 +734,10 @@ class TestMeasureControlRendering:
                 const mm = window.__measureManager;
                 const layers = mm.layers.mainLayer._layers || {};
                 const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
                 );
                 if (delMkr) {
-                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
                     if (icon) icon.classList.add('visible');
                     delMkr.fire('click', { originalEvent: { target: icon } });
                 }
@@ -746,7 +746,7 @@ class TestMeasureControlRendering:
             hasDelMkr = page.evaluate("""() => {
                 const mm = window.__measureManager;
                 return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"

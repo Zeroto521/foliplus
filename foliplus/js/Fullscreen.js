@@ -83,14 +83,16 @@
       }
 
       // Build container — leaflet-bar for alignment with other foliplus controls
-      const container = window.foliplus.dom.el("div", { class: "leaflet-bar fullscreen-bar" });
+      const container = window.foliplus.dom.el("div", {
+        class: "leaflet-bar foliplus-fullscreen-bar",
+      });
       container.id = CONST.containerId();
 
       // Zoom in button — <button> element with tool-btn class
       const zoomInBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "tool-btn fullscreen-zoom-in",
+          class: "foliplus-tool-btn foliplus-fullscreen-zoom-in",
           "aria-label": _(`${CONST.name}.zoom_in`),
           title: _(`${CONST.name}.zoom_in`),
         },
@@ -106,7 +108,7 @@
       const zoomOutBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "tool-btn fullscreen-zoom-out",
+          class: "foliplus-tool-btn foliplus-fullscreen-zoom-out",
           "aria-label": _(`${CONST.name}.zoom_out`),
           title: _(`${CONST.name}.zoom_out`),
         },
@@ -122,7 +124,7 @@
       const fsBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "tool-btn fullscreen-btn",
+          class: "foliplus-tool-btn foliplus-fullscreen-btn",
           "aria-label": _(`${CONST.name}.title`),
           title: _(`${CONST.name}.title`),
         },
@@ -144,7 +146,7 @@
         if ({{ this.hide_others | tojson }}) {
           const controls = map
             .getContainer()
-            .querySelectorAll(".leaflet-control, .custom-scale-wrap");
+            .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
           for (const c of controls) {
             if (c.contains(container) || c.closest?.("#" + CONST.containerId)) continue;
             c.style.display = isFull ? "none" : "";

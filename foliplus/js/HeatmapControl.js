@@ -56,18 +56,18 @@
     },
     SCHEME_NAMES: {{ this.schemes | tojson }},
     CLASSES: {
-      FORM_ROW: "form-row",
-      FORM_LABEL: "form-label",
-      FORM_CONTROL_WRAP: "form-control-wrap",
-      FORM_SELECT: "form-select",
-      HIDDEN: "hidden",
+      FORM_ROW: "foliplus-form-row",
+      FORM_LABEL: "foliplus-form-label",
+      FORM_CONTROL_WRAP: "foliplus-form-control-wrap",
+      FORM_SELECT: "foliplus-form-select",
+      HIDDEN: "foliplus-hidden",
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
-      PLACEHOLDER_OPTION: "placeholder-option",
-      SCHEME_DROPDOWN_ITEM: "scheme-dropdown-item",
+      PLACEHOLDER_OPTION: "foliplus-placeholder-option",
+      SCHEME_DROPDOWN_ITEM: "foliplus-scheme-dropdown-item",
     },
     SEL: {
-      SCHEME_DROPDOWN_ITEM: ".scheme-dropdown-item",
+      SCHEME_DROPDOWN_ITEM: ".foliplus-scheme-dropdown-item",
     },
   };
 
@@ -86,14 +86,14 @@
     HEXAGON: `
       <svg viewBox="0 0 24 24">
         <polygon points="12,3 20.5,7.5 20.5,16.5 12,21 3.5,16.5 3.5,7.5" stroke-width="1.5"/>
-        <polygon points="12,3 20.5,7.5 20.5,16.5 12,21 3.5,16.5 3.5,7.5" class="hf-bg"/>
-        <polygon points="9.5,10.5 12,9 14.5,10.5 14.5,12.5 12,14 9.5,12.5" class="hf-center"/>
+        <polygon points="12,3 20.5,7.5 20.5,16.5 12,21 3.5,16.5 3.5,7.5" class="foliplus-hf-bg"/>
+        <polygon points="9.5,10.5 12,9 14.5,10.5 14.5,12.5 12,14 9.5,12.5" class="foliplus-hf-center"/>
         <polygon points="9.5,10.5 12,9 14.5,10.5 14.5,12.5 12,14 9.5,12.5" stroke-width="1"/>
-        <polygon points="9.5,5.5 12,4 14.5,5.5 14.5,7.5 12,9 9.5,7.5" class="hf-secondary"/>
+        <polygon points="9.5,5.5 12,4 14.5,5.5 14.5,7.5 12,9 9.5,7.5" class="foliplus-hf-secondary"/>
         <polygon points="9.5,5.5 12,4 14.5,5.5 14.5,7.5 12,9 9.5,7.5" stroke-width="1"/>
         <polygon points="14,7.5 17,6 20.5,7.5 20.5,9.5 17,11 14,9.5" stroke-width="1"/>
         <polygon points="14,14.5 17,13 20.5,14.5 20.5,16.5 17,18 14,16.5" stroke-width="1"/>
-        <polygon points="9.5,16.5 12,15 14.5,16.5 14.5,18.5 12,20 9.5,18.5" class="hf-secondary"/>
+        <polygon points="9.5,16.5 12,15 14.5,16.5 14.5,18.5 12,20 9.5,18.5" class="foliplus-hf-secondary"/>
         <polygon points="9.5,16.5 12,15 14.5,16.5 14.5,18.5 12,20 9.5,18.5" stroke-width="1"/>
         <polygon points="3.5,14.5 7,13 10,14.5 10,16.5 7,18 3.5,16.5" stroke-width="1"/>
         <polygon points="3.5,7.5 7,6 10,7.5 10,9.5 7,11 3.5,9.5" stroke-width="1"/>
@@ -639,7 +639,7 @@
 
     onAdd() {
       const { container, ctrl, panelContent } = window.foliplus.createPanelControl({
-        cssClass: "heatmap-ctrl",
+        cssClass: "foliplus-heatmap-ctrl",
         toggleTitle: _(`${CONST.name}.title`),
         toggleSvg: SVGs.HEXAGON,
         panelTitle: _(`${CONST.name}.title`),
@@ -654,8 +654,8 @@
 
     /** Build the data section: layer select, aggregation method, field selector. */
     buildDataSection(panelContent) {
-      const configBody = L.DomUtil.create("div", "config-body", panelContent);
-      const dataHeading = L.DomUtil.create("div", "section-heading", configBody);
+      const configBody = L.DomUtil.create("div", "foliplus-config-body", panelContent);
+      const dataHeading = L.DomUtil.create("div", "foliplus-section-heading", configBody);
       dataHeading.textContent = _(`${CONST.name}.section_data`);
 
       const { wrap: layerSelectWrap } = this.createFormRow(
@@ -664,11 +664,11 @@
       );
       this.layerSelect = L.DomUtil.create(
         "select",
-        "form-select layer-select",
+        "foliplus-form-select",
         layerSelectWrap,
       );
 
-      this.extraBody = L.DomUtil.create("div", "extra-body", configBody);
+      this.extraBody = L.DomUtil.create("div", "foliplus-extra-body", configBody);
       this.extraBody.style.display = "none";
 
       // Aggregation method
@@ -696,7 +696,7 @@
 
       this.fieldWrap = L.DomUtil.create(
         "div",
-        "form-row field-wrap hidden",
+        `foliplus-form-row foliplus-field-wrap ${CONST.CLASSES.HIDDEN}`,
         this.extraBody,
       );
       const fieldLabel = L.DomUtil.create(
@@ -727,9 +727,9 @@
 
     /** Build the style section: classification, color scheme, border, label toggle, action buttons. */
     buildStyleSection() {
-      const styleHeading = L.DomUtil.create("div", "section-heading", this.extraBody);
+      const styleHeading = L.DomUtil.create("div", "foliplus-section-heading", this.extraBody);
       styleHeading.textContent = _(`${CONST.name}.section_style`);
-      const styleSection = L.DomUtil.create("div", "section-block", this.extraBody);
+      const styleSection = L.DomUtil.create("div", "foliplus-section-block", this.extraBody);
 
       // Classification method / classes
       const classRow = L.DomUtil.create("div", CONST.CLASSES.FORM_ROW, styleSection);
@@ -741,7 +741,7 @@
       classRowLabel.textContent = _(`${CONST.name}.class_method`);
       const classControlWrap = L.DomUtil.create(
         "div",
-        "form-control-wrap form-control-inline",
+        "foliplus-form-control-wrap foliplus-form-control-inline",
         classRow,
       );
       this.methodSelect = L.DomUtil.create(
@@ -762,7 +762,7 @@
 
       this.classSelect = L.DomUtil.create(
         "select",
-        "form-select class-count-select",
+        "foliplus-form-select foliplus-class-count-select",
         classControlWrap,
       );
       for (let ci = 2; ci <= 9; ci++) {
@@ -794,11 +794,11 @@
         CONST.CLASSES.FORM_CONTROL_WRAP,
         schemeRow,
       );
-      this.schemeBar = L.DomUtil.create("div", "scheme-bar", this.schemeControlWrap);
-      this.schemeBarInner = L.DomUtil.create("div", "scheme-bar-inner", this.schemeBar);
+      this.schemeBar = L.DomUtil.create("div", "foliplus-scheme-bar", this.schemeControlWrap);
+      this.schemeBarInner = L.DomUtil.create("div", "foliplus-scheme-bar-inner", this.schemeBar);
       this.schemeSelectHidden = L.DomUtil.create(
         "select",
-        "scheme-select-hidden",
+        "foliplus-scheme-select-hidden",
         this.schemeControlWrap,
       );
 
@@ -859,12 +859,12 @@
       borderRowLabel.textContent = _(`${CONST.name}.border`);
       const borderControlWrap = L.DomUtil.create(
         "div",
-        "form-control-wrap form-control-inline",
+        "foliplus-form-control-wrap foliplus-form-control-inline",
         borderRow,
       );
       this.borderColorInput = L.DomUtil.create(
         "input",
-        "border-color-input",
+        "foliplus-border-color-input",
         borderControlWrap,
       );
       this.borderColorInput.type = "color";
@@ -875,7 +875,7 @@
       };
       this.borderWeightInput = L.DomUtil.create(
         "input",
-        "border-weight-input",
+        "foliplus-border-weight-input",
         borderControlWrap,
       );
       this.borderWeightInput.type = "number";
@@ -891,7 +891,7 @@
       // Label toggle
       const labelRow = L.DomUtil.create(
         "div",
-        "form-row section-block-last",
+        "foliplus-form-row foliplus-section-block-last",
         styleSection,
       );
       const labelRowText = L.DomUtil.create(
@@ -905,7 +905,7 @@
         CONST.CLASSES.FORM_CONTROL_WRAP,
         labelRow,
       );
-      const labelToggle = L.DomUtil.create("label", "toggle-switch", labelControlWrap);
+      const labelToggle = L.DomUtil.create("label", "foliplus-toggle-switch", labelControlWrap);
       this.labelChk = L.DomUtil.create("input", "", labelToggle);
       this.labelChk.type = "checkbox";
       this.labelChk.checked = this.m.currentLabelShow;
@@ -913,12 +913,12 @@
         this.m.currentLabelShow = this.labelChk.checked;
         this.m.renderHexagons();
       };
-      L.DomUtil.create("span", "toggle-slider", labelToggle);
-      L.DomUtil.create("hr", "section-divider", this.extraBody);
+      L.DomUtil.create("span", "foliplus-toggle-slider", labelToggle);
+      L.DomUtil.create("hr", "foliplus-section-divider", this.extraBody);
 
       // Bottom action buttons
-      const btnRow = L.DomUtil.create("div", "btn-row", this.extraBody);
-      const clearBtn = L.DomUtil.create("button", "btn btn-clear", btnRow);
+      const btnRow = L.DomUtil.create("div", "foliplus-btn-row", this.extraBody);
+      const clearBtn = L.DomUtil.create("button", "foliplus-btn foliplus-btn-clear", btnRow);
       clearBtn.textContent = _(`${CONST.name}.clear`);
       clearBtn.onclick = () => {
         this.resetAll();
@@ -938,7 +938,7 @@
         this.container.classList.add(CONST.CLASSES.COLLAPSED);
       };
 
-      const confirmBtn = L.DomUtil.create("button", "btn btn-confirm", btnRow);
+      const confirmBtn = L.DomUtil.create("button", "foliplus-btn foliplus-btn-confirm", btnRow);
       confirmBtn.textContent = _(`${CONST.name}.confirm`);
       confirmBtn.onclick = () => {
         this.m.renderHexagons();
@@ -1079,7 +1079,7 @@
       for (const color of colors) {
         container.appendChild(
           window.foliplus.dom.el("div", {
-            class: "scheme-bar-block",
+            class: "foliplus-scheme-bar-block",
             style: `background:${color};width:${100 / colors.length}%`,
           }),
         );
@@ -1099,7 +1099,7 @@
       items.forEach((item) => {
         const name = item.getAttribute("data-scheme-name");
         if (!name) return;
-        const bar = item.querySelector(".scheme-dropdown-bar");
+        const bar = item.querySelector(".foliplus-scheme-dropdown-bar");
         if (bar) this.renderColorBar(bar, name, this.m.N_CLASSES);
       });
     }
@@ -1112,7 +1112,7 @@
       }
       this.schemeDropdown = L.DomUtil.create(
         "div",
-        "scheme-dropdown",
+        "foliplus-scheme-dropdown",
         this.schemeControlWrap,
       );
       this.schemeDropdown.setAttribute("role", "listbox");
@@ -1132,7 +1132,7 @@
           focusIdx = idx;
         }
 
-        const itemBar = L.DomUtil.create("div", "scheme-dropdown-bar", item);
+        const itemBar = L.DomUtil.create("div", "foliplus-scheme-dropdown-bar", item);
         this.renderColorBar(itemBar, name, this.m.N_CLASSES);
         item.title = name;
 
@@ -1216,7 +1216,7 @@
 
     syncSelect(el, value) {
       el.value = value;
-      el.classList.toggle("placeholder", !value || value === "_auto");
+      el.classList.toggle("foliplus-placeholder", !value || value === "_auto");
     }
   }
 

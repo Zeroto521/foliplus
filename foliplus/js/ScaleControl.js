@@ -23,11 +23,11 @@
     .addTo(map)
     .getContainer();
 
-  wrap.classList.add("scale-wrap");
+  wrap.classList.add("foliplus-scale-wrap");
 
   {% if this.show_zoom %};
   // ==================== Zoom Label ====================
-  const zoomLabel = L.DomUtil.create("span", "scale-zoom-label", wrap);
+  const zoomLabel = L.DomUtil.create("span", "foliplus-scale-zoom-label", wrap);
   const updateZoom = () => {
     zoomLabel.textContent = _(`${CONST.name}.zoom_label`).replace(
       "{zoom}",

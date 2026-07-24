@@ -53,13 +53,13 @@ class TestLayerControlRendering:
     def test_default_params(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layer-ctrl" in html
+        assert "foliplus-layer-ctrl" in html
 
     def test_color_layer_item(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "color-layer-item" in html
-        assert "color-layer-input" in html
+        assert "foliplus-color-layer-item" in html
+        assert "foliplus-color-layer-input" in html
         assert "foliplus_color_map" in html
 
     def test_color_layer_default_value(self, base_map: folium.Map):
@@ -221,8 +221,8 @@ class TestLayerControlRendering:
         html = render(m)
         # DOM API sets draggable at runtime via setAttribute
         assert 'draggable: "true"' in html or 'draggable="true"' in html
-        # Also check color-layer-item exists (non-draggable)
-        assert "color-layer-item" in html
+        # Also check foliplus-color-layer-item exists (non-draggable)
+        assert "foliplus-color-layer-item" in html
 
     def test_enforce_order_function(self, base_map: folium.Map):
         """enforceOrder is called and not skipped for base maps."""
@@ -245,7 +245,7 @@ class TestLayerControlRendering:
         """click handler on color-layer-item present in rendered code."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "color-layer-item" in html
+        assert "foliplus-color-layer-item" in html
         assert "deselectAllBaseMaps" in html
 
     def test_drag_base_map_allowed(self):
@@ -482,8 +482,8 @@ class TestLayerControlRendering:
         """Each layer-item has checkbox-wrapper, label, type-icon-col."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "checkbox-wrapper" in html
-        assert "type-icon-col" in html
+        assert "foliplus-checkbox-wrapper" in html
+        assert "foliplus-type-icon-col" in html
 
     def test_color_map_id_constant(self, base_map: folium.Map):
         """Color map uses a special constant ID for identification."""
@@ -738,7 +738,7 @@ class TestLayerControlRendering:
         """Geometry icons use currentColor via CSS instead of inline SVG attributes."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert ".type-icon-col svg" in html
+        assert ".foliplus-type-icon-col svg" in html
         assert "stroke: currentColor" in html
         assert "#a4a4a4" not in html
         assert "color: var(--text-primary);" in html
@@ -748,19 +748,19 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # Color layer picker (via :is() selector, no literal :hover string)
-        assert "color-layer-input" in html
+        assert "foliplus-color-layer-input" in html
         # Fold toggle button SVG
-        assert "fold-toggle-btn:hover svg" in html
-        assert "fold-toggle-btn:active" in html
+        assert "foliplus-fold-toggle-btn:hover svg" in html
+        assert "foliplus-fold-toggle-btn:active" in html
         # Type icon column transition
-        assert "type-icon-col svg" in html
+        assert "foliplus-type-icon-col svg" in html
         assert "transition: transform" in html
         # Layer item hover on type icon
-        assert "layer-item:hover .type-icon-col svg" in html
+        assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" in html
         # Active state on type icon
-        assert "active .type-icon-col svg" in html
+        assert "active .foliplus-type-icon-col svg" in html
         # Toggle button SVG inherits color
-        assert "toggle-btn svg" in html
+        assert "foliplus-toggle-btn svg" in html
         assert "stroke: currentColor" in html
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
@@ -861,7 +861,7 @@ class TestLayerControlRendering:
         """createCanvas inserts canvas into leaflet-map-pane."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'L.DomUtil.create("canvas", "heatmap-canvas", mapPane)' in html
+        assert 'L.DomUtil.create("canvas", "foliplus-heatmap-canvas", mapPane)' in html
         assert "mapPane" in html
 
     def test_layer_callbacks_stored(self, base_map: folium.Map):
@@ -982,11 +982,11 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
-            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.evaluate('document.querySelector(".foliplus-layer-ctrl .toggle-btn").click()')
             page.wait_for_selector(
-                ".layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
             page.wait_for_selector(
                 '.layer-item[data-layer-type="base"]', state="attached", timeout=5000
@@ -1029,7 +1029,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             api = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1085,7 +1085,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1123,7 +1123,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1161,7 +1161,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1195,7 +1195,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             ok = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1217,7 +1217,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1251,7 +1251,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             api = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1293,7 +1293,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1325,7 +1325,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1360,7 +1360,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1386,7 +1386,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1418,7 +1418,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1444,7 +1444,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             # Check initial state — all overlays checked
             result = page.evaluate("""() => {
@@ -1468,7 +1468,7 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
@@ -1505,10 +1505,10 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
-            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".foliplus-layer-ctrl .toggle-btn").click()')
             page.wait_for_selector(
-                ".layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
             # Click the overlay fold button
@@ -1556,10 +1556,10 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
-            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".foliplus-layer-ctrl .toggle-btn").click()')
             page.wait_for_selector(
-                ".layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
             # Click the base fold button
@@ -1602,10 +1602,10 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
-            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".foliplus-layer-ctrl .toggle-btn").click()')
             page.wait_for_selector(
-                ".layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
             # Click fold button
@@ -1656,10 +1656,10 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
-            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".foliplus-layer-ctrl .toggle-btn").click()')
             page.wait_for_selector(
-                ".layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
             # Count DOM items before fold (3 overlays + 1 default OSM base)
@@ -1697,10 +1697,10 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
-            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".foliplus-layer-ctrl .toggle-btn").click()')
             page.wait_for_selector(
-                ".layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
             # Check initial SVG (FOLD = 1 polyline, UNFOLD = 1 polyline)
@@ -1740,10 +1740,10 @@ class TestLayerControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".layer-ctrl", state="attached", timeout=10000)
-            page.evaluate('document.querySelector(".layer-ctrl .toggle-btn").click()')
+            page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+            page.evaluate('document.querySelector(".foliplus-layer-ctrl .toggle-btn").click()')
             page.wait_for_selector(
-                ".layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
             cursor = page.evaluate("""() => {
                 const el = document.querySelector('.color-layer-item');
