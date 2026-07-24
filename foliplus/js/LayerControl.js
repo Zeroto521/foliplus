@@ -1684,7 +1684,7 @@
                 <span class="foliplus-header-icon">${SVGs.LAYERS}</span>
                 ${_(CONST.name + ".panel_title")}
               </span>
-              <button class="foliplus-ctrl-abs-btn" title="${_(CONST.name + ".close_title")}"
+              <button class="foliplus-ctrl-btn" title="${_(CONST.name + ".close_title")}"
                       aria-label="${_(CONST.name + ".close_title")}">
                 ${window.foliplus.SVGs.CLOSE}
               </button>

@@ -69,6 +69,7 @@
     EXPANDED: "expanded",
     TOGGLE_BTN: "foliplus-toggle-btn",
     LEAFLET_BAR: "leaflet-bar leaflet-control",
+    MAP_HINT: "foliplus-map-hint",
   };
 
   // --- SVG Icons ---
@@ -149,14 +150,14 @@
     if (!append) foliplus.hideHint(key);
     const hintTarget = document.fullscreenElement || document.body;
     const cls = append
-      ? `foliplus-map-hint foliplus-map-hint-${key}-${Date.now()}`
-      : `foliplus-map-hint foliplus-map-hint-${key}`;
+      ? `${CLASSES.MAP_HINT} ${CLASSES.MAP_HINT}-${key}-${Date.now()}`
+      : `${CLASSES.MAP_HINT} ${CLASSES.MAP_HINT}-${key}`;
     const el = L.DomUtil.create("div", cls, hintTarget);
     const icon = (hintIcons && hintIcons[key]) || "";
     el.innerHTML = icon
       ? `<span class="foliplus-map-hint-icon">${icon}</span>${text}`
       : text;
-    el.classList.add("foliplus-map-hint");
+    el.classList.add(CLASSES.MAP_HINT);
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
       const cs = window.getComputedStyle(hintTarget);
       if (cs.position === "static") hintTarget.style.position = "relative";
