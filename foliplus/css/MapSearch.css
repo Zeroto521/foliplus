@@ -1,11 +1,11 @@
-.map-search.expanded {
+.foliplus-map-search.foliplus-expanded {
   width: var(--panel-width);
   height: auto;
   box-shadow: var(--panel-shadow);
   overflow: hidden;
 }
 /* ── Clear Button Wrapper ── */
-.map-search .clear-wrap {
+.foliplus-map-search .foliplus-clear-wrap {
   position: relative;
   display: flex;
   align-items: center;
@@ -13,7 +13,7 @@
   height: var(--ctrl-size);
 }
 /* ── Input Field ── */
-.map-search input {
+.foliplus-map-search input {
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   padding: 0 calc(var(--ctrl-size) - var(--space-xs)) 0 var(--space-md);
@@ -27,6 +27,6 @@
   box-shadow: none;
   transition: var(--transition-input);
 }
-.map-search input::placeholder {
+.foliplus-map-search input::placeholder {
   color: var(--text-muted);
 }

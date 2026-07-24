@@ -1,4 +1,4 @@
-.leaflet-control.scale-wrap {
+.leaflet-control.foliplus-scale-wrap {
   padding: 0;
   margin: 0;
   white-space: nowrap;
@@ -14,8 +14,8 @@
   box-shadow: none;
   height: calc(var(--font-size-xs) + var(--space-sm));
 }
-.leaflet-control.scale-wrap .leaflet-control-scale-line,
-.leaflet-control.scale-wrap .scale-zoom-label {
+.leaflet-control.foliplus-scale-wrap .leaflet-control-scale-line,
+.leaflet-control.foliplus-scale-wrap .foliplus-scale-zoom-label {
   height: calc(var(--font-size-xs) + var(--space-sm));
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -26,7 +26,7 @@
   box-sizing: border-box;
   line-height: normal;
 }
-.leaflet-control.scale-wrap .leaflet-control-scale-line {
+.leaflet-control.foliplus-scale-wrap .leaflet-control-scale-line {
   border: var(--border-thin) solid transparent;
   border-bottom: var(--space-xs) solid var(--text-primary);
   border-left: var(--space-xs) solid var(--text-primary);
@@ -37,7 +37,7 @@
   box-shadow: none;
   border-radius: 0;
 }
-.leaflet-control.scale-wrap .scale-zoom-label {
+.leaflet-control.foliplus-scale-wrap .foliplus-scale-zoom-label {
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }

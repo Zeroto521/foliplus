@@ -136,7 +136,7 @@
 
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.
-  Hint z-index is managed by runtime.js (HINT.Z_BASE = 10000).
+  Hint z-index is managed by runtime.js (HINT.foliplus-Z_BASE = 10000).
   CSS only defines dropdown z-index (below hints). */
   --z-index-dropdown: 9990;
   --z-index-control: 1000;
@@ -152,7 +152,7 @@
   }
 }
 
-.spin {
+.foliplus-spin {
   animation: spin 0.8s linear infinite;
   vertical-align: middle;
 }
@@ -161,7 +161,14 @@
   All SVGs in foliplus components default to 18×18.
   PIN_ICON, drag-handle override per their context.
 ── */
-:is(.ctrl-fold, .tool-btn, .map-hint-icon, .header-icon, .type-icon-col) svg {
+:is(
+    .foliplus-ctrl-fold,
+    .foliplus-tool-btn,
+    .foliplus-map-hint-icon,
+    .foliplus-header-icon,
+    .foliplus-type-icon-col
+  )
+  svg {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   stroke: currentColor;
@@ -171,14 +178,19 @@
   stroke-linejoin: round;
 }
 /* Drag handle circles need fill to be visible; override the fill:none above */
-.ctrl-fold svg.drag-handle circle,
-.layer-ctrl svg.drag-handle circle {
+.foliplus-ctrl-fold svg.foliplus-drag-handle circle,
+.foliplus-layer-ctrl svg.foliplus-drag-handle circle {
   fill: currentColor;
 }
 
 /* ── Unified Component Button Reset ──
   Base reset for all foliplus buttons. */
-:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn) {
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-abs-btn
+) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -198,7 +210,12 @@
   All buttons share the same hover background, text color, and scale.
   Component-specific buttons (e.g. HeatmapControl btn-clear) override
   color in their own CSS to keep their text white. */
-:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn):hover {
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-abs-btn
+):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
   transform: scale(var(--scale-hover));
@@ -206,23 +223,28 @@
 
 /* All buttons: press scale uses inherited transition (--transition-fast, 0.15s)
   MUST come AFTER :hover so it wins on same specificity (0,2,0). */
-:is(.toggle-btn, .tool-btn, .search-mode-btn, .ctrl-abs-btn):active {
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-abs-btn
+):active {
   transform: scale(var(--scale-press));
 }
 
 /* ── Button hover/active SVG scale ──
   SVG-level parallax for buttons that also have button-level scale.
   toggle-btn added via expanded context for fold controls. */
-:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):hover svg {
+:is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-abs-btn):hover svg {
   transform: scale(var(--scale-hover));
 }
-:is(.tool-btn, .search-mode-btn, .ctrl-abs-btn):active svg {
+:is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-abs-btn):active svg {
   transition: transform var(--transition-fast);
   transform: scale(var(--scale-press));
 }
 
 /* ── Toggle Button Base ── */
-.toggle-btn {
+.foliplus-toggle-btn {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   min-width: var(--ctrl-size);
@@ -230,15 +252,15 @@
   border-radius: var(--radius-sm);
   color: var(--text-primary);
 }
-.toggle-btn svg {
+.foliplus-toggle-btn svg {
   width: 18px;
   height: 18px;
   stroke: currentColor;
 }
 
 /* ── Tool Button Base (used by MeasureControl toolbar, MapSearch mode switch) ── */
-.tool-btn,
-.search-mode-btn {
+.foliplus-tool-btn,
+.foliplus-search-mode-btn {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   min-width: var(--ctrl-size);
@@ -248,7 +270,7 @@
 }
 
 /* ── Map Hint (Toast Notification) ── */
-.map-hint {
+.foliplus-map-hint {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -268,19 +290,19 @@
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
 }
 
-.map-hint-icon {
+.foliplus-map-hint-icon {
   display: inline-flex;
   align-items: center;
 }
 
 /* ── Section Divider ── */
-.section-divider {
+.foliplus-section-divider {
   height: var(--border-thin);
   background: linear-gradient(to right, transparent, var(--divider-color), transparent);
   border: none;
 }
 
-.ctrl-abs-btn {
+.foliplus-ctrl-abs-btn {
   position: absolute;
   right: 0;
   top: calc(50% - var(--ctrl-size) / 2);
@@ -290,7 +312,7 @@
   border-radius: 0;
 }
 
-.pin-wrap {
+.foliplus-pin-wrap {
   position: relative;
   width: var(--size-24);
   height: var(--toggle-size);
@@ -305,20 +327,20 @@
 
 /* ── Hover/Focus: red border + red glow ── */
 :is(
-  .map-search input,
-  .heatmap-ctrl .form-select,
-  .heatmap-ctrl select,
-  .heatmap-ctrl .border-color-input,
-  .heatmap-ctrl .border-weight-input,
-  .heatmap-ctrl .scheme-bar,
-  .layer-ctrl input[type="checkbox"],
-  .layer-ctrl .color-layer-input
+  .foliplus-map-search input,
+  .foliplus-heatmap-ctrl .foliplus-form-select,
+  .foliplus-heatmap-ctrl select,
+  .foliplus-heatmap-ctrl .foliplus-border-color-input,
+  .foliplus-heatmap-ctrl .foliplus-border-weight-input,
+  .foliplus-heatmap-ctrl .foliplus-scheme-bar,
+  .foliplus-layer-ctrl input[type="checkbox"],
+  .foliplus-layer-ctrl .foliplus-color-layer-input
 ):is(:hover, :focus) {
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 
-.popup-content {
+.foliplus-popup-content {
   font-size: var(--font-size-md);
   line-height: var(--line-height-popup);
 }
@@ -326,14 +348,14 @@
 /* ── Ctrl Fold (Shared Container) ──
   Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
   Expanded: defined by component or shared extension rules */
-.ctrl-fold {
+.foliplus-ctrl-fold {
   display: flex;
   align-items: stretch;
   background: var(--ctrl-bg);
   box-sizing: border-box;
   border-radius: var(--radius-sm);
 }
-.ctrl-fold.collapsed {
+.foliplus-ctrl-fold.foliplus-collapsed {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   border: 0;
@@ -341,19 +363,20 @@
   overflow: visible;
 }
 /* Expanded toggle-btn shared styles */
-.ctrl-fold.expanded .toggle-btn {
+.foliplus-ctrl-fold.foliplus-expanded .foliplus-toggle-btn {
   background: transparent;
   color: var(--accent-primary);
 }
-.ctrl-fold.expanded .toggle-btn:hover {
+.foliplus-ctrl-fold.foliplus-expanded .foliplus-toggle-btn:hover {
   background: var(--accent-light);
 }
 
 /* ── Separator between toggle button and tools (non-map-panel) ── */
-.ctrl-fold:not(.map-panel).expanded .toggle-btn {
+.foliplus-ctrl-fold:not(.foliplus-map-panel).foliplus-expanded .foliplus-toggle-btn {
   border-right: var(--border-thin) solid var(--divider-color);
 }
-.ctrl-fold:not(.map-panel).expanded.align-right .toggle-btn {
+.foliplus-ctrl-fold:not(.foliplus-map-panel).foliplus-expanded.foliplus-align-right
+  .foliplus-toggle-btn {
   border-right: none;
   border-left: var(--border-thin) solid var(--divider-color);
 }
@@ -361,20 +384,20 @@
 /* ── Shared Toolbar ──
   Used by MeasureControl / ExportControl
   Separator via toggle-btn border-right (avoids flex compression issues) */
-.ctrl-fold .tool-bar {
+.foliplus-ctrl-fold .foliplus-tool-bar {
   display: none;
   align-items: center;
   gap: 0;
   flex: 1;
   min-width: 0;
 }
-.ctrl-fold.expanded .tool-bar {
+.foliplus-ctrl-fold.foliplus-expanded .foliplus-tool-bar {
   display: flex;
 }
 /* Right-aligned layout: toggle-btn at right edge, toolbar leftwards */
-.ctrl-fold.align-right {
+.foliplus-ctrl-fold.foliplus-align-right {
   flex-direction: row-reverse;
 }
-.ctrl-fold.align-right .tool-bar {
+.foliplus-ctrl-fold.foliplus-align-right .foliplus-tool-bar {
   flex-direction: row-reverse;
 }
