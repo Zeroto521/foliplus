@@ -40,16 +40,16 @@ class TestFullscreenRendering:
         assert "fullscreen" in html.lower()
 
     def test_hide_self_default(self, base_map: folium.Map):
-        """hide_self=true injects the hide-zoom-container block."""
+        """hide_self=true injects the fullscreen-toggle hide block."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert 'container.style.display = isFull ? "none" : ""' in html
+        assert 'fsToggle.style.display = isFull ? "none" : ""' in html
 
     def test_hide_self_false(self, base_map: folium.Map):
         """hide_self=false wraps hide block in if (false)."""
         Fullscreen(hide_self=False).add_to(base_map)
         html = render(base_map)
-        assert 'container.style.display = isFull ? "none" : ""' in html
+        assert 'fsToggle.style.display = isFull ? "none" : ""' in html
         assert "if (false)" in html
 
     def test_contains_fullscreenchange_listener(self, base_map: folium.Map):
@@ -170,7 +170,7 @@ class TestFullscreenRendering:
         """hide_self still works when hide_others=false."""
         Fullscreen(hide_self=True, hide_others=False).add_to(base_map)
         html = render(base_map)
-        assert 'container.style.display = isFull ? "none" : ""' in html
+        assert 'fsToggle.style.display = isFull ? "none" : ""' in html
 
 
 class TestFullscreenBrowser:

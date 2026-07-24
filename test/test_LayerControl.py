@@ -690,8 +690,7 @@ class TestLayerControlRendering:
         """showColorLayer hides tilePane visibility and opacity."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'tilePane.style.visibility = "hidden"' in html
-        assert 'tilePane.style.opacity = "0"' in html
+        assert 'tilePane.classList.add("foliplus-layer-tile-hidden")' in html
 
     def test_public_api_get_layer_type(self, base_map: folium.Map):
         """getLayerType is exposed via LayerControlAPI."""

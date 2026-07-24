@@ -180,7 +180,7 @@
   .foliplus-heatmap-form-control-wrap {
   position: relative;
 }
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-hidden {
+.foliplus-heatmap-ctrl .hidden {
   position: absolute;
   width: 0;
   height: 0;

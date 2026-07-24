@@ -77,7 +77,7 @@
       SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
       SCHEME_DROPDOWN: "foliplus-heatmap-scheme-dropdown",
       SCHEME_DROPDOWN_BAR: "foliplus-heatmap-scheme-dropdown-bar",
-      SCHEME_SELECT_HIDDEN: "foliplus-heatmap-scheme-hidden",
+      SCHEME_SELECT_HIDDEN: "hidden",
       BTN: "foliplus-heatmap-btn",
       BTN_ROW: "foliplus-heatmap-btn-row",
       BTN_CLEAR: "foliplus-heatmap-btn-clear",
@@ -157,8 +157,8 @@
       this.currentMethod = CONST.METHOD;
       this.autoFieldKey = null;
       this.numClasses = CONST.N_CLASSES;
-      this.BORDER_W = CONST.BORDER.W;
-      this.BORDER_COLOR = CONST.BORDER.COLOR;
+      this.borderWeight = CONST.BORDER.W;
+      this.borderColor = CONST.BORDER.COLOR;
       this.currentLabelShow = CONST.LABEL.SHOW;
       this.valueFallbackWarned = false;
       // Create a managed canvas via LayerControl API.
@@ -267,9 +267,9 @@
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      if (this.BORDER_W > 0 && CONST.BORDER.OP > 0) {
-        ctx.strokeStyle = this.BORDER_COLOR;
-        ctx.lineWidth = this.BORDER_W;
+      if (this.borderWeight > 0 && CONST.BORDER.OP > 0) {
+        ctx.strokeStyle = this.borderColor;
+        ctx.lineWidth = this.borderWeight;
         ctx.globalAlpha = CONST.BORDER.OP;
         ctx.stroke();
         ctx.globalAlpha = 1;
@@ -922,9 +922,9 @@
         borderControlWrap,
       );
       this.borderColorInput.type = "color";
-      this.borderColorInput.value = this.m.BORDER_COLOR;
+      this.borderColorInput.value = this.m.borderColor;
       this.borderColorInput.oninput = () => {
-        this.m.BORDER_COLOR = this.borderColorInput.value;
+        this.m.borderColor = this.borderColorInput.value;
         this.m.renderHexagons();
       };
       this.borderWeightInput = L.DomUtil.create(
@@ -936,9 +936,9 @@
       this.borderWeightInput.min = 0;
       this.borderWeightInput.max = 10;
       this.borderWeightInput.step = 0.5;
-      this.borderWeightInput.value = this.m.BORDER_W;
+      this.borderWeightInput.value = this.m.borderWeight;
       this.borderWeightInput.onchange = () => {
-        this.m.BORDER_W = parseFloat(this.borderWeightInput.value) || 1;
+        this.m.borderWeight = parseFloat(this.borderWeightInput.value) || 1;
         this.m.renderHexagons();
       };
 
@@ -1279,8 +1279,8 @@
       this.m.currentMethod = CONST.METHOD;
       this.m.currentScheme = CONST.SCHEME;
       this.m.currentLabelShow = CONST.LABEL.SHOW;
-      this.m.BORDER_W = CONST.BORDER.W;
-      this.m.BORDER_COLOR = CONST.BORDER.COLOR;
+      this.m.borderWeight = CONST.BORDER.W;
+      this.m.borderColor = CONST.BORDER.COLOR;
       this.m.clearHeatmapCanvas();
     }
 

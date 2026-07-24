@@ -1580,10 +1580,7 @@
       }
 
       const tilePane = this.m.map.getPane("tilePane");
-      if (tilePane) {
-        tilePane.style.visibility = "hidden";
-        tilePane.style.opacity = "0";
-      }
+      if (tilePane) tilePane.classList.add("foliplus-layer-tile-hidden");
 
       const inputs = this.m.uiContainer.querySelectorAll(
         `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
@@ -1607,10 +1604,7 @@
       this.m.isColorActive = false;
       mapContainer.style.background = "";
       const tilePane = this.m.map.getPane("tilePane");
-      if (tilePane) {
-        tilePane.style.visibility = "";
-        tilePane.style.opacity = "";
-      }
+      if (tilePane) tilePane.classList.remove("foliplus-layer-tile-hidden");
       this.m.uiContainer
         .querySelector(CONST.SEL.COLOR_ITEM)
         ?.classList.remove(CONST.CLASSES.COLOR_ACTIVE);

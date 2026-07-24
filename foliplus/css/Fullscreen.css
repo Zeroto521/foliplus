@@ -35,6 +35,11 @@
   border-bottom: none;
 }
 
+/* ── Hide controls when entering fullscreen ── */
+.foliplus-fullscreen-hidden {
+  display: none;
+}
+
 /* ── Fullscreen container styles ──
   Required for the fullscreen API to work correctly.
   Copied from leaflet.foliplus-fullscreen CDN CSS. */

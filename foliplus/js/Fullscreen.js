@@ -156,11 +156,14 @@
             .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
           for (const c of controls) {
             if (c.contains(container) || c.closest?.("#" + getContainerId())) continue;
-            c.style.display = isFull ? "none" : "";
+            c.classList.toggle("foliplus-fullscreen-hidden", isFull);
           }
         }
 
-        if ({{ this.hide_self | tojson }}) container.style.display = isFull ? "none" : "";
+        if ({{ this.hide_self | tojson }}) {
+          const fsToggle = container.querySelector("." + CONST.CLASSES.FS_TOGGLE);
+          if (fsToggle) fsToggle.style.display = isFull ? "none" : "";
+        }
 
         window.foliplus.showHint(
           CONST.name,

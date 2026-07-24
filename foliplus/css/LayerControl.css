@@ -346,3 +346,9 @@
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
+
+/* ── Tile pane hidden state ── */
+.foliplus-layer-tile-hidden {
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
