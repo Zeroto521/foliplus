@@ -141,14 +141,14 @@ class TestMeasureControlRendering:
         """MEASURE_ID constant is used for layer registration."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'MEASURE_ID: "foliplus_measure"' in html
+        assert 'ID: "foliplus_measure"' in html
 
     def test_graph_label_pane_constants(self, base_map: folium.Map):
-        """GRAPH_PANE and LABEL_PANE constants are defined."""
+        """PANES constants are defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'GRAPH_PANE: "measure_graph"' in html
-        assert 'LABEL_PANE: "measure_label"' in html
+        assert 'GRAPH: "measure_graph"' in html
+        assert 'LABEL: "measure_label"' in html
 
     def test_stop_event_utility(self, base_map: folium.Map):
         """MeasureUtils.stopEvent stops propagation and default."""
@@ -195,7 +195,7 @@ class TestMeasureControlRendering:
         """toggleDelIcon retries with delay up to DEL_ICON_RETRY_LIMIT times."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "retries < CONST.DEL_ICON_RETRY_LIMIT" in html
+        assert "retries < CONST.DEL_ICON.RETRY_LIMIT" in html
         assert "MeasureUtils.toggleDelIcon(mkr, show, retries + 1)" in html
 
     def test_attach_del_click_utility(self, base_map: folium.Map):
@@ -237,26 +237,26 @@ class TestMeasureControlRendering:
         """Click cooldown constant is defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "CLICK_COOLDOWN_MS: 300" in html
+        assert "CLICK_COOLDOWN: 300" in html
 
     def test_finalize_delay(self, base_map: folium.Map):
         """Finalize delay constant is defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "FINALIZE_DELAY_MS: 50" in html
+        assert "FINALIZE_DELAY: 50" in html
 
     def test_center_dot_size(self, base_map: folium.Map):
         """Center dot size constants are defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "CENTER_DOT_SIZE: [12, 12]" in html
-        assert "CENTER_DOT_ANCHOR: [6, 6]" in html
+        assert "SIZE: [12, 12]" in html
+        assert "ANCHOR: [6, 6]" in html
 
     def test_label_anchor(self, base_map: folium.Map):
         """Label anchor is above center."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "LABEL_ANCHOR: [0, -10]" in html
+        assert "ANCHOR: [0, -10]" in html
 
     def test_is_finalizing_guard(self, base_map: folium.Map):
         """Circle mode guards against double-finalize with isFinalizing."""
@@ -395,7 +395,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "makeNode" in html
-        assert "MARKER_RADIUS" in html
+        assert "RADIUS: 5" in html
 
     def test_make_del_icon(self, base_map: folium.Map):
         """MeasureUtils.makeDelIcon creates a delete icon marker."""

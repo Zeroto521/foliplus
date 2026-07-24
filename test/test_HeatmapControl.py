@@ -403,7 +403,7 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "INIT_SCAN_ATTEMPTS" in html
-        assert "H3_RES_FALLBACK" in html
+        assert "RES_FALLBACK: 12" in html
 
     # ── Performance optimization tests ──
 

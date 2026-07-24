@@ -4,16 +4,26 @@
     name: "LayerControl",
     INIT_DELAY_MS: 300,
     ENFORCE_ORDER_DEBOUNCE_MS: 50,
-    Z_INDEX_BASE: 600,
-    TILE_Z_INDEX_BASE: 200,
-    Z_INDEX_STEP: 10,
-    PANE_RECURSION_DEPTH: 5,
-    DRAG_HINT_COOLDOWN_MS: 800,
-    LAYER_RECURSION_DEPTH: 10,
-    ORDER_STORAGE_KEY: "foliplus_layer_order",
-    FOLD_STORAGE_KEY: "foliplus_fold_state",
-    COLOR_MAP_ID: "foliplus_color_map",
-    COLOR_DEFAULT: "#cccccc",
+    Z_INDEX: {
+      BASE: 600,
+      TILE_BASE: 200,
+      STEP: 10,
+    },
+    RECURSION: {
+      PANE_DEPTH: 5,
+      LAYER_DEPTH: 10,
+    },
+    DRAG: {
+      HINT_COOLDOWN_MS: 800,
+    },
+    STORAGE: {
+      ORDER_KEY: "foliplus_layer_order",
+      FOLD_KEY: "foliplus_fold_state",
+    },
+    COLOR: {
+      MAP_ID: "foliplus_color_map",
+      DEFAULT: "#cccccc",
+    },
     RENDERER_KEY: "foliplus_renderer_",
     FALLBACK_PANE_PREFIX: "foliplus_pane_",
   };
@@ -166,7 +176,7 @@
      * @param {number} [depth=0] - Internal recursion depth.
      */
     static forEachLeaf(layer, fn, depth = 0) {
-      if (!layer || depth > CONST.LAYER_RECURSION_DEPTH) return;
+      if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
       if (typeof layer.eachLayer === "function") {
         layer.eachLayer((c) => LayerUtils.forEachLeaf(c, fn, depth + 1));
       } else if (layer._layers) {
@@ -184,7 +194,7 @@
      * @param {number} [depth=0] - Internal recursion depth.
      */
     static forEachLayer(layer, fn, depth = 0) {
-      if (!layer || depth > CONST.LAYER_RECURSION_DEPTH) return;
+      if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
       fn(layer);
       if (typeof layer.eachLayer === "function") {
         layer.eachLayer((c) => LayerUtils.forEachLayer(c, fn, depth + 1));
@@ -210,7 +220,7 @@
       this.uiContainer = null;
 
       this.colorActive = false;
-      this.currentColor = CONST.COLOR_DEFAULT;
+      this.currentColor = CONST.COLOR.DEFAULT;
       this.dragIdx = null;
       this.lastDragHintAt = 0;
       this.foldedGroups = new Set();
@@ -281,7 +291,7 @@
 
     loadSavedOrder() {
       try {
-        const data = localStorage.getItem(CONST.ORDER_STORAGE_KEY);
+        const data = localStorage.getItem(CONST.STORAGE.ORDER_KEY);
         if (!data) return;
         const ids = JSON.parse(data);
         if (!Array.isArray(ids)) return;
@@ -302,7 +312,7 @@
     saveOrder() {
       try {
         localStorage.setItem(
-          CONST.ORDER_STORAGE_KEY,
+          CONST.STORAGE.ORDER_KEY,
           JSON.stringify(this.layers.map((l) => l.id)),
         );
       } catch (e) {
@@ -312,7 +322,7 @@
 
     loadFoldState() {
       try {
-        const data = localStorage.getItem(CONST.FOLD_STORAGE_KEY);
+        const data = localStorage.getItem(CONST.STORAGE.FOLD_KEY);
         if (!data) return;
         const groups = JSON.parse(data);
         if (!Array.isArray(groups)) return;
@@ -325,7 +335,7 @@
     saveFoldState() {
       try {
         localStorage.setItem(
-          CONST.FOLD_STORAGE_KEY,
+          CONST.STORAGE.FOLD_KEY,
           JSON.stringify(Array.from(this.foldedGroups)),
         );
       } catch (e) {
@@ -711,7 +721,7 @@
         // dashed lines during drawing, before register() is called).
         // enforceOrder() will override this with the correct layer z-index
         // once the layer is registered.
-        pane.style.zIndex = String(CONST.Z_INDEX_BASE);
+        pane.style.zIndex = String(CONST.Z_INDEX.BASE);
       }
       let renderer = null;
       if (needRenderer) {
@@ -877,7 +887,7 @@
      *  Results are cached by layer stamp; call `paneCache.clear()`
      *  when layer structure changes (register/unregister). */
     discoverChildPanes(layer, depth = 0) {
-      if (depth > CONST.PANE_RECURSION_DEPTH) return [];
+      if (depth > CONST.RECURSION.PANE_DEPTH) return [];
       const key = L.stamp(layer);
       if (this.paneCache.has(key)) return this.paneCache.get(key);
       const panes = new Set();
@@ -900,8 +910,8 @@
 
     /** Compute z-index for a layer at position i. */
     computeZIndex(i, isTile) {
-      const zBase = isTile ? CONST.TILE_Z_INDEX_BASE : CONST.Z_INDEX_BASE;
-      return zBase + (this.layers.length - i) * CONST.Z_INDEX_STEP;
+      const zBase = isTile ? CONST.Z_INDEX.TILE_BASE : CONST.Z_INDEX.BASE;
+      return zBase + (this.layers.length - i) * CONST.Z_INDEX.STEP;
     }
 
     enforceOrder() {
@@ -1177,7 +1187,7 @@
         {
           class: "layer-item color-layer-item",
           draggable: "false",
-          "data-layer-id": CONST.COLOR_MAP_ID,
+          "data-layer-id": CONST.COLOR.MAP_ID,
           title: _(`${CONST.name}.color_map_label`),
         },
         { html: SVGS.DRAG_HANDLE },
@@ -1420,7 +1430,7 @@
 
     showReorderBlockedHint() {
       const now = Date.now();
-      if (now - this.m.lastDragHintAt < CONST.DRAG_HINT_COOLDOWN_MS) return;
+      if (now - this.m.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
       this.m.lastDragHintAt = now;
       if (window.foliplus && typeof window.foliplus.showHint === "function") {
         window.foliplus.showHint(

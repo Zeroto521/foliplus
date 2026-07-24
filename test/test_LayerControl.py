@@ -380,10 +380,10 @@ class TestLayerControlRendering:
         """TileLayers use z-index base 200 in enforceOrder."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "zBase = isTile ? CONST.TILE_Z_INDEX_BASE : CONST.Z_INDEX_BASE" in html
+        assert "zBase = isTile ? CONST.Z_INDEX.TILE_BASE : CONST.Z_INDEX.BASE" in html
         # Both 200 and 600 appear as z-index bases
-        assert "CONST.Z_INDEX_BASE" in html
-        assert "CONST.TILE_Z_INDEX_BASE" in html
+        assert "CONST.Z_INDEX.BASE" in html
+        assert "CONST.Z_INDEX.TILE_BASE" in html
 
     def test_compute_zindex_extracted(self, base_map: folium.Map):
         """computeZIndex is a standalone method in LayerManager."""
@@ -460,7 +460,7 @@ class TestLayerControlRendering:
         """discoverChildPanes enforces recursion depth limit."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "depth > CONST.PANE_RECURSION_DEPTH" in html
+        assert "depth > CONST.RECURSION.PANE_DEPTH" in html
 
     def test_discover_child_panes_skips_default(self, base_map: folium.Map):
         """discoverChildPanes filters out default panes."""
@@ -492,14 +492,14 @@ class TestLayerControlRendering:
         """Color map uses a special constant ID for identification."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "COLOR_MAP_ID" in html
+        assert "CONST.COLOR.MAP_ID" in html
 
     def test_hint_duration_constants_in_layer(self, base_map: folium.Map):
         """LayerControl uses hint duration constants (not hardcoded values)."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "HINT_DURATION" in html
-        assert "DRAG_HINT_COOLDOWN_MS" in html
+        assert "HINT_COOLDOWN_MS: 800" in html
 
     def test_separator_container_has_base_label(self, base_map: folium.Map):
         """Separator label uses localized base_map_label key."""
@@ -735,7 +735,7 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "showReorderBlockedHint" in html
         assert "LayerControl.reorder_group_only" in html
-        assert "DRAG_HINT_COOLDOWN_MS" in html
+        assert "HINT_COOLDOWN_MS: 800" in html
 
     def test_type_icons_use_current_color(self, base_map: folium.Map):
         """Geometry icons use currentColor via CSS instead of inline SVG attributes."""

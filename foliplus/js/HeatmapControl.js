@@ -2,50 +2,58 @@
   // ==================== Constants ====================
   const CONST = {
     name: "HeatmapControl",
-    ZOOM_DEBOUNCE_MS: 200,
-    LAYER_SCAN_DEBOUNCE_MS: 200,
-    INIT_SCAN_ATTEMPTS: 8,
-    INIT_SCAN_INTERVAL_MS: 300,
-    SCHEME_DROPDOWN_BLUR_DELAY_MS: 150,
-    LOAD_SCRIPT_RETRIES: 2,
-    LOAD_SCRIPT_INTERVAL_MS: 3000,
-    DEFAULT_GRAY: "#999",
-    H3_RES_MAP: [
-      [2, 0],
-      [3, 1],
-      [4, 1],
-      [5, 2],
-      [6, 3],
-      [7, 4],
-      [8, 4],
-      [9, 5],
-      [10, 6],
-      [11, 6],
-      [12, 7],
-      [13, 7],
-      [14, 8],
-      [15, 9],
-      [16, 9],
-      [17, 10],
-      [18, 11],
-      [19, 11],
-      [20, 12],
-    ],
-    H3_RES_FALLBACK: 12,
-    HEATMAP_ID: "foliplus_heatmap",
-    AGG_DEFAULT: "{{ this.agg }}",
-    FIELD_DEFAULT: "{{ this.style.field }}",
-    COLOR_SCHEME: "{{ this.color_scheme }}",
-    COLOR_METHOD: "{{ this.method }}",
-    N_CLASSES_DEFAULT: {{ this.n_classes }},
-    BORDER_W_DEFAULT: {{ this.style.border_weight }},
-    BORDER_COLOR_DEFAULT: "{{ this.style.border_color }}",
-    FILL_OP: {{ this.style.fill_opacity }},
-    BORDER_OP: {{ this.style.border_opacity }},
-    LABEL_SHOW: {{ "true" if this.style.label_show else "false" }},
-    LABEL_SIZE: {{ this.style.label_size }},
-    LABEL_COLOR: "{{ this.style.label_color }}",
-    FORMAT: "{{ this.style.label_format }}",
+    TIMING: {
+      ZOOM_DEBOUNCE: 200,
+      LAYER_SCAN_DEBOUNCE: 200,
+      INIT_SCAN_ATTEMPTS: 8,
+      INIT_SCAN_INTERVAL: 300,
+      SCHEME_DROPDOWN_BLUR_DELAY: 150,
+      LOAD_SCRIPT_RETRIES: 2,
+      LOAD_SCRIPT_INTERVAL: 3000,
+    },
+    GRAY: "#999",
+    H3: {
+      RES_MAP: [
+        [2, 0],
+        [3, 1],
+        [4, 1],
+        [5, 2],
+        [6, 3],
+        [7, 4],
+        [8, 4],
+        [9, 5],
+        [10, 6],
+        [11, 6],
+        [12, 7],
+        [13, 7],
+        [14, 8],
+        [15, 9],
+        [16, 9],
+        [17, 10],
+        [18, 11],
+        [19, 11],
+        [20, 12],
+      ],
+      RES_FALLBACK: 12,
+    },
+    ID: "foliplus_heatmap",
+    AGG: "{{ this.agg }}",
+    FIELD: "{{ this.style.field }}",
+    SCHEME: "{{ this.color_scheme }}",
+    METHOD: "{{ this.method }}",
+    N_CLASSES: {{ this.n_classes }},
+    BORDER: {
+      W: {{ this.style.border_weight }},
+      COLOR: "{{ this.style.border_color }}",
+      FILL_OP: {{ this.style.fill_opacity }},
+      OP: {{ this.style.border_opacity }},
+    },
+    LABEL: {
+      SHOW: {{ "true" if this.style.label_show else "false" }},
+      SIZE: {{ this.style.label_size }},
+      COLOR: "{{ this.style.label_color }}",
+      FORMAT: "{{ this.style.label_format }}",
+    },
     SCHEME_NAMES: {{ this.schemes | tojson }},
   };
 
@@ -99,22 +107,22 @@
       // State management
       this.selectedLayerId = null;
       this.pointLayers = [];
-      this.currentAgg = CONST.AGG_DEFAULT;
-      this.currentField = CONST.FIELD_DEFAULT;
-      this.currentScheme = CONST.COLOR_SCHEME;
-      this.currentMethod = CONST.COLOR_METHOD;
+      this.currentAgg = CONST.AGG;
+      this.currentField = CONST.FIELD;
+      this.currentScheme = CONST.SCHEME;
+      this.currentMethod = CONST.METHOD;
       this.autoFieldKey = null;
-      this.N_CLASSES = CONST.N_CLASSES_DEFAULT;
-      this.BORDER_W = CONST.BORDER_W_DEFAULT;
-      this.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
-      this.currentLabelShow = CONST.LABEL_SHOW;
+      this.N_CLASSES = CONST.N_CLASSES;
+      this.BORDER_W = CONST.BORDER.W;
+      this.BORDER_COLOR = CONST.BORDER.COLOR;
+      this.currentLabelShow = CONST.LABEL.SHOW;
       this.valueFallbackWarned = false;
       // Create a managed canvas via LayerControl API.
       // Canvas lives in `.leaflet-map-pane` with position offset to cancel
       // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
       // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
       this.overlay = window.foliplus.LayerControlAPI.createCanvas({
-        id: CONST.HEATMAP_ID,
+        id: CONST.ID,
         name: _(`${CONST.name}.title`),
         iconSvg: SVGs.HEXAGON,
       });
@@ -158,7 +166,7 @@
         }
         // Always reset zooming state, even if no layer selected
         this.isZooming = false;
-      }, CONST.ZOOM_DEBOUNCE_MS);
+      }, CONST.TIMING.ZOOM_DEBOUNCE);
       this.map.on("zoomend", this.onZoomEnd);
 
       this.onLayerChange = foliplus.debounce(() => {
@@ -168,7 +176,7 @@
           this.scanMapLayers();
           this.ui.rebuildLayerDropdown();
         }
-      }, CONST.LAYER_SCAN_DEBOUNCE_MS);
+      }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
       this.map.on("layeradd layerremove", this.onLayerChange);
     }
 
@@ -210,15 +218,15 @@
       ctx.moveTo(pts[0].x, pts[0].y);
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
       ctx.closePath();
-      ctx.fillStyle = feat.properties.fillColor || CONST.DEFAULT_GRAY;
-      ctx.globalAlpha = CONST.FILL_OP;
+      ctx.fillStyle = feat.properties.fillColor || CONST.GRAY;
+      ctx.globalAlpha = CONST.BORDER.FILL_OP;
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      if (this.BORDER_W > 0 && CONST.BORDER_OP > 0) {
+      if (this.BORDER_W > 0 && CONST.BORDER.OP > 0) {
         ctx.strokeStyle = this.BORDER_COLOR;
         ctx.lineWidth = this.BORDER_W;
-        ctx.globalAlpha = CONST.BORDER_OP;
+        ctx.globalAlpha = CONST.BORDER.OP;
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
@@ -232,10 +240,10 @@
         ctrlEl
           ? getComputedStyle(ctrlEl).getPropertyValue(prop).trim() || fallback
           : fallback;
-      const font = `${cssVal("--heatmap-label-font-weight", "bold")} ${cssVal("--heatmap-label-font-size", `${CONST.LABEL_SIZE}px`)} ${cssVal("--heatmap-label-font-family", "sans-serif")}`;
+
       this.labelStyleCache = {
-        font,
-        color: cssVal("--heatmap-label-color", CONST.LABEL_COLOR),
+        font: `${cssVal("--heatmap-label-font-weight", "bold")} ${cssVal("--heatmap-label-font-size", `${CONST.LABEL.SIZE}px`)} ${cssVal("--heatmap-label-font-family", "sans-serif")}`,
+        color: cssVal("--heatmap-label-color", CONST.LABEL.COLOR),
         stroke: cssVal("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
         strokeWidth: parseFloat(cssVal("--heatmap-label-stroke-width", "3")),
       };
@@ -246,7 +254,10 @@
     drawHexLabel(ctx, feat, { font, color, stroke, strokeWidth }) {
       const centroid = feat.properties.centroid;
       const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
-      const text = window.foliplus.formatNumber(feat.properties.value, CONST.FORMAT);
+      const text = window.foliplus.formatNumber(
+        feat.properties.value,
+        CONST.LABEL.FORMAT,
+      );
       // Use cached font string to avoid repeated Canvas font parsing
       if (ctx.font !== font) ctx.font = font;
       ctx.textAlign = "center";
@@ -381,14 +392,14 @@
 
     // --- Algorithm Configuration ---
     getH3Res(zoom) {
-      const entry = CONST.H3_RES_MAP.find(([z]) => zoom <= z);
-      return entry ? entry[1] : CONST.H3_RES_FALLBACK;
+      const entry = CONST.H3.RES_MAP.find(([z]) => zoom <= z);
+      return entry ? entry[1] : CONST.H3.RES_FALLBACK;
     }
 
     getColorScale(name, n) {
       if (typeof chroma !== "undefined")
         return chroma.scale(name).mode("lab").colors(n);
-      return Array(n).fill(CONST.DEFAULT_GRAY);
+      return Array(n).fill(CONST.GRAY);
     }
 
     computeBreaks(data, nClasses, method) {
@@ -858,13 +869,13 @@
       clearBtn.onclick = () => {
         this.resetAll();
         this.syncSelect(this.layerSelect, "");
-        this.syncSelect(this.aggSelect, CONST.AGG_DEFAULT);
-        this.syncSelect(this.classSelect, String(CONST.N_CLASSES_DEFAULT));
-        this.syncSelect(this.methodSelect, CONST.COLOR_METHOD);
-        this.schemeSelectHidden.value = CONST.COLOR_SCHEME;
-        this.labelChk.checked = CONST.LABEL_SHOW;
-        this.borderWeightInput.value = CONST.BORDER_W_DEFAULT;
-        this.borderColorInput.value = CONST.BORDER_COLOR_DEFAULT;
+        this.syncSelect(this.aggSelect, CONST.AGG);
+        this.syncSelect(this.classSelect, String(CONST.N_CLASSES));
+        this.syncSelect(this.methodSelect, CONST.METHOD);
+        this.schemeSelectHidden.value = CONST.SCHEME;
+        this.labelChk.checked = CONST.LABEL.SHOW;
+        this.borderWeightInput.value = CONST.BORDER.W;
+        this.borderColorInput.value = CONST.BORDER.COLOR;
 
         this.updateSchemeBar();
         this.updateFieldSelector();
@@ -1115,7 +1126,7 @@
     initScan(attempt) {
       this.m.scanMapLayers();
       if (this.m.pointLayers.length === 0 && attempt > 0) {
-        setTimeout(() => this.initScan(attempt - 1), CONST.INIT_SCAN_INTERVAL_MS);
+        setTimeout(() => this.initScan(attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
       } else if (this.m.pointLayers.length === 0) {
         window.foliplus.showHint(
           CONST.name,
@@ -1130,14 +1141,14 @@
     resetAll() {
       this.m.selectedLayerId = null;
       this.m.autoFieldKey = null;
-      this.m.currentAgg = CONST.AGG_DEFAULT;
-      this.m.currentField = CONST.FIELD_DEFAULT;
-      this.m.N_CLASSES = CONST.N_CLASSES_DEFAULT;
-      this.m.currentMethod = CONST.COLOR_METHOD;
-      this.m.currentScheme = CONST.COLOR_SCHEME;
-      this.m.currentLabelShow = CONST.LABEL_SHOW;
-      this.m.BORDER_W = CONST.BORDER_W_DEFAULT;
-      this.m.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
+      this.m.currentAgg = CONST.AGG;
+      this.m.currentField = CONST.FIELD;
+      this.m.N_CLASSES = CONST.N_CLASSES;
+      this.m.currentMethod = CONST.METHOD;
+      this.m.currentScheme = CONST.SCHEME;
+      this.m.currentLabelShow = CONST.LABEL.SHOW;
+      this.m.BORDER_W = CONST.BORDER.W;
+      this.m.BORDER_COLOR = CONST.BORDER.COLOR;
       this.m.clearHeatmapCanvas();
     }
 
@@ -1156,5 +1167,5 @@
   );
 
   heatmapCtrl.addTo(map);
-  heatmapCtrl.initScan(CONST.INIT_SCAN_ATTEMPTS);
+  heatmapCtrl.initScan(CONST.TIMING.INIT_SCAN_ATTEMPTS);
 })();

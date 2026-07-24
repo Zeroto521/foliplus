@@ -2,20 +2,36 @@
   // ==================== Constants ====================
   const CONST = {
     name: "MeasureControl",
-    MARKER_RADIUS: 5,
-    CLICK_COOLDOWN_MS: 300,
-    FINALIZE_DELAY_MS: 50,
-    DEL_ICON_RETRY_LIMIT: 10,
-    DEL_ICON_RETRY_DELAY_MS: 50,
-    SUPPRESS_HIDE_DELAY_MS: 100,
-    Z_INDEX_OFFSET: 1000,
-    CENTER_DOT_SIZE: [12, 12],
-    CENTER_DOT_ANCHOR: [6, 6],
-    LABEL_ANCHOR: [0, -10],
-    LAT_LNG_PRECISION: 6,
-    MEASURE_ID: "foliplus_measure",
-    GRAPH_PANE: "measure_graph",
-    LABEL_PANE: "measure_label",
+    TIMING: {
+      CLICK_COOLDOWN: 300,
+      FINALIZE_DELAY: 50,
+      DEL_ICON_RETRY_DELAY: 50,
+      SUPPRESS_HIDE_DELAY: 100,
+    },
+    DEL_ICON: {
+      RETRY_LIMIT: 10,
+    },
+    MARKER: {
+      RADIUS: 5,
+    },
+    CENTER_DOT: {
+      SIZE: [12, 12],
+      ANCHOR: [6, 6],
+    },
+    LABEL: {
+      ANCHOR: [0, -10],
+    },
+    FORMAT: {
+      LAT_LNG_PRECISION: 6,
+    },
+    Z_INDEX: {
+      OFFSET: 1000,
+    },
+    ID: "foliplus_measure",
+    PANES: {
+      GRAPH: "measure_graph",
+      LABEL: "measure_label",
+    },
     position: "{{ this.position }}",
   };
 
@@ -95,7 +111,7 @@
       manager.suppressHideDel = true;
       setTimeout(() => {
         manager.suppressHideDel = false;
-      }, CONST.SUPPRESS_HIDE_DELAY_MS);
+      }, CONST.TIMING.SUPPRESS_HIDE_DELAY);
       this.hideAllDelIcons();
     }
 
@@ -149,10 +165,10 @@
       if (el) {
         const icon = el.querySelector(".measure-del-icon");
         if (icon) icon.classList.toggle("visible", show);
-      } else if (retries < CONST.DEL_ICON_RETRY_LIMIT) {
+      } else if (retries < CONST.DEL_ICON.RETRY_LIMIT) {
         setTimeout(
           () => MeasureUtils.toggleDelIcon(mkr, show, retries + 1),
-          CONST.DEL_ICON_RETRY_DELAY_MS,
+          CONST.TIMING.DEL_ICON_RETRY_DELAY,
         );
       }
     }
@@ -205,14 +221,14 @@
         className: "",
         html: `<div class="measure-label${className ? " " + className : ""}">${html}</div>`,
         iconSize: [0, 0],
-        iconAnchor: iconAnchor || CONST.LABEL_ANCHOR,
+        iconAnchor: iconAnchor || CONST.LABEL.ANCHOR,
       });
     }
 
     /** Create a measure node circle marker. */
     static makeNode(latlng, className = "measure-node measure-node-final") {
       return L.circleMarker(latlng, {
-        radius: CONST.MARKER_RADIUS,
+        radius: CONST.MARKER.RADIUS,
         className,
       });
     }
@@ -273,8 +289,8 @@
 
     async handleMarkerClick(e) {
       if (this.manager.currentMode !== "marker") return;
-      const lat = e.latlng.lat.toFixed(CONST.LAT_LNG_PRECISION);
-      const lng = e.latlng.lng.toFixed(CONST.LAT_LNG_PRECISION);
+      const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
+      const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
 
       const marker = window.foliplus.createLocationMarker(
         this.map,
@@ -290,7 +306,7 @@
       );
 
       const delMkr = MeasureUtils.makeDelIcon(e.latlng, {
-        zIndexOffset: CONST.Z_INDEX_OFFSET,
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
         iconAnchor: [-4, 28],
       }).addTo(this.layers.mainLayer);
 
@@ -642,7 +658,7 @@
         )
           return;
 
-        if (Date.now() - lastFinishTime < CONST.CLICK_COOLDOWN_MS) return;
+        if (Date.now() - lastFinishTime < CONST.TIMING.CLICK_COOLDOWN) return;
 
         if (state === 0) {
           center = e.latlng;
@@ -650,10 +666,10 @@
             icon: L.divIcon({
               className: "measure-center-dot",
               html: "",
-              iconSize: CONST.CENTER_DOT_SIZE,
-              iconAnchor: CONST.CENTER_DOT_ANCHOR,
+              iconSize: CONST.CENTER_DOT.SIZE,
+              iconAnchor: CONST.CENTER_DOT.ANCHOR,
             }),
-            zIndexOffset: CONST.Z_INDEX_OFFSET,
+            zIndexOffset: CONST.Z_INDEX.OFFSET,
             interactive: false,
           }).addTo(layers.mainLayer);
           state = 1;
@@ -678,7 +694,7 @@
           setTimeout(() => {
             finalizeCircle(savedCenter, r, e.latlng);
             isFinalizing = false;
-          }, CONST.FINALIZE_DELAY_MS);
+          }, CONST.TIMING.FINALIZE_DELAY);
         }
       };
 
@@ -708,7 +724,7 @@
 
         if (!previews.node) {
           previews.node = L.circleMarker(e.latlng, {
-            radius: CONST.MARKER_RADIUS,
+            radius: CONST.MARKER.RADIUS,
             className: "measure-node measure-node-preview",
             interactive: false,
           }).addTo(layers.mainLayer);
@@ -780,15 +796,15 @@
           icon: L.divIcon({
             className: "measure-center-dot is-final",
             html: "",
-            iconSize: CONST.CENTER_DOT_SIZE,
-            iconAnchor: CONST.CENTER_DOT_ANCHOR,
+            iconSize: CONST.CENTER_DOT.SIZE,
+            iconAnchor: CONST.CENTER_DOT.ANCHOR,
           }),
-          zIndexOffset: CONST.Z_INDEX_OFFSET,
+          zIndexOffset: CONST.Z_INDEX.OFFSET,
           interactive: true,
         }).addTo(layers.mainLayer);
 
         const delMkr = MeasureUtils.makeDelIcon(centerLatLng, {
-          zIndexOffset: CONST.Z_INDEX_OFFSET,
+          zIndexOffset: CONST.Z_INDEX.OFFSET,
         }).addTo(layers.mainLayer);
 
         const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
@@ -822,7 +838,7 @@
             (xv) => {
               if (delMkr.setZIndexOffset)
                 delMkr.setZIndexOffset(
-                  xv ? CONST.Z_INDEX_OFFSET * 2 : CONST.Z_INDEX_OFFSET,
+                  xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
                 );
               MeasureUtils.toggleVisibility(
                 [radiusLine?.getElement(), radiusNode?.getElement()],
@@ -912,10 +928,10 @@
     constructor(mapInstance) {
       this.map = mapInstance;
       this.layers = window.foliplus.LayerControlAPI.createLayers({
-        id: CONST.MEASURE_ID,
+        id: CONST.ID,
         name: _(`${CONST.name}.tool_toggle`),
-        graphPane: CONST.GRAPH_PANE,
-        labelPane: CONST.LABEL_PANE,
+        graphPane: CONST.PANES.GRAPH,
+        labelPane: CONST.PANES.LABEL,
         iconSvg: SVGS.RULER,
       });
       this.currentMode = null;
@@ -1053,8 +1069,8 @@
 
     async handleMarkerClick(e) {
       if (this.currentMode !== "marker") return;
-      const lat = e.latlng.lat.toFixed(CONST.LAT_LNG_PRECISION);
-      const lng = e.latlng.lng.toFixed(CONST.LAT_LNG_PRECISION);
+      const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
+      const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
 
       const marker = window.foliplus.createLocationMarker(
         this.map,
@@ -1074,7 +1090,7 @@
       // → (8, -42) from latlng. Default .measure-del-icon is at (4, -14) in
       // del-icon-wrap, so iconAnchor = [-4, 28] places the X at (8, -42).
       const delMkr = MeasureUtils.makeDelIcon(e.latlng, {
-        zIndexOffset: CONST.Z_INDEX_OFFSET,
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
         iconAnchor: [-4, 28],
       }).addTo(this.layers.mainLayer);
 
@@ -1433,7 +1449,7 @@
         )
           return;
 
-        if (Date.now() - lastFinishTime < CONST.CLICK_COOLDOWN_MS) return;
+        if (Date.now() - lastFinishTime < CONST.TIMING.CLICK_COOLDOWN) return;
 
         if (state === 0) {
           center = e.latlng;
@@ -1441,10 +1457,10 @@
             icon: L.divIcon({
               className: "measure-center-dot",
               html: "",
-              iconSize: CONST.CENTER_DOT_SIZE,
-              iconAnchor: CONST.CENTER_DOT_ANCHOR,
+              iconSize: CONST.CENTER_DOT.SIZE,
+              iconAnchor: CONST.CENTER_DOT.ANCHOR,
             }),
-            zIndexOffset: CONST.Z_INDEX_OFFSET,
+            zIndexOffset: CONST.Z_INDEX.OFFSET,
             interactive: false,
           }).addTo(this.layers.mainLayer);
           state = 1;
@@ -1471,7 +1487,7 @@
           setTimeout(() => {
             finalizeCircle(savedCenter, r, savedTarget);
             isFinalizing = false;
-          }, CONST.FINALIZE_DELAY_MS);
+          }, CONST.TIMING.FINALIZE_DELAY);
         }
       };
 
@@ -1501,7 +1517,7 @@
 
         if (!previews.node) {
           previews.node = L.circleMarker(e.latlng, {
-            radius: CONST.MARKER_RADIUS,
+            radius: CONST.MARKER.RADIUS,
             className: "measure-node measure-node-preview",
             interactive: false,
           }).addTo(this.layers.mainLayer);
@@ -1577,15 +1593,15 @@
           icon: L.divIcon({
             className: "measure-center-dot is-final",
             html: "",
-            iconSize: CONST.CENTER_DOT_SIZE,
-            iconAnchor: CONST.CENTER_DOT_ANCHOR,
+            iconSize: CONST.CENTER_DOT.SIZE,
+            iconAnchor: CONST.CENTER_DOT.ANCHOR,
           }),
-          zIndexOffset: CONST.Z_INDEX_OFFSET,
+          zIndexOffset: CONST.Z_INDEX.OFFSET,
           interactive: true,
         }).addTo(this.layers.mainLayer);
 
         const delMkr = MeasureUtils.makeDelIcon(centerLatLng, {
-          zIndexOffset: CONST.Z_INDEX_OFFSET,
+          zIndexOffset: CONST.Z_INDEX.OFFSET,
         }).addTo(this.layers.mainLayer);
 
         // Add label last so it renders on top of the circle and line.
@@ -1621,7 +1637,7 @@
             (xv) => {
               if (delMkr.setZIndexOffset)
                 delMkr.setZIndexOffset(
-                  xv ? CONST.Z_INDEX_OFFSET * 2 : CONST.Z_INDEX_OFFSET,
+                  xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
                 );
               MeasureUtils.toggleVisibility(
                 [radiusLine?.getElement(), radiusNode?.getElement()],

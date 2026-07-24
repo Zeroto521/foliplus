@@ -17,8 +17,10 @@
       BASE: 18,
       DIVISOR: 20,
     },
-    position: "{{ this.position }}",
-    zoom: {{ this.zoom }},
+    UI: {
+      position: "{{ this.position }}",
+      zoom: {{ this.zoom }},
+    },
   };
 
   // ==================== Runtime Guard ====================
@@ -41,7 +43,7 @@
           cssClass: "map-search",
           toggleTitle: _(`${CONST.name}.btn_title`),
           toggleSvg: window.foliplus.SVGs.SEARCH,
-          isLeft: CONST.position.indexOf("left") >= 0,
+          isLeft: CONST.UI.position.indexOf("left") >= 0,
         },
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
@@ -150,7 +152,7 @@
         const lng = parts[0];
         const lat = parts[1];
         window.foliplus.hideHint(CONST.name);
-        map.flyTo([lat, lng], CONST.zoom);
+        map.flyTo([lat, lng], CONST.UI.zoom);
         mk = window.foliplus.createLocationMarker(
           map,
           lat,
@@ -258,5 +260,5 @@
     }
   }
 
-  new MapSearchControl({ position: CONST.position }).addTo(map);
+  new MapSearchControl({ position: CONST.UI.position }).addTo(map);
 })();
