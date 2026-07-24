@@ -228,6 +228,10 @@
     }
   };
 
+  /**
+   * Ensure that the gcoord library is loaded. If not, logs a warning and shows a hint.
+   * @returns {boolean} True if gcoord is available, false otherwise.
+   */
   function ensureGcoord() {
     if (typeof gcoord === "undefined") {
       console.warn(`[MapSearch] ${foliplus.gt("gcoord.warn")}`);
@@ -238,27 +242,39 @@
   }
 
   /**
+   * Detect the map's coordinate reference system type: 'BD09', 'GCJ02', or 'WGS84'.
+   * @param {L.Map} map - Leaflet map instance
+   * @returns {string} 'BD09' | 'GCJ02' | 'WGS84' (WGS84 indicates foreign maps that do not require conversion)
+   */
+  function getMapCrsType(map) {
+    if (isBaiduCRS(map)) return "BD09";
+    if (isDomesticMap(map)) return "GCJ02";
+    return "WGS84";
+  }
+
+  /**
    * Convert map-displayed coordinates (GCJ-02 / BD-09) to WGS-84.
    * Automatically detects the map CRS (Baidu → BD09, domestic → GCJ02).
    * If gcoord library is not yet loaded, schedules async loading and
    * returns the input coordinates unchanged (with a console warning).
    *
    * @param {L.Map} map - Leaflet map instance
-   * @param {number} lat - Latitude in map CRS
    * @param {number} lng - Longitude in map CRS
-   * @returns {number[]} [lat, lng] in WGS-84
+   * @param {number} lat - Latitude in map CRS
+   * @returns {number[]} [lng, lat] in WGS-84
    *
    * @example
-   *   const wgs = foliplus.toWgs84(map, 31.23, 121.47);
-   *   // → [31.225, 121.464] (approx. WGS-84)
+   *   const wgs = foliplus.toWgs84(map, 121.47, 31.23);
+   *   // → [121.464, 31.225] (approx. WGS-84)
    */
-  foliplus.toWgs84 = (map, lat, lng) => {
-    if (ensureGcoord()) {
-      const src = isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
-      const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
-      return [result[1], result[0]];
-    }
-    return [lat, lng];
+  foliplus.toWgs84 = (map, lng, lat) => {
+    if (!ensureGcoord()) return [lng, lat];
+
+    const srcType = getMapCrsType(map);
+    if (srcType === "WGS84") return [lng, lat];
+
+    const src = srcType === "BD09" ? gcoord.BD09 : gcoord.GCJ02;
+    return gcoord.transform([lng, lat], src, gcoord.WGS84);
   };
 
   /**
@@ -273,11 +289,11 @@
    */
   foliplus.fromWgs84 = (map, lng, lat) => {
     if (!ensureGcoord()) return [lng, lat];
-    const isBaidu = isBaiduCRS(map);
-    // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip
-    const dst = isBaidu ? gcoord.BD09 : gcoord.GCJ02;
-    // Skip transformation for non-domestic maps (no Baidu/AMap tile patterns)
-    if (!isBaidu && !isDomesticMap(map)) return [lng, lat];
+
+    const dstType = getMapCrsType(map);
+    if (dstType === "WGS84") return [lng, lat];
+
+    const dst = dstType === "BD09" ? gcoord.BD09 : gcoord.GCJ02;
     return gcoord.transform([lng, lat], gcoord.WGS84, dst);
   };
 
@@ -323,17 +339,17 @@
    * Reverse geocode coordinates to an address via Nominatim.
    * Results are cached. Requests are throttled to 1 req/s.
    * @param {L.Map} map Leaflet map instance
-   * @param {number} lat Latitude
    * @param {number} lng Longitude
+   * @param {number} lat Latitude
    * @returns {Promise<string>} Resolved address string
    */
-  foliplus.reverseGeocode = (map, lat, lng) => {
-    const key = `${lat},${lng}`;
+  foliplus.reverseGeocode = (map, lng, lat) => {
+    const key = `${lng},${lat}`;
     if (geoCache[key]) return Promise.resolve(geoCache[key]);
 
-    const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
+    const wgs = foliplus.toWgs84(map, parseFloat(lng), parseFloat(lat));
     const lang = (window._LOCALE && window._LOCALE["locale.code"]) || "en";
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[1]}&lon=${wgs[0]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
 
     geoPromise = geoPromise
       .then(() => {
@@ -410,8 +426,8 @@
 
   /**
    * Build a popup HTML string for a location marker.
-   * @param {number} lat Latitude
    * @param {number} lng Longitude
+   * @param {number} lat Latitude
    * @param {string|null} addr Address text or null (triggers loading indicator)
    * @param {string} title Locale key for popup title (e.g. 'MeasureControl.popup_title')
    * @param {string} loading Locale key for loading text (e.g. 'MeasureControl.popup_loading')
@@ -419,7 +435,7 @@
    * @param {string} addrLabel Locale key for address label (e.g. 'MeasureControl.popup_addr_label')
    * @returns {string} HTML string
    */
-  foliplus.buildPopupHtml = (lat, lng, addr, title, loading, locLabel, addrLabel) => {
+  foliplus.buildPopupHtml = (lng, lat, addr, title, loading, locLabel, addrLabel) => {
     const loadStr = foliplus.gt(loading);
     const addrHtml =
       addr && addr.includes("LOADING")
@@ -441,8 +457,8 @@
   /**
    * Create a location marker with a popup and add it to the map.
    * @param {L.Map} map Leaflet map instance
-   * @param {number} lat Latitude
    * @param {number} lng Longitude
+   * @param {number} lat Latitude
    * @param {string} addr Address string (null = pending reverse geocode)
    * @param {string} title Locale key for popup title
    * @param {string} loading Locale key for loading text
@@ -454,8 +470,8 @@
    */
   foliplus.createLocationMarker = (
     map,
-    lat,
     lng,
+    lat,
     addr,
     title,
     loading,
@@ -477,17 +493,17 @@
     });
     target.addLayer(mk);
     mk.bindPopup(
-      foliplus.buildPopupHtml(lat, lng, addr, title, loading, locLabel, addrLabel),
+      foliplus.buildPopupHtml(lng, lat, addr, title, loading, locLabel, addrLabel),
       { maxWidth: POPUP.MAX_WIDTH },
     );
     mk.openPopup();
     if (!addr) {
-      foliplus.reverseGeocode(map, lat, lng).then((resolved) => {
+      foliplus.reverseGeocode(map, lng, lat).then((resolved) => {
         if (mk && mk.getPopup() && mk.getPopup().isOpen()) {
           mk.setPopupContent(
             foliplus.buildPopupHtml(
-              lat,
               lng,
+              lat,
               resolved,
               title,
               loading,

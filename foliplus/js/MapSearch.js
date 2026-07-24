@@ -164,8 +164,8 @@
         map.flyTo([lat, lng], CONST.UI.zoom);
         mk = window.foliplus.createLocationMarker(
           map,
-          lat,
           lng,
+          lat,
           null,
           `${CONST.name}.popup_title_coord`,
           `${CONST.name}.popup_loading`,
@@ -226,8 +226,8 @@
             map.flyTo([lat, lng], zoom);
             mk = window.foliplus.createLocationMarker(
               map,
-              lat,
               lng,
+              lat,
               displayName,
               `${CONST.name}.popup_title_addr`,
               `${CONST.name}.popup_loading`,

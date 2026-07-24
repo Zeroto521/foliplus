@@ -237,10 +237,10 @@
     }
 
     /** Build popup HTML for a marker location. */
-    static buildPopup(lat, lng, addr) {
+    static buildPopup(lng, lat, addr) {
       return window.foliplus.buildPopupHtml(
-        lat,
         lng,
+        lat,
         addr,
         `${CONST.name}.popup_title`,
         `${CONST.name}.popup_loading`,
@@ -331,8 +331,8 @@
 
       const marker = window.foliplus.createLocationMarker(
         this.map,
-        parseFloat(lat),
         parseFloat(lng),
+        parseFloat(lat),
         null,
         `${CONST.name}.popup_title`,
         `${CONST.name}.popup_loading`,
@@ -350,18 +350,18 @@
       let cachedAddr = null;
       const addr = await window.foliplus.reverseGeocode(
         this.map,
-        parseFloat(lat),
         parseFloat(lng),
+        parseFloat(lat),
       );
       cachedAddr = addr;
 
       if (marker?.getPopup?.()?.isOpen())
-        marker.setPopupContent(MeasureUtils.buildPopup(lat, lng, addr));
+        marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
 
       marker.on("popupopen", () => {
         this.hideDelIcons();
         if (cachedAddr !== null)
-          marker.setPopupContent(MeasureUtils.buildPopup(lat, lng, cachedAddr));
+          marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, cachedAddr));
         MeasureUtils.toggleDelIcon(delMkr, true);
       });
 
@@ -1109,8 +1109,8 @@
 
       const marker = window.foliplus.createLocationMarker(
         this.map,
-        parseFloat(lat),
         parseFloat(lng),
+        parseFloat(lat),
         null,
         `${CONST.name}.popup_title`,
         `${CONST.name}.popup_loading`,
@@ -1133,19 +1133,19 @@
       let cachedAddr = null;
       const addr = await window.foliplus.reverseGeocode(
         this.map,
-        parseFloat(lat),
         parseFloat(lng),
+        parseFloat(lat),
       );
       cachedAddr = addr;
 
       if (marker?.getPopup?.()?.isOpen()) {
-        marker.setPopupContent(MeasureUtils.buildPopup(lat, lng, addr));
+        marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
       }
 
       marker.on("popupopen", () => {
         MeasureUtils.hideAllDelIcons();
         if (cachedAddr !== null)
-          marker.setPopupContent(MeasureUtils.buildPopup(lat, lng, cachedAddr));
+          marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, cachedAddr));
         MeasureUtils.toggleDelIcon(delMkr, true);
       });
 
