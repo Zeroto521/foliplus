@@ -272,29 +272,30 @@ class TestMeasureControlRendering:
         assert "constructor(mapInstance)" in html
 
     def test_measure_manager_methods(self, base_map: folium.Map):
-        """MeasureManager has expected methods (start, bind, flow)."""
+        """MeasureManager has expected methods (start, set modes)."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "startDistanceMode" in html
-        assert "startCircleMode" in html
-        assert "bindMarkerMode" in html
-        assert "onDistMove" in html
+        assert "class DistanceMode extends MeasureMode" in html
+        assert "class CircleMode extends MeasureMode" in html
+        assert "class MarkerMode extends MeasureMode" in html
         assert "finishDist" in html
+        assert "finalizeCircle" in html
 
     def test_label_above_circle(self, base_map: folium.Map):
         """Label is added after circle, line, and node so it renders on top."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         # radiusLabel.addTo should appear after circle.addTo and radiusLine.addTo
-        label_pos = html.find("radiusLabel.addTo(this.layers.mainLayer)")
+        # In CircleMode, layers is a local reference to this.layers
+        label_pos = html.find("radiusLabel.addTo(layers.mainLayer)")
         circle_pos = html.find(
-            ".addTo(this.layers.mainLayer);", html.find("circle = L.circle")
+            ".addTo(layers.mainLayer);", html.find("circle = L.circle")
         )
         line_pos = html.find(
-            ".addTo(this.layers.mainLayer);", html.find("radiusLine = L.polyline")
+            ".addTo(layers.mainLayer);", html.find("radiusLine = L.polyline")
         )
         node_pos = html.find(
-            ".addTo(this.layers.mainLayer);",
+            ".addTo(layers.mainLayer);",
             html.find("radiusNode = MeasureUtils.makeNode"),
         )
         assert label_pos > circle_pos, "Label should be added after circle"
