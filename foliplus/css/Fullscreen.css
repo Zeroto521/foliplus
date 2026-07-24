@@ -17,6 +17,11 @@
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
+/* ── Middle button no radius ── */
+.foliplus-fullscreen-bar .foliplus-zoom-out {
+  border-radius: 0;
+}
+
 /* ── Bottom button gets bottom radius ── */
 .foliplus-fullscreen-bar .foliplus-fullscreen-toggle {
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
