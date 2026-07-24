@@ -55,9 +55,9 @@
       </svg>`,
     UNKNOWN: `
       <svg viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-        <circle cx="12" cy="17" r="0.8" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M9.5 9.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5c0 1.5-2 2-2 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="12" cy="16.5" r="1" fill="currentColor" stroke="none"/>
       </svg>`,
     COLOR: `
       <svg viewBox="0 0 24 24">
