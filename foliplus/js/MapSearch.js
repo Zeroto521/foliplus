@@ -33,7 +33,16 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  window.foliplus.registerHintIcon(CONST.name, window.foliplus.SVGs.SEARCH);
+  // ==================== SVG Icons ====================
+  const SVGs = {
+    SEARCH: `
+      <svg viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5"/>
+        <line x1="15.5" y1="15.5" x2="21" y2="21"/>
+      </svg>`,
+  };
+
+  window.foliplus.registerHintIcon(CONST.name, SVGs.SEARCH);
 
   // ==================== Control Definition ====================
   class MapSearchControl extends L.Control {
@@ -42,7 +51,7 @@
         {
           cssClass: "map-search",
           toggleTitle: _(`${CONST.name}.btn_title`),
-          toggleSvg: window.foliplus.SVGs.SEARCH,
+          toggleSvg: SVGs.SEARCH,
           isLeft: CONST.UI.position.indexOf("left") >= 0,
         },
       );

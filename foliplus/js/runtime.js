@@ -91,11 +91,6 @@
         <ellipse cx="12" cy="12" rx="4" ry="10"/>
         <line x1="2" y1="12" x2="22" y2="12"/>
       </svg>`,
-    SEARCH: `
-      <svg viewBox="0 0 24 24">
-        <circle cx="10.5" cy="10.5" r="6.5"/>
-        <line x1="15.5" y1="15.5" x2="21" y2="21"/>
-      </svg>`,
   };
 
   // ==================== Hint / Toast System ====================
@@ -115,7 +110,6 @@
   foliplus.registerHintIcon = (key, iconSvg) => {
     _hintIcons[key] = iconSvg;
   };
-  _hintIcons["MapSearch"] = foliplus.SVGs.SEARCH;
 
   /**
    * Display a hint toast at the bottom-center of the viewport.
