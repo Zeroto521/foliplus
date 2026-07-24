@@ -219,17 +219,21 @@ class TestMapSearchBrowser:
             )
 
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".map-search", state="attached", timeout=10000)
+            page.wait_for_selector(
+                ".foliplus-map-search", state="attached", timeout=10000
+            )
 
             # Expand the panel
-            page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+            )
             page.wait_for_selector(
-                ".map-search.expanded", state="attached", timeout=5000
+                ".foliplus-map-search.expanded", state="attached", timeout=5000
             )
 
             # Verify the mode button shows the globe icon (address mode)
             globe_svg = page.evaluate(
-                """document.querySelector('.search-mode-btn')
+                """document.querySelector('.foliplus-search-mode-btn')
                     .querySelector('svg[viewBox="0 0 24 24"] circle[cx="12"][cy="12"][r="10"]') !== null"""
             )
             assert globe_svg, "Expected globe icon for address mode"
@@ -254,10 +258,14 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".map-search", state="attached", timeout=10000)
-            page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
             page.wait_for_selector(
-                ".map-search.expanded", state="attached", timeout=5000
+                ".foliplus-map-search", state="attached", timeout=10000
+            )
+            page.evaluate(
+                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-map-search.expanded", state="attached", timeout=5000
             )
 
             # Verify the placeholder is for coordinate search
@@ -281,20 +289,24 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".map-search", state="attached", timeout=10000)
-            page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
             page.wait_for_selector(
-                ".map-search.expanded", state="attached", timeout=5000
+                ".foliplus-map-search", state="attached", timeout=10000
+            )
+            page.evaluate(
+                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-map-search.expanded", state="attached", timeout=5000
             )
 
             # Click mode switch button
-            page.evaluate("document.querySelector('.search-mode-btn').click()")
+            page.evaluate("document.querySelector('.foliplus-search-mode-btn').click()")
             page.wait_for_timeout(500)
 
             # After switch, should be address mode with GLOBE icon
             globe_icon = page.evaluate(
-                "document.querySelector('.search-mode-btn').innerHTML.indexOf('GLOBE') > -1 || "
-                'document.querySelector(\'.search-mode-btn\').querySelector(\'circle[cx="12"][cy="12"][r="10"]\') !== null'
+                "document.querySelector('.foliplus-search-mode-btn').innerHTML.indexOf('GLOBE') > -1 || "
+                'document.querySelector(\'.foliplus-search-mode-btn\').querySelector(\'circle[cx="12"][cy="12"][r="10"]\') !== null'
             )
             assert globe_icon, "Expected globe icon after mode switch"
 
@@ -317,16 +329,20 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".map-search", state="attached", timeout=10000)
-            page.evaluate("document.querySelector('.map-search .toggle-btn').click()")
             page.wait_for_selector(
-                ".map-search.expanded", state="attached", timeout=5000
+                ".foliplus-map-search", state="attached", timeout=10000
+            )
+            page.evaluate(
+                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-map-search.expanded", state="attached", timeout=5000
             )
 
             # Type something in the input
             page.evaluate("document.querySelector('input').value = '26.08,119.30'")
             # Click clear button
-            page.evaluate("document.querySelector('.ctrl-abs-btn').click()")
+            page.evaluate("document.querySelector('.foliplus-ctrl-abs-btn').click()")
             page.wait_for_timeout(500)
 
             cleared = page.evaluate("document.querySelector('input').value")

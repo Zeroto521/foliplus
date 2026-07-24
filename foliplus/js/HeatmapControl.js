@@ -655,7 +655,11 @@
     /** Build the data section: layer select, aggregation method, field selector. */
     buildDataSection(panelContent) {
       const configBody = L.DomUtil.create("div", "foliplus-config-body", panelContent);
-      const dataHeading = L.DomUtil.create("div", "foliplus-section-heading", configBody);
+      const dataHeading = L.DomUtil.create(
+        "div",
+        "foliplus-section-heading",
+        configBody,
+      );
       dataHeading.textContent = _(`${CONST.name}.section_data`);
 
       const { wrap: layerSelectWrap } = this.createFormRow(
@@ -727,9 +731,17 @@
 
     /** Build the style section: classification, color scheme, border, label toggle, action buttons. */
     buildStyleSection() {
-      const styleHeading = L.DomUtil.create("div", "foliplus-section-heading", this.extraBody);
+      const styleHeading = L.DomUtil.create(
+        "div",
+        "foliplus-section-heading",
+        this.extraBody,
+      );
       styleHeading.textContent = _(`${CONST.name}.section_style`);
-      const styleSection = L.DomUtil.create("div", "foliplus-section-block", this.extraBody);
+      const styleSection = L.DomUtil.create(
+        "div",
+        "foliplus-section-block",
+        this.extraBody,
+      );
 
       // Classification method / classes
       const classRow = L.DomUtil.create("div", CONST.CLASSES.FORM_ROW, styleSection);
@@ -794,8 +806,16 @@
         CONST.CLASSES.FORM_CONTROL_WRAP,
         schemeRow,
       );
-      this.schemeBar = L.DomUtil.create("div", "foliplus-scheme-bar", this.schemeControlWrap);
-      this.schemeBarInner = L.DomUtil.create("div", "foliplus-scheme-bar-inner", this.schemeBar);
+      this.schemeBar = L.DomUtil.create(
+        "div",
+        "foliplus-scheme-bar",
+        this.schemeControlWrap,
+      );
+      this.schemeBarInner = L.DomUtil.create(
+        "div",
+        "foliplus-scheme-bar-inner",
+        this.schemeBar,
+      );
       this.schemeSelectHidden = L.DomUtil.create(
         "select",
         "foliplus-scheme-select-hidden",
@@ -905,7 +925,11 @@
         CONST.CLASSES.FORM_CONTROL_WRAP,
         labelRow,
       );
-      const labelToggle = L.DomUtil.create("label", "foliplus-toggle-switch", labelControlWrap);
+      const labelToggle = L.DomUtil.create(
+        "label",
+        "foliplus-toggle-switch",
+        labelControlWrap,
+      );
       this.labelChk = L.DomUtil.create("input", "", labelToggle);
       this.labelChk.type = "checkbox";
       this.labelChk.checked = this.m.currentLabelShow;
@@ -918,7 +942,11 @@
 
       // Bottom action buttons
       const btnRow = L.DomUtil.create("div", "foliplus-btn-row", this.extraBody);
-      const clearBtn = L.DomUtil.create("button", "foliplus-btn foliplus-btn-clear", btnRow);
+      const clearBtn = L.DomUtil.create(
+        "button",
+        "foliplus-btn foliplus-btn-clear",
+        btnRow,
+      );
       clearBtn.textContent = _(`${CONST.name}.clear`);
       clearBtn.onclick = () => {
         this.resetAll();
@@ -938,7 +966,11 @@
         this.container.classList.add(CONST.CLASSES.COLLAPSED);
       };
 
-      const confirmBtn = L.DomUtil.create("button", "foliplus-btn foliplus-btn-confirm", btnRow);
+      const confirmBtn = L.DomUtil.create(
+        "button",
+        "foliplus-btn foliplus-btn-confirm",
+        btnRow,
+      );
       confirmBtn.textContent = _(`${CONST.name}.confirm`);
       confirmBtn.onclick = () => {
         this.m.renderHexagons();

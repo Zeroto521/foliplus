@@ -510,7 +510,9 @@ class TestMeasureControlRendering:
             ),
         )
         page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-        page.wait_for_selector(".foliplus-measure-ctrl", state="attached", timeout=10000)
+        page.wait_for_selector(
+            ".foliplus-measure-ctrl", state="attached", timeout=10000
+        )
         return page, errors
 
     def test_tool_buttons_render(self, browser, tmp_path):

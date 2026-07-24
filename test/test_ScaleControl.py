@@ -154,14 +154,16 @@ class TestScaleControlBrowser:
             ),
         )
         page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-        page.wait_for_selector(".scale-wrap", state="attached", timeout=10000)
+        page.wait_for_selector(".foliplus-scale-wrap", state="attached", timeout=10000)
         return page, errors
 
     def test_scale_visible(self, browser, tmp_path):
         """Scale wrap is visible in the DOM."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            visible = page.evaluate("document.querySelector('.scale-wrap') !== null")
+            visible = page.evaluate(
+                "document.querySelector('.foliplus-scale-wrap') !== null"
+            )
             assert visible
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -172,7 +174,7 @@ class TestScaleControlBrowser:
         page, errors = self._make_page(browser, tmp_path, show_zoom=True)
         try:
             has_label = page.evaluate(
-                "document.querySelector('.scale-zoom-label') !== null"
+                "document.querySelector('.foliplus-scale-zoom-label') !== null"
             )
             assert has_label
             assert not errors, f"JS errors: {errors}"
@@ -184,7 +186,7 @@ class TestScaleControlBrowser:
         page, errors = self._make_page(browser, tmp_path, show_zoom=False)
         try:
             has_label = page.evaluate(
-                "document.querySelector('.scale-zoom-label') !== null"
+                "document.querySelector('.foliplus-scale-zoom-label') !== null"
             )
             assert not has_label
             assert not errors, f"JS errors: {errors}"
