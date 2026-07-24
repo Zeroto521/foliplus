@@ -2,15 +2,21 @@
   // ==================== Constants ====================
   const CONST = {
     name: "MapSearch",
-    COORD: "coord",
-    ADDR: "addr",
-    NOMINATIM_URL: "https://nominatim.openstreetmap.org/search",
-    NOMINATIM_FORMAT: "jsonv2",
-    NOMINATIM_LIMIT: 1,
-    ZOOM_MAX: 16,
-    ZOOM_MIN: 12,
-    ZOOM_BASE: 18,
-    ZOOM_DIVISOR: 20,
+    MODE: {
+      COORD: "coord",
+      ADDR: "addr",
+    },
+    NOMINATIM: {
+      URL: "https://nominatim.openstreetmap.org/search",
+      FORMAT: "jsonv2",
+      LIMIT: 1,
+    },
+    ZOOM: {
+      MAX: 16,
+      MIN: 12,
+      BASE: 18,
+      DIVISOR: 20,
+    },
     position: "{{ this.position }}",
     zoom: {{ this.zoom }},
   };
@@ -28,8 +34,8 @@
   window.foliplus.registerHintIcon(CONST.name, window.foliplus.SVGs.SEARCH);
 
   // ==================== Control Definition ====================
-  new (L.Control.extend({
-    onAdd: () => {
+  class MapSearchControl extends L.Control {
+    onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
           cssClass: "map-search",
@@ -61,14 +67,15 @@
 
       let mk = null;
       let mode = "{{ this.mode }}";
-      if (mode !== CONST.COORD && mode !== CONST.ADDR) mode = CONST.COORD;
+      if (mode !== CONST.MODE.COORD && mode !== CONST.MODE.ADDR)
+        mode = CONST.MODE.COORD;
 
       setMode(mode);
 
       // Mode switching
       function setMode(newMode) {
         mode = newMode;
-        if (mode === CONST.COORD) {
+        if (mode === CONST.MODE.COORD) {
           modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
           modeBtn.title = _(`${CONST.name}.mode_coord`);
           inp.placeholder = _(`${CONST.name}.coord_placeholder`);
@@ -88,7 +95,7 @@
 
       modeBtn.onclick = (e) => {
         e.stopPropagation();
-        setMode(mode === CONST.COORD ? CONST.ADDR : CONST.COORD);
+        setMode(mode === CONST.MODE.COORD ? CONST.MODE.ADDR : CONST.MODE.COORD);
       };
 
       // Expand / collapse
@@ -117,7 +124,7 @@
 
       inp.addEventListener("input", () => {
         inp.placeholder =
-          mode === CONST.COORD
+          mode === CONST.MODE.COORD
             ? _(`${CONST.name}.coord_placeholder`)
             : _(`${CONST.name}.addr_placeholder`);
       });
@@ -166,13 +173,13 @@
         );
 
         fetch(
-          CONST.NOMINATIM_URL +
+          CONST.NOMINATIM.URL +
             "?format=" +
-            CONST.NOMINATIM_FORMAT +
+            CONST.NOMINATIM.FORMAT +
             "&q=" +
             encodeURIComponent(query) +
             "&limit=" +
-            CONST.NOMINATIM_LIMIT +
+            CONST.NOMINATIM.LIMIT +
             "&accept-language=" +
             (window._LOCALE["locale.code"] || "en"),
         )
@@ -199,10 +206,10 @@
             lat = converted[1];
 
             const zoom = Math.min(
-              CONST.ZOOM_MAX,
+              CONST.ZOOM.MAX,
               Math.max(
-                CONST.ZOOM_MIN,
-                CONST.ZOOM_BASE - Math.floor(displayName.length / CONST.ZOOM_DIVISOR),
+                CONST.ZOOM.MIN,
+                CONST.ZOOM.BASE - Math.floor(displayName.length / CONST.ZOOM.DIVISOR),
               ),
             );
             map.flyTo([lat, lng], zoom);
@@ -240,7 +247,7 @@
         if (e.key === "Enter") {
           const raw = inp.value.trim();
           if (!raw) return;
-          mode === CONST.COORD ? doCoordSearch(raw) : doAddrSearch(raw);
+          mode === CONST.MODE.COORD ? doCoordSearch(raw) : doAddrSearch(raw);
         }
       });
 
@@ -248,6 +255,8 @@
       window.foliplus.bindOutsideCollapse({ container: ctrl });
 
       return container;
-    },
-  }))({ position: CONST.position }).addTo(map);
+    }
+  }
+
+  new MapSearchControl({ position: CONST.position }).addTo(map);
 })();

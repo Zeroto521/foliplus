@@ -105,9 +105,9 @@ class TestMapSearchRendering:
         """ZOOM constants defined for MapSearch."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "ZOOM_MAX: 16" in html
-        assert "ZOOM_MIN: 12" in html
-        assert "ZOOM_BASE: 18" in html
+        assert "MAX: 16" in html
+        assert "MIN: 12" in html
+        assert "BASE: 18" in html
 
     def test_toggle_and_clear_button(self, base_map: folium.Map):
         """Toggle and clear buttons are rendered."""
@@ -128,8 +128,8 @@ class TestMapSearchRendering:
         """Nominatim API constants are defined."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "NOMINATIM_URL" in html
-        assert "NOMINATIM_FORMAT" in html
+        assert "NOMINATIM.URL" in html
+        assert "NOMINATIM.FORMAT" in html
         assert "jsonv2" in html
 
     def test_disable_click_scroll_propagation(self, base_map: folium.Map):
