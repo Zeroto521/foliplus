@@ -77,6 +77,7 @@
   "MapSearch.clear_title": "Clear",
   "MapSearch.mode_coord": "Coordinate Search",
   "MapSearch.mode_addr": "Address Search",
+  "MapSearch.gcoord_warn": "gcoord library failed to load, coordinate transformation unavailable",
   "MeasureControl.tool_toggle": "Measurement Tools",
   "MeasureControl.tool_marker": "Locate",
   "MeasureControl.tool_distance": "Measure Distance",
@@ -95,6 +96,5 @@
   "MeasureControl.unit_m": "m",
   "MeasureControl.geo_fail": "Lookup failed",
   "MeasureControl.no_layercontrol": "MeasureControl requires LayerControl, please add LayerControl to the map first",
-  "ScaleControl.zoom_label": "Zoom Level: {zoom}",
-  "gcoord.warn": "gcoord library failed to load, coordinate transformation unavailable"
+  "ScaleControl.zoom_label": "Zoom Level: {zoom}"
 }

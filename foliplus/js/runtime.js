@@ -240,8 +240,8 @@
    */
   function ensureGcoord() {
     if (typeof gcoord === "undefined") {
-      console.warn(`[MapSearch] ${foliplus.gt("gcoord.warn")}`);
-      foliplus.showHint(`[MapSearch] ${foliplus.gt("gcoord.warn")}`, HINT.LONG);
+      console.warn(`[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`);
+      foliplus.showHint(`[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`, HINT.LONG);
       return false;
     }
     return true;
