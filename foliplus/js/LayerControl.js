@@ -1066,6 +1066,28 @@
       if (this.uiCtrl) this.uiCtrl.attachUI(containerDiv);
     }
 
+    /** Check whether a layer at fromIdx can be reordered to toIdx.
+     *  Only same-group (base↔base or overlay↔overlay) reordering is allowed. */
+    canReorderBetween(fromIdx, toIdx) {
+      if (fromIdx == null || toIdx == null) return false;
+      if (fromIdx < 0 || toIdx < 0) return false;
+      if (fromIdx >= this.layers.length || toIdx >= this.layers.length)
+        return false;
+      const from = this.layers[fromIdx];
+      const to = this.layers[toIdx];
+      if (!from || !to) return false;
+      if (!!from.isBase !== !!to.isBase) return false;
+
+      const firstBaseIdx = this.layers.findIndex((l) => !!l.isBase);
+      const hasBase = firstBaseIdx !== -1;
+
+      if (!from.isBase) {
+        const overlayEnd = hasBase ? firstBaseIdx - 1 : this.layers.length - 1;
+        return fromIdx <= overlayEnd && toIdx <= overlayEnd;
+      }
+      return hasBase && fromIdx >= firstBaseIdx && toIdx >= firstBaseIdx;
+    }
+
     /** Release all resources. Called by LayerControl.onRemove(). */
     destroy() {
       this.isDestroyed = true;
@@ -1451,26 +1473,6 @@
       e.dataTransfer.effectAllowed = "move";
     }
 
-    canReorderBetween(fromIdx, toIdx) {
-      if (fromIdx == null || toIdx == null) return false;
-      if (fromIdx < 0 || toIdx < 0) return false;
-      if (fromIdx >= this.m.layers.length || toIdx >= this.m.layers.length)
-        return false;
-      const from = this.m.layers[fromIdx];
-      const to = this.m.layers[toIdx];
-      if (!from || !to) return false;
-      if (!!from.isBase !== !!to.isBase) return false;
-
-      const firstBaseIdx = this.m.layers.findIndex((l) => !!l.isBase);
-      const hasBase = firstBaseIdx !== -1;
-
-      if (!from.isBase) {
-        const overlayEnd = hasBase ? firstBaseIdx - 1 : this.m.layers.length - 1;
-        return fromIdx <= overlayEnd && toIdx <= overlayEnd;
-      }
-      return hasBase && fromIdx >= firstBaseIdx && toIdx >= firstBaseIdx;
-    }
-
     showReorderBlockedHint() {
       const now = Date.now();
       if (now - this.m.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
@@ -1496,7 +1498,7 @@
         i.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM),
       );
 
-      if (!this.canReorderBetween(this.m.dragIdx, targetIdx)) {
+      if (!this.m.canReorderBetween(this.m.dragIdx, targetIdx)) {
         if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
         this.showReorderBlockedHint();
         return;
@@ -1530,7 +1532,7 @@
 
       const targetIdx = parseInt(target.dataset.index, 10);
       if (this.m.dragIdx === targetIdx) return;
-      if (!this.canReorderBetween(this.m.dragIdx, targetIdx)) {
+      if (!this.m.canReorderBetween(this.m.dragIdx, targetIdx)) {
         this.showReorderBlockedHint();
         return;
       }
