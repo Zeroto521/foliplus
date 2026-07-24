@@ -21,6 +21,10 @@
       position: "{{ this.position }}",
       zoom: {{ this.zoom }},
     },
+    CLASSES: {
+      EXPANDED: "expanded",
+      COLLAPSED: "collapsed",
+    },
   };
 
   // ==================== Runtime Guard ====================
@@ -112,13 +116,13 @@
       // Expand / collapse
       toggleBtn.onclick = (e) => {
         e.stopPropagation();
-        if (ctrl.classList.contains("expanded")) {
-          ctrl.classList.remove("expanded");
-          ctrl.classList.add("collapsed");
+        if (ctrl.classList.contains(CONST.CLASSES.EXPANDED)) {
+          ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+          ctrl.classList.add(CONST.CLASSES.COLLAPSED);
           window.foliplus.hideHint(CONST.name);
         } else {
-          ctrl.classList.remove("collapsed");
-          ctrl.classList.add("expanded");
+          ctrl.classList.remove(CONST.CLASSES.COLLAPSED);
+          ctrl.classList.add(CONST.CLASSES.EXPANDED);
           inp.focus();
         }
       };
@@ -250,8 +254,8 @@
       // Keyboard events
       inp.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
-          ctrl.classList.remove("expanded");
-          ctrl.classList.add("collapsed");
+          ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+          ctrl.classList.add(CONST.CLASSES.COLLAPSED);
           window.foliplus.hideHint(CONST.name);
           return;
         }
