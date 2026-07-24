@@ -139,7 +139,7 @@
         : Math.round(meters) + " " + _(`${CONST.name}.unit_m`);
     }
 
-    static distance(lat1, lng1, lat2, lng2) {
+    static distance(lng1, lat1, lng2, lat2) {
       return L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2));
     }
 
@@ -562,10 +562,10 @@
         if (pts.length === 0) return;
         previewLine.setLatLngs([pts[pts.length - 1], e.latlng]);
         const seg = MeasureUtils.distance(
-          pts[pts.length - 1].lat,
           pts[pts.length - 1].lng,
-          e.latlng.lat,
+          pts[pts.length - 1].lat,
           e.latlng.lng,
+          e.latlng.lat,
         );
         const showDist = total + seg;
         if (!previewDistLabel) {
@@ -613,20 +613,20 @@
 
         if (pts.length > 1) {
           const seg = MeasureUtils.distance(
-            pts[pts.length - 2].lat,
             pts[pts.length - 2].lng,
-            pts[pts.length - 1].lat,
+            pts[pts.length - 2].lat,
             pts[pts.length - 1].lng,
+            pts[pts.length - 1].lat,
           );
           total += seg;
 
           if (segLabels.length > 0 && pts.length >= 3) {
             const prevLbl = segLabels[segLabels.length - 1];
             const prevSeg = MeasureUtils.distance(
-              pts[pts.length - 3].lat,
               pts[pts.length - 3].lng,
-              pts[pts.length - 2].lat,
+              pts[pts.length - 3].lat,
               pts[pts.length - 2].lng,
+              pts[pts.length - 2].lat,
             );
             prevLbl.setIcon(
               MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(prevSeg)),
@@ -722,10 +722,10 @@
           state = 2;
           lastFinishTime = Date.now();
           const r = MeasureUtils.distance(
-            center.lat,
             center.lng,
-            e.latlng.lat,
+            center.lat,
             e.latlng.lng,
+            e.latlng.lat,
           );
           const savedCenter = center;
           this.cleanup();
@@ -741,10 +741,10 @@
       const onMouseMove = (e) => {
         if (state !== 1 || !center || manager.currentMode !== "circle") return;
         const r = MeasureUtils.distance(
-          center.lat,
           center.lng,
-          e.latlng.lat,
+          center.lat,
           e.latlng.lng,
+          e.latlng.lat,
         );
 
         if (!previews.circle) {
@@ -1357,10 +1357,10 @@
         if (pts.length === 0) return;
         previewLine.setLatLngs([pts[pts.length - 1], e.latlng]);
         const seg = MeasureUtils.distance(
-          pts[pts.length - 1].lat,
           pts[pts.length - 1].lng,
-          e.latlng.lat,
+          pts[pts.length - 1].lat,
           e.latlng.lng,
+          e.latlng.lat,
         );
         const showDist = total + seg;
         if (!previewDistLabel) {
@@ -1408,20 +1408,20 @@
 
         if (pts.length > 1) {
           const seg = MeasureUtils.distance(
-            pts[pts.length - 2].lat,
             pts[pts.length - 2].lng,
-            pts[pts.length - 1].lat,
+            pts[pts.length - 2].lat,
             pts[pts.length - 1].lng,
+            pts[pts.length - 1].lat,
           );
           total += seg;
 
           if (segLabels.length > 0 && pts.length >= 3) {
             const prevLbl = segLabels[segLabels.length - 1];
             const prevSeg = MeasureUtils.distance(
-              pts[pts.length - 3].lat,
               pts[pts.length - 3].lng,
-              pts[pts.length - 2].lat,
+              pts[pts.length - 3].lat,
               pts[pts.length - 2].lng,
+              pts[pts.length - 2].lat,
             );
             prevLbl.setIcon(
               MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(prevSeg)),
@@ -1511,10 +1511,10 @@
           state = 2;
           lastFinishTime = Date.now();
           const r = MeasureUtils.distance(
-            center.lat,
             center.lng,
-            e.latlng.lat,
+            center.lat,
             e.latlng.lng,
+            e.latlng.lat,
           );
           const savedCenter = center;
           const savedTarget = e.latlng;
@@ -1532,10 +1532,10 @@
       const onMouseMove = (e) => {
         if (state !== 1 || !center || this.currentMode !== "circle") return;
         const r = MeasureUtils.distance(
-          center.lat,
           center.lng,
-          e.latlng.lat,
+          center.lat,
           e.latlng.lng,
+          e.latlng.lat,
         );
 
         if (!previews.circle) {
