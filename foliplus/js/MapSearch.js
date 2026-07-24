@@ -2,6 +2,8 @@
   // ==================== Constants ====================
   const CONST = {
     name: "MapSearch",
+    position: "{{ this.position }}",
+    zoom: {{ this.zoom }},
     MODE: {
       COORD: "coord",
       ADDR: "addr",
@@ -16,10 +18,6 @@
       MIN: 12,
       BASE: 18,
       DIVISOR: 20,
-    },
-    UI: {
-      position: "{{ this.position }}",
-      zoom: {{ this.zoom }},
     },
     CLASSES: {
       EXPANDED: "expanded",
@@ -56,7 +54,7 @@
           cssClass: "foliplus-map-search",
           toggleTitle: _(`${CONST.name}.btn_title`),
           toggleSvg: SVGs.SEARCH,
-          isLeft: CONST.UI.position.indexOf("left") >= 0,
+          isLeft: CONST.position.indexOf("left") >= 0,
         },
       );
       ctrl.id = "{{ this.get_name() }}_ctrl";
@@ -165,7 +163,7 @@
         const lng = parts[0];
         const lat = parts[1];
         window.foliplus.hideHint(CONST.name);
-        map.flyTo([lat, lng], CONST.UI.zoom);
+        map.flyTo([lat, lng], CONST.zoom);
         mk = window.foliplus.createLocationMarker(
           map,
           lng,
@@ -273,5 +271,5 @@
     }
   }
 
-  new MapSearchControl({ position: CONST.UI.position }).addTo(map);
+  new MapSearchControl({ position: CONST.position }).addTo(map);
 })();

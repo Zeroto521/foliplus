@@ -190,7 +190,7 @@ class TestMeasureControlRendering:
         """calcToggle with 'reset' sets labelsVisible=true."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "toggleLbl === CONST.CLASSES.RESET" in html
+        assert "toggleLbl === CONST.TOGGLE.RESET" in html
 
     def test_toggle_del_icon_retry(self, base_map: folium.Map):
         """toggleDelIcon retries with delay up to DEL_ICON_RETRY_LIMIT times."""
@@ -321,7 +321,7 @@ class TestMeasureControlRendering:
         """Regression test: Labels stay fixed, only X toggles."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "toggleUI(false, CONST.CLASSES.RESET)" in html
+        assert "toggleUI(false, CONST.TOGGLE.RESET)" in html
         assert "toggleUI(undefined)" in html
 
     def test_measure_tool_toggle(self, base_map: folium.Map):

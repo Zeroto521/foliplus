@@ -61,8 +61,9 @@
       IS_MEASURING: "foliplus-measuring",
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
+    },
+    TOGGLE: {
       RESET: "reset",
-      DIST_ORIGIN: "dist_origin",
     },
     STYLE: {
       SWEEP_LENGTH: "--sweep-length",
@@ -168,7 +169,7 @@
       let newL = curLabels;
       if (toggleLbl === true) newL = !curLabels;
       else if (toggleLbl === false) newL = false;
-      else if (toggleLbl === CONST.CLASSES.RESET) newL = true;
+      else if (toggleLbl === CONST.TOGGLE.RESET) newL = true;
       return { xVisible: newX, labelsVisible: newL };
     }
 
@@ -492,11 +493,11 @@
         segLabels.forEach((l) => l.on("click", handleItemClick));
         if (startLbl) startLbl.on("click", handleItemClick);
 
-        toggleUI(false, CONST.CLASSES.RESET);
+        toggleUI(false, CONST.TOGGLE.RESET);
 
         const onDistMapClick = () => {
           if (manager.suppressHideDel) return;
-          if (xVisible) toggleUI(false, CONST.CLASSES.RESET);
+          if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
         };
         map.on("click", onDistMapClick);
         // After finalization, mode cleanup should only remove the map click listener,
@@ -887,7 +888,7 @@
             },
           );
         };
-        toggleUI(false, CONST.CLASSES.RESET);
+        toggleUI(false, CONST.TOGGLE.RESET);
 
         let deleted = false;
         const deleteCircle = () => {
@@ -932,7 +933,7 @@
 
         const onMapClickActive = () => {
           if (manager.suppressHideDel || deleted) return;
-          if (xVisible) toggleUI(false, CONST.CLASSES.RESET);
+          if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
         };
         map.on("click", onMapClickActive);
         manager.finalizedClickHandler = onMapClickActive;
@@ -1284,11 +1285,11 @@
         segLabels.forEach((l) => l.on("click", handleItemClick));
         if (startLbl) startLbl.on("click", handleItemClick);
 
-        toggleUI(false, CONST.CLASSES.RESET);
+        toggleUI(false, CONST.TOGGLE.RESET);
 
         const onDistMapClick = () => {
           if (this.suppressHideDel) return;
-          if (xVisible) toggleUI(false, CONST.CLASSES.RESET);
+          if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
         };
         this.map.on("click", onDistMapClick);
         this.cleanupFn = () => this.map.off("click", onDistMapClick);
@@ -1684,7 +1685,7 @@
             },
           );
         };
-        toggleUI(false, CONST.CLASSES.RESET);
+        toggleUI(false, CONST.TOGGLE.RESET);
 
         let deleted = false;
         const deleteCircle = () => {
@@ -1732,7 +1733,7 @@
 
         const onMapClickActive = () => {
           if (this.suppressHideDel || deleted) return;
-          if (xVisible) toggleUI(false, CONST.CLASSES.RESET);
+          if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
         };
         this.map.on("click", onMapClickActive);
         this.finalizedClickHandler = onMapClickActive;

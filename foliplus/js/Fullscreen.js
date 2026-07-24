@@ -2,13 +2,14 @@
   const CONST = {
     name: "Fullscreen",
     position: "{{ this.position }}",
-    containerId() {
-      return `${this.name}_${this.position}_container`;
-    },
     CLASSES: {
       PSEUDO_FULLSCREEN: "leaflet-pseudo-fullscreen",
     },
   };
+
+  function getContainerId() {
+    return `${CONST.name}_${CONST.position}_container`;
+  }
 
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
@@ -86,7 +87,7 @@
       const container = window.foliplus.dom.el("div", {
         class: "leaflet-bar foliplus-fullscreen-bar",
       });
-      container.id = CONST.containerId();
+      container.id = getContainerId();
 
       // Zoom in button — <button> element with tool-btn class
       const zoomInBtn = window.foliplus.dom.el(
@@ -148,7 +149,7 @@
             .getContainer()
             .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
           for (const c of controls) {
-            if (c.contains(container) || c.closest?.("#" + CONST.containerId)) continue;
+            if (c.contains(container) || c.closest?.("#" + getContainerId())) continue;
             c.style.display = isFull ? "none" : "";
           }
         }

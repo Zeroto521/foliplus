@@ -1071,8 +1071,7 @@
     canReorderBetween(fromIdx, toIdx) {
       if (fromIdx == null || toIdx == null) return false;
       if (fromIdx < 0 || toIdx < 0) return false;
-      if (fromIdx >= this.layers.length || toIdx >= this.layers.length)
-        return false;
+      if (fromIdx >= this.layers.length || toIdx >= this.layers.length) return false;
       const from = this.layers[fromIdx];
       const to = this.layers[toIdx];
       if (!from || !to) return false;
