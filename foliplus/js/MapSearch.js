@@ -230,7 +230,7 @@
             window.foliplus.hideHint(CONST.name);
             window.foliplus.showHint(
               CONST.name,
-              _(CONST.name + ".addr_error"),
+              _(`${CONST.name}.addr_error`),
               window.foliplus.HINT_DURATION.LONG,
             );
           });
