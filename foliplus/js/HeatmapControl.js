@@ -80,7 +80,7 @@
 
   window.foliplus.registerHintIcon(CONST.name, SVGs.HEXAGON);
 
-  // Guard: LayerControl must be registered first to provide createLayers()/createCanvas()
+  // ==================== Guard: LayerControl required ====================
   if (!window.foliplus.LayerControlAPI) {
     console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
     window.foliplus.showHint(
@@ -593,9 +593,14 @@
     constructor(options, manager) {
       super(options);
       this.manager = manager;
-      this.manager.ui = this;
+      this.m.ui = this;
       this.schemeDropdown = null;
       this.expandHookDone = false;
+    }
+
+    /** Alias for convenience */
+    get m() {
+      return this.manager;
     }
 
     /** Create a form-row with label + control-wrap. */
@@ -653,11 +658,11 @@
           <option value="avg">${_(`${CONST.name}.agg_avg`)}</option>
           <option value="min">${_(`${CONST.name}.agg_min`)}</option>
           <option value="max">${_(`${CONST.name}.agg_max`)}</option>`;
-      this.aggSelect.value = this.manager.currentAgg;
+      this.aggSelect.value = this.m.currentAgg;
       this.aggSelect.onchange = () => {
-        this.manager.currentAgg = this.aggSelect.value;
+        this.m.currentAgg = this.aggSelect.value;
         this.updateFieldSelector();
-        this.manager.renderHexagons();
+        this.m.renderHexagons();
       };
 
       this.fieldWrap = L.DomUtil.create(
@@ -674,9 +679,9 @@
       );
       this.fieldSelect = L.DomUtil.create("select", "form-select", fieldControlWrap);
       this.fieldSelect.onchange = () => {
-        this.manager.currentField = this.fieldSelect.value;
+        this.m.currentField = this.fieldSelect.value;
         this.syncSelect(this.fieldSelect, this.fieldSelect.value);
-        this.manager.renderHexagons();
+        this.m.renderHexagons();
       };
 
       // Initialize layer dropdown LAST after all select refs are created
@@ -704,10 +709,10 @@
           <option value="quantile">${_(`${CONST.name}.quantile`)}</option>
           <option value="equal">${_(`${CONST.name}.equal`)}</option>
           <option value="heads">${_(`${CONST.name}.heads`)}</option>`;
-      this.methodSelect.value = this.manager.currentMethod;
+      this.methodSelect.value = this.m.currentMethod;
       this.methodSelect.onchange = () => {
-        this.manager.currentMethod = this.methodSelect.value;
-        this.manager.renderHexagons();
+        this.m.currentMethod = this.methodSelect.value;
+        this.m.renderHexagons();
       };
 
       this.classSelect = L.DomUtil.create(
@@ -720,15 +725,15 @@
           window.foliplus.dom.el("option", { value: ci }, String(ci)),
         );
       }
-      this.classSelect.value = Math.min(9, Math.max(2, this.manager.N_CLASSES));
+      this.classSelect.value = Math.min(9, Math.max(2, this.m.N_CLASSES));
       this.classSelect.onchange = () => {
-        this.manager.N_CLASSES = Math.min(
+        this.m.N_CLASSES = Math.min(
           9,
           Math.max(2, parseInt(this.classSelect.value, 10) || 6),
         );
         this.updateSchemeBar();
         if (this.schemeDropdown) this.refreshSchemeDropdownItems();
-        this.manager.renderHexagons();
+        this.m.renderHexagons();
       };
 
       // Color scheme
@@ -749,11 +754,11 @@
           window.foliplus.dom.el("option", { value: name }, name),
         );
       });
-      this.schemeSelectHidden.value = this.manager.currentScheme;
+      this.schemeSelectHidden.value = this.m.currentScheme;
       this.schemeSelectHidden.onchange = () => {
-        this.manager.currentScheme = this.schemeSelectHidden.value;
+        this.m.currentScheme = this.schemeSelectHidden.value;
         this.updateSchemeBar();
-        this.manager.renderHexagons();
+        this.m.renderHexagons();
       };
       this.updateSchemeBar();
 
@@ -806,10 +811,10 @@
         borderControlWrap,
       );
       this.borderColorInput.type = "color";
-      this.borderColorInput.value = this.manager.BORDER_COLOR;
+      this.borderColorInput.value = this.m.BORDER_COLOR;
       this.borderColorInput.oninput = () => {
-        this.manager.BORDER_COLOR = this.borderColorInput.value;
-        this.manager.renderHexagons();
+        this.m.BORDER_COLOR = this.borderColorInput.value;
+        this.m.renderHexagons();
       };
       this.borderWeightInput = L.DomUtil.create(
         "input",
@@ -820,10 +825,10 @@
       this.borderWeightInput.min = 0;
       this.borderWeightInput.max = 10;
       this.borderWeightInput.step = 0.5;
-      this.borderWeightInput.value = this.manager.BORDER_W;
+      this.borderWeightInput.value = this.m.BORDER_W;
       this.borderWeightInput.onchange = () => {
-        this.manager.BORDER_W = parseFloat(this.borderWeightInput.value) || 1;
-        this.manager.renderHexagons();
+        this.m.BORDER_W = parseFloat(this.borderWeightInput.value) || 1;
+        this.m.renderHexagons();
       };
 
       // Label toggle
@@ -838,10 +843,10 @@
       const labelToggle = L.DomUtil.create("label", "toggle-switch", labelControlWrap);
       this.labelChk = L.DomUtil.create("input", "", labelToggle);
       this.labelChk.type = "checkbox";
-      this.labelChk.checked = this.manager.currentLabelShow;
+      this.labelChk.checked = this.m.currentLabelShow;
       this.labelChk.onchange = () => {
-        this.manager.currentLabelShow = this.labelChk.checked;
-        this.manager.renderHexagons();
+        this.m.currentLabelShow = this.labelChk.checked;
+        this.m.renderHexagons();
       };
       L.DomUtil.create("span", "toggle-slider", labelToggle);
       L.DomUtil.create("hr", "section-divider", this.extraBody);
@@ -871,7 +876,7 @@
       const confirmBtn = L.DomUtil.create("button", "btn btn-confirm", btnRow);
       confirmBtn.textContent = _(`${CONST.name}.confirm`);
       confirmBtn.onclick = () => {
-        this.manager.renderHexagons();
+        this.m.renderHexagons();
         this.container.classList.remove("expanded");
         this.container.classList.add("collapsed");
       };
@@ -891,26 +896,26 @@
 
     onRemove() {
       // Clean up map event listeners
-      if (this.manager.moveRafId) cancelAnimationFrame(this.manager.moveRafId);
-      if (this.manager.onZoomEnd) this.manager.onZoomEnd.cancel();
-      if (this.manager.onLayerChange) this.manager.onLayerChange.cancel();
-      this.manager.map.off("zoomstart", this.manager.onZoomStart);
-      this.manager.map.off("move", this.manager.redrawOnMove);
-      this.manager.map.off("zoomend", this.manager.onZoomEnd);
-      this.manager.map.off("layeradd layerremove", this.manager.onLayerChange);
+      if (this.m.moveRafId) cancelAnimationFrame(this.m.moveRafId);
+      if (this.m.onZoomEnd) this.m.onZoomEnd.cancel();
+      if (this.m.onLayerChange) this.m.onLayerChange.cancel();
+      this.m.map.off("zoomstart", this.m.onZoomStart);
+      this.m.map.off("move", this.m.redrawOnMove);
+      this.m.map.off("zoomend", this.m.onZoomEnd);
+      this.m.map.off("layeradd layerremove", this.m.onLayerChange);
 
       // Disconnect MutationObserver
       if (this.observer) this.observer.disconnect();
 
-      this.manager.clearHeatmapCanvas();
-      if (this.manager.overlay) this.manager.overlay.destroy();
-      this.manager.overlay = null;
-      this.manager.ui = null;
+      this.m.clearHeatmapCanvas();
+      if (this.m.overlay) this.m.overlay.destroy();
+      this.m.overlay = null;
+      this.m.ui = null;
     }
 
     // --- UI Logic Methods ---
     buildLayerListItems(sel) {
-      this.manager.scanMapLayers();
+      this.m.scanMapLayers();
       sel.innerHTML = "";
       const placeholder = window.foliplus.dom.el(
         "option",
@@ -918,30 +923,30 @@
           value: "",
           disabled: "disabled",
           class: "placeholder-option",
-          selected: !this.manager.selectedLayerId ? "" : undefined,
+          selected: !this.m.selectedLayerId ? "" : undefined,
         },
-        _(CONST.name + ".layer_placeholder"),
+        _(`${CONST.name}.layer_placeholder`),
       );
       sel.appendChild(placeholder);
 
-      this.manager.pointLayers.forEach((info) => {
+      this.m.pointLayers.forEach((info) => {
         sel.appendChild(
           window.foliplus.dom.el("option", { value: info.id }, info.name),
         );
       });
 
-      if (this.manager.selectedLayerId) sel.value = this.manager.selectedLayerId;
+      if (this.m.selectedLayerId) sel.value = this.m.selectedLayerId;
       else sel.selectedIndex = 0;
 
       sel.onchange = () => {
-        this.manager.selectedLayerId = sel.value || null;
+        this.m.selectedLayerId = sel.value || null;
         if (this.extraBody) {
-          this.extraBody.style.display = this.manager.selectedLayerId ? "" : "none";
+          this.extraBody.style.display = this.m.selectedLayerId ? "" : "none";
         }
         this.syncSelect(sel, sel.value);
         this.updateFieldSelector();
-        if (this.manager.selectedLayerId) this.manager.renderHexagons();
-        else this.manager.clearHeatmapCanvas();
+        if (this.m.selectedLayerId) this.m.renderHexagons();
+        else this.m.clearHeatmapCanvas();
       };
 
       this.syncSelect(sel, sel.value);
@@ -953,17 +958,17 @@
 
     updateFieldSelector() {
       if (!this.fieldWrap || !this.fieldSelect) return;
-      if (this.manager.currentAgg === "count") {
+      if (this.m.currentAgg === "count") {
         this.fieldWrap.classList.add("hidden");
         return;
       }
       this.fieldWrap.classList.remove("hidden");
 
-      const selected = this.manager.pointLayers.filter(
-        (info) => info.id === this.manager.selectedLayerId,
+      const selected = this.m.pointLayers.filter(
+        (info) => info.id === this.m.selectedLayerId,
       );
-      const fields = this.manager.collectFields(selected);
-      this.manager.autoFieldKey = this.manager.pickAutoField(fields);
+      const fields = this.m.collectFields(selected);
+      this.m.autoFieldKey = this.m.pickAutoField(fields);
 
       const phOpt = window.foliplus.dom.el(
         "option",
@@ -972,7 +977,7 @@
           disabled: "disabled",
           class: "placeholder-option",
         },
-        _(CONST.name + ".field_auto"),
+        _(`${CONST.name}.field_auto`),
       );
 
       this.fieldSelect.innerHTML = "";
@@ -988,13 +993,10 @@
         );
       });
 
-      if (
-        fields.includes(this.manager.currentField) ||
-        this.manager.currentField === "_auto"
-      ) {
-        this.fieldSelect.value = this.manager.currentField;
+      if (fields.includes(this.m.currentField) || this.m.currentField === "_auto") {
+        this.fieldSelect.value = this.m.currentField;
       } else {
-        this.manager.currentField = "_auto";
+        this.m.currentField = "_auto";
         this.fieldSelect.value = "_auto";
       }
 
@@ -1003,7 +1005,7 @@
 
     /** Render color blocks into a container. */
     renderColorBar(container, name, nClasses) {
-      const colors = this.manager.getColorScale(name, nClasses);
+      const colors = this.m.getColorScale(name, nClasses);
       container.innerHTML = "";
       for (const color of colors) {
         container.appendChild(
@@ -1016,12 +1018,8 @@
     }
 
     updateSchemeBar() {
-      this.renderColorBar(
-        this.schemeBarInner,
-        this.manager.currentScheme,
-        this.manager.N_CLASSES,
-      );
-      this.schemeBar.title = this.manager.currentScheme;
+      this.renderColorBar(this.schemeBarInner, this.m.currentScheme, this.m.N_CLASSES);
+      this.schemeBar.title = this.m.currentScheme;
     }
 
     refreshSchemeDropdownItems() {
@@ -1031,7 +1029,7 @@
         const name = item.getAttribute("data-scheme-name");
         if (!name) return;
         const bar = item.querySelector(".scheme-dropdown-bar");
-        if (bar) this.renderColorBar(bar, name, this.manager.N_CLASSES);
+        if (bar) this.renderColorBar(bar, name, this.m.N_CLASSES);
       });
     }
 
@@ -1058,13 +1056,13 @@
         item.setAttribute("role", "option");
         item.setAttribute("data-scheme-name", name);
         item.tabIndex = -1;
-        if (name === this.manager.currentScheme) {
+        if (name === this.m.currentScheme) {
           item.classList.add("active");
           focusIdx = idx;
         }
 
         const itemBar = L.DomUtil.create("div", "scheme-dropdown-bar", item);
-        this.renderColorBar(itemBar, name, this.manager.N_CLASSES);
+        this.renderColorBar(itemBar, name, this.m.N_CLASSES);
         item.title = name;
 
         item.onclick = (ev) => {
@@ -1103,22 +1101,22 @@
     }
 
     selectScheme(name) {
-      this.manager.currentScheme = name;
+      this.m.currentScheme = name;
       this.schemeSelectHidden.value = name;
       this.updateSchemeBar();
       if (this.schemeDropdown) {
         this.schemeDropdown.remove();
         this.schemeDropdown = null;
       }
-      this.manager.renderHexagons();
+      this.m.renderHexagons();
       this.schemeBar.focus();
     }
 
     initScan(attempt) {
-      this.manager.scanMapLayers();
-      if (this.manager.pointLayers.length === 0 && attempt > 0) {
+      this.m.scanMapLayers();
+      if (this.m.pointLayers.length === 0 && attempt > 0) {
         setTimeout(() => this.initScan(attempt - 1), CONST.INIT_SCAN_INTERVAL_MS);
-      } else if (this.manager.pointLayers.length === 0) {
+      } else if (this.m.pointLayers.length === 0) {
         window.foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.no_layer`),
@@ -1130,17 +1128,17 @@
     }
 
     resetAll() {
-      this.manager.selectedLayerId = null;
-      this.manager.autoFieldKey = null;
-      this.manager.currentAgg = CONST.AGG_DEFAULT;
-      this.manager.currentField = CONST.FIELD_DEFAULT;
-      this.manager.N_CLASSES = CONST.N_CLASSES_DEFAULT;
-      this.manager.currentMethod = CONST.COLOR_METHOD;
-      this.manager.currentScheme = CONST.COLOR_SCHEME;
-      this.manager.currentLabelShow = CONST.LABEL_SHOW;
-      this.manager.BORDER_W = CONST.BORDER_W_DEFAULT;
-      this.manager.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
-      this.manager.clearHeatmapCanvas();
+      this.m.selectedLayerId = null;
+      this.m.autoFieldKey = null;
+      this.m.currentAgg = CONST.AGG_DEFAULT;
+      this.m.currentField = CONST.FIELD_DEFAULT;
+      this.m.N_CLASSES = CONST.N_CLASSES_DEFAULT;
+      this.m.currentMethod = CONST.COLOR_METHOD;
+      this.m.currentScheme = CONST.COLOR_SCHEME;
+      this.m.currentLabelShow = CONST.LABEL_SHOW;
+      this.m.BORDER_W = CONST.BORDER_W_DEFAULT;
+      this.m.BORDER_COLOR = CONST.BORDER_COLOR_DEFAULT;
+      this.m.clearHeatmapCanvas();
     }
 
     syncSelect(el, value) {

@@ -210,11 +210,8 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "onRemove()" in html
         assert "observer.disconnect" in html
-        assert 'manager.map.off("zoomend", this.manager.onZoomEnd)' in html
-        assert (
-            'manager.map.off("layeradd layerremove", this.manager.onLayerChange)'
-            in html
-        )
+        assert 'this.m.map.off("zoomend", this.m.onZoomEnd)' in html
+        assert 'this.m.map.off("layeradd layerremove", this.m.onLayerChange)' in html
 
     def test_no_layer_hint(self, base_map: folium.Map):
         """initScan shows no_layer hint when no point layers found."""
@@ -229,7 +226,7 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "pickAutoField(fields)" in html
         assert "return fields[0];" in html
-        assert "this.manager.autoFieldKey = this.manager.pickAutoField(fields);" in html
+        assert "this.m.autoFieldKey = this.m.pickAutoField(fields);" in html
 
     def test_auto_field_priority_and_fallback(self, base_map: folium.Map):
         """Auto mode picks the first discovered field (collectFields order)."""
@@ -242,7 +239,7 @@ class TestHeatmapControlRendering:
         """Clear action resets autoFieldKey to avoid stale field selection."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "this.manager.autoFieldKey = null;" in html
+        assert "this.m.autoFieldKey = null;" in html
 
     def test_named_handler_cleanup(self, base_map: folium.Map):
         """bindMapEvents uses named handlers (onZoomEnd, onLayerChange)."""
