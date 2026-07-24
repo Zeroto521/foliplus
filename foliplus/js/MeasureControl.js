@@ -1765,7 +1765,7 @@
         {
           cssClass: "measure-ctrl",
           toggleTitle: _(`${CONST.name}.tool_toggle`),
-          toggleSvg: SVGS.RULER,
+          toggleSvg: SVGs.RULER,
           isLeft: CONST.position.indexOf("left") >= 0,
         },
       );
