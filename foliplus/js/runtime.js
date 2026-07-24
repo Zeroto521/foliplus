@@ -32,7 +32,7 @@
   foliplus._initialized = true;
 
   // Private state (closure-scoped, not exposed on foliplus)
-  let _hintIcons = {};
+  let hintIcons = {};
 
   // ==================== Constants ====================
   const HINT = {
@@ -94,7 +94,7 @@
   };
 
   // ==================== Hint / Toast System ====================
-  const _hintMap = new Map(); // key -> { element, timer }
+  const hintMap = new Map(); // key -> { element, timer }
 
   /**
    * Register an SVG icon for a hint type. The icon is prepended to the
@@ -108,7 +108,7 @@
    *   foliplus.showHint('export', 'Exporting...'); // shows icon + text
    */
   foliplus.registerHintIcon = (key, iconSvg) => {
-    _hintIcons[key] = iconSvg;
+    hintIcons[key] = iconSvg;
   };
 
   /**
@@ -146,7 +146,7 @@
       ? `map-hint map-hint-${key}-${Date.now()}`
       : `map-hint map-hint-${key}`;
     const el = L.DomUtil.create("div", cls, hintTarget);
-    const icon = (_hintIcons && _hintIcons[key]) || "";
+    const icon = (hintIcons && hintIcons[key]) || "";
     el.innerHTML = icon ? `<span class="map-hint-icon">${icon}</span>${text}` : text;
     el.classList.add("map-hint");
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
@@ -154,20 +154,20 @@
       if (cs.position === "static") hintTarget.style.position = "relative";
     }
     const storeKey = append ? key + "-" + Date.now() : key;
-    _hintMap.set(storeKey, { element: el, timer: null });
+    hintMap.set(storeKey, { element: el, timer: null });
 
-    const _reposition = () => {
+    const reposition = () => {
       let idx = 0;
-      for (let v of _hintMap.values()) {
+      for (let v of hintMap.values()) {
         v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
         v.element.style.zIndex = HINT.Z_BASE + idx;
         idx++;
       }
     };
-    _reposition();
+    reposition();
 
     if (duration !== 0) {
-      _hintMap.get(storeKey).timer = setTimeout(
+      hintMap.get(storeKey).timer = setTimeout(
         () => foliplus.hideHint(storeKey),
         duration || HINT.DEFAULT_DURATION,
       );
@@ -186,17 +186,17 @@
    */
   foliplus.hideHint = (key) => {
     // Also clear appended instances (keys start with key+'-')
-    for (const k of _hintMap.keys()) {
+    for (const k of hintMap.keys()) {
       if (k === key || k.startsWith(key + "-")) {
-        const entry = _hintMap.get(k);
+        const entry = hintMap.get(k);
         if (entry.timer) clearTimeout(entry.timer);
         if (entry.element) entry.element.remove();
-        _hintMap.delete(k);
+        hintMap.delete(k);
       }
     }
 
     let idx = 0;
-    for (let v of _hintMap.values()) {
+    for (let v of hintMap.values()) {
       v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
       idx++;
     }
