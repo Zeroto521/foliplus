@@ -438,7 +438,10 @@ class TestLayerControlRendering:
         """handleDrop returns early when dragIdx is invalid."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.dragIdx < 0 || this.dragIdx >= this.layers.length" in html
+        assert (
+            "this.m.dragIdx < 0 || this.m.dragIdx >= this.m.layers.length"
+            in html
+        )
 
     def test_ensure_pane_no_renderer_false(self, base_map: folium.Map):
         """ensurePane accepts needRenderer=false for label/overlay panes."""
@@ -535,7 +538,7 @@ class TestLayerControlRendering:
         """destroy() clears layerRegistry to prevent stale references."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layerRegistry.clear()" in html
+        assert "LayerManager.registry.clear()" in html
 
     def test_destroy_flag(self, base_map: folium.Map):
         """destroy sets isDestroyed flag to prevent post-cleanup actions."""
@@ -574,7 +577,7 @@ class TestLayerControlRendering:
         """unregisterLayer cleans up layerRegistry entry."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layerRegistry.delete(id)" in html
+        assert "LayerManager.registry.delete(id)" in html
 
     def test_unregister_returns_bool(self, base_map: folium.Map):
         """unregisterLayer returns false when layer not found."""
@@ -805,7 +808,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "LayerUtils.findLayer(this.map, id)" in html
-        assert "layerRegistry.get(id)" in html
+        assert "LayerManager.registry.get(id)" in html
         assert "this.findLayer = this.findLayer.bind(this)" in html
 
     def test_for_each_leaf_utility(self, base_map: folium.Map):
@@ -819,7 +822,7 @@ class TestLayerControlRendering:
         """LayerControl.onRemove calls destroy() which cleans up resources."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layerManager.destroy()" in html
+        assert "this.manager.destroy()" in html
         assert "unpatchBringToFront()" in html
 
     def test_destroy_cleans_listeners(self, base_map: folium.Map):
