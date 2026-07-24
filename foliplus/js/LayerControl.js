@@ -31,14 +31,18 @@
       ACTIVE: "active",
       CHECKBOX_WRAPPER: "foliplus-checkbox-wrapper",
       GROUP_FOLDED: "foliplus-layer-group-folded",
-      COLOR_ACTIVE: "foliplus-color-active",
+      COLOR_ACTIVE: "foliplus-color-layer-active",
       COLOR_INPUT: "foliplus-color-layer-input",
       COLOR_ITEM: "foliplus-color-layer-item",
-      DRAG_OVER_TOP: "foliplus-drag-over-top",
-      DRAG_OVER_BOTTOM: "foliplus-drag-over-bottom",
-      DRAGGING: "foliplus-dragging",
+      DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
+      DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
+      DRAGGING: "foliplus-layer-dragging",
+      FOLD_BTN: "foliplus-layer-fold-btn",
+      FOLDED: "foliplus-layer-folded",
       TYPE_ICON_COL: "foliplus-type-icon-col",
-      TOGGLE_ALL_ITEM: "foliplus-toggle-all-item",
+      TOGGLE_ALL: "foliplus-layer-toggle-all",
+      FOLD_BTN_CTR: "foliplus-layer-sep",
+      SEP_LABEL: "foliplus-layer-sep-label",
     },
     DATA: {
       INDEX: "data-index",
@@ -48,7 +52,7 @@
       LAYER_ITEM: ".foliplus-layer-item",
       COLOR_ITEM: ".foliplus-color-layer-item",
       COLOR_INPUT: ".foliplus-color-layer-input",
-      TOGGLE_ALL: ".foliplus-toggle-all-item",
+      TOGGLE_ALL: ".foliplus-layer-toggle-all",
     },
   };
 
@@ -1175,14 +1179,14 @@
         "div",
         {
           class:
-            `foliplus-layer-separator-container ${CONST.CLASSES.TOGGLE_ALL_ITEM}` +
-            (isFolded ? " foliplus-folded" : ""),
+            `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
+            (isFolded ? " " + CONST.CLASSES.FOLDED : ""),
           "data-group": group,
         },
         window.foliplus.dom.el(
           "button",
           {
-            class: "foliplus-fold-toggle-btn",
+            class: CONST.CLASSES.FOLD_BTN,
             title: _(CONST.name + (isFolded ? ".unfold_tooltip" : ".fold_tooltip")),
           },
           { html: isFolded ? SVGs.UNFOLD : SVGs.FOLD },
@@ -1198,7 +1202,7 @@
         ),
         window.foliplus.dom.el(
           "span",
-          { class: "foliplus-separator-label" },
+          { class: CONST.CLASSES.SEP_LABEL },
           _(labelKey),
         ),
         window.foliplus.dom.el("div", { class: "foliplus-section-divider" }),

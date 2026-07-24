@@ -13,12 +13,12 @@
 }
 
 /* ── Top button gets top radius ── */
-.foliplus-fullscreen-bar .foliplus-fullscreen-zoom-in {
+.foliplus-fullscreen-bar .foliplus-zoom-in {
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 /* ── Bottom button gets bottom radius ── */
-.foliplus-fullscreen-bar .foliplus-fullscreen-btn {
+.foliplus-fullscreen-bar .foliplus-fullscreen-toggle {
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
@@ -26,7 +26,7 @@
 .foliplus-fullscreen-bar .foliplus-tool-btn {
   border-bottom: var(--border-thin) solid var(--divider-color);
 }
-.foliplus-fullscreen-bar .foliplus-fullscreen-btn {
+.foliplus-fullscreen-bar .foliplus-fullscreen-toggle {
   border-bottom: none;
 }
 

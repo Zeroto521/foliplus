@@ -25,7 +25,7 @@
       MAP_SEARCH: "foliplus-map-search",
       SEARCH_MODE_BTN: "foliplus-search-mode-btn",
       CLEAR_WRAP: "foliplus-clear-wrap",
-      CTRL_ABS_BTN: "foliplus-ctrl-abs-btn",
+      CTRL_BTN: "foliplus-ctrl-btn",
     },
   };
 
@@ -74,7 +74,7 @@
       });
       const clearBtn = window.foliplus.dom.el(
         "button",
-        { class: CONST.CLASSES.CTRL_ABS_BTN, title: _(`${CONST.name}.clear_title`) },
+        { class: CONST.CLASSES.CTRL_BTN, title: _(`${CONST.name}.clear_title`) },
         { html: window.foliplus.SVGs.CLOSE },
       );
       toolBar.appendChild(modeBtn);

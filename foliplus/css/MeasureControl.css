@@ -114,7 +114,7 @@
     stroke-dashoffset: 0;
   }
 }
-.foliplus-measure-line-solid.foliplus-dash-sweep {
+.foliplus-measure-line-solid.foliplus-measure-dash-sweep {
   stroke-dasharray: var(--sweep-length, 1000) var(--sweep-length, 1000);
   stroke-dashoffset: var(--sweep-length, 1000);
   animation: measure-dash-sweep var(--sweep-duration, 0.5s) ease-in-out;

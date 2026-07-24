@@ -114,7 +114,7 @@ class TestMapSearchRendering:
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "toggle-btn" in html
-        assert "ctrl-abs-btn" in html
+        assert "ctrl-btn" in html
 
     def test_search_form_structure(self, base_map: folium.Map):
         """Search form has mode-btn, input, and clear-wrap."""
@@ -342,7 +342,7 @@ class TestMapSearchBrowser:
             # Type something in the input
             page.evaluate("document.querySelector('input').value = '26.08,119.30'")
             # Click clear button
-            page.evaluate("document.querySelector('.foliplus-ctrl-abs-btn').click()")
+            page.evaluate("document.querySelector('.foliplus-ctrl-btn').click()")
             page.wait_for_timeout(500)
 
             cleared = page.evaluate("document.querySelector('input').value")

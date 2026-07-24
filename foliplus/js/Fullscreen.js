@@ -6,9 +6,9 @@
       PSEUDO_FULLSCREEN: "leaflet-pseudo-fullscreen",
       TOOL_BTN: "foliplus-tool-btn",
       FULLSCREEN_BAR: "foliplus-fullscreen-bar",
-      ZOOM_IN_BTN: "foliplus-fullscreen-zoom-in",
-      ZOOM_OUT_BTN: "foliplus-fullscreen-zoom-out",
-      FS_BTN: "foliplus-fullscreen-btn",
+      ZOOM_IN: "foliplus-zoom-in",
+      ZOOM_OUT: "foliplus-zoom-out",
+      FS_TOGGLE: "foliplus-fullscreen-toggle",
       LEAFLET_BAR: "leaflet-bar",
     },
   };
@@ -99,7 +99,7 @@
       const zoomInBtn = window.foliplus.dom.el(
         "button",
         {
-          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_IN_BTN}`,
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_IN}`,
           "aria-label": _(`${CONST.name}.zoom_in`),
           title: _(`${CONST.name}.zoom_in`),
         },
@@ -115,7 +115,7 @@
       const zoomOutBtn = window.foliplus.dom.el(
         "button",
         {
-          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_OUT_BTN}`,
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_OUT}`,
           "aria-label": _(`${CONST.name}.zoom_out`),
           title: _(`${CONST.name}.zoom_out`),
         },
@@ -131,7 +131,7 @@
       const fsBtn = window.foliplus.dom.el(
         "button",
         {
-          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.FS_BTN}`,
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.FS_TOGGLE}`,
           "aria-label": _(`${CONST.name}.title`),
           title: _(`${CONST.name}.title`),
         },

@@ -54,7 +54,7 @@
       NODE_FINAL: "foliplus-measure-node foliplus-measure-node-final",
       NODE_PREVIEW: "foliplus-measure-node foliplus-measure-node-preview",
       RIPPLE: "foliplus-measure-ripple",
-      DASH_SWEEP: "foliplus-dash-sweep",
+      DASH_SWEEP: "foliplus-measure-dash-sweep",
       HIDDEN: "foliplus-measure-hidden",
       VISIBLE: "visible",
       ACTIVE: "active",

@@ -67,7 +67,7 @@ class TestFullscreenRendering:
         """Fullscreen CSS includes fullscreen container styles."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "foliplus-fullscreen-btn" in html
+        assert "foliplus-fullscreen-toggle" in html
         assert "ctrl-size" in html
         assert "foliplus-fullscreen-bar" in html
 
@@ -124,9 +124,9 @@ class TestFullscreenRendering:
         """Custom zoom +/- buttons are created by Fullscreen.js."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "foliplus-fullscreen-zoom-in" in html
-        assert "foliplus-fullscreen-zoom-out" in html
-        assert "foliplus-fullscreen-btn" in html
+        assert "foliplus-zoom-in" in html
+        assert "foliplus-zoom-out" in html
+        assert "foliplus-fullscreen-toggle" in html
 
     def test_buttons_are_button_elements(self, base_map: folium.Map):
         """Zoom +/- and fullscreen use <button> elements, not <a>."""
@@ -204,10 +204,10 @@ class TestFullscreenBrowser:
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.wait_for_selector(
-                ".foliplus-fullscreen-btn", state="attached", timeout=10000
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             has_btn = page.evaluate(
-                "document.querySelector('.foliplus-fullscreen-btn') !== null"
+                "document.querySelector('.foliplus-fullscreen-toggle') !== null"
             )
             assert has_btn, "Fullscreen button not found"
             assert not errors, f"JS errors: {errors}"
@@ -219,14 +219,14 @@ class TestFullscreenBrowser:
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.wait_for_selector(
-                ".foliplus-fullscreen-btn", state="attached", timeout=10000
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             svg = page.evaluate(
-                "document.querySelector('.foliplus-fullscreen-btn svg') !== null"
+                "document.querySelector('.foliplus-fullscreen-toggle svg') !== null"
             )
             assert svg, "No SVG icon found"
             path_d = page.evaluate(
-                "document.querySelector('.foliplus-fullscreen-btn path').getAttribute('d')"
+                "document.querySelector('.foliplus-fullscreen-toggle path').getAttribute('d')"
             )
             # Maximize icon has M8 3H5...
             assert "M8 3H5" in path_d
@@ -239,10 +239,10 @@ class TestFullscreenBrowser:
         page, errors = self._make_page(browser, tmp_path, hide_self=True)
         try:
             page.wait_for_selector(
-                ".foliplus-fullscreen-btn", state="attached", timeout=10000
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             has_self_hide = page.evaluate(
-                "document.querySelector('.foliplus-fullscreen-btn').innerHTML.indexOf('MINIMIZE') === -1"
+                "document.querySelector('.foliplus-fullscreen-toggle').innerHTML.indexOf('MINIMIZE') === -1"
             )
             assert has_self_hide
             assert not errors, f"JS errors: {errors}"

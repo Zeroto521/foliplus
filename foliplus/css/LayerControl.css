@@ -52,7 +52,7 @@
   display: block;
   transition: transform var(--transition-fast);
 }
-.foliplus-layer-ctrl .foliplus-layer-separator-container {
+.foliplus-layer-ctrl .foliplus-layer-sep {
   display: flex;
   align-items: center;
   gap: var(--space-md);
@@ -60,10 +60,10 @@
     var(--space-xxl);
   flex-shrink: 0;
 }
-.foliplus-layer-ctrl .foliplus-layer-separator-container .foliplus-section-divider {
+.foliplus-layer-ctrl .foliplus-layer-sep .foliplus-section-divider {
   flex: 1;
 }
-.foliplus-layer-ctrl .foliplus-separator-label {
+.foliplus-layer-ctrl .foliplus-layer-sep-label {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
   text-transform: uppercase;
@@ -72,7 +72,7 @@
   flex-shrink: 0;
 }
 /* ── Toggle-all item ── */
-.foliplus-layer-ctrl .foliplus-layer-separator-container.foliplus-toggle-all-item {
+.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all {
   gap: var(--space-sm);
   padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-md)
     var(--space-sm);
@@ -84,12 +84,12 @@
     border-color var(--transition-fast);
 }
 .foliplus-layer-ctrl
-  .foliplus-layer-separator-container.foliplus-toggle-all-item:hover {
+  .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
   background: var(--panel-header-hover);
 }
 
 /* ── Fold toggle button ── */
-.foliplus-layer-ctrl .foliplus-fold-toggle-btn {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -107,22 +107,22 @@
     background var(--transition-fast),
     transform var(--transition-fast);
 }
-.foliplus-layer-ctrl .foliplus-fold-toggle-btn:hover {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn:hover {
   color: var(--accent-primary);
   background: var(--accent-soft-bg);
   border-radius: var(--radius-sm);
 }
-.foliplus-layer-ctrl .foliplus-fold-toggle-btn:hover svg {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn:hover svg {
   transform: scale(var(--scale-hover));
 }
-.foliplus-layer-ctrl .foliplus-fold-toggle-btn:active {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn:active {
   transform: scale(var(--scale-press));
 }
-.foliplus-layer-ctrl .foliplus-fold-toggle-btn:active svg {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn:active svg {
   transition: transform var(--transition-fast);
   transform: scale(var(--scale-press));
 }
-.foliplus-layer-ctrl .foliplus-fold-toggle-btn svg {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn svg {
   width: 14px;
   height: 14px;
   stroke: currentColor;
@@ -132,8 +132,8 @@
   transition: transform var(--transition-fast);
 }
 .foliplus-layer-ctrl
-  .foliplus-toggle-all-item.foliplus-folded
-  .foliplus-fold-toggle-btn {
+  .foliplus-layer-toggle-all.foliplus-layer-folded
+  .foliplus-layer-fold-btn {
   color: var(--accent-primary);
 }
 
@@ -157,7 +157,7 @@
 .foliplus-layer-ctrl .foliplus-layer-item:hover .foliplus-drag-handle {
   opacity: 1;
 }
-.foliplus-layer-ctrl .foliplus-toggle-all-item .foliplus-drag-handle,
+.foliplus-layer-ctrl .foliplus-layer-toggle-all .foliplus-drag-handle,
 .foliplus-layer-ctrl .foliplus-color-layer-item .foliplus-drag-handle {
   visibility: hidden;
 }
@@ -197,11 +197,11 @@
 .foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col svg {
   transform: scale(var(--scale-hover));
 }
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-dragging {
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-dragging {
   background: var(--accent-light);
   opacity: var(--alpha-70);
 }
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-drag-over-top {
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-drag-over-top {
   border-top: var(--drag-border-width, var(--border-thick)) solid var(--accent-primary);
   background: var(--accent-soft-bg);
   box-shadow: var(
@@ -212,7 +212,7 @@
   animation: drag-pulse var(--drag-pulse-duration, 0.8s) ease-in-out
     var(--drag-pulse-count, 3);
 }
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-drag-over-bottom {
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-drag-over-bottom {
   border-bottom: var(--drag-border-width, var(--border-thick)) solid
     var(--accent-primary);
   background: var(--accent-soft-bg);
@@ -331,17 +331,17 @@
   border: none;
   border-radius: var(--radius-round);
 }
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-color-active {
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-color-layer-active {
   background: var(--accent-light);
   border-left-color: var(--accent-primary);
 }
 .foliplus-layer-ctrl
-  .foliplus-layer-item.foliplus-color-active
+  .foliplus-layer-item.foliplus-color-layer-active
   .foliplus-type-icon-col {
   color: var(--accent-primary);
 }
 .foliplus-layer-ctrl
-  .foliplus-layer-item.foliplus-color-active
+  .foliplus-layer-item.foliplus-color-layer-active
   .foliplus-color-layer-input {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);

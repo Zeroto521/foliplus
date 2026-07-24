@@ -189,7 +189,7 @@
   .foliplus-toggle-btn,
   .foliplus-tool-btn,
   .foliplus-search-mode-btn,
-  .foliplus-ctrl-abs-btn
+  .foliplus-ctrl-btn
 ) {
   display: flex;
   align-items: center;
@@ -214,7 +214,7 @@
   .foliplus-toggle-btn,
   .foliplus-tool-btn,
   .foliplus-search-mode-btn,
-  .foliplus-ctrl-abs-btn
+  .foliplus-ctrl-btn
 ):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
@@ -227,7 +227,7 @@
   .foliplus-toggle-btn,
   .foliplus-tool-btn,
   .foliplus-search-mode-btn,
-  .foliplus-ctrl-abs-btn
+  .foliplus-ctrl-btn
 ):active {
   transform: scale(var(--scale-press));
 }
@@ -235,10 +235,10 @@
 /* ── Button hover/active SVG scale ──
   SVG-level parallax for buttons that also have button-level scale.
   toggle-btn added via expanded context for fold controls. */
-:is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-abs-btn):hover svg {
+:is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-btn):hover svg {
   transform: scale(var(--scale-hover));
 }
-:is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-abs-btn):active svg {
+:is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-btn):active svg {
   transition: transform var(--transition-fast);
   transform: scale(var(--scale-press));
 }
@@ -302,7 +302,7 @@
   border: none;
 }
 
-.foliplus-ctrl-abs-btn {
+.foliplus-ctrl-btn {
   position: absolute;
   right: 0;
   top: calc(50% - var(--ctrl-size) / 2);

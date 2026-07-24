@@ -70,8 +70,8 @@ class TestLayerControlRendering:
     def test_separator_label(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layer-separator-container" in html
-        assert "separator-label" in html
+        assert "layer-sep" in html
+        assert "layer-sep-label" in html
 
     def test_public_api(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
@@ -750,8 +750,8 @@ class TestLayerControlRendering:
         # Color layer picker (via :is() selector, no literal :hover string)
         assert "foliplus-color-layer-input" in html
         # Fold toggle button SVG
-        assert "foliplus-fold-toggle-btn:hover svg" in html
-        assert "foliplus-fold-toggle-btn:active" in html
+        assert "foliplus-layer-fold-btn:hover svg" in html
+        assert "foliplus-layer-fold-btn:active" in html
         # Type icon column transition
         assert "foliplus-type-icon-col svg" in html
         assert "transition: transform" in html
@@ -1482,7 +1482,7 @@ class TestLayerControlBrowser:
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerControlAPI;
                 if (!api) return null;
-                const cb = document.querySelector('.foliplus-toggle-all-item[data-group="overlay"] [data-role="toggle-all"]');
+                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
                 return cb ? cb.checked : 'no-cb';
             }""")
             assert result is True, f"Expected toggle-all checked, got {result}"
@@ -1551,7 +1551,7 @@ class TestLayerControlBrowser:
 
             # Click the overlay fold button
             page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-toggle-all-item[data-group="overlay"] .foliplus-fold-toggle-btn');
+                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 if (btn) btn.click();
             }""")
             page.wait_for_timeout(300)
@@ -1606,7 +1606,7 @@ class TestLayerControlBrowser:
 
             # Click the base fold button
             page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-toggle-all-item[data-group="base"] .foliplus-fold-toggle-btn');
+                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="base"] .foliplus-layer-fold-btn');
                 if (btn) btn.click();
             }""")
             page.wait_for_timeout(300)
@@ -1656,7 +1656,7 @@ class TestLayerControlBrowser:
 
             # Click fold button
             page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-toggle-all-item[data-group="overlay"] .foliplus-fold-toggle-btn');
+                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 if (btn) btn.click();
             }""")
             page.wait_for_timeout(300)
@@ -1672,7 +1672,7 @@ class TestLayerControlBrowser:
 
             # Click fold button again to unfold
             page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-toggle-all-item[data-group="overlay"] .foliplus-fold-toggle-btn');
+                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 if (btn) btn.click();
             }""")
             page.wait_for_timeout(300)
@@ -1720,7 +1720,7 @@ class TestLayerControlBrowser:
 
             # Fold overlay
             page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-toggle-all-item[data-group="overlay"] .foliplus-fold-toggle-btn');
+                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 if (btn) btn.click();
             }""")
             page.wait_for_timeout(300)
@@ -1760,21 +1760,21 @@ class TestLayerControlBrowser:
             # Check initial SVG (FOLD = 1 polyline, UNFOLD = 1 polyline)
             # Chevron ^ (points 18,15 12,9 6,15) vs v (points 18,9 12,15 6,9)
             elem_count = page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-toggle-all-item[data-group="overlay"] .foliplus-fold-toggle-btn');
+                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 return btn.querySelectorAll('polyline').length;
             }""")
             assert elem_count == 1, f"Expected 1 polyline (FOLD SVG), got {elem_count}"
 
             # Click to fold
             page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-toggle-all-item[data-group="overlay"] .foliplus-fold-toggle-btn');
+                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 if (btn) btn.click();
             }""")
             page.wait_for_timeout(300)
 
             # After fold, SVG should still have 1 polyline (rotated)
             elem_count = page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-toggle-all-item[data-group="overlay"] .foliplus-fold-toggle-btn');
+                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 return btn.querySelectorAll('polyline').length;
             }""")
             assert elem_count == 1, (
