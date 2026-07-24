@@ -319,13 +319,20 @@
     box-shadow var(--transition-fast);
   box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
 }
-.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-switch:hover .foliplus-heatmap-toggle-slider {
+.foliplus-heatmap-ctrl
+  .foliplus-heatmap-toggle-switch:hover
+  .foliplus-heatmap-toggle-slider {
   background-color: var(--neutral-500);
 }
-.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-switch:hover .foliplus-heatmap-toggle-slider::before {
+.foliplus-heatmap-ctrl
+  .foliplus-heatmap-toggle-switch:hover
+  .foliplus-heatmap-toggle-slider::before {
   box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
 }
-.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-switch input:checked + .foliplus-heatmap-toggle-slider {
+.foliplus-heatmap-ctrl
+  .foliplus-heatmap-toggle-switch
+  input:checked
+  + .foliplus-heatmap-toggle-slider {
   background-color: var(--accent-primary);
 }
 .foliplus-heatmap-ctrl

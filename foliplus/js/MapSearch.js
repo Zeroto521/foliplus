@@ -92,10 +92,9 @@
       if (mode !== CONST.MODE.COORD && mode !== CONST.MODE.ADDR)
         mode = CONST.MODE.COORD;
 
-      setMode(mode);
 
       // Mode switching
-      function setMode(newMode) {
+      const setMode = (newMode) => {
         mode = newMode;
         if (mode === CONST.MODE.COORD) {
           modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
@@ -119,6 +118,7 @@
         e.stopPropagation();
         setMode(mode === CONST.MODE.COORD ? CONST.MODE.ADDR : CONST.MODE.COORD);
       };
+      setMode(mode);
 
       // Expand / collapse
       toggleBtn.onclick = (e) => {

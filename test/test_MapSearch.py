@@ -143,7 +143,7 @@ class TestMapSearchRendering:
         """Mode switch function setMode exists."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "function setMode(newMode)" in html
+        assert "const setMode = (newMode) =>" in html
 
     def test_reverse_geocode_function(self, base_map: folium.Map):
         """reverseGeocode is called for address lookup."""

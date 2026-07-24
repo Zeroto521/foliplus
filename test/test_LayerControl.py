@@ -606,7 +606,7 @@ class TestLayerControlRendering:
         """patchBringToFront is idempotent — skip if already patched."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "if (bringToFrontPatched) return" in html
+        assert "if (isBringToFrontPatched) return" in html
 
     def test_unpatch_bring_to_front_restores_original(self, base_map: folium.Map):
         """unpatchBringToFront restores original L.Path.prototype.bringToFront."""

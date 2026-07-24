@@ -174,7 +174,7 @@
       this.cachedPoints = null;
       this.cachedFeatures = null;
       this.cachedAgg = null;
-      this.labelStyleCache = null;
+      this.cachedLabelStyle = null;
       this.renderAll = false;
 
       this.bindMapEvents();
@@ -278,20 +278,20 @@
 
     /** Resolve label styling from CSS custom properties (cached). */
     resolveLabelStyle() {
-      if (this.labelStyleCache) return this.labelStyleCache;
+      if (this.cachedLabelStyle) return this.cachedLabelStyle;
       const ctrlEl = this.ui?.container;
       const cssVal = (prop, fallback) =>
         ctrlEl
           ? getComputedStyle(ctrlEl).getPropertyValue(prop).trim() || fallback
           : fallback;
 
-      this.labelStyleCache = {
+      this.cachedLabelStyle = {
         font: `${cssVal("--heatmap-label-font-weight", "bold")} ${cssVal("--heatmap-label-font-size", `${CONST.LABEL.SIZE}px`)} ${cssVal("--heatmap-label-font-family", "sans-serif")}`,
         color: cssVal("--heatmap-label-color", CONST.LABEL.COLOR),
         stroke: cssVal("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
         strokeWidth: parseFloat(cssVal("--heatmap-label-stroke-width", "3")),
       };
-      return this.labelStyleCache;
+      return this.cachedLabelStyle;
     }
 
     /** Draw a formatted value label centered on the hexagon. */
@@ -483,7 +483,7 @@
     // --- Hexagon Rendering ---
     renderHexagons() {
       // Invalidate label style cache — will be re-read on next redraw
-      this.labelStyleCache = null;
+      this.cachedLabelStyle = null;
       if (!this.map || !this.map._container) return;
       if (!this.selectedLayerId) {
         this.clearHeatmapCanvas();

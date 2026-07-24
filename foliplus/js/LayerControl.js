@@ -118,11 +118,11 @@
   // layer migration (enforceOrder briefly removes layers from the map, and a
   // concurrent mousemove event may call bringToFront on a detached _path).
   const origBringToFront = L.Path.prototype.bringToFront;
-  let bringToFrontPatched = false;
+  let isBringToFrontPatched = false;
 
   function patchBringToFront() {
-    if (bringToFrontPatched) return;
-    bringToFrontPatched = true;
+    if (isBringToFrontPatched) return;
+    isBringToFrontPatched = true;
     L.Path.prototype.bringToFront = function () {
       if (this._path && this._path.parentNode) origBringToFront.call(this);
       return this;
@@ -130,8 +130,8 @@
   }
 
   function unpatchBringToFront() {
-    if (!bringToFrontPatched) return;
-    bringToFrontPatched = false;
+    if (!isBringToFrontPatched) return;
+    isBringToFrontPatched = false;
     L.Path.prototype.bringToFront = origBringToFront;
   }
 
@@ -249,7 +249,7 @@
       this.pendingRegistrations = [];
       this.uiContainer = null;
 
-      this.colorActive = false;
+      this.isColorActive = false;
       this.currentColor = CONST.COLOR.DEFAULT;
       this.dragIdx = null;
       this.lastDragHintAt = 0;
@@ -335,7 +335,7 @@
         }
         this.layers = ordered.concat([...map.values()]);
       } catch (e) {
-        console.warn(`[${CONST.name}] ${_(CONST.name + ".load_order_fail")}`, e);
+        console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_order_fail`)}`, e);
       }
     }
 
@@ -346,7 +346,7 @@
           JSON.stringify(this.layers.map((l) => l.id)),
         );
       } catch (e) {
-        console.warn(`[${CONST.name}] ${_(CONST.name + ".save_order_fail")}`, e);
+        console.warn(`[${CONST.name}] ${_(`${CONST.name}.save_order_fail`)}`, e);
       }
     }
 
@@ -358,7 +358,7 @@
         if (!Array.isArray(groups)) return;
         this.foldedGroups = new Set(groups);
       } catch (e) {
-        console.warn(`[${CONST.name}] ${_(CONST.name + ".load_fold_fail")}`, e);
+        console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_fold_fail`)}`, e);
       }
     }
 
@@ -369,7 +369,7 @@
           JSON.stringify(Array.from(this.foldedGroups)),
         );
       } catch (e) {
-        console.warn(`[${CONST.name}] ${_(CONST.name + ".save_fold_fail")}`, e);
+        console.warn(`[${CONST.name}] ${_(`${CONST.name}.save_fold_fail`)}`, e);
       }
     }
 
@@ -434,7 +434,7 @@
      */
     registerLayer(opts) {
       if (!opts?.id)
-        throw new Error(`[${CONST.name}] ${_(CONST.name + ".id_required")}`);
+        throw new Error(`[${CONST.name}] ${_(`${CONST.name}.id_required`)}`);
 
       const existingIdx = this.layers.findIndex((l) => l.id === opts.id);
       const existingVisible =
@@ -472,7 +472,7 @@
           LayerManager.registry.set(opts.id, opts.layer);
         else
           console.warn(
-            `[${CONST.name}] ${_(CONST.name + ".invalid_id").replace("{id}", opts.id)}`,
+            `[${CONST.name}] ${_(`${CONST.name}.invalid_id`).replace("{id}", opts.id)}`,
           );
       }
       this.paneCache.clear();
@@ -799,11 +799,11 @@
      */
     createCanvas(opts) {
       if (!opts?.id)
-        throw new Error(`[${CONST.name}] ${_(CONST.name + ".require_canvas_id")}`);
+        throw new Error(`[${CONST.name}] ${_(`${CONST.name}.require_canvas_id`)}`);
 
       const mapPane = this.map._mapPane;
       if (!mapPane)
-        throw new Error(`[${CONST.name}] ${_(CONST.name + ".mapPane_not_available")}`);
+        throw new Error(`[${CONST.name}] ${_(`${CONST.name}.mapPane_not_available`)}`);
 
       const canvas = L.DomUtil.create("canvas", "foliplus-heatmap-canvas", mapPane);
       if (opts.className) canvas.classList.add(opts.className);
@@ -1187,7 +1187,7 @@
           "button",
           {
             class: CONST.CLASSES.FOLD_BTN,
-            title: _(CONST.name + (isFolded ? ".unfold_tooltip" : ".fold_tooltip")),
+            title: _(`${CONST.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
           },
           { html: isFolded ? SVGs.UNFOLD : SVGs.FOLD },
         ),
@@ -1200,11 +1200,7 @@
             checked: "",
           }),
         ),
-        window.foliplus.dom.el(
-          "span",
-          { class: CONST.CLASSES.SEP_LABEL },
-          _(labelKey),
-        ),
+        window.foliplus.dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
         window.foliplus.dom.el("div", { class: "foliplus-section-divider" }),
       );
     }
@@ -1572,7 +1568,7 @@
     }
 
     showColorLayer(color) {
-      this.m.colorActive = true;
+      this.m.isColorActive = true;
       this.m.currentColor = color;
       mapContainer.style.background = color;
 
@@ -1608,7 +1604,7 @@
     }
 
     hideColorLayer() {
-      this.m.colorActive = false;
+      this.m.isColorActive = false;
       mapContainer.style.background = "";
       const tilePane = this.m.map.getPane("tilePane");
       if (tilePane) {
@@ -1672,20 +1668,20 @@
       const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
 
       container.innerHTML = `
-        <div class="foliplus-map-panel foliplus-ctrl-fold foliplus-layer-ctrl
-             collapsed" id="{{ this.get_name() }}_ctrl">
-          <button class="foliplus-toggle-btn" title="${_(CONST.name + ".toggle_title")}"
-                  aria-label="${_(CONST.name + ".toggle_title")}">
+        <div class="foliplus-map-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed"
+             id="{{ this.get_name() }}_ctrl">
+          <button class="foliplus-toggle-btn" title="${_(`${CONST.name}.toggle_title`)}"
+                  aria-label="${_(`${CONST.name}.toggle_title`)}">
             ${SVGs.LAYERS}
           </button>
-          <div class="foliplus-layer-panel" role="dialog" aria-label="${_(CONST.name + ".panel_title")}">
-            <div class="foliplus-panel-header" title="${_(CONST.name + ".close_title")}">
+          <div class="foliplus-layer-panel" role="dialog" aria-label="${_(`${CONST.name}.panel_title`)}">
+            <div class="foliplus-panel-header" title="${_(`${CONST.name}.close_title`)}">
               <span class="foliplus-header-title">
                 <span class="foliplus-header-icon">${SVGs.LAYERS}</span>
-                ${_(CONST.name + ".panel_title")}
+                ${_(`${CONST.name}.panel_title`)}
               </span>
-              <button class="foliplus-ctrl-btn" title="${_(CONST.name + ".close_title")}"
-                      aria-label="${_(CONST.name + ".close_title")}">
+              <button class="foliplus-ctrl-btn" title="${_(`${CONST.name}.close_title`)}"
+                      aria-label="${_(`${CONST.name}.close_title`)}">
                 ${window.foliplus.SVGs.CLOSE}
               </button>
             </div>

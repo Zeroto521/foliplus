@@ -183,7 +183,7 @@ class TestMeasureControlRendering:
         """suppressHide sets a delayed flag and hides all del icons."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "manager.suppressHideDel = true" in html
+        assert "manager.isSuppressHideDel = true" in html
         assert "MeasureUtils.hideAllDelIcons()" in html
 
     def test_calc_toggle_reset(self, base_map: folium.Map):
