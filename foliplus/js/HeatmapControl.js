@@ -60,7 +60,7 @@
       FORM_LABEL: "foliplus-heatmap-form-label",
       FORM_CONTROL_WRAP: "foliplus-heatmap-form-control-wrap",
       FORM_SELECT: "foliplus-heatmap-form-select",
-      HIDDEN: "foliplus-heatmap-hidden",
+      HIDDEN: "hidden",
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
       ACTIVE: "active",

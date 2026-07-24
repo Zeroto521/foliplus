@@ -129,7 +129,7 @@
 }
 
 /* Field selector */
-.foliplus-heatmap-ctrl .foliplus-heatmap-field-wrap.foliplus-heatmap-hidden {
+.foliplus-heatmap-ctrl .foliplus-heatmap-field-wrap.hidden {
   display: none;
 }
 
