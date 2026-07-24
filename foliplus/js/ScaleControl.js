@@ -1,6 +1,10 @@
 (function () {
   const CONST = {
     name: "ScaleControl",
+    CLASSES: {
+      SCALE_WRAP: "foliplus-scale-wrap",
+      SCALE_ZOOM_LABEL: "foliplus-scale-zoom-label",
+    },
   };
 
   // ==================== Runtime Guard ====================
@@ -23,11 +27,11 @@
     .addTo(map)
     .getContainer();
 
-  wrap.classList.add("foliplus-scale-wrap");
+  wrap.classList.add(CONST.CLASSES.SCALE_WRAP);
 
   {% if this.show_zoom %};
   // ==================== Zoom Label ====================
-  const zoomLabel = L.DomUtil.create("span", "foliplus-scale-zoom-label", wrap);
+  const zoomLabel = L.DomUtil.create("span", CONST.CLASSES.SCALE_ZOOM_LABEL, wrap);
   const updateZoom = () => {
     zoomLabel.textContent = _(`${CONST.name}.zoom_label`).replace(
       "{zoom}",

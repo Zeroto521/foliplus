@@ -142,7 +142,10 @@ class TestFullscreenRendering:
         """Container has leaflet-bar class for alignment."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert 'class: "leaflet-bar foliplus-fullscreen-bar"' in html
+        assert (
+            r"class: `${CONST.CLASSES.LEAFLET_BAR} ${CONST.CLASSES.FULLSCREEN_BAR}`"
+            in html
+        )
 
     def test_default_zoom_removed(self, base_map: folium.Map):
         """Default Leaflet zoom control is removed."""

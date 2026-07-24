@@ -4,6 +4,12 @@
     position: "{{ this.position }}",
     CLASSES: {
       PSEUDO_FULLSCREEN: "leaflet-pseudo-fullscreen",
+      TOOL_BTN: "foliplus-tool-btn",
+      FULLSCREEN_BAR: "foliplus-fullscreen-bar",
+      ZOOM_IN_BTN: "foliplus-fullscreen-zoom-in",
+      ZOOM_OUT_BTN: "foliplus-fullscreen-zoom-out",
+      FS_BTN: "foliplus-fullscreen-btn",
+      LEAFLET_BAR: "leaflet-bar",
     },
   };
 
@@ -85,7 +91,7 @@
 
       // Build container — leaflet-bar for alignment with other foliplus controls
       const container = window.foliplus.dom.el("div", {
-        class: "leaflet-bar foliplus-fullscreen-bar",
+        class: `${CONST.CLASSES.LEAFLET_BAR} ${CONST.CLASSES.FULLSCREEN_BAR}`,
       });
       container.id = getContainerId();
 
@@ -93,7 +99,7 @@
       const zoomInBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "foliplus-tool-btn foliplus-fullscreen-zoom-in",
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_IN_BTN}`,
           "aria-label": _(`${CONST.name}.zoom_in`),
           title: _(`${CONST.name}.zoom_in`),
         },
@@ -109,7 +115,7 @@
       const zoomOutBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "foliplus-tool-btn foliplus-fullscreen-zoom-out",
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_OUT_BTN}`,
           "aria-label": _(`${CONST.name}.zoom_out`),
           title: _(`${CONST.name}.zoom_out`),
         },
@@ -125,7 +131,7 @@
       const fsBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "foliplus-tool-btn foliplus-fullscreen-btn",
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.FS_BTN}`,
           "aria-label": _(`${CONST.name}.title`),
           title: _(`${CONST.name}.title`),
         },

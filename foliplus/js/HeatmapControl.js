@@ -63,11 +63,41 @@
       HIDDEN: "foliplus-hidden",
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
+      ACTIVE: "active",
       PLACEHOLDER_OPTION: "foliplus-placeholder-option",
       SCHEME_DROPDOWN_ITEM: "foliplus-scheme-dropdown-item",
+      SECTION_HEADING: "foliplus-section-heading",
+      SECTION_BLOCK: "foliplus-section-block",
+      SECTION_BLOCK_LAST: "foliplus-section-block-last",
+      CONFIG_BODY: "foliplus-config-body",
+      EXTRA_BODY: "foliplus-extra-body",
+      FIELD_WRAP: "foliplus-field-wrap",
+      SCHEME_BAR: "foliplus-scheme-bar",
+      SCHEME_BAR_INNER: "foliplus-scheme-bar-inner",
+      SCHEME_BAR_BLOCK: "foliplus-scheme-bar-block",
+      SCHEME_DROPDOWN: "foliplus-scheme-dropdown",
+      SCHEME_DROPDOWN_BAR: "foliplus-scheme-dropdown-bar",
+      SCHEME_SELECT_HIDDEN: "foliplus-scheme-select-hidden",
+      BTN: "foliplus-btn",
+      BTN_ROW: "foliplus-btn-row",
+      BTN_CLEAR: "foliplus-btn-clear",
+      BTN_CONFIRM: "foliplus-btn-confirm",
+      TOGGLE_SWITCH: "foliplus-toggle-switch",
+      TOGGLE_SLIDER: "foliplus-toggle-slider",
+      BORDER_COLOR_INPUT: "foliplus-border-color-input",
+      BORDER_WEIGHT_INPUT: "foliplus-border-weight-input",
+      CLASS_COUNT_SELECT: "foliplus-class-count-select",
+      FORM_CONTROL_INLINE: "foliplus-form-control-inline",
+      SECTION_DIVIDER: "foliplus-section-divider",
+      CLASS_PLACEHOLDER: "foliplus-placeholder",
+      HEATMAP_CTRL: "foliplus-heatmap-ctrl",
     },
     SEL: {
       SCHEME_DROPDOWN_ITEM: ".foliplus-scheme-dropdown-item",
+      SCHEME_DROPDOWN_BAR: ".foliplus-scheme-dropdown-bar",
+      SCHEME_BAR: ".foliplus-scheme-bar",
+      FORM_SELECT: ".foliplus-form-select",
+      FORM_LABEL: ".foliplus-form-label",
     },
   };
 
@@ -639,7 +669,7 @@
 
     onAdd() {
       const { container, ctrl, panelContent } = window.foliplus.createPanelControl({
-        cssClass: "foliplus-heatmap-ctrl",
+        cssClass: CONST.CLASSES.HEATMAP_CTRL,
         toggleTitle: _(`${CONST.name}.title`),
         toggleSvg: SVGs.HEXAGON,
         panelTitle: _(`${CONST.name}.title`),
@@ -654,10 +684,14 @@
 
     /** Build the data section: layer select, aggregation method, field selector. */
     buildDataSection(panelContent) {
-      const configBody = L.DomUtil.create("div", "foliplus-config-body", panelContent);
+      const configBody = L.DomUtil.create(
+        "div",
+        CONST.CLASSES.CONFIG_BODY,
+        panelContent,
+      );
       const dataHeading = L.DomUtil.create(
         "div",
-        "foliplus-section-heading",
+        CONST.CLASSES.SECTION_HEADING,
         configBody,
       );
       dataHeading.textContent = _(`${CONST.name}.section_data`);
@@ -668,11 +702,11 @@
       );
       this.layerSelect = L.DomUtil.create(
         "select",
-        "foliplus-form-select",
+        CONST.CLASSES.FORM_SELECT,
         layerSelectWrap,
       );
 
-      this.extraBody = L.DomUtil.create("div", "foliplus-extra-body", configBody);
+      this.extraBody = L.DomUtil.create("div", CONST.CLASSES.EXTRA_BODY, configBody);
       this.extraBody.style.display = "none";
 
       // Aggregation method
@@ -700,7 +734,7 @@
 
       this.fieldWrap = L.DomUtil.create(
         "div",
-        `foliplus-form-row foliplus-field-wrap ${CONST.CLASSES.HIDDEN}`,
+        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD_WRAP} ${CONST.CLASSES.HIDDEN}`,
         this.extraBody,
       );
       const fieldLabel = L.DomUtil.create(
@@ -733,13 +767,13 @@
     buildStyleSection() {
       const styleHeading = L.DomUtil.create(
         "div",
-        "foliplus-section-heading",
+        CONST.CLASSES.SECTION_HEADING,
         this.extraBody,
       );
       styleHeading.textContent = _(`${CONST.name}.section_style`);
       const styleSection = L.DomUtil.create(
         "div",
-        "foliplus-section-block",
+        CONST.CLASSES.SECTION_BLOCK,
         this.extraBody,
       );
 
@@ -753,7 +787,7 @@
       classRowLabel.textContent = _(`${CONST.name}.class_method`);
       const classControlWrap = L.DomUtil.create(
         "div",
-        "foliplus-form-control-wrap foliplus-form-control-inline",
+        `${CONST.CLASSES.FORM_CONTROL_WRAP} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
         classRow,
       );
       this.methodSelect = L.DomUtil.create(
@@ -774,7 +808,7 @@
 
       this.classSelect = L.DomUtil.create(
         "select",
-        "foliplus-form-select foliplus-class-count-select",
+        `${CONST.CLASSES.FORM_SELECT} ${CONST.CLASSES.CLASS_COUNT_SELECT}`,
         classControlWrap,
       );
       for (let ci = 2; ci <= 9; ci++) {
@@ -808,17 +842,17 @@
       );
       this.schemeBar = L.DomUtil.create(
         "div",
-        "foliplus-scheme-bar",
+        CONST.CLASSES.SCHEME_BAR,
         this.schemeControlWrap,
       );
       this.schemeBarInner = L.DomUtil.create(
         "div",
-        "foliplus-scheme-bar-inner",
+        CONST.CLASSES.SCHEME_BAR_INNER,
         this.schemeBar,
       );
       this.schemeSelectHidden = L.DomUtil.create(
         "select",
-        "foliplus-scheme-select-hidden",
+        CONST.CLASSES.SCHEME_SELECT_HIDDEN,
         this.schemeControlWrap,
       );
 
@@ -879,12 +913,12 @@
       borderRowLabel.textContent = _(`${CONST.name}.border`);
       const borderControlWrap = L.DomUtil.create(
         "div",
-        "foliplus-form-control-wrap foliplus-form-control-inline",
+        `${CONST.CLASSES.FORM_CONTROL_WRAP} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
         borderRow,
       );
       this.borderColorInput = L.DomUtil.create(
         "input",
-        "foliplus-border-color-input",
+        CONST.CLASSES.BORDER_COLOR_INPUT,
         borderControlWrap,
       );
       this.borderColorInput.type = "color";
@@ -895,7 +929,7 @@
       };
       this.borderWeightInput = L.DomUtil.create(
         "input",
-        "foliplus-border-weight-input",
+        CONST.CLASSES.BORDER_WEIGHT_INPUT,
         borderControlWrap,
       );
       this.borderWeightInput.type = "number";
@@ -911,7 +945,7 @@
       // Label toggle
       const labelRow = L.DomUtil.create(
         "div",
-        "foliplus-form-row foliplus-section-block-last",
+        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.SECTION_BLOCK_LAST}`,
         styleSection,
       );
       const labelRowText = L.DomUtil.create(
@@ -927,7 +961,7 @@
       );
       const labelToggle = L.DomUtil.create(
         "label",
-        "foliplus-toggle-switch",
+        CONST.CLASSES.TOGGLE_SWITCH,
         labelControlWrap,
       );
       this.labelChk = L.DomUtil.create("input", "", labelToggle);
@@ -937,14 +971,14 @@
         this.m.currentLabelShow = this.labelChk.checked;
         this.m.renderHexagons();
       };
-      L.DomUtil.create("span", "foliplus-toggle-slider", labelToggle);
-      L.DomUtil.create("hr", "foliplus-section-divider", this.extraBody);
+      L.DomUtil.create("span", CONST.CLASSES.TOGGLE_SLIDER, labelToggle);
+      L.DomUtil.create("hr", CONST.CLASSES.SECTION_DIVIDER, this.extraBody);
 
       // Bottom action buttons
-      const btnRow = L.DomUtil.create("div", "foliplus-btn-row", this.extraBody);
+      const btnRow = L.DomUtil.create("div", CONST.CLASSES.BTN_ROW, this.extraBody);
       const clearBtn = L.DomUtil.create(
         "button",
-        "foliplus-btn foliplus-btn-clear",
+        `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CLEAR}`,
         btnRow,
       );
       clearBtn.textContent = _(`${CONST.name}.clear`);
@@ -968,7 +1002,7 @@
 
       const confirmBtn = L.DomUtil.create(
         "button",
-        "foliplus-btn foliplus-btn-confirm",
+        `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CONFIRM}`,
         btnRow,
       );
       confirmBtn.textContent = _(`${CONST.name}.confirm`);
@@ -1111,7 +1145,7 @@
       for (const color of colors) {
         container.appendChild(
           window.foliplus.dom.el("div", {
-            class: "foliplus-scheme-bar-block",
+            class: CONST.CLASSES.SCHEME_BAR_BLOCK,
             style: `background:${color};width:${100 / colors.length}%`,
           }),
         );
@@ -1131,7 +1165,7 @@
       items.forEach((item) => {
         const name = item.getAttribute("data-scheme-name");
         if (!name) return;
-        const bar = item.querySelector(".foliplus-scheme-dropdown-bar");
+        const bar = item.querySelector(CONST.SEL.SCHEME_DROPDOWN_BAR);
         if (bar) this.renderColorBar(bar, name, this.m.N_CLASSES);
       });
     }
@@ -1144,7 +1178,7 @@
       }
       this.schemeDropdown = L.DomUtil.create(
         "div",
-        "foliplus-scheme-dropdown",
+        CONST.CLASSES.SCHEME_DROPDOWN,
         this.schemeControlWrap,
       );
       this.schemeDropdown.setAttribute("role", "listbox");
@@ -1160,11 +1194,15 @@
         item.setAttribute("data-scheme-name", name);
         item.tabIndex = -1;
         if (name === this.m.currentScheme) {
-          item.classList.add("active");
+          item.classList.add(CONST.CLASSES.ACTIVE);
           focusIdx = idx;
         }
 
-        const itemBar = L.DomUtil.create("div", "foliplus-scheme-dropdown-bar", item);
+        const itemBar = L.DomUtil.create(
+          "div",
+          CONST.CLASSES.SCHEME_DROPDOWN_BAR,
+          item,
+        );
         this.renderColorBar(itemBar, name, this.m.N_CLASSES);
         item.title = name;
 
@@ -1248,7 +1286,7 @@
 
     syncSelect(el, value) {
       el.value = value;
-      el.classList.toggle("foliplus-placeholder", !value || value === "_auto");
+      el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value || value === "_auto");
     }
   }
 

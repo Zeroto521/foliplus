@@ -22,6 +22,10 @@
     CLASSES: {
       EXPANDED: "expanded",
       COLLAPSED: "collapsed",
+      MAP_SEARCH: "foliplus-map-search",
+      SEARCH_MODE_BTN: "foliplus-search-mode-btn",
+      CLEAR_WRAP: "foliplus-clear-wrap",
+      CTRL_ABS_BTN: "foliplus-ctrl-abs-btn",
     },
   };
 
@@ -51,7 +55,7 @@
     onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
-          cssClass: "foliplus-map-search",
+          cssClass: CONST.CLASSES.MAP_SEARCH,
           toggleTitle: _(`${CONST.name}.btn_title`),
           toggleSvg: SVGs.SEARCH,
           isLeft: CONST.position.indexOf("left") >= 0,
@@ -61,7 +65,7 @@
 
       const modeBtn = window.foliplus.dom.el(
         "button",
-        { class: "foliplus-search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
+        { class: CONST.CLASSES.SEARCH_MODE_BTN, title: _(`${CONST.name}.mode_coord`) },
         { html: window.foliplus.SVGs.LOCATE },
       );
       const inp = window.foliplus.dom.el("input", {
@@ -70,12 +74,17 @@
       });
       const clearBtn = window.foliplus.dom.el(
         "button",
-        { class: "foliplus-ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
+        { class: CONST.CLASSES.CTRL_ABS_BTN, title: _(`${CONST.name}.clear_title`) },
         { html: window.foliplus.SVGs.CLOSE },
       );
       toolBar.appendChild(modeBtn);
       toolBar.appendChild(
-        window.foliplus.dom.el("div", { class: "foliplus-clear-wrap" }, inp, clearBtn),
+        window.foliplus.dom.el(
+          "div",
+          { class: CONST.CLASSES.CLEAR_WRAP },
+          inp,
+          clearBtn,
+        ),
       );
 
       let mk = null;
