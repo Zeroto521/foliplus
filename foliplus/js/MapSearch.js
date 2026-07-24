@@ -92,7 +92,6 @@
       if (mode !== CONST.MODE.COORD && mode !== CONST.MODE.ADDR)
         mode = CONST.MODE.COORD;
 
-
       // Mode switching
       const setMode = (newMode) => {
         mode = newMode;
@@ -112,7 +111,7 @@
         }
         window.foliplus.hideHint(CONST.name);
         inp.focus();
-      }
+      };
 
       modeBtn.onclick = (e) => {
         e.stopPropagation();

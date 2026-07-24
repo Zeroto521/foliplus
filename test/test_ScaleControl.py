@@ -114,7 +114,7 @@ class TestScaleControlRendering:
         """Zoom listener removed on map unload."""
         ScaleControl(show_zoom=True).add_to(base_map)
         html = render(base_map)
-        assert 'map.on("unload", () => map.off("zoomend", updateZoom))' in html
+        assert 'this._map.on("unload", () => this._map.off("zoomend", updateZoom))' in html
 
     def test_scale_position_bottomleft(self, base_map: folium.Map):
         """Position is bottomleft (Leaflet default for scale)."""
