@@ -171,7 +171,7 @@
         const lng = parts[0];
         const lat = parts[1];
         window.foliplus.hideHint(CONST.name);
-        map.flyTo([lat, lng], CONST.zoom);
+        map.flyTo([lat, lng], CONST.zoom || 16);
         mk = window.foliplus.createLocationMarker(
           map,
           lng,

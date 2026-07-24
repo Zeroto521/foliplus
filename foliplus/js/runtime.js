@@ -245,7 +245,8 @@
     if (typeof gcoord === "undefined") {
       console.warn(`[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`);
       foliplus.showHint(
-        `[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`,
+        "MapSearch",
+        `${foliplus.gt("MapSearch.gcoord_warn")}`,
         HINT.LONG,
       );
       return false;
@@ -709,7 +710,7 @@
   foliplus.formatNumber = (val, style, locale) => {
     style = style || "auto";
     locale =
-      locale || (typeof _LOCALE !== "undefined" && _LOCALE["locale.code"]) || "en";
+      locale || (typeof window._LOCALE !== "undefined" && window._LOCALE["locale.code"]) || "en";
     const absVal = Math.abs(val);
 
     const fmt = (maxFrac) =>
@@ -849,6 +850,13 @@
     debounced.cancel = () => {
       if (timer) clearTimeout(timer);
       timer = null;
+    };
+    debounced.flush = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+        fn();
+      }
     };
     return debounced;
   };

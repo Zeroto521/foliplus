@@ -156,7 +156,7 @@
       this.currentScheme = CONST.SCHEME;
       this.currentMethod = CONST.METHOD;
       this.autoFieldKey = null;
-      this.N_CLASSES = CONST.N_CLASSES;
+      this.numClasses = CONST.N_CLASSES;
       this.BORDER_W = CONST.BORDER.W;
       this.BORDER_COLOR = CONST.BORDER.COLOR;
       this.currentLabelShow = CONST.LABEL.SHOW;
@@ -493,7 +493,7 @@
       const zoom = this.map.getZoom();
       const res = this.getH3Res(zoom);
       // Aggregation cache key: layer + agg + field + res + method + scheme + nClasses
-      const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.N_CLASSES}`;
+      const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
       let aggregated;
       if (this.cachedAgg && this.cachedAgg.key === aggKey)
         aggregated = this.cachedAgg.data;
@@ -552,7 +552,7 @@
         return null;
       }
 
-      const nClasses = Math.min(this.N_CLASSES, allVals.length);
+      const nClasses = Math.min(this.numClasses, allVals.length);
       const breaks = this.computeBreaks(allVals, nClasses, this.currentMethod);
       const classColors = this.getColorScale(this.currentScheme, nClasses);
 
@@ -816,9 +816,9 @@
           window.foliplus.dom.el("option", { value: ci }, String(ci)),
         );
       }
-      this.classSelect.value = Math.min(9, Math.max(2, this.m.N_CLASSES));
+      this.classSelect.value = Math.min(9, Math.max(2, this.m.numClasses));
       this.classSelect.onchange = () => {
-        this.m.N_CLASSES = Math.min(
+        this.m.numClasses = Math.min(
           9,
           Math.max(2, parseInt(this.classSelect.value, 10) || 6),
         );
@@ -1153,7 +1153,7 @@
     }
 
     updateSchemeBar() {
-      this.renderColorBar(this.schemeBarInner, this.m.currentScheme, this.m.N_CLASSES);
+      this.renderColorBar(this.schemeBarInner, this.m.currentScheme, this.m.numClasses);
       this.schemeBar.title = this.m.currentScheme;
     }
 
@@ -1166,7 +1166,7 @@
         const name = item.getAttribute("data-scheme-name");
         if (!name) return;
         const bar = item.querySelector(CONST.SEL.SCHEME_DROPDOWN_BAR);
-        if (bar) this.renderColorBar(bar, name, this.m.N_CLASSES);
+        if (bar) this.renderColorBar(bar, name, this.m.numClasses);
       });
     }
 
@@ -1203,7 +1203,7 @@
           CONST.CLASSES.SCHEME_DROPDOWN_BAR,
           item,
         );
-        this.renderColorBar(itemBar, name, this.m.N_CLASSES);
+        this.renderColorBar(itemBar, name, this.m.numClasses);
         item.title = name;
 
         item.onclick = (ev) => {
@@ -1275,7 +1275,7 @@
       this.m.autoFieldKey = null;
       this.m.currentAgg = CONST.AGG;
       this.m.currentField = CONST.FIELD;
-      this.m.N_CLASSES = CONST.N_CLASSES;
+      this.m.numClasses = CONST.N_CLASSES;
       this.m.currentMethod = CONST.METHOD;
       this.m.currentScheme = CONST.SCHEME;
       this.m.currentLabelShow = CONST.LABEL.SHOW;
