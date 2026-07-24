@@ -228,6 +228,15 @@
     }
   };
 
+  function ensureGcoord() {
+    if (typeof gcoord === "undefined") {
+      console.warn(`[MapSearch] ${foliplus.gt("gcoord.warn")}`);
+      foliplus.showHint(`[MapSearch] ${foliplus.gt("gcoord.warn")}`, HINT.LONG);
+      return false;
+    }
+    return true;
+  }
+
   /**
    * Convert map-displayed coordinates (GCJ-02 / BD-09) to WGS-84.
    * Automatically detects the map CRS (Baidu → BD09, domestic → GCJ02).
@@ -244,13 +253,10 @@
    *   // → [31.225, 121.464] (approx. WGS-84)
    */
   foliplus.toWgs84 = (map, lat, lng) => {
-    if (typeof gcoord !== "undefined") {
+    if (ensureGcoord()) {
       const src = isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
       const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
       return [result[1], result[0]];
-    } else {
-      console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-      foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
     }
     return [lat, lng];
   };
@@ -266,11 +272,7 @@
    * @returns {number[]} [lng, lat] in map CRS
    */
   foliplus.fromWgs84 = (map, lng, lat) => {
-    if (typeof gcoord === "undefined") {
-      console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-      foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
-      return [lng, lat];
-    }
+    if (!ensureGcoord()) return [lng, lat];
     const isBaidu = isBaiduCRS(map);
     // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip
     const dst = isBaidu ? gcoord.BD09 : gcoord.GCJ02;
