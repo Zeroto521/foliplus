@@ -155,6 +155,9 @@
 }
 /* ── Floating Delete Icon ── */
 .measure-del-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: absolute;
   width: var(--icon-size-sm);
   height: var(--icon-size-sm);
@@ -172,8 +175,6 @@
   left: var(--size-4);
   right: auto;
   margin: 0;
-  align-items: center;
-  justify-content: center;
   transition:
     opacity var(--transition-fast),
     visibility var(--transition-fast),
