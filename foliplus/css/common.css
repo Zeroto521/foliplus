@@ -257,8 +257,8 @@
   color: var(--text-primary);
 }
 .foliplus-toggle-btn svg {
-  width: 18px;
-  height: 18px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   stroke: currentColor;
 }
 
