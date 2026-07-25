@@ -231,8 +231,6 @@
   .foliplus-search-mode-btn,
   .foliplus-ctrl-btn
 ):active {
-  background-color: var(--accent-light);
-  color: var(--accent-primary);
   transform: scale(var(--scale-press));
 }
 
