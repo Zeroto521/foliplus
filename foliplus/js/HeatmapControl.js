@@ -707,7 +707,7 @@
       );
 
       this.extraBody = L.DomUtil.create("div", CONST.CLASSES.EXTRA_BODY, configBody);
-      this.extraBody.style.display = "none";
+      this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
 
       // Aggregation method
       const { wrap: aggControlWrap } = this.createFormRow(
@@ -995,7 +995,7 @@
 
         this.updateSchemeBar();
         this.updateFieldSelector();
-        this.extraBody.style.display = "none";
+        this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
         this.container.classList.remove(CONST.CLASSES.EXPANDED);
         this.container.classList.add(CONST.CLASSES.COLLAPSED);
       };
@@ -1075,9 +1075,11 @@
 
       sel.onchange = () => {
         this.m.selectedLayerId = sel.value || null;
-        if (this.extraBody) {
-          this.extraBody.style.display = this.m.selectedLayerId ? "" : "none";
-        }
+        if (this.extraBody)
+          this.extraBody.classList.toggle(
+            CONST.CLASSES.HIDDEN,
+            !this.m.selectedLayerId,
+          );
         this.syncSelect(sel, sel.value);
         this.updateFieldSelector();
         if (this.m.selectedLayerId) this.m.renderHexagons();
