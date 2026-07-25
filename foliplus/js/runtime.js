@@ -351,6 +351,27 @@
   let geoLastReq = 0;
 
   /**
+   * Format a Nominatim display_name into a concise address string.
+   * Used by both reverseGeocode and MapSearch search results to ensure
+   * consistent address formatting across the codebase.
+   *
+   * Removes trailing numeric tokens (postal codes, house numbers) and
+   * returns the address in a compact locale-friendly order.
+   *
+   * @param {string} displayName - Nominatim display_name string
+   * @returns {string} Formatted address
+   */
+  foliplus.formatAddress = (displayName) => {
+    if (!displayName) return "";
+    return displayName
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s && !/^\d+$/.test(s))
+      .reverse()
+      .join(",");
+  };
+
+  /**
    * Reverse geocode coordinates to an address via Nominatim.
    * Results are cached. Requests are throttled to 1 req/s.
    * @param {L.Map} map Leaflet map instance
@@ -379,14 +400,10 @@
         return fetch(url)
           .then((r) => r.json())
           .then((data) => {
-            let addr = data.display_name || "";
-            addr = addr
-              .split(",")
-              .map((s) => s.trim())
-              .filter((s) => s && !/^\d+$/.test(s))
-              .reverse()
-              .join(",");
-            geoCache[key] = addr || foliplus.gt("MapSearch.addr_not_found");
+            const addr =
+              foliplus.formatAddress(data.display_name) ||
+              foliplus.gt("MapSearch.addr_not_found");
+            geoCache[key] = addr;
             return geoCache[key];
           })
           .catch(() => foliplus.gt("MeasureControl.geo_fail"));

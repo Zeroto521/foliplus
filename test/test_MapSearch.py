@@ -146,7 +146,7 @@ class TestMapSearchRendering:
         """Mode switch function setMode exists."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "const setMode = (newMode) =>" in html
+        assert "setMode(newMode) {" in html
 
     def test_reverse_geocode_function(self, base_map: folium.Map):
         """reverseGeocode is called for address lookup."""
@@ -214,30 +214,30 @@ class TestMapSearchRendering:
         assert 'ACTIVE: "active"' in html
 
     def test_fetchSuggestions_function(self, base_map: folium.Map):
-        """fetchSuggestions and renderSuggestions functions exist."""
+        """fetchSuggestions and renderSuggestions methods exist."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "const fetchSuggestions = (query) =>" in html
-        assert "const renderSuggestions = (results, query) =>" in html
+        assert "fetchSuggestions(query) {" in html
+        assert "renderSuggestions(results, query) {" in html
 
     def test_debounced_fetch_uses_shared_debounce(self, base_map: folium.Map):
         """debouncedFetch uses foliplus.debounce shared utility."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "const debouncedFetch = window.foliplus.debounce(" in html
+        assert "this.debouncedFetch = window.foliplus.debounce(" in html
 
     def test_removeSuggestions_clears_throttle_timer(self, base_map: folium.Map):
         """removeSuggestions clears the throttle timer."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "suggestionsThrottleTimer" in html
-        assert "clearTimeout(suggestionsThrottleTimer)" in html
+        assert "this.suggestionsThrottleTimer" in html
+        assert "clearTimeout(this.suggestionsThrottleTimer)" in html
 
     def test_suggestion_cache(self, base_map: folium.Map):
         """suggestionCache object exists for caching results."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "const suggestionCache = {}" in html
+        assert "this.suggestionCache = {}" in html
         assert "suggestionCache[query]" in html
 
     def test_removeSuggestions_in_setMode(self, base_map: folium.Map):
@@ -245,14 +245,13 @@ class TestMapSearchRendering:
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "removeSuggestions()" in html
-        assert "removeSuggestions(); // Cleanup suggestions on mode switch" in html
 
     def test_blur_removes_suggestions(self, base_map: folium.Map):
         """blur event handler removes suggestions with delay."""
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert 'inp.addEventListener("blur"' in html
-        assert "setTimeout(removeSuggestions, 200)" in html
+        assert "setTimeout(() => this.removeSuggestions(), 200)" in html
 
     def test_keyboard_navigation(self, base_map: folium.Map):
         """ArrowDown/ArrowUp/Enter/Escape keyboard handlers exist."""
@@ -267,13 +266,13 @@ class TestMapSearchRendering:
         """Suggestions dropdown is mounted on document.body."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "document.body.appendChild(suggestionsWrap)" in html
+        assert "document.body.appendChild(this.suggestionsWrap)" in html
 
     def test_positionSuggestions_function(self, base_map: folium.Map):
         """positionSuggestions repositions via getBoundingClientRect."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "const positionSuggestions = () =>" in html
+        assert "positionSuggestions() {" in html
         assert "inp.getBoundingClientRect()" in html
 
     def test_scroll_reposition_listeners(self, base_map: folium.Map):
@@ -281,14 +280,14 @@ class TestMapSearchRendering:
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert 't.addEventListener("scroll"' in html
-        assert 'window.addEventListener("resize"' in html
+        assert 'window.addEventListener("resize", this.repositionHandler)' in html
 
     def test_suggestion_click_stops_propagation(self, base_map: folium.Map):
         """Suggestion click stops propagation to prevent outside collapse."""
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert (
-            'suggestionsWrap.addEventListener("click", (e) => e.stopPropagation())'
+            'this.suggestionsWrap.addEventListener("click", (e) => e.stopPropagation())'
             in html
         )
         assert "suggestion.onclick = (e) => {" in html
@@ -304,10 +303,10 @@ class TestMapSearchRendering:
         assert 'LNG: "lng"' in html
 
     def test_initFromUrl_function(self, base_map: folium.Map):
-        """initFromUrl function exists for URL parameter parsing."""
+        """_initFromUrl method exists for URL parameter parsing."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "const initFromUrl = () =>" in html
+        assert "this._initFromUrl()" in html
         assert "URLSearchParams(window.location.search)" in html
 
     def test_q_param_coord_search(self, base_map: folium.Map):
@@ -315,14 +314,14 @@ class TestMapSearchRendering:
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "params.get(CONST.PARAM.Q)" in html
-        assert "doCoordSearch(q)" in html
+        assert "this.doCoordSearch(q)" in html
 
     def test_q_param_addr_search(self, base_map: folium.Map):
         """?q=address triggers address search."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "inp.value = q" in html
-        assert "doAddrSearch(q)" in html
+        assert "this.inp.value = q" in html
+        assert "this.doAddrSearch(q)" in html
 
     def test_lat_lng_params(self, base_map: folium.Map):
         """?lat=&lng= triggers coordinate search."""
@@ -330,7 +329,7 @@ class TestMapSearchRendering:
         html = render(base_map)
         assert "params.get(CONST.PARAM.LAT)" in html
         assert "params.get(CONST.PARAM.LNG)" in html
-        assert "doCoordSearch(`${lng},${lat}`)" in html
+        assert "this.doCoordSearch(`${lng},${lat}`)" in html
 
     def test_url_parse_error_handling(self, base_map: folium.Map):
         """URL parsing errors are silently caught."""
@@ -345,8 +344,7 @@ class TestMapSearchRendering:
         """Collapsing the control removes suggestions."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "origToggle.call(toggleBtn, e)" in html
-        assert "removeSuggestions()" in html
+        assert "this.removeSuggestions()" in html
 
     # ── Suggestion icon in item ──
 
