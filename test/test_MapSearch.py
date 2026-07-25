@@ -303,10 +303,10 @@ class TestMapSearchRendering:
         assert 'LNG: "lng"' in html
 
     def test_initFromUrl_function(self, base_map: folium.Map):
-        """_initFromUrl method exists for URL parameter parsing."""
+        """initFromUrl method exists for URL parameter parsing."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "this._initFromUrl()" in html
+        assert "this.initFromUrl()" in html
         assert "URLSearchParams(window.location.search)" in html
 
     def test_q_param_coord_search(self, base_map: folium.Map):
@@ -314,14 +314,14 @@ class TestMapSearchRendering:
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "params.get(CONST.PARAM.Q)" in html
-        assert "this.doCoordSearch(q)" in html
+        assert "this.searchCoord(q)" in html
 
     def test_q_param_addr_search(self, base_map: folium.Map):
         """?q=address triggers address search."""
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "this.inp.value = q" in html
-        assert "this.doAddrSearch(q)" in html
+        assert "this.searchAddress(q)" in html
 
     def test_lat_lng_params(self, base_map: folium.Map):
         """?lat=&lng= triggers coordinate search."""
@@ -329,7 +329,7 @@ class TestMapSearchRendering:
         html = render(base_map)
         assert "params.get(CONST.PARAM.LAT)" in html
         assert "params.get(CONST.PARAM.LNG)" in html
-        assert "this.doCoordSearch(`${lng},${lat}`)" in html
+        assert "this.searchCoord(`${lng},${lat}`)" in html
 
     def test_url_parse_error_handling(self, base_map: folium.Map):
         """URL parsing errors are silently caught."""

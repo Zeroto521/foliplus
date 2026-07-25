@@ -355,20 +355,27 @@
    * Used by both reverseGeocode and MapSearch search results to ensure
    * consistent address formatting across the codebase.
    *
-   * Removes trailing numeric tokens (postal codes, house numbers) and
-   * returns the address in a compact locale-friendly order.
+   * Removes trailing numeric tokens (postal codes, house numbers).
+   * For domestic (Chinese) maps, reverses the order (Nominatim returns
+   * western order "small→large", Chinese convention is "large→small").
+   * For foreign maps, keeps the original Nominatim order.
    *
    * @param {string} displayName - Nominatim display_name string
+   * @param {L.Map} [map] - Leaflet map instance; if provided, detects
+   *                        domestic vs foreign CRS to determine ordering
    * @returns {string} Formatted address
    */
-  foliplus.formatAddress = (displayName) => {
+  foliplus.formatAddress = (displayName, map) => {
     if (!displayName) return "";
-    return displayName
+    const parts = displayName
       .split(",")
       .map((s) => s.trim())
-      .filter((s) => s && !/^\d+$/.test(s))
-      .reverse()
-      .join(",");
+      .filter((s) => s && !/^\d+$/.test(s));
+    if (parts.length === 0) return "";
+    // Domestic (Chinese) maps: reverse order (small→large → large→small)
+    // Foreign maps: keep original order
+    if (map && getMapCrsType(map) !== "WGS84") return parts.reverse().join(",");
+    return parts.join(",");
   };
 
   /**
@@ -401,7 +408,7 @@
           .then((r) => r.json())
           .then((data) => {
             const addr =
-              foliplus.formatAddress(data.display_name) ||
+              foliplus.formatAddress(data.display_name, map) ||
               foliplus.gt("MapSearch.addr_not_found");
             geoCache[key] = addr;
             return geoCache[key];

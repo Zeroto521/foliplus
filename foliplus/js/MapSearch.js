@@ -69,11 +69,11 @@
   // ==================== Control Definition ====================
   class MapSearchControl extends L.Control {
     onAdd() {
-      this._createDOM();
-      this._initState();
-      this._initDebouncedFetch();
-      this._bindEvents();
-      this._initFromUrl();
+      this.createDOM();
+      this.initState();
+      this.initDebouncedFetch();
+      this.bindEvents();
+      this.initFromUrl();
       window.foliplus.bindOutsideCollapse({ container: this.ctrl });
       return this.container;
     }
@@ -88,7 +88,7 @@
     }
 
     // ── DOM Creation ──
-    _createDOM() {
+    createDOM() {
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
           cssClass: CONST.CLASSES.MAP_SEARCH,
@@ -132,7 +132,7 @@
     }
 
     // ── State Initialization ──
-    _initState() {
+    initState() {
       this.mk = null;
       this.mode = "{{ this.mode }}";
       if (this.mode !== CONST.MODE.COORD && this.mode !== CONST.MODE.ADDR)
@@ -175,7 +175,7 @@
     }
 
     // ── Coordinate Search ──
-    doCoordSearch(raw) {
+    searchCoord(raw) {
       const parts = raw
         .replace(/\uff0c/g, ",")
         .replace(/\s+/g, "")
@@ -210,7 +210,7 @@
     }
 
     // ── Address Search ──
-    doAddrSearch(query) {
+    searchAddress(query) {
       window.foliplus.showHint(
         CONST.name,
         `${window.foliplus.SVGs.LOADING} ${_(`${CONST.name}.popup_loading`)}`,
@@ -234,7 +234,8 @@
           }
 
           const item = results[0];
-          const displayName = window.foliplus.formatAddress(item.display_name) || query;
+          const displayName =
+            window.foliplus.formatAddress(item.display_name, map) || query;
           let lat = parseFloat(item.lat);
           let lng = parseFloat(item.lon);
 
@@ -333,7 +334,7 @@
           e.stopPropagation();
           this.inp.value = item.display_name || item.name || "";
           this.removeSuggestions();
-          this.doAddrSearch(this.inp.value);
+          this.searchAddress(this.inp.value);
         };
         this.suggestionsWrap.appendChild(suggestion);
       });
@@ -373,7 +374,7 @@
         .catch(() => this.removeSuggestions());
     }
 
-    _initDebouncedFetch() {
+    initDebouncedFetch() {
       this.debouncedFetch = window.foliplus.debounce(
         () => this.fetchSuggestions(this.inp.value.trim()),
         CONST.AUTOCOMPLETE.DEBOUNCE_MS,
@@ -381,7 +382,7 @@
     }
 
     // ── Event Binding ──
-    _bindEvents() {
+    bindEvents() {
       // Toggle expand/collapse (also removes suggestions when collapsing)
       this.toggleBtn.onclick = (e) => {
         e.stopPropagation();
@@ -466,8 +467,8 @@
           this.removeSuggestions();
           if (!raw) return;
           this.mode === CONST.MODE.COORD
-            ? this.doCoordSearch(raw)
-            : this.doAddrSearch(raw);
+            ? this.searchCoord(raw)
+            : this.searchAddress(raw);
         }
       });
 
@@ -499,7 +500,7 @@
     }
 
     // ── URL Parameter Parsing ──
-    _initFromUrl() {
+    initFromUrl() {
       try {
         const params = new URLSearchParams(window.location.search);
         const q = params.get(CONST.PARAM.Q);
@@ -514,18 +515,18 @@
             .map(Number);
           if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
             this.setMode(CONST.MODE.COORD);
-            this.doCoordSearch(q);
+            this.searchCoord(q);
           } else {
             this.setMode(CONST.MODE.ADDR);
             this.inp.value = q;
-            this.doAddrSearch(q);
+            this.searchAddress(q);
           }
         } else if (latParam && lngParam) {
           const lng = parseFloat(lngParam);
           const lat = parseFloat(latParam);
           if (!isNaN(lng) && !isNaN(lat)) {
             this.setMode(CONST.MODE.COORD);
-            this.doCoordSearch(`${lng},${lat}`);
+            this.searchCoord(`${lng},${lat}`);
           }
         }
       } catch (e) {
