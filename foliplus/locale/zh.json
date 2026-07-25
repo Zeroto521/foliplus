@@ -58,6 +58,8 @@
   "LayerControl.type_unknown": "未知图层",
   "LayerControl.id_required": "opts.id 是必填项",
   "LayerControl.invalid_id": "跳过 window[{id}]：非法的标识符",
+  "LayerControl.require_canvas_id": "createCanvas 需要 id 参数",
+  "LayerControl.mapPane_not_available": "mapPane 不可用",
   "LayerControl.data_layer_label": "数据图层",
   "LayerControl.fold_tooltip": "收起图层",
   "LayerControl.unfold_tooltip": "展开图层",
@@ -75,6 +77,7 @@
   "MapSearch.clear_title": "清除",
   "MapSearch.mode_coord": "坐标搜索",
   "MapSearch.mode_addr": "地址搜索",
+  "MapSearch.gcoord_warn": "gcoord 加载失败，坐标转换不可用",
   "MeasureControl.tool_toggle": "量算工具",
   "MeasureControl.tool_marker": "定位",
   "MeasureControl.tool_distance": "测距",
@@ -93,6 +96,5 @@
   "MeasureControl.unit_m": "m",
   "MeasureControl.geo_fail": "查询失败",
   "MeasureControl.no_layercontrol": "MeasureControl 组件依赖 LayerControl，请先添加 LayerControl 组件",
-  "ScaleControl.zoom_label": "地图层级：{zoom}",
-  "gcoord.warn": "gcoord 加载失败，坐标转换不可用"
+  "ScaleControl.zoom_label": "地图层级：{zoom}"
 }

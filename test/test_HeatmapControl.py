@@ -24,10 +24,10 @@ class TestHeatmapControlPython:
         assert HeatmapControl(position="bottomright").position == "bottomright"
 
     def test_default_locale(self):
-        assert HeatmapControl()._LOCALE_CODE == ""
+        assert HeatmapControl()._locale_code == ""
 
     def test_custom_locale(self):
-        assert HeatmapControl(locale="zh")._LOCALE_CODE == "zh"
+        assert HeatmapControl(locale="zh")._locale_code == "zh"
 
     def test_default_params(self):
         ctrl = HeatmapControl()
@@ -328,8 +328,8 @@ class TestHeatmapControlRendering:
         """Border weight slider and color input are rendered."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "border-weight" in html
-        assert "border-color" in html
+        assert "weight-input" in html
+        assert "color-input" in html
 
     def test_label_toggle_renders(self, base_map: folium.Map):
         """Label toggle switch is rendered."""
@@ -403,7 +403,7 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "INIT_SCAN_ATTEMPTS" in html
-        assert "H3_RES_FALLBACK" in html
+        assert "RES_FALLBACK: 12" in html
 
     # ── Performance optimization tests ──
 
@@ -521,7 +521,9 @@ class TestHeatmapControlBrowser:
             ),
         )
         page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-        page.wait_for_selector(".heatmap-ctrl", state="attached", timeout=10000)
+        page.wait_for_selector(
+            ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+        )
         return page, errors
 
     # ── Tests ──────────────────────────────────────────────────────
@@ -531,20 +533,24 @@ class TestHeatmapControlBrowser:
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
 
         try:
-            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
             page.wait_for_selector(
-                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(2000)
 
             options_count = page.evaluate(
-                "document.querySelectorAll('.heatmap-ctrl .layer-select option').length"
+                "window.__heatmapCtrl.layerSelect.querySelectorAll('option').length"
             )
             assert options_count >= 2
 
-            page.evaluate("document.querySelector('.heatmap-ctrl .close-btn').click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-close-btn').click()"
+            )
             page.wait_for_selector(
-                ".heatmap-ctrl.collapsed", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.collapsed", state="attached", timeout=5000
             )
 
             assert not errors, f"JS errors: {errors}"
@@ -558,23 +564,23 @@ class TestHeatmapControlBrowser:
             vals = page.evaluate("""() => {
                 const m = window.__heatmapCtrl.manager;
                 return {
-                    N_CLASSES: m.N_CLASSES,
-                    BORDER_W: m.BORDER_W,
-                    BORDER_COLOR: m.BORDER_COLOR,
+                    numClasses: m.numClasses,
+                    borderWeight: m.borderWeight,
+                    borderColor: m.borderColor,
                     currentLabelShow: m.currentLabelShow,
                     currentMethod: m.currentMethod,
                     currentScheme: m.currentScheme,
                     currentAgg: m.currentAgg,
                 };
             }""")
-            assert vals["N_CLASSES"] == 6, (
-                f"N_CLASSES expected 6 got {vals['N_CLASSES']}"
+            assert vals["numClasses"] == 6, (
+                f"numClasses expected 6 got {vals['numClasses']}"
             )
-            assert vals["BORDER_W"] == 1.5, (
-                f"BORDER_W expected 1.5 got {vals['BORDER_W']}"
+            assert vals["borderWeight"] == 1.5, (
+                f"borderWeight expected 1.5 got {vals['borderWeight']}"
             )
-            assert vals["BORDER_COLOR"] in ("#333", "#333333"), (
-                f"BORDER_COLOR got {vals['BORDER_COLOR']}"
+            assert vals["borderColor"] in ("#333", "#333333"), (
+                f"borderColor got {vals['borderColor']}"
             )
             assert vals["currentLabelShow"] is True, "currentLabelShow should be True"
             assert vals["currentMethod"] == "jenks"
@@ -588,16 +594,18 @@ class TestHeatmapControlBrowser:
         """Toggling the label checkbox updates manager.currentLabelShow."""
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
-            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
             page.wait_for_selector(
-                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(2000)
 
             before = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
             # Uncheck label
             page.evaluate(
-                "document.querySelector('.heatmap-ctrl .toggle-switch input').click()"
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-switch input').click()"
             )
             after = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
             assert before is True, f"expected True, got {before}"
@@ -610,19 +618,21 @@ class TestHeatmapControlBrowser:
         """Selecting a layer calls renderHexagons (cachedFeatures should be set)."""
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
-            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
             page.wait_for_selector(
-                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(3000)
 
             # Select the first non-placeholder layer
             opts = page.evaluate(
-                "Array.from(document.querySelectorAll('.heatmap-ctrl .layer-select option')).slice(1).map(o => o.value)"
+                "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
             )
             assert opts, "No layer options found"
             page.evaluate(f"""() => {{
-                const sel = document.querySelector('.heatmap-ctrl .layer-select');
+                const sel = window.__heatmapCtrl.layerSelect;
                 sel.value = '{opts[0]}';
                 sel.dispatchEvent(new Event('change'));
             }}""")
@@ -646,17 +656,19 @@ class TestHeatmapControlBrowser:
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
             # Render some content first
-            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
             page.wait_for_selector(
-                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(3000)
             opts = page.evaluate(
-                'Array.from(document.querySelectorAll(".heatmap-ctrl .layer-select option")).slice(1).map(o => o.value)'
+                'Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll("option")).slice(1).map(o => o.value)'
             )
             if opts:
                 page.evaluate(f"""() => {{
-                    const sel = document.querySelector('.heatmap-ctrl .layer-select');
+                    const sel = window.__heatmapCtrl.layerSelect;
                     sel.value = '{opts[0]}';
                     sel.dispatchEvent(new Event('change'));
                 }}""")
@@ -682,26 +694,30 @@ class TestHeatmapControlBrowser:
         """Pressing the clear button resets all controls and clears layers."""
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
-            page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
             page.wait_for_selector(
-                ".heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(3000)
 
             # Change some values
-            page.evaluate("window.__heatmapCtrl.manager.N_CLASSES = 4")
+            page.evaluate("window.__heatmapCtrl.manager.numClasses = 4")
             # Click clear
-            page.evaluate("document.querySelector('.heatmap-ctrl .btn-clear').click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-heatmap-btn-clear').click()"
+            )
             page.wait_for_timeout(500)
 
             mgr = page.evaluate("""() => {
                 const m = window.__heatmapCtrl.manager;
-                return { N_CLASSES: m.N_CLASSES, BORDER_W: m.BORDER_W,
-                         BORDER_COLOR: m.BORDER_COLOR, currentMethod: m.currentMethod,
+                return { numClasses: m.numClasses, borderWeight: m.borderWeight,
+                         borderColor: m.borderColor, currentMethod: m.currentMethod,
                          currentScheme: m.currentScheme };
             }""")
-            assert mgr["N_CLASSES"] == 6, f"expected 6 got {mgr['N_CLASSES']}"
-            assert mgr["BORDER_W"] == 1.5
+            assert mgr["numClasses"] == 6, f"expected 6 got {mgr['numClasses']}"
+            assert mgr["borderWeight"] == 1.5
             assert mgr["currentMethod"] == "jenks"
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -787,11 +803,17 @@ class TestHeatmapAutoFieldBrowser:
         )
         page.goto(f"file://{html_path}", wait_until="domcontentloaded")
 
-        page.wait_for_selector(".heatmap-ctrl", state="attached", timeout=10000)
+        page.wait_for_selector(
+            ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+        )
 
         # Open panel
-        page.evaluate("document.querySelector('.heatmap-ctrl .toggle-btn').click()")
-        page.wait_for_selector(".heatmap-ctrl.expanded", state="attached", timeout=5000)
+        page.evaluate(
+            "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+        )
+        page.wait_for_selector(
+            ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+        )
         page.wait_for_timeout(2000)
 
         return page, errors
@@ -820,24 +842,21 @@ class TestHeatmapAutoFieldBrowser:
 
         try:
             # Select the first layer (there's only one)
-            layer_select = ".heatmap-ctrl .layer-select"
             options = page.evaluate(
-                f"Array.from(document.querySelectorAll('{layer_select} option')).map(o => o.value)"
+                "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).map(o => o.value)"
             )
             # Skip the empty/default option, pick the first real layer
             real_options = [v for v in options if v]
             assert len(real_options) >= 1, f"No layer options found: {options}"
-            page.evaluate(
-                f"document.querySelector('{layer_select}').value = '{real_options[0]}'"
-            )
-            page.evaluate(
-                f"document.querySelector('{layer_select}').dispatchEvent(new Event('change'))"
-            )
+            page.evaluate(f"""() => {{
+                window.__heatmapCtrl.layerSelect.value = '{real_options[0]}';
+                window.__heatmapCtrl.layerSelect.dispatchEvent(new Event('change'));
+            }}""")
             page.wait_for_timeout(500)
 
             # Switch aggregation to 'sum' so the field selector appears.
-            # The agg select is the first <select> inside .extra-body.
-            agg_select = ".heatmap-ctrl .extra-body > .form-row:nth-child(1) .form-control-wrap select"
+            # The agg select is the first <select> inside .foliplus-extra-body.
+            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-heatmap-form-row:nth-child(1) .foliplus-heatmap-form-control-wrap select"
             page.evaluate(f"document.querySelector('{agg_select}').value = 'sum'")
             page.evaluate(
                 f"document.querySelector('{agg_select}').dispatchEvent(new Event('change'))"
@@ -845,8 +864,8 @@ class TestHeatmapAutoFieldBrowser:
             page.wait_for_timeout(500)
 
             # Verify field selector is visible and _auto is selected.
-            # The field select is the <select> inside .field-wrap.
-            field_select = ".heatmap-ctrl .field-wrap .form-control-wrap select"
+            # The field select is the <select> inside .foliplus-heatmap-field-wrap.
+            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field-wrap .foliplus-heatmap-form-control-wrap select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
             assert field_val == "_auto", f"Expected '_auto', got '{field_val}'"
 
@@ -893,23 +912,20 @@ class TestHeatmapAutoFieldBrowser:
         page, errors = self._build_page(tmp_path, browser, features, agg="avg")
 
         try:
-            layer_select = ".heatmap-ctrl .layer-select"
             options = page.evaluate(
-                f"Array.from(document.querySelectorAll('{layer_select} option')).map(o => o.value)"
+                "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).map(o => o.value)"
             )
             real_options = [v for v in options if v]
             assert len(real_options) >= 1
-            page.evaluate(
-                f"document.querySelector('{layer_select}').value = '{real_options[0]}'"
-            )
-            page.evaluate(
-                f"document.querySelector('{layer_select}').dispatchEvent(new Event('change'))"
-            )
+            page.evaluate(f"""() => {{
+                window.__heatmapCtrl.layerSelect.value = '{real_options[0]}';
+                window.__heatmapCtrl.layerSelect.dispatchEvent(new Event('change'));
+            }}""")
             page.wait_for_timeout(500)
 
             # Switch to 'avg' so field selector appears.
-            # The agg select is the first <select> inside .extra-body.
-            agg_select = ".heatmap-ctrl .extra-body > .form-row:nth-child(1) .form-control-wrap select"
+            # The agg select is the first <select> inside .foliplus-extra-body.
+            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-heatmap-form-row:nth-child(1) .foliplus-heatmap-form-control-wrap select"
             page.evaluate(f"document.querySelector('{agg_select}').value = 'avg'")
             page.evaluate(
                 f"document.querySelector('{agg_select}').dispatchEvent(new Event('change'))"
@@ -917,8 +933,8 @@ class TestHeatmapAutoFieldBrowser:
             page.wait_for_timeout(500)
 
             # Verify _auto is selected.
-            # The field select is the <select> inside .field-wrap.
-            field_select = ".heatmap-ctrl .field-wrap .form-control-wrap select"
+            # The field select is the <select> inside .foliplus-heatmap-field-wrap.
+            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field-wrap .foliplus-heatmap-form-control-wrap select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
             assert field_val == "_auto", f"Expected '_auto', got '{field_val}'"
 

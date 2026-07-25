@@ -94,6 +94,7 @@ _JS_USED_KEYS = {
     "MapSearch.popup_addr_label",
     "MapSearch.addr_not_found",
     "MapSearch.addr_error",
+    "MapSearch.gcoord_warn",
     # MeasureControl
     "MeasureControl.unit_km",
     "MeasureControl.unit_m",
@@ -114,8 +115,6 @@ _JS_USED_KEYS = {
     "MeasureControl.geo_fail",
     # ScaleControl
     "ScaleControl.zoom_label",
-    # Runtime / global
-    "gcoord.warn",
 }
 
 
@@ -412,4 +411,4 @@ class TestLocaleErrors:
 
         MapSearch().add_to(base_map)
         html = base_map.get_root().render()
-        assert "gcoord.warn" in html
+        assert "MapSearch.gcoord_warn" in html

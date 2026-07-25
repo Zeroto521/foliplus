@@ -58,6 +58,8 @@
   "LayerControl.type_unknown": "Unknown Layer",
   "LayerControl.id_required": "opts.id is required",
   "LayerControl.invalid_id": "Skipping window[{id}]: not a valid identifier",
+  "LayerControl.require_canvas_id": "createCanvas requires an id",
+  "LayerControl.mapPane_not_available": "mapPane not available",
   "LayerControl.data_layer_label": "Data Layers",
   "LayerControl.fold_tooltip": "Collapse layers",
   "LayerControl.unfold_tooltip": "Expand layers",
@@ -75,6 +77,7 @@
   "MapSearch.clear_title": "Clear",
   "MapSearch.mode_coord": "Coordinate Search",
   "MapSearch.mode_addr": "Address Search",
+  "MapSearch.gcoord_warn": "gcoord library failed to load, coordinate transformation unavailable",
   "MeasureControl.tool_toggle": "Measurement Tools",
   "MeasureControl.tool_marker": "Locate",
   "MeasureControl.tool_distance": "Measure Distance",
@@ -93,6 +96,5 @@
   "MeasureControl.unit_m": "m",
   "MeasureControl.geo_fail": "Lookup failed",
   "MeasureControl.no_layercontrol": "MeasureControl requires LayerControl, please add LayerControl to the map first",
-  "ScaleControl.zoom_label": "Zoom Level: {zoom}",
-  "gcoord.warn": "gcoord library failed to load, coordinate transformation unavailable"
+  "ScaleControl.zoom_label": "Zoom Level: {zoom}"
 }

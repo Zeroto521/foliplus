@@ -27,10 +27,10 @@ class TestFullscreenPython:
         assert Fullscreen(hide_self=False).hide_self is False
 
     def test_default_locale(self):
-        assert Fullscreen()._LOCALE_CODE == ""
+        assert Fullscreen()._locale_code == ""
 
     def test_custom_locale(self):
-        assert Fullscreen(locale="zh")._LOCALE_CODE == "zh"
+        assert Fullscreen(locale="zh")._locale_code == "zh"
 
 
 class TestFullscreenRendering:
@@ -40,16 +40,16 @@ class TestFullscreenRendering:
         assert "fullscreen" in html.lower()
 
     def test_hide_self_default(self, base_map: folium.Map):
-        """hide_self=true injects the hide-zoom-container block."""
+        """hide_self=true injects the fullscreen-toggle hide block."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert 'container.style.display = isFull ? "none" : ""' in html
+        assert 'fsToggle.style.display = isFull ? "none" : ""' in html
 
     def test_hide_self_false(self, base_map: folium.Map):
         """hide_self=false wraps hide block in if (false)."""
         Fullscreen(hide_self=False).add_to(base_map)
         html = render(base_map)
-        assert 'container.style.display = isFull ? "none" : ""' in html
+        assert 'fsToggle.style.display = isFull ? "none" : ""' in html
         assert "if (false)" in html
 
     def test_contains_fullscreenchange_listener(self, base_map: folium.Map):
@@ -67,9 +67,9 @@ class TestFullscreenRendering:
         """Fullscreen CSS includes fullscreen container styles."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "fullscreen-btn" in html
+        assert "foliplus-fullscreen-toggle" in html
         assert "ctrl-size" in html
-        assert "fs-bar" in html
+        assert "foliplus-fullscreen-bar" in html
 
     def test_zoom_svg_inline(self, base_map: folium.Map):
         """Zoom +/- use inline SVGs created by Fullscreen.js."""
@@ -79,11 +79,13 @@ class TestFullscreenRendering:
         assert "ZOOM_OUT" in html
 
     def test_maximize_minimize_svgs(self, base_map: folium.Map):
-        """Fullscreen has MAXIMIZE and MINIMIZE SVG icons."""
+        """Fullscreen has MAXIMIZE and MINIMIZE SVG icons, swapped on state change."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
         assert "MAXIMIZE" in html
         assert "MINIMIZE" in html
+        assert "SVGs.MINIMIZE" in html
+        assert "SVGs.MAXIMIZE" in html
 
     def test_hint_on_fullscreen_change(self, base_map: folium.Map):
         """Fullscreen change shows enter/exit hint."""
@@ -91,13 +93,6 @@ class TestFullscreenRendering:
         html = render(base_map)
         assert "window.foliplus.showHint" in html
         assert "HINT_DURATION.MEDIUM" in html
-
-    def test_icon_swap_on_fullscreen(self, base_map: folium.Map):
-        """Minimize icon shown when in fullscreen, maximize when not."""
-        Fullscreen().add_to(base_map)
-        html = render(base_map)
-        assert "SVGs.MINIMIZE" in html
-        assert "SVGs.MAXIMIZE" in html
 
     def test_fullscreen_api_detection(self, base_map: folium.Map):
         """Fullscreen API detection is present."""
@@ -124,9 +119,9 @@ class TestFullscreenRendering:
         """Custom zoom +/- buttons are created by Fullscreen.js."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "fs-zoom-in" in html
-        assert "fs-zoom-out" in html
-        assert "fullscreen-btn" in html
+        assert "foliplus-zoom-in" in html
+        assert "foliplus-zoom-out" in html
+        assert "foliplus-fullscreen-toggle" in html
 
     def test_buttons_are_button_elements(self, base_map: folium.Map):
         """Zoom +/- and fullscreen use <button> elements, not <a>."""
@@ -142,7 +137,10 @@ class TestFullscreenRendering:
         """Container has leaflet-bar class for alignment."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert 'class: "leaflet-bar fs-bar"' in html
+        assert (
+            r"class: `${CONST.CLASSES.LEAFLET_BAR} ${CONST.CLASSES.FULLSCREEN_BAR}`"
+            in html
+        )
 
     def test_default_zoom_removed(self, base_map: folium.Map):
         """Default Leaflet zoom control is removed."""
@@ -167,7 +165,7 @@ class TestFullscreenRendering:
         """hide_self still works when hide_others=false."""
         Fullscreen(hide_self=True, hide_others=False).add_to(base_map)
         html = render(base_map)
-        assert 'container.style.display = isFull ? "none" : ""' in html
+        assert 'fsToggle.style.display = isFull ? "none" : ""' in html
 
 
 class TestFullscreenBrowser:
@@ -200,9 +198,11 @@ class TestFullscreenBrowser:
         """Fullscreen button is present in the DOM."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.wait_for_selector(".fullscreen-btn", state="attached", timeout=10000)
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
             has_btn = page.evaluate(
-                "document.querySelector('.fullscreen-btn') !== null"
+                "document.querySelector('.foliplus-fullscreen-toggle') !== null"
             )
             assert has_btn, "Fullscreen button not found"
             assert not errors, f"JS errors: {errors}"
@@ -213,13 +213,15 @@ class TestFullscreenBrowser:
         """Fullscreen button shows maximize SVG by default."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.wait_for_selector(".fullscreen-btn", state="attached", timeout=10000)
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
             svg = page.evaluate(
-                "document.querySelector('.fullscreen-btn svg') !== null"
+                "document.querySelector('.foliplus-fullscreen-toggle svg') !== null"
             )
             assert svg, "No SVG icon found"
             path_d = page.evaluate(
-                "document.querySelector('.fullscreen-btn path').getAttribute('d')"
+                "document.querySelector('.foliplus-fullscreen-toggle path').getAttribute('d')"
             )
             # Maximize icon has M8 3H5...
             assert "M8 3H5" in path_d
@@ -231,9 +233,11 @@ class TestFullscreenBrowser:
         """hide_self=true hides fullscreen button when fullscreen."""
         page, errors = self._make_page(browser, tmp_path, hide_self=True)
         try:
-            page.wait_for_selector(".fullscreen-btn", state="attached", timeout=10000)
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
             has_self_hide = page.evaluate(
-                "document.querySelector('.fullscreen-btn').innerHTML.indexOf('MINIMIZE') === -1"
+                "document.querySelector('.foliplus-fullscreen-toggle').innerHTML.indexOf('MINIMIZE') === -1"
             )
             assert has_self_hide
             assert not errors, f"JS errors: {errors}"

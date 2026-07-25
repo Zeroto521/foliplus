@@ -32,7 +32,7 @@
   foliplus._initialized = true;
 
   // Private state (closure-scoped, not exposed on foliplus)
-  let _hintIcons = {};
+  let hintIcons = {};
 
   // ==================== Constants ====================
   const HINT = {
@@ -64,16 +64,23 @@
   const POPUP = {
     MAX_WIDTH: 300,
   };
+  const CLASSES = {
+    COLLAPSED: "collapsed",
+    EXPANDED: "expanded",
+    TOGGLE_BTN: "foliplus-toggle-btn",
+    LEAFLET_BAR: "leaflet-bar leaflet-control",
+    MAP_HINT: "foliplus-map-hint",
+  };
 
   // --- SVG Icons ---
   foliplus.SVGs = {
-    LOADING: `<svg class="spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
+    LOADING: `<svg class="foliplus-spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
     CLOSE: `
       <svg viewBox="0 0 24 24">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>`,
     PIN_ICON: `
-      <div class="pin-wrap">
+      <div class="foliplus-pin-wrap">
         <svg width="24" height="36" viewBox="0 0 24 36">
           <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
               fill="#e74c3c" stroke="#fff" stroke-width="1.5"/>
@@ -91,15 +98,10 @@
         <ellipse cx="12" cy="12" rx="4" ry="10"/>
         <line x1="2" y1="12" x2="22" y2="12"/>
       </svg>`,
-    SEARCH: `
-      <svg viewBox="0 0 24 24">
-        <circle cx="10.5" cy="10.5" r="6.5"/>
-        <line x1="15.5" y1="15.5" x2="21" y2="21"/>
-      </svg>`,
   };
 
   // ==================== Hint / Toast System ====================
-  const _hintMap = new Map(); // key -> { element, timer }
+  const hintMap = new Map(); // key -> { element, timer }
 
   /**
    * Register an SVG icon for a hint type. The icon is prepended to the
@@ -113,9 +115,8 @@
    *   foliplus.showHint('export', 'Exporting...'); // shows icon + text
    */
   foliplus.registerHintIcon = (key, iconSvg) => {
-    _hintIcons[key] = iconSvg;
+    hintIcons[key] = iconSvg;
   };
-  _hintIcons["MapSearch"] = foliplus.SVGs.SEARCH;
 
   /**
    * Display a hint toast at the bottom-center of the viewport.
@@ -149,31 +150,33 @@
     if (!append) foliplus.hideHint(key);
     const hintTarget = document.fullscreenElement || document.body;
     const cls = append
-      ? `map-hint map-hint-${key}-${Date.now()}`
-      : `map-hint map-hint-${key}`;
+      ? `${CLASSES.MAP_HINT} ${CLASSES.MAP_HINT}-${key}-${Date.now()}`
+      : `${CLASSES.MAP_HINT} ${CLASSES.MAP_HINT}-${key}`;
     const el = L.DomUtil.create("div", cls, hintTarget);
-    const icon = (_hintIcons && _hintIcons[key]) || "";
-    el.innerHTML = icon ? `<span class="map-hint-icon">${icon}</span>${text}` : text;
-    el.classList.add("map-hint");
+    const icon = (hintIcons && hintIcons[key]) || "";
+    el.innerHTML = icon
+      ? `<span class="foliplus-map-hint-icon">${icon}</span>${text}`
+      : text;
+    el.classList.add(CLASSES.MAP_HINT);
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
       const cs = window.getComputedStyle(hintTarget);
       if (cs.position === "static") hintTarget.style.position = "relative";
     }
-    const storeKey = append ? key + "-" + Date.now() : key;
-    _hintMap.set(storeKey, { element: el, timer: null });
+    const storeKey = append ? `${key}-${Date.now()}` : key;
+    hintMap.set(storeKey, { element: el, timer: null });
 
-    const _reposition = () => {
+    const reposition = () => {
       let idx = 0;
-      for (let v of _hintMap.values()) {
+      for (let v of hintMap.values()) {
         v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
         v.element.style.zIndex = HINT.Z_BASE + idx;
         idx++;
       }
     };
-    _reposition();
+    reposition();
 
     if (duration !== 0) {
-      _hintMap.get(storeKey).timer = setTimeout(
+      hintMap.get(storeKey).timer = setTimeout(
         () => foliplus.hideHint(storeKey),
         duration || HINT.DEFAULT_DURATION,
       );
@@ -192,17 +195,17 @@
    */
   foliplus.hideHint = (key) => {
     // Also clear appended instances (keys start with key+'-')
-    for (const k of _hintMap.keys()) {
-      if (k === key || k.startsWith(key + "-")) {
-        const entry = _hintMap.get(k);
+    for (const k of hintMap.keys()) {
+      if (k === key || k.startsWith(`${key}-`)) {
+        const entry = hintMap.get(k);
         if (entry.timer) clearTimeout(entry.timer);
         if (entry.element) entry.element.remove();
-        _hintMap.delete(k);
+        hintMap.delete(k);
       }
     }
 
     let idx = 0;
-    for (let v of _hintMap.values()) {
+    for (let v of hintMap.values()) {
       v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
       idx++;
     }
@@ -235,30 +238,56 @@
   };
 
   /**
+   * Ensure that the gcoord library is loaded. If not, logs a warning and shows a hint.
+   * @returns {boolean} True if gcoord is available, false otherwise.
+   */
+  function ensureGcoord() {
+    if (typeof gcoord === "undefined") {
+      console.warn(`[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`);
+      foliplus.showHint(
+        "MapSearch",
+        `${foliplus.gt("MapSearch.gcoord_warn")}`,
+        HINT.LONG,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Detect the map's coordinate reference system type: 'BD09', 'GCJ02', or 'WGS84'.
+   * @param {L.Map} map - Leaflet map instance
+   * @returns {string} 'BD09' | 'GCJ02' | 'WGS84' (WGS84 indicates foreign maps that do not require conversion)
+   */
+  function getMapCrsType(map) {
+    if (isBaiduCRS(map)) return "BD09";
+    if (isDomesticMap(map)) return "GCJ02";
+    return "WGS84";
+  }
+
+  /**
    * Convert map-displayed coordinates (GCJ-02 / BD-09) to WGS-84.
    * Automatically detects the map CRS (Baidu → BD09, domestic → GCJ02).
    * If gcoord library is not yet loaded, schedules async loading and
    * returns the input coordinates unchanged (with a console warning).
    *
    * @param {L.Map} map - Leaflet map instance
-   * @param {number} lat - Latitude in map CRS
    * @param {number} lng - Longitude in map CRS
-   * @returns {number[]} [lat, lng] in WGS-84
+   * @param {number} lat - Latitude in map CRS
+   * @returns {number[]} [lng, lat] in WGS-84
    *
    * @example
-   *   const wgs = foliplus.toWgs84(map, 31.23, 121.47);
-   *   // → [31.225, 121.464] (approx. WGS-84)
+   *   const wgs = foliplus.toWgs84(map, 121.47, 31.23);
+   *   // → [121.464, 31.225] (approx. WGS-84)
    */
-  foliplus.toWgs84 = (map, lat, lng) => {
-    if (typeof gcoord !== "undefined") {
-      const src = isBaiduCRS(map) ? gcoord.BD09 : gcoord.GCJ02;
-      const result = gcoord.transform([lng, lat], src, gcoord.WGS84);
-      return [result[1], result[0]];
-    } else {
-      console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-      foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
-    }
-    return [lat, lng];
+  foliplus.toWgs84 = (map, lng, lat) => {
+    if (!ensureGcoord()) return [lng, lat];
+
+    const srcType = getMapCrsType(map);
+    if (srcType === "WGS84") return [lng, lat];
+
+    const src = srcType === "BD09" ? gcoord.BD09 : gcoord.GCJ02;
+    return gcoord.transform([lng, lat], src, gcoord.WGS84);
   };
 
   /**
@@ -272,16 +301,12 @@
    * @returns {number[]} [lng, lat] in map CRS
    */
   foliplus.fromWgs84 = (map, lng, lat) => {
-    if (typeof gcoord === "undefined") {
-      console.warn("[foliplus] " + foliplus.gt("gcoord.warn"));
-      foliplus.showHint("MapSearch", foliplus.gt("gcoord.warn"), HINT.LONG);
-      return [lng, lat];
-    }
-    const isBaidu = isBaiduCRS(map);
-    // Baidu → BD09; non-Baidu domestic maps → GCJ02; worldwide maps → skip
-    const dst = isBaidu ? gcoord.BD09 : gcoord.GCJ02;
-    // Skip transformation for non-domestic maps (no Baidu/AMap tile patterns)
-    if (!isBaidu && !isDomesticMap(map)) return [lng, lat];
+    if (!ensureGcoord()) return [lng, lat];
+
+    const dstType = getMapCrsType(map);
+    if (dstType === "WGS84") return [lng, lat];
+
+    const dst = dstType === "BD09" ? gcoord.BD09 : gcoord.GCJ02;
     return gcoord.transform([lng, lat], gcoord.WGS84, dst);
   };
 
@@ -327,17 +352,17 @@
    * Reverse geocode coordinates to an address via Nominatim.
    * Results are cached. Requests are throttled to 1 req/s.
    * @param {L.Map} map Leaflet map instance
-   * @param {number} lat Latitude
    * @param {number} lng Longitude
+   * @param {number} lat Latitude
    * @returns {Promise<string>} Resolved address string
    */
-  foliplus.reverseGeocode = (map, lat, lng) => {
-    const key = `${lat},${lng}`;
+  foliplus.reverseGeocode = (map, lng, lat) => {
+    const key = `${lng},${lat}`;
     if (geoCache[key]) return Promise.resolve(geoCache[key]);
 
-    const wgs = foliplus.toWgs84(map, parseFloat(lat), parseFloat(lng));
+    const wgs = foliplus.toWgs84(map, parseFloat(lng), parseFloat(lat));
     const lang = (window._LOCALE && window._LOCALE["locale.code"]) || "en";
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[0]}&lon=${wgs[1]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[1]}&lon=${wgs[0]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
 
     geoPromise = geoPromise
       .then(() => {
@@ -414,8 +439,8 @@
 
   /**
    * Build a popup HTML string for a location marker.
-   * @param {number} lat Latitude
    * @param {number} lng Longitude
+   * @param {number} lat Latitude
    * @param {string|null} addr Address text or null (triggers loading indicator)
    * @param {string} title Locale key for popup title (e.g. 'MeasureControl.popup_title')
    * @param {string} loading Locale key for loading text (e.g. 'MeasureControl.popup_loading')
@@ -423,19 +448,19 @@
    * @param {string} addrLabel Locale key for address label (e.g. 'MeasureControl.popup_addr_label')
    * @returns {string} HTML string
    */
-  foliplus.buildPopupHtml = (lat, lng, addr, title, loading, locLabel, addrLabel) => {
+  foliplus.buildPopupHtml = (lng, lat, addr, title, loading, locLabel, addrLabel) => {
     const loadStr = foliplus.gt(loading);
     const addrHtml =
       addr && addr.includes("LOADING")
-        ? { html: foliplus.SVGs.LOADING + " " + loadStr }
+        ? { html: `${foliplus.SVGs.LOADING} ${loadStr}` }
         : addr || loadStr;
 
     return window.foliplus.dom.el(
       "div",
-      { class: "popup-content" },
+      { class: "foliplus-popup-content" },
       window.foliplus.dom.el("b", null, foliplus.gt(title)),
       { html: "<br>" },
-      foliplus.gt(locLabel) + lng + "," + lat,
+      `${foliplus.gt(locLabel)}${lng},${lat}`,
       { html: "<br>" },
       foliplus.gt(addrLabel),
       typeof addrHtml === "object" ? addrHtml : addrHtml,
@@ -445,8 +470,8 @@
   /**
    * Create a location marker with a popup and add it to the map.
    * @param {L.Map} map Leaflet map instance
-   * @param {number} lat Latitude
    * @param {number} lng Longitude
+   * @param {number} lat Latitude
    * @param {string} addr Address string (null = pending reverse geocode)
    * @param {string} title Locale key for popup title
    * @param {string} loading Locale key for loading text
@@ -458,8 +483,8 @@
    */
   foliplus.createLocationMarker = (
     map,
-    lat,
     lng,
+    lat,
     addr,
     title,
     loading,
@@ -481,17 +506,17 @@
     });
     target.addLayer(mk);
     mk.bindPopup(
-      foliplus.buildPopupHtml(lat, lng, addr, title, loading, locLabel, addrLabel),
+      foliplus.buildPopupHtml(lng, lat, addr, title, loading, locLabel, addrLabel),
       { maxWidth: POPUP.MAX_WIDTH },
     );
     mk.openPopup();
     if (!addr) {
-      foliplus.reverseGeocode(map, lat, lng).then((resolved) => {
+      foliplus.reverseGeocode(map, lng, lat).then((resolved) => {
         if (mk && mk.getPopup() && mk.getPopup().isOpen()) {
           mk.setPopupContent(
             foliplus.buildPopupHtml(
-              lat,
               lng,
+              lat,
               resolved,
               title,
               loading,
@@ -517,16 +542,16 @@
     if (btn) {
       L.DomEvent.on(btn, "click", (e) => {
         L.DomEvent.stop(e);
-        container.classList.remove("collapsed");
-        container.classList.add("expanded");
+        container.classList.remove(CLASSES.COLLAPSED);
+        container.classList.add(CLASSES.EXPANDED);
       });
     }
     const hdr = container.querySelector(header);
     if (hdr) {
       L.DomEvent.on(hdr, "click", (e) => {
         L.DomEvent.stop(e);
-        container.classList.remove("expanded");
-        container.classList.add("collapsed");
+        container.classList.remove(CLASSES.EXPANDED);
+        container.classList.add(CLASSES.COLLAPSED);
       });
     }
   };
@@ -540,9 +565,12 @@
    */
   foliplus.bindOutsideCollapse = ({ container }) => {
     const handler = (e) => {
-      if (!container.contains(e.target) && container.classList.contains("expanded")) {
-        container.classList.remove("expanded");
-        container.classList.add("collapsed");
+      if (
+        !container.contains(e.target) &&
+        container.classList.contains(CLASSES.EXPANDED)
+      ) {
+        container.classList.remove(CLASSES.EXPANDED);
+        container.classList.add(CLASSES.COLLAPSED);
       }
     };
     document.addEventListener("click", handler);
@@ -572,28 +600,28 @@
    */
   foliplus.createFoldControl = (opts) => {
     const container = window.foliplus.dom.el("div", {
-      class: "leaflet-bar leaflet-control",
+      class: CLASSES.LEAFLET_BAR,
     });
     const ctrl = window.foliplus.dom.el("div", {
-      class: `${opts.cssClass} ctrl-fold collapsed`,
+      class: `${opts.cssClass} foliplus-ctrl-fold ${CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
       window.foliplus.dom.el(
         "button",
-        { class: "toggle-btn", title: opts.toggleTitle },
+        { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
         { html: opts.toggleSvg },
       ),
     );
-    ctrl.appendChild(window.foliplus.dom.el("div", { class: "tool-bar" }));
+    ctrl.appendChild(window.foliplus.dom.el("div", { class: "foliplus-tool-bar" }));
     container.appendChild(ctrl);
-    if (!opts.isLeft) ctrl.classList.add("align-right");
+    if (!opts.isLeft) ctrl.classList.add("foliplus-align-right");
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
     return {
       container: container,
       ctrl: ctrl,
-      toolBar: ctrl.querySelector(".tool-bar"),
-      toggleBtn: ctrl.querySelector(".toggle-btn"),
+      toolBar: ctrl.querySelector(".foliplus-tool-bar"),
+      toggleBtn: ctrl.querySelector(".foliplus-toggle-btn"),
     };
   };
 
@@ -611,27 +639,27 @@
    */
   foliplus.createPanelControl = (opts) => {
     const container = window.foliplus.dom.el("div", {
-      class: "leaflet-bar leaflet-control",
+      class: CLASSES.LEAFLET_BAR,
     });
     const ctrl = window.foliplus.dom.el("div", {
-      class: `map-panel ctrl-fold ${opts.cssClass} collapsed`,
+      class: `foliplus-map-panel foliplus-ctrl-fold ${opts.cssClass} ${CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
       window.foliplus.dom.el(
         "button",
-        { class: "toggle-btn", title: opts.toggleTitle },
+        { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
         { html: opts.toggleSvg },
       ),
     );
-    const panelWrap = window.foliplus.dom.el("div", { class: "panel-wrap" });
-    const header = window.foliplus.dom.el("div", { class: "panel-header" });
+    const panelWrap = window.foliplus.dom.el("div", { class: "foliplus-panel-wrap" });
+    const header = window.foliplus.dom.el("div", { class: "foliplus-panel-header" });
     header.appendChild(
       window.foliplus.dom.el(
         "span",
-        { class: "header-title" },
+        { class: "foliplus-header-title" },
         window.foliplus.dom.el(
           "span",
-          { class: "header-icon" },
+          { class: "foliplus-header-icon" },
           { html: opts.toggleSvg },
         ),
         opts.panelTitle,
@@ -640,12 +668,14 @@
     header.appendChild(
       window.foliplus.dom.el(
         "button",
-        { class: "close-btn ctrl-abs-btn", title: opts.closeTitle },
+        { class: "foliplus-close-btn foliplus-ctrl-btn", title: opts.closeTitle },
         { html: window.foliplus.SVGs.CLOSE },
       ),
     );
     panelWrap.appendChild(header);
-    const panelContent = window.foliplus.dom.el("div", { class: "panel-content" });
+    const panelContent = window.foliplus.dom.el("div", {
+      class: "foliplus-panel-content",
+    });
     panelWrap.appendChild(panelContent);
     ctrl.appendChild(panelWrap);
     container.appendChild(ctrl);
@@ -655,15 +685,15 @@
 
     window.foliplus.bindPanelToggle({
       container: ctrl,
-      toggleBtn: ".toggle-btn",
-      header: ".panel-header",
+      toggleBtn: ".foliplus-toggle-btn",
+      header: ".foliplus-panel-header",
     });
     window.foliplus.bindOutsideCollapse({ container: ctrl });
 
     return {
       container,
       ctrl,
-      toggleBtn: ctrl.querySelector(".toggle-btn"),
+      toggleBtn: ctrl.querySelector(".foliplus-toggle-btn"),
       panelContent,
     };
   };
@@ -680,7 +710,9 @@
   foliplus.formatNumber = (val, style, locale) => {
     style = style || "auto";
     locale =
-      locale || (typeof _LOCALE !== "undefined" && _LOCALE["locale.code"]) || "en";
+      locale ||
+      (typeof window._LOCALE !== "undefined" && window._LOCALE["locale.code"]) ||
+      "en";
     const absVal = Math.abs(val);
 
     const fmt = (maxFrac) =>
@@ -820,6 +852,13 @@
     debounced.cancel = () => {
       if (timer) clearTimeout(timer);
       timer = null;
+    };
+    debounced.flush = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+        fn();
+      }
     };
     return debounced;
   };

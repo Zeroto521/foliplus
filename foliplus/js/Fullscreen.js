@@ -2,10 +2,20 @@
   const CONST = {
     name: "Fullscreen",
     position: "{{ this.position }}",
-    containerId() {
-      return `${this.name}_${this.position}_container`;
+    CLASSES: {
+      PSEUDO_FULLSCREEN: "leaflet-pseudo-fullscreen",
+      TOOL_BTN: "foliplus-tool-btn",
+      FULLSCREEN_BAR: "foliplus-fullscreen-bar",
+      ZOOM_IN: "foliplus-zoom-in",
+      ZOOM_OUT: "foliplus-zoom-out",
+      FS_TOGGLE: "foliplus-fullscreen-toggle",
+      LEAFLET_BAR: "leaflet-bar",
     },
   };
+
+  function getContainerId() {
+    return `${CONST.name}_${CONST.position}_container`;
+  }
 
   // ==================== Runtime Guard ====================
   if (!window.foliplus || !window.foliplus.SVGs) {
@@ -80,14 +90,16 @@
       }
 
       // Build container — leaflet-bar for alignment with other foliplus controls
-      const container = window.foliplus.dom.el("div", { class: "leaflet-bar fs-bar" });
-      container.id = CONST.containerId();
+      const container = window.foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.LEAFLET_BAR} ${CONST.CLASSES.FULLSCREEN_BAR}`,
+      });
+      container.id = getContainerId();
 
       // Zoom in button — <button> element with tool-btn class
       const zoomInBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "tool-btn fs-zoom-in",
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_IN}`,
           "aria-label": _(`${CONST.name}.zoom_in`),
           title: _(`${CONST.name}.zoom_in`),
         },
@@ -103,7 +115,7 @@
       const zoomOutBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "tool-btn fs-zoom-out",
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_OUT}`,
           "aria-label": _(`${CONST.name}.zoom_out`),
           title: _(`${CONST.name}.zoom_out`),
         },
@@ -119,7 +131,7 @@
       const fsBtn = window.foliplus.dom.el(
         "button",
         {
-          class: "tool-btn fullscreen-btn",
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.FS_TOGGLE}`,
           "aria-label": _(`${CONST.name}.title`),
           title: _(`${CONST.name}.title`),
         },
@@ -141,14 +153,17 @@
         if ({{ this.hide_others | tojson }}) {
           const controls = map
             .getContainer()
-            .querySelectorAll(".leaflet-control, .custom-scale-wrap");
+            .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
           for (const c of controls) {
-            if (c.contains(container) || c.closest?.("#" + CONST.containerId)) continue;
-            c.style.display = isFull ? "none" : "";
+            if (c.contains(container) || c.closest?.(`#${getContainerId()}`)) continue;
+            c.classList.toggle("foliplus-fullscreen-hidden", isFull);
           }
         }
 
-        if ({{ this.hide_self | tojson }}) container.style.display = isFull ? "none" : "";
+        if ({{ this.hide_self | tojson }}) {
+          const fsToggle = container.querySelector(`.${CONST.CLASSES.FS_TOGGLE}`);
+          if (fsToggle) fsToggle.style.display = isFull ? "none" : "";
+        }
 
         window.foliplus.showHint(
           CONST.name,
@@ -162,14 +177,14 @@
         if (getFullscreenEl()) {
           if (isEnabled) document[nativeAPI.exitFullscreen]().catch(() => {});
           else {
-            L.DomUtil.removeClass(map._container, "leaflet-pseudo-fullscreen");
+            L.DomUtil.removeClass(map._container, CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
           map._isFullscreen = false;
         } else {
           if (isEnabled) map._container[nativeAPI.requestFullscreen]().catch(() => {});
           else {
-            L.DomUtil.addClass(map._container, "leaflet-pseudo-fullscreen");
+            L.DomUtil.addClass(map._container, CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
           map._isFullscreen = true;

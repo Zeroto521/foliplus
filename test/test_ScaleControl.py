@@ -23,10 +23,10 @@ class TestScaleControlPython:
             ScaleControl(position="topright")
 
     def test_default_locale(self):
-        assert ScaleControl()._LOCALE_CODE == ""
+        assert ScaleControl()._locale_code == ""
 
     def test_custom_locale(self):
-        assert ScaleControl(locale="zh")._LOCALE_CODE == "zh"
+        assert ScaleControl(locale="zh")._locale_code == "zh"
 
     def test_default_params(self):
         ctrl = ScaleControl()
@@ -74,7 +74,7 @@ class TestScaleControlRendering:
         assert "ScaleControl.zoom_label" in html
 
     def test_imperial_false_in_output(self, base_map: folium.Map):
-        """Scale control outputs imperial: false."""
+        """Scale control outputs imperial: false (metric-only)."""
         ScaleControl().add_to(base_map)
         html = render(base_map)
         assert "imperial: false" in html
@@ -84,18 +84,6 @@ class TestScaleControlRendering:
         ScaleControl(metric=False).add_to(base_map)
         html = render(base_map)
         assert "metric: false" in html
-
-    def test_imperial_false_always(self, base_map: folium.Map):
-        """imperial is always false (metric-only)."""
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
-        assert "imperial: false" in html
-
-    def test_scale_wrap_class(self, base_map: folium.Map):
-        """Container has scale-wrap class."""
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
-        assert "scale-wrap" in html
 
     def test_zoom_label_format(self, base_map: folium.Map):
         """Zoom label uses ScaleControl.zoom_label key with {zoom} placeholder."""
@@ -114,7 +102,9 @@ class TestScaleControlRendering:
         """Zoom listener removed on map unload."""
         ScaleControl(show_zoom=True).add_to(base_map)
         html = render(base_map)
-        assert 'map.on("unload", () => map.off("zoomend", updateZoom))' in html
+        assert (
+            'this._map.on("unload", () => this._map.off("zoomend", updateZoom))' in html
+        )
 
     def test_scale_position_bottomleft(self, base_map: folium.Map):
         """Position is bottomleft (Leaflet default for scale)."""
@@ -154,14 +144,16 @@ class TestScaleControlBrowser:
             ),
         )
         page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-        page.wait_for_selector(".scale-wrap", state="attached", timeout=10000)
+        page.wait_for_selector(".foliplus-scale-wrap", state="attached", timeout=10000)
         return page, errors
 
     def test_scale_visible(self, browser, tmp_path):
         """Scale wrap is visible in the DOM."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            visible = page.evaluate("document.querySelector('.scale-wrap') !== null")
+            visible = page.evaluate(
+                "document.querySelector('.foliplus-scale-wrap') !== null"
+            )
             assert visible
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -172,7 +164,7 @@ class TestScaleControlBrowser:
         page, errors = self._make_page(browser, tmp_path, show_zoom=True)
         try:
             has_label = page.evaluate(
-                "document.querySelector('.scale-zoom-label') !== null"
+                "document.querySelector('.foliplus-scale-zoom-label') !== null"
             )
             assert has_label
             assert not errors, f"JS errors: {errors}"
@@ -184,7 +176,7 @@ class TestScaleControlBrowser:
         page, errors = self._make_page(browser, tmp_path, show_zoom=False)
         try:
             has_label = page.evaluate(
-                "document.querySelector('.scale-zoom-label') !== null"
+                "document.querySelector('.foliplus-scale-zoom-label') !== null"
             )
             assert not has_label
             assert not errors, f"JS errors: {errors}"

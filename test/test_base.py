@@ -133,7 +133,6 @@ class TestBaseControlRendering:
         assert "foliplus.SVGs.PIN_ICON" in html or "SVGs.PIN_ICON" in html
         assert "foliplus.SVGs.LOCATE" in html or "SVGs.LOCATE" in html
         assert "foliplus.SVGs.GLOBE" in html or "SVGs.GLOBE" in html
-        assert "foliplus.SVGs.SEARCH" in html or "SVGs.SEARCH" in html
 
     def test_resolve_locale_function(self, base_map: folium.Map):
         """resolveLocale function is defined in runtime.js."""

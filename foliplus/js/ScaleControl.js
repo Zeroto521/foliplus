@@ -1,6 +1,10 @@
 (function () {
   const CONST = {
     name: "ScaleControl",
+    CLASSES: {
+      SCALE_WRAP: "foliplus-scale-wrap",
+      SCALE_ZOOM_LABEL: "foliplus-scale-zoom-label",
+    },
   };
 
   // ==================== Runtime Guard ====================
@@ -13,30 +17,37 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  // ==================== Control Setup ====================
-  const wrap = L.control
-    .scale({
-      metric: {{ this.metric | tojson }},
-      imperial: false,
-      position: "{{ this.position }}",
-    })
-    .addTo(map)
-    .getContainer();
+  // ==================== Control Definition ====================
+  class ScaleControl extends L.Control {
+    onAdd() {
+      // Create the scale bar container ourselves, styled via CSS.
+      // Leaflet's L.control.scale handles metric calculation internally,
+      // so we borrow its onAdd by setting _map first (avoids getSize crash).
+      const scaleCtrl = L.control.scale({
+        metric: {{ this.metric | tojson }},
+        imperial: false,
+      });
+      scaleCtrl._map = this._map;
+      const wrap = scaleCtrl.onAdd(this._map);
+      wrap.classList.add(CONST.CLASSES.SCALE_WRAP);
 
-  wrap.classList.add("scale-wrap");
+      // ==================== Zoom Label ====================
+      {% if this.show_zoom %};
+      const zoomLabel = L.DomUtil.create("span", CONST.CLASSES.SCALE_ZOOM_LABEL, wrap);
+      const updateZoom = () => {
+        zoomLabel.textContent = _(`${CONST.name}.zoom_label`).replace(
+          "{zoom}",
+          this._map.getZoom(),
+        );
+      };
+      updateZoom();
+      this._map.on("zoomend", updateZoom);
+      this._map.on("unload", () => this._map.off("zoomend", updateZoom));
+      {% endif %};
 
-  {% if this.show_zoom %};
-  // ==================== Zoom Label ====================
-  const zoomLabel = L.DomUtil.create("span", "scale-zoom-label", wrap);
-  const updateZoom = () => {
-    zoomLabel.textContent = _(`${CONST.name}.zoom_label`).replace(
-      "{zoom}",
-      map.getZoom(),
-    );
-  };
+      return wrap;
+    }
+  }
 
-  updateZoom();
-  map.on("zoomend", updateZoom);
-  map.on("unload", () => map.off("zoomend", updateZoom));
-  {% endif %};
+  new ScaleControl({ position: "{{ this.position }}" }).addTo(map);
 })();

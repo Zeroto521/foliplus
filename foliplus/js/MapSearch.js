@@ -2,6 +2,8 @@
   // ==================== Constants ====================
   const CONST = {
     name: "MapSearch",
+    position: "{{ this.position }}",
+    zoom: {{ this.zoom }},
     MODE: {
       COORD: "coord",
       ADDR: "addr",
@@ -17,8 +19,14 @@
       BASE: 18,
       DIVISOR: 20,
     },
-    position: "{{ this.position }}",
-    zoom: {{ this.zoom }},
+    CLASSES: {
+      EXPANDED: "expanded",
+      COLLAPSED: "collapsed",
+      MAP_SEARCH: "foliplus-map-search",
+      SEARCH_MODE_BTN: "foliplus-search-mode-btn",
+      CLEAR_WRAP: "foliplus-clear-wrap",
+      CTRL_BTN: "foliplus-ctrl-btn",
+    },
   };
 
   // ==================== Runtime Guard ====================
@@ -31,16 +39,25 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
 
-  window.foliplus.registerHintIcon(CONST.name, window.foliplus.SVGs.SEARCH);
+  // ==================== SVG Icons ====================
+  const SVGs = {
+    SEARCH: `
+      <svg viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5"/>
+        <line x1="15.5" y1="15.5" x2="21" y2="21"/>
+      </svg>`,
+  };
+
+  window.foliplus.registerHintIcon(CONST.name, SVGs.SEARCH);
 
   // ==================== Control Definition ====================
   class MapSearchControl extends L.Control {
     onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
         {
-          cssClass: "map-search",
+          cssClass: CONST.CLASSES.MAP_SEARCH,
           toggleTitle: _(`${CONST.name}.btn_title`),
-          toggleSvg: window.foliplus.SVGs.SEARCH,
+          toggleSvg: SVGs.SEARCH,
           isLeft: CONST.position.indexOf("left") >= 0,
         },
       );
@@ -48,7 +65,7 @@
 
       const modeBtn = window.foliplus.dom.el(
         "button",
-        { class: "search-mode-btn", title: _(`${CONST.name}.mode_coord`) },
+        { class: CONST.CLASSES.SEARCH_MODE_BTN, title: _(`${CONST.name}.mode_coord`) },
         { html: window.foliplus.SVGs.LOCATE },
       );
       const inp = window.foliplus.dom.el("input", {
@@ -57,12 +74,17 @@
       });
       const clearBtn = window.foliplus.dom.el(
         "button",
-        { class: "ctrl-abs-btn", title: _(`${CONST.name}.clear_title`) },
+        { class: CONST.CLASSES.CTRL_BTN, title: _(`${CONST.name}.clear_title`) },
         { html: window.foliplus.SVGs.CLOSE },
       );
       toolBar.appendChild(modeBtn);
       toolBar.appendChild(
-        window.foliplus.dom.el("div", { class: "clear-wrap" }, inp, clearBtn),
+        window.foliplus.dom.el(
+          "div",
+          { class: CONST.CLASSES.CLEAR_WRAP },
+          inp,
+          clearBtn,
+        ),
       );
 
       let mk = null;
@@ -70,10 +92,8 @@
       if (mode !== CONST.MODE.COORD && mode !== CONST.MODE.ADDR)
         mode = CONST.MODE.COORD;
 
-      setMode(mode);
-
       // Mode switching
-      function setMode(newMode) {
+      const setMode = (newMode) => {
         mode = newMode;
         if (mode === CONST.MODE.COORD) {
           modeBtn.innerHTML = window.foliplus.SVGs.LOCATE;
@@ -91,23 +111,24 @@
         }
         window.foliplus.hideHint(CONST.name);
         inp.focus();
-      }
+      };
 
       modeBtn.onclick = (e) => {
         e.stopPropagation();
         setMode(mode === CONST.MODE.COORD ? CONST.MODE.ADDR : CONST.MODE.COORD);
       };
+      setMode(mode);
 
       // Expand / collapse
       toggleBtn.onclick = (e) => {
         e.stopPropagation();
-        if (ctrl.classList.contains("expanded")) {
-          ctrl.classList.remove("expanded");
-          ctrl.classList.add("collapsed");
+        if (ctrl.classList.contains(CONST.CLASSES.EXPANDED)) {
+          ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+          ctrl.classList.add(CONST.CLASSES.COLLAPSED);
           window.foliplus.hideHint(CONST.name);
         } else {
-          ctrl.classList.remove("collapsed");
-          ctrl.classList.add("expanded");
+          ctrl.classList.remove(CONST.CLASSES.COLLAPSED);
+          ctrl.classList.add(CONST.CLASSES.EXPANDED);
           inp.focus();
         }
       };
@@ -150,11 +171,11 @@
         const lng = parts[0];
         const lat = parts[1];
         window.foliplus.hideHint(CONST.name);
-        map.flyTo([lat, lng], CONST.zoom);
+        map.flyTo([lat, lng], CONST.zoom || 16);
         mk = window.foliplus.createLocationMarker(
           map,
-          lat,
           lng,
+          lat,
           null,
           `${CONST.name}.popup_title_coord`,
           `${CONST.name}.popup_loading`,
@@ -168,7 +189,7 @@
       const doAddrSearch = (query) => {
         window.foliplus.showHint(
           CONST.name,
-          window.foliplus.SVGs.LOADING + " " + _(`${CONST.name}.popup_loading`),
+          `${window.foliplus.SVGs.LOADING} ${_(`${CONST.name}.popup_loading`)}`,
           window.foliplus.HINT_DURATION.PERSIST,
         );
 
@@ -215,8 +236,8 @@
             map.flyTo([lat, lng], zoom);
             mk = window.foliplus.createLocationMarker(
               map,
-              lat,
               lng,
+              lat,
               displayName,
               `${CONST.name}.popup_title_addr`,
               `${CONST.name}.popup_loading`,
@@ -226,11 +247,11 @@
             );
           })
           .catch((err) => {
-            console.error(`[${CONST.name}] ${_(CONST.name + ".addr_error")}`);
+            console.error(`[${CONST.name}] ${_(`${CONST.name}.addr_error`)}`);
             window.foliplus.hideHint(CONST.name);
             window.foliplus.showHint(
               CONST.name,
-              _(CONST.name + ".addr_error"),
+              _(`${CONST.name}.addr_error`),
               window.foliplus.HINT_DURATION.LONG,
             );
           });
@@ -239,8 +260,8 @@
       // Keyboard events
       inp.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
-          ctrl.classList.remove("expanded");
-          ctrl.classList.add("collapsed");
+          ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+          ctrl.classList.add(CONST.CLASSES.COLLAPSED);
           window.foliplus.hideHint(CONST.name);
           return;
         }

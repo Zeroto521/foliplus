@@ -46,7 +46,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         super().__init__()
         self._name = self.__class__.__name__
         self.position = position
-        self._LOCALE_CODE = resolve_locale(locale).code if locale is not None else ""
+        self._locale_code = resolve_locale(locale).code if locale is not None else ""
 
     def _get_js(self, filename: str) -> str:
         return js_dir.joinpath(filename).read_text(encoding="utf-8")
@@ -102,7 +102,7 @@ class BaseControl(JSCSSMixin, MacroElement):
             {{% macro script(this, kwargs) %}}
             {self._runtime}
             if (window.foliplus && window.foliplus.resolveLocale) {{
-                window.foliplus.resolveLocale('{{{{ this._LOCALE_CODE }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
+                window.foliplus.resolveLocale('{{{{ this._locale_code }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
             }}
             {js}
             {{% endmacro %}}""")

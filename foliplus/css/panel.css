@@ -5,7 +5,7 @@
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Container ── */
-.map-panel {
+.foliplus-map-panel {
   display: flex;
   align-items: flex-start;
   overflow: visible;
@@ -14,7 +14,7 @@
 }
 
 /* ── Expanded State ── */
-.map-panel.expanded {
+.foliplus-map-panel.expanded {
   width: var(--panel-width);
   flex-direction: column;
   border-radius: var(--radius-card);
@@ -23,31 +23,31 @@
 }
 
 /* Hide toggle when expanded */
-.map-panel.expanded .toggle-btn {
+.foliplus-map-panel.expanded .foliplus-toggle-btn {
   display: none;
 }
 
 /* ── Accent color for expanded icon (all map-panel components) ── */
-.map-panel.expanded .header-icon,
-.map-panel.expanded .header-icon svg {
+.foliplus-map-panel.expanded .foliplus-header-icon,
+.foliplus-map-panel.expanded .foliplus-header-icon svg {
   color: var(--accent-primary);
 }
 
 /* ── Panel Wrapper (visible when expanded) ── */
-.map-panel .panel-wrap {
+.foliplus-map-panel .foliplus-panel-wrap {
   display: none;
   flex-direction: column;
   width: 100%;
 }
 
-.map-panel.expanded .panel-wrap {
+.foliplus-map-panel.expanded .foliplus-panel-wrap {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
 /* ── Panel Header ── */
-.map-panel .panel-header {
+.foliplus-map-panel .foliplus-panel-header {
   display: flex;
   align-items: center;
   height: var(--ctrl-size);
@@ -66,11 +66,11 @@
   position: relative;
 }
 
-.map-panel .panel-header:hover {
+.foliplus-map-panel .foliplus-panel-header:hover {
   background: var(--panel-header-hover);
 }
 
-.map-panel .panel-header .header-icon {
+.foliplus-map-panel .foliplus-panel-header .foliplus-header-icon {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   flex-shrink: 0;
@@ -82,7 +82,7 @@
   left: 0;
 }
 
-.map-panel .panel-header .header-title {
+.foliplus-map-panel .foliplus-panel-header .foliplus-header-title {
   display: flex;
   align-items: center;
   gap: 0;
@@ -97,7 +97,7 @@
 }
 
 /* ── Panel Content ── */
-.map-panel .panel-content {
+.foliplus-map-panel .foliplus-panel-content {
   display: flex;
   flex-direction: column;
   flex: 1;

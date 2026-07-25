@@ -126,11 +126,11 @@ class TestJinjaIntegrity:
             )
 
     def test_runtime_error_keys_injected(self):
-        """Runtime error keys (gcoord.warn) appear in HTML."""
+        """Runtime error keys (MapSearch.gcoord_warn) appear in HTML."""
         m = folium.Map()
         MapSearch().add_to(m)
         html = render(m)
-        assert "gcoord.warn" in html
+        assert "MapSearch.gcoord_warn" in html
 
     def test_debounce_utility(self):
         """foliplus.debounce returns a debounced function with .cancel()."""
