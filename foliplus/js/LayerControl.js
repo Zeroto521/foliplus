@@ -54,6 +54,17 @@
       COLOR_INPUT: ".foliplus-color-layer-input",
       TOGGLE_ALL: ".foliplus-layer-toggle-all",
     },
+    GROUP: {
+      OVERLAY: "overlay",
+      BASE: "base",
+    },
+    GEOM_TYPE: {
+      POINT: "point",
+      LINE: "line",
+      POLYGON: "polygon",
+      EMPTY: "empty",
+      UNKNOWN: "unknown",
+    },
   };
 
   // ==================== Runtime Guard ====================
@@ -157,7 +168,7 @@
       const leaves = [];
       LayerUtils.forEachLeaf(layer, (l) => leaves.push(l));
       // No leaves at all → empty container (e.g. empty GeoDataFrame)
-      if (leaves.length === 0) return "empty";
+      if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY;
 
       let hasPoly = false,
         hasLine = false,
@@ -173,19 +184,23 @@
           hasPoint = true;
       }
       // Has leaves but none match known types → unknown
-      if (!hasPoly && !hasLine && !hasPoint) return "unknown";
+      if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN;
       // Mixed geometry types (e.g. GeometryCollection with Point+Line+Polygon) → unknown
       const typeCount = hasPoly + hasLine + hasPoint;
-      if (typeCount > 1) return "unknown";
-      return hasPoly ? "polygon" : hasLine ? "line" : "point";
+      if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN;
+      return hasPoly
+        ? CONST.GEOM_TYPE.POLYGON
+        : hasLine
+          ? CONST.GEOM_TYPE.LINE
+          : CONST.GEOM_TYPE.POINT;
     }
 
     static getTypeSVG(layer) {
       const type = this.getGeometryType(layer);
-      if (type === "polygon") return SVGs.POLYGON;
-      if (type === "line") return SVGs.LINE;
-      if (type === "point") return SVGs.POINT;
-      if (type === "empty") return SVGs.EMPTY;
+      if (type === CONST.GEOM_TYPE.POLYGON) return SVGs.POLYGON;
+      if (type === CONST.GEOM_TYPE.LINE) return SVGs.LINE;
+      if (type === CONST.GEOM_TYPE.POINT) return SVGs.POINT;
+      if (type === CONST.GEOM_TYPE.EMPTY) return SVGs.EMPTY;
       return SVGs.UNKNOWN;
     }
 
@@ -1148,16 +1163,19 @@
         if (!l.isBase && !hasOverlays) {
           hasOverlays = true;
           frag.appendChild(
-            this.renderToggleAllRow("overlay", `${CONST.name}.data_layer_label`),
+            this.renderToggleAllRow(
+              CONST.GROUP.OVERLAY,
+              `${CONST.name}.data_layer_label`,
+            ),
           );
         }
         if (l.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
           frag.appendChild(
-            this.renderToggleAllRow("base", `${CONST.name}.base_map_label`),
+            this.renderToggleAllRow(CONST.GROUP.BASE, `${CONST.name}.base_map_label`),
           );
         }
-        const group = l.isBase ? "base" : "overlay";
+        const group = l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
         const item = this.renderLayerItem(l, i);
         if (this.m.foldedGroups.has(group))
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);
@@ -1165,7 +1183,7 @@
       }
 
       const colorItem = this.renderColorLayerItem();
-      if (this.m.foldedGroups.has("base"))
+      if (this.m.foldedGroups.has(CONST.GROUP.BASE))
         colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
       frag.appendChild(colorItem);
 
@@ -1236,7 +1254,7 @@
           draggable: "true",
           [CONST.DATA.INDEX]: String(index),
           [CONST.DATA.LAYER_ID]: l.id,
-          "data-layer-type": l.isBase ? "base" : "overlay",
+          "data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
           title: en,
         },
         ...children,
@@ -1299,7 +1317,7 @@
           if (layerInfo.isBase) {
             typeCols[i].innerHTML = window.foliplus.SVGs.GLOBE;
             typeCols[i].title = _(`${CONST.name}.type_base`);
-            this.m.typeMap.set(id, { type: "base", name: layerInfo.name });
+            this.m.typeMap.set(id, { type: CONST.GROUP.BASE, name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
@@ -1316,8 +1334,8 @@
 
       if (!anyBaseVisible) this.showColorLayer(this.m.currentColor);
       this.m.enforceOrder();
-      this.syncToggleAll("overlay");
-      this.syncToggleAll("base");
+      this.syncToggleAll(CONST.GROUP.OVERLAY);
+      this.syncToggleAll(CONST.GROUP.BASE);
     }
 
     reindexItems() {
@@ -1348,7 +1366,7 @@
         if (e.target.closest(CONST.SEL.COLOR_ITEM)) {
           this.deselectAllBaseMaps(-1);
           this.showColorLayer(this.m.currentColor);
-          this.syncToggleAll("base");
+          this.syncToggleAll(CONST.GROUP.BASE);
           this.m.enforceOrder();
           return;
         }
@@ -1371,7 +1389,7 @@
 
     getLayerItems(group) {
       return this.m.uiContainer.querySelectorAll(
-        `${CONST.SEL.LAYER_ITEM}${group === "base" ? '[data-layer-type="base"]' : `:not([data-layer-type="base"]):not(${CONST.SEL.COLOR_ITEM})`}`,
+        `${CONST.SEL.LAYER_ITEM}${group === CONST.GROUP.BASE ? `[data-layer-type="${CONST.GROUP.BASE}"]` : `:not([data-layer-type="${CONST.GROUP.BASE}"]):not(${CONST.SEL.COLOR_ITEM})`}`,
       );
     }
 
@@ -1398,10 +1416,10 @@
         if (!layer) layerInfo.visible = newState;
       });
 
-      if (group === "base" && !newState) {
+      if (group === CONST.GROUP.BASE && !newState) {
         this.hideColorLayer();
         this.showColorLayer(this.m.currentColor);
-      } else if (group === "base" && newState) this.hideColorLayer();
+      } else if (group === CONST.GROUP.BASE && newState) this.hideColorLayer();
 
       this.syncToggleAll(group);
       this.m.enforceOrder();
@@ -1430,7 +1448,7 @@
       if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
         this.deselectAllBaseMaps(-1);
         this.showColorLayer(target.value);
-        this.syncToggleAll("base");
+        this.syncToggleAll(CONST.GROUP.BASE);
         this.m.enforceOrder();
         return;
       }
@@ -1455,7 +1473,7 @@
       if (cbs && cbs.onToggle) cbs.onToggle(target.checked);
       if (!layer) layerInfo.visible = target.checked;
 
-      this.syncToggleAll(layerInfo.isBase ? "base" : "overlay");
+      this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
       this.m.enforceOrder();
     }
 
@@ -1597,7 +1615,7 @@
       this.m.uiContainer
         .querySelector(CONST.SEL.COLOR_ITEM)
         ?.classList.add(CONST.CLASSES.COLOR_ACTIVE);
-      this.syncToggleAll("base");
+      this.syncToggleAll(CONST.GROUP.BASE);
     }
 
     hideColorLayer() {
