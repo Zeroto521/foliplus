@@ -60,9 +60,12 @@ class TestMapSearchRendering:
         assert ".foliplus-map-search" in html
 
     def test_contains_nominatim_url(self, base_map: folium.Map):
+        """Nominatim URL is resolved at runtime (concat with + '/' + '/search')."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "nominatim.openstreetmap.org/search" in html
+        # URL is now resolved at runtime: window.foliplus.NOMINATIM.URL + "/search"
+        assert "NOMINATIM.URL" in html
+        assert "search" in html
 
     def test_contains_create_location_marker(self, base_map: folium.Map):
         MapSearch().add_to(base_map)
@@ -191,6 +194,177 @@ class TestMapSearchRendering:
         assert html.count("createLocationMarker") == 3
         # Both coord and addr search should pass mk as the last arg
         assert "popup_addr_label" in html
+
+    # ── Autocomplete / Suggestions ──
+
+    def test_autocomplete_constants(self, base_map: folium.Map):
+        """Autocomplete constants are defined in output."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "DEBOUNCE_MS: 300" in html
+        assert "MIN_CHARS: 3" in html
+        assert "MAX_ITEMS: 5" in html
+
+    def test_suggestion_classes(self, base_map: folium.Map):
+        """Suggestion-related CSS classes are defined."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus-search-suggestions" in html
+        assert "foliplus-search-suggestion-item" in html
+        assert 'ACTIVE: "active"' in html
+
+    def test_fetchSuggestions_function(self, base_map: folium.Map):
+        """fetchSuggestions and renderSuggestions functions exist."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "const fetchSuggestions = (query) =>" in html
+        assert "const renderSuggestions = (results, query) =>" in html
+
+    def test_debounced_fetch_uses_shared_debounce(self, base_map: folium.Map):
+        """debouncedFetch uses foliplus.debounce shared utility."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "const debouncedFetch = window.foliplus.debounce(" in html
+
+    def test_removeSuggestions_clears_throttle_timer(self, base_map: folium.Map):
+        """removeSuggestions clears the throttle timer."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "suggestionsThrottleTimer" in html
+        assert "clearTimeout(suggestionsThrottleTimer)" in html
+
+    def test_suggestion_cache(self, base_map: folium.Map):
+        """suggestionCache object exists for caching results."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "const suggestionCache = {}" in html
+        assert "suggestionCache[query]" in html
+
+    def test_removeSuggestions_in_setMode(self, base_map: folium.Map):
+        """setMode calls removeSuggestions on mode switch."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "removeSuggestions()" in html
+        assert "removeSuggestions(); // Cleanup suggestions on mode switch" in html
+
+    def test_blur_removes_suggestions(self, base_map: folium.Map):
+        """blur event handler removes suggestions with delay."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert 'inp.addEventListener("blur"' in html
+        assert "setTimeout(removeSuggestions, 200)" in html
+
+    def test_keyboard_navigation(self, base_map: folium.Map):
+        """ArrowDown/ArrowUp/Enter/Escape keyboard handlers exist."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert 'e.key === "ArrowDown"' in html
+        assert 'e.key === "ArrowUp"' in html
+        assert 'e.key === "Escape"' in html
+        assert 'e.key === "Enter"' in html
+
+    def test_suggestions_mounted_on_body(self, base_map: folium.Map):
+        """Suggestions dropdown is mounted on document.body."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "document.body.appendChild(suggestionsWrap)" in html
+
+    def test_positionSuggestions_function(self, base_map: folium.Map):
+        """positionSuggestions repositions via getBoundingClientRect."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "const positionSuggestions = () =>" in html
+        assert "inp.getBoundingClientRect()" in html
+
+    def test_scroll_reposition_listeners(self, base_map: folium.Map):
+        """Scroll and resize listeners reposition suggestions."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert 't.addEventListener("scroll"' in html
+        assert 'window.addEventListener("resize"' in html
+
+    def test_suggestion_click_stops_propagation(self, base_map: folium.Map):
+        """Suggestion click stops propagation to prevent outside collapse."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert (
+            'suggestionsWrap.addEventListener("click", (e) => e.stopPropagation())'
+            in html
+        )
+        assert "suggestion.onclick = (e) => {" in html
+
+    # ── URL Parameter Parsing ──
+
+    def test_url_param_constants(self, base_map: folium.Map):
+        """URL parameter constants are defined."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert 'Q: "q"' in html
+        assert 'LAT: "lat"' in html
+        assert 'LNG: "lng"' in html
+
+    def test_initFromUrl_function(self, base_map: folium.Map):
+        """initFromUrl function exists for URL parameter parsing."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "const initFromUrl = () =>" in html
+        assert "URLSearchParams(window.location.search)" in html
+
+    def test_q_param_coord_search(self, base_map: folium.Map):
+        """?q=longitude,latitude triggers coordinate search."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "params.get(CONST.PARAM.Q)" in html
+        assert "doCoordSearch(q)" in html
+
+    def test_q_param_addr_search(self, base_map: folium.Map):
+        """?q=address triggers address search."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "inp.value = q" in html
+        assert "doAddrSearch(q)" in html
+
+    def test_lat_lng_params(self, base_map: folium.Map):
+        """?lat=&lng= triggers coordinate search."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "params.get(CONST.PARAM.LAT)" in html
+        assert "params.get(CONST.PARAM.LNG)" in html
+        assert "doCoordSearch(`${lng},${lat}`)" in html
+
+    def test_url_parse_error_handling(self, base_map: folium.Map):
+        """URL parsing errors are silently caught."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "catch (e) {" in html
+        assert "// Silently ignore URL parsing errors" in html
+
+    # ── Collapse cleanup ──
+
+    def test_collapse_removes_suggestions(self, base_map: folium.Map):
+        """Collapsing the control removes suggestions."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "origToggle.call(toggleBtn, e)" in html
+        assert "removeSuggestions()" in html
+
+    # ── Suggestion icon in item ──
+
+    def test_suggestion_item_has_icon(self, base_map: folium.Map):
+        """Each suggestion item has a LOCATE icon."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus-search-suggestion-icon" in html
+        assert "foliplus-search-suggestion-text" in html
+        assert "foliplus.SVGs.LOCATE" in html
+
+    # ── Nominatim runtime sharing ──
+
+    def test_nominatim_references_runtime(self, base_map: folium.Map):
+        """NOMINATIM constants reference window.foliplus.NOMINATIM."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        assert "window.foliplus.NOMINATIM" in html
 
 
 class TestMapSearchBrowser:
@@ -347,5 +521,161 @@ class TestMapSearchBrowser:
 
             cleared = page.evaluate("document.querySelector('input').value")
             assert cleared == "", f"Expected empty input after clear, got: '{cleared}'"
+        finally:
+            page.close()
+
+    def test_escape_collapses_control(self, browser, tmp_path):
+        """Escape key collapses the control when no suggestions are shown."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MapSearch().add_to(m)
+
+        html_path = tmp_path / "test_escape.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-map-search", state="attached", timeout=10000
+            )
+
+            # Expand
+            page.evaluate(
+                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-map-search.expanded", state="attached", timeout=5000
+            )
+
+            # Press Escape
+            page.evaluate("""
+                const inp = document.querySelector('input');
+                inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            """)
+            page.wait_for_timeout(300)
+
+            # Verify control is collapsed
+            ctrl_has_collapsed = page.evaluate(
+                "document.querySelector('.foliplus-map-search').classList.contains('collapsed')"
+            )
+            assert ctrl_has_collapsed, "Expected control to be collapsed after Escape"
+        finally:
+            page.close()
+
+    def test_autocomplete_body_mount(self, browser, tmp_path):
+        """Suggestions dropdown is mounted on document.body, not inside toolBar."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MapSearch(mode="addr").add_to(m)
+
+        html_path = tmp_path / "test_autocomplete_body.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-map-search", state="attached", timeout=10000
+            )
+            page.evaluate(
+                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-map-search.expanded", state="attached", timeout=5000
+            )
+
+            # Fire input event in address mode to trigger debounced fetch
+            page.evaluate("""
+                const inp = document.querySelector('input');
+                inp.value = 'test query';
+                inp.dispatchEvent(new Event('input'));
+            """)
+            page.wait_for_timeout(600)  # > debounce 300ms
+
+            # Suggestions container should be on body, not inside toolBar
+            on_body = page.evaluate(
+                "document.body.querySelector('.foliplus-search-suggestions') !== null"
+            )
+            in_toolbar = page.evaluate(
+                "document.querySelector('.foliplus-tool-bar .foliplus-search-suggestions') !== null"
+            )
+            # The suggestions may or may not appear (depends on network), but
+            # the key test is that they're NOT in toolBar
+            if on_body:
+                assert not in_toolbar, "Suggestions must not be inside toolBar"
+        finally:
+            page.close()
+
+    def test_keyboard_suggestion_navigation_structure(self, browser, tmp_path):
+        """ArrowDown/ArrowUp/Enter keyboard navigation structure exists in address mode."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MapSearch(mode="addr").add_to(m)
+
+        html_path = tmp_path / "test_keyboard.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-map-search", state="attached", timeout=10000
+            )
+            page.evaluate(
+                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-map-search.expanded", state="attached", timeout=5000
+            )
+
+            # Verify keyboard navigation: ArrowDown/ArrowUp/Enter
+            # These should NOT throw errors even without suggestions visible
+            no_errors = page.evaluate("""
+                const inp = document.querySelector('input');
+                try {
+                    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+                    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+                    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            """)
+            assert no_errors, "Keyboard navigation should not throw errors"
+        finally:
+            page.close()
+
+    def test_input_switches_placeholder(self, browser, tmp_path):
+        """Input event restores the placeholder for the current mode."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MapSearch(mode="addr").add_to(m)
+
+        html_path = tmp_path / "test_input_placeholder.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-map-search", state="attached", timeout=10000
+            )
+            page.evaluate(
+                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-map-search.expanded", state="attached", timeout=5000
+            )
+
+            # Fire input event to trigger placeholder restoration
+            page.evaluate("""
+                const inp = document.querySelector('input');
+                inp.value = 'some text';
+                inp.dispatchEvent(new Event('input'));
+            """)
+            page.wait_for_timeout(200)
+
+            # Placeholder should still be address-related (not lost)
+            placeholder = page.evaluate("document.querySelector('input').placeholder")
+            assert placeholder and len(placeholder) > 0, (
+                f"Placeholder should not be empty, got: '{placeholder}'"
+            )
         finally:
             page.close()

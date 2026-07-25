@@ -2,7 +2,6 @@
   width: var(--panel-width);
   height: auto;
   box-shadow: var(--panel-shadow);
-  overflow: hidden;
 }
 /* ── Clear Button Wrapper ── */
 .foliplus-map-search .foliplus-clear-wrap {
@@ -29,4 +28,59 @@
 }
 .foliplus-map-search input::placeholder {
   color: var(--text-muted);
+}
+
+/* ── Autocomplete Suggestions (mounted on document.body) ── */
+.foliplus-search-suggestions {
+  position: fixed;
+  box-sizing: border-box;
+  margin-top: var(--space-xs);
+  background: var(--input-bg);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 99999;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.foliplus-search-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--transition-fast);
+}
+.foliplus-search-suggestion-item:hover,
+/* State modifier: no foliplus- prefix, scoped by parent class */
+.foliplus-search-suggestion-item.active {
+  background: var(--accent-light);
+  color: var(--accent-primary);
+}
+.foliplus-search-suggestion-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+.foliplus-search-suggestion-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.foliplus-search-suggestion-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

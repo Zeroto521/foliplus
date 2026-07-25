@@ -52,9 +52,11 @@
     LONG: HINT.LONG,
     PERSIST: HINT.PERSIST,
   };
-  const GEO = {
+  foliplus.NOMINATIM = {
+    URL: "https://nominatim.openstreetmap.org",
+    FORMAT: "jsonv2",
     THROTTLE_MS: 1000,
-    NOMINATIM_ZOOM: 18,
+    ZOOM: 18,
   };
   const PIN = {
     SIZE: [24, 36],
@@ -362,11 +364,14 @@
 
     const wgs = foliplus.toWgs84(map, parseFloat(lng), parseFloat(lat));
     const lang = (window._LOCALE && window._LOCALE["locale.code"]) || "en";
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[1]}&lon=${wgs[0]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
+    const url = `${foliplus.NOMINATIM.URL}/reverse?format=${foliplus.NOMINATIM.FORMAT}&lat=${wgs[1]}&lon=${wgs[0]}&zoom=${foliplus.NOMINATIM.ZOOM}&accept-language=${lang}`;
 
     geoPromise = geoPromise
       .then(() => {
-        const wait = Math.max(0, GEO.THROTTLE_MS - (Date.now() - geoLastReq));
+        const wait = Math.max(
+          0,
+          foliplus.NOMINATIM.THROTTLE_MS - (Date.now() - geoLastReq),
+        );
         return new Promise((r) => setTimeout(r, wait));
       })
       .then(() => {
