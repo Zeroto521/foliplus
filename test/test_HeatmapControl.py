@@ -564,23 +564,23 @@ class TestHeatmapControlBrowser:
             vals = page.evaluate("""() => {
                 const m = window.__heatmapCtrl.manager;
                 return {
-                    N_CLASSES: m.N_CLASSES,
-                    BORDER_W: m.BORDER_W,
-                    BORDER_COLOR: m.BORDER_COLOR,
+                    numClasses: m.numClasses,
+                    borderWeight: m.borderWeight,
+                    borderColor: m.borderColor,
                     currentLabelShow: m.currentLabelShow,
                     currentMethod: m.currentMethod,
                     currentScheme: m.currentScheme,
                     currentAgg: m.currentAgg,
                 };
             }""")
-            assert vals["N_CLASSES"] == 6, (
-                f"N_CLASSES expected 6 got {vals['N_CLASSES']}"
+            assert vals["numClasses"] == 6, (
+                f"numClasses expected 6 got {vals['numClasses']}"
             )
-            assert vals["BORDER_W"] == 1.5, (
-                f"BORDER_W expected 1.5 got {vals['BORDER_W']}"
+            assert vals["borderWeight"] == 1.5, (
+                f"borderWeight expected 1.5 got {vals['borderWeight']}"
             )
-            assert vals["BORDER_COLOR"] in ("#333", "#333333"), (
-                f"BORDER_COLOR got {vals['BORDER_COLOR']}"
+            assert vals["borderColor"] in ("#333", "#333333"), (
+                f"borderColor got {vals['borderColor']}"
             )
             assert vals["currentLabelShow"] is True, "currentLabelShow should be True"
             assert vals["currentMethod"] == "jenks"
@@ -703,7 +703,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_timeout(3000)
 
             # Change some values
-            page.evaluate("window.__heatmapCtrl.manager.N_CLASSES = 4")
+            page.evaluate("window.__heatmapCtrl.manager.numClasses = 4")
             # Click clear
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-heatmap-btn-clear').click()"
@@ -712,12 +712,12 @@ class TestHeatmapControlBrowser:
 
             mgr = page.evaluate("""() => {
                 const m = window.__heatmapCtrl.manager;
-                return { N_CLASSES: m.N_CLASSES, BORDER_W: m.BORDER_W,
-                         BORDER_COLOR: m.BORDER_COLOR, currentMethod: m.currentMethod,
+                return { numClasses: m.numClasses, borderWeight: m.borderWeight,
+                         borderColor: m.borderColor, currentMethod: m.currentMethod,
                          currentScheme: m.currentScheme };
             }""")
-            assert mgr["N_CLASSES"] == 6, f"expected 6 got {mgr['N_CLASSES']}"
-            assert mgr["BORDER_W"] == 1.5
+            assert mgr["numClasses"] == 6, f"expected 6 got {mgr['numClasses']}"
+            assert mgr["borderWeight"] == 1.5
             assert mgr["currentMethod"] == "jenks"
             assert not errors, f"JS errors: {errors}"
         finally:
