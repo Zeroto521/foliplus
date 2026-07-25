@@ -20,11 +20,14 @@
   // ==================== Control Definition ====================
   class ScaleControl extends L.Control {
     onAdd() {
-      // Create the Leaflet scale control and borrow its container
+      // Create the scale bar container ourselves, styled via CSS.
+      // Leaflet's L.control.scale handles metric calculation internally,
+      // so we borrow its onAdd by setting _map first (avoids getSize crash).
       const scaleCtrl = L.control.scale({
         metric: {{ this.metric | tojson }},
         imperial: false,
       });
+      scaleCtrl._map = this._map;
       const wrap = scaleCtrl.onAdd(this._map);
       wrap.classList.add(CONST.CLASSES.SCALE_WRAP);
 
