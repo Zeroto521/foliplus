@@ -273,7 +273,7 @@ class TestMapSearchRendering:
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "positionSuggestions() {" in html
-        assert "inp.getBoundingClientRect()" in html
+        assert "toolBar.getBoundingClientRect()" in html
 
     def test_scroll_reposition_listeners(self, base_map: folium.Map):
         """Scroll and resize listeners reposition suggestions."""

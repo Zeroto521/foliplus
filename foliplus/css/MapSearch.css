@@ -40,20 +40,18 @@
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
   z-index: 99999;
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
+  width: var(--panel-width);
 }
 .foliplus-search-suggestion-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
   font-size: var(--font-size-sm);
   color: var(--text-primary);
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   transition: background var(--transition-fast);
 }
 .foliplus-search-suggestion-item:hover,
@@ -80,7 +78,7 @@
 .foliplus-search-suggestion-text {
   flex: 1;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }

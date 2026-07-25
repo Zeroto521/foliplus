@@ -370,7 +370,16 @@
     const parts = displayName
       .split(",")
       .map((s) => s.trim())
-      .filter((s) => s && !/^\d+$/.test(s));
+      .filter((s) => {
+        if (!s) return false;
+        // Remove pure numeric tokens (postal codes, house numbers)
+        if (/^\d+$/.test(s)) return false;
+        // Remove ZIP+4 and similar (12345-6789, 12345 6789)
+        if (/^\d{3,}([-–—]\d{2,}|\s+\d{2,})?$/.test(s)) return false;
+        // Remove short numeric+letter combos that look like postal codes (e.g. "EC1A 1BB", "10001")
+        if (/^[A-Z0-9]{2,10}(\s+[A-Z0-9]{2,10})?$/i.test(s) && s.length <= 10 && /[A-Z]/.test(s) === /[0-9]/.test(s)) return false;
+        return true;
+      });
     if (parts.length === 0) return "";
     // Domestic (Chinese) maps: reverse order (small→large → large→small)
     // Foreign maps: keep original order

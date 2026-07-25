@@ -101,6 +101,7 @@
       this.container = container;
       this.ctrl = ctrl;
       this.toggleBtn = toggleBtn;
+      this.toolBar = toolBar;
 
       const modeBtn = window.foliplus.dom.el(
         "button",
@@ -217,8 +218,9 @@
         window.foliplus.HINT_DURATION.PERSIST,
       );
 
+      const center = map.getCenter();
       fetch(
-        `${CONST.NOMINATIM.URL}?format=${CONST.NOMINATIM.FORMAT}&q=${encodeURIComponent(query)}&limit=${CONST.NOMINATIM.LIMIT}&accept-language=${CONST.lang}`,
+        `${CONST.NOMINATIM.URL}?format=${CONST.NOMINATIM.FORMAT}&q=${encodeURIComponent(query)}&limit=${CONST.NOMINATIM.LIMIT}&accept-language=${CONST.lang}&lon=${center.lng}&lat=${center.lat}`,
       )
         .then((r) => r.json())
         .then((results) => {
@@ -289,10 +291,9 @@
 
     positionSuggestions() {
       if (!this.suggestionsWrap) return;
-      const rect = this.inp.getBoundingClientRect();
+      const rect = this.toolBar.getBoundingClientRect();
       this.suggestionsWrap.style.left = `${rect.left + window.scrollX}px`;
       this.suggestionsWrap.style.top = `${rect.bottom + window.scrollY}px`;
-      this.suggestionsWrap.style.width = `${rect.width}px`;
     }
 
     renderSuggestions(results, query) {
@@ -366,8 +367,9 @@
       }
       this.lastSuggestFetch = Date.now();
 
+      const center = map.getCenter();
       fetch(
-        `${CONST.NOMINATIM.URL}?format=${CONST.NOMINATIM.FORMAT}&q=${encodeURIComponent(query)}&limit=${CONST.AUTOCOMPLETE.MAX_ITEMS}&accept-language=${CONST.lang}`,
+        `${CONST.NOMINATIM.URL}?format=${CONST.NOMINATIM.FORMAT}&q=${encodeURIComponent(query)}&limit=${CONST.AUTOCOMPLETE.MAX_ITEMS}&accept-language=${CONST.lang}&lon=${center.lng}&lat=${center.lat}`,
       )
         .then((r) => r.json())
         .then((results) => this.renderSuggestions(results, query))
