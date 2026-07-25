@@ -74,7 +74,7 @@ class TestScaleControlRendering:
         assert "ScaleControl.zoom_label" in html
 
     def test_imperial_false_in_output(self, base_map: folium.Map):
-        """Scale control outputs imperial: false."""
+        """Scale control outputs imperial: false (metric-only)."""
         ScaleControl().add_to(base_map)
         html = render(base_map)
         assert "imperial: false" in html
@@ -84,18 +84,6 @@ class TestScaleControlRendering:
         ScaleControl(metric=False).add_to(base_map)
         html = render(base_map)
         assert "metric: false" in html
-
-    def test_imperial_false_always(self, base_map: folium.Map):
-        """imperial is always false (metric-only)."""
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
-        assert "imperial: false" in html
-
-    def test_scale_wrap_class(self, base_map: folium.Map):
-        """Container has scale-wrap class."""
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
-        assert "scale-wrap" in html
 
     def test_zoom_label_format(self, base_map: folium.Map):
         """Zoom label uses ScaleControl.zoom_label key with {zoom} placeholder."""

@@ -79,11 +79,13 @@ class TestFullscreenRendering:
         assert "ZOOM_OUT" in html
 
     def test_maximize_minimize_svgs(self, base_map: folium.Map):
-        """Fullscreen has MAXIMIZE and MINIMIZE SVG icons."""
+        """Fullscreen has MAXIMIZE and MINIMIZE SVG icons, swapped on state change."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
         assert "MAXIMIZE" in html
         assert "MINIMIZE" in html
+        assert "SVGs.MINIMIZE" in html
+        assert "SVGs.MAXIMIZE" in html
 
     def test_hint_on_fullscreen_change(self, base_map: folium.Map):
         """Fullscreen change shows enter/exit hint."""
@@ -91,13 +93,6 @@ class TestFullscreenRendering:
         html = render(base_map)
         assert "window.foliplus.showHint" in html
         assert "HINT_DURATION.MEDIUM" in html
-
-    def test_icon_swap_on_fullscreen(self, base_map: folium.Map):
-        """Minimize icon shown when in fullscreen, maximize when not."""
-        Fullscreen().add_to(base_map)
-        html = render(base_map)
-        assert "SVGs.MINIMIZE" in html
-        assert "SVGs.MAXIMIZE" in html
 
     def test_fullscreen_api_detection(self, base_map: folium.Map):
         """Fullscreen API detection is present."""
