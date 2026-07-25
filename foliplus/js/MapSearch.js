@@ -189,7 +189,7 @@
       const doAddrSearch = (query) => {
         window.foliplus.showHint(
           CONST.name,
-          window.foliplus.SVGs.LOADING + " " + _(`${CONST.name}.popup_loading`),
+          `${window.foliplus.SVGs.LOADING} ${_(`${CONST.name}.popup_loading`)}`,
           window.foliplus.HINT_DURATION.PERSIST,
         );
 
@@ -247,7 +247,7 @@
             );
           })
           .catch((err) => {
-            console.error(`[${CONST.name}] ${_(CONST.name + ".addr_error")}`);
+            console.error(`[${CONST.name}] ${_(`${CONST.name}.addr_error`)}`);
             window.foliplus.hideHint(CONST.name);
             window.foliplus.showHint(
               CONST.name,

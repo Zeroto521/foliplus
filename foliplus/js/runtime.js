@@ -162,7 +162,7 @@
       const cs = window.getComputedStyle(hintTarget);
       if (cs.position === "static") hintTarget.style.position = "relative";
     }
-    const storeKey = append ? key + "-" + Date.now() : key;
+    const storeKey = append ? `${key}-${Date.now()}` : key;
     hintMap.set(storeKey, { element: el, timer: null });
 
     const reposition = () => {
@@ -196,7 +196,7 @@
   foliplus.hideHint = (key) => {
     // Also clear appended instances (keys start with key+'-')
     for (const k of hintMap.keys()) {
-      if (k === key || k.startsWith(key + "-")) {
+      if (k === key || k.startsWith(`${key}-`)) {
         const entry = hintMap.get(k);
         if (entry.timer) clearTimeout(entry.timer);
         if (entry.element) entry.element.remove();
@@ -452,7 +452,7 @@
     const loadStr = foliplus.gt(loading);
     const addrHtml =
       addr && addr.includes("LOADING")
-        ? { html: foliplus.SVGs.LOADING + " " + loadStr }
+        ? { html: `${foliplus.SVGs.LOADING} ${loadStr}` }
         : addr || loadStr;
 
     return window.foliplus.dom.el(
@@ -460,7 +460,7 @@
       { class: "foliplus-popup-content" },
       window.foliplus.dom.el("b", null, foliplus.gt(title)),
       { html: "<br>" },
-      foliplus.gt(locLabel) + lng + "," + lat,
+      `${foliplus.gt(locLabel)}${lng},${lat}`,
       { html: "<br>" },
       foliplus.gt(addrLabel),
       typeof addrHtml === "object" ? addrHtml : addrHtml,
@@ -710,7 +710,9 @@
   foliplus.formatNumber = (val, style, locale) => {
     style = style || "auto";
     locale =
-      locale || (typeof window._LOCALE !== "undefined" && window._LOCALE["locale.code"]) || "en";
+      locale ||
+      (typeof window._LOCALE !== "undefined" && window._LOCALE["locale.code"]) ||
+      "en";
     const absVal = Math.abs(val);
 
     const fmt = (maxFrac) =>

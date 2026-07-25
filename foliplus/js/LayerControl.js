@@ -818,15 +818,15 @@
         const h = container.clientHeight;
         if (canvas.width !== w * dpr) canvas.width = w * dpr;
         if (canvas.height !== h * dpr) canvas.height = h * dpr;
-        canvas.style.width = w + "px";
-        canvas.style.height = h + "px";
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
       };
 
       /** Update canvas left/top to cancel current mapPane transform offset. */
       const updatePosition = () => {
         const pos = L.DomUtil.getPosition(mapPane);
-        canvas.style.left = -pos.x + "px";
-        canvas.style.top = -pos.y + "px";
+        canvas.style.left = `${-pos.x}px`;
+        canvas.style.top = `${-pos.y}px`;
       };
 
       /** Get current canvas size in CSS pixels. */
@@ -1180,7 +1180,7 @@
         {
           class:
             `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
-            (isFolded ? " " + CONST.CLASSES.FOLDED : ""),
+            (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
           "data-group": group,
         },
         window.foliplus.dom.el(
@@ -1273,7 +1273,7 @@
         `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
       );
       const typeCols = this.m.uiContainer.querySelectorAll(
-        "." + CONST.CLASSES.TYPE_ICON_COL,
+        `.${CONST.CLASSES.TYPE_ICON_COL}`,
       );
       let anyBaseVisible = false;
 

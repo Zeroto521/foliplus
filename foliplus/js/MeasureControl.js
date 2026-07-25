@@ -122,10 +122,9 @@
 
     static formatDistance(meters) {
       return meters >= CONST.FORMAT.KM_THRESHOLD
-        ? (meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS) +
-            " " +
+        ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} ` +
             _(`${CONST.name}.unit_km`)
-        : Math.round(meters) + " " + _(`${CONST.name}.unit_m`);
+        : `${Math.round(meters)} ` + _(`${CONST.name}.unit_m`);
     }
 
     static distance(lng1, lat1, lng2, lat2) {
