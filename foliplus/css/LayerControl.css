@@ -83,10 +83,6 @@
     background-color var(--transition-fast),
     border-color var(--transition-fast);
 }
-.foliplus-layer-ctrl
-  .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
-  background: var(--panel-header-hover);
-}
 
 /* ── Fold toggle button ── */
 .foliplus-layer-ctrl .foliplus-layer-fold-btn {
@@ -181,21 +177,24 @@
 .foliplus-layer-ctrl .foliplus-layer-item[draggable="true"] {
   cursor: move;
 }
-.foliplus-layer-ctrl .foliplus-layer-item:hover {
+.foliplus-layer-ctrl .foliplus-layer-item:hover,
+.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
   background: var(--panel-header-hover);
 }
-.foliplus-layer-ctrl .foliplus-layer-item:hover .foliplus-type-icon-col svg {
+.foliplus-layer-ctrl .foliplus-layer-item:hover .foliplus-type-icon-col svg,
+.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col svg {
   transform: scale(var(--scale-hover));
 }
-.foliplus-layer-ctrl .foliplus-layer-item.active {
+.foliplus-layer-ctrl .foliplus-layer-item.active,
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-color-layer-active {
   border-left-color: var(--accent-primary);
   background: var(--accent-light);
 }
-.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col {
+.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col,
+.foliplus-layer-ctrl
+  .foliplus-layer-item.foliplus-color-layer-active
+  .foliplus-type-icon-col {
   color: var(--accent-primary);
-}
-.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col svg {
-  transform: scale(var(--scale-hover));
 }
 .foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-dragging {
   background: var(--accent-light);
@@ -330,15 +329,6 @@
 .foliplus-layer-ctrl .foliplus-color-layer-input::-moz-color-swatch {
   border: none;
   border-radius: var(--radius-round);
-}
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-color-layer-active {
-  background: var(--accent-light);
-  border-left-color: var(--accent-primary);
-}
-.foliplus-layer-ctrl
-  .foliplus-layer-item.foliplus-color-layer-active
-  .foliplus-type-icon-col {
-  color: var(--accent-primary);
 }
 .foliplus-layer-ctrl
   .foliplus-layer-item.foliplus-color-layer-active
