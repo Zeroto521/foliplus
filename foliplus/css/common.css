@@ -222,13 +222,17 @@
 }
 
 /* All buttons: press scale uses inherited transition (--transition-fast, 0.15s)
-  MUST come AFTER :hover so it wins on same specificity (0,2,0). */
+  MUST come AFTER :hover so it wins on same specificity (0,2,0).
+  Click/press also gets the same background/color feedback as hover
+  so there's a tangible press-down feel. */
 :is(
   .foliplus-toggle-btn,
   .foliplus-tool-btn,
   .foliplus-search-mode-btn,
   .foliplus-ctrl-btn
 ):active {
+  background-color: var(--accent-light);
+  color: var(--accent-primary);
   transform: scale(var(--scale-press));
 }
 
