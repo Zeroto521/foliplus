@@ -628,15 +628,17 @@ class TestMapSearchBrowser:
             # Verify keyboard navigation: ArrowDown/ArrowUp/Enter
             # These should NOT throw errors even without suggestions visible
             no_errors = page.evaluate("""
-                const inp = document.querySelector('input');
-                try {
-                    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
-                    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
-                    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-                    return true;
-                } catch (e) {
-                    return false;
-                }
+                (() => {
+                    const inp = document.querySelector('input');
+                    try {
+                        inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+                        inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+                        inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                })()
             """)
             assert no_errors, "Keyboard navigation should not throw errors"
         finally:
