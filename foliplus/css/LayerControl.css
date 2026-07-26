@@ -39,7 +39,7 @@
 .foliplus-layer-ctrl .foliplus-type-icon-col {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   color: var(--text-primary);
@@ -51,6 +51,18 @@
   height: 100%;
   display: block;
   transition: transform var(--transition-fast);
+}
+/* Shared dashed style for EMPTY / UNKNOWN icons */
+.foliplus-layer-ctrl .foliplus-type-icon-col svg .dashed {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+/* Shared solid fill for dots/circles that need fill instead of stroke */
+.foliplus-layer-ctrl svg .solid {
+  fill: currentColor;
+  stroke: none;
 }
 .foliplus-layer-ctrl .foliplus-layer-sep {
   display: flex;
@@ -141,20 +153,20 @@
 /* ── Drag handle ──
   Shared size for all drag handles in layer rows.
   Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
-.foliplus-layer-ctrl .foliplus-drag-handle {
+.foliplus-layer-ctrl .drag-handle {
   flex-shrink: 0;
   width: 14px;
   height: var(--icon-size-md);
 }
-.foliplus-layer-ctrl .foliplus-layer-item .foliplus-drag-handle {
+.foliplus-layer-ctrl .foliplus-layer-item .drag-handle {
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
-.foliplus-layer-ctrl .foliplus-layer-item:hover .foliplus-drag-handle {
+.foliplus-layer-ctrl .foliplus-layer-item:hover .drag-handle {
   opacity: 1;
 }
-.foliplus-layer-ctrl .foliplus-layer-toggle-all .foliplus-drag-handle,
-.foliplus-layer-ctrl .foliplus-color-layer-item .foliplus-drag-handle {
+.foliplus-layer-ctrl .foliplus-layer-toggle-all .drag-handle,
+.foliplus-layer-ctrl .foliplus-color-layer-item .drag-handle {
   visibility: hidden;
 }
 

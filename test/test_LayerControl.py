@@ -127,17 +127,20 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # Empty container (no leaves) → 'empty'
-        assert 'if (leaves.length === 0) return "empty"' in html
+        assert "if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY" in html
         # Has leaves but none match known types → 'unknown'
-        assert 'if (!hasPoly && !hasLine && !hasPoint) return "unknown"' in html
+        assert (
+            "if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN"
+            in html
+        )
         # Mixed geometry types → 'unknown'
-        assert 'if (typeCount > 1) return "unknown"' in html
+        assert "if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN" in html
 
     def test_type_svg_fallback(self, base_map: folium.Map):
         """getTypeSVG returns EMPTY/UNKNOWN for non-standard layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'if (type === "empty") return SVGs.EMPTY;' in html
+        assert "if (type === CONST.GEOM_TYPE.EMPTY) return SVGs.EMPTY;" in html
         assert "return SVGs.UNKNOWN;" in html
 
     def test_locale_zh(self, base_map: folium.Map):
@@ -198,7 +201,10 @@ class TestLayerControlRendering:
         html = render(m)
 
         # Base maps have the attribute; overlay items should be checked separately
-        assert 'data-layer-type="base"' in html
+        assert (
+            'data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY'
+            in html
+        )
 
     def test_drag_handle_present(self):
         """Drag handle SVG present for all layer items."""

@@ -231,8 +231,6 @@
   .foliplus-search-mode-btn,
   .foliplus-ctrl-btn
 ):active {
-  background-color: var(--accent-light);
-  color: var(--accent-primary);
   transform: scale(var(--scale-press));
 }
 
@@ -257,8 +255,8 @@
   color: var(--text-primary);
 }
 .foliplus-toggle-btn svg {
-  width: 18px;
-  height: 18px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   stroke: currentColor;
 }
 
@@ -316,7 +314,7 @@
   border-radius: 0;
 }
 
-.foliplus-pin-wrap {
+.foliplus-pin {
   position: relative;
   width: var(--size-24);
   height: var(--toggle-size);

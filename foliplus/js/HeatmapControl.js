@@ -58,7 +58,7 @@
     CLASSES: {
       FORM_ROW: "foliplus-heatmap-form-row",
       FORM_LABEL: "foliplus-heatmap-form-label",
-      FORM_CONTROL_WRAP: "foliplus-heatmap-form-control-wrap",
+      FORM_CONTROL: "foliplus-heatmap-form-control",
       FORM_SELECT: "foliplus-heatmap-form-select",
       HIDDEN: "hidden",
       COLLAPSED: "collapsed",
@@ -71,7 +71,7 @@
       SECTION_BLOCK_LAST: "foliplus-heatmap-section-block-last",
       CONFIG_BODY: "foliplus-heatmap-config-body",
       EXTRA_BODY: "foliplus-heatmap-extra-body",
-      FIELD_WRAP: "foliplus-heatmap-field-wrap",
+      FIELD: "foliplus-heatmap-field",
       SCHEME_BAR: "foliplus-heatmap-scheme-bar",
       SCHEME_BAR_INNER: "foliplus-heatmap-scheme-bar-inner",
       SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
@@ -661,7 +661,7 @@
       const row = L.DomUtil.create("div", rowClass, parent);
       const label = L.DomUtil.create("label", CONST.CLASSES.FORM_LABEL, row);
       label.textContent = _(labelKey);
-      const wrap = L.DomUtil.create("div", CONST.CLASSES.FORM_CONTROL_WRAP, row);
+      const wrap = L.DomUtil.create("div", CONST.CLASSES.FORM_CONTROL, row);
       return { row, label, wrap };
     }
 
@@ -732,7 +732,7 @@
 
       this.fieldWrap = L.DomUtil.create(
         "div",
-        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD_WRAP} ${CONST.CLASSES.HIDDEN}`,
+        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD} ${CONST.CLASSES.HIDDEN}`,
         this.extraBody,
       );
       const fieldLabel = L.DomUtil.create(
@@ -743,7 +743,7 @@
       fieldLabel.textContent = _(`${CONST.name}.field`);
       const fieldControlWrap = L.DomUtil.create(
         "div",
-        CONST.CLASSES.FORM_CONTROL_WRAP,
+        CONST.CLASSES.FORM_CONTROL,
         this.fieldWrap,
       );
       this.fieldSelect = L.DomUtil.create(
@@ -785,7 +785,7 @@
       classRowLabel.textContent = _(`${CONST.name}.class_method`);
       const classControlWrap = L.DomUtil.create(
         "div",
-        `${CONST.CLASSES.FORM_CONTROL_WRAP} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
         classRow,
       );
       this.methodSelect = L.DomUtil.create(
@@ -835,7 +835,7 @@
       schemeRowLabel.textContent = _(`${CONST.name}.scheme`);
       this.schemeControlWrap = L.DomUtil.create(
         "div",
-        CONST.CLASSES.FORM_CONTROL_WRAP,
+        CONST.CLASSES.FORM_CONTROL,
         schemeRow,
       );
       this.schemeBar = L.DomUtil.create(
@@ -911,7 +911,7 @@
       borderRowLabel.textContent = _(`${CONST.name}.border`);
       const borderControlWrap = L.DomUtil.create(
         "div",
-        `${CONST.CLASSES.FORM_CONTROL_WRAP} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
         borderRow,
       );
       this.borderColorInput = L.DomUtil.create(
@@ -954,7 +954,7 @@
       labelRowText.textContent = _(`${CONST.name}.label`);
       const labelControlWrap = L.DomUtil.create(
         "div",
-        CONST.CLASSES.FORM_CONTROL_WRAP,
+        CONST.CLASSES.FORM_CONTROL,
         labelRow,
       );
       const labelToggle = L.DomUtil.create(
