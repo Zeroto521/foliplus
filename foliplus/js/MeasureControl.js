@@ -73,6 +73,9 @@
       DEL_ICON: ".foliplus-measure-del-icon",
       TOOL_BTN: ".foliplus-tool-btn",
     },
+    STORAGE: {
+      KEY: "foliplus_measurement",
+    },
     TYPE: {
       MARKER: "marker",
       DISTANCE: "distance",
@@ -379,9 +382,21 @@
         MeasureUtils.toggleDelIcon(delMkr, false);
       });
 
+      const markerId = this.m.nextMeasurementId();
+      this.m.measurements.push({
+        id: markerId,
+        type: CONST.TYPE.MARKER,
+        lng: parseFloat(lng),
+        lat: parseFloat(lat),
+        address: cachedAddr,
+      });
+      this.m.saveMeasurements();
+
       const deleteMarker = () => {
         this.layers.mainLayer.removeLayer(marker);
         this.layers.mainLayer.removeLayer(delMkr);
+        this.m.measurements = this.m.measurements.filter((x) => x.id !== markerId);
+        this.m.saveMeasurements();
         this.layers.unregister();
       };
       MeasureUtils.attachDelClick(delMkr, deleteMarker);
@@ -515,6 +530,26 @@
           );
         }
 
+        const distId = manager.nextMeasurementId();
+        const segments = pts.slice(1).map((p, i) => ({
+          lng: p.lng,
+          lat: p.lat,
+          distance: MeasureUtils.distance(
+            pts[i].lng,
+            pts[i].lat,
+            pts[i + 1].lng,
+            pts[i + 1].lat,
+          ),
+        }));
+        manager.measurements.push({
+          id: distId,
+          type: CONST.TYPE.DISTANCE,
+          points: pts.map((p) => ({ lng: p.lng, lat: p.lat })),
+          segments,
+          totalDistance: total,
+        });
+        manager.saveMeasurements();
+
         const deleteMeasurement = () => {
           MeasureUtils.removeLayers(
             layers.mainLayer,
@@ -525,6 +560,8 @@
             lastNodeDelMkr,
           );
           map.off("click", onDistMapClick);
+          manager.measurements = manager.measurements.filter((x) => x.id !== distId);
+          manager.saveMeasurements();
           layers.unregister();
         };
 
@@ -894,6 +931,16 @@
         };
         toggleUI(false, CONST.TOGGLE.RESET);
 
+        const circleId = manager.nextMeasurementId();
+        manager.measurements.push({
+          id: circleId,
+          type: CONST.TYPE.CIRCLE,
+          center: { lng: centerLatLng.lng, lat: centerLatLng.lat },
+          target: { lng: finalTargetLatLng.lng, lat: finalTargetLatLng.lat },
+          radius: r,
+        });
+        manager.saveMeasurements();
+
         let deleted = false;
         const deleteCircle = () => {
           if (deleted) return;
@@ -908,6 +955,8 @@
             radiusLabel,
           );
           map.off("click", onMapClickActive);
+          manager.measurements = manager.measurements.filter((x) => x.id !== circleId);
+          manager.saveMeasurements();
           layers.unregister();
         };
 
@@ -983,9 +1032,315 @@
       this.modeInstance = null;
       this.isSuppressHideDel = false;
       this.toolBtns = [];
-      this.finalizedClickHandler = null; // Track circle finalized click listener for cleanup
+      this.finalizedClickHandler = null;
+      this.measurements = [];
+      this.measurementIdCounter = 0;
 
       this.bindGlobalEvents();
+      this.restoreMeasurements();
+    }
+
+    // ── Persistence ──
+
+    saveMeasurements() {
+      try {
+        localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(this.measurements));
+      } catch (e) {
+        console.warn(`[${CONST.name}] ${_(`${CONST.name}.save_fail`)}`, e);
+      }
+    }
+
+    loadMeasurements() {
+      try {
+        const data = localStorage.getItem(CONST.STORAGE.KEY);
+        return data ? JSON.parse(data) : [];
+      } catch (e) {
+        console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_fail`)}`, e);
+        return [];
+      }
+    }
+
+    nextMeasurementId() {
+      this.measurementIdCounter += 1;
+      return `${CONST.ID}_${Date.now()}_${this.measurementIdCounter}`;
+    }
+
+    restoreMeasurements() {
+      this.measurements = this.loadMeasurements();
+      this.measurements.forEach((m) => {
+        switch (m.type) {
+          case CONST.TYPE.MARKER:
+            this.restoreMarker(m);
+            break;
+          case CONST.TYPE.DISTANCE:
+            this.restoreDistance(m);
+            break;
+          case CONST.TYPE.CIRCLE:
+            this.restoreCircle(m);
+            break;
+        }
+      });
+    }
+
+    restoreMarker(m) {
+      const marker = foliplus.createLocationMarker(
+        this.map,
+        m.lng,
+        m.lat,
+        m.address,
+        `${CONST.name}.popup_title`,
+        `${CONST.name}.popup_loading`,
+        `${CONST.name}.popup_loc_label`,
+        `${CONST.name}.popup_addr_label`,
+        null,
+        this.layers.mainLayer,
+      );
+      const delMkr = MeasureUtils.makeDelIcon(L.latLng(m.lat, m.lng), {
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
+        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
+      }).addTo(this.layers.mainLayer);
+
+      marker.on("popupopen", () => {
+        MeasureUtils.hideAllDelIcons();
+        MeasureUtils.toggleDelIcon(delMkr, true);
+      });
+      marker.on("popupclose", () => {
+        MeasureUtils.toggleDelIcon(delMkr, false);
+      });
+
+      const deleteMarker = () => {
+        this.layers.mainLayer.removeLayer(marker);
+        this.layers.mainLayer.removeLayer(delMkr);
+        this.measurements = this.measurements.filter((x) => x.id !== m.id);
+        this.saveMeasurements();
+        this.layers.unregister();
+      };
+      MeasureUtils.attachDelClick(delMkr, deleteMarker);
+    }
+
+    restoreDistance(m) {
+      const pts = m.points.map((p) => L.latLng(p.lat, p.lng));
+      const finalPoly = L.polyline(pts, {
+        className: CONST.CLASSES.LINE_SOLID,
+        interactive: true,
+      }).addTo(this.layers.mainLayer);
+
+      const nodeMarkers = [];
+      pts.forEach((pt, i) => {
+        const node = MeasureUtils.makeNode(pt).addTo(this.layers.mainLayer);
+        node.bringToFront();
+        nodeMarkers.push(node);
+      });
+
+      const segLabels = [];
+      if (m.segments) {
+        m.segments.forEach((seg, i) => {
+          const total = m.segments.slice(0, i + 1).reduce((s, x) => s + x.distance, 0);
+          const lbl = L.marker(L.latLng(seg.lat, seg.lng), {
+            icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
+          });
+          lbl.isMeasureLabel = true;
+          lbl.addTo(this.layers.mainLayer);
+          segLabels.push(lbl);
+        });
+      }
+
+      const startLbl = L.marker(pts[0], {
+        icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
+      });
+      startLbl.isMeasureLabel = true;
+      startLbl.addTo(this.layers.mainLayer);
+
+      let labelsVisible = true;
+      let xVisible = false;
+      let lastNodeDelMkr = null;
+
+      const toggleUI = (showX, toggleLabels) => {
+        const s = MeasureUtils.calcToggle(xVisible, labelsVisible, showX, toggleLabels);
+        xVisible = s.xVisible;
+        labelsVisible = s.labelsVisible;
+        MeasureUtils.applyToggle(
+          lastNodeDelMkr,
+          xVisible,
+          segLabels,
+          labelsVisible,
+          startLbl,
+        );
+      };
+      toggleUI(false, CONST.TOGGLE.RESET);
+
+      const handleItemClick = (e) => {
+        MeasureUtils.stopEvent(e);
+        MeasureUtils.suppressHide(this);
+        toggleUI(undefined);
+      };
+      finalPoly.on("click", handleItemClick);
+      nodeMarkers.forEach((nd) => nd.on("click", handleItemClick));
+      segLabels.forEach((lbl) => lbl.on("click", handleItemClick));
+      startLbl.on("click", handleItemClick);
+
+      const onMapClickActive = () => {
+        if (this.isSuppressHideDel) return;
+        if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
+      };
+      this.map.on("click", onMapClickActive);
+
+      const deleteMeasurement = () => {
+        MeasureUtils.removeLayers(
+          this.layers.mainLayer,
+          finalPoly,
+          ...nodeMarkers,
+          ...segLabels,
+          startLbl,
+          lastNodeDelMkr,
+        );
+        this.map.off("click", onMapClickActive);
+        this.measurements = this.measurements.filter((x) => x.id !== m.id);
+        this.saveMeasurements();
+        this.layers.unregister();
+      };
+
+      const lastNode = nodeMarkers[nodeMarkers.length - 1];
+      lastNodeDelMkr = MeasureUtils.makeDelIcon(lastNode.getLatLng()).addTo(
+        this.layers.mainLayer,
+      );
+      MeasureUtils.attachDelClick(lastNodeDelMkr, deleteMeasurement);
+      lastNodeDelMkr.on("click", (e) => {
+        const t = e.originalEvent?.target;
+        if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+        handleItemClick(e);
+      });
+
+      // Re-sort to ensure correct ordering
+      nodeMarkers.forEach((nd) => this.layers.mainLayer.removeLayer(nd));
+      if (lastNodeDelMkr) this.layers.mainLayer.removeLayer(lastNodeDelMkr);
+      segLabels.forEach((lbl) => this.layers.mainLayer.removeLayer(lbl));
+      if (startLbl) this.layers.mainLayer.removeLayer(startLbl);
+      nodeMarkers.forEach((nd) => nd.addTo(this.layers.mainLayer));
+      if (lastNodeDelMkr) lastNodeDelMkr.addTo(this.layers.mainLayer);
+      segLabels.forEach((lbl) => lbl.addTo(this.layers.mainLayer));
+      if (startLbl) startLbl.addTo(this.layers.mainLayer);
+    }
+
+    restoreCircle(m) {
+      const centerLatLng = L.latLng(m.center.lat, m.center.lng);
+      const targetLatLng = L.latLng(m.target.lat, m.target.lng);
+      const r = m.radius;
+
+      const circle = L.circle(centerLatLng, {
+        radius: r,
+        className: CONST.CLASSES.CIRCLE_FINAL,
+        interactive: true,
+      }).addTo(this.layers.mainLayer);
+
+      const radiusLine = L.polyline([centerLatLng, targetLatLng], {
+        className: CONST.CLASSES.LINE_DASHED,
+        interactive: true,
+      }).addTo(this.layers.mainLayer);
+      const radiusNode = MeasureUtils.makeNode(targetLatLng).addTo(
+        this.layers.mainLayer,
+      );
+
+      let labelsVisible = true;
+      let xVisible = false;
+
+      const centerFinal = L.marker(centerLatLng, {
+        icon: L.divIcon({
+          className: CONST.CENTER_DOT.CLASS_FINAL,
+          html: "",
+          iconSize: CONST.CENTER_DOT.SIZE,
+          iconAnchor: CONST.CENTER_DOT.ANCHOR,
+        }),
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
+        interactive: true,
+      }).addTo(this.layers.mainLayer);
+
+      const delMkr = MeasureUtils.makeDelIcon(centerLatLng, {
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
+      }).addTo(this.layers.mainLayer);
+
+      const midLng = (centerLatLng.lng + targetLatLng.lng) / 2;
+      const midLat = (centerLatLng.lat + targetLatLng.lat) / 2;
+      const radiusLabel = L.marker([midLat, midLng], {
+        icon: MeasureUtils.makeLabelDivIcon(
+          MeasureUtils.formatDistance(r),
+          CONST.LABEL.ANCHOR,
+          CONST.LABEL.CLASS_RADIUS,
+        ),
+        interactive: false,
+      });
+      radiusLabel.isMeasureLabel = true;
+      radiusLabel.addTo(this.layers.mainLayer);
+
+      const toggleUI = (showX, toggleLabels) => {
+        const s = MeasureUtils.calcToggle(xVisible, labelsVisible, showX, toggleLabels);
+        xVisible = s.xVisible;
+        labelsVisible = s.labelsVisible;
+        MeasureUtils.applyToggle(
+          delMkr,
+          xVisible,
+          [radiusLabel],
+          labelsVisible,
+          null,
+          (xv) => {
+            if (delMkr.setZIndexOffset)
+              delMkr.setZIndexOffset(
+                xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
+              );
+            MeasureUtils.toggleVisibility(
+              [radiusLine?.getElement(), radiusNode?.getElement()],
+              labelsVisible,
+            );
+          },
+        );
+      };
+      toggleUI(false, CONST.TOGGLE.RESET);
+
+      let deleted = false;
+      const deleteCircle = () => {
+        if (deleted) return;
+        deleted = true;
+        MeasureUtils.removeLayers(
+          this.layers.mainLayer,
+          delMkr,
+          circle,
+          centerFinal,
+          radiusLine,
+          radiusNode,
+          radiusLabel,
+        );
+        this.map.off("click", onMapClickActive);
+        this.measurements = this.measurements.filter((x) => x.id !== m.id);
+        this.saveMeasurements();
+        this.layers.unregister();
+      };
+      MeasureUtils.attachDelClick(delMkr, deleteCircle);
+
+      const toggleCircleToggle = () => {
+        if (deleted) return;
+        MeasureUtils.suppressHide(this);
+        toggleUI(undefined);
+      };
+      const attachInteraction = (layer) => {
+        layer.on("click", (e) => {
+          const t = e.originalEvent?.target;
+          if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+          MeasureUtils.stopEvent(e);
+          toggleCircleToggle();
+        });
+      };
+      attachInteraction(delMkr);
+      attachInteraction(circle);
+      attachInteraction(radiusLine);
+      attachInteraction(radiusNode);
+      attachInteraction(centerFinal);
+      if (radiusLabel) attachInteraction(radiusLabel);
+
+      const onMapClickActive = () => {
+        if (this.isSuppressHideDel || deleted) return;
+        if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
+      };
+      this.map.on("click", onMapClickActive);
     }
 
     bindGlobalEvents() {
@@ -1067,6 +1422,8 @@
 
     clearAll() {
       this.layers.clearAll();
+      this.measurements = [];
+      this.saveMeasurements();
       this.clearActiveMode();
     }
 
@@ -1127,9 +1484,21 @@
           title: _(`${CONST.name}.tool_marker`),
           svg: foliplus.SVGs.LOCATE,
         },
-        { mode: CONST.MODE.DISTANCE, title: _(`${CONST.name}.tool_distance`), svg: SVGs.RULER },
-        { mode: CONST.MODE.CIRCLE, title: _(`${CONST.name}.tool_circle`), svg: SVGs.CIRCLE },
-        { mode: CONST.MODE.CLEAR, title: _(`${CONST.name}.tool_clear`), svg: SVGs.TRASH },
+        {
+          mode: CONST.MODE.DISTANCE,
+          title: _(`${CONST.name}.tool_distance`),
+          svg: SVGs.RULER,
+        },
+        {
+          mode: CONST.MODE.CIRCLE,
+          title: _(`${CONST.name}.tool_circle`),
+          svg: SVGs.CIRCLE,
+        },
+        {
+          mode: CONST.MODE.CLEAR,
+          title: _(`${CONST.name}.tool_clear`),
+          svg: SVGs.TRASH,
+        },
       ];
       btnConfigs.forEach(({ mode, title, svg }) => {
         toolBar.appendChild(

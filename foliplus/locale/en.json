@@ -96,5 +96,7 @@
   "MeasureControl.unit_m": "m",
   "MeasureControl.geo_fail": "Lookup failed",
   "MeasureControl.no_layercontrol": "MeasureControl requires LayerControl, please add LayerControl to the map first",
+  "MeasureControl.save_fail": "Failed to save measurements",
+  "MeasureControl.load_fail": "Failed to load saved measurements",
   "ScaleControl.zoom_label": "Zoom Level: {zoom}"
 }
