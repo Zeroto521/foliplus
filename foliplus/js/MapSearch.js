@@ -22,7 +22,6 @@
       MIN_CHARS: 3,
       MAX_ITEMS: 5,
     },
-    PANEL_WIDTH: 280,
     PARAM: {
       Q: "q",
       LAT: "lat",
@@ -212,7 +211,7 @@
     searchAddress(query) {
       // Return cached result immediately
       if (this.cachedAddress[query]) {
-        this.renderAddressResult(this.cachedAddress[query], query);
+        this.renderAddressResult(this.cachedAddress[query]);
         return;
       }
 
@@ -244,7 +243,7 @@
           const item = results[0];
           const displayName = foliplus.formatAddress(item.display_name, map) || query;
           this.cachedAddress[query] = { item, displayName };
-          this.renderAddressResult({ item, displayName }, query);
+          this.renderAddressResult({ item, displayName });
         })
         .catch((err) => {
           if (err.name === "AbortError") return;
@@ -258,7 +257,7 @@
         });
     }
 
-    renderAddressResult(result, query) {
+    renderAddressResult(result) {
       const { item, displayName } = result;
       let lat = parseFloat(item.lat);
       let lng = parseFloat(item.lon);
@@ -306,8 +305,8 @@
       const rect = this.ctrl.getBoundingClientRect();
       let left = rect.left + window.scrollX;
       // If suggestions would overflow right edge, align to right edge instead
-      if (left + CONST.PANEL_WIDTH > window.innerWidth)
-        left = window.innerWidth - CONST.PANEL_WIDTH + window.scrollX;
+      if (left + rect.width > window.innerWidth)
+        left = window.innerWidth - rect.width + window.scrollX;
 
       this.suggestionsWrap.style.left = `${left}px`;
       this.suggestionsWrap.style.top = `${rect.bottom + window.scrollY}px`;
@@ -334,6 +333,8 @@
       this.positionSuggestions();
 
       results.forEach((item, idx) => {
+        const displayName =
+          foliplus.formatAddress(item.display_name, map) || item.name || "";
         const suggestion = foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.SUGGESTION_ITEM, "data-index": String(idx) },
@@ -345,18 +346,14 @@
           foliplus.dom.el(
             "span",
             { class: CONST.CLASSES.SUGGESTION_TEXT },
-            foliplus.formatAddress(item.display_name, map) || item.name || "",
+            displayName,
           ),
         );
         suggestion.onmousedown = (e) => {
           e.stopPropagation();
           e.preventDefault();
           this.removeSuggestions();
-          this.renderAddressResult({
-            item,
-            displayName:
-              foliplus.formatAddress(item.display_name, map) || item.name || "",
-          });
+          this.renderAddressResult({ item, displayName });
         };
         this.suggestionsWrap.appendChild(suggestion);
       });

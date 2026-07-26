@@ -39,7 +39,7 @@
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  z-index: 99999;
+  z-index: calc(var(--z-index-dropdown) + 9);
   max-height: 240px;
   overflow-y: auto;
   width: var(--panel-width);
@@ -71,14 +71,14 @@
   height: 14px;
   stroke: currentColor;
   fill: none;
-  stroke-width: 1.8;
+  stroke-width: var(--stroke-icon);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .foliplus-search-suggestion-text {
   flex: 1;
   min-width: 0;
-  line-height: 1.4;
+  line-height: var(--line-height-hint);
   word-break: break-word;
   overflow-wrap: break-word;
 }
