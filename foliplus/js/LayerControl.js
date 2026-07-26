@@ -1107,8 +1107,7 @@
       this.paneCache.clear();
       this.ui = null;
       LayerManager.registry.clear();
-      if (window.foliplus.LayerAPI === this)
-        window.foliplus.LayerAPI = null;
+      if (window.foliplus.LayerAPI === this) window.foliplus.LayerAPI = null;
     }
   }
 
