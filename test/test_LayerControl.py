@@ -838,8 +838,8 @@ class TestLayerControlRendering:
         """destroy() clears LayerAPI reference when it is the active API."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "window.foliplus.LayerAPI === this" in html
-        assert "window.foliplus.LayerAPI = null" in html
+        assert "foliplus.LayerAPI === this" in html
+        assert "foliplus.LayerAPI = null" in html
 
     def test_window_id_validation(self, base_map: folium.Map):
         """registerLayer validates opts.id before assigning to layerRegistry."""

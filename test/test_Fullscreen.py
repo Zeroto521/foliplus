@@ -91,7 +91,7 @@ class TestFullscreenRendering:
         """Fullscreen change shows enter/exit hint."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        assert "window.foliplus.showHint" in html
+        assert "foliplus.showHint" in html
         assert "HINT_DURATION.MEDIUM" in html
 
     def test_fullscreen_api_detection(self, base_map: folium.Map):
@@ -127,7 +127,7 @@ class TestFullscreenRendering:
         """Zoom +/- and fullscreen use <button> elements, not <a>."""
         Fullscreen().add_to(base_map)
         html = render(base_map)
-        # JS creates buttons via window.foliplus.dom.el("button", ...)
+        # JS creates buttons via foliplus.dom.el("button", ...)
         # (multi-line in rendered output, so check for the pattern)
         assert "dom.el(" in html and '"button"' in html
         # No old <a> tag patterns in button creation

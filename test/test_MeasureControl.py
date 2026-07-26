@@ -223,7 +223,7 @@ class TestMeasureControlRendering:
         """buildPopup delegates to foliplus.buildPopupHtml."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "window.foliplus.buildPopupHtml" in html
+        assert "foliplus.buildPopupHtml" in html
 
     def test_lazy_register_after_finish(self, base_map: folium.Map):
         """Distance mode registers on first click via mainLayer.addLayer, not on finishDist."""
