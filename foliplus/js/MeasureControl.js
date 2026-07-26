@@ -15,7 +15,7 @@
       SIZE: [0, 0],
       CHAR: "✕",
       CLASS: "foliplus-measure-del-icon",
-      WRAP_CLASS: "foliplus-del-icon-wrap",
+      WRAP_CLASS: "foliplus-del-icon",
     },
     MARKER: {
       RADIUS: 5,
@@ -98,7 +98,7 @@
     CIRCLE: `
       <svg viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="9"/>
-        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="12" r="1.5" class="solid"/>
       </svg>`,
     TRASH: `
       <svg viewBox="0 0 24 24">

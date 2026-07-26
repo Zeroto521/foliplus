@@ -54,6 +54,17 @@
       COLOR_INPUT: ".foliplus-color-layer-input",
       TOGGLE_ALL: ".foliplus-layer-toggle-all",
     },
+    GROUP: {
+      OVERLAY: "overlay",
+      BASE: "base",
+    },
+    GEOM_TYPE: {
+      POINT: "point",
+      LINE: "line",
+      POLYGON: "polygon",
+      EMPTY: "empty",
+      UNKNOWN: "unknown",
+    },
   };
 
   // ==================== Runtime Guard ====================
@@ -76,36 +87,36 @@
         <polygon points="2 16 12 21 22 16"/>
       </svg>`,
     DRAG_HANDLE: `
-      <svg viewBox="0 0 24 24" class="foliplus-drag-handle">
-        <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
-        <circle cx="16" cy="6" r="1.5" fill="currentColor"/>
-        <circle cx="8" cy="12" r="1.5" fill="currentColor"/>
-        <circle cx="16" cy="12" r="1.5" fill="currentColor"/>
-        <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
-        <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
+      <svg viewBox="0 0 24 24" class="drag-handle">
+        <circle cx="8" cy="6" r="1.5" class="solid"/>
+        <circle cx="16" cy="6" r="1.5" class="solid"/>
+        <circle cx="8" cy="12" r="1.5" class="solid"/>
+        <circle cx="16" cy="12" r="1.5" class="solid"/>
+        <circle cx="8" cy="18" r="1.5" class="solid"/>
+        <circle cx="16" cy="18" r="1.5" class="solid"/>
       </svg>`,
     POINT: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>`,
     LINE: `<svg viewBox="0 0 24 24"><path d="M4 20 L10 6 L16 18 L22 4"/></svg>`,
     POLYGON: `<svg viewBox="0 0 24 24"><polygon points="12,3 21,9 18,21 6,21 3,9"/></svg>`,
     EMPTY: `
       <svg viewBox="0 0 24 24">
-        <rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="4 3"/>
+        <rect x="4" y="4" width="16" height="16" rx="2" class="dashed"/>
       </svg>`,
     UNKNOWN: `
       <svg viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="12" cy="12" r="10" class="dashed"/>
         <path d="M9.5 9.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5c0 1.5-2.5 2-2.5 4"
               fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        <circle cx="12" cy="17" r="1.2" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="17" r="1.2" class="solid"/>
       </svg>`,
     COLOR: `
       <svg viewBox="0 0 24 24">
         <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.1 0 2-.9 2-2v-1c0-.6.4-1 1-1h2c3.3 0 6-2.7 6-6 0-5.5-4.5-10-10-10z"/>
-        <circle cx="7.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
-        <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none"/>
-        <circle cx="16.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
-        <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none"/>
-        <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/>
+        <circle cx="7.5" cy="9.5" r="1.5" class="solid"/>
+        <circle cx="12" cy="7" r="1.5" class="solid"/>
+        <circle cx="16.5" cy="9.5" r="1.5" class="solid"/>
+        <circle cx="16" cy="14" r="1" class="solid"/>
+        <circle cx="8" cy="14" r="1" class="solid"/>
       </svg>`,
     FOLD: `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`,
     UNFOLD: `<svg viewBox="0 0 24 24"><polyline points="18 9 12 15 6 9"/></svg>`,
@@ -157,7 +168,7 @@
       const leaves = [];
       LayerUtils.forEachLeaf(layer, (l) => leaves.push(l));
       // No leaves at all → empty container (e.g. empty GeoDataFrame)
-      if (leaves.length === 0) return "empty";
+      if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY;
 
       let hasPoly = false,
         hasLine = false,
@@ -173,19 +184,23 @@
           hasPoint = true;
       }
       // Has leaves but none match known types → unknown
-      if (!hasPoly && !hasLine && !hasPoint) return "unknown";
+      if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN;
       // Mixed geometry types (e.g. GeometryCollection with Point+Line+Polygon) → unknown
       const typeCount = hasPoly + hasLine + hasPoint;
-      if (typeCount > 1) return "unknown";
-      return hasPoly ? "polygon" : hasLine ? "line" : "point";
+      if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN;
+      return hasPoly
+        ? CONST.GEOM_TYPE.POLYGON
+        : hasLine
+          ? CONST.GEOM_TYPE.LINE
+          : CONST.GEOM_TYPE.POINT;
     }
 
     static getTypeSVG(layer) {
       const type = this.getGeometryType(layer);
-      if (type === "polygon") return SVGs.POLYGON;
-      if (type === "line") return SVGs.LINE;
-      if (type === "point") return SVGs.POINT;
-      if (type === "empty") return SVGs.EMPTY;
+      if (type === CONST.GEOM_TYPE.POLYGON) return SVGs.POLYGON;
+      if (type === CONST.GEOM_TYPE.LINE) return SVGs.LINE;
+      if (type === CONST.GEOM_TYPE.POINT) return SVGs.POINT;
+      if (type === CONST.GEOM_TYPE.EMPTY) return SVGs.EMPTY;
       return SVGs.UNKNOWN;
     }
 
@@ -1147,16 +1162,19 @@
         if (!l.isBase && !hasOverlays) {
           hasOverlays = true;
           frag.appendChild(
-            this.renderToggleAllRow("overlay", `${CONST.name}.data_layer_label`),
+            this.renderToggleAllRow(
+              CONST.GROUP.OVERLAY,
+              `${CONST.name}.data_layer_label`,
+            ),
           );
         }
         if (l.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
           frag.appendChild(
-            this.renderToggleAllRow("base", `${CONST.name}.base_map_label`),
+            this.renderToggleAllRow(CONST.GROUP.BASE, `${CONST.name}.base_map_label`),
           );
         }
-        const group = l.isBase ? "base" : "overlay";
+        const group = l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
         const item = this.renderLayerItem(l, i);
         if (this.m.foldedGroups.has(group))
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);
@@ -1164,7 +1182,7 @@
       }
 
       const colorItem = this.renderColorLayerItem();
-      if (this.m.foldedGroups.has("base"))
+      if (this.m.foldedGroups.has(CONST.GROUP.BASE))
         colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
       frag.appendChild(colorItem);
 
@@ -1235,7 +1253,7 @@
           draggable: "true",
           [CONST.DATA.INDEX]: String(index),
           [CONST.DATA.LAYER_ID]: l.id,
-          "data-layer-type": l.isBase ? "base" : "overlay",
+          "data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
           title: en,
         },
         ...children,
@@ -1298,7 +1316,7 @@
           if (layerInfo.isBase) {
             typeCols[i].innerHTML = window.foliplus.SVGs.GLOBE;
             typeCols[i].title = _(`${CONST.name}.type_base`);
-            this.m.typeMap.set(id, { type: "base", name: layerInfo.name });
+            this.m.typeMap.set(id, { type: CONST.GROUP.BASE, name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
@@ -1315,8 +1333,8 @@
 
       if (!anyBaseVisible) this.showColorLayer(this.m.currentColor);
       this.m.enforceOrder();
-      this.syncToggleAll("overlay");
-      this.syncToggleAll("base");
+      this.syncToggleAll(CONST.GROUP.OVERLAY);
+      this.syncToggleAll(CONST.GROUP.BASE);
     }
 
     reindexItems() {
@@ -1347,7 +1365,7 @@
         if (e.target.closest(CONST.SEL.COLOR_ITEM)) {
           this.deselectAllBaseMaps(-1);
           this.showColorLayer(this.m.currentColor);
-          this.syncToggleAll("base");
+          this.syncToggleAll(CONST.GROUP.BASE);
           this.m.enforceOrder();
           return;
         }
@@ -1370,7 +1388,7 @@
 
     getLayerItems(group) {
       return this.m.uiContainer.querySelectorAll(
-        `${CONST.SEL.LAYER_ITEM}${group === "base" ? '[data-layer-type="base"]' : `:not([data-layer-type="base"]):not(${CONST.SEL.COLOR_ITEM})`}`,
+        `${CONST.SEL.LAYER_ITEM}${group === CONST.GROUP.BASE ? `[data-layer-type="${CONST.GROUP.BASE}"]` : `:not([data-layer-type="${CONST.GROUP.BASE}"]):not(${CONST.SEL.COLOR_ITEM})`}`,
       );
     }
 
@@ -1397,10 +1415,10 @@
         if (!layer) layerInfo.visible = newState;
       });
 
-      if (group === "base" && !newState) {
+      if (group === CONST.GROUP.BASE && !newState) {
         this.hideColorLayer();
         this.showColorLayer(this.m.currentColor);
-      } else if (group === "base" && newState) this.hideColorLayer();
+      } else if (group === CONST.GROUP.BASE && newState) this.hideColorLayer();
 
       this.syncToggleAll(group);
       this.m.enforceOrder();
@@ -1429,7 +1447,7 @@
       if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
         this.deselectAllBaseMaps(-1);
         this.showColorLayer(target.value);
-        this.syncToggleAll("base");
+        this.syncToggleAll(CONST.GROUP.BASE);
         this.m.enforceOrder();
         return;
       }
@@ -1454,7 +1472,7 @@
       if (cbs && cbs.onToggle) cbs.onToggle(target.checked);
       if (!layer) layerInfo.visible = target.checked;
 
-      this.syncToggleAll(layerInfo.isBase ? "base" : "overlay");
+      this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
       this.m.enforceOrder();
     }
 
@@ -1596,7 +1614,7 @@
       this.m.uiContainer
         .querySelector(CONST.SEL.COLOR_ITEM)
         ?.classList.add(CONST.CLASSES.COLOR_ACTIVE);
-      this.syncToggleAll("base");
+      this.syncToggleAll(CONST.GROUP.BASE);
     }
 
     hideColorLayer() {

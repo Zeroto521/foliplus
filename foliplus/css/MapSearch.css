@@ -5,7 +5,7 @@
   overflow: hidden;
 }
 /* ── Clear Button Wrapper ── */
-.foliplus-map-search .foliplus-clear-wrap {
+.foliplus-map-search .clear {
   position: relative;
   display: flex;
   align-items: center;
