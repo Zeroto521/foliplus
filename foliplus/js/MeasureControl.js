@@ -377,7 +377,7 @@
         MeasureUtils.toggleDelIcon(delMkr, false);
       });
 
-      const markerId = this.m.nextMeasurementId();
+      const markerId = this.m.nextMeasurementId(CONST.MODE.MARKER);
       this.m.measurements.push({
         id: markerId,
         type: CONST.MODE.MARKER,
@@ -524,7 +524,7 @@
           );
         }
 
-        const distId = this.m.nextMeasurementId();
+        const distId = this.m.nextMeasurementId(CONST.MODE.DISTANCE);
         const segments = pts.slice(1).map((p, i) => ({
           lng: p.lng,
           lat: p.lat,
@@ -924,7 +924,7 @@
         };
         toggleUI(false, CONST.TOGGLE.RESET);
 
-        const circleId = this.m.nextMeasurementId();
+        const circleId = this.m.nextMeasurementId(CONST.MODE.CIRCLE);
         this.m.measurements.push({
           id: circleId,
           type: CONST.MODE.CIRCLE,
@@ -1053,9 +1053,9 @@
       }
     }
 
-    nextMeasurementId() {
+    nextMeasurementId(type) {
       this.measurementIdCounter += 1;
-      return `${CONST.ID}_${Date.now()}_${this.measurementIdCounter}`;
+      return `${CONST.ID}_${type}_${Date.now()}_${this.measurementIdCounter}`;
     }
 
     restoreMeasurements() {
