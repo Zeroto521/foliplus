@@ -291,7 +291,24 @@ class TestMapSearchRendering:
             'this.suggestionsWrap.addEventListener("click", (e) => e.stopPropagation())'
             in html
         )
-        assert "suggestion.onclick = (e) => {" in html
+        assert "suggestion.onmousedown = (e) => {" in html
+
+    def test_suggestion_click_calls_renderAddressResult(self, base_map: folium.Map):
+        """Suggestion mousedown calls renderAddressResult directly, not searchAddress."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        # onmousedown calls renderAddressResult directly (bypasses searchAddress API call)
+        assert "suggestion.onmousedown = (e) => {" in html
+        assert "this.renderAddressResult" in html
+        # searchAddress should NOT appear inside the onmousedown handler
+        # Find the handler block and verify no searchAddress call within it
+        start = html.index("suggestion.onmousedown")
+        # Find the closing }); of the handler
+        end = html.index("this.suggestionsWrap.appendChild", start)
+        block = html[start:end]
+        assert "searchAddress" not in block, (
+            "suggestion click should call renderAddressResult directly, not searchAddress"
+        )
 
     # ── URL Parameter Parsing ──
 

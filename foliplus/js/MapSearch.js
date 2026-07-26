@@ -348,13 +348,15 @@
             foliplus.formatAddress(item.display_name, map) || item.name || "",
           ),
         );
-        suggestion.onclick = (e) => {
+        suggestion.onmousedown = (e) => {
           e.stopPropagation();
-          const displayName =
-            foliplus.formatAddress(item.display_name, map) || item.name || "";
-          this.inp.value = displayName;
+          e.preventDefault();
           this.removeSuggestions();
-          this.searchAddress(displayName);
+          this.renderAddressResult({
+            item,
+            displayName:
+              foliplus.formatAddress(item.display_name, map) || item.name || "",
+          });
         };
         this.suggestionsWrap.appendChild(suggestion);
       });
