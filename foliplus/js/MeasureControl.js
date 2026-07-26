@@ -15,7 +15,7 @@
       SIZE: [0, 0],
       CHAR: "✕",
       CLASS: "foliplus-measure-del-icon",
-      WRAP_CLASS: "foliplus-del-icon-wrap",
+      WRAP_CLASS: "foliplus-del-icon",
     },
     MARKER: {
       RADIUS: 5,

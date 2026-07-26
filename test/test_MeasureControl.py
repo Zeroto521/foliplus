@@ -403,7 +403,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "makeDelIcon" in html
-        assert "foliplus-del-icon-wrap" in html
+        assert "foliplus-del-icon" in html
 
     def test_align_right_for_right_position(self, base_map: folium.Map):
         """Right positions (bottomright/topright) add align-right class."""
@@ -658,7 +658,7 @@ class TestMeasureControlRendering:
                 const mm = window.__measureManager;
                 const layers = mm.layers.mainLayer._layers || {};
                 const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
                 if (delMkr) {
                     // Simulate clicking the del icon: make it visible, then fire
@@ -673,7 +673,7 @@ class TestMeasureControlRendering:
             hasDelMkr = page.evaluate("""() => {
                 const mm = window.__measureManager;
                 return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
@@ -699,7 +699,7 @@ class TestMeasureControlRendering:
                 const mm = window.__measureManager;
                 const layers = mm.layers.mainLayer._layers || {};
                 const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
                 if (delMkr) {
                     const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
@@ -711,7 +711,7 @@ class TestMeasureControlRendering:
             hasDelMkr = page.evaluate("""() => {
                 const mm = window.__measureManager;
                 return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
@@ -736,7 +736,7 @@ class TestMeasureControlRendering:
                 const mm = window.__measureManager;
                 const layers = mm.layers.mainLayer._layers || {};
                 const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
                 if (delMkr) {
                     const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
@@ -748,7 +748,7 @@ class TestMeasureControlRendering:
             hasDelMkr = page.evaluate("""() => {
                 const mm = window.__measureManager;
                 return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
