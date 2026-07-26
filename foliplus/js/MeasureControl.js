@@ -267,10 +267,7 @@
 
     /** Create a measure node circle marker. */
     static makeNode(latlng, className = CONST.CLASSES.NODE_FINAL) {
-      return L.circleMarker(latlng, {
-        radius: CONST.MARKER.RADIUS,
-        className,
-      });
+      return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
     }
 
     /** Create a delete icon marker.
@@ -318,14 +315,15 @@
       }
     }
 
-    /** Hide all delete icons (shared across modes). */
-    hideDelIcons() {
-      MeasureUtils.hideDelIcons();
+    /** Generate a unique measurement ID with type prefix. */
+    nextMeasurementId() {
+      return this.m.nextMeasurementId(this.constructor.TYPE);
     }
   }
 
   // ==================== Marker Mode ====================
   class MarkerMode extends MeasureMode {
+    static TYPE = CONST.MODE.MARKER;
     start() {
       this.onMarkerClickRef = this.handleMarkerClick.bind(this);
       this.map.on("click", this.onMarkerClickRef);
@@ -367,7 +365,7 @@
         marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
 
       marker.on("popupopen", () => {
-        this.hideDelIcons();
+        MeasureUtils.hideDelIcons();
         if (cachedAddr !== null)
           marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, cachedAddr));
         MeasureUtils.toggleDelIcon(delMkr, true);
@@ -377,7 +375,7 @@
         MeasureUtils.toggleDelIcon(delMkr, false);
       });
 
-      const markerId = this.m.nextMeasurementId(CONST.MODE.MARKER);
+      const markerId = this.nextMeasurementId();
       this.m.measurements.push({
         id: markerId,
         type: CONST.MODE.MARKER,
@@ -400,6 +398,7 @@
 
   // ==================== Distance Mode ====================
   class DistanceMode extends MeasureMode {
+    static TYPE = CONST.MODE.DISTANCE;
     start() {
       const map = this.map;
       const layers = this.layers;
@@ -524,7 +523,7 @@
           );
         }
 
-        const distId = this.m.nextMeasurementId(CONST.MODE.DISTANCE);
+        const distId = this.nextMeasurementId();
         const segments = pts.slice(1).map((p, i) => ({
           lng: p.lng,
           lat: p.lat,
@@ -696,6 +695,7 @@
 
   // ==================== Circle Mode ====================
   class CircleMode extends MeasureMode {
+    static TYPE = CONST.MODE.CIRCLE;
     start() {
       const map = this.map;
       const layers = this.layers;
@@ -924,7 +924,7 @@
         };
         toggleUI(false, CONST.TOGGLE.RESET);
 
-        const circleId = this.m.nextMeasurementId(CONST.MODE.CIRCLE);
+        const circleId = this.nextMeasurementId();
         this.m.measurements.push({
           id: circleId,
           type: CONST.MODE.CIRCLE,
