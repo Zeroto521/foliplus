@@ -773,7 +773,7 @@
           previews.label = L.marker(mid, {
             icon: MeasureUtils.makeLabelDivIcon(
               MeasureUtils.formatDistance(r),
-              [0, 0],
+              CONST.DEL_ICON.ANCHOR,
               CONST.LABEL.CLASS_RADIUS,
             ),
             interactive: false,
@@ -846,7 +846,7 @@
         const radiusLabel = L.marker([midLat, midLng], {
           icon: MeasureUtils.makeLabelDivIcon(
             MeasureUtils.formatDistance(r),
-            [0, 0],
+            CONST.DEL_ICON.ANCHOR,
             CONST.LABEL.CLASS_RADIUS,
           ),
           interactive: false,
