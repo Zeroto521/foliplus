@@ -24,7 +24,7 @@
       COLLAPSED: "collapsed",
       MAP_SEARCH: "foliplus-map-search",
       SEARCH_MODE_BTN: "foliplus-search-mode-btn",
-      CLEAR_WRAP: "foliplus-clear-wrap",
+      CLEAR: "clear",
       CTRL_BTN: "foliplus-ctrl-btn",
     },
   };
@@ -81,7 +81,7 @@
       toolBar.appendChild(
         window.foliplus.dom.el(
           "div",
-          { class: CONST.CLASSES.CLEAR_WRAP },
+          { class: CONST.CLASSES.CLEAR },
           inp,
           clearBtn,
         ),
