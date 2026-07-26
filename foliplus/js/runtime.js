@@ -440,7 +440,10 @@
 
     geoPromise = geoPromise
       .then(() => {
-        const wait = Math.max(0, foliplus.NOMINATIM.THROTTLE_MS - (Date.now() - geoLastReq));
+        const wait = Math.max(
+          0,
+          foliplus.NOMINATIM.THROTTLE_MS - (Date.now() - geoLastReq),
+        );
         return new Promise((r) => setTimeout(r, wait));
       })
       .then(() => {
