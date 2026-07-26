@@ -1168,7 +1168,7 @@
         toggleUI(undefined);
       };
       finalPoly.on("click", handleItemClick);
-      nodeMarkers.forEach((nd) => nd.on("click", handleItemClick));
+      nodeMarkers.forEach((node) => node.on("click", handleItemClick));
       segLabels.forEach((lbl) => lbl.on("click", handleItemClick));
       startLbl.on("click", handleItemClick);
 
@@ -1205,11 +1205,11 @@
       });
 
       // Re-sort to ensure correct ordering
-      nodeMarkers.forEach((nd) => this.layers.mainLayer.removeLayer(nd));
+      nodeMarkers.forEach((node) => this.layers.mainLayer.removeLayer(node));
       if (lastNodeDelMkr) this.layers.mainLayer.removeLayer(lastNodeDelMkr);
       segLabels.forEach((lbl) => this.layers.mainLayer.removeLayer(lbl));
       if (startLbl) this.layers.mainLayer.removeLayer(startLbl);
-      nodeMarkers.forEach((nd) => nd.addTo(this.layers.mainLayer));
+      nodeMarkers.forEach((node) => node.addTo(this.layers.mainLayer));
       if (lastNodeDelMkr) lastNodeDelMkr.addTo(this.layers.mainLayer);
       segLabels.forEach((lbl) => lbl.addTo(this.layers.mainLayer));
       if (startLbl) startLbl.addTo(this.layers.mainLayer);
