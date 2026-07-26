@@ -152,10 +152,10 @@
       setTimeout(() => {
         manager.isSuppressHideDel = false;
       }, CONST.TIMING.SUPPRESS_HIDE_DELAY);
-      this.hideAllDelIcons();
+      this.hideDelIcons();
     }
 
-    static hideAllDelIcons() {
+    static hideDelIcons() {
       document
         .querySelectorAll(`${CONST.SEL.DEL_ICON}.${CONST.CLASSES.VISIBLE}`)
         .forEach((el) => el.classList.remove(CONST.CLASSES.VISIBLE));
@@ -320,7 +320,7 @@
 
     /** Hide all delete icons (shared across modes). */
     hideDelIcons() {
-      MeasureUtils.hideAllDelIcons();
+      MeasureUtils.hideDelIcons();
     }
   }
 
@@ -401,7 +401,6 @@
   // ==================== Distance Mode ====================
   class DistanceMode extends MeasureMode {
     start() {
-      const manager = this.m;
       const map = this.map;
       const layers = this.layers;
 
@@ -452,7 +451,7 @@
         if (isDistFinished) return;
         if (pts.length < 2) {
           this.cleanup();
-          manager.clearActiveMode();
+          this.m.clearActiveMode();
           return;
         }
         isDistFinished = true;
@@ -498,7 +497,7 @@
 
         const handleItemClick = (e) => {
           MeasureUtils.stopEvent(e);
-          MeasureUtils.suppressHide(manager);
+          MeasureUtils.suppressHide(this.m);
           toggleUI(undefined);
         };
 
@@ -510,7 +509,7 @@
         toggleUI(false, CONST.TOGGLE.RESET);
 
         const onDistMapClick = () => {
-          if (manager.isSuppressHideDel) return;
+          if (this.m.isSuppressHideDel) return;
           if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
         };
         map.on("click", onDistMapClick);
@@ -525,7 +524,7 @@
           );
         }
 
-        const distId = manager.nextMeasurementId();
+        const distId = this.m.nextMeasurementId();
         const segments = pts.slice(1).map((p, i) => ({
           lng: p.lng,
           lat: p.lat,
@@ -536,14 +535,14 @@
             pts[i + 1].lat,
           ),
         }));
-        manager.measurements.push({
+        this.m.measurements.push({
           id: distId,
           type: CONST.MODE.DISTANCE,
           points: pts.map((p) => ({ lng: p.lng, lat: p.lat })),
           segments,
           totalDistance: total,
         });
-        manager.saveMeasurements();
+        this.m.saveMeasurements();
 
         const deleteMeasurement = () => {
           MeasureUtils.removeLayers(
@@ -555,8 +554,8 @@
             lastNodeDelMkr,
           );
           map.off("click", onDistMapClick);
-          manager.measurements = manager.measurements.filter((x) => x.id !== distId);
-          manager.saveMeasurements();
+          this.m.measurements = this.m.measurements.filter((x) => x.id !== distId);
+          this.m.saveMeasurements();
           layers.unregister();
         };
 
@@ -592,7 +591,7 @@
           layers.mainLayer.removeLayer(previewDistLabel);
           previewDistLabel = null;
         }
-        manager.clearActiveMode();
+        this.m.clearActiveMode();
       };
 
       const onDistMove = (e) => {
@@ -622,7 +621,7 @@
       };
 
       const onDistClick = (e) => {
-        if (manager.currentMode !== CONST.MODE.DISTANCE) return;
+        if (this.m.currentMode !== CONST.MODE.DISTANCE) return;
         ensureLayersAdded();
         pts.push(e.latlng);
         if (previewDistLabel) {
@@ -698,7 +697,6 @@
   // ==================== Circle Mode ====================
   class CircleMode extends MeasureMode {
     start() {
-      const manager = this.m;
       const map = this.map;
       const layers = this.layers;
 
@@ -730,7 +728,7 @@
       const onMapClick = (e) => {
         if (
           isFinalizing ||
-          manager.currentMode !== CONST.MODE.CIRCLE ||
+          this.m.currentMode !== CONST.MODE.CIRCLE ||
           (state !== 0 && state !== 1)
         )
           return;
@@ -766,7 +764,7 @@
           );
           const savedCenter = center;
           this.cleanup();
-          manager.clearActiveMode();
+          this.m.clearActiveMode();
           isFinalizing = true;
           setTimeout(() => {
             finalizeCircle(savedCenter, r, e.latlng);
@@ -776,7 +774,7 @@
       };
 
       const onMouseMove = (e) => {
-        if (state !== 1 || !center || manager.currentMode !== CONST.MODE.CIRCLE) return;
+        if (state !== 1 || !center || this.m.currentMode !== CONST.MODE.CIRCLE) return;
         const r = MeasureUtils.distance(
           center.lng,
           center.lat,
@@ -831,7 +829,7 @@
 
       const onContext = (e) => {
         MeasureUtils.stopEvent(e);
-        manager.clearActiveMode();
+        this.m.clearActiveMode();
       };
 
       const finalizeCircle = (centerLatLng, r, targetLatLng) => {
@@ -926,15 +924,15 @@
         };
         toggleUI(false, CONST.TOGGLE.RESET);
 
-        const circleId = manager.nextMeasurementId();
-        manager.measurements.push({
+        const circleId = this.m.nextMeasurementId();
+        this.m.measurements.push({
           id: circleId,
           type: CONST.MODE.CIRCLE,
           center: { lng: centerLatLng.lng, lat: centerLatLng.lat },
           target: { lng: finalTargetLatLng.lng, lat: finalTargetLatLng.lat },
           radius: r,
         });
-        manager.saveMeasurements();
+        this.m.saveMeasurements();
 
         let deleted = false;
         const deleteCircle = () => {
@@ -950,8 +948,8 @@
             radiusLabel,
           );
           map.off("click", onMapClickActive);
-          manager.measurements = manager.measurements.filter((x) => x.id !== circleId);
-          manager.saveMeasurements();
+          this.m.measurements = this.m.measurements.filter((x) => x.id !== circleId);
+          this.m.saveMeasurements();
           layers.unregister();
         };
 
@@ -959,7 +957,7 @@
 
         const toggleCircleToggle = () => {
           if (deleted) return;
-          MeasureUtils.suppressHide(manager);
+          MeasureUtils.suppressHide(this.m);
           toggleUI(undefined);
         };
 
@@ -980,11 +978,11 @@
         if (radiusLabel) attachInteraction(radiusLabel);
 
         const onMapClickActive = () => {
-          if (manager.isSuppressHideDel || deleted) return;
+          if (this.m.isSuppressHideDel || deleted) return;
           if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
         };
         map.on("click", onMapClickActive);
-        manager.finalizedClickHandler = onMapClickActive;
+        this.m.finalizedClickHandler = onMapClickActive;
       };
 
       map.on("click", onMapClick);
@@ -1096,7 +1094,7 @@
       }).addTo(this.layers.mainLayer);
 
       marker.on("popupopen", () => {
-        MeasureUtils.hideAllDelIcons();
+        MeasureUtils.hideDelIcons();
         MeasureUtils.toggleDelIcon(delMkr, true);
       });
       marker.on("popupclose", () => {
@@ -1343,7 +1341,7 @@
         if (this.isSuppressHideDel) return;
         const t = e.originalEvent?.target;
         if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-        MeasureUtils.hideAllDelIcons();
+        MeasureUtils.hideDelIcons();
       };
       this.map.on("click", this.onMapClick);
 
