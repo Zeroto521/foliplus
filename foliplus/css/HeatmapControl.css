@@ -74,7 +74,7 @@
   white-space: nowrap;
   padding-right: var(--space-xs);
 }
-.foliplus-heatmap-ctrl .foliplus-heatmap-form-control-wrap {
+.foliplus-heatmap-ctrl .foliplus-heatmap-form-control {
   flex: 1;
   min-width: 0;
 }
@@ -180,7 +180,7 @@
 /* Scheme row: form-control-wrap needs relative positioning for the dropdown */
 .foliplus-heatmap-ctrl
   .foliplus-heatmap-form-row:has(.foliplus-heatmap-scheme-bar)
-  .foliplus-heatmap-form-control-wrap {
+  .foliplus-heatmap-form-control {
   position: relative;
 }
 .foliplus-heatmap-ctrl .hidden {
