@@ -13,6 +13,7 @@
 - `LayerControl`: added `toggleAll` / `syncToggleAll` for batch show/hide of overlay or base layers ([#47](https://github.com/Zeroto521/foliplus/pull/47))
 - `MeasureControl`: refactored HTML string concatenation to use `foliplus.dom.el` ([#47](https://github.com/Zeroto521/foliplus/pull/47), [#51](https://github.com/Zeroto521/foliplus/pull/51))
 - `LayerControl`: added fold/unfold feature with toggle-all row, fold button per group, hover tooltip, and SVG icon switching ([#52](https://github.com/Zeroto521/foliplus/pull/52), [#55](https://github.com/Zeroto521/foliplus/pull/55))
+- `MapSearch`: added address autocomplete suggestions with Nominatim integration ([#75](https://github.com/Zeroto521/foliplus/pull/75))
 
 ### Changed
 
