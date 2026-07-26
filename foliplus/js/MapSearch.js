@@ -353,6 +353,7 @@
           e.stopPropagation();
           e.preventDefault();
           this.removeSuggestions();
+          this.cachedAddress[displayName] = { item, displayName };
           this.renderAddressResult({ item, displayName });
         };
         this.suggestionsWrap.appendChild(suggestion);
