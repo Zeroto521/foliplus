@@ -52,7 +52,7 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (foliplus && foliplus.gt ? foliplus.gt(k) : k);
+  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -436,16 +436,13 @@
         this.inp.focus();
       };
 
-      // Input placeholder
+      // Input → update placeholder + debounced autocomplete
       this.inp.addEventListener("input", () => {
         this.inp.placeholder =
           this.mode === CONST.MODE.COORD
             ? _(`${CONST.name}.coord_placeholder`)
             : _(`${CONST.name}.addr_placeholder`);
-      });
 
-      // Input → debounced autocomplete
-      this.inp.addEventListener("input", () => {
         if (this.mode === CONST.MODE.ADDR) this.debouncedFetch();
         else {
           this.debouncedFetch.cancel();
