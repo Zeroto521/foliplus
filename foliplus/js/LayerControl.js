@@ -255,7 +255,7 @@
       this.lastDragHintAt = 0;
       this.foldedGroups = new Set();
 
-      // Bind method context to prevent 'this' loss when called via window.foliplus.LayerControlAPI
+      // Bind method context to prevent 'this' loss when called via window.foliplus.LayerAPI
       this.registerLayer = this.registerLayer.bind(this);
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
@@ -278,8 +278,8 @@
       // Cache for discoverChildPanes: layerId → string[] (pane names).
       this.paneCache = new Map();
 
-      // UI Controller reference (set by LayerUIController construction)
-      this.uiCtrl = null;
+      // UI Controller reference (set by LayerUI construction)
+      this.ui = null;
 
       // Store callbacks keyed by layer id:
       this.layerCallbacks = new Map();
@@ -306,7 +306,7 @@
       this.loadFoldState();
       this.normalizeLayerGroups();
 
-      window.foliplus.LayerControlAPI = this;
+      window.foliplus.LayerAPI = this;
     }
 
     normalizeLayerGroups() {
@@ -374,10 +374,10 @@
     }
 
     // ==================== Public API Methods ====================
-    // These are exposed via window.foliplus.LayerControlAPI for runtime use.
+    // These are exposed via window.foliplus.LayerAPI for runtime use.
     //
     // Usage:
-    //   const api = window.foliplus.LayerControlAPI;
+    //   const api = window.foliplus.LayerAPI;
     //   api.registerLayer({ id: 'myLayer', name: 'My Layer', layer: leafletLayer });
     //   api.unregisterLayer('myLayer');
     //   api.findLayer('myLayer');
@@ -491,9 +491,9 @@
         return null;
       }
 
-      if (this.uiCtrl) {
-        this.uiCtrl.renderInitialList();
-        this.uiCtrl.initTypesAndVisibility();
+      if (this.ui) {
+        this.ui.renderInitialList();
+        this.ui.initTypesAndVisibility();
       }
       this.saveOrder();
       return this.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${opts.id}"]`);
@@ -518,9 +518,9 @@
       if (this.uiContainer) {
         // Re-render the full list so DOM order matches `this.layers` order,
         // and re-init visibility to sync checkbox data-index attributes.
-        if (this.uiCtrl) {
-          this.uiCtrl.renderInitialList();
-          this.uiCtrl.initTypesAndVisibility();
+        if (this.ui) {
+          this.ui.renderInitialList();
+          this.ui.initTypesAndVisibility();
         }
       }
     }
@@ -552,7 +552,7 @@
         );
         if (target) {
           target.remove();
-          if (this.uiCtrl) this.uiCtrl.reindexItems();
+          if (this.ui) this.ui.reindexItems();
         }
       }
       requestAnimationFrame(() => this.map.invalidateSize({ animate: false }));
@@ -1067,7 +1067,7 @@
 
     // UI Rendering & Event Binding
     attachUI(containerDiv) {
-      if (this.uiCtrl) this.uiCtrl.attachUI(containerDiv);
+      if (this.ui) this.ui.attachUI(containerDiv);
     }
 
     /** Check whether a layer at fromIdx can be reordered to toIdx.
@@ -1105,15 +1105,14 @@
       this.layerCallbacks.clear();
       this.pendingRegistrations = [];
       this.paneCache.clear();
-      this.uiCtrl = null;
+      this.ui = null;
       LayerManager.registry.clear();
-      if (window.foliplus.LayerControlAPI === this)
-        window.foliplus.LayerControlAPI = null;
+      if (window.foliplus.LayerAPI === this) window.foliplus.LayerAPI = null;
     }
   }
 
-  // ==================== UI Controller: LayerUIController ====================
-  class LayerUIController {
+  // ==================== UI Controller: LayerUI ====================
+  class LayerUI {
     constructor(manager) {
       this.manager = manager;
     }
@@ -1649,7 +1648,7 @@
   {%- endfor %};
 
   const layerManager = new LayerManager(map, initialData);
-  layerManager.uiCtrl = new LayerUIController(layerManager);
+  layerManager.ui = new LayerUI(layerManager);
 
   // ==================== Leaflet Control Definition ====================
   class LayerControl extends L.Control {
