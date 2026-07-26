@@ -481,9 +481,10 @@
         }
       });
 
-      // Blur → remove suggestions (with delay to allow click on suggestion)
+      // Blur → remove suggestions after click events settle
+      // Uses setTimeout(0) so the click event on a suggestion can fire first
       this.inp.addEventListener("blur", () =>
-        setTimeout(() => this.removeSuggestions(), 200),
+        setTimeout(() => this.removeSuggestions(), 0),
       );
 
       // Focus → re-show suggestions if input has cached content

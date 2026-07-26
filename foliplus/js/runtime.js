@@ -381,9 +381,12 @@
         return true;
       });
     if (parts.length === 0) return "";
-    // Domestic (Chinese) maps: reverse order (small→large → large→small)
+    // Domestic (Chinese) maps OR locale=zh: reverse order (small→large → large→small)
     // Foreign maps: keep original order
-    if (map && getMapCrsType(map) !== "WGS84") return parts.reverse().join(",");
+    const isChinese =
+      (map && getMapCrsType(map) !== "WGS84") ||
+      (window._LOCALE && window._LOCALE["locale.code"] === "zh");
+    if (isChinese) return parts.reverse().join(",");
     return parts.join(",");
   };
 

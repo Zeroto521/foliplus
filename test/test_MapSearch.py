@@ -251,7 +251,7 @@ class TestMapSearchRendering:
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert 'inp.addEventListener("blur"' in html
-        assert "setTimeout(() => this.removeSuggestions(), 200)" in html
+        assert "setTimeout(() => this.removeSuggestions(), 0)" in html
 
     def test_keyboard_navigation(self, base_map: folium.Map):
         """ArrowDown/ArrowUp/Enter/Escape keyboard handlers exist."""
