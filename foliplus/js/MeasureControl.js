@@ -73,6 +73,17 @@
       DEL_ICON: ".foliplus-measure-del-icon",
       TOOL_BTN: ".foliplus-tool-btn",
     },
+    TYPE: {
+      MARKER: "marker",
+      DISTANCE: "distance",
+      CIRCLE: "circle",
+    },
+    MODE: {
+      MARKER: "marker",
+      DISTANCE: "distance",
+      CIRCLE: "circle",
+      CLEAR: "clear",
+    },
     position: "{{ this.position }}",
   };
 
@@ -324,9 +335,9 @@
     }
 
     async handleMarkerClick(e) {
-      if (this.m.currentMode !== "marker") return;
-      const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
+      if (this.m.currentMode !== CONST.TYPE.MARKER) return;
       const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
+      const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
 
       const marker = foliplus.createLocationMarker(
         this.map,
@@ -579,7 +590,7 @@
       };
 
       const onDistClick = (e) => {
-        if (manager.currentMode !== "distance") return;
+        if (manager.currentMode !== CONST.TYPE.DISTANCE) return;
         ensureLayersAdded();
         pts.push(e.latlng);
         if (previewDistLabel) {
@@ -687,7 +698,7 @@
       const onMapClick = (e) => {
         if (
           isFinalizing ||
-          manager.currentMode !== "circle" ||
+          manager.currentMode !== CONST.TYPE.CIRCLE ||
           (state !== 0 && state !== 1)
         )
           return;
@@ -733,7 +744,7 @@
       };
 
       const onMouseMove = (e) => {
-        if (state !== 1 || !center || manager.currentMode !== "circle") return;
+        if (state !== 1 || !center || manager.currentMode !== CONST.TYPE.CIRCLE) return;
         const r = MeasureUtils.distance(
           center.lng,
           center.lat,
@@ -841,8 +852,8 @@
           zIndexOffset: CONST.Z_INDEX.OFFSET,
         }).addTo(layers.mainLayer);
 
-        const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
         const midLng = (centerLatLng.lng + finalTargetLatLng.lng) / 2;
+        const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
         const radiusLabel = L.marker([midLat, midLng], {
           icon: MeasureUtils.makeLabelDivIcon(
             MeasureUtils.formatDistance(r),
@@ -996,7 +1007,7 @@
     }
 
     setMode(mode) {
-      if (mode === "clear") {
+      if (mode === CONST.MODE.CLEAR) {
         this.clearAll();
         return;
       }
@@ -1019,7 +1030,7 @@
 
       this.map.getContainer().classList.add(CONST.CLASSES.IS_MEASURING);
 
-      if (mode === "marker") {
+      if (mode === CONST.MODE.MARKER) {
         foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.hint_marker`),
@@ -1027,7 +1038,7 @@
         );
         this.modeInstance = new MarkerMode(this);
         this.modeInstance.start();
-      } else if (mode === "distance") {
+      } else if (mode === CONST.MODE.DISTANCE) {
         foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.hint_dist_start`),
@@ -1035,7 +1046,7 @@
         );
         this.modeInstance = new DistanceMode(this);
         this.modeInstance.start();
-      } else if (mode === "circle") {
+      } else if (mode === CONST.MODE.CIRCLE) {
         foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.hint_circle_start`),
@@ -1112,13 +1123,13 @@
       });
       const btnConfigs = [
         {
-          mode: "marker",
+          mode: CONST.MODE.MARKER,
           title: _(`${CONST.name}.tool_marker`),
           svg: foliplus.SVGs.LOCATE,
         },
-        { mode: "distance", title: _(`${CONST.name}.tool_distance`), svg: SVGs.RULER },
-        { mode: "circle", title: _(`${CONST.name}.tool_circle`), svg: SVGs.CIRCLE },
-        { mode: "clear", title: _(`${CONST.name}.tool_clear`), svg: SVGs.TRASH },
+        { mode: CONST.MODE.DISTANCE, title: _(`${CONST.name}.tool_distance`), svg: SVGs.RULER },
+        { mode: CONST.MODE.CIRCLE, title: _(`${CONST.name}.tool_circle`), svg: SVGs.CIRCLE },
+        { mode: CONST.MODE.CLEAR, title: _(`${CONST.name}.tool_clear`), svg: SVGs.TRASH },
       ];
       btnConfigs.forEach(({ mode, title, svg }) => {
         toolBar.appendChild(

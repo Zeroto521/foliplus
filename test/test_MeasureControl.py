@@ -53,10 +53,10 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "tool-btn" in html
         assert '"data-mode": mode' in html
-        assert 'mode: "marker"' in html
-        assert 'mode: "distance"' in html
-        assert 'mode: "circle"' in html
-        assert 'mode: "clear"' in html
+        assert 'mode: CONST.MODE.MARKER' in html
+        assert 'mode: CONST.MODE.DISTANCE' in html
+        assert 'mode: CONST.MODE.CIRCLE' in html
+        assert 'mode: CONST.MODE.CLEAR' in html
 
     def test_locale_zh(self, base_map: folium.Map):
         MeasureControl(locale="zh").add_to(base_map)
