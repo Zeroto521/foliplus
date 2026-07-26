@@ -98,7 +98,7 @@
     CIRCLE: `
       <svg viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="9"/>
-        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="12" r="1.5" class="solid"/>
       </svg>`,
     TRASH: `
       <svg viewBox="0 0 24 24">
