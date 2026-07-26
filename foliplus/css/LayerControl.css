@@ -52,6 +52,13 @@
   display: block;
   transition: transform var(--transition-fast);
 }
+/* Shared dashed style for EMPTY / UNKNOWN icons */
+.foliplus-layer-ctrl .foliplus-type-icon-col svg .dashed {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
 .foliplus-layer-ctrl .foliplus-layer-sep {
   display: flex;
   align-items: center;
