@@ -1104,14 +1104,12 @@
     }
 
     onAdd() {
-      const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl(
-        {
-          cssClass: "foliplus-measure-ctrl",
-          toggleTitle: _(`${CONST.name}.tool_toggle`),
-          toggleSvg: SVGs.RULER,
-          isLeft: CONST.position.indexOf("left") >= 0,
-        },
-      );
+      const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
+        cssClass: "foliplus-measure-ctrl",
+        toggleTitle: _(`${CONST.name}.tool_toggle`),
+        toggleSvg: SVGs.RULER,
+        isLeft: CONST.position.indexOf("left") >= 0,
+      });
       const btnConfigs = [
         {
           mode: "marker",

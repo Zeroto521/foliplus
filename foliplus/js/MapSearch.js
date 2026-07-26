@@ -54,14 +54,12 @@
   // ==================== Control Definition ====================
   class MapSearchControl extends L.Control {
     onAdd() {
-      const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl(
-        {
-          cssClass: CONST.CLASSES.MAP_SEARCH,
-          toggleTitle: _(`${CONST.name}.btn_title`),
-          toggleSvg: SVGs.SEARCH,
-          isLeft: CONST.position.indexOf("left") >= 0,
-        },
-      );
+      const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
+        cssClass: CONST.CLASSES.MAP_SEARCH,
+        toggleTitle: _(`${CONST.name}.btn_title`),
+        toggleSvg: SVGs.SEARCH,
+        isLeft: CONST.position.indexOf("left") >= 0,
+      });
       ctrl.id = "{{ this.get_name() }}_ctrl";
 
       const modeBtn = foliplus.dom.el(
