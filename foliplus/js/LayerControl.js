@@ -77,7 +77,7 @@
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const mapContainer = map.getContainer();
-  const _ = (k) => (foliplus && foliplus.gt ? foliplus.gt(k) : k);
+  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -132,20 +132,20 @@
   const origBringToFront = L.Path.prototype.bringToFront;
   let isBringToFrontPatched = false;
 
-  function patchBringToFront() {
+  const patchBringToFront = () => {
     if (isBringToFrontPatched) return;
     isBringToFrontPatched = true;
     L.Path.prototype.bringToFront = function () {
       if (this._path && this._path.parentNode) origBringToFront.call(this);
       return this;
     };
-  }
+  };
 
-  function unpatchBringToFront() {
+  const unpatchBringToFront = () => {
     if (!isBringToFrontPatched) return;
     isBringToFrontPatched = false;
     L.Path.prototype.bringToFront = origBringToFront;
-  }
+  };
 
   patchBringToFront();
 
@@ -1492,12 +1492,11 @@
       const now = Date.now();
       if (now - this.m.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
       this.m.lastDragHintAt = now;
-      if (foliplus && typeof foliplus.showHint === "function")
-        foliplus.showHint(
-          CONST.name,
-          _(`${CONST.name}.reorder_group_only`),
-          foliplus.HINT_DURATION.SHORT,
-        );
+      foliplus.showHint(
+        CONST.name,
+        _(`${CONST.name}.reorder_group_only`),
+        foliplus.HINT_DURATION.SHORT,
+      );
     }
 
     handleDragOver(e) {
