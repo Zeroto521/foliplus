@@ -22,10 +22,10 @@
    */
   foliplus.gt =
     foliplus.gt ||
-    function (k) {
+    ((k) => {
       const loc = window._LOCALE;
       return loc && loc[k] ? loc[k] : k;
-    };
+    });
 
   // 3. Early return only if logic is already initialized
   if (foliplus._initialized) return;
