@@ -133,7 +133,7 @@
   window.foliplus.registerHintIcon(CONST.name, SVGs.HEXAGON);
 
   // ==================== Guard: LayerControl required ====================
-  if (!window.foliplus.LayerControlAPI) {
+  if (!window.foliplus.LayerAPI) {
     console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
     window.foliplus.showHint(
       CONST.name,
@@ -165,7 +165,7 @@
       // Canvas lives in `.leaflet-map-pane` with position offset to cancel
       // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
       // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
-      this.overlay = window.foliplus.LayerControlAPI.createCanvas({
+      this.overlay = window.foliplus.LayerAPI.createCanvas({
         id: CONST.ID,
         name: _(`${CONST.name}.title`),
         iconSvg: SVGs.HEXAGON,
@@ -317,14 +317,14 @@
     // --- Data Extraction ---
     scanMapLayers() {
       this.pointLayers = [];
-      const pointLayersInfo = window.foliplus.LayerControlAPI.getLayersByType("point");
+      const pointLayersInfo = window.foliplus.LayerAPI.getLayersByType("point");
       if (!pointLayersInfo.length) return;
 
       const seenIds = {};
       for (const info of pointLayersInfo) {
         if (seenIds[info.id]) continue;
         seenIds[info.id] = true;
-        const layer = window.foliplus.LayerControlAPI.findLayer(info.id);
+        const layer = window.foliplus.LayerAPI.findLayer(info.id);
         if (!layer) continue;
 
         const pts = this.extractPoints(layer);

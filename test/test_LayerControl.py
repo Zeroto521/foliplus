@@ -699,7 +699,7 @@ class TestLayerControlRendering:
         assert 'tilePane.classList.add("foliplus-layer-tile-hidden")' in html
 
     def test_public_api_get_layer_type(self, base_map: folium.Map):
-        """getLayerType is exposed via LayerControlAPI."""
+        """getLayerType is exposed via LayerAPI."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "getLayerType(id)" in html
@@ -806,7 +806,7 @@ class TestLayerControlRendering:
         assert "console.error" in html
 
     def test_find_layer_utility(self, base_map: folium.Map):
-        """LayerUtils.findLayer and LayerControlAPI.findLayer resolve layers."""
+        """LayerUtils.findLayer and LayerAPI.findLayer resolve layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "LayerUtils.findLayer(this.map, id)" in html
@@ -835,11 +835,11 @@ class TestLayerControlRendering:
         assert "this.debouncedEnforce.cancel()" in html
 
     def test_destroy_nulls_api(self, base_map: folium.Map):
-        """destroy() clears LayerControlAPI reference when it is the active API."""
+        """destroy() clears LayerAPI reference when it is the active API."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "window.foliplus.LayerControlAPI === this" in html
-        assert "window.foliplus.LayerControlAPI = null" in html
+        assert "window.foliplus.LayerAPI === this" in html
+        assert "window.foliplus.LayerAPI = null" in html
 
     def test_window_id_validation(self, base_map: folium.Map):
         """registerLayer validates opts.id before assigning to layerRegistry."""
@@ -1005,7 +1005,7 @@ class TestLayerControlBrowser:
 
             ok = page.evaluate(
                 """() => {
-                    const api = window.foliplus && window.foliplus.LayerControlAPI;
+                    const api = window.foliplus && window.foliplus.LayerAPI;
                     if (!api) return false;
                     const overlay = document.querySelector('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)');
                     const base = document.querySelector('.foliplus-layer-item[data-layer-type="base"]');
@@ -1045,7 +1045,7 @@ class TestLayerControlBrowser:
             )
 
             api = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const mg = api.createLayers({
                     id: '__test__',
@@ -1069,7 +1069,7 @@ class TestLayerControlBrowser:
                     hasLabelLayer: !!mg.labelLayer,
                 };
             }""")
-            assert api is not None, "LayerControlAPI not found"
+            assert api is not None, "LayerAPI not found"
             assert api["hasAddGraph"], "addGraph missing"
             assert api["hasAddLabel"], "addLabel missing"
             assert api["hasRemoveGraph"], "removeGraph missing"
@@ -1103,7 +1103,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const mg = api.createLayers({
                     id: '__test_pane__',
@@ -1143,7 +1143,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const mg = api.createLayers({
                     id: '__test_clear__',
@@ -1183,7 +1183,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const mg = api.createLayers({
                     id: '__test_label__',
@@ -1219,7 +1219,7 @@ class TestLayerControlBrowser:
             )
 
             ok = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return false;
                 return typeof api.canReorderBetween === 'function';
             }""")
@@ -1243,7 +1243,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const mg = api.createLayers({
                     id: '__test_unreg__',
@@ -1279,7 +1279,7 @@ class TestLayerControlBrowser:
             )
 
             api = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const cvs = api.createCanvas({ id: '__test_canvas__' });
                 return {
@@ -1323,7 +1323,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const cvs = api.createCanvas({ id: '__test_canvas_reg__', name: 'Canvas Test' });
                 cvs.register();
@@ -1357,7 +1357,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const mg = api.createLayers({
                     id: '__test_pane_skip__',
@@ -1394,7 +1394,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
                 api.setLayerPaneRecursive(poly, '__test_custom_pane__', null);
@@ -1422,7 +1422,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 // Register a polygon layer
                 const poly = L.polygon([[26.08,119.30],[26.09,119.31],[26.07,119.32]]);
@@ -1456,7 +1456,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const ids = api.layers.map(l => l.id);
                 return { count: ids.length, ids };
@@ -1485,7 +1485,7 @@ class TestLayerControlBrowser:
 
             # Check initial state — all overlays checked
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
                 return cb ? cb.checked : 'no-cb';
@@ -1510,7 +1510,7 @@ class TestLayerControlBrowser:
             )
 
             result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerControlAPI;
+                const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 // Register a layer
                 const fg = L.featureGroup();
