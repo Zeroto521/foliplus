@@ -76,11 +76,6 @@
     STORAGE: {
       KEY: "foliplus_measurement",
     },
-    TYPE: {
-      MARKER: "marker",
-      DISTANCE: "distance",
-      CIRCLE: "circle",
-    },
     MODE: {
       MARKER: "marker",
       DISTANCE: "distance",
@@ -338,7 +333,7 @@
     }
 
     async handleMarkerClick(e) {
-      if (this.m.currentMode !== CONST.TYPE.MARKER) return;
+      if (this.m.currentMode !== CONST.MODE.MARKER) return;
       const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
       const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
 
@@ -385,7 +380,7 @@
       const markerId = this.m.nextMeasurementId();
       this.m.measurements.push({
         id: markerId,
-        type: CONST.TYPE.MARKER,
+        type: CONST.MODE.MARKER,
         lng: parseFloat(lng),
         lat: parseFloat(lat),
         address: cachedAddr,
@@ -543,7 +538,7 @@
         }));
         manager.measurements.push({
           id: distId,
-          type: CONST.TYPE.DISTANCE,
+          type: CONST.MODE.DISTANCE,
           points: pts.map((p) => ({ lng: p.lng, lat: p.lat })),
           segments,
           totalDistance: total,
@@ -627,7 +622,7 @@
       };
 
       const onDistClick = (e) => {
-        if (manager.currentMode !== CONST.TYPE.DISTANCE) return;
+        if (manager.currentMode !== CONST.MODE.DISTANCE) return;
         ensureLayersAdded();
         pts.push(e.latlng);
         if (previewDistLabel) {
@@ -735,7 +730,7 @@
       const onMapClick = (e) => {
         if (
           isFinalizing ||
-          manager.currentMode !== CONST.TYPE.CIRCLE ||
+          manager.currentMode !== CONST.MODE.CIRCLE ||
           (state !== 0 && state !== 1)
         )
           return;
@@ -781,7 +776,7 @@
       };
 
       const onMouseMove = (e) => {
-        if (state !== 1 || !center || manager.currentMode !== CONST.TYPE.CIRCLE) return;
+        if (state !== 1 || !center || manager.currentMode !== CONST.MODE.CIRCLE) return;
         const r = MeasureUtils.distance(
           center.lng,
           center.lat,
@@ -934,7 +929,7 @@
         const circleId = manager.nextMeasurementId();
         manager.measurements.push({
           id: circleId,
-          type: CONST.TYPE.CIRCLE,
+          type: CONST.MODE.CIRCLE,
           center: { lng: centerLatLng.lng, lat: centerLatLng.lat },
           target: { lng: finalTargetLatLng.lng, lat: finalTargetLatLng.lat },
           radius: r,
@@ -1069,13 +1064,13 @@
       this.measurements = this.loadMeasurements();
       this.measurements.forEach((m) => {
         switch (m.type) {
-          case CONST.TYPE.MARKER:
+          case CONST.MODE.MARKER:
             this.restoreMarker(m);
             break;
-          case CONST.TYPE.DISTANCE:
+          case CONST.MODE.DISTANCE:
             this.restoreDistance(m);
             break;
-          case CONST.TYPE.CIRCLE:
+          case CONST.MODE.CIRCLE:
             this.restoreCircle(m);
             break;
         }
