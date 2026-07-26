@@ -1,17 +1,13 @@
 (function () {
   // ==================== Constants ====================
-  const foliplus = window.foliplus || {};
   const CONST = {
     name: "MapSearch",
     position: "{{ this.position }}",
-    lang: (window._LOCALE && window._LOCALE["locale.code"]) || "en",
     MODE: {
       COORD: "coord",
       ADDR: "addr",
     },
-    NOMINATIM: {
-      URL: `${foliplus.NOMINATIM.URL}/search`,
-      FORMAT: foliplus.NOMINATIM.FORMAT,
+    SEARCH: {
       LIMIT: 5,
     },
     ZOOM: {
@@ -48,6 +44,7 @@
   };
 
   // ==================== Runtime Guard ====================
+  const foliplus = window.foliplus || {};
   if (!foliplus || !foliplus.SVGs) {
     console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
@@ -230,11 +227,7 @@
       this.addrAbortController = new AbortController();
       const signal = this.addrAbortController.signal;
 
-      const center = map.getCenter();
-      fetch(
-        `${CONST.NOMINATIM.URL}?format=${CONST.NOMINATIM.FORMAT}&q=${encodeURIComponent(query)}&limit=${CONST.NOMINATIM.LIMIT}&accept-language=${CONST.lang}&lon=${center.lng}&lat=${center.lat}`,
-        { signal },
-      )
+      fetch(this.buildSearchUrl(query, CONST.SEARCH.LIMIT), { signal })
         .then((r) => r.json())
         .then((results) => {
           foliplus.hideHint(CONST.name);
@@ -381,22 +374,18 @@
         return;
       }
 
-      const throttle = foliplus.NOMINATIM.THROTTLE_MS || 1000;
       const now = Date.now();
-      if (now - this.lastSuggestFetch < throttle) {
+      if (now - this.lastSuggestFetch < foliplus.NOMINATIM.THROTTLE_MS) {
         if (this.suggestionsThrottleTimer) clearTimeout(this.suggestionsThrottleTimer);
         this.suggestionsThrottleTimer = setTimeout(
           () => this.fetchSuggestions(query),
-          throttle - (now - this.lastSuggestFetch),
+          foliplus.NOMINATIM.THROTTLE_MS - (now - this.lastSuggestFetch),
         );
         return;
       }
       this.lastSuggestFetch = Date.now();
 
-      const center = map.getCenter();
-      fetch(
-        `${CONST.NOMINATIM.URL}?format=${CONST.NOMINATIM.FORMAT}&q=${encodeURIComponent(query)}&limit=${CONST.AUTOCOMPLETE.MAX_ITEMS}&accept-language=${CONST.lang}&lon=${center.lng}&lat=${center.lat}`,
-      )
+      fetch(this.buildSearchUrl(query, CONST.AUTOCOMPLETE.MAX_ITEMS))
         .then((r) => r.json())
         .then((results) => this.renderSuggestions(results, query))
         .catch(() => this.removeSuggestions());
@@ -407,6 +396,17 @@
         () => this.fetchSuggestions(this.inp.value.trim()),
         CONST.AUTOCOMPLETE.DEBOUNCE_MS,
       );
+    }
+
+    /** Build a shared Nominatim /search URL with centered bias. */
+    buildSearchUrl(query, limit) {
+      const center = map.getCenter();
+      return foliplus.nominatimUrl("/search", {
+        q: query,
+        limit,
+        lon: center.lng,
+        lat: center.lat,
+      });
     }
 
     // ── Event Binding ──
