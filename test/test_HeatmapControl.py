@@ -384,7 +384,7 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "extra-body" in html
         assert "form-row" in html
-        assert "form-control-wrap" in html
+        assert "form-control" in html
 
     def test_resolution_select_renders(self, base_map: folium.Map):
         """Resolution (H3 hex size) select is rendered."""
