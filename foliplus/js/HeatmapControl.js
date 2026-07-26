@@ -58,7 +58,7 @@
     CLASSES: {
       FORM_ROW: "foliplus-heatmap-form-row",
       FORM_LABEL: "foliplus-heatmap-form-label",
-      FORM_CONTROL_WRAP: "foliplus-heatmap-form-control-wrap",
+      FORM_CONTROL: "foliplus-heatmap-form-control",
       FORM_SELECT: "foliplus-heatmap-form-select",
       HIDDEN: "hidden",
       COLLAPSED: "collapsed",
@@ -71,7 +71,7 @@
       SECTION_BLOCK_LAST: "foliplus-heatmap-section-block-last",
       CONFIG_BODY: "foliplus-heatmap-config-body",
       EXTRA_BODY: "foliplus-heatmap-extra-body",
-      FIELD_WRAP: "foliplus-heatmap-field-wrap",
+      FIELD: "foliplus-heatmap-field",
       SCHEME_BAR: "foliplus-heatmap-scheme-bar",
       SCHEME_BAR_INNER: "foliplus-heatmap-scheme-bar-inner",
       SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
@@ -102,14 +102,15 @@
   };
 
   // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
+  const foliplus = window.foliplus || {};
+  if (!foliplus || !foliplus.SVGs) {
     console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
+  const _ = (k) => (foliplus && foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -130,15 +131,15 @@
       </svg>`,
   };
 
-  window.foliplus.registerHintIcon(CONST.name, SVGs.HEXAGON);
+  foliplus.registerHintIcon(CONST.name, SVGs.HEXAGON);
 
   // ==================== Guard: LayerControl required ====================
-  if (!window.foliplus.LayerControlAPI) {
+  if (!foliplus.LayerAPI) {
     console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-    window.foliplus.showHint(
+    foliplus.showHint(
       CONST.name,
       _(`${CONST.name}.no_layercontrol`),
-      window.foliplus.HINT_DURATION.PERSIST,
+      foliplus.HINT_DURATION.PERSIST,
     );
     return;
   }
@@ -165,7 +166,7 @@
       // Canvas lives in `.leaflet-map-pane` with position offset to cancel
       // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
       // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
-      this.overlay = window.foliplus.LayerControlAPI.createCanvas({
+      this.overlay = foliplus.LayerAPI.createCanvas({
         id: CONST.ID,
         name: _(`${CONST.name}.title`),
         iconSvg: SVGs.HEXAGON,
@@ -298,10 +299,7 @@
     drawHexLabel(ctx, feat, { font, color, stroke, strokeWidth }) {
       const centroid = feat.properties.centroid;
       const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
-      const text = window.foliplus.formatNumber(
-        feat.properties.value,
-        CONST.LABEL.FORMAT,
-      );
+      const text = foliplus.formatNumber(feat.properties.value, CONST.LABEL.FORMAT);
       // Use cached font string to avoid repeated Canvas font parsing
       if (ctx.font !== font) ctx.font = font;
       ctx.textAlign = "center";
@@ -317,14 +315,14 @@
     // --- Data Extraction ---
     scanMapLayers() {
       this.pointLayers = [];
-      const pointLayersInfo = window.foliplus.LayerControlAPI.getLayersByType("point");
+      const pointLayersInfo = foliplus.LayerAPI.getLayersByType("point");
       if (!pointLayersInfo.length) return;
 
       const seenIds = {};
       for (const info of pointLayersInfo) {
         if (seenIds[info.id]) continue;
         seenIds[info.id] = true;
-        const layer = window.foliplus.LayerControlAPI.findLayer(info.id);
+        const layer = foliplus.LayerAPI.findLayer(info.id);
         if (!layer) continue;
 
         const pts = this.extractPoints(layer);
@@ -663,12 +661,12 @@
       const row = L.DomUtil.create("div", rowClass, parent);
       const label = L.DomUtil.create("label", CONST.CLASSES.FORM_LABEL, row);
       label.textContent = _(labelKey);
-      const wrap = L.DomUtil.create("div", CONST.CLASSES.FORM_CONTROL_WRAP, row);
+      const wrap = L.DomUtil.create("div", CONST.CLASSES.FORM_CONTROL, row);
       return { row, label, wrap };
     }
 
     onAdd() {
-      const { container, ctrl, panelContent } = window.foliplus.createPanelControl({
+      const { container, ctrl, panelContent } = foliplus.createPanelControl({
         cssClass: CONST.CLASSES.HEATMAP_CTRL,
         toggleTitle: _(`${CONST.name}.title`),
         toggleSvg: SVGs.HEXAGON,
@@ -734,7 +732,7 @@
 
       this.fieldWrap = L.DomUtil.create(
         "div",
-        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD_WRAP} ${CONST.CLASSES.HIDDEN}`,
+        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD} ${CONST.CLASSES.HIDDEN}`,
         this.extraBody,
       );
       const fieldLabel = L.DomUtil.create(
@@ -745,7 +743,7 @@
       fieldLabel.textContent = _(`${CONST.name}.field`);
       const fieldControlWrap = L.DomUtil.create(
         "div",
-        CONST.CLASSES.FORM_CONTROL_WRAP,
+        CONST.CLASSES.FORM_CONTROL,
         this.fieldWrap,
       );
       this.fieldSelect = L.DomUtil.create(
@@ -787,7 +785,7 @@
       classRowLabel.textContent = _(`${CONST.name}.class_method`);
       const classControlWrap = L.DomUtil.create(
         "div",
-        `${CONST.CLASSES.FORM_CONTROL_WRAP} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
         classRow,
       );
       this.methodSelect = L.DomUtil.create(
@@ -813,7 +811,7 @@
       );
       for (let ci = 2; ci <= 9; ci++) {
         this.classSelect.appendChild(
-          window.foliplus.dom.el("option", { value: ci }, String(ci)),
+          foliplus.dom.el("option", { value: ci }, String(ci)),
         );
       }
       this.classSelect.value = Math.min(9, Math.max(2, this.m.numClasses));
@@ -837,7 +835,7 @@
       schemeRowLabel.textContent = _(`${CONST.name}.scheme`);
       this.schemeControlWrap = L.DomUtil.create(
         "div",
-        CONST.CLASSES.FORM_CONTROL_WRAP,
+        CONST.CLASSES.FORM_CONTROL,
         schemeRow,
       );
       this.schemeBar = L.DomUtil.create(
@@ -858,7 +856,7 @@
 
       CONST.SCHEME_NAMES.forEach((name) => {
         this.schemeSelectHidden.appendChild(
-          window.foliplus.dom.el("option", { value: name }, name),
+          foliplus.dom.el("option", { value: name }, name),
         );
       });
       this.schemeSelectHidden.value = this.m.currentScheme;
@@ -913,7 +911,7 @@
       borderRowLabel.textContent = _(`${CONST.name}.border`);
       const borderControlWrap = L.DomUtil.create(
         "div",
-        `${CONST.CLASSES.FORM_CONTROL_WRAP} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
         borderRow,
       );
       this.borderColorInput = L.DomUtil.create(
@@ -956,7 +954,7 @@
       labelRowText.textContent = _(`${CONST.name}.label`);
       const labelControlWrap = L.DomUtil.create(
         "div",
-        CONST.CLASSES.FORM_CONTROL_WRAP,
+        CONST.CLASSES.FORM_CONTROL,
         labelRow,
       );
       const labelToggle = L.DomUtil.create(
@@ -1052,7 +1050,7 @@
     buildLayerListItems(sel) {
       this.m.scanMapLayers();
       sel.innerHTML = "";
-      const placeholder = window.foliplus.dom.el(
+      const placeholder = foliplus.dom.el(
         "option",
         {
           value: "",
@@ -1065,9 +1063,7 @@
       sel.appendChild(placeholder);
 
       this.m.pointLayers.forEach((info) => {
-        sel.appendChild(
-          window.foliplus.dom.el("option", { value: info.id }, info.name),
-        );
+        sel.appendChild(foliplus.dom.el("option", { value: info.id }, info.name));
       });
 
       if (this.m.selectedLayerId) sel.value = this.m.selectedLayerId;
@@ -1107,7 +1103,7 @@
       const fields = this.m.collectFields(selected);
       this.m.autoFieldKey = this.m.pickAutoField(fields);
 
-      const phOpt = window.foliplus.dom.el(
+      const phOpt = foliplus.dom.el(
         "option",
         {
           value: "_auto",
@@ -1122,7 +1118,7 @@
 
       fields.forEach((f) => {
         this.fieldSelect.appendChild(
-          window.foliplus.dom.el(
+          foliplus.dom.el(
             "option",
             { value: f },
             f.startsWith("properties.") ? f.substring(11) : f,
@@ -1146,7 +1142,7 @@
       container.innerHTML = "";
       for (const color of colors) {
         container.appendChild(
-          window.foliplus.dom.el("div", {
+          foliplus.dom.el("div", {
             class: CONST.CLASSES.SCHEME_BAR_BLOCK,
             style: `background:${color};width:${100 / colors.length}%`,
           }),
@@ -1259,17 +1255,15 @@
 
     initScan(attempt) {
       this.m.scanMapLayers();
-      if (this.m.pointLayers.length === 0 && attempt > 0) {
+      if (this.m.pointLayers.length === 0 && attempt > 0)
         setTimeout(() => this.initScan(attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
-      } else if (this.m.pointLayers.length === 0) {
-        window.foliplus.showHint(
+      else if (this.m.pointLayers.length === 0)
+        foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.no_layer`),
-          window.foliplus.HINT_DURATION.LONG,
+          foliplus.HINT_DURATION.LONG,
         );
-      } else {
-        this.rebuildLayerDropdown();
-      }
+      else this.rebuildLayerDropdown();
     }
 
     resetAll() {

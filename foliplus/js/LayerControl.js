@@ -54,10 +54,22 @@
       COLOR_INPUT: ".foliplus-color-layer-input",
       TOGGLE_ALL: ".foliplus-layer-toggle-all",
     },
+    GROUP: {
+      OVERLAY: "overlay",
+      BASE: "base",
+    },
+    GEOM_TYPE: {
+      POINT: "point",
+      LINE: "line",
+      POLYGON: "polygon",
+      EMPTY: "empty",
+      UNKNOWN: "unknown",
+    },
   };
 
   // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
+  const foliplus = window.foliplus || {};
+  if (!foliplus || !foliplus.SVGs) {
     console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
@@ -65,7 +77,7 @@
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const mapContainer = map.getContainer();
-  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
+  const _ = (k) => (foliplus && foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -76,42 +88,42 @@
         <polygon points="2 16 12 21 22 16"/>
       </svg>`,
     DRAG_HANDLE: `
-      <svg viewBox="0 0 24 24" class="foliplus-drag-handle">
-        <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
-        <circle cx="16" cy="6" r="1.5" fill="currentColor"/>
-        <circle cx="8" cy="12" r="1.5" fill="currentColor"/>
-        <circle cx="16" cy="12" r="1.5" fill="currentColor"/>
-        <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
-        <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
+      <svg viewBox="0 0 24 24" class="drag-handle">
+        <circle cx="8" cy="6" r="1.5" class="solid"/>
+        <circle cx="16" cy="6" r="1.5" class="solid"/>
+        <circle cx="8" cy="12" r="1.5" class="solid"/>
+        <circle cx="16" cy="12" r="1.5" class="solid"/>
+        <circle cx="8" cy="18" r="1.5" class="solid"/>
+        <circle cx="16" cy="18" r="1.5" class="solid"/>
       </svg>`,
     POINT: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>`,
     LINE: `<svg viewBox="0 0 24 24"><path d="M4 20 L10 6 L16 18 L22 4"/></svg>`,
     POLYGON: `<svg viewBox="0 0 24 24"><polygon points="12,3 21,9 18,21 6,21 3,9"/></svg>`,
     EMPTY: `
       <svg viewBox="0 0 24 24">
-        <rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="4 3"/>
+        <rect x="4" y="4" width="16" height="16" rx="2" class="dashed"/>
       </svg>`,
     UNKNOWN: `
       <svg viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="12" cy="12" r="10" class="dashed"/>
         <path d="M9.5 9.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5c0 1.5-2.5 2-2.5 4"
               fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        <circle cx="12" cy="17" r="1.2" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="17" r="1.2" class="solid"/>
       </svg>`,
     COLOR: `
       <svg viewBox="0 0 24 24">
         <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.1 0 2-.9 2-2v-1c0-.6.4-1 1-1h2c3.3 0 6-2.7 6-6 0-5.5-4.5-10-10-10z"/>
-        <circle cx="7.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
-        <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none"/>
-        <circle cx="16.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
-        <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none"/>
-        <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/>
+        <circle cx="7.5" cy="9.5" r="1.5" class="solid"/>
+        <circle cx="12" cy="7" r="1.5" class="solid"/>
+        <circle cx="16.5" cy="9.5" r="1.5" class="solid"/>
+        <circle cx="16" cy="14" r="1" class="solid"/>
+        <circle cx="8" cy="14" r="1" class="solid"/>
       </svg>`,
     FOLD: `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`,
     UNFOLD: `<svg viewBox="0 0 24 24"><polyline points="18 9 12 15 6 9"/></svg>`,
   };
 
-  window.foliplus.registerHintIcon(CONST.name, SVGs.LAYERS);
+  foliplus.registerHintIcon(CONST.name, SVGs.LAYERS);
 
   // ==================== BringToFront Guard (monkey-patch) ====================
   // Guard Leaflet's bringToFront against null parentNode during enforceOrder
@@ -157,7 +169,7 @@
       const leaves = [];
       LayerUtils.forEachLeaf(layer, (l) => leaves.push(l));
       // No leaves at all → empty container (e.g. empty GeoDataFrame)
-      if (leaves.length === 0) return "empty";
+      if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY;
 
       let hasPoly = false,
         hasLine = false,
@@ -173,19 +185,23 @@
           hasPoint = true;
       }
       // Has leaves but none match known types → unknown
-      if (!hasPoly && !hasLine && !hasPoint) return "unknown";
+      if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN;
       // Mixed geometry types (e.g. GeometryCollection with Point+Line+Polygon) → unknown
       const typeCount = hasPoly + hasLine + hasPoint;
-      if (typeCount > 1) return "unknown";
-      return hasPoly ? "polygon" : hasLine ? "line" : "point";
+      if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN;
+      return hasPoly
+        ? CONST.GEOM_TYPE.POLYGON
+        : hasLine
+          ? CONST.GEOM_TYPE.LINE
+          : CONST.GEOM_TYPE.POINT;
     }
 
     static getTypeSVG(layer) {
       const type = this.getGeometryType(layer);
-      if (type === "polygon") return SVGs.POLYGON;
-      if (type === "line") return SVGs.LINE;
-      if (type === "point") return SVGs.POINT;
-      if (type === "empty") return SVGs.EMPTY;
+      if (type === CONST.GEOM_TYPE.POLYGON) return SVGs.POLYGON;
+      if (type === CONST.GEOM_TYPE.LINE) return SVGs.LINE;
+      if (type === CONST.GEOM_TYPE.POINT) return SVGs.POINT;
+      if (type === CONST.GEOM_TYPE.EMPTY) return SVGs.EMPTY;
       return SVGs.UNKNOWN;
     }
 
@@ -255,7 +271,7 @@
       this.lastDragHintAt = 0;
       this.foldedGroups = new Set();
 
-      // Bind method context to prevent 'this' loss when called via window.foliplus.LayerControlAPI
+      // Bind method context to prevent 'this' loss when called via window.foliplus.LayerAPI
       this.registerLayer = this.registerLayer.bind(this);
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
@@ -278,8 +294,8 @@
       // Cache for discoverChildPanes: layerId → string[] (pane names).
       this.paneCache = new Map();
 
-      // UI Controller reference (set by LayerUIController construction)
-      this.uiCtrl = null;
+      // UI Controller reference (set by LayerUI construction)
+      this.ui = null;
 
       // Store callbacks keyed by layer id:
       this.layerCallbacks = new Map();
@@ -306,7 +322,7 @@
       this.loadFoldState();
       this.normalizeLayerGroups();
 
-      window.foliplus.LayerControlAPI = this;
+      foliplus.LayerAPI = this;
     }
 
     normalizeLayerGroups() {
@@ -374,10 +390,10 @@
     }
 
     // ==================== Public API Methods ====================
-    // These are exposed via window.foliplus.LayerControlAPI for runtime use.
+    // These are exposed via window.foliplus.LayerAPI for runtime use.
     //
     // Usage:
-    //   const api = window.foliplus.LayerControlAPI;
+    //   const api = window.foliplus.LayerAPI;
     //   api.registerLayer({ id: 'myLayer', name: 'My Layer', layer: leafletLayer });
     //   api.unregisterLayer('myLayer');
     //   api.findLayer('myLayer');
@@ -491,9 +507,9 @@
         return null;
       }
 
-      if (this.uiCtrl) {
-        this.uiCtrl.renderInitialList();
-        this.uiCtrl.initTypesAndVisibility();
+      if (this.ui) {
+        this.ui.renderInitialList();
+        this.ui.initTypesAndVisibility();
       }
       this.saveOrder();
       return this.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${opts.id}"]`);
@@ -518,9 +534,9 @@
       if (this.uiContainer) {
         // Re-render the full list so DOM order matches `this.layers` order,
         // and re-init visibility to sync checkbox data-index attributes.
-        if (this.uiCtrl) {
-          this.uiCtrl.renderInitialList();
-          this.uiCtrl.initTypesAndVisibility();
+        if (this.ui) {
+          this.ui.renderInitialList();
+          this.ui.initTypesAndVisibility();
         }
       }
     }
@@ -552,7 +568,7 @@
         );
         if (target) {
           target.remove();
-          if (this.uiCtrl) this.uiCtrl.reindexItems();
+          if (this.ui) this.ui.reindexItems();
         }
       }
       requestAnimationFrame(() => this.map.invalidateSize({ animate: false }));
@@ -1067,7 +1083,7 @@
 
     // UI Rendering & Event Binding
     attachUI(containerDiv) {
-      if (this.uiCtrl) this.uiCtrl.attachUI(containerDiv);
+      if (this.ui) this.ui.attachUI(containerDiv);
     }
 
     /** Check whether a layer at fromIdx can be reordered to toIdx.
@@ -1105,15 +1121,14 @@
       this.layerCallbacks.clear();
       this.pendingRegistrations = [];
       this.paneCache.clear();
-      this.uiCtrl = null;
+      this.ui = null;
       LayerManager.registry.clear();
-      if (window.foliplus.LayerControlAPI === this)
-        window.foliplus.LayerControlAPI = null;
+      if (foliplus.LayerAPI === this) foliplus.LayerAPI = null;
     }
   }
 
-  // ==================== UI Controller: LayerUIController ====================
-  class LayerUIController {
+  // ==================== UI Controller: LayerUI ====================
+  class LayerUI {
     constructor(manager) {
       this.manager = manager;
     }
@@ -1148,16 +1163,19 @@
         if (!l.isBase && !hasOverlays) {
           hasOverlays = true;
           frag.appendChild(
-            this.renderToggleAllRow("overlay", `${CONST.name}.data_layer_label`),
+            this.renderToggleAllRow(
+              CONST.GROUP.OVERLAY,
+              `${CONST.name}.data_layer_label`,
+            ),
           );
         }
         if (l.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
           frag.appendChild(
-            this.renderToggleAllRow("base", `${CONST.name}.base_map_label`),
+            this.renderToggleAllRow(CONST.GROUP.BASE, `${CONST.name}.base_map_label`),
           );
         }
-        const group = l.isBase ? "base" : "overlay";
+        const group = l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
         const item = this.renderLayerItem(l, i);
         if (this.m.foldedGroups.has(group))
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);
@@ -1165,7 +1183,7 @@
       }
 
       const colorItem = this.renderColorLayerItem();
-      if (this.m.foldedGroups.has("base"))
+      if (this.m.foldedGroups.has(CONST.GROUP.BASE))
         colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
       frag.appendChild(colorItem);
 
@@ -1175,7 +1193,7 @@
 
     renderToggleAllRow(group, labelKey) {
       const isFolded = this.m.foldedGroups.has(group);
-      return window.foliplus.dom.el(
+      return foliplus.dom.el(
         "div",
         {
           class:
@@ -1183,7 +1201,7 @@
             (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
           "data-group": group,
         },
-        window.foliplus.dom.el(
+        foliplus.dom.el(
           "button",
           {
             class: CONST.CLASSES.FOLD_BTN,
@@ -1191,17 +1209,17 @@
           },
           { html: isFolded ? SVGs.UNFOLD : SVGs.FOLD },
         ),
-        window.foliplus.dom.el(
+        foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.CHECKBOX_WRAPPER },
-          window.foliplus.dom.el("input", {
+          foliplus.dom.el("input", {
             type: "checkbox",
             "data-role": "toggle-all",
             checked: "",
           }),
         ),
-        window.foliplus.dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
-        window.foliplus.dom.el("div", { class: "foliplus-section-divider" }),
+        foliplus.dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
+        foliplus.dom.el("div", { class: "foliplus-section-divider" }),
       );
     }
 
@@ -1209,34 +1227,32 @@
       const en = LayerUtils.escapeHTML(l.name);
       const children = [
         { html: SVGs.DRAG_HANDLE },
-        window.foliplus.dom.el(
+        foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.CHECKBOX_WRAPPER },
-          window.foliplus.dom.el("input", {
+          foliplus.dom.el("input", {
             type: "checkbox",
             checked: "",
             [CONST.DATA.INDEX]: String(index),
             "aria-label": en,
           }),
         ),
-        window.foliplus.dom.el("label", { title: en }, en),
+        foliplus.dom.el("label", { title: en }, en),
       ];
       if (l.iconSvg)
         children.push({
           html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${l.iconSvg}</div>`,
         });
       else
-        children.push(
-          window.foliplus.dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }),
-        );
-      return window.foliplus.dom.el(
+        children.push(foliplus.dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }));
+      return foliplus.dom.el(
         "div",
         {
           class: CONST.CLASSES.LAYER_ITEM,
           draggable: "true",
           [CONST.DATA.INDEX]: String(index),
           [CONST.DATA.LAYER_ID]: l.id,
-          "data-layer-type": l.isBase ? "base" : "overlay",
+          "data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
           title: en,
         },
         ...children,
@@ -1244,7 +1260,7 @@
     }
 
     renderColorLayerItem() {
-      return window.foliplus.dom.el(
+      return foliplus.dom.el(
         "div",
         {
           class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
@@ -1253,17 +1269,17 @@
           title: _(`${CONST.name}.color_map_label`),
         },
         { html: SVGs.DRAG_HANDLE },
-        window.foliplus.dom.el(
+        foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.CHECKBOX_WRAPPER },
-          window.foliplus.dom.el("input", {
+          foliplus.dom.el("input", {
             type: "color",
             class: CONST.CLASSES.COLOR_INPUT,
             value: this.m.currentColor,
             "aria-label": _(`${CONST.name}.color_map_label`),
           }),
         ),
-        window.foliplus.dom.el("label", null, _(`${CONST.name}.color_map_label`)),
+        foliplus.dom.el("label", null, _(`${CONST.name}.color_map_label`)),
         { html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${SVGs.COLOR}</div>` },
       );
     }
@@ -1297,9 +1313,9 @@
 
         if (typeCols[i]) {
           if (layerInfo.isBase) {
-            typeCols[i].innerHTML = window.foliplus.SVGs.GLOBE;
+            typeCols[i].innerHTML = foliplus.SVGs.GLOBE;
             typeCols[i].title = _(`${CONST.name}.type_base`);
-            this.m.typeMap.set(id, { type: "base", name: layerInfo.name });
+            this.m.typeMap.set(id, { type: CONST.GROUP.BASE, name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
@@ -1316,8 +1332,8 @@
 
       if (!anyBaseVisible) this.showColorLayer(this.m.currentColor);
       this.m.enforceOrder();
-      this.syncToggleAll("overlay");
-      this.syncToggleAll("base");
+      this.syncToggleAll(CONST.GROUP.OVERLAY);
+      this.syncToggleAll(CONST.GROUP.BASE);
     }
 
     reindexItems() {
@@ -1348,7 +1364,7 @@
         if (e.target.closest(CONST.SEL.COLOR_ITEM)) {
           this.deselectAllBaseMaps(-1);
           this.showColorLayer(this.m.currentColor);
-          this.syncToggleAll("base");
+          this.syncToggleAll(CONST.GROUP.BASE);
           this.m.enforceOrder();
           return;
         }
@@ -1371,7 +1387,7 @@
 
     getLayerItems(group) {
       return this.m.uiContainer.querySelectorAll(
-        `${CONST.SEL.LAYER_ITEM}${group === "base" ? '[data-layer-type="base"]' : `:not([data-layer-type="base"]):not(${CONST.SEL.COLOR_ITEM})`}`,
+        `${CONST.SEL.LAYER_ITEM}${group === CONST.GROUP.BASE ? `[data-layer-type="${CONST.GROUP.BASE}"]` : `:not([data-layer-type="${CONST.GROUP.BASE}"]):not(${CONST.SEL.COLOR_ITEM})`}`,
       );
     }
 
@@ -1398,10 +1414,10 @@
         if (!layer) layerInfo.visible = newState;
       });
 
-      if (group === "base" && !newState) {
+      if (group === CONST.GROUP.BASE && !newState) {
         this.hideColorLayer();
         this.showColorLayer(this.m.currentColor);
-      } else if (group === "base" && newState) this.hideColorLayer();
+      } else if (group === CONST.GROUP.BASE && newState) this.hideColorLayer();
 
       this.syncToggleAll(group);
       this.m.enforceOrder();
@@ -1430,7 +1446,7 @@
       if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
         this.deselectAllBaseMaps(-1);
         this.showColorLayer(target.value);
-        this.syncToggleAll("base");
+        this.syncToggleAll(CONST.GROUP.BASE);
         this.m.enforceOrder();
         return;
       }
@@ -1455,7 +1471,7 @@
       if (cbs && cbs.onToggle) cbs.onToggle(target.checked);
       if (!layer) layerInfo.visible = target.checked;
 
-      this.syncToggleAll(layerInfo.isBase ? "base" : "overlay");
+      this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
       this.m.enforceOrder();
     }
 
@@ -1476,13 +1492,12 @@
       const now = Date.now();
       if (now - this.m.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
       this.m.lastDragHintAt = now;
-      if (window.foliplus && typeof window.foliplus.showHint === "function") {
-        window.foliplus.showHint(
+      if (foliplus && typeof foliplus.showHint === "function")
+        foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.reorder_group_only`),
-          window.foliplus.HINT_DURATION.SHORT,
+          foliplus.HINT_DURATION.SHORT,
         );
-      }
     }
 
     handleDragOver(e) {
@@ -1597,7 +1612,7 @@
       this.m.uiContainer
         .querySelector(CONST.SEL.COLOR_ITEM)
         ?.classList.add(CONST.CLASSES.COLOR_ACTIVE);
-      this.syncToggleAll("base");
+      this.syncToggleAll(CONST.GROUP.BASE);
     }
 
     hideColorLayer() {
@@ -1649,7 +1664,7 @@
   {%- endfor %};
 
   const layerManager = new LayerManager(map, initialData);
-  layerManager.uiCtrl = new LayerUIController(layerManager);
+  layerManager.ui = new LayerUI(layerManager);
 
   // ==================== Leaflet Control Definition ====================
   class LayerControl extends L.Control {
@@ -1676,7 +1691,7 @@
               </span>
               <button class="foliplus-ctrl-btn" title="${_(`${CONST.name}.close_title`)}"
                       aria-label="${_(`${CONST.name}.close_title`)}">
-                ${window.foliplus.SVGs.CLOSE}
+                ${foliplus.SVGs.CLOSE}
               </button>
             </div>
             <div class="foliplus-panel-content"></div>
@@ -1687,7 +1702,7 @@
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.disableScrollPropagation(container);
 
-      window.foliplus.bindPanelToggle({
+      foliplus.bindPanelToggle({
         container: container.querySelector(".foliplus-layer-ctrl"),
         toggleBtn: ".foliplus-toggle-btn",
         header: ".foliplus-panel-header",

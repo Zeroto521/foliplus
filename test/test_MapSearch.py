@@ -121,11 +121,11 @@ class TestMapSearchRendering:
         assert "ctrl-btn" in html
 
     def test_search_form_structure(self, base_map: folium.Map):
-        """Search form has mode-btn, input, and clear-wrap."""
+        """Search form has mode-btn, input, and clear."""
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "search-mode-btn" in html
-        assert "clear-wrap" in html
+        assert "clear" in html
         assert 'type: "text"' in html
 
     def test_nominatim_constants(self, base_map: folium.Map):
@@ -225,7 +225,7 @@ class TestMapSearchRendering:
         """debouncedFetch uses foliplus.debounce shared utility."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "this.debouncedFetch = window.foliplus.debounce(" in html
+        assert "this.debouncedFetch = foliplus.debounce(" in html
 
     def test_removeSuggestions_clears_throttle_timer(self, base_map: folium.Map):
         """removeSuggestions clears the throttle timer."""
@@ -363,7 +363,7 @@ class TestMapSearchRendering:
         """NOMINATIM constants reference window.foliplus.NOMINATIM."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "window.foliplus.NOMINATIM" in html
+        assert "foliplus.NOMINATIM" in html
 
 
 class TestMapSearchBrowser:
