@@ -271,7 +271,7 @@
       this.lastDragHintAt = 0;
       this.foldedGroups = new Set();
 
-      // Bind method context to prevent 'this' loss when called via windwo.foliplus.LayerAPI
+      // Bind method context to prevent 'this' loss when called via window.foliplus.LayerAPI
       this.registerLayer = this.registerLayer.bind(this);
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
