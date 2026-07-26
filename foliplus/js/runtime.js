@@ -32,7 +32,7 @@
   foliplus._initialized = true;
 
   // Private state (closure-scoped, not exposed on foliplus)
-  let hintIcons = {};
+  const hintIcons = {};
 
   // ==================== Constants ====================
   const HINT = {

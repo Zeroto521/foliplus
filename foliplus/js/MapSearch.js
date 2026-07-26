@@ -82,10 +82,15 @@
     onRemove() {
       this.removeSuggestions();
       if (this.debouncedFetch) this.debouncedFetch.cancel();
+      if (this.addrAbortController) this.addrAbortController.abort();
+      this.cachedSuggestions = {};
+      this.cachedAddress = {};
       this.scrollTargets.forEach((t) =>
         t.removeEventListener("scroll", this.repositionHandler, true),
       );
       window.removeEventListener("resize", this.repositionHandler);
+      this.modeBtn.onclick = null;
+      this.clearBtn.onclick = null;
     }
 
     // ── DOM Creation ──
@@ -143,7 +148,8 @@
       this.selectedSuggestionIdx = -1;
       this.lastSuggestFetch = 0;
       this.suggestionsThrottleTimer = null;
-      this.suggestionCache = {};
+      this.cachedSuggestions = {};
+      this.cachedAddress = {};
 
       this.setMode(this.mode);
       this.modeBtn.onclick = (e) => {
@@ -213,15 +219,27 @@
 
     // ── Address Search ──
     searchAddress(query) {
+      // Return cached result immediately
+      if (this.cachedAddress[query]) {
+        this.renderAddressResult(this.cachedAddress[query], query);
+        return;
+      }
+
       window.foliplus.showHint(
         CONST.name,
         `${window.foliplus.SVGs.LOADING} ${_(`${CONST.name}.popup_loading`)}`,
         window.foliplus.HINT_DURATION.PERSIST,
       );
 
+      // Abort previous request to avoid race conditions
+      if (this.addrAbortController) this.addrAbortController.abort();
+      this.addrAbortController = new AbortController();
+      const signal = this.addrAbortController.signal;
+
       const center = map.getCenter();
       fetch(
         `${CONST.NOMINATIM.URL}?format=${CONST.NOMINATIM.FORMAT}&q=${encodeURIComponent(query)}&limit=${CONST.NOMINATIM.LIMIT}&accept-language=${CONST.lang}&lon=${center.lng}&lat=${center.lat}`,
+        { signal },
       )
         .then((r) => r.json())
         .then((results) => {
@@ -239,34 +257,11 @@
           const item = results[0];
           const displayName =
             window.foliplus.formatAddress(item.display_name, map) || query;
-          let lat = parseFloat(item.lat);
-          let lng = parseFloat(item.lon);
-
-          const converted = window.foliplus.fromWgs84(map, lng, lat);
-          lng = converted[0];
-          lat = converted[1];
-
-          const zoom = Math.min(
-            CONST.ZOOM.MAX,
-            Math.max(
-              CONST.ZOOM.MIN,
-              CONST.ZOOM.BASE - Math.floor(displayName.length / CONST.ZOOM.DIVISOR),
-            ),
-          );
-          map.flyTo([lat, lng], zoom);
-          this.mk = window.foliplus.createLocationMarker(
-            map,
-            lng,
-            lat,
-            displayName,
-            `${CONST.name}.popup_title_addr`,
-            `${CONST.name}.popup_loading`,
-            `${CONST.name}.popup_loc_label`,
-            `${CONST.name}.popup_addr_label`,
-            this.mk,
-          );
+          this.cachedAddress[query] = { item, displayName };
+          this.renderAddressResult({ item, displayName }, query);
         })
         .catch((err) => {
+          if (err.name === "AbortError") return;
           console.error(`[${CONST.name}] ${_(`${CONST.name}.addr_error`)}`);
           window.foliplus.hideHint(CONST.name);
           window.foliplus.showHint(
@@ -275,6 +270,36 @@
             window.foliplus.HINT_DURATION.LONG,
           );
         });
+    }
+
+    renderAddressResult(result, query) {
+      const { item, displayName } = result;
+      let lat = parseFloat(item.lat);
+      let lng = parseFloat(item.lon);
+
+      const converted = window.foliplus.fromWgs84(map, lng, lat);
+      lng = converted[0];
+      lat = converted[1];
+
+      const zoom = Math.min(
+        CONST.ZOOM.MAX,
+        Math.max(
+          CONST.ZOOM.MIN,
+          CONST.ZOOM.BASE - Math.floor(displayName.length / CONST.ZOOM.DIVISOR),
+        ),
+      );
+      map.flyTo([lat, lng], zoom);
+      this.mk = window.foliplus.createLocationMarker(
+        map,
+        lng,
+        lat,
+        displayName,
+        `${CONST.name}.popup_title_addr`,
+        `${CONST.name}.popup_loading`,
+        `${CONST.name}.popup_loc_label`,
+        `${CONST.name}.popup_addr_label`,
+        this.mk,
+      );
     }
 
     // ── Suggestions ──
@@ -308,7 +333,7 @@
         return;
       }
 
-      this.suggestionCache[query] = results;
+      this.cachedSuggestions[query] = results;
 
       if (!this.suggestionsWrap) {
         this.suggestionsWrap = window.foliplus.dom.el("div", {
@@ -357,8 +382,8 @@
         this.removeSuggestions();
         return;
       }
-      if (this.suggestionCache[query]) {
-        this.renderSuggestions(this.suggestionCache[query], query);
+      if (this.cachedSuggestions[query]) {
+        this.renderSuggestions(this.cachedSuggestions[query], query);
         return;
       }
 

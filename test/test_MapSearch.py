@@ -102,6 +102,7 @@ class TestMapSearchRendering:
         html = render(base_map)
         # fromWgs84 appears 2×: once in runtime.js definition, once in addr search.
         # Coord search must NOT add a third call.
+        assert html.count("foliplus.fromWgs84") == 2
         assert "flyTo([lat, lng]" in html
 
     def test_zoom_constant_default(self, base_map: folium.Map):
@@ -149,7 +150,7 @@ class TestMapSearchRendering:
         assert "setMode(newMode) {" in html
 
     def test_reverse_geocode_function(self, base_map: folium.Map):
-        """reverseGeocode is called for address lookup."""
+        """reverseGeocode is available in the runtime (used by createLocationMarker)."""
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "foliplus.reverseGeocode" in html
@@ -234,11 +235,11 @@ class TestMapSearchRendering:
         assert "clearTimeout(this.suggestionsThrottleTimer)" in html
 
     def test_suggestion_cache(self, base_map: folium.Map):
-        """suggestionCache object exists for caching results."""
+        """cachedSuggestions object exists for caching results."""
         MapSearch().add_to(base_map)
         html = render(base_map)
-        assert "this.suggestionCache = {}" in html
-        assert "suggestionCache[query]" in html
+        assert "this.cachedSuggestions = {}" in html
+        assert "cachedSuggestions[query]" in html
 
     def test_removeSuggestions_in_setMode(self, base_map: folium.Map):
         """setMode calls removeSuggestions on mode switch."""
