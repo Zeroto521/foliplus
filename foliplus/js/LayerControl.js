@@ -255,7 +255,7 @@
       this.lastDragHintAt = 0;
       this.foldedGroups = new Set();
 
-      // Bind method context to prevent 'this' loss when called via window.foliplus.LayerControlAPI
+      // Bind method context to prevent 'this' loss when called via window.foliplus.LayerAPI
       this.registerLayer = this.registerLayer.bind(this);
       this.unregisterLayer = this.unregisterLayer.bind(this);
       this.getLayerType = this.getLayerType.bind(this);
@@ -306,7 +306,7 @@
       this.loadFoldState();
       this.normalizeLayerGroups();
 
-      window.foliplus.LayerControlAPI = this;
+      window.foliplus.LayerAPI = this;
     }
 
     normalizeLayerGroups() {
@@ -374,10 +374,10 @@
     }
 
     // ==================== Public API Methods ====================
-    // These are exposed via window.foliplus.LayerControlAPI for runtime use.
+    // These are exposed via window.foliplus.LayerAPI for runtime use.
     //
     // Usage:
-    //   const api = window.foliplus.LayerControlAPI;
+    //   const api = window.foliplus.LayerAPI;
     //   api.registerLayer({ id: 'myLayer', name: 'My Layer', layer: leafletLayer });
     //   api.unregisterLayer('myLayer');
     //   api.findLayer('myLayer');
@@ -1107,8 +1107,8 @@
       this.paneCache.clear();
       this.uiCtrl = null;
       LayerManager.registry.clear();
-      if (window.foliplus.LayerControlAPI === this)
-        window.foliplus.LayerControlAPI = null;
+      if (window.foliplus.LayerAPI === this)
+        window.foliplus.LayerAPI = null;
     }
   }
 

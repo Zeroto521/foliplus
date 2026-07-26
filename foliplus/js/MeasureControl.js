@@ -946,7 +946,7 @@
   }
 
   // ==================== Guard: LayerControl required ====================
-  if (!window.foliplus.LayerControlAPI) {
+  if (!window.foliplus.LayerAPI) {
     console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
     window.foliplus.showHint(
       CONST.name,
@@ -960,7 +960,7 @@
   class MeasureManager {
     constructor(mapInstance) {
       this.map = mapInstance;
-      this.layers = window.foliplus.LayerControlAPI.createLayers({
+      this.layers = window.foliplus.LayerAPI.createLayers({
         id: CONST.ID,
         name: _(`${CONST.name}.tool_toggle`),
         graphPane: CONST.PANES.GRAPH,
