@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import tempfile
-from pathlib import Path
 
+import folium
 import pytest
 
 from foliplus.locale import (
@@ -237,8 +236,6 @@ class TestLocaleBrowserJS:
 
     def test_auto_detect_zh(self, browser, tmp_path):
         """navigator.language=zh-CN selects zh table."""
-        import folium
-
         from foliplus import MapSearch
 
         m = folium.Map()
@@ -256,8 +253,6 @@ class TestLocaleBrowserJS:
 
     def test_auto_detect_en(self, browser, tmp_path):
         """navigator.language=en-US selects en table."""
-        import folium
-
         from foliplus import MapSearch
 
         m = folium.Map()
@@ -275,8 +270,6 @@ class TestLocaleBrowserJS:
 
     def test_fallback_unsupported(self, browser, tmp_path):
         """Unsupported navigator.language falls back to en."""
-        import folium
-
         from foliplus import MapSearch
 
         m = folium.Map()
@@ -308,15 +301,11 @@ class TestResolveLocale:
 
     def test_resolve_unsupported_raises_valueerror(self):
         """Unsupported locale string raises ValueError."""
-        import pytest
-
         with pytest.raises(ValueError, match="unsupported locale"):
             resolve_locale("fr")
 
     def test_resolve_invalid_type_raises_typeerror(self):
         """Non-str/LocaleConfig raises TypeError."""
-        import pytest
-
         with pytest.raises(TypeError, match="locale must be a str or LocaleConfig"):
             resolve_locale(123)  # type: ignore[arg-type]
 
