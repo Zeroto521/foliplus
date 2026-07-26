@@ -235,11 +235,20 @@ class TestMapSearchRendering:
         assert "clearTimeout(this.suggestionsThrottleTimer)" in html
 
     def test_suggestion_cache(self, base_map: folium.Map):
-        """cachedSuggestions object exists for caching results."""
+        """cachedSuggestions and cachedAddress objects exist for caching results."""
         MapSearch().add_to(base_map)
         html = render(base_map)
         assert "this.cachedSuggestions = {}" in html
+        assert "this.cachedAddress = {}" in html
         assert "cachedSuggestions[query]" in html
+        assert "cachedAddress[query]" in html
+
+    def test_cachedAddress_in_suggestion_click(self, base_map: folium.Map):
+        """Suggestion onmousedown writes to cachedAddress before renderAddressResult."""
+        MapSearch().add_to(base_map)
+        html = render(base_map)
+        # The onmousedown handler writes to cachedAddress[displayName]
+        assert "this.cachedAddress[displayName] = { item, displayName }" in html
 
     def test_removeSuggestions_in_setMode(self, base_map: folium.Map):
         """setMode calls removeSuggestions on mode switch."""
