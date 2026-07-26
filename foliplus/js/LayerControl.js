@@ -89,11 +89,11 @@
     POLYGON: `<svg viewBox="0 0 24 24"><polygon points="12,3 21,9 18,21 6,21 3,9"/></svg>`,
     EMPTY: `
       <svg viewBox="0 0 24 24">
-        <rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="4 3"/>
+        <rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
       </svg>`,
     UNKNOWN: `
       <svg viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
         <path d="M9.5 9.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5c0 1.5-2.5 2-2.5 4"
               fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         <circle cx="12" cy="17" r="1.2" fill="currentColor" stroke="none"/>
