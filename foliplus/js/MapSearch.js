@@ -96,14 +96,12 @@
 
     // ── DOM Creation ──
     createDOM() {
-      const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl(
-        {
-          cssClass: CONST.CLASSES.MAP_SEARCH,
-          toggleTitle: _(`${CONST.name}.btn_title`),
-          toggleSvg: SVGs.SEARCH,
-          isLeft: CONST.position.indexOf("left") >= 0,
-        },
-      );
+      const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
+        cssClass: CONST.CLASSES.MAP_SEARCH,
+        toggleTitle: _(`${CONST.name}.btn_title`),
+        toggleSvg: SVGs.SEARCH,
+        isLeft: CONST.position.indexOf("left") >= 0,
+      });
       ctrl.id = "{{ this.get_name() }}_ctrl";
       this.container = container;
       this.ctrl = ctrl;
@@ -251,8 +249,7 @@
           }
 
           const item = results[0];
-          const displayName =
-            foliplus.formatAddress(item.display_name, map) || query;
+          const displayName = foliplus.formatAddress(item.display_name, map) || query;
           this.cachedAddress[query] = { item, displayName };
           this.renderAddressResult({ item, displayName }, query);
         })
