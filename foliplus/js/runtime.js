@@ -80,7 +80,7 @@
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>`,
     PIN_ICON: `
-      <div class="foliplus-pin-wrap">
+      <div class="foliplus-pin">
         <svg width="24" height="36" viewBox="0 0 24 36">
           <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
               fill="#e74c3c" stroke="#fff" stroke-width="1.5"/>
