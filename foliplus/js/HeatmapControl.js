@@ -71,7 +71,7 @@
       SECTION_BLOCK_LAST: "foliplus-heatmap-section-block-last",
       CONFIG_BODY: "foliplus-heatmap-config-body",
       EXTRA_BODY: "foliplus-heatmap-extra-body",
-      FIELD_WRAP: "foliplus-heatmap-field-wrap",
+      FIELD: "foliplus-heatmap-field",
       SCHEME_BAR: "foliplus-heatmap-scheme-bar",
       SCHEME_BAR_INNER: "foliplus-heatmap-scheme-bar-inner",
       SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
@@ -734,7 +734,7 @@
 
       this.fieldWrap = L.DomUtil.create(
         "div",
-        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD_WRAP} ${CONST.CLASSES.HIDDEN}`,
+        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD} ${CONST.CLASSES.HIDDEN}`,
         this.extraBody,
       );
       const fieldLabel = L.DomUtil.create(

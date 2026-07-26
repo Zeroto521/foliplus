@@ -864,8 +864,8 @@ class TestHeatmapAutoFieldBrowser:
             page.wait_for_timeout(500)
 
             # Verify field selector is visible and _auto is selected.
-            # The field select is the <select> inside .foliplus-heatmap-field-wrap.
-            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field-wrap .foliplus-heatmap-form-control select"
+            # The field select is the <select> inside .foliplus-heatmap-field.
+            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
             assert field_val == "_auto", f"Expected '_auto', got '{field_val}'"
 
@@ -933,8 +933,8 @@ class TestHeatmapAutoFieldBrowser:
             page.wait_for_timeout(500)
 
             # Verify _auto is selected.
-            # The field select is the <select> inside .foliplus-heatmap-field-wrap.
-            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field-wrap .foliplus-heatmap-form-control select"
+            # The field select is the <select> inside .foliplus-heatmap-field.
+            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
             assert field_val == "_auto", f"Expected '_auto', got '{field_val}'"
 
