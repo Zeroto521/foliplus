@@ -68,7 +68,8 @@
   };
 
   // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
+  const foliplus = window.foliplus || {};
+  if (!foliplus || !foliplus.SVGs) {
     console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
@@ -76,7 +77,7 @@
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const mapContainer = map.getContainer();
-  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
+  const _ = (k) => (foliplus && foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -122,7 +123,7 @@
     UNFOLD: `<svg viewBox="0 0 24 24"><polyline points="18 9 12 15 6 9"/></svg>`,
   };
 
-  window.foliplus.registerHintIcon(CONST.name, SVGs.LAYERS);
+  foliplus.registerHintIcon(CONST.name, SVGs.LAYERS);
 
   // ==================== BringToFront Guard (monkey-patch) ====================
   // Guard Leaflet's bringToFront against null parentNode during enforceOrder
@@ -321,7 +322,7 @@
       this.loadFoldState();
       this.normalizeLayerGroups();
 
-      window.foliplus.LayerAPI = this;
+      foliplus.LayerAPI = this;
     }
 
     normalizeLayerGroups() {
@@ -1122,7 +1123,7 @@
       this.paneCache.clear();
       this.ui = null;
       LayerManager.registry.clear();
-      if (window.foliplus.LayerAPI === this) window.foliplus.LayerAPI = null;
+      if (foliplus.LayerAPI === this) foliplus.LayerAPI = null;
     }
   }
 
@@ -1192,7 +1193,7 @@
 
     renderToggleAllRow(group, labelKey) {
       const isFolded = this.m.foldedGroups.has(group);
-      return window.foliplus.dom.el(
+      return foliplus.dom.el(
         "div",
         {
           class:
@@ -1200,7 +1201,7 @@
             (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
           "data-group": group,
         },
-        window.foliplus.dom.el(
+        foliplus.dom.el(
           "button",
           {
             class: CONST.CLASSES.FOLD_BTN,
@@ -1208,17 +1209,17 @@
           },
           { html: isFolded ? SVGs.UNFOLD : SVGs.FOLD },
         ),
-        window.foliplus.dom.el(
+        foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.CHECKBOX_WRAPPER },
-          window.foliplus.dom.el("input", {
+          foliplus.dom.el("input", {
             type: "checkbox",
             "data-role": "toggle-all",
             checked: "",
           }),
         ),
-        window.foliplus.dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
-        window.foliplus.dom.el("div", { class: "foliplus-section-divider" }),
+        foliplus.dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
+        foliplus.dom.el("div", { class: "foliplus-section-divider" }),
       );
     }
 
@@ -1226,27 +1227,25 @@
       const en = LayerUtils.escapeHTML(l.name);
       const children = [
         { html: SVGs.DRAG_HANDLE },
-        window.foliplus.dom.el(
+        foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.CHECKBOX_WRAPPER },
-          window.foliplus.dom.el("input", {
+          foliplus.dom.el("input", {
             type: "checkbox",
             checked: "",
             [CONST.DATA.INDEX]: String(index),
             "aria-label": en,
           }),
         ),
-        window.foliplus.dom.el("label", { title: en }, en),
+        foliplus.dom.el("label", { title: en }, en),
       ];
       if (l.iconSvg)
         children.push({
           html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${l.iconSvg}</div>`,
         });
       else
-        children.push(
-          window.foliplus.dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }),
-        );
-      return window.foliplus.dom.el(
+        children.push(foliplus.dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }));
+      return foliplus.dom.el(
         "div",
         {
           class: CONST.CLASSES.LAYER_ITEM,
@@ -1261,7 +1260,7 @@
     }
 
     renderColorLayerItem() {
-      return window.foliplus.dom.el(
+      return foliplus.dom.el(
         "div",
         {
           class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
@@ -1270,17 +1269,17 @@
           title: _(`${CONST.name}.color_map_label`),
         },
         { html: SVGs.DRAG_HANDLE },
-        window.foliplus.dom.el(
+        foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.CHECKBOX_WRAPPER },
-          window.foliplus.dom.el("input", {
+          foliplus.dom.el("input", {
             type: "color",
             class: CONST.CLASSES.COLOR_INPUT,
             value: this.m.currentColor,
             "aria-label": _(`${CONST.name}.color_map_label`),
           }),
         ),
-        window.foliplus.dom.el("label", null, _(`${CONST.name}.color_map_label`)),
+        foliplus.dom.el("label", null, _(`${CONST.name}.color_map_label`)),
         { html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${SVGs.COLOR}</div>` },
       );
     }
@@ -1314,7 +1313,7 @@
 
         if (typeCols[i]) {
           if (layerInfo.isBase) {
-            typeCols[i].innerHTML = window.foliplus.SVGs.GLOBE;
+            typeCols[i].innerHTML = foliplus.SVGs.GLOBE;
             typeCols[i].title = _(`${CONST.name}.type_base`);
             this.m.typeMap.set(id, { type: CONST.GROUP.BASE, name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
@@ -1493,13 +1492,12 @@
       const now = Date.now();
       if (now - this.m.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
       this.m.lastDragHintAt = now;
-      if (window.foliplus && typeof window.foliplus.showHint === "function") {
-        window.foliplus.showHint(
+      if (foliplus && typeof foliplus.showHint === "function")
+        foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.reorder_group_only`),
-          window.foliplus.HINT_DURATION.SHORT,
+          foliplus.HINT_DURATION.SHORT,
         );
-      }
     }
 
     handleDragOver(e) {
@@ -1693,7 +1691,7 @@
               </span>
               <button class="foliplus-ctrl-btn" title="${_(`${CONST.name}.close_title`)}"
                       aria-label="${_(`${CONST.name}.close_title`)}">
-                ${window.foliplus.SVGs.CLOSE}
+                ${foliplus.SVGs.CLOSE}
               </button>
             </div>
             <div class="foliplus-panel-content"></div>
@@ -1704,7 +1702,7 @@
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.disableScrollPropagation(container);
 
-      window.foliplus.bindPanelToggle({
+      foliplus.bindPanelToggle({
         container: container.querySelector(".foliplus-layer-ctrl"),
         toggleBtn: ".foliplus-toggle-btn",
         header: ".foliplus-panel-header",

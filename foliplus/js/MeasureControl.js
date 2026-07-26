@@ -77,14 +77,15 @@
   };
 
   // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
+  const foliplus = window.foliplus || {};
+  if (!foliplus || !foliplus.SVGs) {
     console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
   // ==================== Globals & Shared Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
+  const _ = (k) => (foliplus && foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -110,7 +111,7 @@
       </svg>`,
   };
 
-  window.foliplus.registerHintIcon(CONST.name, SVGs.RULER);
+  foliplus.registerHintIcon(CONST.name, SVGs.RULER);
 
   // ==================== Utility Classes ====================
   class MeasureUtils {
@@ -231,7 +232,7 @@
 
     /** Build popup HTML for a marker location. */
     static buildPopup(lng, lat, addr) {
-      return window.foliplus.buildPopupHtml(
+      return foliplus.buildPopupHtml(
         lng,
         lat,
         addr,
@@ -327,7 +328,7 @@
       const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
       const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
 
-      const marker = window.foliplus.createLocationMarker(
+      const marker = foliplus.createLocationMarker(
         this.map,
         parseFloat(lng),
         parseFloat(lat),
@@ -346,7 +347,7 @@
       }).addTo(this.layers.mainLayer);
 
       let cachedAddr = null;
-      const addr = await window.foliplus.reverseGeocode(
+      const addr = await foliplus.reverseGeocode(
         this.map,
         parseFloat(lng),
         parseFloat(lat),
@@ -706,10 +707,10 @@
             interactive: false,
           }).addTo(layers.mainLayer);
           state = 1;
-          window.foliplus.showHint(
+          foliplus.showHint(
             CONST.name,
             _(`${CONST.name}.hint_circle_radius`),
-            window.foliplus.HINT_DURATION.PERSIST,
+            foliplus.HINT_DURATION.PERSIST,
           );
         } else if (state === 1) {
           state = 2;
@@ -940,18 +941,18 @@
         map.off("mousemove", onMouseMove);
         map.off("contextmenu", onContext);
         clearPreviews();
-        window.foliplus.hideHint(CONST.name);
+        foliplus.hideHint(CONST.name);
       };
     }
   }
 
   // ==================== Guard: LayerControl required ====================
-  if (!window.foliplus.LayerAPI) {
+  if (!foliplus.LayerAPI) {
     console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-    window.foliplus.showHint(
+    foliplus.showHint(
       CONST.name,
       _(`${CONST.name}.no_layercontrol`),
-      window.foliplus.HINT_DURATION.PERSIST,
+      foliplus.HINT_DURATION.PERSIST,
     );
     return;
   }
@@ -960,7 +961,7 @@
   class MeasureManager {
     constructor(mapInstance) {
       this.map = mapInstance;
-      this.layers = window.foliplus.LayerAPI.createLayers({
+      this.layers = foliplus.LayerAPI.createLayers({
         id: CONST.ID,
         name: _(`${CONST.name}.tool_toggle`),
         graphPane: CONST.PANES.GRAPH,
@@ -1019,26 +1020,26 @@
       this.map.getContainer().classList.add(CONST.CLASSES.IS_MEASURING);
 
       if (mode === "marker") {
-        window.foliplus.showHint(
+        foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.hint_marker`),
-          window.foliplus.HINT_DURATION.PERSIST,
+          foliplus.HINT_DURATION.PERSIST,
         );
         this.modeInstance = new MarkerMode(this);
         this.modeInstance.start();
       } else if (mode === "distance") {
-        window.foliplus.showHint(
+        foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.hint_dist_start`),
-          window.foliplus.HINT_DURATION.PERSIST,
+          foliplus.HINT_DURATION.PERSIST,
         );
         this.modeInstance = new DistanceMode(this);
         this.modeInstance.start();
       } else if (mode === "circle") {
-        window.foliplus.showHint(
+        foliplus.showHint(
           CONST.name,
           _(`${CONST.name}.hint_circle_start`),
-          window.foliplus.HINT_DURATION.PERSIST,
+          foliplus.HINT_DURATION.PERSIST,
         );
         this.modeInstance = new CircleMode(this);
         this.modeInstance.start();
@@ -1048,7 +1049,7 @@
     clearActiveMode() {
       this.currentMode = null;
       this.toolBtns.forEach((btn) => btn.classList.remove(CONST.CLASSES.ACTIVE));
-      window.foliplus.hideHint(CONST.name);
+      foliplus.hideHint(CONST.name);
       this.map.getContainer().classList.remove(CONST.CLASSES.IS_MEASURING);
       this.cleanMapEvents();
     }
@@ -1085,7 +1086,7 @@
         this.modeInstance.cleanup();
         this.modeInstance = null;
       }
-      window.foliplus.hideHint(CONST.name);
+      foliplus.hideHint(CONST.name);
     }
   }
 
@@ -1103,19 +1104,17 @@
     }
 
     onAdd() {
-      const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
-        {
-          cssClass: "foliplus-measure-ctrl",
-          toggleTitle: _(`${CONST.name}.tool_toggle`),
-          toggleSvg: SVGs.RULER,
-          isLeft: CONST.position.indexOf("left") >= 0,
-        },
-      );
+      const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
+        cssClass: "foliplus-measure-ctrl",
+        toggleTitle: _(`${CONST.name}.tool_toggle`),
+        toggleSvg: SVGs.RULER,
+        isLeft: CONST.position.indexOf("left") >= 0,
+      });
       const btnConfigs = [
         {
           mode: "marker",
           title: _(`${CONST.name}.tool_marker`),
-          svg: window.foliplus.SVGs.LOCATE,
+          svg: foliplus.SVGs.LOCATE,
         },
         { mode: "distance", title: _(`${CONST.name}.tool_distance`), svg: SVGs.RULER },
         { mode: "circle", title: _(`${CONST.name}.tool_circle`), svg: SVGs.CIRCLE },
@@ -1123,7 +1122,7 @@
       ];
       btnConfigs.forEach(({ mode, title, svg }) => {
         toolBar.appendChild(
-          window.foliplus.dom.el(
+          foliplus.dom.el(
             "button",
             { class: "foliplus-tool-btn", "data-mode": mode, title },
             { html: svg },
@@ -1138,7 +1137,7 @@
         ctrl.classList.toggle(CONST.CLASSES.EXPANDED);
       };
 
-      window.foliplus.bindOutsideCollapse({ container: ctrl });
+      foliplus.bindOutsideCollapse({ container: ctrl });
 
       this.m.toolBtns.forEach((btn) => {
         btn.onclick = (e) => {

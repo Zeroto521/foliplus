@@ -455,10 +455,10 @@
         ? { html: `${foliplus.SVGs.LOADING} ${loadStr}` }
         : addr || loadStr;
 
-    return window.foliplus.dom.el(
+    return foliplus.dom.el(
       "div",
       { class: "foliplus-popup-content" },
-      window.foliplus.dom.el("b", null, foliplus.gt(title)),
+      foliplus.dom.el("b", null, foliplus.gt(title)),
       { html: "<br>" },
       `${foliplus.gt(locLabel)}${lng},${lat}`,
       { html: "<br>" },
@@ -599,20 +599,20 @@
    * @returns {object} { container, ctrl, toolBar, toggleBtn }
    */
   foliplus.createFoldControl = (opts) => {
-    const container = window.foliplus.dom.el("div", {
+    const container = foliplus.dom.el("div", {
       class: CLASSES.LEAFLET_BAR,
     });
-    const ctrl = window.foliplus.dom.el("div", {
+    const ctrl = foliplus.dom.el("div", {
       class: `${opts.cssClass} foliplus-ctrl-fold ${CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
-      window.foliplus.dom.el(
+      foliplus.dom.el(
         "button",
         { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
         { html: opts.toggleSvg },
       ),
     );
-    ctrl.appendChild(window.foliplus.dom.el("div", { class: "foliplus-tool-bar" }));
+    ctrl.appendChild(foliplus.dom.el("div", { class: "foliplus-tool-bar" }));
     container.appendChild(ctrl);
     if (!opts.isLeft) ctrl.classList.add("foliplus-align-right");
     L.DomEvent.disableClickPropagation(container);
@@ -638,26 +638,26 @@
    * @returns {object} { container, ctrl, toggleBtn, panelContent }
    */
   foliplus.createPanelControl = (opts) => {
-    const container = window.foliplus.dom.el("div", {
+    const container = foliplus.dom.el("div", {
       class: CLASSES.LEAFLET_BAR,
     });
-    const ctrl = window.foliplus.dom.el("div", {
+    const ctrl = foliplus.dom.el("div", {
       class: `foliplus-map-panel foliplus-ctrl-fold ${opts.cssClass} ${CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
-      window.foliplus.dom.el(
+      foliplus.dom.el(
         "button",
         { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
         { html: opts.toggleSvg },
       ),
     );
-    const panelWrap = window.foliplus.dom.el("div", { class: "foliplus-panel-wrap" });
-    const header = window.foliplus.dom.el("div", { class: "foliplus-panel-header" });
+    const panelWrap = foliplus.dom.el("div", { class: "foliplus-panel-wrap" });
+    const header = foliplus.dom.el("div", { class: "foliplus-panel-header" });
     header.appendChild(
-      window.foliplus.dom.el(
+      foliplus.dom.el(
         "span",
         { class: "foliplus-header-title" },
-        window.foliplus.dom.el(
+        foliplus.dom.el(
           "span",
           { class: "foliplus-header-icon" },
           { html: opts.toggleSvg },
@@ -666,14 +666,14 @@
       ),
     );
     header.appendChild(
-      window.foliplus.dom.el(
+      foliplus.dom.el(
         "button",
         { class: "foliplus-close-btn foliplus-ctrl-btn", title: opts.closeTitle },
-        { html: window.foliplus.SVGs.CLOSE },
+        { html: foliplus.SVGs.CLOSE },
       ),
     );
     panelWrap.appendChild(header);
-    const panelContent = window.foliplus.dom.el("div", {
+    const panelContent = foliplus.dom.el("div", {
       class: "foliplus-panel-content",
     });
     panelWrap.appendChild(panelContent);
@@ -683,12 +683,12 @@
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
 
-    window.foliplus.bindPanelToggle({
+    foliplus.bindPanelToggle({
       container: ctrl,
       toggleBtn: ".foliplus-toggle-btn",
       header: ".foliplus-panel-header",
     });
-    window.foliplus.bindOutsideCollapse({ container: ctrl });
+    foliplus.bindOutsideCollapse({ container: ctrl });
 
     return {
       container,

@@ -18,14 +18,15 @@
   }
 
   // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
+  const foliplus = window.foliplus || {};
+  if (!foliplus || !foliplus.SVGs) {
     console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (window.foliplus && window.foliplus.gt ? window.foliplus.gt(k) : k);
+  const _ = (k) => (foliplus && foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -47,7 +48,7 @@
       </svg>`,
   };
 
-  window.foliplus.registerHintIcon(CONST.name, SVGs.MAXIMIZE);
+  foliplus.registerHintIcon(CONST.name, SVGs.MAXIMIZE);
 
   // ==================== Fullscreen API ====================
   const nativeAPI = (() => {
@@ -90,13 +91,13 @@
       }
 
       // Build container — leaflet-bar for alignment with other foliplus controls
-      const container = window.foliplus.dom.el("div", {
+      const container = foliplus.dom.el("div", {
         class: `${CONST.CLASSES.LEAFLET_BAR} ${CONST.CLASSES.FULLSCREEN_BAR}`,
       });
       container.id = getContainerId();
 
       // Zoom in button — <button> element with tool-btn class
-      const zoomInBtn = window.foliplus.dom.el(
+      const zoomInBtn = foliplus.dom.el(
         "button",
         {
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_IN}`,
@@ -112,7 +113,7 @@
       container.appendChild(zoomInBtn);
 
       // Zoom out button
-      const zoomOutBtn = window.foliplus.dom.el(
+      const zoomOutBtn = foliplus.dom.el(
         "button",
         {
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_OUT}`,
@@ -128,7 +129,7 @@
       container.appendChild(zoomOutBtn);
 
       // Fullscreen toggle button
-      const fsBtn = window.foliplus.dom.el(
+      const fsBtn = foliplus.dom.el(
         "button",
         {
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.FS_TOGGLE}`,
@@ -165,10 +166,10 @@
           if (fsToggle) fsToggle.style.display = isFull ? "none" : "";
         }
 
-        window.foliplus.showHint(
+        foliplus.showHint(
           CONST.name,
           isFull ? _(`${CONST.name}.enter`) : _(`${CONST.name}.exit`),
-          window.foliplus.HINT_DURATION.MEDIUM,
+          foliplus.HINT_DURATION.MEDIUM,
         );
       };
 
