@@ -364,7 +364,8 @@
         );
         suggestion.onclick = (e) => {
           e.stopPropagation();
-          const displayName = window.foliplus.formatAddress(item.display_name, map) || item.name || "";
+          const displayName =
+            window.foliplus.formatAddress(item.display_name, map) || item.name || "";
           this.inp.value = displayName;
           this.removeSuggestions();
           this.searchAddress(displayName);
