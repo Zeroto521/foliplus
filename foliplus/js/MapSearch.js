@@ -79,12 +79,7 @@
       );
       toolBar.appendChild(modeBtn);
       toolBar.appendChild(
-        window.foliplus.dom.el(
-          "div",
-          { class: CONST.CLASSES.CLEAR },
-          inp,
-          clearBtn,
-        ),
+        window.foliplus.dom.el("div", { class: CONST.CLASSES.CLEAR }, inp, clearBtn),
       );
 
       let mk = null;
