@@ -25,6 +25,7 @@
       MIN_CHARS: 3,
       MAX_ITEMS: 5,
     },
+    PANEL_WIDTH: 280,
     PARAM: {
       Q: "q",
       LAT: "lat",
@@ -291,8 +292,13 @@
 
     positionSuggestions() {
       if (!this.suggestionsWrap) return;
-      const rect = this.toolBar.getBoundingClientRect();
-      this.suggestionsWrap.style.left = `${rect.left + window.scrollX}px`;
+      const rect = this.ctrl.getBoundingClientRect();
+      let left = rect.left + window.scrollX;
+      // If suggestions would overflow right edge, align to right edge instead
+      if (left + CONST.PANEL_WIDTH > window.innerWidth)
+        left = window.innerWidth - CONST.PANEL_WIDTH + window.scrollX;
+
+      this.suggestionsWrap.style.left = `${left}px`;
       this.suggestionsWrap.style.top = `${rect.bottom + window.scrollY}px`;
     }
 
@@ -328,14 +334,15 @@
           window.foliplus.dom.el(
             "span",
             { class: CONST.CLASSES.SUGGESTION_TEXT },
-            item.display_name || item.name || "",
+            window.foliplus.formatAddress(item.display_name, map) || item.name || "",
           ),
         );
         suggestion.onclick = (e) => {
           e.stopPropagation();
-          this.inp.value = item.display_name || item.name || "";
+          const displayName = window.foliplus.formatAddress(item.display_name, map) || item.name || "";
+          this.inp.value = displayName;
           this.removeSuggestions();
-          this.searchAddress(this.inp.value);
+          this.searchAddress(displayName);
         };
         this.suggestionsWrap.appendChild(suggestion);
       });
