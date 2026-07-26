@@ -1244,9 +1244,7 @@
           html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${l.iconSvg}</div>`,
         });
       else
-        children.push(
-          foliplus.dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }),
-        );
+        children.push(foliplus.dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }));
       return foliplus.dom.el(
         "div",
         {
