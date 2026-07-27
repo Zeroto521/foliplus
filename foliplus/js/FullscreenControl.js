@@ -1,6 +1,6 @@
 (function () {
   const CONST = {
-    name: "Fullscreen",
+    name: "FullscreenControl",
     position: "{{ this.position }}",
     CLASSES: {
       PSEUDO_FULLSCREEN: "leaflet-pseudo-fullscreen",
@@ -47,7 +47,7 @@
 
   foliplus.registerHintIcon(CONST.name, SVGs.MAXIMIZE);
 
-  // ==================== Fullscreen API ====================
+  // ==================== FullscreenControl API ====================
   const nativeAPI = (() => {
     const methodMap = [
       [
@@ -76,7 +76,7 @@
   const isEnabled = nativeAPI && Boolean(document[nativeAPI.fullscreenEnabled]);
   const getFullscreenEl = () => nativeAPI && document[nativeAPI.fullscreenElement];
 
-  // ==================== Fullscreen Control (L.Control) ====================
+  // ==================== FullscreenControl (L.Control) ====================
   class FullscreenControl extends L.Control {
     onAdd() {
       // Remove default Leaflet zoom control — we provide our own +/- buttons
@@ -125,7 +125,7 @@
       });
       container.appendChild(zoomOutBtn);
 
-      // Fullscreen toggle button
+      // FullscreenControl toggle button
       const fsBtn = foliplus.dom.el(
         "button",
         {
@@ -170,7 +170,7 @@
         );
       };
 
-      // ==================== Fullscreen Toggle ====================
+      // ==================== FullscreenControl Toggle ====================
       const toggleFullscreen = () => {
         if (getFullscreenEl()) {
           if (isEnabled) document[nativeAPI.exitFullscreen]().catch(() => {});

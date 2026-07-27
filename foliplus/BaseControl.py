@@ -20,8 +20,8 @@ class BaseControl(JSCSSMixin, MacroElement):
     """Base class for all foliplus controls.
 
     Handles resource loading (CSS/JS), template injection, and localization. All
-    foliplus components (Fullscreen, HeatmapControl, LayerControl, etc.) inherit from
-    this class.
+    foliplus components (FullscreenControl, HeatmapControl, LayerControl, etc.) inherit
+    from this class.
 
     Parameters
     ----------

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ._cdn import GCOORD
 from ._typing import Position
-from .base import BaseControl
+from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
 

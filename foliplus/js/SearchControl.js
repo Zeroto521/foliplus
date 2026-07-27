@@ -1,7 +1,7 @@
 (function () {
   // ==================== Constants ====================
   const CONST = {
-    name: "MapSearch",
+    name: "SearchControl",
     position: "{{ this.position }}",
     MODE: {
       COORD: "coord",
@@ -30,7 +30,7 @@
     CLASSES: {
       EXPANDED: "expanded",
       COLLAPSED: "collapsed",
-      MAP_SEARCH: "foliplus-map-search",
+      MAP_SEARCH: "foliplus-search",
       SEARCH_MODE_BTN: "foliplus-search-mode-btn",
       CLEAR: "clear",
       CTRL_BTN: "foliplus-ctrl-btn",

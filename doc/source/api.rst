@@ -8,10 +8,10 @@ API
    :toctree: api
    :recursive:
 
-   MapSearch
-   LayerControl
-   Fullscreen
+   FullscreenControl
    HeatmapControl
+   LayerControl
    MeasureControl
+   SearchControl
    ScaleControl
    locale

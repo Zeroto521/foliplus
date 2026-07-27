@@ -4,7 +4,7 @@ from typing import Literal
 
 from ._cdn import CHROMA, H3, SS
 from ._typing import Position
-from .base import BaseControl
+from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
 

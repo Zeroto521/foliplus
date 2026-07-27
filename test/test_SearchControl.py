@@ -1,104 +1,103 @@
-"""Tests for foliplus.MapSearch."""
+"""Tests for foliplus.SearchControl."""
 
 from __future__ import annotations
 
 import folium
 from conftest import render
 
-from foliplus import MapSearch
+from foliplus import SearchControl
 
 
 class TestMapSearchPython:
     """Python-side property tests."""
 
     def test_name(self):
-        assert MapSearch()._name == "MapSearch"
+        assert SearchControl()._name == "SearchControl"
 
     def test_default_zoom(self):
-        assert MapSearch().zoom == 15
+        assert SearchControl().zoom == 15
 
     def test_custom_zoom(self):
-        assert MapSearch(zoom=16).zoom == 16
+        assert SearchControl(zoom=16).zoom == 16
 
     def test_default_position(self):
-        assert MapSearch().position == "topleft"
+        assert SearchControl().position == "topleft"
 
     def test_custom_position(self):
-        assert MapSearch(position="bottomright").position == "bottomright"
+        assert SearchControl(position="bottomright").position == "bottomright"
 
     def test_default_locale(self):
-        assert MapSearch()._locale_code == ""
+        assert SearchControl()._locale_code == ""
 
     def test_custom_locale(self):
-        assert MapSearch(locale="zh")._locale_code == "zh"
+        assert SearchControl(locale="zh")._locale_code == "zh"
 
     def test_default_mode(self):
-        assert MapSearch().mode == "coord"
+        assert SearchControl().mode == "coord"
 
     def test_custom_mode_addr(self):
-        assert MapSearch(mode="addr").mode == "addr"
+        assert SearchControl(mode="addr").mode == "addr"
 
     def test_custom_mode_coord(self):
-        assert MapSearch(mode="coord").mode == "coord"
+        assert SearchControl(mode="coord").mode == "coord"
 
 
 class TestMapSearchRendering:
     def test_default_params(self, base_map: folium.Map):
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "map-search" in html
 
     def test_custom_zoom_and_position(self, base_map: folium.Map):
-        MapSearch(zoom=16, position="bottomright").add_to(base_map)
+        SearchControl(zoom=16, position="bottomright").add_to(base_map)
         html = render(base_map)
         assert "map-search" in html
         assert "16" in html
 
     def test_contains_css(self, base_map: folium.Map):
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
-        assert ".foliplus-map-search" in html
+        assert ".foliplus-search" in html
 
     def test_contains_nominatim_url(self, base_map: folium.Map):
-        """Nominatim URL is resolved at runtime (concat with + '/' + '/search')."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         # URL is now resolved at runtime: window.foliplus.NOMINATIM.URL + "/search"
         assert "NOMINATIM.URL" in html
         assert "search" in html
 
     def test_contains_create_location_marker(self, base_map: folium.Map):
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus.createLocationMarker" in html
 
     def test_addr_search_uses_fromWgs84(self, base_map: folium.Map):
         """fromWgs84 is called in address search (Nominatim returns WGS84) but not coord search."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         # 1 from runtime.js definition + 1 in addr search = 2
         # Coord search should NOT call fromWgs84 (user input CRS unknown)
         assert html.count("foliplus.fromWgs84") == 2
 
     def test_locale_zh(self, base_map: folium.Map):
-        MapSearch(locale="zh").add_to(base_map)
+        SearchControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "地图搜索" in html
         assert '"zh"' in html
 
     def test_default_mode_coord_in_template(self, base_map: folium.Map):
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert '"coord"' in html
 
     def test_mode_addr_in_template(self, base_map: folium.Map):
-        MapSearch(mode="addr").add_to(base_map)
+        SearchControl(mode="addr").add_to(base_map)
         html = render(base_map)
         assert '"addr"' in html
 
     def test_coord_search_no_fromWgs84(self, base_map: folium.Map):
         """Coord search does NOT call fromWgs84 (user input CRS is unknown)."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         # fromWgs84 appears 2×: once in runtime.js definition, once in addr search.
         # Coord search must NOT add a third call.
@@ -106,8 +105,8 @@ class TestMapSearchRendering:
         assert "flyTo([lat, lng]" in html
 
     def test_zoom_constant_default(self, base_map: folium.Map):
-        """ZOOM constants defined for MapSearch."""
-        MapSearch().add_to(base_map)
+        """ZOOM constants defined for SearchControl."""
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "MAX: 16" in html
         assert "MIN: 12" in html
@@ -115,14 +114,14 @@ class TestMapSearchRendering:
 
     def test_toggle_and_clear_button(self, base_map: folium.Map):
         """Toggle and clear buttons are rendered."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "toggle-btn" in html
         assert "ctrl-btn" in html
 
     def test_search_form_structure(self, base_map: folium.Map):
         """Search form has mode-btn, input, and clear."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "search-mode-btn" in html
         assert "clear" in html
@@ -130,7 +129,7 @@ class TestMapSearchRendering:
 
     def test_nominatim_constants(self, base_map: folium.Map):
         """Nominatim API constants are defined."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "NOMINATIM.URL" in html
         assert "NOMINATIM.FORMAT" in html
@@ -138,44 +137,44 @@ class TestMapSearchRendering:
 
     def test_disable_click_scroll_propagation(self, base_map: folium.Map):
         """Click and scroll propagation are disabled."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "disableClickPropagation" in html
         assert "disableScrollPropagation" in html
 
     def test_mode_switch_function(self, base_map: folium.Map):
         """Mode switch function setMode exists."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "setMode(newMode) {" in html
 
     def test_reverse_geocode_function(self, base_map: folium.Map):
-        """reverseGeocode is available in the runtime (used by createLocationMarker)."""
-        MapSearch().add_to(base_map)
+        """reverseGeocode is called for address lookup."""
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus.reverseGeocode" in html
 
     def test_build_popup_html(self, base_map: folium.Map):
         """buildPopupHtml used for marker popups."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus.buildPopupHtml" in html
 
     def test_hide_hint_on_clear(self, base_map: folium.Map):
         """hideHint is called when clearing search results."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus.hideHint" in html
 
     def test_align_right_for_right_position(self, base_map: folium.Map):
-        """Right positions add align-right class to MapSearch."""
-        MapSearch(position="topright").add_to(base_map)
+        """Right positions add align-right class to SearchControl."""
+        SearchControl(position="topright").add_to(base_map)
         html = render(base_map)
         assert "align-right" in html
 
     def test_no_align_right_for_left_position(self, base_map: folium.Map):
         """Left positions do NOT add align-right class."""
-        MapSearch(position="topleft").add_to(base_map)
+        SearchControl(position="topleft").add_to(base_map)
         html = render(base_map)
         # align-right appears in CSS, but NOT in the JS class string for left positions
         # createFoldControl uses isLeft: position.indexOf("left") >= 0
@@ -183,13 +182,13 @@ class TestMapSearchRendering:
 
     def test_align_right_bottomright(self, base_map: folium.Map):
         """bottomright position also adds align-right."""
-        MapSearch(position="bottomright").add_to(base_map)
+        SearchControl(position="bottomright").add_to(base_map)
         html = render(base_map)
         assert "align-right" in html
 
     def test_coord_search_passes_existing_marker(self, base_map: folium.Map):
         """Coordinate search passes existing marker to avoid duplicates."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         # createLocationMarker appears 3×: runtime.js definition + coord search + addr search
         assert html.count("createLocationMarker") == 3
@@ -200,7 +199,7 @@ class TestMapSearchRendering:
 
     def test_autocomplete_constants(self, base_map: folium.Map):
         """Autocomplete constants are defined in output."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "DEBOUNCE_MS: 300" in html
         assert "MIN_CHARS: 3" in html
@@ -208,7 +207,7 @@ class TestMapSearchRendering:
 
     def test_suggestion_classes(self, base_map: folium.Map):
         """Suggestion-related CSS classes are defined."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus-search-suggestions" in html
         assert "foliplus-search-suggestion-item" in html
@@ -216,27 +215,27 @@ class TestMapSearchRendering:
 
     def test_fetchSuggestions_function(self, base_map: folium.Map):
         """fetchSuggestions and renderSuggestions methods exist."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "fetchSuggestions(query) {" in html
         assert "renderSuggestions(results, query) {" in html
 
     def test_debounced_fetch_uses_shared_debounce(self, base_map: folium.Map):
         """debouncedFetch uses foliplus.debounce shared utility."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "this.debouncedFetch = foliplus.debounce(" in html
 
     def test_removeSuggestions_clears_throttle_timer(self, base_map: folium.Map):
         """removeSuggestions clears the throttle timer."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "this.suggestionsThrottleTimer" in html
         assert "clearTimeout(this.suggestionsThrottleTimer)" in html
 
     def test_suggestion_cache(self, base_map: folium.Map):
         """cachedSuggestions and cachedAddress objects exist for caching results."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "this.cachedSuggestions = {}" in html
         assert "this.cachedAddress = {}" in html
@@ -245,27 +244,27 @@ class TestMapSearchRendering:
 
     def test_cachedAddress_in_suggestion_click(self, base_map: folium.Map):
         """Suggestion onmousedown writes to cachedAddress before renderAddressResult."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         # The onmousedown handler writes to cachedAddress[displayName]
         assert "this.cachedAddress[displayName] = { item, displayName }" in html
 
     def test_removeSuggestions_in_setMode(self, base_map: folium.Map):
         """setMode calls removeSuggestions on mode switch."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "removeSuggestions()" in html
 
     def test_blur_removes_suggestions(self, base_map: folium.Map):
         """blur event handler removes suggestions with delay."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert 'inp.addEventListener("blur"' in html
         assert "setTimeout(() => this.removeSuggestions(), 0)" in html
 
     def test_keyboard_navigation(self, base_map: folium.Map):
         """ArrowDown/ArrowUp/Enter/Escape keyboard handlers exist."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert 'e.key === "ArrowDown"' in html
         assert 'e.key === "ArrowUp"' in html
@@ -274,27 +273,27 @@ class TestMapSearchRendering:
 
     def test_suggestions_mounted_on_body(self, base_map: folium.Map):
         """Suggestions dropdown is mounted on document.body."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "document.body.appendChild(this.suggestionsWrap)" in html
 
     def test_positionSuggestions_function(self, base_map: folium.Map):
         """positionSuggestions repositions via getBoundingClientRect."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "positionSuggestions() {" in html
         assert "this.ctrl.getBoundingClientRect()" in html
 
     def test_scroll_reposition_listeners(self, base_map: folium.Map):
         """Scroll and resize listeners reposition suggestions."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert 't.addEventListener("scroll"' in html
         assert 'window.addEventListener("resize", this.repositionHandler)' in html
 
     def test_suggestion_click_stops_propagation(self, base_map: folium.Map):
         """Suggestion click stops propagation to prevent outside collapse."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert (
             'this.suggestionsWrap.addEventListener("click", (e) => e.stopPropagation())'
@@ -304,7 +303,7 @@ class TestMapSearchRendering:
 
     def test_suggestion_click_calls_renderAddressResult(self, base_map: folium.Map):
         """Suggestion mousedown calls renderAddressResult directly, not searchAddress."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         # onmousedown calls renderAddressResult directly (bypasses searchAddress API call)
         assert "suggestion.onmousedown = (e) => {" in html
@@ -323,7 +322,7 @@ class TestMapSearchRendering:
 
     def test_url_param_constants(self, base_map: folium.Map):
         """URL parameter constants are defined."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert 'Q: "q"' in html
         assert 'LAT: "lat"' in html
@@ -331,28 +330,28 @@ class TestMapSearchRendering:
 
     def test_initFromUrl_function(self, base_map: folium.Map):
         """initFromUrl method exists for URL parameter parsing."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "this.initFromUrl()" in html
         assert "URLSearchParams(window.location.search)" in html
 
     def test_q_param_coord_search(self, base_map: folium.Map):
         """?q=longitude,latitude triggers coordinate search."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "params.get(CONST.PARAM.Q)" in html
         assert "this.searchCoord(q)" in html
 
     def test_q_param_addr_search(self, base_map: folium.Map):
         """?q=address triggers address search."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "this.inp.value = q" in html
         assert "this.searchAddress(q)" in html
 
     def test_lat_lng_params(self, base_map: folium.Map):
         """?lat=&lng= triggers coordinate search."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "params.get(CONST.PARAM.LAT)" in html
         assert "params.get(CONST.PARAM.LNG)" in html
@@ -360,7 +359,7 @@ class TestMapSearchRendering:
 
     def test_url_parse_error_handling(self, base_map: folium.Map):
         """URL parsing errors are silently caught."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "catch (e) {" in html
         assert "// Silently ignore URL parsing errors" in html
@@ -369,7 +368,7 @@ class TestMapSearchRendering:
 
     def test_collapse_removes_suggestions(self, base_map: folium.Map):
         """Collapsing the control removes suggestions."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "this.removeSuggestions()" in html
 
@@ -377,7 +376,7 @@ class TestMapSearchRendering:
 
     def test_suggestion_item_has_icon(self, base_map: folium.Map):
         """Each suggestion item has a LOCATE icon."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus-search-suggestion-icon" in html
         assert "foliplus-search-suggestion-text" in html
@@ -387,19 +386,19 @@ class TestMapSearchRendering:
 
     def test_nominatim_references_runtime(self, base_map: folium.Map):
         """NOMINATIM constants reference window.foliplus.NOMINATIM."""
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus.NOMINATIM" in html
 
 
 class TestMapSearchBrowser:
-    """Browser-based smoke tests for MapSearch."""
+    """Browser-based smoke tests for SearchControl."""
 
     def test_initial_mode_addr(self, browser, tmp_path):
         """Verify that mode='addr' renders the address-search UI
         (globe icon, address placeholder) on first open."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        MapSearch(mode="addr").add_to(m)
+        SearchControl(mode="addr").add_to(m)
 
         html_path = tmp_path / "test_mapsearch_browser.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -418,16 +417,14 @@ class TestMapSearchBrowser:
             )
 
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-map-search", state="attached", timeout=10000
-            )
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
 
             # Expand the panel
             page.evaluate(
-                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-map-search.expanded", state="attached", timeout=5000
+                ".foliplus-search.expanded", state="attached", timeout=5000
             )
 
             # Verify the mode button shows the globe icon (address mode)
@@ -449,7 +446,7 @@ class TestMapSearchBrowser:
     def test_initial_mode_coord_default(self, browser, tmp_path):
         """Verify default mode='coord' shows coordinate placeholder."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        MapSearch().add_to(m)
+        SearchControl().add_to(m)
 
         html_path = tmp_path / "test_mapsearch_coord.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -457,14 +454,12 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-map-search", state="attached", timeout=10000
-            )
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             page.evaluate(
-                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-map-search.expanded", state="attached", timeout=5000
+                ".foliplus-search.expanded", state="attached", timeout=5000
             )
 
             # Verify the placeholder is for coordinate search
@@ -480,7 +475,7 @@ class TestMapSearchBrowser:
     def test_mode_switch_icon(self, browser, tmp_path):
         """Toggling mode switches icon between LOCATE (coord) and GLOBE (addr)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        MapSearch(mode="coord").add_to(m)
+        SearchControl(mode="coord").add_to(m)
 
         html_path = tmp_path / "test_mode_switch.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -488,14 +483,12 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-map-search", state="attached", timeout=10000
-            )
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             page.evaluate(
-                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-map-search.expanded", state="attached", timeout=5000
+                ".foliplus-search.expanded", state="attached", timeout=5000
             )
 
             # Click mode switch button
@@ -520,7 +513,7 @@ class TestMapSearchBrowser:
     def test_clear_button_clears_input(self, browser, tmp_path):
         """Clear button resets input value and hides hint."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        MapSearch().add_to(m)
+        SearchControl().add_to(m)
 
         html_path = tmp_path / "test_clear.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -528,14 +521,12 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-map-search", state="attached", timeout=10000
-            )
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             page.evaluate(
-                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-map-search.expanded", state="attached", timeout=5000
+                ".foliplus-search.expanded", state="attached", timeout=5000
             )
 
             # Type something in the input
@@ -552,7 +543,7 @@ class TestMapSearchBrowser:
     def test_escape_collapses_control(self, browser, tmp_path):
         """Escape key collapses the control when no suggestions are shown."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        MapSearch().add_to(m)
+        SearchControl().add_to(m)
 
         html_path = tmp_path / "test_escape.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -560,16 +551,14 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-map-search", state="attached", timeout=10000
-            )
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
 
             # Expand
             page.evaluate(
-                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-map-search.expanded", state="attached", timeout=5000
+                ".foliplus-search.expanded", state="attached", timeout=5000
             )
 
             # Press Escape
@@ -581,7 +570,7 @@ class TestMapSearchBrowser:
 
             # Verify control is collapsed
             ctrl_has_collapsed = page.evaluate(
-                "document.querySelector('.foliplus-map-search').classList.contains('collapsed')"
+                "document.querySelector('.foliplus-search').classList.contains('collapsed')"
             )
             assert ctrl_has_collapsed, "Expected control to be collapsed after Escape"
         finally:
@@ -590,7 +579,7 @@ class TestMapSearchBrowser:
     def test_autocomplete_body_mount(self, browser, tmp_path):
         """Suggestions dropdown is mounted on document.body, not inside toolBar."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        MapSearch(mode="addr").add_to(m)
+        SearchControl(mode="addr").add_to(m)
 
         html_path = tmp_path / "test_autocomplete_body.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -598,14 +587,12 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-map-search", state="attached", timeout=10000
-            )
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             page.evaluate(
-                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-map-search.expanded", state="attached", timeout=5000
+                ".foliplus-search.expanded", state="attached", timeout=5000
             )
 
             # Fire input event in address mode to trigger debounced fetch
@@ -633,7 +620,7 @@ class TestMapSearchBrowser:
     def test_keyboard_suggestion_navigation_structure(self, browser, tmp_path):
         """ArrowDown/ArrowUp/Enter keyboard navigation structure exists in address mode."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        MapSearch(mode="addr").add_to(m)
+        SearchControl(mode="addr").add_to(m)
 
         html_path = tmp_path / "test_keyboard.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -641,14 +628,12 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-map-search", state="attached", timeout=10000
-            )
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             page.evaluate(
-                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-map-search.expanded", state="attached", timeout=5000
+                ".foliplus-search.expanded", state="attached", timeout=5000
             )
 
             # Verify keyboard navigation: ArrowDown/ArrowUp/Enter
@@ -673,7 +658,7 @@ class TestMapSearchBrowser:
     def test_input_switches_placeholder(self, browser, tmp_path):
         """Input event restores the placeholder for the current mode."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        MapSearch(mode="addr").add_to(m)
+        SearchControl(mode="addr").add_to(m)
 
         html_path = tmp_path / "test_input_placeholder.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -681,14 +666,12 @@ class TestMapSearchBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-map-search", state="attached", timeout=10000
-            )
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             page.evaluate(
-                "document.querySelector('.foliplus-map-search .foliplus-toggle-btn').click()"
+                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-map-search.expanded", state="attached", timeout=5000
+                ".foliplus-search.expanded", state="attached", timeout=5000
             )
 
             # Fire input event to trigger placeholder restoration
