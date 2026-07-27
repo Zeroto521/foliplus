@@ -322,11 +322,10 @@
       for (const info of pointLayersInfo) {
         if (seenIds[info.id]) continue;
         seenIds[info.id] = true;
-        const layer = foliplus.LayerAPI.findLayer(info.id);
-        if (!layer) continue;
 
-        const pts = this.extractPoints(layer);
+        const pts = foliplus.LayerAPI.extractPoints(info.id);
         if (pts.length === 0) continue;
+        const layer = foliplus.LayerAPI.findLayer(info.id);
         this.pointLayers.push({
           id: info.id,
           name: info.name,
@@ -336,31 +335,10 @@
       }
     }
 
-    extractPoints(layer) {
-      const pts = [];
-      const seen = {};
-      const walk = (l) => {
-        if (l instanceof L.Marker || l instanceof L.CircleMarker) {
-          // Only count markers that have a .feature property — these are
-          // actual data markers created by df.explore / GeoJSON. Label/
-          // annotation markers (Text, divIcon) lack .feature and are
-          // skipped, avoiding double-counting in hexbin aggregation.
-          if (!l.feature) return;
-          const lid = L.stamp(l);
-          if (seen[lid]) return;
-          seen[lid] = true;
-          const ll = l.getLatLng();
-          pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
-        } else if (l.getLayers) l.getLayers().forEach(walk);
-      };
-      walk(layer);
-      return pts;
-    }
-
     collectFields(layers) {
       const fields = {};
       layers.forEach((info) => {
-        this.extractPoints(info.layer).forEach((pt) => {
+        foliplus.LayerAPI.extractPoints(info.id).forEach((pt) => {
           const m = pt.marker;
           if (typeof m.value === "number") fields.value = true;
           if (typeof m.options?.value === "number") fields["options.value"] = true;
@@ -411,14 +389,14 @@
       this.valueFallbackWarned = false;
       // Cache by layerId + currentAgg + currentField — invalidate on param change
       const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
-      if (this.cachedPoints && this.cachedPoints.key === key) {
+      if (this.cachedPoints && this.cachedPoints.key === key)
         return this.cachedPoints.pts;
-      }
+
       const pts = [];
       if (!this.selectedLayerId) return pts;
       this.pointLayers.forEach((info) => {
         if (info.id === this.selectedLayerId) {
-          this.extractPoints(info.layer).forEach((p) => {
+          foliplus.LayerAPI.extractPoints(info.id).forEach((p) => {
             pts.push({
               lat: p.lat,
               lng: p.lng,

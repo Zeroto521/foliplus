@@ -170,12 +170,12 @@ class TestHeatmapControlRendering:
         assert "foliplus.formatNumber" in html
 
     def test_extract_points_filters_no_feature(self, base_map: folium.Map):
-        """extractPoints only accepts markers with .feature."""
+        """extractPoints delegates to LayerAPI which filters by .feature."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "extractPoints" in html
-        # Must filter by .feature to skip label/annotation markers
-        assert "!l.feature" in html
+        # Filtering happens in LayerControl's LayerAPI.extractPoints
+        assert "foliplus.LayerAPI.extractPoints" in html
 
     def test_style_field(self, base_map: folium.Map):
         """style.field is injected into JS template."""

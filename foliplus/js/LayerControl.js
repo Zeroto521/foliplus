@@ -277,6 +277,8 @@
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
       this.findLayer = this.findLayer.bind(this);
+      this.forEachLeaf = this.forEachLeaf.bind(this);
+      this.extractPoints = this.extractPoints.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
       this.isEnforcing = false;
       this.isDestroyed = false;
@@ -428,6 +430,38 @@
      */
     findLayer(id) {
       return LayerUtils.findLayer(this.map, id);
+    }
+
+    /**
+     * Walk every leaf (non-container) layer in a registered layer tree.
+     * @param {string} id - Layer ID.
+     * @param {function} fn - Called for each leaf with (leafLayer).
+     */
+    forEachLeaf(id, fn) {
+      const layer = this.findLayer(id);
+      if (layer) LayerUtils.forEachLeaf(layer, fn);
+    }
+
+    /**
+     * Extract all point markers (L.Marker / L.CircleMarker with .feature)
+     * from a registered layer by id. Skips labels/annotations (no .feature)
+     * and deduplicates by L.stamp to avoid double-counting.
+     * @param {string} id - Layer ID.
+     * @returns {Array<{lat: number, lng: number, marker: L.Marker|L.CircleMarker}>}
+     */
+    extractPoints(id) {
+      const pts = [];
+      const seen = {};
+      this.forEachLeaf(id, (l) => {
+        if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
+        if (!l.feature) return;
+        const stamp = L.stamp(l);
+        if (seen[stamp]) return;
+        seen[stamp] = true;
+        const ll = l.getLatLng();
+        pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
+      });
+      return pts;
     }
 
     /**
