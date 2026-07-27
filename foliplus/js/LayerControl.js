@@ -492,11 +492,13 @@
           );
       }
       this.paneCache.clear();
-      if (opts.paneName && opts.layer) {
-        if (!(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)) {
-          opts.layer.options.pane = opts.paneName;
-          opts.layer.options.paneSet = true;
-        }
+      if (
+        opts.paneName &&
+        opts.layer &&
+        !(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)
+      ) {
+        opts.layer.options.pane = opts.paneName;
+        opts.layer.options.paneSet = true;
       }
 
       if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
@@ -531,13 +533,11 @@
       this.layers.unshift(item);
       this.enforceOrder();
       this.saveOrder();
-      if (this.uiContainer) {
-        // Re-render the full list so DOM order matches `this.layers` order,
-        // and re-init visibility to sync checkbox data-index attributes.
-        if (this.ui) {
-          this.ui.renderInitialList();
-          this.ui.initTypesAndVisibility();
-        }
+      // Re-render the full list so DOM order matches `this.layers` order,
+      // and re-init visibility to sync checkbox data-index attributes.
+      if (this.uiContainer && this.ui) {
+        this.ui.renderInitialList();
+        this.ui.initTypesAndVisibility();
       }
     }
 
@@ -611,10 +611,9 @@
       let registered = false;
 
       const register = () => {
-        if (!registered) {
-          registered = true;
-          if (opts.labelPane) this.labelPanes.add(opts.labelPane);
-        }
+        if (registered) return;
+        registered = true;
+        if (opts.labelPane) this.labelPanes.add(opts.labelPane);
         this.registerLayer({
           name: opts.name,
           id: opts.id,
