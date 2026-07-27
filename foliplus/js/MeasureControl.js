@@ -331,7 +331,7 @@
     }
 
     async handleMarkerClick(e) {
-      if (this.m.currentMode !== CONST.MODE.MARKER) return;
+      if (this.m.currentMode !== this.constructor.TYPE) return;
       const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
       const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
 
@@ -378,7 +378,7 @@
       const markerId = this.nextMeasurementId();
       this.m.measurements.push({
         id: markerId,
-        type: CONST.MODE.MARKER,
+        type: this.constructor.TYPE,
         lng: parseFloat(lng),
         lat: parseFloat(lat),
         address: cachedAddr,
@@ -536,7 +536,7 @@
         }));
         this.m.measurements.push({
           id: distId,
-          type: CONST.MODE.DISTANCE,
+          type: this.constructor.TYPE,
           points: pts.map((p) => ({ lng: p.lng, lat: p.lat })),
           segments,
           totalDistance: total,
@@ -620,7 +620,7 @@
       };
 
       const onDistClick = (e) => {
-        if (this.m.currentMode !== CONST.MODE.DISTANCE) return;
+        if (this.m.currentMode !== this.constructor.TYPE) return;
         ensureLayersAdded();
         pts.push(e.latlng);
         if (previewDistLabel) {
@@ -728,7 +728,7 @@
       const onMapClick = (e) => {
         if (
           isFinalizing ||
-          this.m.currentMode !== CONST.MODE.CIRCLE ||
+          this.m.currentMode !== this.constructor.TYPE ||
           (state !== 0 && state !== 1)
         )
           return;
@@ -774,7 +774,7 @@
       };
 
       const onMouseMove = (e) => {
-        if (state !== 1 || !center || this.m.currentMode !== CONST.MODE.CIRCLE) return;
+        if (state !== 1 || !center || this.m.currentMode !== this.constructor.TYPE) return;
         const r = MeasureUtils.distance(
           center.lng,
           center.lat,
@@ -927,7 +927,7 @@
         const circleId = this.nextMeasurementId();
         this.m.measurements.push({
           id: circleId,
-          type: CONST.MODE.CIRCLE,
+          type: this.constructor.TYPE,
           center: { lng: centerLatLng.lng, lat: centerLatLng.lat },
           target: { lng: finalTargetLatLng.lng, lat: finalTargetLatLng.lat },
           radius: r,
