@@ -265,7 +265,9 @@ class TestLocaleBrowserJS:
         page.goto(f"file://{dest}", wait_until="domcontentloaded", timeout=15000)
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "en"
-        assert page.evaluate("window._LOCALE['SearchControl.btn_title']") == "Map Search"
+        assert (
+            page.evaluate("window._LOCALE['SearchControl.btn_title']") == "Map Search"
+        )
         page.close()
 
     def test_fallback_unsupported(self, browser, tmp_path):
