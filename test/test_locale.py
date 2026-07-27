@@ -236,9 +236,7 @@ class TestLocaleBrowserJS:
 
     def test_auto_detect_zh(self, browser, tmp_path):
         """navigator.language=zh-CN selects zh table."""
-        import folium
-
-        from foliplus import MapSearch
+        from foliplus import SearchControl
 
         m = folium.Map()
         SearchControl().add_to(m)
@@ -255,9 +253,7 @@ class TestLocaleBrowserJS:
 
     def test_auto_detect_en(self, browser, tmp_path):
         """navigator.language=en-US selects en table."""
-        import folium
-
-        from foliplus import MapSearch
+        from foliplus import SearchControl
 
         m = folium.Map()
         SearchControl().add_to(m)
@@ -276,9 +272,7 @@ class TestLocaleBrowserJS:
 
     def test_fallback_unsupported(self, browser, tmp_path):
         """Unsupported navigator.language falls back to en."""
-        import folium
-
-        from foliplus import MapSearch
+        from foliplus import SearchControl
 
         m = folium.Map()
         SearchControl().add_to(m)
