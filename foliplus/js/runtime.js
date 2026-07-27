@@ -71,7 +71,7 @@
     EXPANDED: "expanded",
     TOGGLE_BTN: "foliplus-toggle-btn",
     LEAFLET_BAR: "leaflet-bar leaflet-control",
-    MAP_HINT: "foliplus-map-hint",
+    MAP_HINT: "foliplus-hint",
   };
 
   // --- SVG Icons ---
@@ -157,7 +157,7 @@
     const el = L.DomUtil.create("div", cls, hintTarget);
     const icon = (hintIcons && hintIcons[key]) || "";
     el.innerHTML = icon
-      ? `<span class="foliplus-map-hint-icon">${icon}</span>${text}`
+      ? `<span class="foliplus-hint-icon">${icon}</span>${text}`
       : text;
     el.classList.add(CLASSES.MAP_HINT);
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
@@ -245,10 +245,10 @@
    */
   const ensureGcoord = () => {
     if (typeof gcoord === "undefined") {
-      console.warn(`[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`);
+      console.warn(`[SearchControl] ${foliplus.gt("SearchControl.gcoord_warn")}`);
       foliplus.showHint(
-        "MapSearch",
-        `${foliplus.gt("MapSearch.gcoord_warn")}`,
+        "SearchControl",
+        `${foliplus.gt("SearchControl.gcoord_warn")}`,
         HINT.LONG,
       );
       return false;
@@ -376,7 +376,7 @@
 
   /**
    * Format a Nominatim display_name into a concise address string.
-   * Used by both reverseGeocode and MapSearch search results to ensure
+   * Used by both reverseGeocode and SearchControl search results to ensure
    * consistent address formatting across the codebase.
    *
    * Removes trailing numeric tokens (postal codes, house numbers).
@@ -453,7 +453,7 @@
           .then((data) => {
             const addr =
               foliplus.formatAddress(data.display_name, map) ||
-              foliplus.gt("MapSearch.addr_not_found");
+              foliplus.gt("SearchControl.addr_not_found");
             geoCache[key] = addr;
             return geoCache[key];
           })
@@ -715,7 +715,7 @@
       class: CLASSES.LEAFLET_BAR,
     });
     const ctrl = foliplus.dom.el("div", {
-      class: `foliplus-map-panel foliplus-ctrl-fold ${opts.cssClass} ${CLASSES.COLLAPSED}`,
+      class: `foliplus-panel foliplus-ctrl-fold ${opts.cssClass} ${CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
       foliplus.dom.el(

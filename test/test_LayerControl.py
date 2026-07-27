@@ -1019,10 +1019,10 @@ class TestLayerControlBrowser:
             assert ok, "Failed to dispatch simulated cross-group dragover"
 
             page.wait_for_selector(
-                ".foliplus-map-hint-LayerControl", state="attached", timeout=5000
+                ".foliplus-hint-LayerControl", state="attached", timeout=5000
             )
             hint_text = page.evaluate(
-                'document.querySelector(".foliplus-map-hint-LayerControl")?.textContent || ""'
+                'document.querySelector(".foliplus-hint-LayerControl")?.textContent || ""'
             )
             assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
         finally:

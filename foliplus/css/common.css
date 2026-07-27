@@ -164,7 +164,7 @@
 :is(
     .foliplus-ctrl-fold,
     .foliplus-tool-btn,
-    .foliplus-map-hint-icon,
+    .foliplus-hint-icon,
     .foliplus-header-icon,
     .foliplus-type-icon-col
   )
@@ -260,7 +260,7 @@
   stroke: currentColor;
 }
 
-/* ── Tool Button Base (used by MeasureControl toolbar, MapSearch mode switch) ── */
+/* ── Tool Button Base (used by MeasureControl toolbar, SearchControl mode switch) ── */
 .foliplus-tool-btn,
 .foliplus-search-mode-btn {
   width: var(--ctrl-size);
@@ -272,7 +272,7 @@
 }
 
 /* ── Map Hint (Toast Notification) ── */
-.foliplus-map-hint {
+.foliplus-hint {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -292,7 +292,7 @@
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
 }
 
-.foliplus-map-hint-icon {
+.foliplus-hint-icon {
   display: inline-flex;
   align-items: center;
 }
@@ -329,7 +329,7 @@
 
 /* ── Hover/Focus: red border + red glow ── */
 :is(
-  .foliplus-map-search input,
+  .foliplus-search input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
   .foliplus-heatmap-ctrl select,
   .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
@@ -373,11 +373,11 @@
   background: var(--accent-light);
 }
 
-/* ── Separator between toggle button and tools (non-map-panel) ── */
-.foliplus-ctrl-fold:not(.foliplus-map-panel).expanded .foliplus-toggle-btn {
+/* ── Separator between toggle button and tools (non-panel) ── */
+.foliplus-ctrl-fold:not(.foliplus-panel).expanded .foliplus-toggle-btn {
   border-right: var(--border-thin) solid var(--divider-color);
 }
-.foliplus-ctrl-fold:not(.foliplus-map-panel).expanded.foliplus-align-right
+.foliplus-ctrl-fold:not(.foliplus-panel).expanded.foliplus-align-right
   .foliplus-toggle-btn {
   border-right: none;
   border-left: var(--border-thin) solid var(--divider-color);

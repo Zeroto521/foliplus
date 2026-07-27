@@ -10,18 +10,18 @@ except ImportError:
     except PackageNotFoundError:
         __version__ = "unknown"
 
-from .Fullscreen import Fullscreen
+from .FullscreenControl import FullscreenControl
 from .HeatmapControl import HeatmapControl
 from .LayerControl import LayerControl
-from .MapSearch import MapSearch
 from .MeasureControl import MeasureControl
 from .ScaleControl import ScaleControl
+from .SearchControl import SearchControl
 
 __all__ = [
-    "Fullscreen",
+    "FullscreenControl",
     "HeatmapControl",
     "LayerControl",
-    "MapSearch",
     "MeasureControl",
     "ScaleControl",
+    "SearchControl",
 ]

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import pathlib
 import re
 
 import folium
 from conftest import render
-import pathlib
 
 from foliplus import MeasureControl
 

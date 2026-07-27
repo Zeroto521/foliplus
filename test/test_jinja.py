@@ -10,10 +10,10 @@ import pytest
 from conftest import render
 
 from foliplus import (
-    Fullscreen,
+    FullscreenControl,
     HeatmapControl,
     LayerControl,
-    MapSearch,
+    SearchControl,
     MeasureControl,
     ScaleControl,
 )
@@ -22,10 +22,10 @@ JS_DIR = Path(__file__).parent.parent / "foliplus" / "js"
 
 # All controls with their CONST.name value
 _CONTROLS = {
-    "Fullscreen": Fullscreen,
+    "FullscreenControl": FullscreenControl,
     "HeatmapControl": HeatmapControl,
     "LayerControl": LayerControl,
-    "MapSearch": MapSearch,
+    "SearchControl": SearchControl,
     "MeasureControl": MeasureControl,
     "ScaleControl": ScaleControl,
 }
@@ -74,9 +74,9 @@ class TestJinjaIntegrity:
     def test_all_components_render(self):
         m = folium.Map()
         components = [
-            MapSearch(),
+            SearchControl(),
             LayerControl(),
-            Fullscreen(),
+            FullscreenControl(),
             ScaleControl(),
             MeasureControl(),
             HeatmapControl(),
@@ -90,18 +90,18 @@ class TestJinjaIntegrity:
 
     def test_locale_injection(self):
         m = folium.Map()
-        MapSearch(locale="zh").add_to(m)
+        SearchControl(locale="zh").add_to(m)
         html = render(m)
-        assert "MapSearch.coord_placeholder" in html
+        assert "SearchControl.coord_placeholder" in html
         assert '"zh"' in html
 
     def test_all_components_render_with_zh(self):
         """All components must render without error with Chinese locale."""
         m = folium.Map()
         components = [
-            MapSearch(locale="zh"),
+            SearchControl(locale="zh"),
             LayerControl(locale="zh"),
-            Fullscreen(locale="zh"),
+            FullscreenControl(locale="zh"),
             ScaleControl(locale="zh"),
             MeasureControl(locale="zh"),
             HeatmapControl(locale="zh"),
@@ -126,16 +126,16 @@ class TestJinjaIntegrity:
             )
 
     def test_runtime_error_keys_injected(self):
-        """Runtime error keys (MapSearch.gcoord_warn) appear in HTML."""
+        """Runtime error keys (SearchControl.gcoord_warn) appear in HTML."""
         m = folium.Map()
-        MapSearch().add_to(m)
+        SearchControl().add_to(m)
         html = render(m)
-        assert "MapSearch.gcoord_warn" in html
+        assert "SearchControl.gcoord_warn" in html
 
     def test_debounce_utility(self):
         """foliplus.debounce returns a debounced function with .cancel()."""
         m = folium.Map()
-        MapSearch().add_to(m)
+        SearchControl().add_to(m)
         html = render(m)
         assert "foliplus.debounce" in html
         assert "debounced.cancel" in html

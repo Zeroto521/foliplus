@@ -5,7 +5,7 @@
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Container ── */
-.foliplus-map-panel {
+.foliplus-panel {
   display: flex;
   align-items: flex-start;
   overflow: visible;
@@ -14,7 +14,7 @@
 }
 
 /* ── Expanded State ── */
-.foliplus-map-panel.expanded {
+.foliplus-panel.expanded {
   width: var(--panel-width);
   flex-direction: column;
   border-radius: var(--radius-card);
@@ -23,31 +23,31 @@
 }
 
 /* Hide toggle when expanded */
-.foliplus-map-panel.expanded .foliplus-toggle-btn {
+.foliplus-panel.expanded .foliplus-toggle-btn {
   display: none;
 }
 
-/* ── Accent color for expanded icon (all map-panel components) ── */
-.foliplus-map-panel.expanded .foliplus-header-icon,
-.foliplus-map-panel.expanded .foliplus-header-icon svg {
+/* ── Accent color for expanded icon (all panel components) ── */
+.foliplus-panel.expanded .foliplus-header-icon,
+.foliplus-panel.expanded .foliplus-header-icon svg {
   color: var(--accent-primary);
 }
 
 /* ── Panel Wrapper (visible when expanded) ── */
-.foliplus-map-panel .foliplus-panel-wrap {
+.foliplus-panel .foliplus-panel-wrap {
   display: none;
   flex-direction: column;
   width: 100%;
 }
 
-.foliplus-map-panel.expanded .foliplus-panel-wrap {
+.foliplus-panel.expanded .foliplus-panel-wrap {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
 /* ── Panel Header ── */
-.foliplus-map-panel .foliplus-panel-header {
+.foliplus-panel .foliplus-panel-header {
   display: flex;
   align-items: center;
   height: var(--ctrl-size);
@@ -66,11 +66,11 @@
   position: relative;
 }
 
-.foliplus-map-panel .foliplus-panel-header:hover {
+.foliplus-panel .foliplus-panel-header:hover {
   background: var(--panel-header-hover);
 }
 
-.foliplus-map-panel .foliplus-panel-header .foliplus-header-icon {
+.foliplus-panel .foliplus-panel-header .foliplus-header-icon {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   flex-shrink: 0;
@@ -82,7 +82,7 @@
   left: 0;
 }
 
-.foliplus-map-panel .foliplus-panel-header .foliplus-header-title {
+.foliplus-panel .foliplus-panel-header .foliplus-header-title {
   display: flex;
   align-items: center;
   gap: 0;
@@ -97,7 +97,7 @@
 }
 
 /* ── Panel Content ── */
-.foliplus-map-panel .foliplus-panel-content {
+.foliplus-panel .foliplus-panel-content {
   display: flex;
   flex-direction: column;
   flex: 1;

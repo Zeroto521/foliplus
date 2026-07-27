@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from ._typing import Position
-from .base import BaseControl
+from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
 
-class Fullscreen(BaseControl):
-    """Fullscreen toggle with auto-hide for other controls.
+class FullscreenControl(BaseControl):
+    """FullscreenControl toggle with auto-hide for other controls.
 
     When toggling fullscreen, other controls (HeatmapControl, LayerControl, ScaleControl
-    , MapSearch, MeasureControl, etc.), inside ``.leaflet-control-container`` are
+    , SearchControl, MeasureControl, etc.), inside ``.leaflet-control-container`` are
     automatically hidden/shown for a cleaner view.
 
     Parameters
@@ -31,9 +31,9 @@ class Fullscreen(BaseControl):
     Examples
     --------
     >>> import folium
-    >>> from foliplus import Fullscreen
+    >>> from foliplus import FullscreenControl
     >>> m = folium.Map()
-    >>> Fullscreen().add_to(m)
+    >>> FullscreenControl().add_to(m)
     """
 
     def __init__(
@@ -48,5 +48,5 @@ class Fullscreen(BaseControl):
         self.hide_self = hide_self
         self.hide_others = hide_others
         self._template = self._get_template(
-            js_file="Fullscreen.js", css_file="Fullscreen.css"
+            js_file="FullscreenControl.js", css_file="FullscreenControl.css"
         )
