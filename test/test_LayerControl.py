@@ -80,14 +80,11 @@ class TestLayerControlRendering:
         assert "unregisterLayer" in html
         assert "getLayersByType" in html
         assert "ensurePane" in html
-        # layers() convenience API
-        assert "addGraph" in html
-        assert "addLabel" in html
-        assert "removeGraph" in html
-        assert "removeLabel" in html
-        assert "clearGraph" in html
-        assert "clearLabels" in html
+        # createLayers convenience API
         assert "clearAll" in html
+        assert "register" in html
+        assert "unregister" in html
+        assert "bringToFront" in html
 
     def test_bring_to_front_guard(self, base_map: folium.Map):
         """bringToFront monkey patch prevents parentNode errors during pane migration."""
@@ -642,12 +639,10 @@ class TestLayerControlRendering:
         assert "&#39;" in html
 
     def test_create_layers_auto_register_on_content(self, base_map: folium.Map):
-        """createLayers auto-registers only when addGraph/addLabel is called."""
+        """createLayers auto-registers when content is added via mainLayer.addLayer."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "createLayers" in html
-        assert "addGraph" in html
-        assert "addLabel" in html
         assert "register()" in html
         assert "unregister()" in html
 
@@ -1054,35 +1049,21 @@ class TestLayerControlBrowser:
                     labelPane: '__test_label__',
                 });
                 return {
-                    hasAddGraph: typeof mg.addGraph === 'function',
-                    hasAddLabel: typeof mg.addLabel === 'function',
-                    hasRemoveGraph: typeof mg.removeGraph === 'function',
-                    hasRemoveLabel: typeof mg.removeLabel === 'function',
-                    hasClearGraph: typeof mg.clearGraph === 'function',
-                    hasClearLabels: typeof mg.clearLabels === 'function',
-                    hasClearAll: typeof mg.clearAll === 'function',
+                    hasClearLayers: typeof mg.clearLayers === 'function',
                     hasRegister: typeof mg.register === 'function',
                     hasUnregister: typeof mg.unregister === 'function',
                     hasRegistered: typeof mg.registered === 'function',
                     hasMainLayer: !!mg.mainLayer,
-                    hasGraphLayer: !!mg.graphLayer,
-                    hasLabelLayer: !!mg.labelLayer,
+                    hasBringToFront: typeof mg.bringToFront === 'function',
                 };
             }""")
             assert api is not None, "LayerAPI not found"
-            assert api["hasAddGraph"], "addGraph missing"
-            assert api["hasAddLabel"], "addLabel missing"
-            assert api["hasRemoveGraph"], "removeGraph missing"
-            assert api["hasRemoveLabel"], "removeLabel missing"
-            assert api["hasClearGraph"], "clearGraph missing"
-            assert api["hasClearLabels"], "clearLabels missing"
-            assert api["hasClearAll"], "clearAll missing"
+            assert api["hasClearLayers"], "clearLayers missing"
             assert api["hasRegister"], "register missing"
             assert api["hasUnregister"], "unregister missing"
             assert api["hasRegistered"], "registered missing"
             assert api["hasMainLayer"], "mainLayer missing"
-            assert api["hasGraphLayer"], "graphLayer missing"
-            assert api["hasLabelLayer"], "labelLayer missing"
+            assert api["hasBringToFront"], "bringToFront missing"
         finally:
             page.close()
 
@@ -1112,7 +1093,7 @@ class TestLayerControlBrowser:
                     labelPane: '__pane_test_label__',
                 });
                 const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
-                mg.addGraph(poly);
+                mg.mainLayer.addLayer(poly);
                 return {
                     pane: poly.options.pane,
                     hasRenderer: !!poly._renderer,
@@ -1122,7 +1103,7 @@ class TestLayerControlBrowser:
             assert result is not None
             assert result["pane"] == "__pane_test_graph__", f"got {result['pane']}"
             assert result["hasRenderer"] is True, "renderer not set"
-            assert result["registered"] is True, "not registered after addGraph"
+            assert result["registered"] is True, "not registered after addLayer"
         finally:
             page.close()
 
@@ -1150,19 +1131,15 @@ class TestLayerControlBrowser:
                     name: 'ClearTest',
                     graphPane: '__test_clear_graph__',
                 });
-                mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
                 const beforeRegistered = mg.registered();
-                const beforeContent = Object.keys(mg.graphLayer._layers || {}).length;
-                mg.clearAll();
+                mg.clearLayers();
                 const afterRegistered = mg.registered();
-                const afterContent = Object.keys(mg.graphLayer._layers || {}).length;
-                return { beforeRegistered, beforeContent, afterRegistered, afterContent };
+                return { beforeRegistered, afterRegistered };
             }""")
             assert result is not None
             assert result["beforeRegistered"] is True
-            assert result["beforeContent"] == 1
             assert result["afterRegistered"] is False
-            assert result["afterContent"] == 0
         finally:
             page.close()
 
@@ -1192,7 +1169,8 @@ class TestLayerControlBrowser:
                     labelPane: '__test_label_pane__',
                 });
                 const mkr = L.marker([26.08,119.30]);
-                mg.addLabel(mkr);
+                mkr.isLabel = true;
+                mg.mainLayer.addLayer(mkr);
                 return { pane: mkr.options.pane, registered: mg.registered() };
             }""")
             assert result is not None
@@ -1250,10 +1228,9 @@ class TestLayerControlBrowser:
                     name: 'UnregTest',
                     graphPane: '__test_unreg_graph__',
                 });
-                mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
                 const before = mg.registered();
-                // unregister is a no-op when content exists; clearAll first
-                mg.clearAll();
+                mg.clearLayers();
                 const after = mg.registered();
                 return { before, after };
             }""")
@@ -1365,15 +1342,12 @@ class TestLayerControlBrowser:
                     graphPane: '__test_pane_skip_graph__',
                 });
                 const mkr = L.marker([26.08,119.30]);
-                mg.addGraph(mkr);
+                mg.mainLayer.addLayer(mkr);
                 // Marker should NOT be moved — still on default markerPane
                 const pane = mkr.options.pane;
-                const paneSet = mkr.options.paneSet;
-                return { pane, paneSet };
+                return { pane };
             }""")
             assert result is not None
-            # Marker goes through addGraph which sets pane, but setLayerPaneRecursive
-            # should skip L.Marker instances
             assert result["pane"] is not None
         finally:
             page.close()

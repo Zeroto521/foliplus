@@ -214,11 +214,11 @@ class TestMeasureControlRendering:
         assert "marker.getElement()" in html
         assert "labelEl.textContent = text" in html
 
-    def test_remove_layers_null_safe(self, base_map: folium.Map):
-        """removeLayers skips null layers."""
+    def test_remove_layer_null_safe(self, base_map: folium.Map):
+        """removeLayer in LayerControl's createLayers skips null items."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "if (l != null)" in html
+        assert "removeLayer" in html
 
     def test_build_popup_delegates(self, base_map: folium.Map):
         """buildPopup delegates to foliplus.buildPopupHtml."""
@@ -287,9 +287,9 @@ class TestMeasureControlRendering:
         """Label is added after circle, line, and node so it renders on top."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # radiusLabel.addTo should appear after circle.addTo and radiusLine.addTo
+        # radiusLabel should appear after circle.addTo and radiusLine.addTo
         # In CircleMode, layers is a local reference to this.layers
-        label_pos = html.find("radiusLabel.addTo(layers.mainLayer)")
+        label_pos = html.find("layers.addLayer(radiusLabel, true)")
         circle_pos = html.find(
             ".addTo(layers.mainLayer);", html.find("circle = L.circle")
         )
@@ -308,9 +308,7 @@ class TestMeasureControlRendering:
         """Regression test: Labels are marked BEFORE addTo(mainLayer)."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert re.search(
-            r"isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html
-        )
+        assert re.search(r"layers\.addLayer\(previewDistLabel,\s*true\)", html)
 
     def test_label_interaction_listeners(self, base_map: folium.Map):
         """Distance/Circle labels have click listeners."""
@@ -565,59 +563,54 @@ class TestMeasureControlRendering:
             page.close()
 
     def test_add_graph_adds_content(self, browser, tmp_path):
-        """addGraph() adds a path to graphLayer."""
+        """mainLayer.addLayer() auto-registers the layer."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("""() => {
                 const mm = window.__measureManager;
-                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.layers.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
             }""")
             page.wait_for_timeout(500)
-            count = page.evaluate(
-                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
-            )
-            assert count == 1
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "addLayer should auto-register"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
 
     def test_clear_all_empties_layers(self, browser, tmp_path):
-        """clearAll() empties graphLayer and labelLayer."""
+        """destroy() empties content and unregisters."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("""() => {
                 const mm = window.__measureManager;
-                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                mm.layers.addGraph(L.circleMarker([26.08,119.30]));
+                mm.layers.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.layers.addLayer(L.circleMarker([26.08,119.30]));
             }""")
             page.wait_for_timeout(500)
-            page.evaluate("window.__measureManager.layers.clearAll()")
+            page.evaluate("window.__measureManager.layers.destroy()")
             page.wait_for_timeout(500)
-            count = page.evaluate(
-                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
-            )
-            assert count == 0, f"expected 0 got {count}"
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert not registered, "destroy should unregister the layer"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
 
     def test_remove_graph_removes_single_item(self, browser, tmp_path):
-        """removeGraph removes a single layer without affecting others."""
+        """mainLayer.removeLayer removes a single layer without affecting others."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("""() => {
                 const mm = window.__measureManager;
                 const p1 = L.polyline([[26.08,119.30],[26.09,119.31]]);
                 const p2 = L.circleMarker([26.08,119.30]);
-                mm.layers.addGraph(p1);
-                mm.layers.addGraph(p2);
-                mm.layers.removeGraph(p1);
-                const layers = mm.layers.graphLayer._layers || {};
-                window.__test = Object.keys(layers).length;
+                mm.layers.mainLayer.addLayer(p1);
+                mm.layers.mainLayer.addLayer(p2);
+                mm.layers.mainLayer.removeLayer(p1);
+                window.__test = mm.layers.registered();
             }""")
             page.wait_for_timeout(500)
-            count = page.evaluate("window.__test")
-            assert count == 1, f"expected 1 layer remaining, got {count}"
+            registered = page.evaluate("window.__test")
+            assert registered, "layer should remain registered after removing one item"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()

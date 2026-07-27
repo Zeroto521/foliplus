@@ -641,7 +641,7 @@
 
       // Override addLayer to route to sub-layers and auto-register on content.
       mainLayer.addLayer = (layer) => {
-        const isLabel = layer.isMeasureLabel;
+        const isLabel = layer.isLabel;
         const target = isLabel ? labelLayer : graphLayer;
         if (target) {
           // When mainLayer was off the map (e.g., user unchecked the layer
@@ -683,67 +683,33 @@
       };
 
       // ── Convenience API ──────────────────────────────────────────
-      const addGraph = (layer) => {
-        if (!graphLayer) return;
-        layer.options.pane = opts.graphPane;
-        if (layer instanceof L.Path) {
-          const { renderer } = this.ensurePane(opts.graphPane);
-          layer._renderer = renderer;
-        } else if (opts.graphPane) this.ensurePane(opts.graphPane, false);
-        graphLayer.addLayer(layer);
-        register();
+      const addLayer = (layer, isLabel) => {
+        if (isLabel) layer.isLabel = true;
+        return mainLayer.addLayer(layer);
       };
-
-      const addLabel = (marker) => {
-        if (!labelLayer) return;
-        if (opts.labelPane) {
-          marker.options.pane = opts.labelPane;
-          this.ensurePane(opts.labelPane, false);
+      const removeLayer = (...items) => {
+        items.forEach((l) => {
+          if (l != null) mainLayer.removeLayer(l);
+        });
+      };
+      const clearLayers = () => {
+        mainLayer.clearLayers();
+        unregister();
+      };
+      const destroy = () => {
+        clearLayers();
+        if (registered) {
+          registered = false;
+          this.unregisterLayer(opts.id);
         }
-        labelLayer.addLayer(marker);
-        register();
-      };
-
-      const removeGraph = (layer) => {
-        if (!graphLayer) return;
-        graphLayer.removeLayer(layer);
-        unregister();
-      };
-
-      const removeLabel = (layer) => {
-        if (!labelLayer) return;
-        labelLayer.removeLayer(layer);
-        unregister();
-      };
-
-      const clearGraph = () => {
-        if (!graphLayer) return;
-        graphLayer.clearLayers();
-        unregister();
-      };
-
-      const clearLabels = () => {
-        if (!labelLayer) return;
-        labelLayer.clearLayers();
-        unregister();
-      };
-
-      const clearAll = () => {
-        clearGraph();
-        clearLabels();
       };
 
       return {
         mainLayer,
-        graphLayer,
-        labelLayer,
-        addGraph,
-        addLabel,
-        removeGraph,
-        removeLabel,
-        clearGraph,
-        clearLabels,
-        clearAll,
+        addLayer,
+        removeLayer,
+        clearLayers,
+        destroy,
         register,
         unregister,
         registered: () => registered,
@@ -904,12 +870,14 @@
         updatePosition,
         register,
         unregister,
+        registered: () => registered,
         destroy: () => {
           this.map.off("move", onMove);
           this.map.off("resize", onResize);
           unregister();
           canvas.remove();
         },
+        bringToFront: () => this.bringLayerToFront(opts.id),
         setZIndex: (z) => {
           canvas.style.zIndex = String(z);
         },
