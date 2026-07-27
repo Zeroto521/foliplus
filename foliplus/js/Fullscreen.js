@@ -12,10 +12,7 @@
       LEAFLET_BAR: "leaflet-bar",
     },
   };
-
-  function getContainerId() {
-    return `${CONST.name}_${CONST.position}_container`;
-  }
+  const ContainerId = `${CONST.name}_${CONST.position}_container`;
 
   // ==================== Runtime Guard ====================
   const foliplus = window.foliplus || {};
@@ -26,7 +23,7 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (foliplus && foliplus.gt ? foliplus.gt(k) : k);
+  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -94,7 +91,7 @@
       const container = foliplus.dom.el("div", {
         class: `${CONST.CLASSES.LEAFLET_BAR} ${CONST.CLASSES.FULLSCREEN_BAR}`,
       });
-      container.id = getContainerId();
+      container.id = ContainerId;
 
       // Zoom in button — <button> element with tool-btn class
       const zoomInBtn = foliplus.dom.el(
@@ -156,7 +153,7 @@
             .getContainer()
             .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
           for (const c of controls) {
-            if (c.contains(container) || c.closest?.(`#${getContainerId()}`)) continue;
+            if (c.contains(container) || c.closest?.(`#${ContainerId}`)) continue;
             c.classList.toggle("foliplus-fullscreen-hidden", isFull);
           }
         }

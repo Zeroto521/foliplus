@@ -22,17 +22,17 @@
    */
   foliplus.gt =
     foliplus.gt ||
-    function (k) {
+    ((k) => {
       const loc = window._LOCALE;
       return loc && loc[k] ? loc[k] : k;
-    };
+    });
 
   // 3. Early return only if logic is already initialized
   if (foliplus._initialized) return;
   foliplus._initialized = true;
 
   // Private state (closure-scoped, not exposed on foliplus)
-  let hintIcons = {};
+  const hintIcons = {};
 
   // ==================== Constants ====================
   const HINT = {
@@ -52,9 +52,11 @@
     LONG: HINT.LONG,
     PERSIST: HINT.PERSIST,
   };
-  const GEO = {
+  foliplus.NOMINATIM = {
+    URL: "https://nominatim.openstreetmap.org",
+    FORMAT: "jsonv2",
     THROTTLE_MS: 1000,
-    NOMINATIM_ZOOM: 18,
+    ZOOM: 18,
   };
   const PIN = {
     SIZE: [24, 36],
@@ -241,7 +243,7 @@
    * Ensure that the gcoord library is loaded. If not, logs a warning and shows a hint.
    * @returns {boolean} True if gcoord is available, false otherwise.
    */
-  function ensureGcoord() {
+  const ensureGcoord = () => {
     if (typeof gcoord === "undefined") {
       console.warn(`[MapSearch] ${foliplus.gt("MapSearch.gcoord_warn")}`);
       foliplus.showHint(
@@ -252,18 +254,18 @@
       return false;
     }
     return true;
-  }
+  };
 
   /**
    * Detect the map's coordinate reference system type: 'BD09', 'GCJ02', or 'WGS84'.
    * @param {L.Map} map - Leaflet map instance
    * @returns {string} 'BD09' | 'GCJ02' | 'WGS84' (WGS84 indicates foreign maps that do not require conversion)
    */
-  function getMapCrsType(map) {
+  const getMapCrsType = (map) => {
     if (isBaiduCRS(map)) return "BD09";
     if (isDomesticMap(map)) return "GCJ02";
     return "WGS84";
-  }
+  };
 
   /**
    * Convert map-displayed coordinates (GCJ-02 / BD-09) to WGS-84.
@@ -343,10 +345,79 @@
   };
 
   // ==================== Reverse Geocoding ====================
+  /**
+   * Build a Nominatim API URL with shared parameters.
+   * @param {string} endpoint - Path like "/search", "/reverse", or "" for search
+   * @param {Object} params - Additional query parameters
+   * @returns {string} Full URL
+   *
+   * @example
+   *   foliplus.nominatimUrl("/reverse", { lat: 31.23, lon: 121.47, zoom: 18 });
+   *   foliplus.nominatimUrl("", { q: "Beijing", limit: 5, lat: 30, lon: 120 });
+   */
+  foliplus.nominatimUrl = (endpoint, params = {}) => {
+    const url = new URL(endpoint || "", foliplus.NOMINATIM.URL);
+    url.searchParams.set("format", foliplus.NOMINATIM.FORMAT);
+    for (const [k, v] of Object.entries(params))
+      if (v != null) url.searchParams.set(k, String(v));
+
+    if (!url.searchParams.has("accept-language"))
+      url.searchParams.set(
+        "accept-language",
+        (window._LOCALE && window._LOCALE["locale.code"]) || "en",
+      );
+
+    return url.toString();
+  };
   // Uses throttled queue (1 req/s) and response cache.
   const geoCache = {};
   let geoPromise = Promise.resolve();
   let geoLastReq = 0;
+
+  /**
+   * Format a Nominatim display_name into a concise address string.
+   * Used by both reverseGeocode and MapSearch search results to ensure
+   * consistent address formatting across the codebase.
+   *
+   * Removes trailing numeric tokens (postal codes, house numbers).
+   * For domestic (Chinese) maps, reverses the order (Nominatim returns
+   * western order "small→large", Chinese convention is "large→small").
+   * For foreign maps, keeps the original Nominatim order.
+   *
+   * @param {string} displayName - Nominatim display_name string
+   * @param {L.Map} [map] - Leaflet map instance; if provided, detects
+   *                        domestic vs foreign CRS to determine ordering
+   * @returns {string} Formatted address
+   */
+  foliplus.formatAddress = (displayName, map) => {
+    if (!displayName) return "";
+    const parts = displayName
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => {
+        if (!s) return false;
+        // Remove pure numeric tokens (postal codes, house numbers)
+        if (/^\d+$/.test(s)) return false;
+        // Remove ZIP+4 and similar (12345-6789, 12345 6789)
+        if (/^\d{3,}([-–—]\d{2,}|\s+\d{2,})?$/.test(s)) return false;
+        // Remove short numeric+letter combos that look like postal codes (e.g. "EC1A 1BB", "10001")
+        if (
+          /^[A-Z0-9]{2,10}(\s+[A-Z0-9]{2,10})?$/i.test(s) &&
+          s.length <= 10 &&
+          /[A-Z]/.test(s) === /[0-9]/.test(s)
+        )
+          return false;
+        return true;
+      });
+    if (parts.length === 0) return "";
+    // Domestic (Chinese) maps OR locale=zh: reverse order (small→large → large→small)
+    // Foreign maps: keep original order
+    const isChinese =
+      (map && getMapCrsType(map) !== "WGS84") ||
+      (window._LOCALE && window._LOCALE["locale.code"] === "zh");
+    if (isChinese) return parts.reverse().join(",");
+    return parts.join(",");
+  };
 
   /**
    * Reverse geocode coordinates to an address via Nominatim.
@@ -361,12 +432,18 @@
     if (geoCache[key]) return Promise.resolve(geoCache[key]);
 
     const wgs = foliplus.toWgs84(map, parseFloat(lng), parseFloat(lat));
-    const lang = (window._LOCALE && window._LOCALE["locale.code"]) || "en";
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${wgs[1]}&lon=${wgs[0]}&zoom=${GEO.NOMINATIM_ZOOM}&accept-language=${lang}`;
+    const url = foliplus.nominatimUrl("/reverse", {
+      lon: wgs[0],
+      lat: wgs[1],
+      zoom: foliplus.NOMINATIM.ZOOM,
+    });
 
     geoPromise = geoPromise
       .then(() => {
-        const wait = Math.max(0, GEO.THROTTLE_MS - (Date.now() - geoLastReq));
+        const wait = Math.max(
+          0,
+          foliplus.NOMINATIM.THROTTLE_MS - (Date.now() - geoLastReq),
+        );
         return new Promise((r) => setTimeout(r, wait));
       })
       .then(() => {
@@ -374,14 +451,10 @@
         return fetch(url)
           .then((r) => r.json())
           .then((data) => {
-            let addr = data.display_name || "";
-            addr = addr
-              .split(",")
-              .map((s) => s.trim())
-              .filter((s) => s && !/^\d+$/.test(s))
-              .reverse()
-              .join(",");
-            geoCache[key] = addr || foliplus.gt("MapSearch.addr_not_found");
+            const addr =
+              foliplus.formatAddress(data.display_name, map) ||
+              foliplus.gt("MapSearch.addr_not_found");
+            geoCache[key] = addr;
             return geoCache[key];
           })
           .catch(() => foliplus.gt("MeasureControl.geo_fail"));

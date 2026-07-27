@@ -110,7 +110,7 @@
 
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (foliplus && foliplus.gt ? foliplus.gt(k) : k);
+  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
