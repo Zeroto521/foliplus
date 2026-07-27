@@ -1,7 +1,7 @@
-/* ── Fullscreen / Zoom Controls ──
+/* ── FullscreenControl / Zoom Controls ──
   Custom container with three tool-btn buttons.
   Hover/active effects inherited from common.css unified button rules.
-  Only loaded when Fullscreen is used. ── */
+  Only loaded when FullscreenControl is used. ── */
 
 /* ── Button container ── */
 .foliplus-fullscreen-bar {
@@ -40,7 +40,7 @@
   display: none;
 }
 
-/* ── Fullscreen container styles ──
+/* ── FullscreenControl container styles ──
   Required for the fullscreen API to work correctly.
   Copied from leaflet.foliplus-fullscreen CDN CSS. */
 /* stylelint-disable-next-line selector-no-vendor-prefix */

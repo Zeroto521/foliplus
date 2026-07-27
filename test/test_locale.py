@@ -20,11 +20,11 @@ from foliplus.locale import (
 # Locale keys used across all JS files (resolved from CONST.name patterns).
 # Keep this list in sync with foliplus/js/*.js to catch missing translations.
 _JS_USED_KEYS = {
-    # Fullscreen
-    "Fullscreen.title",
-    "Fullscreen.title_cancel",
-    "Fullscreen.enter",
-    "Fullscreen.exit",
+    # FullscreenControl
+    "FullscreenControl.title",
+    "FullscreenControl.title_cancel",
+    "FullscreenControl.enter",
+    "FullscreenControl.exit",
     # HeatmapControl
     "HeatmapControl.title",
     "HeatmapControl.close_title",
@@ -78,22 +78,22 @@ _JS_USED_KEYS = {
     "LayerControl.data_layer_label",
     "LayerControl.fold_tooltip",
     "LayerControl.unfold_tooltip",
-    # MapSearch
-    "MapSearch.btn_title",
-    "MapSearch.mode_coord",
-    "MapSearch.coord_placeholder",
-    "MapSearch.clear_title",
-    "MapSearch.mode_addr",
-    "MapSearch.addr_placeholder",
-    "MapSearch.coord_error",
-    "MapSearch.popup_title_coord",
-    "MapSearch.popup_title_addr",
-    "MapSearch.popup_loading",
-    "MapSearch.popup_loc_label",
-    "MapSearch.popup_addr_label",
-    "MapSearch.addr_not_found",
-    "MapSearch.addr_error",
-    "MapSearch.gcoord_warn",
+    # SearchControl
+    "SearchControl.btn_title",
+    "SearchControl.mode_coord",
+    "SearchControl.coord_placeholder",
+    "SearchControl.clear_title",
+    "SearchControl.mode_addr",
+    "SearchControl.addr_placeholder",
+    "SearchControl.coord_error",
+    "SearchControl.popup_title_coord",
+    "SearchControl.popup_title_addr",
+    "SearchControl.popup_loading",
+    "SearchControl.popup_loc_label",
+    "SearchControl.popup_addr_label",
+    "SearchControl.addr_not_found",
+    "SearchControl.addr_error",
+    "SearchControl.gcoord_warn",
     # MeasureControl
     "MeasureControl.unit_km",
     "MeasureControl.unit_m",
@@ -216,7 +216,7 @@ class TestToFile:
             loaded = LocaleConfig.from_json(tmp)
             assert loaded.code == "zh"
             assert loaded.get("HeatmapControl.title") == "网格聚合"
-            assert loaded.get("Fullscreen.enter") == "已进入全屏，按 Esc 退出"
+            assert loaded.get("FullscreenControl.enter") == "已进入全屏，按 Esc 退出"
         finally:
             os.unlink(tmp)
             os.rmdir(os.path.dirname(tmp))
@@ -227,19 +227,21 @@ class TestLocaleBrowserJS:
 
     def test_locales_all_tables_injected(self, base_map):
         """All locale tables are injected into the rendered HTML."""
-        from foliplus import MapSearch
+        from foliplus import SearchControl
 
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = base_map.get_root().render()
         assert '"locale.code":"en"' in html or '"locale.code": "en"' in html
         assert '"locale.code":"zh"' in html or '"locale.code": "zh"' in html
 
     def test_auto_detect_zh(self, browser, tmp_path):
         """navigator.language=zh-CN selects zh table."""
+        import folium
+
         from foliplus import MapSearch
 
         m = folium.Map()
-        MapSearch().add_to(m)
+        SearchControl().add_to(m)
         html = m.get_root().render()
         dest = tmp_path / "map.html"
         dest.write_text(html, encoding="utf-8")
@@ -248,15 +250,17 @@ class TestLocaleBrowserJS:
         page.goto(f"file://{dest}", wait_until="domcontentloaded")
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "zh"
-        assert page.evaluate("window._LOCALE['MapSearch.btn_title']") == "地图搜索"
+        assert page.evaluate("window._LOCALE['SearchControl.btn_title']") == "地图搜索"
         page.close()
 
     def test_auto_detect_en(self, browser, tmp_path):
         """navigator.language=en-US selects en table."""
+        import folium
+
         from foliplus import MapSearch
 
         m = folium.Map()
-        MapSearch().add_to(m)
+        SearchControl().add_to(m)
         html = m.get_root().render()
         dest = tmp_path / "map.html"
         dest.write_text(html, encoding="utf-8")
@@ -265,15 +269,19 @@ class TestLocaleBrowserJS:
         page.goto(f"file://{dest}", wait_until="domcontentloaded", timeout=15000)
         page.wait_for_function("typeof window._LOCALE !== 'undefined'", timeout=10000)
         assert page.evaluate("window._LOCALE['locale.code']") == "en"
-        assert page.evaluate("window._LOCALE['MapSearch.btn_title']") == "Map Search"
+        assert (
+            page.evaluate("window._LOCALE['SearchControl.btn_title']") == "Map Search"
+        )
         page.close()
 
     def test_fallback_unsupported(self, browser, tmp_path):
         """Unsupported navigator.language falls back to en."""
+        import folium
+
         from foliplus import MapSearch
 
         m = folium.Map()
-        MapSearch().add_to(m)
+        SearchControl().add_to(m)
         html = m.get_root().render()
         dest = tmp_path / "map.html"
         dest.write_text(html, encoding="utf-8")
@@ -396,8 +404,8 @@ class TestLocaleErrors:
 
     def test_runtime_error_keys_present(self, base_map):
         """Runtime error keys (gcoord, load) appear in rendered HTML."""
-        from foliplus import MapSearch
+        from foliplus import SearchControl
 
-        MapSearch().add_to(base_map)
+        SearchControl().add_to(base_map)
         html = base_map.get_root().render()
-        assert "MapSearch.gcoord_warn" in html
+        assert "SearchControl.gcoord_warn" in html

@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Literal
 
 from ._typing import Position
-from .base import BaseControl
+from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
 
-class MapSearch(BaseControl):
+class SearchControl(BaseControl):
     """Coordinate and address search via Nominatim reverse geocoding.
 
     - 📍 **Coordinate search**: enter a coordinate like `longitude, latitude` to fly to
@@ -33,9 +33,9 @@ class MapSearch(BaseControl):
     Examples
     --------
     >>> import folium
-    >>> from foliplus import MapSearch
+    >>> from foliplus import SearchControl
     >>> m = folium.Map()
-    >>> MapSearch().add_to(m)
+    >>> SearchControl().add_to(m)
     """
 
     def __init__(
@@ -50,5 +50,5 @@ class MapSearch(BaseControl):
         self.mode = mode
         self.zoom = zoom
         self._template = self._get_template(
-            js_file="MapSearch.js", css_file="MapSearch.css"
+            js_file="SearchControl.js", css_file="SearchControl.css"
         )

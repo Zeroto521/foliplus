@@ -5,7 +5,7 @@ from collections import OrderedDict
 from folium.map import Layer
 
 from ._typing import Position
-from .base import BaseControl
+from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
 

@@ -1676,7 +1676,7 @@
       const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
 
       container.innerHTML = `
-        <div class="foliplus-map-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed"
+        <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed"
              id="{{ this.get_name() }}_ctrl">
           <button class="foliplus-toggle-btn" title="${_(`${CONST.name}.toggle_title`)}"
                   aria-label="${_(`${CONST.name}.toggle_title`)}">
