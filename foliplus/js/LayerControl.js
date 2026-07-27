@@ -455,7 +455,6 @@
       const existingIdx = this.layers.findIndex((l) => l.id === opts.id);
       const existingVisible =
         existingIdx !== -1 ? this.layers[existingIdx].visible : true;
-      const existingPos = existingIdx; // save position before splice
 
       const layerInfo = {
         name: opts.name ?? opts.id,
@@ -465,22 +464,11 @@
         paneName: opts.paneName ?? null,
         iconSvg: opts.iconSvg ?? null,
       };
-
-      if (existingIdx !== -1) {
-        // Re-registration: preserve existing position instead of pushing to top
-        this.layers.splice(existingIdx, 1);
-        const insertAt = Math.min(existingPos, this.layers.length);
-        if (layerInfo.isBase) {
-          // Keep base layers grouped at the bottom
-          const firstBaseIdx = this.layers.findIndex((l) => !!l.isBase);
-          if (firstBaseIdx === -1) this.layers.push(layerInfo);
-          else this.layers.splice(firstBaseIdx, 0, layerInfo);
-        } else this.layers.splice(insertAt, 0, layerInfo);
-      } else if (layerInfo.isBase) {
+      if (layerInfo.isBase) {
         const firstBaseIdx = this.layers.findIndex((l) => !!l.isBase);
         if (firstBaseIdx === -1) this.layers.push(layerInfo);
         else this.layers.splice(firstBaseIdx, 0, layerInfo);
-      } else this.layers.push(layerInfo);
+      } else this.layers.unshift(layerInfo);
 
       // Store callbacks for non-Leaflet layers (e.g. Canvas heatmap)
       const cbs = {};
