@@ -8,7 +8,7 @@ from conftest import render
 from foliplus import SearchControl
 
 
-class TestMapSearchPython:
+class TestSearchControlPython:
     """Python-side property tests."""
 
     def test_name(self):
@@ -42,7 +42,7 @@ class TestMapSearchPython:
         assert SearchControl(mode="coord").mode == "coord"
 
 
-class TestMapSearchRendering:
+class TestSearchControlRendering:
     def test_default_params(self, base_map: folium.Map):
         SearchControl().add_to(base_map)
         html = render(base_map)
@@ -391,7 +391,7 @@ class TestMapSearchRendering:
         assert "foliplus.NOMINATIM" in html
 
 
-class TestMapSearchBrowser:
+class TestSearchControlBrowser:
     """Browser-based smoke tests for SearchControl."""
 
     def test_initial_mode_addr(self, browser, tmp_path):
@@ -400,7 +400,7 @@ class TestMapSearchBrowser:
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         SearchControl(mode="addr").add_to(m)
 
-        html_path = tmp_path / "test_mapsearch_browser.html"
+        html_path = tmp_path / "test_searchcontrol_browser.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
         page = browser.new_page()
@@ -448,7 +448,7 @@ class TestMapSearchBrowser:
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         SearchControl().add_to(m)
 
-        html_path = tmp_path / "test_mapsearch_coord.html"
+        html_path = tmp_path / "test_searchcontrol_coord.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
         page = browser.new_page()

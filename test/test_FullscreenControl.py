@@ -8,7 +8,7 @@ from conftest import render
 from foliplus import FullscreenControl
 
 
-class TestFullscreenPython:
+class TestFullscreenControlPython:
     """Python-side property tests."""
 
     def test_name(self):
@@ -33,7 +33,7 @@ class TestFullscreenPython:
         assert FullscreenControl(locale="zh")._locale_code == "zh"
 
 
-class TestFullscreenRendering:
+class TestFullscreeControlRendering:
     def test_default_params(self, base_map: folium.Map):
         FullscreenControl().add_to(base_map)
         html = render(base_map)
@@ -168,7 +168,7 @@ class TestFullscreenRendering:
         assert 'fsToggle.style.display = isFull ? "none" : ""' in html
 
 
-class TestFullscreenBrowser:
+class TestFullscreenControlBrowser:
     """Browser-based smoke tests for FullscreenControl."""
 
     def _make_page(self, browser, tmp_path, hide_self=True, hide_others=False):

@@ -65,7 +65,7 @@
   foliplus.registerHintIcon(CONST.name, SVGs.SEARCH);
 
   // ==================== Control Definition ====================
-  class MapSearchControl extends L.Control {
+  class SearchControl extends L.Control {
     onAdd() {
       this.createDOM();
       this.initState();
@@ -561,5 +561,5 @@
     }
   }
 
-  new MapSearchControl({ position: CONST.position }).addTo(map);
+  new SearchControl({ position: CONST.position }).addTo(map);
 })();

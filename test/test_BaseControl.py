@@ -1,4 +1,4 @@
-"""Tests for foliplus.base — BaseControl."""
+"""Tests for foliplus.BaseControl — BaseControl."""
 
 from __future__ import annotations
 
