@@ -46,12 +46,12 @@ class TestSearchControlRendering:
     def test_default_params(self, base_map: folium.Map):
         SearchControl().add_to(base_map)
         html = render(base_map)
-        assert "map-search" in html
+        assert "foliplus-search" in html
 
     def test_custom_zoom_and_position(self, base_map: folium.Map):
         SearchControl(zoom=16, position="bottomright").add_to(base_map)
         html = render(base_map)
-        assert "map-search" in html
+        assert "foliplus-search" in html
         assert "16" in html
 
     def test_contains_css(self, base_map: folium.Map):

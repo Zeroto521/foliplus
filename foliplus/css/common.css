@@ -373,7 +373,7 @@
   background: var(--accent-light);
 }
 
-/* ── Separator between toggle button and tools (non-map-panel) ── */
+/* ── Separator between toggle button and tools (non-panel) ── */
 .foliplus-ctrl-fold:not(.foliplus-panel).expanded .foliplus-toggle-btn {
   border-right: var(--border-thin) solid var(--divider-color);
 }

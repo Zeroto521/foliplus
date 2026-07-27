@@ -27,7 +27,7 @@
   display: none;
 }
 
-/* ── Accent color for expanded icon (all map-panel components) ── */
+/* ── Accent color for expanded icon (all panel components) ── */
 .foliplus-panel.expanded .foliplus-header-icon,
 .foliplus-panel.expanded .foliplus-header-icon svg {
   color: var(--accent-primary);
