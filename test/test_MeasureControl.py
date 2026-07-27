@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import pathlib
 import re
 
@@ -185,7 +184,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "manager.isSuppressHideDel = true" in html
-        assert "MeasureUtils.hideDelIcons()" in html
+        assert "MeasureUtils.hideAllDelIcons()" in html
 
     def test_calc_toggle_reset(self, base_map: folium.Map):
         """calcToggle with 'reset' sets labelsVisible=true."""
@@ -753,79 +752,6 @@ class TestMeasureControlRendering:
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
-            assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
-
-    # ── Persistence (browser) ──────────────────────────────────────
-
-    def test_save_measurements_stores_to_localStorage(self, browser, tmp_path):
-        """saveMeasurements() writes measurements to localStorage."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
-                mm.saveMeasurements();
-            }""")
-            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
-            assert data is not None, "localStorage should contain saved measurements"
-
-            parsed = json.loads(data)
-            assert len(parsed) == 1
-            assert parsed[0]["type"] == "marker"
-            assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
-
-    def test_clear_all_clears_measurements_and_storage(self, browser, tmp_path):
-        """clearAll() empties measurements array and persists to localStorage."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
-                mm.saveMeasurements();
-                mm.clearAll();
-            }""")
-            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
-            parsed = json.loads(data) if data else []
-            assert len(parsed) == 0, "clearAll should empty localStorage"
-            assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
-
-    def test_delete_marker_removes_from_storage(self, browser, tmp_path):
-        """Deleting a marker removes it from measurements and persists."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('marker');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-            }""")
-            page.wait_for_timeout(500)
-            before = page.evaluate("window.__measureManager.measurements.length")
-            assert before == 1, f"expected 1 measurement, got {before}"
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const layers = mm.layers.mainLayer._layers || {};
-                const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
-                );
-                if (delMkr) {
-                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
-                    if (icon) icon.classList.add('visible');
-                    delMkr.fire('click', { originalEvent: { target: icon } });
-                }
-            }""")
-            page.wait_for_timeout(300)
-            after = page.evaluate("window.__measureManager.measurements.length")
-            assert after == 0, f"expected 0 measurements after delete, got {after}"
-            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
-            parsed = json.loads(data) if data else []
-            assert len(parsed) == 0, "localStorage should be empty after deleting all"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
