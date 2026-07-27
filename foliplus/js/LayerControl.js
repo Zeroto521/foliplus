@@ -455,6 +455,7 @@
       const existingIdx = this.layers.findIndex((l) => l.id === opts.id);
       const existingVisible =
         existingIdx !== -1 ? this.layers[existingIdx].visible : true;
+      if (existingIdx !== -1) this.layers.splice(existingIdx, 1);
 
       const layerInfo = {
         name: opts.name ?? opts.id,
