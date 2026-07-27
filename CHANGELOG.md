@@ -27,6 +27,7 @@
 - Unified `HINT_DURATION` constants across all components: `SHORT` (1200ms), `MEDIUM` (2500ms), `LONG` (4000ms), `PERSIST` (0 — persistent); `HeatmapControl`/`MeasureControl`/`MapSearch` updated to use these tiers ([#41](https://github.com/Zeroto521/foliplus/pull/41))
 - Unified button interaction system: `toggle-btn`, `tool-btn`, `search-mode-btn`, `ctrl-abs-btn` now share a single `:is()` rule in `common.css` for consistent hover (`scale(1.08)` + red accent) and active (`scale(0.92)`) effects ([#37](https://github.com/Zeroto521/foliplus/pull/37), [#56](https://github.com/Zeroto521/foliplus/pull/56), [#58](https://github.com/Zeroto521/foliplus/pull/58), [#63](https://github.com/Zeroto521/foliplus/pull/63))
 - `Fullscreen`: no external CDN dependencies, rewritten `Fullscreen` ([#58](https://github.com/Zeroto521/foliplus/pull/58))
+- Unify component naming with `Control` suffix: `Base` -> `BaseControl`, `Fullscreen` -> `FullscreenControl` and `MapSearch` -> `SearchControl` ([#80](https://github.com/Zeroto521/foliplus/pull/80))
 
 ### Fixed
 
