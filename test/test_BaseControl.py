@@ -197,7 +197,7 @@ class TestBaseControlRendering:
         assert "THROTTLE_MS" in html
 
     def test_all_locale_tables_injected(self, base_map: folium.Map):
-        """All locale tables are injected into HTML by base.py."""
+        """All locale tables are injected into HTML by BaseControl.py."""
         from foliplus import SearchControl
 
         SearchControl().add_to(base_map)
