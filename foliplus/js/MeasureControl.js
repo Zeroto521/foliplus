@@ -304,6 +304,11 @@
       return this.manager;
     }
 
+    /** Shorthand for mode type */
+    get type() {
+      return this.constructor.TYPE;
+    }
+
     /** Start the mode — bind events, create UI. */
     start() {}
 
@@ -317,13 +322,14 @@
 
     /** Generate a unique measurement ID with type prefix. */
     nextMeasurementId() {
-      return this.m.nextMeasurementId(this.constructor.TYPE);
+      return this.m.nextMeasurementId(this.type);
     }
   }
 
   // ==================== Marker Mode ====================
   class MarkerMode extends MeasureMode {
     static TYPE = CONST.MODE.MARKER;
+
     start() {
       this.onMarkerClickRef = this.handleMarkerClick.bind(this);
       this.map.on("click", this.onMarkerClickRef);
@@ -331,7 +337,7 @@
     }
 
     async handleMarkerClick(e) {
-      if (this.m.currentMode !== this.constructor.TYPE) return;
+      if (this.m.currentMode !== this.type) return;
       const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
       const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
 
@@ -378,7 +384,7 @@
       const markerId = this.nextMeasurementId();
       this.m.measurements.push({
         id: markerId,
-        type: this.constructor.TYPE,
+        type: this.type,
         lng: parseFloat(lng),
         lat: parseFloat(lat),
         address: cachedAddr,
@@ -399,6 +405,7 @@
   // ==================== Distance Mode ====================
   class DistanceMode extends MeasureMode {
     static TYPE = CONST.MODE.DISTANCE;
+
     start() {
       const map = this.map;
       const layers = this.layers;
@@ -536,7 +543,7 @@
         }));
         this.m.measurements.push({
           id: distId,
-          type: this.constructor.TYPE,
+          type: this.type,
           points: pts.map((p) => ({ lng: p.lng, lat: p.lat })),
           segments,
           totalDistance: total,
@@ -620,7 +627,7 @@
       };
 
       const onDistClick = (e) => {
-        if (this.m.currentMode !== this.constructor.TYPE) return;
+        if (this.m.currentMode !== this.type) return;
         ensureLayersAdded();
         pts.push(e.latlng);
         if (previewDistLabel) {
@@ -696,6 +703,7 @@
   // ==================== Circle Mode ====================
   class CircleMode extends MeasureMode {
     static TYPE = CONST.MODE.CIRCLE;
+
     start() {
       const map = this.map;
       const layers = this.layers;
@@ -728,7 +736,7 @@
       const onMapClick = (e) => {
         if (
           isFinalizing ||
-          this.m.currentMode !== this.constructor.TYPE ||
+          this.m.currentMode !== this.type ||
           (state !== 0 && state !== 1)
         )
           return;
@@ -774,7 +782,7 @@
       };
 
       const onMouseMove = (e) => {
-        if (state !== 1 || !center || this.m.currentMode !== this.constructor.TYPE) return;
+        if (state !== 1 || !center || this.m.currentMode !== this.type) return;
         const r = MeasureUtils.distance(
           center.lng,
           center.lat,
@@ -927,7 +935,7 @@
         const circleId = this.nextMeasurementId();
         this.m.measurements.push({
           id: circleId,
-          type: this.constructor.TYPE,
+          type: this.type,
           center: { lng: centerLatLng.lng, lat: centerLatLng.lat },
           target: { lng: finalTargetLatLng.lng, lat: finalTargetLatLng.lat },
           radius: r,
