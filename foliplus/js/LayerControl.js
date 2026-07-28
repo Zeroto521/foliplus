@@ -815,9 +815,9 @@
      * Zoom changes require re-rendering the canvas content.
      *
      * Unlike `createLayers()`, the canvas does NOT auto-register with LayerControl.
-     * The caller is responsible for calling `register()` when data is ready and
-     * `unregister()` when cleared.  The canvas layer uses `onToggle`/`onZIndex`
-     * callbacks (instead of Leaflet layer management) for visibility and z-order.
+     * The caller must call `register()` when data is ready and `unregister()` when
+     * clearing.  `unregister()` automatically clears the canvas content and hides
+     * it before removing the LayerControl entry — no manual canvas clearing needed.
      *
      * @param {Object} opts
      * @param {string} opts.id       - Unique layer ID (used for LayerControl panel, localStorage).
@@ -881,9 +881,8 @@
       resize();
       updatePosition();
 
-      // Deferred registration: canvas() does NOT auto-register,
-      // so the layer doesn't appear in LayerControl until data is ready.
-      // Caller calls register()/unregister() when rendering/clearing.
+      let registered = false;
+
       const onToggle =
         opts.onToggle ||
         ((visible) => {
@@ -896,11 +895,23 @@
           canvas.style.zIndex = String(z);
         });
 
-      let registered = false;
+      // Auto-unregister: unregister() clears the canvas content, hides it,
+      // then removes the LayerControl entry.  Callers just call unregister().
+      const unregister = () => {
+        if (!registered) return;
+        registered = false;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.style.display = "none";
+        this.unregisterLayer(opts.id);
+      };
 
       const register = () => {
         if (registered) return;
         registered = true;
+        resize();
+        updatePosition();
+        canvas.style.display = "";
         this.registerLayer({
           id: opts.id,
           name: opts.name || opts.id,
@@ -908,12 +919,6 @@
           onToggle,
           onZIndex,
         });
-      };
-
-      const unregister = () => {
-        if (!registered) return;
-        registered = false;
-        this.unregisterLayer(opts.id);
       };
 
       // Track map pan — update canvas position without redraw

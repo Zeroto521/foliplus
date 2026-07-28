@@ -598,25 +598,14 @@
       }
       this.cachedFeatures = features;
 
-      this.overlay.resize();
-      this.overlay.updatePosition();
-      this.redrawHeatmap();
-      this.overlay.setVisible(true);
       this.overlay.register();
+      this.redrawHeatmap();
     }
 
     clearHeatmapCanvas() {
       this.cachedFeatures = null;
       this.cachedAgg = null;
-      if (this.overlay) {
-        const ctx = this.overlay.ctx;
-        if (ctx) {
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.clearRect(0, 0, this.overlay.canvas.width, this.overlay.canvas.height);
-        }
-        this.overlay.setVisible(false);
-        this.overlay.unregister();
-      }
+      if (this.overlay) this.overlay.unregister();  // auto-clears canvas + hides
     }
   }
 
