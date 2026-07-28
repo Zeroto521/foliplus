@@ -175,14 +175,14 @@
         if (getFullscreenEl()) {
           if (isEnabled) document[nativeAPI.exitFullscreen]().catch(() => {});
           else {
-            L.DomUtil.removeClass(map._container, CONST.CLASSES.PSEUDO_FULLSCREEN);
+            map._container.classList.remove(CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
           map._isFullscreen = false;
         } else {
           if (isEnabled) map._container[nativeAPI.requestFullscreen]().catch(() => {});
           else {
-            L.DomUtil.addClass(map._container, CONST.CLASSES.PSEUDO_FULLSCREEN);
+            map._container.classList.add(CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
           map._isFullscreen = true;
