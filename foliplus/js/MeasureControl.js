@@ -345,10 +345,12 @@
         this.layers.mainLayer,
       );
 
-      const delMkr = MeasureUtils.makeDelIcon(e.latlng, {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
-      }).addTo(this.layers.mainLayer);
+      const delMkr = this.layers.addLayer(
+        MeasureUtils.makeDelIcon(e.latlng, {
+          zIndexOffset: CONST.Z_INDEX.OFFSET,
+          iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
+        }),
+      );
 
       let cachedAddr = null;
       const addr = await foliplus.reverseGeocode(
@@ -560,7 +562,7 @@
         }
         poly.addLatLng(e.latlng);
 
-        const mkr = MeasureUtils.makeNode(e.latlng).addTo(layers.mainLayer);
+        const mkr = layers.addLayer(MeasureUtils.makeNode(e.latlng));
         mkr.bringToFront();
         nodeMarkers.push(mkr);
 
@@ -667,16 +669,18 @@
 
         if (state === 0) {
           center = e.latlng;
-          previews.center = L.marker(center, {
-            icon: L.divIcon({
-              className: CONST.CENTER_DOT.CLASS,
-              html: "",
-              iconSize: CONST.CENTER_DOT.SIZE,
-              iconAnchor: CONST.CENTER_DOT.ANCHOR,
+          previews.center = layers.addLayer(
+            L.marker(center, {
+              icon: L.divIcon({
+                className: CONST.CENTER_DOT.CLASS,
+                html: "",
+                iconSize: CONST.CENTER_DOT.SIZE,
+                iconAnchor: CONST.CENTER_DOT.ANCHOR,
+              }),
+              zIndexOffset: CONST.Z_INDEX.OFFSET,
+              interactive: false,
             }),
-            zIndexOffset: CONST.Z_INDEX.OFFSET,
-            interactive: false,
-          }).addTo(layers.mainLayer);
+          );
           state = 1;
           foliplus.showHint(
             CONST.name,
@@ -713,26 +717,32 @@
         );
 
         if (!previews.circle) {
-          previews.circle = L.circle(center, {
-            radius: r,
-            className: CONST.CLASSES.CIRCLE_PREVIEW,
-            interactive: false,
-          }).addTo(layers.mainLayer);
+          previews.circle = layers.addLayer(
+            L.circle(center, {
+              radius: r,
+              className: CONST.CLASSES.CIRCLE_PREVIEW,
+              interactive: false,
+            }),
+          );
         } else previews.circle.setRadius(r);
 
         if (!previews.line) {
-          previews.line = L.polyline([center, e.latlng], {
-            className: CONST.CLASSES.LINE_PREVIEW,
-            interactive: false,
-          }).addTo(layers.mainLayer);
+          previews.line = layers.addLayer(
+            L.polyline([center, e.latlng], {
+              className: CONST.CLASSES.LINE_PREVIEW,
+              interactive: false,
+            }),
+          );
         } else previews.line.setLatLngs([center, e.latlng]);
 
         if (!previews.node) {
-          previews.node = L.circleMarker(e.latlng, {
-            radius: CONST.MARKER.RADIUS,
-            className: CONST.CLASSES.NODE_PREVIEW,
-            interactive: false,
-          }).addTo(layers.mainLayer);
+          previews.node = layers.addLayer(
+            L.circleMarker(e.latlng, {
+              radius: CONST.MARKER.RADIUS,
+              className: CONST.CLASSES.NODE_PREVIEW,
+              interactive: false,
+            }),
+          );
           previews.node.bringToFront();
         } else previews.node.setLatLng(e.latlng);
 
@@ -741,14 +751,16 @@
           (center.lng + e.latlng.lng) / 2,
         );
         if (!previews.label) {
-          previews.label = L.marker(mid, {
-            icon: MeasureUtils.makeLabelDivIcon(
-              MeasureUtils.formatDistance(r),
-              CONST.DEL_ICON.ANCHOR,
-              CONST.LABEL.CLASS_RADIUS,
-            ),
-            interactive: false,
-          });
+          previews.label = layers.addLayer(
+            L.marker(mid, {
+              icon: MeasureUtils.makeLabelDivIcon(
+                MeasureUtils.formatDistance(r),
+                CONST.DEL_ICON.ANCHOR,
+                CONST.LABEL.CLASS_RADIUS,
+              ),
+              interactive: false,
+            }),
+          );
           layers.addLayer(previews.label, true);
         } else {
           previews.label.setLatLng(mid);
@@ -765,17 +777,21 @@
         const finalTargetLatLng =
           targetLatLng || L.CRS.Earth.destination(centerLatLng, r, 90);
 
-        const circle = L.circle(centerLatLng, {
-          radius: r,
-          className: CONST.CLASSES.CIRCLE_FINAL,
-          interactive: true,
-        }).addTo(layers.mainLayer);
+        const circle = layers.addLayer(
+          L.circle(centerLatLng, {
+            radius: r,
+            className: CONST.CLASSES.CIRCLE_FINAL,
+            interactive: true,
+          }),
+        );
 
-        const ripple = L.circle(centerLatLng, {
-          radius: r,
-          className: CONST.CLASSES.RIPPLE,
-          interactive: false,
-        }).addTo(layers.mainLayer);
+        const ripple = layers.addLayer(
+          L.circle(centerLatLng, {
+            radius: r,
+            className: CONST.CLASSES.RIPPLE,
+            interactive: false,
+          }),
+        );
         const rippleEl = ripple._path;
         if (rippleEl) {
           const onEnd = () => {
@@ -785,31 +801,35 @@
           rippleEl.addEventListener("animationend", onEnd);
         }
 
-        const radiusLine = L.polyline([centerLatLng, finalTargetLatLng], {
-          className: CONST.CLASSES.LINE_DASHED,
-          interactive: true,
-        }).addTo(layers.mainLayer);
-        const radiusNode = MeasureUtils.makeNode(finalTargetLatLng).addTo(
-          layers.mainLayer,
+        const radiusLine = layers.addLayer(
+          L.polyline([centerLatLng, finalTargetLatLng], {
+            className: CONST.CLASSES.LINE_DASHED,
+            interactive: true,
+          }),
         );
+        const radiusNode = layers.addLayer(MeasureUtils.makeNode(finalTargetLatLng));
 
         let labelsVisible = true;
         let xVisible = false;
 
-        const centerFinal = L.marker(centerLatLng, {
-          icon: L.divIcon({
-            className: CONST.CENTER_DOT.CLASS_FINAL,
-            html: "",
-            iconSize: CONST.CENTER_DOT.SIZE,
-            iconAnchor: CONST.CENTER_DOT.ANCHOR,
+        const centerFinal = layers.addLayer(
+          L.marker(centerLatLng, {
+            icon: L.divIcon({
+              className: CONST.CENTER_DOT.CLASS_FINAL,
+              html: "",
+              iconSize: CONST.CENTER_DOT.SIZE,
+              iconAnchor: CONST.CENTER_DOT.ANCHOR,
+            }),
+            zIndexOffset: CONST.Z_INDEX.OFFSET,
+            interactive: true,
           }),
-          zIndexOffset: CONST.Z_INDEX.OFFSET,
-          interactive: true,
-        }).addTo(layers.mainLayer);
+        );
 
-        const delMkr = MeasureUtils.makeDelIcon(centerLatLng, {
-          zIndexOffset: CONST.Z_INDEX.OFFSET,
-        }).addTo(layers.mainLayer);
+        const delMkr = layers.addLayer(
+          MeasureUtils.makeDelIcon(centerLatLng, {
+            zIndexOffset: CONST.Z_INDEX.OFFSET,
+          }),
+        );
 
         const midLng = (centerLatLng.lng + finalTargetLatLng.lng) / 2;
         const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
@@ -954,10 +974,12 @@
         null,
         this.layers.mainLayer,
       );
-      const delMkr = MeasureUtils.makeDelIcon(L.latLng(m.lat, m.lng), {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
-      }).addTo(this.layers.mainLayer);
+      const delMkr = layers.addLayer(
+        MeasureUtils.makeDelIcon(L.latLng(m.lat, m.lng), {
+          zIndexOffset: CONST.Z_INDEX.OFFSET,
+          iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
+        }),
+      );
 
       marker.on("popupopen", () => {
         MeasureUtils.hideDelIcons();
@@ -979,14 +1001,16 @@
 
     restoreDistance(m) {
       const pts = m.points.map((p) => L.latLng(p.lat, p.lng));
-      const finalPoly = L.polyline(pts, {
-        className: CONST.CLASSES.LINE_SOLID,
-        interactive: true,
-      }).addTo(this.layers.mainLayer);
+      const finalPoly = layers.addLayer(
+        L.polyline(pts, {
+          className: CONST.CLASSES.LINE_SOLID,
+          interactive: true,
+        }),
+      );
 
       const nodeMarkers = [];
       pts.forEach((pt, i) => {
-        const node = MeasureUtils.makeNode(pt).addTo(this.layers.mainLayer);
+        const node = layers.addLayer(MeasureUtils.makeNode(pt));
         node.bringToFront();
         nodeMarkers.push(node);
       });
@@ -1027,48 +1051,56 @@
       const targetLatLng = L.latLng(m.target.lat, m.target.lng);
       const r = m.radius;
 
-      const circle = L.circle(centerLatLng, {
-        radius: r,
-        className: CONST.CLASSES.CIRCLE_FINAL,
-        interactive: true,
-      }).addTo(this.layers.mainLayer);
-
-      const radiusLine = L.polyline([centerLatLng, targetLatLng], {
-        className: CONST.CLASSES.LINE_DASHED,
-        interactive: true,
-      }).addTo(this.layers.mainLayer);
-      const radiusNode = MeasureUtils.makeNode(targetLatLng).addTo(
-        this.layers.mainLayer,
+      const circle = layers.addLayer(
+        L.circle(centerLatLng, {
+          radius: r,
+          className: CONST.CLASSES.CIRCLE_FINAL,
+          interactive: true,
+        }),
       );
+
+      const radiusLine = layers.addLayer(
+        L.polyline([centerLatLng, targetLatLng], {
+          className: CONST.CLASSES.LINE_DASHED,
+          interactive: true,
+        }),
+      );
+      const radiusNode = layers.addLayer(MeasureUtils.makeNode(targetLatLng));
 
       let labelsVisible = true;
       let xVisible = false;
 
-      const centerFinal = L.marker(centerLatLng, {
-        icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS_FINAL,
-          html: "",
-          iconSize: CONST.CENTER_DOT.SIZE,
-          iconAnchor: CONST.CENTER_DOT.ANCHOR,
+      const centerFinal = layers.addLayer(
+        L.marker(centerLatLng, {
+          icon: L.divIcon({
+            className: CONST.CENTER_DOT.CLASS_FINAL,
+            html: "",
+            iconSize: CONST.CENTER_DOT.SIZE,
+            iconAnchor: CONST.CENTER_DOT.ANCHOR,
+          }),
+          zIndexOffset: CONST.Z_INDEX.OFFSET,
+          interactive: true,
         }),
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        interactive: true,
-      }).addTo(this.layers.mainLayer);
+      );
 
-      const delMkr = MeasureUtils.makeDelIcon(centerLatLng, {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-      }).addTo(this.layers.mainLayer);
+      const delMkr = layers.addLayer(
+        MeasureUtils.makeDelIcon(centerLatLng, {
+          zIndexOffset: CONST.Z_INDEX.OFFSET,
+        }),
+      );
 
       const midLng = (centerLatLng.lng + targetLatLng.lng) / 2;
       const midLat = (centerLatLng.lat + targetLatLng.lat) / 2;
-      const radiusLabel = L.marker([midLat, midLng], {
-        icon: MeasureUtils.makeLabelDivIcon(
-          MeasureUtils.formatDistance(r),
-          CONST.LABEL.ANCHOR,
-          CONST.LABEL.CLASS_RADIUS,
-        ),
-        interactive: false,
-      });
+      const radiusLabel = layers.addLayer(
+        L.marker([midLat, midLng], {
+          icon: MeasureUtils.makeLabelDivIcon(
+            MeasureUtils.formatDistance(r),
+            CONST.LABEL.ANCHOR,
+            CONST.LABEL.CLASS_RADIUS,
+          ),
+          interactive: false,
+        }),
+      );
       this.layers.addLayer(radiusLabel, true);
 
       // Attach toggle/delete UI (shared with finalizeCircle)
@@ -1169,9 +1201,7 @@
       };
 
       const lastNode = nodeMarkers[nodeMarkers.length - 1];
-      lastNodeDelMkr = MeasureUtils.makeDelIcon(lastNode.getLatLng()).addTo(
-        layers.mainLayer,
-      );
+      lastNodeDelMkr = layers.addLayer(MeasureUtils.makeDelIcon(lastNode.getLatLng()));
       MeasureUtils.attachDelClick(lastNodeDelMkr, deleteMeas);
       lastNodeDelMkr.on("click", (e) => {
         const t = e.originalEvent?.target;
@@ -1184,10 +1214,10 @@
       if (lastNodeDelMkr) layers.removeLayer(lastNodeDelMkr);
       segLabels.forEach((l) => layers.removeLayer(l));
       if (startLbl) layers.removeLayer(startLbl);
-      nodeMarkers.forEach((m) => m.addTo(layers.mainLayer));
-      if (lastNodeDelMkr) lastNodeDelMkr.addTo(layers.mainLayer);
-      segLabels.forEach((l) => l.addTo(layers.mainLayer));
-      if (startLbl) startLbl.addTo(layers.mainLayer);
+      nodeMarkers.forEach((m) => layers.addLayer(m));
+      if (lastNodeDelMkr) layers.addLayer(lastNodeDelMkr);
+      segLabels.forEach((l) => layers.addLayer(l));
+      if (startLbl) layers.addLayer(startLbl);
 
       return onMapClickActive;
     }

@@ -741,7 +741,8 @@
       // ── Convenience API ──────────────────────────────────────────
       const addLayer = (layer, isLabel) => {
         if (isLabel) layer.isLabel = true;
-        return mainLayer.addLayer(layer);
+        mainLayer.addLayer(layer);
+        return layer;
       };
       const removeLayer = (...items) => {
         items.forEach((l) => {
