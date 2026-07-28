@@ -537,7 +537,9 @@
         if (!previewDistLabel) {
           previewDistLabel = this.layers.addLayer(
             L.marker(e.latlng, {
-              icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(showDist)),
+              icon: MeasureUtils.makeLabelDivIcon(
+                MeasureUtils.formatDistance(showDist),
+              ),
               interactive: false,
             }),
             true,
