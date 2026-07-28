@@ -154,7 +154,9 @@
     const cls = append
       ? `${CLASSES.MAP_HINT} ${CLASSES.MAP_HINT}-${key}-${Date.now()}`
       : `${CLASSES.MAP_HINT} ${CLASSES.MAP_HINT}-${key}`;
-    const el = L.DomUtil.create("div", cls, hintTarget);
+    const el = document.createElement("div");
+    el.className = cls;
+    hintTarget.appendChild(el);
     const icon = (hintIcons && hintIcons[key]) || "";
     el.innerHTML = icon
       ? `<span class="foliplus-hint-icon">${icon}</span>${text}`
