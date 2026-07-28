@@ -49,7 +49,7 @@
       OP: {{ this.style.border_opacity }},
     },
     LABEL: {
-      SHOW: {{ "true" if this.style.label_show else "false" }},
+      SHOW: {{ this.style.label_show | tojson }},
       SIZE: {{ this.style.label_size }},
       COLOR: "{{ this.style.label_color }}",
       FORMAT: "{{ this.style.label_format }}",
