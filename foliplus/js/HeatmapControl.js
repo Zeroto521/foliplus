@@ -440,7 +440,8 @@
         return [lo, hi];
       } else if (method === "quantile") {
         const b = [lo];
-        for (let i = 1; i < nClasses; i++) b.push(ss.quantile(sorted, i / nClasses));
+        for (let i = 1; i < nClasses; i++)
+          b.push(ss.quantileSorted(sorted, i / nClasses));
         return b.concat(hi);
       } else if (method === "heads") {
         const b = [lo];

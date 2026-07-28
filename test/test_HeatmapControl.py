@@ -457,7 +457,7 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "method === " in html
         assert "quantile" in html
-        assert "ss.quantile(sorted, i / nClasses)" in html
+        assert "ss.quantileSorted(sorted, i / nClasses)" in html
 
     def test_compute_breaks_equal(self, base_map: folium.Map):
         """computeBreaks supports equal interval (default) method."""
