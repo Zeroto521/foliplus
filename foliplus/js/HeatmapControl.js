@@ -227,9 +227,7 @@
 
     /** Redraw the heatmap canvas from cached features. */
     redrawHeatmap() {
-      const canvas = this.overlay.canvas;
-      const features = this.cachedFeatures;
-      if (!canvas || !features) return;
+      if (!this.overlay.canvas || !this.cachedFeatures) return;
       const ctx = this.overlay.ctx;
       if (!ctx) return;
       const container = this.map.getContainer();
@@ -247,7 +245,7 @@
         return c && bounds.contains(L.latLng(c[0], c[1]));
       };
 
-      features.forEach((feat) => {
+      this.cachedFeatures.forEach((feat) => {
         if (!isVisible(feat)) return;
         this.drawHexagon(ctx, feat);
         if (this.currentLabelShow) this.drawHexLabel(ctx, feat, labelCfg);
