@@ -34,7 +34,8 @@
 
       // ==================== Zoom Label ====================
       {% if this.show_zoom %};
-      const zoomLabel = L.DomUtil.create("span", CONST.CLASSES.SCALE_ZOOM_LABEL, wrap);
+      const zoomLabel = foliplus.dom.el("span", { class: CONST.CLASSES.SCALE_ZOOM_LABEL });
+      wrap.appendChild(zoomLabel);
       const updateZoom = () => {
         zoomLabel.textContent = _(`${CONST.name}.zoom_label`).replace(
           "{zoom}",
