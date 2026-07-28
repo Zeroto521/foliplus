@@ -638,30 +638,15 @@ class TestLayerControlRendering:
         assert "&quot;" in html
         assert "&#39;" in html
 
-    def test_create_layers_auto_register_on_content(self, base_map: folium.Map):
-        """createLayers auto-registers when content is added via mainLayer.addLayer."""
+    def test_create_layers_rendering(self, base_map: folium.Map):
+        """createLayers emits API, auto-registration, and layer overrides."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "createLayers" in html
         assert "register()" in html
         assert "unregister()" in html
-
-    def test_create_layers_override_add_layer(self, base_map: folium.Map):
-        """createLayers overrides addLayer to route to sub-layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
         assert "mainLayer.addLayer = (layer) => {" in html
-
-    def test_create_layers_override_remove_layer(self, base_map: folium.Map):
-        """createLayers overrides removeLayer to route to sub-layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
         assert "mainLayer.removeLayer = (layer) => {" in html
-
-    def test_create_layers_override_clear_layers(self, base_map: folium.Map):
-        """createLayers overrides clearLayers to clear sub-layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
         assert "mainLayer.clearLayers = () => {" in html
 
     def test_ensure_pane_need_renderer_param(self, base_map: folium.Map):
@@ -884,8 +869,8 @@ class TestLayerControlRendering:
         assert "/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/" in html
         assert "not a valid identifier" in html or "invalid_id" in html
 
-    def test_create_canvas_api(self, base_map: folium.Map):
-        """createCanvas returns expected API methods."""
+    def test_create_canvas_rendering(self, base_map: folium.Map):
+        """createCanvas emits API methods and inserts into leaflet-map-pane."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "createCanvas" in html
@@ -897,11 +882,6 @@ class TestLayerControlRendering:
         assert "setZIndex" in html
         assert "setVisible" in html
         assert "getSize" in html
-
-    def test_create_canvas_in_mapPane(self, base_map: folium.Map):
-        """createCanvas inserts canvas into leaflet-map-pane."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
         assert 'L.DomUtil.create("canvas", "foliplus-heatmap-canvas", mapPane)' in html
         assert "mapPane" in html
 
