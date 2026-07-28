@@ -501,7 +501,7 @@
         }
 
         // Attach toggle/delete UI (shared with restoreDistance)
-        const onDistMapClick = this.m._attachDistanceUI({
+        const onDistMapClick = this.m.attachDistanceUI({
           layers,
           finalPoly,
           nodeMarkers,
@@ -837,7 +837,7 @@
         this.m.saveMeasurements();
 
         // Attach toggle/delete UI (shared with restoreCircle)
-        const { onMapClickActive } = this.m._attachCircleUI({
+        const { onMapClickActive } = this.m.attachCircleUI({
           layers,
           circle,
           radiusLine,
@@ -1011,7 +1011,7 @@
       this.layers.addLayer(startLbl, true);
 
       // Attach toggle/delete UI (shared with finishDist)
-      this._attachDistanceUI({
+      this.attachDistanceUI({
         layers: this.layers,
         finalPoly,
         nodeMarkers,
@@ -1074,7 +1074,7 @@
       this.layers.addLayer(radiusLabel, true);
 
       // Attach toggle/delete UI (shared with finalizeCircle)
-      this._attachCircleUI({
+      this.attachCircleUI({
         layers: this.layers,
         circle,
         radiusLine,
@@ -1119,7 +1119,7 @@
      * @param {Function} opts.onDelete  - Called when user deletes the measurement
      * @returns {Function} cleanup(mapClickHandler) to remove map click listener
      */
-    _attachDistanceUI(opts) {
+    attachDistanceUI(opts) {
       const { layers, finalPoly, nodeMarkers, segLabels, startLbl, onDelete } = opts;
       let labelsVisible = true;
       let xVisible = false;
@@ -1208,7 +1208,7 @@
      * @param {Function} opts.onDelete - Called when user deletes the measurement
      * @returns {Function} cleanup(mapClickHandler) to remove map click listener
      */
-    _attachCircleUI(opts) {
+    attachCircleUI(opts) {
       const {
         layers,
         circle,

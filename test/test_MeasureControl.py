@@ -860,15 +860,15 @@ class TestMeasureControlRendering:
         assert "CONST.ID" in html
 
     def test_attach_distance_ui_shared(self, base_map: folium.Map):
-        """_attachDistanceUI is used by both finishDist and restoreDistance."""
+        """attachDistanceUI is used by both finishDist and restoreDistance."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        count = html.count("_attachDistanceUI")
-        assert count >= 2, f"expected 2+ references to _attachDistanceUI, got {count}"
+        count = html.count("attachDistanceUI")
+        assert count >= 2, f"expected 2+ references to attachDistanceUI, got {count}"
 
     def test_attach_circle_ui_shared(self, base_map: folium.Map):
-        """_attachCircleUI is used by both finalizeCircle and restoreCircle."""
+        """attachCircleUI is used by both finalizeCircle and restoreCircle."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        count = html.count("_attachCircleUI")
-        assert count >= 2, f"expected 2+ references to _attachCircleUI, got {count}"
+        count = html.count("attachCircleUI")
+        assert count >= 2, f"expected 2+ references to attachCircleUI, got {count}"
