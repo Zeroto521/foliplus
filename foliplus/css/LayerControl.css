@@ -197,15 +197,11 @@
 .foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col svg {
   transform: scale(var(--scale-hover));
 }
-.foliplus-layer-ctrl .foliplus-layer-item.active,
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-color-layer-active {
+.foliplus-layer-ctrl .foliplus-layer-item.active {
   border-left-color: var(--accent-primary);
   background: var(--accent-light);
 }
-.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col,
-.foliplus-layer-ctrl
-  .foliplus-layer-item.foliplus-color-layer-active
-  .foliplus-type-icon-col {
+.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col {
   color: var(--accent-primary);
 }
 .foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-dragging {
@@ -342,9 +338,7 @@
   border: none;
   border-radius: var(--radius-round);
 }
-.foliplus-layer-ctrl
-  .foliplus-layer-item.foliplus-color-layer-active
-  .foliplus-color-layer-input {
+.foliplus-layer-ctrl .foliplus-color-layer-item.active .foliplus-color-layer-input {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
@@ -353,4 +347,9 @@
 .foliplus-layer-tile-hidden {
   visibility: hidden !important;
   opacity: 0 !important;
+}
+
+/* ── Color layer background on map container (via Leaflet container) ── */
+.leaflet-container.active {
+  background: var(--color-layer-bg, #cccccc);
 }

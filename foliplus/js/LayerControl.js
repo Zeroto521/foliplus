@@ -31,9 +31,9 @@
       ACTIVE: "active",
       CHECKBOX_WRAPPER: "foliplus-checkbox-wrapper",
       GROUP_FOLDED: "foliplus-layer-group-folded",
-      COLOR_ACTIVE: "foliplus-color-layer-active",
       COLOR_INPUT: "foliplus-color-layer-input",
       COLOR_ITEM: "foliplus-color-layer-item",
+      HIDDEN: "hidden",
       DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
       DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
       DRAGGING: "foliplus-layer-dragging",
@@ -886,7 +886,7 @@
       const onToggle =
         opts.onToggle ||
         ((visible) => {
-          canvas.style.display = visible ? "" : "none";
+          canvas.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
         });
 
       const onZIndex =
@@ -902,7 +902,7 @@
         registered = false;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        canvas.style.display = "none";
+        canvas.classList.add(CONST.CLASSES.HIDDEN);
         this.unregisterLayer(opts.id);
       };
 
@@ -911,7 +911,7 @@
         registered = true;
         resize();
         updatePosition();
-        canvas.style.display = "";
+        canvas.classList.remove(CONST.CLASSES.HIDDEN);
         this.registerLayer({
           id: opts.id,
           name: opts.name || opts.id,
@@ -949,7 +949,7 @@
           canvas.style.zIndex = String(z);
         },
         setVisible: (v) => {
-          canvas.style.display = v ? "" : "none";
+          canvas.classList.toggle(CONST.CLASSES.HIDDEN, !v);
         },
       };
     }
@@ -1618,7 +1618,8 @@
     showColorLayer(color) {
       this.m.isColorActive = true;
       this.m.currentColor = color;
-      mapContainer.style.background = color;
+      mapContainer.style.setProperty("--color-layer-bg", color);
+      mapContainer.classList.add(CONST.CLASSES.ACTIVE);
 
       for (let i = 0; i < this.m.layers.length; i++) {
         if (this.m.layers[i].isBase) {
@@ -1644,18 +1645,19 @@
       if (ci) ci.value = color;
       this.m.uiContainer
         .querySelector(CONST.SEL.COLOR_ITEM)
-        ?.classList.add(CONST.CLASSES.COLOR_ACTIVE);
+        ?.classList.add(CONST.CLASSES.ACTIVE);
       this.syncToggleAll(CONST.GROUP.BASE);
     }
 
     hideColorLayer() {
       this.m.isColorActive = false;
-      mapContainer.style.background = "";
+      mapContainer.classList.remove(CONST.CLASSES.ACTIVE);
+      mapContainer.style.removeProperty("--color-layer-bg");
       const tilePane = this.m.map.getPane("tilePane");
       if (tilePane) tilePane.classList.remove("foliplus-layer-tile-hidden");
       this.m.uiContainer
         .querySelector(CONST.SEL.COLOR_ITEM)
-        ?.classList.remove(CONST.CLASSES.COLOR_ACTIVE);
+        ?.classList.remove(CONST.CLASSES.ACTIVE);
     }
 
     deselectAllBaseMaps(exceptIdx) {
