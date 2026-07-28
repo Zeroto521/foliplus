@@ -438,22 +438,21 @@
           return ss.jenks(data, nClasses);
         } catch (e) {}
         return [lo, hi];
-      }
-      if (method === "quantile") {
+      } else if (method === "quantile") {
         const b = [lo];
         for (let i = 1; i < nClasses; i++) b.push(ss.quantile(sorted, i / nClasses));
         return b.concat(hi);
-      }
-      if (method === "heads") {
+      } else if (method === "heads") {
         const b = [lo];
         for (let i = 1; i < nClasses; i++)
           b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
         return b.concat(hi);
+      } else {
+        const step = (hi - lo) / nClasses;
+        const b = [];
+        for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
+        return b;
       }
-      const step = (hi - lo) / nClasses;
-      const b = [];
-      for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
-      return b;
     }
 
     // --- Hexagon Rendering ---
