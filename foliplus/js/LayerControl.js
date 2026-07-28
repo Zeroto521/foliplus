@@ -29,7 +29,7 @@
     CLASSES: {
       LAYER_ITEM: "foliplus-layer-item",
       ACTIVE: "active",
-      CHECKBOX_WRAPPER: "foliplus-checkbox-wrapper",
+      CHECKBOX: "foliplus-checkbox",
       GROUP_FOLDED: "foliplus-layer-group-folded",
       COLOR_INPUT: "foliplus-color-layer-input",
       COLOR_ITEM: "foliplus-color-layer-item",
@@ -1245,7 +1245,7 @@
         ),
         foliplus.dom.el(
           "div",
-          { class: CONST.CLASSES.CHECKBOX_WRAPPER },
+          { class: CONST.CLASSES.CHECKBOX },
           foliplus.dom.el("input", {
             type: "checkbox",
             "data-role": "toggle-all",
@@ -1263,7 +1263,7 @@
         { html: SVGs.DRAG_HANDLE },
         foliplus.dom.el(
           "div",
-          { class: CONST.CLASSES.CHECKBOX_WRAPPER },
+          { class: CONST.CLASSES.CHECKBOX },
           foliplus.dom.el("input", {
             type: "checkbox",
             checked: "",
@@ -1305,7 +1305,7 @@
         { html: SVGs.DRAG_HANDLE },
         foliplus.dom.el(
           "div",
-          { class: CONST.CLASSES.CHECKBOX_WRAPPER },
+          { class: CONST.CLASSES.CHECKBOX },
           foliplus.dom.el("input", {
             type: "color",
             class: CONST.CLASSES.COLOR_INPUT,

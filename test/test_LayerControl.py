@@ -485,7 +485,7 @@ class TestLayerControlRendering:
         """Each layer-item has checkbox-wrapper, label, type-icon-col."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "foliplus-checkbox-wrapper" in html
+        assert "foliplus-checkbox" in html
         assert "foliplus-type-icon-col" in html
 
     def test_color_map_id_constant(self, base_map: folium.Map):

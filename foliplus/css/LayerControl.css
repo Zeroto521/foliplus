@@ -247,7 +247,7 @@
   cursor: pointer;
 }
 /* ── Checkbox styles ── */
-.foliplus-layer-ctrl .foliplus-checkbox-wrapper {
+.foliplus-layer-ctrl .foliplus-checkbox {
   display: flex;
   align-items: center;
   justify-content: center;
