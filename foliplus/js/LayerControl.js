@@ -623,13 +623,17 @@
 
     /**
      * Create a managed three-layer group (graph + label + main) for
-     * components that need sub-layers with custom panes (MeasureControl).
+     * components that need sub-layers with custom panes (e.g. MeasureControl).
      *
-     * `mainLayer.addLayer` is overridden to route layers by `.isLabel`:
-     * graph content → `graphLayer`, label content → `labelLayer`.
+     * `mainLayer.addLayer()` is overridden to route layers by `.isLabel`:
+     * - graph content (geometry) → `graphLayer`
+     * - label content (divIcon markers) → `labelLayer`
+     * When neither `graphPane` nor `labelPane` is given, behaves as a plain
+     * `L.layerGroup` with auto-registration.
+     *
      * Auto-registers with LayerControl on first content add, auto-unregisters
      * when empty.  The convenience `addLayer(layer, isLabel)` wrapper
-     * sets `layer.isLabel = true` so mainLayer routes correctly.
+     * sets `layer.isLabel = true` so `mainLayer.addLayer` routes correctly.
      *
      * @param {Object} opts
      * @param {string} opts.id         - Unique layer ID.
@@ -644,8 +648,9 @@
      *   `.addLayer()` is overridden to route to sub-layers by `.isLabel`.
      * @property {Function} addLayer(layer, isLabel?) - Add a layer.  If `isLabel` is true,
      *   sets `layer.isLabel = true` so `mainLayer.addLayer` routes to `labelLayer`.
-     * @property {Function} removeLayer(...items) - Remove one or more layers.  Null items
-     *   silently skipped.  Auto-unregisters when empty.
+     *   Returns the layer for chaining.
+     * @property {Function} removeLayer(...items) - Remove one or more layers. Null items
+     *   silently skipped.  Auto-unregisters when all sub-layers are empty.
      * @property {Function} clearLayers()   - Clear all sub-layers, unregister from panel.
      * @property {Function} destroy()       - Clear + unregister + remove from LayerControl.
      * @property {Function} register()      - Register with LayerControl (auto-called on first
@@ -814,8 +819,12 @@
      * visually align with the viewport.  Drawing coordinates should use
      * `latLngToContainerPoint` (viewport-relative).
      *
-     * Call `register()` when data is ready (appears in LayerControl panel).
-     * `unregister()` clears the canvas, hides it, and removes the panel entry.
+     * Auto-registers with LayerControl on `register()`, auto-unregisters
+     * on `unregister()` (clears content, hides canvas, removes panel entry).
+     * The canvas hides itself via the `foliplus-heatmap-canvas.hidden` CSS class.
+     *
+     * Listens to map `move` (reposition) and `resize` (re-measure) events.
+     * Call `destroy()` to remove all listeners and the canvas DOM element.
      *
      * @param {Object} opts
      * @param {string} opts.id       - Unique layer ID.
@@ -823,22 +832,30 @@
      * @param {string} [opts.iconSvg]   - SVG icon for the type column.
      * @param {string} [opts.className] - Extra CSS class for the canvas element.
      * @param {Function} [opts.onToggle] - Override visibility callback(visible).
+     *   Default: toggles `foliplus-heatmap-canvas.hidden` class.
      * @param {Function} [opts.onZIndex] - Override z-index callback(z).
+     *   Default: sets `canvas.style.zIndex`.
      * @returns {createCanvasAPI}
      *
      * @typedef {Object} createCanvasAPI
      * @property {HTMLCanvasElement} canvas  - Canvas element (in `.leaflet-map-pane`).
      * @property {CanvasRenderingContext2D} ctx - 2D drawing context.
      * @property {Function} resize()       - Re-measure container (respects DPR).
+     *   Call after container size changes (e.g. panel expand/collapse).
      * @property {Function} getSize()      - Return `{width, height}` in CSS pixels.
-     * @property {Function} updatePosition()- Recompute left/top from mapPane offset.
+     * @property {Function} updatePosition()- Recompute left/top from mapPane CSS
+     *   transform offset.  Called automatically on map `move`.
      * @property {Function} register()     - Register in LayerControl panel.
+     *   Calls `resize()` + `updatePosition()` + shows canvas.
      * @property {Function} unregister()   - Unregister, clear canvas, hide.
+     *   Safe to call multiple times.
      * @property {Function} registered()   - Returns `true` if registered.
-     * @property {Function} destroy()      - Remove canvas, unregister, cleanup.
-     * @property {Function} bringToFront() - Bring to top of z-order.
-     * @property {Function} setZIndex(z)   - Set CSS z-index directly.
-     * @property {Function} setVisible(v)  - Show/hide canvas.
+     * @property {Function} destroy()      - Remove canvas, unregister, cleanup
+     *   listeners.  Call when the component is removed.
+     * @property {Function} bringToFront() - Bring to top of z-order via
+     *   LayerControl.
+     * @property {Function} setZIndex(z)   - Set CSS z-index directly on canvas.
+     * @property {Function} setVisible(v)  - Show/hide canvas via CSS class.
      */
     createCanvas(opts) {
       if (!opts?.id)
