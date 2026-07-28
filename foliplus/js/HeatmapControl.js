@@ -435,7 +435,10 @@
 
       if (method === "jenks") {
         try {
-          return ss.ckmeans(data, nClasses);
+          const clusters = ss.ckmeans(data, nClasses);
+          const breaks = [clusters[0][0]];
+          clusters.forEach((c) => breaks.push(c[c.length - 1]));
+          return breaks;
         } catch (e) {}
         return [lo, hi];
       } else if (method === "quantile") {
