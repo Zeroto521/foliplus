@@ -341,8 +341,8 @@
 
 /* ── Tile pane hidden state ── */
 .foliplus-layer-tile-hidden {
-  visibility: hidden !important;
-  opacity: 0 !important;
+  visibility: hidden;
+  opacity: 0;
 }
 
 /* ── Color layer background on map container (via Leaflet container) ── */
