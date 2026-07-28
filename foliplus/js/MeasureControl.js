@@ -177,13 +177,11 @@
       };
 
       applyDelIcon(delMarker, xVisible);
-      const visible = labelsVisible;
-
       labels.forEach((m) => {
         const el = m.getElement();
         if (el) {
           const lbl = el.querySelector(CONST.SEL.LABEL);
-          if (lbl) lbl.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
+          if (lbl) lbl.classList.toggle(CONST.CLASSES.HIDDEN, !labelsVisible);
         }
       });
 
@@ -191,7 +189,7 @@
         const sEl = extraLbl.getElement();
         if (sEl) {
           const sL = sEl.querySelector(CONST.SEL.LABEL);
-          if (sL) sL.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
+          if (sL) sL.classList.toggle(CONST.CLASSES.HIDDEN, !labelsVisible);
         }
       }
 
