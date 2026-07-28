@@ -43,13 +43,13 @@ class TestFullscreeControlRendering:
         """hide_self=true injects the fullscreen-toggle hide block."""
         FullscreenControl().add_to(base_map)
         html = render(base_map)
-        assert 'fsToggle.style.display = isFull ? "none" : ""' in html
+        assert 'classList.toggle("foliplus-fullscreen-hidden"' in html
 
     def test_hide_self_false(self, base_map: folium.Map):
         """hide_self=false wraps hide block in if (false)."""
         FullscreenControl(hide_self=False).add_to(base_map)
         html = render(base_map)
-        assert 'fsToggle.style.display = isFull ? "none" : ""' in html
+        assert 'classList.toggle("foliplus-fullscreen-hidden"' in html
         assert "if (false)" in html
 
     def test_contains_fullscreenchange_listener(self, base_map: folium.Map):
@@ -165,7 +165,7 @@ class TestFullscreeControlRendering:
         """hide_self still works when hide_others=false."""
         FullscreenControl(hide_self=True, hide_others=False).add_to(base_map)
         html = render(base_map)
-        assert 'fsToggle.style.display = isFull ? "none" : ""' in html
+        assert 'classList.toggle("foliplus-fullscreen-hidden"' in html
 
 
 class TestFullscreenControlBrowser:
