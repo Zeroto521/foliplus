@@ -15,6 +15,7 @@
 - `LayerControl`: added fold/unfold feature with toggle-all row, fold button per group, hover tooltip, and SVG icon switching ([#52](https://github.com/Zeroto521/foliplus/pull/52), [#55](https://github.com/Zeroto521/foliplus/pull/55))
 - `MapSearch`: added address autocomplete suggestions with Nominatim integration ([#75](https://github.com/Zeroto521/foliplus/pull/75))
 - `MeasureControl`: added measurement persistence via `localStorage` — markers, distances, and circles survive page refresh ([#83](https://github.com/Zeroto521/foliplus/pull/48))
+- `LayerControl`: only shows the topmost visible base TileLayer's attribution to avoid clutter when multiple base layers overlap ([#83](https://github.com/Zeroto521/foliplus/pull/83))
 
 ### Changed
 
