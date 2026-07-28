@@ -622,38 +622,37 @@
     }
 
     /**
-     * Create a managed three-layer group for components that need
-     * graph and label sub-layers (MeasureControl, etc.).
+     * Create a managed three-layer group (graph + label + main) for
+     * components that need sub-layers with custom panes (MeasureControl).
      *
-     * `mainLayer` is a plain `L.layerGroup` that contains (if provided)
-     * `graphLayer` (for geometry) and `labelLayer` (for text labels),
-     * each with a custom leaflet pane for z-order control.
-     *
-     * `mainLayer.addLayer` is overridden to automatically route layers
-     * to the correct sub-layer based on a `.isLabel` property set by the
-     * convenience `addLayer()` wrapper.  Content is auto-registered with
-     * LayerControl on first add and auto-unregistered when empty.
+     * `mainLayer.addLayer` is overridden to route layers by `.isLabel`:
+     * graph content → `graphLayer`, label content → `labelLayer`.
+     * Auto-registers with LayerControl on first content add, auto-unregisters
+     * when empty.  The convenience `addLayer(layer, isLabel)` wrapper
+     * sets `layer.isLabel = true` so mainLayer routes correctly.
      *
      * @param {Object} opts
-     * @param {string} opts.id       - Unique layer ID (used for LayerControl panel, localStorage).
-     * @param {string} opts.name     - Display name in LayerControl panel.
-     * @param {string} [opts.graphPane] - Custom Leaflet pane name for geometry content.
-     * @param {string} [opts.labelPane] - Custom Leaflet pane name for label content.
-     * @param {string} [opts.iconSvg]   - SVG icon for the type column.
-     * @returns {Object} Managed layers API:
-     *   - {L.layerGroup} mainLayer   - Root layer group (contains graphLayer + labelLayer).
-     *     Its `.addLayer()` is overridden to route to sub-layers by `.isLabel`.
-     *   - {Function} addLayer(layer, isLabel?) - Add a layer.  If `isLabel` is true,
-     *     sets `layer.isLabel = true` so `mainLayer.addLayer` routes to `labelLayer`.
-     *   - {Function} removeLayer(...items) - Remove one or more layers.  Null items
-     *     are silently skipped.  Auto-unregisters from LayerControl when empty.
-     *   - {Function} clearLayers() - Clear all sub-layers and unregister from LayerControl.
-     *   - {Function} destroy()     - Clear layers, unregister, and remove from LayerControl.
-     *   - {Function} register()    - Manually register with LayerControl (called
-     *     automatically on first `addLayer`).  Safe to call multiple times.
-     *   - {Function} unregister()  - Unregister from LayerControl when empty.
-     *   - {Function} registered()  - Returns `true` if currently registered.
-     *   - {Function} bringToFront()- Bring this layer to the top of the z-order.
+     * @param {string} opts.id         - Unique layer ID.
+     * @param {string} opts.name       - Display name in LayerControl panel.
+     * @param {string} [opts.graphPane] - Pane name for geometry (e.g. "measure_graph").
+     * @param {string} [opts.labelPane] - Pane name for labels (e.g. "measure_label").
+     * @param {string} [opts.iconSvg]  - SVG icon for the type column.
+     * @returns {createLayersAPI}
+     *
+     * @typedef {Object} createLayersAPI
+     * @property {L.layerGroup} mainLayer    - Root layer group (contains graphLayer + labelLayer).
+     *   `.addLayer()` is overridden to route to sub-layers by `.isLabel`.
+     * @property {Function} addLayer(layer, isLabel?) - Add a layer.  If `isLabel` is true,
+     *   sets `layer.isLabel = true` so `mainLayer.addLayer` routes to `labelLayer`.
+     * @property {Function} removeLayer(...items) - Remove one or more layers.  Null items
+     *   silently skipped.  Auto-unregisters when empty.
+     * @property {Function} clearLayers()   - Clear all sub-layers, unregister from panel.
+     * @property {Function} destroy()       - Clear + unregister + remove from LayerControl.
+     * @property {Function} register()      - Register with LayerControl (auto-called on first
+     *   `addLayer`).  Safe to call multiple times.
+     * @property {Function} unregister()    - Unregister from LayerControl when empty.
+     * @property {Function} registered()    - Returns `true` if currently registered.
+     * @property {Function} bringToFront()  - Bring this layer to the top of z-order.
      */
     createLayers(opts) {
       const mainLayer = L.layerGroup();
@@ -807,42 +806,38 @@
     }
 
     /**
-     * Create a managed canvas element that properly tracks map pan/zoom.
+     * Create a managed canvas element that tracks map pan/zoom.
      *
-     * The canvas is placed inside `.leaflet-map-pane` (same stacking context as
-     * Leaflet panes) and positioned at `(-panX, -panY)` to cancel the mapPane's
-     * CSS `transform: translate(panX, panY)`.  This makes the canvas visually
-     * align with the viewport — no more clipping from CSS transform.
+     * The canvas is placed inside `.leaflet-map-pane` and positioned at
+     * `(-panX, -panY)` to cancel the mapPane CSS transform, making it
+     * visually align with the viewport.  Drawing coordinates should use
+     * `latLngToContainerPoint` (viewport-relative).
      *
-     * Drawing coordinates should use `latLngToContainerPoint` (viewport-relative).
-     * The canvas position is updated on every `move` event — no redraw needed for pan.
-     * Zoom changes require re-rendering the canvas content.
-     *
-     * Unlike `createLayers()`, the canvas does NOT auto-register with LayerControl.
-     * The caller must call `register()` when data is ready and `unregister()` when
-     * clearing.  `unregister()` automatically clears the canvas content and hides
-     * it before removing the LayerControl entry — no manual canvas clearing needed.
+     * Call `register()` when data is ready (appears in LayerControl panel).
+     * `unregister()` clears the canvas, hides it, and removes the panel entry.
      *
      * @param {Object} opts
-     * @param {string} opts.id       - Unique layer ID (used for LayerControl panel, localStorage).
-     * @param {string} [opts.name]   - Display name in LayerControl panel (falls back to id).
-     * @param {string} [opts.iconSvg]   - SVG icon HTML for the type column.
+     * @param {string} opts.id       - Unique layer ID.
+     * @param {string} [opts.name]   - Display name (falls back to id).
+     * @param {string} [opts.iconSvg]   - SVG icon for the type column.
      * @param {string} [opts.className] - Extra CSS class for the canvas element.
-     * @param {Function} [opts.onToggle] - Override default visibility callback(visible).
-     * @param {Function} [opts.onZIndex] - Override default z-index callback(z).
-     * @returns {Object} Managed canvas API:
-     *   - {HTMLCanvasElement} canvas  - The canvas element (inserted into `.leaflet-map-pane`).
-     *   - {CanvasRenderingContext2D} ctx - 2D drawing context.
-     *   - {Function} resize()          - Re-measure container dimensions (respects DPR).
-     *   - {Function} getSize()         - Return {width, height} in CSS pixels.
-     *   - {Function} updatePosition()  - Recompute left/top from current mapPane transform offset.
-     *   - {Function} register()        - Register with LayerControl (appears in panel).
-     *   - {Function} unregister()      - Unregister from LayerControl.
-     *   - {Function} registered()      - Returns `true` if currently registered.
-     *   - {Function} destroy()         - Remove canvas, unregister, and clean up event listeners.
-     *   - {Function} bringToFront()    - Bring this canvas to the top of the z-order.
-     *   - {Function} setZIndex(z)      - Set canvas CSS z-index directly.
-     *   - {Function} setVisible(v)     - Show/hide canvas via `display` style.
+     * @param {Function} [opts.onToggle] - Override visibility callback(visible).
+     * @param {Function} [opts.onZIndex] - Override z-index callback(z).
+     * @returns {createCanvasAPI}
+     *
+     * @typedef {Object} createCanvasAPI
+     * @property {HTMLCanvasElement} canvas  - Canvas element (in `.leaflet-map-pane`).
+     * @property {CanvasRenderingContext2D} ctx - 2D drawing context.
+     * @property {Function} resize()       - Re-measure container (respects DPR).
+     * @property {Function} getSize()      - Return `{width, height}` in CSS pixels.
+     * @property {Function} updatePosition()- Recompute left/top from mapPane offset.
+     * @property {Function} register()     - Register in LayerControl panel.
+     * @property {Function} unregister()   - Unregister, clear canvas, hide.
+     * @property {Function} registered()   - Returns `true` if registered.
+     * @property {Function} destroy()      - Remove canvas, unregister, cleanup.
+     * @property {Function} bringToFront() - Bring to top of z-order.
+     * @property {Function} setZIndex(z)   - Set CSS z-index directly.
+     * @property {Function} setVisible(v)  - Show/hide canvas.
      */
     createCanvas(opts) {
       if (!opts?.id)
