@@ -815,6 +815,47 @@ class TestLayerControlRendering:
         assert "forEachLeaf" in html
         assert "forEachLayer" in html
 
+    def test_for_each_leaf_depth_guard(self, base_map: folium.Map):
+        """forEachLeaf respects RECURSION.LAYER_DEPTH guard."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "depth > CONST.RECURSION.LAYER_DEPTH" in html
+
+    def test_clear_all_layers_recursive(self, base_map: folium.Map):
+        """clearAllLayers recursively clears nested sub-layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layer.eachLayer((l) => this.clearAllLayers(l))" in html
+        assert 'typeof layer.clearLayers === "function"' in html
+
+    def test_extract_points_filters_no_feature(self, base_map: folium.Map):
+        """extractPoints only accepts markers with .feature."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "!l.feature" in html
+        assert "L.Marker || l instanceof L.CircleMarker" in html
+
+    def test_extract_points_dedup_by_stamp(self, base_map: folium.Map):
+        """extractPoints deduplicates markers by L.stamp."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "seen[stamp]" in html
+        assert "seen[stamp] = true" in html
+
+    def test_for_each_leaf_api_exposed(self, base_map: folium.Map):
+        """forEachLeaf is exposed on foliplus.LayerAPI."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.forEachLeaf = this.forEachLeaf.bind(this)" in html
+        assert "forEachLeaf(id, fn)" in html
+
+    def test_extract_points_api_exposed(self, base_map: folium.Map):
+        """extractPoints is exposed on foliplus.LayerAPI."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.extractPoints = this.extractPoints.bind(this)" in html
+        assert "extractPoints(id)" in html
+
     def test_onremove_destroys_manager(self, base_map: folium.Map):
         """LayerControl.onRemove calls destroy() which cleans up resources."""
         LayerControl().add_to(base_map)
@@ -1789,3 +1830,46 @@ class TestLayerControlBrowser:
             assert cursor == "pointer", f"Expected pointer cursor, got {cursor}"
         finally:
             page.close()
+
+    # ── API extension tests ──
+
+    def test_for_each_leaf_depth_guard(self, base_map: folium.Map):
+        """forEachLeaf respects RECURSION.LAYER_DEPTH guard."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "depth > CONST.RECURSION.LAYER_DEPTH" in html
+
+    def test_clear_all_layers_recursive(self, base_map: folium.Map):
+        """clearAllLayers recursively clears nested sub-layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layer.eachLayer((l) => this.clearAllLayers(l))" in html
+        assert 'typeof layer.clearLayers === "function"' in html
+
+    def test_extract_points_filters_no_feature(self, base_map: folium.Map):
+        """extractPoints only accepts markers with .feature."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "!l.feature" in html
+        assert "L.Marker || l instanceof L.CircleMarker" in html
+
+    def test_extract_points_dedup_by_stamp(self, base_map: folium.Map):
+        """extractPoints deduplicates markers by L.stamp."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "seen[stamp]" in html
+        assert "seen[stamp] = true" in html
+
+    def test_for_each_leaf_api_exposed(self, base_map: folium.Map):
+        """forEachLeaf is exposed on foliplus.LayerAPI."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.forEachLeaf = this.forEachLeaf.bind(this)" in html
+        assert "forEachLeaf(id, fn)" in html
+
+    def test_extract_points_api_exposed(self, base_map: folium.Map):
+        """extractPoints is exposed on foliplus.LayerAPI."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.extractPoints = this.extractPoints.bind(this)" in html
+        assert "extractPoints(id)" in html

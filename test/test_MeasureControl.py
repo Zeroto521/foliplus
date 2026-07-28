@@ -822,3 +822,53 @@ class TestMeasureControlRendering:
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
+
+    # ── MeasureUtils edge-case tests ──
+
+    def test_format_distance_zero(self, base_map: folium.Map):
+        """formatDistance handles 0 meters."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "0" in html
+
+    def test_format_distance_large(self, base_map: folium.Map):
+        """formatDistance handles large values > 1000m."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "unit_km" in html
+
+    def test_calc_toggle_all_modes(self, base_map: folium.Map):
+        """calcToggle handles all toggleLbl modes: true, false, undefined, RESET."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "toggleLbl === true" in html
+        assert "toggleLbl === false" in html
+        assert "toggleLbl === CONST.TOGGLE.RESET" in html
+
+    def test_restore_measurements_corrupted_json(self, base_map: folium.Map):
+        """loadMeasurements returns empty array on corrupted JSON."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "JSON.parse(data)" in html
+        assert "return []" in html
+
+    def test_next_measurement_id_format(self, base_map: folium.Map):
+        """nextMeasurementId generates IDs with type prefix."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "nextMeasurementId" in html
+        assert "CONST.ID" in html
+
+    def test_attach_distance_ui_shared(self, base_map: folium.Map):
+        """_attachDistanceUI is used by both finishDist and restoreDistance."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        count = html.count("_attachDistanceUI")
+        assert count >= 2, f"expected 2+ references to _attachDistanceUI, got {count}"
+
+    def test_attach_circle_ui_shared(self, base_map: folium.Map):
+        """_attachCircleUI is used by both finalizeCircle and restoreCircle."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        count = html.count("_attachCircleUI")
+        assert count >= 2, f"expected 2+ references to _attachCircleUI, got {count}"

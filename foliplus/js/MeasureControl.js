@@ -437,11 +437,11 @@
             layers.removeLayer(previewDistLabel);
             previewDistLabel = null;
           }
-            layers.removeLayer(poly);
-            layers.removeLayer(finalPoly);
-            nodeMarkers.forEach((m) => layers.removeLayer(m));
-            segLabels.forEach((l) => layers.removeLayer(l));
-            if (startLbl) layers.removeLayer(startLbl);
+          layers.removeLayer(poly);
+          layers.removeLayer(finalPoly);
+          nodeMarkers.forEach((m) => layers.removeLayer(m));
+          segLabels.forEach((l) => layers.removeLayer(l));
+          if (startLbl) layers.removeLayer(startLbl);
           layers.unregister();
         }
       };
@@ -472,57 +472,7 @@
           }
         }
 
-        let labelsVisible = true;
-        let xVisible = false;
-        let lastNodeDelMkr = null;
-
-        const toggleUI = (showX, toggleLabels) => {
-          const s = MeasureUtils.calcToggle(
-            xVisible,
-            labelsVisible,
-            showX,
-            toggleLabels,
-          );
-          xVisible = s.xVisible;
-          labelsVisible = s.labelsVisible;
-          MeasureUtils.applyToggle(
-            lastNodeDelMkr,
-            xVisible,
-            segLabels,
-            labelsVisible,
-            startLbl,
-          );
-        };
-
-        const handleItemClick = (e) => {
-          MeasureUtils.stopEvent(e);
-          MeasureUtils.suppressHide(this.m);
-          toggleUI(undefined);
-        };
-
-        finalPoly.on("click", handleItemClick);
-        nodeMarkers.forEach((m) => m.on("click", handleItemClick));
-        segLabels.forEach((l) => l.on("click", handleItemClick));
-        if (startLbl) startLbl.on("click", handleItemClick);
-
-        toggleUI(false, CONST.TOGGLE.RESET);
-
-        const onDistMapClick = () => {
-          if (this.m.isSuppressHideDel) return;
-          if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
-        };
-        map.on("click", onDistMapClick);
-        // After finalization, mode cleanup should only remove the map click listener,
-        // not the completed polyline/nodes/labels (they stay on the map).
-        this._cleanup = () => map.off("click", onDistMapClick);
-
-        if (segLabels.length > 0) {
-          const lastLbl = segLabels[segLabels.length - 1];
-          lastLbl.setIcon(
-            MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
-          );
-        }
-
+        // Save measurement data
         const distId = this.nextMeasurementId();
         const segments = pts.slice(1).map((p, i) => ({
           lng: p.lng,
@@ -543,44 +493,28 @@
         });
         this.m.saveMeasurements();
 
-        const deleteMeasurement = () => {
-          layers.removeLayer(
-            finalPoly,
-            finalPoly,
-            ...nodeMarkers,
-            ...segLabels,
-            startLbl,
-            lastNodeDelMkr,
+        // Format last label
+        if (segLabels.length > 0) {
+          segLabels[segLabels.length - 1].setIcon(
+            MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
           );
-          map.off("click", onDistMapClick);
-          this.m.measurements = this.m.measurements.filter((x) => x.id !== distId);
-          this.m.saveMeasurements();
-          layers.unregister();
-        };
-
-        if (nodeMarkers.length > 0) {
-          const lastNode = nodeMarkers[nodeMarkers.length - 1];
-          lastNodeDelMkr = MeasureUtils.makeDelIcon(lastNode.getLatLng()).addTo(
-            layers.mainLayer,
-          );
-          MeasureUtils.attachDelClick(lastNodeDelMkr, deleteMeasurement);
-          lastNodeDelMkr.on("click", (e) => {
-            const t = e.originalEvent?.target;
-            if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-            handleItemClick(e);
-          });
         }
 
-        // Re-sort layer ordering
-        nodeMarkers.forEach((m) => layers.removeLayer(m));
-        if (lastNodeDelMkr) layers.removeLayer(lastNodeDelMkr);
-        segLabels.forEach((l) => layers.removeLayer(l));
-        if (startLbl) layers.removeLayer(startLbl);
-        nodeMarkers.forEach((m) => m.addTo(layers.mainLayer));
-        if (lastNodeDelMkr) lastNodeDelMkr.addTo(layers.mainLayer);
-        segLabels.forEach((l) => l.addTo(layers.mainLayer));
-        if (startLbl) startLbl.addTo(layers.mainLayer);
+        // Attach toggle/delete UI (shared with restoreDistance)
+        const onDistMapClick = this.m._attachDistanceUI({
+          layers,
+          finalPoly,
+          nodeMarkers,
+          segLabels,
+          startLbl,
+          onDelete: () => {
+            this.m.measurements = this.m.measurements.filter((x) => x.id !== distId);
+            this.m.saveMeasurements();
+          },
+        });
+        this._cleanup = () => this.m.map.off("click", onDistMapClick);
 
+        // Cleanup drawing mode
         map.off("click", onDistClick);
         map.off("dblclick", onDistDbl);
         map.off("contextmenu", onDistContext);
@@ -891,35 +825,7 @@
         });
         layers.addLayer(radiusLabel, true);
 
-        const toggleUI = (showX, toggleLabels) => {
-          const s = MeasureUtils.calcToggle(
-            xVisible,
-            labelsVisible,
-            showX,
-            toggleLabels,
-          );
-          xVisible = s.xVisible;
-          labelsVisible = s.labelsVisible;
-          MeasureUtils.applyToggle(
-            delMkr,
-            xVisible,
-            [radiusLabel],
-            labelsVisible,
-            null,
-            (xv) => {
-              if (delMkr.setZIndexOffset)
-                delMkr.setZIndexOffset(
-                  xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
-                );
-              MeasureUtils.toggleVisibility(
-                [radiusLine?.getElement(), radiusNode?.getElement()],
-                labelsVisible,
-              );
-            },
-          );
-        };
-        toggleUI(false, CONST.TOGGLE.RESET);
-
+        // Save measurement data
         const circleId = this.nextMeasurementId();
         this.m.measurements.push({
           id: circleId,
@@ -930,53 +836,20 @@
         });
         this.m.saveMeasurements();
 
-        let deleted = false;
-        const deleteCircle = () => {
-          if (deleted) return;
-          deleted = true;
-          layers.removeLayer(
-            delMkr,
-            circle,
-            centerFinal,
-            radiusLine,
-            radiusNode,
-            radiusLabel,
-          );
-          map.off("click", onMapClickActive);
-          this.m.measurements = this.m.measurements.filter((x) => x.id !== circleId);
-          this.m.saveMeasurements();
-          layers.unregister();
-        };
-
-        MeasureUtils.attachDelClick(delMkr, deleteCircle);
-
-        const toggleCircleToggle = () => {
-          if (deleted) return;
-          MeasureUtils.suppressHide(this.m);
-          toggleUI(undefined);
-        };
-
-        const attachInteraction = (layer) => {
-          layer.on("click", (e) => {
-            const t = e.originalEvent?.target;
-            if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-            MeasureUtils.stopEvent(e);
-            toggleCircleToggle();
-          });
-        };
-
-        attachInteraction(delMkr);
-        attachInteraction(circle);
-        attachInteraction(radiusLine);
-        attachInteraction(radiusNode);
-        attachInteraction(centerFinal);
-        if (radiusLabel) attachInteraction(radiusLabel);
-
-        const onMapClickActive = () => {
-          if (this.m.isSuppressHideDel || deleted) return;
-          if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
-        };
-        map.on("click", onMapClickActive);
+        // Attach toggle/delete UI (shared with restoreCircle)
+        const { onMapClickActive } = this.m._attachCircleUI({
+          layers,
+          circle,
+          radiusLine,
+          radiusNode,
+          centerFinal,
+          delMkr,
+          radiusLabel,
+          onDelete: () => {
+            this.m.measurements = this.m.measurements.filter((x) => x.id !== circleId);
+            this.m.saveMeasurements();
+          },
+        });
         this.m.finalizedClickHandler = onMapClickActive;
       };
 
@@ -1137,74 +1010,18 @@
       });
       this.layers.addLayer(startLbl, true);
 
-      let labelsVisible = true;
-      let xVisible = false;
-      let lastNodeDelMkr = null;
-
-      const toggleUI = (showX, toggleLabels) => {
-        const s = MeasureUtils.calcToggle(xVisible, labelsVisible, showX, toggleLabels);
-        xVisible = s.xVisible;
-        labelsVisible = s.labelsVisible;
-        MeasureUtils.applyToggle(
-          lastNodeDelMkr,
-          xVisible,
-          segLabels,
-          labelsVisible,
-          startLbl,
-        );
-      };
-      toggleUI(false, CONST.TOGGLE.RESET);
-
-      const handleItemClick = (e) => {
-        MeasureUtils.stopEvent(e);
-        MeasureUtils.suppressHide(this);
-        toggleUI(undefined);
-      };
-      finalPoly.on("click", handleItemClick);
-      nodeMarkers.forEach((node) => node.on("click", handleItemClick));
-      segLabels.forEach((lbl) => lbl.on("click", handleItemClick));
-      startLbl.on("click", handleItemClick);
-
-      const onMapClickActive = () => {
-        if (this.isSuppressHideDel) return;
-        if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
-      };
-      this.map.on("click", onMapClickActive);
-
-      const deleteMeasurement = () => {
-        this.layers.removeLayer(
-          finalPoly,
-          ...nodeMarkers,
-          ...segLabels,
-          startLbl,
-          lastNodeDelMkr,
-        );
-        this.map.off("click", onMapClickActive);
-        this.measurements = this.measurements.filter((x) => x.id !== m.id);
-        this.saveMeasurements();
-        this.layers.unregister();
-      };
-
-      const lastNode = nodeMarkers[nodeMarkers.length - 1];
-      lastNodeDelMkr = MeasureUtils.makeDelIcon(lastNode.getLatLng()).addTo(
-        this.layers.mainLayer,
-      );
-      MeasureUtils.attachDelClick(lastNodeDelMkr, deleteMeasurement);
-      lastNodeDelMkr.on("click", (e) => {
-        const t = e.originalEvent?.target;
-        if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-        handleItemClick(e);
+      // Attach toggle/delete UI (shared with finishDist)
+      this._attachDistanceUI({
+        layers: this.layers,
+        finalPoly,
+        nodeMarkers,
+        segLabels,
+        startLbl,
+        onDelete: () => {
+          this.measurements = this.measurements.filter((x) => x.id !== m.id);
+          this.saveMeasurements();
+        },
       });
-
-      // Re-sort to ensure correct ordering
-      nodeMarkers.forEach((node) => this.layers.removeLayer(node));
-      if (lastNodeDelMkr) this.layers.removeLayer(lastNodeDelMkr);
-      segLabels.forEach((lbl) => this.layers.removeLayer(lbl));
-      if (startLbl) this.layers.removeLayer(startLbl);
-      nodeMarkers.forEach((node) => node.addTo(this.layers.mainLayer));
-      if (lastNodeDelMkr) lastNodeDelMkr.addTo(this.layers.mainLayer);
-      segLabels.forEach((lbl) => lbl.addTo(this.layers.mainLayer));
-      if (startLbl) startLbl.addTo(this.layers.mainLayer);
     }
 
     restoreCircle(m) {
@@ -1256,6 +1073,156 @@
       });
       this.layers.addLayer(radiusLabel, true);
 
+      // Attach toggle/delete UI (shared with finalizeCircle)
+      this._attachCircleUI({
+        layers: this.layers,
+        circle,
+        radiusLine,
+        radiusNode,
+        centerFinal,
+        delMkr,
+        radiusLabel,
+        onDelete: () => {
+          this.measurements = this.measurements.filter((x) => x.id !== m.id);
+          this.saveMeasurements();
+        },
+      });
+    }
+
+    bindGlobalEvents() {
+      this.onMapClick = (e) => {
+        if (this.isSuppressHideDel) return;
+        const t = e.originalEvent?.target;
+        if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
+        MeasureUtils.hideDelIcons();
+      };
+      this.map.on("click", this.onMapClick);
+
+      this.onKeyDown = (e) => {
+        if (e.key === "Escape" && this.currentMode) this.clearActiveMode();
+      };
+      document.addEventListener("keydown", this.onKeyDown);
+
+      this.onUnload = () => this.clearAll();
+      this.map.on("unload", this.onUnload);
+    }
+
+    /**
+     * Attach toggle/delete UI to a completed distance measurement.
+     * Shared by finishDist (DistanceMode) and restoreDistance (MeasureManager).
+     * @param {Object} opts
+     * @param {Object} opts.layers    - createLayers API object
+     * @param {Object} opts.finalPoly - L.Polyline
+     * @param {Array}  opts.nodeMarkers - L.CircleMarker[]
+     * @param {Array}  opts.segLabels   - Label L.Marker[]
+     * @param {Object} opts.startLbl    - Origin label marker
+     * @param {Function} opts.onDelete  - Called when user deletes the measurement
+     * @returns {Function} cleanup(mapClickHandler) to remove map click listener
+     */
+    _attachDistanceUI(opts) {
+      const { layers, finalPoly, nodeMarkers, segLabels, startLbl, onDelete } = opts;
+      let labelsVisible = true;
+      let xVisible = false;
+      let lastNodeDelMkr = null;
+
+      const toggleUI = (showX, toggleLabels) => {
+        const s = MeasureUtils.calcToggle(xVisible, labelsVisible, showX, toggleLabels);
+        xVisible = s.xVisible;
+        labelsVisible = s.labelsVisible;
+        MeasureUtils.applyToggle(
+          lastNodeDelMkr,
+          xVisible,
+          segLabels,
+          labelsVisible,
+          startLbl,
+        );
+      };
+
+      const handleItemClick = (e) => {
+        MeasureUtils.stopEvent(e);
+        MeasureUtils.suppressHide(this);
+        toggleUI(undefined);
+      };
+
+      finalPoly.on("click", handleItemClick);
+      nodeMarkers.forEach((m) => m.on("click", handleItemClick));
+      segLabels.forEach((l) => l.on("click", handleItemClick));
+      if (startLbl) startLbl.on("click", handleItemClick);
+
+      toggleUI(false, CONST.TOGGLE.RESET);
+
+      const onMapClickActive = () => {
+        if (this.isSuppressHideDel) return;
+        if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
+      };
+      this.map.on("click", onMapClickActive);
+
+      const deleteMeas = () => {
+        layers.removeLayer(
+          finalPoly,
+          ...nodeMarkers,
+          ...segLabels,
+          startLbl,
+          lastNodeDelMkr,
+        );
+        this.map.off("click", onMapClickActive);
+        onDelete();
+        layers.unregister();
+      };
+
+      const lastNode = nodeMarkers[nodeMarkers.length - 1];
+      lastNodeDelMkr = MeasureUtils.makeDelIcon(lastNode.getLatLng()).addTo(
+        layers.mainLayer,
+      );
+      MeasureUtils.attachDelClick(lastNodeDelMkr, deleteMeas);
+      lastNodeDelMkr.on("click", (e) => {
+        const t = e.originalEvent?.target;
+        if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+        handleItemClick(e);
+      });
+
+      // Re-sort to ensure correct ordering
+      nodeMarkers.forEach((m) => layers.removeLayer(m));
+      if (lastNodeDelMkr) layers.removeLayer(lastNodeDelMkr);
+      segLabels.forEach((l) => layers.removeLayer(l));
+      if (startLbl) layers.removeLayer(startLbl);
+      nodeMarkers.forEach((m) => m.addTo(layers.mainLayer));
+      if (lastNodeDelMkr) lastNodeDelMkr.addTo(layers.mainLayer);
+      segLabels.forEach((l) => l.addTo(layers.mainLayer));
+      if (startLbl) startLbl.addTo(layers.mainLayer);
+
+      return onMapClickActive;
+    }
+
+    /**
+     * Attach toggle/delete UI to a completed circle measurement.
+     * Shared by finalizeCircle (CircleMode) and restoreCircle (MeasureManager).
+     * @param {Object} opts
+     * @param {Object} opts.layers     - createLayers API object
+     * @param {Object} opts.circle     - L.Circle
+     * @param {Object} opts.radiusLine - L.Polyline
+     * @param {Object} opts.radiusNode - L.CircleMarker
+     * @param {Object} opts.centerFinal - L.Marker (center dot)
+     * @param {Object} opts.delMkr     - Delete icon L.Marker
+     * @param {Object} opts.radiusLabel - Label L.Marker
+     * @param {Function} opts.onDelete - Called when user deletes the measurement
+     * @returns {Function} cleanup(mapClickHandler) to remove map click listener
+     */
+    _attachCircleUI(opts) {
+      const {
+        layers,
+        circle,
+        radiusLine,
+        radiusNode,
+        centerFinal,
+        delMkr,
+        radiusLabel,
+        onDelete,
+      } = opts;
+      let labelsVisible = true;
+      let xVisible = false;
+      let deleted = false;
+
       const toggleUI = (showX, toggleLabels) => {
         const s = MeasureUtils.calcToggle(xVisible, labelsVisible, showX, toggleLabels);
         xVisible = s.xVisible;
@@ -1280,30 +1247,12 @@
       };
       toggleUI(false, CONST.TOGGLE.RESET);
 
-      let deleted = false;
-      const deleteCircle = () => {
-        if (deleted) return;
-        deleted = true;
-        this.layers.removeLayer(
-          delMkr,
-          circle,
-          centerFinal,
-          radiusLine,
-          radiusNode,
-          radiusLabel,
-        );
-        this.map.off("click", onMapClickActive);
-        this.measurements = this.measurements.filter((x) => x.id !== m.id);
-        this.saveMeasurements();
-        this.layers.unregister();
-      };
-      MeasureUtils.attachDelClick(delMkr, deleteCircle);
-
       const toggleCircleToggle = () => {
         if (deleted) return;
         MeasureUtils.suppressHide(this);
         toggleUI(undefined);
       };
+
       const attachInteraction = (layer) => {
         layer.on("click", (e) => {
           const t = e.originalEvent?.target;
@@ -1312,6 +1261,7 @@
           toggleCircleToggle();
         });
       };
+
       attachInteraction(delMkr);
       attachInteraction(circle);
       attachInteraction(radiusLine);
@@ -1324,24 +1274,25 @@
         if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
       };
       this.map.on("click", onMapClickActive);
-    }
 
-    bindGlobalEvents() {
-      this.onMapClick = (e) => {
-        if (this.isSuppressHideDel) return;
-        const t = e.originalEvent?.target;
-        if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-        MeasureUtils.hideDelIcons();
+      const deleteCircle = () => {
+        if (deleted) return;
+        deleted = true;
+        layers.removeLayer(
+          delMkr,
+          circle,
+          centerFinal,
+          radiusLine,
+          radiusNode,
+          radiusLabel,
+        );
+        this.map.off("click", onMapClickActive);
+        onDelete();
+        layers.unregister();
       };
-      this.map.on("click", this.onMapClick);
+      MeasureUtils.attachDelClick(delMkr, deleteCircle);
 
-      this.onKeyDown = (e) => {
-        if (e.key === "Escape" && this.currentMode) this.clearActiveMode();
-      };
-      document.addEventListener("keydown", this.onKeyDown);
-
-      this.onUnload = () => this.clearAll();
-      this.map.on("unload", this.onUnload);
+      return { onMapClickActive, deleteCircle };
     }
 
     setMode(mode) {
