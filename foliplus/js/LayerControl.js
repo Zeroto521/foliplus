@@ -1144,33 +1144,18 @@
       const attrCtrl = this.map.attributionControl;
       if (!attrCtrl) return;
 
-      // Find the topmost visible base TileLayer's attribution
+      // Single pass: remove all base TileLayer attributions and track the topmost one
       let topAttr = "";
       for (let i = 0; i < this.layers.length; i++) {
         const li = this.layers[i];
         if (!li.isBase) continue;
         const layer = LayerUtils.findLayer(this.map, li.id);
-        if (
-          layer &&
-          this.map.hasLayer(layer) &&
-          layer instanceof L.TileLayer &&
-          layer.options.attribution
-        ) {
-          topAttr = layer.options.attribution;
-          break; // index 0 = topmost
-        }
+        if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
+        delete attrCtrl._attributions[layer.options.attribution];
+        if (!topAttr && this.map.hasLayer(layer)) topAttr = layer.options.attribution;
       }
 
-      // Remove all base TileLayer attributions from Leaflet's internal state
-      for (let i = 0; i < this.layers.length; i++) {
-        const li = this.layers[i];
-        if (!li.isBase) continue;
-        const layer = LayerUtils.findLayer(this.map, li.id);
-        if (layer instanceof L.TileLayer && layer.options.attribution)
-          delete attrCtrl._attributions[layer.options.attribution];
-      }
-
-      // Add back only the topmost one
+      // Re-add only the topmost visible one
       if (topAttr) attrCtrl._attributions[topAttr] = 1;
       attrCtrl._update();
     }
