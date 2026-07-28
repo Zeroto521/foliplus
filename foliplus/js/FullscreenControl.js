@@ -194,12 +194,6 @@
         updateUI();
       };
 
-      // Click on fullscreen button
-      fsBtn.addEventListener("click", (e) => {
-        L.DomEvent.stopPropagation(e);
-        toggleFullscreen();
-      });
-
       // ==================== Event Listeners ====================
       const handleFSChange = () => {
         map._isFullscreen = !!getFullscreenEl();
