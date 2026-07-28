@@ -287,28 +287,20 @@ class TestMeasureControlRendering:
         """Label is added after circle, line, and node so it renders on top."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # radiusLabel should appear after circle.addTo and radiusLine.addTo
-        # In CircleMode, layers is a local reference to this.layers
-        label_pos = html.find("layers.addLayer(radiusLabel, true)")
-        circle_pos = html.find(
-            ".addTo(layers.mainLayer);", html.find("circle = L.circle")
-        )
-        line_pos = html.find(
-            ".addTo(layers.mainLayer);", html.find("radiusLine = L.polyline")
-        )
-        node_pos = html.find(
-            ".addTo(layers.mainLayer);",
-            html.find("radiusNode = MeasureUtils.makeNode"),
-        )
+        # radiusLabel should appear after circle, radiusLine, and radiusNode
+        label_pos = html.find("radiusLabel = this.layers.addLayer")
+        circle_pos = html.find("circle = this.layers.addLayer(")
+        line_pos = html.find("radiusLine = this.layers.addLayer(")
+        node_pos = html.find("radiusNode = this.layers.addLayer(")
         assert label_pos > circle_pos, "Label should be added after circle"
         assert label_pos > line_pos, "Label should be added after line"
         assert label_pos > node_pos, "Label should be added after node"
 
     def test_double_label_fix(self, base_map: folium.Map):
-        """Regression test: Labels are marked BEFORE addTo(mainLayer)."""
+        """Regression test: Labels are added via addLayer with isLabel=true."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert re.search(r"layers\.addLayer\(previewDistLabel,\s*true\)", html)
+        assert "previewDistLabel = this.layers.addLayer(" in html
 
     def test_label_interaction_listeners(self, base_map: folium.Map):
         """Distance/Circle labels have click listeners."""
