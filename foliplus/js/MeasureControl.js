@@ -535,11 +535,13 @@
         );
         const showDist = total + seg;
         if (!previewDistLabel) {
-          previewDistLabel = L.marker(e.latlng, {
-            icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(showDist)),
-            interactive: false,
-          });
-          this.layers.addLayer(previewDistLabel, true);
+          previewDistLabel = this.layers.addLayer(
+            L.marker(e.latlng, {
+              icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(showDist)),
+              interactive: false,
+            }),
+            true,
+          );
         } else {
           previewDistLabel.setLatLng(e.latlng);
           MeasureUtils.setLabelText(
@@ -564,10 +566,12 @@
         nodeMarkers.push(mkr);
 
         if (pts.length === 1) {
-          startLbl = L.marker(e.latlng, {
-            icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
-          });
-          this.layers.addLayer(startLbl, true);
+          startLbl = this.layers.addLayer(
+            L.marker(e.latlng, {
+              icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
+            }),
+            true,
+          );
         }
 
         mkr.on("click", () => {
@@ -597,10 +601,12 @@
             );
           }
 
-          const lbl = L.marker(pts[pts.length - 1], {
-            icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
-          });
-          this.layers.addLayer(lbl, true);
+          const lbl = this.layers.addLayer(
+            L.marker(pts[pts.length - 1], {
+              icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
+            }),
+            true,
+          );
           segLabels.push(lbl);
         }
       };
@@ -746,16 +752,18 @@
         );
         if (!previews.label) {
           previews.label = this.layers.addLayer(
-            L.marker(mid, {
-              icon: MeasureUtils.makeLabelDivIcon(
-                MeasureUtils.formatDistance(r),
-                CONST.DEL_ICON.ANCHOR,
-                CONST.LABEL.CLASS_RADIUS,
-              ),
-              interactive: false,
-            }),
+            this.layers.addLayer(
+              L.marker(mid, {
+                icon: MeasureUtils.makeLabelDivIcon(
+                  MeasureUtils.formatDistance(r),
+                  CONST.DEL_ICON.ANCHOR,
+                  CONST.LABEL.CLASS_RADIUS,
+                ),
+                interactive: false,
+              }),
+            ),
+            true,
           );
-          this.layers.addLayer(previews.label, true);
         } else {
           previews.label.setLatLng(mid);
           MeasureUtils.setLabelText(previews.label, MeasureUtils.formatDistance(r));
@@ -829,15 +837,17 @@
 
         const midLng = (centerLatLng.lng + finalTargetLatLng.lng) / 2;
         const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
-        const radiusLabel = L.marker([midLat, midLng], {
-          icon: MeasureUtils.makeLabelDivIcon(
-            MeasureUtils.formatDistance(r),
-            CONST.DEL_ICON.ANCHOR,
-            CONST.LABEL.CLASS_RADIUS,
-          ),
-          interactive: false,
-        });
-        this.layers.addLayer(radiusLabel, true);
+        const radiusLabel = this.layers.addLayer(
+          L.marker([midLat, midLng], {
+            icon: MeasureUtils.makeLabelDivIcon(
+              MeasureUtils.formatDistance(r),
+              CONST.DEL_ICON.ANCHOR,
+              CONST.LABEL.CLASS_RADIUS,
+            ),
+            interactive: false,
+          }),
+          true,
+        );
 
         // Save measurement data
         const circleId = this.nextMeasurementId();
@@ -1015,18 +1025,22 @@
       if (m.segments) {
         m.segments.forEach((seg, i) => {
           const total = m.segments.slice(0, i + 1).reduce((s, x) => s + x.distance, 0);
-          const lbl = L.marker(L.latLng(seg.lat, seg.lng), {
-            icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
-          });
-          this.layers.addLayer(lbl, true);
+          const lbl = this.layers.addLayer(
+            L.marker(L.latLng(seg.lat, seg.lng), {
+              icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
+            }),
+            true,
+          );
           segLabels.push(lbl);
         });
       }
 
-      const startLbl = L.marker(pts[0], {
-        icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
-      });
-      this.layers.addLayer(startLbl, true);
+      const startLbl = this.layers.addLayer(
+        L.marker(pts[0], {
+          icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
+        }),
+        true,
+      );
 
       // Attach toggle/delete UI (shared with finishDist)
       this.attachDistanceUI({
@@ -1096,8 +1110,8 @@
           ),
           interactive: false,
         }),
+        true,
       );
-      this.layers.addLayer(radiusLabel, true);
 
       // Attach toggle/delete UI (shared with finalizeCircle)
       this.attachCircleUI({
