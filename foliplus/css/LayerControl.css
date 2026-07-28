@@ -326,7 +326,10 @@
 .foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch-wrapper {
   padding: 0;
 }
-.foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch,
+.foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--radius-round);
+}
 .foliplus-layer-ctrl .foliplus-color-layer-input::-moz-color-swatch {
   border: none;
   border-radius: var(--radius-round);
