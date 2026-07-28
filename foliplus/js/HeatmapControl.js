@@ -605,7 +605,7 @@
     clearHeatmapCanvas() {
       this.cachedFeatures = null;
       this.cachedAgg = null;
-      if (this.overlay) this.overlay.unregister();  // auto-clears canvas + hides
+      if (this.overlay) this.overlay.unregister(); // auto-clears canvas + hides
     }
   }
 

@@ -216,21 +216,34 @@
     }
 
     /**
+     * Internal: walk a layer tree, optionally calling fn on containers.
+     * @param {Object} layer - Leaflet layer.
+     * @param {function} fn - Called for each visited node.
+     * @param {number} depth - Internal recursion depth.
+     * @param {boolean} leafOnly - If true, only call fn on non-container layers.
+     */
+    static traverse(layer, fn, depth, leafOnly) {
+      if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
+      const isContainer = typeof layer.eachLayer === "function";
+      if (!leafOnly) fn(layer);
+      if (isContainer)
+        layer.eachLayer((c) => LayerUtils.traverse(c, fn, depth + 1, leafOnly));
+      else if (layer._layers) {
+        for (const k in layer._layers) {
+          if (layer._layers.hasOwnProperty(k))
+            LayerUtils.traverse(layer._layers[k], fn, depth + 1, leafOnly);
+        }
+      } else if (leafOnly) fn(layer);
+    }
+
+    /**
      * Walk every leaf (non-container) layer in a tree.
-     * @param {Object} layer - Leaflet layer (may be a container like L.layerGroup).
+     * @param {Object} layer - Leaflet layer.
      * @param {function} fn - Called for each leaf with (leafLayer).
      * @param {number} [depth=0] - Internal recursion depth.
      */
     static forEachLeaf(layer, fn, depth = 0) {
-      if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
-      if (typeof layer.eachLayer === "function") {
-        layer.eachLayer((c) => LayerUtils.forEachLeaf(c, fn, depth + 1));
-      } else if (layer._layers) {
-        for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k))
-            LayerUtils.forEachLeaf(layer._layers[k], fn, depth + 1);
-        }
-      } else fn(layer);
+      LayerUtils.traverse(layer, fn, depth, true);
     }
 
     /**
@@ -240,16 +253,7 @@
      * @param {number} [depth=0] - Internal recursion depth.
      */
     static forEachLayer(layer, fn, depth = 0) {
-      if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
-      fn(layer);
-      if (typeof layer.eachLayer === "function") {
-        layer.eachLayer((c) => LayerUtils.forEachLayer(c, fn, depth + 1));
-      } else if (layer._layers) {
-        for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k))
-            LayerUtils.forEachLayer(layer._layers[k], fn, depth + 1);
-        }
-      }
+      LayerUtils.traverse(layer, fn, depth, false);
     }
   }
 
