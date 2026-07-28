@@ -444,12 +444,12 @@ class TestHeatmapControlRendering:
     # ── Algorithm tests (rendering checks) ──
 
     def test_compute_breaks_jenks(self, base_map: folium.Map):
-        """computeBreaks supports jenks method."""
+        """computeBreaks supports jenks method (uses ss.ckmeans internally)."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "method === " in html
         assert "jenks" in html
-        assert "ss.jenks(data, nClasses)" in html
+        assert "ss.ckmeans(data, nClasses)" in html
 
     def test_compute_breaks_quantile(self, base_map: folium.Map):
         """computeBreaks supports quantile method."""

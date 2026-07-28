@@ -435,7 +435,7 @@
 
       if (method === "jenks") {
         try {
-          return ss.jenks(data, nClasses);
+          return ss.ckmeans(data, nClasses);
         } catch (e) {}
         return [lo, hi];
       } else if (method === "quantile") {
