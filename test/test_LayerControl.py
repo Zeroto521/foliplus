@@ -893,7 +893,7 @@ class TestLayerControlRendering:
         assert "getSize" in html
         assert 'foliplus.dom.el("canvas"' in html
         assert 'class: "foliplus-heatmap-canvas"' in html
-        assert 'parent: mapPane' in html
+        assert "parent: mapPane" in html
         assert "mapPane" in html
 
     def test_layer_callbacks_stored(self, base_map: folium.Map):

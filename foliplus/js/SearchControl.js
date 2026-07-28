@@ -104,28 +104,24 @@
       this.toggleBtn = toggleBtn;
       this.toolBar = toolBar;
 
-      const modeBtn = foliplus.dom.el(
-        "button",
-        { class: CONST.CLASSES.SEARCH_MODE_BTN, title: _(`${CONST.name}.mode_coord`) },
-        { html: foliplus.SVGs.LOCATE },
-      );
+      const modeBtn = foliplus.dom.el("button", {
+        class: CONST.CLASSES.SEARCH_MODE_BTN,
+        title: _(`${CONST.name}.mode_coord`),
+        parent: toolBar,
+      }, { html: foliplus.SVGs.LOCATE });
       const inp = foliplus.dom.el("input", {
         type: "text",
         placeholder: _(`${CONST.name}.coord_placeholder`),
       });
-      const clearBtn = foliplus.dom.el(
-        "button",
-        { class: CONST.CLASSES.CTRL_BTN, title: _(`${CONST.name}.clear_title`) },
-        { html: foliplus.SVGs.CLOSE },
-      );
+      const clearBtn = foliplus.dom.el("button", {
+        class: CONST.CLASSES.CTRL_BTN,
+        title: _(`${CONST.name}.clear_title`),
+      }, { html: foliplus.SVGs.CLOSE });
       this.modeBtn = modeBtn;
       this.inp = inp;
       this.clearBtn = clearBtn;
 
-      toolBar.appendChild(modeBtn);
-      toolBar.appendChild(
-        foliplus.dom.el("div", { class: CONST.CLASSES.CLEAR }, inp, clearBtn),
-      );
+      foliplus.dom.el("div", { class: CONST.CLASSES.CLEAR, parent: toolBar }, inp, clearBtn);
     }
 
     // ── State Initialization ──

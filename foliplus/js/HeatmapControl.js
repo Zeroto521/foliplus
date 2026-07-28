@@ -1136,8 +1136,8 @@
       this.schemeDropdown = foliplus.dom.el("div", {
         class: CONST.CLASSES.SCHEME_DROPDOWN,
         role: "listbox",
+        parent: this.schemeControlWrap,
       });
-      this.schemeControlWrap.appendChild(this.schemeDropdown);
 
       let focusIdx = -1;
       CONST.SCHEME_NAMES.forEach((name, idx) => {
@@ -1146,8 +1146,8 @@
           role: "option",
           tabindex: -1,
           "data-scheme-name": name,
+          parent: this.schemeDropdown,
         });
-        this.schemeDropdown.appendChild(item);
         if (name === this.m.currentScheme) {
           item.classList.add(CONST.CLASSES.ACTIVE);
           focusIdx = idx;
@@ -1155,8 +1155,8 @@
 
         const itemBar = foliplus.dom.el("div", {
           class: CONST.CLASSES.SCHEME_DROPDOWN_BAR,
+          parent: item,
         });
-        item.appendChild(itemBar);
         this.renderColorBar(itemBar, name, this.m.numClasses);
         item.title = name;
 

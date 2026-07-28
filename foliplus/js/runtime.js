@@ -465,26 +465,8 @@
   };
 
   // ==================== DOM Helpers ====================
-  /**
-   * Lightweight DOM builder — create elements without string concatenation.
-   *
-   * @example
-   *   // Create a div with class and text content
-   *   window.foliplus.dom.el("div", { class: "my-class" }, "Hello")
-   *
-   *   // Nested children
-   *   window.foliplus.dom.el("div", null,
-   *     window.foliplus.dom.el("span", { class: "icon" }),
-   *     window.foliplus.dom.el("label", null, "Name")
-   *   )
-   *
-   *   // Set innerHTML by passing a { html: "..." } child
-   *   window.foliplus.dom.el("div", null, { html: "<svg>...</svg>" })
-   */
-  /**
-   * Set of attribute names that should be set as DOM properties (not setAttribute).
-   * These are boolean, numeric, or getter/setter attributes that setAttribute mishandles.
-   */
+
+  /** Set of attributes set as DOM properties (not setAttribute). */
   const _PROPS = new Set([
     "value",
     "checked",
