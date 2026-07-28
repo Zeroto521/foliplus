@@ -49,7 +49,7 @@
       OP: {{ this.style.border_opacity }},
     },
     LABEL: {
-      SHOW: {{ "true" if this.style.label_show else "false" }},
+      SHOW: {{ this.style.label_show | tojson }},
       SIZE: {{ this.style.label_size }},
       COLOR: "{{ this.style.label_color }}",
       FORMAT: "{{ this.style.label_format }}",
@@ -626,11 +626,16 @@
 
     /** Create a form-row with label + control-wrap. */
     createFormRow(parent, labelKey, rowClass = CONST.CLASSES.FORM_ROW) {
-      const row = foliplus.dom.el("div", { class: rowClass });
-      const label = foliplus.dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, _(labelKey));
-      const wrap = foliplus.dom.el("div", { class: CONST.CLASSES.FORM_CONTROL });
-      row.append(label, wrap);
-      parent.appendChild(row);
+      const row = foliplus.dom.el("div", { class: rowClass, parent });
+      const label = foliplus.dom.el(
+        "label",
+        { class: CONST.CLASSES.FORM_LABEL, parent: row },
+        _(labelKey),
+      );
+      const wrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: row,
+      });
       return { row, label, wrap };
     }
 
@@ -651,54 +656,74 @@
 
     /** Build the data section: layer select, aggregation method, field selector. */
     buildDataSection(panelContent) {
-      const configBody = foliplus.dom.el("div", { class: CONST.CLASSES.CONFIG_BODY });
-      panelContent.appendChild(configBody);
-      const dataHeading = foliplus.dom.el("div", { class: CONST.CLASSES.SECTION_HEADING }, _(`${CONST.name}.section_data`));
-      configBody.appendChild(dataHeading);
+      const configBody = foliplus.dom.el("div", {
+        class: CONST.CLASSES.CONFIG_BODY,
+        parent: panelContent,
+      });
+      foliplus.dom.el("div", {
+        class: CONST.CLASSES.SECTION_HEADING,
+        parent: configBody,
+        innerHTML: _(`${CONST.name}.section_data`),
+      });
 
       const { wrap: layerSelectWrap } = this.createFormRow(
         configBody,
         `${CONST.name}.layer`,
       );
-      this.layerSelect = foliplus.dom.el("select", { class: CONST.CLASSES.FORM_SELECT });
-      layerSelectWrap.appendChild(this.layerSelect);
+      this.layerSelect = foliplus.dom.el("select", {
+        class: CONST.CLASSES.FORM_SELECT,
+        parent: layerSelectWrap,
+      });
 
-      this.extraBody = foliplus.dom.el("div", { class: `${CONST.CLASSES.EXTRA_BODY} ${CONST.CLASSES.HIDDEN}` });
-      configBody.appendChild(this.extraBody);
+      this.extraBody = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.EXTRA_BODY} ${CONST.CLASSES.HIDDEN}`,
+        parent: configBody,
+      });
 
       // Aggregation method
       const { wrap: aggControlWrap } = this.createFormRow(
         this.extraBody,
         `${CONST.name}.agg_method`,
       );
-      this.aggSelect = foliplus.dom.el("select", { class: CONST.CLASSES.FORM_SELECT });
-      aggControlWrap.appendChild(this.aggSelect);
-      this.aggSelect.innerHTML = `
+      this.aggSelect = foliplus.dom.el("select", {
+        class: CONST.CLASSES.FORM_SELECT,
+        parent: aggControlWrap,
+        innerHTML: `
           <option value="count">${_(`${CONST.name}.agg_count`)}</option>
           <option value="sum">${_(`${CONST.name}.agg_sum`)}</option>
           <option value="avg">${_(`${CONST.name}.agg_avg`)}</option>
           <option value="min">${_(`${CONST.name}.agg_min`)}</option>
-          <option value="max">${_(`${CONST.name}.agg_max`)}</option>`;
-      this.aggSelect.value = this.m.currentAgg;
-      this.aggSelect.onchange = () => {
-        this.m.currentAgg = this.aggSelect.value;
-        this.updateFieldSelector();
-        this.m.renderHexagons();
-      };
+          <option value="max">${_(`${CONST.name}.agg_max`)}</option>`,
+        value: this.m.currentAgg,
+        onchange: () => {
+          this.m.currentAgg = this.aggSelect.value;
+          this.updateFieldSelector();
+          this.m.renderHexagons();
+        },
+      });
 
-      this.fieldWrap = foliplus.dom.el("div", { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD} ${CONST.CLASSES.HIDDEN}` });
-      this.extraBody.appendChild(this.fieldWrap);
-      const fieldLabel = foliplus.dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, _(`${CONST.name}.field`));
-      this.fieldWrap.appendChild(fieldLabel);
-      const fieldControlWrap = foliplus.dom.el("div", { class: CONST.CLASSES.FORM_CONTROL });
-      this.fieldWrap.appendChild(fieldControlWrap);
-      this.fieldSelect = foliplus.dom.el("select", { class: CONST.CLASSES.FORM_SELECT });
-      fieldControlWrap.appendChild(this.fieldSelect);
-      this.fieldSelect.onchange = () => {
-        this.m.currentField = this.fieldSelect.value;
-        this.syncSelect(this.fieldSelect, this.fieldSelect.value);
-        this.m.renderHexagons();
-      };
+      this.fieldWrap = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD} ${CONST.CLASSES.HIDDEN}`,
+        parent: this.extraBody,
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: this.fieldWrap,
+        innerHTML: _(`${CONST.name}.field`),
+      });
+      const fieldControlWrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: this.fieldWrap,
+      });
+      this.fieldSelect = foliplus.dom.el("select", {
+        class: CONST.CLASSES.FORM_SELECT,
+        parent: fieldControlWrap,
+        onchange: () => {
+          this.m.currentField = this.fieldSelect.value;
+          this.syncSelect(this.fieldSelect, this.fieldSelect.value);
+          this.m.renderHexagons();
+        },
+      });
 
       // Initialize layer dropdown LAST after all select refs are created
       this.buildLayerListItems(this.layerSelect);
@@ -706,79 +731,105 @@
 
     /** Build the style section: classification, color scheme, border, label toggle, action buttons. */
     buildStyleSection() {
-      const styleHeading = foliplus.dom.el("div", { class: CONST.CLASSES.SECTION_HEADING }, _(`${CONST.name}.section_style`));
-      this.extraBody.appendChild(styleHeading);
-      const styleSection = foliplus.dom.el("div", { class: CONST.CLASSES.SECTION_BLOCK });
-      this.extraBody.appendChild(styleSection);
+      foliplus.dom.el("div", {
+        class: CONST.CLASSES.SECTION_HEADING,
+        parent: this.extraBody,
+        innerHTML: _(`${CONST.name}.section_style`),
+      });
+      const styleSection = foliplus.dom.el("div", {
+        class: CONST.CLASSES.SECTION_BLOCK,
+        parent: this.extraBody,
+      });
 
       // Classification method / classes
-      const classRow = foliplus.dom.el("div", { class: CONST.CLASSES.FORM_ROW });
-      styleSection.appendChild(classRow);
-      const classRowLabel = foliplus.dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, _(`${CONST.name}.class_method`));
-      classRow.appendChild(classRowLabel);
-      const classControlWrap = foliplus.dom.el("div", { class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}` });
-      classRow.appendChild(classControlWrap);
-      this.methodSelect = foliplus.dom.el("select", { class: CONST.CLASSES.FORM_SELECT });
-      classControlWrap.appendChild(this.methodSelect);
-      this.methodSelect.innerHTML = `
+      const classControlWrap = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        parent: foliplus.dom.el("div", {
+          class: CONST.CLASSES.FORM_ROW,
+          parent: styleSection,
+        }),
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: classControlWrap.parentElement,
+        innerHTML: _(`${CONST.name}.class_method`),
+      });
+      this.methodSelect = foliplus.dom.el("select", {
+        class: CONST.CLASSES.FORM_SELECT,
+        parent: classControlWrap,
+        innerHTML: `
           <option value="jenks">${_(`${CONST.name}.jenks`)}</option>
           <option value="quantile">${_(`${CONST.name}.quantile`)}</option>
           <option value="equal">${_(`${CONST.name}.equal`)}</option>
-          <option value="heads">${_(`${CONST.name}.heads`)}</option>`;
-      this.methodSelect.value = this.m.currentMethod;
-      this.methodSelect.onchange = () => {
-        this.m.currentMethod = this.methodSelect.value;
-        this.m.renderHexagons();
-      };
+          <option value="heads">${_(`${CONST.name}.heads`)}</option>`,
+        value: this.m.currentMethod,
+        onchange: () => {
+          this.m.currentMethod = this.methodSelect.value;
+          this.m.renderHexagons();
+        },
+      });
 
-      this.classSelect = foliplus.dom.el("select", { class: `${CONST.CLASSES.FORM_SELECT} ${CONST.CLASSES.CLASS_COUNT_SELECT}` });
-      classControlWrap.appendChild(this.classSelect);
+      this.classSelect = foliplus.dom.el("select", {
+        class: `${CONST.CLASSES.FORM_SELECT} ${CONST.CLASSES.CLASS_COUNT_SELECT}`,
+        parent: classControlWrap,
+        value: Math.min(9, Math.max(2, this.m.numClasses)),
+        onchange: () => {
+          this.m.numClasses = Math.min(
+            9,
+            Math.max(2, parseInt(this.classSelect.value, 10) || 6),
+          );
+          this.updateSchemeBar();
+          if (this.schemeDropdown) this.refreshSchemeDropdownItems();
+          this.m.renderHexagons();
+        },
+      });
       for (let ci = 2; ci <= 9; ci++) {
         this.classSelect.appendChild(
           foliplus.dom.el("option", { value: ci }, String(ci)),
         );
       }
-      this.classSelect.value = Math.min(9, Math.max(2, this.m.numClasses));
-      this.classSelect.onchange = () => {
-        this.m.numClasses = Math.min(
-          9,
-          Math.max(2, parseInt(this.classSelect.value, 10) || 6),
-        );
-        this.updateSchemeBar();
-        if (this.schemeDropdown) this.refreshSchemeDropdownItems();
-        this.m.renderHexagons();
-      };
 
       // Color scheme
-      const schemeRow = foliplus.dom.el("div", { class: CONST.CLASSES.FORM_ROW });
-      styleSection.appendChild(schemeRow);
-      const schemeRowLabel = foliplus.dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, _(`${CONST.name}.scheme`));
-      schemeRow.appendChild(schemeRowLabel);
-      this.schemeControlWrap = foliplus.dom.el("div", { class: CONST.CLASSES.FORM_CONTROL });
-      schemeRow.appendChild(this.schemeControlWrap);
-      this.schemeBar = foliplus.dom.el("div", { class: CONST.CLASSES.SCHEME_BAR });
-      this.schemeControlWrap.appendChild(this.schemeBar);
-      this.schemeBarInner = foliplus.dom.el("div", { class: CONST.CLASSES.SCHEME_BAR_INNER });
-      this.schemeBar.appendChild(this.schemeBarInner);
-      this.schemeSelectHidden = foliplus.dom.el("select", { class: CONST.CLASSES.SCHEME_SELECT_HIDDEN });
-      this.schemeControlWrap.appendChild(this.schemeSelectHidden);
-
+      this.schemeControlWrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: foliplus.dom.el("div", {
+          class: CONST.CLASSES.FORM_ROW,
+          parent: styleSection,
+        }),
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: this.schemeControlWrap.parentElement,
+        innerHTML: _(`${CONST.name}.scheme`),
+      });
+      this.schemeBar = foliplus.dom.el("div", {
+        class: CONST.CLASSES.SCHEME_BAR,
+        tabindex: 0,
+        role: "combobox",
+        "aria-label": _(`${CONST.name}.scheme`),
+        parent: this.schemeControlWrap,
+      });
+      this.schemeBarInner = foliplus.dom.el("div", {
+        class: CONST.CLASSES.SCHEME_BAR_INNER,
+        parent: this.schemeBar,
+      });
+      this.schemeSelectHidden = foliplus.dom.el("select", {
+        class: CONST.CLASSES.SCHEME_SELECT_HIDDEN,
+        parent: this.schemeControlWrap,
+        value: this.m.currentScheme,
+        onchange: () => {
+          this.m.currentScheme = this.schemeSelectHidden.value;
+          this.updateSchemeBar();
+          this.m.renderHexagons();
+        },
+      });
       CONST.SCHEME_NAMES.forEach((name) => {
         this.schemeSelectHidden.appendChild(
           foliplus.dom.el("option", { value: name }, name),
         );
       });
-      this.schemeSelectHidden.value = this.m.currentScheme;
-      this.schemeSelectHidden.onchange = () => {
-        this.m.currentScheme = this.schemeSelectHidden.value;
-        this.updateSchemeBar();
-        this.m.renderHexagons();
-      };
       this.updateSchemeBar();
 
-      this.schemeBar.tabIndex = 0;
-      this.schemeBar.setAttribute("role", "combobox");
-      this.schemeBar.setAttribute("aria-label", _(`${CONST.name}.scheme`));
       this.schemeBar.onclick = (e) => {
         e.stopPropagation();
         this.toggleSchemeDropdown();
@@ -802,7 +853,6 @@
           document.removeEventListener("click", this.closeSchemeDropdown);
         }
       };
-      // Wrap toggleSchemeDropdown to also register outside-click listener
       const origToggle = this.toggleSchemeDropdown.bind(this);
       this.toggleSchemeDropdown = () => {
         origToggle();
@@ -811,78 +861,113 @@
       };
 
       // Border settings
-      const borderRow = foliplus.dom.el("div", { class: CONST.CLASSES.FORM_ROW });
-      styleSection.appendChild(borderRow);
-      const borderRowLabel = foliplus.dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, _(`${CONST.name}.border`));
-      borderRow.appendChild(borderRowLabel);
-      const borderControlWrap = foliplus.dom.el("div", { class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}` });
-      borderRow.appendChild(borderControlWrap);
-      this.borderColorInput = foliplus.dom.el("input", { class: CONST.CLASSES.BORDER_COLOR_INPUT, type: "color" });
-      borderControlWrap.appendChild(this.borderColorInput);
-      this.borderColorInput.value = this.m.borderColor;
-      this.borderColorInput.oninput = () => {
-        this.m.borderColor = this.borderColorInput.value;
-        this.m.renderHexagons();
-      };
-      this.borderWeightInput = foliplus.dom.el("input", { class: CONST.CLASSES.BORDER_WEIGHT_INPUT, type: "number", min: 0, max: 10, step: 0.5 });
-      borderControlWrap.appendChild(this.borderWeightInput);
-      this.borderWeightInput.value = this.m.borderWeight;
-      this.borderWeightInput.onchange = () => {
-        this.m.borderWeight = parseFloat(this.borderWeightInput.value) || 1;
-        this.m.renderHexagons();
-      };
+      const borderControlWrap = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        parent: foliplus.dom.el("div", {
+          class: CONST.CLASSES.FORM_ROW,
+          parent: styleSection,
+        }),
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: borderControlWrap.parentElement,
+        innerHTML: _(`${CONST.name}.border`),
+      });
+      this.borderColorInput = foliplus.dom.el("input", {
+        class: CONST.CLASSES.BORDER_COLOR_INPUT,
+        type: "color",
+        parent: borderControlWrap,
+        value: this.m.borderColor,
+        oninput: () => {
+          this.m.borderColor = this.borderColorInput.value;
+          this.m.renderHexagons();
+        },
+      });
+      this.borderWeightInput = foliplus.dom.el("input", {
+        class: CONST.CLASSES.BORDER_WEIGHT_INPUT,
+        type: "number",
+        min: 0,
+        max: 10,
+        step: 0.5,
+        parent: borderControlWrap,
+        value: this.m.borderWeight,
+        onchange: () => {
+          this.m.borderWeight = parseFloat(this.borderWeightInput.value) || 1;
+          this.m.renderHexagons();
+        },
+      });
 
       // Label toggle
-      const labelRow = foliplus.dom.el("div", { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.SECTION_BLOCK_LAST}` });
-      styleSection.appendChild(labelRow);
-      const labelRowText = foliplus.dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, _(`${CONST.name}.label`));
-      labelRow.appendChild(labelRowText);
-      const labelControlWrap = foliplus.dom.el("div", { class: CONST.CLASSES.FORM_CONTROL });
-      labelRow.appendChild(labelControlWrap);
-      const labelToggle = foliplus.dom.el("label", { class: CONST.CLASSES.TOGGLE_SWITCH });
-      labelControlWrap.appendChild(labelToggle);
-      this.labelChk = foliplus.dom.el("input", { type: "checkbox" });
-      labelToggle.appendChild(this.labelChk);
-      this.labelChk.checked = this.m.currentLabelShow;
-      this.labelChk.onchange = () => {
-        this.m.currentLabelShow = this.labelChk.checked;
-        this.m.renderHexagons();
-      };
-      foliplus.dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER });
-      labelToggle.appendChild(foliplus.dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }));
-      foliplus.dom.el("hr", { class: CONST.CLASSES.SECTION_DIVIDER });
-      this.extraBody.appendChild(foliplus.dom.el("hr", { class: CONST.CLASSES.SECTION_DIVIDER }));
+      const labelControlWrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: foliplus.dom.el("div", {
+          class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.SECTION_BLOCK_LAST}`,
+          parent: styleSection,
+        }),
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: labelControlWrap.parentElement,
+        innerHTML: _(`${CONST.name}.label`),
+      });
+      const labelToggle = foliplus.dom.el("label", {
+        class: CONST.CLASSES.TOGGLE_SWITCH,
+        parent: labelControlWrap,
+      });
+      this.labelChk = foliplus.dom.el("input", {
+        type: "checkbox",
+        parent: labelToggle,
+        checked: this.m.currentLabelShow,
+        onchange: () => {
+          this.m.currentLabelShow = this.labelChk.checked;
+          this.m.renderHexagons();
+        },
+      });
+      foliplus.dom.el("span", {
+        class: CONST.CLASSES.TOGGLE_SLIDER,
+        parent: labelToggle,
+      });
+      foliplus.dom.el("hr", {
+        class: CONST.CLASSES.SECTION_DIVIDER,
+        parent: this.extraBody,
+      });
 
       // Bottom action buttons
-      const btnRow = foliplus.dom.el("div", { class: CONST.CLASSES.BTN_ROW });
-      this.extraBody.appendChild(btnRow);
-      const clearBtn = foliplus.dom.el("button", { class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CLEAR}` }, _(`${CONST.name}.clear`));
-      btnRow.appendChild(clearBtn);
-      clearBtn.onclick = () => {
-        this.resetAll();
-        this.syncSelect(this.layerSelect, "");
-        this.syncSelect(this.aggSelect, CONST.AGG);
-        this.syncSelect(this.classSelect, String(CONST.N_CLASSES));
-        this.syncSelect(this.methodSelect, CONST.METHOD);
-        this.schemeSelectHidden.value = CONST.SCHEME;
-        this.labelChk.checked = CONST.LABEL.SHOW;
-        this.borderWeightInput.value = CONST.BORDER.W;
-        this.borderColorInput.value = CONST.BORDER.COLOR;
-
-        this.updateSchemeBar();
-        this.updateFieldSelector();
-        this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
-        this.container.classList.remove(CONST.CLASSES.EXPANDED);
-        this.container.classList.add(CONST.CLASSES.COLLAPSED);
-      };
-
-      const confirmBtn = foliplus.dom.el("button", { class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CONFIRM}` }, _(`${CONST.name}.confirm`));
-      btnRow.appendChild(confirmBtn);
-      confirmBtn.onclick = () => {
-        this.m.renderHexagons();
-        this.container.classList.remove(CONST.CLASSES.EXPANDED);
-        this.container.classList.add(CONST.CLASSES.COLLAPSED);
-      };
+      const btnRow = foliplus.dom.el("div", {
+        class: CONST.CLASSES.BTN_ROW,
+        parent: this.extraBody,
+      });
+      foliplus.dom.el("button", {
+        class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CLEAR}`,
+        parent: btnRow,
+        innerHTML: _(`${CONST.name}.clear`),
+        onclick: () => {
+          this.resetAll();
+          this.syncSelect(this.layerSelect, "");
+          this.syncSelect(this.aggSelect, CONST.AGG);
+          this.syncSelect(this.classSelect, String(CONST.N_CLASSES));
+          this.syncSelect(this.methodSelect, CONST.METHOD);
+          this.schemeSelectHidden.value = CONST.SCHEME;
+          this.labelChk.checked = CONST.LABEL.SHOW;
+          this.borderWeightInput.value = CONST.BORDER.W;
+          this.borderColorInput.value = CONST.BORDER.COLOR;
+          this.updateSchemeBar();
+          this.updateFieldSelector();
+          this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
+          this.container.classList.remove(CONST.CLASSES.EXPANDED);
+          this.container.classList.add(CONST.CLASSES.COLLAPSED);
+        },
+      });
+      foliplus.dom.el("button", {
+        class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CONFIRM}`,
+        parent: btnRow,
+        innerHTML: _(`${CONST.name}.confirm`),
+        onclick: () => {
+          this.m.renderHexagons();
+          this.container.classList.remove(CONST.CLASSES.EXPANDED);
+          this.container.classList.add(CONST.CLASSES.COLLAPSED);
+        },
+      });
     }
 
     /** Set up MutationObserver to refresh layer dropdown on panel expand. */
@@ -1048,19 +1133,29 @@
         this.schemeDropdown = null;
         return;
       }
-      this.schemeDropdown = foliplus.dom.el("div", { class: CONST.CLASSES.SCHEME_DROPDOWN, role: "listbox" });
+      this.schemeDropdown = foliplus.dom.el("div", {
+        class: CONST.CLASSES.SCHEME_DROPDOWN,
+        role: "listbox",
+      });
       this.schemeControlWrap.appendChild(this.schemeDropdown);
 
       let focusIdx = -1;
       CONST.SCHEME_NAMES.forEach((name, idx) => {
-        const item = foliplus.dom.el("div", { class: CONST.CLASSES.SCHEME_DROPDOWN_ITEM, role: "option", tabindex: -1, "data-scheme-name": name });
+        const item = foliplus.dom.el("div", {
+          class: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
+          role: "option",
+          tabindex: -1,
+          "data-scheme-name": name,
+        });
         this.schemeDropdown.appendChild(item);
         if (name === this.m.currentScheme) {
           item.classList.add(CONST.CLASSES.ACTIVE);
           focusIdx = idx;
         }
 
-        const itemBar = foliplus.dom.el("div", { class: CONST.CLASSES.SCHEME_DROPDOWN_BAR });
+        const itemBar = foliplus.dom.el("div", {
+          class: CONST.CLASSES.SCHEME_DROPDOWN_BAR,
+        });
         item.appendChild(itemBar);
         this.renderColorBar(itemBar, name, this.m.numClasses);
         item.title = name;

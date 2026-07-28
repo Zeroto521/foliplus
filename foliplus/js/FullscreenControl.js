@@ -90,8 +90,8 @@
       // Build container — leaflet-bar for alignment with other foliplus controls
       const container = foliplus.dom.el("div", {
         class: `${CONST.CLASSES.LEAFLET_BAR} ${CONST.CLASSES.FULLSCREEN_BAR}`,
+        id: ContainerId,
       });
-      container.id = ContainerId;
 
       // Zoom in button — <button> element with tool-btn class
       const zoomInBtn = foliplus.dom.el(
@@ -100,14 +100,14 @@
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_IN}`,
           "aria-label": _(`${CONST.name}.zoom_in`),
           title: _(`${CONST.name}.zoom_in`),
+          parent: container,
+          onclick: (e) => {
+            L.DomEvent.stopPropagation(e);
+            map.zoomIn();
+          },
         },
         { html: SVGs.ZOOM_IN },
       );
-      zoomInBtn.addEventListener("click", (e) => {
-        L.DomEvent.stopPropagation(e);
-        map.zoomIn();
-      });
-      container.appendChild(zoomInBtn);
 
       // Zoom out button
       const zoomOutBtn = foliplus.dom.el(
@@ -116,14 +116,14 @@
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.ZOOM_OUT}`,
           "aria-label": _(`${CONST.name}.zoom_out`),
           title: _(`${CONST.name}.zoom_out`),
+          parent: container,
+          onclick: (e) => {
+            L.DomEvent.stopPropagation(e);
+            map.zoomOut();
+          },
         },
         { html: SVGs.ZOOM_OUT },
       );
-      zoomOutBtn.addEventListener("click", (e) => {
-        L.DomEvent.stopPropagation(e);
-        map.zoomOut();
-      });
-      container.appendChild(zoomOutBtn);
 
       // FullscreenControl toggle button
       const fsBtn = foliplus.dom.el(
@@ -132,10 +132,14 @@
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.FS_TOGGLE}`,
           "aria-label": _(`${CONST.name}.title`),
           title: _(`${CONST.name}.title`),
+          parent: container,
+          onclick: (e) => {
+            L.DomEvent.stopPropagation(e);
+            toggleFullscreen();
+          },
         },
         { html: SVGs.MAXIMIZE },
       );
-      container.appendChild(fsBtn);
 
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.disableScrollPropagation(container);

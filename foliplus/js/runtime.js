@@ -481,24 +481,113 @@
    *   // Set innerHTML by passing a { html: "..." } child
    *   window.foliplus.dom.el("div", null, { html: "<svg>...</svg>" })
    */
+  /**
+   * Set of attribute names that should be set as DOM properties (not setAttribute).
+   * These are boolean, numeric, or getter/setter attributes that setAttribute mishandles.
+   */
+  const _PROPS = new Set([
+    "value",
+    "checked",
+    "selected",
+    "disabled",
+    "readOnly",
+    "indeterminate",
+    "defaultValue",
+    "defaultChecked",
+  ]);
+
+  /**
+   * Set of attribute names that should be treated as event listeners.
+   * The value must be a function; it is assigned directly to `el[key]`.
+   */
+  const _EVENTS = new Set([
+    "onclick",
+    "ondblclick",
+    "onchange",
+    "oninput",
+    "onmouseover",
+    "onmouseout",
+    "onkeydown",
+    "onkeyup",
+    "onkeypress",
+    "onsubmit",
+    "onfocus",
+    "onblur",
+    "onload",
+    "onerror",
+    "onwheel",
+    "onpointerdown",
+    "onpointermove",
+    "onpointerup",
+    "ontouchstart",
+    "ontouchmove",
+    "ontouchend",
+    "onmousedown",
+    "onmousemove",
+    "onmouseup",
+  ]);
+
   foliplus.dom = {
     /**
-     * Create an element with attributes and children.
+     * Create an element with attributes, properties, events, and children.
+     *
+     * Supported attrs keys:
+     * - `class` → sets `className` (string, supports `" "` separated tokens)
+     * - `style` → if object, merges via `Object.assign(el.style, val)`;
+     *             if string, sets `el.style.cssText = val`
+     * - `value`, `checked`, `selected`, `disabled`, `readOnly` → set as DOM property
+     * - `onclick`, `onchange`, `oninput`, etc. → assigned as event handler
+     * - `parent` → auto-append to parent element (HTMLElement)
+     * - `innerHTML` → set via `el.innerHTML = val`
+     * - any other key → set via `el.setAttribute(key, String(val))`
+     *
+     * Children can be:
+     * - `string` / `number` → appended as TextNode
+     * - `{ html: "..." }` → inserted via `insertAdjacentHTML("beforeend", ...)`
+     * - `HTMLElement` → appended via `appendChild`
+     *
      * @param {string} tag - HTML tag name.
-     * @param {Object|null} attrs - Attributes map (class, id, data-*, etc.).
-     * @param  {...any} children - Strings (text), {html: str} (innerHTML),
-     *                             or DOM elements (appendChild).
+     * @param {Object|null} [attrs={}] - Attributes/properties/events map.
+     * @param {...any} children - Text, {html}, or DOM elements to append.
      * @returns {HTMLElement}
+     *
+     * @example
+     *   // Create a button with events, value, and auto-append to parent
+     *   foliplus.dom.el("button", {
+     *     class: "foliplus-btn",
+     *     parent: container,
+     *     onclick: () => alert("clicked"),
+     *   }, "Click me")
+     *
+     *   // Create an input with value and change handler
+     *   foliplus.dom.el("input", {
+     *     class: "my-input",
+     *     type: "number",
+     *     value: 42,
+     *     onchange: () => doSomething(),
+     *   })
      */
     el(tag, attrs = {}, ...children) {
       const el = document.createElement(tag);
       if (attrs) {
         for (const [key, val] of Object.entries(attrs)) {
           if (val == null) continue;
-          if (key === "class") el.className = val;
-          else if (key === "style" && typeof val === "object")
-            Object.assign(el.style, val);
-          else el.setAttribute(key, String(val));
+          if (key === "class") {
+            el.className = val;
+          } else if (key === "style") {
+            if (typeof val === "object") Object.assign(el.style, val);
+            else el.style.cssText = val;
+          } else if (key === "parent") {
+            val.appendChild(el);
+          } else if (key === "innerHTML") {
+            el.innerHTML = val;
+          } else if (_PROPS.has(key)) {
+            el[key] = val;
+          } else if (_EVENTS.has(key)) {
+            el[key] = val;
+          } else {
+            el.setAttribute(key, String(val));
+          }
         }
       }
       for (const child of children) {

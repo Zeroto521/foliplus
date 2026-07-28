@@ -865,8 +865,10 @@
       if (!mapPane)
         throw new Error(`[${CONST.name}] ${_(`${CONST.name}.mapPane_not_available`)}`);
 
-      const canvas = foliplus.dom.el("canvas", { class: "foliplus-heatmap-canvas" });
-      mapPane.appendChild(canvas);
+      const canvas = foliplus.dom.el("canvas", {
+        class: "foliplus-heatmap-canvas",
+        parent: mapPane,
+      });
       if (opts.className) canvas.classList.add(opts.className);
 
       const ctx = canvas.getContext("2d");
@@ -1755,7 +1757,9 @@
     }
 
     onAdd() {
-      const container = foliplus.dom.el("div", { class: "leaflet-bar leaflet-control" });
+      const container = foliplus.dom.el("div", {
+        class: "leaflet-bar leaflet-control",
+      });
 
       container.innerHTML = `
         <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed"

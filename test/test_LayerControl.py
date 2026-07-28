@@ -891,7 +891,9 @@ class TestLayerControlRendering:
         assert "setZIndex" in html
         assert "setVisible" in html
         assert "getSize" in html
-        assert 'L.DomUtil.create("canvas", "foliplus-heatmap-canvas", mapPane)' in html
+        assert 'foliplus.dom.el("canvas"' in html
+        assert 'class: "foliplus-heatmap-canvas"' in html
+        assert 'parent: mapPane' in html
         assert "mapPane" in html
 
     def test_layer_callbacks_stored(self, base_map: folium.Map):
