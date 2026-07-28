@@ -508,7 +508,7 @@ class TestMeasureControlRendering:
                 else None
             ),
         )
-        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        page.goto(f"file://{html_path}", wait_until="domcontentloaded", timeout=60000)
         page.wait_for_selector(
             ".foliplus-measure-ctrl", state="attached", timeout=10000
         )
@@ -798,13 +798,17 @@ class TestMeasureControlRendering:
                 mm.setMode('marker');
                 map.fire('click', {latlng: L.latLng(26.08, 119.30)});
             }""")
+            # Poll for measurement to appear (async reverse geocode may take time)
             page.wait_for_timeout(500)
-            before = page.evaluate("window.__measureManager.measurements.length")
+            for _ in range(20):
+                before = page.evaluate("window.__measureManager.measurements.length")
+                if before >= 1:
+                    break
+                page.wait_for_timeout(500)
             assert before == 1, f"expected 1 measurement, got {before}"
             page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const layers = mm.layers.mainLayer._layers || {};
-                const delMkr = Object.values(layers).find(
+                const map = window.__map;
+                const delMkr = Object.values(map._layers).find(
                     l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
                 if (delMkr) {
@@ -819,6 +823,86 @@ class TestMeasureControlRendering:
             data = page.evaluate("localStorage.getItem('foliplus_measurement')")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "localStorage should be empty after deleting all"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_restore_marker_from_storage(self, browser, tmp_path):
+        """restoreMarker restores a marker measurement from localStorage without ReferenceError."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # Pre-populate localStorage with a marker measurement
+            page.evaluate("""() => {
+                const data = [{
+                    id: 'foliplus_measurement_marker_1',
+                    type: 'marker',
+                    lng: 119.30,
+                    lat: 26.08,
+                    address: 'Test Address'
+                }];
+                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+            }""")
+            # Reload the page to trigger restoreMeasurements in constructor
+            page.reload()
+            page.wait_for_timeout(2000)
+            # Check measurements were restored
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 restored measurement, got {count}"
+            # Check layers registered (restoreMarker calls addLayer)
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after restoring marker"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_restore_distance_from_storage(self, browser, tmp_path):
+        """restoreDistance restores a distance measurement from localStorage without ReferenceError."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const data = [{
+                    id: 'foliplus_measurement_distance_1',
+                    type: 'distance',
+                    points: [
+                        { lng: 119.30, lat: 26.08 },
+                        { lng: 119.31, lat: 26.09 }
+                    ],
+                    segments: [
+                        { lng: 119.305, lat: 26.085, distance: 1234.56 }
+                    ]
+                }];
+                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(2000)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 restored distance, got {count}"
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after restoring distance"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_restore_circle_from_storage(self, browser, tmp_path):
+        """restoreCircle restores a circle measurement from localStorage without ReferenceError."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const data = [{
+                    id: 'foliplus_measurement_circle_1',
+                    type: 'circle',
+                    center: { lng: 119.30, lat: 26.08 },
+                    target: { lng: 119.31, lat: 26.09 },
+                    radius: 500
+                }];
+                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(2000)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 restored circle, got {count}"
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after restoring circle"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()

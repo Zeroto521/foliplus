@@ -482,7 +482,7 @@ class TestLayerControlRendering:
         assert "leaflet-bar" in html
 
     def test_layer_item_dom_structure(self, base_map: folium.Map):
-        """Each layer-item has checkbox-wrapper, label, type-icon-col."""
+        """Each layer-item has checkbox, label, type-icon-col."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus-checkbox" in html

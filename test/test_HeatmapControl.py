@@ -754,7 +754,7 @@ class TestHeatmapControlBrowser:
                 "window.__heatmapCtrl.manager.cachedFeatures === null"
             )
             canvas_gone = page.evaluate(
-                "!window.__heatmapCtrl.manager.overlay.canvas || window.__heatmapCtrl.manager.overlay.canvas.style.display === 'none'"
+                "window.__heatmapCtrl.manager.overlay.canvas && window.__heatmapCtrl.manager.overlay.canvas.classList.contains('hidden')"
             )
             assert cached_gone, "cachedFeatures should be null after clear"
             assert canvas_gone, "Canvas should be hidden after clear"
