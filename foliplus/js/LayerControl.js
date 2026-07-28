@@ -1047,6 +1047,10 @@
 
         // 3. Migrate layers to their target panes
         this.migrateLayers(layersToMove);
+
+        // 4. Sync attribution: only show the topmost visible base TileLayer's
+        // attribution to avoid clutter when multiple base layers are visible.
+        this.syncAttribution();
       } finally {
         this.isEnforcing = false;
       }
@@ -1130,6 +1134,30 @@
         for (const p of paths) frag.appendChild(p);
         container.appendChild(frag);
       }
+    }
+
+    // Live attribution: only show the topmost visible base TileLayer.
+    // Prevents clutter when multiple base layers are overlapped.
+    // Directly manipulates Leaflet's internal _attributions and calls _update()
+    // so Leaflet's state stays consistent across layeradd/layerremove events.
+    syncAttribution() {
+      const attrCtrl = this.map.attributionControl;
+      if (!attrCtrl) return;
+
+      // Single pass: remove all base TileLayer attributions and track the topmost one
+      let topAttr = "";
+      for (let i = 0; i < this.layers.length; i++) {
+        const li = this.layers[i];
+        if (!li.isBase) continue;
+        const layer = LayerUtils.findLayer(this.map, li.id);
+        if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
+        delete attrCtrl._attributions[layer.options.attribution];
+        if (!topAttr && this.map.hasLayer(layer)) topAttr = layer.options.attribution;
+      }
+
+      // Re-add only the topmost visible one
+      if (topAttr) attrCtrl._attributions[topAttr] = 1;
+      attrCtrl._update();
     }
 
     // UI Rendering & Event Binding

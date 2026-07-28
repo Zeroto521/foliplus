@@ -704,6 +704,15 @@ class TestLayerControlRendering:
         for m in matches:
             assert ", 10)" in m, f"Missing radix: {m}"
 
+    def test_sync_attribution_renders(self, base_map: folium.Map):
+        """syncAttribution method is rendered and called from enforceOrder."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "syncAttribution()" in html
+        assert "topAttr = layer.options.attribution" in html
+        assert "this.map.attributionControl" in html
+        assert "container.innerHTML" in html
+
     def test_group_normalization_present(self, base_map: folium.Map):
         """Saved order is normalized to overlay-first, base-last groups."""
         LayerControl().add_to(base_map)
