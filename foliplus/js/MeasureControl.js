@@ -400,9 +400,6 @@
     static TYPE = CONST.MODE.DISTANCE;
 
     start() {
-      const map = this.map;
-      const layers = this.layers;
-
       const pts = [];
       let total = 0;
       const poly = L.polyline([], { className: CONST.CLASSES.LINE_DASHED });
@@ -421,28 +418,28 @@
       const ensureLayersAdded = () => {
         if (isLayersRegistered) return;
         isLayersRegistered = true;
-        layers.addLayer(poly);
-        layers.addLayer(previewLine);
-        layers.addLayer(finalPoly);
+        this.layers.addLayer(poly);
+        this.layers.addLayer(previewLine);
+        this.layers.addLayer(finalPoly);
       };
 
       this._cleanup = () => {
-        map.off("click", onDistClick);
-        map.off("dblclick", onDistDbl);
-        map.off("contextmenu", onDistContext);
-        map.off("mousemove", onDistMove);
+        this.map.off("click", onDistClick);
+        this.map.off("dblclick", onDistDbl);
+        this.map.off("contextmenu", onDistContext);
+        this.map.off("mousemove", onDistMove);
         if (isLayersRegistered) {
-          layers.removeLayer(previewLine);
+          this.layers.removeLayer(previewLine);
           if (previewDistLabel) {
-            layers.removeLayer(previewDistLabel);
+            this.layers.removeLayer(previewDistLabel);
             previewDistLabel = null;
           }
-          layers.removeLayer(poly);
-          layers.removeLayer(finalPoly);
-          nodeMarkers.forEach((m) => layers.removeLayer(m));
-          segLabels.forEach((l) => layers.removeLayer(l));
-          if (startLbl) layers.removeLayer(startLbl);
-          layers.unregister();
+          this.layers.removeLayer(poly);
+          this.layers.removeLayer(finalPoly);
+          nodeMarkers.forEach((m) => this.layers.removeLayer(m));
+          segLabels.forEach((l) => this.layers.removeLayer(l));
+          if (startLbl) this.layers.removeLayer(startLbl);
+          this.layers.unregister();
         }
       };
 
@@ -454,7 +451,7 @@
           return;
         }
         isDistFinished = true;
-        layers.removeLayer(poly);
+        this.layers.removeLayer(poly);
         finalPoly.setLatLngs(pts);
 
         // Dash-sweep animation
@@ -502,7 +499,7 @@
 
         // Attach toggle/delete UI (shared with restoreDistance)
         const onDistMapClick = this.m.attachDistanceUI({
-          layers,
+          layers: this.layers,
           finalPoly,
           nodeMarkers,
           segLabels,
@@ -515,13 +512,13 @@
         this._cleanup = () => this.m.map.off("click", onDistMapClick);
 
         // Cleanup drawing mode
-        map.off("click", onDistClick);
-        map.off("dblclick", onDistDbl);
-        map.off("contextmenu", onDistContext);
-        map.off("mousemove", onDistMove);
-        layers.removeLayer(previewLine);
+        this.map.off("click", onDistClick);
+        this.map.off("dblclick", onDistDbl);
+        this.map.off("contextmenu", onDistContext);
+        this.map.off("mousemove", onDistMove);
+        this.layers.removeLayer(previewLine);
         if (previewDistLabel) {
-          layers.removeLayer(previewDistLabel);
+          this.layers.removeLayer(previewDistLabel);
           previewDistLabel = null;
         }
         this.m.clearActiveMode();
@@ -542,7 +539,7 @@
             icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(showDist)),
             interactive: false,
           });
-          layers.addLayer(previewDistLabel, true);
+          this.layers.addLayer(previewDistLabel, true);
         } else {
           previewDistLabel.setLatLng(e.latlng);
           MeasureUtils.setLabelText(
@@ -557,12 +554,12 @@
         ensureLayersAdded();
         pts.push(e.latlng);
         if (previewDistLabel) {
-          layers.removeLayer(previewDistLabel);
+          this.layers.removeLayer(previewDistLabel);
           previewDistLabel = null;
         }
         poly.addLatLng(e.latlng);
 
-        const mkr = layers.addLayer(MeasureUtils.makeNode(e.latlng));
+        const mkr = this.layers.addLayer(MeasureUtils.makeNode(e.latlng));
         mkr.bringToFront();
         nodeMarkers.push(mkr);
 
@@ -570,7 +567,7 @@
           startLbl = L.marker(e.latlng, {
             icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
           });
-          layers.addLayer(startLbl, true);
+          this.layers.addLayer(startLbl, true);
         }
 
         mkr.on("click", () => {
@@ -603,7 +600,7 @@
           const lbl = L.marker(pts[pts.length - 1], {
             icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
           });
-          layers.addLayer(lbl, true);
+          this.layers.addLayer(lbl, true);
           segLabels.push(lbl);
         }
       };
@@ -617,10 +614,10 @@
         finishDist();
       };
 
-      map.on("click", onDistClick);
-      map.on("dblclick", onDistDbl);
-      map.on("contextmenu", onDistContext);
-      map.on("mousemove", onDistMove);
+      this.map.on("click", onDistClick);
+      this.map.on("dblclick", onDistDbl);
+      this.map.on("contextmenu", onDistContext);
+      this.map.on("mousemove", onDistMove);
     }
   }
 
@@ -629,9 +626,6 @@
     static TYPE = CONST.MODE.CIRCLE;
 
     start() {
-      const map = this.map;
-      const layers = this.layers;
-
       let center = null;
       let state = 0;
       let lastFinishTime = 0;
@@ -645,11 +639,11 @@
       };
 
       const clearPreviews = () => {
-        if (previews.center) layers.removeLayer(previews.center);
-        if (previews.circle) layers.removeLayer(previews.circle);
-        if (previews.line) layers.removeLayer(previews.line);
-        if (previews.node) layers.removeLayer(previews.node);
-        if (previews.label) layers.removeLayer(previews.label);
+        if (previews.center) this.layers.removeLayer(previews.center);
+        if (previews.circle) this.layers.removeLayer(previews.circle);
+        if (previews.line) this.layers.removeLayer(previews.line);
+        if (previews.node) this.layers.removeLayer(previews.node);
+        if (previews.label) this.layers.removeLayer(previews.label);
         previews.center = null;
         previews.circle = null;
         previews.line = null;
@@ -669,7 +663,7 @@
 
         if (state === 0) {
           center = e.latlng;
-          previews.center = layers.addLayer(
+          previews.center = this.layers.addLayer(
             L.marker(center, {
               icon: L.divIcon({
                 className: CONST.CENTER_DOT.CLASS,
@@ -717,7 +711,7 @@
         );
 
         if (!previews.circle) {
-          previews.circle = layers.addLayer(
+          previews.circle = this.layers.addLayer(
             L.circle(center, {
               radius: r,
               className: CONST.CLASSES.CIRCLE_PREVIEW,
@@ -727,7 +721,7 @@
         } else previews.circle.setRadius(r);
 
         if (!previews.line) {
-          previews.line = layers.addLayer(
+          previews.line = this.layers.addLayer(
             L.polyline([center, e.latlng], {
               className: CONST.CLASSES.LINE_PREVIEW,
               interactive: false,
@@ -736,7 +730,7 @@
         } else previews.line.setLatLngs([center, e.latlng]);
 
         if (!previews.node) {
-          previews.node = layers.addLayer(
+          previews.node = this.layers.addLayer(
             L.circleMarker(e.latlng, {
               radius: CONST.MARKER.RADIUS,
               className: CONST.CLASSES.NODE_PREVIEW,
@@ -751,7 +745,7 @@
           (center.lng + e.latlng.lng) / 2,
         );
         if (!previews.label) {
-          previews.label = layers.addLayer(
+          previews.label = this.layers.addLayer(
             L.marker(mid, {
               icon: MeasureUtils.makeLabelDivIcon(
                 MeasureUtils.formatDistance(r),
@@ -761,7 +755,7 @@
               interactive: false,
             }),
           );
-          layers.addLayer(previews.label, true);
+          this.layers.addLayer(previews.label, true);
         } else {
           previews.label.setLatLng(mid);
           MeasureUtils.setLabelText(previews.label, MeasureUtils.formatDistance(r));
@@ -777,7 +771,7 @@
         const finalTargetLatLng =
           targetLatLng || L.CRS.Earth.destination(centerLatLng, r, 90);
 
-        const circle = layers.addLayer(
+        const circle = this.layers.addLayer(
           L.circle(centerLatLng, {
             radius: r,
             className: CONST.CLASSES.CIRCLE_FINAL,
@@ -785,7 +779,7 @@
           }),
         );
 
-        const ripple = layers.addLayer(
+        const ripple = this.layers.addLayer(
           L.circle(centerLatLng, {
             radius: r,
             className: CONST.CLASSES.RIPPLE,
@@ -796,23 +790,25 @@
         if (rippleEl) {
           const onEnd = () => {
             rippleEl.removeEventListener("animationend", onEnd);
-            layers.removeLayer(ripple);
+            this.layers.removeLayer(ripple);
           };
           rippleEl.addEventListener("animationend", onEnd);
         }
 
-        const radiusLine = layers.addLayer(
+        const radiusLine = this.layers.addLayer(
           L.polyline([centerLatLng, finalTargetLatLng], {
             className: CONST.CLASSES.LINE_DASHED,
             interactive: true,
           }),
         );
-        const radiusNode = layers.addLayer(MeasureUtils.makeNode(finalTargetLatLng));
+        const radiusNode = this.layers.addLayer(
+          MeasureUtils.makeNode(finalTargetLatLng),
+        );
 
         let labelsVisible = true;
         let xVisible = false;
 
-        const centerFinal = layers.addLayer(
+        const centerFinal = this.layers.addLayer(
           L.marker(centerLatLng, {
             icon: L.divIcon({
               className: CONST.CENTER_DOT.CLASS_FINAL,
@@ -825,7 +821,7 @@
           }),
         );
 
-        const delMkr = layers.addLayer(
+        const delMkr = this.layers.addLayer(
           MeasureUtils.makeDelIcon(centerLatLng, {
             zIndexOffset: CONST.Z_INDEX.OFFSET,
           }),
@@ -841,7 +837,7 @@
           ),
           interactive: false,
         });
-        layers.addLayer(radiusLabel, true);
+        this.layers.addLayer(radiusLabel, true);
 
         // Save measurement data
         const circleId = this.nextMeasurementId();
@@ -856,7 +852,7 @@
 
         // Attach toggle/delete UI (shared with restoreCircle)
         const { onMapClickActive } = this.m.attachCircleUI({
-          layers,
+          layers: this.layers,
           circle,
           radiusLine,
           radiusNode,
@@ -871,14 +867,14 @@
         this.m.finalizedClickHandler = onMapClickActive;
       };
 
-      map.on("click", onMapClick);
-      map.on("mousemove", onMouseMove);
-      map.on("contextmenu", onContext);
+      this.map.on("click", onMapClick);
+      this.map.on("mousemove", onMouseMove);
+      this.map.on("contextmenu", onContext);
 
       this._cleanup = () => {
-        map.off("click", onMapClick);
-        map.off("mousemove", onMouseMove);
-        map.off("contextmenu", onContext);
+        this.map.off("click", onMapClick);
+        this.map.off("mousemove", onMouseMove);
+        this.map.off("contextmenu", onContext);
         clearPreviews();
         foliplus.hideHint(CONST.name);
       };
@@ -974,7 +970,7 @@
         null,
         this.layers.mainLayer,
       );
-      const delMkr = layers.addLayer(
+      const delMkr = this.layers.addLayer(
         MeasureUtils.makeDelIcon(L.latLng(m.lat, m.lng), {
           zIndexOffset: CONST.Z_INDEX.OFFSET,
           iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
@@ -1001,7 +997,7 @@
 
     restoreDistance(m) {
       const pts = m.points.map((p) => L.latLng(p.lat, p.lng));
-      const finalPoly = layers.addLayer(
+      const finalPoly = this.layers.addLayer(
         L.polyline(pts, {
           className: CONST.CLASSES.LINE_SOLID,
           interactive: true,
@@ -1010,7 +1006,7 @@
 
       const nodeMarkers = [];
       pts.forEach((pt, i) => {
-        const node = layers.addLayer(MeasureUtils.makeNode(pt));
+        const node = this.layers.addLayer(MeasureUtils.makeNode(pt));
         node.bringToFront();
         nodeMarkers.push(node);
       });
@@ -1051,7 +1047,7 @@
       const targetLatLng = L.latLng(m.target.lat, m.target.lng);
       const r = m.radius;
 
-      const circle = layers.addLayer(
+      const circle = this.layers.addLayer(
         L.circle(centerLatLng, {
           radius: r,
           className: CONST.CLASSES.CIRCLE_FINAL,
@@ -1059,18 +1055,18 @@
         }),
       );
 
-      const radiusLine = layers.addLayer(
+      const radiusLine = this.layers.addLayer(
         L.polyline([centerLatLng, targetLatLng], {
           className: CONST.CLASSES.LINE_DASHED,
           interactive: true,
         }),
       );
-      const radiusNode = layers.addLayer(MeasureUtils.makeNode(targetLatLng));
+      const radiusNode = this.layers.addLayer(MeasureUtils.makeNode(targetLatLng));
 
       let labelsVisible = true;
       let xVisible = false;
 
-      const centerFinal = layers.addLayer(
+      const centerFinal = this.layers.addLayer(
         L.marker(centerLatLng, {
           icon: L.divIcon({
             className: CONST.CENTER_DOT.CLASS_FINAL,
@@ -1083,7 +1079,7 @@
         }),
       );
 
-      const delMkr = layers.addLayer(
+      const delMkr = this.layers.addLayer(
         MeasureUtils.makeDelIcon(centerLatLng, {
           zIndexOffset: CONST.Z_INDEX.OFFSET,
         }),
@@ -1091,7 +1087,7 @@
 
       const midLng = (centerLatLng.lng + targetLatLng.lng) / 2;
       const midLat = (centerLatLng.lat + targetLatLng.lat) / 2;
-      const radiusLabel = layers.addLayer(
+      const radiusLabel = this.layers.addLayer(
         L.marker([midLat, midLng], {
           icon: MeasureUtils.makeLabelDivIcon(
             MeasureUtils.formatDistance(r),
