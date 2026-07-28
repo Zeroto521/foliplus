@@ -29,11 +29,11 @@
     CLASSES: {
       LAYER_ITEM: "foliplus-layer-item",
       ACTIVE: "active",
-      CHECKBOX_WRAPPER: "foliplus-checkbox-wrapper",
+      CHECKBOX: "foliplus-checkbox",
       GROUP_FOLDED: "foliplus-layer-group-folded",
-      COLOR_ACTIVE: "foliplus-color-layer-active",
       COLOR_INPUT: "foliplus-color-layer-input",
       COLOR_ITEM: "foliplus-color-layer-item",
+      HIDDEN: "hidden",
       DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
       DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
       DRAGGING: "foliplus-layer-dragging",
@@ -216,21 +216,34 @@
     }
 
     /**
+     * Internal: walk a layer tree, optionally calling fn on containers.
+     * @param {Object} layer - Leaflet layer.
+     * @param {function} fn - Called for each visited node.
+     * @param {number} depth - Internal recursion depth.
+     * @param {boolean} leafOnly - If true, only call fn on non-container layers.
+     */
+    static traverse(layer, fn, depth, leafOnly) {
+      if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
+      const isContainer = typeof layer.eachLayer === "function";
+      if (!leafOnly) fn(layer);
+      if (isContainer)
+        layer.eachLayer((c) => LayerUtils.traverse(c, fn, depth + 1, leafOnly));
+      else if (layer._layers) {
+        for (const k in layer._layers) {
+          if (layer._layers.hasOwnProperty(k))
+            LayerUtils.traverse(layer._layers[k], fn, depth + 1, leafOnly);
+        }
+      } else if (leafOnly) fn(layer);
+    }
+
+    /**
      * Walk every leaf (non-container) layer in a tree.
-     * @param {Object} layer - Leaflet layer (may be a container like L.layerGroup).
+     * @param {Object} layer - Leaflet layer.
      * @param {function} fn - Called for each leaf with (leafLayer).
      * @param {number} [depth=0] - Internal recursion depth.
      */
     static forEachLeaf(layer, fn, depth = 0) {
-      if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
-      if (typeof layer.eachLayer === "function") {
-        layer.eachLayer((c) => LayerUtils.forEachLeaf(c, fn, depth + 1));
-      } else if (layer._layers) {
-        for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k))
-            LayerUtils.forEachLeaf(layer._layers[k], fn, depth + 1);
-        }
-      } else fn(layer);
+      LayerUtils.traverse(layer, fn, depth, true);
     }
 
     /**
@@ -240,16 +253,7 @@
      * @param {number} [depth=0] - Internal recursion depth.
      */
     static forEachLayer(layer, fn, depth = 0) {
-      if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
-      fn(layer);
-      if (typeof layer.eachLayer === "function") {
-        layer.eachLayer((c) => LayerUtils.forEachLayer(c, fn, depth + 1));
-      } else if (layer._layers) {
-        for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k))
-            LayerUtils.forEachLayer(layer._layers[k], fn, depth + 1);
-        }
-      }
+      LayerUtils.traverse(layer, fn, depth, false);
     }
   }
 
@@ -277,6 +281,8 @@
       this.getLayerType = this.getLayerType.bind(this);
       this.getLayersByType = this.getLayersByType.bind(this);
       this.findLayer = this.findLayer.bind(this);
+      this.forEachLeaf = this.forEachLeaf.bind(this);
+      this.extractPoints = this.extractPoints.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
       this.isEnforcing = false;
       this.isDestroyed = false;
@@ -431,6 +437,38 @@
     }
 
     /**
+     * Walk every leaf (non-container) layer in a registered layer tree.
+     * @param {string} id - Layer ID.
+     * @param {function} fn - Called for each leaf with (leafLayer).
+     */
+    forEachLeaf(id, fn) {
+      const layer = this.findLayer(id);
+      if (layer) LayerUtils.forEachLeaf(layer, fn);
+    }
+
+    /**
+     * Extract all point markers (L.Marker / L.CircleMarker with .feature)
+     * from a registered layer by id. Skips labels/annotations (no .feature)
+     * and deduplicates by L.stamp to avoid double-counting.
+     * @param {string} id - Layer ID.
+     * @returns {Array<{lat: number, lng: number, marker: L.Marker|L.CircleMarker}>}
+     */
+    extractPoints(id) {
+      const pts = [];
+      const seen = {};
+      this.forEachLeaf(id, (l) => {
+        if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
+        if (!l.feature) return;
+        const stamp = L.stamp(l);
+        if (seen[stamp]) return;
+        seen[stamp] = true;
+        const ll = l.getLatLng();
+        pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
+      });
+      return pts;
+    }
+
+    /**
      * Register (or re-register) a layer with the LayerManager.
      *
      * The layer appears at the top of the overlay list with a checkbox,
@@ -492,11 +530,13 @@
           );
       }
       this.paneCache.clear();
-      if (opts.paneName && opts.layer) {
-        if (!(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)) {
-          opts.layer.options.pane = opts.paneName;
-          opts.layer.options.paneSet = true;
-        }
+      if (
+        opts.paneName &&
+        opts.layer &&
+        !(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)
+      ) {
+        opts.layer.options.pane = opts.paneName;
+        opts.layer.options.paneSet = true;
       }
 
       if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
@@ -531,13 +571,11 @@
       this.layers.unshift(item);
       this.enforceOrder();
       this.saveOrder();
-      if (this.uiContainer) {
-        // Re-render the full list so DOM order matches `this.layers` order,
-        // and re-init visibility to sync checkbox data-index attributes.
-        if (this.ui) {
-          this.ui.renderInitialList();
-          this.ui.initTypesAndVisibility();
-        }
+      // Re-render the full list so DOM order matches `this.layers` order,
+      // and re-init visibility to sync checkbox data-index attributes.
+      if (this.uiContainer && this.ui) {
+        this.ui.renderInitialList();
+        this.ui.initTypesAndVisibility();
       }
     }
 
@@ -584,19 +622,42 @@
     }
 
     /**
-     * Create a managed three-layer group for components that need
-     * graph and label sub-layers (HeatmapControl, MeasureControl, etc.).
+     * Create a managed three-layer group (graph + label + main) for
+     * components that need sub-layers with custom panes (e.g. MeasureControl).
      *
-     * Returns `{ mainLayer, graphLayer, labelLayer }` with automated
-     * addLayer/removeLayer/clearLayers routing and LayerControl registration.
+     * `mainLayer.addLayer()` is overridden to route layers by `.isLabel`:
+     * - graph content (geometry) → `graphLayer`
+     * - label content (divIcon markers) → `labelLayer`
+     * When neither `graphPane` nor `labelPane` is given, behaves as a plain
+     * `L.layerGroup` with auto-registration.
+     *
+     * Auto-registers with LayerControl on first content add, auto-unregisters
+     * when empty.  The convenience `addLayer(layer, isLabel)` wrapper
+     * sets `layer.isLabel = true` so `mainLayer.addLayer` routes correctly.
      *
      * @param {Object} opts
-     * @param {string} opts.id      - Unique layer ID.
-     * @param {string} opts.name    - Display name for LayerControl panel
-     * @param {string} [opts.graphPane] - Pane name for graph content (omit if no graph layer)
-     * @param {string} [opts.labelPane] - Pane name for label content (omit if no label layer)
-     * @param {string} [opts.iconSvg] - SVG icon for the type column
-     * @returns {Object} { mainLayer, graphLayer, labelLayer }
+     * @param {string} opts.id         - Unique layer ID.
+     * @param {string} opts.name       - Display name in LayerControl panel.
+     * @param {string} [opts.graphPane] - Pane name for geometry (e.g. "measure_graph").
+     * @param {string} [opts.labelPane] - Pane name for labels (e.g. "measure_label").
+     * @param {string} [opts.iconSvg]  - SVG icon for the type column.
+     * @returns {createLayersAPI}
+     *
+     * @typedef {Object} createLayersAPI
+     * @property {L.layerGroup} mainLayer    - Root layer group (contains graphLayer + labelLayer).
+     *   `.addLayer()` is overridden to route to sub-layers by `.isLabel`.
+     * @property {Function} addLayer(layer, isLabel?) - Add a layer.  If `isLabel` is true,
+     *   sets `layer.isLabel = true` so `mainLayer.addLayer` routes to `labelLayer`.
+     *   Returns the layer for chaining.
+     * @property {Function} removeLayer(...items) - Remove one or more layers. Null items
+     *   silently skipped.  Auto-unregisters when all sub-layers are empty.
+     * @property {Function} clearLayers()   - Clear all sub-layers, unregister from panel.
+     * @property {Function} destroy()       - Clear + unregister + remove from LayerControl.
+     * @property {Function} register()      - Register with LayerControl (auto-called on first
+     *   `addLayer`).  Safe to call multiple times.
+     * @property {Function} unregister()    - Unregister from LayerControl when empty.
+     * @property {Function} registered()    - Returns `true` if currently registered.
+     * @property {Function} bringToFront()  - Bring this layer to the top of z-order.
      */
     createLayers(opts) {
       const mainLayer = L.layerGroup();
@@ -611,10 +672,9 @@
       let registered = false;
 
       const register = () => {
-        if (!registered) {
-          registered = true;
-          if (opts.labelPane) this.labelPanes.add(opts.labelPane);
-        }
+        if (registered) return;
+        registered = true;
+        if (opts.labelPane) this.labelPanes.add(opts.labelPane);
         this.registerLayer({
           name: opts.name,
           id: opts.id,
@@ -642,7 +702,7 @@
 
       // Override addLayer to route to sub-layers and auto-register on content.
       mainLayer.addLayer = (layer) => {
-        const isLabel = layer.isMeasureLabel;
+        const isLabel = layer.isLabel;
         const target = isLabel ? labelLayer : graphLayer;
         if (target) {
           // When mainLayer was off the map (e.g., user unchecked the layer
@@ -684,67 +744,34 @@
       };
 
       // ── Convenience API ──────────────────────────────────────────
-      const addGraph = (layer) => {
-        if (!graphLayer) return;
-        layer.options.pane = opts.graphPane;
-        if (layer instanceof L.Path) {
-          const { renderer } = this.ensurePane(opts.graphPane);
-          layer._renderer = renderer;
-        } else if (opts.graphPane) this.ensurePane(opts.graphPane, false);
-        graphLayer.addLayer(layer);
-        register();
+      const addLayer = (layer, isLabel) => {
+        if (isLabel) layer.isLabel = true;
+        mainLayer.addLayer(layer);
+        return layer;
       };
-
-      const addLabel = (marker) => {
-        if (!labelLayer) return;
-        if (opts.labelPane) {
-          marker.options.pane = opts.labelPane;
-          this.ensurePane(opts.labelPane, false);
+      const removeLayer = (...items) => {
+        items.forEach((l) => {
+          if (l != null) mainLayer.removeLayer(l);
+        });
+      };
+      const clearLayers = () => {
+        mainLayer.clearLayers();
+        unregister();
+      };
+      const destroy = () => {
+        clearLayers();
+        if (registered) {
+          registered = false;
+          this.unregisterLayer(opts.id);
         }
-        labelLayer.addLayer(marker);
-        register();
-      };
-
-      const removeGraph = (layer) => {
-        if (!graphLayer) return;
-        graphLayer.removeLayer(layer);
-        unregister();
-      };
-
-      const removeLabel = (layer) => {
-        if (!labelLayer) return;
-        labelLayer.removeLayer(layer);
-        unregister();
-      };
-
-      const clearGraph = () => {
-        if (!graphLayer) return;
-        graphLayer.clearLayers();
-        unregister();
-      };
-
-      const clearLabels = () => {
-        if (!labelLayer) return;
-        labelLayer.clearLayers();
-        unregister();
-      };
-
-      const clearAll = () => {
-        clearGraph();
-        clearLabels();
       };
 
       return {
         mainLayer,
-        graphLayer,
-        labelLayer,
-        addGraph,
-        addLabel,
-        removeGraph,
-        removeLabel,
-        clearGraph,
-        clearLabels,
-        clearAll,
+        addLayer,
+        removeLayer,
+        clearLayers,
+        destroy,
         register,
         unregister,
         registered: () => registered,
@@ -785,33 +812,50 @@
     }
 
     /**
-     * Create a managed canvas element that properly tracks map pan/zoom.
+     * Create a managed canvas element that tracks map pan/zoom.
      *
-     * The canvas is placed inside `.leaflet-map-pane` (same stacking context as
-     * Leaflet panes) and positioned at `(-panX, -panY)` to cancel the mapPane's
-     * CSS `transform: translate(panX, panY)`.  This makes the canvas visually
-     * align with the viewport — no more clipping from CSS transform.
+     * The canvas is placed inside `.leaflet-map-pane` and positioned at
+     * `(-panX, -panY)` to cancel the mapPane CSS transform, making it
+     * visually align with the viewport.  Drawing coordinates should use
+     * `latLngToContainerPoint` (viewport-relative).
      *
-     * Drawing coordinates should use `latLngToContainerPoint` (viewport-relative).
-     * The canvas position is updated on every `move` event — no redraw needed for pan.
-     * Zoom changes require re-rendering the canvas content.
+     * Auto-registers with LayerControl on `register()`, auto-unregisters
+     * on `unregister()` (clears content, hides canvas, removes panel entry).
+     * The canvas hides itself via the `foliplus-heatmap-canvas.hidden` CSS class.
+     *
+     * Listens to map `move` (reposition) and `resize` (re-measure) events.
+     * Call `destroy()` to remove all listeners and the canvas DOM element.
      *
      * @param {Object} opts
-     * @param {string} opts.id    - Unique layer ID for LayerControl registration.
-     * @param {string} [opts.name] - Display name (falls back to id).
-     * @param {string} [opts.iconSvg] - SVG icon HTML for the type column.
+     * @param {string} opts.id       - Unique layer ID.
+     * @param {string} [opts.name]   - Display name (falls back to id).
+     * @param {string} [opts.iconSvg]   - SVG icon for the type column.
      * @param {string} [opts.className] - Extra CSS class for the canvas element.
-     * @param {Function} [opts.onToggle] - Override default visibility callback(visible).
-     * @param {Function} [opts.onZIndex] - Override default z-index callback(z).
-     * @returns {Object} Managed canvas API:
-     *   - {HTMLCanvasElement} canvas  - The canvas element.
-     *   - {CanvasRenderingContext2D} ctx - 2D drawing context.
-     *   - {Function} resize          - Re-measure & resize canvas to container.
-     *   - {Function} destroy         - Remove canvas & unregister from LayerControl.
-     *   - {Function} updatePosition  - Recompute left/top from current mapPane offset.
-     *   - {Function} setZIndex(z)    - Set canvas z-index.
-     *   - {Function} setVisible(v)   - Show/hide canvas.
-     *   - {Function} getSize()       - Return {width, height} in CSS pixels.
+     * @param {Function} [opts.onToggle] - Override visibility callback(visible).
+     *   Default: toggles `foliplus-heatmap-canvas.hidden` class.
+     * @param {Function} [opts.onZIndex] - Override z-index callback(z).
+     *   Default: sets `canvas.style.zIndex`.
+     * @returns {createCanvasAPI}
+     *
+     * @typedef {Object} createCanvasAPI
+     * @property {HTMLCanvasElement} canvas  - Canvas element (in `.leaflet-map-pane`).
+     * @property {CanvasRenderingContext2D} ctx - 2D drawing context.
+     * @property {Function} resize()       - Re-measure container (respects DPR).
+     *   Call after container size changes (e.g. panel expand/collapse).
+     * @property {Function} getSize()      - Return `{width, height}` in CSS pixels.
+     * @property {Function} updatePosition()- Recompute left/top from mapPane CSS
+     *   transform offset.  Called automatically on map `move`.
+     * @property {Function} register()     - Register in LayerControl panel.
+     *   Calls `resize()` + `updatePosition()` + shows canvas.
+     * @property {Function} unregister()   - Unregister, clear canvas, hide.
+     *   Safe to call multiple times.
+     * @property {Function} registered()   - Returns `true` if registered.
+     * @property {Function} destroy()      - Remove canvas, unregister, cleanup
+     *   listeners.  Call when the component is removed.
+     * @property {Function} bringToFront() - Bring to top of z-order via
+     *   LayerControl.
+     * @property {Function} setZIndex(z)   - Set CSS z-index directly on canvas.
+     * @property {Function} setVisible(v)  - Show/hide canvas via CSS class.
      */
     createCanvas(opts) {
       if (!opts?.id)
@@ -854,13 +898,12 @@
       resize();
       updatePosition();
 
-      // Deferred registration: canvas() does NOT auto-register,
-      // so the layer doesn't appear in LayerControl until data is ready.
-      // Caller calls register()/unregister() when rendering/clearing.
+      let registered = false;
+
       const onToggle =
         opts.onToggle ||
         ((visible) => {
-          canvas.style.display = visible ? "" : "none";
+          canvas.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
         });
 
       const onZIndex =
@@ -869,11 +912,23 @@
           canvas.style.zIndex = String(z);
         });
 
-      let registered = false;
+      // Auto-unregister: unregister() clears the canvas content, hides it,
+      // then removes the LayerControl entry.  Callers just call unregister().
+      const unregister = () => {
+        if (!registered) return;
+        registered = false;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.classList.add(CONST.CLASSES.HIDDEN);
+        this.unregisterLayer(opts.id);
+      };
 
       const register = () => {
         if (registered) return;
         registered = true;
+        resize();
+        updatePosition();
+        canvas.classList.remove(CONST.CLASSES.HIDDEN);
         this.registerLayer({
           id: opts.id,
           name: opts.name || opts.id,
@@ -881,12 +936,6 @@
           onToggle,
           onZIndex,
         });
-      };
-
-      const unregister = () => {
-        if (!registered) return;
-        registered = false;
-        this.unregisterLayer(opts.id);
       };
 
       // Track map pan — update canvas position without redraw
@@ -905,17 +954,19 @@
         updatePosition,
         register,
         unregister,
+        registered: () => registered,
         destroy: () => {
           this.map.off("move", onMove);
           this.map.off("resize", onResize);
           unregister();
           canvas.remove();
         },
+        bringToFront: () => this.bringLayerToFront(opts.id),
         setZIndex: (z) => {
           canvas.style.zIndex = String(z);
         },
         setVisible: (v) => {
-          canvas.style.display = v ? "" : "none";
+          canvas.classList.toggle(CONST.CLASSES.HIDDEN, !v);
         },
       };
     }
@@ -1211,7 +1262,7 @@
         ),
         foliplus.dom.el(
           "div",
-          { class: CONST.CLASSES.CHECKBOX_WRAPPER },
+          { class: CONST.CLASSES.CHECKBOX },
           foliplus.dom.el("input", {
             type: "checkbox",
             "data-role": "toggle-all",
@@ -1229,7 +1280,7 @@
         { html: SVGs.DRAG_HANDLE },
         foliplus.dom.el(
           "div",
-          { class: CONST.CLASSES.CHECKBOX_WRAPPER },
+          { class: CONST.CLASSES.CHECKBOX },
           foliplus.dom.el("input", {
             type: "checkbox",
             checked: "",
@@ -1271,7 +1322,7 @@
         { html: SVGs.DRAG_HANDLE },
         foliplus.dom.el(
           "div",
-          { class: CONST.CLASSES.CHECKBOX_WRAPPER },
+          { class: CONST.CLASSES.CHECKBOX },
           foliplus.dom.el("input", {
             type: "color",
             class: CONST.CLASSES.COLOR_INPUT,
@@ -1584,7 +1635,8 @@
     showColorLayer(color) {
       this.m.isColorActive = true;
       this.m.currentColor = color;
-      mapContainer.style.background = color;
+      mapContainer.style.setProperty("--color-layer-bg", color);
+      mapContainer.classList.add(CONST.CLASSES.ACTIVE);
 
       for (let i = 0; i < this.m.layers.length; i++) {
         if (this.m.layers[i].isBase) {
@@ -1610,18 +1662,19 @@
       if (ci) ci.value = color;
       this.m.uiContainer
         .querySelector(CONST.SEL.COLOR_ITEM)
-        ?.classList.add(CONST.CLASSES.COLOR_ACTIVE);
+        ?.classList.add(CONST.CLASSES.ACTIVE);
       this.syncToggleAll(CONST.GROUP.BASE);
     }
 
     hideColorLayer() {
       this.m.isColorActive = false;
-      mapContainer.style.background = "";
+      mapContainer.classList.remove(CONST.CLASSES.ACTIVE);
+      mapContainer.style.removeProperty("--color-layer-bg");
       const tilePane = this.m.map.getPane("tilePane");
       if (tilePane) tilePane.classList.remove("foliplus-layer-tile-hidden");
       this.m.uiContainer
         .querySelector(CONST.SEL.COLOR_ITEM)
-        ?.classList.remove(CONST.CLASSES.COLOR_ACTIVE);
+        ?.classList.remove(CONST.CLASSES.ACTIVE);
     }
 
     deselectAllBaseMaps(exceptIdx) {

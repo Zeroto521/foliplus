@@ -160,7 +160,7 @@
 
         if ({{ this.hide_self | tojson }}) {
           const fsToggle = container.querySelector(`.${CONST.CLASSES.FS_TOGGLE}`);
-          if (fsToggle) fsToggle.style.display = isFull ? "none" : "";
+          if (fsToggle) fsToggle.classList.toggle("foliplus-fullscreen-hidden", isFull);
         }
 
         foliplus.showHint(

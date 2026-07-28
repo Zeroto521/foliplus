@@ -96,5 +96,7 @@
   "MeasureControl.unit_m": "m",
   "MeasureControl.geo_fail": "查询失败",
   "MeasureControl.no_layercontrol": "MeasureControl 组件依赖 LayerControl，请先添加 LayerControl 组件",
+  "MeasureControl.save_fail": "量算结果保存失败",
+  "MeasureControl.load_fail": "量算结果加载失败",
   "ScaleControl.zoom_label": "地图层级：{zoom}"
 }

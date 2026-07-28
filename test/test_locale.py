@@ -303,15 +303,11 @@ class TestResolveLocale:
 
     def test_resolve_unsupported_raises_valueerror(self):
         """Unsupported locale string raises ValueError."""
-        import pytest
-
         with pytest.raises(ValueError, match="unsupported locale"):
             resolve_locale("fr")
 
     def test_resolve_invalid_type_raises_typeerror(self):
         """Non-str/LocaleConfig raises TypeError."""
-        import pytest
-
         with pytest.raises(TypeError, match="locale must be a str or LocaleConfig"):
             resolve_locale(123)  # type: ignore[arg-type]
 

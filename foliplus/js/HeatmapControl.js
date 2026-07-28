@@ -227,9 +227,7 @@
 
     /** Redraw the heatmap canvas from cached features. */
     redrawHeatmap() {
-      const canvas = this.overlay.canvas;
-      const features = this.cachedFeatures;
-      if (!canvas || !features) return;
+      if (!this.overlay.canvas || !this.cachedFeatures) return;
       const ctx = this.overlay.ctx;
       if (!ctx) return;
       const container = this.map.getContainer();
@@ -247,7 +245,7 @@
         return c && bounds.contains(L.latLng(c[0], c[1]));
       };
 
-      features.forEach((feat) => {
+      this.cachedFeatures.forEach((feat) => {
         if (!isVisible(feat)) return;
         this.drawHexagon(ctx, feat);
         if (this.currentLabelShow) this.drawHexLabel(ctx, feat, labelCfg);
@@ -322,11 +320,10 @@
       for (const info of pointLayersInfo) {
         if (seenIds[info.id]) continue;
         seenIds[info.id] = true;
-        const layer = foliplus.LayerAPI.findLayer(info.id);
-        if (!layer) continue;
 
-        const pts = this.extractPoints(layer);
+        const pts = foliplus.LayerAPI.extractPoints(info.id);
         if (pts.length === 0) continue;
+        const layer = foliplus.LayerAPI.findLayer(info.id);
         this.pointLayers.push({
           id: info.id,
           name: info.name,
@@ -336,31 +333,10 @@
       }
     }
 
-    extractPoints(layer) {
-      const pts = [];
-      const seen = {};
-      const walk = (l) => {
-        if (l instanceof L.Marker || l instanceof L.CircleMarker) {
-          // Only count markers that have a .feature property — these are
-          // actual data markers created by df.explore / GeoJSON. Label/
-          // annotation markers (Text, divIcon) lack .feature and are
-          // skipped, avoiding double-counting in hexbin aggregation.
-          if (!l.feature) return;
-          const lid = L.stamp(l);
-          if (seen[lid]) return;
-          seen[lid] = true;
-          const ll = l.getLatLng();
-          pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
-        } else if (l.getLayers) l.getLayers().forEach(walk);
-      };
-      walk(layer);
-      return pts;
-    }
-
     collectFields(layers) {
       const fields = {};
       layers.forEach((info) => {
-        this.extractPoints(info.layer).forEach((pt) => {
+        foliplus.LayerAPI.extractPoints(info.id).forEach((pt) => {
           const m = pt.marker;
           if (typeof m.value === "number") fields.value = true;
           if (typeof m.options?.value === "number") fields["options.value"] = true;
@@ -411,14 +387,14 @@
       this.valueFallbackWarned = false;
       // Cache by layerId + currentAgg + currentField — invalidate on param change
       const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
-      if (this.cachedPoints && this.cachedPoints.key === key) {
+      if (this.cachedPoints && this.cachedPoints.key === key)
         return this.cachedPoints.pts;
-      }
+
       const pts = [];
       if (!this.selectedLayerId) return pts;
       this.pointLayers.forEach((info) => {
         if (info.id === this.selectedLayerId) {
-          this.extractPoints(info.layer).forEach((p) => {
+          foliplus.LayerAPI.extractPoints(info.id).forEach((p) => {
             pts.push({
               lat: p.lat,
               lng: p.lng,
@@ -457,25 +433,28 @@
 
       if (method === "jenks") {
         try {
-          return ss.jenks(data, nClasses);
+          const clusters = ss.ckmeans(data, nClasses);
+          const breaks = [clusters[0][0]];
+          clusters.forEach((c) => breaks.push(c[c.length - 1]));
+          return breaks;
         } catch (e) {}
         return [lo, hi];
-      }
-      if (method === "quantile") {
+      } else if (method === "quantile") {
         const b = [lo];
-        for (let i = 1; i < nClasses; i++) b.push(ss.quantile(sorted, i / nClasses));
+        for (let i = 1; i < nClasses; i++)
+          b.push(ss.quantileSorted(sorted, i / nClasses));
         return b.concat(hi);
-      }
-      if (method === "heads") {
+      } else if (method === "heads") {
         const b = [lo];
         for (let i = 1; i < nClasses; i++)
           b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
         return b.concat(hi);
+      } else {
+        const step = (hi - lo) / nClasses;
+        const b = [];
+        for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
+        return b;
       }
-      const step = (hi - lo) / nClasses;
-      const b = [];
-      for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
-      return b;
     }
 
     // --- Hexagon Rendering ---
@@ -619,25 +598,14 @@
       }
       this.cachedFeatures = features;
 
-      this.overlay.resize();
-      this.overlay.updatePosition();
-      this.redrawHeatmap();
-      this.overlay.setVisible(true);
       this.overlay.register();
+      this.redrawHeatmap();
     }
 
     clearHeatmapCanvas() {
       this.cachedFeatures = null;
       this.cachedAgg = null;
-      if (this.overlay) {
-        const ctx = this.overlay.ctx;
-        if (ctx) {
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.clearRect(0, 0, this.overlay.canvas.width, this.overlay.canvas.height);
-        }
-        this.overlay.setVisible(false);
-        this.overlay.unregister();
-      }
+      if (this.overlay) this.overlay.unregister(); // auto-clears canvas + hides
     }
   }
 

@@ -170,12 +170,12 @@ class TestHeatmapControlRendering:
         assert "foliplus.formatNumber" in html
 
     def test_extract_points_filters_no_feature(self, base_map: folium.Map):
-        """extractPoints only accepts markers with .feature."""
+        """extractPoints delegates to LayerAPI which filters by .feature."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "extractPoints" in html
-        # Must filter by .feature to skip label/annotation markers
-        assert "!l.feature" in html
+        # Filtering happens in LayerControl's LayerAPI.extractPoints
+        assert "foliplus.LayerAPI.extractPoints" in html
 
     def test_style_field(self, base_map: folium.Map):
         """style.field is injected into JS template."""
@@ -441,6 +441,78 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "if (ctx.font !== font) ctx.font = font" in html
 
+    # ── Algorithm tests (rendering checks) ──
+
+    def test_compute_breaks_jenks(self, base_map: folium.Map):
+        """computeBreaks supports jenks method (uses ss.ckmeans internally)."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "method === " in html
+        assert "jenks" in html
+        assert "ss.ckmeans(data, nClasses)" in html
+
+    def test_compute_breaks_quantile(self, base_map: folium.Map):
+        """computeBreaks supports quantile method."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "method === " in html
+        assert "quantile" in html
+        assert "ss.quantileSorted(sorted, i / nClasses)" in html
+
+    def test_compute_breaks_equal(self, base_map: folium.Map):
+        """computeBreaks supports equal interval (default) method."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "(hi - lo) / nClasses" in html
+
+    def test_compute_breaks_heads(self, base_map: folium.Map):
+        """computeBreaks supports heads method."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "method === " in html
+        assert "heads" in html
+
+    def test_aggregate_data_all_methods(self, base_map: folium.Map):
+        """aggregateData has all 5 aggregation methods: count, sum, avg, min, max."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "case " in html
+        assert "count" in html
+        assert "sum" in html
+        assert "avg" in html
+        assert "min" in html
+        assert "max" in html
+
+    def test_read_marker_field_modes(self, base_map: folium.Map):
+        """readMarkerField supports value, options.value, and properties.* access."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "field === " in html
+        assert "value" in html
+        assert "options.value" in html
+        assert "field.startsWith" in html
+
+    def test_resolve_label_style_caching(self, base_map: folium.Map):
+        """resolveLabelStyle caches the label style result."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.cachedLabelStyle" in html
+        assert "cachedLabelStyle" in html
+
+    def test_get_h3_res(self, base_map: folium.Map):
+        """getH3Res maps zoom levels to H3 resolutions."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "getH3Res(zoom)" in html
+        assert "H3.RES_MAP.find" in html
+
+    def test_get_color_scale_chroma_fallback(self, base_map: folium.Map):
+        """getColorScale falls back to gray array when chroma is undefined."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "typeof chroma" in html
+        assert "Array(n).fill(CONST.GRAY)" in html
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""
@@ -682,7 +754,7 @@ class TestHeatmapControlBrowser:
                 "window.__heatmapCtrl.manager.cachedFeatures === null"
             )
             canvas_gone = page.evaluate(
-                "!window.__heatmapCtrl.manager.overlay.canvas || window.__heatmapCtrl.manager.overlay.canvas.style.display === 'none'"
+                "window.__heatmapCtrl.manager.overlay.canvas && window.__heatmapCtrl.manager.overlay.canvas.classList.contains('hidden')"
             )
             assert cached_gone, "cachedFeatures should be null after clear"
             assert canvas_gone, "Canvas should be hidden after clear"

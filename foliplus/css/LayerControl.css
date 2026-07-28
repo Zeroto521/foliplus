@@ -1,14 +1,10 @@
 /* ── Custom Pane Interaction Rules ── */
 /* layer-pane is dynamically created by LayerControl._enforceLayerOrder */
-.foliplus-layer-pane {
-  pointer-events: none;
-}
+.foliplus-layer-pane,
 .foliplus-layer-pane > svg {
   pointer-events: none;
 }
-.foliplus-layer-pane .leaflet-interactive {
-  pointer-events: auto;
-}
+.foliplus-layer-pane .leaflet-interactive,
 .foliplus-layer-pane .leaflet-marker-icon {
   pointer-events: auto;
 }
@@ -197,15 +193,11 @@
 .foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col svg {
   transform: scale(var(--scale-hover));
 }
-.foliplus-layer-ctrl .foliplus-layer-item.active,
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-color-layer-active {
+.foliplus-layer-ctrl .foliplus-layer-item.active {
   border-left-color: var(--accent-primary);
   background: var(--accent-light);
 }
-.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col,
-.foliplus-layer-ctrl
-  .foliplus-layer-item.foliplus-color-layer-active
-  .foliplus-type-icon-col {
+.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col {
   color: var(--accent-primary);
 }
 .foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-dragging {
@@ -251,7 +243,7 @@
   cursor: pointer;
 }
 /* ── Checkbox styles ── */
-.foliplus-layer-ctrl .foliplus-checkbox-wrapper {
+.foliplus-layer-ctrl .foliplus-checkbox {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -342,15 +334,18 @@
   border: none;
   border-radius: var(--radius-round);
 }
-.foliplus-layer-ctrl
-  .foliplus-layer-item.foliplus-color-layer-active
-  .foliplus-color-layer-input {
+.foliplus-layer-ctrl .foliplus-color-layer-item.active .foliplus-color-layer-input {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 
 /* ── Tile pane hidden state ── */
 .foliplus-layer-tile-hidden {
-  visibility: hidden !important;
-  opacity: 0 !important;
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* ── Color layer background on map container (via Leaflet container) ── */
+.leaflet-container.active {
+  background: var(--color-layer-bg, #cccccc);
 }

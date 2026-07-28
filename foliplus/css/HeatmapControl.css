@@ -52,6 +52,11 @@
   image-rendering: auto;
 }
 
+/* ── Canvas visibility ── */
+.foliplus-heatmap-canvas.hidden {
+  display: none;
+}
+
 /* ── Sections: Data / Style / Labels ── */
 .foliplus-heatmap-ctrl .foliplus-heatmap-section-block {
   padding: 0;

@@ -80,14 +80,11 @@ class TestLayerControlRendering:
         assert "unregisterLayer" in html
         assert "getLayersByType" in html
         assert "ensurePane" in html
-        # layers() convenience API
-        assert "addGraph" in html
-        assert "addLabel" in html
-        assert "removeGraph" in html
-        assert "removeLabel" in html
-        assert "clearGraph" in html
-        assert "clearLabels" in html
+        # createLayers convenience API
         assert "clearAll" in html
+        assert "register" in html
+        assert "unregister" in html
+        assert "bringToFront" in html
 
     def test_bring_to_front_guard(self, base_map: folium.Map):
         """bringToFront monkey patch prevents parentNode errors during pane migration."""
@@ -485,10 +482,10 @@ class TestLayerControlRendering:
         assert "leaflet-bar" in html
 
     def test_layer_item_dom_structure(self, base_map: folium.Map):
-        """Each layer-item has checkbox-wrapper, label, type-icon-col."""
+        """Each layer-item has checkbox, label, type-icon-col."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "foliplus-checkbox-wrapper" in html
+        assert "foliplus-checkbox" in html
         assert "foliplus-type-icon-col" in html
 
     def test_color_map_id_constant(self, base_map: folium.Map):
@@ -641,32 +638,15 @@ class TestLayerControlRendering:
         assert "&quot;" in html
         assert "&#39;" in html
 
-    def test_create_layers_auto_register_on_content(self, base_map: folium.Map):
-        """createLayers auto-registers only when addGraph/addLabel is called."""
+    def test_create_layers_rendering(self, base_map: folium.Map):
+        """createLayers emits API, auto-registration, and layer overrides."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "createLayers" in html
-        assert "addGraph" in html
-        assert "addLabel" in html
         assert "register()" in html
         assert "unregister()" in html
-
-    def test_create_layers_override_add_layer(self, base_map: folium.Map):
-        """createLayers overrides addLayer to route to sub-layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
         assert "mainLayer.addLayer = (layer) => {" in html
-
-    def test_create_layers_override_remove_layer(self, base_map: folium.Map):
-        """createLayers overrides removeLayer to route to sub-layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
         assert "mainLayer.removeLayer = (layer) => {" in html
-
-    def test_create_layers_override_clear_layers(self, base_map: folium.Map):
-        """createLayers overrides clearLayers to clear sub-layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
         assert "mainLayer.clearLayers = () => {" in html
 
     def test_ensure_pane_need_renderer_param(self, base_map: folium.Map):
@@ -820,6 +800,47 @@ class TestLayerControlRendering:
         assert "forEachLeaf" in html
         assert "forEachLayer" in html
 
+    def test_for_each_leaf_depth_guard(self, base_map: folium.Map):
+        """forEachLeaf respects RECURSION.LAYER_DEPTH guard."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "depth > CONST.RECURSION.LAYER_DEPTH" in html
+
+    def test_clear_all_layers_recursive(self, base_map: folium.Map):
+        """clearAllLayers recursively clears nested sub-layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layer.eachLayer((l) => this.clearAllLayers(l))" in html
+        assert 'typeof layer.clearLayers === "function"' in html
+
+    def test_extract_points_filters_no_feature(self, base_map: folium.Map):
+        """extractPoints only accepts markers with .feature."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "!l.feature" in html
+        assert "L.Marker || l instanceof L.CircleMarker" in html
+
+    def test_extract_points_dedup_by_stamp(self, base_map: folium.Map):
+        """extractPoints deduplicates markers by L.stamp."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "seen[stamp]" in html
+        assert "seen[stamp] = true" in html
+
+    def test_for_each_leaf_api_exposed(self, base_map: folium.Map):
+        """forEachLeaf is exposed on foliplus.LayerAPI."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.forEachLeaf = this.forEachLeaf.bind(this)" in html
+        assert "forEachLeaf(id, fn)" in html
+
+    def test_extract_points_api_exposed(self, base_map: folium.Map):
+        """extractPoints is exposed on foliplus.LayerAPI."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.extractPoints = this.extractPoints.bind(this)" in html
+        assert "extractPoints(id)" in html
+
     def test_onremove_destroys_manager(self, base_map: folium.Map):
         """LayerControl.onRemove calls destroy() which cleans up resources."""
         LayerControl().add_to(base_map)
@@ -848,8 +869,8 @@ class TestLayerControlRendering:
         assert "/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/" in html
         assert "not a valid identifier" in html or "invalid_id" in html
 
-    def test_create_canvas_api(self, base_map: folium.Map):
-        """createCanvas returns expected API methods."""
+    def test_create_canvas_rendering(self, base_map: folium.Map):
+        """createCanvas emits API methods and inserts into leaflet-map-pane."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "createCanvas" in html
@@ -861,11 +882,6 @@ class TestLayerControlRendering:
         assert "setZIndex" in html
         assert "setVisible" in html
         assert "getSize" in html
-
-    def test_create_canvas_in_mapPane(self, base_map: folium.Map):
-        """createCanvas inserts canvas into leaflet-map-pane."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
         assert 'L.DomUtil.create("canvas", "foliplus-heatmap-canvas", mapPane)' in html
         assert "mapPane" in html
 
@@ -1054,35 +1070,21 @@ class TestLayerControlBrowser:
                     labelPane: '__test_label__',
                 });
                 return {
-                    hasAddGraph: typeof mg.addGraph === 'function',
-                    hasAddLabel: typeof mg.addLabel === 'function',
-                    hasRemoveGraph: typeof mg.removeGraph === 'function',
-                    hasRemoveLabel: typeof mg.removeLabel === 'function',
-                    hasClearGraph: typeof mg.clearGraph === 'function',
-                    hasClearLabels: typeof mg.clearLabels === 'function',
-                    hasClearAll: typeof mg.clearAll === 'function',
+                    hasClearLayers: typeof mg.clearLayers === 'function',
                     hasRegister: typeof mg.register === 'function',
                     hasUnregister: typeof mg.unregister === 'function',
                     hasRegistered: typeof mg.registered === 'function',
                     hasMainLayer: !!mg.mainLayer,
-                    hasGraphLayer: !!mg.graphLayer,
-                    hasLabelLayer: !!mg.labelLayer,
+                    hasBringToFront: typeof mg.bringToFront === 'function',
                 };
             }""")
             assert api is not None, "LayerAPI not found"
-            assert api["hasAddGraph"], "addGraph missing"
-            assert api["hasAddLabel"], "addLabel missing"
-            assert api["hasRemoveGraph"], "removeGraph missing"
-            assert api["hasRemoveLabel"], "removeLabel missing"
-            assert api["hasClearGraph"], "clearGraph missing"
-            assert api["hasClearLabels"], "clearLabels missing"
-            assert api["hasClearAll"], "clearAll missing"
+            assert api["hasClearLayers"], "clearLayers missing"
             assert api["hasRegister"], "register missing"
             assert api["hasUnregister"], "unregister missing"
             assert api["hasRegistered"], "registered missing"
             assert api["hasMainLayer"], "mainLayer missing"
-            assert api["hasGraphLayer"], "graphLayer missing"
-            assert api["hasLabelLayer"], "labelLayer missing"
+            assert api["hasBringToFront"], "bringToFront missing"
         finally:
             page.close()
 
@@ -1112,7 +1114,7 @@ class TestLayerControlBrowser:
                     labelPane: '__pane_test_label__',
                 });
                 const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
-                mg.addGraph(poly);
+                mg.mainLayer.addLayer(poly);
                 return {
                     pane: poly.options.pane,
                     hasRenderer: !!poly._renderer,
@@ -1122,7 +1124,7 @@ class TestLayerControlBrowser:
             assert result is not None
             assert result["pane"] == "__pane_test_graph__", f"got {result['pane']}"
             assert result["hasRenderer"] is True, "renderer not set"
-            assert result["registered"] is True, "not registered after addGraph"
+            assert result["registered"] is True, "not registered after addLayer"
         finally:
             page.close()
 
@@ -1150,19 +1152,15 @@ class TestLayerControlBrowser:
                     name: 'ClearTest',
                     graphPane: '__test_clear_graph__',
                 });
-                mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
                 const beforeRegistered = mg.registered();
-                const beforeContent = Object.keys(mg.graphLayer._layers || {}).length;
-                mg.clearAll();
+                mg.clearLayers();
                 const afterRegistered = mg.registered();
-                const afterContent = Object.keys(mg.graphLayer._layers || {}).length;
-                return { beforeRegistered, beforeContent, afterRegistered, afterContent };
+                return { beforeRegistered, afterRegistered };
             }""")
             assert result is not None
             assert result["beforeRegistered"] is True
-            assert result["beforeContent"] == 1
             assert result["afterRegistered"] is False
-            assert result["afterContent"] == 0
         finally:
             page.close()
 
@@ -1192,7 +1190,8 @@ class TestLayerControlBrowser:
                     labelPane: '__test_label_pane__',
                 });
                 const mkr = L.marker([26.08,119.30]);
-                mg.addLabel(mkr);
+                mkr.isLabel = true;
+                mg.mainLayer.addLayer(mkr);
                 return { pane: mkr.options.pane, registered: mg.registered() };
             }""")
             assert result is not None
@@ -1250,10 +1249,9 @@ class TestLayerControlBrowser:
                     name: 'UnregTest',
                     graphPane: '__test_unreg_graph__',
                 });
-                mg.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
                 const before = mg.registered();
-                // unregister is a no-op when content exists; clearAll first
-                mg.clearAll();
+                mg.clearLayers();
                 const after = mg.registered();
                 return { before, after };
             }""")
@@ -1365,15 +1363,12 @@ class TestLayerControlBrowser:
                     graphPane: '__test_pane_skip_graph__',
                 });
                 const mkr = L.marker([26.08,119.30]);
-                mg.addGraph(mkr);
+                mg.mainLayer.addLayer(mkr);
                 // Marker should NOT be moved — still on default markerPane
                 const pane = mkr.options.pane;
-                const paneSet = mkr.options.paneSet;
-                return { pane, paneSet };
+                return { pane };
             }""")
             assert result is not None
-            # Marker goes through addGraph which sets pane, but setLayerPaneRecursive
-            # should skip L.Marker instances
             assert result["pane"] is not None
         finally:
             page.close()
@@ -1815,3 +1810,46 @@ class TestLayerControlBrowser:
             assert cursor == "pointer", f"Expected pointer cursor, got {cursor}"
         finally:
             page.close()
+
+    # ── API extension tests ──
+
+    def test_for_each_leaf_depth_guard(self, base_map: folium.Map):
+        """forEachLeaf respects RECURSION.LAYER_DEPTH guard."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "depth > CONST.RECURSION.LAYER_DEPTH" in html
+
+    def test_clear_all_layers_recursive(self, base_map: folium.Map):
+        """clearAllLayers recursively clears nested sub-layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "layer.eachLayer((l) => this.clearAllLayers(l))" in html
+        assert 'typeof layer.clearLayers === "function"' in html
+
+    def test_extract_points_filters_no_feature(self, base_map: folium.Map):
+        """extractPoints only accepts markers with .feature."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "!l.feature" in html
+        assert "L.Marker || l instanceof L.CircleMarker" in html
+
+    def test_extract_points_dedup_by_stamp(self, base_map: folium.Map):
+        """extractPoints deduplicates markers by L.stamp."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "seen[stamp]" in html
+        assert "seen[stamp] = true" in html
+
+    def test_for_each_leaf_api_exposed(self, base_map: folium.Map):
+        """forEachLeaf is exposed on foliplus.LayerAPI."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.forEachLeaf = this.forEachLeaf.bind(this)" in html
+        assert "forEachLeaf(id, fn)" in html
+
+    def test_extract_points_api_exposed(self, base_map: folium.Map):
+        """extractPoints is exposed on foliplus.LayerAPI."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.extractPoints = this.extractPoints.bind(this)" in html
+        assert "extractPoints(id)" in html
