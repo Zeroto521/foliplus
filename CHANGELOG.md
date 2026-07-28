@@ -19,7 +19,7 @@
 
 ### Changed
 
-- `ScaleControl`: Fixed to `bottomleft` and aligned UI style with native Leaflet elements ([#23](https://github.com/Zeroto521/foliplus/pull/23), [#50](https://github.com/Zeroto521/foliplus/pull/50))
+- `ScaleControl`: Fixed to `bottomleft` and aligned UI style with native Leaflet elements ([#23](https://github.com/Zeroto521/foliplus/pull/23), [#50](https://github.com/Zeroto521/foliplus/pull/50), [#85](https://github.com/Zeroto521/foliplus/pull/85))
 - Unified control tokens and simplified shared styles ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `HeatmapControl`, `MeasureControl`: label z-index offset (`+1`) is now applied automatically by `LayerControl`; label pane detection improved to use pre-registration in `createManagedLayers` instead of fragile string matching ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35), [#53](https://github.com/Zeroto521/foliplus/pull/53))
 - `Fullscreen`: replaced zoom +/- text with styled SVG icons matching foliplus design, unified fullscreen button and zoom controls with consistent hover/active effects (red accent, scale) and `--shadow-ctrl-strong`; CSS extracted into `Fullscreen.css` ([#37](https://github.com/Zeroto521/foliplus/pull/37))
