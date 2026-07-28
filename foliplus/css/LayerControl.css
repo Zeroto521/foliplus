@@ -1,14 +1,10 @@
 /* ── Custom Pane Interaction Rules ── */
 /* layer-pane is dynamically created by LayerControl._enforceLayerOrder */
-.foliplus-layer-pane {
-  pointer-events: none;
-}
+.foliplus-layer-pane,
 .foliplus-layer-pane > svg {
   pointer-events: none;
 }
-.foliplus-layer-pane .leaflet-interactive {
-  pointer-events: auto;
-}
+.foliplus-layer-pane .leaflet-interactive,
 .foliplus-layer-pane .leaflet-marker-icon {
   pointer-events: auto;
 }
@@ -330,10 +326,7 @@
 .foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch-wrapper {
   padding: 0;
 }
-.foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch {
-  border: none;
-  border-radius: var(--radius-round);
-}
+.foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch,
 .foliplus-layer-ctrl .foliplus-color-layer-input::-moz-color-swatch {
   border: none;
   border-radius: var(--radius-round);
