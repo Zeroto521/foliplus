@@ -3,6 +3,7 @@
   margin: 0;
   white-space: nowrap;
   font-size: var(--font-size-xs);
+  line-height: 14px;
   color: var(--text-primary);
   display: inline-flex;
   align-items: center;
@@ -16,7 +17,7 @@
 .leaflet-control.foliplus-scale-wrap .leaflet-control-scale-line,
 .leaflet-control.foliplus-scale-wrap .foliplus-scale-zoom-label {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-normal);
   display: inline-flex;
   align-items: baseline;
   justify-content: center;
@@ -36,7 +37,6 @@
   padding-bottom: 0;
 }
 .leaflet-control.foliplus-scale-wrap .foliplus-scale-zoom-label {
-  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   line-height: 14px;
 }
