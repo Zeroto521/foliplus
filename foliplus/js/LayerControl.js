@@ -519,9 +519,7 @@
       if (opts.layer) {
         for (const cp of this.discoverChildPanes(opts.layer))
           this.ensurePane(cp, !this.labelPanes.has(cp));
-      }
 
-      if (opts.layer) {
         if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id))
           LayerManager.registry.set(opts.id, opts.layer);
         else
@@ -671,25 +669,19 @@
 
       let registered = false;
 
-      const layerOpts = {
-        name: opts.name,
-        id: opts.id,
-        isBase: false,
-        layer: mainLayer,
-        paneName: opts.graphPane || null,
-        iconSvg: opts.iconSvg || null,
-      };
-
       const register = () => {
-        if (registered) {
-          // Already registered but may have been unchecked in LayerControl.
-          // Re-add to map and re-call registerLayer to sync checkbox state.
-          this.registerLayer(layerOpts);
-          return;
+        if (!registered) {
+          registered = true;
+          if (opts.labelPane) this.labelPanes.add(opts.labelPane);
         }
-        registered = true;
-        if (opts.labelPane) this.labelPanes.add(opts.labelPane);
-        this.registerLayer(layerOpts);
+        this.registerLayer({
+          name: opts.name,
+          id: opts.id,
+          isBase: false,
+          layer: mainLayer,
+          paneName: opts.graphPane || null,
+          iconSvg: opts.iconSvg || null,
+        });
       };
 
       const unregister = () => {
