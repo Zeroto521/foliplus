@@ -119,10 +119,7 @@
       });
       const clearBtn = foliplus.dom.el(
         "button",
-        {
-          class: CONST.CLASSES.CTRL_BTN,
-          title: _(`${CONST.name}.clear_title`),
-        },
+        { class: CONST.CLASSES.CTRL_BTN, title: _(`${CONST.name}.clear_title`) },
         { html: foliplus.SVGs.CLOSE },
       );
       this.modeBtn = modeBtn;
