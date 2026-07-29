@@ -742,17 +742,18 @@
       });
 
       // Classification method / classes
-      const classControlWrap = foliplus.dom.el("div", {
-        class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
-        parent: foliplus.dom.el("div", {
-          class: CONST.CLASSES.FORM_ROW,
-          parent: styleSection,
-        }),
+      const classRow = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_ROW,
+        parent: styleSection,
       });
       foliplus.dom.el("label", {
         class: CONST.CLASSES.FORM_LABEL,
-        parent: classControlWrap.parentElement,
+        parent: classRow,
         innerHTML: _(`${CONST.name}.class_method`),
+      });
+      const classControlWrap = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        parent: classRow,
       });
       this.methodSelect = foliplus.dom.el("select", {
         class: CONST.CLASSES.FORM_SELECT,
@@ -772,7 +773,6 @@
       this.classSelect = foliplus.dom.el("select", {
         class: `${CONST.CLASSES.FORM_SELECT} ${CONST.CLASSES.CLASS_COUNT_SELECT}`,
         parent: classControlWrap,
-        value: Math.min(9, Math.max(2, this.m.numClasses)),
         onchange: () => {
           this.m.numClasses = Math.min(
             9,
@@ -783,24 +783,25 @@
           this.m.renderHexagons();
         },
       });
-      for (let ci = 2; ci <= 9; ci++) {
+      for (let ci = 2; ci <= 9; ci++)
         this.classSelect.appendChild(
           foliplus.dom.el("option", { value: ci }, String(ci)),
         );
-      }
+      this.classSelect.value = Math.min(9, Math.max(2, this.m.numClasses));
 
       // Color scheme
-      this.schemeControlWrap = foliplus.dom.el("div", {
-        class: CONST.CLASSES.FORM_CONTROL,
-        parent: foliplus.dom.el("div", {
-          class: CONST.CLASSES.FORM_ROW,
-          parent: styleSection,
-        }),
+      const schemeRow = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_ROW,
+        parent: styleSection,
       });
       foliplus.dom.el("label", {
         class: CONST.CLASSES.FORM_LABEL,
-        parent: this.schemeControlWrap.parentElement,
+        parent: schemeRow,
         innerHTML: _(`${CONST.name}.scheme`),
+      });
+      this.schemeControlWrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: schemeRow,
       });
       this.schemeBar = foliplus.dom.el("div", {
         class: CONST.CLASSES.SCHEME_BAR,
@@ -816,7 +817,6 @@
       this.schemeSelectHidden = foliplus.dom.el("select", {
         class: CONST.CLASSES.SCHEME_SELECT_HIDDEN,
         parent: this.schemeControlWrap,
-        value: this.m.currentScheme,
         onchange: () => {
           this.m.currentScheme = this.schemeSelectHidden.value;
           this.updateSchemeBar();
@@ -828,6 +828,7 @@
           foliplus.dom.el("option", { value: name }, name),
         );
       });
+      this.schemeSelectHidden.value = this.m.currentScheme;
       this.updateSchemeBar();
 
       this.schemeBar.onclick = (e) => {
@@ -861,17 +862,18 @@
       };
 
       // Border settings
-      const borderControlWrap = foliplus.dom.el("div", {
-        class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
-        parent: foliplus.dom.el("div", {
-          class: CONST.CLASSES.FORM_ROW,
-          parent: styleSection,
-        }),
+      const borderRow = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_ROW,
+        parent: styleSection,
       });
       foliplus.dom.el("label", {
         class: CONST.CLASSES.FORM_LABEL,
-        parent: borderControlWrap.parentElement,
+        parent: borderRow,
         innerHTML: _(`${CONST.name}.border`),
+      });
+      const borderControlWrap = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        parent: borderRow,
       });
       this.borderColorInput = foliplus.dom.el("input", {
         class: CONST.CLASSES.BORDER_COLOR_INPUT,
@@ -898,17 +900,18 @@
       });
 
       // Label toggle
-      const labelControlWrap = foliplus.dom.el("div", {
-        class: CONST.CLASSES.FORM_CONTROL,
-        parent: foliplus.dom.el("div", {
-          class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.SECTION_BLOCK_LAST}`,
-          parent: styleSection,
-        }),
+      const labelRow = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.SECTION_BLOCK_LAST}`,
+        parent: styleSection,
       });
       foliplus.dom.el("label", {
         class: CONST.CLASSES.FORM_LABEL,
-        parent: labelControlWrap.parentElement,
+        parent: labelRow,
         innerHTML: _(`${CONST.name}.label`),
+      });
+      const labelControlWrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: labelRow,
       });
       const labelToggle = foliplus.dom.el("label", {
         class: CONST.CLASSES.TOGGLE_SWITCH,

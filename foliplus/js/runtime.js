@@ -108,6 +108,13 @@
     PERSIST: CONST.HINT.PERSIST,
   };
 
+  foliplus.NOMINATIM = {
+    URL: "https://nominatim.openstreetmap.org",
+    FORMAT: "jsonv2",
+    THROTTLE_MS: 1000,
+    ZOOM: 18,
+  };
+
   // --- SVG Icons ---
   foliplus.SVGs = {
     LOADING: `<svg class="foliplus-spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`,
