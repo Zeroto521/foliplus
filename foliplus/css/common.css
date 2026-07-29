@@ -177,11 +177,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-/* Drag handle circles need fill to be visible; override the fill:none above */
-.foliplus-ctrl-fold svg.foliplus-drag-handle circle,
-.foliplus-layer-ctrl svg.foliplus-drag-handle circle {
-  fill: currentColor;
-}
 /* Shared solid fill for SVG dots/circles that need fill instead of stroke */
 :is(.foliplus-layer-ctrl, .foliplus-measure-ctrl) svg .solid {
   fill: currentColor;
