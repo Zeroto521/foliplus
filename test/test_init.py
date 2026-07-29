@@ -21,10 +21,10 @@ class TestVersion:
     def test_all_exports(self):
         expected = [
             "ExportControl",
-            "Fullscreen",
+            "FullscreenControl",
             "HeatmapControl",
             "LayerControl",
-            "MapSearch",
+            "SearchControl",
             "MeasureControl",
             "ScaleControl",
         ]
@@ -35,10 +35,10 @@ class TestVersion:
         """__all__ must match actual public API."""
         expected = {
             "ExportControl",
-            "Fullscreen",
+            "FullscreenControl",
             "HeatmapControl",
             "LayerControl",
-            "MapSearch",
+            "SearchControl",
             "MeasureControl",
             "ScaleControl",
         }
@@ -62,7 +62,7 @@ class TestCDN:
 
     def test_cdn_urls_in_default_js(self):
         """All default_js URLs follow the expected format."""
-        from foliplus import Fullscreen, HeatmapControl, MeasureControl
+        from foliplus import FullscreenControl, HeatmapControl, MeasureControl
 
         for _, url in HeatmapControl.default_js:
             assert url.startswith("https://cdn.jsdelivr.net/npm/")
@@ -72,10 +72,10 @@ class TestCDN:
             assert url.startswith("https://cdn.jsdelivr.net/npm/")
             assert "@" in url, f"Version missing in {url}"
 
-        for _, url in Fullscreen.default_js:
+        for _, url in FullscreenControl.default_js:
             assert url.startswith("https://cdn.jsdelivr.net/npm/")
             assert "@" in url, f"Version missing in {url}"
 
-        for _, url in Fullscreen.default_css:
+        for _, url in FullscreenControl.default_css:
             assert url.startswith("https://cdn.jsdelivr.net/npm/")
             assert "@" in url, f"Version missing in {url}"

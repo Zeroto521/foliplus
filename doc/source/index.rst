@@ -7,9 +7,9 @@ data itself.
 
 .. grid:: 1 2 2 3
 
-   .. grid-item-card:: 🔍 MapSearch
+   .. grid-item-card:: 🔍 SearchControl
       :padding: 2
-      :link: api/foliplus.MapSearch.html
+      :link: api/foliplus.SearchControl.html
 
       Coordinate and address search via Nominatim reverse geocoding.
 
@@ -31,11 +31,11 @@ data itself.
 
       Scale bar with metric units and optional zoom level display.
 
-   .. grid-item-card:: ⛶ Fullscreen
+   .. grid-item-card:: 🖥️ FullscreenControl
       :padding: 2
-      :link: api/foliplus.Fullscreen.html
+      :link: api/foliplus.FullscreenControl.html
 
-      Fullscreen toggle with auto-hide for other controls.
+      FullscreenControl toggle with auto-hide for other controls.
 
    .. grid-item-card:: 📏 MeasureControl
       :padding: 2

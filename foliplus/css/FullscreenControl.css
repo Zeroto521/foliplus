@@ -1,10 +1,10 @@
-/* ── Fullscreen / Zoom Controls ──
+/* ── FullscreenControl / Zoom Controls ──
   Custom container with three tool-btn buttons.
   Hover/active effects inherited from common.css unified button rules.
-  Only loaded when Fullscreen is used. ── */
+  Only loaded when FullscreenControl is used. ── */
 
 /* ── Button container ── */
-.fs-bar {
+.foliplus-fullscreen-bar {
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-ctrl-strong);
@@ -13,26 +13,36 @@
 }
 
 /* ── Top button gets top radius ── */
-.fs-bar .fs-zoom-in {
+.foliplus-fullscreen-bar .foliplus-zoom-in {
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
+/* ── Middle button no radius ── */
+.foliplus-fullscreen-bar .foliplus-zoom-out {
+  border-radius: 0;
+}
+
 /* ── Bottom button gets bottom radius ── */
-.fs-bar .fullscreen-btn {
+.foliplus-fullscreen-bar .foliplus-fullscreen-toggle {
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 /* ── Divider between buttons ── */
-.fs-bar .tool-btn {
+.foliplus-fullscreen-bar .foliplus-tool-btn {
   border-bottom: var(--border-thin) solid var(--divider-color);
 }
-.fs-bar .fullscreen-btn {
+.foliplus-fullscreen-bar .foliplus-fullscreen-toggle {
   border-bottom: none;
 }
 
-/* ── Fullscreen container styles ──
+/* ── Hide controls when entering fullscreen ── */
+.foliplus-fullscreen-hidden {
+  display: none;
+}
+
+/* ── FullscreenControl container styles ──
   Required for the fullscreen API to work correctly.
-  Copied from leaflet.fullscreen CDN CSS. */
+  Copied from leaflet.foliplus-fullscreen CDN CSS. */
 /* stylelint-disable-next-line selector-no-vendor-prefix */
 :is(
   .leaflet-container:-webkit-full-screen,

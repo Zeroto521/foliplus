@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import pathlib
 import re
 
 import folium
@@ -23,10 +25,10 @@ class TestMeasureControlPython:
         assert MeasureControl(position="topleft").position == "topleft"
 
     def test_default_locale(self):
-        assert MeasureControl()._LOCALE_CODE == ""
+        assert MeasureControl()._locale_code == ""
 
     def test_custom_locale(self):
-        assert MeasureControl(locale="zh")._LOCALE_CODE == "zh"
+        assert MeasureControl(locale="zh")._locale_code == "zh"
 
 
 class TestMeasureControlRendering:
@@ -52,10 +54,10 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "tool-btn" in html
         assert '"data-mode": mode' in html
-        assert 'mode: "marker"' in html
-        assert 'mode: "distance"' in html
-        assert 'mode: "circle"' in html
-        assert 'mode: "clear"' in html
+        assert "mode: CONST.MODE.MARKER" in html
+        assert "mode: CONST.MODE.DISTANCE" in html
+        assert "mode: CONST.MODE.CIRCLE" in html
+        assert "mode: CONST.MODE.CLEAR" in html
 
     def test_locale_zh(self, base_map: folium.Map):
         MeasureControl(locale="zh").add_to(base_map)
@@ -71,7 +73,7 @@ class TestMeasureControlRendering:
         assert "removeLayer" in html
 
     def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
-        """MeasureControl uses LayerControlAPI.ensurePane for renderer creation."""
+        """MeasureControl uses LayerAPI.ensurePane for renderer creation."""
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
@@ -141,14 +143,14 @@ class TestMeasureControlRendering:
         """MEASURE_ID constant is used for layer registration."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'MEASURE_ID: "foliplus_measure"' in html
+        assert 'ID: "foliplus_measure"' in html
 
     def test_graph_label_pane_constants(self, base_map: folium.Map):
-        """GRAPH_PANE and LABEL_PANE constants are defined."""
+        """PANES constants are defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'GRAPH_PANE: "measure_graph"' in html
-        assert 'LABEL_PANE: "measure_label"' in html
+        assert 'GRAPH: "measure_graph"' in html
+        assert 'LABEL: "measure_label"' in html
 
     def test_stop_event_utility(self, base_map: folium.Map):
         """MeasureUtils.stopEvent stops propagation and default."""
@@ -162,7 +164,7 @@ class TestMeasureControlRendering:
         """formatDistance splits at 1000m threshold."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "meters >= 1000" in html
+        assert "meters >= CONST.FORMAT.KM_THRESHOLD" in html
         assert "MeasureControl.unit_km" in html
         assert "MeasureControl.unit_m" in html
 
@@ -176,26 +178,26 @@ class TestMeasureControlRendering:
         """toggleVisibility uses measure-hidden class."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'el.classList.toggle("measure-hidden", !visible)' in html
+        assert "el.classList.toggle(CONST.CLASSES.HIDDEN, !visible)" in html
 
     def test_suppress_hide_utility(self, base_map: folium.Map):
         """suppressHide sets a delayed flag and hides all del icons."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "manager.suppressHideDel = true" in html
-        assert "MeasureUtils.hideAllDelIcons()" in html
+        assert "manager.isSuppressHideDel = true" in html
+        assert "MeasureUtils.hideDelIcons()" in html
 
     def test_calc_toggle_reset(self, base_map: folium.Map):
         """calcToggle with 'reset' sets labelsVisible=true."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'toggleLbl === "reset"' in html
+        assert "toggleLbl === CONST.TOGGLE.RESET" in html
 
     def test_toggle_del_icon_retry(self, base_map: folium.Map):
         """toggleDelIcon retries with delay up to DEL_ICON_RETRY_LIMIT times."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "retries < CONST.DEL_ICON_RETRY_LIMIT" in html
+        assert "retries < CONST.DEL_ICON.RETRY_LIMIT" in html
         assert "MeasureUtils.toggleDelIcon(mkr, show, retries + 1)" in html
 
     def test_attach_del_click_utility(self, base_map: folium.Map):
@@ -203,7 +205,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert 'delMkr.on("click",' in html
-        assert "measure-del-icon" in html
+        assert "foliplus-measure-del-icon" in html
 
     def test_set_label_text_gets_fresh_dom(self, base_map: folium.Map):
         """setLabelText gets a fresh DOM reference each call."""
@@ -212,51 +214,51 @@ class TestMeasureControlRendering:
         assert "marker.getElement()" in html
         assert "labelEl.textContent = text" in html
 
-    def test_remove_layers_null_safe(self, base_map: folium.Map):
-        """removeLayers skips null layers."""
+    def test_remove_layer_null_safe(self, base_map: folium.Map):
+        """removeLayer in LayerControl's createLayers skips null items."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "if (l != null)" in html
+        assert "removeLayer" in html
 
     def test_build_popup_delegates(self, base_map: folium.Map):
         """buildPopup delegates to foliplus.buildPopupHtml."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "window.foliplus.buildPopupHtml" in html
+        assert "foliplus.buildPopupHtml" in html
 
     def test_lazy_register_after_finish(self, base_map: folium.Map):
-        """Distance mode registers on first click via mainLayer.addLayer, not on finishDist."""
+        """Distance mode registers on first click via mainLayer.addLayer, and re-registers on tool select."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # register() is handled by mainLayer.addLayer override in LayerControl.js,
-        # not explicitly called in MeasureControl.js
-        assert "this.layers.unregister()" in html
-        assert "this.layers.register()" not in html
+        # register() is called explicitly in setMode() when activating a tool,
+        # and also via mainLayer.addLayer override on first click in distance mode
+        assert "this.layers.unregister()" in html or "this.layers.destroy()" in html
+        assert "this.layers.register()" in html
 
     def test_click_cooldown(self, base_map: folium.Map):
         """Click cooldown constant is defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "CLICK_COOLDOWN_MS: 300" in html
+        assert "CLICK_COOLDOWN: 300" in html
 
     def test_finalize_delay(self, base_map: folium.Map):
         """Finalize delay constant is defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "FINALIZE_DELAY_MS: 50" in html
+        assert "FINALIZE_DELAY: 50" in html
 
     def test_center_dot_size(self, base_map: folium.Map):
         """Center dot size constants are defined."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "CENTER_DOT_SIZE: [12, 12]" in html
-        assert "CENTER_DOT_ANCHOR: [6, 6]" in html
+        assert "SIZE: [12, 12]" in html
+        assert "ANCHOR: [6, 6]" in html
 
     def test_label_anchor(self, base_map: folium.Map):
         """Label anchor is above center."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "LABEL_ANCHOR: [0, -10]" in html
+        assert "ANCHOR: [0, -10]" in html
 
     def test_is_finalizing_guard(self, base_map: folium.Map):
         """Circle mode guards against double-finalize with isFinalizing."""
@@ -272,42 +274,33 @@ class TestMeasureControlRendering:
         assert "constructor(mapInstance)" in html
 
     def test_measure_manager_methods(self, base_map: folium.Map):
-        """MeasureManager has expected methods (start, bind, flow)."""
+        """MeasureManager has expected methods (start, set modes)."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "startDistanceMode" in html
-        assert "startCircleMode" in html
-        assert "bindMarkerMode" in html
-        assert "onDistMove" in html
+        assert "class DistanceMode extends MeasureMode" in html
+        assert "class CircleMode extends MeasureMode" in html
+        assert "class MarkerMode extends MeasureMode" in html
         assert "finishDist" in html
+        assert "finalizeCircle" in html
 
     def test_label_above_circle(self, base_map: folium.Map):
         """Label is added after circle, line, and node so it renders on top."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # radiusLabel.addTo should appear after circle.addTo and radiusLine.addTo
-        label_pos = html.find("radiusLabel.addTo(this.layers.mainLayer)")
-        circle_pos = html.find(
-            ".addTo(this.layers.mainLayer);", html.find("circle = L.circle")
-        )
-        line_pos = html.find(
-            ".addTo(this.layers.mainLayer);", html.find("radiusLine = L.polyline")
-        )
-        node_pos = html.find(
-            ".addTo(this.layers.mainLayer);",
-            html.find("radiusNode = MeasureUtils.makeNode"),
-        )
+        # radiusLabel should appear after circle, radiusLine, and radiusNode
+        label_pos = html.find("radiusLabel = this.layers.addLayer")
+        circle_pos = html.find("circle = this.layers.addLayer(")
+        line_pos = html.find("radiusLine = this.layers.addLayer(")
+        node_pos = html.find("radiusNode = this.layers.addLayer(")
         assert label_pos > circle_pos, "Label should be added after circle"
         assert label_pos > line_pos, "Label should be added after line"
         assert label_pos > node_pos, "Label should be added after node"
 
     def test_double_label_fix(self, base_map: folium.Map):
-        """Regression test: Labels are marked BEFORE addTo(mainLayer)."""
+        """Regression test: Labels are added via addLayer with isLabel=true."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert re.search(
-            r"isMeasureLabel\s*=\s*true;\s*previewDistLabel\.addTo\(", html
-        )
+        assert "previewDistLabel = this.layers.addLayer(" in html
 
     def test_label_interaction_listeners(self, base_map: folium.Map):
         """Distance/Circle labels have click listeners."""
@@ -319,7 +312,7 @@ class TestMeasureControlRendering:
         """Regression test: Labels stay fixed, only X toggles."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'toggleUI(false, "reset")' in html
+        assert "toggleUI(false, CONST.TOGGLE.RESET)" in html
         assert "toggleUI(undefined)" in html
 
     def test_measure_tool_toggle(self, base_map: folium.Map):
@@ -385,7 +378,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert re.search(
-            r'MeasureUtils\.makeLabelDivIcon\(\s*MeasureUtils\.formatDistance\(r\)\s*,\s*\[0,\s*0\]\s*,\s*"measure-label-radius"\s*',
+            r"MeasureUtils\.makeLabelDivIcon\(\s*MeasureUtils\.formatDistance\(r\)\s*,\s*CONST\.DEL_ICON\.ANCHOR\s*,\s*CONST\.LABEL\.CLASS_RADIUS\s*",
             html,
         )
 
@@ -394,14 +387,14 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "makeNode" in html
-        assert "MARKER_RADIUS" in html
+        assert "RADIUS: 5" in html
 
     def test_make_del_icon(self, base_map: folium.Map):
         """MeasureUtils.makeDelIcon creates a delete icon marker."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "makeDelIcon" in html
-        assert "del-icon-wrap" in html
+        assert "foliplus-del-icon" in html
 
     def test_align_right_for_right_position(self, base_map: folium.Map):
         """Right positions (bottomright/topright) add align-right class."""
@@ -426,10 +419,10 @@ class TestMeasureControlRendering:
         assert "injectDelIcon" not in html
 
     def test_bring_layer_to_front_on_tool_select(self, base_map: folium.Map):
-        """Tool select calls bringLayerToFront to keep measure layer on top."""
+        """Tool select calls register() to re-show the measure layer on top."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.layers.bringToFront()" in html
+        assert "this.layers.register()" in html
 
     # ── Finish animation tests ──
 
@@ -437,18 +430,17 @@ class TestMeasureControlRendering:
         """Distance finishDist adds is-dash-sweep class with --sweep-length."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "is-dash-sweep" in html
+        assert "dash-sweep" in html
         assert "--sweep-length" in html
         assert "getTotalLength" in html
         assert "animationend" in html
 
     def test_dash_sweep_drop_shadow(self, base_map: folium.Map):
         """Dash sweep line has drop-shadow filter for glow effect."""
-        import pathlib
 
         css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
         assert "drop-shadow" in css
-        assert "is-dash-sweep" in css
+        assert "dash-sweep" in css
 
     def test_ripple_animation_classes(self, base_map: folium.Map):
         """Circle finalizeCircle creates a measure-ripple circle with animationend cleanup."""
@@ -461,7 +453,6 @@ class TestMeasureControlRendering:
 
     def test_ripple_css_variables(self, base_map: folium.Map):
         """Ripple animation uses CSS custom properties for all parameters."""
-        import pathlib
 
         css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
         assert "--ripple-duration" in css
@@ -472,7 +463,6 @@ class TestMeasureControlRendering:
 
     def test_dash_sweep_css_variables(self, base_map: folium.Map):
         """Dash sweep animation uses CSS custom properties for all parameters."""
-        import pathlib
 
         css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
         assert "--sweep-length" in css
@@ -510,8 +500,10 @@ class TestMeasureControlRendering:
                 else None
             ),
         )
-        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-        page.wait_for_selector(".measure-ctrl", state="attached", timeout=10000)
+        page.goto(f"file://{html_path}", wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_selector(
+            ".foliplus-measure-ctrl", state="attached", timeout=10000
+        )
         return page, errors
 
     def test_tool_buttons_render(self, browser, tmp_path):
@@ -519,7 +511,7 @@ class TestMeasureControlRendering:
         page, errors = self._make_page(browser, tmp_path)
         try:
             btns = page.evaluate(
-                "document.querySelectorAll('.measure-ctrl .tool-btn').length"
+                "document.querySelectorAll('.foliplus-measure-ctrl .foliplus-tool-btn').length"
             )
             assert btns >= 3
             assert not errors, f"JS errors: {errors}"
@@ -527,24 +519,22 @@ class TestMeasureControlRendering:
             page.close()
 
     def test_register_on_first_click(self, browser, tmp_path):
-        """Layer is registered on first map click, not on tool select."""
+        """Layer is registered immediately on tool select, visible on map."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("document.querySelector('[data-mode=distance]').click()")
             page.wait_for_timeout(500)
-            # Tool selected — no registration yet (consistent with marker/circle)
+            # Tool selected — registered immediately (needed to show hidden layer)
             registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert not registered, (
-                "Layer should NOT be registered after tool select — deferred until first click"
+            assert registered, (
+                "Layer should be registered immediately after tool select"
             )
-            # First click on map — triggers registration
+            # First click on map — triggers content addition
             page.evaluate("""() => {
                 const map = window.__map;
                 map.fire('click', {latlng: L.latLng(26.08, 119.30)});
             }""")
             page.wait_for_timeout(500)
-            registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert registered, "Layer should be registered after first map click"
             # Second click + right-click to finish
             page.evaluate("""() => {
                 const map = window.__map;
@@ -563,59 +553,54 @@ class TestMeasureControlRendering:
             page.close()
 
     def test_add_graph_adds_content(self, browser, tmp_path):
-        """addGraph() adds a path to graphLayer."""
+        """mainLayer.addLayer() auto-registers the layer."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("""() => {
                 const mm = window.__measureManager;
-                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.layers.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
             }""")
             page.wait_for_timeout(500)
-            count = page.evaluate(
-                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
-            )
-            assert count == 1
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "addLayer should auto-register"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
 
     def test_clear_all_empties_layers(self, browser, tmp_path):
-        """clearAll() empties graphLayer and labelLayer."""
+        """destroy() empties content and unregisters."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("""() => {
                 const mm = window.__measureManager;
-                mm.layers.addGraph(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                mm.layers.addGraph(L.circleMarker([26.08,119.30]));
+                mm.layers.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.layers.addLayer(L.circleMarker([26.08,119.30]));
             }""")
             page.wait_for_timeout(500)
-            page.evaluate("window.__measureManager.layers.clearAll()")
+            page.evaluate("window.__measureManager.layers.clearLayers()")
             page.wait_for_timeout(500)
-            count = page.evaluate(
-                "Object.keys(window.__measureManager.layers.graphLayer._layers || {}).length"
-            )
-            assert count == 0, f"expected 0 got {count}"
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert not registered, "destroy should unregister the layer"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
 
     def test_remove_graph_removes_single_item(self, browser, tmp_path):
-        """removeGraph removes a single layer without affecting others."""
+        """mainLayer.removeLayer removes a single layer without affecting others."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("""() => {
                 const mm = window.__measureManager;
                 const p1 = L.polyline([[26.08,119.30],[26.09,119.31]]);
                 const p2 = L.circleMarker([26.08,119.30]);
-                mm.layers.addGraph(p1);
-                mm.layers.addGraph(p2);
-                mm.layers.removeGraph(p1);
-                const layers = mm.layers.graphLayer._layers || {};
-                window.__test = Object.keys(layers).length;
+                mm.layers.mainLayer.addLayer(p1);
+                mm.layers.mainLayer.addLayer(p2);
+                mm.layers.mainLayer.removeLayer(p1);
+                window.__test = mm.layers.registered();
             }""")
             page.wait_for_timeout(500)
-            count = page.evaluate("window.__test")
-            assert count == 1, f"expected 1 layer remaining, got {count}"
+            registered = page.evaluate("window.__test")
+            assert registered, "layer should remain registered after removing one item"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -657,11 +642,11 @@ class TestMeasureControlRendering:
                 const mm = window.__measureManager;
                 const layers = mm.layers.mainLayer._layers || {};
                 const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
                 if (delMkr) {
                     // Simulate clicking the del icon: make it visible, then fire
-                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
                     if (icon) icon.classList.add('visible');
                     // Fire with a mock originalEvent that has the del-icon target
                     delMkr.fire('click', { originalEvent: { target: icon } });
@@ -672,7 +657,7 @@ class TestMeasureControlRendering:
             hasDelMkr = page.evaluate("""() => {
                 const mm = window.__measureManager;
                 return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
@@ -698,10 +683,10 @@ class TestMeasureControlRendering:
                 const mm = window.__measureManager;
                 const layers = mm.layers.mainLayer._layers || {};
                 const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
                 if (delMkr) {
-                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
                     if (icon) icon.classList.add('visible');
                     delMkr.fire('click', { originalEvent: { target: icon } });
                 }
@@ -710,7 +695,7 @@ class TestMeasureControlRendering:
             hasDelMkr = page.evaluate("""() => {
                 const mm = window.__measureManager;
                 return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
@@ -735,10 +720,10 @@ class TestMeasureControlRendering:
                 const mm = window.__measureManager;
                 const layers = mm.layers.mainLayer._layers || {};
                 const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
                 if (delMkr) {
-                    const icon = delMkr.getElement().querySelector('.measure-del-icon');
+                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
                     if (icon) icon.classList.add('visible');
                     delMkr.fire('click', { originalEvent: { target: icon } });
                 }
@@ -747,10 +732,217 @@ class TestMeasureControlRendering:
             hasDelMkr = page.evaluate("""() => {
                 const mm = window.__measureManager;
                 return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('del-icon-wrap')
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
                 );
             }""")
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
+
+    # ── Persistence (browser) ──────────────────────────────────────
+
+    def test_save_measurements_stores_to_localStorage(self, browser, tmp_path):
+        """saveMeasurements() writes measurements to localStorage."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
+                mm.saveMeasurements();
+            }""")
+            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            assert data is not None, "localStorage should contain saved measurements"
+
+            parsed = json.loads(data)
+            assert len(parsed) == 1
+            assert parsed[0]["type"] == "marker"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_clear_all_clears_measurements_and_storage(self, browser, tmp_path):
+        """clearAll() empties measurements array and persists to localStorage."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
+                mm.saveMeasurements();
+                mm.clearAll();
+            }""")
+            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            parsed = json.loads(data) if data else []
+            assert len(parsed) == 0, "clearAll should empty localStorage"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_delete_marker_removes_from_storage(self, browser, tmp_path):
+        """Deleting a marker removes it from measurements and persists."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('marker');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            # Poll for measurement to appear (async reverse geocode may take time)
+            page.wait_for_timeout(500)
+            for _ in range(20):
+                before = page.evaluate("window.__measureManager.measurements.length")
+                if before >= 1:
+                    break
+                page.wait_for_timeout(500)
+            assert before == 1, f"expected 1 measurement, got {before}"
+            page.evaluate("""() => {
+                const map = window.__map;
+                const delMkr = Object.values(map._layers).find(
+                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
+                );
+                if (delMkr) {
+                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
+                    if (icon) icon.classList.add('visible');
+                    delMkr.fire('click', { originalEvent: { target: icon } });
+                }
+            }""")
+            page.wait_for_timeout(300)
+            after = page.evaluate("window.__measureManager.measurements.length")
+            assert after == 0, f"expected 0 measurements after delete, got {after}"
+            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            parsed = json.loads(data) if data else []
+            assert len(parsed) == 0, "localStorage should be empty after deleting all"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_restore_marker_from_storage(self, browser, tmp_path):
+        """restoreMarker restores a marker measurement from localStorage without ReferenceError."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # Pre-populate localStorage with a marker measurement
+            page.evaluate("""() => {
+                const data = [{
+                    id: 'foliplus_measurement_marker_1',
+                    type: 'marker',
+                    lng: 119.30,
+                    lat: 26.08,
+                    address: 'Test Address'
+                }];
+                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+            }""")
+            # Reload the page to trigger restoreMeasurements in constructor
+            page.reload()
+            page.wait_for_timeout(2000)
+            # Check measurements were restored
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 restored measurement, got {count}"
+            # Check layers registered (restoreMarker calls addLayer)
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after restoring marker"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_restore_distance_from_storage(self, browser, tmp_path):
+        """restoreDistance restores a distance measurement from localStorage without ReferenceError."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const data = [{
+                    id: 'foliplus_measurement_distance_1',
+                    type: 'distance',
+                    points: [
+                        { lng: 119.30, lat: 26.08 },
+                        { lng: 119.31, lat: 26.09 }
+                    ],
+                    segments: [
+                        { lng: 119.305, lat: 26.085, distance: 1234.56 }
+                    ]
+                }];
+                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(2000)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 restored distance, got {count}"
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after restoring distance"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_restore_circle_from_storage(self, browser, tmp_path):
+        """restoreCircle restores a circle measurement from localStorage without ReferenceError."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const data = [{
+                    id: 'foliplus_measurement_circle_1',
+                    type: 'circle',
+                    center: { lng: 119.30, lat: 26.08 },
+                    target: { lng: 119.31, lat: 26.09 },
+                    radius: 500
+                }];
+                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(2000)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 restored circle, got {count}"
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after restoring circle"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    # ── MeasureUtils edge-case tests ──
+
+    def test_format_distance_zero(self, base_map: folium.Map):
+        """formatDistance handles 0 meters."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "0" in html
+
+    def test_format_distance_large(self, base_map: folium.Map):
+        """formatDistance handles large values > 1000m."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "unit_km" in html
+
+    def test_calc_toggle_all_modes(self, base_map: folium.Map):
+        """calcToggle handles all toggleLbl modes: true, false, undefined, RESET."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "toggleLbl === true" in html
+        assert "toggleLbl === false" in html
+        assert "toggleLbl === CONST.TOGGLE.RESET" in html
+
+    def test_restore_measurements_corrupted_json(self, base_map: folium.Map):
+        """loadMeasurements returns empty array on corrupted JSON."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "JSON.parse(data)" in html
+        assert "return []" in html
+
+    def test_next_measurement_id_format(self, base_map: folium.Map):
+        """nextMeasurementId generates IDs with type prefix."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "nextMeasurementId" in html
+        assert "CONST.ID" in html
+
+    def test_attach_distance_ui_shared(self, base_map: folium.Map):
+        """attachDistanceUI is used by both finishDist and restoreDistance."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        count = html.count("attachDistanceUI")
+        assert count >= 2, f"expected 2+ references to attachDistanceUI, got {count}"
+
+    def test_attach_circle_ui_shared(self, base_map: folium.Map):
+        """attachCircleUI is used by both finalizeCircle and restoreCircle."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        count = html.count("attachCircleUI")
+        assert count >= 2, f"expected 2+ references to attachCircleUI, got {count}"

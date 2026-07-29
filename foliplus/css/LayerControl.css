@@ -1,58 +1,66 @@
 /* ── Custom Pane Interaction Rules ── */
 /* layer-pane is dynamically created by LayerControl._enforceLayerOrder */
-.layer-pane {
+.foliplus-layer-pane,
+.foliplus-layer-pane > svg {
   pointer-events: none;
 }
-.layer-pane > svg {
-  pointer-events: none;
-}
-.layer-pane .leaflet-interactive {
-  pointer-events: auto;
-}
-.layer-pane .leaflet-marker-icon {
+.foliplus-layer-pane .leaflet-interactive,
+.foliplus-layer-pane .leaflet-marker-icon {
   pointer-events: auto;
 }
 
 /* ── Panel Content Overrides ── */
-.layer-ctrl .panel-content {
+.foliplus-layer-ctrl .foliplus-panel-content {
   padding: var(--space-sm) 0;
   max-height: var(--panel-max-height);
 }
 /* ── Layer panel container ── */
-.layer-ctrl .layer-panel {
+.foliplus-layer-ctrl .foliplus-layer-panel {
   display: none;
   flex-direction: column;
   width: 100%;
 }
-.layer-ctrl.expanded .layer-panel {
+.foliplus-layer-ctrl.expanded .foliplus-layer-panel {
   display: flex;
 }
 /* ── LAYERS icon: stacked diamond opacity ── */
-.layer-ctrl .toggle-btn svg polygon:nth-child(2),
-.layer-ctrl .header-icon svg polygon:nth-child(2) {
+.foliplus-layer-ctrl .foliplus-toggle-btn svg polygon:nth-child(2),
+.foliplus-layer-ctrl .foliplus-header-icon svg polygon:nth-child(2) {
   opacity: var(--alpha-70);
 }
-.layer-ctrl .toggle-btn svg polygon:nth-child(3),
-.layer-ctrl .header-icon svg polygon:nth-child(3) {
+.foliplus-layer-ctrl .foliplus-toggle-btn svg polygon:nth-child(3),
+.foliplus-layer-ctrl .foliplus-header-icon svg polygon:nth-child(3) {
   opacity: var(--alpha-30);
 }
-.layer-ctrl .type-icon-col {
+.foliplus-layer-ctrl .foliplus-type-icon-col {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   color: var(--text-primary);
   flex-shrink: 0;
   margin-left: var(--space-sm);
 }
-.layer-ctrl .type-icon-col svg {
+.foliplus-layer-ctrl .foliplus-type-icon-col svg {
   width: 100%;
   height: 100%;
   display: block;
   transition: transform var(--transition-fast);
 }
-.layer-ctrl .layer-separator-container {
+/* Shared dashed style for EMPTY / UNKNOWN icons */
+.foliplus-layer-ctrl .foliplus-type-icon-col svg .dashed {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+/* Shared solid fill for dots/circles that need fill instead of stroke */
+.foliplus-layer-ctrl svg .solid {
+  fill: currentColor;
+  stroke: none;
+}
+.foliplus-layer-ctrl .foliplus-layer-sep {
   display: flex;
   align-items: center;
   gap: var(--space-md);
@@ -60,10 +68,10 @@
     var(--space-xxl);
   flex-shrink: 0;
 }
-.layer-ctrl .layer-separator-container .section-divider {
+.foliplus-layer-ctrl .foliplus-layer-sep .foliplus-section-divider {
   flex: 1;
 }
-.layer-ctrl .separator-label {
+.foliplus-layer-ctrl .foliplus-layer-sep-label {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
   text-transform: uppercase;
@@ -72,7 +80,7 @@
   flex-shrink: 0;
 }
 /* ── Toggle-all item ── */
-.layer-ctrl .layer-separator-container.toggle-all-item {
+.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all {
   gap: var(--space-sm);
   padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-md)
     var(--space-sm);
@@ -83,12 +91,9 @@
     background-color var(--transition-fast),
     border-color var(--transition-fast);
 }
-.layer-ctrl .layer-separator-container.toggle-all-item:hover {
-  background: var(--panel-header-hover);
-}
 
 /* ── Fold toggle button ── */
-.layer-ctrl .fold-toggle-btn {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -106,22 +111,22 @@
     background var(--transition-fast),
     transform var(--transition-fast);
 }
-.layer-ctrl .fold-toggle-btn:hover {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn:hover {
   color: var(--accent-primary);
   background: var(--accent-soft-bg);
   border-radius: var(--radius-sm);
 }
-.layer-ctrl .fold-toggle-btn:hover svg {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn:hover svg {
   transform: scale(var(--scale-hover));
 }
-.layer-ctrl .fold-toggle-btn:active {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn:active {
   transform: scale(var(--scale-press));
 }
-.layer-ctrl .fold-toggle-btn:active svg {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn:active svg {
   transition: transform var(--transition-fast);
   transform: scale(var(--scale-press));
 }
-.layer-ctrl .fold-toggle-btn svg {
+.foliplus-layer-ctrl .foliplus-layer-fold-btn svg {
   width: 14px;
   height: 14px;
   stroke: currentColor;
@@ -130,37 +135,39 @@
   stroke-linejoin: round;
   transition: transform var(--transition-fast);
 }
-.layer-ctrl .toggle-all-item.folded .fold-toggle-btn {
+.foliplus-layer-ctrl
+  .foliplus-layer-toggle-all.foliplus-layer-folded
+  .foliplus-layer-fold-btn {
   color: var(--accent-primary);
 }
 
 /* ── Folded layer items (hidden, but DOM preserved for index alignment) ── */
-.layer-ctrl .layer-item.layer-group-folded {
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-group-folded {
   display: none;
 }
 
 /* ── Drag handle ──
   Shared size for all drag handles in layer rows.
   Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
-.layer-ctrl .drag-handle {
+.foliplus-layer-ctrl .drag-handle {
   flex-shrink: 0;
   width: 14px;
   height: var(--icon-size-md);
 }
-.layer-ctrl .layer-item .drag-handle {
+.foliplus-layer-ctrl .foliplus-layer-item .drag-handle {
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
-.layer-ctrl .layer-item:hover .drag-handle {
+.foliplus-layer-ctrl .foliplus-layer-item:hover .drag-handle {
   opacity: 1;
 }
-.layer-ctrl .toggle-all-item .drag-handle,
-.layer-ctrl .color-layer-item .drag-handle {
+.foliplus-layer-ctrl .foliplus-layer-toggle-all .drag-handle,
+.foliplus-layer-ctrl .foliplus-color-layer-item .drag-handle {
   visibility: hidden;
 }
 
 /* ── Layer item ── */
-.layer-ctrl .layer-item {
+.foliplus-layer-ctrl .foliplus-layer-item {
   display: flex;
   align-items: center;
   padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-md)
@@ -175,30 +182,29 @@
     background-color var(--transition-fast),
     border-color var(--transition-fast);
 }
-.layer-ctrl .layer-item[draggable="true"] {
+.foliplus-layer-ctrl .foliplus-layer-item[draggable="true"] {
   cursor: move;
 }
-.layer-ctrl .layer-item:hover {
+.foliplus-layer-ctrl .foliplus-layer-item:hover,
+.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
   background: var(--panel-header-hover);
 }
-.layer-ctrl .layer-item:hover .type-icon-col svg {
+.foliplus-layer-ctrl .foliplus-layer-item:hover .foliplus-type-icon-col svg,
+.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col svg {
   transform: scale(var(--scale-hover));
 }
-.layer-ctrl .layer-item.is-active {
+.foliplus-layer-ctrl .foliplus-layer-item.active {
   border-left-color: var(--accent-primary);
   background: var(--accent-light);
 }
-.layer-ctrl .layer-item.is-active .type-icon-col {
+.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col {
   color: var(--accent-primary);
 }
-.layer-ctrl .layer-item.is-active .type-icon-col svg {
-  transform: scale(var(--scale-hover));
-}
-.layer-ctrl .layer-item.dragging {
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-dragging {
   background: var(--accent-light);
   opacity: var(--alpha-70);
 }
-.layer-ctrl .layer-item.drag-over-top {
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-drag-over-top {
   border-top: var(--drag-border-width, var(--border-thick)) solid var(--accent-primary);
   background: var(--accent-soft-bg);
   box-shadow: var(
@@ -209,7 +215,7 @@
   animation: drag-pulse var(--drag-pulse-duration, 0.8s) ease-in-out
     var(--drag-pulse-count, 3);
 }
-.layer-ctrl .layer-item.drag-over-bottom {
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-drag-over-bottom {
   border-bottom: var(--drag-border-width, var(--border-thick)) solid
     var(--accent-primary);
   background: var(--accent-soft-bg);
@@ -233,11 +239,11 @@
   }
 }
 /* Color layer item overrides: pointer cursor (not draggable) */
-.layer-ctrl .color-layer-item {
+.foliplus-layer-ctrl .foliplus-color-layer-item {
   cursor: pointer;
 }
 /* ── Checkbox styles ── */
-.layer-ctrl .checkbox-wrapper {
+.foliplus-layer-ctrl .foliplus-checkbox {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -245,7 +251,7 @@
   height: var(--space-xl);
   flex-shrink: 0;
 }
-.layer-ctrl input[type="checkbox"] {
+.foliplus-layer-ctrl input[type="checkbox"] {
   appearance: none;
   width: var(--space-xl);
   height: var(--space-xl);
@@ -261,11 +267,11 @@
     background-color var(--transition-fast);
   flex-shrink: 0;
 }
-.layer-ctrl input[type="checkbox"]:checked {
+.foliplus-layer-ctrl input[type="checkbox"]:checked {
   background: var(--accent-primary);
   border-color: var(--accent-primary);
 }
-.layer-ctrl input[type="checkbox"]:checked::after {
+.foliplus-layer-ctrl input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
   left: 0;
@@ -289,7 +295,7 @@
     transform: scale(1) rotate(0deg);
   }
 }
-.layer-ctrl .layer-item label {
+.foliplus-layer-ctrl .foliplus-layer-item label {
   cursor: inherit;
   flex: 1;
   white-space: nowrap;
@@ -299,13 +305,13 @@
   font-weight: var(--font-weight-normal);
 }
 /* Keyboard focus indication */
-.layer-ctrl :focus-visible {
+.foliplus-layer-ctrl :focus-visible {
   outline: var(--border-thick) solid var(--accent-primary);
   outline-offset: var(--border-thin);
   border-radius: var(--radius-sm);
 }
 /* ── Solid color layer picker ── */
-.layer-ctrl .color-layer-input {
+.foliplus-layer-ctrl .foliplus-color-layer-input {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
   border: var(--border-thick) solid var(--input-border);
@@ -317,25 +323,29 @@
   flex-shrink: 0;
   transition: var(--transition-input);
 }
-.layer-ctrl .color-layer-input::-webkit-color-swatch-wrapper {
+.foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch-wrapper {
   padding: 0;
 }
-.layer-ctrl .color-layer-input::-webkit-color-swatch {
+.foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch {
   border: none;
   border-radius: var(--radius-round);
 }
-.layer-ctrl .color-layer-input::-moz-color-swatch {
+.foliplus-layer-ctrl .foliplus-color-layer-input::-moz-color-swatch {
   border: none;
   border-radius: var(--radius-round);
 }
-.layer-ctrl .layer-item.is-color-active {
-  background: var(--accent-light);
-  border-left-color: var(--accent-primary);
-}
-.layer-ctrl .layer-item.is-color-active .type-icon-col {
-  color: var(--accent-primary);
-}
-.layer-ctrl .layer-item.is-color-active .color-layer-input {
+.foliplus-layer-ctrl .foliplus-color-layer-item.active .foliplus-color-layer-input {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}
+
+/* ── Tile pane hidden state ── */
+.foliplus-layer-tile-hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* ── Color layer background on map container (via Leaflet container) ── */
+.leaflet-container.active {
+  background: var(--color-layer-bg, #cccccc);
 }
