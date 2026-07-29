@@ -1008,6 +1008,7 @@
       try {
         const layersToMove = [];
         let markerZ = 0;
+        let maxZ = 0;
 
         for (let i = 0; i < this.layers.length; i++) {
           const li = this.layers[i];
@@ -1015,6 +1016,7 @@
           const hasLayer = layer && this.map.hasLayer(layer);
           const isTile = layer instanceof L.TileLayer;
           const z = this.computeZIndex(i, isTile);
+          if (z > maxZ) maxZ = z;
 
           // 1. Notify callback-only layers (e.g. Canvas heatmap)
           const cbs = this.layerCallbacks.get(li.id);
@@ -1031,6 +1033,11 @@
           const mp = this.map.getPane("markerPane");
           if (mp) mp.style.zIndex = markerZ;
         }
+
+        // Bump popupPane above all managed panes so popups (e.g., marker
+        // location popups) are never hidden behind graph or label panes.
+        const pp = this.map.getPane("popupPane");
+        if (pp) pp.style.zIndex = String(maxZ + CONST.Z_INDEX.STEP);
 
         // 3. Migrate layers to their target panes
         this.migrateLayers(layersToMove);

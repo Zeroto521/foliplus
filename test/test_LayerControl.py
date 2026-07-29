@@ -430,6 +430,17 @@ class TestLayerControlRendering:
         apply_idx = html.index("this.applyLayerZIndex")
         assert cbs_idx < apply_idx, "onZIndex must be called before pane setting"
 
+    def test_popup_pane_above_all_layers(self, base_map: folium.Map):
+        """popupPane z-index is bumped above all managed panes."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Must track maxZ in the loop
+        assert "let maxZ = 0" in html
+        assert "if (z > maxZ) maxZ = z" in html
+        # Must bump popupPane after maxZ is computed
+        assert 'this.map.getPane("popupPane")' in html
+        assert "pp.style.zIndex" in html
+
     def test_can_reorder_between_blocks_cross_group(self, base_map: folium.Map):
         """canReorderBetween returns false for cross-group drag."""
         LayerControl().add_to(base_map)
