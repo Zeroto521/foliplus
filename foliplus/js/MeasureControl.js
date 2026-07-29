@@ -1395,7 +1395,7 @@
     }
 
     clearAll() {
-      this.layers.destroy();
+      this.layers.clearLayers();
       this.measurements = [];
       this.saveMeasurements();
       this.clearActiveMode();
@@ -1404,7 +1404,6 @@
     /** Full cleanup including global events. Called on control removal. */
     destroy() {
       this.clearAll();
-      this.layers.unregister();
       if (this.onMapClick) {
         this.map.off("click", this.onMapClick);
         this.onMapClick = null;

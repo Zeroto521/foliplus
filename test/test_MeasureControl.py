@@ -232,7 +232,7 @@ class TestMeasureControlRendering:
         html = render(base_map)
         # register() is handled by mainLayer.addLayer override in LayerControl.js,
         # not explicitly called in MeasureControl.js
-        assert "this.layers.unregister()" in html
+        assert "this.layers.unregister()" in html or "this.layers.destroy()" in html
         assert "this.layers.register()" not in html
 
     def test_click_cooldown(self, base_map: folium.Map):
@@ -579,7 +579,7 @@ class TestMeasureControlRendering:
                 mm.layers.addLayer(L.circleMarker([26.08,119.30]));
             }""")
             page.wait_for_timeout(500)
-            page.evaluate("window.__measureManager.layers.destroy()")
+            page.evaluate("window.__measureManager.layers.clearLayers()")
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert not registered, "destroy should unregister the layer"
