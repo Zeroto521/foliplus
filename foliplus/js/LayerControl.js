@@ -839,6 +839,10 @@
      *   LayerControl.
      * @property {Function} setZIndex(z)   - Set CSS z-index directly on canvas.
      * @property {Function} setVisible(v)  - Show/hide canvas via CSS class.
+     * @property {Object} hooks
+     *   Lifecycle hooks: `{ before: Array.<Function>, after: Array.<Function> }`.
+     *   Push to `before` to prepare for full-content rendering, to `after`
+     *   to restore normal state. Used by ExportControl.
      */
     createCanvas(opts) {
       if (!opts?.id)
@@ -933,6 +937,11 @@
       const onResize = () => resize();
       this.map.on("resize", onResize);
 
+      // Lifecycle hooks for full-content capture (e.g. ExportControl). Push functions
+      // to `before` to prepare for capture, and to`after` to restore normal state.
+      const hooks = { before: [], after: [] };
+      canvas._hooks = hooks;
+
       return {
         canvas,
         ctx,
@@ -955,6 +964,7 @@
         setVisible: (v) => {
           canvas.classList.toggle(CONST.CLASSES.HIDDEN, !v);
         },
+        hooks,
       };
     }
 

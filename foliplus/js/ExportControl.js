@@ -10,6 +10,9 @@
       KEY: "foliplus_export_rect",
     },
     URL_REVOKE_DELAY: 10000,
+    SCALE: {{ this.scale }},
+    BACKGROUND: {{ '"' + this.background + '"' if this.background else "null" }},
+    FILENAME: "{{ this.filename }}",
     CLASSES: {
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
@@ -20,7 +23,7 @@
   // ==================== Runtime Guard ====================
   const foliplus = window.foliplus || {};
   if (!foliplus || !foliplus.SVGs) {
-    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
+    console.error(`[${CONST.name}] ${_(`${CONST.name}.err_runtime`)}`);
     return;
   }
 
@@ -30,29 +33,23 @@
 
   const SVGS = {
     CAMERA: `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="1.8"
-        stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24">
         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
         <circle cx="12" cy="13" r="4"/>
       </svg>`,
     CHECK: `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2.8"
-        stroke-linecap="round" stroke-linejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.8">
         <polyline points="20 6 9 17 4 12"/>
       </svg>`,
     DOWNLOAD: `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="7 10 12 15 17 10"/>
         <line x1="12" y1="15" x2="12" y2="3"/>
       </svg>`,
   };
 
-  window.foliplus.registerHintIcon("export", SVGS.CAMERA);
+  foliplus.registerHintIcon(CONST.name, SVGS.CAMERA);
 
   // ==================== CORS Pre-setup ====================
   // Set crossOrigin on ALL existing TileLayers so tiles load with CORS
@@ -96,7 +93,7 @@
     }
 
     // Get the first active TileLayer on the map
-    _getTileLayer() {
+    getTileLayer() {
       let tileLayer = null;
       this.map.eachLayer((l) => {
         if (l instanceof L.TileLayer && this.map.hasLayer(l)) tileLayer = l;
@@ -106,7 +103,7 @@
 
     // Calculate all tile coordinates that cover the given geo bounds at the given zoom.
     // Returns [{x, y, url}]
-    _calcTiles(tileLayer, bounds, zoom) {
+    calcTiles(tileLayer, bounds, zoom) {
       const crs = this.map.options.crs || L.CRS.EPSG3857;
       const tileSize = tileLayer.options.tileSize || 256;
       const subdomains = tileLayer.options.subdomains || "abc";
@@ -163,7 +160,7 @@
     async render(rect, scale, bg, geoBounds) {
       const sw = Math.round(rect.width * scale);
       const sh = Math.round(rect.height * scale);
-      if (sw < 1 || sh < 1) throw new Error("Crop area too small");
+      if (sw < 1 || sh < 1) throw new Error(_(`${CONST.name}.err_crop_too_small`));
 
       const canvas = document.createElement("canvas");
       canvas.width = sw;
@@ -188,10 +185,10 @@
         imgFail = 0;
 
       if (geoBounds && geoBounds.nw) {
-        const tileLayer = this._getTileLayer();
+        const tileLayer = this.getTileLayer();
         if (tileLayer) {
           const zoom = this.map.getZoom();
-          const tiles = this._calcTiles(tileLayer, geoBounds, zoom);
+          const tiles = this.calcTiles(tileLayer, geoBounds, zoom);
           // Viewport offset: pixel position of the viewport origin
           // in the CRS pixel space at the current zoom
           const crs = this.map.options.crs || L.CRS.EPSG3857;
@@ -240,9 +237,9 @@
       } else {
         // Fallback: use DOM images (original approach)
         const uniqueSrc = new Set();
-        for (const img of this.container.querySelectorAll("img")) {
+        for (const img of this.container.querySelectorAll("img"))
           if (img.src && img.complete && img.naturalWidth) uniqueSrc.add(img.src);
-        }
+
         for (const src of uniqueSrc) {
           const el = [...this.container.querySelectorAll("img")].find(
             (i) => i.src === src && i.complete && i.naturalWidth,
@@ -285,7 +282,9 @@
         }
       }
 
-      console.warn(`[${CONST.name}] images drawn: ${imgOk}, fail: ${imgFail}`);
+      console.warn(
+        `[${CONST.name}] ${_(`${CONST.name}.dbg_images`).replace("{ok}", imgOk).replace("{fail}", imgFail)}`,
+      );
 
       // Layer 2: SVG overlay — search ALL panes for SVG elements.
       // Leaflet's SVG layers have viewBox = "0 0 <w> <h>" and paths
@@ -311,10 +310,11 @@
         clone.setAttribute("height", String(svgRect.height));
 
         let src = new XMLSerializer().serializeToString(clone);
-        if (!src.includes('xmlns="http://www.w3.org/2000/svg"')) {
-          src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
-        }
-        console.warn(`[${CONST.name}] SVG pane: ${pane.className}, len: ${src.length}`);
+        const xmlns = 'xmlns="http://www.w3.org/2000/svg"';
+        if (!src.includes(xmlns)) src = src.replace("<svg", `<svg ${xmlns}`);
+        console.warn(
+          `[${CONST.name}] ${_(`${CONST.name}.dbg_svg_pane`).replace("{pane}", pane.className).replace("{len}", src.length)}`,
+        );
         if (src.length < 100) continue;
 
         const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
@@ -323,7 +323,7 @@
           const svgImg = await new Promise((resolve, reject) => {
             const i = new Image();
             i.onload = () => resolve(i);
-            i.onerror = () => reject(new Error("SVG load failed"));
+            i.onerror = () => reject(new Error(_(`${CONST.name}.err_svg_load`)));
             i.src = url;
           });
           // Crop to export rect in the SVG's coordinate space:
@@ -345,9 +345,56 @@
           URL.revokeObjectURL(url);
         }
       }
-      console.warn(`[${CONST.name}] SVGs drawn: ${svgCount}`);
+      console.warn(
+        `[${CONST.name}] ${_(`${CONST.name}.dbg_svg_drawn`).replace("{count}", svgCount)}`,
+      );
 
-      // Layer 3: Markers — draw each element with background-image
+      // Layer 3: Canvas — capture managed canvas elements (e.g. HeatmapControl
+      // hexbin canvas) that live in .leaflet-map-pane with position offset.
+      // These are positioned via left/top to cancel the mapPane CSS transform,
+      // so getBoundingClientRect gives us the correct viewport-relative position.
+      const canvasEls = this.container.querySelectorAll(
+        ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
+      );
+      // Trigger lifecycle hooks (e.g. disable viewport culling) before capture
+      for (const ce of canvasEls) if (ce._hooks) ce._hooks.before.forEach((fn) => fn());
+
+      let canvasCount = 0;
+      for (const ce of canvasEls) {
+        const r = ce.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width;
+        const h = r.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale;
+        const dh = h * scale;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        try {
+          // Canvas is same-origin, toDataURL is safe
+          const dataUrl = ce.toDataURL("image/png");
+          const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = () => reject(new Error(_(`${CONST.name}.err_canvas_load`)));
+            i.src = dataUrl;
+          });
+          ctx.drawImage(img, dx, dy, dw, dh);
+          canvasCount++;
+        } catch {
+          // Canvas may be tainted; skip silently
+        }
+      }
+      console.warn(
+        `[${CONST.name}] ${_(`${CONST.name}.dbg_canvas_drawn`).replace("{count}", canvasCount)}`,
+      );
+
+      // Restore lifecycle hooks after capture
+      for (const ce of canvasEls) if (ce._hooks) ce._hooks.after.forEach((fn) => fn());
+
+      // Layer 4: Markers — draw each element with background-image
       // direct sprite cropping via createImageBitmap (always origin-clean).
       //
       // Formula:
@@ -362,7 +409,7 @@
       const drawableEls = [];
       const mp = this.container.querySelector(".leaflet-marker-pane");
       console.warn(
-        `[${CONST.name}] marker-pane found: ${!!mp} | container: ${this.container.className}`,
+        `[${CONST.name}] ${_(`${CONST.name}.dbg_marker_pane`).replace("{found}", !!mp)}`,
       );
       const markerRoots = mp
         ? mp.querySelectorAll(
@@ -371,7 +418,9 @@
         : this.container.querySelectorAll(
             '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
           );
-      console.warn(`[${CONST.name}] marker roots found: ${markerRoots.length}`);
+      console.warn(
+        `[${CONST.name}] ${_(`${CONST.name}.dbg_marker_roots`).replace("{count}", markerRoots.length)}`,
+      );
       for (const root of markerRoots) {
         drawableEls.push(root);
         for (const sub of root.querySelectorAll("*")) {
@@ -380,13 +429,12 @@
             scs.backgroundImage &&
             scs.backgroundImage.includes("url(") &&
             scs.backgroundImage !== "none"
-          ) {
+          )
             drawableEls.push(sub);
-          }
         }
       }
       console.warn(
-        `[${CONST.name}] total drawable marker elements: ${drawableEls.length}`,
+        `[${CONST.name}] ${_(`${CONST.name}.dbg_marker_total`).replace("{count}", drawableEls.length)}`,
       );
       // First pass: load unique sprites
       const spriteMap = new Map();
@@ -494,7 +542,7 @@
         const before = window.getComputedStyle(iconEl, "::before");
         const content = before.content;
         console.warn(
-          `[${CONST.name}] FA icon: ${iconEl.className} content: ${content} fontFamily: ${before.fontFamily} fontSize: ${before.fontSize} color: ${before.color}`,
+          `[${CONST.name}] ${_(`${CONST.name}.dbg_fa_icon`).replace("{cls}", iconEl.className).replace("{c}", content).replace("{f}", before.fontFamily).replace("{s}", before.fontSize).replace("{clr}", before.color)}`,
         );
 
         // FontAwesome uses CSS content like "\f276" for glyph codepoints.
@@ -503,22 +551,17 @@
         if (content && content !== "none") {
           const raw = content.replace(/['"]/g, ""); // "\\f276" -> \\f276
           // Try direct unicode (FontAwesome 5+ ligature mode)
-          if (raw.length === 1) {
-            iconText = raw;
-          }
+          if (raw.length === 1) iconText = raw;
           // Try escaped codepoint (FontAwesome 4.7 style)
           const match = raw.match(/^\\([0-9a-fA-F]+)/);
-          if (match) {
-            iconText = String.fromCharCode(parseInt(match[1], 16));
-          }
+          if (match) iconText = String.fromCharCode(parseInt(match[1], 16));
+
           // Try '\\XXXX' (double-escaped from getComputedStyle)
           const match2 = raw.match(/^\\\\f([0-9a-fA-F]+)/);
-          if (match2) {
-            iconText = String.fromCharCode(parseInt("f" + match2[1], 16));
-          }
+          if (match2) iconText = String.fromCharCode(parseInt("f" + match2[1], 16));
         }
         console.warn(
-          `[${CONST.name}] FA parsed iconText: ${JSON.stringify(iconText)} length: ${iconText.length}`,
+          `[${CONST.name}] ${_(`${CONST.name}.dbg_fa_parsed`).replace("{text}", JSON.stringify(iconText)).replace("{len}", iconText.length)}`,
         );
 
         // Get icon styles from the <i> element (font-family, size, color)
@@ -583,7 +626,9 @@
         ctx.restore();
         faCount++;
       }
-      console.warn(`[${CONST.name}] FontAwesome icons drawn: ${faCount}`);
+      console.warn(
+        `[${CONST.name}] ${_(`${CONST.name}.dbg_fa_drawn`).replace("{count}", faCount)}`,
+      );
 
       return canvas;
     }
@@ -601,7 +646,7 @@
       this.isExporting = false;
       this.lastScreenRect = null;
       this.savedBounds = null;
-      this._loadSavedBounds();
+      this.loadSavedBounds();
 
       this.dragState = {
         dragging: false,
@@ -611,11 +656,11 @@
         startRect: null,
       };
 
-      this._onMouseDown = this._onMouseDown.bind(this);
-      this._onMouseMove = this._onMouseMove.bind(this);
-      this._onMouseUp = this._onMouseUp.bind(this);
-      this._onKeyDown = this._onKeyDown.bind(this);
-      this._onMapChange = this._onMapChange.bind(this);
+      this.onMouseDown = this.onMouseDown.bind(this);
+      this.onMouseMove = this.onMouseMove.bind(this);
+      this.onMouseUp = this.onMouseUp.bind(this);
+      this.onKeyDown = this.onKeyDown.bind(this);
+      this.onMapChange = this.onMapChange.bind(this);
     }
 
     attachUI(ctrl, toolBar) {
@@ -623,7 +668,7 @@
       this.exportToolBar = toolBar;
     }
 
-    _loadSavedBounds() {
+    loadSavedBounds() {
       try {
         const data = localStorage.getItem(CONST.STORAGE.KEY);
         if (!data) return;
@@ -644,11 +689,11 @@
         if (!overlap) return;
         this.savedBounds = saved;
       } catch (e) {
-        console.warn(`[${CONST.name}] failed to load export bounds:`, e);
+        console.warn(`[${CONST.name}] ${_(`${CONST.name}.err_load_bounds`)}:`, e);
       }
     }
 
-    _saveBounds(bounds) {
+    saveBounds(bounds) {
       try {
         localStorage.setItem(
           CONST.STORAGE.KEY,
@@ -658,38 +703,33 @@
           }),
         );
       } catch (e) {
-        console.warn(`[${CONST.name}] failed to save export bounds:`, e);
+        console.warn(`[${CONST.name}] ${_(`${CONST.name}.err_save_bounds`)}:`, e);
       }
     }
 
-    _showGlobalHint(text, duration, withLoadingIcon) {
-      const loading =
-        withLoadingIcon && window.foliplus.SVGs
-          ? window.foliplus.SVGs.LOADING + " "
-          : "";
-      window.foliplus.showHint("export", loading + text, duration || 0);
-    }
-
-    _showHintWithInfo(r, instruction) {
-      window.foliplus.showHint(
-        "export",
-        `${_("ExportControl.label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ` +
-          `${_("ExportControl.label_size_suffix")}${instruction ? ` — ${instruction}` : ""}`,
-        0,
+    showGlobalHint(text, duration, withLoadingIcon) {
+      const loading = withLoadingIcon ? foliplus.SVGs.LOADING + " " : "";
+      foliplus.showHint(
+        CONST.name,
+        loading + text,
+        duration || foliplus.HINT_DURATION.PERSIST,
       );
     }
 
-    _updateBoxStyle(el, r) {
+    showHintWithInfo(r, instruction) {
+      foliplus.showHint(
+        CONST.name,
+        `${_(`${CONST.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
+          `${_(`${CONST.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
+        foliplus.HINT_DURATION.PERSIST,
+      );
+    }
+
+    updateBoxStyle(el, r) {
       el.style.left = r.left + "px";
       el.style.top = r.top + "px";
       el.style.width = r.width + "px";
       el.style.height = r.height + "px";
-      if (this.cropState && this.cropState.overlay) {
-        this.cropState.overlay.style.left = "0";
-        this.cropState.overlay.style.top = "0";
-        this.cropState.overlay.style.width = this.mapContainer.clientWidth + "px";
-        this.cropState.overlay.style.height = this.mapContainer.clientHeight + "px";
-      }
     }
 
     showCropBox() {
@@ -747,12 +787,6 @@
 
       const overlay = foliplus.dom.el("div", {
         class: "foliplus-export-overlay active",
-        style: {
-          left: "0",
-          top: "0",
-          width: this.mapContainer.clientWidth + "px",
-          height: this.mapContainer.clientHeight + "px",
-        },
         parent: this.mapContainer,
       });
       this.mapContainer.classList.add(CONST.CLASSES.EXPORT_MODE);
@@ -777,8 +811,8 @@
       });
 
       this.exportToolBar.innerHTML = `
-        <button class="confirm" title="${_("ExportControl.btn_confirm")}">${SVGS.CHECK}</button>
-        <button class="cancel" title="${_("ExportControl.btn_cancel")}">${window.foliplus.SVGs.CLOSE}</button>`;
+        <button class="confirm" title="${_(`${CONST.name}.btn_confirm`)}">${SVGS.CHECK}</button>
+        <button class="cancel" title="${_(`${CONST.name}.btn_cancel`)}">${foliplus.SVGs.CLOSE}</button>`;
       this.exportCtrl.classList.remove(CONST.CLASSES.COLLAPSED);
       this.exportCtrl.classList.add(CONST.CLASSES.EXPANDED);
 
@@ -789,9 +823,9 @@
         locked: false,
         actions: this.exportToolBar,
       };
-      this._updateBoxStyle(cropBox, box);
-      this._showHintWithInfo(box, _("ExportControl.hint_unlocked"));
-      cropBox.addEventListener("mousedown", this._onMouseDown);
+      this.updateBoxStyle(cropBox, box);
+      this.showHintWithInfo(box, _(`${CONST.name}.hint_unlocked`));
+      cropBox.addEventListener("mousedown", this.onMouseDown);
       this.exportToolBar.querySelector(".cancel").onclick = (e) => {
         e.stopPropagation();
         this.removeCropBox();
@@ -800,7 +834,7 @@
         e.stopPropagation();
         this.lockCropBox();
       };
-      document.addEventListener("keydown", this._onKeyDown);
+      document.addEventListener("keydown", this.onKeyDown);
     }
 
     lockCropBox() {
@@ -820,8 +854,8 @@
       }
       this.cropState.geoBounds = this.cropState._savedGeoBounds;
       this.cropState.actions.innerHTML = `
-        <button class="confirm" title="${_("ExportControl.btn_export")}">${SVGS.DOWNLOAD}</button>
-        <button class="cancel" title="${_("ExportControl.btn_cancel")}">${window.foliplus.SVGs.CLOSE}</button>`;
+        <button class="confirm" title="${_(`${CONST.name}.btn_export`)}">${SVGS.DOWNLOAD}</button>
+        <button class="cancel" title="${_(`${CONST.name}.btn_cancel`)}">${foliplus.SVGs.CLOSE}</button>`;
       this.cropState.actions.querySelector(".cancel").onclick = (e) => {
         e.stopPropagation();
         this.unlockCropBox();
@@ -830,19 +864,19 @@
         e.stopPropagation();
         this.doExport();
       };
-      this.map.on("move zoom", this._onMapChange);
-      this._onMapChange();
-      this._showHintWithInfo(r, _("ExportControl.hint_locked"));
+      this.map.on("move zoom", this.onMapChange);
+      this.onMapChange();
+      this.showHintWithInfo(r, _(`${CONST.name}.hint_locked`));
     }
 
     unlockCropBox() {
       if (!this.cropState || !this.cropState.locked) return;
       this.cropState.locked = false;
       this.cropState.box.classList.remove("locked");
-      this.map.off("move zoom", this._onMapChange);
+      this.map.off("move zoom", this.onMapChange);
       this.cropState.actions.innerHTML = `
-        <button class="confirm" title="${_("ExportControl.btn_confirm")}">${SVGS.CHECK}</button>
-        <button class="cancel" title="${_("ExportControl.btn_cancel")}">${window.foliplus.SVGs.CLOSE}</button>`;
+        <button class="confirm" title="${_(`${CONST.name}.btn_confirm`)}">${SVGS.CHECK}</button>
+        <button class="cancel" title="${_(`${CONST.name}.btn_cancel`)}">${foliplus.SVGs.CLOSE}</button>`;
       this.cropState.actions.querySelector(".cancel").onclick = (e) => {
         e.stopPropagation();
         this.removeCropBox();
@@ -851,23 +885,23 @@
         e.stopPropagation();
         this.lockCropBox();
       };
-      this._updateBoxStyle(this.cropState.box, this.cropState.rect);
-      this._showHintWithInfo(this.cropState.rect, _("ExportControl.hint_unlocked"));
+      this.updateBoxStyle(this.cropState.box, this.cropState.rect);
+      this.showHintWithInfo(this.cropState.rect, _(`${CONST.name}.hint_unlocked`));
     }
 
     removeCropBox() {
       if (!this.cropState) return;
       this.lastScreenRect = Object.assign({}, this.cropState.rect);
       if (this.cropState.geoBounds) {
-        this._saveBounds(this.cropState.geoBounds);
+        this.saveBounds(this.cropState.geoBounds);
         this.savedBounds = this.cropState.geoBounds;
       }
       this.mapContainer.classList.remove(CONST.CLASSES.EXPORT_MODE);
       document.body.classList.remove(CONST.CLASSES.EXPORT_MODE);
-      document.removeEventListener("keydown", this._onKeyDown);
-      this.map.off("move zoom", this._onMapChange);
+      document.removeEventListener("keydown", this.onKeyDown);
+      this.map.off("move zoom", this.onMapChange);
       if (this.cropState.box)
-        this.cropState.box.removeEventListener("mousedown", this._onMouseDown);
+        this.cropState.box.removeEventListener("mousedown", this.onMouseDown);
       if (this.cropState.overlay?.parentNode) this.cropState.overlay.remove();
       if (this.cropState.box?.parentNode) this.cropState.box.remove();
       if (this.cropState.actions) this.cropState.actions.innerHTML = "";
@@ -876,10 +910,10 @@
         this.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
       }
       this.cropState = null;
-      window.foliplus.hideHint("export");
+      foliplus.hideHint(CONST.name);
     }
 
-    _onMouseDown(e) {
+    onMouseDown(e) {
       if (this.cropState.locked) return;
       e.preventDefault();
       e.stopPropagation();
@@ -896,11 +930,11 @@
       this.dragState.startX = e.clientX;
       this.dragState.startY = e.clientY;
       this.dragState.startRect = Object.assign({}, this.cropState.rect);
-      document.addEventListener("mousemove", this._onMouseMove);
-      document.addEventListener("mouseup", this._onMouseUp);
+      document.addEventListener("mousemove", this.onMouseMove);
+      document.addEventListener("mouseup", this.onMouseUp);
     }
 
-    _onMouseMove(e) {
+    onMouseMove(e) {
       if (!this.dragState.dragging) return;
       const dx = e.clientX - this.dragState.startX;
       const dy = e.clientY - this.dragState.startY;
@@ -938,18 +972,18 @@
         }
       }
       this.cropState.rect = r;
-      this._updateBoxStyle(this.cropState.box, r);
-      this._showHintWithInfo(r, _("ExportControl.hint_unlocked"));
+      this.updateBoxStyle(this.cropState.box, r);
+      this.showHintWithInfo(r, _(`${CONST.name}.hint_unlocked`));
     }
 
-    _onMouseUp() {
+    onMouseUp() {
       this.dragState.dragging = false;
       this.dragState.dragType = null;
-      document.removeEventListener("mousemove", this._onMouseMove);
-      document.removeEventListener("mouseup", this._onMouseUp);
+      document.removeEventListener("mousemove", this.onMouseMove);
+      document.removeEventListener("mouseup", this.onMouseUp);
     }
 
-    _onKeyDown(e) {
+    onKeyDown(e) {
       if (e.key === "Escape") {
         if (this.cropState?.locked) this.unlockCropBox();
         else this.removeCropBox();
@@ -959,7 +993,7 @@
       }
     }
 
-    _onMapChange() {
+    onMapChange() {
       if (!this.cropState || !this.cropState.locked) return;
       const nw = this.cropState.geoBounds.nw;
       const se = this.cropState.geoBounds.se;
@@ -972,8 +1006,8 @@
         height: Math.abs(br.y - tl.y),
       };
       this.cropState.rect = newRect;
-      this._updateBoxStyle(this.cropState.box, newRect);
-      this._showHintWithInfo(newRect, _("ExportControl.hint_locked"));
+      this.updateBoxStyle(this.cropState.box, newRect);
+      this.showHintWithInfo(newRect, _(`${CONST.name}.hint_locked`));
     }
 
     doExport() {
@@ -983,12 +1017,16 @@
       const geoBounds = this.cropState.geoBounds;
       this.removeCropBox();
 
-      let scaleValue = {{ this.scale }};
+      let scaleValue = CONST.SCALE;
       if (typeof scaleValue !== "number" || isNaN(scaleValue))
         scaleValue = window.devicePixelRatio || 1;
-      const bg = {{ '"' + this.background + '"' if this.background else "null" }};
+      const bg = CONST.BACKGROUND;
 
-      this._showGlobalHint(_("ExportControl.status_exporting"), 0, true);
+      this.showGlobalHint(
+        _(`${CONST.name}.status_exporting`),
+        foliplus.HINT_DURATION.PERSIST,
+        true,
+      );
 
       // Detect if crop area extends beyond the viewport.
       // Only enlarge container when absolutely necessary (crop > viewport).
@@ -1007,7 +1045,7 @@
           ".leaflet-control-container, .foliplus-export-ctrl",
         );
         hideEls.forEach((el) => {
-          el.style.display = "none";
+          el.classList.add("foliplus-export-hidden");
         });
 
         if (geoBounds && geoBounds.nw) {
@@ -1027,18 +1065,17 @@
           .render(r, scaleValue, bg || undefined, geoBounds)
           .then((canvas) => {
             hideEls.forEach((el) => {
-              el.style.display = "";
+              el.classList.remove("foliplus-export-hidden");
             });
             const prevImg = document.createElement("img");
             prevImg.src = canvas.toDataURL("image/png");
-            prevImg.style.cssText =
-              "position:fixed;bottom:10px;right:10px;z-index:99999;max-width:400px;max-height:300px;border:2px solid red;background:#fff;box-shadow:0 0 20px rgba(0,0,0,.5)";
+            prevImg.className = "foliplus-export-preview";
             document.body.appendChild(prevImg);
             setTimeout(() => prevImg.remove(), 3000);
             canvas.toBlob((blob) => {
               if (!blob) {
-                this._showGlobalHint(
-                  _("ExportControl.status_fail") + _("ExportControl.err_gen_fail"),
+                this.showGlobalHint(
+                  _(`${CONST.name}.status_fail`) + _(`${CONST.name}.err_gen_fail`),
                   foliplus.HINT_DURATION.LONG,
                   false,
                 );
@@ -1047,15 +1084,15 @@
               }
               const link = document.createElement("a");
               const url = URL.createObjectURL(blob);
-              link.download = "{{ this.filename }}";
+              link.download = CONST.FILENAME;
               link.href = url;
               link.rel = "noopener";
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
               setTimeout(() => URL.revokeObjectURL(url), CONST.URL_REVOKE_DELAY);
-              this._showGlobalHint(
-                _("ExportControl.status_success"),
+              this.showGlobalHint(
+                _(`${CONST.name}.status_success`),
                 foliplus.HINT_DURATION.LONG,
                 false,
               );
@@ -1064,11 +1101,11 @@
           })
           .catch((err) => {
             hideEls.forEach((el) => {
-              el.style.display = "";
+              el.classList.remove("foliplus-export-hidden");
             });
-            console.error(`[${CONST.name}] render failed:`, err);
-            this._showGlobalHint(
-              _("ExportControl.status_fail") + (err.message || ""),
+            console.error(`[${CONST.name}] ${_(`${CONST.name}.err_render`)}:`, err);
+            this.showGlobalHint(
+              _(`${CONST.name}.status_fail`) + (err.message || ""),
               foliplus.HINT_DURATION.LONG,
               false,
             );
@@ -1092,9 +1129,9 @@
 
         const bigW = Math.max(vpW, r.left + r.width) + 200;
         const bigH = Math.max(vpH, r.top + r.height) + 200;
-        this.mapContainer.style.width = Math.ceil(bigW) + "px";
-        this.mapContainer.style.height = Math.ceil(bigH) + "px";
-        this.mapContainer.style.minHeight = Math.ceil(bigH) + "px";
+        this.mapContainer.style.width = `${Math.ceil(bigW)}px`;
+        this.mapContainer.style.height = `${Math.ceil(bigH)}px`;
+        this.mapContainer.style.minHeight = `${Math.ceil(bigH)}px`;
         this.mapContainer.style.overflow = "hidden";
 
         const cropCenter = cropBounds.getCenter();
@@ -1124,15 +1161,13 @@
   const exportManager = new ExportManager(map);
 
   const ControlClass = L.Control.extend({
-    onAdd: function () {
-      const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
-        {
-          cssClass: "foliplus-export-ctrl",
-          toggleTitle: _("ExportControl.btn_title"),
-          toggleSvg: SVGS.CAMERA,
-          isLeft: CONST.position.indexOf("left") >= 0,
-        },
-      );
+    onAdd: () => {
+      const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
+        cssClass: "foliplus-export-ctrl",
+        toggleTitle: _(`${CONST.name}.btn_title`),
+        toggleSvg: SVGS.CAMERA,
+        isLeft: CONST.position.indexOf("left") >= 0,
+      });
       toolBar.classList.add("foliplus-export-actions");
       exportManager.attachUI(ctrl, toolBar);
       toggleBtn.onclick = () => {
@@ -1154,24 +1189,22 @@
                 },
               };
               exportManager.lockCropBox();
-              window.foliplus.showHint(
-                "export",
-                _("ExportControl.hint_restore"),
-                3000,
+              foliplus.showHint(
+                CONST.name,
+                _(`${CONST.name}.hint_restore`),
+                foliplus.HINT_DURATION.MEDIUM,
                 true,
               );
             }
           });
-        } else {
-          exportManager.showCropBox();
-        }
+        } else exportManager.showCropBox();
       };
       return container;
     },
-    onRemove: function () {
+    onRemove: () => {
       if (exportManager.cropState) exportManager.removeCropBox();
-      if (exportManager._onKeyDown)
-        document.removeEventListener("keydown", exportManager._onKeyDown);
+      if (exportManager.onKeyDown)
+        document.removeEventListener("keydown", exportManager.onKeyDown);
     },
   });
 

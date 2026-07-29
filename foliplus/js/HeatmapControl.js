@@ -172,6 +172,15 @@
         name: _(`${CONST.name}.title`),
         iconSvg: SVGs.HEXAGON,
       });
+      // Register lifecycle hooks for full-content capture (e.g. ExportControl).
+      this.overlay.hooks.before.push(() => {
+        this.renderAll = true;
+        this.redrawHeatmap();
+      });
+      this.overlay.hooks.after.push(() => {
+        this.renderAll = false;
+        this.redrawHeatmap();
+      });
       this.ui = null;
       this.cachedPoints = null;
       this.cachedFeatures = null;
@@ -370,7 +379,8 @@
 
     getPointValue(marker) {
       if (this.currentAgg === "count") return 1;
-      const key = this.currentField === CONST.FIELD_AUTO ? this.autoFieldKey : this.currentField;
+      const key =
+        this.currentField === CONST.FIELD_AUTO ? this.autoFieldKey : this.currentField;
       const val = this.readMarkerField(marker, key);
       if (val === undefined || isNaN(val)) {
         if (!this.valueFallbackWarned) {
@@ -1086,7 +1096,10 @@
         );
       });
 
-      if (fields.includes(this.m.currentField) || this.m.currentField === CONST.FIELD_AUTO)
+      if (
+        fields.includes(this.m.currentField) ||
+        this.m.currentField === CONST.FIELD_AUTO
+      )
         this.fieldSelect.value = this.m.currentField;
       else {
         this.m.currentField = CONST.FIELD_AUTO;
@@ -1238,7 +1251,10 @@
 
     syncSelect(el, value) {
       el.value = value;
-      el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value || value === CONST.FIELD_AUTO);
+      el.classList.toggle(
+        CONST.CLASSES.CLASS_PLACEHOLDER,
+        !value || value === CONST.FIELD_AUTO,
+      );
     }
   }
 

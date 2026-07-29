@@ -58,6 +58,7 @@
 /* ── Overlay ── */
 .foliplus-export-overlay {
   position: absolute;
+  inset: 0;
   background: transparent;
   pointer-events: none;
   z-index: var(--z-index-overlay);
@@ -210,4 +211,22 @@
 }
 .foliplus-export-actions button.confirm:hover {
   background: var(--accent-light);
+}
+
+/* ── Hidden state (used during render) ── */
+.foliplus-export-hidden {
+  display: none !important;
+}
+
+/* ── Preview image (auto-cleaned) ── */
+.foliplus-export-preview {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  z-index: 99999;
+  max-width: 400px;
+  max-height: 300px;
+  border: 2px solid red;
+  background: #fff;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }

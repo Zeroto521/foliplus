@@ -48,8 +48,8 @@ class TestExportControlRendering:
         assert "exportManager" in html
         assert "ctrl-fold" in html
         assert "STORAGE.KEY" in html
-        assert "_saveBounds" in html
-        assert "_loadSavedBounds" in html
+        assert "saveBounds" in html
+        assert "loadSavedBounds" in html
         assert "foliplus-export-actions" in html
 
     def test_custom_params_rendering(self, base_map: folium.Map):
