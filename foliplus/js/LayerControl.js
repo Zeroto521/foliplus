@@ -671,18 +671,25 @@
 
       let registered = false;
 
+      const layerOpts = {
+        name: opts.name,
+        id: opts.id,
+        isBase: false,
+        layer: mainLayer,
+        paneName: opts.graphPane || null,
+        iconSvg: opts.iconSvg || null,
+      };
+
       const register = () => {
-        if (registered) return;
+        if (registered) {
+          // Already registered but may have been unchecked in LayerControl.
+          // Re-add to map and re-call registerLayer to sync checkbox state.
+          this.registerLayer(layerOpts);
+          return;
+        }
         registered = true;
         if (opts.labelPane) this.labelPanes.add(opts.labelPane);
-        this.registerLayer({
-          name: opts.name,
-          id: opts.id,
-          isBase: false,
-          layer: mainLayer,
-          paneName: opts.graphPane || null,
-          iconSvg: opts.iconSvg || null,
-        });
+        this.registerLayer(layerOpts);
       };
 
       const unregister = () => {
