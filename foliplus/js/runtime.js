@@ -97,6 +97,9 @@
     ]),
   };
 
+  const hintIcons = {};
+  const hintMap = new Map(); // key -> { element, timer }
+
   // Expose hint duration tiers for other components
   foliplus.HINT_DURATION = {
     SHORT: CONST.HINT.SHORT,
@@ -134,9 +137,6 @@
   };
 
   // ==================== Hint / Toast System ====================
-  const hintIcons = {};
-  const hintMap = new Map(); // key -> { element, timer }
-
   /**
    * Register an SVG icon for a hint type. The icon is prepended to the
    * hint text when `showHint(key, ...)` is called with a matching key.
