@@ -55,11 +55,6 @@
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
-/* Shared solid fill for dots/circles that need fill instead of stroke */
-.foliplus-layer-ctrl svg .solid {
-  fill: currentColor;
-  stroke: none;
-}
 .foliplus-layer-ctrl .foliplus-layer-sep {
   display: flex;
   align-items: center;

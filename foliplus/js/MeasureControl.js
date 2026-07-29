@@ -24,7 +24,7 @@
       SIZE: [12, 12],
       ANCHOR: [6, 6],
       CLASS: "foliplus-measure-center-dot",
-      CLASS_FINAL: "foliplus-measure-center-dot foliplus-final",
+      CLASS_FINAL: "foliplus-measure-center-dot final",
     },
     LABEL: {
       ANCHOR: [0, -10],
