@@ -16,6 +16,7 @@
 - `SearchControl`: added address autocomplete suggestions with Nominatim integration ([#75](https://github.com/Zeroto521/foliplus/pull/75))
 - `MeasureControl`: added measurement persistence via `localStorage` — markers, distances, and circles survive page refresh ([#83](https://github.com/Zeroto521/foliplus/pull/48))
 - `LayerControl`: only shows the topmost visible base TileLayer's attribution to avoid clutter when multiple base layers overlap ([#83](https://github.com/Zeroto521/foliplus/pull/83))
+- `ScaleControl`: added `unit` parameter (`"metric"` / `"imperial"`) to control the unit system of the scale bar ([#88](https://github.com/Zeroto521/foliplus/pull/88))
 
 ### Changed
 
