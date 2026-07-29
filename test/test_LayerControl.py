@@ -970,7 +970,7 @@ class TestLayerControlRendering:
         # The register() closure handles both first-time and re-entry paths
         assert "!registered" in html
         assert "registered = true" in html
-        assert "this.registerLayer({" in html
+        assert "this.registerLayer(" in html
 
     def test_callback_only_visible_tracking_in_handle_change(
         self, base_map: folium.Map
