@@ -1346,10 +1346,10 @@
         return;
       }
 
-      // Bring the measure layer to the front so it's always on top
-      // when the user activates a measurement tool, even if the layer
-      // was previously hidden and re-shown at a lower z-order.
-      this.layers.bringToFront();
+      // Re-register the measure layer so it's visible and on top when the user
+      // activates a measurement tool, even if the layer was previously
+      // hidden or re-ordered in the LayerControl panel.
+      this.layers.register();
 
       this.cleanMapEvents();
       this.currentMode = mode;

@@ -227,13 +227,13 @@ class TestMeasureControlRendering:
         assert "foliplus.buildPopupHtml" in html
 
     def test_lazy_register_after_finish(self, base_map: folium.Map):
-        """Distance mode registers on first click via mainLayer.addLayer, not on finishDist."""
+        """Distance mode registers on first click via mainLayer.addLayer, and re-registers on tool select."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # register() is handled by mainLayer.addLayer override in LayerControl.js,
-        # not explicitly called in MeasureControl.js
+        # register() is called explicitly in setMode() when activating a tool,
+        # and also via mainLayer.addLayer override on first click in distance mode
         assert "this.layers.unregister()" in html or "this.layers.destroy()" in html
-        assert "this.layers.register()" not in html
+        assert "this.layers.register()" in html
 
     def test_click_cooldown(self, base_map: folium.Map):
         """Click cooldown constant is defined."""
@@ -419,10 +419,10 @@ class TestMeasureControlRendering:
         assert "injectDelIcon" not in html
 
     def test_bring_layer_to_front_on_tool_select(self, base_map: folium.Map):
-        """Tool select calls bringLayerToFront to keep measure layer on top."""
+        """Tool select calls register() to re-show the measure layer on top."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.layers.bringToFront()" in html
+        assert "this.layers.register()" in html
 
     # ── Finish animation tests ──
 
