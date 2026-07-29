@@ -276,20 +276,17 @@
       }
     }
 
-    /** Resolve label styling from CSS custom properties (cached). */
+    /** Resolve label styling from CSS custom properties (cached once). */
     resolveLabelStyle() {
       if (this.cachedLabelStyle) return this.cachedLabelStyle;
-      const ctrlEl = this.ui?.container;
-      const cssVal = (prop, fallback) =>
-        ctrlEl
-          ? getComputedStyle(ctrlEl).getPropertyValue(prop).trim() || fallback
-          : fallback;
+      const cs = getComputedStyle(this.ui.container);
+      const val = (prop) => cs.getPropertyValue(prop).trim();
 
       this.cachedLabelStyle = {
-        font: `${cssVal("--heatmap-label-font-weight")} ${cssVal("--heatmap-label-font-size")} ${cssVal("--heatmap-label-font-family")}`,
-        color: cssVal("--heatmap-label-color"),
-        stroke: cssVal("--heatmap-label-stroke-color"),
-        strokeWidth: parseFloat(cssVal("--heatmap-label-stroke-width")),
+        font: `${val("--heatmap-label-font-weight")} ${val("--heatmap-label-font-size")} ${val("--heatmap-label-font-family")}`,
+        color: val("--heatmap-label-color"),
+        stroke: val("--heatmap-label-stroke-color"),
+        strokeWidth: parseFloat(val("--heatmap-label-stroke-width")),
       };
       return this.cachedLabelStyle;
     }
@@ -370,7 +367,8 @@
 
     getPointValue(marker) {
       if (this.currentAgg === "count") return 1;
-      const key = this.currentField === CONST.FIELD_AUTO ? this.autoFieldKey : this.currentField;
+      const key =
+        this.currentField === CONST.FIELD_AUTO ? this.autoFieldKey : this.currentField;
       const val = this.readMarkerField(marker, key);
       if (val === undefined || isNaN(val)) {
         if (!this.valueFallbackWarned) {
@@ -460,8 +458,6 @@
 
     // --- Hexagon Rendering ---
     renderHexagons() {
-      // Invalidate label style cache — will be re-read on next redraw
-      this.cachedLabelStyle = null;
       if (!this.map || !this.map._container) return;
       if (!this.selectedLayerId) {
         this.clearHeatmapCanvas();
@@ -1086,7 +1082,10 @@
         );
       });
 
-      if (fields.includes(this.m.currentField) || this.m.currentField === CONST.FIELD_AUTO)
+      if (
+        fields.includes(this.m.currentField) ||
+        this.m.currentField === CONST.FIELD_AUTO
+      )
         this.fieldSelect.value = this.m.currentField;
       else {
         this.m.currentField = CONST.FIELD_AUTO;
@@ -1238,7 +1237,10 @@
 
     syncSelect(el, value) {
       el.value = value;
-      el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value || value === CONST.FIELD_AUTO);
+      el.classList.toggle(
+        CONST.CLASSES.CLASS_PLACEHOLDER,
+        !value || value === CONST.FIELD_AUTO,
+      );
     }
   }
 
