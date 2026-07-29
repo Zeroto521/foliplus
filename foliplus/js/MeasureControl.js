@@ -1475,12 +1475,16 @@
         },
       ];
       btnConfigs.forEach(({ mode, title, svg }) => {
-        foliplus.dom.el("button", {
-          class: "foliplus-tool-btn",
-          "data-mode": mode,
-          title,
-          parent: toolBar,
-        }, { html: svg });
+        foliplus.dom.el(
+          "button",
+          {
+            class: "foliplus-tool-btn",
+            "data-mode": mode,
+            title,
+            parent: toolBar,
+          },
+          { html: svg },
+        );
       });
       this.m.toolBtns = toolBar.querySelectorAll(CONST.SEL.TOOL_BTN);
 
