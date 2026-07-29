@@ -1477,12 +1477,7 @@
       btnConfigs.forEach(({ mode, title, svg }) => {
         foliplus.dom.el(
           "button",
-          {
-            class: "foliplus-tool-btn",
-            "data-mode": mode,
-            title,
-            parent: toolBar,
-          },
+          { class: "foliplus-tool-btn", "data-mode": mode, title, parent: toolBar },
           { html: svg },
         );
       });
