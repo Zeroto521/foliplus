@@ -182,6 +182,11 @@
 .foliplus-layer-ctrl svg.foliplus-drag-handle circle {
   fill: currentColor;
 }
+/* Shared solid fill for SVG dots/circles that need fill instead of stroke */
+:is(.foliplus-layer-ctrl, .foliplus-measure-ctrl) svg .solid {
+  fill: currentColor;
+  stroke: none;
+}
 
 /* ── Unified Component Button Reset ──
   Base reset for all foliplus buttons. */
