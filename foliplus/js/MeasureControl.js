@@ -888,6 +888,7 @@
         this.map.off("mousemove", onMouseMove);
         this.map.off("contextmenu", onContext);
         clearPreviews();
+        this.layers.unregister();
         foliplus.hideHint(CONST.name);
       };
     }
