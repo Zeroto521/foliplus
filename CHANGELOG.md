@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v0.3.0] (2026-08-01)
+
 ### Added
 
 - `LayerControl`/`MeasureControl`/`HeatmapControl`: comprehensive layer management API overhaul — unified `createLayers`/`createCanvas` return surface ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35), [#38](https://github.com/Zeroto521/foliplus/pull/38), [#39](https://github.com/Zeroto521/foliplus/pull/39), [#48](https://github.com/Zeroto521/foliplus/pull/48), [#53](https://github.com/Zeroto521/foliplus/pull/53), [#83](https://github.com/Zeroto521/foliplus/pull/83), [#87](https://github.com/Zeroto521/foliplus/pull/87))
