@@ -1,24 +1,32 @@
-(function() {
+(function () {
+  const CONST = {
+    name: "ExportControl",
+    position: "{{ this.position }}",
+    CROP: {
+      MIN_SIZE: 40,
+      PADDING_RATIO: 0.25,
+    },
+    STORAGE: {
+      KEY: "foliplus_export_rect",
+    },
+    URL_REVOKE_DELAY: 10000,
+    CLASSES: {
+      COLLAPSED: "collapsed",
+      EXPANDED: "expanded",
+      EXPORT_MODE: "foliplus-export-mode",
+    },
+  };
+
   // ==================== Runtime Guard ====================
-  if (!window.foliplus || !window.foliplus.SVGs) {
-    console.error('[ExportControl] foliplus runtime not found, plugin disabled.');
+  const foliplus = window.foliplus || {};
+  if (!foliplus || !foliplus.SVGs) {
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
-  // ==================== Constants ====================
-  const CONST = {
-    CROP_MIN_SIZE: 40,
-    HINT_ERROR_DURATION: 5000,
-    HINT_SUCCESS_DURATION: 4000,
-    URL_REVOKE_DELAY: 10000,
-    DEFAULT_SCALE: window.devicePixelRatio || 1,
-    STORAGE_KEY: '_export_crop_rect',
-    CROP_PADDING_RATIO: 0.25,
-  };
-
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
-  const _ = (k) => (window.foliplus && window.foliplus.gt) ? window.foliplus.gt(k) : k;
+  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   const SVGS = {
     CAMERA: `
@@ -41,10 +49,10 @@
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="7 10 12 15 17 10"/>
         <line x1="12" y1="15" x2="12" y2="3"/>
-      </svg>`
+      </svg>`,
   };
 
-  window.foliplus.registerHintIcon('export', SVGS.CAMERA);
+  window.foliplus.registerHintIcon("export", SVGS.CAMERA);
 
   // ==================== CORS Pre-setup ====================
   // Set crossOrigin on ALL existing TileLayers so tiles load with CORS
@@ -53,18 +61,18 @@
   // toBlob() will return null (blank image).
   //
   // We also intercept future layer additions to set crossOrigin.
-  map.eachLayer(layer => {
+  map.eachLayer((layer) => {
     if (layer instanceof L.TileLayer && !layer.options.crossOrigin) {
-      layer.options.crossOrigin = 'anonymous';
+      layer.options.crossOrigin = "anonymous";
       if (map.hasLayer(layer)) {
         map.removeLayer(layer);
         map.addLayer(layer);
       }
     }
   });
-  map.on('layeradd', e => {
+  map.on("layeradd", (e) => {
     if (e.layer instanceof L.TileLayer && !e.layer.options.crossOrigin) {
-      e.layer.options.crossOrigin = 'anonymous';
+      e.layer.options.crossOrigin = "anonymous";
     }
   });
 
@@ -90,7 +98,7 @@
     // Get the first active TileLayer on the map
     _getTileLayer() {
       let tileLayer = null;
-      this.map.eachLayer(l => {
+      this.map.eachLayer((l) => {
         if (l instanceof L.TileLayer && this.map.hasLayer(l)) tileLayer = l;
       });
       return tileLayer;
@@ -101,8 +109,8 @@
     _calcTiles(tileLayer, bounds, zoom) {
       const crs = this.map.options.crs || L.CRS.EPSG3857;
       const tileSize = tileLayer.options.tileSize || 256;
-      const subdomains = tileLayer.options.subdomains || 'abc';
-      const urlTemplate = tileLayer._url || '';
+      const subdomains = tileLayer.options.subdomains || "abc";
+      const urlTemplate = tileLayer._url || "";
 
       // Get bounds in EPSG:3857
       const nw = crs.latLngToPoint(L.latLng(bounds.nw.lat, bounds.nw.lng), zoom);
@@ -123,16 +131,30 @@
           if (tx < 0 || ty < 0 || tx >= maxTile || ty >= maxTile) continue;
           // Build URL
           let url = urlTemplate;
-          const subIdx = ((tx + ty) % (typeof subdomains === 'string' ? subdomains.length : 1));
-          const sub = typeof subdomains === 'string' ? subdomains[subIdx] : subdomains[0];
-          url = url.replace('{s}', sub).replace('{x}', tx).replace('{y}', ty).replace('{z}', zoom);
+          const subIdx =
+            (tx + ty) % (typeof subdomains === "string" ? subdomains.length : 1);
+          const sub =
+            typeof subdomains === "string" ? subdomains[subIdx] : subdomains[0];
+          url = url
+            .replace("{s}", sub)
+            .replace("{x}", tx)
+            .replace("{y}", ty)
+            .replace("{z}", zoom);
           // Also handle {r} for retina — Leaflet replaces with @2x on retina
           const isRetina = window.devicePixelRatio > 1;
-          url = url.replace('{r}', isRetina ? '@2x' : '');
+          url = url.replace("{r}", isRetina ? "@2x" : "");
           // Tile pixel position within the container viewport at this zoom
           const tileLeft = tx * tileSize;
           const tileTop = ty * tileSize;
-          tiles.push({ x: tx, y: ty, z: zoom, url, left: tileLeft, top: tileTop, size: tileSize });
+          tiles.push({
+            x: tx,
+            y: ty,
+            z: zoom,
+            url,
+            left: tileLeft,
+            top: tileTop,
+            size: tileSize,
+          });
         }
       }
       return tiles;
@@ -141,14 +163,17 @@
     async render(rect, scale, bg, geoBounds) {
       const sw = Math.round(rect.width * scale);
       const sh = Math.round(rect.height * scale);
-      if (sw < 1 || sh < 1) throw new Error('Crop area too small');
+      if (sw < 1 || sh < 1) throw new Error("Crop area too small");
 
-      const canvas = document.createElement('canvas');
+      const canvas = document.createElement("canvas");
       canvas.width = sw;
       canvas.height = sh;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext("2d");
 
-      if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, sw, sh); }
+      if (bg) {
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, sw, sh);
+      }
 
       const cw = rect.width * scale;
       const ch = rect.height * scale;
@@ -159,8 +184,8 @@
       // Layer 1: Tiles — If geo bounds are available, compute tile
       // coordinates ourselves so we can export areas beyond the viewport.
       // Otherwise fall back to DOM images.
-      let imgOk = 0, imgFail = 0;
-
+      let imgOk = 0,
+        imgFail = 0;
 
       if (geoBounds && geoBounds.nw) {
         const tileLayer = this._getTileLayer();
@@ -188,64 +213,91 @@
             const dh = tile.size * scale;
             if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
             // Also skip tiles far outside the export area
-            if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
-            if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height) continue;
+            if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top)
+              continue;
+            if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height)
+              continue;
 
             try {
-              const resp = await fetch(tile.url, { mode: 'cors', cache: 'force-cache' });
-              if (!resp.ok) { imgFail++; continue; }
+              const resp = await fetch(tile.url, {
+                mode: "cors",
+                cache: "force-cache",
+              });
+              if (!resp.ok) {
+                imgFail++;
+                continue;
+              }
               const blob = await resp.blob();
               const bitmap = await createImageBitmap(blob);
               ctx.drawImage(bitmap, dx, dy, dw, dh);
               bitmap.close();
               imgOk++;
-            } catch { imgFail++; }
+            } catch {
+              imgFail++;
+            }
           }
         }
       } else {
         // Fallback: use DOM images (original approach)
         const uniqueSrc = new Set();
-        for (const img of this.container.querySelectorAll('img')) {
+        for (const img of this.container.querySelectorAll("img")) {
           if (img.src && img.complete && img.naturalWidth) uniqueSrc.add(img.src);
         }
         for (const src of uniqueSrc) {
-          const el = [...this.container.querySelectorAll('img')].find(
-            i => i.src === src && i.complete && i.naturalWidth);
-          if (!el) { imgFail++; continue; }
+          const el = [...this.container.querySelectorAll("img")].find(
+            (i) => i.src === src && i.complete && i.naturalWidth,
+          );
+          if (!el) {
+            imgFail++;
+            continue;
+          }
           const r = el.getBoundingClientRect();
           const l = r.left - contRect.left;
           const t = r.top - contRect.top;
           const w = el.naturalWidth || r.width || 256;
           const h = el.naturalHeight || r.height || 256;
-          if (w < 1 || h < 1) { imgFail++; continue; }
+          if (w < 1 || h < 1) {
+            imgFail++;
+            continue;
+          }
           const dx = (l - rect.left) * scale;
           const dy = (t - rect.top) * scale;
           const dw = (r.width || w) * scale;
           const dh = (r.height || h) * scale;
-          if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) { imgFail++; continue; }
+          if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) {
+            imgFail++;
+            continue;
+          }
           try {
-            const resp = await fetch(src, { mode: 'cors', cache: 'force-cache' });
-            if (!resp.ok) { imgFail++; continue; }
+            const resp = await fetch(src, { mode: "cors", cache: "force-cache" });
+            if (!resp.ok) {
+              imgFail++;
+              continue;
+            }
             const blob = await resp.blob();
             const bitmap = await createImageBitmap(blob);
             ctx.drawImage(bitmap, dx, dy, dw, dh);
             bitmap.close();
             imgOk++;
-          } catch { imgFail++; }
+          } catch {
+            imgFail++;
+          }
         }
       }
 
-      console.log('[Export] images drawn:', imgOk, 'fail:', imgFail);
+      console.warn(`[${CONST.name}] images drawn: ${imgOk}, fail: ${imgFail}`);
 
       // Layer 2: SVG overlay — search ALL panes for SVG elements.
       // Leaflet's SVG layers have viewBox = "0 0 <w> <h>" and paths
       // are positioned in container-relative pixel coordinates.
       // We serialize each SVG, set explicit width/height (keeping viewBox),
       // then crop to the export area.
-      const panes = this.container.querySelectorAll('.leaflet-map-pane [class*="pane"]');
+      const panes = this.container.querySelectorAll(
+        '.leaflet-map-pane [class*="pane"]',
+      );
       let svgCount = 0;
       for (const pane of panes) {
-        const svgEl = pane.querySelector('svg');
+        const svgEl = pane.querySelector("svg");
         if (!svgEl) continue;
         const svgRect = svgEl.getBoundingClientRect();
         const svgL = svgRect.left - contRect.left;
@@ -253,39 +305,47 @@
         if (svgRect.width < 1 || svgRect.height < 1) continue;
 
         const clone = svgEl.cloneNode(true);
-        clone.removeAttribute('style');
+        clone.removeAttribute("style");
         // Keep viewBox, set width/height to actual display size
-        clone.setAttribute('width', String(svgRect.width));
-        clone.setAttribute('height', String(svgRect.height));
+        clone.setAttribute("width", String(svgRect.width));
+        clone.setAttribute("height", String(svgRect.height));
 
         let src = new XMLSerializer().serializeToString(clone);
         if (!src.includes('xmlns="http://www.w3.org/2000/svg"')) {
-          src = src.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+          src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
         }
-        console.log('[Export] SVG pane:', pane.className, 'len:', src.length);
+        console.warn(`[${CONST.name}] SVG pane: ${pane.className}, len: ${src.length}`);
         if (src.length < 100) continue;
 
-        const blob = new Blob([src], { type: 'image/svg+xml;charset=utf-8' });
+        const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         try {
           const svgImg = await new Promise((resolve, reject) => {
             const i = new Image();
             i.onload = () => resolve(i);
-            i.onerror = () => reject(new Error('SVG load failed'));
+            i.onerror = () => reject(new Error("SVG load failed"));
             i.src = url;
           });
           // Crop to export rect in the SVG's coordinate space:
           // The SVG is positioned at (svgL, svgT) within the container.
           // We want to extract (rect.left - svgL, rect.top - svgT, rect.w, rect.h).
-          ctx.drawImage(svgImg,
-            rect.left - svgL, rect.top - svgT, rect.width, rect.height,
-            0, 0, sw, sh);
+          ctx.drawImage(
+            svgImg,
+            rect.left - svgL,
+            rect.top - svgT,
+            rect.width,
+            rect.height,
+            0,
+            0,
+            sw,
+            sh,
+          );
           svgCount++;
         } finally {
           URL.revokeObjectURL(url);
         }
       }
-      console.log('[Export] SVGs drawn:', svgCount);
+      console.warn(`[${CONST.name}] SVGs drawn: ${svgCount}`);
 
       // Layer 3: Markers — draw each element with background-image
       // direct sprite cropping via createImageBitmap (always origin-clean).
@@ -300,91 +360,114 @@
       //
       // Collect drawable marker elements (roots + sub-elements with bg)
       const drawableEls = [];
-      const mp = this.container.querySelector('.leaflet-marker-pane');
-      console.log('[Export] marker-pane found:', !!mp, '| container:', this.container.className);
+      const mp = this.container.querySelector(".leaflet-marker-pane");
+      console.warn(
+        `[${CONST.name}] marker-pane found: ${!!mp} | container: ${this.container.className}`,
+      );
       const markerRoots = mp
-        ? mp.querySelectorAll('.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]')
-        : this.container.querySelectorAll('.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]');
-      console.log('[Export] marker roots found:', markerRoots.length);
+        ? mp.querySelectorAll(
+            '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
+          )
+        : this.container.querySelectorAll(
+            '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
+          );
+      console.warn(`[${CONST.name}] marker roots found: ${markerRoots.length}`);
       for (const root of markerRoots) {
         drawableEls.push(root);
-        for (const sub of root.querySelectorAll('*')) {
+        for (const sub of root.querySelectorAll("*")) {
           const scs = window.getComputedStyle(sub);
-          if (scs.backgroundImage && scs.backgroundImage.includes('url(') && scs.backgroundImage !== 'none') {
+          if (
+            scs.backgroundImage &&
+            scs.backgroundImage.includes("url(") &&
+            scs.backgroundImage !== "none"
+          ) {
             drawableEls.push(sub);
           }
         }
       }
-      console.log('[Export] total drawable marker elements:', drawableEls.length);
+      console.warn(
+        `[${CONST.name}] total drawable marker elements: ${drawableEls.length}`,
+      );
       // First pass: load unique sprites
       const spriteMap = new Map();
       const loadQueue = [];
       for (const el of drawableEls) {
         const cs = window.getComputedStyle(el);
         const bg = cs.backgroundImage;
-        if (!bg || bg === 'none') continue;
+        if (!bg || bg === "none") continue;
         const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-        if (m && !m[1].startsWith('data:') && !spriteMap.has(m[1])) {
+        if (m && !m[1].startsWith("data:") && !spriteMap.has(m[1])) {
           const url = m[1];
           spriteMap.set(url, null);
           loadQueue.push(
-            fetch(url, { mode: 'cors', cache: 'force-cache' })
-              .then(r => r.ok ? r.blob() : null)
-              .then(blob => blob ? createImageBitmap(blob) : null)
-              .then(bmp => spriteMap.set(url, bmp))
-              .catch(() => {})
+            fetch(url, { mode: "cors", cache: "force-cache" })
+              .then((r) => (r.ok ? r.blob() : null))
+              .then((blob) => (blob ? createImageBitmap(blob) : null))
+              .then((bmp) => spriteMap.set(url, bmp))
+              .catch(() => {}),
           );
         }
       }
       await Promise.all(loadQueue);
       // Second pass: draw sprite backgrounds
-      let markerOk = 0, markerFail = 0;
+      let markerOk = 0,
+        markerFail = 0;
       // Store drawn marker root positions for FontAwesome overlay
       const drawnMarkers = []; // {dx, dy, dw, dh, root}
       for (const el of drawableEls) {
         const r = el.getBoundingClientRect();
         const l = r.left - contRect.left;
         const t = r.top - contRect.top;
-        const w = r.width; const h = r.height;
+        const w = r.width;
+        const h = r.height;
         if (w < 1 || h < 1) continue;
         const dx = (l - rect.left) * scale;
         const dy = (t - rect.top) * scale;
-        const dw = w * scale; const dh = h * scale;
+        const dw = w * scale;
+        const dh = h * scale;
         if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
         const cs = window.getComputedStyle(el);
         const bg = cs.backgroundImage;
-        if (!bg || bg === 'none') continue;
+        if (!bg || bg === "none") continue;
         const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
         if (!m) continue;
         const sprite = spriteMap.get(m[1]);
-        if (!sprite) { markerFail++; continue; }
-        const bgs = cs.backgroundSize || 'auto';
+        if (!sprite) {
+          markerFail++;
+          continue;
+        }
+        const bgs = cs.backgroundSize || "auto";
         const bgsParts = bgs.trim().split(/\s+/);
         let cssBgW, cssBgH;
-        if (bgs === 'auto' || bgs === 'auto auto') {
+        if (bgs === "auto" || bgs === "auto auto") {
           const dpr = window.devicePixelRatio || 1;
           cssBgW = sprite.width / dpr;
           cssBgH = sprite.height / dpr;
-        } else if (bgs.includes('%')) {
-          cssBgW = w * (parseFloat(bgsParts[0]) || 100) / 100;
-          cssBgH = h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100) / 100;
+        } else if (bgs.includes("%")) {
+          cssBgW = (w * (parseFloat(bgsParts[0]) || 100)) / 100;
+          cssBgH = (h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100)) / 100;
         } else {
           cssBgW = parseFloat(bgsParts[0]) || sprite.width;
           cssBgH = parseFloat(bgsParts[1] || bgsParts[0]) || sprite.height;
         }
         const ratioX = sprite.width / cssBgW;
         const ratioY = sprite.height / cssBgH;
-        const bp = cs.backgroundPosition || '0 0';
+        const bp = cs.backgroundPosition || "0 0";
         const bpParts = bp.trim().split(/\s+/);
         const sx = Math.abs(parseFloat(bpParts[0]) || 0) * ratioX;
         const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
         const sw = w * ratioX;
         const sh = h * ratioY;
-        if (sx + sw > sprite.width || sy + sh > sprite.height) { markerFail++; continue; }
+        if (sx + sw > sprite.width || sy + sh > sprite.height) {
+          markerFail++;
+          continue;
+        }
         try {
           ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
           markerOk++;
-        } catch { markerFail++; }
+        } catch {
+          markerFail++;
+        }
       }
 
       // Layer 3b: FontAwesome icons — draw ::before pseudo-element text
@@ -394,30 +477,31 @@
         const r = root.getBoundingClientRect();
         const l = r.left - contRect.left;
         const t = r.top - contRect.top;
-        const w = r.width; const h = r.height;
+        const w = r.width;
+        const h = r.height;
         if (w < 1 || h < 1) continue;
         const dx = (l - rect.left) * scale;
         const dy = (t - rect.top) * scale;
-        const dw = w * scale; const dh = h * scale;
+        const dw = w * scale;
+        const dh = h * scale;
         if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
 
         // Find the <i> icon element inside the marker
-        const iconEl = root.querySelector('i');
+        const iconEl = root.querySelector("i");
         if (!iconEl) continue;
 
         // Read ::before pseudo-element styles
-        const before = window.getComputedStyle(iconEl, '::before');
+        const before = window.getComputedStyle(iconEl, "::before");
         const content = before.content;
-        console.log('[Export] FA icon:', iconEl.className, 'content:', content,
-          'fontFamily:', before.fontFamily,
-          'fontSize:', before.fontSize,
-          'color:', before.color);
+        console.warn(
+          `[${CONST.name}] FA icon: ${iconEl.className} content: ${content} fontFamily: ${before.fontFamily} fontSize: ${before.fontSize} color: ${before.color}`,
+        );
 
         // FontAwesome uses CSS content like "\f276" for glyph codepoints.
         // Browser returns content as '"\\f276"' (quoted + escaped).
-        let iconText = '';
-        if (content && content !== 'none') {
-          const raw = content.replace(/['"]/g, '');  // "\\f276" -> \\f276
+        let iconText = "";
+        if (content && content !== "none") {
+          const raw = content.replace(/['"]/g, ""); // "\\f276" -> \\f276
           // Try direct unicode (FontAwesome 5+ ligature mode)
           if (raw.length === 1) {
             iconText = raw;
@@ -430,20 +514,22 @@
           // Try '\\XXXX' (double-escaped from getComputedStyle)
           const match2 = raw.match(/^\\\\f([0-9a-fA-F]+)/);
           if (match2) {
-            iconText = String.fromCharCode(parseInt('f' + match2[1], 16));
+            iconText = String.fromCharCode(parseInt("f" + match2[1], 16));
           }
         }
-        console.log('[Export] FA parsed iconText:', JSON.stringify(iconText), 'length:', iconText.length);
+        console.warn(
+          `[${CONST.name}] FA parsed iconText: ${JSON.stringify(iconText)} length: ${iconText.length}`,
+        );
 
         // Get icon styles from the <i> element (font-family, size, color)
         const iconCS = window.getComputedStyle(iconEl);
         let fontSize = parseFloat(iconCS.fontSize) || 14;
-        let fontFamily = iconCS.fontFamily || 'FontAwesome';
-        const color = iconCS.color || '#fff';
+        let fontFamily = iconCS.fontFamily || "FontAwesome";
+        const color = iconCS.color || "#fff";
         // FontAwesome 6 Solid requires weight 900; get it from ::before
-        let fontWeight = before.fontWeight || iconCS.fontWeight || '900';
-        if (fontWeight === 'normal') fontWeight = '400';
-        if (fontWeight === 'bold') fontWeight = '700';
+        let fontWeight = before.fontWeight || iconCS.fontWeight || "900";
+        if (fontWeight === "normal") fontWeight = "400";
+        if (fontWeight === "bold") fontWeight = "700";
 
         // getComputedStyle already returns the font-family as a CSS-safe value
         // (may include quotes for names with spaces). Do NOT add extra quotes.
@@ -471,19 +557,23 @@
         // Ensure font is loaded in canvas context before drawing.
         // FontAwesome loads asynchronously via @font-face; without this
         // wait, canvas fillText may render a blank/tofu glyph.
-        const fontSpec = fontWeight + ' ' + fontSize + 'px ' + fontFamily;
+        const fontSpec = fontWeight + " " + fontSize + "px " + fontFamily;
         try {
           await document.fonts.load(fontSpec);
-        } catch { /* font may not load, try drawing anyway */ }
+        } catch {
+          /* font may not load, try drawing anyway */
+        }
         // If still not loaded, wait for ready
         if (!document.fonts.check(fontSpec)) {
-          try { await document.fonts.ready; } catch {}
+          try {
+            await document.fonts.ready;
+          } catch {}
         }
 
         ctx.save();
         ctx.font = fontSpec;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
         ctx.fillStyle = color;
 
         // Center text in the icon area
@@ -493,7 +583,7 @@
         ctx.restore();
         faCount++;
       }
-      console.log('[Export] FontAwesome icons drawn:', faCount);
+      console.warn(`[${CONST.name}] FontAwesome icons drawn: ${faCount}`);
 
       return canvas;
     }
@@ -514,8 +604,11 @@
       this._loadSavedBounds();
 
       this.dragState = {
-        dragging: false, dragType: null,
-        startX: 0, startY: 0, startRect: null
+        dragging: false,
+        dragType: null,
+        startX: 0,
+        startY: 0,
+        startRect: null,
       };
 
       this._onMouseDown = this._onMouseDown.bind(this);
@@ -532,61 +625,70 @@
 
     _loadSavedBounds() {
       try {
-        const data = localStorage.getItem(CONST.STORAGE_KEY);
+        const data = localStorage.getItem(CONST.STORAGE.KEY);
         if (!data) return;
         const saved = JSON.parse(data);
         if (!saved || !saved.nw || !saved.se) return;
-        const nw = saved.nw, se = saved.se;
+        const nw = saved.nw,
+          se = saved.se;
         const validLat = nw.lat >= -90 && nw.lat <= 90 && se.lat >= -90 && se.lat <= 90;
-        const validLng = nw.lng >= -180 && nw.lng <= 180 && se.lng >= -180 && se.lng <= 180;
+        const validLng =
+          nw.lng >= -180 && nw.lng <= 180 && se.lng >= -180 && se.lng <= 180;
         if (!validLat || !validLng) return;
         const mapB = this.map.getBounds();
         const overlap =
-          nw.lat >= mapB.getSouth() && se.lat <= mapB.getNorth() &&
-          nw.lng <= mapB.getEast() && se.lng >= mapB.getWest();
+          nw.lat >= mapB.getSouth() &&
+          se.lat <= mapB.getNorth() &&
+          nw.lng <= mapB.getEast() &&
+          se.lng >= mapB.getWest();
         if (!overlap) return;
         this.savedBounds = saved;
       } catch (e) {
-        console.warn('[ExportControl] failed to load export bounds:', e);
+        console.warn(`[${CONST.name}] failed to load export bounds:`, e);
       }
     }
 
     _saveBounds(bounds) {
       try {
-        localStorage.setItem(CONST.STORAGE_KEY, JSON.stringify({
-          nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
-          se: { lat: bounds.se.lat, lng: bounds.se.lng },
-        }));
+        localStorage.setItem(
+          CONST.STORAGE.KEY,
+          JSON.stringify({
+            nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
+            se: { lat: bounds.se.lat, lng: bounds.se.lng },
+          }),
+        );
       } catch (e) {
-        console.warn('[ExportControl] failed to save export bounds:', e);
+        console.warn(`[${CONST.name}] failed to save export bounds:`, e);
       }
     }
 
     _showGlobalHint(text, duration, withLoadingIcon) {
-      const loading = withLoadingIcon && window.foliplus.SVGs
-        ? (window.foliplus.SVGs.LOADING + ' ') : '';
-      window.foliplus.showHint('export', loading + text, duration || 0);
+      const loading =
+        withLoadingIcon && window.foliplus.SVGs
+          ? window.foliplus.SVGs.LOADING + " "
+          : "";
+      window.foliplus.showHint("export", loading + text, duration || 0);
     }
 
     _showHintWithInfo(r, instruction) {
       window.foliplus.showHint(
-        'export',
-        `${_('export.label_size_prefix')}${Math.round(r.width)} × ${Math.round(r.height)} `
-        + `${_('export.label_size_suffix')}${instruction ? ` — ${instruction}` : ''}`,
-        0
+        "export",
+        `${_("ExportControl.label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ` +
+          `${_("ExportControl.label_size_suffix")}${instruction ? ` — ${instruction}` : ""}`,
+        0,
       );
     }
 
     _updateBoxStyle(el, r) {
-      el.style.left = r.left + 'px';
-      el.style.top = r.top + 'px';
-      el.style.width = r.width + 'px';
-      el.style.height = r.height + 'px';
+      el.style.left = r.left + "px";
+      el.style.top = r.top + "px";
+      el.style.width = r.width + "px";
+      el.style.height = r.height + "px";
       if (this.cropState && this.cropState.overlay) {
-        this.cropState.overlay.style.left = '0';
-        this.cropState.overlay.style.top = '0';
-        this.cropState.overlay.style.width = this.mapContainer.clientWidth + 'px';
-        this.cropState.overlay.style.height = this.mapContainer.clientHeight + 'px';
+        this.cropState.overlay.style.left = "0";
+        this.cropState.overlay.style.top = "0";
+        this.cropState.overlay.style.width = this.mapContainer.clientWidth + "px";
+        this.cropState.overlay.style.height = this.mapContainer.clientHeight + "px";
       }
     }
 
@@ -600,9 +702,11 @@
         // extend beyond the viewport if the user zoomed in.  The locked
         // state will use the original geoBounds directly.
         const nw = this.map.latLngToContainerPoint(
-          L.latLng(this.savedBounds.nw.lat, this.savedBounds.nw.lng));
+          L.latLng(this.savedBounds.nw.lat, this.savedBounds.nw.lng),
+        );
         const se = this.map.latLngToContainerPoint(
-          L.latLng(this.savedBounds.se.lat, this.savedBounds.se.lng));
+          L.latLng(this.savedBounds.se.lat, this.savedBounds.se.lng),
+        );
         box = {
           left: Math.min(nw.x, se.x),
           top: Math.min(nw.y, se.y),
@@ -611,93 +715,144 @@
         };
       } else if (this.lastScreenRect) {
         box = {
-          left: Math.max(0, Math.min(this.lastScreenRect.left, mapRect.width - CONST.CROP_MIN_SIZE)),
-          top: Math.max(0, Math.min(this.lastScreenRect.top, mapRect.height - CONST.CROP_MIN_SIZE)),
-          width: this.lastScreenRect.width, height: this.lastScreenRect.height
+          left: Math.max(
+            0,
+            Math.min(this.lastScreenRect.left, mapRect.width - CONST.CROP.MIN_SIZE),
+          ),
+          top: Math.max(
+            0,
+            Math.min(this.lastScreenRect.top, mapRect.height - CONST.CROP.MIN_SIZE),
+          ),
+          width: this.lastScreenRect.width,
+          height: this.lastScreenRect.height,
         };
-        box.width = Math.max(CONST.CROP_MIN_SIZE, Math.min(box.width, mapRect.width - box.left));
-        box.height = Math.max(CONST.CROP_MIN_SIZE, Math.min(box.height, mapRect.height - box.top));
+        box.width = Math.max(
+          CONST.CROP.MIN_SIZE,
+          Math.min(box.width, mapRect.width - box.left),
+        );
+        box.height = Math.max(
+          CONST.CROP.MIN_SIZE,
+          Math.min(box.height, mapRect.height - box.top),
+        );
       } else {
-        const padW = mapRect.width * CONST.CROP_PADDING_RATIO;
-        const padH = mapRect.height * CONST.CROP_PADDING_RATIO;
-        box = { left: padW, top: padH, width: mapRect.width - padW * 2, height: mapRect.height - padH * 2 };
+        const padW = mapRect.width * CONST.CROP.PADDING_RATIO;
+        const padH = mapRect.height * CONST.CROP.PADDING_RATIO;
+        box = {
+          left: padW,
+          top: padH,
+          width: mapRect.width - padW * 2,
+          height: mapRect.height - padH * 2,
+        };
       }
 
-      const overlay = document.createElement('div');
-      overlay.className = 'export-crop-overlay active';
-      overlay.style.left = '0'; overlay.style.top = '0';
-      overlay.style.width = this.mapContainer.clientWidth + 'px';
-      overlay.style.height = this.mapContainer.clientHeight + 'px';
-      this.mapContainer.appendChild(overlay);
-      this.mapContainer.classList.add('has-export-mode');
-      document.body.classList.add('has-export-mode');
+      const overlay = foliplus.dom.el("div", {
+        class: "foliplus-export-overlay active",
+        style: {
+          left: "0",
+          top: "0",
+          width: this.mapContainer.clientWidth + "px",
+          height: this.mapContainer.clientHeight + "px",
+        },
+        parent: this.mapContainer,
+      });
+      this.mapContainer.classList.add(CONST.CLASSES.EXPORT_MODE);
+      document.body.classList.add(CONST.CLASSES.EXPORT_MODE);
 
-      const cropBox = document.createElement('div');
-      cropBox.className = 'export-crop-box';
-      this.mapContainer.appendChild(cropBox);
-
-      ['tl', 'tr', 'bl', 'br', 't', 'b', 'l', 'r'].forEach(pos => {
-        const h = document.createElement('div');
-        h.className = `export-crop-handle ${pos}`;
-        h.dataset.pos = pos;
-        cropBox.appendChild(h);
+      const cropBox = foliplus.dom.el("div", {
+        class: "foliplus-export-box",
+        parent: this.mapContainer,
       });
 
-      const center = document.createElement('div');
-      center.className = 'export-crop-center';
-      cropBox.appendChild(center);
+      ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach((pos) => {
+        foliplus.dom.el("div", {
+          class: `foliplus-export-handle ${pos}`,
+          parent: cropBox,
+          "data-pos": pos,
+        });
+      });
+
+      foliplus.dom.el("div", {
+        class: "foliplus-export-center",
+        parent: cropBox,
+      });
 
       this.exportToolBar.innerHTML = `
-        <button class="confirm" title="${_('export.btn_confirm')}">${SVGS.CHECK}</button>
-        <button class="cancel" title="${_('export.btn_cancel')}">${window.foliplus.SVGs.CLOSE}</button>`;
-      this.exportCtrl.classList.remove('collapsed');
-      this.exportCtrl.classList.add('expanded');
+        <button class="confirm" title="${_("ExportControl.btn_confirm")}">${SVGS.CHECK}</button>
+        <button class="cancel" title="${_("ExportControl.btn_cancel")}">${window.foliplus.SVGs.CLOSE}</button>`;
+      this.exportCtrl.classList.remove(CONST.CLASSES.COLLAPSED);
+      this.exportCtrl.classList.add(CONST.CLASSES.EXPANDED);
 
-      this.cropState = { overlay, box: cropBox, rect: box, locked: false, actions: this.exportToolBar };
+      this.cropState = {
+        overlay,
+        box: cropBox,
+        rect: box,
+        locked: false,
+        actions: this.exportToolBar,
+      };
       this._updateBoxStyle(cropBox, box);
-      this._showHintWithInfo(box, _('export.hint_unlocked'));
-      cropBox.addEventListener('mousedown', this._onMouseDown);
-      this.exportToolBar.querySelector('.cancel').onclick = e => { e.stopPropagation(); this.removeCropBox(); };
-      this.exportToolBar.querySelector('.confirm').onclick = e => { e.stopPropagation(); this.lockCropBox(); };
-      document.addEventListener('keydown', this._onKeyDown);
+      this._showHintWithInfo(box, _("ExportControl.hint_unlocked"));
+      cropBox.addEventListener("mousedown", this._onMouseDown);
+      this.exportToolBar.querySelector(".cancel").onclick = (e) => {
+        e.stopPropagation();
+        this.removeCropBox();
+      };
+      this.exportToolBar.querySelector(".confirm").onclick = (e) => {
+        e.stopPropagation();
+        this.lockCropBox();
+      };
+      document.addEventListener("keydown", this._onKeyDown);
     }
 
     lockCropBox() {
       if (!this.cropState || this.cropState.locked) return;
       this.cropState.locked = true;
-      this.cropState.box.classList.add('locked');
+      this.cropState.box.classList.add("locked");
       const r = this.cropState.rect;
       // Save the exact geo bounds at lock time. These are the authoritative
       // coordinates used for export and restoration.
       if (!this.cropState._savedGeoBounds) {
         this.cropState._savedGeoBounds = {
           nw: this.map.containerPointToLatLng(L.point(r.left, r.top)),
-          se: this.map.containerPointToLatLng(L.point(r.left + r.width, r.top + r.height)),
+          se: this.map.containerPointToLatLng(
+            L.point(r.left + r.width, r.top + r.height),
+          ),
         };
       }
       this.cropState.geoBounds = this.cropState._savedGeoBounds;
       this.cropState.actions.innerHTML = `
-        <button class="confirm" title="${_('export.btn_export')}">${SVGS.DOWNLOAD}</button>
-        <button class="cancel" title="${_('export.btn_cancel')}">${window.foliplus.SVGs.CLOSE}</button>`;
-      this.cropState.actions.querySelector('.cancel').onclick = e => { e.stopPropagation(); this.unlockCropBox(); };
-      this.cropState.actions.querySelector('.confirm').onclick = e => { e.stopPropagation(); this.doExport(); };
-      this.map.on('move zoom', this._onMapChange);
+        <button class="confirm" title="${_("ExportControl.btn_export")}">${SVGS.DOWNLOAD}</button>
+        <button class="cancel" title="${_("ExportControl.btn_cancel")}">${window.foliplus.SVGs.CLOSE}</button>`;
+      this.cropState.actions.querySelector(".cancel").onclick = (e) => {
+        e.stopPropagation();
+        this.unlockCropBox();
+      };
+      this.cropState.actions.querySelector(".confirm").onclick = (e) => {
+        e.stopPropagation();
+        this.doExport();
+      };
+      this.map.on("move zoom", this._onMapChange);
       this._onMapChange();
-      this._showHintWithInfo(r, _('export.hint_locked'));
+      this._showHintWithInfo(r, _("ExportControl.hint_locked"));
     }
 
     unlockCropBox() {
       if (!this.cropState || !this.cropState.locked) return;
       this.cropState.locked = false;
-      this.cropState.box.classList.remove('locked');
-      this.map.off('move zoom', this._onMapChange);
+      this.cropState.box.classList.remove("locked");
+      this.map.off("move zoom", this._onMapChange);
       this.cropState.actions.innerHTML = `
-        <button class="confirm" title="${_('export.btn_confirm')}">${SVGS.CHECK}</button>
-        <button class="cancel" title="${_('export.btn_cancel')}">${window.foliplus.SVGs.CLOSE}</button>`;
-      this.cropState.actions.querySelector('.cancel').onclick = e => { e.stopPropagation(); this.removeCropBox(); };
-      this.cropState.actions.querySelector('.confirm').onclick = e => { e.stopPropagation(); this.lockCropBox(); };
+        <button class="confirm" title="${_("ExportControl.btn_confirm")}">${SVGS.CHECK}</button>
+        <button class="cancel" title="${_("ExportControl.btn_cancel")}">${window.foliplus.SVGs.CLOSE}</button>`;
+      this.cropState.actions.querySelector(".cancel").onclick = (e) => {
+        e.stopPropagation();
+        this.removeCropBox();
+      };
+      this.cropState.actions.querySelector(".confirm").onclick = (e) => {
+        e.stopPropagation();
+        this.lockCropBox();
+      };
       this._updateBoxStyle(this.cropState.box, this.cropState.rect);
-      this._showHintWithInfo(this.cropState.rect, _('export.hint_unlocked'));
+      this._showHintWithInfo(this.cropState.rect, _("ExportControl.hint_unlocked"));
     }
 
     removeCropBox() {
@@ -707,33 +862,42 @@
         this._saveBounds(this.cropState.geoBounds);
         this.savedBounds = this.cropState.geoBounds;
       }
-      this.mapContainer.classList.remove('has-export-mode');
-      document.body.classList.remove('has-export-mode');
-      document.removeEventListener('keydown', this._onKeyDown);
-      this.map.off('move zoom', this._onMapChange);
-      if (this.cropState.box) this.cropState.box.removeEventListener('mousedown', this._onMouseDown);
-      if (this.cropState.overlay?.parentNode) this.cropState.overlay.parentNode.removeChild(this.cropState.overlay);
-      if (this.cropState.box?.parentNode) this.cropState.box.parentNode.removeChild(this.cropState.box);
-      if (this.cropState.actions) this.cropState.actions.innerHTML = '';
-      if (this.exportCtrl) { this.exportCtrl.classList.remove('expanded'); this.exportCtrl.classList.add('collapsed'); }
+      this.mapContainer.classList.remove(CONST.CLASSES.EXPORT_MODE);
+      document.body.classList.remove(CONST.CLASSES.EXPORT_MODE);
+      document.removeEventListener("keydown", this._onKeyDown);
+      this.map.off("move zoom", this._onMapChange);
+      if (this.cropState.box)
+        this.cropState.box.removeEventListener("mousedown", this._onMouseDown);
+      if (this.cropState.overlay?.parentNode) this.cropState.overlay.remove();
+      if (this.cropState.box?.parentNode) this.cropState.box.remove();
+      if (this.cropState.actions) this.cropState.actions.innerHTML = "";
+      if (this.exportCtrl) {
+        this.exportCtrl.classList.remove(CONST.CLASSES.EXPANDED);
+        this.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
+      }
       this.cropState = null;
-      window.foliplus.hideHint('export');
+      window.foliplus.hideHint("export");
     }
 
     _onMouseDown(e) {
       if (this.cropState.locked) return;
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
       const target = e.target;
-      if (target.classList.contains('export-crop-handle')) {
+      if (target.classList.contains("foliplus-export-handle")) {
         this.dragState.dragType = target.dataset.pos;
-      } else if (target.classList.contains('export-crop-center') || target.classList.contains('export-crop-box')) {
-        this.dragState.dragType = 'move';
+      } else if (
+        target.classList.contains("foliplus-export-center") ||
+        target.classList.contains("foliplus-export-box")
+      ) {
+        this.dragState.dragType = "move";
       } else return;
       this.dragState.dragging = true;
-      this.dragState.startX = e.clientX; this.dragState.startY = e.clientY;
+      this.dragState.startX = e.clientX;
+      this.dragState.startY = e.clientY;
       this.dragState.startRect = Object.assign({}, this.cropState.rect);
-      document.addEventListener('mousemove', this._onMouseMove);
-      document.addEventListener('mouseup', this._onMouseUp);
+      document.addEventListener("mousemove", this._onMouseMove);
+      document.addEventListener("mouseup", this._onMouseUp);
     }
 
     _onMouseMove(e) {
@@ -744,50 +908,52 @@
       const startRect = this.dragState.startRect;
       const r = Object.assign({}, startRect);
       const type = this.dragState.dragType;
-      if (type === 'move') {
+      if (type === "move") {
         r.left = Math.max(0, Math.min(mapRect.width - r.width, startRect.left + dx));
         r.top = Math.max(0, Math.min(mapRect.height - r.height, startRect.top + dy));
       } else {
-        if (['tl', 'l', 'bl'].includes(type)) {
-          const maxDx = startRect.width - CONST.CROP_MIN_SIZE;
+        if (["tl", "l", "bl"].includes(type)) {
+          const maxDx = startRect.width - CONST.CROP.MIN_SIZE;
           const a = Math.max(-startRect.left, Math.min(dx, maxDx));
-          r.left = startRect.left + a; r.width = startRect.width - a;
+          r.left = startRect.left + a;
+          r.width = startRect.width - a;
         }
-        if (['tr', 'r', 'br'].includes(type)) {
+        if (["tr", "r", "br"].includes(type)) {
           const maxDx = mapRect.width - (startRect.left + startRect.width);
-          const minDx = CONST.CROP_MIN_SIZE - startRect.width;
+          const minDx = CONST.CROP.MIN_SIZE - startRect.width;
           const a = Math.max(minDx, Math.min(dx, maxDx));
           r.width = startRect.width + a;
         }
-        if (['tl', 't', 'tr'].includes(type)) {
-          const maxDy = startRect.height - CONST.CROP_MIN_SIZE;
+        if (["tl", "t", "tr"].includes(type)) {
+          const maxDy = startRect.height - CONST.CROP.MIN_SIZE;
           const a = Math.max(-startRect.top, Math.min(dy, maxDy));
-          r.top = startRect.top + a; r.height = startRect.height - a;
+          r.top = startRect.top + a;
+          r.height = startRect.height - a;
         }
-        if (['bl', 'b', 'br'].includes(type)) {
+        if (["bl", "b", "br"].includes(type)) {
           const maxDy = mapRect.height - (startRect.top + startRect.height);
-          const minDy = CONST.CROP_MIN_SIZE - startRect.height;
+          const minDy = CONST.CROP.MIN_SIZE - startRect.height;
           const a = Math.max(minDy, Math.min(dy, maxDy));
           r.height = startRect.height + a;
         }
       }
       this.cropState.rect = r;
       this._updateBoxStyle(this.cropState.box, r);
-      this._showHintWithInfo(r, _('export.hint_unlocked'));
+      this._showHintWithInfo(r, _("ExportControl.hint_unlocked"));
     }
 
     _onMouseUp() {
       this.dragState.dragging = false;
       this.dragState.dragType = null;
-      document.removeEventListener('mousemove', this._onMouseMove);
-      document.removeEventListener('mouseup', this._onMouseUp);
+      document.removeEventListener("mousemove", this._onMouseMove);
+      document.removeEventListener("mouseup", this._onMouseUp);
     }
 
     _onKeyDown(e) {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         if (this.cropState?.locked) this.unlockCropBox();
         else this.removeCropBox();
-      } else if (e.key === 'Enter') {
+      } else if (e.key === "Enter") {
         if (this.cropState && !this.cropState.locked) this.lockCropBox();
         else if (this.cropState?.locked) this.doExport();
       }
@@ -799,10 +965,15 @@
       const se = this.cropState.geoBounds.se;
       const tl = this.map.latLngToContainerPoint(L.latLng(nw.lat, nw.lng));
       const br = this.map.latLngToContainerPoint(L.latLng(se.lat, se.lng));
-      const newRect = { left: tl.x, top: tl.y, width: Math.abs(br.x - tl.x), height: Math.abs(br.y - tl.y) };
+      const newRect = {
+        left: tl.x,
+        top: tl.y,
+        width: Math.abs(br.x - tl.x),
+        height: Math.abs(br.y - tl.y),
+      };
       this.cropState.rect = newRect;
       this._updateBoxStyle(this.cropState.box, newRect);
-      this._showHintWithInfo(newRect, _('export.hint_locked'));
+      this._showHintWithInfo(newRect, _("ExportControl.hint_locked"));
     }
 
     doExport() {
@@ -813,61 +984,94 @@
       this.removeCropBox();
 
       let scaleValue = {{ this.scale }};
-      if (typeof scaleValue !== 'number' || isNaN(scaleValue)) scaleValue = CONST.DEFAULT_SCALE;
+      if (typeof scaleValue !== "number" || isNaN(scaleValue))
+        scaleValue = window.devicePixelRatio || 1;
       const bg = {{ '"' + this.background + '"' if this.background else "null" }};
 
-      this._showGlobalHint(_('export.status_exporting'), 0, true);
+      this._showGlobalHint(_("ExportControl.status_exporting"), 0, true);
 
       // Detect if crop area extends beyond the viewport.
       // Only enlarge container when absolutely necessary (crop > viewport).
       const vpW = this.mapContainer.clientWidth;
       const vpH = this.mapContainer.clientHeight;
-      const needsBigger = (
-        r.width > vpW * 1.02 || r.height > vpH * 1.02 ||
-        r.left < -vpW * 0.02 || r.top < -vpH * 0.02 ||
-        r.left + r.width > vpW * 1.02 || r.top + r.height > vpH * 1.02
-      );
+      const needsBigger =
+        r.width > vpW * 1.02 ||
+        r.height > vpH * 1.02 ||
+        r.left < -vpW * 0.02 ||
+        r.top < -vpH * 0.02 ||
+        r.left + r.width > vpW * 1.02 ||
+        r.top + r.height > vpH * 1.02;
 
       const doRender = () => {
-        const hideEls = this.mapContainer.querySelectorAll('.leaflet-control-container, .export-ctrl');
-        hideEls.forEach(el => { el.style.display = 'none'; });
+        const hideEls = this.mapContainer.querySelectorAll(
+          ".leaflet-control-container, .foliplus-export-ctrl",
+        );
+        hideEls.forEach((el) => {
+          el.style.display = "none";
+        });
 
         if (geoBounds && geoBounds.nw) {
-          const nw = this.map.latLngToContainerPoint(L.latLng(geoBounds.nw.lat, geoBounds.nw.lng));
-          const se = this.map.latLngToContainerPoint(L.latLng(geoBounds.se.lat, geoBounds.se.lng));
+          const nw = this.map.latLngToContainerPoint(
+            L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
+          );
+          const se = this.map.latLngToContainerPoint(
+            L.latLng(geoBounds.se.lat, geoBounds.se.lng),
+          );
           r.left = Math.min(nw.x, se.x);
           r.top = Math.min(nw.y, se.y);
           r.width = Math.abs(se.x - nw.x);
           r.height = Math.abs(se.y - nw.y);
         }
 
-        new LeafletRenderer(this.map).render(r, scaleValue, bg || undefined, geoBounds)
-          .then(canvas => {
-            hideEls.forEach(el => { el.style.display = ''; });
-            const prevImg = document.createElement('img');
-            prevImg.src = canvas.toDataURL('image/png');
-            prevImg.style.cssText = 'position:fixed;bottom:10px;right:10px;z-index:99999;max-width:400px;max-height:300px;border:2px solid red;background:#fff;box-shadow:0 0 20px rgba(0,0,0,.5)';
+        new LeafletRenderer(this.map)
+          .render(r, scaleValue, bg || undefined, geoBounds)
+          .then((canvas) => {
+            hideEls.forEach((el) => {
+              el.style.display = "";
+            });
+            const prevImg = document.createElement("img");
+            prevImg.src = canvas.toDataURL("image/png");
+            prevImg.style.cssText =
+              "position:fixed;bottom:10px;right:10px;z-index:99999;max-width:400px;max-height:300px;border:2px solid red;background:#fff;box-shadow:0 0 20px rgba(0,0,0,.5)";
             document.body.appendChild(prevImg);
             setTimeout(() => prevImg.remove(), 3000);
-            canvas.toBlob(blob => {
+            canvas.toBlob((blob) => {
               if (!blob) {
-                this._showGlobalHint(_('export.status_fail') + _('export.err_gen_fail'), CONST.HINT_ERROR_DURATION, false);
-                this.isExporting = false; return;
+                this._showGlobalHint(
+                  _("ExportControl.status_fail") + _("ExportControl.err_gen_fail"),
+                  foliplus.HINT_DURATION.LONG,
+                  false,
+                );
+                this.isExporting = false;
+                return;
               }
-              const link = document.createElement('a');
+              const link = document.createElement("a");
               const url = URL.createObjectURL(blob);
-              link.download = '{{ this.filename }}';
-              link.href = url; link.rel = 'noopener';
-              document.body.appendChild(link); link.click(); document.body.removeChild(link);
+              link.download = "{{ this.filename }}";
+              link.href = url;
+              link.rel = "noopener";
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
               setTimeout(() => URL.revokeObjectURL(url), CONST.URL_REVOKE_DELAY);
-              this._showGlobalHint(_('export.status_success'), CONST.HINT_SUCCESS_DURATION, false);
+              this._showGlobalHint(
+                _("ExportControl.status_success"),
+                foliplus.HINT_DURATION.LONG,
+                false,
+              );
               this.isExporting = false;
-            }, 'image/png');
+            }, "image/png");
           })
-          .catch(err => {
-            hideEls.forEach(el => { el.style.display = ''; });
-            console.error('[ExportControl] render failed:', err);
-            this._showGlobalHint(_('export.status_fail') + (err.message || ''), CONST.HINT_ERROR_DURATION, false);
+          .catch((err) => {
+            hideEls.forEach((el) => {
+              el.style.display = "";
+            });
+            console.error(`[${CONST.name}] render failed:`, err);
+            this._showGlobalHint(
+              _("ExportControl.status_fail") + (err.message || ""),
+              foliplus.HINT_DURATION.LONG,
+              false,
+            );
             this.isExporting = false;
           });
       };
@@ -875,10 +1079,10 @@
       if (needsBigger && geoBounds && geoBounds.nw) {
         const cropBounds = L.latLngBounds(
           L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
-          L.latLng(geoBounds.se.lat, geoBounds.se.lng)
+          L.latLng(geoBounds.se.lat, geoBounds.se.lng),
         );
         const savedStyles = {};
-        ['width','height','minHeight','maxHeight','overflow'].forEach(p => {
+        ["width", "height", "minHeight", "maxHeight", "overflow"].forEach((p) => {
           savedStyles[p] = this.mapContainer.style[p];
         });
         const savedCenter = this.map.getCenter();
@@ -888,19 +1092,19 @@
 
         const bigW = Math.max(vpW, r.left + r.width) + 200;
         const bigH = Math.max(vpH, r.top + r.height) + 200;
-        this.mapContainer.style.width = Math.ceil(bigW) + 'px';
-        this.mapContainer.style.height = Math.ceil(bigH) + 'px';
-        this.mapContainer.style.minHeight = Math.ceil(bigH) + 'px';
-        this.mapContainer.style.overflow = 'hidden';
+        this.mapContainer.style.width = Math.ceil(bigW) + "px";
+        this.mapContainer.style.height = Math.ceil(bigH) + "px";
+        this.mapContainer.style.minHeight = Math.ceil(bigH) + "px";
+        this.mapContainer.style.overflow = "hidden";
 
         const cropCenter = cropBounds.getCenter();
         this.map.invalidateSize(false);
-        this.map.once('moveend', () => {
+        this.map.once("moveend", () => {
           setTimeout(() => {
             doRender();
             setTimeout(() => {
               this.map.options.zoomAnimation = savedAnim;
-              Object.keys(savedStyles).forEach(p => {
+              Object.keys(savedStyles).forEach((p) => {
                 this.mapContainer.style[p] = savedStyles[p];
               });
               this.map.invalidateSize(false);
@@ -920,15 +1124,16 @@
   const exportManager = new ExportManager(map);
 
   const ControlClass = L.Control.extend({
-    onAdd: function() {
-      const pos = '{{ this.position }}';
-      const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl({
-        cssClass: 'export-ctrl',
-        toggleTitle: _('export.btn_title'),
-        toggleSvg: SVGS.CAMERA,
-        isLeft: pos.indexOf('left') >= 0,
-      });
-      toolBar.className = 'tool-bar export-crop-actions';
+    onAdd: function () {
+      const { container, ctrl, toolBar, toggleBtn } = window.foliplus.createFoldControl(
+        {
+          cssClass: "foliplus-export-ctrl",
+          toggleTitle: _("ExportControl.btn_title"),
+          toggleSvg: SVGS.CAMERA,
+          isLeft: CONST.position.indexOf("left") >= 0,
+        },
+      );
+      toolBar.classList.add("foliplus-export-actions");
       exportManager.attachUI(ctrl, toolBar);
       toggleBtn.onclick = () => {
         if (exportManager.cropState) {
@@ -939,11 +1144,22 @@
           requestAnimationFrame(() => {
             if (exportManager.cropState && !exportManager.cropState.locked) {
               exportManager.cropState._savedGeoBounds = {
-                nw: { lat: exportManager.savedBounds.nw.lat, lng: exportManager.savedBounds.nw.lng },
-                se: { lat: exportManager.savedBounds.se.lat, lng: exportManager.savedBounds.se.lng },
+                nw: {
+                  lat: exportManager.savedBounds.nw.lat,
+                  lng: exportManager.savedBounds.nw.lng,
+                },
+                se: {
+                  lat: exportManager.savedBounds.se.lat,
+                  lng: exportManager.savedBounds.se.lng,
+                },
               };
               exportManager.lockCropBox();
-              window.foliplus.showHint('export', _('export.hint_restore'), 3000, document.body, true);
+              window.foliplus.showHint(
+                "export",
+                _("ExportControl.hint_restore"),
+                3000,
+                true,
+              );
             }
           });
         } else {
@@ -952,11 +1168,12 @@
       };
       return container;
     },
-    onRemove: function() {
+    onRemove: function () {
       if (exportManager.cropState) exportManager.removeCropBox();
-      if (exportManager._onKeyDown) document.removeEventListener('keydown', exportManager._onKeyDown);
-    }
+      if (exportManager._onKeyDown)
+        document.removeEventListener("keydown", exportManager._onKeyDown);
+    },
   });
 
-  new ControlClass({ position: '{{ this.position }}' }).addTo(map);
+  new ControlClass({ position: CONST.position }).addTo(map);
 })();

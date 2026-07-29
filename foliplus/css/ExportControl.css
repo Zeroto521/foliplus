@@ -6,50 +6,57 @@
   --export-crop-center-size: var(--size-12);
   --export-action-btn-size: calc(var(--ctrl-size) - var(--space-xs));
   --export-action-btn-gap: var(--space-xs);
+
+  --z-index-info: 850;
+  --z-index-overlay: 11000;
+  --z-index-hint: 13000;
+  --z-index-toolbar: 15000;
+  --overlay-bg: rgba(0, 0, 0, var(--alpha-40));
+  --overlay-bg-dark: rgba(0, 0, 0, var(--alpha-50));
+  --text-secondary: var(--neutral-500);
+  --radius-xs: var(--size-2);
+  --alpha-40: 0.4;
 }
 
-/* ── Control Layers ── */
-
 /* Reset container locking when in export mode */
-.has-export-mode .leaflet-control-container,
-.has-export-mode .leaflet-top,
-.has-export-mode .leaflet-bottom {
+.foliplus-export-mode .leaflet-control-container,
+.foliplus-export-mode .leaflet-top,
+.foliplus-export-mode .leaflet-bottom {
   z-index: auto !important;
 }
 
 /* Highlight Leaflet controls during export */
-.has-export-mode .leaflet-control {
+.foliplus-export-mode .leaflet-control {
   z-index: calc(var(--z-index-overlay) + var(--z-index-control)) !important;
 }
 
 /* Info controls (scale, attribution) stay dim but visible */
-.has-export-mode .leaflet-control-scale,
-.has-export-mode .leaflet-control-attribution,
-.has-export-mode .leaflet-control-scale-line,
-.has-export-mode .leaflet-control-zoom-display {
+.foliplus-export-mode .leaflet-control-scale,
+.foliplus-export-mode .leaflet-control-attribution,
+.foliplus-export-mode .leaflet-control-scale-line,
+.foliplus-export-mode .leaflet-control-zoom-display {
   z-index: var(--z-index-info) !important;
 }
 
 /* Core components at top */
-.export-ctrl,
-.measure-ctrl {
+.foliplus-export-ctrl {
   z-index: var(--z-index-toolbar) !important;
 }
 
 /* Hint bar above overlay */
-.has-export-mode .map-hint {
+.foliplus-export-mode .map-hint {
   z-index: var(--z-index-hint) !important;
 }
 
 /* ── Container ── */
-.export-ctrl.expanded {
+.foliplus-export-ctrl.expanded {
   box-shadow:
     0 0 0 var(--border-thin) var(--input-focus-border),
     0 0 0 3px var(--input-focus-shadow);
 }
 
 /* ── Overlay ── */
-.export-crop-overlay {
+.foliplus-export-overlay {
   position: absolute;
   background: transparent;
   pointer-events: none;
@@ -58,7 +65,7 @@
 }
 
 /* ── Crop Box ── */
-.export-crop-box {
+.foliplus-export-box {
   position: absolute;
   border: var(--export-crop-border-width) dashed var(--accent-primary);
   background: transparent;
@@ -66,10 +73,10 @@
   z-index: calc(var(--z-index-overlay) + 1);
   box-sizing: border-box;
   box-shadow: 0 0 var(--size-16) var(--input-focus-shadow);
-  border-radius: var(--space-xs);
+  border-radius: var(--radius-xs);
 }
 
-.export-crop-box::before {
+.foliplus-export-box::before {
   content: "";
   position: absolute;
   /* Align mask edge to the border centerline to avoid visual offset. */
@@ -78,7 +85,7 @@
   box-shadow: 0 0 0 9999px var(--overlay-bg);
 }
 
-.export-crop-box.locked {
+.foliplus-export-box.locked {
   cursor: default;
   border-color: var(--accent-primary);
   border-style: solid;
@@ -86,12 +93,12 @@
   box-shadow: 0 0 var(--size-20) var(--input-focus-shadow);
 }
 
-.export-crop-box.locked::before {
+.foliplus-export-box.locked::before {
   box-shadow: 0 0 0 9999px var(--overlay-bg-dark);
 }
 
 /* ── Handles ── */
-.export-crop-handle {
+.foliplus-export-handle {
   position: absolute;
   width: var(--export-crop-handle-size);
   height: var(--export-crop-handle-size);
@@ -102,61 +109,61 @@
   pointer-events: auto;
   box-sizing: border-box;
 }
-.export-crop-handle.tl {
+.foliplus-export-handle.tl {
   top: calc(-0.5 * var(--export-crop-border-width));
   left: calc(-0.5 * var(--export-crop-border-width));
   transform: translate(-50%, -50%);
   cursor: nwse-resize;
 }
-.export-crop-handle.tr {
+.foliplus-export-handle.tr {
   top: calc(-0.5 * var(--export-crop-border-width));
   right: calc(-0.5 * var(--export-crop-border-width));
   transform: translate(50%, -50%);
   cursor: nesw-resize;
 }
-.export-crop-handle.bl {
+.foliplus-export-handle.bl {
   bottom: calc(-0.5 * var(--export-crop-border-width));
   left: calc(-0.5 * var(--export-crop-border-width));
   transform: translate(-50%, 50%);
   cursor: nesw-resize;
 }
-.export-crop-handle.br {
+.foliplus-export-handle.br {
   bottom: calc(-0.5 * var(--export-crop-border-width));
   right: calc(-0.5 * var(--export-crop-border-width));
   transform: translate(50%, 50%);
   cursor: nwse-resize;
 }
-.export-crop-handle.t {
+.foliplus-export-handle.t {
   top: calc(-0.5 * var(--export-crop-border-width));
   left: 50%;
   transform: translate(-50%, -50%);
   cursor: ns-resize;
 }
-.export-crop-handle.b {
+.foliplus-export-handle.b {
   bottom: calc(-0.5 * var(--export-crop-border-width));
   left: 50%;
   transform: translate(-50%, 50%);
   cursor: ns-resize;
 }
-.export-crop-handle.l {
+.foliplus-export-handle.l {
   left: calc(-0.5 * var(--export-crop-border-width));
   top: 50%;
   transform: translate(-50%, -50%);
   cursor: ew-resize;
 }
-.export-crop-handle.r {
+.foliplus-export-handle.r {
   right: calc(-0.5 * var(--export-crop-border-width));
   top: 50%;
   transform: translate(50%, -50%);
   cursor: ew-resize;
 }
 
-.export-crop-box.locked .export-crop-handle {
+.foliplus-export-box.locked .foliplus-export-handle {
   display: none;
 }
 
 /* ── Center Anchor ── */
-.export-crop-center {
+.foliplus-export-center {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -172,17 +179,17 @@
   pointer-events: auto;
   cursor: move;
 }
-.export-crop-box.locked .export-crop-center {
+.foliplus-export-box.locked .foliplus-export-center {
   display: none;
 }
 
 /* ── Actions ── */
-.export-crop-actions {
+.foliplus-export-actions {
   display: flex;
   gap: var(--export-action-btn-gap);
   align-items: center;
 }
-.export-crop-actions button {
+.foliplus-export-actions button {
   background: none;
   border: none;
   cursor: pointer;
@@ -195,12 +202,12 @@
   border-radius: var(--radius-xs);
   color: var(--text-secondary);
 }
-.export-crop-actions button:hover {
+.foliplus-export-actions button:hover {
   background: var(--panel-header-hover);
 }
-.export-crop-actions button.confirm {
+.foliplus-export-actions button.confirm {
   color: var(--accent-primary);
 }
-.export-crop-actions button.confirm:hover {
+.foliplus-export-actions button.confirm:hover {
   background: var(--accent-light);
 }

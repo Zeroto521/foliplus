@@ -47,10 +47,10 @@ class TestExportControlRendering:
         assert "LeafletRenderer" in html
         assert "exportManager" in html
         assert "ctrl-fold" in html
-        assert "STORAGE_KEY" in html
+        assert "STORAGE.KEY" in html
         assert "_saveBounds" in html
         assert "_loadSavedBounds" in html
-        assert "export-crop-actions" in html
+        assert "foliplus-export-actions" in html
 
     def test_custom_params_rendering(self, base_map: folium.Map):
         ExportControl(
@@ -69,10 +69,10 @@ class TestExportControlRendering:
         """Verify crop box structures: handles, center, toggle behavior."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "export-crop-handle" in html
-        assert "export-crop-center" in html
-        assert "export-crop-box" in html
-        assert "export-crop-overlay" in html
+        assert "foliplus-export-handle" in html
+        assert "foliplus-export-center" in html
+        assert "foliplus-export-box" in html
+        assert "foliplus-export-overlay" in html
         assert "showCropBox" in html
         assert "lockCropBox" in html
         assert "unlockCropBox" in html
