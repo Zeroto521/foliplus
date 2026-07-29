@@ -28,13 +28,12 @@
     });
 
   // 3. Early return only if logic is already initialized
-  if (foliplus._initialized) return;
-  foliplus._initialized = true;
-
-  // Private state (closure-scoped, not exposed on foliplus)
-  const hintIcons = {};
+  if (foliplus.isInitialized) return;
+  foliplus.isInitialized = true;
 
   // ==================== Constants ====================
+  // Private state (closure-scoped, not exposed on foliplus)
+  const hintIcons = {};
   const HINT = {
     BOTTOM_BASE: 20,
     STACK_GAP: 40,
@@ -52,17 +51,20 @@
     LONG: HINT.LONG,
     PERSIST: HINT.PERSIST,
   };
+
   foliplus.NOMINATIM = {
     URL: "https://nominatim.openstreetmap.org",
     FORMAT: "jsonv2",
     THROTTLE_MS: 1000,
     ZOOM: 18,
   };
+
   const PIN = {
     SIZE: [24, 36],
     ANCHOR: [12, 36],
     POPUP_ANCHOR: [0, -36],
   };
+
   const POPUP = {
     MAX_WIDTH: 300,
   };
@@ -73,6 +75,47 @@
     LEAFLET_BAR: "leaflet-bar leaflet-control",
     MAP_HINT: "foliplus-hint",
   };
+
+  /** Set of boolean attributes set as DOM properties (not setAttribute).
+ *  Empty string `""` is treated as `true` (setAttribute semantics). */
+  const BOOL_PROPS = new Set([
+    "checked", "selected", "disabled", "readOnly",
+    "indeterminate", "defaultChecked",
+  ]);
+
+  /** Set of non-boolean attributes set as DOM properties. */
+  const PROPS = new Set(["value", "defaultValue"]);
+
+  /**
+   * Set of attribute names that should be treated as event listeners.
+   * The value must be a function; it is assigned directly to `el[key]`.
+   */
+  const EVENTS = new Set([
+    "onclick",
+    "ondblclick",
+    "onchange",
+    "oninput",
+    "onmouseover",
+    "onmouseout",
+    "onkeydown",
+    "onkeyup",
+    "onkeypress",
+    "onsubmit",
+    "onfocus",
+    "onblur",
+    "onload",
+    "onerror",
+    "onwheel",
+    "onpointerdown",
+    "onpointermove",
+    "onpointerup",
+    "ontouchstart",
+    "ontouchmove",
+    "ontouchend",
+    "onmousedown",
+    "onmousemove",
+    "onmouseup",
+  ]);
 
   // --- SVG Icons ---
   foliplus.SVGs = {
@@ -465,50 +508,6 @@
   };
 
   // ==================== DOM Helpers ====================
-
-  /** Set of attributes set as DOM properties (not setAttribute). */
-  const _PROPS = new Set([
-    "value",
-    "checked",
-    "selected",
-    "disabled",
-    "readOnly",
-    "indeterminate",
-    "defaultValue",
-    "defaultChecked",
-  ]);
-
-  /**
-   * Set of attribute names that should be treated as event listeners.
-   * The value must be a function; it is assigned directly to `el[key]`.
-   */
-  const _EVENTS = new Set([
-    "onclick",
-    "ondblclick",
-    "onchange",
-    "oninput",
-    "onmouseover",
-    "onmouseout",
-    "onkeydown",
-    "onkeyup",
-    "onkeypress",
-    "onsubmit",
-    "onfocus",
-    "onblur",
-    "onload",
-    "onerror",
-    "onwheel",
-    "onpointerdown",
-    "onpointermove",
-    "onpointerup",
-    "ontouchstart",
-    "ontouchmove",
-    "ontouchend",
-    "onmousedown",
-    "onmousemove",
-    "onmouseup",
-  ]);
-
   foliplus.dom = {
     /**
      * Create an element with attributes, properties, events, and children.
@@ -517,7 +516,8 @@
      * - `class` → sets `className` (string, supports `" "` separated tokens)
      * - `style` → if object, merges via `Object.assign(el.style, val)`;
      *             if string, sets `el.style.cssText = val`
-     * - `value`, `checked`, `selected`, `disabled`, `readOnly` → set as DOM property
+     * - `value`, `defaultValue` → set as DOM property
+     * - `checked`, `selected`, `disabled`, `readOnly` → set as boolean DOM property (`""` → `true`)
      * - `onclick`, `onchange`, `oninput`, etc. → assigned as event handler
      * - `parent` → auto-append to parent element (HTMLElement)
      * - `innerHTML` → set via `el.innerHTML = val`
@@ -563,9 +563,11 @@
             val.appendChild(el);
           } else if (key === "innerHTML") {
             el.innerHTML = val;
-          } else if (_PROPS.has(key)) {
+          } else if (BOOL_PROPS.has(key)) {
+            el[key] = val === "" || val === true;
+          } else if (PROPS.has(key)) {
             el[key] = val;
-          } else if (_EVENTS.has(key)) {
+          } else if (EVENTS.has(key)) {
             el[key] = val;
           } else {
             el.setAttribute(key, String(val));
@@ -574,10 +576,8 @@
       }
       for (const child of children) {
         if (child == null) continue;
-        if (typeof child === "string" || typeof child === "number")
-          el.appendChild(document.createTextNode(String(child)));
-        else if (child.html) el.insertAdjacentHTML("beforeend", child.html);
-        else if (child.nodeType) el.appendChild(child);
+        if (child.html) el.insertAdjacentHTML("beforeend", child.html);
+        else el.append(child);
       }
       return el;
     },
