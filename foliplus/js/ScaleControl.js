@@ -1,6 +1,7 @@
 (function () {
   const CONST = {
     name: "ScaleControl",
+    isMetric: {{ (this.unit == "metric") | tojson }},
     CLASSES: {
       SCALE_WRAP: "foliplus-scale-wrap",
       SCALE_ZOOM_LABEL: "foliplus-scale-zoom-label",
@@ -21,12 +22,9 @@
   // ==================== Control Definition ====================
   class ScaleControl extends L.Control {
     onAdd() {
-      // Create the scale bar container ourselves, styled via CSS.
-      // Leaflet's L.control.scale handles metric calculation internally,
-      // so we borrow its onAdd by setting _map first (avoids getSize crash).
       const scaleCtrl = L.control.scale({
-        metric: {{ this.metric | tojson }},
-        imperial: false,
+        metric: CONST.isMetric,
+        imperial: !CONST.isMetric,
       });
       scaleCtrl._map = this._map;
       const wrap = scaleCtrl.onAdd(this._map);
