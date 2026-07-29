@@ -627,7 +627,7 @@
     /** Create a form-row with label + control-wrap. */
     createFormRow(parent, labelKey, rowClass = CONST.CLASSES.FORM_ROW) {
       const row = foliplus.dom.el("div", { class: rowClass, parent });
-      const label = foliplus.dom.el(
+      foliplus.dom.el(
         "label",
         { class: CONST.CLASSES.FORM_LABEL, parent: row },
         _(labelKey),
@@ -636,7 +636,7 @@
         class: CONST.CLASSES.FORM_CONTROL,
         parent: row,
       });
-      return { row, label, wrap };
+      return { row, wrap };
     }
 
     onAdd() {
