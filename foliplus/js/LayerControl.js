@@ -996,7 +996,9 @@
       return this.defaultPanes.has(pane) || this.fallbackPanes.has(pane);
     }
 
-    /** Compute z-index for a layer at position i. */
+    /** Compute z-index for a layer at position i.
+     *  The maximum z-index for any layer is `computeZIndex(0, false)`,
+     *  used to bump popupPane above all managed panes. */
     computeZIndex(i, isTile) {
       const zBase = isTile ? CONST.Z_INDEX.TILE_BASE : CONST.Z_INDEX.BASE;
       return zBase + (this.layers.length - i) * CONST.Z_INDEX.STEP;
@@ -1031,6 +1033,12 @@
           const mp = this.map.getPane("markerPane");
           if (mp) mp.style.zIndex = markerZ;
         }
+
+        // Bump popupPane above all managed panes so popups (e.g., marker
+        // location popups) are never hidden behind graph or label panes.
+        const pp = this.map.getPane("popupPane");
+        if (pp)
+          pp.style.zIndex = String(this.computeZIndex(0, false) + CONST.Z_INDEX.STEP);
 
         // 3. Migrate layers to their target panes
         this.migrateLayers(layersToMove);
