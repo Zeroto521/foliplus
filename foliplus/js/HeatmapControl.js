@@ -784,9 +784,7 @@
         },
       });
       for (let ci = 2; ci <= 9; ci++)
-        this.classSelect.appendChild(
-          foliplus.dom.el("option", { value: ci }, String(ci)),
-        );
+        foliplus.dom.el("option", { value: ci, parent: this.classSelect }, String(ci));
       this.classSelect.value = Math.min(9, Math.max(2, this.m.numClasses));
 
       // Color scheme
@@ -824,8 +822,10 @@
         },
       });
       CONST.SCHEME_NAMES.forEach((name) => {
-        this.schemeSelectHidden.appendChild(
-          foliplus.dom.el("option", { value: name }, name),
+        foliplus.dom.el(
+          "option",
+          { value: name, parent: this.schemeSelectHidden },
+          name,
         );
       });
       this.schemeSelectHidden.value = this.m.currentScheme;
@@ -1018,14 +1018,14 @@
           value: "",
           disabled: "disabled",
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
+          parent: sel,
           selected: !this.m.selectedLayerId ? "" : undefined,
         },
         _(`${CONST.name}.layer_placeholder`),
       );
-      sel.appendChild(placeholder);
 
       this.m.pointLayers.forEach((info) => {
-        sel.appendChild(foliplus.dom.el("option", { value: info.id }, info.name));
+        foliplus.dom.el("option", { value: info.id, parent: sel }, info.name);
       });
 
       if (this.m.selectedLayerId) sel.value = this.m.selectedLayerId;
@@ -1065,32 +1065,29 @@
       const fields = this.m.collectFields(selected);
       this.m.autoFieldKey = this.m.pickAutoField(fields);
 
-      const phOpt = foliplus.dom.el(
+      this.fieldSelect.innerHTML = "";
+      foliplus.dom.el(
         "option",
         {
           value: "_auto",
           disabled: "disabled",
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
+          parent: this.fieldSelect,
         },
         _(`${CONST.name}.field_auto`),
       );
 
-      this.fieldSelect.innerHTML = "";
-      this.fieldSelect.appendChild(phOpt);
-
       fields.forEach((f) => {
-        this.fieldSelect.appendChild(
-          foliplus.dom.el(
-            "option",
-            { value: f },
-            f.startsWith("properties.") ? f.substring(11) : f,
-          ),
+        foliplus.dom.el(
+          "option",
+          { value: f, parent: this.fieldSelect },
+          f.startsWith("properties.") ? f.substring(11) : f,
         );
       });
 
-      if (fields.includes(this.m.currentField) || this.m.currentField === "_auto") {
+      if (fields.includes(this.m.currentField) || this.m.currentField === "_auto")
         this.fieldSelect.value = this.m.currentField;
-      } else {
+      else {
         this.m.currentField = "_auto";
         this.fieldSelect.value = "_auto";
       }
@@ -1103,12 +1100,11 @@
       const colors = this.m.getColorScale(name, nClasses);
       container.innerHTML = "";
       for (const color of colors) {
-        container.appendChild(
-          foliplus.dom.el("div", {
-            class: CONST.CLASSES.SCHEME_BAR_BLOCK,
-            style: `background:${color};width:${100 / colors.length}%`,
-          }),
-        );
+        foliplus.dom.el("div", {
+          class: CONST.CLASSES.SCHEME_BAR_BLOCK,
+          style: `background:${color};width:${100 / colors.length}%`,
+          parent: container,
+        });
       }
     }
 

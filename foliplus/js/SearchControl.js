@@ -329,9 +329,9 @@
       if (!this.suggestionsWrap) {
         this.suggestionsWrap = foliplus.dom.el("div", {
           class: CONST.CLASSES.SUGGESTIONS,
+          parent: document.body,
+          onclick: (e) => e.stopPropagation(),
         });
-        document.body.appendChild(this.suggestionsWrap);
-        this.suggestionsWrap.addEventListener("click", (e) => e.stopPropagation());
       }
 
       this.suggestionsWrap.innerHTML = "";
@@ -343,7 +343,18 @@
           foliplus.formatAddress(item.display_name, map) || item.name || "";
         const suggestion = foliplus.dom.el(
           "div",
-          { class: CONST.CLASSES.SUGGESTION_ITEM, "data-index": String(idx) },
+          {
+            class: CONST.CLASSES.SUGGESTION_ITEM,
+            "data-index": String(idx),
+            parent: this.suggestionsWrap,
+            onmousedown: (e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              this.removeSuggestions();
+              this.cachedAddress[displayName] = { item, displayName };
+              this.renderAddressResult({ item, displayName });
+            },
+          },
           foliplus.dom.el(
             "span",
             { class: CONST.CLASSES.SUGGESTION_ICON },
@@ -355,14 +366,6 @@
             displayName,
           ),
         );
-        suggestion.onmousedown = (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          this.removeSuggestions();
-          this.cachedAddress[displayName] = { item, displayName };
-          this.renderAddressResult({ item, displayName });
-        };
-        this.suggestionsWrap.appendChild(suggestion);
       });
     }
 
