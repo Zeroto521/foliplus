@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-from ._typing import Position
+from typing import Literal, get_args
+
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
+Unit = Literal["metric", "imperial"]
+
 
 class ScaleControl(BaseControl):
-    """Scale bar with metric units and optional zoom level display.
+    """Scale bar with metric or imperial units and optional zoom level display.
 
     Parameters
     ----------
-    metric : bool, default True
-        Whether to show metric units (meters / kilometers).
+    unit : str, default ``"metric"``
+        Unit system: ``"metric"`` (meters / kilometers) or ``"imperial"`` (miles / feet).
 
     show_zoom : bool, default True
         Whether to show the current map zoom level.
@@ -31,12 +34,15 @@ class ScaleControl(BaseControl):
     def __init__(
         self,
         *,
-        metric: bool = True,
+        unit: Unit = "metric",
         show_zoom: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
+        if unit not in get_args(Unit):
+            raise ValueError(f"unit must be {get_args(Unit)}, got {unit!r}")
+
         super().__init__(position="bottomleft", locale=locale)
-        self.metric = metric
+        self.unit = unit
         self.show_zoom = show_zoom
         self._template = self._get_template(
             js_file="ScaleControl.js", css_file="ScaleControl.css"

@@ -29,7 +29,7 @@ data itself.
       :padding: 2
       :link: api/foliplus.ScaleControl.html
 
-      Scale bar with metric units and optional zoom level display.
+      Scale bar with metric or imperial units and optional zoom level display.
 
    .. grid-item-card:: 🖥️ FullscreenControl
       :padding: 2

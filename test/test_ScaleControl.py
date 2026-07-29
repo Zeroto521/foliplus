@@ -18,7 +18,8 @@ class TestScaleControlPython:
     def test_default_position(self):
         assert ScaleControl().position == "bottomleft"
 
-    def test_custom_position(self):
+    def test_position_fixed_to_bottomleft(self):
+        """ScaleControl position is always bottomleft; passing position raises TypeError."""
         with pytest.raises(TypeError):
             ScaleControl(position="topright")
 
@@ -30,13 +31,18 @@ class TestScaleControlPython:
 
     def test_default_params(self):
         ctrl = ScaleControl()
-        assert ctrl.metric is True
+        assert ctrl.unit == "metric"
         assert ctrl.show_zoom is True
 
     def test_custom_params(self):
-        ctrl = ScaleControl(metric=False, show_zoom=False)
-        assert ctrl.metric is False
+        ctrl = ScaleControl(unit="imperial", show_zoom=False)
+        assert ctrl.unit == "imperial"
         assert ctrl.show_zoom is False
+
+    def test_invalid_unit_raises(self):
+        """Invalid unit value raises ValueError."""
+        with pytest.raises(ValueError, match="unit must be "):
+            ScaleControl(unit="invalid")
 
 
 class TestScaleControlRendering:
@@ -48,12 +54,12 @@ class TestScaleControlRendering:
     def test_metric_default(self, base_map: folium.Map):
         ScaleControl().add_to(base_map)
         html = render(base_map)
-        assert "metric" in html.lower()
+        assert "isMetric: true" in html
 
     def test_metric_false_still_renders(self, base_map: folium.Map):
-        ScaleControl(metric=False).add_to(base_map)
+        ScaleControl(unit="imperial").add_to(base_map)
         html = render(base_map)
-        assert "leaflet-control-scale" in html
+        assert "leaflet-control-scale-line" in html
 
     def test_show_zoom(self, base_map: folium.Map):
         ScaleControl(show_zoom=True).add_to(base_map)
@@ -74,16 +80,16 @@ class TestScaleControlRendering:
         assert "ScaleControl.zoom_label" in html
 
     def test_imperial_false_in_output(self, base_map: folium.Map):
-        """Scale control outputs imperial: false (metric-only)."""
+        """Scale control outputs imperial: !CONST.isMetric when unit='metric'."""
         ScaleControl().add_to(base_map)
         html = render(base_map)
-        assert "imperial: false" in html
+        assert "imperial: !CONST.isMetric" in html
 
     def test_metric_false_disables_metric(self, base_map: folium.Map):
-        """metric=false correctly passed to Leaflet."""
-        ScaleControl(metric=False).add_to(base_map)
+        """unit='imperial' correctly passed to Leaflet."""
+        ScaleControl(unit="imperial").add_to(base_map)
         html = render(base_map)
-        assert "metric: false" in html
+        assert "isMetric: false" in html
 
     def test_zoom_label_format(self, base_map: folium.Map):
         """Zoom label uses ScaleControl.zoom_label key with {zoom} placeholder."""
@@ -113,11 +119,11 @@ class TestScaleControlRendering:
         assert "bottomleft" in html
 
     def test_both_disabled(self, base_map: folium.Map):
-        """scale still renders with metric=False and show_zoom=False."""
-        ScaleControl(metric=False, show_zoom=False).add_to(base_map)
+        """scale still renders with unit='imperial' and show_zoom=False."""
+        ScaleControl(unit="imperial", show_zoom=False).add_to(base_map)
         html = render(base_map)
         assert "foliplus-scale-wrap" in html
-        assert "leaflet-control-scale" in html
+        assert "isMetric: false" in html
         assert "const zoomLabel" not in html
 
     def test_common_css_injected(self, base_map: folium.Map):
@@ -131,10 +137,10 @@ class TestScaleControlRendering:
 class TestScaleControlBrowser:
     """Browser-based smoke tests for ScaleControl."""
 
-    def _make_page(self, browser, tmp_path, show_zoom=True, metric=True):
+    def _make_page(self, browser, tmp_path, show_zoom=True, unit="metric"):
         """Build page with ScaleControl."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        ScaleControl(show_zoom=show_zoom, metric=metric).add_to(m)
+        ScaleControl(show_zoom=show_zoom, unit=unit).add_to(m)
 
         html = m.get_root().render()
         html_path = tmp_path / "scale_browser.html"
@@ -192,11 +198,11 @@ class TestScaleControlBrowser:
             page.close()
 
     def test_scale_leaflet_class(self, browser, tmp_path):
-        """Scale has leaflet-control-scale class in DOM."""
+        """Scale has leaflet-control-scale-line class in DOM."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             has_class = page.evaluate(
-                "document.querySelector('.leaflet-control-scale') !== null"
+                "document.querySelector('.leaflet-control-scale-line') !== null"
             )
             assert has_class
             assert not errors, f"JS errors: {errors}"
@@ -212,6 +218,19 @@ class TestScaleControlBrowser:
             )
             assert scale_text
             assert any(u in scale_text for u in ["km", "m"])
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_scale_shows_imperial_text(self, browser, tmp_path):
+        """Scale line displays imperial units (mi/ft)."""
+        page, errors = self._make_page(browser, tmp_path, unit="imperial")
+        try:
+            scale_text = page.evaluate(
+                "document.querySelector('.leaflet-control-scale-line')?.textContent"
+            )
+            assert scale_text
+            assert any(u in scale_text for u in ["mi", "ft"])
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
