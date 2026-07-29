@@ -434,10 +434,9 @@ class TestLayerControlRendering:
         """popupPane z-index is bumped above all managed panes."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        # Must track maxZ in the loop
-        assert "let maxZ = 0" in html
-        assert "if (z > maxZ) maxZ = z" in html
-        # Must bump popupPane after maxZ is computed
+        # popupPane uses computeZIndex(0, false) which is the maxZ
+        assert "this.computeZIndex(0, false)" in html
+        # Must bump popupPane above all managed panes
         assert 'this.map.getPane("popupPane")' in html
         assert "pp.style.zIndex" in html
 
