@@ -28,50 +28,91 @@
     });
 
   // 3. Early return only if logic is already initialized
-  if (foliplus._initialized) return;
-  foliplus._initialized = true;
-
-  // Private state (closure-scoped, not exposed on foliplus)
-  const hintIcons = {};
+  if (foliplus.isInitialized) return;
+  foliplus.isInitialized = true;
 
   // ==================== Constants ====================
-  const HINT = {
-    BOTTOM_BASE: 20,
-    STACK_GAP: 40,
-    Z_BASE: 10000,
-    DEFAULT_DURATION: 3000,
-    SHORT: 1200,
-    MEDIUM: 2500,
-    LONG: 4000,
-    PERSIST: 0,
+  // Private state (closure-scoped, not exposed on foliplus)
+  const CONST = {
+    HINT: {
+      BOTTOM_BASE: 20,
+      STACK_GAP: 40,
+      Z_BASE: 10000,
+      DEFAULT_DURATION: 3000,
+      SHORT: 1200,
+      MEDIUM: 2500,
+      LONG: 4000,
+      PERSIST: 0,
+    },
+    PIN: {
+      SIZE: [24, 36],
+      ANCHOR: [12, 36],
+      POPUP_ANCHOR: [0, -36],
+    },
+    POPUP: {
+      MAX_WIDTH: 300,
+    },
+    CLASSES: {
+      COLLAPSED: "collapsed",
+      EXPANDED: "expanded",
+      FOLD: "foliplus-ctrl-fold",
+      TOGGLE_BTN: "foliplus-toggle-btn",
+      LEAFLET_BAR: "leaflet-bar leaflet-control",
+      HINT: "foliplus-hint",
+    },
+    BOOL_PROPS: new Set([
+      "checked",
+      "selected",
+      "disabled",
+      "readOnly",
+      "indeterminate",
+      "defaultChecked",
+    ]),
+    PROPS: new Set(["value", "defaultValue"]),
+    EVENTS: new Set([
+      "onclick",
+      "ondblclick",
+      "onchange",
+      "oninput",
+      "onmouseover",
+      "onmouseout",
+      "onkeydown",
+      "onkeyup",
+      "onkeypress",
+      "onsubmit",
+      "onfocus",
+      "onblur",
+      "onload",
+      "onerror",
+      "onwheel",
+      "onpointerdown",
+      "onpointermove",
+      "onpointerup",
+      "ontouchstart",
+      "ontouchmove",
+      "ontouchend",
+      "onmousedown",
+      "onmousemove",
+      "onmouseup",
+    ]),
   };
+
+  const hintIcons = {};
+  const hintMap = new Map(); // key -> { element, timer }
+
   // Expose hint duration tiers for other components
   foliplus.HINT_DURATION = {
-    SHORT: HINT.SHORT,
-    MEDIUM: HINT.MEDIUM,
-    LONG: HINT.LONG,
-    PERSIST: HINT.PERSIST,
+    SHORT: CONST.HINT.SHORT,
+    MEDIUM: CONST.HINT.MEDIUM,
+    LONG: CONST.HINT.LONG,
+    PERSIST: CONST.HINT.PERSIST,
   };
+
   foliplus.NOMINATIM = {
     URL: "https://nominatim.openstreetmap.org",
     FORMAT: "jsonv2",
     THROTTLE_MS: 1000,
     ZOOM: 18,
-  };
-  const PIN = {
-    SIZE: [24, 36],
-    ANCHOR: [12, 36],
-    POPUP_ANCHOR: [0, -36],
-  };
-  const POPUP = {
-    MAX_WIDTH: 300,
-  };
-  const CLASSES = {
-    COLLAPSED: "collapsed",
-    EXPANDED: "expanded",
-    TOGGLE_BTN: "foliplus-toggle-btn",
-    LEAFLET_BAR: "leaflet-bar leaflet-control",
-    MAP_HINT: "foliplus-hint",
   };
 
   // --- SVG Icons ---
@@ -103,8 +144,6 @@
   };
 
   // ==================== Hint / Toast System ====================
-  const hintMap = new Map(); // key -> { element, timer }
-
   /**
    * Register an SVG icon for a hint type. The icon is prepended to the
    * hint text when `showHint(key, ...)` is called with a matching key.
@@ -152,14 +191,16 @@
     if (!append) foliplus.hideHint(key);
     const hintTarget = document.fullscreenElement || document.body;
     const cls = append
-      ? `${CLASSES.MAP_HINT} ${CLASSES.MAP_HINT}-${key}-${Date.now()}`
-      : `${CLASSES.MAP_HINT} ${CLASSES.MAP_HINT}-${key}`;
-    const el = L.DomUtil.create("div", cls, hintTarget);
+      ? `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}-${Date.now()}`
+      : `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}`;
+    const el = document.createElement("div");
+    el.className = cls;
+    hintTarget.appendChild(el);
     const icon = (hintIcons && hintIcons[key]) || "";
     el.innerHTML = icon
       ? `<span class="foliplus-hint-icon">${icon}</span>${text}`
       : text;
-    el.classList.add(CLASSES.MAP_HINT);
+    el.classList.add(CONST.CLASSES.HINT);
     if (hintTarget !== document.body && hintTarget !== document.documentElement) {
       const cs = window.getComputedStyle(hintTarget);
       if (cs.position === "static") hintTarget.style.position = "relative";
@@ -170,8 +211,8 @@
     const reposition = () => {
       let idx = 0;
       for (let v of hintMap.values()) {
-        v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
-        v.element.style.zIndex = HINT.Z_BASE + idx;
+        v.element.style.bottom = `${CONST.HINT.BOTTOM_BASE + idx * CONST.HINT.STACK_GAP}px`;
+        v.element.style.zIndex = CONST.HINT.Z_BASE + idx;
         idx++;
       }
     };
@@ -180,7 +221,7 @@
     if (duration !== 0) {
       hintMap.get(storeKey).timer = setTimeout(
         () => foliplus.hideHint(storeKey),
-        duration || HINT.DEFAULT_DURATION,
+        duration || CONST.HINT.DEFAULT_DURATION,
       );
     }
   };
@@ -208,7 +249,7 @@
 
     let idx = 0;
     for (let v of hintMap.values()) {
-      v.element.style.bottom = `${HINT.BOTTOM_BASE + idx * HINT.STACK_GAP}px`;
+      v.element.style.bottom = `${CONST.HINT.BOTTOM_BASE + idx * CONST.HINT.STACK_GAP}px`;
       idx++;
     }
   };
@@ -230,9 +271,9 @@
       const crs = map.options.crs;
       if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
       const layers = map._layers;
-      for (let id in layers) {
+      for (let id in layers)
         if (layers[id]._url && layers[id]._url.includes("bdimg.com")) return true;
-      }
+
       return false;
     } catch (e) {
       return false;
@@ -249,7 +290,7 @@
       foliplus.showHint(
         "SearchControl",
         `${foliplus.gt("SearchControl.gcoord_warn")}`,
-        HINT.LONG,
+        CONST.HINT.LONG,
       );
       return false;
     }
@@ -463,30 +504,46 @@
   };
 
   // ==================== DOM Helpers ====================
-  /**
-   * Lightweight DOM builder — create elements without string concatenation.
-   *
-   * @example
-   *   // Create a div with class and text content
-   *   window.foliplus.dom.el("div", { class: "my-class" }, "Hello")
-   *
-   *   // Nested children
-   *   window.foliplus.dom.el("div", null,
-   *     window.foliplus.dom.el("span", { class: "icon" }),
-   *     window.foliplus.dom.el("label", null, "Name")
-   *   )
-   *
-   *   // Set innerHTML by passing a { html: "..." } child
-   *   window.foliplus.dom.el("div", null, { html: "<svg>...</svg>" })
-   */
   foliplus.dom = {
     /**
-     * Create an element with attributes and children.
+     * Create an element with attributes, properties, events, and children.
+     *
+     * Supported attrs keys:
+     * - `class` → sets `className` (string, supports `" "` separated tokens)
+     * - `style` → if object, merges via `Object.assign(el.style, val)`;
+     *             if string, sets `el.style.cssText = val`
+     * - `value`, `defaultValue` → set as DOM property
+     * - `checked`, `selected`, `disabled`, `readOnly` → set as boolean DOM property (`""` → `true`)
+     * - `onclick`, `onchange`, `oninput`, etc. → assigned as event handler
+     * - `parent` → auto-append to parent element (HTMLElement)
+     * - `innerHTML` → set via `el.innerHTML = val`
+     * - any other key → set via `el.setAttribute(key, String(val))`
+     *
+     * Children can be:
+     * - `string` / `number` → appended as TextNode
+     * - `{ html: "..." }` → inserted via `insertAdjacentHTML("beforeend", ...)`
+     * - `HTMLElement` → appended via `appendChild`
+     *
      * @param {string} tag - HTML tag name.
-     * @param {Object|null} attrs - Attributes map (class, id, data-*, etc.).
-     * @param  {...any} children - Strings (text), {html: str} (innerHTML),
-     *                             or DOM elements (appendChild).
+     * @param {Object|null} [attrs={}] - Attributes/properties/events map.
+     * @param {...any} children - Text, {html}, or DOM elements to append.
      * @returns {HTMLElement}
+     *
+     * @example
+     *   // Create a button with events, value, and auto-append to parent
+     *   foliplus.dom.el("button", {
+     *     class: "foliplus-btn",
+     *     parent: container,
+     *     onclick: () => alert("clicked"),
+     *   }, "Click me")
+     *
+     *   // Create an input with value and change handler
+     *   foliplus.dom.el("input", {
+     *     class: "my-input",
+     *     type: "number",
+     *     value: 42,
+     *     onchange: () => doSomething(),
+     *   })
      */
     el(tag, attrs = {}, ...children) {
       const el = document.createElement(tag);
@@ -494,17 +551,21 @@
         for (const [key, val] of Object.entries(attrs)) {
           if (val == null) continue;
           if (key === "class") el.className = val;
-          else if (key === "style" && typeof val === "object")
-            Object.assign(el.style, val);
+          else if (key === "style") {
+            if (typeof val === "object") Object.assign(el.style, val);
+            else el.style.cssText = val;
+          } else if (key === "parent") val.appendChild(el);
+          else if (key === "innerHTML") el.innerHTML = val;
+          else if (CONST.BOOL_PROPS.has(key)) el[key] = val === "" || val === true;
+          else if (CONST.PROPS.has(key)) el[key] = val;
+          else if (CONST.EVENTS.has(key)) el[key] = val;
           else el.setAttribute(key, String(val));
         }
       }
       for (const child of children) {
         if (child == null) continue;
-        if (typeof child === "string" || typeof child === "number")
-          el.appendChild(document.createTextNode(String(child)));
-        else if (child.html) el.insertAdjacentHTML("beforeend", child.html);
-        else if (child.nodeType) el.appendChild(child);
+        if (child.html) el.insertAdjacentHTML("beforeend", child.html);
+        else el.append(child);
       }
       return el;
     },
@@ -572,15 +633,15 @@
       icon: L.divIcon({
         className: "",
         html: foliplus.SVGs.PIN_ICON,
-        iconSize: PIN.SIZE,
-        iconAnchor: PIN.ANCHOR,
-        popupAnchor: PIN.POPUP_ANCHOR,
+        iconSize: CONST.PIN.SIZE,
+        iconAnchor: CONST.PIN.ANCHOR,
+        popupAnchor: CONST.PIN.POPUP_ANCHOR,
       }),
     });
     target.addLayer(mk);
     mk.bindPopup(
       foliplus.buildPopupHtml(lng, lat, addr, title, loading, locLabel, addrLabel),
-      { maxWidth: POPUP.MAX_WIDTH },
+      { maxWidth: CONST.POPUP.MAX_WIDTH },
     );
     mk.openPopup();
     if (!addr) {
@@ -615,16 +676,16 @@
     if (btn) {
       L.DomEvent.on(btn, "click", (e) => {
         L.DomEvent.stop(e);
-        container.classList.remove(CLASSES.COLLAPSED);
-        container.classList.add(CLASSES.EXPANDED);
+        container.classList.remove(CONST.CLASSES.COLLAPSED);
+        container.classList.add(CONST.CLASSES.EXPANDED);
       });
     }
     const hdr = container.querySelector(header);
     if (hdr) {
       L.DomEvent.on(hdr, "click", (e) => {
         L.DomEvent.stop(e);
-        container.classList.remove(CLASSES.EXPANDED);
-        container.classList.add(CLASSES.COLLAPSED);
+        container.classList.remove(CONST.CLASSES.EXPANDED);
+        container.classList.add(CONST.CLASSES.COLLAPSED);
       });
     }
   };
@@ -640,10 +701,10 @@
     const handler = (e) => {
       if (
         !container.contains(e.target) &&
-        container.classList.contains(CLASSES.EXPANDED)
+        container.classList.contains(CONST.CLASSES.EXPANDED)
       ) {
-        container.classList.remove(CLASSES.EXPANDED);
-        container.classList.add(CLASSES.COLLAPSED);
+        container.classList.remove(CONST.CLASSES.EXPANDED);
+        container.classList.add(CONST.CLASSES.COLLAPSED);
       }
     };
     document.addEventListener("click", handler);
@@ -672,16 +733,14 @@
    * @returns {object} { container, ctrl, toolBar, toggleBtn }
    */
   foliplus.createFoldControl = (opts) => {
-    const container = foliplus.dom.el("div", {
-      class: CLASSES.LEAFLET_BAR,
-    });
+    const container = foliplus.dom.el("div", { class: CONST.CLASSES.LEAFLET_BAR });
     const ctrl = foliplus.dom.el("div", {
-      class: `${opts.cssClass} foliplus-ctrl-fold ${CLASSES.COLLAPSED}`,
+      class: `${opts.cssClass} ${CONST.CLASSES.FOLD} ${CONST.CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
       foliplus.dom.el(
         "button",
-        { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
+        { class: CONST.CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
         { html: opts.toggleSvg },
       ),
     );
@@ -712,15 +771,15 @@
    */
   foliplus.createPanelControl = (opts) => {
     const container = foliplus.dom.el("div", {
-      class: CLASSES.LEAFLET_BAR,
+      class: CONST.CLASSES.LEAFLET_BAR,
     });
     const ctrl = foliplus.dom.el("div", {
-      class: `foliplus-panel foliplus-ctrl-fold ${opts.cssClass} ${CLASSES.COLLAPSED}`,
+      class: `foliplus-panel ${CONST.CLASSES.FOLD} ${opts.cssClass} ${CONST.CLASSES.COLLAPSED}`,
     });
     ctrl.appendChild(
       foliplus.dom.el(
         "button",
-        { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
+        { class: CONST.CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
         { html: opts.toggleSvg },
       ),
     );

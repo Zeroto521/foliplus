@@ -626,11 +626,17 @@
 
     /** Create a form-row with label + control-wrap. */
     createFormRow(parent, labelKey, rowClass = CONST.CLASSES.FORM_ROW) {
-      const row = L.DomUtil.create("div", rowClass, parent);
-      const label = L.DomUtil.create("label", CONST.CLASSES.FORM_LABEL, row);
-      label.textContent = _(labelKey);
-      const wrap = L.DomUtil.create("div", CONST.CLASSES.FORM_CONTROL, row);
-      return { row, label, wrap };
+      const row = foliplus.dom.el("div", { class: rowClass, parent });
+      foliplus.dom.el(
+        "label",
+        { class: CONST.CLASSES.FORM_LABEL, parent: row },
+        _(labelKey),
+      );
+      const wrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: row,
+      });
+      return { row, wrap };
     }
 
     onAdd() {
@@ -650,80 +656,74 @@
 
     /** Build the data section: layer select, aggregation method, field selector. */
     buildDataSection(panelContent) {
-      const configBody = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.CONFIG_BODY,
-        panelContent,
-      );
-      const dataHeading = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.SECTION_HEADING,
-        configBody,
-      );
-      dataHeading.textContent = _(`${CONST.name}.section_data`);
+      const configBody = foliplus.dom.el("div", {
+        class: CONST.CLASSES.CONFIG_BODY,
+        parent: panelContent,
+      });
+      foliplus.dom.el("div", {
+        class: CONST.CLASSES.SECTION_HEADING,
+        parent: configBody,
+        innerHTML: _(`${CONST.name}.section_data`),
+      });
 
       const { wrap: layerSelectWrap } = this.createFormRow(
         configBody,
         `${CONST.name}.layer`,
       );
-      this.layerSelect = L.DomUtil.create(
-        "select",
-        CONST.CLASSES.FORM_SELECT,
-        layerSelectWrap,
-      );
+      this.layerSelect = foliplus.dom.el("select", {
+        class: CONST.CLASSES.FORM_SELECT,
+        parent: layerSelectWrap,
+      });
 
-      this.extraBody = L.DomUtil.create("div", CONST.CLASSES.EXTRA_BODY, configBody);
-      this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
+      this.extraBody = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.EXTRA_BODY} ${CONST.CLASSES.HIDDEN}`,
+        parent: configBody,
+      });
 
       // Aggregation method
       const { wrap: aggControlWrap } = this.createFormRow(
         this.extraBody,
         `${CONST.name}.agg_method`,
       );
-      this.aggSelect = L.DomUtil.create(
-        "select",
-        CONST.CLASSES.FORM_SELECT,
-        aggControlWrap,
-      );
-      this.aggSelect.innerHTML = `
+      this.aggSelect = foliplus.dom.el("select", {
+        class: CONST.CLASSES.FORM_SELECT,
+        parent: aggControlWrap,
+        innerHTML: `
           <option value="count">${_(`${CONST.name}.agg_count`)}</option>
           <option value="sum">${_(`${CONST.name}.agg_sum`)}</option>
           <option value="avg">${_(`${CONST.name}.agg_avg`)}</option>
           <option value="min">${_(`${CONST.name}.agg_min`)}</option>
-          <option value="max">${_(`${CONST.name}.agg_max`)}</option>`;
-      this.aggSelect.value = this.m.currentAgg;
-      this.aggSelect.onchange = () => {
-        this.m.currentAgg = this.aggSelect.value;
-        this.updateFieldSelector();
-        this.m.renderHexagons();
-      };
+          <option value="max">${_(`${CONST.name}.agg_max`)}</option>`,
+        value: this.m.currentAgg,
+        onchange: () => {
+          this.m.currentAgg = this.aggSelect.value;
+          this.updateFieldSelector();
+          this.m.renderHexagons();
+        },
+      });
 
-      this.fieldWrap = L.DomUtil.create(
-        "div",
-        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD} ${CONST.CLASSES.HIDDEN}`,
-        this.extraBody,
-      );
-      const fieldLabel = L.DomUtil.create(
-        "label",
-        CONST.CLASSES.FORM_LABEL,
-        this.fieldWrap,
-      );
-      fieldLabel.textContent = _(`${CONST.name}.field`);
-      const fieldControlWrap = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.FORM_CONTROL,
-        this.fieldWrap,
-      );
-      this.fieldSelect = L.DomUtil.create(
-        "select",
-        CONST.CLASSES.FORM_SELECT,
-        fieldControlWrap,
-      );
-      this.fieldSelect.onchange = () => {
-        this.m.currentField = this.fieldSelect.value;
-        this.syncSelect(this.fieldSelect, this.fieldSelect.value);
-        this.m.renderHexagons();
-      };
+      this.fieldWrap = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD} ${CONST.CLASSES.HIDDEN}`,
+        parent: this.extraBody,
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: this.fieldWrap,
+        innerHTML: _(`${CONST.name}.field`),
+      });
+      const fieldControlWrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: this.fieldWrap,
+      });
+      this.fieldSelect = foliplus.dom.el("select", {
+        class: CONST.CLASSES.FORM_SELECT,
+        parent: fieldControlWrap,
+        onchange: () => {
+          this.m.currentField = this.fieldSelect.value;
+          this.syncSelect(this.fieldSelect, this.fieldSelect.value);
+          this.m.renderHexagons();
+        },
+      });
 
       // Initialize layer dropdown LAST after all select refs are created
       this.buildLayerListItems(this.layerSelect);
@@ -731,113 +731,106 @@
 
     /** Build the style section: classification, color scheme, border, label toggle, action buttons. */
     buildStyleSection() {
-      const styleHeading = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.SECTION_HEADING,
-        this.extraBody,
-      );
-      styleHeading.textContent = _(`${CONST.name}.section_style`);
-      const styleSection = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.SECTION_BLOCK,
-        this.extraBody,
-      );
+      foliplus.dom.el("div", {
+        class: CONST.CLASSES.SECTION_HEADING,
+        parent: this.extraBody,
+        innerHTML: _(`${CONST.name}.section_style`),
+      });
+      const styleSection = foliplus.dom.el("div", {
+        class: CONST.CLASSES.SECTION_BLOCK,
+        parent: this.extraBody,
+      });
 
       // Classification method / classes
-      const classRow = L.DomUtil.create("div", CONST.CLASSES.FORM_ROW, styleSection);
-      const classRowLabel = L.DomUtil.create(
-        "label",
-        CONST.CLASSES.FORM_LABEL,
-        classRow,
-      );
-      classRowLabel.textContent = _(`${CONST.name}.class_method`);
-      const classControlWrap = L.DomUtil.create(
-        "div",
-        `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
-        classRow,
-      );
-      this.methodSelect = L.DomUtil.create(
-        "select",
-        CONST.CLASSES.FORM_SELECT,
-        classControlWrap,
-      );
-      this.methodSelect.innerHTML = `
+      const classRow = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_ROW,
+        parent: styleSection,
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: classRow,
+        innerHTML: _(`${CONST.name}.class_method`),
+      });
+      const classControlWrap = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        parent: classRow,
+      });
+      this.methodSelect = foliplus.dom.el("select", {
+        class: CONST.CLASSES.FORM_SELECT,
+        parent: classControlWrap,
+        innerHTML: `
           <option value="jenks">${_(`${CONST.name}.jenks`)}</option>
           <option value="quantile">${_(`${CONST.name}.quantile`)}</option>
           <option value="equal">${_(`${CONST.name}.equal`)}</option>
-          <option value="heads">${_(`${CONST.name}.heads`)}</option>`;
-      this.methodSelect.value = this.m.currentMethod;
-      this.methodSelect.onchange = () => {
-        this.m.currentMethod = this.methodSelect.value;
-        this.m.renderHexagons();
-      };
+          <option value="heads">${_(`${CONST.name}.heads`)}</option>`,
+        value: this.m.currentMethod,
+        onchange: () => {
+          this.m.currentMethod = this.methodSelect.value;
+          this.m.renderHexagons();
+        },
+      });
 
-      this.classSelect = L.DomUtil.create(
-        "select",
-        `${CONST.CLASSES.FORM_SELECT} ${CONST.CLASSES.CLASS_COUNT_SELECT}`,
-        classControlWrap,
-      );
-      for (let ci = 2; ci <= 9; ci++) {
-        this.classSelect.appendChild(
-          foliplus.dom.el("option", { value: ci }, String(ci)),
-        );
-      }
+      this.classSelect = foliplus.dom.el("select", {
+        class: `${CONST.CLASSES.FORM_SELECT} ${CONST.CLASSES.CLASS_COUNT_SELECT}`,
+        parent: classControlWrap,
+        onchange: () => {
+          this.m.numClasses = Math.min(
+            9,
+            Math.max(2, parseInt(this.classSelect.value, 10) || 6),
+          );
+          this.updateSchemeBar();
+          if (this.schemeDropdown) this.refreshSchemeDropdownItems();
+          this.m.renderHexagons();
+        },
+      });
+      for (let ci = 2; ci <= 9; ci++)
+        foliplus.dom.el("option", { value: ci, parent: this.classSelect }, String(ci));
       this.classSelect.value = Math.min(9, Math.max(2, this.m.numClasses));
-      this.classSelect.onchange = () => {
-        this.m.numClasses = Math.min(
-          9,
-          Math.max(2, parseInt(this.classSelect.value, 10) || 6),
-        );
-        this.updateSchemeBar();
-        if (this.schemeDropdown) this.refreshSchemeDropdownItems();
-        this.m.renderHexagons();
-      };
 
       // Color scheme
-      const schemeRow = L.DomUtil.create("div", CONST.CLASSES.FORM_ROW, styleSection);
-      const schemeRowLabel = L.DomUtil.create(
-        "label",
-        CONST.CLASSES.FORM_LABEL,
-        schemeRow,
-      );
-      schemeRowLabel.textContent = _(`${CONST.name}.scheme`);
-      this.schemeControlWrap = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.FORM_CONTROL,
-        schemeRow,
-      );
-      this.schemeBar = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.SCHEME_BAR,
-        this.schemeControlWrap,
-      );
-      this.schemeBarInner = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.SCHEME_BAR_INNER,
-        this.schemeBar,
-      );
-      this.schemeSelectHidden = L.DomUtil.create(
-        "select",
-        CONST.CLASSES.SCHEME_SELECT_HIDDEN,
-        this.schemeControlWrap,
-      );
-
+      const schemeRow = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_ROW,
+        parent: styleSection,
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: schemeRow,
+        innerHTML: _(`${CONST.name}.scheme`),
+      });
+      this.schemeControlWrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: schemeRow,
+      });
+      this.schemeBar = foliplus.dom.el("div", {
+        class: CONST.CLASSES.SCHEME_BAR,
+        tabindex: 0,
+        role: "combobox",
+        "aria-label": _(`${CONST.name}.scheme`),
+        parent: this.schemeControlWrap,
+      });
+      this.schemeBarInner = foliplus.dom.el("div", {
+        class: CONST.CLASSES.SCHEME_BAR_INNER,
+        parent: this.schemeBar,
+      });
+      this.schemeSelectHidden = foliplus.dom.el("select", {
+        class: CONST.CLASSES.SCHEME_SELECT_HIDDEN,
+        parent: this.schemeControlWrap,
+        onchange: () => {
+          this.m.currentScheme = this.schemeSelectHidden.value;
+          this.updateSchemeBar();
+          this.m.renderHexagons();
+        },
+      });
       CONST.SCHEME_NAMES.forEach((name) => {
-        this.schemeSelectHidden.appendChild(
-          foliplus.dom.el("option", { value: name }, name),
+        foliplus.dom.el(
+          "option",
+          { value: name, parent: this.schemeSelectHidden },
+          name,
         );
       });
       this.schemeSelectHidden.value = this.m.currentScheme;
-      this.schemeSelectHidden.onchange = () => {
-        this.m.currentScheme = this.schemeSelectHidden.value;
-        this.updateSchemeBar();
-        this.m.renderHexagons();
-      };
       this.updateSchemeBar();
 
-      this.schemeBar.tabIndex = 0;
-      this.schemeBar.setAttribute("role", "combobox");
-      this.schemeBar.setAttribute("aria-label", _(`${CONST.name}.scheme`));
       this.schemeBar.onclick = (e) => {
         e.stopPropagation();
         this.toggleSchemeDropdown();
@@ -861,7 +854,6 @@
           document.removeEventListener("click", this.closeSchemeDropdown);
         }
       };
-      // Wrap toggleSchemeDropdown to also register outside-click listener
       const origToggle = this.toggleSchemeDropdown.bind(this);
       this.toggleSchemeDropdown = () => {
         origToggle();
@@ -870,113 +862,115 @@
       };
 
       // Border settings
-      const borderRow = L.DomUtil.create("div", CONST.CLASSES.FORM_ROW, styleSection);
-      const borderRowLabel = L.DomUtil.create(
-        "label",
-        CONST.CLASSES.FORM_LABEL,
-        borderRow,
-      );
-      borderRowLabel.textContent = _(`${CONST.name}.border`);
-      const borderControlWrap = L.DomUtil.create(
-        "div",
-        `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
-        borderRow,
-      );
-      this.borderColorInput = L.DomUtil.create(
-        "input",
-        CONST.CLASSES.BORDER_COLOR_INPUT,
-        borderControlWrap,
-      );
-      this.borderColorInput.type = "color";
-      this.borderColorInput.value = this.m.borderColor;
-      this.borderColorInput.oninput = () => {
-        this.m.borderColor = this.borderColorInput.value;
-        this.m.renderHexagons();
-      };
-      this.borderWeightInput = L.DomUtil.create(
-        "input",
-        CONST.CLASSES.BORDER_WEIGHT_INPUT,
-        borderControlWrap,
-      );
-      this.borderWeightInput.type = "number";
-      this.borderWeightInput.min = 0;
-      this.borderWeightInput.max = 10;
-      this.borderWeightInput.step = 0.5;
-      this.borderWeightInput.value = this.m.borderWeight;
-      this.borderWeightInput.onchange = () => {
-        this.m.borderWeight = parseFloat(this.borderWeightInput.value) || 1;
-        this.m.renderHexagons();
-      };
+      const borderRow = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_ROW,
+        parent: styleSection,
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: borderRow,
+        innerHTML: _(`${CONST.name}.border`),
+      });
+      const borderControlWrap = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
+        parent: borderRow,
+      });
+      this.borderColorInput = foliplus.dom.el("input", {
+        class: CONST.CLASSES.BORDER_COLOR_INPUT,
+        type: "color",
+        parent: borderControlWrap,
+        value: this.m.borderColor,
+        oninput: () => {
+          this.m.borderColor = this.borderColorInput.value;
+          this.m.renderHexagons();
+        },
+      });
+      this.borderWeightInput = foliplus.dom.el("input", {
+        class: CONST.CLASSES.BORDER_WEIGHT_INPUT,
+        type: "number",
+        min: 0,
+        max: 10,
+        step: 0.5,
+        parent: borderControlWrap,
+        value: this.m.borderWeight,
+        onchange: () => {
+          this.m.borderWeight = parseFloat(this.borderWeightInput.value) || 1;
+          this.m.renderHexagons();
+        },
+      });
 
       // Label toggle
-      const labelRow = L.DomUtil.create(
-        "div",
-        `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.SECTION_BLOCK_LAST}`,
-        styleSection,
-      );
-      const labelRowText = L.DomUtil.create(
-        "label",
-        CONST.CLASSES.FORM_LABEL,
-        labelRow,
-      );
-      labelRowText.textContent = _(`${CONST.name}.label`);
-      const labelControlWrap = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.FORM_CONTROL,
-        labelRow,
-      );
-      const labelToggle = L.DomUtil.create(
-        "label",
-        CONST.CLASSES.TOGGLE_SWITCH,
-        labelControlWrap,
-      );
-      this.labelChk = L.DomUtil.create("input", "", labelToggle);
-      this.labelChk.type = "checkbox";
-      this.labelChk.checked = this.m.currentLabelShow;
-      this.labelChk.onchange = () => {
-        this.m.currentLabelShow = this.labelChk.checked;
-        this.m.renderHexagons();
-      };
-      L.DomUtil.create("span", CONST.CLASSES.TOGGLE_SLIDER, labelToggle);
-      L.DomUtil.create("hr", CONST.CLASSES.SECTION_DIVIDER, this.extraBody);
+      const labelRow = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.SECTION_BLOCK_LAST}`,
+        parent: styleSection,
+      });
+      foliplus.dom.el("label", {
+        class: CONST.CLASSES.FORM_LABEL,
+        parent: labelRow,
+        innerHTML: _(`${CONST.name}.label`),
+      });
+      const labelControlWrap = foliplus.dom.el("div", {
+        class: CONST.CLASSES.FORM_CONTROL,
+        parent: labelRow,
+      });
+      const labelToggle = foliplus.dom.el("label", {
+        class: CONST.CLASSES.TOGGLE_SWITCH,
+        parent: labelControlWrap,
+      });
+      this.labelChk = foliplus.dom.el("input", {
+        type: "checkbox",
+        parent: labelToggle,
+        checked: this.m.currentLabelShow,
+        onchange: () => {
+          this.m.currentLabelShow = this.labelChk.checked;
+          this.m.renderHexagons();
+        },
+      });
+      foliplus.dom.el("span", {
+        class: CONST.CLASSES.TOGGLE_SLIDER,
+        parent: labelToggle,
+      });
+      foliplus.dom.el("hr", {
+        class: CONST.CLASSES.SECTION_DIVIDER,
+        parent: this.extraBody,
+      });
 
       // Bottom action buttons
-      const btnRow = L.DomUtil.create("div", CONST.CLASSES.BTN_ROW, this.extraBody);
-      const clearBtn = L.DomUtil.create(
-        "button",
-        `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CLEAR}`,
-        btnRow,
-      );
-      clearBtn.textContent = _(`${CONST.name}.clear`);
-      clearBtn.onclick = () => {
-        this.resetAll();
-        this.syncSelect(this.layerSelect, "");
-        this.syncSelect(this.aggSelect, CONST.AGG);
-        this.syncSelect(this.classSelect, String(CONST.N_CLASSES));
-        this.syncSelect(this.methodSelect, CONST.METHOD);
-        this.schemeSelectHidden.value = CONST.SCHEME;
-        this.labelChk.checked = CONST.LABEL.SHOW;
-        this.borderWeightInput.value = CONST.BORDER.W;
-        this.borderColorInput.value = CONST.BORDER.COLOR;
-
-        this.updateSchemeBar();
-        this.updateFieldSelector();
-        this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
-        this.container.classList.remove(CONST.CLASSES.EXPANDED);
-        this.container.classList.add(CONST.CLASSES.COLLAPSED);
-      };
-
-      const confirmBtn = L.DomUtil.create(
-        "button",
-        `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CONFIRM}`,
-        btnRow,
-      );
-      confirmBtn.textContent = _(`${CONST.name}.confirm`);
-      confirmBtn.onclick = () => {
-        this.m.renderHexagons();
-        this.container.classList.remove(CONST.CLASSES.EXPANDED);
-        this.container.classList.add(CONST.CLASSES.COLLAPSED);
-      };
+      const btnRow = foliplus.dom.el("div", {
+        class: CONST.CLASSES.BTN_ROW,
+        parent: this.extraBody,
+      });
+      foliplus.dom.el("button", {
+        class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CLEAR}`,
+        parent: btnRow,
+        innerHTML: _(`${CONST.name}.clear`),
+        onclick: () => {
+          this.resetAll();
+          this.syncSelect(this.layerSelect, "");
+          this.syncSelect(this.aggSelect, CONST.AGG);
+          this.syncSelect(this.classSelect, String(CONST.N_CLASSES));
+          this.syncSelect(this.methodSelect, CONST.METHOD);
+          this.schemeSelectHidden.value = CONST.SCHEME;
+          this.labelChk.checked = CONST.LABEL.SHOW;
+          this.borderWeightInput.value = CONST.BORDER.W;
+          this.borderColorInput.value = CONST.BORDER.COLOR;
+          this.updateSchemeBar();
+          this.updateFieldSelector();
+          this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
+          this.container.classList.remove(CONST.CLASSES.EXPANDED);
+          this.container.classList.add(CONST.CLASSES.COLLAPSED);
+        },
+      });
+      foliplus.dom.el("button", {
+        class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CONFIRM}`,
+        parent: btnRow,
+        innerHTML: _(`${CONST.name}.confirm`),
+        onclick: () => {
+          this.m.renderHexagons();
+          this.container.classList.remove(CONST.CLASSES.EXPANDED);
+          this.container.classList.add(CONST.CLASSES.COLLAPSED);
+        },
+      });
     }
 
     /** Set up MutationObserver to refresh layer dropdown on panel expand. */
@@ -1024,14 +1018,14 @@
           value: "",
           disabled: "disabled",
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
+          parent: sel,
           selected: !this.m.selectedLayerId ? "" : undefined,
         },
         _(`${CONST.name}.layer_placeholder`),
       );
-      sel.appendChild(placeholder);
 
       this.m.pointLayers.forEach((info) => {
-        sel.appendChild(foliplus.dom.el("option", { value: info.id }, info.name));
+        foliplus.dom.el("option", { value: info.id, parent: sel }, info.name);
       });
 
       if (this.m.selectedLayerId) sel.value = this.m.selectedLayerId;
@@ -1071,32 +1065,29 @@
       const fields = this.m.collectFields(selected);
       this.m.autoFieldKey = this.m.pickAutoField(fields);
 
-      const phOpt = foliplus.dom.el(
+      this.fieldSelect.innerHTML = "";
+      foliplus.dom.el(
         "option",
         {
           value: "_auto",
           disabled: "disabled",
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
+          parent: this.fieldSelect,
         },
         _(`${CONST.name}.field_auto`),
       );
 
-      this.fieldSelect.innerHTML = "";
-      this.fieldSelect.appendChild(phOpt);
-
       fields.forEach((f) => {
-        this.fieldSelect.appendChild(
-          foliplus.dom.el(
-            "option",
-            { value: f },
-            f.startsWith("properties.") ? f.substring(11) : f,
-          ),
+        foliplus.dom.el(
+          "option",
+          { value: f, parent: this.fieldSelect },
+          f.startsWith("properties.") ? f.substring(11) : f,
         );
       });
 
-      if (fields.includes(this.m.currentField) || this.m.currentField === "_auto") {
+      if (fields.includes(this.m.currentField) || this.m.currentField === "_auto")
         this.fieldSelect.value = this.m.currentField;
-      } else {
+      else {
         this.m.currentField = "_auto";
         this.fieldSelect.value = "_auto";
       }
@@ -1109,12 +1100,11 @@
       const colors = this.m.getColorScale(name, nClasses);
       container.innerHTML = "";
       for (const color of colors) {
-        container.appendChild(
-          foliplus.dom.el("div", {
-            class: CONST.CLASSES.SCHEME_BAR_BLOCK,
-            style: `background:${color};width:${100 / colors.length}%`,
-          }),
-        );
+        foliplus.dom.el("div", {
+          class: CONST.CLASSES.SCHEME_BAR_BLOCK,
+          style: `background:${color};width:${100 / colors.length}%`,
+          parent: container,
+        });
       }
     }
 
@@ -1142,33 +1132,30 @@
         this.schemeDropdown = null;
         return;
       }
-      this.schemeDropdown = L.DomUtil.create(
-        "div",
-        CONST.CLASSES.SCHEME_DROPDOWN,
-        this.schemeControlWrap,
-      );
-      this.schemeDropdown.setAttribute("role", "listbox");
+      this.schemeDropdown = foliplus.dom.el("div", {
+        class: CONST.CLASSES.SCHEME_DROPDOWN,
+        role: "listbox",
+        parent: this.schemeControlWrap,
+      });
 
       let focusIdx = -1;
       CONST.SCHEME_NAMES.forEach((name, idx) => {
-        const item = L.DomUtil.create(
-          "div",
-          CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
-          this.schemeDropdown,
-        );
-        item.setAttribute("role", "option");
-        item.setAttribute("data-scheme-name", name);
-        item.tabIndex = -1;
+        const item = foliplus.dom.el("div", {
+          class: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
+          role: "option",
+          tabindex: -1,
+          "data-scheme-name": name,
+          parent: this.schemeDropdown,
+        });
         if (name === this.m.currentScheme) {
           item.classList.add(CONST.CLASSES.ACTIVE);
           focusIdx = idx;
         }
 
-        const itemBar = L.DomUtil.create(
-          "div",
-          CONST.CLASSES.SCHEME_DROPDOWN_BAR,
-          item,
-        );
+        const itemBar = foliplus.dom.el("div", {
+          class: CONST.CLASSES.SCHEME_DROPDOWN_BAR,
+          parent: item,
+        });
         this.renderColorBar(itemBar, name, this.m.numClasses);
         item.title = name;
 

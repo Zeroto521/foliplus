@@ -888,6 +888,7 @@
         this.map.off("mousemove", onMouseMove);
         this.map.off("contextmenu", onContext);
         clearPreviews();
+        this.layers.unregister();
         foliplus.hideHint(CONST.name);
       };
     }
@@ -1345,10 +1346,10 @@
         return;
       }
 
-      // Bring the measure layer to the front so it's always on top
-      // when the user activates a measurement tool, even if the layer
-      // was previously hidden and re-shown at a lower z-order.
-      this.layers.bringToFront();
+      // Re-register the measure layer so it's visible and on top when the user
+      // activates a measurement tool, even if the layer was previously
+      // hidden or re-ordered in the LayerControl panel.
+      this.layers.register();
 
       this.cleanMapEvents();
       this.currentMode = mode;
@@ -1395,7 +1396,7 @@
     }
 
     clearAll() {
-      this.layers.destroy();
+      this.layers.clearLayers();
       this.measurements = [];
       this.saveMeasurements();
       this.clearActiveMode();
@@ -1404,7 +1405,6 @@
     /** Full cleanup including global events. Called on control removal. */
     destroy() {
       this.clearAll();
-      this.layers.unregister();
       if (this.onMapClick) {
         this.map.off("click", this.onMapClick);
         this.onMapClick = null;
@@ -1475,12 +1475,10 @@
         },
       ];
       btnConfigs.forEach(({ mode, title, svg }) => {
-        toolBar.appendChild(
-          foliplus.dom.el(
-            "button",
-            { class: "foliplus-tool-btn", "data-mode": mode, title },
-            { html: svg },
-          ),
+        foliplus.dom.el(
+          "button",
+          { class: "foliplus-tool-btn", "data-mode": mode, title, parent: toolBar },
+          { html: svg },
         );
       });
       this.m.toolBtns = toolBar.querySelectorAll(CONST.SEL.TOOL_BTN);

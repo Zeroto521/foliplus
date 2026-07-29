@@ -227,13 +227,13 @@ class TestMeasureControlRendering:
         assert "foliplus.buildPopupHtml" in html
 
     def test_lazy_register_after_finish(self, base_map: folium.Map):
-        """Distance mode registers on first click via mainLayer.addLayer, not on finishDist."""
+        """Distance mode registers on first click via mainLayer.addLayer, and re-registers on tool select."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # register() is handled by mainLayer.addLayer override in LayerControl.js,
-        # not explicitly called in MeasureControl.js
-        assert "this.layers.unregister()" in html
-        assert "this.layers.register()" not in html
+        # register() is called explicitly in setMode() when activating a tool,
+        # and also via mainLayer.addLayer override on first click in distance mode
+        assert "this.layers.unregister()" in html or "this.layers.destroy()" in html
+        assert "this.layers.register()" in html
 
     def test_click_cooldown(self, base_map: folium.Map):
         """Click cooldown constant is defined."""
@@ -419,10 +419,10 @@ class TestMeasureControlRendering:
         assert "injectDelIcon" not in html
 
     def test_bring_layer_to_front_on_tool_select(self, base_map: folium.Map):
-        """Tool select calls bringLayerToFront to keep measure layer on top."""
+        """Tool select calls register() to re-show the measure layer on top."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "this.layers.bringToFront()" in html
+        assert "this.layers.register()" in html
 
     # ── Finish animation tests ──
 
@@ -519,24 +519,22 @@ class TestMeasureControlRendering:
             page.close()
 
     def test_register_on_first_click(self, browser, tmp_path):
-        """Layer is registered on first map click, not on tool select."""
+        """Layer is registered immediately on tool select, visible on map."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("document.querySelector('[data-mode=distance]').click()")
             page.wait_for_timeout(500)
-            # Tool selected — no registration yet (consistent with marker/circle)
+            # Tool selected — registered immediately (needed to show hidden layer)
             registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert not registered, (
-                "Layer should NOT be registered after tool select — deferred until first click"
+            assert registered, (
+                "Layer should be registered immediately after tool select"
             )
-            # First click on map — triggers registration
+            # First click on map — triggers content addition
             page.evaluate("""() => {
                 const map = window.__map;
                 map.fire('click', {latlng: L.latLng(26.08, 119.30)});
             }""")
             page.wait_for_timeout(500)
-            registered = page.evaluate("window.__measureManager.layers.registered()")
-            assert registered, "Layer should be registered after first map click"
             # Second click + right-click to finish
             page.evaluate("""() => {
                 const map = window.__map;
@@ -579,7 +577,7 @@ class TestMeasureControlRendering:
                 mm.layers.addLayer(L.circleMarker([26.08,119.30]));
             }""")
             page.wait_for_timeout(500)
-            page.evaluate("window.__measureManager.layers.destroy()")
+            page.evaluate("window.__measureManager.layers.clearLayers()")
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert not registered, "destroy should unregister the layer"

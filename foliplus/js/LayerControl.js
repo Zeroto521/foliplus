@@ -519,9 +519,7 @@
       if (opts.layer) {
         for (const cp of this.discoverChildPanes(opts.layer))
           this.ensurePane(cp, !this.labelPanes.has(cp));
-      }
 
-      if (opts.layer) {
         if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id))
           LayerManager.registry.set(opts.id, opts.layer);
         else
@@ -652,7 +650,6 @@
      * @property {Function} removeLayer(...items) - Remove one or more layers. Null items
      *   silently skipped.  Auto-unregisters when all sub-layers are empty.
      * @property {Function} clearLayers()   - Clear all sub-layers, unregister from panel.
-     * @property {Function} destroy()       - Clear + unregister + remove from LayerControl.
      * @property {Function} register()      - Register with LayerControl (auto-called on first
      *   `addLayer`).  Safe to call multiple times.
      * @property {Function} unregister()    - Unregister from LayerControl when empty.
@@ -671,18 +668,20 @@
 
       let registered = false;
 
+      const layerOpts = {
+        name: opts.name,
+        id: opts.id,
+        isBase: false,
+        layer: mainLayer,
+        paneName: opts.graphPane || null,
+        iconSvg: opts.iconSvg || null,
+      };
       const register = () => {
-        if (registered) return;
-        registered = true;
-        if (opts.labelPane) this.labelPanes.add(opts.labelPane);
-        this.registerLayer({
-          name: opts.name,
-          id: opts.id,
-          isBase: false,
-          layer: mainLayer,
-          paneName: opts.graphPane || null,
-          iconSvg: opts.iconSvg || null,
-        });
+        if (!registered) {
+          registered = true;
+          if (opts.labelPane) this.labelPanes.add(opts.labelPane);
+        }
+        this.registerLayer(layerOpts);
       };
 
       const unregister = () => {
@@ -726,21 +725,14 @@
           return graphLayer.removeLayer(layer);
         if (labelLayer && labelLayer.hasLayer(layer))
           return labelLayer.removeLayer(layer);
-        const ret = origRemoveLayer(layer);
-        // Remove mainLayer from map when all sub-layers are empty
-        if (
-          this.map.hasLayer(mainLayer) &&
-          Object.keys(graphLayer?._layers || {}).length === 0 &&
-          Object.keys(labelLayer?._layers || {}).length === 0
-        )
-          this.map.removeLayer(mainLayer);
-        return ret;
+        return origRemoveLayer(layer);
       };
 
       mainLayer.clearLayers = () => {
         if (graphLayer) graphLayer.clearLayers();
         if (labelLayer) labelLayer.clearLayers();
         if (this.map.hasLayer(mainLayer)) this.map.removeLayer(mainLayer);
+        unregister();
       };
 
       // ── Convenience API ──────────────────────────────────────────
@@ -756,14 +748,6 @@
       };
       const clearLayers = () => {
         mainLayer.clearLayers();
-        unregister();
-      };
-      const destroy = () => {
-        clearLayers();
-        if (registered) {
-          registered = false;
-          this.unregisterLayer(opts.id);
-        }
       };
 
       return {
@@ -771,7 +755,6 @@
         addLayer,
         removeLayer,
         clearLayers,
-        destroy,
         register,
         unregister,
         registered: () => registered,
@@ -865,7 +848,10 @@
       if (!mapPane)
         throw new Error(`[${CONST.name}] ${_(`${CONST.name}.mapPane_not_available`)}`);
 
-      const canvas = L.DomUtil.create("canvas", "foliplus-heatmap-canvas", mapPane);
+      const canvas = foliplus.dom.el("canvas", {
+        class: "foliplus-heatmap-canvas",
+        parent: mapPane,
+      });
       if (opts.className) canvas.classList.add(opts.className);
 
       const ctx = canvas.getContext("2d");
@@ -923,19 +909,20 @@
         this.unregisterLayer(opts.id);
       };
 
+      const layerOpts = {
+        id: opts.id,
+        name: opts.name || opts.id,
+        iconSvg: opts.iconSvg || null,
+        onToggle,
+        onZIndex,
+      };
       const register = () => {
         if (registered) return;
         registered = true;
         resize();
         updatePosition();
         canvas.classList.remove(CONST.CLASSES.HIDDEN);
-        this.registerLayer({
-          id: opts.id,
-          name: opts.name || opts.id,
-          iconSvg: opts.iconSvg || null,
-          onToggle,
-          onZIndex,
-        });
+        this.registerLayer(layerOpts);
       };
 
       // Track map pan — update canvas position without redraw
@@ -1754,7 +1741,9 @@
     }
 
     onAdd() {
-      const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+      const container = foliplus.dom.el("div", {
+        class: "leaflet-bar leaflet-control",
+      });
 
       container.innerHTML = `
         <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed"

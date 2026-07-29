@@ -513,6 +513,63 @@ class TestHeatmapControlRendering:
         assert "typeof chroma" in html
         assert "Array(n).fill(CONST.GRAY)" in html
 
+    def test_class_select_default_value(self, base_map: folium.Map):
+        """classSelect.value is set after <option> elements are created."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        # value must be set AFTER the for-loop that creates <option> children
+        assert ".classSelect.value = " in html
+        # Must NOT be in the attrs of foliplus.dom.el("select", ...)
+        assert 'classSelect = foliplus.dom.el("select", {' in html
+        assert "classSelect.value =" in html
+        # Verify the value assignment appears after the for-loop
+        for_lines = [l for l in html.split("\n") if "ci <= 9" in l]
+        value_lines = [l for l in html.split("\n") if ".classSelect.value = " in l]
+        assert for_lines and value_lines, "Missing for-loop or value assignment"
+        # Find the position of <option creation> and value assignment
+        option_pos = html.find("ci <= 9")
+        value_pos = html.find(".classSelect.value = ")
+        assert value_pos > option_pos, (
+            f"classSelect.value (pos {value_pos}) must be set after "
+            f"<option> creation (pos {option_pos})"
+        )
+
+    def test_scheme_select_default_value(self, base_map: folium.Map):
+        """schemeSelectHidden.value is set after <option> elements."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        # Must NOT be in attrs
+        assert 'schemeSelectHidden = foliplus.dom.el("select", {' in html
+        assert "schemeSelectHidden.value =" in html
+        # Verify value assignment appears after forEach
+        for_each_pos = html.find("SCHEME_NAMES.forEach")
+        value_pos = html.find(".schemeSelectHidden.value = ")
+        assert value_pos > for_each_pos, (
+            f"schemeSelectHidden.value (pos {value_pos}) must be after "
+            f"<option> creation (pos {for_each_pos})"
+        )
+
+    def test_form_row_label_before_control(self, base_map: folium.Map):
+        """In each form-row, <label> appears before <div.form-control> in JS."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        # For the classification method row, verify the JS creates label
+        # before form-control within the same form-row.
+        # In the rendered JS, 'classRow' should appear before 'classControlWrap'
+        # because label is appended to classRow first, then controlWrap.
+        row_pos = html.find("class: CONST.CLASSES.FORM_ROW, parent: styleSection")
+        label_pos = html.find(
+            "class: CONST.CLASSES.FORM_LABEL, parent: classRow, innerHTML: _"
+        )
+        ctrl_pos = html.find(
+            "FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,\n        parent: classRow"
+        )
+        if row_pos >= 0 and label_pos >= 0 and ctrl_pos >= 0:
+            assert label_pos < ctrl_pos, (
+                f"label (pos {label_pos}) must be created before "
+                f"form-control (pos {ctrl_pos}) in the same row"
+            )
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""

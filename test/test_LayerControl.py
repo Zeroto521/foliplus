@@ -891,7 +891,9 @@ class TestLayerControlRendering:
         assert "setZIndex" in html
         assert "setVisible" in html
         assert "getSize" in html
-        assert 'L.DomUtil.create("canvas", "foliplus-heatmap-canvas", mapPane)' in html
+        assert 'foliplus.dom.el("canvas"' in html
+        assert 'class: "foliplus-heatmap-canvas"' in html
+        assert "parent: mapPane" in html
         assert "mapPane" in html
 
     def test_layer_callbacks_stored(self, base_map: folium.Map):
@@ -968,7 +970,7 @@ class TestLayerControlRendering:
         # The register() closure handles both first-time and re-entry paths
         assert "!registered" in html
         assert "registered = true" in html
-        assert "this.registerLayer({" in html
+        assert "this.registerLayer(" in html
 
     def test_callback_only_visible_tracking_in_handle_change(
         self, base_map: folium.Map
@@ -1529,6 +1531,64 @@ class TestLayerControlBrowser:
             }""")
             assert result is not None
             assert result["found"] is True
+        finally:
+            page.close()
+
+    def test_register_readds_hidden_layer(self, browser, tmp_path):
+        """register() re-adds mainLayer to map when layer was unchecked."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html_path = tmp_path / "test_register_readds.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                // Create a managed layer group (like MeasureControl does)
+                const layers = api.createLayers({
+                    id: '__test_measure__',
+                    name: 'Test Measure',
+                    graphPane: 'test_graph',
+                    labelPane: 'test_label',
+                });
+                // Add content (triggers register)
+                const mkr = L.circleMarker([26.08, 119.30]);
+                mkr.isLabel = false;
+                layers.mainLayer.addLayer(mkr);
+                const wasRegistered = layers.registered();
+                // Simulate uncheck: remove mainLayer from map
+                api.map.removeLayer(layers.mainLayer);
+                const onMapAfterUncheck = api.map.hasLayer(layers.mainLayer);
+                // Trigger re-add via register() path (simulating tool click)
+                const mkr2 = L.circleMarker([26.09, 119.31]);
+                mkr2.isLabel = false;
+                layers.mainLayer.addLayer(mkr2);
+                const onMapAfterReadd = api.map.hasLayer(layers.mainLayer);
+                // Check checkbox state in LayerControl panel
+                const item = document.querySelector('[data-layer-id="__test_measure__"]');
+                const cb = item ? item.querySelector('input[type="checkbox"]') : null;
+                const checkboxChecked = cb ? cb.checked : 'no-cb';
+                return { wasRegistered, onMapAfterUncheck, onMapAfterReadd, checkboxChecked };
+            }""")
+            assert result is not None
+            assert result["wasRegistered"] is True, "Layer should be registered"
+            assert result["onMapAfterUncheck"] is False, (
+                "Layer should be removed from map after uncheck"
+            )
+            assert result["onMapAfterReadd"] is True, (
+                "Layer should be re-added to map after tool re-activation"
+            )
+            assert result["checkboxChecked"] is True, (
+                "Checkbox should be checked after re-activation"
+            )
         finally:
             page.close()
 

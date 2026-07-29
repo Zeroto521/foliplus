@@ -46,6 +46,15 @@ class TestBaseControlRendering:
         assert "HINT.LONG" in html
         assert "HINT.PERSIST" in html
 
+    def test_nominatim_assigned(self, base_map: folium.Map):
+        """foliplus.NOMINATIM is assigned (not just referenced)."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        # Check the assignment exists, not just usage
+        assert "foliplus.NOMINATIM = {" in html
+
     def test_format_number_auto(self, base_map: folium.Map):
         """foliplus.formatNumber supports auto/compact style."""
         from foliplus import SearchControl
