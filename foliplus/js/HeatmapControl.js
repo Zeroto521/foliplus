@@ -286,10 +286,10 @@
           : fallback;
 
       this.cachedLabelStyle = {
-        font: `${cssVal("--heatmap-label-font-weight", "bold")} ${cssVal("--heatmap-label-font-size", `${CONST.LABEL.SIZE}px`)} ${cssVal("--heatmap-label-font-family", "sans-serif")}`,
-        color: cssVal("--heatmap-label-color", CONST.LABEL.COLOR),
-        stroke: cssVal("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
-        strokeWidth: parseFloat(cssVal("--heatmap-label-stroke-width", "3")),
+        font: `${cssVal("--heatmap-label-font-weight")} ${cssVal("--heatmap-label-font-size")} ${cssVal("--heatmap-label-font-family")}`,
+        color: cssVal("--heatmap-label-color"),
+        stroke: cssVal("--heatmap-label-stroke-color"),
+        strokeWidth: parseFloat(cssVal("--heatmap-label-stroke-width")),
       };
       return this.cachedLabelStyle;
     }
