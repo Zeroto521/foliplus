@@ -38,7 +38,7 @@
   border: var(--border-thick) solid var(--neutral-0);
   border-radius: var(--radius-round);
 }
-.foliplus-measure-center-dot.foliplus-final {
+.foliplus-measure-center-dot.final {
   box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
 }
 
