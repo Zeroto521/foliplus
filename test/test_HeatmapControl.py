@@ -992,11 +992,11 @@ class TestHeatmapAutoFieldBrowser:
             )
             page.wait_for_timeout(500)
 
-            # Verify field selector is visible and _auto is selected.
+            # Verify field selector is visible and AUTO is selected.
             # The field select is the <select> inside .foliplus-heatmap-field.
             field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
-            assert field_val == "_auto", f"Expected '_auto', got '{field_val}'"
+            assert field_val == "AUTO", f"Expected 'AUTO', got '{field_val}'"
 
             # Verify field options include our properties
             field_opts = page.evaluate(
@@ -1061,11 +1061,11 @@ class TestHeatmapAutoFieldBrowser:
             )
             page.wait_for_timeout(500)
 
-            # Verify _auto is selected.
+            # Verify AUTO is selected.
             # The field select is the <select> inside .foliplus-heatmap-field.
             field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
-            assert field_val == "_auto", f"Expected '_auto', got '{field_val}'"
+            assert field_val == "AUTO", f"Expected 'AUTO', got '{field_val}'"
 
             # Single field → pickAutoField returns it directly
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")

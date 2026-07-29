@@ -54,6 +54,7 @@
       COLOR: "{{ this.style.label_color }}",
       FORMAT: "{{ this.style.label_format }}",
     },
+    FIELD_AUTO: "AUTO",
     SCHEME_NAMES: {{ this.schemes | tojson }},
     CLASSES: {
       FORM_ROW: "foliplus-heatmap-form-row",
@@ -369,7 +370,7 @@
 
     getPointValue(marker) {
       if (this.currentAgg === "count") return 1;
-      const key = this.currentField === "_auto" ? this.autoFieldKey : this.currentField;
+      const key = this.currentField === CONST.FIELD_AUTO ? this.autoFieldKey : this.currentField;
       const val = this.readMarkerField(marker, key);
       if (val === undefined || isNaN(val)) {
         if (!this.valueFallbackWarned) {
@@ -1069,7 +1070,7 @@
       foliplus.dom.el(
         "option",
         {
-          value: "_auto",
+          value: CONST.FIELD_AUTO,
           disabled: "disabled",
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
           parent: this.fieldSelect,
@@ -1085,11 +1086,11 @@
         );
       });
 
-      if (fields.includes(this.m.currentField) || this.m.currentField === "_auto")
+      if (fields.includes(this.m.currentField) || this.m.currentField === CONST.FIELD_AUTO)
         this.fieldSelect.value = this.m.currentField;
       else {
-        this.m.currentField = "_auto";
-        this.fieldSelect.value = "_auto";
+        this.m.currentField = CONST.FIELD_AUTO;
+        this.fieldSelect.value = CONST.FIELD_AUTO;
       }
 
       this.syncSelect(this.fieldSelect, this.fieldSelect.value);
@@ -1237,7 +1238,7 @@
 
     syncSelect(el, value) {
       el.value = value;
-      el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value || value === "_auto");
+      el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value || value === CONST.FIELD_AUTO);
     }
   }
 
