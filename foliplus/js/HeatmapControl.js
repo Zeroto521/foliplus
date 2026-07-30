@@ -151,7 +151,7 @@
     return;
   }
 
-  // ==================== Core: Data Aggregation & Rendering ===
+  // ==================== Core: Data Aggregation & Rendering ====================
   class HeatmapManager {
     constructor(mapInstance) {
       this.map = mapInstance;
