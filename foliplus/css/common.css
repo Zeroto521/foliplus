@@ -64,7 +64,7 @@
   --btn-primary-hover: var(--accent-hover);
   --btn-secondary-border: var(--neutral-300);
 
-  /* Effect */
+  /* ── Effects ── */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
   --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
@@ -74,11 +74,12 @@
   --font-size-xs: 10px;
   --font-size-sm: 12px;
   --font-size-md: 14px;
-
-  /* ── Font Weight ── */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
+  --line-height-hint: 1.4;
+  --line-height-popup: 1.8;
+  --letter-spacing-tight: 0.5px;
 
   /* ── Spacing ── */
   --space-xs: var(--size-2);
@@ -94,6 +95,7 @@
   --scale-hover: 1.08;
   --icon-size-sm: var(--size-16);
   --icon-size-md: 18px;
+  --stroke-icon: 1.8;
 
   /* ── Layout Metrics ── */
   --toggle-size: 36px;
@@ -101,9 +103,6 @@
   --panel-max-height: 400px;
   --panel-header-padding-left: var(--size-6);
   --panel-header-padding-right: var(--ctrl-size);
-
-  /* ── Micro Visual Adjustments ── */
-  --letter-spacing-tight: 0.5px;
 
   /* ── Border Width ── */
   --border-thin: 1px;
@@ -118,19 +117,12 @@
   /* ── Shadows ── */
   --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-15));
   --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-15));
-
-  /* Component */
   --shadow-ctrl-strong: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-50));
 
   /* ── Transitions ── */
   --transition-fast: 0.15s ease;
   --transition-input:
     border-color var(--transition-fast), box-shadow var(--transition-fast);
-
-  /* ── Micro Visual Adjustments ── */
-  --stroke-icon: 1.8;
-  --line-height-hint: 1.4;
-  --line-height-popup: 1.8;
 
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.
