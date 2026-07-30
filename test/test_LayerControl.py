@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import folium
@@ -118,6 +119,17 @@ class TestLayerControlRendering:
         assert "SVGs.POLYGON" in html
         assert "SVGs.EMPTY" in html
         assert "SVGs.UNKNOWN" in html
+
+    def test_fold_icon_single_svg_css_rotation(self, base_map: folium.Map):
+        """Fold uses a single SVG icon rotated by CSS — no separate UNFOLD SVG."""
+        from pathlib import Path
+
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "SVGs.FOLD" in html
+        assert "SVGs.UNFOLD" not in html
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "rotate(180deg)" in css
 
     def test_geometry_type_empty_and_unknown(self, base_map: folium.Map):
         """getGeometryType returns 'empty'/'unknown' for edge cases."""
@@ -716,8 +728,6 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # Check that no bare parseInt(...) without radix exists
-        import re
-
         matches = re.findall(r"parseInt\([^)]+\)", html)
         for m in matches:
             assert ", 10)" in m, f"Missing radix: {m}"
@@ -774,6 +784,85 @@ class TestLayerControlRendering:
         # Toggle button SVG inherits color
         assert "foliplus-toggle-btn svg" in html
         assert "stroke: currentColor" in html
+        # Close (X) button SVG must also be in the icon selector
+        assert "foliplus-ctrl-btn" in html
+
+    def test_close_btn_svg_styled(self):
+        """ctrl-btn svg is included in the common icon selector so X lines are visible."""
+        css = Path("foliplus/css/common.css").read_text()
+        # .foliplus-ctrl-btn must appear inside the :is() icon-size rule so that
+        # its SVG lines get stroke:currentColor (without it the X is invisible).
+        assert ".foliplus-ctrl-btn" in css
+
+    def test_folded_state_no_accent_text(self):
+        """Folded label keeps neutral color; only left border and fold-btn use accent."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # left border and fold-btn turn accent when folded — both expected
+        assert "foliplus-layer-folded" in css
+        assert "border-left-color: var(--accent-primary)" in css
+        # label must NOT be colored accent when folded (label stays text-primary)
+        assert "foliplus-layer-folded .foliplus-layer-sep-label" not in css, (
+            "folded label must not override color (label stays text-primary)"
+        )
+
+    def test_toggle_all_label_semibold_primary(self):
+        """Section header label is semibold and text-primary so it reads as a real header."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-toggle-all .foliplus-layer-sep-label" in css
+        assert "font-weight: var(--font-weight-semibold)" in css
+        assert "color: var(--text-primary)" in css
+
+    def test_toggle_all_hover_accent_light_border(self):
+        """Toggle-all row hover shows a soft accent-light left border."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-toggle-all:hover" in css
+        assert "border-left-color: var(--accent-light)" in css
+
+    def test_folded_fold_btn_turns_accent(self):
+        """Fold button color becomes accent-primary when row is folded."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # Find the rule that targets fold-btn itself (not fold-btn svg)
+        # by searching for the closing of the selector without "svg" on the same segment
+        match = re.search(
+            r"foliplus-layer-folded\s+\.foliplus-layer-fold-btn\s*\{([^}]*)\}",
+            css,
+        )
+        assert match, "folded fold-btn rule not found"
+        assert "var(--accent-primary)" in match.group(1)
+
+    def test_section_divider_fades_when_folded(self):
+        """Section divider fades to opacity 0 when the group is folded."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-section-divider" in css
+        assert "opacity: 0" in css
+
+    def test_fold_btn_hover_bg_and_radius(self):
+        """Fold button hover shows accent-soft-bg background and border-radius."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-fold-btn:hover" in css
+        assert "background: var(--accent-soft-bg)" in css
+        assert "border-radius: var(--radius-sm)" in css
+
+    def test_fold_btn_background_transition(self):
+        """Fold button transitions background so hover bg fades in smoothly."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # transition block for fold-btn must include background
+        idx = css.find(".foliplus-layer-fold-btn {")
+        assert idx != -1
+        block = css[idx : css.index("}", idx) + 1]
+        assert "background var(--transition-fast)" in block
+
+    def test_fold_btn_svg_fill_none(self):
+        """fold-btn svg rule includes fill:none so chevrons render as outlines."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-fold-btn svg" in css
+        assert "fill: none" in css
+
+    def test_drag_handle_circle_stroke(self):
+        """drag-handle circles have explicit stroke so they appear bold."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert ".drag-handle circle" in css
+        assert "stroke: currentColor" in css
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""
@@ -1827,7 +1916,7 @@ class TestLayerControlBrowser:
             page.close()
 
     def test_fold_svg_switches_on_toggle(self, browser, tmp_path):
-        """Fold button SVG changes when toggled."""
+        """Fold button uses a single SVG rotated 180° by CSS (not swapped) on toggle."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
@@ -1848,8 +1937,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            # Check initial SVG (FOLD = 1 polyline, UNFOLD = 1 polyline)
-            # Chevron ^ (points 18,15 12,9 6,15) vs v (points 18,9 12,15 6,9)
+            # Single SVG, 1 polyline before fold
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 return btn.querySelectorAll('polyline').length;
@@ -1863,14 +1951,20 @@ class TestLayerControlBrowser:
             }""")
             page.wait_for_timeout(300)
 
-            # After fold, SVG should still have 1 polyline (rotated)
+            # Still 1 polyline — icon is rotated by CSS, not swapped
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 return btn.querySelectorAll('polyline').length;
             }""")
             assert elem_count == 1, (
-                f"Expected 1 polyline (UNFOLD SVG), got {elem_count}"
+                f"Expected 1 polyline (CSS-rotated, not swapped), got {elem_count}"
             )
+            # Row must carry the folded class so CSS rotation kicks in
+            is_folded = page.evaluate("""() => {
+                const row = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"]');
+                return row.classList.contains('foliplus-layer-folded');
+            }""")
+            assert is_folded, "Expected foliplus-layer-folded class on row after fold"
         finally:
             page.close()
 

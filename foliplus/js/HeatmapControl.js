@@ -894,8 +894,17 @@
         step: 0.5,
         parent: borderControlWrap,
         value: this.m.borderWeight,
+        oninput: () => {
+          const v = parseFloat(this.borderWeightInput.value);
+          if (!isNaN(v) && v >= 0 && v <= 10) {
+            this.m.borderWeight = v;
+            this.m.renderHexagons();
+          }
+        },
         onchange: () => {
-          this.m.borderWeight = parseFloat(this.borderWeightInput.value) || 1;
+          const v = parseFloat(this.borderWeightInput.value);
+          this.m.borderWeight = isNaN(v) ? 1 : Math.min(10, Math.max(0, v));
+          this.borderWeightInput.value = this.m.borderWeight;
           this.m.renderHexagons();
         },
       });
@@ -1017,7 +1026,7 @@
         "option",
         {
           value: "",
-          disabled: "disabled",
+          disabled: true,
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
           parent: sel,
           selected: !this.m.selectedLayerId ? "" : undefined,
@@ -1071,7 +1080,7 @@
         "option",
         {
           value: "",
-          disabled: "disabled",
+          disabled: true,
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
           parent: this.fieldSelect,
         },
