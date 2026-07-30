@@ -429,8 +429,7 @@
       const sorted = data.slice().sort((a, b) => a - b);
       const n = sorted.length;
       if (n <= 2) return [sorted[0], sorted[n - 1]];
-      nClasses = Math.min(nClasses, n);
-      if (nClasses < 3) nClasses = Math.min(3, n);
+      nClasses = Math.max(3, Math.min(nClasses, n));
 
       const lo = sorted[0];
       const hi = sorted[n - 1];
