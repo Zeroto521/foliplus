@@ -366,6 +366,13 @@ class TestHeatmapControlRendering:
         assert "close-btn" in html
         assert "HeatmapControl.close_title" in html
 
+    def test_ctrl_btn_svg_in_icon_selector(self):
+        """ctrl-btn svg is included in the common icon selector so X lines are visible."""
+        from pathlib import Path
+
+        css = Path("foliplus/css/common.css").read_text()
+        assert ".foliplus-ctrl-btn" in css
+
     def test_layer_placeholder_option(self, base_map: folium.Map):
         """Layer select has a placeholder option."""
         HeatmapControl().add_to(base_map)

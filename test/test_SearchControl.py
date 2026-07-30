@@ -119,6 +119,13 @@ class TestSearchControlRendering:
         assert "toggle-btn" in html
         assert "ctrl-btn" in html
 
+    def test_ctrl_btn_svg_in_icon_selector(self):
+        """ctrl-btn svg is included in the common icon selector so X lines are visible."""
+        from pathlib import Path
+
+        css = Path("foliplus/css/common.css").read_text()
+        assert ".foliplus-ctrl-btn" in css
+
     def test_search_form_structure(self, base_map: folium.Map):
         """Search form has mode-btn, input, and clear."""
         SearchControl().add_to(base_map)

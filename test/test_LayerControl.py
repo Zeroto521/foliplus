@@ -774,6 +774,27 @@ class TestLayerControlRendering:
         # Toggle button SVG inherits color
         assert "foliplus-toggle-btn svg" in html
         assert "stroke: currentColor" in html
+        # Close (X) button SVG must also be in the icon selector
+        assert "foliplus-ctrl-btn" in html
+
+    def test_close_btn_svg_styled(self):
+        """ctrl-btn svg is included in the common icon selector so X lines are visible."""
+        css = Path("foliplus/css/common.css").read_text()
+        # .foliplus-ctrl-btn must appear inside the :is() icon-size rule so that
+        # its SVG lines get stroke:currentColor (without it the X is invisible).
+        assert ".foliplus-ctrl-btn" in css
+
+    def test_fold_btn_svg_fill_none(self):
+        """fold-btn svg rule includes fill:none so chevrons render as outlines."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-fold-btn svg" in css
+        assert "fill: none" in css
+
+    def test_drag_handle_circle_stroke(self):
+        """drag-handle circles have explicit stroke so they appear bold."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert ".drag-handle circle" in css
+        assert "stroke: currentColor" in css
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""
