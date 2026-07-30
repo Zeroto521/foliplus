@@ -119,6 +119,17 @@ class TestLayerControlRendering:
         assert "SVGs.EMPTY" in html
         assert "SVGs.UNKNOWN" in html
 
+    def test_fold_icon_single_svg_css_rotation(self, base_map: folium.Map):
+        """Fold uses a single SVG icon rotated by CSS — no separate UNFOLD SVG."""
+        from pathlib import Path
+
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "SVGs.FOLD" in html
+        assert "SVGs.UNFOLD" not in html
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "rotate(180deg)" in css
+
     def test_geometry_type_empty_and_unknown(self, base_map: folium.Map):
         """getGeometryType returns 'empty'/'unknown' for edge cases."""
         LayerControl().add_to(base_map)
@@ -1848,7 +1859,7 @@ class TestLayerControlBrowser:
             page.close()
 
     def test_fold_svg_switches_on_toggle(self, browser, tmp_path):
-        """Fold button SVG changes when toggled."""
+        """Fold button uses a single SVG rotated 180° by CSS (not swapped) on toggle."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
@@ -1869,8 +1880,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            # Check initial SVG (FOLD = 1 polyline, UNFOLD = 1 polyline)
-            # Chevron ^ (points 18,15 12,9 6,15) vs v (points 18,9 12,15 6,9)
+            # Single SVG, 1 polyline before fold
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 return btn.querySelectorAll('polyline').length;
@@ -1884,14 +1894,20 @@ class TestLayerControlBrowser:
             }""")
             page.wait_for_timeout(300)
 
-            # After fold, SVG should still have 1 polyline (rotated)
+            # Still 1 polyline — icon is rotated by CSS, not swapped
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 return btn.querySelectorAll('polyline').length;
             }""")
             assert elem_count == 1, (
-                f"Expected 1 polyline (UNFOLD SVG), got {elem_count}"
+                f"Expected 1 polyline (CSS-rotated, not swapped), got {elem_count}"
             )
+            # Row must carry the folded class so CSS rotation kicks in
+            is_folded = page.evaluate("""() => {
+                const row = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"]');
+                return row.classList.contains('foliplus-layer-folded');
+            }""")
+            assert is_folded, "Expected foliplus-layer-folded class on row after fold"
         finally:
             page.close()
 

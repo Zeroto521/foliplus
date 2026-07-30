@@ -133,6 +133,12 @@
 }
 .foliplus-layer-ctrl
   .foliplus-layer-toggle-all.foliplus-layer-folded
+  .foliplus-layer-fold-btn
+  svg {
+  transform: rotate(180deg);
+}
+.foliplus-layer-ctrl
+  .foliplus-layer-toggle-all.foliplus-layer-folded
   .foliplus-layer-fold-btn {
   color: var(--accent-primary);
 }
