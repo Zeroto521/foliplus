@@ -152,7 +152,7 @@
       setTimeout(() => {
         manager.isSuppressHideDel = false;
       }, CONST.TIMING.SUPPRESS_HIDE_DELAY);
-      this.hideDelIcons();
+      MeasureUtils.hideDelIcons();
     }
 
     static hideDelIcons() {
