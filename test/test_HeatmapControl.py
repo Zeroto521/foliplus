@@ -331,6 +331,35 @@ class TestHeatmapControlRendering:
         assert "weight-input" in html
         assert "color-input" in html
 
+    def test_border_weight_input_has_min_max(self, base_map: folium.Map):
+        """Border weight input has min:0 max:10, clamps on change, and previews on input."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "min: 0" in html
+        assert "max: 10" in html
+        assert "Math.min(10, Math.max(0," in html
+        # oninput for live preview (only fires when value is in range)
+        assert "oninput:" in html
+        # onchange for final clamp
+        assert "onchange:" in html
+
+    def test_placeholder_options_disabled(self, base_map: folium.Map):
+        """Layer placeholder and field auto options use disabled:true (not the string)."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        # Must use boolean true so dom.el sets el.disabled = true
+        assert "disabled: true" in html
+        # Must NOT use the string variant which silently sets disabled=false
+        assert 'disabled: "disabled"' not in html
+
+    def test_border_weight_breathing_focus(self):
+        """weight-input is included in the shared breathing-focus rule in common.css."""
+        from pathlib import Path
+
+        css = Path("foliplus/css/common.css").read_text()
+        assert "foliplus-heatmap-weight-input" in css
+        assert "input-breathe" in css
+
     def test_label_toggle_renders(self, base_map: folium.Map):
         """Label toggle switch is rendered."""
         HeatmapControl().add_to(base_map)
@@ -365,6 +394,13 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "close-btn" in html
         assert "HeatmapControl.close_title" in html
+
+    def test_ctrl_btn_svg_in_icon_selector(self):
+        """ctrl-btn svg is included in the common icon selector so X lines are visible."""
+        from pathlib import Path
+
+        css = Path("foliplus/css/common.css").read_text()
+        assert ".foliplus-ctrl-btn" in css
 
     def test_layer_placeholder_option(self, base_map: folium.Map):
         """Layer select has a placeholder option."""

@@ -171,9 +171,9 @@
     }
 
     static applyToggle(delMarker, xVisible, labels, labelsVisible, extraLbl, onToggle) {
-      const applyDelIcon = (mkr, show, retries = 0) => {
-        if (!mkr) return;
-        MeasureUtils.toggleDelIcon(mkr, show, retries);
+      const applyDelIcon = (marker, show, retries = 0) => {
+        if (!marker) return;
+        MeasureUtils.toggleDelIcon(marker, show, retries);
       };
 
       applyDelIcon(delMarker, xVisible);
@@ -197,15 +197,15 @@
     }
 
     /** Toggle a delete icon's visibility with retry. */
-    static toggleDelIcon(mkr, show, retries = 0) {
-      if (!mkr) return;
-      const el = mkr.getElement();
+    static toggleDelIcon(marker, show, retries = 0) {
+      if (!marker) return;
+      const el = marker.getElement();
       if (el) {
         const icon = el.querySelector(CONST.SEL.DEL_ICON);
         if (icon) icon.classList.toggle(CONST.CLASSES.VISIBLE, show);
       } else if (retries < CONST.DEL_ICON.RETRY_LIMIT) {
         setTimeout(
-          () => MeasureUtils.toggleDelIcon(mkr, show, retries + 1),
+          () => MeasureUtils.toggleDelIcon(marker, show, retries + 1),
           CONST.TIMING.DEL_ICON_RETRY_DELAY,
         );
       }
@@ -563,9 +563,9 @@
         }
         poly.addLatLng(e.latlng);
 
-        const mkr = this.layers.addLayer(MeasureUtils.makeNode(e.latlng));
-        mkr.bringToFront();
-        nodeMarkers.push(mkr);
+        const marker = this.layers.addLayer(MeasureUtils.makeNode(e.latlng));
+        marker.bringToFront();
+        nodeMarkers.push(marker);
 
         if (pts.length === 1) {
           startLbl = this.layers.addLayer(
@@ -576,9 +576,9 @@
           );
         }
 
-        mkr.on("click", () => {
+        marker.on("click", () => {
           if (pts.length < 2) return;
-          if (mkr === nodeMarkers[nodeMarkers.length - 1]) finishDist();
+          if (marker === nodeMarkers[nodeMarkers.length - 1]) finishDist();
         });
 
         if (pts.length > 1) {

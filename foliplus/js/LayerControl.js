@@ -120,7 +120,6 @@
         <circle cx="8" cy="14" r="1" class="solid"/>
       </svg>`,
     FOLD: `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`,
-    UNFOLD: `<svg viewBox="0 0 24 24"><polyline points="18 9 12 15 6 9"/></svg>`,
   };
 
   foliplus.registerHintIcon(CONST.name, SVGs.LAYERS);
@@ -1296,7 +1295,7 @@
             class: CONST.CLASSES.FOLD_BTN,
             title: _(`${CONST.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
           },
-          { html: isFolded ? SVGs.UNFOLD : SVGs.FOLD },
+          { html: SVGs.FOLD },
         ),
         foliplus.dom.el(
           "div",
@@ -1312,7 +1311,7 @@
       );
     }
 
-    renderLayerItem(l, index) {
+    renderLayerItem(l, idx) {
       const en = LayerUtils.escapeHTML(l.name);
       const children = [
         { html: SVGs.DRAG_HANDLE },
@@ -1322,7 +1321,7 @@
           foliplus.dom.el("input", {
             type: "checkbox",
             checked: "",
-            [CONST.DATA.INDEX]: String(index),
+            [CONST.DATA.INDEX]: String(idx),
             "aria-label": en,
           }),
         ),
@@ -1339,7 +1338,7 @@
         {
           class: CONST.CLASSES.LAYER_ITEM,
           draggable: "true",
-          [CONST.DATA.INDEX]: String(index),
+          [CONST.DATA.INDEX]: String(idx),
           [CONST.DATA.LAYER_ID]: l.id,
           "data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
           title: en,
@@ -1595,10 +1594,19 @@
       if (!item || item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
 
       const targetIdx = parseInt(item.dataset.index, 10);
-      const allItems = this.m.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
-      allItems.forEach((i) =>
-        i.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM),
+      // Only clear the previously highlighted item instead of scanning every
+      // item on each dragover event (fires many times per second while dragging).
+      const prev = this.m.lastDragOverItem;
+      if (prev && prev !== item)
+        prev.classList.remove(
+          CONST.CLASSES.DRAG_OVER_TOP,
+          CONST.CLASSES.DRAG_OVER_BOTTOM,
+        );
+      item.classList.remove(
+        CONST.CLASSES.DRAG_OVER_TOP,
+        CONST.CLASSES.DRAG_OVER_BOTTOM,
       );
+      this.m.lastDragOverItem = item;
 
       if (!this.m.canReorderBetween(this.m.dragIdx, targetIdx)) {
         if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
@@ -1660,6 +1668,7 @@
     }
 
     handleDragEnd() {
+      this.m.lastDragOverItem = null;
       const allItems = this.m.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
       allItems.forEach((i) =>
         i.classList.remove(

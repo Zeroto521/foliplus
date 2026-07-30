@@ -5,7 +5,7 @@
  */
 (function (window, document) {
   "use strict";
-  // 1. Ensure global namespace object exists
+  // Ensure the global namespace object exists.
   if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {};
   const foliplus = window.foliplus;
 
@@ -27,7 +27,8 @@
       return loc && loc[k] ? loc[k] : k;
     });
 
-  // 3. Early return only if logic is already initialized
+  // Bail out if the shared runtime has already been initialized (it is inlined
+  // once per map, but this guard keeps it idempotent across reloads/embeds).
   if (foliplus.isInitialized) return;
   foliplus.isInitialized = true;
 
@@ -99,6 +100,16 @@
 
   const hintIcons = {};
   const hintMap = new Map(); // key -> { element, timer }
+
+  // Reposition all visible hints in a vertical stack (bottom-up).
+  const repositionHints = () => {
+    let idx = 0;
+    for (const v of hintMap.values()) {
+      v.element.style.bottom = `${CONST.HINT.BOTTOM_BASE + idx * CONST.HINT.STACK_GAP}px`;
+      v.element.style.zIndex = CONST.HINT.Z_BASE + idx;
+      idx++;
+    }
+  };
 
   // Expose hint duration tiers for other components
   foliplus.HINT_DURATION = {
@@ -208,15 +219,7 @@
     const storeKey = append ? `${key}-${Date.now()}` : key;
     hintMap.set(storeKey, { element: el, timer: null });
 
-    const reposition = () => {
-      let idx = 0;
-      for (let v of hintMap.values()) {
-        v.element.style.bottom = `${CONST.HINT.BOTTOM_BASE + idx * CONST.HINT.STACK_GAP}px`;
-        v.element.style.zIndex = CONST.HINT.Z_BASE + idx;
-        idx++;
-      }
-    };
-    reposition();
+    repositionHints();
 
     if (duration !== 0) {
       hintMap.get(storeKey).timer = setTimeout(
@@ -247,12 +250,28 @@
       }
     }
 
+    repositionHints();
+  };
+
+  // Re-parent all live hints when fullscreen state changes so they remain
+  // visible regardless of whether the browser is in fullscreen or not.
+  const reparentHints = () => {
+    if (hintMap.size === 0) return;
+    const newTarget = document.fullscreenElement || document.body;
+    if (newTarget !== document.body && newTarget !== document.documentElement) {
+      const cs = window.getComputedStyle(newTarget);
+      if (cs.position === "static") newTarget.style.position = "relative";
+    }
     let idx = 0;
-    for (let v of hintMap.values()) {
+    for (const v of hintMap.values()) {
+      if (v.element.parentNode !== newTarget) newTarget.appendChild(v.element);
       v.element.style.bottom = `${CONST.HINT.BOTTOM_BASE + idx * CONST.HINT.STACK_GAP}px`;
+      v.element.style.zIndex = CONST.HINT.Z_BASE + idx;
       idx++;
     }
   };
+  document.addEventListener("fullscreenchange", reparentHints);
+  document.addEventListener("webkitfullscreenchange", reparentHints);
 
   // ==================== Coordinate Transformation ====================
   /**
@@ -267,13 +286,45 @@
    */
   const isBaiduCRS = (map) => {
     try {
-      if (L.CRS && L.CRS.Baidu) return true;
+      const crs = map.options.crs;
+      if (L.CRS && L.CRS.Baidu && crs === L.CRS.Baidu) return true;
+      if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
+      const layers = map._layers;
+      for (const id in layers)
+        if (layers[id]._url && layers[id]._url.includes("bdimg.com")) return true;
+
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  /**
+   * Detect whether a map uses domestic Chinese tile providers.
+   * Checks Baidu, AutoNavi, Tianditu, Tencent, Google, and AMap URL patterns.
+   *
+   * @param {L.Map} map - Leaflet map instance
+   * @returns {boolean} True if the map uses domestic tile providers
+   */
+  const isDomesticMap = (map) => {
+    try {
       const crs = map.options.crs;
       if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
       const layers = map._layers;
-      for (let id in layers)
-        if (layers[id]._url && layers[id]._url.includes("bdimg.com")) return true;
-
+      for (const id in layers) {
+        if (layers[id]._url) {
+          const url = layers[id]._url;
+          if (
+            url.includes("bdimg.com") ||
+            url.includes("autonavi") ||
+            url.includes("tianditu") ||
+            url.includes("gtimg.com") ||
+            url.includes("googleapis") ||
+            url.includes("amap.com")
+          )
+            return true;
+        }
+      }
       return false;
     } catch (e) {
       return false;
@@ -353,38 +404,6 @@
     return gcoord.transform([lng, lat], gcoord.WGS84, dst);
   };
 
-  /**
-   * Detect whether a map uses domestic Chinese tile providers.
-   * Checks Baidu, AutoNavi, Tianditu, Tencent, Google, and AMap URL patterns.
-   *
-   * @param {L.Map} map - Leaflet map instance
-   * @returns {boolean} True if the map uses domestic tile providers
-   */
-  const isDomesticMap = (map) => {
-    try {
-      const crs = map.options.crs;
-      if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
-      const layers = map._layers;
-      for (let id in layers) {
-        if (layers[id]._url) {
-          const url = layers[id]._url;
-          if (
-            url.includes("bdimg.com") ||
-            url.includes("autonavi") ||
-            url.includes("tianditu") ||
-            url.includes("gtimg.com") ||
-            url.includes("googleapis") ||
-            url.includes("amap.com")
-          )
-            return true;
-        }
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  };
-
   // ==================== Reverse Geocoding ====================
   /**
    * Build a Nominatim API URL with shared parameters.
@@ -411,7 +430,14 @@
     return url.toString();
   };
   // Uses throttled queue (1 req/s) and response cache.
-  const geoCache = {};
+  // geoCache is a Map with a FIFO cap to bound memory during long sessions.
+  const GEO_CACHE_MAX = 1000;
+  const geoCache = new Map();
+  const geoCacheGet = (key) => geoCache.get(key);
+  const geoCacheSet = (key, val) => {
+    geoCache.set(key, val);
+    if (geoCache.size > GEO_CACHE_MAX) geoCache.delete(geoCache.keys().next().value);
+  };
   let geoPromise = Promise.resolve();
   let geoLastReq = 0;
 
@@ -470,7 +496,8 @@
    */
   foliplus.reverseGeocode = (map, lng, lat) => {
     const key = `${lng},${lat}`;
-    if (geoCache[key]) return Promise.resolve(geoCache[key]);
+    const cached = geoCacheGet(key);
+    if (cached) return Promise.resolve(cached);
 
     const wgs = foliplus.toWgs84(map, parseFloat(lng), parseFloat(lat));
     const url = foliplus.nominatimUrl("/reverse", {
@@ -495,8 +522,8 @@
             const addr =
               foliplus.formatAddress(data.display_name, map) ||
               foliplus.gt("SearchControl.addr_not_found");
-            geoCache[key] = addr;
-            return geoCache[key];
+            geoCacheSet(key, addr);
+            return addr;
           })
           .catch(() => foliplus.gt("MeasureControl.geo_fail"));
       });
@@ -629,7 +656,7 @@
   ) => {
     if (existing) map.removeLayer(existing);
     const target = layerGroup || map;
-    const mk = L.marker([lat, lng], {
+    const marker = L.marker([lat, lng], {
       icon: L.divIcon({
         className: "",
         html: foliplus.SVGs.PIN_ICON,
@@ -638,16 +665,16 @@
         popupAnchor: CONST.PIN.POPUP_ANCHOR,
       }),
     });
-    target.addLayer(mk);
-    mk.bindPopup(
+    target.addLayer(marker);
+    marker.bindPopup(
       foliplus.buildPopupHtml(lng, lat, addr, title, loading, locLabel, addrLabel),
       { maxWidth: CONST.POPUP.MAX_WIDTH },
     );
-    mk.openPopup();
+    marker.openPopup();
     if (!addr) {
       foliplus.reverseGeocode(map, lng, lat).then((resolved) => {
-        if (mk && mk.getPopup() && mk.getPopup().isOpen()) {
-          mk.setPopupContent(
+        if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
+          marker.setPopupContent(
             foliplus.buildPopupHtml(
               lng,
               lat,
@@ -661,7 +688,7 @@
         }
       });
     }
-    return mk;
+    return marker;
   };
 
   /**
@@ -877,8 +904,9 @@
    *
    * Sets `window._LOCALE` so that `foliplus.gt(key)` returns the correct translation.
    *
-   * Called automatically from each control's Jinja2 template:
-   *   `foliplus.resolveLocale('{{ this._LOCALE_CODE }}'{, tables...});`
+   * Called automatically from each control's Jinja2 template, using the locale
+   * tables that BaseControl injects once per map into `window.foliplus._TABLES`:
+   *   `foliplus.resolveLocale(<locale_code>, window.foliplus._TABLES);`
    *
    * @param {string} code   - Locale code from Python (e.g. '' for auto-detect)
    * @param {Object} tables - Map of locale code → translation table

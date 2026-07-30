@@ -119,6 +119,23 @@ class TestSearchControlRendering:
         assert "toggle-btn" in html
         assert "ctrl-btn" in html
 
+    def test_ctrl_btn_svg_in_icon_selector(self):
+        """ctrl-btn svg is included in the common icon selector so X lines are visible."""
+        from pathlib import Path
+
+        css = Path("foliplus/css/common.css").read_text()
+        assert ".foliplus-ctrl-btn" in css
+
+    def test_input_breathing_focus_in_common_css(self):
+        """input-breathe keyframes and focus rule live in common.css (shared, not SearchControl.css)."""
+        from pathlib import Path
+
+        common = Path("foliplus/css/common.css").read_text()
+        search = Path("foliplus/css/SearchControl.css").read_text()
+        assert "@keyframes input-breathe" in common
+        assert ".foliplus-search input" in common
+        assert "@keyframes input-breathe" not in search
+
     def test_search_form_structure(self, base_map: folium.Map):
         """Search form has mode-btn, input, and clear."""
         SearchControl().add_to(base_map)
@@ -192,7 +209,7 @@ class TestSearchControlRendering:
         html = render(base_map)
         # createLocationMarker appears 3×: runtime.js definition + coord search + addr search
         assert html.count("createLocationMarker") == 3
-        # Both coord and addr search should pass mk as the last arg
+        # Both coord and addr search should pass the marker as the last arg
         assert "popup_addr_label" in html
 
     # ── Autocomplete / Suggestions ──

@@ -86,6 +86,26 @@
     background-color var(--transition-fast),
     border-color var(--transition-fast);
 }
+/* Section label: primary color + semibold so it reads as a real header */
+.foliplus-layer-ctrl .foliplus-layer-toggle-all .foliplus-layer-sep-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+/* Hover: soft left-border hint (same language as active layer items) */
+.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
+  border-left-color: var(--accent-light);
+}
+/* Folded: accent left border + accent fold-btn; divider fades out */
+.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all.foliplus-layer-folded {
+  border-left-color: var(--accent-primary);
+}
+.foliplus-layer-ctrl
+  .foliplus-layer-toggle-all.foliplus-layer-folded
+  .foliplus-section-divider {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
 
 /* ── Fold toggle button ── */
 .foliplus-layer-ctrl .foliplus-layer-fold-btn {
@@ -100,7 +120,7 @@
   width: 14px;
   height: var(--icon-size-md);
   flex-shrink: 0;
-  color: var(--text-muted);
+  color: var(--text-primary);
   transition:
     color var(--transition-fast),
     background var(--transition-fast),
@@ -108,8 +128,6 @@
 }
 .foliplus-layer-ctrl .foliplus-layer-fold-btn:hover {
   color: var(--accent-primary);
-  background: var(--accent-soft-bg);
-  border-radius: var(--radius-sm);
 }
 .foliplus-layer-ctrl .foliplus-layer-fold-btn:hover svg {
   transform: scale(var(--scale-hover));
@@ -124,11 +142,18 @@
 .foliplus-layer-ctrl .foliplus-layer-fold-btn svg {
   width: 14px;
   height: 14px;
+  fill: none;
   stroke: currentColor;
   stroke-width: var(--stroke-icon);
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: transform var(--transition-fast);
+}
+.foliplus-layer-ctrl
+  .foliplus-layer-toggle-all.foliplus-layer-folded
+  .foliplus-layer-fold-btn
+  svg {
+  transform: rotate(180deg);
 }
 .foliplus-layer-ctrl
   .foliplus-layer-toggle-all.foliplus-layer-folded
@@ -148,6 +173,13 @@
   flex-shrink: 0;
   width: 14px;
   height: var(--icon-size-md);
+}
+/* Circles use fill="currentColor"; add matching stroke so they stay bold,
+   matching the appearance they had when .foliplus-ctrl-fold svg provided
+   stroke: currentColor via inheritance. */
+.foliplus-layer-ctrl .drag-handle circle {
+  stroke: currentColor;
+  stroke-width: var(--stroke-icon);
 }
 .foliplus-layer-ctrl .foliplus-layer-item .drag-handle {
   opacity: 0;

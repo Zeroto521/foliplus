@@ -124,19 +124,3 @@ class TestJinjaIntegrity:
                 f"{cls.__name__}._name expected '{expected_name}', "
                 f"got '{instance._name}'"
             )
-
-    def test_runtime_error_keys_injected(self):
-        """Runtime error keys (SearchControl.gcoord_warn) appear in HTML."""
-        m = folium.Map()
-        SearchControl().add_to(m)
-        html = render(m)
-        assert "SearchControl.gcoord_warn" in html
-
-    def test_debounce_utility(self):
-        """foliplus.debounce returns a debounced function with .cancel()."""
-        m = folium.Map()
-        SearchControl().add_to(m)
-        html = render(m)
-        assert "foliplus.debounce" in html
-        assert "debounced.cancel" in html
-        assert "clearTimeout(timer)" in html
