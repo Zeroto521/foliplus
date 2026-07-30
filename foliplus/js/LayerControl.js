@@ -175,8 +175,9 @@
         hasLine = false,
         hasPoint = false;
       for (const leaf of leaves) {
-        if (leaf instanceof L.Polygon) hasPoly = true;
-        else if (leaf instanceof L.Polyline) hasLine = true;
+        if (leaf instanceof L.Polygon || leaf instanceof L.MultiPolygon) hasPoly = true;
+        else if (leaf instanceof L.Polyline || leaf instanceof L.MultiPolyline)
+          hasLine = true;
         else if (
           leaf instanceof L.Marker ||
           leaf instanceof L.CircleMarker ||
