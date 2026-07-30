@@ -700,8 +700,8 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "new Map(this.layers.map" in html
-        assert "map.has(id)" in html
-        assert "map.delete(id)" in html
+        assert "layerMap.has(id)" in html
+        assert "layerMap.delete(id)" in html
 
     def test_parse_int_with_radix(self, base_map: folium.Map):
         """All parseInt calls use radix 10."""

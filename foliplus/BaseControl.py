@@ -102,7 +102,7 @@ class BaseControl(JSCSSMixin, MacroElement):
             {{% macro script(this, kwargs) %}}
             {self._runtime}
             if (window.foliplus && window.foliplus.resolveLocale) {{
-                window.foliplus.resolveLocale('{{{{ this._locale_code }}}}', {dumps(_LOCALES_TABLES, ensure_ascii=False)});
+                window.foliplus.resolveLocale({{{{ this._locale_code | tojson }}}}, {dumps(_LOCALES_TABLES, ensure_ascii=False)});
             }}
             {js}
             {{% endmacro %}}""")
