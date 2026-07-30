@@ -550,7 +550,9 @@
         this.ui.initTypesAndVisibility();
       }
       this.saveOrder();
-      return this.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${opts.id}"]`);
+      return this.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
+      );
     }
 
     /**
@@ -600,7 +602,7 @@
 
       if (this.uiContainer) {
         const target = this.uiContainer.querySelector(
-          `[${CONST.DATA.LAYER_ID}="${id}"]`,
+          `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
         );
         if (target) {
           target.remove();
