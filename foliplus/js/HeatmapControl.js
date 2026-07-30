@@ -286,15 +286,14 @@
     /** Resolve label styling from CSS custom properties (cached once). */
     resolveLabelStyle() {
       if (this.cachedLabelStyle) return this.cachedLabelStyle;
-      if (!this.ui?.container) return {};
       const cs = getComputedStyle(this.ui.container);
-      const val = (prop) => cs.getPropertyValue(prop).trim();
+      const val = (prop, fb) => cs.getPropertyValue(prop).trim() || fb;
 
       this.cachedLabelStyle = {
-        font: `${val("--heatmap-label-font-weight")} ${val("--heatmap-label-font-size")} ${val("--heatmap-label-font-family")}`,
-        color: val("--heatmap-label-color"),
-        stroke: val("--heatmap-label-stroke-color"),
-        strokeWidth: parseFloat(val("--heatmap-label-stroke-width")),
+        font: `${val("--heatmap-label-font-weight", "bold")} ${val("--heatmap-label-font-size", `${CONST.LABEL.SIZE}px`)} ${val("--heatmap-label-font-family", "sans-serif")}`,
+        color: val("--heatmap-label-color", CONST.LABEL.COLOR),
+        stroke: val("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
+        strokeWidth: parseFloat(val("--heatmap-label-stroke-width", "3")),
       };
       return this.cachedLabelStyle;
     }
