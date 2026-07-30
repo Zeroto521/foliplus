@@ -109,7 +109,7 @@ class HeatmapControl(BaseControl):
     ):
         super().__init__(position=position, locale=locale)
         self._template = self._get_template(
-            js_file="HeatmapControl.js", css_file="HeatmapControl.css", use_panel=True
+            js_file="HeatmapControl.js", css_file="HeatmapControl.css"
         )
         self.color_scheme = color_scheme
         self.method = method

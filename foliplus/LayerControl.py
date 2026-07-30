@@ -51,7 +51,7 @@ class LayerControl(BaseControl):
         self.base_layers: OrderedDict[str, str] = OrderedDict()
         self.overlays: OrderedDict[str, str] = OrderedDict()
         self._template = self._get_template(
-            js_file="LayerControl.js", css_file="LayerControl.css", use_panel=True
+            js_file="LayerControl.js", css_file="LayerControl.css"
         )
 
     def render(self, **kwargs):
