@@ -769,6 +769,10 @@ class TestLayerControlRendering:
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "iconSvg" in html
+        assert "type-icon-col" in html
 
     # ── Drag-over animation tests ──
 
@@ -1890,45 +1894,72 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
-    # ── API extension tests ──
 
-    def test_for_each_leaf_depth_guard(self, base_map: folium.Map):
-        """forEachLeaf respects RECURSION.LAYER_DEPTH guard."""
+class TestLayerControlEdgeCases:
+    """Tests for uncovered edge cases and code paths."""
+
+    def test_hide_color_restores_tile_pane(self, base_map: folium.Map):
+        """hideColorLayer restores tilePane visibility."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "depth > CONST.RECURSION.LAYER_DEPTH" in html
+        assert 'tilePane.classList.remove("foliplus-layer-tile-hidden")' in html
+        assert "mapContainer.style.removeProperty" in html
 
-    def test_clear_all_layers_recursive(self, base_map: folium.Map):
-        """clearAllLayers recursively clears nested sub-layers."""
+    def test_deselect_all_bases_skips_except_index(self, base_map: folium.Map):
+        """deselectAllBaseMaps skips the excluded index."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layer.eachLayer((l) => this.clearAllLayers(l))" in html
-        assert 'typeof layer.clearLayers === "function"' in html
+        assert "deselectAllBaseMaps" in html
+        assert "i !== exceptIdx" in html
 
-    def test_extract_points_filters_no_feature(self, base_map: folium.Map):
-        """extractPoints only accepts markers with .feature."""
+    def test_handle_input_color_change(self, base_map: folium.Map):
+        """handleInput reacts to color input changes."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "!l.feature" in html
-        assert "L.Marker || l instanceof L.CircleMarker" in html
+        assert "handleInput" in html
+        assert "showColorLayer(e.target.value)" in html
 
-    def test_extract_points_dedup_by_stamp(self, base_map: folium.Map):
-        """extractPoints deduplicates markers by L.stamp."""
+    def test_bring_layer_to_front(self, base_map: folium.Map):
+        """bringLayerToFront moves layer to top of list."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "seen[stamp]" in html
-        assert "seen[stamp] = true" in html
+        assert "bringLayerToFront" in html
+        assert "this.layers.unshift(item)" in html
 
-    def test_for_each_leaf_api_exposed(self, base_map: folium.Map):
-        """forEachLeaf is exposed on foliplus.LayerAPI."""
+    def test_register_layer_requires_id(self, base_map: folium.Map):
+        """registerLayer throws when id is missing."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.forEachLeaf = this.forEachLeaf.bind(this)" in html
-        assert "forEachLeaf(id, fn)" in html
+        assert "id_required" in html
+        assert "throw new Error" in html
 
-    def test_extract_points_api_exposed(self, base_map: folium.Map):
-        """extractPoints is exposed on foliplus.LayerAPI."""
+    def test_create_canvas_requires_id(self, base_map: folium.Map):
+        """createCanvas throws when id is missing."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.extractPoints = this.extractPoints.bind(this)" in html
-        assert "extractPoints(id)" in html
+        assert "require_canvas_id" in html
+        assert "throw new Error" in html
+
+    def test_traverse_utility(self, base_map: folium.Map):
+        """LayerUtils.traverse walks all layers (containers + leaves)."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "static traverse" in html
+        assert "leafOnly" in html
+
+    def test_register_sets_pane_on_non_path(self, base_map: folium.Map):
+        """registerLayer sets pane on non-Path/Marker layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "opts.layer.options.pane = opts.paneName" in html
+        assert "opts.layer.options.paneSet = true" in html
+
+    def test_drag_event_handlers_bound(self, base_map: folium.Map):
+        """Drag-and-drop event handlers are registered."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "handleDragStart" in html
+        assert "handleDragOver" in html
+        assert "handleDragLeave" in html
+        assert "handleDrop" in html
+        assert "handleDragEnd" in html
