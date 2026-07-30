@@ -20,7 +20,7 @@ class TestBaseControlRendering:
         SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus.resolveLocale(" in html
-        # Verify locale tables are passed inline (not as a separate variable)
+        # Locale tables are bundled once per map into window.foliplus._TABLES
         assert '"locale.name": "English"' in html
         assert '"locale.name": "中文"' in html
 
