@@ -100,6 +100,16 @@
   const hintIcons = {};
   const hintMap = new Map(); // key -> { element, timer }
 
+  // Reposition all visible hints in a vertical stack (bottom-up).
+  const repositionHints = () => {
+    let idx = 0;
+    for (const v of hintMap.values()) {
+      v.element.style.bottom = `${CONST.HINT.BOTTOM_BASE + idx * CONST.HINT.STACK_GAP}px`;
+      v.element.style.zIndex = CONST.HINT.Z_BASE + idx;
+      idx++;
+    }
+  };
+
   // Expose hint duration tiers for other components
   foliplus.HINT_DURATION = {
     SHORT: CONST.HINT.SHORT,
@@ -208,15 +218,7 @@
     const storeKey = append ? `${key}-${Date.now()}` : key;
     hintMap.set(storeKey, { element: el, timer: null });
 
-    const reposition = () => {
-      let idx = 0;
-      for (let v of hintMap.values()) {
-        v.element.style.bottom = `${CONST.HINT.BOTTOM_BASE + idx * CONST.HINT.STACK_GAP}px`;
-        v.element.style.zIndex = CONST.HINT.Z_BASE + idx;
-        idx++;
-      }
-    };
-    reposition();
+    repositionHints();
 
     if (duration !== 0) {
       hintMap.get(storeKey).timer = setTimeout(
@@ -247,11 +249,7 @@
       }
     }
 
-    let idx = 0;
-    for (let v of hintMap.values()) {
-      v.element.style.bottom = `${CONST.HINT.BOTTOM_BASE + idx * CONST.HINT.STACK_GAP}px`;
-      idx++;
-    }
+    repositionHints();
   };
 
   // ==================== Coordinate Transformation ====================
