@@ -346,7 +346,7 @@ class TestLayerControlRendering:
         assert any("true" in l for l in pane_lines)
 
     def test_marker_pane_zindex_synced(self, base_map: folium.Map):
-        """enforceOrder syncs markerPane z-index for non-paneName layers."""
+        """enforceOrder syncs markerPane and shadowPane z-index for non-paneName layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert (
@@ -354,6 +354,9 @@ class TestLayerControlRendering:
             or "this.map.getPane('markerPane')" in html
         )
         assert "mp.style.zIndex = markerZ" in html
+        # shadowPane is synced one step below markerPane
+        assert 'this.map.getPane("shadowPane")' in html
+        assert "sp.style.zIndex = markerZ - 1" in html
 
     def test_default_panes_use_set(self, base_map: folium.Map):
         """isDefaultPane uses a Set for default pane lookup."""
@@ -430,8 +433,8 @@ class TestLayerControlRendering:
         apply_idx = html.index("this.applyLayerZIndex")
         assert cbs_idx < apply_idx, "onZIndex must be called before pane setting"
 
-    def test_popup_pane_above_all_layers(self, base_map: folium.Map):
-        """popupPane z-index is bumped above all managed panes."""
+    def test_popup_and_tooltip_pane_above_all_layers(self, base_map: folium.Map):
+        """popupPane and tooltipPane z-index are bumped above all managed panes."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         # popupPane uses computeZIndex(0, false) which is the maxZ
@@ -439,6 +442,11 @@ class TestLayerControlRendering:
         # Must bump popupPane above all managed panes
         assert 'this.map.getPane("popupPane")' in html
         assert "pp.style.zIndex" in html
+        # Must bump tooltipPane above all managed panes (hover tooltips)
+        assert 'this.map.getPane("tooltipPane")' in html
+        assert "tp.style.zIndex" in html
+        # popupPane gets +1 over tooltipPane to avoid z-fighting
+        assert "topZ + 1" in html
 
     def test_can_reorder_between_blocks_cross_group(self, base_map: folium.Map):
         """canReorderBetween returns false for cross-group drag."""
