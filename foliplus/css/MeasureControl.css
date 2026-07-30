@@ -14,11 +14,6 @@
   border: var(--border-thin) solid var(--input-focus-border);
   box-shadow: inset 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
-/* Shared solid fill for dots inside SVG icons */
-.foliplus-measure-ctrl svg .solid {
-  fill: currentColor;
-  stroke: none;
-}
 .foliplus-measure-ctrl .foliplus-tool-btn.active svg {
   stroke: var(--accent-primary);
   transform: scale(var(--scale-hover));
@@ -38,7 +33,7 @@
   border: var(--border-thick) solid var(--neutral-0);
   border-radius: var(--radius-round);
 }
-.foliplus-measure-center-dot.foliplus-final {
+.foliplus-measure-center-dot.final {
   box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
 }
 

@@ -24,7 +24,7 @@
       SIZE: [12, 12],
       ANCHOR: [6, 6],
       CLASS: "foliplus-measure-center-dot",
-      CLASS_FINAL: "foliplus-measure-center-dot foliplus-final",
+      CLASS_FINAL: "foliplus-measure-center-dot final",
     },
     LABEL: {
       ANCHOR: [0, -10],
@@ -58,7 +58,7 @@
       HIDDEN: "foliplus-measure-hidden",
       VISIBLE: "visible",
       ACTIVE: "active",
-      IS_MEASURING: "foliplus-measuring",
+      MEASURING: "foliplus-measuring",
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
     },
@@ -1362,7 +1362,7 @@
         btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
       );
 
-      this.map.getContainer().classList.add(CONST.CLASSES.IS_MEASURING);
+      this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
 
       if (mode === CONST.MODE.MARKER) {
         foliplus.showHint(
@@ -1395,7 +1395,7 @@
       this.currentMode = null;
       this.toolBtns.forEach((btn) => btn.classList.remove(CONST.CLASSES.ACTIVE));
       foliplus.hideHint(CONST.name);
-      this.map.getContainer().classList.remove(CONST.CLASSES.IS_MEASURING);
+      this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
       this.cleanMapEvents();
     }
 
