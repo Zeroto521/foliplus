@@ -177,16 +177,12 @@
       for (const leaf of leaves) {
         if (leaf instanceof L.Polygon) hasPoly = true;
         else if (leaf instanceof L.Polyline) hasLine = true;
-        else if (
-          leaf instanceof L.Marker ||
-          leaf instanceof L.CircleMarker ||
-          leaf instanceof L.Circle
-        )
-          hasPoint = true;
+        else if (leaf instanceof L.CircleMarker) hasPoint = true;
+        else if (leaf instanceof L.Marker && leaf.feature) hasPoint = true;
       }
-      // Has leaves but none match known types → unknown
+      // No known geometry types found → unknown
       if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN;
-      // Mixed geometry types (e.g. GeometryCollection with Point+Line+Polygon) → unknown
+      // Mixed geometry types → unknown (annotations without .feature are ignored)
       const typeCount = hasPoly + hasLine + hasPoint;
       if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN;
       return hasPoly
@@ -1034,13 +1030,20 @@
         if (markerZ > 0) {
           const mp = this.map.getPane("markerPane");
           if (mp) mp.style.zIndex = markerZ;
+          // Sync shadowPane so marker shadows render above managed content
+          const sp = this.map.getPane("shadowPane");
+          if (sp) sp.style.zIndex = markerZ - 1;
         }
 
-        // Bump popupPane above all managed panes so popups (e.g., marker
-        // location popups) are never hidden behind graph or label panes.
+        // Bump popupPane and tooltipPane above all managed panes so popups and
+        // hover tooltips (e.g., GeoJsonTooltip) are never hidden behind graph or
+        // label panes.  popupPane gets one extra step so it renders above
+        // tooltipPane when both are open (matching Leaflet default ordering).
+        const topZ = this.computeZIndex(0, false) + CONST.Z_INDEX.STEP;
         const pp = this.map.getPane("popupPane");
-        if (pp)
-          pp.style.zIndex = String(this.computeZIndex(0, false) + CONST.Z_INDEX.STEP);
+        if (pp) pp.style.zIndex = String(topZ + 1);
+        const tp = this.map.getPane("tooltipPane");
+        if (tp) tp.style.zIndex = String(topZ);
 
         // 3. Migrate layers to their target panes
         this.migrateLayers(layersToMove);
