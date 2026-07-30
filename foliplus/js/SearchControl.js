@@ -80,6 +80,7 @@
       this.removeSuggestions();
       if (this.debouncedFetch) this.debouncedFetch.cancel();
       if (this.addrAbortController) this.addrAbortController.abort();
+      if (this.suggestAbortController) this.suggestAbortController.abort();
       this.cachedSuggestions = {};
       this.cachedAddress = {};
       this.scrollTargets.forEach((t) =>
@@ -146,6 +147,8 @@
       this.suggestionsThrottleTimer = null;
       this.cachedSuggestions = {};
       this.cachedAddress = {};
+      this.suggestAbortController = null;
+      this.suggestSeq = 0;
 
       this.setMode(this.mode);
       this.modeBtn.onclick = (e) => {
@@ -173,6 +176,7 @@
         map.removeLayer(this.mk);
         this.mk = null;
       }
+      if (this.suggestAbortController) this.suggestAbortController.abort();
       foliplus.hideHint(CONST.name);
       this.removeSuggestions();
       this.inp.focus();
@@ -198,6 +202,16 @@
 
       const lng = parts[0];
       const lat = parts[1];
+      if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+        foliplus.showHint(
+          CONST.name,
+          _(`${CONST.name}.coord_error`),
+          foliplus.HINT_DURATION.LONG,
+        );
+        this.inp.value = "";
+        return;
+      }
+
       foliplus.hideHint(CONST.name);
       map.flyTo([lat, lng], CONST.ZOOM.LEVEL || 16);
       this.mk = foliplus.createLocationMarker(
@@ -393,11 +407,24 @@
         return;
       }
       this.lastSuggestFetch = Date.now();
+      if (this.suggestAbortController) this.suggestAbortController.abort();
+      this.suggestAbortController = new AbortController();
+      this.suggestSeq += 1;
+      const reqSeq = this.suggestSeq;
 
-      fetch(this.buildSearchUrl(query, CONST.AUTOCOMPLETE.MAX_ITEMS))
+      fetch(this.buildSearchUrl(query, CONST.AUTOCOMPLETE.MAX_ITEMS), {
+        signal: this.suggestAbortController.signal,
+      })
         .then((r) => r.json())
-        .then((results) => this.renderSuggestions(results, query))
-        .catch(() => this.removeSuggestions());
+        .then((results) => {
+          if (reqSeq !== this.suggestSeq) return;
+          if (query !== this.inp.value.trim()) return;
+          this.renderSuggestions(results, query);
+        })
+        .catch((err) => {
+          if (err.name === "AbortError") return;
+          this.removeSuggestions();
+        });
     }
 
     initDebouncedFetch() {

@@ -751,7 +751,9 @@ class TestMeasureControlRendering:
                 mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
                 mm.saveMeasurements();
             }""")
-            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            data = page.evaluate(
+                "localStorage.getItem(window.__measureManager.storageKey)"
+            )
             assert data is not None, "localStorage should contain saved measurements"
 
             parsed = json.loads(data)
@@ -771,7 +773,9 @@ class TestMeasureControlRendering:
                 mm.saveMeasurements();
                 mm.clearAll();
             }""")
-            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            data = page.evaluate(
+                "localStorage.getItem(window.__measureManager.storageKey)"
+            )
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "clearAll should empty localStorage"
             assert not errors, f"JS errors: {errors}"
@@ -810,7 +814,9 @@ class TestMeasureControlRendering:
             page.wait_for_timeout(300)
             after = page.evaluate("window.__measureManager.measurements.length")
             assert after == 0, f"expected 0 measurements after delete, got {after}"
-            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            data = page.evaluate(
+                "localStorage.getItem(window.__measureManager.storageKey)"
+            )
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "localStorage should be empty after deleting all"
             assert not errors, f"JS errors: {errors}"
@@ -830,7 +836,7 @@ class TestMeasureControlRendering:
                     lat: 26.08,
                     address: 'Test Address'
                 }];
-                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+                localStorage.setItem(window.__measureManager.storageKey, JSON.stringify(data));
             }""")
             # Reload the page to trigger restoreMeasurements in constructor
             page.reload()
@@ -861,7 +867,7 @@ class TestMeasureControlRendering:
                         { lng: 119.305, lat: 26.085, distance: 1234.56 }
                     ]
                 }];
-                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+                localStorage.setItem(window.__measureManager.storageKey, JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(2000)
@@ -885,7 +891,7 @@ class TestMeasureControlRendering:
                     target: { lng: 119.31, lat: 26.09 },
                     radius: 500
                 }];
-                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+                localStorage.setItem(window.__measureManager.storageKey, JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(2000)

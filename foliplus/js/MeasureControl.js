@@ -152,7 +152,7 @@
       setTimeout(() => {
         manager.isSuppressHideDel = false;
       }, CONST.TIMING.SUPPRESS_HIDE_DELAY);
-      this.hideDelIcons();
+      MeasureUtils.hideDelIcons();
     }
 
     static hideDelIcons() {
@@ -753,19 +753,15 @@
           (center.lng + e.latlng.lng) / 2,
         );
         if (!previews.label) {
-          previews.label = this.layers.addLayer(
-            this.layers.addLayer(
-              L.marker(mid, {
-                icon: MeasureUtils.makeLabelDivIcon(
-                  MeasureUtils.formatDistance(r),
-                  CONST.DEL_ICON.ANCHOR,
-                  CONST.LABEL.CLASS_RADIUS,
-                ),
-                interactive: false,
-              }),
+          const previewLabel = L.marker(mid, {
+            icon: MeasureUtils.makeLabelDivIcon(
+              MeasureUtils.formatDistance(r),
+              CONST.DEL_ICON.ANCHOR,
+              CONST.LABEL.CLASS_RADIUS,
             ),
-            true,
-          );
+            interactive: false,
+          });
+          previews.label = this.layers.addLayer(previewLabel, true);
         } else {
           previews.label.setLatLng(mid);
           MeasureUtils.setLabelText(previews.label, MeasureUtils.formatDistance(r));
@@ -923,6 +919,7 @@
       this.finalizedClickHandler = null;
       this.measurements = [];
       this.measurementIdCounter = 0;
+      this.storageKey = this.resolveStorageKey();
 
       this.bindGlobalEvents();
       this.restoreMeasurements();
@@ -930,9 +927,16 @@
 
     // ── Persistence ──
 
+    resolveStorageKey() {
+      const container = this.map?.getContainer?.();
+      const containerId = container?.id;
+      if (containerId) return `${CONST.STORAGE.KEY}:${containerId}`;
+      return `${CONST.STORAGE.KEY}:${L.stamp(this.map)}`;
+    }
+
     saveMeasurements() {
       try {
-        localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(this.measurements));
+        localStorage.setItem(this.storageKey, JSON.stringify(this.measurements));
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(`${CONST.name}.save_fail`)}`, e);
       }
@@ -940,7 +944,7 @@
 
     loadMeasurements() {
       try {
-        const data = localStorage.getItem(CONST.STORAGE.KEY);
+        const data = localStorage.getItem(this.storageKey);
         return data ? JSON.parse(data) : [];
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_fail`)}`, e);

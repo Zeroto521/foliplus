@@ -597,7 +597,7 @@
       `${foliplus.gt(locLabel)}${lng},${lat}`,
       { html: "<br>" },
       foliplus.gt(addrLabel),
-      typeof addrHtml === "object" ? addrHtml : addrHtml,
+      addrHtml,
     ).outerHTML;
   };
 
