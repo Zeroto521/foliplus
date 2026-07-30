@@ -55,6 +55,13 @@
       FORMAT: "{{ this.style.label_format }}",
     },
     FIELD_AUTO: "AUTO",
+    AGG: {
+      COUNT: "count",
+      SUM: "sum",
+      AVG: "avg",
+      MIN: "min",
+      MAX: "max",
+    },
     SCHEME_NAMES: {{ this.schemes | tojson }},
     CLASSES: {
       FORM_ROW: "foliplus-heatmap-form-row",
@@ -366,7 +373,7 @@
     }
 
     getPointValue(marker) {
-      if (this.currentAgg === "count") return 1;
+      if (this.currentAgg === CONST.AGG.COUNT) return 1;
       const key =
         this.currentField === CONST.FIELD_AUTO ? this.autoFieldKey : this.currentField;
       const val = this.readMarkerField(marker, key);
@@ -505,15 +512,15 @@
 
       const getAggValue = (cell) => {
         switch (this.currentAgg) {
-          case "count":
+          case CONST.AGG.COUNT:
             return cell.count;
-          case "sum":
+          case CONST.AGG.SUM:
             return cell.sum;
-          case "avg":
+          case CONST.AGG.AVG:
             return cell.count > 0 ? cell.sum / cell.count : 0;
-          case "min":
+          case CONST.AGG.MIN:
             return cell.min;
-          case "max":
+          case CONST.AGG.MAX:
             return cell.max;
           default:
             return cell.count;
@@ -686,11 +693,11 @@
         class: CONST.CLASSES.FORM_SELECT,
         parent: aggControlWrap,
         innerHTML: `
-          <option value="count">${_(`${CONST.name}.agg_count`)}</option>
-          <option value="sum">${_(`${CONST.name}.agg_sum`)}</option>
-          <option value="avg">${_(`${CONST.name}.agg_avg`)}</option>
-          <option value="min">${_(`${CONST.name}.agg_min`)}</option>
-          <option value="max">${_(`${CONST.name}.agg_max`)}</option>`,
+          <option value="${CONST.AGG.COUNT}">${_(`${CONST.name}.agg_count`)}</option>
+          <option value="${CONST.AGG.SUM}">${_(`${CONST.name}.agg_sum`)}</option>
+          <option value="${CONST.AGG.AVG}">${_(`${CONST.name}.agg_avg`)}</option>
+          <option value="${CONST.AGG.MIN}">${_(`${CONST.name}.agg_min`)}</option>
+          <option value="${CONST.AGG.MAX}">${_(`${CONST.name}.agg_max`)}</option>`,
         value: this.m.currentAgg,
         onchange: () => {
           this.m.currentAgg = this.aggSelect.value;
@@ -1050,7 +1057,7 @@
 
     updateFieldSelector() {
       if (!this.fieldWrap || !this.fieldSelect) return;
-      if (this.m.currentAgg === "count") {
+      if (this.m.currentAgg === CONST.AGG.COUNT) {
         this.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
         return;
       }
