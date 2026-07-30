@@ -230,7 +230,7 @@
         layer.eachLayer((c) => LayerUtils.traverse(c, fn, depth + 1, leafOnly));
       else if (layer._layers) {
         for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k))
+          if (Object.hasOwn(layer._layers, k))
             LayerUtils.traverse(layer._layers[k], fn, depth + 1, leafOnly);
         }
       } else if (leafOnly) fn(layer);
@@ -347,15 +347,15 @@
         if (!data) return;
         const ids = JSON.parse(data);
         if (!Array.isArray(ids)) return;
-        const map = new Map(this.layers.map((l) => [l.id, l]));
+        const layerMap = new Map(this.layers.map((l) => [l.id, l]));
         const ordered = [];
         for (const id of ids) {
-          if (map.has(id)) {
-            ordered.push(map.get(id));
-            map.delete(id);
+          if (layerMap.has(id)) {
+            ordered.push(layerMap.get(id));
+            layerMap.delete(id);
           }
         }
-        this.layers = ordered.concat([...map.values()]);
+        this.layers = ordered.concat([...layerMap.values()]);
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_order_fail`)}`, e);
       }
