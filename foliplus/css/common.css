@@ -311,7 +311,9 @@
   Component-specific sizing/layout stays in each CSS file.
   ══════════════════════════════════════════════════════════════════════ */
 
-/* ── Hover/Focus: red border + red glow ── */
+/* ── Hover/Focus: red border + red glow ──
+  Use :focus-visible so keyboard navigation shows the ring,
+  but mouse clicks do not leave a residual focus highlight. */
 :is(
   .foliplus-search input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
@@ -321,7 +323,7 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
   .foliplus-layer-ctrl input[type="checkbox"],
   .foliplus-layer-ctrl .foliplus-color-layer-input
-):is(:hover, :focus) {
+):is(:hover, :focus-visible) {
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
