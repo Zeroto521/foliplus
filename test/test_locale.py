@@ -25,6 +25,8 @@ _JS_USED_KEYS = {
     "FullscreenControl.title_cancel",
     "FullscreenControl.enter",
     "FullscreenControl.exit",
+    "FullscreenControl.zoom_in",
+    "FullscreenControl.zoom_out",
     # HeatmapControl
     "HeatmapControl.title",
     "HeatmapControl.close_title",
@@ -54,9 +56,7 @@ _JS_USED_KEYS = {
     "HeatmapControl.h3_cell_fail",
     "HeatmapControl.h3_boundary_fail",
     "HeatmapControl.no_layer",
-    "HeatmapControl.no_h3",
-    "HeatmapControl.no_ss",
-    "HeatmapControl.no_chroma",
+    "HeatmapControl.no_layercontrol",
     # LayerControl
     "LayerControl.toggle_title",
     "LayerControl.panel_title",
@@ -66,6 +66,8 @@ _JS_USED_KEYS = {
     "LayerControl.reorder_group_only",
     "LayerControl.load_order_fail",
     "LayerControl.save_order_fail",
+    "LayerControl.load_fold_fail",
+    "LayerControl.save_fold_fail",
     "LayerControl.type_base",
     "LayerControl.type_custom",
     "LayerControl.type_polygon",
@@ -75,6 +77,8 @@ _JS_USED_KEYS = {
     "LayerControl.type_unknown",
     "LayerControl.id_required",
     "LayerControl.invalid_id",
+    "LayerControl.require_canvas_id",
+    "LayerControl.mapPane_not_available",
     "LayerControl.data_layer_label",
     "LayerControl.fold_tooltip",
     "LayerControl.unfold_tooltip",
@@ -112,6 +116,9 @@ _JS_USED_KEYS = {
     "MeasureControl.popup_addr_label",
     "MeasureControl.dist_origin",
     "MeasureControl.geo_fail",
+    "MeasureControl.no_layercontrol",
+    "MeasureControl.save_fail",
+    "MeasureControl.load_fail",
     # ScaleControl
     "ScaleControl.zoom_label",
 }
@@ -157,6 +164,25 @@ class TestLocaleConfig:
         zh_keys = set(_LOCALES_TABLES["zh"].keys())
         assert en_keys == zh_keys, (
             f"Missing: {en_keys - zh_keys}, Extra: {zh_keys - en_keys}"
+        )
+
+    def test_all_js_used_keys_in_tables(self):
+        """Every key used in JS files must exist in all locale tables."""
+        missing = _JS_USED_KEYS - set(_LOCALES_TABLES["en"].keys())
+        assert not missing, (
+            f"JS-used keys missing from locale tables: {missing}\n"
+            "Add them to foliplus/locale/en.json and foliplus/locale/zh.json"
+        )
+
+    def test_no_unused_keys_in_tables(self):
+        """Every locale key must be referenced in JS files (no dead keys)."""
+        locale_keys = set(_LOCALES_TABLES["en"].keys())
+        # Remove internal keys
+        locale_keys -= {"locale.name", "locale.code"}
+        unused = locale_keys - _JS_USED_KEYS
+        assert not unused, (
+            f"Unused locale keys (not in _JS_USED_KEYS): {unused}\n"
+            "Either add them to _JS_USED_KEYS or remove from locale JSON files"
         )
 
 
