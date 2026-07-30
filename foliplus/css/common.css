@@ -146,6 +146,33 @@
   vertical-align: middle;
 }
 
+@keyframes input-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  }
+  50% {
+    box-shadow: 0 0 0 var(--size-4) var(--input-focus-shadow);
+  }
+}
+
+/* ── Focus: breathing glow ── */
+:is(
+  .foliplus-search input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input
+):focus-visible {
+  animation: input-breathe 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .foliplus-search input,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input
+  ):focus-visible {
+    animation: none;
+  }
+}
+
 /* ── Common Icon Size ──
   All SVGs in foliplus components default to 18×18.
   PIN_ICON, drag-handle override per their context.

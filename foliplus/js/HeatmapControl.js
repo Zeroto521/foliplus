@@ -895,7 +895,9 @@
         parent: borderControlWrap,
         value: this.m.borderWeight,
         onchange: () => {
-          this.m.borderWeight = parseFloat(this.borderWeightInput.value) || 1;
+          const v = parseFloat(this.borderWeightInput.value);
+          this.m.borderWeight = isNaN(v) ? 1 : Math.min(10, Math.max(0, v));
+          this.borderWeightInput.value = this.m.borderWeight;
           this.m.renderHexagons();
         },
       });

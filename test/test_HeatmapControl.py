@@ -331,6 +331,22 @@ class TestHeatmapControlRendering:
         assert "weight-input" in html
         assert "color-input" in html
 
+    def test_border_weight_input_has_min_max(self, base_map: folium.Map):
+        """Border weight input has min:0 max:10 and clamps value on change."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "min: 0" in html
+        assert "max: 10" in html
+        assert "Math.min(10, Math.max(0," in html
+
+    def test_border_weight_breathing_focus(self):
+        """weight-input is included in the shared breathing-focus rule in common.css."""
+        from pathlib import Path
+
+        css = Path("foliplus/css/common.css").read_text()
+        assert "foliplus-heatmap-weight-input" in css
+        assert "input-breathe" in css
+
     def test_label_toggle_renders(self, base_map: folium.Map):
         """Label toggle switch is rendered."""
         HeatmapControl().add_to(base_map)
