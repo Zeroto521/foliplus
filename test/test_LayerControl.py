@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import folium
@@ -727,8 +728,6 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # Check that no bare parseInt(...) without radix exists
-        import re
-
         matches = re.findall(r"parseInt\([^)]+\)", html)
         for m in matches:
             assert ", 10)" in m, f"Missing radix: {m}"
@@ -802,9 +801,56 @@ class TestLayerControlRendering:
         assert "foliplus-layer-folded" in css
         assert "border-left-color: var(--accent-primary)" in css
         # label must NOT be colored accent when folded (label stays text-primary)
-        assert (
-            "foliplus-layer-folded .foliplus-layer-sep-label" not in css
-        ), "folded label must not override color (label stays text-primary)"
+        assert "foliplus-layer-folded .foliplus-layer-sep-label" not in css, (
+            "folded label must not override color (label stays text-primary)"
+        )
+
+    def test_toggle_all_label_semibold_primary(self):
+        """Section header label is semibold and text-primary so it reads as a real header."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-toggle-all .foliplus-layer-sep-label" in css
+        assert "font-weight: var(--font-weight-semibold)" in css
+        assert "color: var(--text-primary)" in css
+
+    def test_toggle_all_hover_accent_light_border(self):
+        """Toggle-all row hover shows a soft accent-light left border."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-toggle-all:hover" in css
+        assert "border-left-color: var(--accent-light)" in css
+
+    def test_folded_fold_btn_turns_accent(self):
+        """Fold button color becomes accent-primary when row is folded."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # Find the rule that targets fold-btn itself (not fold-btn svg)
+        # by searching for the closing of the selector without "svg" on the same segment
+        match = re.search(
+            r"foliplus-layer-folded\s+\.foliplus-layer-fold-btn\s*\{([^}]*)\}",
+            css,
+        )
+        assert match, "folded fold-btn rule not found"
+        assert "var(--accent-primary)" in match.group(1)
+
+    def test_section_divider_fades_when_folded(self):
+        """Section divider fades to opacity 0 when the group is folded."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-section-divider" in css
+        assert "opacity: 0" in css
+
+    def test_fold_btn_hover_bg_and_radius(self):
+        """Fold button hover shows accent-soft-bg background and border-radius."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-fold-btn:hover" in css
+        assert "background: var(--accent-soft-bg)" in css
+        assert "border-radius: var(--radius-sm)" in css
+
+    def test_fold_btn_background_transition(self):
+        """Fold button transitions background so hover bg fades in smoothly."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # transition block for fold-btn must include background
+        idx = css.find(".foliplus-layer-fold-btn {")
+        assert idx != -1
+        block = css[idx : css.index("}", idx) + 1]
+        assert "background var(--transition-fast)" in block
 
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
