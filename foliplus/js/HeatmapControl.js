@@ -390,8 +390,7 @@
 
     collectSelectedPoints() {
       this.valueFallbackWarned = false;
-      // Cache by layerId + currentAgg + currentField — invalidate on param change
-      const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
+      const key = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}`;
       if (this.cachedPoints && this.cachedPoints.key === key)
         return this.cachedPoints.pts;
 
@@ -472,8 +471,7 @@
       const pts = this.collectSelectedPoints();
       const zoom = this.map.getZoom();
       const res = this.getH3Res(zoom);
-      // Aggregation cache key: layer + agg + field + res + method + scheme + nClasses
-      const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
+      const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
       let aggregated;
       if (this.cachedAgg && this.cachedAgg.key === aggKey)
         aggregated = this.cachedAgg.data;
