@@ -2,13 +2,11 @@
 
 ## [Unreleased]
 
-## [v0.3.0] (2026-08-01)
-
 ### Added
 
-- `LayerControl`/`MeasureControl`/`HeatmapControl`: comprehensive layer management API overhaul — unified `createLayers`/`createCanvas` return surface ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35), [#38](https://github.com/Zeroto521/foliplus/pull/38), [#39](https://github.com/Zeroto521/foliplus/pull/39), [#48](https://github.com/Zeroto521/foliplus/pull/48), [#53](https://github.com/Zeroto521/foliplus/pull/53), [#83](https://github.com/Zeroto521/foliplus/pull/83), [#87](https://github.com/Zeroto521/foliplus/pull/87))
+- `LayerControl`/`MeasureControl`/`HeatmapControl`: comprehensive layer management API overhaul — unified `createLayers`/`createCanvas` return surface ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#35](https://github.com/Zeroto521/foliplus/pull/35), [#38](https://github.com/Zeroto521/foliplus/pull/38), [#39](https://github.com/Zeroto521/foliplus/pull/39), [#48](https://github.com/Zeroto521/foliplus/pull/48), [#53](https://github.com/Zeroto521/foliplus/pull/53), [#83](https://github.com/Zeroto521/foliplus/pull/83), [#91](https://github.com/Zeroto521/foliplus/pull/91), [#92](https://github.com/Zeroto521/foliplus/pull/92))
 - `MeasureControl`: added real-time distance preview during measurement ([#27](https://github.com/Zeroto521/foliplus/pull/27))
-- `LayerControl`: added `EMPTY`, `UNKNOWN`, and `COLOR` SVG icons for layer type display ([#29](https://github.com/Zeroto521/foliplus/pull/29), [#35](https://github.com/Zeroto521/foliplus/pull/35), [#40](https://github.com/Zeroto521/foliplus/pull/40), [#61](https://github.com/Zeroto521/foliplus/pull/61))
+- `LayerControl`: added `EMPTY`, `UNKNOWN`, and `COLOR` SVG icons for layer type display ([#29](https://github.com/Zeroto521/foliplus/pull/29), [#35](https://github.com/Zeroto521/foliplus/pull/35), [#40](https://github.com/Zeroto521/foliplus/pull/40), [#61](https://github.com/Zeroto521/foliplus/pull/61), [#61](https://github.com/Zeroto521/foliplus/pull/61))
 - `FullscreenControl`: added `hide_others` parameter (default `true`) to hide all other map controls in fullscreen; icon now switches between maximize/minimize ([#33](https://github.com/Zeroto521/foliplus/pull/33), [#49](https://github.com/Zeroto521/foliplus/pull/49))
 - `SearchControl`/`MeasureControl`: added separator between toggle button and toolbar in expanded mode ([#43](https://github.com/Zeroto521/foliplus/pull/43))
 - `SearchControl`: keeping toggle button fixed on screen side when expanded ([#45](https://github.com/Zeroto521/foliplus/pull/45))
@@ -34,7 +32,7 @@
 ### Fixed
 
 - `LayerControl`: restricted drag-and-drop reordering to within the same group (overlay ↔ overlay, base ↔ base) ([#25](https://github.com/Zeroto521/foliplus/pull/25))
-- `HeatmapControl`: fixed `AUTO` field detection, including single-field cases ([#28](https://github.com/Zeroto521/foliplus/pull/28))
+- `HeatmapControl`: fixed `AUTO` field detection, including single-field cases ([#28](https://github.com/Zeroto521/foliplus/pull/28), [#89](https://github.com/Zeroto521/foliplus/pull/89))
 - `MeasureControl`: fixed distance mode points hidden behind the polyline when layer is hidden and re-shown ([#48](https://github.com/Zeroto521/foliplus/pull/48))
 - `MeasureControl`: delete icons (✕) now correctly work after layer hide/show by using Leaflet marker events instead of `L.DomEvent.on` ([#48](https://github.com/Zeroto521/foliplus/pull/48))
 - `LayerControl`: `handleDrop` now uses `data-layer-id` attribute instead of stale index to locate moved DOM element after splice ([#48](https://github.com/Zeroto521/foliplus/pull/48))

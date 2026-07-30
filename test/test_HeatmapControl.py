@@ -276,10 +276,10 @@ class TestHeatmapControlRendering:
         assert "LayerControl" in html
 
     def test_render_hexagons_map_guard(self, base_map: folium.Map):
-        """renderHexagons checks map._container before proceeding."""
+        """renderHexagons checks map._container and overlay before proceeding."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "if (!this.map || !this.map._container) return" in html
+        assert "if (!this.map || !this.map._container || !this.overlay) return" in html
 
     def test_debounce_usage(self, base_map: folium.Map):
         """HeatmapControl uses foliplus.debounce for zoom and layer events."""
@@ -996,7 +996,7 @@ class TestHeatmapAutoFieldBrowser:
             # The field select is the <select> inside .foliplus-heatmap-field.
             field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
-            assert field_val == "AUTO", f"Expected 'AUTO', got '{field_val}'"
+            assert field_val == "_auto", f"Expected '_auto', got '{field_val}'"
 
             # Verify field options include our properties
             field_opts = page.evaluate(
@@ -1065,7 +1065,7 @@ class TestHeatmapAutoFieldBrowser:
             # The field select is the <select> inside .foliplus-heatmap-field.
             field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
-            assert field_val == "AUTO", f"Expected 'AUTO', got '{field_val}'"
+            assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
 
             # Single field → pickAutoField returns it directly
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")

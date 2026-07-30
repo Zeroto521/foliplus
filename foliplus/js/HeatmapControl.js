@@ -54,7 +54,13 @@
       COLOR: "{{ this.style.label_color }}",
       FORMAT: "{{ this.style.label_format }}",
     },
-    FIELD_AUTO: "AUTO",
+    AGG: {
+      COUNT: "count",
+      SUM: "sum",
+      AVG: "avg",
+      MIN: "min",
+      MAX: "max",
+    },
     SCHEME_NAMES: {{ this.schemes | tojson }},
     CLASSES: {
       FORM_ROW: "foliplus-heatmap-form-row",
@@ -153,11 +159,12 @@
       // State management
       this.selectedLayerId = null;
       this.pointLayers = [];
-      this.currentAgg = CONST.AGG;
+      this.currentAgg = CONST.AGG.COUNT;
       this.currentField = CONST.FIELD;
       this.currentScheme = CONST.SCHEME;
       this.currentMethod = CONST.METHOD;
       this.autoFieldKey = null;
+      this.fieldAuto = true;
       this.numClasses = CONST.N_CLASSES;
       this.borderWeight = CONST.BORDER.W;
       this.borderColor = CONST.BORDER.COLOR;
@@ -285,20 +292,17 @@
       }
     }
 
-    /** Resolve label styling from CSS custom properties (cached). */
+    /** Resolve label styling from CSS custom properties (cached once). */
     resolveLabelStyle() {
       if (this.cachedLabelStyle) return this.cachedLabelStyle;
-      const ctrlEl = this.ui?.container;
-      const cssVal = (prop, fallback) =>
-        ctrlEl
-          ? getComputedStyle(ctrlEl).getPropertyValue(prop).trim() || fallback
-          : fallback;
+      const cs = getComputedStyle(this.ui.container);
+      const val = (prop, fb) => cs.getPropertyValue(prop).trim() || fb;
 
       this.cachedLabelStyle = {
-        font: `${cssVal("--heatmap-label-font-weight", "bold")} ${cssVal("--heatmap-label-font-size", `${CONST.LABEL.SIZE}px`)} ${cssVal("--heatmap-label-font-family", "sans-serif")}`,
-        color: cssVal("--heatmap-label-color", CONST.LABEL.COLOR),
-        stroke: cssVal("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
-        strokeWidth: parseFloat(cssVal("--heatmap-label-stroke-width", "3")),
+        font: `${val("--heatmap-label-font-weight", "bold")} ${val("--heatmap-label-font-size", `${CONST.LABEL.SIZE}px`)} ${val("--heatmap-label-font-family", "sans-serif")}`,
+        color: val("--heatmap-label-color", CONST.LABEL.COLOR),
+        stroke: val("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
+        strokeWidth: parseFloat(val("--heatmap-label-stroke-width", "3")),
       };
       return this.cachedLabelStyle;
     }
@@ -379,8 +383,7 @@
 
     getPointValue(marker) {
       if (this.currentAgg === "count") return 1;
-      const key =
-        this.currentField === CONST.FIELD_AUTO ? this.autoFieldKey : this.currentField;
+      const key = this.currentField === "_auto" ? this.autoFieldKey : this.currentField;
       const val = this.readMarkerField(marker, key);
       if (val === undefined || isNaN(val)) {
         if (!this.valueFallbackWarned) {
@@ -396,8 +399,7 @@
 
     collectSelectedPoints() {
       this.valueFallbackWarned = false;
-      // Cache by layerId + currentAgg + currentField — invalidate on param change
-      const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
+      const key = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}`;
       if (this.cachedPoints && this.cachedPoints.key === key)
         return this.cachedPoints.pts;
 
@@ -470,9 +472,7 @@
 
     // --- Hexagon Rendering ---
     renderHexagons() {
-      // Invalidate label style cache — will be re-read on next redraw
-      this.cachedLabelStyle = null;
-      if (!this.map || !this.map._container) return;
+      if (!this.map || !this.map._container || !this.overlay) return;
       if (!this.selectedLayerId) {
         this.clearHeatmapCanvas();
         return;
@@ -480,8 +480,7 @@
       const pts = this.collectSelectedPoints();
       const zoom = this.map.getZoom();
       const res = this.getH3Res(zoom);
-      // Aggregation cache key: layer + agg + field + res + method + scheme + nClasses
-      const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
+      const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
       let aggregated;
       if (this.cachedAgg && this.cachedAgg.key === aggKey)
         aggregated = this.cachedAgg.data;
@@ -519,15 +518,15 @@
 
       const getAggValue = (cell) => {
         switch (this.currentAgg) {
-          case "count":
+          case CONST.AGG.COUNT:
             return cell.count;
-          case "sum":
+          case CONST.AGG.SUM:
             return cell.sum;
-          case "avg":
+          case CONST.AGG.AVG:
             return cell.count > 0 ? cell.sum / cell.count : 0;
-          case "min":
+          case CONST.AGG.MIN:
             return cell.min;
-          case "max":
+          case CONST.AGG.MAX:
             return cell.max;
           default:
             return cell.count;
@@ -700,11 +699,11 @@
         class: CONST.CLASSES.FORM_SELECT,
         parent: aggControlWrap,
         innerHTML: `
-          <option value="count">${_(`${CONST.name}.agg_count`)}</option>
-          <option value="sum">${_(`${CONST.name}.agg_sum`)}</option>
-          <option value="avg">${_(`${CONST.name}.agg_avg`)}</option>
-          <option value="min">${_(`${CONST.name}.agg_min`)}</option>
-          <option value="max">${_(`${CONST.name}.agg_max`)}</option>`,
+          <option value="${CONST.AGG.COUNT}">${_(`${CONST.name}.agg_count`)}</option>
+          <option value="${CONST.AGG.SUM}">${_(`${CONST.name}.agg_sum`)}</option>
+          <option value="${CONST.AGG.AVG}">${_(`${CONST.name}.agg_avg`)}</option>
+          <option value="${CONST.AGG.MIN}">${_(`${CONST.name}.agg_min`)}</option>
+          <option value="${CONST.AGG.MAX}">${_(`${CONST.name}.agg_max`)}</option>`,
         value: this.m.currentAgg,
         onchange: () => {
           this.m.currentAgg = this.aggSelect.value;
@@ -731,6 +730,7 @@
         parent: fieldControlWrap,
         onchange: () => {
           this.m.currentField = this.fieldSelect.value;
+          this.m.fieldAuto = false;
           this.syncSelect(this.fieldSelect, this.fieldSelect.value);
           this.m.renderHexagons();
         },
@@ -958,7 +958,7 @@
         onclick: () => {
           this.resetAll();
           this.syncSelect(this.layerSelect, "");
-          this.syncSelect(this.aggSelect, CONST.AGG);
+          this.syncSelect(this.aggSelect, CONST.AGG.COUNT);
           this.syncSelect(this.classSelect, String(CONST.N_CLASSES));
           this.syncSelect(this.methodSelect, CONST.METHOD);
           this.schemeSelectHidden.value = CONST.SCHEME;
@@ -1064,7 +1064,7 @@
 
     updateFieldSelector() {
       if (!this.fieldWrap || !this.fieldSelect) return;
-      if (this.m.currentAgg === "count") {
+      if (this.m.currentAgg === CONST.AGG.COUNT) {
         this.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
         return;
       }
@@ -1080,7 +1080,7 @@
       foliplus.dom.el(
         "option",
         {
-          value: CONST.FIELD_AUTO,
+          value: "_auto",
           disabled: "disabled",
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
           parent: this.fieldSelect,
@@ -1096,15 +1096,8 @@
         );
       });
 
-      if (
-        fields.includes(this.m.currentField) ||
-        this.m.currentField === CONST.FIELD_AUTO
-      )
-        this.fieldSelect.value = this.m.currentField;
-      else {
-        this.m.currentField = CONST.FIELD_AUTO;
-        this.fieldSelect.value = CONST.FIELD_AUTO;
-      }
+      this.m.fieldAuto = !fields.includes(this.m.currentField);
+      this.fieldSelect.value = this.m.fieldAuto ? "" : this.m.currentField;
 
       this.syncSelect(this.fieldSelect, this.fieldSelect.value);
     }
@@ -1238,7 +1231,8 @@
     resetAll() {
       this.m.selectedLayerId = null;
       this.m.autoFieldKey = null;
-      this.m.currentAgg = CONST.AGG;
+      this.m.fieldAuto = true;
+      this.m.currentAgg = CONST.AGG.COUNT;
       this.m.currentField = CONST.FIELD;
       this.m.numClasses = CONST.N_CLASSES;
       this.m.currentMethod = CONST.METHOD;
@@ -1251,10 +1245,7 @@
 
     syncSelect(el, value) {
       el.value = value;
-      el.classList.toggle(
-        CONST.CLASSES.CLASS_PLACEHOLDER,
-        !value || value === CONST.FIELD_AUTO,
-      );
+      el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
     }
   }
 

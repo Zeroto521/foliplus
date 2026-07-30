@@ -177,16 +177,12 @@
       for (const leaf of leaves) {
         if (leaf instanceof L.Polygon) hasPoly = true;
         else if (leaf instanceof L.Polyline) hasLine = true;
-        else if (
-          leaf instanceof L.Marker ||
-          leaf instanceof L.CircleMarker ||
-          leaf instanceof L.Circle
-        )
-          hasPoint = true;
+        else if (leaf instanceof L.CircleMarker) hasPoint = true;
+        else if (leaf instanceof L.Marker && leaf.feature) hasPoint = true;
       }
-      // Has leaves but none match known types → unknown
+      // No known geometry types found → unknown
       if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN;
-      // Mixed geometry types (e.g. GeometryCollection with Point+Line+Polygon) → unknown
+      // Mixed geometry types → unknown (annotations without .feature are ignored)
       const typeCount = hasPoly + hasLine + hasPoint;
       if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN;
       return hasPoly
@@ -230,7 +226,7 @@
         layer.eachLayer((c) => LayerUtils.traverse(c, fn, depth + 1, leafOnly));
       else if (layer._layers) {
         for (const k in layer._layers) {
-          if (layer._layers.hasOwnProperty(k))
+          if (Object.hasOwn(layer._layers, k))
             LayerUtils.traverse(layer._layers[k], fn, depth + 1, leafOnly);
         }
       } else if (leafOnly) fn(layer);
@@ -347,15 +343,15 @@
         if (!data) return;
         const ids = JSON.parse(data);
         if (!Array.isArray(ids)) return;
-        const map = new Map(this.layers.map((l) => [l.id, l]));
+        const layerMap = new Map(this.layers.map((l) => [l.id, l]));
         const ordered = [];
         for (const id of ids) {
-          if (map.has(id)) {
-            ordered.push(map.get(id));
-            map.delete(id);
+          if (layerMap.has(id)) {
+            ordered.push(layerMap.get(id));
+            layerMap.delete(id);
           }
         }
-        this.layers = ordered.concat([...map.values()]);
+        this.layers = ordered.concat([...layerMap.values()]);
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_order_fail`)}`, e);
       }
@@ -550,7 +546,9 @@
         this.ui.initTypesAndVisibility();
       }
       this.saveOrder();
-      return this.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${opts.id}"]`);
+      return this.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
+      );
     }
 
     /**
@@ -600,7 +598,7 @@
 
       if (this.uiContainer) {
         const target = this.uiContainer.querySelector(
-          `[${CONST.DATA.LAYER_ID}="${id}"]`,
+          `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
         );
         if (target) {
           target.remove();
@@ -1042,13 +1040,20 @@
         if (markerZ > 0) {
           const mp = this.map.getPane("markerPane");
           if (mp) mp.style.zIndex = markerZ;
+          // Sync shadowPane so marker shadows render above managed content
+          const sp = this.map.getPane("shadowPane");
+          if (sp) sp.style.zIndex = markerZ - 1;
         }
 
-        // Bump popupPane above all managed panes so popups (e.g., marker
-        // location popups) are never hidden behind graph or label panes.
+        // Bump popupPane and tooltipPane above all managed panes so popups and
+        // hover tooltips (e.g., GeoJsonTooltip) are never hidden behind graph or
+        // label panes.  popupPane gets one extra step so it renders above
+        // tooltipPane when both are open (matching Leaflet default ordering).
+        const topZ = this.computeZIndex(0, false) + CONST.Z_INDEX.STEP;
         const pp = this.map.getPane("popupPane");
-        if (pp)
-          pp.style.zIndex = String(this.computeZIndex(0, false) + CONST.Z_INDEX.STEP);
+        if (pp) pp.style.zIndex = String(topZ + 1);
+        const tp = this.map.getPane("tooltipPane");
+        if (tp) tp.style.zIndex = String(topZ);
 
         // 3. Migrate layers to their target panes
         this.migrateLayers(layersToMove);
