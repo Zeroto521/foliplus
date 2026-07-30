@@ -54,7 +54,6 @@
       COLOR: "{{ this.style.label_color }}",
       FORMAT: "{{ this.style.label_format }}",
     },
-    FIELD_AUTO: "AUTO",
     AGG: {
       COUNT: "count",
       SUM: "sum",
@@ -165,6 +164,7 @@
       this.currentScheme = CONST.SCHEME;
       this.currentMethod = CONST.METHOD;
       this.autoFieldKey = null;
+      this.fieldAuto = true;
       this.numClasses = CONST.N_CLASSES;
       this.borderWeight = CONST.BORDER.W;
       this.borderColor = CONST.BORDER.COLOR;
@@ -375,8 +375,7 @@
 
     getPointValue(marker) {
       if (this.currentAgg === CONST.AGG.COUNT) return 1;
-      const key =
-        this.currentField === CONST.FIELD_AUTO ? this.autoFieldKey : this.currentField;
+      const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
       const val = this.readMarkerField(marker, key);
       if (val === undefined || isNaN(val)) {
         if (!this.valueFallbackWarned) {
@@ -725,6 +724,7 @@
         parent: fieldControlWrap,
         onchange: () => {
           this.m.currentField = this.fieldSelect.value;
+          this.m.fieldAuto = false;
           this.syncSelect(this.fieldSelect, this.fieldSelect.value);
           this.m.renderHexagons();
         },
@@ -1074,7 +1074,7 @@
       foliplus.dom.el(
         "option",
         {
-          value: CONST.FIELD_AUTO,
+          value: "",
           disabled: "disabled",
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
           parent: this.fieldSelect,
@@ -1090,15 +1090,8 @@
         );
       });
 
-      if (
-        fields.includes(this.m.currentField) ||
-        this.m.currentField === CONST.FIELD_AUTO
-      )
-        this.fieldSelect.value = this.m.currentField;
-      else {
-        this.m.currentField = CONST.FIELD_AUTO;
-        this.fieldSelect.value = CONST.FIELD_AUTO;
-      }
+    this.m.fieldAuto = !fields.includes(this.m.currentField);
+    this.fieldSelect.value = this.m.fieldAuto ? "" : this.m.currentField;
 
       this.syncSelect(this.fieldSelect, this.fieldSelect.value);
     }
@@ -1232,6 +1225,7 @@
     resetAll() {
       this.m.selectedLayerId = null;
       this.m.autoFieldKey = null;
+      this.m.fieldAuto = true;
       this.m.currentAgg = CONST.AGG.COUNT;
       this.m.currentField = CONST.FIELD;
       this.m.numClasses = CONST.N_CLASSES;
@@ -1245,10 +1239,7 @@
 
     syncSelect(el, value) {
       el.value = value;
-      el.classList.toggle(
-        CONST.CLASSES.CLASS_PLACEHOLDER,
-        !value || value === CONST.FIELD_AUTO,
-      );
+      el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
     }
   }
 
