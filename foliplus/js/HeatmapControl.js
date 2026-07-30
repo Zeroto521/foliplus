@@ -1089,8 +1089,8 @@
         );
       });
 
-    this.m.fieldAuto = !fields.includes(this.m.currentField);
-    this.fieldSelect.value = this.m.fieldAuto ? "" : this.m.currentField;
+      this.m.fieldAuto = !fields.includes(this.m.currentField);
+      this.fieldSelect.value = this.m.fieldAuto ? "" : this.m.currentField;
 
       this.syncSelect(this.fieldSelect, this.fieldSelect.value);
     }
