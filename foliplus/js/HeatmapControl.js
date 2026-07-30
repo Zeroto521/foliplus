@@ -160,7 +160,7 @@
       // State management
       this.selectedLayerId = null;
       this.pointLayers = [];
-      this.currentAgg = CONST.AGG;
+      this.currentAgg = CONST.AGG.COUNT;
       this.currentField = CONST.FIELD;
       this.currentScheme = CONST.SCHEME;
       this.currentMethod = CONST.METHOD;
@@ -952,7 +952,7 @@
         onclick: () => {
           this.resetAll();
           this.syncSelect(this.layerSelect, "");
-          this.syncSelect(this.aggSelect, CONST.AGG);
+          this.syncSelect(this.aggSelect, CONST.AGG.COUNT);
           this.syncSelect(this.classSelect, String(CONST.N_CLASSES));
           this.syncSelect(this.methodSelect, CONST.METHOD);
           this.schemeSelectHidden.value = CONST.SCHEME;
@@ -1232,7 +1232,7 @@
     resetAll() {
       this.m.selectedLayerId = null;
       this.m.autoFieldKey = null;
-      this.m.currentAgg = CONST.AGG;
+      this.m.currentAgg = CONST.AGG.COUNT;
       this.m.currentField = CONST.FIELD;
       this.m.numClasses = CONST.N_CLASSES;
       this.m.currentMethod = CONST.METHOD;
