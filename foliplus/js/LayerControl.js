@@ -1585,10 +1585,19 @@
       if (!item || item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
 
       const targetIdx = parseInt(item.dataset.index, 10);
-      const allItems = this.m.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
-      allItems.forEach((i) =>
-        i.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM),
+      // Only clear the previously highlighted item instead of scanning every
+      // item on each dragover event (fires many times per second while dragging).
+      const prev = this.m.lastDragOverItem;
+      if (prev && prev !== item)
+        prev.classList.remove(
+          CONST.CLASSES.DRAG_OVER_TOP,
+          CONST.CLASSES.DRAG_OVER_BOTTOM,
+        );
+      item.classList.remove(
+        CONST.CLASSES.DRAG_OVER_TOP,
+        CONST.CLASSES.DRAG_OVER_BOTTOM,
       );
+      this.m.lastDragOverItem = item;
 
       if (!this.m.canReorderBetween(this.m.dragIdx, targetIdx)) {
         if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
@@ -1650,6 +1659,7 @@
     }
 
     handleDragEnd() {
+      this.m.lastDragOverItem = null;
       const allItems = this.m.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
       allItems.forEach((i) =>
         i.classList.remove(
