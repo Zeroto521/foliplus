@@ -636,7 +636,7 @@
   ) => {
     if (existing) map.removeLayer(existing);
     const target = layerGroup || map;
-    const mk = L.marker([lat, lng], {
+    const marker = L.marker([lat, lng], {
       icon: L.divIcon({
         className: "",
         html: foliplus.SVGs.PIN_ICON,
@@ -645,16 +645,16 @@
         popupAnchor: CONST.PIN.POPUP_ANCHOR,
       }),
     });
-    target.addLayer(mk);
-    mk.bindPopup(
+    target.addLayer(marker);
+    marker.bindPopup(
       foliplus.buildPopupHtml(lng, lat, addr, title, loading, locLabel, addrLabel),
       { maxWidth: CONST.POPUP.MAX_WIDTH },
     );
-    mk.openPopup();
+    marker.openPopup();
     if (!addr) {
       foliplus.reverseGeocode(map, lng, lat).then((resolved) => {
-        if (mk && mk.getPopup() && mk.getPopup().isOpen()) {
-          mk.setPopupContent(
+        if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
+          marker.setPopupContent(
             foliplus.buildPopupHtml(
               lng,
               lat,
@@ -668,7 +668,7 @@
         }
       });
     }
-    return mk;
+    return marker;
   };
 
   /**

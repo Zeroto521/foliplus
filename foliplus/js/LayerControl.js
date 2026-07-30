@@ -1302,7 +1302,7 @@
       );
     }
 
-    renderLayerItem(l, index) {
+    renderLayerItem(l, idx) {
       const en = LayerUtils.escapeHTML(l.name);
       const children = [
         { html: SVGs.DRAG_HANDLE },
@@ -1312,7 +1312,7 @@
           foliplus.dom.el("input", {
             type: "checkbox",
             checked: "",
-            [CONST.DATA.INDEX]: String(index),
+            [CONST.DATA.INDEX]: String(idx),
             "aria-label": en,
           }),
         ),
@@ -1329,7 +1329,7 @@
         {
           class: CONST.CLASSES.LAYER_ITEM,
           draggable: "true",
-          [CONST.DATA.INDEX]: String(index),
+          [CONST.DATA.INDEX]: String(idx),
           [CONST.DATA.LAYER_ID]: l.id,
           "data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
           title: en,

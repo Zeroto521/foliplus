@@ -198,7 +198,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "retries < CONST.DEL_ICON.RETRY_LIMIT" in html
-        assert "MeasureUtils.toggleDelIcon(mkr, show, retries + 1)" in html
+        assert "MeasureUtils.toggleDelIcon(marker, show, retries + 1)" in html
 
     def test_attach_del_click_utility(self, base_map: folium.Map):
         """attachDelClick binds click to marker event, not raw DOM event."""
@@ -348,7 +348,7 @@ class TestMeasureControlRendering:
         """CircleMarkers call bringToFront() after creation."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "mkr.bringToFront()" in html or "previews.node.bringToFront()" in html
+        assert "marker.bringToFront()" in html or "previews.node.bringToFront()" in html
 
     def test_no_old_onadd_override(self, base_map: folium.Map):
         """Old onAdd override should not exist."""
