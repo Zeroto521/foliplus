@@ -265,8 +265,8 @@
    */
   const isBaiduCRS = (map) => {
     try {
-      if (L.CRS && L.CRS.Baidu) return true;
       const crs = map.options.crs;
+      if (L.CRS && L.CRS.Baidu && crs === L.CRS.Baidu) return true;
       if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
       const layers = map._layers;
       for (let id in layers)
