@@ -6,7 +6,7 @@
 }
 .foliplus-hf-center {
   fill: currentColor;
-  opacity: var(--alpha-15);
+  opacity: 0.15;
   stroke: none;
 }
 .foliplus-hf-secondary {
