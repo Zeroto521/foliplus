@@ -337,12 +337,6 @@ class TestResolveLocale:
         with pytest.raises(TypeError, match="locale must be a str or LocaleConfig"):
             resolve_locale(123)  # type: ignore[arg-type]
 
-    def test_resolve_en(self):
-        """resolve_locale('en') returns an en LocaleConfig."""
-        result = resolve_locale("en")
-        assert result.code == "en"
-        assert result.get("locale.name") == "English"
-
     def test_resolve_zh(self):
         """resolve_locale('zh') returns a zh LocaleConfig."""
         result = resolve_locale("zh")

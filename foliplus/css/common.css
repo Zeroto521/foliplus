@@ -62,9 +62,7 @@
 
   --btn-primary-bg: var(--accent-primary);
   --btn-primary-hover: var(--accent-hover);
-  --btn-secondary-bg: var(--neutral-100);
   --btn-secondary-border: var(--neutral-300);
-  --btn-secondary-hover: var(--neutral-300);
 
   /* Effect */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
@@ -77,7 +75,7 @@
   --font-size-sm: 12px;
   --font-size-md: 14px;
 
-  /* Effect */
+  /* ── Font Weight ── */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -139,7 +137,6 @@
   Hint z-index is managed by runtime.js (HINT.foliplus-Z_BASE = 10000).
   CSS only defines dropdown z-index (below hints). */
   --z-index-dropdown: 9990;
-  --z-index-control: 1000;
 }
 
 /* ── Animations ── */
@@ -253,11 +250,6 @@
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-}
-.foliplus-toggle-btn svg {
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  stroke: currentColor;
 }
 
 /* ── Tool Button Base (used by MeasureControl toolbar, SearchControl mode switch) ── */

@@ -59,21 +59,19 @@ class TestCDN:
         assert GCOORD == "1"
 
     def test_cdn_urls_in_default_js(self):
-        """All default_js URLs follow the expected format."""
+        """All default_js URLs in controls with external dependencies follow expected format."""
         from foliplus import FullscreenControl, HeatmapControl, MeasureControl
 
+        assert len(HeatmapControl.default_js) > 0
         for _, url in HeatmapControl.default_js:
             assert url.startswith("https://cdn.jsdelivr.net/npm/")
             assert "@" in url, f"Version missing in {url}"
 
+        assert len(MeasureControl.default_js) > 0
         for _, url in MeasureControl.default_js:
             assert url.startswith("https://cdn.jsdelivr.net/npm/")
             assert "@" in url, f"Version missing in {url}"
 
-        for _, url in FullscreenControl.default_js:
-            assert url.startswith("https://cdn.jsdelivr.net/npm/")
-            assert "@" in url, f"Version missing in {url}"
-
-        for _, url in FullscreenControl.default_css:
-            assert url.startswith("https://cdn.jsdelivr.net/npm/")
-            assert "@" in url, f"Version missing in {url}"
+        # Controls without external dependencies have empty default_js/css lists
+        assert FullscreenControl.default_js == []
+        assert FullscreenControl.default_css == []
