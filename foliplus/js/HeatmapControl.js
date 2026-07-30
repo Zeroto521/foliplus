@@ -286,6 +286,7 @@
     /** Resolve label styling from CSS custom properties (cached once). */
     resolveLabelStyle() {
       if (this.cachedLabelStyle) return this.cachedLabelStyle;
+      if (!this.ui?.container) return {};
       const cs = getComputedStyle(this.ui.container);
       const val = (prop) => cs.getPropertyValue(prop).trim();
 
