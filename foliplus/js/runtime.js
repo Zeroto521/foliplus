@@ -5,7 +5,7 @@
  */
 (function (window, document) {
   "use strict";
-  // 1. Ensure global namespace object exists
+  // Ensure the global namespace object exists.
   if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {};
   const foliplus = window.foliplus;
 
@@ -27,7 +27,8 @@
       return loc && loc[k] ? loc[k] : k;
     });
 
-  // 3. Early return only if logic is already initialized
+  // Bail out if the shared runtime has already been initialized (it is inlined
+  // once per map, but this guard keeps it idempotent across reloads/embeds).
   if (foliplus.isInitialized) return;
   foliplus.isInitialized = true;
 
@@ -269,9 +270,41 @@
       if (L.CRS && L.CRS.Baidu && crs === L.CRS.Baidu) return true;
       if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
       const layers = map._layers;
-      for (let id in layers)
+      for (const id in layers)
         if (layers[id]._url && layers[id]._url.includes("bdimg.com")) return true;
 
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  /**
+   * Detect whether a map uses domestic Chinese tile providers.
+   * Checks Baidu, AutoNavi, Tianditu, Tencent, Google, and AMap URL patterns.
+   *
+   * @param {L.Map} map - Leaflet map instance
+   * @returns {boolean} True if the map uses domestic tile providers
+   */
+  const isDomesticMap = (map) => {
+    try {
+      const crs = map.options.crs;
+      if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
+      const layers = map._layers;
+      for (const id in layers) {
+        if (layers[id]._url) {
+          const url = layers[id]._url;
+          if (
+            url.includes("bdimg.com") ||
+            url.includes("autonavi") ||
+            url.includes("tianditu") ||
+            url.includes("gtimg.com") ||
+            url.includes("googleapis") ||
+            url.includes("amap.com")
+          )
+            return true;
+        }
+      }
       return false;
     } catch (e) {
       return false;
@@ -349,38 +382,6 @@
 
     const dst = dstType === "BD09" ? gcoord.BD09 : gcoord.GCJ02;
     return gcoord.transform([lng, lat], gcoord.WGS84, dst);
-  };
-
-  /**
-   * Detect whether a map uses domestic Chinese tile providers.
-   * Checks Baidu, AutoNavi, Tianditu, Tencent, Google, and AMap URL patterns.
-   *
-   * @param {L.Map} map - Leaflet map instance
-   * @returns {boolean} True if the map uses domestic tile providers
-   */
-  const isDomesticMap = (map) => {
-    try {
-      const crs = map.options.crs;
-      if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
-      const layers = map._layers;
-      for (let id in layers) {
-        if (layers[id]._url) {
-          const url = layers[id]._url;
-          if (
-            url.includes("bdimg.com") ||
-            url.includes("autonavi") ||
-            url.includes("tianditu") ||
-            url.includes("gtimg.com") ||
-            url.includes("googleapis") ||
-            url.includes("amap.com")
-          )
-            return true;
-        }
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
   };
 
   // ==================== Reverse Geocoding ====================
@@ -883,8 +884,9 @@
    *
    * Sets `window._LOCALE` so that `foliplus.gt(key)` returns the correct translation.
    *
-   * Called automatically from each control's Jinja2 template:
-   *   `foliplus.resolveLocale('{{ this._LOCALE_CODE }}'{, tables...});`
+   * Called automatically from each control's Jinja2 template, using the locale
+   * tables that BaseControl injects once per map into `window.foliplus._TABLES`:
+   *   `foliplus.resolveLocale(<locale_code>, window.foliplus._TABLES);`
    *
    * @param {string} code   - Locale code from Python (e.g. '' for auto-detect)
    * @param {Object} tables - Map of locale code → translation table
