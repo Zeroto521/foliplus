@@ -463,7 +463,7 @@
 
     // --- Hexagon Rendering ---
     renderHexagons() {
-      if (!this.map || !this.map._container) return;
+      if (!this.map || !this.map._container || !this.overlay) return;
       if (!this.selectedLayerId) {
         this.clearHeatmapCanvas();
         return;
