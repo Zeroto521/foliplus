@@ -142,7 +142,8 @@
 /* ── Measurement Labels ── */
 .foliplus-measure-label {
   display: inline-block;
-  background: rgba(0, 0, 0, var(--alpha-50));
+  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, var(--alpha-30));
   color: var(--neutral-0);
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
@@ -150,7 +151,7 @@
   white-space: nowrap;
   text-align: center;
   pointer-events: none;
-  box-shadow: none;
+  box-shadow: var(--shadow-xs);
   transform: translateX(-50%);
 }
 /* Radius label is centered on the midpoint horizontally and vertically */
@@ -192,6 +193,7 @@
 }
 .foliplus-measure-del-icon:hover {
   background: rgba(var(--red-rgb), var(--alpha-95));
+  box-shadow: var(--shadow-xs);
   transform: scale(var(--scale-hover));
 }
 .foliplus-measure-del-icon:active {
