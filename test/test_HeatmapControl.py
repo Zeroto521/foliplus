@@ -332,12 +332,25 @@ class TestHeatmapControlRendering:
         assert "color-input" in html
 
     def test_border_weight_input_has_min_max(self, base_map: folium.Map):
-        """Border weight input has min:0 max:10 and clamps value on change."""
+        """Border weight input has min:0 max:10, clamps on change, and previews on input."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "min: 0" in html
         assert "max: 10" in html
         assert "Math.min(10, Math.max(0," in html
+        # oninput for live preview (only fires when value is in range)
+        assert "oninput:" in html
+        # onchange for final clamp
+        assert "onchange:" in html
+
+    def test_placeholder_options_disabled(self, base_map: folium.Map):
+        """Layer placeholder and field auto options use disabled:true (not the string)."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        # Must use boolean true so dom.el sets el.disabled = true
+        assert "disabled: true" in html
+        # Must NOT use the string variant which silently sets disabled=false
+        assert 'disabled: "disabled"' not in html
 
     def test_border_weight_breathing_focus(self):
         """weight-input is included in the shared breathing-focus rule in common.css."""
