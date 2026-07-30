@@ -97,8 +97,7 @@
   border-left-color: var(--accent-light);
 }
 /* Folded: accent left border + accent fold-btn; divider fades out */
-.foliplus-layer-ctrl
-  .foliplus-layer-sep.foliplus-layer-toggle-all.foliplus-layer-folded {
+.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all.foliplus-layer-folded {
   border-left-color: var(--accent-primary);
 }
 .foliplus-layer-ctrl
