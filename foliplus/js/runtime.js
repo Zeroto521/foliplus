@@ -409,7 +409,14 @@
     return url.toString();
   };
   // Uses throttled queue (1 req/s) and response cache.
-  const geoCache = {};
+  // geoCache is a Map with a FIFO cap to bound memory during long sessions.
+  const GEO_CACHE_MAX = 1000;
+  const geoCache = new Map();
+  const geoCacheGet = (key) => geoCache.get(key);
+  const geoCacheSet = (key, val) => {
+    geoCache.set(key, val);
+    if (geoCache.size > GEO_CACHE_MAX) geoCache.delete(geoCache.keys().next().value);
+  };
   let geoPromise = Promise.resolve();
   let geoLastReq = 0;
 
@@ -468,7 +475,8 @@
    */
   foliplus.reverseGeocode = (map, lng, lat) => {
     const key = `${lng},${lat}`;
-    if (geoCache[key]) return Promise.resolve(geoCache[key]);
+    const cached = geoCacheGet(key);
+    if (cached) return Promise.resolve(cached);
 
     const wgs = foliplus.toWgs84(map, parseFloat(lng), parseFloat(lat));
     const url = foliplus.nominatimUrl("/reverse", {
@@ -493,8 +501,8 @@
             const addr =
               foliplus.formatAddress(data.display_name, map) ||
               foliplus.gt("SearchControl.addr_not_found");
-            geoCache[key] = addr;
-            return geoCache[key];
+            geoCacheSet(key, addr);
+            return addr;
           })
           .catch(() => foliplus.gt("MeasureControl.geo_fail"));
       });
