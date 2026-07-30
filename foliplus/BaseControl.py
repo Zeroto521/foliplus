@@ -4,6 +4,7 @@ from json import dumps
 from pathlib import Path
 from textwrap import dedent
 
+from branca.element import Element, Figure
 from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
@@ -14,6 +15,10 @@ from .locale import _LOCALES_TABLES, LocaleConfig, resolve_locale
 src_dir = Path(__file__).parent
 js_dir = src_dir / "js"
 css_dir = src_dir / "css"
+
+# Stable child name used to deduplicate the shared asset bundle in a figure's
+# header, so runtime.js / common.css / locale tables are emitted only once per map.
+_SHARED_ASSETS_NAME = "foliplus_shared"
 
 
 class BaseControl(JSCSSMixin, MacroElement):
@@ -35,7 +40,22 @@ class BaseControl(JSCSSMixin, MacroElement):
     """
 
     _common = css_dir.joinpath("common.css").read_text(encoding="utf-8")
+    _panel = css_dir.joinpath("panel.css").read_text(encoding="utf-8")
     _runtime = js_dir.joinpath("runtime.js").read_text(encoding="utf-8")
+
+    # Shared asset bundle injected once per map (see ``render``). Contains the
+    # common + panel CSS, the runtime JS namespace, and every locale table. Built
+    # once at import time and reused across all controls and maps.
+    _shared_header = (
+        "<style>\n"
+        f"{_common}\n{_panel}\n"
+        "</style>\n"
+        "<script>\n"
+        f"{_runtime}\n"
+        "window.foliplus = window.foliplus || {};\n"
+        f"window.foliplus._TABLES = {dumps(_LOCALES_TABLES, ensure_ascii=False)};\n"
+        "</script>"
+    )
 
     def __init__(
         self,
@@ -48,6 +68,25 @@ class BaseControl(JSCSSMixin, MacroElement):
         self.position = position
         self._locale_code = resolve_locale(locale).code if locale is not None else ""
 
+    def render(self, **kwargs):
+        """Inject the shared asset bundle into the figure header exactly once.
+
+        The runtime JS, shared CSS, and locale tables are identical for every
+        control, so they are emitted a single time per map (deduplicated by
+        :data:`_SHARED_ASSETS_NAME`) instead of being repeated in each control's
+        template. Placing them in ``<head>`` also guarantees they load before any
+        control's body script runs.
+        """
+        figure = self.get_root()
+        if (
+            isinstance(figure, Figure)
+            and _SHARED_ASSETS_NAME not in figure.header._children
+        ):
+            figure.header.add_child(
+                Element(self._shared_header), name=_SHARED_ASSETS_NAME
+            )
+        super().render(**kwargs)
+
     def _get_js(self, filename: str) -> str:
         return js_dir.joinpath(filename).read_text(encoding="utf-8")
 
@@ -59,13 +98,13 @@ class BaseControl(JSCSSMixin, MacroElement):
         *,
         js_file: str | None = None,
         css_file: str | None = None,
-        use_panel: bool = False,
     ) -> Template:
-        """Build a Jinja2 template with shared CSS/JS + component assets.
+        """Build a Jinja2 template with this control's own CSS/JS.
 
-        Injects ``common.css``, ``panel.css`` (if ``use_panel=True``), ``runtime.js``,
-        and the specified component JS/CSS files into a Jinja2 macro pair
-        (``html`` / ``script``) for folium's rendering pipeline.
+        Shared assets (``common.css``, ``panel.css``, ``runtime.js``, and the
+        locale tables) are injected once per map by :meth:`render`, so this
+        template only carries the component-specific CSS/JS plus a small call to
+        resolve the locale from the shared ``window.foliplus._TABLES``.
 
         Parameters
         ----------
@@ -75,9 +114,6 @@ class BaseControl(JSCSSMixin, MacroElement):
         css_file : str, optional
             Component CSS filename (e.g. ``"LayerControl.css"``).
 
-        use_panel : bool, default False
-            Whether to include shared panel CSS.
-
         Returns
         -------
         Template
@@ -85,24 +121,18 @@ class BaseControl(JSCSSMixin, MacroElement):
         """
         js = self._get_js(js_file) if js_file else ""
         css_common = self._get_css(css_file) if css_file else ""
-        css_panel = (
-            (css_dir / "panel.css").read_text(encoding="utf-8") if use_panel else ""
-        )
 
         return Template(
             dedent(f"""\
             {{% macro html(this, kwargs) %}}
             <style>
-            {self._common}
-            {css_panel}
             {css_common}
             </style>
             {{% endmacro %}}
 
             {{% macro script(this, kwargs) %}}
-            {self._runtime}
             if (window.foliplus && window.foliplus.resolveLocale) {{
-                window.foliplus.resolveLocale({{{{ this._locale_code | tojson }}}}, {dumps(_LOCALES_TABLES, ensure_ascii=False)});
+                window.foliplus.resolveLocale({{{{ this._locale_code | tojson }}}}, window.foliplus._TABLES);
             }}
             {js}
             {{% endmacro %}}""")

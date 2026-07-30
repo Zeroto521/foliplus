@@ -137,7 +137,7 @@
 
     // ── State Initialization ──
     initState() {
-      this.mk = null;
+      this.marker = null;
       this.mode = "{{ this.mode }}";
       if (this.mode !== CONST.MODE.COORD && this.mode !== CONST.MODE.ADDR)
         this.mode = CONST.MODE.COORD;
@@ -172,9 +172,9 @@
         this.inp.placeholder = _(`${CONST.name}.addr_placeholder`);
       }
       this.inp.value = "";
-      if (this.mk) {
-        map.removeLayer(this.mk);
-        this.mk = null;
+      if (this.marker) {
+        map.removeLayer(this.marker);
+        this.marker = null;
       }
       if (this.suggestAbortController) this.suggestAbortController.abort();
       foliplus.hideHint(CONST.name);
@@ -214,7 +214,7 @@
 
       foliplus.hideHint(CONST.name);
       map.flyTo([lat, lng], CONST.ZOOM.LEVEL || 16);
-      this.mk = foliplus.createLocationMarker(
+      this.marker = foliplus.createLocationMarker(
         map,
         lng,
         lat,
@@ -223,7 +223,7 @@
         `${CONST.name}.popup_loading`,
         `${CONST.name}.popup_loc_label`,
         `${CONST.name}.popup_addr_label`,
-        this.mk,
+        this.marker,
       );
     }
 
@@ -294,7 +294,7 @@
         ),
       );
       map.flyTo([lat, lng], zoom);
-      this.mk = foliplus.createLocationMarker(
+      this.marker = foliplus.createLocationMarker(
         map,
         lng,
         lat,
@@ -303,7 +303,7 @@
         `${CONST.name}.popup_loading`,
         `${CONST.name}.popup_loc_label`,
         `${CONST.name}.popup_addr_label`,
-        this.mk,
+        this.marker,
       );
     }
 
@@ -465,9 +465,9 @@
       // Clear input
       this.clearBtn.onclick = () => {
         this.inp.value = "";
-        if (this.mk) {
-          map.removeLayer(this.mk);
-          this.mk = null;
+        if (this.marker) {
+          map.removeLayer(this.marker);
+          this.marker = null;
         }
         this.inp.focus();
       };

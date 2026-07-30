@@ -192,7 +192,7 @@ class TestSearchControlRendering:
         html = render(base_map)
         # createLocationMarker appears 3×: runtime.js definition + coord search + addr search
         assert html.count("createLocationMarker") == 3
-        # Both coord and addr search should pass mk as the last arg
+        # Both coord and addr search should pass the marker as the last arg
         assert "popup_addr_label" in html
 
     # ── Autocomplete / Suggestions ──

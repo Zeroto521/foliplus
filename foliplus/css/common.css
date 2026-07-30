@@ -62,11 +62,9 @@
 
   --btn-primary-bg: var(--accent-primary);
   --btn-primary-hover: var(--accent-hover);
-  --btn-secondary-bg: var(--neutral-100);
   --btn-secondary-border: var(--neutral-300);
-  --btn-secondary-hover: var(--neutral-300);
 
-  /* Effect */
+  /* ── Effects ── */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
   --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
@@ -76,11 +74,12 @@
   --font-size-xs: 10px;
   --font-size-sm: 12px;
   --font-size-md: 14px;
-
-  /* Effect */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
+  --line-height-hint: 1.4;
+  --line-height-popup: 1.8;
+  --letter-spacing-tight: 0.5px;
 
   /* ── Spacing ── */
   --space-xs: var(--size-2);
@@ -96,6 +95,7 @@
   --scale-hover: 1.08;
   --icon-size-sm: var(--size-16);
   --icon-size-md: 18px;
+  --stroke-icon: 1.8;
 
   /* ── Layout Metrics ── */
   --toggle-size: 36px;
@@ -103,9 +103,6 @@
   --panel-max-height: 400px;
   --panel-header-padding-left: var(--size-6);
   --panel-header-padding-right: var(--ctrl-size);
-
-  /* ── Micro Visual Adjustments ── */
-  --letter-spacing-tight: 0.5px;
 
   /* ── Border Width ── */
   --border-thin: 1px;
@@ -120,8 +117,6 @@
   /* ── Shadows ── */
   --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-15));
   --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-15));
-
-  /* Component */
   --shadow-ctrl-strong: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-50));
 
   /* ── Transitions ── */
@@ -129,17 +124,11 @@
   --transition-input:
     border-color var(--transition-fast), box-shadow var(--transition-fast);
 
-  /* ── Micro Visual Adjustments ── */
-  --stroke-icon: 1.8;
-  --line-height-hint: 1.4;
-  --line-height-popup: 1.8;
-
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.
   Hint z-index is managed by runtime.js (HINT.foliplus-Z_BASE = 10000).
   CSS only defines dropdown z-index (below hints). */
   --z-index-dropdown: 9990;
-  --z-index-control: 1000;
 }
 
 /* ── Animations ── */
@@ -162,8 +151,9 @@
   PIN_ICON, drag-handle override per their context.
 ── */
 :is(
-    .foliplus-ctrl-fold,
+    .foliplus-toggle-btn,
     .foliplus-tool-btn,
+    .foliplus-search-mode-btn,
     .foliplus-hint-icon,
     .foliplus-header-icon,
     .foliplus-type-icon-col
@@ -254,11 +244,6 @@
   border-radius: var(--radius-sm);
   color: var(--text-primary);
 }
-.foliplus-toggle-btn svg {
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  stroke: currentColor;
-}
 
 /* ── Tool Button Base (used by MeasureControl toolbar, SearchControl mode switch) ── */
 .foliplus-tool-btn,
@@ -327,7 +312,9 @@
   Component-specific sizing/layout stays in each CSS file.
   ══════════════════════════════════════════════════════════════════════ */
 
-/* ── Hover/Focus: red border + red glow ── */
+/* ── Hover/Focus: red border + red glow ──
+  Use :focus-visible so keyboard navigation shows the ring,
+  but mouse clicks do not leave a residual focus highlight. */
 :is(
   .foliplus-search input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
@@ -337,7 +324,7 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
   .foliplus-layer-ctrl input[type="checkbox"],
   .foliplus-layer-ctrl .foliplus-color-layer-input
-):is(:hover, :focus) {
+):is(:hover, :focus-visible) {
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }

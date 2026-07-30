@@ -20,7 +20,7 @@ class TestBaseControlRendering:
         SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus.resolveLocale(" in html
-        # Verify locale tables are passed inline (not as a separate variable)
+        # Locale tables are bundled once per map into window.foliplus._TABLES
         assert '"locale.name": "English"' in html
         assert '"locale.name": "中文"' in html
 
@@ -129,6 +129,7 @@ class TestBaseControlRendering:
         SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus.debounce" in html
+        assert "debounced.cancel" in html
         assert "clearTimeout(timer)" in html
 
     def test_svg_icons_present(self, base_map: folium.Map):
@@ -213,3 +214,17 @@ class TestBaseControlRendering:
         html = render(base_map)
         assert '"locale.code":"en"' in html or '"locale.code": "en"' in html
         assert '"locale.code":"zh"' in html or '"locale.code": "zh"' in html
+
+    def test_shared_assets_deduplicated(self, base_map: folium.Map):
+        """Shared assets (runtime.js, common.css, locale tables) are injected only once per map."""
+        from foliplus import HeatmapControl, LayerControl, SearchControl
+
+        SearchControl().add_to(base_map)
+        LayerControl().add_to(base_map)
+        HeatmapControl().add_to(base_map)
+
+        html = render(base_map)
+        # Shared locale tables table definition is injected exactly once
+        assert html.count("window.foliplus._TABLES = {") == 1
+        # Common CSS root custom properties definition is injected exactly once
+        assert html.count("--ctrl-bg:") == 1
