@@ -124,6 +124,7 @@
 .foliplus-layer-ctrl .foliplus-layer-fold-btn svg {
   width: 14px;
   height: 14px;
+  fill: none;
   stroke: currentColor;
   stroke-width: var(--stroke-icon);
   stroke-linecap: round;
@@ -148,6 +149,13 @@
   flex-shrink: 0;
   width: 14px;
   height: var(--icon-size-md);
+}
+/* Circles use fill="currentColor"; add matching stroke so they stay bold,
+   matching the appearance they had when .foliplus-ctrl-fold svg provided
+   stroke: currentColor via inheritance. */
+.foliplus-layer-ctrl .drag-handle circle {
+  stroke: currentColor;
+  stroke-width: var(--stroke-icon);
 }
 .foliplus-layer-ctrl .foliplus-layer-item .drag-handle {
   opacity: 0;
