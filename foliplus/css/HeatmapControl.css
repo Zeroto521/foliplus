@@ -1,7 +1,7 @@
 /* ── H3 HEX icon layered fills ── */
 .foliplus-hf-bg {
   fill: currentColor;
-  opacity: 0.06;
+  opacity: var(--alpha-05);
   stroke: none;
 }
 .foliplus-hf-center {
