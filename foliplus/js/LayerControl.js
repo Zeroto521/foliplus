@@ -175,19 +175,16 @@
         hasLine = false,
         hasPoint = false;
       for (const leaf of leaves) {
-        if (leaf instanceof L.Polygon || leaf instanceof L.MultiPolygon) hasPoly = true;
-        else if (leaf instanceof L.Polyline || leaf instanceof L.MultiPolyline)
-          hasLine = true;
-        else if (
-          leaf instanceof L.Marker ||
-          leaf instanceof L.CircleMarker ||
-          leaf instanceof L.Circle
-        )
+        if (leaf instanceof L.Polygon) hasPoly = true;
+        else if (leaf instanceof L.Polyline) hasLine = true;
+        else if (leaf instanceof L.CircleMarker || leaf instanceof L.Circle)
           hasPoint = true;
+        else if (leaf instanceof L.Marker && leaf.feature) hasPoint = true;
       }
       // Has leaves but none match known types → unknown
       if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN;
       // Mixed geometry types (e.g. GeometryCollection with Point+Line+Polygon) → unknown
+      // Text annotations (Markers without .feature) are ignored for type detection.
       const typeCount = hasPoly + hasLine + hasPoint;
       if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN;
       return hasPoly
