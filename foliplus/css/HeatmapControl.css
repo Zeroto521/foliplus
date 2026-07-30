@@ -132,12 +132,9 @@
 .foliplus-heatmap-ctrl .foliplus-heatmap-extra-body {
   padding: 0;
 }
-.foliplus-heatmap-ctrl .foliplus-heatmap-extra-body.hidden {
-  display: none;
-}
-
 /* Field selector */
-.foliplus-heatmap-ctrl .foliplus-heatmap-field.hidden {
+.foliplus-heatmap-ctrl
+  :is(.foliplus-heatmap-extra-body, .foliplus-heatmap-field).hidden {
   display: none;
 }
 

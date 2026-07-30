@@ -89,12 +89,12 @@
       </svg>`,
     DRAG_HANDLE: `
       <svg viewBox="0 0 24 24" class="drag-handle">
-        <circle cx="8" cy="6" r="1.5" class="solid"/>
-        <circle cx="16" cy="6" r="1.5" class="solid"/>
-        <circle cx="8" cy="12" r="1.5" class="solid"/>
-        <circle cx="16" cy="12" r="1.5" class="solid"/>
-        <circle cx="8" cy="18" r="1.5" class="solid"/>
-        <circle cx="16" cy="18" r="1.5" class="solid"/>
+        <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="6" r="1.5" fill="currentColor"/>
+        <circle cx="8" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
       </svg>`,
     POINT: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>`,
     LINE: `<svg viewBox="0 0 24 24"><path d="M4 20 L10 6 L16 18 L22 4"/></svg>`,
