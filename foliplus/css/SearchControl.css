@@ -30,6 +30,27 @@
   color: var(--text-muted);
 }
 
+/* ── Focus: breathing glow ── */
+.foliplus-search input:focus-visible {
+  animation: input-breathe 2s ease-in-out infinite;
+}
+
+@keyframes input-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  }
+  50% {
+    box-shadow: 0 0 0 var(--size-4) var(--input-focus-shadow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foliplus-search input:focus-visible {
+    animation: none;
+  }
+}
+
 /* ── Autocomplete Suggestions (mounted on document.body) ── */
 .foliplus-search-suggestions {
   position: fixed;
