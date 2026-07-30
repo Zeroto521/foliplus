@@ -175,8 +175,8 @@
   height: var(--icon-size-md);
 }
 /* Circles use fill="currentColor"; add matching stroke so they stay bold,
-   matching the appearance they had when .foliplus-ctrl-fold svg provided
-   stroke: currentColor via inheritance. */
+  matching the appearance they had when .foliplus-ctrl-fold svg provided
+  stroke: currentColor via inheritance. */
 .foliplus-layer-ctrl .drag-handle circle {
   stroke: currentColor;
   stroke-width: var(--stroke-icon);
