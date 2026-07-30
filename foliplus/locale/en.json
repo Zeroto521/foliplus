@@ -36,7 +36,7 @@
   "HeatmapControl.section_data": "Data",
   "HeatmapControl.section_style": "Style",
   "HeatmapControl.close_title": "Close",
-  "LayerControl.panel_title": "Layers",
+  "LayerControl.panel_title": "Layer Manager",
   "LayerControl.toggle_title": "Layer Manager",
   "LayerControl.close_title": "Collapse",
   "LayerControl.base_map_label": "Base Maps",

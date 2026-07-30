@@ -36,7 +36,7 @@
   "HeatmapControl.section_data": "数据",
   "HeatmapControl.section_style": "样式",
   "HeatmapControl.close_title": "关闭",
-  "LayerControl.panel_title": "图层",
+  "LayerControl.panel_title": "图层管理",
   "LayerControl.toggle_title": "图层管理",
   "LayerControl.close_title": "收起",
   "LayerControl.base_map_label": "基础底图",
