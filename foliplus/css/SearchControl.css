@@ -60,6 +60,10 @@
   background: var(--accent-light);
   color: var(--accent-primary);
 }
+.foliplus-search-suggestion-item:hover .foliplus-search-suggestion-icon,
+.foliplus-search-suggestion-item.active .foliplus-search-suggestion-icon {
+  color: var(--accent-primary);
+}
 .foliplus-search-suggestion-icon {
   flex-shrink: 0;
   display: flex;

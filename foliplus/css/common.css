@@ -324,7 +324,7 @@
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   color: var(--text-muted);
-  border-radius: 0;
+  border-radius: var(--radius-sm);
 }
 
 .foliplus-pin {

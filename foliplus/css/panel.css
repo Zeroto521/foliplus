@@ -102,3 +102,17 @@
   overflow-y: auto;
   padding: 0;
 }
+/* Styled scrollbar for webkit browsers */
+.foliplus-panel .foliplus-panel-content::-webkit-scrollbar {
+  width: var(--size-4);
+}
+.foliplus-panel .foliplus-panel-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.foliplus-panel .foliplus-panel-content::-webkit-scrollbar-thumb {
+  background: var(--neutral-300);
+  border-radius: var(--radius-sm);
+}
+.foliplus-panel .foliplus-panel-content::-webkit-scrollbar-thumb:hover {
+  background: var(--neutral-500);
+}
