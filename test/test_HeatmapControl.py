@@ -276,10 +276,10 @@ class TestHeatmapControlRendering:
         assert "LayerControl" in html
 
     def test_render_hexagons_map_guard(self, base_map: folium.Map):
-        """renderHexagons checks map._container before proceeding."""
+        """renderHexagons checks map._container and overlay before proceeding."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "if (!this.map || !this.map._container) return" in html
+        assert "if (!this.map || !this.map._container || !this.overlay) return" in html
 
     def test_debounce_usage(self, base_map: folium.Map):
         """HeatmapControl uses foliplus.debounce for zoom and layer events."""
