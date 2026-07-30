@@ -177,15 +177,35 @@
       // ==================== FullscreenControl Toggle ====================
       const toggleFullscreen = () => {
         if (getFullscreenEl()) {
-          if (isEnabled) document[nativeAPI.exitFullscreen]().catch(() => {});
-          else {
+          if (isEnabled) {
+            document[nativeAPI.exitFullscreen]()
+              .then(() => {
+                map._isFullscreen = false;
+                updateUI();
+              })
+              .catch(() => {
+                map._isFullscreen = !!getFullscreenEl();
+                updateUI();
+              });
+            return;
+          } else {
             map._container.classList.remove(CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
           map._isFullscreen = false;
         } else {
-          if (isEnabled) map._container[nativeAPI.requestFullscreen]().catch(() => {});
-          else {
+          if (isEnabled) {
+            map._container[nativeAPI.requestFullscreen]()
+              .then(() => {
+                map._isFullscreen = true;
+                updateUI();
+              })
+              .catch(() => {
+                map._isFullscreen = !!getFullscreenEl();
+                updateUI();
+              });
+            return;
+          } else {
             map._container.classList.add(CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
