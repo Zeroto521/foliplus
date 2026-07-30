@@ -253,6 +253,26 @@
     repositionHints();
   };
 
+  // Re-parent all live hints when fullscreen state changes so they remain
+  // visible regardless of whether the browser is in fullscreen or not.
+  const reparentHints = () => {
+    if (hintMap.size === 0) return;
+    const newTarget = document.fullscreenElement || document.body;
+    if (newTarget !== document.body && newTarget !== document.documentElement) {
+      const cs = window.getComputedStyle(newTarget);
+      if (cs.position === "static") newTarget.style.position = "relative";
+    }
+    let idx = 0;
+    for (const v of hintMap.values()) {
+      if (v.element.parentNode !== newTarget) newTarget.appendChild(v.element);
+      v.element.style.bottom = `${CONST.HINT.BOTTOM_BASE + idx * CONST.HINT.STACK_GAP}px`;
+      v.element.style.zIndex = CONST.HINT.Z_BASE + idx;
+      idx++;
+    }
+  };
+  document.addEventListener("fullscreenchange", reparentHints);
+  document.addEventListener("webkitfullscreenchange", reparentHints);
+
   // ==================== Coordinate Transformation ====================
   /**
    * Detect whether the map uses Baidu coordinate system (BD-09).

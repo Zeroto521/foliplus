@@ -34,6 +34,17 @@ class TestBaseControlRendering:
         assert "foliplus.hideHint" in html
         assert "foliplus.registerHintIcon" in html
 
+    def test_hint_fullscreen_reparent(self, base_map: folium.Map):
+        """Hints are re-parented on fullscreenchange so they survive fullscreen transitions."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert "reparentHints" in html
+        assert 'addEventListener("fullscreenchange"' in html
+        assert 'addEventListener("webkitfullscreenchange"' in html
+        assert "v.element.parentNode !== newTarget" in html
+
     def test_hint_duration_constants(self, base_map: folium.Map):
         """HINT_DURATION constants exposed as foliplus.HINT_DURATION."""
         from foliplus import SearchControl
