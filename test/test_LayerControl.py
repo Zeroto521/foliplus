@@ -795,6 +795,17 @@ class TestLayerControlRendering:
         # its SVG lines get stroke:currentColor (without it the X is invisible).
         assert ".foliplus-ctrl-btn" in css
 
+    def test_folded_state_no_accent_text(self):
+        """Folded label keeps neutral color; only left border and fold-btn use accent."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # left border and fold-btn turn accent when folded — both expected
+        assert "foliplus-layer-folded" in css
+        assert "border-left-color: var(--accent-primary)" in css
+        # label must NOT be colored accent when folded (label stays text-primary)
+        assert (
+            "foliplus-layer-folded .foliplus-layer-sep-label" not in css
+        ), "folded label must not override color (label stays text-primary)"
+
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
         css = Path("foliplus/css/LayerControl.css").read_text()
