@@ -108,9 +108,6 @@ class HeatmapControl(BaseControl):
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
-        self._template = self._get_template(
-            js_file="HeatmapControl.js", css_file="HeatmapControl.css"
-        )
         self.color_scheme = color_scheme
         self.method = method
         self.n_classes = n_classes
@@ -134,3 +131,6 @@ class HeatmapControl(BaseControl):
             "label_color": "#fff",
             "label_format": "auto",
         } | (style or {})
+        self._template = self._get_template(
+            js_file="HeatmapControl.js", css_file="HeatmapControl.css"
+        )
