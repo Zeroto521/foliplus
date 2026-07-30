@@ -66,7 +66,6 @@
 
 - Add foliplus control plugins: `FullscreenControl`, `HeatmapControl`, `LayerControl`, `SearchControl`, `MeasureControl`, `ScaleControl`
 
-[unreleased]: https://github.com/Zeroto521/foliplus/compare/v0.3.0...HEAD
-[v0.3.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.3.0
+[unreleased]: https://github.com/Zeroto521/foliplus/compare/v0.2.0...HEAD
 [v0.2.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.1.0
