@@ -349,6 +349,7 @@
         MeasureUtils.makeDelIcon(e.latlng, {
           zIndexOffset: CONST.Z_INDEX.OFFSET,
           iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
+          title: _(`${CONST.name}.del_tooltip`),
         }),
       );
 
@@ -831,6 +832,7 @@
         const delMarker = this.layers.addLayer(
           MeasureUtils.makeDelIcon(centerLatLng, {
             zIndexOffset: CONST.Z_INDEX.OFFSET,
+            title: _(`${CONST.name}.del_tooltip`),
           }),
         );
 
@@ -992,6 +994,7 @@
         MeasureUtils.makeDelIcon(L.latLng(m.lat, m.lng), {
           zIndexOffset: CONST.Z_INDEX.OFFSET,
           iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
+          title: _(`${CONST.name}.del_tooltip`),
         }),
       );
 
@@ -1105,6 +1108,7 @@
       const delMarker = this.layers.addLayer(
         MeasureUtils.makeDelIcon(centerLatLng, {
           zIndexOffset: CONST.Z_INDEX.OFFSET,
+          title: _(`${CONST.name}.del_tooltip`),
         }),
       );
 
