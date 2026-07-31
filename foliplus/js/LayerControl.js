@@ -1278,6 +1278,7 @@
             `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
             (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
           "data-group": group,
+          title: _(`${CONST.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
         },
         foliplus.dom.el(
           "button",
