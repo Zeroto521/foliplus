@@ -338,21 +338,22 @@
     }
 
     collectFields(layers) {
-      const fields = {};
+      const fields = [];
+      const seen = new Set();
       layers.forEach((info) => {
         foliplus.LayerAPI.extractPoints(info.id).forEach((pt) => {
           const m = pt.marker;
-          if (typeof m.value === "number") fields.value = true;
-          if (typeof m.options?.value === "number") fields["options.value"] = true;
           if (m.feature?.properties) {
             Object.keys(m.feature.properties).forEach((k) => {
-              if (typeof m.feature.properties[k] === "number")
-                fields[`properties.${k}`] = true;
+              if (typeof m.feature.properties[k] === "number" && !seen.has(k)) {
+                seen.add(k);
+                fields.push(`properties.${k}`);
+              }
             });
           }
         });
       });
-      return Object.keys(fields);
+      return fields;
     }
 
     pickAutoField(fields) {
