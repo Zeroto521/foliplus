@@ -95,5 +95,8 @@
   "MeasureControl.no_layercontrol": "MeasureControl requires LayerControl, please add LayerControl to the map first",
   "MeasureControl.save_fail": "Failed to save measurements",
   "MeasureControl.load_fail": "Failed to load saved measurements",
+  "MeasureControl.del_tooltip": "Delete",
+  "MeasureControl.del_node": "Delete this point",
+  "MeasureControl.del_all": "Delete all",
   "ScaleControl.zoom_label": "Zoom Level: {zoom}"
 }
