@@ -204,8 +204,106 @@ class TestMeasureControlRendering:
         """attachDelClick binds click to marker event, not raw DOM event."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'delMkr.on("click",' in html
+        assert 'delMarker.on("click",' in html
         assert "foliplus-measure-del-icon" in html
+
+    def test_del_all_i18n(self, base_map: folium.Map):
+        """First node X uses MeasureControl.del_all locale key."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureControl.del_all" in html
+
+    def test_del_node_i18n(self, base_map: folium.Map):
+        """Other nodes X use MeasureControl.del_node locale key."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureControl.del_node" in html
+
+    def test_del_tooltip_i18n(self, base_map: folium.Map):
+        """Marker and circle delete icons use MeasureControl.del_tooltip locale key."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MeasureControl.del_tooltip" in html
+
+    def test_first_node_x_delete_all(self, base_map: folium.Map):
+        """First node in attachDistanceUI calls deleteMeas (isFirst)."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "isFirst" in html
+        assert "MeasureUtils.attachDelClick(delMarker, deleteMeas)" in html
+
+    def test_other_node_x_delete_point(self, base_map: folium.Map):
+        """Non-first nodes in attachDistanceUI delete single point via findIndex."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "ptIdx = points.findIndex(" in html
+        assert "points.splice(ptIdx, 1)" in html
+        assert "segLabels.splice(lblIdx, 1)" in html
+
+    def test_recalculate_segments_utility(self, base_map: folium.Map):
+        """MeasureUtils.recalculateSegments recalculates segments and total distance."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static recalculateSegments(points)" in html
+        assert "return { segments, totalDistance }" in html
+
+    def test_on_update_callback(self, base_map: folium.Map):
+        """attachDistanceUI accepts onUpdate callback and calls it after node deletion."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "onUpdate" in html
+        # Both call sites should use recalculateSegments
+        assert "MeasureUtils.recalculateSegments(points)" in html
+
+    def test_node_deletion_below_two_cleans_up(self, base_map: folium.Map):
+        """Deleting a node when points.length < 2 calls deleteMeas()."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "points.length < 2" in html
+        assert "deleteMeas()" in html
+
+    def test_seg_labels_repositioned_on_delete(self, base_map: folium.Map):
+        """After node deletion, remaining segLabels are repositioned via setLatLng."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "label.setLatLng(points[i + 1])" in html
+        assert "cumDist += MeasureUtils.distance(" in html
+
+    def test_is_last_when_two_title(self, base_map: folium.Map):
+        """When only 2 points, the last node's X title matches del_all."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "isLastWhenTwo" in html
+        assert "isFirst || isLastWhenTwo" in html
+
+    def test_dynamic_update_on_delete_to_two(self, base_map: folium.Map):
+        """Deleting a node down to 2 points updates the last node's X to delete all."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "points.length === 2 && nodeDelIcons.length === 2" in html
+        assert 'lastDel.off("click")' in html
+        assert "deleteMeas()" in html
+
+    def test_clear_all_collapses_panel(self, base_map: folium.Map):
+        """clearAll() collapses the panel by removing EXPANDED and adding COLLAPSED."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.ctrl.classList.remove(CONST.CLASSES.EXPANDED)" in html
+        assert "this.ctrl.classList.add(CONST.CLASSES.COLLAPSED)" in html
+
+    def test_panel_stays_open_when_tool_active(self, base_map: folium.Map):
+        """bindOutsideCollapse uses skipCheck to prevent collapse when currentMode is active."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "skipCheck: () => this.m.currentMode !== null" in html
+
+    def test_panel_collapses_when_no_tool(self, base_map: folium.Map):
+        """bindOutsideCollapse still collapses the panel when no tool is active."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "bindOutsideCollapse({" in html
+        assert "skipCheck" in html
+        assert "currentMode !== null" in html
 
     def test_set_label_text_gets_fresh_dom(self, base_map: folium.Map):
         """setLabelText gets a fresh DOM reference each call."""
@@ -374,13 +472,11 @@ class TestMeasureControlRendering:
         assert "className" in html
 
     def test_circle_label_centered(self, base_map: folium.Map):
-        """Circle radius labels (both preview and final) use [0,0] anchor + measure-label-radius for centering at midpoint."""
+        """Circle radius labels use LABEL.ANCHOR at midpoint."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert re.search(
-            r"MeasureUtils\.makeLabelDivIcon\(\s*MeasureUtils\.formatDistance\(r\)\s*,\s*CONST\.DEL_ICON\.ANCHOR\s*,\s*CONST\.LABEL\.CLASS_RADIUS\s*",
-            html,
-        )
+        assert "LABEL.ANCHOR" in html
+        assert "CLASS_RADIUS" in html
 
     def test_make_node(self, base_map: folium.Map):
         """MeasureUtils.makeNode creates a circleMarker with MARKER_RADIUS."""

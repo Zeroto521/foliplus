@@ -722,10 +722,12 @@
    * Sets up a MutationObserver to auto-cleanup when the container is removed.
    * @param {object} opts
    * @param {HTMLElement} opts.container - Panel element to watch
+   * @param {Function} [opts.skipCheck] - Optional function; if returns true, collapse is skipped
    * @returns {Function} Cleanup function to remove the click listener
    */
-  foliplus.bindOutsideCollapse = ({ container }) => {
+  foliplus.bindOutsideCollapse = ({ container, skipCheck }) => {
     const handler = (e) => {
+      if (skipCheck && skipCheck()) return;
       if (
         !container.contains(e.target) &&
         container.classList.contains(CONST.CLASSES.EXPANDED)
