@@ -163,7 +163,9 @@
   }
 }
 
-/* ── Focus: breathing glow ── */
+/* ── Focus: breathing glow ──
+  Use :focus (not :focus-visible) so the animation also triggers on mouse click
+  for color inputs and scheme bars, which have no visible cursor. */
 :is(
   .foliplus-search input,
   .foliplus-heatmap-ctrl select,
@@ -171,7 +173,7 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
   .foliplus-layer-ctrl .foliplus-color-layer-input
-):focus-visible {
+):focus {
   animation: input-breathe 2s ease-in-out infinite;
 }
 
@@ -183,7 +185,7 @@
     .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
     .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
     .foliplus-layer-ctrl .foliplus-color-layer-input
-  ):focus-visible {
+  ):focus {
     animation: none;
   }
 }
@@ -356,8 +358,9 @@
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Hover/Focus: red border + red glow ──
-  Use :focus-visible so keyboard navigation shows the ring,
-  but mouse clicks do not leave a residual focus highlight. */
+  Use :focus so mouse clicks also keep the red border.
+  This is especially important for color inputs and scheme bars, which
+  have no visible cursor and would otherwise lose the highlight on blur. */
 :is(
   .foliplus-search input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
