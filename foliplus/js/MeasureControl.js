@@ -289,8 +289,10 @@
       let totalDistance = 0;
       for (let i = 1; i < points.length; i++) {
         const d = MeasureUtils.distance(
-          points[i - 1].lng, points[i - 1].lat,
-          points[i].lng, points[i].lat,
+          points[i - 1].lng,
+          points[i - 1].lat,
+          points[i].lng,
+          points[i].lat,
         );
         segments.push({ lng: points[i].lng, lat: points[i].lat, distance: d });
         totalDistance += d;
@@ -531,7 +533,8 @@
           onUpdate: () => {
             const m = this.m.measurements.find((x) => x.id === distId);
             if (!m) return;
-            const { segments, totalDistance } = MeasureUtils.recalculateSegments(points);
+            const { segments, totalDistance } =
+              MeasureUtils.recalculateSegments(points);
             m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
             m.segments = segments;
             m.totalDistance = totalDistance;
@@ -1264,21 +1267,26 @@
         const delMarker = layers.addLayer(
           MeasureUtils.makeDelIcon(node.getLatLng(), {
             zIndexOffset: CONST.Z_INDEX.OFFSET,
-            title: isFirst || isLastWhenTwo ? _(`${CONST.name}.del_all`) : _(`${CONST.name}.del_node`),
+            title:
+              isFirst || isLastWhenTwo
+                ? _(`${CONST.name}.del_all`)
+                : _(`${CONST.name}.del_node`),
           }),
         );
         nodeDelIcons.push(delMarker);
 
-        if (isFirst) {
-          // First node X → delete entire measurement
+        if (isFirst || isLastWhenTwo)
+          // First node or last node when only 2 points → delete entire measurement
           MeasureUtils.attachDelClick(delMarker, deleteMeas);
-        } else {
+        else {
           // Other nodes X → delete this point only
           MeasureUtils.attachDelClick(delMarker, () => {
             // Find the current index in the (possibly-shifted) points array
             const latlng = node.getLatLng();
             const ptIdx = points.findIndex(
-              (p) => Math.abs(p.lat - latlng.lat) < 0.0001 && Math.abs(p.lng - latlng.lng) < 0.0001,
+              (p) =>
+                Math.abs(p.lat - latlng.lat) < 0.0001 &&
+                Math.abs(p.lng - latlng.lng) < 0.0001,
             );
             if (ptIdx === -1) return;
             // segLabels[i] corresponds to points[i+1]
@@ -1297,6 +1305,24 @@
             if (points.length < 2) {
               deleteMeas();
               return;
+            }
+
+            // When only 2 points remain, update the last node's X to delete all
+            if (points.length === 2 && nodeDelIcons.length === 2) {
+              const lastDel = nodeDelIcons[1];
+              if (lastDel) {
+                lastDel.off("click");
+                lastDel.on("click", (e) => {
+                  const t = e.originalEvent?.target;
+                  if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
+                    MeasureUtils.stopEvent(e);
+                    deleteMeas();
+                  }
+                });
+                // Update title on the icon element directly
+                const iconEl = lastDel._icon || lastDel.getElement();
+                if (iconEl) iconEl.title = _(`${CONST.name}.del_all`);
+              }
             }
 
             // Recalculate the polyline
@@ -1602,7 +1628,10 @@
       };
 
       // Collapse when clicking outside, but NOT when a tool is active
-      foliplus.bindOutsideCollapse({ container: ctrl, skipCheck: () => this.m.currentMode !== null });
+      foliplus.bindOutsideCollapse({
+        container: ctrl,
+        skipCheck: () => this.m.currentMode !== null,
+      });
 
       this.m.toolBtns.forEach((btn) => {
         btn.onclick = (e) => {
