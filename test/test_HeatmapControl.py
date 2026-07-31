@@ -69,18 +69,25 @@ class TestHeatmapControlPython:
 
     def test_invalid_n_classes_raises_too_low(self):
         """n_classes below 2 raises ValueError."""
-        with pytest.raises(ValueError, match="n_classes must be an int between 2 and 9"):
+        with pytest.raises(
+            ValueError, match="n_classes must be an int between 2 and 9"
+        ):
             HeatmapControl(n_classes=1)
 
     def test_invalid_n_classes_raises_too_high(self):
         """n_classes above 9 raises ValueError."""
-        with pytest.raises(ValueError, match="n_classes must be an int between 2 and 9"):
+        with pytest.raises(
+            ValueError, match="n_classes must be an int between 2 and 9"
+        ):
             HeatmapControl(n_classes=10)
 
     def test_invalid_n_classes_raises_not_int(self):
         """Non-int n_classes raises ValueError."""
-        with pytest.raises(ValueError, match="n_classes must be an int between 2 and 9"):
+        with pytest.raises(
+            ValueError, match="n_classes must be an int between 2 and 9"
+        ):
             HeatmapControl(n_classes=6.5)
+
 
 class TestHeatmapControlRendering:
     def test_default_params(self, base_map: folium.Map):
