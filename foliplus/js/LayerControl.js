@@ -1284,7 +1284,6 @@
           "button",
           {
             class: CONST.CLASSES.FOLD_BTN,
-            title: _(`${CONST.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
           },
           { html: SVGs.FOLD },
         ),
