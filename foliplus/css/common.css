@@ -164,8 +164,11 @@
 }
 
 /* ── Focus: breathing glow ──
-  Use :focus (not :focus-visible) so the animation also triggers on mouse click
-  for color inputs and scheme bars, which have no visible cursor. */
+  Only non-checkbox inputs get the breathing animation, using :focus so it
+  triggers on both mouse click and keyboard Tab — important for color inputs
+  and scheme bars which have no visible cursor.
+  Checkbox intentionally excluded: its :focus would persist after mouse click,
+  causing the animation to run indefinitely. */
 :is(
   .foliplus-search input,
   .foliplus-heatmap-ctrl select,
@@ -176,6 +179,7 @@
   animation: input-breathe 2s ease-in-out infinite;
 }
 
+/* Respect reduced motion: disable breathing animation for all inputs */
 @media (prefers-reduced-motion: reduce) {
   :is(
     .foliplus-search input,
@@ -351,14 +355,18 @@
 /* ══════════════════════════════════════════════════════════════════════
   Unified Input Interaction States
   All foliplus text/select/color/checkbox inputs share the same
-  hover/focus/active visual feedback.
-  Component-specific sizing/layout stays in each CSS file.
+  hover/focus visual feedback via :hover and :focus-visible.
+  Mouse click alone does not trigger :focus-visible, so the red border
+  never persists after click — only hover and keyboard Tab show it.
+  The breathing animation (:focus-based) is intentionally limited to
+  non-checkbox inputs (see Animation section above).
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Hover/Focus: red border + red glow ──
-  Use :focus so mouse clicks also keep the red border.
-  This is especially important for color inputs and scheme bars, which
-  have no visible cursor and would otherwise lose the highlight on blur. */
+  All inputs (including checkbox) use :hover and :focus-visible so the red
+  border only appears on hover or keyboard focus. Mouse click alone does NOT
+  trigger :focus-visible, avoiding a persistent highlight on checkbox and
+  color inputs after click. */
 :is(
   .foliplus-search input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
