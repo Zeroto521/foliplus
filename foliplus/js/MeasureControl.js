@@ -279,6 +279,24 @@
         ...markerOpts,
       });
     }
+
+    /** Recalculate segments and total distance from a points array.
+     * @param {Array} points - Array of L.LatLng
+     * @returns {Object} { segments: Array, totalDistance: number }
+     */
+    static recalculateSegments(points) {
+      const segments = [];
+      let totalDistance = 0;
+      for (let i = 1; i < points.length; i++) {
+        const d = MeasureUtils.distance(
+          points[i - 1].lng, points[i - 1].lat,
+          points[i].lng, points[i].lat,
+        );
+        segments.push({ lng: points[i].lng, lat: points[i].lat, distance: d });
+        totalDistance += d;
+      }
+      return { segments, totalDistance };
+    }
   }
 
   // ==================== Mode Base Class ====================
@@ -392,7 +410,7 @@
         this.m.saveMeasurements();
         this.layers.unregister();
       };
-      MeasureUtils.attachDelClick(delMkr, deleteMarker);
+      MeasureUtils.attachDelClick(delMarker, deleteMarker);
     }
   }
 
@@ -513,20 +531,10 @@
           onUpdate: () => {
             const m = this.m.measurements.find((x) => x.id === distId);
             if (!m) return;
-            // Recalculate segments from the modified points array
-            const segs = [];
-            let totalDist = 0;
-            for (let i = 1; i < points.length; i++) {
-              const d = MeasureUtils.distance(
-                points[i - 1].lng, points[i - 1].lat,
-                points[i].lng, points[i].lat,
-              );
-              segs.push({ lng: points[i].lng, lat: points[i].lat, distance: d });
-              totalDist += d;
-            }
+            const { segments, totalDistance } = MeasureUtils.recalculateSegments(points);
             m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
-            m.segments = segs;
-            m.totalDistance = totalDist;
+            m.segments = segments;
+            m.totalDistance = totalDistance;
             this.m.saveMeasurements();
           },
         });
@@ -832,9 +840,6 @@
           MeasureUtils.makeNode(finalTargetLatLng),
         );
 
-        let labelsVisible = true;
-        let xVisible = false;
-
         const centerFinal = this.layers.addLayer(
           L.marker(centerLatLng, {
             icon: L.divIcon({
@@ -1032,7 +1037,7 @@
         this.saveMeasurements();
         this.layers.unregister();
       };
-      MeasureUtils.attachDelClick(delMkr, deleteMarker);
+      MeasureUtils.attachDelClick(delMarker, deleteMarker);
     }
 
     restoreDistance(m) {
@@ -1085,20 +1090,10 @@
           this.saveMeasurements();
         },
         onUpdate: () => {
-          // Recalculate segments from the modified points array
-          const segs = [];
-          let totalDist = 0;
-          for (let i = 1; i < points.length; i++) {
-            const d = MeasureUtils.distance(
-              points[i - 1].lng, points[i - 1].lat,
-              points[i].lng, points[i].lat,
-            );
-            segs.push({ lng: points[i].lng, lat: points[i].lat, distance: d });
-            totalDist += d;
-          }
+          const { segments, totalDistance } = MeasureUtils.recalculateSegments(points);
           m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
-          m.segments = segs;
-          m.totalDistance = totalDist;
+          m.segments = segments;
+          m.totalDistance = totalDistance;
           this.saveMeasurements();
         },
       });
@@ -1124,9 +1119,6 @@
         }),
       );
       const radiusNode = this.layers.addLayer(MeasureUtils.makeNode(targetLatLng));
-
-      let labelsVisible = true;
-      let xVisible = false;
 
       const centerFinal = this.layers.addLayer(
         L.marker(centerLatLng, {
