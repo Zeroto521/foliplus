@@ -93,6 +93,21 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "Reds" in html
 
+    def test_custom_agg_default(self, base_map: folium.Map):
+        """Custom agg default is rendered in JS template."""
+        HeatmapControl(agg="sum").add_to(base_map)
+        html = render(base_map)
+        assert '"sum"' in html
+        # AGG.DEFAULT captures the Python agg parameter
+        assert "DEFAULT:" in html or "DEFAULT :" in html
+
+    def test_default_agg_is_count(self, base_map: folium.Map):
+        """Default agg value 'count' appears in JS template."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert '"count"' in html
+        assert "DEFAULT:" in html or "DEFAULT :" in html
+
     def test_custom_method(self, base_map: folium.Map):
         HeatmapControl(method="quantile").add_to(base_map)
         html = render(base_map)
