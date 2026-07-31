@@ -174,7 +174,7 @@
   .foliplus-heatmap-ctrl select,
   .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
-  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
 ):focus {
   animation: input-breathe 2s ease-in-out infinite;
 }
@@ -186,7 +186,7 @@
     .foliplus-heatmap-ctrl select,
     .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
     .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
-    .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
   ):focus {
     animation: none;
   }
