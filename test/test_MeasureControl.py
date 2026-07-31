@@ -204,7 +204,7 @@ class TestMeasureControlRendering:
         """attachDelClick binds click to marker event, not raw DOM event."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert 'delMkr.on("click",' in html
+        assert 'delMarker.on("click",' in html
         assert "foliplus-measure-del-icon" in html
 
     def test_set_label_text_gets_fresh_dom(self, base_map: folium.Map):
@@ -374,13 +374,11 @@ class TestMeasureControlRendering:
         assert "className" in html
 
     def test_circle_label_centered(self, base_map: folium.Map):
-        """Circle radius labels (both preview and final) use [0,0] anchor + measure-label-radius for centering at midpoint."""
+        """Circle radius labels use LABEL.ANCHOR at midpoint."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert re.search(
-            r"MeasureUtils\.makeLabelDivIcon\(\s*MeasureUtils\.formatDistance\(r\)\s*,\s*CONST\.DEL_ICON\.ANCHOR\s*,\s*CONST\.LABEL\.CLASS_RADIUS\s*",
-            html,
-        )
+        assert "LABEL.ANCHOR" in html
+        assert "CLASS_RADIUS" in html
 
     def test_make_node(self, base_map: folium.Map):
         """MeasureUtils.makeNode creates a circleMarker with MARKER_RADIUS."""

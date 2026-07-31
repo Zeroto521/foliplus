@@ -510,6 +510,25 @@
             this.m.measurements = this.m.measurements.filter((x) => x.id !== distId);
             this.m.saveMeasurements();
           },
+          onUpdate: () => {
+            const m = this.m.measurements.find((x) => x.id === distId);
+            if (!m) return;
+            // Recalculate segments from the modified points array
+            const segs = [];
+            let totalDist = 0;
+            for (let i = 1; i < points.length; i++) {
+              const d = MeasureUtils.distance(
+                points[i - 1].lng, points[i - 1].lat,
+                points[i].lng, points[i].lat,
+              );
+              segs.push({ lng: points[i].lng, lat: points[i].lat, distance: d });
+              totalDist += d;
+            }
+            m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+            m.segments = segs;
+            m.totalDistance = totalDist;
+            this.m.saveMeasurements();
+          },
         });
         this._cleanup = () => this.m.map.off("click", onDistMapClick);
 
@@ -1065,6 +1084,23 @@
           this.measurements = this.measurements.filter((x) => x.id !== m.id);
           this.saveMeasurements();
         },
+        onUpdate: () => {
+          // Recalculate segments from the modified points array
+          const segs = [];
+          let totalDist = 0;
+          for (let i = 1; i < points.length; i++) {
+            const d = MeasureUtils.distance(
+              points[i - 1].lng, points[i - 1].lat,
+              points[i].lng, points[i].lat,
+            );
+            segs.push({ lng: points[i].lng, lat: points[i].lat, distance: d });
+            totalDist += d;
+          }
+          m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+          m.segments = segs;
+          m.totalDistance = totalDist;
+          this.saveMeasurements();
+        },
       });
     }
 
@@ -1164,31 +1200,37 @@
      * Attach toggle/delete UI to a completed distance measurement.
      * Shared by finishDist (DistanceMode) and restoreDistance (MeasureManager).
      * @param {Object} opts
-     * @param {Object} opts.layers    - createLayers API object
-     * @param {Object} opts.finalPoly - L.Polyline
+     * @param {Object} opts.layers     - createLayers API object
+     * @param {Object} opts.finalPoly  - L.Polyline
      * @param {Array}  opts.nodeMarkers - L.CircleMarker[]
      * @param {Array}  opts.segLabels   - Label L.Marker[]
-     * @param {Function} opts.onDelete  - Called when user deletes the measurement
      * @param {Object} opts.startLabel  - Origin label marker
+     * @param {Array}  opts.points     - LatLng array
+     * @param {Function} opts.onDelete - Called when user deletes the measurement
+     * @param {Function} opts.onUpdate - Called when points are modified (node deletion)
      * @returns {Function} cleanup(mapClickHandler) to remove map click listener
      */
     attachDistanceUI(opts) {
-      const { layers, finalPoly, nodeMarkers, segLabels, startLbl, onDelete } = opts;
+      const {
+        layers,
+        finalPoly,
+        nodeMarkers,
+        segLabels,
+        startLabel,
+        onDelete,
+        onUpdate,
+        points,
+      } = opts;
       let labelsVisible = true;
       let xVisible = false;
-      let lastNodeDelMkr = null;
+      const nodeDelIcons = [];
 
       const toggleUI = (showX, toggleLabels) => {
         const s = MeasureUtils.calcToggle(xVisible, labelsVisible, showX, toggleLabels);
         xVisible = s.xVisible;
         labelsVisible = s.labelsVisible;
-        MeasureUtils.applyToggle(
-          lastNodeDelMkr,
-          xVisible,
-          segLabels,
-          labelsVisible,
-          startLabel,
-        );
+        nodeDelIcons.forEach((m) => MeasureUtils.toggleDelIcon(m, xVisible));
+        MeasureUtils.applyToggle(null, xVisible, segLabels, labelsVisible, startLabel);
       };
 
       const handleItemClick = (e) => {
@@ -1215,30 +1257,91 @@
           finalPoly,
           ...nodeMarkers,
           ...segLabels,
-          lastNodeDelMkr,
           startLabel,
+          ...nodeDelIcons,
         );
         this.map.off("click", onMapClickActive);
         onDelete();
         layers.unregister();
       };
 
-      const lastNode = nodeMarkers[nodeMarkers.length - 1];
-      lastNodeDelMkr = layers.addLayer(MeasureUtils.makeDelIcon(lastNode.getLatLng()));
-      MeasureUtils.attachDelClick(lastNodeDelMkr, deleteMeas);
-      lastNodeDelMkr.on("click", (e) => {
-        const t = e.originalEvent?.target;
-        if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-        handleItemClick(e);
+      // Create a delete icon for each node
+      nodeMarkers.forEach((node, idx) => {
+        const isFirst = idx === 0;
+        const delMarker = layers.addLayer(
+          MeasureUtils.makeDelIcon(node.getLatLng(), {
+            zIndexOffset: CONST.Z_INDEX.OFFSET,
+            title: isFirst ? _(`${CONST.name}.del_all`) : _(`${CONST.name}.del_node`),
+          }),
+        );
+        nodeDelIcons.push(delMarker);
+
+        if (isFirst) {
+          // First node X → delete entire measurement
+          MeasureUtils.attachDelClick(delMarker, deleteMeas);
+        } else {
+          // Other nodes X → delete this point only
+          MeasureUtils.attachDelClick(delMarker, () => {
+            // Find the current index in the (possibly-shifted) points array
+            const latlng = node.getLatLng();
+            const ptIdx = points.findIndex(
+              (p) => Math.abs(p.lat - latlng.lat) < 0.0001 && Math.abs(p.lng - latlng.lng) < 0.0001,
+            );
+            if (ptIdx === -1) return;
+            // segLabels[i] corresponds to points[i+1]
+            const lblIdx = ptIdx - 1;
+            // Remove the point and its associated DOM elements
+            points.splice(ptIdx, 1);
+            layers.removeLayer(node, delMarker);
+            if (lblIdx >= 0 && lblIdx < segLabels.length) {
+              layers.removeLayer(segLabels[lblIdx]);
+              segLabels.splice(lblIdx, 1);
+            }
+
+            nodeMarkers.splice(ptIdx, 1);
+            nodeDelIcons.splice(ptIdx, 1);
+
+            if (points.length < 2) {
+              deleteMeas();
+              return;
+            }
+
+            // Recalculate the polyline
+            finalPoly.setLatLngs(points.map((p) => L.latLng(p.lat, p.lng)));
+
+            // Reposition and update ALL remaining segment labels
+            let cumDist = 0;
+            segLabels.forEach((label, i) => {
+              label.setLatLng(points[i + 1]);
+              cumDist += MeasureUtils.distance(
+                points[i].lng,
+                points[i].lat,
+                points[i + 1].lng,
+                points[i + 1].lat,
+              );
+              label.setIcon(
+                MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(cumDist)),
+              );
+            });
+
+            if (onUpdate) onUpdate();
+          });
+        }
+
+        delMarker.on("click", (e) => {
+          const t = e.originalEvent?.target;
+          if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+          handleItemClick(e);
+        });
       });
 
       // Re-sort to ensure correct ordering
       nodeMarkers.forEach((m) => layers.removeLayer(m));
-      if (lastNodeDelMkr) layers.removeLayer(lastNodeDelMkr);
+      nodeDelIcons.forEach((m) => layers.removeLayer(m));
       segLabels.forEach((l) => layers.removeLayer(l));
       if (startLabel) layers.removeLayer(startLabel);
       nodeMarkers.forEach((m) => layers.addLayer(m));
-      if (lastNodeDelMkr) layers.addLayer(lastNodeDelMkr);
+      nodeDelIcons.forEach((m) => layers.addLayer(m));
       segLabels.forEach((l) => layers.addLayer(l));
       if (startLabel) layers.addLayer(startLabel);
 
