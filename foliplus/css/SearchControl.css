@@ -39,7 +39,7 @@
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  z-index: calc(var(--z-index-dropdown) + 9);
+  z-index: calc(var(--z-index-floating) + 9);
   max-height: 240px;
   overflow-y: auto;
   width: var(--panel-width);

@@ -127,8 +127,9 @@
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.
   Hint z-index is managed by runtime.js (HINT.foliplus-Z_BASE = 10000).
-  CSS only defines dropdown z-index (below hints). */
-  --z-index-dropdown: 9990;
+  CSS only defines floating/panel z-index (below hints). */
+  --z-index-floating: 9990;
+}
 }
 
 /* ── Animations ── */
@@ -294,7 +295,7 @@
   gap: var(--space-sm);
   backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--alpha-70));
-  border: 1px solid rgba(255, 255, 255, var(--alpha-15));
+  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-xl);
   white-space: nowrap;
