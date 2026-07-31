@@ -1260,10 +1260,11 @@
       // Create a delete icon for each node
       nodeMarkers.forEach((node, idx) => {
         const isFirst = idx === 0;
+        const isLastWhenTwo = points.length === 2 && idx === 1;
         const delMarker = layers.addLayer(
           MeasureUtils.makeDelIcon(node.getLatLng(), {
             zIndexOffset: CONST.Z_INDEX.OFFSET,
-            title: isFirst ? _(`${CONST.name}.del_all`) : _(`${CONST.name}.del_node`),
+            title: isFirst || isLastWhenTwo ? _(`${CONST.name}.del_all`) : _(`${CONST.name}.del_node`),
           }),
         );
         nodeDelIcons.push(delMarker);
@@ -1505,6 +1506,11 @@
       this.measurements = [];
       this.saveMeasurements();
       this.clearActiveMode();
+      // Collapse the panel after clearing all measurements
+      if (this.ctrl) {
+        this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+        this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+      }
     }
 
     /** Full cleanup including global events. Called on control removal. */
@@ -1557,6 +1563,7 @@
         toggleSvg: SVGs.RULER,
         isLeft: CONST.position.indexOf("left") >= 0,
       });
+      this.ctrl = ctrl;
       const btnConfigs = [
         {
           mode: CONST.MODE.MARKER,
@@ -1594,7 +1601,8 @@
         ctrl.classList.toggle(CONST.CLASSES.EXPANDED);
       };
 
-      foliplus.bindOutsideCollapse({ container: ctrl });
+      // Collapse when clicking outside, but NOT when a tool is active
+      foliplus.bindOutsideCollapse({ container: ctrl, skipCheck: () => this.m.currentMode !== null });
 
       this.m.toolBtns.forEach((btn) => {
         btn.onclick = (e) => {
