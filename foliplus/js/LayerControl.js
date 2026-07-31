@@ -1318,7 +1318,7 @@
             title: en,
           }),
         ),
-        foliplus.dom.el("label", { title: en }, en),
+        foliplus.dom.el("label", null, en),
       ];
       if (l.iconSvg)
         children.push({
@@ -1334,7 +1334,6 @@
           [CONST.DATA.INDEX]: String(idx),
           [CONST.DATA.LAYER_ID]: l.id,
           "data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
-          title: en,
         },
         ...children,
       );
@@ -1397,21 +1396,26 @@
         }
 
         if (typeCols[i]) {
+          let typeKey;
           if (layerInfo.isBase) {
             typeCols[i].innerHTML = foliplus.SVGs.GLOBE;
-            typeCols[i].title = _(`${CONST.name}.type_base`);
+            typeKey = `${CONST.name}.type_base`;
             this.m.typeMap.set(id, { type: CONST.GROUP.BASE, name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
-            typeCols[i].title = _(`${CONST.name}.type_custom`);
+            typeKey = `${CONST.name}.type_custom`;
             this.m.typeMap.set(id, { type: "custom", name: layerInfo.name });
           } else if (layer) {
             const gtype = LayerUtils.getGeometryType(layer);
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
-            typeCols[i].title = _(`${CONST.name}.type_${gtype}`);
+            typeKey = `${CONST.name}.type_${gtype}`;
             this.m.typeMap.set(id, { type: gtype, name: layerInfo.name });
+          } else {
+            typeKey = `${CONST.name}.type_unknown`;
           }
+          const item = inputs[i]?.closest(CONST.SEL.LAYER_ITEM);
+          if (item) item.title = _(typeKey);
         }
       }
 
