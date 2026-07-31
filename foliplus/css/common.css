@@ -130,6 +130,12 @@
   CSS only defines floating/panel z-index (below hints). */
   --z-index-floating: 9990;
 }
+
+/* Raise the entire leaflet-bar container when a fold/panel is expanded,
+  so it stays above geopandas legends and other sibling controls.
+  Leaflet's .leaflet-control has z-index:800, override with !important. */
+.leaflet-bar:has(.expanded) {
+  z-index: var(--z-index-floating) !important;
 }
 
 /* ── Animations ── */
