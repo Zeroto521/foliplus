@@ -46,16 +46,17 @@ class BaseControl(JSCSSMixin, MacroElement):
     # Shared asset bundle injected once per map (see ``render``). Contains the
     # common + panel CSS, the runtime JS namespace, and every locale table. Built
     # once at import time and reused across all controls and maps.
-    _shared_header = (
-        "<style>\n"
-        f"{_common}\n{_panel}\n"
-        "</style>\n"
-        "<script>\n"
-        f"{_runtime}\n"
-        "window.foliplus = window.foliplus || {};\n"
-        f"window.foliplus._TABLES = {dumps(_LOCALES_TABLES, ensure_ascii=False)};\n"
-        "</script>"
-    )
+    _shared_header = dedent(f"""\
+        <style>
+        {_common}
+        {_panel}
+        </style>
+        <script>
+        {_runtime}
+        window.foliplus = window.foliplus || {{}};
+        window.foliplus._TABLES = {dumps(_LOCALES_TABLES, ensure_ascii=False)};
+        </script>
+    """)
 
     def __init__(
         self,
@@ -119,14 +120,14 @@ class BaseControl(JSCSSMixin, MacroElement):
         Template
             A Jinja2 ``Template`` instance ready for folium rendering.
         """
+        css = self._get_css(css_file) if css_file else ""
         js = self._get_js(js_file) if js_file else ""
-        css_common = self._get_css(css_file) if css_file else ""
 
         return Template(
             dedent(f"""\
             {{% macro html(this, kwargs) %}}
+            {css}
             <style>
-            {css_common}
             </style>
             {{% endmacro %}}
 
