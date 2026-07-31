@@ -345,9 +345,6 @@
   margin: 0;
   font-weight: var(--font-weight-normal);
 }
-.foliplus-layer-ctrl .foliplus-layer-item.active label {
-  font-weight: var(--font-weight-medium);
-}
 
 .foliplus-layer-ctrl :focus-visible {
   outline: var(--border-thick) solid var(--accent-primary);
