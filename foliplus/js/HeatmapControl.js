@@ -37,7 +37,6 @@
       RES_FALLBACK: 12,
     },
     ID: "foliplus_heatmap",
-    AGG: "{{ this.agg }}",
     FIELD: "{{ this.style.field }}",
     SCHEME: "{{ this.color_scheme }}",
     METHOD: "{{ this.method }}",
@@ -55,6 +54,7 @@
       FORMAT: "{{ this.style.label_format }}",
     },
     AGG: {
+      DEFAULT: "{{ this.agg }}",
       COUNT: "count",
       SUM: "sum",
       AVG: "avg",
@@ -159,7 +159,7 @@
       // State management
       this.selectedLayerId = null;
       this.pointLayers = [];
-      this.currentAgg = CONST.AGG.COUNT;
+      this.currentAgg = CONST.AGG.DEFAULT;
       this.currentField = CONST.FIELD;
       this.currentScheme = CONST.SCHEME;
       this.currentMethod = CONST.METHOD;
