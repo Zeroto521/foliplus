@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import folium
+import pytest
 from conftest import render
 
 from foliplus import SearchControl
@@ -40,6 +41,26 @@ class TestSearchControlPython:
 
     def test_custom_mode_coord(self):
         assert SearchControl(mode="coord").mode == "coord"
+
+    def test_invalid_mode_raises(self):
+        """Invalid mode raises ValueError."""
+        with pytest.raises(ValueError, match="mode must be one of"):
+            SearchControl(mode="invalid")
+
+    def test_invalid_zoom_raises_too_low(self):
+        """Zoom below 1 raises ValueError."""
+        with pytest.raises(ValueError, match="zoom must be an int between 1 and 18"):
+            SearchControl(zoom=0)
+
+    def test_invalid_zoom_raises_too_high(self):
+        """Zoom above 18 raises ValueError."""
+        with pytest.raises(ValueError, match="zoom must be an int between 1 and 18"):
+            SearchControl(zoom=19)
+
+    def test_invalid_zoom_raises_not_int(self):
+        """Non-int zoom raises ValueError."""
+        with pytest.raises(ValueError, match="zoom must be an int between 1 and 18"):
+            SearchControl(zoom=15.5)
 
 
 class TestSearchControlRendering:
@@ -118,6 +139,23 @@ class TestSearchControlRendering:
         html = render(base_map)
         assert "toggle-btn" in html
         assert "ctrl-btn" in html
+
+    def test_ctrl_btn_svg_in_icon_selector(self):
+        """ctrl-btn svg is included in the common icon selector so X lines are visible."""
+        from pathlib import Path
+
+        css = Path("foliplus/css/common.css").read_text()
+        assert ".foliplus-ctrl-btn" in css
+
+    def test_input_breathing_focus_in_common_css(self):
+        """input-breathe keyframes and focus rule live in common.css (shared, not SearchControl.css)."""
+        from pathlib import Path
+
+        common = Path("foliplus/css/common.css").read_text()
+        search = Path("foliplus/css/SearchControl.css").read_text()
+        assert "@keyframes input-breathe" in common
+        assert ".foliplus-search input" in common
+        assert "@keyframes input-breathe" not in search
 
     def test_search_form_structure(self, base_map: folium.Map):
         """Search form has mode-btn, input, and clear."""

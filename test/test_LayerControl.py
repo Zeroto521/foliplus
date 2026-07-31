@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import folium
@@ -118,6 +119,17 @@ class TestLayerControlRendering:
         assert "SVGs.POLYGON" in html
         assert "SVGs.EMPTY" in html
         assert "SVGs.UNKNOWN" in html
+
+    def test_fold_icon_single_svg_css_rotation(self, base_map: folium.Map):
+        """Fold uses a single SVG icon rotated by CSS — no separate UNFOLD SVG."""
+        from pathlib import Path
+
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "SVGs.FOLD" in html
+        assert "SVGs.UNFOLD" not in html
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "rotate(180deg)" in css
 
     def test_geometry_type_empty_and_unknown(self, base_map: folium.Map):
         """getGeometryType returns 'empty'/'unknown' for edge cases."""
@@ -712,15 +724,15 @@ class TestLayerControlRendering:
         assert "layerMap.delete(id)" in html
 
     def test_parse_int_with_radix(self, base_map: folium.Map):
-        """All parseInt calls use radix 10."""
+        """All parseInt calls use radix 10 (multi-line + nested parens compatible)."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        # Check that no bare parseInt(...) without radix exists
-        import re
-
-        matches = re.findall(r"parseInt\([^)]+\)", html)
+        # Match parseInt across multiple lines, handling one level of nested parens.
+        # Pattern: parseInt( (content with optional balanced parens) )
+        matches = re.findall(r"parseInt\((?:[^()]|\([^()]*\))*\)", html)
         for m in matches:
-            assert ", 10)" in m, f"Missing radix: {m}"
+            # The radix 10 may be separated by newlines/spaces after prettier formatting.
+            assert re.search(r",\s*10", m), f"Missing radix: {m}"
 
     def test_sync_attribution_renders(self, base_map: folium.Map):
         """syncAttribution method is rendered and called from enforceOrder."""
@@ -774,6 +786,94 @@ class TestLayerControlRendering:
         # Toggle button SVG inherits color
         assert "foliplus-toggle-btn svg" in html
         assert "stroke: currentColor" in html
+        # Close (X) button SVG must also be in the icon selector
+        assert "foliplus-ctrl-btn" in html
+
+    def test_close_btn_svg_styled(self):
+        """ctrl-btn svg is included in the common icon selector so X lines are visible."""
+        css = Path("foliplus/css/common.css").read_text()
+        # .foliplus-ctrl-btn must appear inside the :is() icon-size rule so that
+        # its SVG lines get stroke:currentColor (without it the X is invisible).
+        assert ".foliplus-ctrl-btn" in css
+
+    def test_folded_state_no_accent_text(self):
+        """Folded label keeps neutral color; only left border and fold-btn use accent."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # left border and fold-btn turn accent when folded — both expected
+        assert "foliplus-layer-folded" in css
+        assert "border-left-color: var(--accent-primary)" in css
+        # label must NOT be colored accent when folded (label stays text-primary)
+        assert "foliplus-layer-folded .foliplus-layer-sep-label" not in css, (
+            "folded label must not override color (label stays text-primary)"
+        )
+
+    def test_toggle_all_label_semibold_primary(self):
+        """Section header label is semibold and text-primary so it reads as a real header."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-toggle-all .foliplus-layer-sep-label" in css
+        assert "font-weight: var(--font-weight-semibold)" in css
+        assert "color: var(--text-primary)" in css
+
+    def test_toggle_all_hover_accent_light_border(self):
+        """Toggle-all row hover shows a soft accent-light left border."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-toggle-all:hover" in css
+        assert "border-left-color: var(--accent-light)" in css
+
+    def test_folded_fold_btn_turns_accent(self):
+        """Fold button color becomes accent-primary when row is folded."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # Find the rule that targets fold-btn itself (not fold-btn svg)
+        # by searching for the closing of the selector without "svg" on the same segment
+        match = re.search(
+            r"foliplus-layer-folded\s+\.foliplus-layer-fold-btn\s*\{([^}]*)\}",
+            css,
+        )
+        assert match, "folded fold-btn rule not found"
+        assert "var(--accent-primary)" in match.group(1)
+
+    def test_section_divider_fades_when_folded(self):
+        """Section divider fades to opacity 0 when the group is folded."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-section-divider" in css
+        assert "opacity: 0" in css
+
+    def test_fold_btn_hover_color(self):
+        """Fold button hover shows accent color (no bg/radius on fold-btn itself)."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-fold-btn:hover" in css
+        assert "color: var(--accent-primary)" in css
+
+    def test_fold_btn_hover_bidirectional_preview(self):
+        """Fold button shows bidirectional hover preview on the toggle-all row."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # Expanded row hover: black → red
+        assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):hover" in css
+        assert "color: var(--accent-primary)" in css
+        # Folded row hover: red → black
+        assert "foliplus-layer-toggle-all.foliplus-layer-folded:hover" in css
+        assert "color: var(--text-primary)" in css
+
+    def test_fold_btn_background_transition(self):
+        """Fold button transitions color, background, and transform."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        # Find the base fold-btn rule (not the folded or hover variants)
+        idx = css.find(".foliplus-layer-ctrl .foliplus-layer-fold-btn {\n")
+        assert idx != -1
+        block = css[idx : css.index("}", idx) + 1]
+        assert "background var(--transition-fast)" in block
+
+    def test_fold_btn_svg_fill_none(self):
+        """fold-btn svg rule includes fill:none so chevrons render as outlines."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert "foliplus-layer-fold-btn svg" in css
+        assert "fill: none" in css
+
+    def test_drag_handle_circle_stroke(self):
+        """drag-handle circles have explicit stroke so they appear bold."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert ".drag-handle circle" in css
+        assert "stroke: currentColor" in css
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""
@@ -1016,6 +1116,41 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "layerInfo.visible !== false" in html
         assert "isCallbackOnly" in html
+
+    # ── title / tooltip rendering tests ──
+
+    def test_select_tooltip_keys_in_js(self, base_map: folium.Map):
+        """select_tooltip and deselect_tooltip keys are used in JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "select_tooltip" in html
+        assert "deselect_tooltip" in html
+
+    def test_toggle_all_select_tooltip_keys_in_js(self, base_map: folium.Map):
+        """toggle_all_select_tooltip and toggle_all_deselect_tooltip keys are used in JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "toggle_all_select_tooltip" in html
+        assert "toggle_all_deselect_tooltip" in html
+
+    def test_fold_unfold_tooltip_keys_in_js(self, base_map: folium.Map):
+        """fold_tooltip and unfold_tooltip keys are used in JS."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "fold_tooltip" in html
+        assert "unfold_tooltip" in html
+
+    def test_item_title_set_from_type_key(self, base_map: folium.Map):
+        """Layer item title is set from type key in initTypesAndVisibility."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "item.title = _(typeKey)" in html
+
+    def test_color_layer_title_uses_color_map_label(self, base_map: folium.Map):
+        """Color layer item title is set to color_map_label."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "color_map_label" in html
 
 
 class TestLayerControlBrowser:
@@ -1522,6 +1657,209 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
+    # ── title / tooltip browser tests ──
+
+    def test_layer_item_title_shows_type(self, browser, tmp_path):
+        """Layer item row title shows the translated type, not the layer name."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="MyPoints", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_layer_title.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            title = page.evaluate("""() => {
+                const item = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');
+                return item ? item.title : null;
+            }""")
+            # initTypesAndVisibility runs after 300ms delay; wait if needed
+            if not title or "MyPoints" in (title or ""):
+                page.wait_for_timeout(500)
+                title = page.evaluate("""() => {
+                    const item = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');
+                    return item ? item.title : null;
+                }""")
+            # Should be a type description (e.g. "Point Layer") not the layer name
+            assert title and "MyPoints" not in title, (
+                f"Expected type title, got '{title}'"
+            )
+        finally:
+            page.close()
+
+    def test_checkbox_title_shows_select_deselect(self, browser, tmp_path):
+        """Checkbox title shows Select/Deselect, not the layer name."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="MyPoints", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_cb_title.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            title = page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item) input[type="checkbox"]');
+                return cb ? cb.title : null;
+            }""")
+            assert title and "MyPoints" not in title, (
+                f"Expected select/deselect title, got '{title}'"
+            )
+        finally:
+            page.close()
+
+    def test_toggle_all_checkbox_title_changes_with_state(self, browser, tmp_path):
+        """Toggle-all checkbox title updates when state changes."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_toggle_all_title.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # All checked → title should be "Deselect all"
+            initial = page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
+                return cb ? cb.title : null;
+            }""")
+            assert initial and "Deselect" in initial, (
+                f"Expected 'Deselect all', got '{initial}'"
+            )
+
+            # Uncheck one layer → title should become "Select all"
+            page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item) input[type="checkbox"]');
+                if (cb) cb.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            after = page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
+                return cb ? cb.title : null;
+            }""")
+            assert after and "Select" in after, f"Expected 'Select all', got '{after}'"
+        finally:
+            page.close()
+
+    def test_toggle_all_row_title_shows_fold_unfold(self, browser, tmp_path):
+        """Toggle-all row title shows fold/unfold tooltip."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_fold_row_title.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # Expanded → should show "Collapse layers"
+            initial = page.evaluate("""() => {
+                const row = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"]');
+                return row ? row.title : null;
+            }""")
+            assert initial and "Collapse" in initial, (
+                f"Expected 'Collapse layers', got '{initial}'"
+            )
+
+            # Click fold button
+            page.evaluate("""() => {
+                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
+                if (btn) btn.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Folded → should show "Expand layers"
+            folded = page.evaluate("""() => {
+                const row = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"]');
+                return row ? row.title : null;
+            }""")
+            assert folded and "Expand" in folded, (
+                f"Expected 'Expand layers', got '{folded}'"
+            )
+        finally:
+            page.close()
+
+    def test_color_layer_item_title(self, browser, tmp_path):
+        """Color layer item title shows the color map label."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html_path = tmp_path / "test_color_layer_title.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            title = page.evaluate("""() => {
+                const item = document.querySelector('.foliplus-color-layer-item');
+                return item ? item.title : null;
+            }""")
+            assert title, f"Expected non-empty title, got '{title}'"
+        finally:
+            page.close()
+
     def test_register_reentry_after_hide(self, browser, tmp_path):
         """registerLayer can be re-called after a layer is hidden by checkbox."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -1827,7 +2165,7 @@ class TestLayerControlBrowser:
             page.close()
 
     def test_fold_svg_switches_on_toggle(self, browser, tmp_path):
-        """Fold button SVG changes when toggled."""
+        """Fold button uses a single SVG rotated 180° by CSS (not swapped) on toggle."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
@@ -1848,8 +2186,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            # Check initial SVG (FOLD = 1 polyline, UNFOLD = 1 polyline)
-            # Chevron ^ (points 18,15 12,9 6,15) vs v (points 18,9 12,15 6,9)
+            # Single SVG, 1 polyline before fold
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 return btn.querySelectorAll('polyline').length;
@@ -1863,14 +2200,20 @@ class TestLayerControlBrowser:
             }""")
             page.wait_for_timeout(300)
 
-            # After fold, SVG should still have 1 polyline (rotated)
+            # Still 1 polyline — icon is rotated by CSS, not swapped
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
                 return btn.querySelectorAll('polyline').length;
             }""")
             assert elem_count == 1, (
-                f"Expected 1 polyline (UNFOLD SVG), got {elem_count}"
+                f"Expected 1 polyline (CSS-rotated, not swapped), got {elem_count}"
             )
+            # Row must carry the folded class so CSS rotation kicks in
+            is_folded = page.evaluate("""() => {
+                const row = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"]');
+                return row.classList.contains('foliplus-layer-folded');
+            }""")
+            assert is_folded, "Expected foliplus-layer-folded class on row after fold"
         finally:
             page.close()
 

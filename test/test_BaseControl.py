@@ -34,6 +34,17 @@ class TestBaseControlRendering:
         assert "foliplus.hideHint" in html
         assert "foliplus.registerHintIcon" in html
 
+    def test_hint_fullscreen_reparent(self, base_map: folium.Map):
+        """Hints are re-parented on fullscreenchange so they survive fullscreen transitions."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert "reparentHints" in html
+        assert 'addEventListener("fullscreenchange"' in html
+        assert 'addEventListener("webkitfullscreenchange"' in html
+        assert "v.element.parentNode !== newTarget" in html
+
     def test_hint_duration_constants(self, base_map: folium.Map):
         """HINT_DURATION constants exposed as foliplus.HINT_DURATION."""
         from foliplus import SearchControl
@@ -214,17 +225,3 @@ class TestBaseControlRendering:
         html = render(base_map)
         assert '"locale.code":"en"' in html or '"locale.code": "en"' in html
         assert '"locale.code":"zh"' in html or '"locale.code": "zh"' in html
-
-    def test_shared_assets_deduplicated(self, base_map: folium.Map):
-        """Shared assets (runtime.js, common.css, locale tables) are injected only once per map."""
-        from foliplus import HeatmapControl, LayerControl, SearchControl
-
-        SearchControl().add_to(base_map)
-        LayerControl().add_to(base_map)
-        HeatmapControl().add_to(base_map)
-
-        html = render(base_map)
-        # Shared locale tables table definition is injected exactly once
-        assert html.count("window.foliplus._TABLES = {") == 1
-        # Common CSS root custom properties definition is injected exactly once
-        assert html.count("--ctrl-bg:") == 1

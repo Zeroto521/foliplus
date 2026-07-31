@@ -60,6 +60,10 @@
   "LayerControl.data_layer_label": "Data Layers",
   "LayerControl.fold_tooltip": "Collapse layers",
   "LayerControl.unfold_tooltip": "Expand layers",
+  "LayerControl.toggle_all_select_tooltip": "Select all",
+  "LayerControl.toggle_all_deselect_tooltip": "Deselect all",
+  "LayerControl.select_tooltip": "Select",
+  "LayerControl.deselect_tooltip": "Deselect",
   "SearchControl.coord_placeholder": "Please enter: longitude,latitude",
   "SearchControl.addr_placeholder": "Please enter an address keyword",
   "SearchControl.coord_error": "Invalid format. Please enter: longitude,latitude",
@@ -95,5 +99,8 @@
   "MeasureControl.no_layercontrol": "MeasureControl requires LayerControl, please add LayerControl to the map first",
   "MeasureControl.save_fail": "Failed to save measurements",
   "MeasureControl.load_fail": "Failed to load saved measurements",
+  "MeasureControl.del_tooltip": "Delete",
+  "MeasureControl.del_node": "Delete this point",
+  "MeasureControl.del_all": "Delete all",
   "ScaleControl.zoom_label": "Zoom Level: {zoom}"
 }

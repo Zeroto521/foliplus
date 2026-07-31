@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import folium
+import pytest
 from conftest import render
 
 from foliplus import HeatmapControl
@@ -56,6 +57,37 @@ class TestHeatmapControlPython:
         assert ctrl.style["border_weight"] == 2.0
         assert ctrl.style["label_show"] is False
 
+    def test_invalid_method_raises(self):
+        """Invalid method raises ValueError."""
+        with pytest.raises(ValueError, match="method must be one of"):
+            HeatmapControl(method="invalid")
+
+    def test_invalid_agg_raises(self):
+        """Invalid agg raises ValueError."""
+        with pytest.raises(ValueError, match="agg must be one of"):
+            HeatmapControl(agg="invalid")
+
+    def test_invalid_n_classes_raises_too_low(self):
+        """n_classes below 2 raises ValueError."""
+        with pytest.raises(
+            ValueError, match="n_classes must be an int between 2 and 9"
+        ):
+            HeatmapControl(n_classes=1)
+
+    def test_invalid_n_classes_raises_too_high(self):
+        """n_classes above 9 raises ValueError."""
+        with pytest.raises(
+            ValueError, match="n_classes must be an int between 2 and 9"
+        ):
+            HeatmapControl(n_classes=10)
+
+    def test_invalid_n_classes_raises_not_int(self):
+        """Non-int n_classes raises ValueError."""
+        with pytest.raises(
+            ValueError, match="n_classes must be an int between 2 and 9"
+        ):
+            HeatmapControl(n_classes=6.5)
+
 
 class TestHeatmapControlRendering:
     def test_default_params(self, base_map: folium.Map):
@@ -67,6 +99,21 @@ class TestHeatmapControlRendering:
         HeatmapControl(color_scheme="Reds").add_to(base_map)
         html = render(base_map)
         assert "Reds" in html
+
+    def test_custom_agg_default(self, base_map: folium.Map):
+        """Custom agg default is rendered in JS template."""
+        HeatmapControl(agg="sum").add_to(base_map)
+        html = render(base_map)
+        assert '"sum"' in html
+        # AGG.DEFAULT captures the Python agg parameter
+        assert "DEFAULT:" in html or "DEFAULT :" in html
+
+    def test_default_agg_is_count(self, base_map: folium.Map):
+        """Default agg value 'count' appears in JS template."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert '"count"' in html
+        assert "DEFAULT:" in html or "DEFAULT :" in html
 
     def test_custom_method(self, base_map: folium.Map):
         HeatmapControl(method="quantile").add_to(base_map)
@@ -331,6 +378,35 @@ class TestHeatmapControlRendering:
         assert "weight-input" in html
         assert "color-input" in html
 
+    def test_border_weight_input_has_min_max(self, base_map: folium.Map):
+        """Border weight input has min:0 max:10, clamps on change, and previews on input."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "min: 0" in html
+        assert "max: 10" in html
+        assert "Math.min(10, Math.max(0," in html
+        # oninput for live preview (only fires when value is in range)
+        assert "oninput:" in html
+        # onchange for final clamp
+        assert "onchange:" in html
+
+    def test_placeholder_options_disabled(self, base_map: folium.Map):
+        """Layer placeholder and field auto options use disabled:true (not the string)."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        # Must use boolean true so dom.el sets el.disabled = true
+        assert "disabled: true" in html
+        # Must NOT use the string variant which silently sets disabled=false
+        assert 'disabled: "disabled"' not in html
+
+    def test_border_weight_breathing_focus(self):
+        """weight-input is included in the shared breathing-focus rule in common.css."""
+        from pathlib import Path
+
+        css = Path("foliplus/css/common.css").read_text()
+        assert "foliplus-heatmap-weight-input" in css
+        assert "input-breathe" in css
+
     def test_label_toggle_renders(self, base_map: folium.Map):
         """Label toggle switch is rendered."""
         HeatmapControl().add_to(base_map)
@@ -365,6 +441,13 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "close-btn" in html
         assert "HeatmapControl.close_title" in html
+
+    def test_ctrl_btn_svg_in_icon_selector(self):
+        """ctrl-btn svg is included in the common icon selector so X lines are visible."""
+        from pathlib import Path
+
+        css = Path("foliplus/css/common.css").read_text()
+        assert ".foliplus-ctrl-btn" in css
 
     def test_layer_placeholder_option(self, base_map: folium.Map):
         """Layer select has a placeholder option."""

@@ -120,7 +120,6 @@
         <circle cx="8" cy="14" r="1" class="solid"/>
       </svg>`,
     FOLD: `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`,
-    UNFOLD: `<svg viewBox="0 0 24 24"><polyline points="18 9 12 15 6 9"/></svg>`,
   };
 
   foliplus.registerHintIcon(CONST.name, SVGs.LAYERS);
@@ -1279,14 +1278,14 @@
             `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
             (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
           "data-group": group,
+          title: _(`${CONST.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
         },
         foliplus.dom.el(
           "button",
           {
             class: CONST.CLASSES.FOLD_BTN,
-            title: _(`${CONST.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
           },
-          { html: isFolded ? SVGs.UNFOLD : SVGs.FOLD },
+          { html: SVGs.FOLD },
         ),
         foliplus.dom.el(
           "div",
@@ -1295,6 +1294,7 @@
             type: "checkbox",
             "data-role": "toggle-all",
             checked: "",
+            title: _(`${CONST.name}.toggle_all_deselect_tooltip`),
           }),
         ),
         foliplus.dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
@@ -1314,9 +1314,10 @@
             checked: "",
             [CONST.DATA.INDEX]: String(idx),
             "aria-label": en,
+            title: en,
           }),
         ),
-        foliplus.dom.el("label", { title: en }, en),
+        foliplus.dom.el("label", null, en),
       ];
       if (l.iconSvg)
         children.push({
@@ -1332,7 +1333,6 @@
           [CONST.DATA.INDEX]: String(idx),
           [CONST.DATA.LAYER_ID]: l.id,
           "data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
-          title: en,
         },
         ...children,
       );
@@ -1383,6 +1383,10 @@
           if (isCallbackOnly) inputs[i].checked = layerInfo.visible !== false;
           else inputs[i].checked = hasLayer && this.m.map.hasLayer(layer);
 
+          inputs[i].title = _(
+            `${CONST.name}.${inputs[i].checked ? "deselect_tooltip" : "select_tooltip"}`,
+          );
+
           const item = inputs[i].closest(CONST.SEL.LAYER_ITEM);
           if (item) {
             if (inputs[i].checked) item.classList.add(CONST.CLASSES.ACTIVE);
@@ -1391,21 +1395,26 @@
         }
 
         if (typeCols[i]) {
+          let typeKey;
           if (layerInfo.isBase) {
             typeCols[i].innerHTML = foliplus.SVGs.GLOBE;
-            typeCols[i].title = _(`${CONST.name}.type_base`);
+            typeKey = `${CONST.name}.type_base`;
             this.m.typeMap.set(id, { type: CONST.GROUP.BASE, name: layerInfo.name });
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
-            typeCols[i].title = _(`${CONST.name}.type_custom`);
+            typeKey = `${CONST.name}.type_custom`;
             this.m.typeMap.set(id, { type: "custom", name: layerInfo.name });
           } else if (layer) {
             const gtype = LayerUtils.getGeometryType(layer);
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
-            typeCols[i].title = _(`${CONST.name}.type_${gtype}`);
+            typeKey = `${CONST.name}.type_${gtype}`;
             this.m.typeMap.set(id, { type: gtype, name: layerInfo.name });
+          } else {
+            typeKey = `${CONST.name}.type_unknown`;
           }
+          const item = inputs[i]?.closest(CONST.SEL.LAYER_ITEM);
+          if (item) item.title = _(typeKey);
         }
       }
 
@@ -1481,6 +1490,9 @@
         const layer = LayerUtils.findLayer(this.m.map, layerInfo.id);
 
         cb.checked = newState;
+        cb.title = _(
+          `${CONST.name}.${newState ? "deselect_tooltip" : "select_tooltip"}`,
+        );
         if (newState) item.classList.add(CONST.CLASSES.ACTIVE);
         else item.classList.remove(CONST.CLASSES.ACTIVE);
 
@@ -1518,6 +1530,9 @@
       const noneChecked = checkedCount === 0;
       allCb.checked = allChecked;
       allCb.indeterminate = !allChecked && !noneChecked;
+      allCb.title = _(
+        `${CONST.name}.${allChecked ? "toggle_all_deselect_tooltip" : "toggle_all_select_tooltip"}`,
+      );
     }
 
     handleChange(e) {
@@ -1545,6 +1560,10 @@
         target.checked
           ? item.classList.add(CONST.CLASSES.ACTIVE)
           : item.classList.remove(CONST.CLASSES.ACTIVE);
+
+      target.title = _(
+        `${CONST.name}.${target.checked ? "deselect_tooltip" : "select_tooltip"}`,
+      );
 
       const cbs = this.m.layerCallbacks.get(layerInfo.id);
       if (cbs && cbs.onToggle) cbs.onToggle(target.checked);

@@ -37,7 +37,6 @@
       RES_FALLBACK: 12,
     },
     ID: "foliplus_heatmap",
-    AGG: "{{ this.agg }}",
     FIELD: "{{ this.style.field }}",
     SCHEME: "{{ this.color_scheme }}",
     METHOD: "{{ this.method }}",
@@ -55,6 +54,7 @@
       FORMAT: "{{ this.style.label_format }}",
     },
     AGG: {
+      DEFAULT: "{{ this.agg }}",
       COUNT: "count",
       SUM: "sum",
       AVG: "avg",
@@ -159,7 +159,7 @@
       // State management
       this.selectedLayerId = null;
       this.pointLayers = [];
-      this.currentAgg = CONST.AGG.COUNT;
+      this.currentAgg = CONST.AGG.DEFAULT;
       this.currentField = CONST.FIELD;
       this.currentScheme = CONST.SCHEME;
       this.currentMethod = CONST.METHOD;
@@ -286,14 +286,13 @@
     /** Resolve label styling from CSS custom properties (cached once). */
     resolveLabelStyle() {
       if (this.cachedLabelStyle) return this.cachedLabelStyle;
-      const cs = getComputedStyle(this.ui.container);
-      const val = (prop, fb) => cs.getPropertyValue(prop).trim() || fb;
 
+      const css = (prop, fb) => foliplus.cssVar(this.ui.container, prop, fb);
       this.cachedLabelStyle = {
-        font: `${val("--heatmap-label-font-weight", "bold")} ${val("--heatmap-label-font-size", `${CONST.LABEL.SIZE}px`)} ${val("--heatmap-label-font-family", "sans-serif")}`,
-        color: val("--heatmap-label-color", CONST.LABEL.COLOR),
-        stroke: val("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
-        strokeWidth: parseFloat(val("--heatmap-label-stroke-width", "3")),
+        font: `${css("--heatmap-label-font-weight")} ${css("--heatmap-label-font-size")} ${css("--heatmap-label-font-family")}`,
+        color: css("--heatmap-label-color"),
+        stroke: css("--heatmap-label-stroke-color"),
+        strokeWidth: parseFloat(css("--heatmap-label-stroke-width")),
       };
       return this.cachedLabelStyle;
     }
@@ -339,21 +338,22 @@
     }
 
     collectFields(layers) {
-      const fields = {};
+      const fields = [];
+      const seen = new Set();
       layers.forEach((info) => {
         foliplus.LayerAPI.extractPoints(info.id).forEach((pt) => {
           const m = pt.marker;
-          if (typeof m.value === "number") fields.value = true;
-          if (typeof m.options?.value === "number") fields["options.value"] = true;
           if (m.feature?.properties) {
             Object.keys(m.feature.properties).forEach((k) => {
-              if (typeof m.feature.properties[k] === "number")
-                fields[`properties.${k}`] = true;
+              if (typeof m.feature.properties[k] === "number" && !seen.has(k)) {
+                seen.add(k);
+                fields.push(`properties.${k}`);
+              }
             });
           }
         });
       });
-      return Object.keys(fields);
+      return fields;
     }
 
     pickAutoField(fields) {
@@ -894,8 +894,17 @@
         step: 0.5,
         parent: borderControlWrap,
         value: this.m.borderWeight,
+        oninput: () => {
+          const v = parseFloat(this.borderWeightInput.value);
+          if (!isNaN(v) && v >= 0 && v <= 10) {
+            this.m.borderWeight = v;
+            this.m.renderHexagons();
+          }
+        },
         onchange: () => {
-          this.m.borderWeight = parseFloat(this.borderWeightInput.value) || 1;
+          const v = parseFloat(this.borderWeightInput.value);
+          this.m.borderWeight = isNaN(v) ? 1 : Math.min(10, Math.max(0, v));
+          this.borderWeightInput.value = this.m.borderWeight;
           this.m.renderHexagons();
         },
       });
@@ -960,6 +969,7 @@
           this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
           this.container.classList.remove(CONST.CLASSES.EXPANDED);
           this.container.classList.add(CONST.CLASSES.COLLAPSED);
+          foliplus.adjustPanelZIndex({ container: this.container, expanded: false });
         },
       });
       foliplus.dom.el("button", {
@@ -970,6 +980,7 @@
           this.m.renderHexagons();
           this.container.classList.remove(CONST.CLASSES.EXPANDED);
           this.container.classList.add(CONST.CLASSES.COLLAPSED);
+          foliplus.adjustPanelZIndex({ container: this.container, expanded: false });
         },
       });
     }
@@ -1017,7 +1028,7 @@
         "option",
         {
           value: "",
-          disabled: "disabled",
+          disabled: true,
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
           parent: sel,
           selected: !this.m.selectedLayerId ? "" : undefined,
@@ -1071,7 +1082,7 @@
         "option",
         {
           value: "",
-          disabled: "disabled",
+          disabled: true,
           class: CONST.CLASSES.PLACEHOLDER_OPTION,
           parent: this.fieldSelect,
         },
