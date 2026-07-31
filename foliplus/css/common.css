@@ -135,7 +135,7 @@
   so it stays above geopandas legends and other sibling controls.
   Leaflet's .leaflet-control has z-index:800, override with !important. */
 .leaflet-bar:has(.expanded) {
-  z-index: var(--z-index-floating) !important;
+  z-index: var(--z-index-floating);
 }
 
 /* ── Animations ── */
