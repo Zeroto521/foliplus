@@ -724,13 +724,15 @@ class TestLayerControlRendering:
         assert "layerMap.delete(id)" in html
 
     def test_parse_int_with_radix(self, base_map: folium.Map):
-        """All parseInt calls use radix 10."""
+        """All parseInt calls use radix 10 (multi-line + nested parens compatible)."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        # Check that no bare parseInt(...) without radix exists
-        matches = re.findall(r"parseInt\([^)]+\)", html)
+        # Match parseInt across multiple lines, handling one level of nested parens.
+        # Pattern: parseInt( (content with optional balanced parens) )
+        matches = re.findall(r"parseInt\((?:[^()]|\([^()]*\))*\)", html)
         for m in matches:
-            assert ", 10)" in m, f"Missing radix: {m}"
+            # The radix 10 may be separated by newlines/spaces after prettier formatting.
+            assert re.search(r",\s*10", m), f"Missing radix: {m}"
 
     def test_sync_attribution_renders(self, base_map: folium.Map):
         """syncAttribution method is rendered and called from enforceOrder."""

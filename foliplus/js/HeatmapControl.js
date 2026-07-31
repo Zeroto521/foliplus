@@ -286,14 +286,13 @@
     /** Resolve label styling from CSS custom properties (cached once). */
     resolveLabelStyle() {
       if (this.cachedLabelStyle) return this.cachedLabelStyle;
-      const cs = getComputedStyle(this.ui.container);
-      const val = (prop, fb) => cs.getPropertyValue(prop).trim() || fb;
 
+      const css = (prop, fb) => foliplus.cssVar(this.ui.container, prop, fb);
       this.cachedLabelStyle = {
-        font: `${val("--heatmap-label-font-weight", "bold")} ${val("--heatmap-label-font-size", `${CONST.LABEL.SIZE}px`)} ${val("--heatmap-label-font-family", "sans-serif")}`,
-        color: val("--heatmap-label-color", CONST.LABEL.COLOR),
-        stroke: val("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
-        strokeWidth: parseFloat(val("--heatmap-label-stroke-width", "3")),
+        font: `${css("--heatmap-label-font-weight")} ${css("--heatmap-label-font-size")} ${css("--heatmap-label-font-family")}`,
+        color: css("--heatmap-label-color"),
+        stroke: css("--heatmap-label-stroke-color"),
+        strokeWidth: parseFloat(css("--heatmap-label-stroke-width")),
       };
       return this.cachedLabelStyle;
     }
@@ -969,6 +968,7 @@
           this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
           this.container.classList.remove(CONST.CLASSES.EXPANDED);
           this.container.classList.add(CONST.CLASSES.COLLAPSED);
+          foliplus.adjustPanelZIndex({ container: this.container, expanded: false });
         },
       });
       foliplus.dom.el("button", {
@@ -979,6 +979,7 @@
           this.m.renderHexagons();
           this.container.classList.remove(CONST.CLASSES.EXPANDED);
           this.container.classList.add(CONST.CLASSES.COLLAPSED);
+          foliplus.adjustPanelZIndex({ container: this.container, expanded: false });
         },
       });
     }

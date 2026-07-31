@@ -692,6 +692,46 @@
   };
 
   /**
+   * Adjust the z-index of a panel to ensure proper stacking order.
+   * When expanded, sets a high z-index; when collapsed, resets to auto.
+   * @param {object} opts
+   * @param {HTMLElement} opts.container - Panel element
+   * @param {boolean} opts.expanded - Whether the panel is being expanded
+   */
+  foliplus.adjustPanelZIndex = ({ container, expanded }) => {
+    const bar = container.closest(".leaflet-bar");
+    const section = container.closest(".leaflet-top, .leaflet-bottom");
+    if (!expanded) {
+      if (bar) bar.style.zIndex = "";
+      if (section) section.style.zIndex = "";
+      return;
+    }
+    // Read --z-index-floating from :root (defined in CSS), then offset bar and section.
+    // Avoids hardcoding magic numbers that would drift from the CSS variable.
+    const base = parseInt(
+      foliplus.cssVar(document.documentElement, "--z-index-floating"),
+      10,
+    );
+    if (bar) bar.style.zIndex = String(base + 1);
+    if (section) section.style.zIndex = String(base + 9);
+  };
+
+  /**
+   * Read a CSS custom property value from a container element.
+   * Falls back to the provided default if the property is not set or empty.
+   * @param {HTMLElement} el - Element to query computed styles from
+   * @param {string} prop - CSS custom property name, e.g. "--heatmap-label-color"
+   * @param {string} [fallback] - Fallback value if property is not defined
+   * @returns {string} Trimmed property value or fallback
+   *
+   * @example
+   *   foliplus.cssVar(container, "--heatmap-label-color", "#333");
+   */
+  foliplus.cssVar = (el, prop, fallback = "") => {
+    return getComputedStyle(el).getPropertyValue(prop).trim() || fallback;
+  };
+
+  /**
    * Bind click events to toggle a panel (expand / collapse).
    * @param {object} opts
    * @param {HTMLElement} opts.container - Panel root element
@@ -705,6 +745,7 @@
         L.DomEvent.stop(e);
         container.classList.remove(CONST.CLASSES.COLLAPSED);
         container.classList.add(CONST.CLASSES.EXPANDED);
+        foliplus.adjustPanelZIndex({ container, expanded: true });
       });
     }
     const hdr = container.querySelector(header);
@@ -713,6 +754,7 @@
         L.DomEvent.stop(e);
         container.classList.remove(CONST.CLASSES.EXPANDED);
         container.classList.add(CONST.CLASSES.COLLAPSED);
+        foliplus.adjustPanelZIndex({ container, expanded: false });
       });
     }
   };
@@ -734,6 +776,7 @@
       ) {
         container.classList.remove(CONST.CLASSES.EXPANDED);
         container.classList.add(CONST.CLASSES.COLLAPSED);
+        foliplus.adjustPanelZIndex({ container, expanded: false });
       }
     };
     document.addEventListener("click", handler);

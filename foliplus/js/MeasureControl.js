@@ -1536,6 +1536,7 @@
       if (this.ctrl) {
         this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
         this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+        foliplus.adjustPanelZIndex({ container: this.ctrl, expanded: false });
       }
     }
 
@@ -1624,8 +1625,10 @@
 
       toggleBtn.onclick = (e) => {
         e.stopPropagation();
+        const expanding = ctrl.classList.contains(CONST.CLASSES.COLLAPSED);
         ctrl.classList.toggle(CONST.CLASSES.COLLAPSED);
         ctrl.classList.toggle(CONST.CLASSES.EXPANDED);
+        foliplus.adjustPanelZIndex({ container: ctrl, expanded: expanding });
       };
 
       // Collapse when clicking outside, but NOT when a tool is active
