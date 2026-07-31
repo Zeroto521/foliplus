@@ -1,7 +1,13 @@
 prune test
 prune doc
+prune ci
+prune script
+exclude Makefile
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .pytest_cache
 global-exclude .coverage
+global-exclude codecov.yaml
 global-exclude coverage.xml
+global-exclude package.json
+global-exclude package-lock.json
