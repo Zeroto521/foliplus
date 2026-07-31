@@ -119,6 +119,9 @@ _JS_USED_KEYS = {
     "MeasureControl.no_layercontrol",
     "MeasureControl.save_fail",
     "MeasureControl.load_fail",
+    "MeasureControl.del_tooltip",
+    "MeasureControl.del_node",
+    "MeasureControl.del_all",
     # ScaleControl
     "ScaleControl.zoom_label",
 }
