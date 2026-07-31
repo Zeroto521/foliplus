@@ -1295,6 +1295,7 @@
             type: "checkbox",
             "data-role": "toggle-all",
             checked: "",
+            title: _(`${CONST.name}.toggle_all_deselect_tooltip`),
           }),
         ),
         foliplus.dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
@@ -1314,6 +1315,7 @@
             checked: "",
             [CONST.DATA.INDEX]: String(idx),
             "aria-label": en,
+            title: en,
           }),
         ),
         foliplus.dom.el("label", { title: en }, en),
@@ -1382,6 +1384,10 @@
           const isCallbackOnly = !hasLayer && this.m.layerCallbacks.has(id);
           if (isCallbackOnly) inputs[i].checked = layerInfo.visible !== false;
           else inputs[i].checked = hasLayer && this.m.map.hasLayer(layer);
+
+          inputs[i].title = _(
+            `${CONST.name}.${inputs[i].checked ? "deselect_tooltip" : "select_tooltip"}`,
+          );
 
           const item = inputs[i].closest(CONST.SEL.LAYER_ITEM);
           if (item) {
@@ -1481,6 +1487,9 @@
         const layer = LayerUtils.findLayer(this.m.map, layerInfo.id);
 
         cb.checked = newState;
+        cb.title = _(
+          `${CONST.name}.${newState ? "deselect_tooltip" : "select_tooltip"}`,
+        );
         if (newState) item.classList.add(CONST.CLASSES.ACTIVE);
         else item.classList.remove(CONST.CLASSES.ACTIVE);
 
@@ -1518,6 +1527,9 @@
       const noneChecked = checkedCount === 0;
       allCb.checked = allChecked;
       allCb.indeterminate = !allChecked && !noneChecked;
+      allCb.title = _(
+        `${CONST.name}.${allChecked ? "toggle_all_deselect_tooltip" : "toggle_all_select_tooltip"}`,
+      );
     }
 
     handleChange(e) {
@@ -1545,6 +1557,10 @@
         target.checked
           ? item.classList.add(CONST.CLASSES.ACTIVE)
           : item.classList.remove(CONST.CLASSES.ACTIVE);
+
+      target.title = _(
+        `${CONST.name}.${target.checked ? "deselect_tooltip" : "select_tooltip"}`,
+      );
 
       const cbs = this.m.layerCallbacks.get(layerInfo.id);
       if (cbs && cbs.onToggle) cbs.onToggle(target.checked);
