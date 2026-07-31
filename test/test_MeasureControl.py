@@ -269,6 +269,42 @@ class TestMeasureControlRendering:
         assert "label.setLatLng(points[i + 1])" in html
         assert "cumDist += MeasureUtils.distance(" in html
 
+    def test_is_last_when_two_title(self, base_map: folium.Map):
+        """When only 2 points, the last node's X title matches del_all."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "isLastWhenTwo" in html
+        assert "isFirst || isLastWhenTwo" in html
+
+    def test_dynamic_update_on_delete_to_two(self, base_map: folium.Map):
+        """Deleting a node down to 2 points updates the last node's X to delete all."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "points.length === 2 && nodeDelIcons.length === 2" in html
+        assert 'lastDel.off("click")' in html
+        assert "deleteMeas()" in html
+
+    def test_clear_all_collapses_panel(self, base_map: folium.Map):
+        """clearAll() collapses the panel by removing EXPANDED and adding COLLAPSED."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.ctrl.classList.remove(CONST.CLASSES.EXPANDED)" in html
+        assert "this.ctrl.classList.add(CONST.CLASSES.COLLAPSED)" in html
+
+    def test_panel_stays_open_when_tool_active(self, base_map: folium.Map):
+        """bindOutsideCollapse uses skipCheck to prevent collapse when currentMode is active."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "skipCheck: () => this.m.currentMode !== null" in html
+
+    def test_panel_collapses_when_no_tool(self, base_map: folium.Map):
+        """bindOutsideCollapse still collapses the panel when no tool is active."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "bindOutsideCollapse({" in html
+        assert "skipCheck" in html
+        assert "currentMode !== null" in html
+
     def test_set_label_text_gets_fresh_dom(self, base_map: folium.Map):
         """setLabelText gets a fresh DOM reference each call."""
         MeasureControl().add_to(base_map)

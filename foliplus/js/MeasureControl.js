@@ -1541,6 +1541,11 @@
 
     /** Full cleanup including global events. Called on control removal. */
     destroy() {
+      // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
+      if (this.onUnload) {
+        this.map.off("unload", this.onUnload);
+        this.onUnload = null;
+      }
       this.clearAll();
       if (this.onMapClick) {
         this.map.off("click", this.onMapClick);
@@ -1549,10 +1554,6 @@
       if (this.onKeyDown) {
         document.removeEventListener("keydown", this.onKeyDown);
         this.onKeyDown = null;
-      }
-      if (this.onUnload) {
-        this.map.off("unload", this.onUnload);
-        this.onUnload = null;
       }
       if (this.finalizedClickHandler) {
         this.map.off("click", this.finalizedClickHandler);
