@@ -12,6 +12,7 @@ dependencies:
   - sphinx-copybutton
   - sphinx-design
   - geopandas
+  - requests # required for the example notebook
   - pip
   - pip:
       - my-data-toolkit
