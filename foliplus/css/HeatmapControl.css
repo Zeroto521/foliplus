@@ -206,7 +206,7 @@
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  z-index: var(--z-index-dropdown);
+  z-index: var(--z-index-floating);
   max-height: var(--dropdown-max-height);
   overflow-y: auto;
   padding: var(--space-sm) 0;

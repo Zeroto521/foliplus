@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
+
+MODE = Literal["coord", "addr"]
 
 
 class SearchControl(BaseControl):
@@ -42,10 +44,17 @@ class SearchControl(BaseControl):
         self,
         *,
         position: Position = "topleft",
-        mode: Literal["coord", "addr"] = "coord",
+        mode: MODE = "coord",
         zoom: int = 15,
         locale: str | LocaleConfig | None = None,
     ):
+        if mode not in get_args(MODE):
+            raise ValueError(
+                f"mode must be one of {sorted(get_args(MODE))}, got {mode!r}"
+            )
+        if not isinstance(zoom, int) or zoom < 1 or zoom > 18:
+            raise ValueError(f"zoom must be an int between 1 and 18, got {zoom!r}")
+
         super().__init__(position=position, locale=locale)
         self.mode = mode
         self.zoom = zoom

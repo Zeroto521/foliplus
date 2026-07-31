@@ -127,8 +127,15 @@
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.
   Hint z-index is managed by runtime.js (HINT.foliplus-Z_BASE = 10000).
-  CSS only defines dropdown z-index (below hints). */
-  --z-index-dropdown: 9990;
+  CSS only defines floating/panel z-index (below hints). */
+  --z-index-floating: 9990;
+}
+
+/* Raise the entire leaflet-bar container when a fold/panel is expanded,
+  so it stays above geopandas legends and other sibling controls.
+  Leaflet's .leaflet-control has z-index:800, override with !important. */
+.leaflet-bar:has(.expanded) {
+  z-index: var(--z-index-floating);
 }
 
 /* ── Animations ── */
@@ -156,19 +163,31 @@
   }
 }
 
-/* ── Focus: breathing glow ── */
+/* ── Focus: breathing glow ──
+  Only non-checkbox inputs get the breathing animation, using :focus so it
+  triggers on both mouse click and keyboard Tab — important for color inputs
+  and scheme bars which have no visible cursor.
+  Checkbox intentionally excluded: its :focus would persist after mouse click,
+  causing the animation to run indefinitely. */
 :is(
   .foliplus-search input,
-  .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input
-):focus-visible {
+  .foliplus-heatmap-ctrl select,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
+):focus {
   animation: input-breathe 2s ease-in-out infinite;
 }
 
+/* Respect reduced motion: disable breathing animation for all inputs */
 @media (prefers-reduced-motion: reduce) {
   :is(
     .foliplus-search input,
-    .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input
-  ):focus-visible {
+    .foliplus-heatmap-ctrl select,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
+  ):focus {
     animation: none;
   }
 }
@@ -294,7 +313,7 @@
   gap: var(--space-sm);
   backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--alpha-70));
-  border: 1px solid rgba(255, 255, 255, var(--alpha-15));
+  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-xl);
   white-space: nowrap;
@@ -336,13 +355,18 @@
 /* ══════════════════════════════════════════════════════════════════════
   Unified Input Interaction States
   All foliplus text/select/color/checkbox inputs share the same
-  hover/focus/active visual feedback.
-  Component-specific sizing/layout stays in each CSS file.
+  hover/focus visual feedback via :hover and :focus-visible.
+  Mouse click alone does not trigger :focus-visible, so the red border
+  never persists after click — only hover and keyboard Tab show it.
+  The breathing animation (:focus-based) is intentionally limited to
+  non-checkbox inputs (see Animation section above).
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Hover/Focus: red border + red glow ──
-  Use :focus-visible so keyboard navigation shows the ring,
-  but mouse clicks do not leave a residual focus highlight. */
+  All inputs (including checkbox) use :hover and :focus-visible so the red
+  border only appears on hover or keyboard focus. Mouse click alone does NOT
+  trigger :focus-visible, avoiding a persistent highlight on checkbox and
+  color inputs after click. */
 :is(
   .foliplus-search input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,

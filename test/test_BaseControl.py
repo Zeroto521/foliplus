@@ -239,3 +239,47 @@ class TestBaseControlRendering:
         assert html.count("window.foliplus._TABLES = {") == 1
         # Common CSS root custom properties definition is injected exactly once
         assert html.count("--ctrl-bg:") == 1
+
+    def test_css_var_utility(self, base_map: folium.Map):
+        """foliplus.cssVar utility is defined in runtime.js."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.cssVar" in html
+        assert (
+            "getComputedStyle(el).getPropertyValue(prop).trim() || fallback"
+            in html.replace("\n", " ")
+        )
+
+    def test_adjust_panel_zindex(self, base_map: folium.Map):
+        """foliplus.adjustPanelZIndex is defined in runtime.js."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.adjustPanelZIndex" in html
+        assert "closest(.leaflet-bar)" in html or 'closest(".leaflet-bar")' in html
+        assert "closest(.leaflet-top" in html or 'closest(".leaflet-top' in html
+
+    def test_z_index_floating_css_variable(self, base_map: folium.Map):
+        """--z-index-floating CSS custom property is defined in common.css."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert "--z-index-floating" in html
+        assert "9990" in html
+
+    def test_create_panel_control(self, base_map: folium.Map):
+        """foliplus.createPanelControl is defined in runtime.js."""
+        from foliplus import HeatmapControl
+
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "foliplus.createPanelControl" in html
+        assert "foliplus-panel" in html
+        assert "foliplus-panel-header" in html
+        assert "foliplus-panel-content" in html
+        assert "foliplus.bindPanelToggle" in html
+        assert "foliplus.bindOutsideCollapse" in html

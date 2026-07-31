@@ -82,6 +82,10 @@ _JS_USED_KEYS = {
     "LayerControl.data_layer_label",
     "LayerControl.fold_tooltip",
     "LayerControl.unfold_tooltip",
+    "LayerControl.toggle_all_select_tooltip",
+    "LayerControl.toggle_all_deselect_tooltip",
+    "LayerControl.select_tooltip",
+    "LayerControl.deselect_tooltip",
     # SearchControl
     "SearchControl.btn_title",
     "SearchControl.mode_coord",
@@ -119,6 +123,9 @@ _JS_USED_KEYS = {
     "MeasureControl.no_layercontrol",
     "MeasureControl.save_fail",
     "MeasureControl.load_fail",
+    "MeasureControl.del_tooltip",
+    "MeasureControl.del_node",
+    "MeasureControl.del_all",
     # ScaleControl
     "ScaleControl.zoom_label",
 }
