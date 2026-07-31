@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import folium
+import pytest
 from conftest import render
 
 from foliplus import HeatmapControl
@@ -56,6 +57,30 @@ class TestHeatmapControlPython:
         assert ctrl.style["border_weight"] == 2.0
         assert ctrl.style["label_show"] is False
 
+    def test_invalid_method_raises(self):
+        """Invalid method raises ValueError."""
+        with pytest.raises(ValueError, match="method must be one of"):
+            HeatmapControl(method="invalid")
+
+    def test_invalid_agg_raises(self):
+        """Invalid agg raises ValueError."""
+        with pytest.raises(ValueError, match="agg must be one of"):
+            HeatmapControl(agg="invalid")
+
+    def test_invalid_n_classes_raises_too_low(self):
+        """n_classes below 2 raises ValueError."""
+        with pytest.raises(ValueError, match="n_classes must be an int between 2 and 9"):
+            HeatmapControl(n_classes=1)
+
+    def test_invalid_n_classes_raises_too_high(self):
+        """n_classes above 9 raises ValueError."""
+        with pytest.raises(ValueError, match="n_classes must be an int between 2 and 9"):
+            HeatmapControl(n_classes=10)
+
+    def test_invalid_n_classes_raises_not_int(self):
+        """Non-int n_classes raises ValueError."""
+        with pytest.raises(ValueError, match="n_classes must be an int between 2 and 9"):
+            HeatmapControl(n_classes=6.5)
 
 class TestHeatmapControlRendering:
     def test_default_params(self, base_map: folium.Map):
