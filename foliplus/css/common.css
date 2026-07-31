@@ -67,7 +67,7 @@
   /* ── Effects ── */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
-  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
+  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-70));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
 
   /* ── Typography ── */
@@ -441,4 +441,15 @@
 }
 .foliplus-ctrl-fold.foliplus-align-right .foliplus-tool-bar {
   flex-direction: row-reverse;
+}
+
+/* ── Leaflet attribution styling ──
+  Match ScaleControl's rounded, translucent look for visual consistency. */
+.leaflet-control-attribution {
+  white-space: nowrap;
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+  background: var(--ctrl-bg-translucent);
+  border: var(--border-thin) solid var(--divider-color);
+  box-shadow: var(--shadow-xs);
 }
