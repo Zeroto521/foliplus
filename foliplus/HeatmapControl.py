@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from ._cdn import CHROMA, H3, SS
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
+
+METHOD = Literal["jenks", "quantile", "equal", "heads"]
+AGG = Literal["count", "sum", "avg", "min", "max"]
 
 
 class HeatmapControl(BaseControl):
@@ -100,13 +103,24 @@ class HeatmapControl(BaseControl):
         *,
         position: Position = "topleft",
         color_scheme: str = "Reds",
-        method: Literal["jenks", "quantile", "equal", "heads"] = "jenks",
+        method: METHOD = "jenks",
         n_classes: int = 6,
-        agg: Literal["count", "sum", "avg", "min", "max"] = "count",
+        agg: AGG = "count",
         schemes: list[str] | None = None,
         style: dict | None = None,
         locale: str | LocaleConfig | None = None,
     ):
+        if method not in get_args(METHOD):
+            raise ValueError(
+                f"method must be one of {sorted(get_args(METHOD))}, got {method!r}"
+            )
+        if not isinstance(n_classes, int) or n_classes < 2 or n_classes > 9:
+            raise ValueError(
+                f"n_classes must be an int between 2 and 9, got {n_classes!r}"
+            )
+        if agg not in get_args(AGG):
+            raise ValueError(f"agg must be one of {sorted(get_args(AGG))}, got {agg!r}")
+
         super().__init__(position=position, locale=locale)
         self.color_scheme = color_scheme
         self.method = method

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import folium
+import pytest
 from conftest import render
 
 from foliplus import SearchControl
@@ -40,6 +41,26 @@ class TestSearchControlPython:
 
     def test_custom_mode_coord(self):
         assert SearchControl(mode="coord").mode == "coord"
+
+    def test_invalid_mode_raises(self):
+        """Invalid mode raises ValueError."""
+        with pytest.raises(ValueError, match="mode must be one of"):
+            SearchControl(mode="invalid")
+
+    def test_invalid_zoom_raises_too_low(self):
+        """Zoom below 1 raises ValueError."""
+        with pytest.raises(ValueError, match="zoom must be an int between 1 and 18"):
+            SearchControl(zoom=0)
+
+    def test_invalid_zoom_raises_too_high(self):
+        """Zoom above 18 raises ValueError."""
+        with pytest.raises(ValueError, match="zoom must be an int between 1 and 18"):
+            SearchControl(zoom=19)
+
+    def test_invalid_zoom_raises_not_int(self):
+        """Non-int zoom raises ValueError."""
+        with pytest.raises(ValueError, match="zoom must be an int between 1 and 18"):
+            SearchControl(zoom=15.5)
 
 
 class TestSearchControlRendering:

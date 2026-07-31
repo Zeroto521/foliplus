@@ -37,7 +37,6 @@
       RES_FALLBACK: 12,
     },
     ID: "foliplus_heatmap",
-    AGG: "{{ this.agg }}",
     FIELD: "{{ this.style.field }}",
     SCHEME: "{{ this.color_scheme }}",
     METHOD: "{{ this.method }}",
@@ -55,6 +54,7 @@
       FORMAT: "{{ this.style.label_format }}",
     },
     AGG: {
+      DEFAULT: "{{ this.agg }}",
       COUNT: "count",
       SUM: "sum",
       AVG: "avg",
@@ -159,7 +159,7 @@
       // State management
       this.selectedLayerId = null;
       this.pointLayers = [];
-      this.currentAgg = CONST.AGG.COUNT;
+      this.currentAgg = CONST.AGG.DEFAULT;
       this.currentField = CONST.FIELD;
       this.currentScheme = CONST.SCHEME;
       this.currentMethod = CONST.METHOD;
@@ -338,21 +338,22 @@
     }
 
     collectFields(layers) {
-      const fields = {};
+      const fields = [];
+      const seen = new Set();
       layers.forEach((info) => {
         foliplus.LayerAPI.extractPoints(info.id).forEach((pt) => {
           const m = pt.marker;
-          if (typeof m.value === "number") fields.value = true;
-          if (typeof m.options?.value === "number") fields["options.value"] = true;
           if (m.feature?.properties) {
             Object.keys(m.feature.properties).forEach((k) => {
-              if (typeof m.feature.properties[k] === "number")
-                fields[`properties.${k}`] = true;
+              if (typeof m.feature.properties[k] === "number" && !seen.has(k)) {
+                seen.add(k);
+                fields.push(`properties.${k}`);
+              }
             });
           }
         });
       });
-      return Object.keys(fields);
+      return fields;
     }
 
     pickAutoField(fields) {

@@ -34,7 +34,7 @@
 ### Fixed
 
 - `LayerControl`: restricted drag-and-drop reordering to within the same group (overlay ↔ overlay, base ↔ base) ([#25](https://github.com/Zeroto521/foliplus/pull/25))
-- `HeatmapControl`: fixed `AUTO` field detection, including single-field cases ([#28](https://github.com/Zeroto521/foliplus/pull/28), [#89](https://github.com/Zeroto521/foliplus/pull/89))
+- `HeatmapControl`: fixed `AUTO` field detection, including single-field cases ([#28](https://github.com/Zeroto521/foliplus/pull/28), [#89](https://github.com/Zeroto521/foliplus/pull/89), [#100](https://github.com/Zeroto521/foliplus/pull/100))
 - `MeasureControl`: fixed distance mode points hidden behind the polyline when layer is hidden and re-shown ([#48](https://github.com/Zeroto521/foliplus/pull/48))
 - `MeasureControl`: delete icons (✕) now correctly work after layer hide/show by using Leaflet marker events instead of `L.DomEvent.on` ([#48](https://github.com/Zeroto521/foliplus/pull/48))
 - `LayerControl`: `handleDrop` now uses `data-layer-id` attribute instead of stale index to locate moved DOM element after splice ([#48](https://github.com/Zeroto521/foliplus/pull/48))
