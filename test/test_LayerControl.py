@@ -374,7 +374,8 @@ class TestLayerControlRendering:
         # The fallback pane mechanism is used for all non-pane layers
         assert "FALLBACK_PANE_PREFIX" in html
         # shadowPane z-index sync removed — markers get per-layer panes
-        assert "sp.style.zIndex" not in html or "markerZ" not in html
+        assert "sp.style.zIndex" not in html
+        assert "markerZ" not in html
 
     def test_default_panes_use_set(self, base_map: folium.Map):
         """isDefaultPane uses a Set for default pane lookup."""
