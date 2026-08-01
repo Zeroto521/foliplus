@@ -957,11 +957,7 @@
 
     // Core Sorting Engine
     setLayerPaneRecursive(layer, paneName, renderer) {
-      // Skip Markers — both default icons (with shadow images) and divIcon.
-      // Moving them to a custom pane breaks their shadow positioning.
-      // They stay in Leaflet's default markerPane (z-index 600).
       LayerUtils.forEachLayer(layer, (l) => {
-        if (l instanceof L.Marker) return;
         l.options.pane = paneName;
         l.options.paneSet = true;
         if (l instanceof L.Path) l.options.renderer = renderer;
@@ -1006,7 +1002,6 @@
       this.isEnforcing = true;
       try {
         const layersToMove = [];
-        let markerZ = 0;
 
         for (let i = 0; i < this.layers.length; i++) {
           const li = this.layers[i];
@@ -1021,18 +1016,9 @@
           if (!hasLayer) continue;
 
           // 2. Apply z-index via the appropriate mechanism
-          const zInfo = this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
-          if (zInfo.markerZ) markerZ = Math.max(markerZ, zInfo.markerZ);
+          this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
         }
 
-        // Sync markerPane so unmanaged marker layers sit at correct z-order
-        if (markerZ > 0) {
-          const mp = this.map.getPane("markerPane");
-          if (mp) mp.style.zIndex = markerZ;
-          // Sync shadowPane so marker shadows render above managed content
-          const sp = this.map.getPane("shadowPane");
-          if (sp) sp.style.zIndex = markerZ - 1;
-        }
 
         // Bump popupPane and tooltipPane above all managed panes so popups and
         // hover tooltips (e.g., GeoJsonTooltip) are never hidden behind graph or
@@ -1113,25 +1099,46 @@
       if (!layersToMove.length) return;
       // Group by renderer container so we can batch-append via DocumentFragment.
       const groups = new Map();
+      const markerGroups = new Map();
       for (const { layer, paneName, renderer } of layersToMove) {
         if (!paneName) continue;
         this.setLayerPaneRecursive(layer, paneName, renderer);
         const container = renderer?._container;
         if (!container) continue;
+        // For markers, we need the pane div (not the SVG renderer container)
+        const paneEl = this.map.getPane(paneName);
         if (!groups.has(container)) groups.set(container, []);
         const collect = (l) => {
           if (l._path && l._path.parentNode !== container)
             groups.get(container).push(l._path);
+          // Move marker icon/shadow to the pane element (not SVG renderer)
+          if (l instanceof L.Marker && paneEl) {
+            if (l._icon && l._icon.parentNode !== paneEl) {
+              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+              markerGroups.get(paneEl).push(l._icon);
+            }
+            if (l._shadow && l._shadow.parentNode !== paneEl) {
+              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+              markerGroups.get(paneEl).push(l._shadow);
+            }
+          }
           if (l.eachLayer) l.eachLayer(collect);
         };
         collect(layer);
       }
-      // Batch-append per container to avoid repeated layout thrash
+      // Batch-append paths per container to avoid repeated layout thrash
       for (const [container, paths] of groups) {
         if (!paths.length) continue;
         const frag = document.createDocumentFragment();
         for (const p of paths) frag.appendChild(p);
         container.appendChild(frag);
+      }
+      // Batch-append markers per pane element
+      for (const [paneEl, markers] of markerGroups) {
+        if (!markers.length) continue;
+        const frag = document.createDocumentFragment();
+        for (const m of markers) frag.appendChild(m);
+        paneEl.appendChild(frag);
       }
     }
 
