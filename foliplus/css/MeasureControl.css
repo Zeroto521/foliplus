@@ -190,8 +190,8 @@
   box-shadow: none;
   opacity: 0;
   visibility: hidden;
-  top: calc(-1 * var(--size-12) - var(--size-2));
-  left: var(--size-4);
+  top: -18px;
+  left: var(--size-2);
   right: auto;
   margin: 0;
   transition:

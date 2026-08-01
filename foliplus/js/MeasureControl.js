@@ -11,7 +11,7 @@
     DEL_ICON: {
       RETRY_LIMIT: 10,
       ANCHOR: [0, 0],
-      MARKER_ANCHOR: [-4, 28],
+      MARKER_ANCHOR: [0, 24],
       SIZE: [0, 0],
       CHAR: "✕",
       CLASS: "foliplus-measure-del-icon",
