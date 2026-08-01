@@ -309,25 +309,24 @@
   transform: scale(var(--scale-press));
 }
 
-/* ── Toggle Button Base ── */
-.foliplus-toggle-btn {
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  min-width: var(--ctrl-size);
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-}
-
-/* ── Tool Button Base (used by MeasureControl toolbar, SearchControl mode switch) ── */
+/* ── Toggle Button / Tool Button Base ──
+  Shared sizing for all control buttons.
+  Toggle-btns have rounded corners; tool-btns have square corners (0). */
+.foliplus-toggle-btn,
 .foliplus-tool-btn,
 .foliplus-search-mode-btn {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   min-width: var(--ctrl-size);
   flex-shrink: 0;
-  border-radius: 0;
   color: var(--text-primary);
+}
+.foliplus-toggle-btn {
+  border-radius: var(--radius-sm);
+}
+.foliplus-tool-btn,
+.foliplus-search-mode-btn {
+  border-radius: 0;
 }
 
 /* ── Map Hint (Toast Notification) ── */
