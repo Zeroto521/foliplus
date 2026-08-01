@@ -60,6 +60,7 @@
   "LayerControl.data_layer_label": "数据图层",
   "LayerControl.fold_tooltip": "收起图层",
   "LayerControl.unfold_tooltip": "展开图层",
+  "LayerControl.close_label": "关闭",
   "LayerControl.toggle_all_select_tooltip": "勾选全部",
   "LayerControl.toggle_all_deselect_tooltip": "取消勾选全部",
   "LayerControl.select_tooltip": "勾选",

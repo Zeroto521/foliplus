@@ -671,6 +671,14 @@
       { maxWidth: CONST.POPUP.MAX_WIDTH },
     );
     marker.openPopup();
+    // Add title to Leaflet's popup close button for hover tooltip.
+    // Use window._LOCALE directly since _() may not be available in runtime.js context.
+    const closeLabel = foliplus.gt("LayerControl.close_label");
+    const popupEl = marker.getPopup();
+    if (popupEl) {
+      const closeBtn = popupEl._closeButton;
+      if (closeBtn) closeBtn.title = closeLabel;
+    }
     if (!addr) {
       foliplus.reverseGeocode(map, lng, lat).then((resolved) => {
         if (marker && marker.getPopup() && marker.getPopup().isOpen()) {

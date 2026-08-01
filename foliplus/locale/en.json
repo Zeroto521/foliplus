@@ -60,6 +60,7 @@
   "LayerControl.data_layer_label": "Data Layers",
   "LayerControl.fold_tooltip": "Collapse layers",
   "LayerControl.unfold_tooltip": "Expand layers",
+  "LayerControl.close_label": "Close",
   "LayerControl.toggle_all_select_tooltip": "Select all",
   "LayerControl.toggle_all_deselect_tooltip": "Deselect all",
   "LayerControl.select_tooltip": "Select",
