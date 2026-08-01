@@ -252,7 +252,7 @@
     0 calc(-1 * var(--size-2)) var(--size-6) calc(-1 * var(--size-2))
       var(--accent-primary)
   );
-  animation: drag-pulse var(--drag-pulse-duration, 0.8s) ease-in-out
+  animation: foliplus-drag-pulse var(--drag-pulse-duration, 0.8s) ease-in-out
     var(--drag-pulse-count, 3);
 }
 .foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-drag-over-bottom {
@@ -263,11 +263,11 @@
     --drag-bottom-shadow,
     0 var(--size-2) var(--size-6) calc(-1 * var(--size-2)) var(--accent-primary)
   );
-  animation: drag-pulse var(--drag-pulse-duration, 0.8s) ease-in-out
+  animation: foliplus-drag-pulse var(--drag-pulse-duration, 0.8s) ease-in-out
     var(--drag-pulse-count, 3);
 }
 
-@keyframes drag-pulse {
+@keyframes foliplus-drag-pulse {
   0%,
   100% {
     border-color: var(--drag-border-from, var(--accent-primary));
@@ -322,10 +322,10 @@
   background-size: var(--size-12);
   background-position: center;
   background-repeat: no-repeat;
-  animation: checkmark-pop var(--transition-fast) ease-out forwards;
+  animation: foliplus-checkmark-pop var(--transition-fast) ease-out forwards;
 }
 
-@keyframes checkmark-pop {
+@keyframes foliplus-checkmark-pop {
   0% {
     opacity: 0;
     transform: scale(0) rotate(-45deg);

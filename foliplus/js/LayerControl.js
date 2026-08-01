@@ -1307,9 +1307,7 @@
       const children = [
         foliplus.dom.el(
           "span",
-          {
-            title: _(`${CONST.name}.drag_tooltip`),
-          },
+          { title: _(`${CONST.name}.drag_tooltip`) },
           { html: SVGs.DRAG_HANDLE },
         ),
         foliplus.dom.el(

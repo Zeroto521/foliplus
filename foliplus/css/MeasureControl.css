@@ -118,7 +118,7 @@
 }
 
 /* Dash sweep: stroke-dashoffset → 0, drawing the line from start to end. */
-@keyframes measure-dash-sweep {
+@keyframes foliplus-measure-dash-sweep {
   to {
     stroke-dashoffset: 0;
   }
@@ -126,12 +126,12 @@
 .foliplus-measure-line-solid.foliplus-measure-dash-sweep {
   stroke-dasharray: var(--sweep-length) var(--sweep-length);
   stroke-dashoffset: var(--sweep-length);
-  animation: measure-dash-sweep var(--sweep-duration) ease-in-out;
+  animation: foliplus-measure-dash-sweep var(--sweep-duration) ease-in-out;
   filter: drop-shadow(0 0 3px var(--accent-primary));
 }
 
 /* Ripple: stroke swells outward from the circle. */
-@keyframes measure-ripple {
+@keyframes foliplus-measure-ripple {
   0% {
     opacity: var(--ripple-opacity-start);
     stroke-width: var(--ripple-stroke-start);
@@ -144,7 +144,7 @@
 .foliplus-measure-ripple {
   fill: none;
   stroke: var(--accent-primary);
-  animation: measure-ripple var(--ripple-duration) ease-out forwards;
+  animation: foliplus-measure-ripple var(--ripple-duration) ease-out forwards;
   pointer-events: none;
 }
 
@@ -163,10 +163,10 @@
   pointer-events: none;
   box-shadow: var(--shadow-xs);
   transform: translateX(-50%);
-  animation: measure-label-in 0.2s ease-out;
+  animation: foliplus-measure-label-in 0.2s ease-out;
 }
 
-@keyframes measure-label-in {
+@keyframes foliplus-measure-label-in {
   from {
     opacity: 0;
     transform: translateX(-50%) scale(0.9);

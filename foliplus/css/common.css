@@ -140,7 +140,7 @@
 }
 
 /* ── Animations ── */
-@keyframes spin {
+@keyframes foliplus-spin {
   0% {
     transform: rotate(0deg);
   }
@@ -150,11 +150,11 @@
 }
 
 .foliplus-spin {
-  animation: spin 0.8s linear infinite;
+  animation: foliplus-spin 0.8s linear infinite;
   vertical-align: middle;
 }
 
-@keyframes input-breathe {
+@keyframes foliplus-input-breathe {
   0%,
   100% {
     box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
@@ -178,7 +178,7 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
 ):focus,
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
-  animation: input-breathe 2s ease-in-out infinite;
+  animation: foliplus-input-breathe 2s ease-in-out infinite;
 }
 
 /* Respect reduced motion: disable breathing animation for all inputs */
@@ -352,10 +352,10 @@
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-hint);
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
-  animation: hint-in 0.2s ease-out;
+  animation: foliplus-hint-in 0.2s ease-out;
 }
 
-@keyframes hint-in {
+@keyframes foliplus-hint-in {
   from {
     opacity: 0;
     transform: translateX(-50%) translateY(4px);
