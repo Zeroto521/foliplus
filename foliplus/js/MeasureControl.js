@@ -38,7 +38,7 @@
       KM_DECIMALS: 1,
     },
     Z_INDEX: {
-      OFFSET: 1000,
+      OFFSET: 11000,
     },
     ID: "foliplus_measure",
     PANES: {

@@ -362,6 +362,7 @@
   position: relative;
   width: var(--size-24);
   height: var(--toggle-size);
+  color: var(--accent-primary);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
