@@ -953,15 +953,6 @@
       };
     }
 
-    // Core Sorting Engine
-    setLayerPaneRecursive(layer, paneName, renderer) {
-      LayerUtils.forEachLayer(layer, (l) => {
-        l.options.pane = paneName;
-        l.options.paneSet = true;
-        if (l instanceof L.Path) l.options.renderer = renderer;
-      });
-    }
-
     /** Find all custom panes used by a container's tree.
      *  Results are cached by layer stamp; call `paneCache.clear()`
      *  when layer structure changes (register/unregister). */
@@ -1098,13 +1089,16 @@
       const markerGroups = new Map();
       for (const { layer, paneName, renderer } of layersToMove) {
         if (!paneName) continue;
-        this.setLayerPaneRecursive(layer, paneName, renderer);
         const container = renderer?._container;
         if (!container) continue;
         // For markers, we need the pane div (not the SVG renderer container)
         const paneEl = this.map.getPane(paneName);
         if (!groups.has(container)) groups.set(container, []);
+        // Single pass: set options + move DOM to avoid double traversal.
         const collect = (l) => {
+          l.options.pane = paneName;
+          l.options.paneSet = true;
+          if (l instanceof L.Path) l.options.renderer = renderer;
           if (l._path && l._path.parentNode !== container)
             groups.get(container).push(l._path);
           // Move marker icon/shadow to the pane element (not SVG renderer)
