@@ -373,17 +373,7 @@
         }),
       );
 
-      let cachedAddr = null;
-      const addr = await foliplus.reverseGeocode(
-        this.map,
-        parseFloat(lng),
-        parseFloat(lat),
-      );
-      cachedAddr = addr;
-
-      if (marker?.getPopup?.()?.isOpen())
-        marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
-
+      // Bind popup events BEFORE async geocode so X appears on first popup open
       marker.on("popupopen", () => {
         MeasureUtils.hideDelIcons();
         if (cachedAddr !== null)
@@ -394,6 +384,17 @@
       marker.on("popupclose", () => {
         MeasureUtils.toggleDelIcon(delMarker, false);
       });
+
+      let cachedAddr = null;
+      const addr = await foliplus.reverseGeocode(
+        this.map,
+        parseFloat(lng),
+        parseFloat(lat),
+      );
+      cachedAddr = addr;
+
+      if (marker?.getPopup?.()?.isOpen())
+        marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
 
       const markerId = this.nextMeasurementId();
       this.m.measurements.push({
