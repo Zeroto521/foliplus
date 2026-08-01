@@ -67,7 +67,7 @@
   /* ── Effects ── */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
-  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
+  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-70));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
 
   /* ── Typography ── */
@@ -94,6 +94,7 @@
   --scale-press: 0.92;
   --scale-hover: 1.08;
   --icon-size-sm: var(--size-16);
+  --icon-size-xs: 14px;
   --icon-size-md: 18px;
   --stroke-icon: 1.8;
 
@@ -127,12 +128,19 @@
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.
   Hint z-index is managed by runtime.js (HINT.foliplus-Z_BASE = 10000).
-  CSS only defines dropdown z-index (below hints). */
-  --z-index-dropdown: 9990;
+  CSS only defines floating/panel z-index (below hints). */
+  --z-index-floating: 9990;
+}
+
+/* Raise the entire leaflet-bar container when a fold/panel is expanded,
+  so it stays above geopandas legends and other sibling controls.
+  Leaflet's .leaflet-control has z-index:800, override with !important. */
+.leaflet-bar:has(.expanded) {
+  z-index: var(--z-index-floating);
 }
 
 /* ── Animations ── */
-@keyframes spin {
+@keyframes foliplus-spin {
   0% {
     transform: rotate(0deg);
   }
@@ -142,11 +150,11 @@
 }
 
 .foliplus-spin {
-  animation: spin 0.8s linear infinite;
+  animation: foliplus-spin 0.8s linear infinite;
   vertical-align: middle;
 }
 
-@keyframes input-breathe {
+@keyframes foliplus-input-breathe {
   0%,
   100% {
     box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
@@ -156,19 +164,33 @@
   }
 }
 
-/* ── Focus: breathing glow ── */
+/* ── Focus: breathing glow ──
+  Only non-checkbox inputs get the breathing animation, using :focus so it
+  triggers on both mouse click and keyboard Tab — important for color inputs
+  and scheme bars which have no visible cursor.
+  Checkbox intentionally excluded: its :focus would persist after mouse click,
+  causing the animation to run indefinitely. */
 :is(
   .foliplus-search input,
-  .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input
-):focus-visible {
-  animation: input-breathe 2s ease-in-out infinite;
+  .foliplus-heatmap-ctrl select,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
+):focus,
+.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
+  animation: foliplus-input-breathe 2s ease-in-out infinite;
 }
 
+/* Respect reduced motion: disable breathing animation for all inputs */
 @media (prefers-reduced-motion: reduce) {
   :is(
     .foliplus-search input,
-    .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input
-  ):focus-visible {
+    .foliplus-heatmap-ctrl select,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
+  ):focus,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
     animation: none;
   }
 }
@@ -236,6 +258,7 @@
 ):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
+  border-radius: var(--radius-sm);
   transform: scale(var(--scale-hover));
 }
 
@@ -252,6 +275,33 @@
   transform: scale(var(--scale-press));
 }
 
+/* ── All buttons: keyboard focus indicator ──
+  Shows a red outline ring when focused via keyboard (Tab).
+  Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-btn
+):focus-visible {
+  outline: var(--border-thick) solid var(--accent-primary);
+  outline-offset: var(--border-thin);
+  border-radius: var(--radius-sm);
+}
+
+/* ── All buttons: disabled state ──
+  Grayed out, no hover/active feedback, no pointer events. */
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-btn
+):disabled {
+  opacity: var(--alpha-30);
+  pointer-events: none;
+  transform: none;
+}
+
 /* ── Button hover/active SVG scale ──
   SVG-level parallax for buttons that also have button-level scale.
   toggle-btn added via expanded context for fold controls. */
@@ -263,25 +313,24 @@
   transform: scale(var(--scale-press));
 }
 
-/* ── Toggle Button Base ── */
-.foliplus-toggle-btn {
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  min-width: var(--ctrl-size);
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-}
-
-/* ── Tool Button Base (used by MeasureControl toolbar, SearchControl mode switch) ── */
+/* ── Toggle Button / Tool Button Base ──
+  Shared sizing for all control buttons.
+  Toggle-btns have rounded corners; tool-btns have square corners (0). */
+.foliplus-toggle-btn,
 .foliplus-tool-btn,
 .foliplus-search-mode-btn {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   min-width: var(--ctrl-size);
   flex-shrink: 0;
-  border-radius: 0;
   color: var(--text-primary);
+}
+.foliplus-toggle-btn {
+  border-radius: var(--radius-sm);
+}
+.foliplus-tool-btn,
+.foliplus-search-mode-btn {
+  border-radius: 0;
 }
 
 /* ── Map Hint (Toast Notification) ── */
@@ -294,7 +343,7 @@
   gap: var(--space-sm);
   backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--alpha-70));
-  border: 1px solid rgba(255, 255, 255, var(--alpha-15));
+  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-xl);
   white-space: nowrap;
@@ -303,6 +352,18 @@
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-hint);
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
+  animation: foliplus-hint-in 0.2s ease-out;
+}
+
+@keyframes foliplus-hint-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .foliplus-hint-icon {
@@ -324,25 +385,31 @@
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   color: var(--text-muted);
-  border-radius: 0;
+  border-radius: var(--radius-sm);
 }
 
 .foliplus-pin {
   position: relative;
   width: var(--size-24);
   height: var(--toggle-size);
+  color: var(--accent-primary);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
   Unified Input Interaction States
   All foliplus text/select/color/checkbox inputs share the same
-  hover/focus/active visual feedback.
-  Component-specific sizing/layout stays in each CSS file.
+  hover/focus visual feedback via :hover and :focus-visible.
+  Mouse click alone does not trigger :focus-visible, so the red border
+  never persists after click — only hover and keyboard Tab show it.
+  The breathing animation (:focus-based) is intentionally limited to
+  non-checkbox inputs (see Animation section above).
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Hover/Focus: red border + red glow ──
-  Use :focus-visible so keyboard navigation shows the ring,
-  but mouse clicks do not leave a residual focus highlight. */
+  All inputs (including checkbox) use :hover and :focus-visible so the red
+  border only appears on hover or keyboard focus. Mouse click alone does NOT
+  trigger :focus-visible, avoiding a persistent highlight on checkbox and
+  color inputs after click. */
 :is(
   .foliplus-search input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
@@ -352,7 +419,8 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
   .foliplus-layer-ctrl input[type="checkbox"],
   .foliplus-layer-ctrl .foliplus-color-layer-input
-):is(:hover, :focus-visible) {
+):is(:hover, :focus-visible),
+.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
@@ -417,4 +485,15 @@
 }
 .foliplus-ctrl-fold.foliplus-align-right .foliplus-tool-bar {
   flex-direction: row-reverse;
+}
+
+/* ── Leaflet attribution & foliplus scale wrapper styling ──
+  Shared rounded, translucent look for the bottom-corner controls. */
+.leaflet-control.foliplus-scale-wrap,
+.leaflet-control-attribution {
+  line-height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--ctrl-bg-translucent);
+  border: var(--border-thin) solid var(--divider-color);
+  box-shadow: var(--shadow-xs);
 }

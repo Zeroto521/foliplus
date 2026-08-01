@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import folium
+import pytest
 from conftest import render
 
 from foliplus import HeatmapControl
@@ -56,6 +57,37 @@ class TestHeatmapControlPython:
         assert ctrl.style["border_weight"] == 2.0
         assert ctrl.style["label_show"] is False
 
+    def test_invalid_method_raises(self):
+        """Invalid method raises ValueError."""
+        with pytest.raises(ValueError, match="method must be one of"):
+            HeatmapControl(method="invalid")
+
+    def test_invalid_agg_raises(self):
+        """Invalid agg raises ValueError."""
+        with pytest.raises(ValueError, match="agg must be one of"):
+            HeatmapControl(agg="invalid")
+
+    def test_invalid_n_classes_raises_too_low(self):
+        """n_classes below 2 raises ValueError."""
+        with pytest.raises(
+            ValueError, match="n_classes must be an int between 2 and 9"
+        ):
+            HeatmapControl(n_classes=1)
+
+    def test_invalid_n_classes_raises_too_high(self):
+        """n_classes above 9 raises ValueError."""
+        with pytest.raises(
+            ValueError, match="n_classes must be an int between 2 and 9"
+        ):
+            HeatmapControl(n_classes=10)
+
+    def test_invalid_n_classes_raises_not_int(self):
+        """Non-int n_classes raises ValueError."""
+        with pytest.raises(
+            ValueError, match="n_classes must be an int between 2 and 9"
+        ):
+            HeatmapControl(n_classes=6.5)
+
 
 class TestHeatmapControlRendering:
     def test_default_params(self, base_map: folium.Map):
@@ -67,6 +99,21 @@ class TestHeatmapControlRendering:
         HeatmapControl(color_scheme="Reds").add_to(base_map)
         html = render(base_map)
         assert "Reds" in html
+
+    def test_custom_agg_default(self, base_map: folium.Map):
+        """Custom agg default is rendered in JS template."""
+        HeatmapControl(agg="sum").add_to(base_map)
+        html = render(base_map)
+        assert '"sum"' in html
+        # AGG.DEFAULT captures the Python agg parameter
+        assert "DEFAULT:" in html or "DEFAULT :" in html
+
+    def test_default_agg_is_count(self, base_map: folium.Map):
+        """Default agg value 'count' appears in JS template."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert '"count"' in html
+        assert "DEFAULT:" in html or "DEFAULT :" in html
 
     def test_custom_method(self, base_map: folium.Map):
         HeatmapControl(method="quantile").add_to(base_map)
@@ -309,6 +356,26 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "panel-shadow" in html
+
+    def test_css_scheme_dropdown_hover(self, base_map: folium.Map):
+        """Scheme dropdown items use accent-light on hover."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "scheme-dropdown-item:hover" in html
+        assert "accent-light" in html
+
+    def test_css_scheme_bar_open_rule(self, base_map: folium.Map):
+        """scheme-bar-open class triggers breathing animation and red border."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "scheme-bar-open" in html
+        assert "input-breathe" in html
+
+    def test_css_toggle_knob_scale(self, base_map: folium.Map):
+        """Toggle knob has scale(1.15) on checked state."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "scale(1.15)" in html
 
     def test_agg_select_options(self, base_map: folium.Map):
         """Aggregation method select has all 6 options."""

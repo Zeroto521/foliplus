@@ -37,7 +37,6 @@
       RES_FALLBACK: 12,
     },
     ID: "foliplus_heatmap",
-    AGG: "{{ this.agg }}",
     FIELD: "{{ this.style.field }}",
     SCHEME: "{{ this.color_scheme }}",
     METHOD: "{{ this.method }}",
@@ -55,6 +54,7 @@
       FORMAT: "{{ this.style.label_format }}",
     },
     AGG: {
+      DEFAULT: "{{ this.agg }}",
       COUNT: "count",
       SUM: "sum",
       AVG: "avg",
@@ -80,6 +80,7 @@
       EXTRA_BODY: "foliplus-heatmap-extra-body",
       FIELD: "foliplus-heatmap-field",
       SCHEME_BAR: "foliplus-heatmap-scheme-bar",
+      SCHEME_BAR_OPEN: "foliplus-heatmap-scheme-bar-open",
       SCHEME_BAR_INNER: "foliplus-heatmap-scheme-bar-inner",
       SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
       SCHEME_DROPDOWN: "foliplus-heatmap-scheme-dropdown",
@@ -159,7 +160,7 @@
       // State management
       this.selectedLayerId = null;
       this.pointLayers = [];
-      this.currentAgg = CONST.AGG.COUNT;
+      this.currentAgg = CONST.AGG.DEFAULT;
       this.currentField = CONST.FIELD;
       this.currentScheme = CONST.SCHEME;
       this.currentMethod = CONST.METHOD;
@@ -295,14 +296,13 @@
     /** Resolve label styling from CSS custom properties (cached once). */
     resolveLabelStyle() {
       if (this.cachedLabelStyle) return this.cachedLabelStyle;
-      const cs = getComputedStyle(this.ui.container);
-      const val = (prop, fb) => cs.getPropertyValue(prop).trim() || fb;
 
+      const css = (prop, fb) => foliplus.cssVar(this.ui.container, prop, fb);
       this.cachedLabelStyle = {
-        font: `${val("--heatmap-label-font-weight", "bold")} ${val("--heatmap-label-font-size", `${CONST.LABEL.SIZE}px`)} ${val("--heatmap-label-font-family", "sans-serif")}`,
-        color: val("--heatmap-label-color", CONST.LABEL.COLOR),
-        stroke: val("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
-        strokeWidth: parseFloat(val("--heatmap-label-stroke-width", "3")),
+        font: `${css("--heatmap-label-font-weight")} ${css("--heatmap-label-font-size")} ${css("--heatmap-label-font-family")}`,
+        color: css("--heatmap-label-color"),
+        stroke: css("--heatmap-label-stroke-color"),
+        strokeWidth: parseFloat(css("--heatmap-label-stroke-width")),
       };
       return this.cachedLabelStyle;
     }
@@ -348,21 +348,22 @@
     }
 
     collectFields(layers) {
-      const fields = {};
+      const fields = [];
+      const seen = new Set();
       layers.forEach((info) => {
         foliplus.LayerAPI.extractPoints(info.id).forEach((pt) => {
           const m = pt.marker;
-          if (typeof m.value === "number") fields.value = true;
-          if (typeof m.options?.value === "number") fields["options.value"] = true;
           if (m.feature?.properties) {
             Object.keys(m.feature.properties).forEach((k) => {
-              if (typeof m.feature.properties[k] === "number")
-                fields[`properties.${k}`] = true;
+              if (typeof m.feature.properties[k] === "number" && !seen.has(k)) {
+                seen.add(k);
+                fields.push(`properties.${k}`);
+              }
             });
           }
         });
       });
-      return Object.keys(fields);
+      return fields;
     }
 
     pickAutoField(fields) {
@@ -861,6 +862,7 @@
         ) {
           this.schemeDropdown.remove();
           this.schemeDropdown = null;
+          this.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
           document.removeEventListener("click", this.closeSchemeDropdown);
         }
       };
@@ -978,6 +980,7 @@
           this.extraBody.classList.add(CONST.CLASSES.HIDDEN);
           this.container.classList.remove(CONST.CLASSES.EXPANDED);
           this.container.classList.add(CONST.CLASSES.COLLAPSED);
+          foliplus.adjustPanelZIndex({ container: this.container, expanded: false });
         },
       });
       foliplus.dom.el("button", {
@@ -988,6 +991,7 @@
           this.m.renderHexagons();
           this.container.classList.remove(CONST.CLASSES.EXPANDED);
           this.container.classList.add(CONST.CLASSES.COLLAPSED);
+          foliplus.adjustPanelZIndex({ container: this.container, expanded: false });
         },
       });
     }
@@ -1145,8 +1149,10 @@
       if (this.schemeDropdown) {
         this.schemeDropdown.remove();
         this.schemeDropdown = null;
+        this.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
         return;
       }
+      this.schemeBar.classList.add(CONST.CLASSES.SCHEME_BAR_OPEN);
       this.schemeDropdown = foliplus.dom.el("div", {
         class: CONST.CLASSES.SCHEME_DROPDOWN,
         role: "listbox",
@@ -1206,6 +1212,7 @@
         } else if (e.key === "Escape") {
           this.schemeDropdown.remove();
           this.schemeDropdown = null;
+          this.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
           this.schemeBar.focus();
         }
       };
@@ -1218,6 +1225,7 @@
       if (this.schemeDropdown) {
         this.schemeDropdown.remove();
         this.schemeDropdown = null;
+        this.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
       }
       this.m.renderHexagons();
       this.schemeBar.focus();

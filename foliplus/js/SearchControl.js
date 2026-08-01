@@ -453,11 +453,13 @@
         if (this.ctrl.classList.contains(CONST.CLASSES.EXPANDED)) {
           this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
           this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+          foliplus.adjustPanelZIndex({ container: this.ctrl, expanded: false });
           foliplus.hideHint(CONST.name);
           this.removeSuggestions();
         } else {
           this.ctrl.classList.remove(CONST.CLASSES.COLLAPSED);
           this.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+          foliplus.adjustPanelZIndex({ container: this.ctrl, expanded: true });
           this.inp.focus();
         }
       };
@@ -495,6 +497,7 @@
           }
           this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
           this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+          foliplus.adjustPanelZIndex({ container: this.ctrl, expanded: false });
           foliplus.hideHint(CONST.name);
           return;
         }
@@ -509,7 +512,9 @@
             el.classList.toggle(CONST.CLASSES.ACTIVE, i === this.selectedSuggestionIdx),
           );
           if (items[this.selectedSuggestionIdx])
-            this.inp.value = items[this.selectedSuggestionIdx].textContent;
+            this.inp.value = items[this.selectedSuggestionIdx].querySelector(
+              `.${CONST.CLASSES.SUGGESTION_TEXT}`,
+            ).textContent;
           return;
         }
         if (e.key === "ArrowUp" && this.suggestionsWrap) {
@@ -520,7 +525,9 @@
             el.classList.toggle(CONST.CLASSES.ACTIVE, i === this.selectedSuggestionIdx),
           );
           if (this.selectedSuggestionIdx >= 0 && items[this.selectedSuggestionIdx])
-            this.inp.value = items[this.selectedSuggestionIdx].textContent;
+            this.inp.value = items[this.selectedSuggestionIdx].querySelector(
+              `.${CONST.CLASSES.SUGGESTION_TEXT}`,
+            ).textContent;
           return;
         }
         if (e.key === "Enter") {
