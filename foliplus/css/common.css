@@ -443,11 +443,10 @@
   flex-direction: row-reverse;
 }
 
-/* ── Leaflet attribution styling ──
-  Match ScaleControl's rounded, translucent look for visual consistency. */
+/* ── Leaflet attribution & foliplus scale wrapper styling ──
+  Shared rounded, translucent look for the bottom-corner controls. */
+.leaflet-control.foliplus-scale-wrap,
 .leaflet-control-attribution {
-  white-space: nowrap;
-  display: inline-flex;
   border-radius: var(--radius-sm);
   background: var(--ctrl-bg-translucent);
   border: var(--border-thin) solid var(--divider-color);
