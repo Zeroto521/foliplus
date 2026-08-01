@@ -1,4 +1,5 @@
 (function () {
+  // ==================== Constants ====================
   const CONST = {
     name: "ExportControl",
     position: "{{ this.position }}",
@@ -9,7 +10,11 @@
     STORAGE: {
       KEY: "foliplus_export_rect",
     },
-    URL_REVOKE_DELAY: 10000,
+    TIMING: {
+      URL_REVOKE_DELAY: 10000,
+      TIMEOUT: {{ this.timeout }},
+      PREVIEW_REMOVE: 3000,
+    },
     SCALE: {{ this.scale }},
     BACKGROUND: {{ '"' + this.background + '"' if this.background else "null" }},
     FILENAME: "{{ this.filename }}",
@@ -17,13 +22,33 @@
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
       EXPORT_MODE: "foliplus-export-mode",
+      OVERLAY: "foliplus-export-overlay",
+      BOX: "foliplus-export-box",
+      HANDLE: "foliplus-export-handle",
+      CENTER: "foliplus-export-center",
+      ACTIONS: "foliplus-export-actions",
+      PREVIEW: "foliplus-export-preview",
+      HIDDEN: "foliplus-export-hidden",
+      LOCKED: "locked",
+      ACTIVE: "active",
+      CONFIRM: "confirm",
+      CANCEL: "cancel",
+    },
+    SEL: {
+      HANDLE: ".foliplus-export-handle",
+      CENTER: ".foliplus-export-center",
+      BOX: ".foliplus-export-box",
+      CONFIRM: ".foliplus-export-actions .confirm",
+      CANCEL: ".foliplus-export-actions .cancel",
+      CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
+      CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
     },
   };
 
   // ==================== Runtime Guard ====================
   const foliplus = window.foliplus || {};
   if (!foliplus || !foliplus.SVGs) {
-    console.error(`[${CONST.name}] ${_(`${CONST.name}.err_runtime`)}`);
+    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
@@ -31,6 +56,7 @@
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
+  // ==================== SVG Icons ====================
   const SVGS = {
     CAMERA: `
       <svg viewBox="0 0 24 24">
@@ -38,11 +64,11 @@
         <circle cx="12" cy="13" r="4"/>
       </svg>`,
     CHECK: `
-      <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.8">
+      <svg viewBox="0 0 24 24" stroke-width="2.8">
         <polyline points="20 6 9 17 4 12"/>
       </svg>`,
     DOWNLOAD: `
-      <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2">
+      <svg viewBox="0 0 24 24" stroke-width="2">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="7 10 12 15 17 10"/>
         <line x1="12" y1="15" x2="12" y2="3"/>
@@ -282,11 +308,7 @@
         }
       }
 
-      console.warn(
-        `[${CONST.name}] ${_(`${CONST.name}.dbg_images`).replace("{ok}", imgOk).replace("{fail}", imgFail)}`,
-      );
-
-      // Layer 2: SVG overlay — search ALL panes for SVG elements.
+      // Layer 2: SVG overlay — serialize Leaflet's <svg> → Blob URL → Image.
       // Leaflet's SVG layers have viewBox = "0 0 <w> <h>" and paths
       // are positioned in container-relative pixel coordinates.
       // We serialize each SVG, set explicit width/height (keeping viewBox),
@@ -312,9 +334,6 @@
         let src = new XMLSerializer().serializeToString(clone);
         const xmlns = 'xmlns="http://www.w3.org/2000/svg"';
         if (!src.includes(xmlns)) src = src.replace("<svg", `<svg ${xmlns}`);
-        console.warn(
-          `[${CONST.name}] ${_(`${CONST.name}.dbg_svg_pane`).replace("{pane}", pane.className).replace("{len}", src.length)}`,
-        );
         if (src.length < 100) continue;
 
         const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
@@ -345,10 +364,6 @@
           URL.revokeObjectURL(url);
         }
       }
-      console.warn(
-        `[${CONST.name}] ${_(`${CONST.name}.dbg_svg_drawn`).replace("{count}", svgCount)}`,
-      );
-
       // Layer 3: Canvas — capture managed canvas elements (e.g. HeatmapControl
       // hexbin canvas) that live in .leaflet-map-pane with position offset.
       // These are positioned via left/top to cancel the mapPane CSS transform,
@@ -387,30 +402,12 @@
           // Canvas may be tainted; skip silently
         }
       }
-      console.warn(
-        `[${CONST.name}] ${_(`${CONST.name}.dbg_canvas_drawn`).replace("{count}", canvasCount)}`,
-      );
-
       // Restore lifecycle hooks after capture
       for (const ce of canvasEls) if (ce._hooks) ce._hooks.after.forEach((fn) => fn());
 
       // Layer 4: Markers — draw each element with background-image
-      // direct sprite cropping via createImageBitmap (always origin-clean).
-      //
-      // Formula:
-      //   spriteCSS_W = background-size CSS pixel width (natural if 'auto')
-      //   ratio = spriteNaturalWidth / spriteCSS_W
-      //   sourceX = abs(background-position-x) * ratio
-      //   sourceY = abs(background-position-y) * ratio
-      //   sourceW = renderWidth * ratio
-      //   sourceH = renderHeight * ratio
-      //
-      // Collect drawable marker elements (roots + sub-elements with bg)
       const drawableEls = [];
       const mp = this.container.querySelector(".leaflet-marker-pane");
-      console.warn(
-        `[${CONST.name}] ${_(`${CONST.name}.dbg_marker_pane`).replace("{found}", !!mp)}`,
-      );
       const markerRoots = mp
         ? mp.querySelectorAll(
             '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
@@ -418,9 +415,6 @@
         : this.container.querySelectorAll(
             '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
           );
-      console.warn(
-        `[${CONST.name}] ${_(`${CONST.name}.dbg_marker_roots`).replace("{count}", markerRoots.length)}`,
-      );
       for (const root of markerRoots) {
         drawableEls.push(root);
         for (const sub of root.querySelectorAll("*")) {
@@ -433,9 +427,6 @@
             drawableEls.push(sub);
         }
       }
-      console.warn(
-        `[${CONST.name}] ${_(`${CONST.name}.dbg_marker_total`).replace("{count}", drawableEls.length)}`,
-      );
       // First pass: load unique sprites
       const spriteMap = new Map();
       const loadQueue = [];
@@ -458,10 +449,6 @@
       }
       await Promise.all(loadQueue);
       // Second pass: draw sprite backgrounds
-      let markerOk = 0,
-        markerFail = 0;
-      // Store drawn marker root positions for FontAwesome overlay
-      const drawnMarkers = []; // {dx, dy, dw, dh, root}
       for (const el of drawableEls) {
         const r = el.getBoundingClientRect();
         const l = r.left - contRect.left;
@@ -480,10 +467,7 @@
         const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
         if (!m) continue;
         const sprite = spriteMap.get(m[1]);
-        if (!sprite) {
-          markerFail++;
-          continue;
-        }
+        if (!sprite) continue;
         const bgs = cs.backgroundSize || "auto";
         const bgsParts = bgs.trim().split(/\s+/);
         let cssBgW, cssBgH;
@@ -506,21 +490,13 @@
         const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
         const sw = w * ratioX;
         const sh = h * ratioY;
-        if (sx + sw > sprite.width || sy + sh > sprite.height) {
-          markerFail++;
-          continue;
-        }
+        if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
         try {
           ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-          markerOk++;
-        } catch {
-          markerFail++;
-        }
+        } catch { /* skip */ }
       }
 
-      // Layer 3b: FontAwesome icons — draw ::before pseudo-element text
-      // for each marker root's <i> element (the icon inside the pin).
-      let faCount = 0;
+      // FontAwesome icons — draw ::before pseudo-element text
       for (const root of markerRoots) {
         const r = root.getBoundingClientRect();
         const l = r.left - contRect.left;
@@ -533,57 +509,27 @@
         const dw = w * scale;
         const dh = h * scale;
         if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
-
-        // Find the <i> icon element inside the marker
         const iconEl = root.querySelector("i");
         if (!iconEl) continue;
-
-        // Read ::before pseudo-element styles
         const before = window.getComputedStyle(iconEl, "::before");
         const content = before.content;
-        console.warn(
-          `[${CONST.name}] ${_(`${CONST.name}.dbg_fa_icon`).replace("{cls}", iconEl.className).replace("{c}", content).replace("{f}", before.fontFamily).replace("{s}", before.fontSize).replace("{clr}", before.color)}`,
-        );
-
-        // FontAwesome uses CSS content like "\f276" for glyph codepoints.
-        // Browser returns content as '"\\f276"' (quoted + escaped).
         let iconText = "";
         if (content && content !== "none") {
-          const raw = content.replace(/['"]/g, ""); // "\\f276" -> \\f276
-          // Try direct unicode (FontAwesome 5+ ligature mode)
+          const raw = content.replace(/['"]/g, "");
           if (raw.length === 1) iconText = raw;
-          // Try escaped codepoint (FontAwesome 4.7 style)
           const match = raw.match(/^\\([0-9a-fA-F]+)/);
           if (match) iconText = String.fromCharCode(parseInt(match[1], 16));
-
-          // Try '\\XXXX' (double-escaped from getComputedStyle)
           const match2 = raw.match(/^\\\\f([0-9a-fA-F]+)/);
           if (match2) iconText = String.fromCharCode(parseInt("f" + match2[1], 16));
         }
-        console.warn(
-          `[${CONST.name}] ${_(`${CONST.name}.dbg_fa_parsed`).replace("{text}", JSON.stringify(iconText)).replace("{len}", iconText.length)}`,
-        );
-
-        // Get icon styles from the <i> element (font-family, size, color)
         const iconCS = window.getComputedStyle(iconEl);
         let fontSize = parseFloat(iconCS.fontSize) || 14;
-        let fontFamily = iconCS.fontFamily || "FontAwesome";
+        const fontFamily = iconCS.fontFamily || "FontAwesome";
         const color = iconCS.color || "#fff";
-        // FontAwesome 6 Solid requires weight 900; get it from ::before
         let fontWeight = before.fontWeight || iconCS.fontWeight || "900";
         if (fontWeight === "normal") fontWeight = "400";
         if (fontWeight === "bold") fontWeight = "700";
-
-        // getComputedStyle already returns the font-family as a CSS-safe value
-        // (may include quotes for names with spaces). Do NOT add extra quotes.
-
-        // Center the icon within the marker
-        let iconDX = dx;
-        let iconDY = dy;
-        let iconDW = dw;
-        let iconDH = dh;
-
-        // If the <i> has its own positioning, use the iconEl's rect
+        let iconDX = dx, iconDY = dy, iconDW = dw, iconDH = dh;
         const ir = iconEl.getBoundingClientRect();
         const il = ir.left - contRect.left;
         const it = ir.top - contRect.top;
@@ -593,43 +539,20 @@
           iconDW = ir.width * scale;
           iconDH = ir.height * scale;
         }
-
-        // Scale font size for high-DPI
-        fontSize = fontSize * scale;
-
-        // Ensure font is loaded in canvas context before drawing.
-        // FontAwesome loads asynchronously via @font-face; without this
-        // wait, canvas fillText may render a blank/tofu glyph.
+        fontSize *= scale;
         const fontSpec = fontWeight + " " + fontSize + "px " + fontFamily;
-        try {
-          await document.fonts.load(fontSpec);
-        } catch {
-          /* font may not load, try drawing anyway */
-        }
-        // If still not loaded, wait for ready
+        try { await document.fonts.load(fontSpec); } catch { /* try anyway */ }
         if (!document.fonts.check(fontSpec)) {
-          try {
-            await document.fonts.ready;
-          } catch {}
+          try { await document.fonts.ready; } catch { /* skip */ }
         }
-
         ctx.save();
         ctx.font = fontSpec;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = color;
-
-        // Center text in the icon area
-        const cx = iconDX + iconDW / 2;
-        const cy = iconDY + iconDH / 2;
-        ctx.fillText(iconText, cx, cy);
+        ctx.fillText(iconText, iconDX + iconDW / 2, iconDY + iconDH / 2);
         ctx.restore();
-        faCount++;
       }
-      console.warn(
-        `[${CONST.name}] ${_(`${CONST.name}.dbg_fa_drawn`).replace("{count}", faCount)}`,
-      );
-
       return canvas;
     }
   }
@@ -810,9 +733,17 @@
         parent: cropBox,
       });
 
-      this.exportToolBar.innerHTML = `
-        <button class="confirm" title="${_(`${CONST.name}.btn_confirm`)}">${SVGS.CHECK}</button>
-        <button class="cancel" title="${_(`${CONST.name}.btn_cancel`)}">${foliplus.SVGs.CLOSE}</button>`;
+      this.exportToolBar.innerHTML = "";
+      foliplus.dom.el("button", {
+        class: `foliplus-tool-btn ${CONST.CLASSES.CONFIRM}`,
+        title: _(`${CONST.name}.btn_confirm`),
+        parent: this.exportToolBar,
+      }, { html: SVGS.CHECK });
+      foliplus.dom.el("button", {
+        class: `foliplus-tool-btn ${CONST.CLASSES.CANCEL}`,
+        title: _(`${CONST.name}.btn_cancel`),
+        parent: this.exportToolBar,
+      }, { html: foliplus.SVGs.CLOSE });
       this.exportCtrl.classList.remove(CONST.CLASSES.COLLAPSED);
       this.exportCtrl.classList.add(CONST.CLASSES.EXPANDED);
 
@@ -853,9 +784,17 @@
         };
       }
       this.cropState.geoBounds = this.cropState._savedGeoBounds;
-      this.cropState.actions.innerHTML = `
-        <button class="confirm" title="${_(`${CONST.name}.btn_export`)}">${SVGS.DOWNLOAD}</button>
-        <button class="cancel" title="${_(`${CONST.name}.btn_cancel`)}">${foliplus.SVGs.CLOSE}</button>`;
+      this.cropState.actions.innerHTML = "";
+      foliplus.dom.el("button", {
+        class: `foliplus-tool-btn ${CONST.CLASSES.CONFIRM}`,
+        title: _(`${CONST.name}.btn_export`),
+        parent: this.cropState.actions,
+      }, { html: SVGS.DOWNLOAD });
+      foliplus.dom.el("button", {
+        class: `foliplus-tool-btn ${CONST.CLASSES.CANCEL}`,
+        title: _(`${CONST.name}.btn_cancel`),
+        parent: this.cropState.actions,
+      }, { html: foliplus.SVGs.CLOSE });
       this.cropState.actions.querySelector(".cancel").onclick = (e) => {
         e.stopPropagation();
         this.unlockCropBox();
@@ -874,9 +813,17 @@
       this.cropState.locked = false;
       this.cropState.box.classList.remove("locked");
       this.map.off("move zoom", this.onMapChange);
-      this.cropState.actions.innerHTML = `
-        <button class="confirm" title="${_(`${CONST.name}.btn_confirm`)}">${SVGS.CHECK}</button>
-        <button class="cancel" title="${_(`${CONST.name}.btn_cancel`)}">${foliplus.SVGs.CLOSE}</button>`;
+      this.cropState.actions.innerHTML = "";
+      foliplus.dom.el("button", {
+        class: `foliplus-tool-btn ${CONST.CLASSES.CONFIRM}`,
+        title: _(`${CONST.name}.btn_confirm`),
+        parent: this.cropState.actions,
+      }, { html: SVGS.CHECK });
+      foliplus.dom.el("button", {
+        class: `foliplus-tool-btn ${CONST.CLASSES.CANCEL}`,
+        title: _(`${CONST.name}.btn_cancel`),
+        parent: this.cropState.actions,
+      }, { html: foliplus.SVGs.CLOSE });
       this.cropState.actions.querySelector(".cancel").onclick = (e) => {
         e.stopPropagation();
         this.removeCropBox();
@@ -1157,25 +1104,24 @@
     }
   }
 
-  // ==================== Instance and Leaflet Control ====================
+  // ==================== Leaflet Control ====================
   const exportManager = new ExportManager(map);
 
-  const ControlClass = L.Control.extend({
-    onAdd: () => {
+  class ExportControl extends L.Control {
+    onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
-        cssClass: "foliplus-export-ctrl",
+        cssClass: `foliplus-export-ctrl`,
         toggleTitle: _(`${CONST.name}.btn_title`),
         toggleSvg: SVGS.CAMERA,
         isLeft: CONST.position.indexOf("left") >= 0,
       });
-      toolBar.classList.add("foliplus-export-actions");
+      toolBar.classList.add(CONST.CLASSES.ACTIONS);
       exportManager.attachUI(ctrl, toolBar);
       toggleBtn.onclick = () => {
         if (exportManager.cropState) {
           exportManager.removeCropBox();
         } else if (exportManager.savedBounds) {
           exportManager.showCropBox();
-          // Restore exact geo bounds without recalculating from screen rect
           requestAnimationFrame(() => {
             if (exportManager.cropState && !exportManager.cropState.locked) {
               exportManager.cropState._savedGeoBounds = {
@@ -1200,13 +1146,12 @@
         } else exportManager.showCropBox();
       };
       return container;
-    },
-    onRemove: () => {
+    }
+    onRemove() {
       if (exportManager.cropState) exportManager.removeCropBox();
-      if (exportManager.onKeyDown)
-        document.removeEventListener("keydown", exportManager.onKeyDown);
-    },
-  });
+      document.removeEventListener("keydown", exportManager.onKeyDown);
+    }
+  }
 
-  new ControlClass({ position: CONST.position }).addTo(map);
+  new ExportControl({ position: CONST.position }).addTo(map);
 })();
