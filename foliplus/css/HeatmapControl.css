@@ -224,7 +224,7 @@
   transition: background var(--transition-fast);
 }
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-dropdown-item:hover {
-  background: var(--ctrl-hover-bg);
+  background: var(--accent-light);
 }
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-dropdown-item.active {
   background: var(--accent-light);
@@ -352,7 +352,7 @@
   .foliplus-heatmap-toggle-switch
   input:checked
   + .foliplus-heatmap-toggle-slider::before {
-  transform: translateX(var(--size-20));
+  transform: translateX(var(--size-20)) scale(1.15);
 }
 
 /* ── Bottom Buttons ── */
