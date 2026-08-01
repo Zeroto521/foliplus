@@ -322,6 +322,18 @@
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-hint);
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
+  animation: hint-in 0.2s ease-out;
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .foliplus-hint-icon {

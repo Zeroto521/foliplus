@@ -142,21 +142,35 @@
 /* ── Measurement Labels ── */
 .foliplus-measure-label {
   display: inline-block;
-  backdrop-filter: blur(6px);
-  background: rgba(0, 0, 0, var(--alpha-30));
+  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, var(--alpha-50));
   color: var(--neutral-0);
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
+  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
   font-size: var(--font-size-sm);
   white-space: nowrap;
   text-align: center;
   pointer-events: none;
   box-shadow: var(--shadow-xs);
   transform: translateX(-50%);
+  animation: measure-label-in 0.2s ease-out;
+}
+
+@keyframes measure-label-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 /* Radius label is centered on the midpoint horizontally and vertically */
 .foliplus-measure-label-radius {
   transform: translate(-50%, -50%);
+  animation: none;
 }
 /* ── Floating Delete Icon ── */
 .foliplus-measure-del-icon {
