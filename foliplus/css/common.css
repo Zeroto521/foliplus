@@ -271,6 +271,33 @@
   transform: scale(var(--scale-press));
 }
 
+/* ── All buttons: keyboard focus indicator ──
+  Shows a red outline ring when focused via keyboard (Tab).
+  Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-btn
+):focus-visible {
+  outline: var(--border-thick) solid var(--accent-primary);
+  outline-offset: var(--border-thin);
+  border-radius: var(--radius-sm);
+}
+
+/* ── All buttons: disabled state ──
+  Grayed out, no hover/active feedback, no pointer events. */
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-btn
+):disabled {
+  opacity: var(--alpha-30);
+  pointer-events: none;
+  transform: none;
+}
+
 /* ── Button hover/active SVG scale ──
   SVG-level parallax for buttons that also have button-level scale.
   toggle-btn added via expanded context for fold controls. */
