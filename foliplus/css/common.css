@@ -94,6 +94,7 @@
   --scale-press: 0.92;
   --scale-hover: 1.08;
   --icon-size-sm: var(--size-16);
+  --icon-size-xs: 14px;
   --icon-size-md: 18px;
   --stroke-icon: 1.8;
 

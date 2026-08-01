@@ -140,8 +140,8 @@
   transform: scale(var(--scale-press));
 }
 .foliplus-layer-ctrl .foliplus-layer-fold-btn svg {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-size-xs);
+  height: var(--icon-size-xs);
   fill: none;
   stroke: currentColor;
   stroke-width: var(--stroke-icon);

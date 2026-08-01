@@ -26,7 +26,7 @@
     rgba(var(--red-rgb), var(--alpha-50));
   --heatmap-label-width: 85px;
   --heatmap-select-pad-right: var(--space-xxl);
-  --heatmap-inline-height: 18px;
+  --heatmap-inline-height: var(--icon-size-md);
   --heatmap-inline-width: 52px;
   --heatmap-toggle-width: 40px;
   --heatmap-toggle-height: var(--size-20);
