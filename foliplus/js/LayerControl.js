@@ -1191,13 +1191,15 @@
         this.uiContainer.innerHTML = "";
         this.uiContainer = null;
       }
+      // Only remove this instance's layers from the shared registry so other
+      // controls (e.g. HeatmapControl) are not affected.
+      for (const l of this.layers) LayerManager.registry.delete(l.id);
       this.layers = [];
       this.typeMap.clear();
       this.layerCallbacks.clear();
       this.pendingRegistrations = [];
       this.paneCache.clear();
       this.ui = null;
-      LayerManager.registry.clear();
       if (foliplus.LayerAPI === this) foliplus.LayerAPI = null;
     }
   }
