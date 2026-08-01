@@ -472,11 +472,21 @@ class TestMeasureControlRendering:
         assert "className" in html
 
     def test_circle_label_centered(self, base_map: folium.Map):
-        """Circle radius labels use LABEL.ANCHOR at midpoint."""
+        """Circle radius labels use centered anchor at midpoint."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "LABEL.ANCHOR" in html
         assert "CLASS_RADIUS" in html
+        assert "RADIUS_ANCHOR" in html
+
+    def test_restore_circle_label_uses_centered_anchor(self, base_map: folium.Map):
+        """Restored circle labels stay centered at the radius midpoint."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        restore_pos = html.find("restoreCircle(m)")
+        anchor_pos = html.find("RADIUS_ANCHOR", restore_pos)
+        assert anchor_pos > restore_pos, (
+            "restoreCircle should use the centered anchor for radius labels"
+        )
 
     def test_make_node(self, base_map: folium.Map):
         """MeasureUtils.makeNode creates a circleMarker with MARKER_RADIUS."""

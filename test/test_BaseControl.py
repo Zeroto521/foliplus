@@ -283,3 +283,38 @@ class TestBaseControlRendering:
         assert "foliplus-panel-content" in html
         assert "foliplus.bindPanelToggle" in html
         assert "foliplus.bindOutsideCollapse" in html
+
+    def test_button_focus_visible_rule(self, base_map: folium.Map):
+        """common.css includes :focus-visible rule for all buttons."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert ":focus-visible" in html
+        assert "foliplus-toggle-btn" in html
+
+    def test_button_disabled_rule(self, base_map: folium.Map):
+        """common.css includes :disabled rule for all buttons."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert ":disabled" in html
+        assert "pointer-events: none" in html
+
+    def test_panel_max_height_variable(self, base_map: folium.Map):
+        """common.css defines --panel-max-height."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert "--panel-max-height" in html
+        assert "panel-max-height" in html
+
+    def test_unified_button_hover_border_radius(self, base_map: folium.Map):
+        """Unified button hover rule includes border-radius."""
+        from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert "border-radius: var(--radius-sm)" in html

@@ -228,6 +228,15 @@ class TestLayerControlRendering:
         # All items use drag handle (no more base-map-only spacer logic)
         assert "SVGs.DRAG_HANDLE" in html
 
+    def test_drag_tooltip_rendered(self):
+        """Drag handle has i18n drag_tooltip title."""
+        m = folium.Map()
+        LayerControl(locale="zh").add_to(m)
+        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
+        html = render(m)
+        assert "drag_tooltip" in html
+        assert "拖拽排序" in html
+
     def test_draggable_all_items(self):
         """All layer items except color-layer-item have draggable=true."""
         m = folium.Map()
@@ -852,13 +861,20 @@ class TestLayerControlRendering:
         assert "color: var(--text-primary)" in css
 
     def test_fold_btn_background_transition(self):
-        """Fold button transitions color, background, and transform."""
+        """Fold button transitions color and transform (background removed — no bg to transition)."""
         css = Path("foliplus/css/LayerControl.css").read_text()
         # Find the base fold-btn rule (not the folded or hover variants)
         idx = css.find(".foliplus-layer-ctrl .foliplus-layer-fold-btn {\n")
         assert idx != -1
         block = css[idx : css.index("}", idx) + 1]
-        assert "background var(--transition-fast)" in block
+        # Find the transition property value (between "transition:" and the next property)
+        t_idx = block.find("transition:")
+        assert t_idx != -1, "transition property not found"
+        t_end = block.find("\n  }", t_idx)
+        trans_val = block[t_idx:t_end]
+        assert "background var(--transition-fast)" not in trans_val
+        assert "color var(--transition-fast)" in trans_val
+        assert "transform var(--transition-fast)" in trans_val
 
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
@@ -891,7 +907,7 @@ class TestLayerControlRendering:
     def test_drag_pulse_css_keyframes(self):
         """CSS defines drag-pulse keyframes with variable-driven values."""
         css = Path("foliplus/css/LayerControl.css").read_text()
-        assert "@keyframes drag-pulse" in css
+        assert "@keyframes foliplus-drag-pulse" in css
         assert "var(--drag-border-from" in css
         assert "var(--drag-border-to" in css
         assert "var(--drag-shadow-from" in css

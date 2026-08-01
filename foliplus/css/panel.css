@@ -78,14 +78,11 @@
   align-items: center;
   justify-content: center;
   margin-right: var(--space-sm);
-  position: relative;
-  left: 0;
 }
 
 .foliplus-panel .foliplus-panel-header .foliplus-header-title {
   display: flex;
   align-items: center;
-  gap: 0;
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -100,5 +97,4 @@
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0;
 }

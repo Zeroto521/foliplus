@@ -49,6 +49,7 @@
       SIZE: [24, 36],
       ANCHOR: [12, 36],
       POPUP_ANCHOR: [0, -36],
+      Z_OFFSET: 10000,
     },
     POPUP: {
       MAX_WIDTH: 300,
@@ -137,7 +138,7 @@
       <div class="foliplus-pin">
         <svg width="24" height="36" viewBox="0 0 24 36">
           <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
-              fill="#e74c3c" stroke="#fff" stroke-width="1.5"/>
+              fill="currentColor" stroke="#fff" stroke-width="1.5"/>
         <circle cx="12" cy="12" r="4.5" fill="#fff"/>
         </svg>
       </div>`,
@@ -664,6 +665,7 @@
         iconAnchor: CONST.PIN.ANCHOR,
         popupAnchor: CONST.PIN.POPUP_ANCHOR,
       }),
+      zIndexOffset: CONST.PIN.Z_OFFSET,
     });
     target.addLayer(marker);
     marker.bindPopup(
@@ -671,6 +673,14 @@
       { maxWidth: CONST.POPUP.MAX_WIDTH },
     );
     marker.openPopup();
+    // Add title to Leaflet's popup close button for hover tooltip.
+    // Use window._LOCALE directly since _() may not be available in runtime.js context.
+    const closeLabel = foliplus.gt("LayerControl.close_label");
+    const popupEl = marker.getPopup();
+    if (popupEl) {
+      const closeBtn = popupEl._closeButton;
+      if (closeBtn) closeBtn.title = closeLabel;
+    }
     if (!addr) {
       foliplus.reverseGeocode(map, lng, lat).then((resolved) => {
         if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
