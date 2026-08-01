@@ -289,25 +289,23 @@ class TestLayerControlRendering:
         assert "var(--radius-sm)" in html
         assert "var(--transition-fast)" in html
 
-    def test_marker_skip_in_set_layer_pane(self, base_map: folium.Map):
-        """setLayerPaneRecursive skips Markers but moves TileLayers.
-
-        Markers stay in markerPane to preserve shadow rendering.
-        TileLayers are moved to custom panes for proper z-ordering.
-        """
+    def test_marker_not_skipped_in_set_layer_pane(self, base_map: folium.Map):
+        """setLayerPaneRecursive moves Markers to per-layer panes for correct z-order."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "l instanceof L.Marker" in html
-        assert "if (layer instanceof L.TileLayer) return" not in html
-        assert "icon instanceof L.divIcon" not in html
+        # The old `if (l instanceof L.Marker) return;` skip is removed from
+        # setLayerPaneRecursive; markers now move to per-layer fallback panes.
+        assert "l instanceof L.Marker" in html  # still in extractPoints
+        # Markers are now also moved: check for marker icon migration
+        assert "l._icon" in html
 
     def test_enforce_order_skips_no_pane(self, base_map: folium.Map):
-        """enforceOrder assigns fallback _lyr_ pane for non-paneName layers."""
+        """enforceOrder assigns fallback foliplus_pane_ for non-paneName layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus_pane_" in html
         assert "setLayerPaneRecursive" in html
-        assert "mp.style.zIndex = markerZ" in html or "mp.style.zIndex" in html
+        assert "FALLBACK_PANE_PREFIX" in html
 
     def test_enforce_order_still_processes_registered_layers(
         self, base_map: folium.Map
@@ -357,18 +355,17 @@ class TestLayerControlRendering:
         pane_lines = [l for l in html.split("\n") if "paneSet" in l]
         assert any("true" in l for l in pane_lines)
 
-    def test_marker_pane_zindex_synced(self, base_map: folium.Map):
-        """enforceOrder syncs markerPane and shadowPane z-index for non-paneName layers."""
+    def test_markers_moved_to_per_layer_fallback_pane(self, base_map: folium.Map):
+        """Markers are moved to per-layer fallback panes instead of shared markerPane."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert (
-            'this.map.getPane("markerPane")' in html
-            or "this.map.getPane('markerPane')" in html
-        )
-        assert "mp.style.zIndex = markerZ" in html
-        # shadowPane is synced one step below markerPane
-        assert 'this.map.getPane("shadowPane")' in html
-        assert "sp.style.zIndex = markerZ - 1" in html
+        # Markers are now moved to their layer's fallback pane
+        assert "l instanceof L.Marker" in html
+        assert "l._icon" in html
+        # The fallback pane mechanism is used for all non-pane layers
+        assert "FALLBACK_PANE_PREFIX" in html
+        # shadowPane z-index sync removed — markers get per-layer panes
+        assert "sp.style.zIndex" not in html or "markerZ" not in html
 
     def test_default_panes_use_set(self, base_map: folium.Map):
         """isDefaultPane uses a Set for default pane lookup."""
@@ -952,11 +949,11 @@ class TestLayerControlRendering:
         assert "L.Marker || l instanceof L.CircleMarker" in html
 
     def test_extract_points_dedup_by_stamp(self, base_map: folium.Map):
-        """extractPoints deduplicates markers by L.stamp."""
+        """extractPoints deduplicates markers by L.stamp using Set."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "seen[stamp]" in html
-        assert "seen[stamp] = true" in html
+        assert "seen.has(stamp)" in html
+        assert "seen.add(stamp)" in html
 
     def test_for_each_leaf_api_exposed(self, base_map: folium.Map):
         """forEachLeaf is exposed on foliplus.LayerAPI."""
