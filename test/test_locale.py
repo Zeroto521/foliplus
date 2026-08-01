@@ -87,6 +87,7 @@ _JS_USED_KEYS = {
     "LayerControl.toggle_all_deselect_tooltip",
     "LayerControl.select_tooltip",
     "LayerControl.deselect_tooltip",
+    "LayerControl.drag_tooltip",
     # SearchControl
     "SearchControl.btn_title",
     "SearchControl.mode_coord",

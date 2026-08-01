@@ -65,6 +65,7 @@
   "LayerControl.toggle_all_deselect_tooltip": "隐藏全部",
   "LayerControl.select_tooltip": "显示",
   "LayerControl.deselect_tooltip": "隐藏",
+  "LayerControl.drag_tooltip": "拖拽排序",
   "SearchControl.coord_placeholder": "请输入：经度,纬度",
   "SearchControl.addr_placeholder": "请输入地址关键词",
   "SearchControl.coord_error": "格式错误，请输入：经度,纬度",

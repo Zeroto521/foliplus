@@ -65,6 +65,7 @@
   "LayerControl.toggle_all_deselect_tooltip": "Deselect all",
   "LayerControl.select_tooltip": "Select",
   "LayerControl.deselect_tooltip": "Deselect",
+  "LayerControl.drag_tooltip": "Drag to reorder",
   "SearchControl.coord_placeholder": "Please enter: longitude,latitude",
   "SearchControl.addr_placeholder": "Please enter an address keyword",
   "SearchControl.coord_error": "Invalid format. Please enter: longitude,latitude",
