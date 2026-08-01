@@ -357,6 +357,19 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "panel-shadow" in html
 
+    def test_css_scheme_dropdown_hover(self, base_map: folium.Map):
+        """Scheme dropdown items use accent-light on hover."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "scheme-dropdown-item:hover" in html
+        assert "accent-light" in html
+
+    def test_css_toggle_knob_scale(self, base_map: folium.Map):
+        """Toggle knob has scale(1.15) on checked state."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "scale(1.15)" in html
+
     def test_agg_select_options(self, base_map: folium.Map):
         """Aggregation method select has all 6 options."""
         HeatmapControl().add_to(base_map)
