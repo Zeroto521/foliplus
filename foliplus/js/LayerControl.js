@@ -146,8 +146,6 @@
     L.Path.prototype.bringToFront = origBringToFront;
   };
 
-  patchBringToFront();
-
   // ==================== Utility Class ====================
   class LayerUtils {
     static escapeHTML(str) {
@@ -450,13 +448,13 @@
      */
     extractPoints(id) {
       const pts = [];
-      const seen = {};
+      const seen = new Set();
       this.forEachLeaf(id, (l) => {
         if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
         if (!l.feature) return;
         const stamp = L.stamp(l);
-        if (seen[stamp]) return;
-        seen[stamp] = true;
+        if (seen.has(stamp)) return;
+        seen.add(stamp);
         const ll = l.getLatLng();
         pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
       });
@@ -955,19 +953,6 @@
       };
     }
 
-    // Core Sorting Engine
-    setLayerPaneRecursive(layer, paneName, renderer) {
-      // Skip Markers — both default icons (with shadow images) and divIcon.
-      // Moving them to a custom pane breaks their shadow positioning.
-      // They stay in Leaflet's default markerPane (z-index 600).
-      LayerUtils.forEachLayer(layer, (l) => {
-        if (l instanceof L.Marker) return;
-        l.options.pane = paneName;
-        l.options.paneSet = true;
-        if (l instanceof L.Path) l.options.renderer = renderer;
-      });
-    }
-
     /** Find all custom panes used by a container's tree.
      *  Results are cached by layer stamp; call `paneCache.clear()`
      *  when layer structure changes (register/unregister). */
@@ -1006,7 +991,6 @@
       this.isEnforcing = true;
       try {
         const layersToMove = [];
-        let markerZ = 0;
 
         for (let i = 0; i < this.layers.length; i++) {
           const li = this.layers[i];
@@ -1021,17 +1005,7 @@
           if (!hasLayer) continue;
 
           // 2. Apply z-index via the appropriate mechanism
-          const zInfo = this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
-          if (zInfo.markerZ) markerZ = Math.max(markerZ, zInfo.markerZ);
-        }
-
-        // Sync markerPane so unmanaged marker layers sit at correct z-order
-        if (markerZ > 0) {
-          const mp = this.map.getPane("markerPane");
-          if (mp) mp.style.zIndex = markerZ;
-          // Sync shadowPane so marker shadows render above managed content
-          const sp = this.map.getPane("shadowPane");
-          if (sp) sp.style.zIndex = markerZ - 1;
+          this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
         }
 
         // Bump popupPane and tooltipPane above all managed panes so popups and
@@ -1077,13 +1051,13 @@
         if (layer.options.pane !== paneName || !layer.options.paneSet)
           layersToMove.push({ layer, paneName, renderer: ep.renderer });
         this.bumpLabelPanes(layer, z);
-        return {};
+        return;
       }
 
       if (isTile && typeof layer.setZIndex === "function") {
         // --- Mechanism B: TileLayer (Leaflet's own API) ---
         layer.setZIndex(z);
-        return {};
+        return;
       }
 
       // --- Mechanism C: Auto-discovered / fallback panes ---
@@ -1096,7 +1070,7 @@
         });
         this.bumpLabelPanes(layer, z);
         layer.options.paneSet = true;
-        return {};
+        return;
       }
 
       // Unmanaged layer (GeoJSON, markers, etc.) → auto fallback pane
@@ -1106,32 +1080,55 @@
       ep.pane.style.zIndex = z;
       if (layer.options.pane !== fbName || !layer.options.paneSet)
         layersToMove.push({ layer, paneName: fbName, renderer: ep.renderer });
-      return { markerZ: z };
     }
 
     migrateLayers(layersToMove) {
       if (!layersToMove.length) return;
       // Group by renderer container so we can batch-append via DocumentFragment.
       const groups = new Map();
+      const markerGroups = new Map();
       for (const { layer, paneName, renderer } of layersToMove) {
         if (!paneName) continue;
-        this.setLayerPaneRecursive(layer, paneName, renderer);
         const container = renderer?._container;
         if (!container) continue;
+        // For markers, we need the pane div (not the SVG renderer container)
+        const paneEl = this.map.getPane(paneName);
         if (!groups.has(container)) groups.set(container, []);
+        // Single pass: set options + move DOM to avoid double traversal.
         const collect = (l) => {
+          l.options.pane = paneName;
+          l.options.paneSet = true;
+          if (l instanceof L.Path) l.options.renderer = renderer;
           if (l._path && l._path.parentNode !== container)
             groups.get(container).push(l._path);
+          // Move marker icon/shadow to the pane element (not SVG renderer)
+          if (l instanceof L.Marker && paneEl) {
+            if (l._shadow && l._shadow.parentNode !== paneEl) {
+              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+              markerGroups.get(paneEl).push(l._shadow);
+            }
+            if (l._icon && l._icon.parentNode !== paneEl) {
+              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+              markerGroups.get(paneEl).push(l._icon);
+            }
+          }
           if (l.eachLayer) l.eachLayer(collect);
         };
         collect(layer);
       }
-      // Batch-append per container to avoid repeated layout thrash
+      // Batch-append paths per container to avoid repeated layout thrash
       for (const [container, paths] of groups) {
         if (!paths.length) continue;
         const frag = document.createDocumentFragment();
         for (const p of paths) frag.appendChild(p);
         container.appendChild(frag);
+      }
+      // Batch-append markers per pane element
+      for (const [paneEl, markers] of markerGroups) {
+        if (!markers.length) continue;
+        const frag = document.createDocumentFragment();
+        for (const m of markers) frag.appendChild(m);
+        paneEl.appendChild(frag);
       }
     }
 
@@ -1194,13 +1191,15 @@
         this.uiContainer.innerHTML = "";
         this.uiContainer = null;
       }
+      // Only remove this instance's layers from the shared registry so other
+      // controls (e.g. HeatmapControl) are not affected.
+      for (const l of this.layers) LayerManager.registry.delete(l.id);
       this.layers = [];
       this.typeMap.clear();
       this.layerCallbacks.clear();
       this.pendingRegistrations = [];
       this.paneCache.clear();
       this.ui = null;
-      LayerManager.registry.clear();
       if (foliplus.LayerAPI === this) foliplus.LayerAPI = null;
     }
   }
@@ -1787,6 +1786,7 @@
     }
 
     onAdd() {
+      patchBringToFront();
       const container = foliplus.dom.el("div", {
         class: "leaflet-bar leaflet-control",
       });
