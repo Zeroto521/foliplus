@@ -512,7 +512,9 @@
             el.classList.toggle(CONST.CLASSES.ACTIVE, i === this.selectedSuggestionIdx),
           );
           if (items[this.selectedSuggestionIdx])
-            this.inp.value = items[this.selectedSuggestionIdx].textContent;
+            this.inp.value = items[this.selectedSuggestionIdx].querySelector(
+              `.${CONST.CLASSES.SUGGESTION_TEXT}`,
+            ).textContent;
           return;
         }
         if (e.key === "ArrowUp" && this.suggestionsWrap) {
@@ -523,7 +525,9 @@
             el.classList.toggle(CONST.CLASSES.ACTIVE, i === this.selectedSuggestionIdx),
           );
           if (this.selectedSuggestionIdx >= 0 && items[this.selectedSuggestionIdx])
-            this.inp.value = items[this.selectedSuggestionIdx].textContent;
+            this.inp.value = items[this.selectedSuggestionIdx].querySelector(
+              `.${CONST.CLASSES.SUGGESTION_TEXT}`,
+            ).textContent;
           return;
         }
         if (e.key === "Enter") {
