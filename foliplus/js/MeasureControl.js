@@ -28,6 +28,7 @@
     },
     LABEL: {
       ANCHOR: [0, -10],
+      RADIUS_ANCHOR: [0, 0],
       SIZE: [0, 0],
       CLASS: "foliplus-measure-label",
       CLASS_RADIUS: "foliplus-measure-label-radius",
@@ -789,7 +790,7 @@
           const previewLabel = L.marker(mid, {
             icon: MeasureUtils.makeLabelDivIcon(
               MeasureUtils.formatDistance(r),
-              CONST.DEL_ICON.ANCHOR,
+              CONST.LABEL.RADIUS_ANCHOR,
               CONST.LABEL.CLASS_RADIUS,
             ),
             interactive: false,
@@ -870,7 +871,7 @@
           L.marker([midLat, midLng], {
             icon: MeasureUtils.makeLabelDivIcon(
               MeasureUtils.formatDistance(r),
-              CONST.DEL_ICON.ANCHOR,
+              CONST.LABEL.RADIUS_ANCHOR,
               CONST.LABEL.CLASS_RADIUS,
             ),
             interactive: false,
@@ -1150,7 +1151,7 @@
         L.marker([midLat, midLng], {
           icon: MeasureUtils.makeLabelDivIcon(
             MeasureUtils.formatDistance(r),
-            CONST.LABEL.ANCHOR,
+            CONST.LABEL.RADIUS_ANCHOR,
             CONST.LABEL.CLASS_RADIUS,
           ),
           interactive: false,
