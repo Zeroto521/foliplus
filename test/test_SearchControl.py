@@ -153,9 +153,9 @@ class TestSearchControlRendering:
 
         common = Path("foliplus/css/common.css").read_text()
         search = Path("foliplus/css/SearchControl.css").read_text()
-        assert "@keyframes input-breathe" in common
+        assert "@keyframes foliplus-input-breathe" in common
         assert ".foliplus-search input" in common
-        assert "@keyframes input-breathe" not in search
+        assert "@keyframes foliplus-input-breathe" not in search
 
     def test_search_form_structure(self, base_map: folium.Map):
         """Search form has mode-btn, input, and clear."""

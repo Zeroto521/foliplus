@@ -67,7 +67,7 @@
   /* ── Effects ── */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
-  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-80));
+  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-70));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
 
   /* ── Typography ── */
@@ -94,6 +94,7 @@
   --scale-press: 0.92;
   --scale-hover: 1.08;
   --icon-size-sm: var(--size-16);
+  --icon-size-xs: 14px;
   --icon-size-md: 18px;
   --stroke-icon: 1.8;
 
@@ -139,7 +140,7 @@
 }
 
 /* ── Animations ── */
-@keyframes spin {
+@keyframes foliplus-spin {
   0% {
     transform: rotate(0deg);
   }
@@ -149,11 +150,11 @@
 }
 
 .foliplus-spin {
-  animation: spin 0.8s linear infinite;
+  animation: foliplus-spin 0.8s linear infinite;
   vertical-align: middle;
 }
 
-@keyframes input-breathe {
+@keyframes foliplus-input-breathe {
   0%,
   100% {
     box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
@@ -175,8 +176,9 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
-):focus {
-  animation: input-breathe 2s ease-in-out infinite;
+):focus,
+.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
+  animation: foliplus-input-breathe 2s ease-in-out infinite;
 }
 
 /* Respect reduced motion: disable breathing animation for all inputs */
@@ -187,7 +189,8 @@
     .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
     .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
     .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
-  ):focus {
+  ):focus,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
     animation: none;
   }
 }
@@ -255,6 +258,7 @@
 ):hover {
   background-color: var(--accent-light);
   color: var(--accent-primary);
+  border-radius: var(--radius-sm);
   transform: scale(var(--scale-hover));
 }
 
@@ -271,6 +275,33 @@
   transform: scale(var(--scale-press));
 }
 
+/* ── All buttons: keyboard focus indicator ──
+  Shows a red outline ring when focused via keyboard (Tab).
+  Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-btn
+):focus-visible {
+  outline: var(--border-thick) solid var(--accent-primary);
+  outline-offset: var(--border-thin);
+  border-radius: var(--radius-sm);
+}
+
+/* ── All buttons: disabled state ──
+  Grayed out, no hover/active feedback, no pointer events. */
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-btn
+):disabled {
+  opacity: var(--alpha-30);
+  pointer-events: none;
+  transform: none;
+}
+
 /* ── Button hover/active SVG scale ──
   SVG-level parallax for buttons that also have button-level scale.
   toggle-btn added via expanded context for fold controls. */
@@ -282,25 +313,24 @@
   transform: scale(var(--scale-press));
 }
 
-/* ── Toggle Button Base ── */
-.foliplus-toggle-btn {
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  min-width: var(--ctrl-size);
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-}
-
-/* ── Tool Button Base (used by MeasureControl toolbar, SearchControl mode switch) ── */
+/* ── Toggle Button / Tool Button Base ──
+  Shared sizing for all control buttons.
+  Toggle-btns have rounded corners; tool-btns have square corners (0). */
+.foliplus-toggle-btn,
 .foliplus-tool-btn,
 .foliplus-search-mode-btn {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   min-width: var(--ctrl-size);
   flex-shrink: 0;
-  border-radius: 0;
   color: var(--text-primary);
+}
+.foliplus-toggle-btn {
+  border-radius: var(--radius-sm);
+}
+.foliplus-tool-btn,
+.foliplus-search-mode-btn {
+  border-radius: 0;
 }
 
 /* ── Map Hint (Toast Notification) ── */
@@ -322,6 +352,18 @@
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-hint);
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
+  animation: foliplus-hint-in 0.2s ease-out;
+}
+
+@keyframes foliplus-hint-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .foliplus-hint-icon {
@@ -343,13 +385,14 @@
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   color: var(--text-muted);
-  border-radius: 0;
+  border-radius: var(--radius-sm);
 }
 
 .foliplus-pin {
   position: relative;
   width: var(--size-24);
   height: var(--toggle-size);
+  color: var(--accent-primary);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -376,7 +419,8 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
   .foliplus-layer-ctrl input[type="checkbox"],
   .foliplus-layer-ctrl .foliplus-color-layer-input
-):is(:hover, :focus-visible) {
+):is(:hover, :focus-visible),
+.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
@@ -441,4 +485,15 @@
 }
 .foliplus-ctrl-fold.foliplus-align-right .foliplus-tool-bar {
   flex-direction: row-reverse;
+}
+
+/* ── Leaflet attribution & foliplus scale wrapper styling ──
+  Shared rounded, translucent look for the bottom-corner controls. */
+.leaflet-control.foliplus-scale-wrap,
+.leaflet-control-attribution {
+  line-height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--ctrl-bg-translucent);
+  border: var(--border-thin) solid var(--divider-color);
+  box-shadow: var(--shadow-xs);
 }

@@ -228,6 +228,15 @@ class TestLayerControlRendering:
         # All items use drag handle (no more base-map-only spacer logic)
         assert "SVGs.DRAG_HANDLE" in html
 
+    def test_drag_tooltip_rendered(self):
+        """Drag handle has i18n drag_tooltip title."""
+        m = folium.Map()
+        LayerControl(locale="zh").add_to(m)
+        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
+        html = render(m)
+        assert "drag_tooltip" in html
+        assert "拖拽排序" in html
+
     def test_draggable_all_items(self):
         """All layer items except color-layer-item have draggable=true."""
         m = folium.Map()
@@ -289,25 +298,21 @@ class TestLayerControlRendering:
         assert "var(--radius-sm)" in html
         assert "var(--transition-fast)" in html
 
-    def test_marker_skip_in_set_layer_pane(self, base_map: folium.Map):
-        """setLayerPaneRecursive skips Markers but moves TileLayers.
-
-        Markers stay in markerPane to preserve shadow rendering.
-        TileLayers are moved to custom panes for proper z-ordering.
-        """
+    def test_marker_not_skipped_in_migrate_layers(self, base_map: folium.Map):
+        """migrateLayers moves Markers to per-layer panes for correct z-order."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "l instanceof L.Marker" in html
-        assert "if (layer instanceof L.TileLayer) return" not in html
-        assert "icon instanceof L.divIcon" not in html
+        # Markers are now moved to per-layer fallback panes in migrateLayers
+        assert "l instanceof L.Marker" in html  # still in extractPoints
+        # Markers are now also moved: check for marker icon migration
+        assert "l._icon" in html
 
     def test_enforce_order_skips_no_pane(self, base_map: folium.Map):
-        """enforceOrder assigns fallback _lyr_ pane for non-paneName layers."""
+        """enforceOrder assigns fallback foliplus_pane_ for non-paneName layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus_pane_" in html
-        assert "setLayerPaneRecursive" in html
-        assert "mp.style.zIndex = markerZ" in html or "mp.style.zIndex" in html
+        assert "FALLBACK_PANE_PREFIX" in html
 
     def test_enforce_order_still_processes_registered_layers(
         self, base_map: folium.Map
@@ -350,25 +355,25 @@ class TestLayerControlRendering:
         assert "lp.pane.style.zIndex = z + 1" in html
 
     def test_pane_set_on_all_layers(self, base_map: folium.Map):
-        """setLayerPaneRecursive sets paneSet on ALL layers, not just Path."""
+        """migrateLayers sets paneSet on ALL layers, not just Path."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "layer.options.paneSet = true" in html
         pane_lines = [l for l in html.split("\n") if "paneSet" in l]
         assert any("true" in l for l in pane_lines)
 
-    def test_marker_pane_zindex_synced(self, base_map: folium.Map):
-        """enforceOrder syncs markerPane and shadowPane z-index for non-paneName layers."""
+    def test_markers_moved_to_per_layer_fallback_pane(self, base_map: folium.Map):
+        """Markers are moved to per-layer fallback panes instead of shared markerPane."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert (
-            'this.map.getPane("markerPane")' in html
-            or "this.map.getPane('markerPane')" in html
-        )
-        assert "mp.style.zIndex = markerZ" in html
-        # shadowPane is synced one step below markerPane
-        assert 'this.map.getPane("shadowPane")' in html
-        assert "sp.style.zIndex = markerZ - 1" in html
+        # Markers are now moved to their layer's fallback pane
+        assert "l instanceof L.Marker" in html
+        assert "l._icon" in html
+        # The fallback pane mechanism is used for all non-pane layers
+        assert "FALLBACK_PANE_PREFIX" in html
+        # shadowPane z-index sync removed — markers get per-layer panes
+        assert "sp.style.zIndex" not in html
+        assert "markerZ" not in html
 
     def test_default_panes_use_set(self, base_map: folium.Map):
         """isDefaultPane uses a Set for default pane lookup."""
@@ -565,10 +570,10 @@ class TestLayerControlRendering:
         assert "paneCache.clear()" in html
 
     def test_destroy_clears_layer_registry(self, base_map: folium.Map):
-        """destroy() clears layerRegistry to prevent stale references."""
+        """destroy() clears only this instance's layers from registry."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "LayerManager.registry.clear()" in html
+        assert "LayerManager.registry.delete(l.id)" in html
 
     def test_destroy_flag(self, base_map: folium.Map):
         """destroy sets isDestroyed flag to prevent post-cleanup actions."""
@@ -855,13 +860,20 @@ class TestLayerControlRendering:
         assert "color: var(--text-primary)" in css
 
     def test_fold_btn_background_transition(self):
-        """Fold button transitions color, background, and transform."""
+        """Fold button transitions color and transform (background removed — no bg to transition)."""
         css = Path("foliplus/css/LayerControl.css").read_text()
         # Find the base fold-btn rule (not the folded or hover variants)
         idx = css.find(".foliplus-layer-ctrl .foliplus-layer-fold-btn {\n")
         assert idx != -1
         block = css[idx : css.index("}", idx) + 1]
-        assert "background var(--transition-fast)" in block
+        # Find the transition property value (between "transition:" and the next property)
+        t_idx = block.find("transition:")
+        assert t_idx != -1, "transition property not found"
+        t_end = block.find("\n  }", t_idx)
+        trans_val = block[t_idx:t_end]
+        assert "background var(--transition-fast)" not in trans_val
+        assert "color var(--transition-fast)" in trans_val
+        assert "transform var(--transition-fast)" in trans_val
 
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
@@ -894,7 +906,7 @@ class TestLayerControlRendering:
     def test_drag_pulse_css_keyframes(self):
         """CSS defines drag-pulse keyframes with variable-driven values."""
         css = Path("foliplus/css/LayerControl.css").read_text()
-        assert "@keyframes drag-pulse" in css
+        assert "@keyframes foliplus-drag-pulse" in css
         assert "var(--drag-border-from" in css
         assert "var(--drag-border-to" in css
         assert "var(--drag-shadow-from" in css
@@ -952,11 +964,11 @@ class TestLayerControlRendering:
         assert "L.Marker || l instanceof L.CircleMarker" in html
 
     def test_extract_points_dedup_by_stamp(self, base_map: folium.Map):
-        """extractPoints deduplicates markers by L.stamp."""
+        """extractPoints deduplicates markers by L.stamp using Set."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "seen[stamp]" in html
-        assert "seen[stamp] = true" in html
+        assert "seen.has(stamp)" in html
+        assert "seen.add(stamp)" in html
 
     def test_for_each_leaf_api_exposed(self, base_map: folium.Map):
         """forEachLeaf is exposed on foliplus.LayerAPI."""
@@ -1507,12 +1519,12 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
-    def test_set_layer_pane_recursive_marker_skip(self, browser, tmp_path):
-        """setLayerPaneRecursive skips Markers but processes Paths."""
+    def test_migrate_layers_marker_pane(self, browser, tmp_path):
+        """migrateLayers moves Markers to per-layer panes."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
 
-        html_path = tmp_path / "test_pane_skip.html"
+        html_path = tmp_path / "test_marker_pane.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
         page = browser.new_page()
@@ -1526,27 +1538,25 @@ class TestLayerControlBrowser:
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const mg = api.createLayers({
-                    id: '__test_pane_skip__',
-                    name: 'PaneSkip',
-                    graphPane: '__test_pane_skip_graph__',
+                    id: '__test_marker_pane__',
+                    name: 'MarkerPane',
+                    graphPane: '__test_marker_pane_graph__',
                 });
                 const mkr = L.marker([26.08,119.30]);
                 mg.mainLayer.addLayer(mkr);
-                // Marker should NOT be moved — still on default markerPane
-                const pane = mkr.options.pane;
-                return { pane };
+                return { pane: mkr.options.pane };
             }""")
             assert result is not None
-            assert result["pane"] is not None
+            assert result["pane"] == "__test_marker_pane_graph__"
         finally:
             page.close()
 
-    def test_set_layer_pane_recursive_path(self, browser, tmp_path):
-        """setLayerPaneRecursive moves Path layers to the target pane."""
+    def test_migrate_layers_path_pane(self, browser, tmp_path):
+        """migrateLayers moves Path layers to the target pane."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
 
-        html_path = tmp_path / "test_pane_path.html"
+        html_path = tmp_path / "test_path_pane.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
         page = browser.new_page()
@@ -1559,13 +1569,17 @@ class TestLayerControlBrowser:
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
+                const mg = api.createLayers({
+                    id: '__test_path_pane__',
+                    name: 'PathPane',
+                    graphPane: '__test_path_pane_graph__',
+                });
                 const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
-                api.setLayerPaneRecursive(poly, '__test_custom_pane__', null);
-                return { pane: poly.options.pane, paneSet: poly.options.paneSet };
+                mg.mainLayer.addLayer(poly);
+                return { pane: poly.options.pane };
             }""")
             assert result is not None
-            assert result["pane"] == "__test_custom_pane__"
-            assert result["paneSet"] is True
+            assert result["pane"] == "__test_path_pane_graph__"
         finally:
             page.close()
 

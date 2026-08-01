@@ -120,13 +120,13 @@ class BaseControl(JSCSSMixin, MacroElement):
             A Jinja2 ``Template`` instance ready for folium rendering.
         """
         js = self._get_js(js_file) if js_file else ""
-        css_common = self._get_css(css_file) if css_file else ""
+        css = self._get_css(css_file) if css_file else ""
 
         return Template(
             dedent(f"""\
             {{% macro html(this, kwargs) %}}
             <style>
-            {css_common}
+            {css}
             </style>
             {{% endmacro %}}
 
