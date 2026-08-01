@@ -146,8 +146,6 @@
     L.Path.prototype.bringToFront = origBringToFront;
   };
 
-  patchBringToFront();
-
   // ==================== Utility Class ====================
   class LayerUtils {
     static escapeHTML(str) {
@@ -450,13 +448,13 @@
      */
     extractPoints(id) {
       const pts = [];
-      const seen = {};
+      const seen = new Set();
       this.forEachLeaf(id, (l) => {
         if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
         if (!l.feature) return;
         const stamp = L.stamp(l);
-        if (seen[stamp]) return;
-        seen[stamp] = true;
+        if (seen.has(stamp)) return;
+        seen.add(stamp);
         const ll = l.getLatLng();
         pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
       });
@@ -1019,7 +1017,6 @@
           this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
         }
 
-
         // Bump popupPane and tooltipPane above all managed panes so popups and
         // hover tooltips (e.g., GeoJsonTooltip) are never hidden behind graph or
         // label panes.  popupPane gets one extra step so it renders above
@@ -1063,13 +1060,13 @@
         if (layer.options.pane !== paneName || !layer.options.paneSet)
           layersToMove.push({ layer, paneName, renderer: ep.renderer });
         this.bumpLabelPanes(layer, z);
-        return {};
+          return;
       }
 
       if (isTile && typeof layer.setZIndex === "function") {
         // --- Mechanism B: TileLayer (Leaflet's own API) ---
         layer.setZIndex(z);
-        return {};
+          return;
       }
 
       // --- Mechanism C: Auto-discovered / fallback panes ---
@@ -1082,7 +1079,7 @@
         });
         this.bumpLabelPanes(layer, z);
         layer.options.paneSet = true;
-        return {};
+          return;
       }
 
       // Unmanaged layer (GeoJSON, markers, etc.) → auto fallback pane
@@ -1092,7 +1089,6 @@
       ep.pane.style.zIndex = z;
       if (layer.options.pane !== fbName || !layer.options.paneSet)
         layersToMove.push({ layer, paneName: fbName, renderer: ep.renderer });
-      return { markerZ: z };
     }
 
     migrateLayers(layersToMove) {
@@ -1790,6 +1786,7 @@
     }
 
     onAdd() {
+      patchBringToFront();
       const container = foliplus.dom.el("div", {
         class: "leaflet-bar leaflet-control",
       });
