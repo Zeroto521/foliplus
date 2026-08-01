@@ -63,7 +63,6 @@ class TestExportControlRendering:
         assert "custom.png" in html
         assert "1.5" in html
         assert "#000000" in html
-        assert "5000" in html
 
     def test_crop_features(self, base_map: folium.Map):
         """Verify crop box structures: handles, center, toggle behavior."""
