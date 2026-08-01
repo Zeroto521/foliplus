@@ -107,6 +107,15 @@
 
 /* ── Finish animations ── */
 /* All animation parameters use CSS custom properties with sensible defaults. */
+.foliplus-measure-line-solid.foliplus-measure-dash-sweep,
+.foliplus-measure-ripple {
+  --sweep-length: 1000;
+  --sweep-duration: 0.5s;
+  --ripple-opacity-start: 0.6;
+  --ripple-stroke-start: 2.5px;
+  --ripple-stroke-end: 30px;
+  --ripple-duration: 0.7s;
+}
 
 /* Dash sweep: stroke-dashoffset → 0, drawing the line from start to end. */
 @keyframes measure-dash-sweep {
@@ -115,27 +124,27 @@
   }
 }
 .foliplus-measure-line-solid.foliplus-measure-dash-sweep {
-  stroke-dasharray: var(--sweep-length, 1000) var(--sweep-length, 1000);
-  stroke-dashoffset: var(--sweep-length, 1000);
-  animation: measure-dash-sweep var(--sweep-duration, 0.5s) ease-in-out;
+  stroke-dasharray: var(--sweep-length) var(--sweep-length);
+  stroke-dashoffset: var(--sweep-length);
+  animation: measure-dash-sweep var(--sweep-duration) ease-in-out;
   filter: drop-shadow(0 0 3px var(--accent-primary));
 }
 
 /* Ripple: stroke swells outward from the circle. */
 @keyframes measure-ripple {
   0% {
-    opacity: var(--ripple-opacity-start, 0.6);
-    stroke-width: var(--ripple-stroke-start, 2.5px);
+    opacity: var(--ripple-opacity-start);
+    stroke-width: var(--ripple-stroke-start);
   }
   100% {
     opacity: 0;
-    stroke-width: var(--ripple-stroke-end, 30px);
+    stroke-width: var(--ripple-stroke-end);
   }
 }
 .foliplus-measure-ripple {
   fill: none;
   stroke: var(--accent-primary);
-  animation: measure-ripple var(--ripple-duration, 0.7s) ease-out forwards;
+  animation: measure-ripple var(--ripple-duration) ease-out forwards;
   pointer-events: none;
 }
 
