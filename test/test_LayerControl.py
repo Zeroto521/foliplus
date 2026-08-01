@@ -910,7 +910,7 @@ class TestLayerControlRendering:
     def test_drag_pulse_css_keyframes(self):
         """CSS defines drag-pulse keyframes with variable-driven values."""
         css = Path("foliplus/css/LayerControl.css").read_text()
-        assert "@keyframes drag-pulse" in css
+        assert "@keyframes foliplus-drag-pulse" in css
         assert "var(--drag-border-from" in css
         assert "var(--drag-border-to" in css
         assert "var(--drag-shadow-from" in css
