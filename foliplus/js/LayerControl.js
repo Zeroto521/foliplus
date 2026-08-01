@@ -1060,13 +1060,13 @@
         if (layer.options.pane !== paneName || !layer.options.paneSet)
           layersToMove.push({ layer, paneName, renderer: ep.renderer });
         this.bumpLabelPanes(layer, z);
-          return;
+        return;
       }
 
       if (isTile && typeof layer.setZIndex === "function") {
         // --- Mechanism B: TileLayer (Leaflet's own API) ---
         layer.setZIndex(z);
-          return;
+        return;
       }
 
       // --- Mechanism C: Auto-discovered / fallback panes ---
@@ -1079,7 +1079,7 @@
         });
         this.bumpLabelPanes(layer, z);
         layer.options.paneSet = true;
-          return;
+        return;
       }
 
       // Unmanaged layer (GeoJSON, markers, etc.) → auto fallback pane
