@@ -107,55 +107,79 @@
 
 /* ── Finish animations ── */
 /* All animation parameters use CSS custom properties with sensible defaults. */
+.foliplus-measure-line-solid.foliplus-measure-dash-sweep,
+.foliplus-measure-ripple {
+  --sweep-length: 1000;
+  --sweep-duration: 0.5s;
+  --ripple-opacity-start: 0.6;
+  --ripple-stroke-start: 2.5px;
+  --ripple-stroke-end: 30px;
+  --ripple-duration: 0.7s;
+}
 
 /* Dash sweep: stroke-dashoffset → 0, drawing the line from start to end. */
-@keyframes measure-dash-sweep {
+@keyframes foliplus-measure-dash-sweep {
   to {
     stroke-dashoffset: 0;
   }
 }
 .foliplus-measure-line-solid.foliplus-measure-dash-sweep {
-  stroke-dasharray: var(--sweep-length, 1000) var(--sweep-length, 1000);
-  stroke-dashoffset: var(--sweep-length, 1000);
-  animation: measure-dash-sweep var(--sweep-duration, 0.5s) ease-in-out;
+  stroke-dasharray: var(--sweep-length) var(--sweep-length);
+  stroke-dashoffset: var(--sweep-length);
+  animation: foliplus-measure-dash-sweep var(--sweep-duration) ease-in-out;
   filter: drop-shadow(0 0 3px var(--accent-primary));
 }
 
 /* Ripple: stroke swells outward from the circle. */
-@keyframes measure-ripple {
+@keyframes foliplus-measure-ripple {
   0% {
-    opacity: var(--ripple-opacity-start, 0.6);
-    stroke-width: var(--ripple-stroke-start, 2.5px);
+    opacity: var(--ripple-opacity-start);
+    stroke-width: var(--ripple-stroke-start);
   }
   100% {
     opacity: 0;
-    stroke-width: var(--ripple-stroke-end, 30px);
+    stroke-width: var(--ripple-stroke-end);
   }
 }
 .foliplus-measure-ripple {
   fill: none;
   stroke: var(--accent-primary);
-  animation: measure-ripple var(--ripple-duration, 0.7s) ease-out forwards;
+  animation: foliplus-measure-ripple var(--ripple-duration) ease-out forwards;
   pointer-events: none;
 }
 
 /* ── Measurement Labels ── */
 .foliplus-measure-label {
   display: inline-block;
+  backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--alpha-50));
   color: var(--neutral-0);
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
+  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
   font-size: var(--font-size-sm);
   white-space: nowrap;
   text-align: center;
   pointer-events: none;
-  box-shadow: none;
+  box-shadow: var(--shadow-xs);
   transform: translateX(-50%);
+  animation: foliplus-measure-label-in 0.2s ease-out;
+}
+
+@keyframes foliplus-measure-label-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 /* Radius label is centered on the midpoint horizontally and vertically */
 .foliplus-measure-label-radius {
   transform: translate(-50%, -50%);
+  animation: none;
 }
 /* ── Floating Delete Icon ── */
 .foliplus-measure-del-icon {
@@ -175,8 +199,8 @@
   box-shadow: none;
   opacity: 0;
   visibility: hidden;
-  top: calc(-1 * var(--size-12) - var(--size-2));
-  left: var(--size-4);
+  top: -18px;
+  left: var(--size-2);
   right: auto;
   margin: 0;
   transition:
@@ -192,6 +216,7 @@
 }
 .foliplus-measure-del-icon:hover {
   background: rgba(var(--red-rgb), var(--alpha-95));
+  box-shadow: var(--shadow-xs);
   transform: scale(var(--scale-hover));
 }
 .foliplus-measure-del-icon:active {

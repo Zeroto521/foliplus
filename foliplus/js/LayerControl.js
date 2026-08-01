@@ -1305,7 +1305,11 @@
     renderLayerItem(l, idx) {
       const en = LayerUtils.escapeHTML(l.name);
       const children = [
-        { html: SVGs.DRAG_HANDLE },
+        foliplus.dom.el(
+          "span",
+          { title: _(`${CONST.name}.drag_tooltip`) },
+          { html: SVGs.DRAG_HANDLE },
+        ),
         foliplus.dom.el(
           "div",
           { class: CONST.CLASSES.CHECKBOX },

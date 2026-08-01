@@ -11,7 +11,7 @@
     DEL_ICON: {
       RETRY_LIMIT: 10,
       ANCHOR: [0, 0],
-      MARKER_ANCHOR: [-4, 28],
+      MARKER_ANCHOR: [0, 24],
       SIZE: [0, 0],
       CHAR: "✕",
       CLASS: "foliplus-measure-del-icon",
@@ -28,6 +28,7 @@
     },
     LABEL: {
       ANCHOR: [0, -10],
+      RADIUS_ANCHOR: [0, 0],
       SIZE: [0, 0],
       CLASS: "foliplus-measure-label",
       CLASS_RADIUS: "foliplus-measure-label-radius",
@@ -38,7 +39,7 @@
       KM_DECIMALS: 1,
     },
     Z_INDEX: {
-      OFFSET: 1000,
+      OFFSET: 11000,
     },
     ID: "foliplus_measure",
     PANES: {
@@ -373,17 +374,7 @@
         }),
       );
 
-      let cachedAddr = null;
-      const addr = await foliplus.reverseGeocode(
-        this.map,
-        parseFloat(lng),
-        parseFloat(lat),
-      );
-      cachedAddr = addr;
-
-      if (marker?.getPopup?.()?.isOpen())
-        marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
-
+      // Bind popup events BEFORE async geocode so X appears on first popup open
       marker.on("popupopen", () => {
         MeasureUtils.hideDelIcons();
         if (cachedAddr !== null)
@@ -394,6 +385,17 @@
       marker.on("popupclose", () => {
         MeasureUtils.toggleDelIcon(delMarker, false);
       });
+
+      let cachedAddr = null;
+      const addr = await foliplus.reverseGeocode(
+        this.map,
+        parseFloat(lng),
+        parseFloat(lat),
+      );
+      cachedAddr = addr;
+
+      if (marker?.getPopup?.()?.isOpen())
+        marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
 
       const markerId = this.nextMeasurementId();
       this.m.measurements.push({
@@ -788,7 +790,7 @@
           const previewLabel = L.marker(mid, {
             icon: MeasureUtils.makeLabelDivIcon(
               MeasureUtils.formatDistance(r),
-              CONST.DEL_ICON.ANCHOR,
+              CONST.LABEL.RADIUS_ANCHOR,
               CONST.LABEL.CLASS_RADIUS,
             ),
             interactive: false,
@@ -869,7 +871,7 @@
           L.marker([midLat, midLng], {
             icon: MeasureUtils.makeLabelDivIcon(
               MeasureUtils.formatDistance(r),
-              CONST.DEL_ICON.ANCHOR,
+              CONST.LABEL.RADIUS_ANCHOR,
               CONST.LABEL.CLASS_RADIUS,
             ),
             interactive: false,
@@ -1149,7 +1151,7 @@
         L.marker([midLat, midLng], {
           icon: MeasureUtils.makeLabelDivIcon(
             MeasureUtils.formatDistance(r),
-            CONST.LABEL.ANCHOR,
+            CONST.LABEL.RADIUS_ANCHOR,
             CONST.LABEL.CLASS_RADIUS,
           ),
           interactive: false,
