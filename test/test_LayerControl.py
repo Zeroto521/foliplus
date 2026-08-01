@@ -228,6 +228,15 @@ class TestLayerControlRendering:
         # All items use drag handle (no more base-map-only spacer logic)
         assert "SVGs.DRAG_HANDLE" in html
 
+    def test_drag_tooltip_rendered(self):
+        """Drag handle has i18n drag_tooltip title."""
+        m = folium.Map()
+        LayerControl(locale="zh").add_to(m)
+        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
+        html = render(m)
+        assert "drag_tooltip" in html
+        assert "拖拽排序" in html
+
     def test_draggable_all_items(self):
         """All layer items except color-layer-item have draggable=true."""
         m = folium.Map()

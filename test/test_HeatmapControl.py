@@ -364,6 +364,13 @@ class TestHeatmapControlRendering:
         assert "scheme-dropdown-item:hover" in html
         assert "accent-light" in html
 
+    def test_css_scheme_bar_open_rule(self, base_map: folium.Map):
+        """scheme-bar-open class triggers breathing animation and red border."""
+        HeatmapControl().add_to(base_map)
+        html = render(base_map)
+        assert "scheme-bar-open" in html
+        assert "input-breathe" in html
+
     def test_css_toggle_knob_scale(self, base_map: folium.Map):
         """Toggle knob has scale(1.15) on checked state."""
         HeatmapControl().add_to(base_map)
