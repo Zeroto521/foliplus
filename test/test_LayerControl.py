@@ -298,12 +298,11 @@ class TestLayerControlRendering:
         assert "var(--radius-sm)" in html
         assert "var(--transition-fast)" in html
 
-    def test_marker_not_skipped_in_set_layer_pane(self, base_map: folium.Map):
-        """setLayerPaneRecursive moves Markers to per-layer panes for correct z-order."""
+    def test_marker_not_skipped_in_migrate_layers(self, base_map: folium.Map):
+        """migrateLayers moves Markers to per-layer panes for correct z-order."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        # The old `if (l instanceof L.Marker) return;` skip is removed from
-        # setLayerPaneRecursive; markers now move to per-layer fallback panes.
+        # Markers are now moved to per-layer fallback panes in migrateLayers
         assert "l instanceof L.Marker" in html  # still in extractPoints
         # Markers are now also moved: check for marker icon migration
         assert "l._icon" in html
@@ -313,7 +312,6 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus_pane_" in html
-        assert "setLayerPaneRecursive" in html
         assert "FALLBACK_PANE_PREFIX" in html
 
     def test_enforce_order_still_processes_registered_layers(
@@ -357,7 +355,7 @@ class TestLayerControlRendering:
         assert "lp.pane.style.zIndex = z + 1" in html
 
     def test_pane_set_on_all_layers(self, base_map: folium.Map):
-        """setLayerPaneRecursive sets paneSet on ALL layers, not just Path."""
+        """migrateLayers sets paneSet on ALL layers, not just Path."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "layer.options.paneSet = true" in html
@@ -571,10 +569,10 @@ class TestLayerControlRendering:
         assert "paneCache.clear()" in html
 
     def test_destroy_clears_layer_registry(self, base_map: folium.Map):
-        """destroy() clears layerRegistry to prevent stale references."""
+        """destroy() clears only this instance's layers from registry."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "LayerManager.registry.clear()" in html
+        assert "LayerManager.registry.delete(l.id)" in html
 
     def test_destroy_flag(self, base_map: folium.Map):
         """destroy sets isDestroyed flag to prevent post-cleanup actions."""
@@ -1520,12 +1518,12 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
-    def test_set_layer_pane_recursive_marker_skip(self, browser, tmp_path):
-        """setLayerPaneRecursive skips Markers but processes Paths."""
+    def test_migrate_layers_marker_pane(self, browser, tmp_path):
+        """migrateLayers moves Markers to per-layer panes."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
 
-        html_path = tmp_path / "test_pane_skip.html"
+        html_path = tmp_path / "test_marker_pane.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
         page = browser.new_page()
@@ -1539,27 +1537,25 @@ class TestLayerControlBrowser:
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
                 const mg = api.createLayers({
-                    id: '__test_pane_skip__',
-                    name: 'PaneSkip',
-                    graphPane: '__test_pane_skip_graph__',
+                    id: '__test_marker_pane__',
+                    name: 'MarkerPane',
+                    graphPane: '__test_marker_pane_graph__',
                 });
                 const mkr = L.marker([26.08,119.30]);
                 mg.mainLayer.addLayer(mkr);
-                // Marker should NOT be moved — still on default markerPane
-                const pane = mkr.options.pane;
-                return { pane };
+                return { pane: mkr.options.pane };
             }""")
             assert result is not None
-            assert result["pane"] is not None
+            assert result["pane"] == "__test_marker_pane_graph__"
         finally:
             page.close()
 
-    def test_set_layer_pane_recursive_path(self, browser, tmp_path):
-        """setLayerPaneRecursive moves Path layers to the target pane."""
+    def test_migrate_layers_path_pane(self, browser, tmp_path):
+        """migrateLayers moves Path layers to the target pane."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
 
-        html_path = tmp_path / "test_pane_path.html"
+        html_path = tmp_path / "test_path_pane.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
         page = browser.new_page()
@@ -1572,13 +1568,17 @@ class TestLayerControlBrowser:
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
+                const mg = api.createLayers({
+                    id: '__test_path_pane__',
+                    name: 'PathPane',
+                    graphPane: '__test_path_pane_graph__',
+                });
                 const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
-                api.setLayerPaneRecursive(poly, '__test_custom_pane__', null);
-                return { pane: poly.options.pane, paneSet: poly.options.paneSet };
+                mg.mainLayer.addLayer(poly);
+                return { pane: poly.options.pane };
             }""")
             assert result is not None
-            assert result["pane"] == "__test_custom_pane__"
-            assert result["paneSet"] is True
+            assert result["pane"] == "__test_path_pane_graph__"
         finally:
             page.close()
 
