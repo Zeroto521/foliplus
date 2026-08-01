@@ -1,12 +1,8 @@
 .leaflet-control.foliplus-scale-wrap {
-  padding: 0;
-  margin: 0;
   white-space: nowrap;
-  line-height: 14px;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 0;
+  margin: 0;
 }
 .leaflet-control.foliplus-scale-wrap .leaflet-control-scale-line,
 .leaflet-control.foliplus-scale-wrap .foliplus-scale-zoom-label {
@@ -21,10 +17,6 @@
   border-bottom: var(--space-xs) solid var(--text-primary);
   border-left: var(--space-xs) solid var(--text-primary);
   border-right: var(--space-xs) solid var(--text-primary);
-  margin: 0;
   text-align: center;
   background: transparent;
-  box-shadow: none;
-  border-radius: 0;
-  padding-bottom: 0;
 }

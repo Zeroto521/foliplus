@@ -447,6 +447,7 @@
   Shared rounded, translucent look for the bottom-corner controls. */
 .leaflet-control.foliplus-scale-wrap,
 .leaflet-control-attribution {
+  line-height: 14px;
   border-radius: var(--radius-sm);
   background: var(--ctrl-bg-translucent);
   border: var(--border-thin) solid var(--divider-color);
