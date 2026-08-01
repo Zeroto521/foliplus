@@ -80,6 +80,7 @@
       EXTRA_BODY: "foliplus-heatmap-extra-body",
       FIELD: "foliplus-heatmap-field",
       SCHEME_BAR: "foliplus-heatmap-scheme-bar",
+      SCHEME_BAR_OPEN: "foliplus-heatmap-scheme-bar-open",
       SCHEME_BAR_INNER: "foliplus-heatmap-scheme-bar-inner",
       SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
       SCHEME_DROPDOWN: "foliplus-heatmap-scheme-dropdown",
@@ -852,6 +853,7 @@
         ) {
           this.schemeDropdown.remove();
           this.schemeDropdown = null;
+          this.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
           document.removeEventListener("click", this.closeSchemeDropdown);
         }
       };
@@ -1138,8 +1140,10 @@
       if (this.schemeDropdown) {
         this.schemeDropdown.remove();
         this.schemeDropdown = null;
+        this.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
         return;
       }
+      this.schemeBar.classList.add(CONST.CLASSES.SCHEME_BAR_OPEN);
       this.schemeDropdown = foliplus.dom.el("div", {
         class: CONST.CLASSES.SCHEME_DROPDOWN,
         role: "listbox",
@@ -1199,6 +1203,7 @@
         } else if (e.key === "Escape") {
           this.schemeDropdown.remove();
           this.schemeDropdown = null;
+          this.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
           this.schemeBar.focus();
         }
       };
@@ -1211,6 +1216,7 @@
       if (this.schemeDropdown) {
         this.schemeDropdown.remove();
         this.schemeDropdown = null;
+        this.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
       }
       this.m.renderHexagons();
       this.schemeBar.focus();

@@ -175,7 +175,8 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
-):focus {
+):focus,
+.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
   animation: input-breathe 2s ease-in-out infinite;
 }
 
@@ -187,7 +188,8 @@
     .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
     .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
     .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
-  ):focus {
+  ):focus,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
     animation: none;
   }
 }
@@ -416,7 +418,8 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
   .foliplus-layer-ctrl input[type="checkbox"],
   .foliplus-layer-ctrl .foliplus-color-layer-input
-):is(:hover, :focus-visible) {
+):is(:hover, :focus-visible),
+.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
