@@ -30,6 +30,7 @@
 - Unified button interaction system: `toggle-btn`, `tool-btn`, `search-mode-btn`, `ctrl-abs-btn` now share a single `:is()` rule in `common.css` for consistent hover (`scale(1.08)` + red accent) and active (`scale(0.92)`) effects ([#37](https://github.com/Zeroto521/foliplus/pull/37), [#56](https://github.com/Zeroto521/foliplus/pull/56), [#58](https://github.com/Zeroto521/foliplus/pull/58), [#63](https://github.com/Zeroto521/foliplus/pull/63))
 - `FullscreenControl`: no external CDN dependencies, rewritten `FullscreenControl` ([#58](https://github.com/Zeroto521/foliplus/pull/58))
 - Unify component naming with `Control` suffix: `Base` -> `BaseControl`, `FullscreenControl` -> `FullscreenControl` and `SearchControl` -> `SearchControl` ([#80](https://github.com/Zeroto521/foliplus/pull/80))
+- UI polish: unified CSS design token system, optimized and consolidated styles, added keyboard accessibility and disabled state styling, improved checkbox/toggle/scheme dropdown interactions ([#62](https://github.com/Zeroto521/foliplus/pull/62), [#67](https://github.com/Zeroto521/foliplus/pull/67), [#68](https://github.com/Zeroto521/foliplus/pull/68), [#95](https://github.com/Zeroto521/foliplus/pull/95), [#96](https://github.com/Zeroto521/foliplus/pull/96), [#103](https://github.com/Zeroto521/foliplus/pull/103))
 
 ### Fixed
 
