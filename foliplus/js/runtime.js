@@ -49,6 +49,7 @@
       SIZE: [24, 36],
       ANCHOR: [12, 36],
       POPUP_ANCHOR: [0, -36],
+      Z_OFFSET: 10000,
     },
     POPUP: {
       MAX_WIDTH: 300,
@@ -664,6 +665,7 @@
         iconAnchor: CONST.PIN.ANCHOR,
         popupAnchor: CONST.PIN.POPUP_ANCHOR,
       }),
+      zIndexOffset: CONST.PIN.Z_OFFSET,
     });
     target.addLayer(marker);
     marker.bindPopup(
