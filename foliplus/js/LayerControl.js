@@ -1103,13 +1103,13 @@
             groups.get(container).push(l._path);
           // Move marker icon/shadow to the pane element (not SVG renderer)
           if (l instanceof L.Marker && paneEl) {
-            if (l._icon && l._icon.parentNode !== paneEl) {
-              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-              markerGroups.get(paneEl).push(l._icon);
-            }
             if (l._shadow && l._shadow.parentNode !== paneEl) {
               if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
               markerGroups.get(paneEl).push(l._shadow);
+            }
+            if (l._icon && l._icon.parentNode !== paneEl) {
+              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+              markerGroups.get(paneEl).push(l._icon);
             }
           }
           if (l.eachLayer) l.eachLayer(collect);
