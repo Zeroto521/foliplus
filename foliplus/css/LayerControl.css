@@ -124,7 +124,6 @@
   color: var(--text-primary);
   transition:
     color var(--transition-fast),
-    background var(--transition-fast),
     transform var(--transition-fast);
 }
 .foliplus-layer-ctrl .foliplus-layer-fold-btn:hover {
