@@ -46,12 +46,21 @@ repos:
     hooks:
       - id: codespell
 
-  # ── JS / Jinja2 formatting (custom script) ──
+  # ── JS / CSS / Jinja2 formatting (custom script) ──
   - repo: local
     hooks:
+      - id: format-css
+        name: format-css
+        entry: node script/format_jinja_js.js --type css
+        language: node
+        types_or: [css]
+        files: ^foliplus/css/
+        pass_filenames: false
+        additional_dependencies: [prettier]
+
       - id: format-jinja-js
         name: format-jinja-js
-        entry: node script/format_jinja_js.js
+        entry: node script/format_jinja_js.js --type js
         language: node
         types_or: [javascript]
         files: ^foliplus/js/

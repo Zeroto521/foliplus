@@ -58,7 +58,10 @@ line-length = 88
 fix = true
 
 [tool.ruff.lint]
-select = ["UP"]
+select = ["I", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["foliplus"]
 
 [tool.coverage.run]
 source = ["foliplus"]
