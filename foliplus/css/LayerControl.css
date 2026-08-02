@@ -21,7 +21,7 @@
   --drag-pulse-count: 3;
   --drag-border-from: var(--accent-primary);
   --drag-border-to: var(--accent-hover);
-  --drag-shadow-from: 0 0 var(--size-4) -1 var(--accent-primary);
+  --drag-shadow-from: 0 0 var(--size-4) -1px var(--accent-primary);
   --drag-shadow-to: 0 0 var(--size-8) 0 var(--accent-primary);
 
   /* ── Layout ── */
