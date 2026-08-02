@@ -11,6 +11,7 @@
 
 /* ── Drag & Drop Variables ── */
 .foliplus-layer-ctrl {
+  /* ── Drag & Drop ── */
   --drag-border-width: var(--border-thick);
   --drag-top-shadow: 0 calc(-1 * var(--size-2)) var(--size-6) calc(-1 * var(--size-2))
     var(--accent-primary);
@@ -22,6 +23,9 @@
   --drag-border-to: var(--accent-hover);
   --drag-shadow-from: 0 0 var(--size-4) -1 var(--accent-primary);
   --drag-shadow-to: 0 0 var(--size-8) 0 var(--accent-primary);
+
+  /* ── Layout ── */
+  --layer-item-pad-x: calc(var(--space-md) - var(--size-2) + 1px);
 }
 
 /* ── Panel Content Overrides ── */
@@ -74,8 +78,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-md)
-    var(--space-xxl);
+  padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-xxl);
   flex-shrink: 0;
 }
 .foliplus-layer-ctrl .foliplus-layer-sep .foliplus-section-divider {
@@ -92,8 +95,7 @@
 /* ── Toggle-all item ── */
 .foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all {
   gap: var(--space-sm);
-  padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-md)
-    var(--space-sm);
+  padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
   border-left: var(--border-thick) solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -133,7 +135,7 @@
   cursor: pointer;
   padding: 0;
   margin: 0;
-  width: 14px;
+  width: var(--icon-size-xs);
   height: var(--icon-size-md);
   flex-shrink: 0;
   color: var(--text-primary);
@@ -199,7 +201,7 @@
   Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
 .foliplus-layer-ctrl .drag-handle {
   flex-shrink: 0;
-  width: 14px;
+  width: var(--icon-size-xs);
   height: var(--icon-size-md);
 }
 /* Circles use fill="currentColor"; add matching stroke so they stay bold,
@@ -225,8 +227,7 @@
 .foliplus-layer-ctrl .foliplus-layer-item {
   display: flex;
   align-items: center;
-  padding: var(--space-md) calc(var(--space-md) - var(--size-2) + 1px) var(--space-md)
-    var(--space-sm);
+  padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
   gap: var(--space-sm);
   cursor: default;
   user-select: none;
