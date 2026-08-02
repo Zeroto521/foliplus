@@ -5,9 +5,9 @@
     INIT_DELAY_MS: 300,
     ENFORCE_ORDER_DEBOUNCE_MS: 50,
     Z_INDEX: {
-      BASE: 600,       // Base for overlay layers (panes + markers)
-      TILE_BASE: 200,  // Base for tile layers (below overlays)
-      STEP: 10,        // Gap between consecutive layers
+      BASE: 600, // Base for overlay layers (panes + markers)
+      TILE_BASE: 200, // Base for tile layers (below overlays)
+      STEP: 10, // Gap between consecutive layers
     },
     RECURSION: {
       PANE_DEPTH: 5,
