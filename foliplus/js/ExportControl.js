@@ -245,17 +245,24 @@
             const dw = tile.size * scale;
             const dh = tile.size * scale;
             if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
-            if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
-            if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height) continue;
+            if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top)
+              continue;
+            if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height)
+              continue;
 
             try {
-              const resp = await fetch(tile.url, { mode: "cors", cache: "force-cache" });
+              const resp = await fetch(tile.url, {
+                mode: "cors",
+                cache: "force-cache",
+              });
               if (!resp.ok) continue;
               const blob = await resp.blob();
               const bitmap = await createImageBitmap(blob);
               ctx.drawImage(bitmap, dx, dy, dw, dh);
               bitmap.close();
-            } catch { /* skip */ }
+            } catch {
+              /* skip */
+            }
           }
         }
       } else {
@@ -280,7 +287,9 @@
             const bitmap = await createImageBitmap(blob);
             ctx.drawImage(bitmap, dx, dy, dw, dh);
             bitmap.close();
-          } catch { /* skip */ }
+          } catch {
+            /* skip */
+          }
         }
       }
     }
@@ -288,7 +297,9 @@
     /** Render SVG overlay — serialize Leaflet's <svg> → Blob URL → Image.
      *  Inlines computed styles so CSS classes (e.g. foliplus-measure-line-solid) survive serialization. */
     async renderSVG(ctx, rect, scale, contRect, sw, sh) {
-      const panes = this.container.querySelectorAll('.leaflet-map-pane [class*="pane"]');
+      const panes = this.container.querySelectorAll(
+        '.leaflet-map-pane [class*="pane"]',
+      );
       for (const pane of panes) {
         const svgEl = pane.querySelector("svg");
         if (!svgEl) continue;
@@ -307,17 +318,46 @@
         for (let i = 0; i < allEls.length && i < originals.length; i++) {
           const cs = window.getComputedStyle(originals[i]);
           const inline = allEls[i];
-          const cssAttrs = ["fill", "stroke", "stroke-width", "stroke-dasharray",
-            "stroke-linecap", "stroke-linejoin", "opacity", "display",
-            "visibility", "marker-start", "marker-end", "marker-mid",
-            "paint-order", "color", "font-size", "font-family", "font-weight",
-            "text-anchor", "dominant-baseline", "alignment-baseline"];
+          const cssAttrs = [
+            "fill",
+            "stroke",
+            "stroke-width",
+            "stroke-dasharray",
+            "stroke-linecap",
+            "stroke-linejoin",
+            "opacity",
+            "display",
+            "visibility",
+            "marker-start",
+            "marker-end",
+            "marker-mid",
+            "paint-order",
+            "color",
+            "font-size",
+            "font-family",
+            "font-weight",
+            "text-anchor",
+            "dominant-baseline",
+            "alignment-baseline",
+          ];
           for (const a of cssAttrs) {
             const v = cs.getPropertyValue(a);
             if (v && v !== "none" && v !== "0") inline.setAttribute(a, v);
           }
           // For SVG geometry attributes, read from the original element's attribute
-          const geoAttrs = ["r", "cx", "cy", "rx", "ry", "dx", "dy", "x", "y", "d", "points"];
+          const geoAttrs = [
+            "r",
+            "cx",
+            "cy",
+            "rx",
+            "ry",
+            "dx",
+            "dy",
+            "x",
+            "y",
+            "d",
+            "points",
+          ];
           for (const a of geoAttrs) {
             const v = originals[i].getAttribute(a);
             if (v) inline.setAttribute(a, v);
@@ -340,7 +380,17 @@
             i.onerror = () => reject(new Error(_(`${CONST.name}.err_svg_load`)));
             i.src = url;
           });
-          ctx.drawImage(svgImg, rect.left - svgL, rect.top - svgT, rect.width, rect.height, 0, 0, sw, sh);
+          ctx.drawImage(
+            svgImg,
+            rect.left - svgL,
+            rect.top - svgT,
+            rect.width,
+            rect.height,
+            0,
+            0,
+            sw,
+            sh,
+          );
         } finally {
           URL.revokeObjectURL(url);
         }
@@ -373,7 +423,9 @@
             i.src = dataUrl;
           });
           ctx.drawImage(img, dx, dy, dw, dh);
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
       }
 
       for (const ce of canvasEls) if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
@@ -408,7 +460,11 @@
         drawableEls.push(root);
         for (const sub of root.querySelectorAll("*")) {
           const scs = window.getComputedStyle(sub);
-          if (scs.backgroundImage && scs.backgroundImage.includes("url(") && scs.backgroundImage !== "none")
+          if (
+            scs.backgroundImage &&
+            scs.backgroundImage.includes("url(") &&
+            scs.backgroundImage !== "none"
+          )
             drawableEls.push(sub);
         }
       }
@@ -476,7 +532,11 @@
         const sw = w * ratioX;
         const sh = h * ratioY;
         if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
-        try { ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh); } catch { /* skip */ }
+        try {
+          ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
+        } catch {
+          /* skip */
+        }
       }
       return markerRoots;
     }
@@ -518,7 +578,10 @@
         let fontWeight = before.fontWeight || iconCS.fontWeight || "900";
         if (fontWeight === "normal") fontWeight = "400";
         if (fontWeight === "bold") fontWeight = "700";
-        let iconDX = dx, iconDY = dy, iconDW = dw, iconDH = dh;
+        let iconDX = dx,
+          iconDY = dy,
+          iconDW = dw,
+          iconDH = dh;
         const ir = iconEl.getBoundingClientRect();
         const il = ir.left - contRect.left;
         const it = ir.top - contRect.top;
@@ -530,9 +593,17 @@
         }
         fontSize *= scale;
         const fontSpec = fontWeight + " " + fontSize + "px " + fontFamily;
-        try { await document.fonts.load(fontSpec); } catch { /* try anyway */ }
+        try {
+          await document.fonts.load(fontSpec);
+        } catch {
+          /* try anyway */
+        }
         if (!document.fonts.check(fontSpec)) {
-          try { await document.fonts.ready; } catch { /* skip */ }
+          try {
+            await document.fonts.ready;
+          } catch {
+            /* skip */
+          }
         }
         ctx.save();
         ctx.font = fontSpec;
@@ -563,7 +634,12 @@
         if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
         if (root.querySelector("i")) continue;
         const rootCS = window.getComputedStyle(root);
-        if (rootCS.backgroundImage && rootCS.backgroundImage !== "none" && rootCS.backgroundImage.includes("url(")) continue;
+        if (
+          rootCS.backgroundImage &&
+          rootCS.backgroundImage !== "none" &&
+          rootCS.backgroundImage.includes("url(")
+        )
+          continue;
         const textEl = root.querySelector(CONST.SEL.LABEL) || root;
         const text = textEl.textContent || "";
         if (!text.trim()) continue;
