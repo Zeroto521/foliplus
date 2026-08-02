@@ -9,6 +9,21 @@
   pointer-events: auto;
 }
 
+/* ── Drag & Drop Variables ── */
+.foliplus-layer-ctrl {
+  --drag-border-width: var(--border-thick);
+  --drag-top-shadow: 0 calc(-1 * var(--size-2)) var(--size-6) calc(-1 * var(--size-2))
+    var(--accent-primary);
+  --drag-bottom-shadow: 0 var(--size-2) var(--size-6) calc(-1 * var(--size-2))
+    var(--accent-primary);
+  --drag-pulse-duration: 0.8s;
+  --drag-pulse-count: 3;
+  --drag-border-from: var(--accent-primary);
+  --drag-border-to: var(--accent-hover);
+  --drag-shadow-from: 0 0 var(--size-4) -1 var(--accent-primary);
+  --drag-shadow-to: 0 0 var(--size-8) 0 var(--accent-primary);
+}
+
 /* ── Panel Content Overrides ── */
 .foliplus-layer-ctrl .foliplus-panel-content {
   padding: var(--space-sm) 0;
@@ -245,37 +260,29 @@
   opacity: var(--alpha-70);
 }
 .foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-drag-over-top {
-  border-top: var(--drag-border-width, var(--border-thick)) solid var(--accent-primary);
+  border-top: var(--drag-border-width) solid var(--accent-primary);
   background: var(--accent-soft-bg);
-  box-shadow: var(
-    --drag-top-shadow,
-    0 calc(-1 * var(--size-2)) var(--size-6) calc(-1 * var(--size-2))
-      var(--accent-primary)
-  );
-  animation: foliplus-drag-pulse var(--drag-pulse-duration, 0.8s) ease-in-out
-    var(--drag-pulse-count, 3);
+  box-shadow: var(--drag-top-shadow);
+  animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
+    var(--drag-pulse-count);
 }
 .foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-drag-over-bottom {
-  border-bottom: var(--drag-border-width, var(--border-thick)) solid
-    var(--accent-primary);
+  border-bottom: var(--drag-border-width) solid var(--accent-primary);
   background: var(--accent-soft-bg);
-  box-shadow: var(
-    --drag-bottom-shadow,
-    0 var(--size-2) var(--size-6) calc(-1 * var(--size-2)) var(--accent-primary)
-  );
-  animation: foliplus-drag-pulse var(--drag-pulse-duration, 0.8s) ease-in-out
-    var(--drag-pulse-count, 3);
+  box-shadow: var(--drag-bottom-shadow);
+  animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
+    var(--drag-pulse-count);
 }
 
 @keyframes foliplus-drag-pulse {
   0%,
   100% {
-    border-color: var(--drag-border-from, var(--accent-primary));
-    box-shadow: var(--drag-shadow-from, 0 0 var(--size-4) -1 var(--accent-primary));
+    border-color: var(--drag-border-from);
+    box-shadow: var(--drag-shadow-from);
   }
   50% {
-    border-color: var(--drag-border-to, var(--accent-hover));
-    box-shadow: var(--drag-shadow-to, 0 0 var(--size-8) 0 var(--accent-primary));
+    border-color: var(--drag-border-to);
+    box-shadow: var(--drag-shadow-to);
   }
 }
 /* Color layer item overrides: pointer cursor (not draggable) */
