@@ -54,7 +54,7 @@
 /* Crop box: dashed border + ::before creates 9999px shadow to dim outside */
 .foliplus-export-box {
   position: absolute;
-  border: var(--size-2) dashed var(--accent-primary);
+  border: var(--border-thick) dashed var(--accent-primary);
   background: transparent;
   cursor: move;
   z-index: calc(var(--z-export-base) + 1);
@@ -77,9 +77,9 @@
 }
 .foliplus-export-box.locked {
   cursor: default;
-  border-style: solid;
+  border: var(--border-thick) solid var(--input-focus-border);
   pointer-events: none;
-  box-shadow: 0 0 var(--size-20) var(--input-focus-shadow);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
   transition: none;
 }
 .foliplus-export-box.locked::before {
