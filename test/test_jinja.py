@@ -13,9 +13,9 @@ from foliplus import (
     FullscreenControl,
     HeatmapControl,
     LayerControl,
-    SearchControl,
     MeasureControl,
     ScaleControl,
+    SearchControl,
 )
 
 JS_DIR = Path(__file__).parent.parent / "foliplus" / "js"

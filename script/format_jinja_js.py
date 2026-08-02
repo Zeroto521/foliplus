@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""Format JS files containing Jinja2 template tags using prettier.
+"""Format JS/CSS files containing Jinja2 template tags using prettier.
 
-Strategy:
+Strategy (JS files with Jinja2):
     1. Replace all Jinja2 tags ({{ }}, {% %}, {# #}) with unique placeholders.
-    2. Run prettier on the cleaned JS file.
+    2. Run prettier on the cleaned file.
     3. Restore original Jinja2 tags.
 
+CSS files have no Jinja2 tags, so they go straight to prettier.
+
 Usage:
-    python script/format_jinja_js.py                     # format all JS files
+    python script/format_jinja_js.py                     # format all JS + CSS files
     python script/format_jinja_js.py foliplus/js/foo.js  # single file
+    python script/format_jinja_js.py --type js           # format JS files only
+    python script/format_jinja_js.py --type css          # format CSS files only
     python script/format_jinja_js.py --check             # check-only mode
 """
 
@@ -25,6 +29,7 @@ from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parent.parent
 JS_DIR = REPO / "foliplus" / "js"
+CSS_DIR = REPO / "foliplus" / "css"
 
 STATUS = SimpleNamespace(OK="✓", FAIL="✗", SKIP="–")
 
@@ -132,24 +137,39 @@ def format_file(filepath: Path, check_only: bool = False) -> bool:
 
 # ── cli ──────────────────────────────────────────────────────────────
 def main() -> int:
-    parser = ArgumentParser(description="Format JS files with Jinja2 tags")
+    parser = ArgumentParser(description="Format JS/CSS files with prettier")
     parser.add_argument(
-        "files", nargs="*", help="Files to format (default: all JS files)"
+        "files", nargs="*", help="Files to format (default: all JS + CSS files)"
     )
     parser.add_argument("--check", action="store_true", help="Check only, no write")
+    parser.add_argument(
+        "--type",
+        choices=["js", "css", "all"],
+        default="all",
+        help="File types to format (default: all)",
+    )
     args = parser.parse_args()
 
+    # Collect files to format
+    file_patterns = []
+    file_type = args.type
+    if file_type in ("js", "all"):
+        file_patterns.append(("*.js", JS_DIR))
+    if file_type in ("css", "all"):
+        file_patterns.append(("*.css", CSS_DIR))
+
     ok = True
-    for fp in (
-        [Path(f).resolve() for f in args.files]
-        if args.files
-        else sorted(JS_DIR.glob("*.js"))
-    ):
-        if not fp.exists():
-            print(_fmt(STATUS.SKIP, fp, "not found"))
-            continue
-        if not format_file(fp, check_only=args.check):
-            ok = False
+    for pattern, directory in file_patterns:
+        for fp in (
+            [Path(f).resolve() for f in args.files]
+            if args.files
+            else sorted(directory.glob(pattern))
+        ):
+            if not fp.exists():
+                print(_fmt(STATUS.SKIP, fp, "not found"))
+                continue
+            if not format_file(fp, check_only=args.check):
+                ok = False
     return 0 if ok else 1
 
 
