@@ -935,7 +935,7 @@
       // Lifecycle hooks for full-content capture (e.g. ExportControl). Push functions
       // to `before` to prepare for capture, and to`after` to restore normal state.
       const hooks = { before: [], after: [] };
-      canvas._hooks = hooks;
+      canvas.hooks = hooks;
 
       return {
         canvas,

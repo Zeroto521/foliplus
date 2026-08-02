@@ -377,7 +377,7 @@
       // so getBoundingClientRect gives us the correct viewport-relative position.
       const canvasEls = this.container.querySelectorAll(CONST.SEL.CANVAS);
       // Trigger lifecycle hooks (e.g. disable viewport culling) before capture
-      for (const ce of canvasEls) if (ce._hooks) ce._hooks.before.forEach((fn) => fn());
+      for (const ce of canvasEls) if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
 
       let canvasCount = 0;
       for (const ce of canvasEls) {
@@ -408,7 +408,7 @@
         }
       }
       // Restore lifecycle hooks after capture
-      for (const ce of canvasEls) if (ce._hooks) ce._hooks.after.forEach((fn) => fn());
+      for (const ce of canvasEls) if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
 
       // Layer 4: Markers — draw each element with background-image or plain image.
       // Search ALL panes for marker elements, since LayerControl moves markers
