@@ -40,11 +40,6 @@
 .foliplus-export-ctrl {
   z-index: calc(var(--z-export-base) + 200);
 }
-.foliplus-export-ctrl.expanded {
-  box-shadow:
-    var(--panel-shadow),
-    0 0 0 var(--border-thick) var(--input-focus-shadow);
-}
 
 /* Dimming overlay: transparent placeholder, ::before on crop box does the work */
 .foliplus-export-overlay {
