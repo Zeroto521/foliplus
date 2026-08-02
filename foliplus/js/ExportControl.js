@@ -6,6 +6,7 @@
     CROP: {
       MIN_SIZE: 40,
       PADDING_RATIO: 0.25,
+      CONTAINER_PADDING: 200,
     },
     STORAGE: {
       KEY: "foliplus_export_rect",
@@ -14,6 +15,8 @@
       URL_REVOKE_DELAY: 10000,
       TIMEOUT: {{ this.timeout }},
       PREVIEW_REMOVE: 3000,
+      RENDER_DELAY: 1500,
+      RESTORE_DELAY: 200,
     },
     SCALE: {{ this.scale }},
     BACKGROUND: {{ '"' + this.background + '"' if this.background else "null" }},
@@ -21,11 +24,12 @@
     CLASSES: {
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
+      TOOL_BTN: "foliplus-tool-btn",
       EXPORT_MODE: "foliplus-export-mode",
-      OVERLAY: "foliplus-export-overlay",
-      BOX: "foliplus-export-box",
-      HANDLE: "foliplus-export-handle",
-      CENTER: "foliplus-export-center",
+      EXPORT_OVERLAY: "foliplus-export-overlay",
+      EXPORT_BOX: "foliplus-export-box",
+      EXPORT_HANDLE: "foliplus-export-handle",
+      EXPORT_CENTER: "foliplus-export-center",
       ACTIONS: "foliplus-export-actions",
       PREVIEW: "foliplus-export-preview",
       HIDDEN: "foliplus-export-hidden",
@@ -42,6 +46,9 @@
       CANCEL: ".foliplus-export-actions .cancel",
       CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
       CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
+      PANE: '.leaflet-map-pane [class*="pane"]',
+      MARKER: '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
+      LABEL: ".foliplus-measure-label, .leaflet-div-icon",
     },
   };
 
@@ -368,9 +375,7 @@
       // hexbin canvas) that live in .leaflet-map-pane with position offset.
       // These are positioned via left/top to cancel the mapPane CSS transform,
       // so getBoundingClientRect gives us the correct viewport-relative position.
-      const canvasEls = this.container.querySelectorAll(
-        ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
-      );
+      const canvasEls = this.container.querySelectorAll(CONST.SEL.CANVAS);
       // Trigger lifecycle hooks (e.g. disable viewport culling) before capture
       for (const ce of canvasEls) if (ce._hooks) ce._hooks.before.forEach((fn) => fn());
 
@@ -405,16 +410,21 @@
       // Restore lifecycle hooks after capture
       for (const ce of canvasEls) if (ce._hooks) ce._hooks.after.forEach((fn) => fn());
 
-      // Layer 4: Markers — draw each element with background-image
+      // Layer 4: Markers — draw each element with background-image or plain image.
+      // Search ALL panes for marker elements, since LayerControl moves markers
+      // to per-layer fallback panes.
       const drawableEls = [];
-      const mp = this.container.querySelector(".leaflet-marker-pane");
-      const markerRoots = mp
-        ? mp.querySelectorAll(
-            '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
-          )
-        : this.container.querySelectorAll(
-            '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
-          );
+      const allPanes = this.container.querySelectorAll(CONST.SEL.PANE);
+      let markerRoots = [];
+      for (const pane of allPanes) {
+        const found = pane.querySelectorAll(CONST.SEL.MARKER);
+        if (found.length) markerRoots = [...markerRoots, ...found];
+      }
+      // Also capture MeasureControl divIcon labels (but NOT del-icon buttons)
+      for (const pane of allPanes) {
+        const labels = pane.querySelectorAll(CONST.SEL.LABEL);
+        if (labels.length) markerRoots = [...markerRoots, ...labels];
+      }
       for (const root of markerRoots) {
         drawableEls.push(root);
         for (const sub of root.querySelectorAll("*")) {
@@ -493,7 +503,9 @@
         if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
         try {
           ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
       }
 
       // FontAwesome icons — draw ::before pseudo-element text
@@ -529,7 +541,10 @@
         let fontWeight = before.fontWeight || iconCS.fontWeight || "900";
         if (fontWeight === "normal") fontWeight = "400";
         if (fontWeight === "bold") fontWeight = "700";
-        let iconDX = dx, iconDY = dy, iconDW = dw, iconDH = dh;
+        let iconDX = dx,
+          iconDY = dy,
+          iconDW = dw,
+          iconDH = dh;
         const ir = iconEl.getBoundingClientRect();
         const il = ir.left - contRect.left;
         const it = ir.top - contRect.top;
@@ -541,9 +556,17 @@
         }
         fontSize *= scale;
         const fontSpec = fontWeight + " " + fontSize + "px " + fontFamily;
-        try { await document.fonts.load(fontSpec); } catch { /* try anyway */ }
+        try {
+          await document.fonts.load(fontSpec);
+        } catch {
+          /* try anyway */
+        }
         if (!document.fonts.check(fontSpec)) {
-          try { await document.fonts.ready; } catch { /* skip */ }
+          try {
+            await document.fonts.ready;
+          } catch {
+            /* skip */
+          }
         }
         ctx.save();
         ctx.font = fontSpec;
@@ -583,7 +606,7 @@
       this.onMouseMove = this.onMouseMove.bind(this);
       this.onMouseUp = this.onMouseUp.bind(this);
       this.onKeyDown = this.onKeyDown.bind(this);
-      this.onMapChange = this.onMapChange.bind(this);
+      this.onMapChange = foliplus.debounce(this.onMapChange.bind(this), 50);
     }
 
     attachUI(ctrl, toolBar) {
@@ -709,41 +732,49 @@
       }
 
       const overlay = foliplus.dom.el("div", {
-        class: "foliplus-export-overlay active",
+        class: `${CONST.CLASSES.EXPORT_OVERLAY} active`,
         parent: this.mapContainer,
       });
       this.mapContainer.classList.add(CONST.CLASSES.EXPORT_MODE);
       document.body.classList.add(CONST.CLASSES.EXPORT_MODE);
 
       const cropBox = foliplus.dom.el("div", {
-        class: "foliplus-export-box",
+        class: CONST.CLASSES.EXPORT_BOX,
         parent: this.mapContainer,
       });
 
       ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach((pos) => {
         foliplus.dom.el("div", {
-          class: `foliplus-export-handle ${pos}`,
+          class: `${CONST.CLASSES.EXPORT_HANDLE} ${pos}`,
           parent: cropBox,
           "data-pos": pos,
         });
       });
 
       foliplus.dom.el("div", {
-        class: "foliplus-export-center",
+        class: CONST.CLASSES.EXPORT_CENTER,
         parent: cropBox,
       });
 
       this.exportToolBar.innerHTML = "";
-      foliplus.dom.el("button", {
-        class: `foliplus-tool-btn ${CONST.CLASSES.CONFIRM}`,
-        title: _(`${CONST.name}.btn_confirm`),
-        parent: this.exportToolBar,
-      }, { html: SVGS.CHECK });
-      foliplus.dom.el("button", {
-        class: `foliplus-tool-btn ${CONST.CLASSES.CANCEL}`,
-        title: _(`${CONST.name}.btn_cancel`),
-        parent: this.exportToolBar,
-      }, { html: foliplus.SVGs.CLOSE });
+      foliplus.dom.el(
+        "button",
+        {
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
+          title: _(`${CONST.name}.btn_confirm`),
+          parent: this.exportToolBar,
+        },
+        { html: SVGS.CHECK },
+      );
+      foliplus.dom.el(
+        "button",
+        {
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL}`,
+          title: _(`${CONST.name}.btn_cancel`),
+          parent: this.exportToolBar,
+        },
+        { html: foliplus.SVGs.CLOSE },
+      );
       this.exportCtrl.classList.remove(CONST.CLASSES.COLLAPSED);
       this.exportCtrl.classList.add(CONST.CLASSES.EXPANDED);
 
@@ -773,33 +804,43 @@
       this.cropState.locked = true;
       this.cropState.box.classList.add("locked");
       const r = this.cropState.rect;
-      // Save the exact geo bounds at lock time. These are the authoritative
-      // coordinates used for export and restoration.
-      if (!this.cropState._savedGeoBounds) {
-        this.cropState._savedGeoBounds = {
-          nw: this.map.containerPointToLatLng(L.point(r.left, r.top)),
-          se: this.map.containerPointToLatLng(
-            L.point(r.left + r.width, r.top + r.height),
-          ),
-        };
-      }
+      // Always recalculate geoBounds from the current screen rect, so user's
+      // adjustments after unlock → re-lock are not lost.
+      this.cropState._savedGeoBounds = {
+        nw: this.map.containerPointToLatLng(L.point(r.left, r.top)),
+        se: this.map.containerPointToLatLng(
+          L.point(r.left + r.width, r.top + r.height),
+        ),
+      };
       this.cropState.geoBounds = this.cropState._savedGeoBounds;
       this.cropState.actions.innerHTML = "";
-      foliplus.dom.el("button", {
-        class: `foliplus-tool-btn ${CONST.CLASSES.CONFIRM}`,
-        title: _(`${CONST.name}.btn_export`),
-        parent: this.cropState.actions,
-      }, { html: SVGS.DOWNLOAD });
-      foliplus.dom.el("button", {
-        class: `foliplus-tool-btn ${CONST.CLASSES.CANCEL}`,
-        title: _(`${CONST.name}.btn_cancel`),
-        parent: this.cropState.actions,
-      }, { html: foliplus.SVGs.CLOSE });
-      this.cropState.actions.querySelector(".cancel").onclick = (e) => {
+      foliplus.dom.el(
+        "button",
+        {
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
+          title: _(`${CONST.name}.btn_export`),
+          parent: this.cropState.actions,
+        },
+        { html: SVGS.DOWNLOAD },
+      );
+      foliplus.dom.el(
+        "button",
+        {
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL}`,
+          title: _(`${CONST.name}.btn_cancel`),
+          parent: this.cropState.actions,
+        },
+        { html: foliplus.SVGs.CLOSE },
+      );
+      this.cropState.actions.querySelector(`.${CONST.CLASSES.CANCEL}`).onclick = (
+        e,
+      ) => {
         e.stopPropagation();
         this.unlockCropBox();
       };
-      this.cropState.actions.querySelector(".confirm").onclick = (e) => {
+      this.cropState.actions.querySelector(`.${CONST.CLASSES.CONFIRM}`).onclick = (
+        e,
+      ) => {
         e.stopPropagation();
         this.doExport();
       };
@@ -814,21 +855,33 @@
       this.cropState.box.classList.remove("locked");
       this.map.off("move zoom", this.onMapChange);
       this.cropState.actions.innerHTML = "";
-      foliplus.dom.el("button", {
-        class: `foliplus-tool-btn ${CONST.CLASSES.CONFIRM}`,
-        title: _(`${CONST.name}.btn_confirm`),
-        parent: this.cropState.actions,
-      }, { html: SVGS.CHECK });
-      foliplus.dom.el("button", {
-        class: `foliplus-tool-btn ${CONST.CLASSES.CANCEL}`,
-        title: _(`${CONST.name}.btn_cancel`),
-        parent: this.cropState.actions,
-      }, { html: foliplus.SVGs.CLOSE });
-      this.cropState.actions.querySelector(".cancel").onclick = (e) => {
+      foliplus.dom.el(
+        "button",
+        {
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
+          title: _(`${CONST.name}.btn_confirm`),
+          parent: this.cropState.actions,
+        },
+        { html: SVGS.CHECK },
+      );
+      foliplus.dom.el(
+        "button",
+        {
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL}`,
+          title: _(`${CONST.name}.btn_cancel`),
+          parent: this.cropState.actions,
+        },
+        { html: foliplus.SVGs.CLOSE },
+      );
+      this.cropState.actions.querySelector(`.${CONST.CLASSES.CANCEL}`).onclick = (
+        e,
+      ) => {
         e.stopPropagation();
         this.removeCropBox();
       };
-      this.cropState.actions.querySelector(".confirm").onclick = (e) => {
+      this.cropState.actions.querySelector(`.${CONST.CLASSES.CONFIRM}`).onclick = (
+        e,
+      ) => {
         e.stopPropagation();
         this.lockCropBox();
       };
@@ -839,10 +892,6 @@
     removeCropBox() {
       if (!this.cropState) return;
       this.lastScreenRect = Object.assign({}, this.cropState.rect);
-      if (this.cropState.geoBounds) {
-        this.saveBounds(this.cropState.geoBounds);
-        this.savedBounds = this.cropState.geoBounds;
-      }
       this.mapContainer.classList.remove(CONST.CLASSES.EXPORT_MODE);
       document.body.classList.remove(CONST.CLASSES.EXPORT_MODE);
       document.removeEventListener("keydown", this.onKeyDown);
@@ -868,8 +917,8 @@
       if (target.classList.contains("foliplus-export-handle")) {
         this.dragState.dragType = target.dataset.pos;
       } else if (
-        target.classList.contains("foliplus-export-center") ||
-        target.classList.contains("foliplus-export-box")
+        target.classList.contains(CONST.CLASSES.EXPORT_CENTER) ||
+        target.classList.contains(CONST.CLASSES.EXPORT_BOX)
       ) {
         this.dragState.dragType = "move";
       } else return;
@@ -962,6 +1011,11 @@
       this.isExporting = true;
       const r = Object.assign({}, this.cropState.rect);
       const geoBounds = this.cropState.geoBounds;
+      // Save bounds on successful export so next click goes directly to download
+      if (geoBounds) {
+        this.saveBounds(geoBounds);
+        this.savedBounds = geoBounds;
+      }
       this.removeCropBox();
 
       let scaleValue = CONST.SCALE;
@@ -988,9 +1042,7 @@
         r.top + r.height > vpH * 1.02;
 
       const doRender = () => {
-        const hideEls = this.mapContainer.querySelectorAll(
-          ".leaflet-control-container, .foliplus-export-ctrl",
-        );
+        const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
         hideEls.forEach((el) => {
           el.classList.add("foliplus-export-hidden");
         });
@@ -1016,9 +1068,9 @@
             });
             const prevImg = document.createElement("img");
             prevImg.src = canvas.toDataURL("image/png");
-            prevImg.className = "foliplus-export-preview";
+            prevImg.className = CONST.CLASSES.PREVIEW;
             document.body.appendChild(prevImg);
-            setTimeout(() => prevImg.remove(), 3000);
+            setTimeout(() => prevImg.remove(), foliplus.HINT_DURATION.SHORT);
             canvas.toBlob((blob) => {
               if (!blob) {
                 this.showGlobalHint(
@@ -1074,8 +1126,8 @@
         const savedAnim = this.map.options.zoomAnimation;
         this.map.options.zoomAnimation = false;
 
-        const bigW = Math.max(vpW, r.left + r.width) + 200;
-        const bigH = Math.max(vpH, r.top + r.height) + 200;
+        const bigW = Math.max(vpW, r.left + r.width) + CONST.CROP.CONTAINER_PADDING;
+        const bigH = Math.max(vpH, r.top + r.height) + CONST.CROP.CONTAINER_PADDING;
         this.mapContainer.style.width = `${Math.ceil(bigW)}px`;
         this.mapContainer.style.height = `${Math.ceil(bigH)}px`;
         this.mapContainer.style.minHeight = `${Math.ceil(bigH)}px`;
@@ -1093,8 +1145,8 @@
               });
               this.map.invalidateSize(false);
               this.map.setView(savedCenter, savedZoom, { animate: false });
-            }, 200);
-          }, 1500);
+            }, CONST.TIMING.RESTORE_DELAY);
+          }, CONST.TIMING.RENDER_DELAY);
         });
         this.map.setView(cropCenter, savedZoom, { animate: false });
         return;

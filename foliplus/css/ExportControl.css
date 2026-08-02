@@ -1,28 +1,28 @@
 /* ── Export Control ── */
 
-/* Map container in export mode: dim controls so crop box stands out */
-.foliplus-export-mode .leaflet-control-container {
-  z-index: auto !important;
-}
+/* Keep controls visible above the crop mask */
 .foliplus-export-mode .leaflet-control {
-  z-index: 9500 !important;
+  z-index: 9510 !important;
 }
+/* Scale/attribution stay dim below the mask */
 .foliplus-export-mode .leaflet-control-scale,
 .foliplus-export-mode .leaflet-control-attribution {
   z-index: 850 !important;
+  background: var(--ctrl-bg-translucent);
 }
 
-/* Export ctrl above overlay, below hints (Z_BASE=10000) */
+/* Export control container highlighted when active (matching search input focus style) */
 .foliplus-export-ctrl {
   z-index: 9700 !important;
 }
 .foliplus-export-ctrl.expanded {
-  box-shadow:
-    0 0 0 var(--border-thin) var(--input-focus-border),
-    0 0 0 3px var(--input-focus-shadow);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow) !important;
+}
+.foliplus-export-ctrl.expanded .foliplus-toggle-btn {
+  border-right: var(--border-thin) solid var(--divider-color);
 }
 
-/* ── Overlay (dims non-crop area) ── */
+/* ── Overlay (placeholder, dimming is done by crop box ::before) ── */
 .foliplus-export-overlay {
   position: absolute;
   inset: 0;
@@ -32,7 +32,10 @@
   box-sizing: border-box;
 }
 
-/* ── Crop Box ── */
+/* ── Crop Box ──
+   ::before pseudo-element creates a 9999px box-shadow that dims
+   everything outside the crop area. The transparent background
+   keeps map content visible inside the box. */
 .foliplus-export-box {
   position: absolute;
   border: var(--size-2) dashed var(--accent-primary);
@@ -42,6 +45,11 @@
   box-sizing: border-box;
   box-shadow: 0 0 var(--size-16) var(--input-focus-shadow);
   border-radius: var(--size-2);
+  transition:
+    left 0.15s ease,
+    top 0.15s ease,
+    width 0.15s ease,
+    height 0.15s ease;
 }
 .foliplus-export-box::before {
   content: "";
@@ -49,15 +57,17 @@
   inset: -1px;
   pointer-events: none;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+  z-index: -1;
 }
 .foliplus-export-box.locked {
   cursor: default;
   border-style: solid;
   pointer-events: none;
   box-shadow: 0 0 var(--size-20) var(--input-focus-shadow);
+  transition: none;
 }
 .foliplus-export-box.locked::before {
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, var(--alpha-50));
 }
 
 /* ── Corner/Edge Handles ── */
@@ -179,7 +189,9 @@
   z-index: 99999;
   max-width: 400px;
   max-height: 300px;
-  border: var(--border-thick) solid var(--accent-primary);
+  border: var(--border-thick) solid var(--input-focus-border);
+  border-radius: var(--radius-sm);
   background: var(--ctrl-bg);
   box-shadow: var(--shadow-md);
+  padding: var(--space-xs);
 }
