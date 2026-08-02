@@ -295,7 +295,11 @@
     }
 
     /** Render SVG overlay — serialize Leaflet's <svg> → Blob URL → Image.
-     *  Inlines computed styles so CSS classes (e.g. foliplus-measure-line-solid) survive serialization. */
+     *  Removes the root SVG's inline style (pos/width/height set by Leaflet) so
+     *  the explicit width/height attributes take effect.  Child elements' inline
+     *  styles (fill, stroke, etc.) are preserved by cloneNode and survive
+     *  serialization.  CSS class-based styles (e.g. foliplus-measure-line-solid)
+     *  are inlined on child elements so they survive the <img> render. */
     async renderSVG(ctx, rect, scale, contRect, sw, sh) {
       const panes = this.container.querySelectorAll(
         '.leaflet-map-pane [class*="pane"]',
@@ -309,62 +313,26 @@
         if (svgRect.width < 1 || svgRect.height < 1) continue;
 
         const clone = svgEl.cloneNode(true);
+        // Remove root SVG inline style (Leaflet sets position/width/height)
+        // so the explicit width/height attributes below take effect.
         clone.removeAttribute("style");
-        // Inline computed styles for every child element, falling back to
-        // the original element's attributes for SVG geometry properties
-        // (e.g. r, cx, cy) that are not expressible as CSS.
+        // Keep viewBox, set width/height to actual display size
+        clone.setAttribute("width", String(svgRect.width));
+        clone.setAttribute("height", String(svgRect.height));
+        // Inline computed CSS class styles on child elements so they survive
+        // serialization.  Use style[p] (not setAttribute) because inline style
+        // takes precedence over presentation attributes in SVG.
         const allEls = clone.querySelectorAll("*");
         const originals = svgEl.querySelectorAll("*");
         for (let i = 0; i < allEls.length && i < originals.length; i++) {
           const cs = window.getComputedStyle(originals[i]);
           const inline = allEls[i];
-          const cssAttrs = [
-            "fill",
-            "stroke",
-            "stroke-width",
-            "stroke-dasharray",
-            "stroke-linecap",
-            "stroke-linejoin",
-            "opacity",
-            "display",
-            "visibility",
-            "marker-start",
-            "marker-end",
-            "marker-mid",
-            "paint-order",
-            "color",
-            "font-size",
-            "font-family",
-            "font-weight",
-            "text-anchor",
-            "dominant-baseline",
-            "alignment-baseline",
-          ];
-          for (const a of cssAttrs) {
-            const v = cs.getPropertyValue(a);
-            if (v && v !== "none" && v !== "0") inline.setAttribute(a, v);
-          }
-          // For SVG geometry attributes, read from the original element's attribute
-          const geoAttrs = [
-            "r",
-            "cx",
-            "cy",
-            "rx",
-            "ry",
-            "dx",
-            "dy",
-            "x",
-            "y",
-            "d",
-            "points",
-          ];
-          for (const a of geoAttrs) {
-            const v = originals[i].getAttribute(a);
-            if (v) inline.setAttribute(a, v);
+          for (const p of ["fill", "stroke", "stroke-width", "stroke-dasharray",
+            "stroke-linecap", "stroke-linejoin", "opacity"]) {
+            const v = cs.getPropertyValue(p);
+            if (v && v !== "none") inline.style[p] = v;
           }
         }
-        clone.setAttribute("width", String(svgRect.width));
-        clone.setAttribute("height", String(svgRect.height));
 
         let src = new XMLSerializer().serializeToString(clone);
         if (!src.includes('xmlns="http://www.w3.org/2000/svg"'))

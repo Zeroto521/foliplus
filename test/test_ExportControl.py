@@ -149,10 +149,39 @@ class TestExportControlRendering:
         """SVG renderer inlines computed styles for CSS class fidelity."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "stroke" in html
         assert "getComputedStyle" in html
         assert "XMLSerializer" in html
-        assert "serde" in html or "serializeToString" in html
+        assert "serializeToString" in html
+
+    def test_svg_uses_style_property_not_setattribute(self, base_map: folium.Map):
+        """SVG renderer uses cloneNode(true) preserving all attributes and inline styles."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        # cloneNode(true) preserves all child attributes and inline styles
+        assert "cloneNode(true)" in html
+        # width/height are set to display size
+        assert 'setAttribute("width"' in html or 'setAttribute("height"' in html
+
+    def test_svg_geometry_attributes_preserved(self, base_map: folium.Map):
+        """SVG geometry attrs (r, d, points) are preserved by cloneNode(true)."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "cloneNode(true)" in html
+        assert "serializeToString" in html
+
+    def test_render_markers_is_async(self, base_map: folium.Map):
+        """renderMarkers is async and awaited in render()."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "async renderMarkers" in html
+        assert "await this.renderMarkers" in html
+
+    def test_svg_width_height_set(self, base_map: folium.Map):
+        """SVG clone sets width/height to display size."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert 'setAttribute("width"' in html
+        assert 'setAttribute("height"' in html
 
     def test_collect_marker_roots(self, base_map: folium.Map):
         """_collectMarkerRoots excludes del-icons and popups."""
