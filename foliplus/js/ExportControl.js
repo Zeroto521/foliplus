@@ -211,7 +211,7 @@
       // 3. Canvas (e.g. HeatmapControl)
       await this.renderCanvas(ctx, rect, scale, contRect, cw, ch);
       // 4. Markers (sprites)
-      const markerRoots = this.renderMarkers(ctx, rect, scale, contRect, cw, ch);
+      const markerRoots = await this.renderMarkers(ctx, rect, scale, contRect, cw, ch);
       // 5. FontAwesome icons
       await this.renderFontAwesome(ctx, rect, scale, contRect, markerRoots);
       // 6. Text labels (e.g. MeasureControl labels)
@@ -299,21 +299,28 @@
 
         const clone = svgEl.cloneNode(true);
         clone.removeAttribute("style");
-        // Inline computed styles for every child element
+        // Inline computed styles for every child element, falling back to
+        // the original element's attributes for SVG geometry properties
+        // (e.g. r, cx, cy) that are not expressible as CSS.
         const allEls = clone.querySelectorAll("*");
         const originals = svgEl.querySelectorAll("*");
         for (let i = 0; i < allEls.length && i < originals.length; i++) {
           const cs = window.getComputedStyle(originals[i]);
           const inline = allEls[i];
-          const attrs = ["fill", "stroke", "stroke-width", "stroke-dasharray",
+          const cssAttrs = ["fill", "stroke", "stroke-width", "stroke-dasharray",
             "stroke-linecap", "stroke-linejoin", "opacity", "display",
             "visibility", "marker-start", "marker-end", "marker-mid",
             "paint-order", "color", "font-size", "font-family", "font-weight",
-            "text-anchor", "dominant-baseline", "alignment-baseline",
-            "dx", "dy", "r", "cx", "cy", "rx", "ry"];
-          for (const a of attrs) {
+            "text-anchor", "dominant-baseline", "alignment-baseline"];
+          for (const a of cssAttrs) {
             const v = cs.getPropertyValue(a);
             if (v && v !== "none" && v !== "0") inline.setAttribute(a, v);
+          }
+          // For SVG geometry attributes, read from the original element's attribute
+          const geoAttrs = ["r", "cx", "cy", "rx", "ry", "dx", "dy", "x", "y", "d", "points"];
+          for (const a of geoAttrs) {
+            const v = originals[i].getAttribute(a);
+            if (v) inline.setAttribute(a, v);
           }
         }
         clone.setAttribute("width", String(svgRect.width));
@@ -394,7 +401,7 @@
     }
 
     /** Render markers with background-image sprites.  Returns markerRoots for further passes. */
-    renderMarkers(ctx, rect, scale, contRect, cw, ch) {
+    async renderMarkers(ctx, rect, scale, contRect, cw, ch) {
       const markerRoots = this.collectMarkerRoots();
       const drawableEls = [];
       for (const root of markerRoots) {
@@ -425,32 +432,28 @@
           );
         }
       }
-      if (loadQueue.length) {
-        // Synchronous sprite drawing — await needed for the load to complete
-        // but we can't await inside a forEach, so use a temp variable
-        this._spriteLoadPromise = Promise.all(loadQueue);
-      }
+      await Promise.all(loadQueue);
 
-      // Draw sprites (synchronous after load)
-      const drawSprite = (el) => {
+      // Draw sprites
+      for (const el of drawableEls) {
         const r = el.getBoundingClientRect();
         const l = r.left - contRect.left;
         const t = r.top - contRect.top;
         const w = r.width;
         const h = r.height;
-        if (w < 1 || h < 1) return;
+        if (w < 1 || h < 1) continue;
         const dx = (l - rect.left) * scale;
         const dy = (t - rect.top) * scale;
         const dw = w * scale;
         const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) return;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
         const cs = window.getComputedStyle(el);
         const bg = cs.backgroundImage;
-        if (!bg || bg === "none") return;
+        if (!bg || bg === "none") continue;
         const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-        if (!m) return;
+        if (!m) continue;
         const sprite = spriteMap.get(m[1]);
-        if (!sprite) return;
+        if (!sprite) continue;
         const bgs = cs.backgroundSize || "auto";
         const bgsParts = bgs.trim().split(/\s+/);
         let cssBgW, cssBgH;
@@ -472,12 +475,9 @@
         const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
         const sw = w * ratioX;
         const sh = h * ratioY;
-        if (sx + sw > sprite.width || sy + sh > sprite.height) return;
+        if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
         try { ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh); } catch { /* skip */ }
-      };
-
-      // Draw all elements
-      for (const el of drawableEls) drawSprite(el);
+      }
       return markerRoots;
     }
 
