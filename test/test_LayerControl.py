@@ -2298,7 +2298,7 @@ class TestLayerControlBrowser:
                 "Expected toggle-all NOT indeterminate when all layers checked"
             )
 
-            # Step 2: Uncheck layer B → toggle-all should be indeterminate
+            # Step 2: Uncheck one layer → toggle-all should be indeterminate
             page.evaluate("""() => {
                 const cbs = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]');
                 if (cbs[1]) cbs[1].click();
