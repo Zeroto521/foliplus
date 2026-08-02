@@ -1623,6 +1623,7 @@
           { html: svg },
         );
       });
+      this.m.ctrl = ctrl;
       this.m.toolBtns = toolBar.querySelectorAll(CONST.SEL.TOOL_BTN);
 
       toggleBtn.onclick = (e) => {

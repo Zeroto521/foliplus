@@ -9,7 +9,6 @@
       ZOOM_IN: "foliplus-zoom-in",
       ZOOM_OUT: "foliplus-zoom-out",
       FS_TOGGLE: "foliplus-fullscreen-toggle",
-      LEAFLET_BAR: "leaflet-bar",
     },
   };
   const ContainerId = `${CONST.name}_${CONST.position}_container`;
@@ -87,10 +86,16 @@
         if (zoomEl) zoomEl.remove();
       }
 
-      // Build container — leaflet-bar for alignment with other foliplus controls
-      const container = foliplus.dom.el("div", {
-        class: `${CONST.CLASSES.LEAFLET_BAR} ${CONST.CLASSES.FULLSCREEN_BAR}`,
+      // Build container — two-layer structure matching createFoldControl:
+      // outer .leaflet-bar.leaflet-control (Leaflet default shadow) wrapping
+      // inner .foliplus-fullscreen-bar (shadow-ctrl-strong)
+      const outer = foliplus.dom.el("div", {
+        class: "leaflet-bar leaflet-control",
         id: ContainerId,
+      });
+      const container = foliplus.dom.el("div", {
+        class: `${CONST.CLASSES.FULLSCREEN_BAR} foliplus-ctrl-fold`,
+        parent: outer,
       });
 
       // Zoom in button — <button> element with tool-btn class
@@ -141,8 +146,8 @@
         { html: SVGs.MAXIMIZE },
       );
 
-      L.DomEvent.disableClickPropagation(container);
-      L.DomEvent.disableScrollPropagation(container);
+      L.DomEvent.disableClickPropagation(outer);
+      L.DomEvent.disableScrollPropagation(outer);
 
       // ==================== UI Update ====================
       const updateUI = () => {
@@ -230,7 +235,7 @@
 
       this.handleFSChange = handleFSChange;
 
-      return container;
+      return outer;
     }
 
     onRemove() {

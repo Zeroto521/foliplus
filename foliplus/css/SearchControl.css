@@ -1,7 +1,6 @@
 .foliplus-search.expanded {
   width: var(--panel-width);
   height: auto;
-  box-shadow: var(--panel-shadow);
 }
 /* ── Clear Button Wrapper ── */
 .foliplus-search .clear {
