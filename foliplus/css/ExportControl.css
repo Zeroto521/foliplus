@@ -20,6 +20,11 @@
   background: var(--ctrl-bg-translucent);
 }
 
+/* Hint bar above overlay */
+.foliplus-export-mode .foliplus-hint {
+  z-index: 9800 !important;
+}
+
 /* Export control container highlighted when active (matching search input focus style) */
 .foliplus-export-ctrl {
   z-index: 9700;
