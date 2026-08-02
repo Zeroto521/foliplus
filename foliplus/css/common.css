@@ -439,13 +439,17 @@
   background: var(--ctrl-bg);
   box-sizing: border-box;
   border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-ctrl-strong);
 }
 .foliplus-ctrl-fold.collapsed {
   width: var(--ctrl-size);
   height: var(--ctrl-size);
   border: 0;
-  box-shadow: var(--shadow-ctrl-strong);
   overflow: visible;
+}
+/* Expanded: panel-shadow overrides base shadow-ctrl-strong */
+.foliplus-ctrl-fold.expanded {
+  box-shadow: var(--panel-shadow);
 }
 /* Expanded toggle-btn shared styles */
 .foliplus-ctrl-fold.expanded .foliplus-toggle-btn {

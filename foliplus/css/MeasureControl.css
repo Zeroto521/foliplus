@@ -1,6 +1,3 @@
-.foliplus-measure-ctrl.expanded {
-  box-shadow: var(--panel-shadow);
-}
 /* ── Crosshair cursor when measuring ── */
 .foliplus-measuring {
   cursor: crosshair;

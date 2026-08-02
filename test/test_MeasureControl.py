@@ -291,6 +291,12 @@ class TestMeasureControlRendering:
         assert "this.ctrl.classList.remove(CONST.CLASSES.EXPANDED)" in html
         assert "this.ctrl.classList.add(CONST.CLASSES.COLLAPSED)" in html
 
+    def test_manager_ctrl_bound_for_clear_collapse(self, base_map: folium.Map):
+        """Control binds fold panel element to manager so clearAll() can collapse it."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.m.ctrl = ctrl" in html
+
     def test_panel_stays_open_when_tool_active(self, base_map: folium.Map):
         """bindOutsideCollapse uses skipCheck to prevent collapse when currentMode is active."""
         MeasureControl().add_to(base_map)
