@@ -447,6 +447,10 @@
   border: 0;
   overflow: visible;
 }
+/* Expanded: panel-shadow overrides base shadow-ctrl-strong */
+.foliplus-ctrl-fold.expanded {
+  box-shadow: var(--panel-shadow);
+}
 /* Expanded toggle-btn shared styles */
 .foliplus-ctrl-fold.expanded .foliplus-toggle-btn {
   background: transparent;
