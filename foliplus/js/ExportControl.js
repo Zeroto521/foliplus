@@ -109,7 +109,7 @@
   // ==================== LeafletRenderer ====================
   // Mixed-mode renderer with independent rendering passes.
   // render() orchestrates the passes in painter's-algorithm order:
-  //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome → 6. text labels
+  //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome → 6. text labels → 7. remaining (img, inline SVG, bg-color)
   class LeafletRenderer {
     constructor(map) {
       this.map = map;
@@ -216,6 +216,8 @@
       await this.renderFontAwesome(ctx, rect, scale, contRect, markerRoots);
       // 6. Text labels (e.g. MeasureControl labels)
       this.renderTextLabels(ctx, rect, scale, contRect, markerRoots);
+      // 7. Remaining icons (img, inline SVG, background-color divIcons)
+      await this.renderRemaining(ctx, rect, scale, contRect, markerRoots);
 
       return canvas;
     }
@@ -413,10 +415,13 @@
     collectMarkerRoots() {
       const allPanes = this.container.querySelectorAll(CONST.SEL.PANE);
       const roots = [];
+      const seen = new Set();
       for (const pane of allPanes) {
         const found = pane.querySelectorAll(CONST.SEL.MARKER);
         for (const el of found) {
           if (el.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          if (seen.has(el)) continue;
+          seen.add(el);
           roots.push(el);
         }
       }
@@ -424,6 +429,8 @@
         const labels = pane.querySelectorAll(CONST.SEL.LABEL);
         for (const label of labels) {
           if (label.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          if (seen.has(label)) continue;
+          seen.add(label);
           roots.push(label);
         }
       }
@@ -593,7 +600,7 @@
       }
     }
 
-    /** Render plain text labels (e.g. MeasureControl distance labels). */
+    /** Render plain text labels (e.g. MeasureControl distance labels) with background. */
     renderTextLabels(ctx, rect, scale, contRect, markerRoots) {
       const cw = rect.width * scale;
       const ch = rect.height * scale;
@@ -622,6 +629,37 @@
         const text = textEl.textContent || "";
         if (!text.trim()) continue;
         const textCS = window.getComputedStyle(textEl);
+
+        // Draw background from textEl's computed style
+        const bg = textCS.backgroundColor;
+        if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
+          const tr = textEl.getBoundingClientRect();
+          const tdx = (tr.left - contRect.left - rect.left) * scale;
+          const tdy = (tr.top - contRect.top - rect.top) * scale;
+          const tdw = tr.width * scale;
+          const tdh = tr.height * scale;
+          ctx.save();
+          ctx.fillStyle = bg;
+          const br = parseFloat(textCS.borderRadius) || 0;
+          if (br > 0) {
+            ctx.beginPath();
+            ctx.roundRect(tdx, tdy, tdw, tdh, br * scale);
+            ctx.fill();
+          } else ctx.fillRect(tdx, tdy, tdw, tdh);
+          // Draw border if present
+          const bw = parseFloat(textCS.borderWidth) || 0;
+          if (bw > 0 && textCS.borderStyle !== "none") {
+            ctx.strokeStyle = textCS.borderColor || bg;
+            ctx.lineWidth = bw * scale;
+            if (br > 0) {
+              ctx.beginPath();
+              ctx.roundRect(tdx, tdy, tdw, tdh, br * scale);
+              ctx.stroke();
+            } else ctx.strokeRect(tdx, tdy, tdw, tdh);
+          }
+          ctx.restore();
+        }
+
         let fontSize = parseFloat(textCS.fontSize) || 14;
         const fontFamily = textCS.fontFamily || "sans-serif";
         const color = textCS.color || "#000";
@@ -629,7 +667,7 @@
         if (fontWeight === "normal") fontWeight = "400";
         if (fontWeight === "bold") fontWeight = "700";
         fontSize *= scale;
-        const fontSpec = fontWeight + " " + fontSize + "px " + fontFamily;
+        const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
         ctx.save();
         ctx.font = fontSpec;
         ctx.textAlign = "center";
@@ -644,6 +682,116 @@
           ctx.fillText(lines[i].trim(), cx, startY + i * lineHeight);
         }
         ctx.restore();
+      }
+    }
+
+    /** Render remaining icons not handled by other passes:
+     *  - <img> elements (default Leaflet markers, Unknown layer points)
+     *  - divIcon elements with inline SVG (PIN_ICON, LOCATE)
+     *  - divIcon elements with background-color but no sprite (center dot) */
+    async renderRemaining(ctx, rect, scale, contRect, markerRoots) {
+      const cw = rect.width * scale;
+      const ch = rect.height * scale;
+
+      for (const root of markerRoots) {
+        const r = root.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width;
+        const h = r.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale;
+        const dh = h * scale;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+
+        // 1. <img> elements (default Leaflet markers)
+        const imgEl = root.tagName === "IMG" ? root : root.querySelector("img");
+        if (imgEl && imgEl.src) {
+          try {
+            const img = await new Promise((resolve, reject) => {
+              const i = new Image();
+              i.crossOrigin = "anonymous";
+              i.onload = () => resolve(i);
+              i.onerror = () => reject();
+              i.src = imgEl.src;
+            });
+            ctx.drawImage(img, dx, dy, dw, dh);
+            continue;
+          } catch {
+            /* fall through */
+          }
+        }
+
+        // 2. Elements with inline SVG (divIcon with html: '<svg>...</svg>')
+        const svgEl = root.querySelector("svg");
+        if (svgEl) {
+          try {
+            const clone = svgEl.cloneNode(true);
+            clone.removeAttribute("style");
+            const sr = svgEl.getBoundingClientRect();
+            clone.setAttribute("width", String(sr.width || 24));
+            clone.setAttribute("height", String(sr.height || 24));
+            // Inline color from root for currentColor support (PIN_ICON etc.)
+            const rootColor = window.getComputedStyle(root).color;
+            if (rootColor && rootColor !== "rgb(0, 0, 0)")
+              clone.setAttribute("color", rootColor);
+            let src = new XMLSerializer().serializeToString(clone);
+            if (!src.includes('xmlns="http://www.w3.org/2000/svg"'))
+              src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+            const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            try {
+              const img = await new Promise((resolve, reject) => {
+                const i = new Image();
+                i.onload = () => resolve(i);
+                i.onerror = () => reject();
+                i.src = url;
+              });
+              ctx.drawImage(img, dx, dy, dw, dh);
+            } finally {
+              URL.revokeObjectURL(url);
+            }
+            continue;
+          } catch {
+            /* fall through */
+          }
+        }
+
+        // 3. Elements with background-color but no background-image url (center dot)
+        const rootCS = window.getComputedStyle(root);
+        const bgImg = rootCS.backgroundImage;
+        const hasSprite = bgImg && bgImg !== "none" && bgImg.includes("url(");
+        const bgColor = rootCS.backgroundColor;
+        const hasBgColor =
+          bgColor && bgColor !== "transparent" && bgColor !== "rgba(0, 0, 0, 0)";
+        if (hasBgColor && !hasSprite && !root.querySelector(CONST.SEL.LABEL)) {
+          ctx.save();
+          ctx.fillStyle = bgColor;
+          const br = parseFloat(rootCS.borderRadius) || 0;
+          if (br > 0) {
+            ctx.beginPath();
+            ctx.roundRect(dx, dy, dw, dh, br * scale);
+            ctx.fill();
+          } else {
+            ctx.fillRect(dx, dy, dw, dh);
+          }
+          // Draw border
+          const bw = parseFloat(rootCS.borderWidth) || 0;
+          if (bw > 0 && rootCS.borderStyle !== "none" && rootCS.borderColor) {
+            ctx.strokeStyle = rootCS.borderColor;
+            ctx.lineWidth = bw * scale;
+            if (br > 0) {
+              ctx.beginPath();
+              ctx.roundRect(dx, dy, dw, dh, br * scale);
+              ctx.stroke();
+            } else {
+              ctx.strokeRect(dx, dy, dw, dh);
+            }
+          }
+          ctx.restore();
+        }
       }
     }
   }
@@ -740,10 +888,10 @@
     }
 
     updateBoxStyle(el, r) {
-      el.style.left = r.left + "px";
-      el.style.top = r.top + "px";
-      el.style.width = r.width + "px";
-      el.style.height = r.height + "px";
+      el.style.left = `${r.left}px`;
+      el.style.top = `${r.top}px`;
+      el.style.width = `${r.width}px`;
+      el.style.height = `${r.height}px`;
     }
 
     showCropBox() {
@@ -1112,7 +1260,7 @@
       const doRender = () => {
         const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
         hideEls.forEach((el) => {
-          el.classList.add("foliplus-export-hidden");
+          el.classList.add(CONST.CLASSES.HIDDEN);
         });
 
         if (geoBounds && geoBounds.nw) {
@@ -1132,7 +1280,7 @@
           .render(r, scaleValue, bg || undefined, geoBounds)
           .then((canvas) => {
             hideEls.forEach((el) => {
-              el.classList.remove("foliplus-export-hidden");
+              el.classList.remove(CONST.CLASSES.HIDDEN);
             });
             const prevImg = document.createElement("img");
             prevImg.src = canvas.toDataURL("image/png");
@@ -1168,7 +1316,7 @@
           })
           .catch((err) => {
             hideEls.forEach((el) => {
-              el.classList.remove("foliplus-export-hidden");
+              el.classList.remove(CONST.CLASSES.HIDDEN);
             });
             console.error(`[${CONST.name}] ${_(`${CONST.name}.err_render`)}:`, err);
             this.showGlobalHint(
