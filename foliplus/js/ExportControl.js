@@ -107,25 +107,18 @@
   });
 
   // ==================== LeafletRenderer ====================
-  // Mixed-mode renderer inspired by html2canvas.
-  //
-  // Layer 1 (Tiles): new Image() + crossOrigin='anonymous' + original URL.
-  //   Same approach as html2canvas useCORS mode. No cache-busting —
-  //   the browser reuses the cached CORS response.
-  //   If CORS fails, tile is skipped (canvas stays clean).
-  //
-  // Layer 2 (SVG overlay): serialize Leaflet's <svg> → Blob URL → Image.
-  //   Leaflet paths have inline styles (fill, stroke, etc.) so no
-  //   external CSS is needed. This preserves all vector layers.
-  //
-  // Layer 3 (Markers): same as tiles — new Image() + crossOrigin.
+  // Mixed-mode renderer with independent rendering passes.
+  // render() orchestrates the passes in painter's-algorithm order:
+  //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome → 6. text labels
   class LeafletRenderer {
     constructor(map) {
       this.map = map;
       this.container = map.getContainer();
     }
 
-    // Get the first active TileLayer on the map
+    // ── Setup helpers ──
+
+    /** Get the first active TileLayer on the map. */
     getTileLayer() {
       let tileLayer = null;
       this.map.eachLayer((l) => {
@@ -211,19 +204,32 @@
       const contW = contRect.width;
       const contH = contRect.height;
 
-      // Layer 1: Tiles — If geo bounds are available, compute tile
-      // coordinates ourselves so we can export areas beyond the viewport.
-      // Otherwise fall back to DOM images.
-      let imgOk = 0,
-        imgFail = 0;
+      // 1. Tiles
+      await this.renderTiles(ctx, rect, scale, contRect, contW, contH, geoBounds);
+      // 2. SVG overlay
+      await this.renderSVG(ctx, rect, scale, contRect, sw, sh);
+      // 3. Canvas (e.g. HeatmapControl)
+      await this.renderCanvas(ctx, rect, scale, contRect, cw, ch);
+      // 4. Markers (sprites)
+      const markerRoots = this.renderMarkers(ctx, rect, scale, contRect, cw, ch);
+      // 5. FontAwesome icons
+      await this.renderFontAwesome(ctx, rect, scale, contRect, markerRoots);
+      // 6. Text labels (e.g. MeasureControl labels)
+      this.renderTextLabels(ctx, rect, scale, contRect, markerRoots);
+
+      return canvas;
+    }
+
+    /** Render tiles by computing coordinates from geo bounds, or fallback to DOM images. */
+    async renderTiles(ctx, rect, scale, contRect, contW, contH, geoBounds) {
+      const cw = rect.width * scale;
+      const ch = rect.height * scale;
 
       if (geoBounds && geoBounds.nw) {
         const tileLayer = this.getTileLayer();
         if (tileLayer) {
           const zoom = this.map.getZoom();
           const tiles = this.calcTiles(tileLayer, geoBounds, zoom);
-          // Viewport offset: pixel position of the viewport origin
-          // in the CRS pixel space at the current zoom
           const crs = this.map.options.crs || L.CRS.EPSG3857;
           const viewportCenter = crs.latLngToPoint(this.map.getCenter(), zoom);
           const halfVpW = contW / 2;
@@ -231,10 +237,7 @@
           const vpLeft = viewportCenter.x - halfVpW;
           const vpTop = viewportCenter.y - halfVpH;
 
-          // Calculate the pixel origin of the crop area within the viewport
-          // (same as before: rect.left/rect.top are viewport-relative)
           for (const tile of tiles) {
-            // Tile position in viewport pixels
             const tileVpX = tile.left - vpLeft;
             const tileVpY = tile.top - vpTop;
             const dx = (tileVpX - rect.left) * scale;
@@ -242,88 +245,50 @@
             const dw = tile.size * scale;
             const dh = tile.size * scale;
             if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
-            // Also skip tiles far outside the export area
-            if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top)
-              continue;
-            if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height)
-              continue;
+            if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
+            if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height) continue;
 
             try {
-              const resp = await fetch(tile.url, {
-                mode: "cors",
-                cache: "force-cache",
-              });
-              if (!resp.ok) {
-                imgFail++;
-                continue;
-              }
+              const resp = await fetch(tile.url, { mode: "cors", cache: "force-cache" });
+              if (!resp.ok) continue;
               const blob = await resp.blob();
               const bitmap = await createImageBitmap(blob);
               ctx.drawImage(bitmap, dx, dy, dw, dh);
               bitmap.close();
-              imgOk++;
-            } catch {
-              imgFail++;
-            }
+            } catch { /* skip */ }
           }
         }
       } else {
-        // Fallback: use DOM images (original approach)
-        const uniqueSrc = new Set();
-        for (const img of this.container.querySelectorAll("img"))
-          if (img.src && img.complete && img.naturalWidth) uniqueSrc.add(img.src);
-
-        for (const src of uniqueSrc) {
-          const el = [...this.container.querySelectorAll("img")].find(
-            (i) => i.src === src && i.complete && i.naturalWidth,
-          );
-          if (!el) {
-            imgFail++;
-            continue;
-          }
-          const r = el.getBoundingClientRect();
+        // Fallback: use DOM images
+        for (const img of this.container.querySelectorAll("img")) {
+          if (!img.src || !img.complete || !img.naturalWidth) continue;
+          const r = img.getBoundingClientRect();
           const l = r.left - contRect.left;
           const t = r.top - contRect.top;
-          const w = el.naturalWidth || r.width || 256;
-          const h = el.naturalHeight || r.height || 256;
-          if (w < 1 || h < 1) {
-            imgFail++;
-            continue;
-          }
+          const w = img.naturalWidth || r.width || 256;
+          const h = img.naturalHeight || r.height || 256;
+          if (w < 1 || h < 1) continue;
           const dx = (l - rect.left) * scale;
           const dy = (t - rect.top) * scale;
           const dw = (r.width || w) * scale;
           const dh = (r.height || h) * scale;
-          if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) {
-            imgFail++;
-            continue;
-          }
+          if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
           try {
-            const resp = await fetch(src, { mode: "cors", cache: "force-cache" });
-            if (!resp.ok) {
-              imgFail++;
-              continue;
-            }
+            const resp = await fetch(img.src, { mode: "cors", cache: "force-cache" });
+            if (!resp.ok) continue;
             const blob = await resp.blob();
             const bitmap = await createImageBitmap(blob);
             ctx.drawImage(bitmap, dx, dy, dw, dh);
             bitmap.close();
-            imgOk++;
-          } catch {
-            imgFail++;
-          }
+          } catch { /* skip */ }
         }
       }
+    }
 
-      // Layer 2: SVG overlay — serialize Leaflet's <svg> → Blob URL → Image.
-      // Leaflet's SVG layers have viewBox = "0 0 <w> <h>" and paths
-      // are positioned in container-relative pixel coordinates.
-      // We serialize each SVG, set explicit width/height (keeping viewBox),
-      // then crop to the export area.
-      const panes = this.container.querySelectorAll(
-        '.leaflet-map-pane [class*="pane"]',
-      );
-      let svgCount = 0;
+    /** Render SVG overlay — serialize Leaflet's <svg> → Blob URL → Image.
+     *  Inlines computed styles so CSS classes (e.g. foliplus-measure-line-solid) survive serialization. */
+    async renderSVG(ctx, rect, scale, contRect, sw, sh) {
+      const panes = this.container.querySelectorAll('.leaflet-map-pane [class*="pane"]');
       for (const pane of panes) {
         const svgEl = pane.querySelector("svg");
         if (!svgEl) continue;
@@ -334,13 +299,29 @@
 
         const clone = svgEl.cloneNode(true);
         clone.removeAttribute("style");
-        // Keep viewBox, set width/height to actual display size
+        // Inline computed styles for every child element
+        const allEls = clone.querySelectorAll("*");
+        const originals = svgEl.querySelectorAll("*");
+        for (let i = 0; i < allEls.length && i < originals.length; i++) {
+          const cs = window.getComputedStyle(originals[i]);
+          const inline = allEls[i];
+          const attrs = ["fill", "stroke", "stroke-width", "stroke-dasharray",
+            "stroke-linecap", "stroke-linejoin", "opacity", "display",
+            "visibility", "marker-start", "marker-end", "marker-mid",
+            "paint-order", "color", "font-size", "font-family", "font-weight",
+            "text-anchor", "dominant-baseline", "alignment-baseline",
+            "dx", "dy", "r", "cx", "cy", "rx", "ry"];
+          for (const a of attrs) {
+            const v = cs.getPropertyValue(a);
+            if (v && v !== "none" && v !== "0") inline.setAttribute(a, v);
+          }
+        }
         clone.setAttribute("width", String(svgRect.width));
         clone.setAttribute("height", String(svgRect.height));
 
         let src = new XMLSerializer().serializeToString(clone);
-        const xmlns = 'xmlns="http://www.w3.org/2000/svg"';
-        if (!src.includes(xmlns)) src = src.replace("<svg", `<svg ${xmlns}`);
+        if (!src.includes('xmlns="http://www.w3.org/2000/svg"'))
+          src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
         if (src.length < 100) continue;
 
         const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
@@ -352,34 +333,18 @@
             i.onerror = () => reject(new Error(_(`${CONST.name}.err_svg_load`)));
             i.src = url;
           });
-          // Crop to export rect in the SVG's coordinate space:
-          // The SVG is positioned at (svgL, svgT) within the container.
-          // We want to extract (rect.left - svgL, rect.top - svgT, rect.w, rect.h).
-          ctx.drawImage(
-            svgImg,
-            rect.left - svgL,
-            rect.top - svgT,
-            rect.width,
-            rect.height,
-            0,
-            0,
-            sw,
-            sh,
-          );
-          svgCount++;
+          ctx.drawImage(svgImg, rect.left - svgL, rect.top - svgT, rect.width, rect.height, 0, 0, sw, sh);
         } finally {
           URL.revokeObjectURL(url);
         }
       }
-      // Layer 3: Canvas — capture managed canvas elements (e.g. HeatmapControl
-      // hexbin canvas) that live in .leaflet-map-pane with position offset.
-      // These are positioned via left/top to cancel the mapPane CSS transform,
-      // so getBoundingClientRect gives us the correct viewport-relative position.
+    }
+
+    /** Render managed canvas elements (e.g. HeatmapControl hexbin canvas). */
+    async renderCanvas(ctx, rect, scale, contRect, cw, ch) {
       const canvasEls = this.container.querySelectorAll(CONST.SEL.CANVAS);
-      // Trigger lifecycle hooks (e.g. disable viewport culling) before capture
       for (const ce of canvasEls) if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
 
-      let canvasCount = 0;
       for (const ce of canvasEls) {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;
@@ -393,7 +358,6 @@
         const dh = h * scale;
         if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
         try {
-          // Canvas is same-origin, toDataURL is safe
           const dataUrl = ce.toDataURL("image/png");
           const img = await new Promise((resolve, reject) => {
             const i = new Image();
@@ -402,42 +366,47 @@
             i.src = dataUrl;
           });
           ctx.drawImage(img, dx, dy, dw, dh);
-          canvasCount++;
-        } catch {
-          // Canvas may be tainted; skip silently
-        }
+        } catch { /* skip */ }
       }
-      // Restore lifecycle hooks after capture
-      for (const ce of canvasEls) if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
 
-      // Layer 4: Markers — draw each element with background-image or plain image.
-      // Search ALL panes for marker elements, since LayerControl moves markers
-      // to per-layer fallback panes.
-      const drawableEls = [];
+      for (const ce of canvasEls) if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
+    }
+
+    /** Collect marker roots from all panes (excluding del-icons and popups). */
+    collectMarkerRoots() {
       const allPanes = this.container.querySelectorAll(CONST.SEL.PANE);
-      let markerRoots = [];
+      const roots = [];
       for (const pane of allPanes) {
         const found = pane.querySelectorAll(CONST.SEL.MARKER);
-        if (found.length) markerRoots = [...markerRoots, ...found];
+        for (const el of found) {
+          if (el.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          roots.push(el);
+        }
       }
-      // Also capture MeasureControl divIcon labels (but NOT del-icon buttons)
       for (const pane of allPanes) {
         const labels = pane.querySelectorAll(CONST.SEL.LABEL);
-        if (labels.length) markerRoots = [...markerRoots, ...labels];
+        for (const label of labels) {
+          if (label.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          roots.push(label);
+        }
       }
+      return roots;
+    }
+
+    /** Render markers with background-image sprites.  Returns markerRoots for further passes. */
+    renderMarkers(ctx, rect, scale, contRect, cw, ch) {
+      const markerRoots = this.collectMarkerRoots();
+      const drawableEls = [];
       for (const root of markerRoots) {
         drawableEls.push(root);
         for (const sub of root.querySelectorAll("*")) {
           const scs = window.getComputedStyle(sub);
-          if (
-            scs.backgroundImage &&
-            scs.backgroundImage.includes("url(") &&
-            scs.backgroundImage !== "none"
-          )
+          if (scs.backgroundImage && scs.backgroundImage.includes("url(") && scs.backgroundImage !== "none")
             drawableEls.push(sub);
         }
       }
-      // First pass: load unique sprites
+
+      // Load unique sprites
       const spriteMap = new Map();
       const loadQueue = [];
       for (const el of drawableEls) {
@@ -446,45 +415,48 @@
         if (!bg || bg === "none") continue;
         const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
         if (m && !m[1].startsWith("data:") && !spriteMap.has(m[1])) {
-          const url = m[1];
-          spriteMap.set(url, null);
+          spriteMap.set(m[1], null);
           loadQueue.push(
-            fetch(url, { mode: "cors", cache: "force-cache" })
+            fetch(m[1], { mode: "cors", cache: "force-cache" })
               .then((r) => (r.ok ? r.blob() : null))
               .then((blob) => (blob ? createImageBitmap(blob) : null))
-              .then((bmp) => spriteMap.set(url, bmp))
+              .then((bmp) => spriteMap.set(m[1], bmp))
               .catch(() => {}),
           );
         }
       }
-      await Promise.all(loadQueue);
-      // Second pass: draw sprite backgrounds
-      for (const el of drawableEls) {
+      if (loadQueue.length) {
+        // Synchronous sprite drawing — await needed for the load to complete
+        // but we can't await inside a forEach, so use a temp variable
+        this._spriteLoadPromise = Promise.all(loadQueue);
+      }
+
+      // Draw sprites (synchronous after load)
+      const drawSprite = (el) => {
         const r = el.getBoundingClientRect();
         const l = r.left - contRect.left;
         const t = r.top - contRect.top;
         const w = r.width;
         const h = r.height;
-        if (w < 1 || h < 1) continue;
+        if (w < 1 || h < 1) return;
         const dx = (l - rect.left) * scale;
         const dy = (t - rect.top) * scale;
         const dw = w * scale;
         const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) return;
         const cs = window.getComputedStyle(el);
         const bg = cs.backgroundImage;
-        if (!bg || bg === "none") continue;
+        if (!bg || bg === "none") return;
         const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-        if (!m) continue;
+        if (!m) return;
         const sprite = spriteMap.get(m[1]);
-        if (!sprite) continue;
+        if (!sprite) return;
         const bgs = cs.backgroundSize || "auto";
         const bgsParts = bgs.trim().split(/\s+/);
         let cssBgW, cssBgH;
         if (bgs === "auto" || bgs === "auto auto") {
-          const dpr = window.devicePixelRatio || 1;
-          cssBgW = sprite.width / dpr;
-          cssBgH = sprite.height / dpr;
+          cssBgW = sprite.width / (window.devicePixelRatio || 1);
+          cssBgH = sprite.height / (window.devicePixelRatio || 1);
         } else if (bgs.includes("%")) {
           cssBgW = (w * (parseFloat(bgsParts[0]) || 100)) / 100;
           cssBgH = (h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100)) / 100;
@@ -500,15 +472,20 @@
         const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
         const sw = w * ratioX;
         const sh = h * ratioY;
-        if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
-        try {
-          ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-        } catch {
-          /* skip */
-        }
-      }
+        if (sx + sw > sprite.width || sy + sh > sprite.height) return;
+        try { ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh); } catch { /* skip */ }
+      };
 
-      // FontAwesome icons — draw ::before pseudo-element text
+      // Draw all elements
+      for (const el of drawableEls) drawSprite(el);
+      return markerRoots;
+    }
+
+    /** Render FontAwesome icons from ::before pseudo-element content. */
+    async renderFontAwesome(ctx, rect, scale, contRect, markerRoots) {
+      const cw = rect.width * scale;
+      const ch = rect.height * scale;
+
       for (const root of markerRoots) {
         const r = root.getBoundingClientRect();
         const l = r.left - contRect.left;
@@ -541,10 +518,7 @@
         let fontWeight = before.fontWeight || iconCS.fontWeight || "900";
         if (fontWeight === "normal") fontWeight = "400";
         if (fontWeight === "bold") fontWeight = "700";
-        let iconDX = dx,
-          iconDY = dy,
-          iconDW = dw,
-          iconDH = dh;
+        let iconDX = dx, iconDY = dy, iconDW = dw, iconDH = dh;
         const ir = iconEl.getBoundingClientRect();
         const il = ir.left - contRect.left;
         const it = ir.top - contRect.top;
@@ -556,17 +530,9 @@
         }
         fontSize *= scale;
         const fontSpec = fontWeight + " " + fontSize + "px " + fontFamily;
-        try {
-          await document.fonts.load(fontSpec);
-        } catch {
-          /* try anyway */
-        }
+        try { await document.fonts.load(fontSpec); } catch { /* try anyway */ }
         if (!document.fonts.check(fontSpec)) {
-          try {
-            await document.fonts.ready;
-          } catch {
-            /* skip */
-          }
+          try { await document.fonts.ready; } catch { /* skip */ }
         }
         ctx.save();
         ctx.font = fontSpec;
@@ -576,7 +542,55 @@
         ctx.fillText(iconText, iconDX + iconDW / 2, iconDY + iconDH / 2);
         ctx.restore();
       }
-      return canvas;
+    }
+
+    /** Render plain text labels (e.g. MeasureControl distance labels). */
+    renderTextLabels(ctx, rect, scale, contRect, markerRoots) {
+      const cw = rect.width * scale;
+      const ch = rect.height * scale;
+
+      for (const root of markerRoots) {
+        const r = root.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width;
+        const h = r.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale;
+        const dh = h * scale;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        if (root.querySelector("i")) continue;
+        const rootCS = window.getComputedStyle(root);
+        if (rootCS.backgroundImage && rootCS.backgroundImage !== "none" && rootCS.backgroundImage.includes("url(")) continue;
+        const textEl = root.querySelector(CONST.SEL.LABEL) || root;
+        const text = textEl.textContent || "";
+        if (!text.trim()) continue;
+        const textCS = window.getComputedStyle(textEl);
+        let fontSize = parseFloat(textCS.fontSize) || 14;
+        const fontFamily = textCS.fontFamily || "sans-serif";
+        const color = textCS.color || "#000";
+        let fontWeight = textCS.fontWeight || "400";
+        if (fontWeight === "normal") fontWeight = "400";
+        if (fontWeight === "bold") fontWeight = "700";
+        fontSize *= scale;
+        const fontSpec = fontWeight + " " + fontSize + "px " + fontFamily;
+        ctx.save();
+        ctx.font = fontSpec;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = color;
+        const cx = dx + dw / 2;
+        const cy = dy + dh / 2;
+        const lines = text.trim().split("\n");
+        const lineHeight = fontSize * 1.2;
+        const startY = cy - ((lines.length - 1) * lineHeight) / 2;
+        for (let i = 0; i < lines.length; i++) {
+          ctx.fillText(lines[i].trim(), cx, startY + i * lineHeight);
+        }
+        ctx.restore();
+      }
     }
   }
 
