@@ -1,8 +1,8 @@
 # Changelog
 
-## [Unreleased] (2026-08-07)
+## [Unreleased]
 
-## [v0.3.0]
+## [v0.3.0] (2026-08-02)
 
 ### Added
 
