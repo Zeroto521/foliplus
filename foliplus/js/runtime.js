@@ -34,6 +34,11 @@
 
   // ==================== Constants ====================
   // Private state (closure-scoped, not exposed on foliplus)
+  //
+  // Z-index: hints start at 10000 and stack upward via
+  //   element.style.zIndex = CONST.HINT.Z_BASE + stackIndex
+  // Map content (panes) sits at 0-600, controls at 800-9990,
+  // export overlay at 9500-9700, fullscreen at 99999.
   const CONST = {
     HINT: {
       BOTTOM_BASE: 20,

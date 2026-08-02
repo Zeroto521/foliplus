@@ -1,7 +1,11 @@
 /* ── FullscreenControl / Zoom Controls ──
   Custom container with three tool-btn buttons.
   Hover/active effects inherited from common.css unified button rules.
-  Only loaded when FullscreenControl is used. ── */
+  Only loaded when FullscreenControl is used.
+
+  Z-index: 99999 is the browser Fullscreen API convention.
+  The pseudo-fullscreen container covers the entire viewport.
+  No internal z-index layering needed — single container. ── */
 
 /* ── Button container ── */
 .foliplus-fullscreen-bar {
