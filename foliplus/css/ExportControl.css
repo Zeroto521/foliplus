@@ -13,13 +13,12 @@
 
 /* Export control container highlighted when active (matching search input focus style) */
 .foliplus-export-ctrl {
-  z-index: 9700 !important;
+  z-index: 9700;
 }
 .foliplus-export-ctrl.expanded {
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow) !important;
-}
-.foliplus-export-ctrl.expanded .foliplus-toggle-btn {
-  border-right: var(--border-thin) solid var(--divider-color);
+  box-shadow:
+    var(--panel-shadow),
+    0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 
 /* ── Overlay (placeholder, dimming is done by crop box ::before) ── */
@@ -33,9 +32,9 @@
 }
 
 /* ── Crop Box ──
-   ::before pseudo-element creates a 9999px box-shadow that dims
-   everything outside the crop area. The transparent background
-   keeps map content visible inside the box. */
+  ::before pseudo-element creates a 9999px box-shadow that dims
+  everything outside the crop area. The transparent background
+  keeps map content visible inside the box. */
 .foliplus-export-box {
   position: absolute;
   border: var(--size-2) dashed var(--accent-primary);
