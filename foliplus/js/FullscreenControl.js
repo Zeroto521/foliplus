@@ -94,7 +94,7 @@
         id: ContainerId,
       });
       const container = foliplus.dom.el("div", {
-        class: CONST.CLASSES.FULLSCREEN_BAR,
+        class: `${CONST.CLASSES.FULLSCREEN_BAR} foliplus-ctrl-fold`,
         parent: outer,
       });
 

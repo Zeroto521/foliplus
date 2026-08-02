@@ -7,9 +7,6 @@
 .foliplus-fullscreen-bar {
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-ctrl-strong);
-  border-radius: var(--radius-sm);
-  background: var(--ctrl-bg);
 }
 
 /* ── Top button gets top radius ── */
