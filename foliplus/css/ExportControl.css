@@ -1,5 +1,14 @@
 /* ── Export Control ── */
 
+/* Reset Leaflet stacking context so controls can sit above the crop mask.
+  leaflet-top/leaflet-bottom have z-index:1000 by default, creating a
+  stacking context that would trap controls below the overlay. */
+.foliplus-export-mode .leaflet-control-container,
+.foliplus-export-mode .leaflet-top,
+.foliplus-export-mode .leaflet-bottom {
+  z-index: auto !important;
+}
+
 /* Keep controls visible above the crop mask */
 .foliplus-export-mode .leaflet-control {
   z-index: 9510 !important;
