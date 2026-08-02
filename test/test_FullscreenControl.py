@@ -134,13 +134,13 @@ class TestFullscreeControlRendering:
         assert 'L.DomUtil.create("a"' not in html
 
     def test_leaflet_bar_container(self, base_map: folium.Map):
-        """Container has two-layer structure: outer leaflet-bar, inner fullscreen-bar."""
+        """Container has two-layer structure: outer leaflet-bar, inner fullscreen-bar + ctrl-fold."""
         FullscreenControl().add_to(base_map)
         html = render(base_map)
         # Outer: leaflet-bar leaflet-control
         assert 'class: "leaflet-bar leaflet-control"' in html
-        # Inner: foliplus-fullscreen-bar (no foliplus-ctrl-fold — no collapse state)
-        assert r"class: CONST.CLASSES.FULLSCREEN_BAR" in html
+        # Inner: foliplus-fullscreen-bar foliplus-ctrl-fold (shared collapsed class)
+        assert r"class: `${CONST.CLASSES.FULLSCREEN_BAR} foliplus-ctrl-fold`" in html
 
     def test_default_zoom_removed(self, base_map: folium.Map):
         """Default Leaflet zoom control is removed."""
