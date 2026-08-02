@@ -325,9 +325,19 @@
           for (let i = 0; i < allEls.length && i < originals.length; i++) {
             const cs = window.getComputedStyle(originals[i]);
             const inline = allEls[i];
-            for (const p of ["fill", "stroke", "stroke-width", "stroke-dasharray",
-              "stroke-linecap", "stroke-linejoin", "opacity", "fill-opacity",
-              "stroke-opacity", "visibility", "display"]) {
+            for (const p of [
+              "fill",
+              "stroke",
+              "stroke-width",
+              "stroke-dasharray",
+              "stroke-linecap",
+              "stroke-linejoin",
+              "opacity",
+              "fill-opacity",
+              "stroke-opacity",
+              "visibility",
+              "display",
+            ]) {
               const v = cs.getPropertyValue(p);
               if (v && v !== "none") inline.style[p] = v;
             }
