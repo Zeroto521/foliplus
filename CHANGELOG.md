@@ -21,14 +21,15 @@
 
 ### Changed
 
-- `ScaleControl`: default position changed to `bottomleft`; UI aligned with native Leaflet style ([#23](https://github.com/Zeroto521/foliplus/pull/23), [#50](https://github.com/Zeroto521/foliplus/pull/50), [#85](https://github.com/Zeroto521/foliplus/pull/85))
-- Unified button interaction system: `toggle-btn`, `tool-btn`, `search-mode-btn`, `ctrl-abs-btn` share hover and active effects via a single `:is()` rule ([#37](https://github.com/Zeroto521/foliplus/pull/37), [#56](https://github.com/Zeroto521/foliplus/pull/56), [#58](https://github.com/Zeroto521/foliplus/pull/58), [#63](https://github.com/Zeroto521/foliplus/pull/63))
-- `FullscreenControl`: rewritten without external CDN dependencies; zoom +/- replaced with styled SVG icons ([#37](https://github.com/Zeroto521/foliplus/pull/37), [#58](https://github.com/Zeroto521/foliplus/pull/58))
-- `HeatmapControl`: migrated from `L.divIcon`-based SVG hexagons to Canvas 2D rendering (`createCanvas` API) — significant performance improvement for large point datasets ([#38](https://github.com/Zeroto521/foliplus/pull/38), [#71](https://github.com/Zeroto521/foliplus/pull/71))
-- Unified `HINT_DURATION` constants across all components: `SHORT` (1200ms), `MEDIUM` (2500ms), `LONG` (4000ms), `PERSIST` (0) ([#41](https://github.com/Zeroto521/foliplus/pull/41))
-- `MeasureControl`: refactored HTML string concatenation to use `foliplus.dom.el` ([#47](https://github.com/Zeroto521/foliplus/pull/47), [#51](https://github.com/Zeroto521/foliplus/pull/51))
-- Unified CSS design token system; consolidated styles across all controls; added keyboard accessibility and disabled state styling ([#62](https://github.com/Zeroto521/foliplus/pull/62), [#67](https://github.com/Zeroto521/foliplus/pull/67), [#68](https://github.com/Zeroto521/foliplus/pull/68), [#95](https://github.com/Zeroto521/foliplus/pull/95), [#96](https://github.com/Zeroto521/foliplus/pull/96), [#103](https://github.com/Zeroto521/foliplus/pull/103))
-- Unified component naming with `Control` suffix: `Base` → `BaseControl`, `ScaleControl` → `ScaleControl`, `SearchControl` → `SearchControl` ([#80](https://github.com/Zeroto521/foliplus/pull/80))
+- `ScaleControl`: Fixed to `bottomleft` and aligned UI style with native Leaflet elements ([#23](https://github.com/Zeroto521/foliplus/pull/23), [#50](https://github.com/Zeroto521/foliplus/pull/50), [#85](https://github.com/Zeroto521/foliplus/pull/85))
+- Unified control tokens and simplified shared styles ([#37](https://github.com/Zeroto521/foliplus/pull/37), [#56](https://github.com/Zeroto521/foliplus/pull/56), [#58](https://github.com/Zeroto521/foliplus/pull/58), [#63](https://github.com/Zeroto521/foliplus/pull/63))
+- `FullscreenControl`: replaced zoom +/- text with styled SVG icons matching foliplus design, unified fullscreen button and zoom controls with consistent hover/active effects ([#37](https://github.com/Zeroto521/foliplus/pull/37), [#58](https://github.com/Zeroto521/foliplus/pull/58))
+- `HeatmapControl`: migrated from `L.divIcon` based SVG hexagons to Canvas 2D rendering (`createCanvas` API). Significant performance improvement for large point datasets ([#38](https://github.com/Zeroto521/foliplus/pull/38), [#71](https://github.com/Zeroto521/foliplus/pull/71))
+- Unified `HINT_DURATION` constants across all components: `SHORT`, `MEDIUM`, `LONG`, `PERSIST` ([#41](https://github.com/Zeroto521/foliplus/pull/41))
+- `MeasureControl`: simplify HTML string concatenation via `foliplus.dom.el` ([#47](https://github.com/Zeroto521/foliplus/pull/47), [#51](https://github.com/Zeroto521/foliplus/pull/51))
+- `FullscreenControl`: no external CDN dependencies, rewritten `FullscreenControl` ([#58](https://github.com/Zeroto521/foliplus/pull/58))
+- UI polish: unified CSS design token system, optimized and consolidated styles, added keyboard accessibility and disabled state styling, improved checkbox/toggle/scheme dropdown interactions ([#62](https://github.com/Zeroto521/foliplus/pull/62), [#67](https://github.com/Zeroto521/foliplus/pull/67), [#68](https://github.com/Zeroto521/foliplus/pull/68), [#95](https://github.com/Zeroto521/foliplus/pull/95), [#96](https://github.com/Zeroto521/foliplus/pull/96), [#103](https://github.com/Zeroto521/foliplus/pull/103))
+- Unify component naming with `Control` suffix: `Base` -> `BaseControl`, `Fullscreen` -> `FullscreenControl` and `MapSearch` -> `SearchControl` ([#80](https://github.com/Zeroto521/foliplus/pull/80))
 - `LayerControl`: attribution now shows only the topmost visible base TileLayer to avoid clutter ([#83](https://github.com/Zeroto521/foliplus/pull/83))
 
 ### Fixed
