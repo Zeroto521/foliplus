@@ -153,7 +153,6 @@
   transform: scale(var(--scale-press));
 }
 .foliplus-layer-ctrl .foliplus-layer-fold-btn:active svg {
-  transition: transform var(--transition-fast);
   transform: scale(var(--scale-press));
 }
 .foliplus-layer-ctrl .foliplus-layer-fold-btn svg {

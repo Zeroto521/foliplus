@@ -309,7 +309,6 @@
   transform: scale(var(--scale-hover));
 }
 :is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-btn):active svg {
-  transition: transform var(--transition-fast);
   transform: scale(var(--scale-press));
 }
 
