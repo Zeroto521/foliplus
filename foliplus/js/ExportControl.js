@@ -799,7 +799,7 @@
       document.addEventListener("keydown", this.onKeyDown);
     }
 
-    lockCropBox() {
+    lockCropBox(skipHint) {
       if (!this.cropState || this.cropState.locked) return;
       this.cropState.locked = true;
       this.cropState.box.classList.add("locked");
@@ -845,8 +845,8 @@
         this.doExport();
       };
       this.map.on("move zoom", this.onMapChange);
-      this.onMapChange();
-      this.showHintWithInfo(r, _(`${CONST.name}.hint_locked`));
+      this.onMapChange(skipHint);
+      if (!skipHint) this.showHintWithInfo(r, _(`${CONST.name}.hint_locked`));
     }
 
     unlockCropBox() {
@@ -989,7 +989,7 @@
       }
     }
 
-    onMapChange() {
+    onMapChange(skipHint) {
       if (!this.cropState || !this.cropState.locked) return;
       const nw = this.cropState.geoBounds.nw;
       const se = this.cropState.geoBounds.se;
@@ -1003,7 +1003,7 @@
       };
       this.cropState.rect = newRect;
       this.updateBoxStyle(this.cropState.box, newRect);
-      this.showHintWithInfo(newRect, _(`${CONST.name}.hint_locked`));
+      if (!skipHint) this.showHintWithInfo(newRect, _(`${CONST.name}.hint_locked`));
     }
 
     doExport() {
@@ -1186,7 +1186,7 @@
                   lng: exportManager.savedBounds.se.lng,
                 },
               };
-              exportManager.lockCropBox();
+              exportManager.lockCropBox(true);
               foliplus.showHint(
                 CONST.name,
                 _(`${CONST.name}.hint_restore`),
