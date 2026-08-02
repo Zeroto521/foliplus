@@ -2259,6 +2259,150 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
+    # ── Indeterminate checkbox browser tests ──
+
+    def test_toggle_all_indeterminate_state(self, browser, tmp_path):
+        """Toggle-all checkbox becomes indeterminate when some (not all) layers are checked."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="C", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_indeterminate.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # Step 1: All checked → toggle-all should be checked (not indeterminate)
+            all_checked = page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
+                return { checked: cb.checked, indeterminate: cb.indeterminate };
+            }""")
+            assert all_checked["checked"] is True, (
+                "Expected toggle-all checked when all layers checked"
+            )
+            assert all_checked["indeterminate"] is False, (
+                "Expected toggle-all NOT indeterminate when all layers checked"
+            )
+
+            # Step 2: Uncheck one layer → toggle-all should be indeterminate
+            page.evaluate("""() => {
+                const cbs = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]');
+                if (cbs[1]) cbs[1].click();
+            }""")
+            page.wait_for_timeout(300)
+
+            partial = page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
+                return { checked: cb.checked, indeterminate: cb.indeterminate };
+            }""")
+            assert partial["checked"] is False, (
+                "Expected toggle-all unchecked when some layers checked"
+            )
+            assert partial["indeterminate"] is True, (
+                "Expected toggle-all indeterminate when some (not all) layers checked"
+            )
+
+            # Step 3: Uncheck all layers → toggle-all should be unchecked (not indeterminate)
+            page.evaluate("""() => {
+                const cbs = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]');
+                cbs.forEach(cb => { if (cb.checked) cb.click(); });
+            }""")
+            page.wait_for_timeout(300)
+
+            none = page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
+                return { checked: cb.checked, indeterminate: cb.indeterminate };
+            }""")
+            assert none["checked"] is False, (
+                "Expected toggle-all unchecked when no layers checked"
+            )
+            assert none["indeterminate"] is False, (
+                "Expected toggle-all NOT indeterminate when no layers checked"
+            )
+        finally:
+            page.close()
+
+    def test_toggle_all_click_indeterminate_selects_all(self, browser, tmp_path):
+        """Clicking indeterminate toggle-all selects all layers."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="C", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_indeterminate_click.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # Uncheck one layer to make toggle-all indeterminate
+            page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]');
+                if (cb) cb.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Verify indeterminate
+            state = page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
+                return cb.indeterminate;
+            }""")
+            assert state is True, "Expected toggle-all indeterminate before click"
+
+            # Click toggle-all (indeterminate → checked will select all)
+            page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
+                if (cb) cb.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Verify all layers are now checked
+            result = page.evaluate("""() => {
+                const cbs = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]');
+                return Array.from(cbs).map(cb => cb.checked);
+            }""")
+            assert all(result), f"Expected all layers checked, got {result}"
+
+            # Verify toggle-all is now checked (not indeterminate)
+            final = page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
+                return { checked: cb.checked, indeterminate: cb.indeterminate };
+            }""")
+            assert final["checked"] is True, (
+                "Expected toggle-all checked after select all"
+            )
+            assert final["indeterminate"] is False, (
+                "Expected toggle-all NOT indeterminate after select all"
+            )
+        finally:
+            page.close()
+
 
 class TestLayerControlEdgeCases:
     """Tests for uncovered edge cases and code paths."""
@@ -2328,3 +2472,39 @@ class TestLayerControlEdgeCases:
         assert "handleDragLeave" in html
         assert "handleDrop" in html
         assert "handleDragEnd" in html
+
+    # ── Indeterminate checkbox (partial selection) tests ──
+
+    def test_indeterminate_css_style_present(self):
+        """:indeterminate CSS style exists for partial selection state."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert ":indeterminate" in css
+        assert ":indeterminate::after" in css
+        # Should use a dash/minus icon (not a checkmark)
+        assert "x1='6' y1='12' x2='18' y2='12'" in css
+
+    def test_sync_toggle_all_sets_indeterminate(self, base_map: folium.Map):
+        """syncToggleAll sets indeterminate when some (not all) layers are checked."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
+
+    def test_sync_toggle_all_resets_indeterminate_on_all_checked(
+        self, base_map: folium.Map
+    ):
+        """syncToggleAll resets indeterminate when all layers become checked."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # When all checked, checked=true and indeterminate=false
+        assert "allCb.checked = allChecked" in html
+        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
+
+    def test_sync_toggle_all_resets_indeterminate_on_none_checked(
+        self, base_map: folium.Map
+    ):
+        """syncToggleAll resets indeterminate when no layers are checked."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # When none checked, checked=false and noneChecked triggers indeterminate=false
+        assert "noneChecked = checkedCount === 0" in html
+        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
