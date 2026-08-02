@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import pathlib
-
 import folium
-import pytest
 from conftest import render
 
 from foliplus import ExportControl
@@ -65,6 +61,7 @@ class TestExportControlPython:
 
     def test_locale_config(self):
         from foliplus.locale import LocaleConfig
+
         cfg = LocaleConfig(language="zh")
         ctrl = ExportControl(locale=cfg)
         assert ctrl._locale_code == "zh"
@@ -260,7 +257,6 @@ class TestExportControlRendering:
 
     def test_export_control_py_file(self):
         """ExportControl.py has expected exports."""
-        from foliplus import ExportControl
         ctrl = ExportControl()
         assert hasattr(ctrl, "filename")
         assert hasattr(ctrl, "scale")
@@ -275,7 +271,7 @@ class TestExportControlBrowser:
 
     def test_toggle_button_present(self, browser, tmp_path):
         """Export toggle button is rendered and clickable."""
-        import folium
+
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         ExportControl().add_to(m)
         html = m.get_root().render()
@@ -287,7 +283,8 @@ class TestExportControlBrowser:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             btn = page.wait_for_selector(
                 ".foliplus-export-ctrl .foliplus-toggle-btn",
-                state="attached", timeout=10000,
+                state="attached",
+                timeout=10000,
             )
             assert btn is not None, "Export toggle button not found"
         finally:
@@ -295,7 +292,7 @@ class TestExportControlBrowser:
 
     def test_crop_box_appears_on_click(self, browser, tmp_path):
         """Clicking toggle button shows the crop box."""
-        import folium
+
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         ExportControl().add_to(m)
         html = m.get_root().render()
@@ -306,12 +303,16 @@ class TestExportControlBrowser:
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000,
+                ".foliplus-export-ctrl",
+                state="attached",
+                timeout=10000,
             )
             btn = page.locator(".foliplus-export-ctrl .foliplus-toggle-btn")
             btn.click()
             page.wait_for_selector(
-                ".foliplus-export-box", state="attached", timeout=5000,
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
             )
             assert page.locator(".foliplus-export-box").is_visible()
             assert page.locator(".foliplus-export-overlay").is_visible()
@@ -321,7 +322,7 @@ class TestExportControlBrowser:
 
     def test_escape_closes_crop_box(self, browser, tmp_path):
         """Pressing Escape with unlocked crop box removes it."""
-        import folium
+
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         ExportControl().add_to(m)
         html = m.get_root().render()
@@ -332,11 +333,15 @@ class TestExportControlBrowser:
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000,
+                ".foliplus-export-ctrl",
+                state="attached",
+                timeout=10000,
             )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
-                ".foliplus-export-box", state="attached", timeout=5000,
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
             )
             # Verify crop box is visible
             assert page.locator(".foliplus-export-box").is_visible()
@@ -344,14 +349,16 @@ class TestExportControlBrowser:
             page.keyboard.press("Escape")
             # Crop box should disappear
             page.wait_for_selector(
-                ".foliplus-export-box", state="hidden", timeout=5000,
+                ".foliplus-export-box",
+                state="hidden",
+                timeout=5000,
             )
         finally:
             page.close()
 
     def test_enter_locks_crop_box(self, browser, tmp_path):
         """Pressing Enter locks the crop box (dashed > solid border)."""
-        import folium
+
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         ExportControl().add_to(m)
         html = m.get_root().render()
@@ -362,16 +369,22 @@ class TestExportControlBrowser:
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000,
+                ".foliplus-export-ctrl",
+                state="attached",
+                timeout=10000,
             )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
-                ".foliplus-export-box", state="attached", timeout=5000,
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
             )
             # Lock via confirm button
             page.locator(".foliplus-export-actions .confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000,
+                ".foliplus-export-box.locked",
+                state="attached",
+                timeout=5000,
             )
             assert page.locator(".foliplus-export-box.locked").is_visible()
         finally:
@@ -379,7 +392,7 @@ class TestExportControlBrowser:
 
     def test_export_mode_class(self, browser, tmp_path):
         """foliplus-export-mode class is added to body and map container."""
-        import folium
+
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         ExportControl().add_to(m)
         html = m.get_root().render()
@@ -390,11 +403,15 @@ class TestExportControlBrowser:
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000,
+                ".foliplus-export-ctrl",
+                state="attached",
+                timeout=10000,
             )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
-                ".foliplus-export-box", state="attached", timeout=5000,
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
             )
             # Check export mode class on body
             has_mode = page.evaluate(
