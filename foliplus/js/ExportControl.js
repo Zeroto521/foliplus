@@ -296,71 +296,71 @@
 
     /** Render SVG overlay — serialize Leaflet's <svg> → Blob URL → Image.
      *  Removes the root SVG's inline style (pos/width/height set by Leaflet) so
-     *  the explicit width/height attributes take effect.  Child elements' inline
-     *  styles (fill, stroke, etc.) are preserved by cloneNode and survive
-     *  serialization.  CSS class-based styles (e.g. foliplus-measure-line-solid)
-     *  are inlined on child elements so they survive the <img> render. */
+     *  the explicit width/height attributes take effect.  Inlines computed
+     *  styles on child elements so CSS class-based styling (e.g. measure tool
+     *  colors) survives serialization as an <img>. */
     async renderSVG(ctx, rect, scale, contRect, sw, sh) {
       const panes = this.container.querySelectorAll(
         '.leaflet-map-pane [class*="pane"]',
       );
       for (const pane of panes) {
-        const svgEl = pane.querySelector("svg");
-        if (!svgEl) continue;
-        const svgRect = svgEl.getBoundingClientRect();
-        const svgL = svgRect.left - contRect.left;
-        const svgT = svgRect.top - contRect.top;
-        if (svgRect.width < 1 || svgRect.height < 1) continue;
+        const svgEls = pane.querySelectorAll("svg");
+        for (const svgEl of svgEls) {
+          const svgG = svgEl.querySelector("g");
+          // Skip empty SVGs (Leaflet creates a container SVG per pane
+          // and a separate SVG renderer with actual paths)
+          if (!svgG || !svgG.children.length) continue;
+          const svgRect = svgEl.getBoundingClientRect();
+          const svgL = svgRect.left - contRect.left;
+          const svgT = svgRect.top - contRect.top;
+          if (svgRect.width < 1 || svgRect.height < 1) continue;
 
-        const clone = svgEl.cloneNode(true);
-        // Remove root SVG inline style (Leaflet sets position/width/height)
-        // so the explicit width/height attributes below take effect.
-        clone.removeAttribute("style");
-        // Keep viewBox, set width/height to actual display size
-        clone.setAttribute("width", String(svgRect.width));
-        clone.setAttribute("height", String(svgRect.height));
-        // Inline computed CSS class styles on child elements so they survive
-        // serialization.  Use style[p] (not setAttribute) because inline style
-        // takes precedence over presentation attributes in SVG.
-        const allEls = clone.querySelectorAll("*");
-        const originals = svgEl.querySelectorAll("*");
-        for (let i = 0; i < allEls.length && i < originals.length; i++) {
-          const cs = window.getComputedStyle(originals[i]);
-          const inline = allEls[i];
-          for (const p of ["fill", "stroke", "stroke-width", "stroke-dasharray",
-            "stroke-linecap", "stroke-linejoin", "opacity"]) {
-            const v = cs.getPropertyValue(p);
-            if (v && v !== "none") inline.style[p] = v;
+          const clone = svgEl.cloneNode(true);
+          clone.removeAttribute("style");
+          clone.setAttribute("width", String(svgRect.width));
+          clone.setAttribute("height", String(svgRect.height));
+
+          const allEls = clone.querySelectorAll("*");
+          const originals = svgEl.querySelectorAll("*");
+          for (let i = 0; i < allEls.length && i < originals.length; i++) {
+            const cs = window.getComputedStyle(originals[i]);
+            const inline = allEls[i];
+            for (const p of ["fill", "stroke", "stroke-width", "stroke-dasharray",
+              "stroke-linecap", "stroke-linejoin", "opacity", "fill-opacity",
+              "stroke-opacity", "visibility", "display"]) {
+              const v = cs.getPropertyValue(p);
+              if (v && v !== "none") inline.style[p] = v;
+            }
           }
-        }
 
-        let src = new XMLSerializer().serializeToString(clone);
-        if (!src.includes('xmlns="http://www.w3.org/2000/svg"'))
-          src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
-        if (src.length < 100) continue;
+          let src = new XMLSerializer().serializeToString(clone);
+          if (!src.includes('xmlns="http://www.w3.org/2000/svg"'))
+            src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+          if (src.length < 100) continue;
 
-        const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        try {
-          const svgImg = await new Promise((resolve, reject) => {
-            const i = new Image();
-            i.onload = () => resolve(i);
-            i.onerror = () => reject(new Error(_(`${CONST.name}.err_svg_load`)));
-            i.src = url;
-          });
-          ctx.drawImage(
-            svgImg,
-            rect.left - svgL,
-            rect.top - svgT,
-            rect.width,
-            rect.height,
-            0,
-            0,
-            sw,
-            sh,
-          );
-        } finally {
-          URL.revokeObjectURL(url);
+          const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          try {
+            const svgImg = await new Promise((resolve, reject) => {
+              const i = new Image();
+              i.onload = () => resolve(i);
+              i.onerror = () => reject(new Error(_(`${CONST.name}.err_svg_load`)));
+              i.src = url;
+            });
+            ctx.drawImage(
+              svgImg,
+              rect.left - svgL,
+              rect.top - svgT,
+              rect.width,
+              rect.height,
+              0,
+              0,
+              sw,
+              sh,
+            );
+          } finally {
+            URL.revokeObjectURL(url);
+          }
         }
       }
     }
