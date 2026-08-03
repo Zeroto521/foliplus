@@ -951,7 +951,6 @@
       this.finalizedClickHandler = null;
       this.measurements = [];
       this.measurementIdCounter = 0;
-      this.storageKey = this.resolveStorageKey();
 
       this.bindGlobalEvents();
       this.restoreMeasurements();
@@ -959,16 +958,9 @@
 
     // ── Persistence ──
 
-    resolveStorageKey() {
-      const container = this.map?.getContainer?.();
-      const containerId = container?.id;
-      if (containerId) return `${CONST.STORAGE.KEY}:${containerId}`;
-      return `${CONST.STORAGE.KEY}:${L.stamp(this.map)}`;
-    }
-
     saveMeasurements() {
       try {
-        localStorage.setItem(this.storageKey, JSON.stringify(this.measurements));
+        localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(this.measurements));
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(`${CONST.name}.save_fail`)}`, e);
       }
@@ -976,7 +968,7 @@
 
     loadMeasurements() {
       try {
-        const data = localStorage.getItem(this.storageKey);
+        const data = localStorage.getItem(CONST.STORAGE.KEY);
         return data ? JSON.parse(data) : [];
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_fail`)}`, e);
