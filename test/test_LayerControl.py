@@ -2535,13 +2535,13 @@ class TestLayerControlEdgeCases:
         """handleChange resets paneSet=false after re-add to trigger enforceOrder re-move."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'target.checked && layer) layer.options.paneSet = false' in html
+        assert "target.checked && layer) layer.options.paneSet = false" in html
 
     def test_toggle_all_resets_paneset_on_show(self, base_map: folium.Map):
         """toggleAll resets paneSet=false after re-add for all layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert 'newState && layer) layer.options.paneSet = false' in html
+        assert "newState && layer) layer.options.paneSet = false" in html
 
     def test_drag_event_handlers_bound(self, base_map: folium.Map):
         """Drag-and-drop event handlers are registered."""
