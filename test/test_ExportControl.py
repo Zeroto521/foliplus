@@ -334,12 +334,13 @@ class TestExportControlRendering:
     # ── Rendering: individual render passes ──
 
     def test_render_tiles_geo_bounds_path(self, base_map: folium.Map):
-        """renderTiles has geoBounds and DOM fallback paths."""
+        """renderTiles iterates all TileLayers sorted by zIndex."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "geoBounds && geoBounds.nw" in html
+        assert "getTileLayers" in html
+        assert "tileLayers" in html
+        assert "zIndex" in html
         assert "createImageBitmap" in html
-        assert "fallback" in html or "querySelectorAll" in html
 
     def test_render_canvas_hooks(self, base_map: folium.Map):
         """renderCanvas calls before/after lifecycle hooks."""

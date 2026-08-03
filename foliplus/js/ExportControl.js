@@ -118,13 +118,16 @@
 
     // ── Setup helpers ──
 
-    /** Get the first active TileLayer on the map. */
-    getTileLayer() {
-      let tileLayer = null;
+    /** Get all active TileLayers on the map, sorted by z-index (bottom first). */
+    getTileLayers() {
+      const layers = [];
       this.map.eachLayer((l) => {
-        if (l instanceof L.TileLayer && this.map.hasLayer(l)) tileLayer = l;
+        if (l instanceof L.TileLayer && this.map.hasLayer(l)) layers.push(l);
       });
-      return tileLayer;
+      // Sort by z-index ascending (bottom layer first) so LayerControl
+      // ordering is preserved in the exported image.
+      layers.sort((a, b) => (a.options.zIndex || 0) - (b.options.zIndex || 0));
+      return layers;
     }
 
     // Calculate all tile coordinates that cover the given geo bounds at the given zoom.
@@ -228,8 +231,8 @@
       const ch = rect.height * scale;
 
       if (geoBounds && geoBounds.nw) {
-        const tileLayer = this.getTileLayer();
-        if (tileLayer) {
+        const tileLayers = this.getTileLayers();
+        for (const tileLayer of tileLayers) {
           const zoom = this.map.getZoom();
           const tiles = this.calcTiles(tileLayer, geoBounds, zoom);
           const crs = this.map.options.crs || L.CRS.EPSG3857;
