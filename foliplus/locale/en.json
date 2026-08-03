@@ -21,6 +21,7 @@
   "ExportControl.err_render": "Export render failed",
   "ExportControl.label_size_prefix": "Map size: ",
   "ExportControl.label_size_suffix": "px",
+  "ExportControl.no_layercontrol": "ExportControl requires LayerControl, please add LayerControl to the map first",
   "FullscreenControl.enter": "Entered fullscreen, press Esc to exit",
   "FullscreenControl.exit": "Exited fullscreen",
   "FullscreenControl.title": "Full Screen",

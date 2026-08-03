@@ -21,6 +21,7 @@
   "ExportControl.err_render": "导出渲染失败",
   "ExportControl.label_size_prefix": "地图尺寸：",
   "ExportControl.label_size_suffix": "px",
+  "ExportControl.no_layercontrol": "ExportControl 依赖 LayerControl，请先添加 LayerControl 组件",
   "FullscreenControl.enter": "已进入全屏，按 Esc 退出",
   "FullscreenControl.exit": "已退出全屏",
   "FullscreenControl.title": "全屏",

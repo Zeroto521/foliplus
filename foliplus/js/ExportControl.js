@@ -59,6 +59,17 @@
     return;
   }
 
+  // ==================== Guard: LayerControl required ====================
+  if (!foliplus.LayerAPI) {
+    console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
+    foliplus.showHint(
+      CONST.name,
+      _(`${CONST.name}.no_layercontrol`),
+      foliplus.HINT_DURATION.PERSIST,
+    );
+    return;
+  }
+
   // ==================== Dependencies ====================
   const map = {{ this._parent.get_name() }};
   const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
@@ -191,38 +202,85 @@
       const sh = Math.round(rect.height * scale);
       if (sw < 1 || sh < 1) throw new Error(_(`${CONST.name}.err_crop_too_small`));
 
-      const canvas = document.createElement("canvas");
-      canvas.width = sw;
-      canvas.height = sh;
-      const ctx = canvas.getContext("2d");
+      const canvas_ = document.createElement("canvas");
+      canvas_.width = sw;
+      canvas_.height = sh;
+      const ctx = canvas_.getContext("2d");
 
       if (bg) {
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, sw, sh);
       }
 
-      const cw = rect.width * scale;
-      const ch = rect.height * scale;
       const contRect = this.container.getBoundingClientRect();
       const contW = contRect.width;
       const contH = contRect.height;
+      const cw = rect.width * scale;
+      const ch = rect.height * scale;
 
-      // 1. Tiles
+      // 1. Tiles — render all tile layers first (bottom layer first)
       await this.renderTiles(ctx, rect, scale, contRect, contW, contH, geoBounds);
-      // 2. SVG overlay
-      await this.renderSVG(ctx, rect, scale, contRect, sw, sh);
-      // 3. Canvas (e.g. HeatmapControl)
-      await this.renderCanvas(ctx, rect, scale, contRect, cw, ch);
-      // 4. Markers (sprites)
-      const markerRoots = await this.renderMarkers(ctx, rect, scale, contRect, cw, ch);
-      // 5. FontAwesome icons
-      await this.renderFontAwesome(ctx, rect, scale, contRect, markerRoots);
-      // 6. Text labels (e.g. MeasureControl labels)
-      this.renderTextLabels(ctx, rect, scale, contRect, markerRoots);
-      // 7. Remaining icons (img, inline SVG, background-color divIcons)
-      await this.renderRemaining(ctx, rect, scale, contRect, markerRoots);
 
-      return canvas;
+      // 2. Overlay layers — iterate in API order bottom-to-top
+      const api = foliplus.LayerAPI;
+      if (api && api.layers) {
+        const canvasDone = new Set();
+        for (let i = api.layers.length - 1; i >= 0; i--) {
+          const li = api.layers[i];
+          if (li.isBase) continue;
+          if (!li.visible) continue;
+          const layer = api.findLayer(li.id);
+          if (!layer) continue;
+
+          // SVG paths and Canvas elements in this layer's panes
+          const childPanes = this.discoverLayerPanes(layer);
+          for (const paneName of childPanes) {
+            const pane = this.map.getPane(paneName);
+            if (!pane) continue;
+            // SVG paths
+            await this.renderPaneSVG(ctx, rect, scale, contRect, sw, sh, pane);
+            // Canvas elements in this pane
+            for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
+              if (canvasDone.has(ce)) continue;
+              canvasDone.add(ce);
+              if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
+              const r = ce.getBoundingClientRect();
+              const l = r.left - contRect.left;
+              const t = r.top - contRect.top;
+              const w = r.width;
+              const h = r.height;
+              if (w < 1 || h < 1) continue;
+              const dx = (l - rect.left) * scale;
+              const dy = (t - rect.top) * scale;
+              const dw = w * scale;
+              const dh = h * scale;
+              if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+              try {
+                const dataUrl = ce.toDataURL("image/png");
+                const img = await new Promise((resolve, reject) => {
+                  const i = new Image();
+                  i.onload = () => resolve(i);
+                  i.onerror = () => reject(new Error(_(`${CONST.name}.err_canvas_load`)));
+                  i.src = dataUrl;
+                });
+                ctx.drawImage(img, dx, dy, dw, dh);
+              } catch { /* skip */ }
+              if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
+            }
+          }
+
+          // Markers and divIcons in this layer
+          const markerRoots = this.collectLayerMarkers(layer);
+          if (markerRoots.length) {
+            await this.renderMarkers(ctx, rect, scale, contRect, cw, ch, markerRoots);
+            await this.renderFontAwesome(ctx, rect, scale, contRect, markerRoots);
+            this.renderTextLabels(ctx, rect, scale, contRect, markerRoots);
+            await this.renderRemaining(ctx, rect, scale, contRect, markerRoots);
+          }
+        }
+      }
+
+      return canvas_;
     }
 
     /** Render tiles by computing coordinates from geo bounds, or fallback to DOM images. */
@@ -404,7 +462,13 @@
 
     /** Render managed canvas elements (e.g. HeatmapControl hexbin canvas). */
     async renderCanvas(ctx, rect, scale, contRect, cw, ch) {
-      const canvasEls = this.container.querySelectorAll(CONST.SEL.CANVAS);
+      const canvasEls = Array.from(this.container.querySelectorAll(CONST.SEL.CANVAS));
+      // Sort by z-index ascending so LayerControl ordering is preserved.
+      canvasEls.sort((a, b) => {
+        const za = parseInt(a.style.zIndex, 10) || 0;
+        const zb = parseInt(b.style.zIndex, 10) || 0;
+        return za - zb;
+      });
       for (const ce of canvasEls) if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
 
       for (const ce of canvasEls) {
@@ -436,12 +500,150 @@
       for (const ce of canvasEls) if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
     }
 
-    /** Collect marker roots from all panes (excluding del-icons and popups). */
+    /** Collect marker roots from all panes (excluding del-icons and popups), sorted by pane z-index. */
     collectMarkerRoots() {
       const allPanes = this.container.querySelectorAll(CONST.SEL.PANE);
+      const paneEntries = [];
+      for (const pane of allPanes) {
+        const z = parseInt(pane.style.zIndex, 10) || 0;
+        const markers = [];
+        const found = pane.querySelectorAll(CONST.SEL.MARKER);
+        for (const el of found) {
+          if (el.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          markers.push(el);
+        }
+        const labels = pane.querySelectorAll(CONST.SEL.LABEL);
+        for (const label of labels) {
+          if (label.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          markers.push(label);
+        }
+        if (markers.length) paneEntries.push({ z, markers });
+      }
+      // Sort by pane z-index ascending (bottom layer first), then flatten
+      paneEntries.sort((a, b) => a.z - b.z);
       const roots = [];
       const seen = new Set();
-      for (const pane of allPanes) {
+      for (const entry of paneEntries) {
+        for (const el of entry.markers) {
+          if (seen.has(el)) continue;
+          seen.add(el);
+          roots.push(el);
+        }
+      }
+      return roots;
+    }
+
+    /** Find all custom pane names used by a layer tree. */
+    discoverLayerPanes(layer) {
+      const panes = new Set();
+      const walk = (l) => {
+        const p = l.options?.pane;
+        if (p && !p.includes("tilePane") && !p.includes("mapPane")) panes.add(p);
+        if (l.eachLayer) l.eachLayer(walk);
+        if (l._layers) for (const k in l._layers) if (l._layers[k]) walk(l._layers[k]);
+      };
+      walk(layer);
+      return Array.from(panes);
+    }
+
+    /** Render SVG content from a single pane. */
+    async renderPaneSVG(ctx, rect, scale, contRect, sw, sh, pane) {
+      const props = [
+        "fill", "stroke", "stroke-width", "stroke-dasharray",
+        "stroke-linecap", "stroke-linejoin", "opacity",
+        "fill-opacity", "stroke-opacity", "visibility", "display",
+      ];
+      const svgEls = pane.querySelectorAll("svg");
+      for (const svgEl of svgEls) {
+        const svgG = svgEl.querySelector("g");
+        const hasContent =
+          (svgG && svgG.children.length > 0) ||
+          svgEl.querySelector("path, polygon, polyline, circle, rect, ellipse, line, text");
+        if (!hasContent) continue;
+        const svgRect = svgEl.getBoundingClientRect();
+        const svgL = svgRect.left - contRect.left;
+        const svgT = svgRect.top - contRect.top;
+        if (svgRect.width < 1 || svgRect.height < 1) continue;
+
+        const clone = svgEl.cloneNode(true);
+        clone.removeAttribute("style");
+        clone.setAttribute("width", String(svgRect.width));
+        clone.setAttribute("height", String(svgRect.height));
+
+        const allEls = clone.querySelectorAll("*");
+        const originals = svgEl.querySelectorAll("*");
+        for (let i = 0; i < allEls.length && i < originals.length; i++) {
+          const cs = window.getComputedStyle(originals[i]);
+          const inline = allEls[i];
+          for (const p of props) {
+            const v = cs.getPropertyValue(p);
+            if (!v || v === "none") continue;
+            if (p === "fill" && v === "rgb(0, 0, 0)") continue;
+            if (p === "stroke" && v === "none") continue;
+            inline.style[p] = v;
+          }
+        }
+
+        let src = new XMLSerializer().serializeToString(clone);
+        if (!src.includes('xmlns="http://www.w3.org/2000/svg"'))
+          src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+        if (src.length < 100) continue;
+
+        const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        try {
+          const svgImg = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = () => reject(new Error(_(`${CONST.name}.err_svg_load`)));
+            i.src = url;
+          });
+          ctx.drawImage(svgImg, rect.left - svgL, rect.top - svgT, rect.width, rect.height, 0, 0, sw, sh);
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      }
+    }
+
+    /** Render canvas elements registered by a specific layer. */
+    async renderLayeredCanvas(ctx, rect, scale, contRect, layer) {
+      const cw = rect.width * scale;
+      const ch = rect.height * scale;
+      for (const ce of this.container.querySelectorAll(CONST.SEL.CANVAS)) {
+        if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
+        const r = ce.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width;
+        const h = r.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale;
+        const dh = h * scale;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        try {
+          const dataUrl = ce.toDataURL("image/png");
+          const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = () => reject(new Error(_(`${CONST.name}.err_canvas_load`)));
+            i.src = dataUrl;
+          });
+          ctx.drawImage(img, dx, dy, dw, dh);
+        } catch { /* skip */ }
+        if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
+      }
+    }
+
+    /** Collect markers belonging to a specific layer's panes. */
+    collectLayerMarkers(layer) {
+      const layerPanes = new Set(this.discoverLayerPanes(layer));
+      const roots = [];
+      const seen = new Set();
+      for (const paneName of layerPanes) {
+        const pane = this.map.getPane(paneName);
+        if (!pane) continue;
         const found = pane.querySelectorAll(CONST.SEL.MARKER);
         for (const el of found) {
           if (el.closest(".foliplus-del-icon, .leaflet-popup")) continue;
@@ -449,8 +651,6 @@
           seen.add(el);
           roots.push(el);
         }
-      }
-      for (const pane of allPanes) {
         const labels = pane.querySelectorAll(CONST.SEL.LABEL);
         for (const label of labels) {
           if (label.closest(".foliplus-del-icon, .leaflet-popup")) continue;
@@ -463,8 +663,8 @@
     }
 
     /** Render markers with background-image sprites.  Returns markerRoots for further passes. */
-    async renderMarkers(ctx, rect, scale, contRect, cw, ch) {
-      const markerRoots = this.collectMarkerRoots();
+    async renderMarkers(ctx, rect, scale, contRect, cw, ch, markerRoots) {
+      if (!markerRoots) markerRoots = this.collectMarkerRoots();
       const drawableEls = [];
       for (const root of markerRoots) {
         drawableEls.push(root);

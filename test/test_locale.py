@@ -48,6 +48,7 @@ _JS_USED_KEYS = {
     "ExportControl.err_render_fail",
     "ExportControl.label_size_prefix",
     "ExportControl.label_size_suffix",
+    "ExportControl.no_layercontrol",
     # HeatmapControl
     "HeatmapControl.title",
     "HeatmapControl.close_title",
