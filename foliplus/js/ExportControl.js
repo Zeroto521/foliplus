@@ -265,18 +265,20 @@
       // 2. Overlay layers — iterate in LayerControl API order bottom-to-top.
       // Each layer may contain SVG, Canvas, and/or Marker elements, so we
       // render all passes per-layer to preserve cross-technology z-order.
-      const api = foliplus.LayerAPI;
-      if (api && api.layers) {
-        for (let i = api.layers.length - 1; i >= 0; i--) {
-          const li = api.layers[i];
+      if (foliplus.LayerAPI.layers) {
+        for (let i = foliplus.LayerAPI.layers.length - 1; i >= 0; i--) {
+          const li = foliplus.LayerAPI.layers[i];
           if (li.isBase) continue;
           if (!li.visible) continue;
-          const layer = api.findLayer(li.id);
+          const layer = foliplus.LayerAPI.findLayer(li.id);
           if (!layer) continue;
 
           // SVG paths, Canvas elements, and Markers in this layer's panes
-          const childPanes = this.discoverLayerPanes(layer);
-          for (const paneName of childPanes) {
+          const childPanes = foliplus.LayerAPI.discoverChildPanes(layer);
+          const panes = childPanes.length > 0
+            ? childPanes
+            : ["overlayPane", "markerPane"];
+          for (const paneName of panes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;
             await this.renderPaneSVG(ctx, rect, scale, contRect, sw, sh, pane);
@@ -362,52 +364,6 @@
           }
         }
       }
-    }
-
-    /** Collect marker roots from all panes (excluding del-icons and popups), sorted by pane z-index. */
-    collectMarkerRoots() {
-      const allPanes = this.container.querySelectorAll(CONST.SEL.PANE);
-      const paneEntries = [];
-      for (const pane of allPanes) {
-        const z = parseInt(pane.style.zIndex, 10) || 0;
-        const markers = [];
-        const found = pane.querySelectorAll(CONST.SEL.MARKER);
-        for (const el of found) {
-          if (el.closest(CONST.SEL.EXCLUDE)) continue;
-          markers.push(el);
-        }
-        const labels = pane.querySelectorAll(CONST.SEL.LABEL);
-        for (const label of labels) {
-          if (label.closest(CONST.SEL.EXCLUDE)) continue;
-          markers.push(label);
-        }
-        if (markers.length) paneEntries.push({ z, markers });
-      }
-      // Sort by pane z-index ascending (bottom layer first), then flatten
-      paneEntries.sort((a, b) => a.z - b.z);
-      const roots = [];
-      const seen = new Set();
-      for (const entry of paneEntries) {
-        for (const el of entry.markers) {
-          if (seen.has(el)) continue;
-          seen.add(el);
-          roots.push(el);
-        }
-      }
-      return roots;
-    }
-
-    /** Find all custom pane names used by a layer tree. */
-    discoverLayerPanes(layer) {
-      const panes = new Set();
-      const walk = (l) => {
-        const p = l.options?.pane;
-        if (p && !p.includes("tilePane") && !p.includes("mapPane")) panes.add(p);
-        if (l.eachLayer) l.eachLayer(walk);
-        if (l._layers) for (const k in l._layers) if (l._layers[k]) walk(l._layers[k]);
-      };
-      walk(layer);
-      return Array.from(panes);
     }
 
     /** Render SVG content from a single pane. */
@@ -511,7 +467,10 @@
 
     /** Collect markers belonging to a specific layer's panes. */
     collectLayerMarkers(layer) {
-      const layerPanes = new Set(this.discoverLayerPanes(layer));
+      const childPanes = foliplus.LayerAPI.discoverChildPanes(layer);
+      const layerPanes = childPanes.length > 0
+        ? childPanes
+        : ["overlayPane", "markerPane"];
       const roots = [];
       const seen = new Set();
       for (const paneName of layerPanes) {

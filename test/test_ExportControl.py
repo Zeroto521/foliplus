@@ -207,13 +207,12 @@ class TestExportControlRendering:
         assert "svgEl.querySelector(" in html
         assert "path, polygon, polyline, circle" in html
 
-    def test_collect_marker_roots(self, base_map: folium.Map):
-        """_collectMarkerRoots excludes del-icons and popups."""
+    def test_collect_layer_markers_excludes(self, base_map: folium.Map):
+        """collectLayerMarkers excludes del-icons and popups via CONST.SEL.EXCLUDE."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "collectMarkerRoots" in html
-        assert "foliplus-del-icon" in html
-        assert "leaflet-popup" in html
+        assert "collectLayerMarkers" in html
+        assert "CONST.SEL.EXCLUDE" in html
 
     def test_debounce_on_map_change(self, base_map: folium.Map):
         """onMapChange uses foliplus.debounce."""
@@ -264,8 +263,7 @@ class TestExportControlRendering:
         """del-icon and leaflet-popup are excluded from marker roots."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "foliplus-del-icon" in html
-        assert "leaflet-popup" in html
+        assert "CONST.SEL.EXCLUDE" in html
 
     def test_hidden_class(self, base_map: folium.Map):
         """foliplus-export-hidden class for hiding controls during render."""
@@ -346,7 +344,7 @@ class TestExportControlRendering:
         assert "spriteMap" in html
 
     def test_render_marker_roots_marker_and_label(self, base_map: folium.Map):
-        """collectMarkerRoots collects both MARKER and LABEL selectors."""
+        """collectLayerMarkers uses CONST.SEL.MARKER and CONST.SEL.LABEL."""
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "CONST.SEL.MARKER" in html
@@ -444,11 +442,10 @@ class TestExportControlRendering:
         assert "LayerAPI" in html
 
     def test_discover_layer_panes_method(self, base_map: folium.Map):
-        """discoverLayerPanes extracts custom pane names from a layer tree."""
+        """discoverChildPanes extracts custom pane names from LayerControl API."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "discoverLayerPanes" in html
-        assert "l.options?.pane" in html
+        assert "discoverChildPanes" in html
 
     def test_collect_layer_markers_method(self, base_map: folium.Map):
         """collectLayerMarkers finds markers in a layer's panes."""

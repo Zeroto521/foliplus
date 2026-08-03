@@ -277,6 +277,8 @@
       this.forEachLeaf = this.forEachLeaf.bind(this);
       this.extractPoints = this.extractPoints.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
+      this.discoverChildPanes = this.discoverChildPanes.bind(this);
+      this.isDefaultPane = this.isDefaultPane.bind(this);
       this.isEnforcing = false;
       this.isDestroyed = false;
 
