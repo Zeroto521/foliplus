@@ -274,7 +274,7 @@
           if (markerRoots.length) {
             await this.renderMarkers(ctx, rect, scale, contRect, cw, ch, markerRoots);
             await this.renderFontAwesome(ctx, rect, scale, contRect, markerRoots);
-            this.renderTextLabels(ctx, rect, scale, contRect, markerRoots);
+            await this.renderTextLabels(ctx, rect, scale, contRect, markerRoots);
             await this.renderRemaining(ctx, rect, scale, contRect, markerRoots);
           }
         }
@@ -826,22 +826,14 @@
     }
 
     /** Render plain text labels (e.g. MeasureControl distance labels) with background. */
-    renderTextLabels(ctx, rect, scale, contRect, markerRoots) {
+    async renderTextLabels(ctx, rect, scale, contRect, markerRoots) {
       const cw = rect.width * scale;
       const ch = rect.height * scale;
 
       for (const root of markerRoots) {
-        const r = root.getBoundingClientRect();
-        const l = r.left - contRect.left;
-        const t = r.top - contRect.top;
-        const w = r.width;
-        const h = r.height;
-        if (w < 1 || h < 1) continue;
-        const dx = (l - rect.left) * scale;
-        const dy = (t - rect.top) * scale;
-        const dw = w * scale;
-        const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        const textEl = root.querySelector(CONST.SEL.LABEL) || root;
+        const text = textEl.textContent || "";
+        if (!text.trim()) continue;
         if (root.querySelector("i")) continue;
         const rootCS = window.getComputedStyle(root);
         if (
@@ -850,41 +842,31 @@
           rootCS.backgroundImage.includes("url(")
         )
           continue;
-        const textEl = root.querySelector(CONST.SEL.LABEL) || root;
-        const text = textEl.textContent || "";
-        if (!text.trim()) continue;
         const textCS = window.getComputedStyle(textEl);
+        const tr = textEl.getBoundingClientRect();
+        const w = tr.width;
+        const h = tr.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (tr.left - contRect.left - rect.left) * scale;
+        const dy = (tr.top - contRect.top - rect.top) * scale;
+        const dw = w * scale;
+        const dh = h * scale;
+        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
 
-        // Draw background from textEl's computed style
+        // Draw background from textEl's computed style.
+        // backdrop-filter: blur() is a browser-only visual effect that cannot
+        // be replicated on canvas.  Use the specified color as-is so the
+        // export is deterministic and faithful to the CSS value.
         const bg = textCS.backgroundColor;
         if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
-          const tr = textEl.getBoundingClientRect();
-          const tdx = (tr.left - contRect.left - rect.left) * scale;
-          const tdy = (tr.top - contRect.top - rect.top) * scale;
-          const tdw = tr.width * scale;
-          const tdh = tr.height * scale;
           ctx.save();
-          // Compensate for backdrop-filter: blur() — without blur, the
-          // semi-transparent background looks more transparent than in-browser.
-          // Boost alpha by ~50% when backdrop-filter is present.
-          let fillBg = bg;
-          const bdf = textCS.backdropFilter || textCS.webkitBackdropFilter || "";
-          if (bdf.includes("blur")) {
-            fillBg = bg.replace(
-              /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/,
-              (m, r, g, b, a) => {
-                const alpha = a !== undefined ? Math.min(parseFloat(a) * 1.5, 1) : 0.75;
-                return `rgba(${r},${g},${b},${alpha})`;
-              },
-            );
-          }
-          ctx.fillStyle = fillBg;
+          ctx.fillStyle = bg;
           const br = parseFloat(textCS.borderRadius) || 0;
           if (br > 0) {
             ctx.beginPath();
-            ctx.roundRect(tdx, tdy, tdw, tdh, br * scale);
+            ctx.roundRect(dx, dy, dw, dh, br * scale);
             ctx.fill();
-          } else ctx.fillRect(tdx, tdy, tdw, tdh);
+          } else ctx.fillRect(dx, dy, dw, dh);
           // Draw border if present
           const bw = parseFloat(textCS.borderWidth) || 0;
           if (bw > 0 && textCS.borderStyle !== "none") {
@@ -892,9 +874,9 @@
             ctx.lineWidth = bw * scale;
             if (br > 0) {
               ctx.beginPath();
-              ctx.roundRect(tdx, tdy, tdw, tdh, br * scale);
+              ctx.roundRect(dx, dy, dw, dh, br * scale);
               ctx.stroke();
-            } else ctx.strokeRect(tdx, tdy, tdw, tdh);
+            } else ctx.strokeRect(dx, dy, dw, dh);
           }
           ctx.restore();
         }
@@ -907,6 +889,18 @@
         if (fontWeight === "bold") fontWeight = "700";
         fontSize *= scale;
         const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
+        try {
+          await document.fonts.load(fontSpec);
+        } catch {
+          /* try anyway */
+        }
+        if (!document.fonts.check(fontSpec)) {
+          try {
+            await document.fonts.ready;
+          } catch {
+            /* skip */
+          }
+        }
         ctx.save();
         ctx.font = fontSpec;
         ctx.textAlign = "center";
@@ -999,6 +993,8 @@
         }
 
         // 3. Elements with background-color but no background-image url (center dot)
+        // Skip elements that are text labels (handled by renderTextLabels).
+        if (root.matches(CONST.SEL.LABEL)) continue;
         const rootCS = window.getComputedStyle(root);
         const bgImg = rootCS.backgroundImage;
         const hasSprite = bgImg && bgImg !== "none" && bgImg.includes("url(");
