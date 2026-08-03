@@ -275,9 +275,8 @@
 
           // SVG paths, Canvas elements, and Markers in this layer's panes
           const childPanes = foliplus.LayerAPI.discoverChildPanes(layer);
-          const panes = childPanes.length > 0
-            ? childPanes
-            : ["overlayPane", "markerPane"];
+          const panes =
+            childPanes.length > 0 ? childPanes : ["overlayPane", "markerPane"];
           for (const paneName of panes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;
@@ -468,9 +467,8 @@
     /** Collect markers belonging to a specific layer's panes. */
     collectLayerMarkers(layer) {
       const childPanes = foliplus.LayerAPI.discoverChildPanes(layer);
-      const layerPanes = childPanes.length > 0
-        ? childPanes
-        : ["overlayPane", "markerPane"];
+      const layerPanes =
+        childPanes.length > 0 ? childPanes : ["overlayPane", "markerPane"];
       const roots = [];
       const seen = new Set();
       for (const paneName of layerPanes) {
@@ -1355,10 +1353,6 @@
       };
 
       if (needsBigger && geoBounds && geoBounds.nw) {
-        const cropBounds = L.latLngBounds(
-          L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
-          L.latLng(geoBounds.se.lat, geoBounds.se.lng),
-        );
         const savedStyles = {};
         ["width", "height", "minHeight", "maxHeight", "overflow"].forEach((p) => {
           savedStyles[p] = this.mapContainer.style[p];
@@ -1375,10 +1369,19 @@
         this.mapContainer.style.minHeight = `${Math.ceil(bigH)}px`;
         this.mapContainer.style.overflow = "hidden";
 
-        const cropCenter = cropBounds.getCenter();
+        const cropCenter = L.latLngBounds(
+          L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
+          L.latLng(geoBounds.se.lat, geoBounds.se.lng),
+        ).getCenter();
+
         this.map.invalidateSize(false);
-        this.map.once("moveend", () => {
-          setTimeout(() => {
+        this.map.setView(cropCenter, savedZoom, { animate: false });
+
+        // Wait for Leaflet to finish re-rendering paths in the enlarged
+        // container, then render.  Two frames are needed: one for Leaflet
+        // to update pane positions, one for the browser to paint them.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
             doRender();
             setTimeout(() => {
               this.map.options.zoomAnimation = savedAnim;
@@ -1388,9 +1391,8 @@
               this.map.invalidateSize(false);
               this.map.setView(savedCenter, savedZoom, { animate: false });
             }, CONST.TIMING.RESTORE_DELAY);
-          }, CONST.TIMING.RENDER_DELAY);
+          });
         });
-        this.map.setView(cropCenter, savedZoom, { animate: false });
         return;
       }
 
