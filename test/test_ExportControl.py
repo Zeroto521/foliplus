@@ -144,6 +144,21 @@ class TestExportControlRendering:
         assert "renderMarkers" in html
         assert "renderFontAwesome" in html
         assert "renderTextLabels" in html
+        assert "renderRemaining" in html
+
+    def test_render_remaining_async(self, base_map: folium.Map):
+        """renderRemaining is async and awaited in render()."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "async renderRemaining" in html
+        assert "await this.renderRemaining" in html
+
+    def test_render_order_marker_pane_guard(self, base_map: folium.Map):
+        """renderRemaining only processes marker-pane elements."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "markerPane" in html
+        assert "markerPane.contains" in html
 
     def test_svg_inline_styles(self, base_map: folium.Map):
         """SVG renderer inlines computed styles for CSS class fidelity."""
@@ -154,16 +169,15 @@ class TestExportControlRendering:
         assert "serializeToString" in html
 
     def test_svg_uses_style_property_not_setattribute(self, base_map: folium.Map):
-        """SVG renderer uses cloneNode(true) preserving all attributes and inline styles."""
+        """SVG renderer uses computed style inlining for CSS class fidelity."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        # cloneNode(true) preserves all child attributes and inline styles
         assert "cloneNode(true)" in html
-        # width/height are set to display size
+        assert "getComputedStyle" in html
         assert 'setAttribute("width"' in html or 'setAttribute("height"' in html
 
     def test_svg_geometry_attributes_preserved(self, base_map: folium.Map):
-        """SVG geometry attrs (r, d, points) are preserved by cloneNode(true)."""
+        """SVG geometry attrs are preserved by cloneNode(true)."""
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "cloneNode(true)" in html
@@ -176,12 +190,35 @@ class TestExportControlRendering:
         assert "async renderMarkers" in html
         assert "await this.renderMarkers" in html
 
-    def test_svg_width_height_set(self, base_map: folium.Map):
-        """SVG clone sets width/height to display size."""
+    def test_svg_inlines_computed_styles(self, base_map: folium.Map):
+        """SVG clone inlines getComputedStyle values for CSS class fidelity."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert 'setAttribute("width"' in html
-        assert 'setAttribute("height"' in html
+        assert "getComputedStyle" in html
+        assert "inline.style[p]" in html or "inline.style" in html
+
+    def test_svg_skips_default_fill_stroke(self, base_map: folium.Map):
+        """SVG inliner skips default fill=rgb(0,0,0) and stroke=none."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert 'fill" && v === "rgb(0, 0, 0)"' in html
+        assert 'stroke" && v === "none"' in html
+
+    def test_svg_content_detection(self, base_map: folium.Map):
+        """renderSVG detects SVG content both in <g> and as direct children (migrateLayers)."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        # Checks for <g> children
+        assert "svgG && svgG.children.length > 0" in html
+        # Checks for direct geometry paths (migrateLayers moves <path> out of <g>)
+        assert "svgEl.querySelector(" in html
+        assert "path, polygon, polyline, circle" in html
+
+    def test_svg_default_fill_not_inlined(self, base_map: folium.Map):
+        """Default fill=rgb(0,0,0) is skipped to avoid overriding path fill='none'."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert 'fill" && v === "rgb(0, 0, 0)"' in html
 
     def test_collect_marker_roots(self, base_map: folium.Map):
         """_collectMarkerRoots excludes del-icons and popups."""

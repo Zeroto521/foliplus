@@ -302,6 +302,19 @@
      *  styles on child elements so CSS class-based styling (e.g. measure tool
      *  colors) survives serialization as an <img>. */
     async renderSVG(ctx, rect, scale, contRect, sw, sh) {
+      const props = [
+        "fill",
+        "stroke",
+        "stroke-width",
+        "stroke-dasharray",
+        "stroke-linecap",
+        "stroke-linejoin",
+        "opacity",
+        "fill-opacity",
+        "stroke-opacity",
+        "visibility",
+        "display",
+      ];
       const panes = this.container.querySelectorAll(
         '.leaflet-map-pane [class*="pane"]',
       );
@@ -310,8 +323,13 @@
         for (const svgEl of svgEls) {
           const svgG = svgEl.querySelector("g");
           // Skip empty SVGs (Leaflet creates a container SVG per pane
-          // and a separate SVG renderer with actual paths)
-          if (!svgG || !svgG.children.length) continue;
+          // and a separate SVG renderer with actual paths).
+          // Also check for paths directly under <svg> (migrateLayers in
+          // LayerControl moves <path> from <g> to <svg> direct child).
+          const hasContent =
+            (svgG && svgG.children.length > 0) ||
+            svgEl.querySelector("path, polygon, polyline, circle, rect, ellipse, line, text");
+          if (!hasContent) continue;
           const svgRect = svgEl.getBoundingClientRect();
           const svgL = svgRect.left - contRect.left;
           const svgT = svgRect.top - contRect.top;
@@ -327,21 +345,16 @@
           for (let i = 0; i < allEls.length && i < originals.length; i++) {
             const cs = window.getComputedStyle(originals[i]);
             const inline = allEls[i];
-            for (const p of [
-              "fill",
-              "stroke",
-              "stroke-width",
-              "stroke-dasharray",
-              "stroke-linecap",
-              "stroke-linejoin",
-              "opacity",
-              "fill-opacity",
-              "stroke-opacity",
-              "visibility",
-              "display",
-            ]) {
+            // SVG defaults: fill=rgb(0,0,0), stroke=none.  Inlining these on
+            // a parent (<g>) would cascade to children via CSS specificity,
+            // overriding their explicit presentation attributes (fill="none").
+            // Skip defaults to avoid breaking vector paths.
+            for (const p of props) {
               const v = cs.getPropertyValue(p);
-              if (v && v !== "none") inline.style[p] = v;
+              if (!v || v === "none") continue;
+              if (p === "fill" && v === "rgb(0, 0, 0)") continue;
+              if (p === "stroke" && v === "none") continue;
+              inline.style[p] = v;
             }
           }
 
@@ -639,7 +652,21 @@
           const tdw = tr.width * scale;
           const tdh = tr.height * scale;
           ctx.save();
-          ctx.fillStyle = bg;
+          // Compensate for backdrop-filter: blur() — without blur, the
+          // semi-transparent background looks more transparent than in-browser.
+          // Boost alpha by ~50% when backdrop-filter is present.
+          let fillBg = bg;
+          const bdf = textCS.backdropFilter || textCS.webkitBackdropFilter || "";
+          if (bdf.includes("blur")) {
+            fillBg = bg.replace(
+              /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/,
+              (m, r, g, b, a) => {
+                const alpha = a !== undefined ? Math.min(parseFloat(a) * 1.5, 1) : 0.75;
+                return `rgba(${r},${g},${b},${alpha})`;
+              },
+            );
+          }
+          ctx.fillStyle = fillBg;
           const br = parseFloat(textCS.borderRadius) || 0;
           if (br > 0) {
             ctx.beginPath();
@@ -692,8 +719,11 @@
     async renderRemaining(ctx, rect, scale, contRect, markerRoots) {
       const cw = rect.width * scale;
       const ch = rect.height * scale;
+      const markerPane = this.container.querySelector(".leaflet-marker-pane");
 
       for (const root of markerRoots) {
+        // Only process elements in the marker pane (default markers, divIcons)
+        if (!markerPane || !markerPane.contains(root)) continue;
         const r = root.getBoundingClientRect();
         const l = r.left - contRect.left;
         const t = r.top - contRect.top;
