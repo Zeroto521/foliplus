@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
+
 ## [v0.3.0] (2026-08-02)
 
 ### Added
@@ -63,9 +67,9 @@
 
 ## [v0.1.0] (2026-06-25)
 
-### Features
+### Added
 
-- Add foliplus control plugins: `FullscreenControl`, `HeatmapControl`, `LayerControl`, `SearchControl`, `MeasureControl`, `ScaleControl`
+- Add plugins: `FullscreenControl`, `HeatmapControl`, `LayerControl`, `SearchControl`, `MeasureControl`, `ScaleControl`
 
 [unreleased]: https://github.com/Zeroto521/foliplus/compare/v0.3.0...HEAD
 [v0.3.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.3.0
