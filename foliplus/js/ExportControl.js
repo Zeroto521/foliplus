@@ -966,8 +966,11 @@
             const sr = svgEl.getBoundingClientRect();
             clone.setAttribute("width", String(sr.width || 24));
             clone.setAttribute("height", String(sr.height || 24));
-            // Inline color from root for currentColor support (PIN_ICON etc.)
-            const rootColor = window.getComputedStyle(root).color;
+            // Inline color from the SVG's parent element for currentColor support
+            // (PIN_ICON etc.).  The root (Leaflet divIcon wrapper) has default
+            // color=rgb(0,0,0); the actual color is on the inner container.
+            const colorParent = svgEl.parentElement;
+            const rootColor = colorParent ? window.getComputedStyle(colorParent).color : "";
             if (rootColor && rootColor !== "rgb(0, 0, 0)")
               clone.setAttribute("color", rootColor);
             let src = new XMLSerializer().serializeToString(clone);
