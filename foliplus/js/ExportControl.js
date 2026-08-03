@@ -328,7 +328,9 @@
           // LayerControl moves <path> from <g> to <svg> direct child).
           const hasContent =
             (svgG && svgG.children.length > 0) ||
-            svgEl.querySelector("path, polygon, polyline, circle, rect, ellipse, line, text");
+            svgEl.querySelector(
+              "path, polygon, polyline, circle, rect, ellipse, line, text",
+            );
           if (!hasContent) continue;
           const svgRect = svgEl.getBoundingClientRect();
           const svgL = svgRect.left - contRect.left;
