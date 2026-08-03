@@ -318,9 +318,16 @@
         "visibility",
         "display",
       ];
-      const panes = this.container.querySelectorAll(
-        '.leaflet-map-pane [class*="pane"]',
+      const panes = Array.from(
+        this.container.querySelectorAll('.leaflet-map-pane [class*="pane"]'),
       );
+      // Sort by z-index ascending (bottom layer first) so LayerControl's
+      // layer ordering is preserved in the exported image.
+      panes.sort((a, b) => {
+        const za = parseInt(a.style.zIndex, 10) || 0;
+        const zb = parseInt(b.style.zIndex, 10) || 0;
+        return za - zb;
+      });
       for (const pane of panes) {
         const svgEls = pane.querySelectorAll("svg");
         for (const svgEl of svgEls) {
