@@ -153,12 +153,12 @@ class TestExportControlRendering:
         assert "async renderRemaining" in html
         assert "await this.renderRemaining" in html
 
-    def test_render_order_marker_pane_guard(self, base_map: folium.Map):
-        """renderRemaining only processes marker-pane elements."""
+    def test_render_remaining_processes_all_marker_roots(self, base_map: folium.Map):
+        """renderRemaining processes all marker roots without pane filtering."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "markerPane" in html
-        assert "markerPane.contains" in html
+        assert "renderRemaining" in html
+        assert "async renderRemaining" in html
 
     def test_svg_inline_styles(self, base_map: folium.Map):
         """SVG renderer inlines computed styles for CSS class fidelity."""
@@ -331,6 +331,121 @@ class TestExportControlRendering:
         assert hasattr(ctrl, "position")
         assert hasattr(ctrl, "_template")
 
+    # ── Rendering: individual render passes ──
+
+    def test_render_tiles_geo_bounds_path(self, base_map: folium.Map):
+        """renderTiles has geoBounds and DOM fallback paths."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "geoBounds && geoBounds.nw" in html
+        assert "createImageBitmap" in html
+        assert "fallback" in html or "querySelectorAll" in html
+
+    def test_render_canvas_hooks(self, base_map: folium.Map):
+        """renderCanvas calls before/after lifecycle hooks."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "ce.hooks" in html
+        assert "ce.hooks.before" in html
+        assert "ce.hooks.after" in html
+
+    def test_render_markers_sprite_loading(self, base_map: folium.Map):
+        """renderMarkers loads sprites via fetch and createImageBitmap."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "createImageBitmap" in html
+        assert "fetch(" in html
+        assert "spriteMap" in html
+
+    def test_render_marker_roots_marker_and_label(self, base_map: folium.Map):
+        """collectMarkerRoots collects both MARKER and LABEL selectors."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "CONST.SEL.MARKER" in html
+        assert "CONST.SEL.LABEL" in html
+
+    def test_render_fontawesome_pseudo_element(self, base_map: folium.Map):
+        """renderFontAwesome reads ::before pseudo-element content."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "getComputedStyle" in html
+        assert "::before" in html or "pseudo" in html
+
+    def test_render_text_labels_background(self, base_map: folium.Map):
+        """renderTextLabels draws background behind text."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "backgroundColor" in html
+        assert "fillRect" in html
+        assert "backdrop-filter" in html or "blur" in html
+
+    def test_render_text_labels_font_loading(self, base_map: folium.Map):
+        """renderTextLabels awaits document.fonts.ready."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "document.fonts.ready" in html
+
+    def test_render_remaining_inline_svg(self, base_map: folium.Map):
+        """renderRemaining serializes inline SVG (PIN_ICON, LOCATE)."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "XMLSerializer" in html
+        assert "serializeToString" in html
+        assert "clone.setAttribute" in html
+
+    def test_render_remaining_img_elements(self, base_map: folium.Map):
+        """renderRemaining handles <img> elements (default markers)."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert 'root.tagName === "IMG"' in html
+        assert "imgEl.src" in html
+
+    def test_render_remaining_bg_color_fallback(self, base_map: folium.Map):
+        """renderRemaining draws background-color divIcons (center dot)."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "backgroundColor" in html
+        assert "hasBgColor" in html
+        assert "roundRect" in html
+
+    def test_render_remaining_color_inline_svg(self, base_map: folium.Map):
+        """renderRemaining inlines root color for currentColor SVG support."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "currentColor" in html or "rootColor" in html
+        assert 'clone.setAttribute("color"' in html
+
+    def test_svg_xmlns_injection(self, base_map: folium.Map):
+        """SVG serialization injects xmlns when missing."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert 'xmlns="http://www.w3.org/2000/svg"' in html
+        assert "src.includes" in html
+
+    def test_svg_length_check(self, base_map: folium.Map):
+        """SVG with src.length < 100 is skipped."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "src.length < 100" in html
+
+    def test_svg_error_handling(self, base_map: folium.Map):
+        """SVG load errors are caught with localized message."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "err_svg_load" in html
+        assert "reject" in html
+
+    def test_render_methods_order(self, base_map: folium.Map):
+        """Render passes follow painter's-algorithm order."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        # Order: tiles → SVG → canvas → markers → FA → text → remaining
+        assert "renderTiles" in html
+        assert "renderCanvas" in html
+        assert "renderFontAwesome" in html
+        assert "renderTextLabels" in html
+        assert "renderRemaining" in html
+
 
 class TestExportControlBrowser:
     """Browser-level tests for ExportControl."""
@@ -490,5 +605,53 @@ class TestExportControlBrowser:
                 return c && c.classList.contains('foliplus-export-mode');
             }""")
             assert has_map_mode, "map container should have foliplus-export-mode"
+        finally:
+            page.close()
+
+    def test_lock_unlock_cycle(self, browser, tmp_path):
+        """Lock then unlock crop box transitions correctly."""
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        ExportControl().add_to(m)
+        html_path = tmp_path / "export_lock_unlock.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(".foliplus-export-box", state="attached", timeout=5000)
+
+            # Lock
+            page.locator(".foliplus-export-actions .confirm").click()
+            page.wait_for_selector(".foliplus-export-box.locked", state="attached", timeout=5000)
+            assert page.locator(".foliplus-export-box.locked").is_visible()
+
+            # Unlock (cancel resets to unlocked)
+            page.locator(".foliplus-export-actions .cancel").click()
+            page.wait_for_selector(".foliplus-export-box:not(.locked)", state="attached", timeout=5000)
+            assert page.locator(".foliplus-export-box").is_visible()
+        finally:
+            page.close()
+
+    def test_no_console_errors_on_open(self, browser, tmp_path):
+        """Opening export control should not produce JS errors."""
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        ExportControl().add_to(m)
+        html_path = tmp_path / "export_no_errors.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(".foliplus-export-box", state="attached", timeout=5000)
+            page.wait_for_timeout(500)
+            assert len(errors) == 0, f"JS errors on open: {errors}"
         finally:
             page.close()
