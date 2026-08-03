@@ -221,10 +221,11 @@
       // 1. Tiles — render all tile layers first (bottom layer first)
       await this.renderTiles(ctx, rect, scale, contRect, contW, contH, geoBounds);
 
-      // 2. Overlay layers — iterate in API order bottom-to-top
+      // 2. Overlay layers — iterate in API order bottom-to-top.
+      // Each layer may contain SVG, Canvas, and/or Marker elements, so we
+      // render all passes per-layer to preserve cross-technology z-order.
       const api = foliplus.LayerAPI;
       if (api && api.layers) {
-        const canvasDone = new Set();
         for (let i = api.layers.length - 1; i >= 0; i--) {
           const li = api.layers[i];
           if (li.isBase) continue;
@@ -232,41 +233,13 @@
           const layer = api.findLayer(li.id);
           if (!layer) continue;
 
-          // SVG paths and Canvas elements in this layer's panes
+          // SVG paths, Canvas elements, and Markers in this layer's panes
           const childPanes = this.discoverLayerPanes(layer);
           for (const paneName of childPanes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;
-            // SVG paths
             await this.renderPaneSVG(ctx, rect, scale, contRect, sw, sh, pane);
-            // Canvas elements in this pane
-            for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
-              if (canvasDone.has(ce)) continue;
-              canvasDone.add(ce);
-              if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
-              const r = ce.getBoundingClientRect();
-              const l = r.left - contRect.left;
-              const t = r.top - contRect.top;
-              const w = r.width;
-              const h = r.height;
-              if (w < 1 || h < 1) continue;
-              const dx = (l - rect.left) * scale;
-              const dy = (t - rect.top) * scale;
-              const dw = w * scale;
-              const dh = h * scale;
-              if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
-              try {
-                const dataUrl = ce.toDataURL("image/png");
-                const img = await new Promise((resolve, reject) => {
-                  const i = new Image();
-                  i.onload = () => resolve(i);
-                  i.onerror = () => reject(new Error(_(`${CONST.name}.err_canvas_load`)));
-                  i.src = dataUrl;
-                });
-                ctx.drawImage(img, dx, dy, dw, dh);
-              } catch { /* skip */ }
-              if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
-            }
+            await this.renderPaneCanvas(ctx, rect, scale, contRect, cw, ch, pane);
           }
 
           // Markers and divIcons in this layer
@@ -357,149 +330,6 @@
       }
     }
 
-    /** Render SVG overlay — serialize Leaflet's <svg> → Blob URL → Image.
-     *  Removes the root SVG's inline style (pos/width/height set by Leaflet) so
-     *  the explicit width/height attributes take effect.  Inlines computed
-     *  styles on child elements so CSS class-based styling (e.g. measure tool
-     *  colors) survives serialization as an <img>. */
-    async renderSVG(ctx, rect, scale, contRect, sw, sh) {
-      const props = [
-        "fill",
-        "stroke",
-        "stroke-width",
-        "stroke-dasharray",
-        "stroke-linecap",
-        "stroke-linejoin",
-        "opacity",
-        "fill-opacity",
-        "stroke-opacity",
-        "visibility",
-        "display",
-      ];
-      const panes = Array.from(
-        this.container.querySelectorAll('.leaflet-map-pane [class*="pane"]'),
-      );
-      // Sort by z-index ascending (bottom layer first) so LayerControl's
-      // layer ordering is preserved in the exported image.
-      panes.sort((a, b) => {
-        const za = parseInt(a.style.zIndex, 10) || 0;
-        const zb = parseInt(b.style.zIndex, 10) || 0;
-        return za - zb;
-      });
-      for (const pane of panes) {
-        const svgEls = pane.querySelectorAll("svg");
-        for (const svgEl of svgEls) {
-          const svgG = svgEl.querySelector("g");
-          // Skip empty SVGs (Leaflet creates a container SVG per pane
-          // and a separate SVG renderer with actual paths).
-          // Also check for paths directly under <svg> (migrateLayers in
-          // LayerControl moves <path> from <g> to <svg> direct child).
-          const hasContent =
-            (svgG && svgG.children.length > 0) ||
-            svgEl.querySelector(
-              "path, polygon, polyline, circle, rect, ellipse, line, text",
-            );
-          if (!hasContent) continue;
-          const svgRect = svgEl.getBoundingClientRect();
-          const svgL = svgRect.left - contRect.left;
-          const svgT = svgRect.top - contRect.top;
-          if (svgRect.width < 1 || svgRect.height < 1) continue;
-
-          const clone = svgEl.cloneNode(true);
-          clone.removeAttribute("style");
-          clone.setAttribute("width", String(svgRect.width));
-          clone.setAttribute("height", String(svgRect.height));
-
-          const allEls = clone.querySelectorAll("*");
-          const originals = svgEl.querySelectorAll("*");
-          for (let i = 0; i < allEls.length && i < originals.length; i++) {
-            const cs = window.getComputedStyle(originals[i]);
-            const inline = allEls[i];
-            // SVG defaults: fill=rgb(0,0,0), stroke=none.  Inlining these on
-            // a parent (<g>) would cascade to children via CSS specificity,
-            // overriding their explicit presentation attributes (fill="none").
-            // Skip defaults to avoid breaking vector paths.
-            for (const p of props) {
-              const v = cs.getPropertyValue(p);
-              if (!v || v === "none") continue;
-              if (p === "fill" && v === "rgb(0, 0, 0)") continue;
-              if (p === "stroke" && v === "none") continue;
-              inline.style[p] = v;
-            }
-          }
-
-          let src = new XMLSerializer().serializeToString(clone);
-          if (!src.includes('xmlns="http://www.w3.org/2000/svg"'))
-            src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
-          if (src.length < 100) continue;
-
-          const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
-          const url = URL.createObjectURL(blob);
-          try {
-            const svgImg = await new Promise((resolve, reject) => {
-              const i = new Image();
-              i.onload = () => resolve(i);
-              i.onerror = () => reject(new Error(_(`${CONST.name}.err_svg_load`)));
-              i.src = url;
-            });
-            ctx.drawImage(
-              svgImg,
-              rect.left - svgL,
-              rect.top - svgT,
-              rect.width,
-              rect.height,
-              0,
-              0,
-              sw,
-              sh,
-            );
-          } finally {
-            URL.revokeObjectURL(url);
-          }
-        }
-      }
-    }
-
-    /** Render managed canvas elements (e.g. HeatmapControl hexbin canvas). */
-    async renderCanvas(ctx, rect, scale, contRect, cw, ch) {
-      const canvasEls = Array.from(this.container.querySelectorAll(CONST.SEL.CANVAS));
-      // Sort by z-index ascending so LayerControl ordering is preserved.
-      canvasEls.sort((a, b) => {
-        const za = parseInt(a.style.zIndex, 10) || 0;
-        const zb = parseInt(b.style.zIndex, 10) || 0;
-        return za - zb;
-      });
-      for (const ce of canvasEls) if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
-
-      for (const ce of canvasEls) {
-        const r = ce.getBoundingClientRect();
-        const l = r.left - contRect.left;
-        const t = r.top - contRect.top;
-        const w = r.width;
-        const h = r.height;
-        if (w < 1 || h < 1) continue;
-        const dx = (l - rect.left) * scale;
-        const dy = (t - rect.top) * scale;
-        const dw = w * scale;
-        const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
-        try {
-          const dataUrl = ce.toDataURL("image/png");
-          const img = await new Promise((resolve, reject) => {
-            const i = new Image();
-            i.onload = () => resolve(i);
-            i.onerror = () => reject(new Error(_(`${CONST.name}.err_canvas_load`)));
-            i.src = dataUrl;
-          });
-          ctx.drawImage(img, dx, dy, dw, dh);
-        } catch {
-          /* skip */
-        }
-      }
-
-      for (const ce of canvasEls) if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
-    }
-
     /** Collect marker roots from all panes (excluding del-icons and popups), sorted by pane z-index. */
     collectMarkerRoots() {
       const allPanes = this.container.querySelectorAll(CONST.SEL.PANE);
@@ -549,16 +379,26 @@
     /** Render SVG content from a single pane. */
     async renderPaneSVG(ctx, rect, scale, contRect, sw, sh, pane) {
       const props = [
-        "fill", "stroke", "stroke-width", "stroke-dasharray",
-        "stroke-linecap", "stroke-linejoin", "opacity",
-        "fill-opacity", "stroke-opacity", "visibility", "display",
+        "fill",
+        "stroke",
+        "stroke-width",
+        "stroke-dasharray",
+        "stroke-linecap",
+        "stroke-linejoin",
+        "opacity",
+        "fill-opacity",
+        "stroke-opacity",
+        "visibility",
+        "display",
       ];
       const svgEls = pane.querySelectorAll("svg");
       for (const svgEl of svgEls) {
         const svgG = svgEl.querySelector("g");
         const hasContent =
           (svgG && svgG.children.length > 0) ||
-          svgEl.querySelector("path, polygon, polyline, circle, rect, ellipse, line, text");
+          svgEl.querySelector(
+            "path, polygon, polyline, circle, rect, ellipse, line, text",
+          );
         if (!hasContent) continue;
         const svgRect = svgEl.getBoundingClientRect();
         const svgL = svgRect.left - contRect.left;
@@ -598,18 +438,26 @@
             i.onerror = () => reject(new Error(_(`${CONST.name}.err_svg_load`)));
             i.src = url;
           });
-          ctx.drawImage(svgImg, rect.left - svgL, rect.top - svgT, rect.width, rect.height, 0, 0, sw, sh);
+          ctx.drawImage(
+            svgImg,
+            rect.left - svgL,
+            rect.top - svgT,
+            rect.width,
+            rect.height,
+            0,
+            0,
+            sw,
+            sh,
+          );
         } finally {
           URL.revokeObjectURL(url);
         }
       }
     }
 
-    /** Render canvas elements registered by a specific layer. */
-    async renderLayeredCanvas(ctx, rect, scale, contRect, layer) {
-      const cw = rect.width * scale;
-      const ch = rect.height * scale;
-      for (const ce of this.container.querySelectorAll(CONST.SEL.CANVAS)) {
+    /** Render canvas elements from a single pane. */
+    async renderPaneCanvas(ctx, rect, scale, contRect, cw, ch, pane) {
+      for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
         if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;
@@ -631,7 +479,9 @@
             i.src = dataUrl;
           });
           ctx.drawImage(img, dx, dy, dw, dh);
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
         if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
       }
     }
@@ -970,7 +820,9 @@
             // (PIN_ICON etc.).  The root (Leaflet divIcon wrapper) has default
             // color=rgb(0,0,0); the actual color is on the inner container.
             const colorParent = svgEl.parentElement;
-            const rootColor = colorParent ? window.getComputedStyle(colorParent).color : "";
+            const rootColor = colorParent
+              ? window.getComputedStyle(colorParent).color
+              : "";
             if (rootColor && rootColor !== "rgb(0, 0, 0)")
               clone.setAttribute("color", rootColor);
             let src = new XMLSerializer().serializeToString(clone);
