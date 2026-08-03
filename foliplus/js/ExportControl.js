@@ -25,11 +25,11 @@
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
       TOOL_BTN: "foliplus-tool-btn",
-      EXPORT_MODE: "foliplus-export-mode",
-      EXPORT_OVERLAY: "foliplus-export-overlay",
-      EXPORT_BOX: "foliplus-export-box",
-      EXPORT_HANDLE: "foliplus-export-handle",
-      EXPORT_CENTER: "foliplus-export-center",
+      MODE: "foliplus-export-mode",
+      OVERLAY: "foliplus-export-overlay",
+      BOX: "foliplus-export-box",
+      HANDLE: "foliplus-export-handle",
+      CENTER: "foliplus-export-center",
       ACTIONS: "foliplus-export-actions",
       PREVIEW: "foliplus-export-preview",
       HIDDEN: "foliplus-export-hidden",
@@ -987,27 +987,27 @@
       }
 
       const overlay = foliplus.dom.el("div", {
-        class: `${CONST.CLASSES.EXPORT_OVERLAY} active`,
+        class: `${CONST.CLASSES.OVERLAY} active`,
         parent: this.mapContainer,
       });
-      this.mapContainer.classList.add(CONST.CLASSES.EXPORT_MODE);
-      document.body.classList.add(CONST.CLASSES.EXPORT_MODE);
+      this.mapContainer.classList.add(CONST.CLASSES.MODE);
+      document.body.classList.add(CONST.CLASSES.MODE);
 
       const cropBox = foliplus.dom.el("div", {
-        class: CONST.CLASSES.EXPORT_BOX,
+        class: CONST.CLASSES.BOX,
         parent: this.mapContainer,
       });
 
       ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach((pos) => {
         foliplus.dom.el("div", {
-          class: `${CONST.CLASSES.EXPORT_HANDLE} ${pos}`,
+          class: `${CONST.CLASSES.HANDLE} ${pos}`,
           parent: cropBox,
           "data-pos": pos,
         });
       });
 
       foliplus.dom.el("div", {
-        class: CONST.CLASSES.EXPORT_CENTER,
+        class: CONST.CLASSES.CENTER,
         parent: cropBox,
       });
 
@@ -1147,8 +1147,8 @@
     removeCropBox() {
       if (!this.cropState) return;
       this.lastScreenRect = Object.assign({}, this.cropState.rect);
-      this.mapContainer.classList.remove(CONST.CLASSES.EXPORT_MODE);
-      document.body.classList.remove(CONST.CLASSES.EXPORT_MODE);
+      this.mapContainer.classList.remove(CONST.CLASSES.MODE);
+      document.body.classList.remove(CONST.CLASSES.MODE);
       document.removeEventListener("keydown", this.onKeyDown);
       this.map.off("move zoom", this.onMapChange);
       if (this.cropState.box)
@@ -1172,8 +1172,8 @@
       if (target.classList.contains("foliplus-export-handle")) {
         this.dragState.dragType = target.dataset.pos;
       } else if (
-        target.classList.contains(CONST.CLASSES.EXPORT_CENTER) ||
-        target.classList.contains(CONST.CLASSES.EXPORT_BOX)
+        target.classList.contains(CONST.CLASSES.CENTER) ||
+        target.classList.contains(CONST.CLASSES.BOX)
       ) {
         this.dragState.dragType = "move";
       } else return;
