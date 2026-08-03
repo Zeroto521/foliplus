@@ -328,7 +328,9 @@
           // LayerControl moves <path> from <g> to <svg> direct child).
           const hasContent =
             (svgG && svgG.children.length > 0) ||
-            svgEl.querySelector("path, polygon, polyline, circle, rect, ellipse, line, text");
+            svgEl.querySelector(
+              "path, polygon, polyline, circle, rect, ellipse, line, text",
+            );
           if (!hasContent) continue;
           const svgRect = svgEl.getBoundingClientRect();
           const svgL = svgRect.left - contRect.left;
@@ -719,11 +721,8 @@
     async renderRemaining(ctx, rect, scale, contRect, markerRoots) {
       const cw = rect.width * scale;
       const ch = rect.height * scale;
-      const markerPane = this.container.querySelector(".leaflet-marker-pane");
 
       for (const root of markerRoots) {
-        // Only process elements in the marker pane (default markers, divIcons)
-        if (!markerPane || !markerPane.contains(root)) continue;
         const r = root.getBoundingClientRect();
         const l = r.left - contRect.left;
         const t = r.top - contRect.top;
