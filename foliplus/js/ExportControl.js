@@ -202,10 +202,10 @@
       const sh = Math.round(rect.height * scale);
       if (sw < 1 || sh < 1) throw new Error(_(`${CONST.name}.err_crop_too_small`));
 
-      const canvas_ = document.createElement("canvas");
-      canvas_.width = sw;
-      canvas_.height = sh;
-      const ctx = canvas_.getContext("2d");
+      const canvas = document.createElement("canvas");
+      canvas.width = sw;
+      canvas.height = sh;
+      const ctx = canvas.getContext("2d");
 
       if (bg) {
         ctx.fillStyle = bg;
@@ -280,7 +280,7 @@
         }
       }
 
-      return canvas_;
+      return canvas;
     }
 
     /** Render tiles by computing coordinates from geo bounds, or fallback to DOM images. */
