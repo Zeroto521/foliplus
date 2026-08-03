@@ -1501,6 +1501,7 @@
 
         if (layer)
           newState ? this.m.map.addLayer(layer) : this.m.map.removeLayer(layer);
+        if (newState && layer) layer.options.paneSet = false;
 
         const cbs = this.m.layerCallbacks.get(layerInfo.id);
         if (cbs && cbs.onToggle) cbs.onToggle(newState);
@@ -1559,6 +1560,10 @@
       if (layerInfo.isBase) this.hideColorLayer();
       if (layer)
         target.checked ? this.m.map.addLayer(layer) : this.m.map.removeLayer(layer);
+      // Reset paneSet on re-add so enforceOrder re-moves the layer's paths
+      // to the correct fallback pane (map.removeLayer strips them from the
+      // custom pane; map.addLayer puts them back in the default pane).
+      if (target.checked && layer) layer.options.paneSet = false;
       if (item)
         target.checked
           ? item.classList.add(CONST.CLASSES.ACTIVE)

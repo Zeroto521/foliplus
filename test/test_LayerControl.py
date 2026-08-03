@@ -2403,6 +2403,74 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
+    def test_paneset_reset_after_hide_show(self, browser, tmp_path):
+        """Hiding and re-showing a layer resets paneSet so enforceOrder re-moves paths."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="TestLayer", overlay=True, show=True).add_to(m)
+
+        html_path = tmp_path / "test_paneset_reset.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # Step 1: enforceOrder sets paneSet=true on the layer
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const li = api.layers.find(l => l.name === 'TestLayer');
+                if (!li) return null;
+                const layer = api.findLayer(li.id);
+                if (!layer) return null;
+                return { id: li.id, paneSet: layer.options.paneSet };
+            }""")
+            assert result is not None, "Layer not found"
+            assert result["paneSet"] is True, (
+                f"Expected paneSet=true after enforceOrder, got {result['paneSet']}"
+            )
+
+            # Step 2: Hide the layer by unchecking checkbox
+            page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-item input[type="checkbox"]');
+                if (cb) cb.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Step 3: Show the layer again
+            page.evaluate("""() => {
+                const cb = document.querySelector('.foliplus-layer-item input[type="checkbox"]');
+                if (cb) cb.click();
+            }""")
+            page.wait_for_timeout(300)
+
+            # Step 4: paneSet was reset to false by handleChange, then enforceOrder set it back
+            paneset = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const li = api.layers.find(l => l.name === 'TestLayer');
+                if (!li) return null;
+                const layer = api.findLayer(li.id);
+                if (!layer) return null;
+                return layer.options.paneSet;
+            }""")
+            assert paneset is True, (
+                f"Expected paneSet=true after re-show + enforceOrder, got {paneset}"
+            )
+        finally:
+            page.close()
+
 
 class TestLayerControlEdgeCases:
     """Tests for uncovered edge cases and code paths."""
@@ -2462,6 +2530,18 @@ class TestLayerControlEdgeCases:
         html = render(base_map)
         assert "opts.layer.options.pane = opts.paneName" in html
         assert "opts.layer.options.paneSet = true" in html
+
+    def test_handle_change_resets_paneset_on_show(self, base_map: folium.Map):
+        """handleChange resets paneSet=false after re-add to trigger enforceOrder re-move."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert 'target.checked && layer) layer.options.paneSet = false' in html
+
+    def test_toggle_all_resets_paneset_on_show(self, base_map: folium.Map):
+        """toggleAll resets paneSet=false after re-add for all layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert 'newState && layer) layer.options.paneSet = false' in html
 
     def test_drag_event_handlers_bound(self, base_map: folium.Map):
         """Drag-and-drop event handlers are registered."""
