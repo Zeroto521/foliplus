@@ -447,6 +447,67 @@ class TestExportControlRendering:
         assert "renderTextLabels" in html
         assert "renderRemaining" in html
 
+    # ── LayerControl integration ──
+
+    def test_no_layercontrol_guard(self, base_map: folium.Map):
+        """ExportControl shows guard when LayerControl is missing."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "no_layercontrol" in html
+        assert "LayerAPI" in html
+
+    def test_discover_layer_panes_method(self, base_map: folium.Map):
+        """discoverLayerPanes extracts custom pane names from a layer tree."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "discoverLayerPanes" in html
+        assert "l.options?.pane" in html
+
+    def test_collect_layer_markers_method(self, base_map: folium.Map):
+        """collectLayerMarkers finds markers in a layer's panes."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "collectLayerMarkers" in html
+        assert "CONST.SEL.MARKER" in html
+        assert "CONST.SEL.LABEL" in html
+
+    def test_render_pane_svg_method(self, base_map: folium.Map):
+        """renderPaneSVG renders SVG content from a single pane."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "renderPaneSVG" in html
+        assert "getComputedStyle" in html
+        assert "serializeToString" in html
+
+    def test_svg_panes_sort_by_zindex(self, base_map: folium.Map):
+        """renderSVG sorts panes by z-index for layer ordering."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "panes.sort" in html
+        assert "parseInt(a.style.zIndex" in html
+
+    def test_canvas_sort_by_zindex(self, base_map: folium.Map):
+        """renderCanvas sorts canvas elements by z-index."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "canvasEls.sort" in html
+        assert "parseInt(a.style.zIndex" in html
+
+    def test_api_layers_iteration(self, base_map: folium.Map):
+        """render iterates api.layers for per-layer rendering."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "api.layers" in html
+        assert "api.layers.length - 1" in html
+        assert "li.visible" in html
+        assert "li.isBase" in html
+
+    def test_canvas_selector_defined(self, base_map: folium.Map):
+        """CONST.SEL.CANVAS selector targets foliplus-canvas elements."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "canvas.foliplus" in html or "foliplus-canvas" in html
+
 
 class TestExportControlBrowser:
     """Browser-level tests for ExportControl."""
@@ -455,6 +516,9 @@ class TestExportControlBrowser:
         """Export toggle button is rendered and clickable."""
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        from foliplus import LayerControl
+
+        LayerControl().add_to(m)
         ExportControl().add_to(m)
         html = m.get_root().render()
         html_path = tmp_path / "export_toggle.html"
@@ -476,6 +540,9 @@ class TestExportControlBrowser:
         """Clicking toggle button shows the crop box."""
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        from foliplus import LayerControl
+
+        LayerControl().add_to(m)
         ExportControl().add_to(m)
         html = m.get_root().render()
         html_path = tmp_path / "export_crop.html"
@@ -506,6 +573,9 @@ class TestExportControlBrowser:
         """Pressing Escape with unlocked crop box removes it."""
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        from foliplus import LayerControl
+
+        LayerControl().add_to(m)
         ExportControl().add_to(m)
         html = m.get_root().render()
         html_path = tmp_path / "export_escape.html"
@@ -542,6 +612,9 @@ class TestExportControlBrowser:
         """Pressing Enter locks the crop box (dashed > solid border)."""
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        from foliplus import LayerControl
+
+        LayerControl().add_to(m)
         ExportControl().add_to(m)
         html = m.get_root().render()
         html_path = tmp_path / "export_enter.html"
@@ -576,6 +649,9 @@ class TestExportControlBrowser:
         """foliplus-export-mode class is added to body and map container."""
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        from foliplus import LayerControl
+
+        LayerControl().add_to(m)
         ExportControl().add_to(m)
         html = m.get_root().render()
         html_path = tmp_path / "export_mode.html"
@@ -613,6 +689,9 @@ class TestExportControlBrowser:
         """Lock then unlock crop box transitions correctly."""
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        from foliplus import LayerControl
+
+        LayerControl().add_to(m)
         ExportControl().add_to(m)
         html_path = tmp_path / "export_lock_unlock.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -620,18 +699,26 @@ class TestExportControlBrowser:
         page = browser.new_page()
         try:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(
+                ".foliplus-export-ctrl", state="attached", timeout=10000
+            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
-            page.wait_for_selector(".foliplus-export-box", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
 
             # Lock
             page.locator(".foliplus-export-actions .confirm").click()
-            page.wait_for_selector(".foliplus-export-box.locked", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
             assert page.locator(".foliplus-export-box.locked").is_visible()
 
             # Unlock (cancel resets to unlocked)
             page.locator(".foliplus-export-actions .cancel").click()
-            page.wait_for_selector(".foliplus-export-box:not(.locked)", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".foliplus-export-box:not(.locked)", state="attached", timeout=5000
+            )
             assert page.locator(".foliplus-export-box").is_visible()
         finally:
             page.close()
@@ -640,6 +727,9 @@ class TestExportControlBrowser:
         """Opening export control should not produce JS errors."""
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        from foliplus import LayerControl
+
+        LayerControl().add_to(m)
         ExportControl().add_to(m)
         html_path = tmp_path / "export_no_errors.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -649,9 +739,13 @@ class TestExportControlBrowser:
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(
+                ".foliplus-export-ctrl", state="attached", timeout=10000
+            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
-            page.wait_for_selector(".foliplus-export-box", state="attached", timeout=5000)
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
             page.wait_for_timeout(500)
             assert len(errors) == 0, f"JS errors on open: {errors}"
         finally:
