@@ -16,6 +16,7 @@
   "ExportControl.err_crop_too_small": "导出区域过小",
   "ExportControl.err_svg_load": "SVG 图层加载失败",
   "ExportControl.err_canvas_load": "Canvas 图层加载失败",
+  "ExportControl.err_image_load": "图片元素加载失败",
   "ExportControl.err_load_bounds": "导出区域加载失败",
   "ExportControl.err_save_bounds": "导出区域保存失败",
   "ExportControl.err_render": "导出渲染失败",

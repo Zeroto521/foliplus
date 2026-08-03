@@ -39,16 +39,12 @@
       CANCEL: "cancel",
     },
     SEL: {
-      HANDLE: ".foliplus-export-handle",
-      CENTER: ".foliplus-export-center",
-      BOX: ".foliplus-export-box",
-      CONFIRM: ".foliplus-export-actions .confirm",
-      CANCEL: ".foliplus-export-actions .cancel",
       CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
       CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
       PANE: '.leaflet-map-pane [class*="pane"]',
       MARKER: '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
       LABEL: ".foliplus-measure-label, .leaflet-div-icon",
+      EXCLUDE: ".foliplus-del-icon, .leaflet-popup",
     },
   };
 
@@ -117,10 +113,52 @@
     }
   });
 
+  // ==================== Render helpers ====================
+  // Stateless utilities used by LeafletRenderer passes.
+
+  /** Test whether a rectangle intersects the visible crop area. */
+  const isVisible = (dx, dy, dw, dh, cw, ch) =>
+    !(dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch);
+
+  /** Fetch a remote image as an ImageBitmap (CORS mode). */
+  const loadImageBitmap = async (url) => {
+    const resp = await fetch(url, { mode: "cors", cache: "force-cache" });
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    return createImageBitmap(blob);
+  };
+
+  /** Load an HTMLImageElement from a URL (or data URI). */
+  const loadImage = (src, crossOrigin) =>
+    new Promise((resolve, reject) => {
+      const i = new Image();
+      if (crossOrigin) i.crossOrigin = crossOrigin;
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error(_(`${CONST.name}.err_image_load`)));
+      i.src = src;
+    });
+
+  /** Wait for a font spec to be ready for canvas text rendering. */
+  const ensureFont = async (fontSpec) => {
+    try {
+      await document.fonts.load(fontSpec);
+    } catch {
+      /* try anyway */
+    }
+    if (!document.fonts.check(fontSpec)) {
+      try {
+        await document.fonts.ready;
+      } catch {
+        /* skip */
+      }
+    }
+  };
+
   // ==================== LeafletRenderer ====================
   // Mixed-mode renderer with independent rendering passes.
   // render() orchestrates the passes in painter's-algorithm order:
-  //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome → 6. text labels → 7. remaining (img, inline SVG, bg-color)
+  //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome →
+  //   6. text labels → 7. remaining (img, inline SVG, bg-color)
   class LeafletRenderer {
     constructor(map) {
       this.map = map;
@@ -141,8 +179,8 @@
       return layers;
     }
 
-    // Calculate all tile coordinates that cover the given geo bounds at the given zoom.
-    // Returns [{x, y, url}]
+    /** Calculate tile coordinates covering geo bounds at a given zoom.
+     *  Returns [{x, y, z, url, left, top, size}]. */
     calcTiles(tileLayer, bounds, zoom) {
       const crs = this.map.options.crs || L.CRS.EPSG3857;
       const tileSize = tileLayer.options.tileSize || 256;
@@ -160,7 +198,6 @@
       const maxTy = Math.ceil(se.y / tileSize) - 1;
 
       const tiles = [];
-      const globalTileSize = crs.infinite ? tileSize : 256;
       const maxTile = crs.infinite ? Infinity : Math.pow(2, zoom);
 
       for (let tx = minTx; tx <= maxTx; tx++) {
@@ -197,6 +234,10 @@
       return tiles;
     }
 
+    /** Orchestrate all rendering passes in painter's-algorithm order.
+     *  Passes: tiles → SVG → canvas → markers → FA → text → remaining.
+     *  Overlay layers iterate via LayerControl API bottom-to-top so
+     *  cross-technology z-ordering is preserved per layer. */
     async render(rect, scale, bg, geoBounds) {
       const sw = Math.round(rect.width * scale);
       const sh = Math.round(rect.height * scale);
@@ -218,10 +259,10 @@
       const cw = rect.width * scale;
       const ch = rect.height * scale;
 
-      // 1. Tiles — render all tile layers first (bottom layer first)
+      // 1. Tiles — render all tile layers (bottom layer first)
       await this.renderTiles(ctx, rect, scale, contRect, contW, contH, geoBounds);
 
-      // 2. Overlay layers — iterate in API order bottom-to-top.
+      // 2. Overlay layers — iterate in LayerControl API order bottom-to-top.
       // Each layer may contain SVG, Canvas, and/or Marker elements, so we
       // render all passes per-layer to preserve cross-technology z-order.
       const api = foliplus.LayerAPI;
@@ -280,20 +321,15 @@
             const dy = (tileVpY - rect.top) * scale;
             const dw = tile.size * scale;
             const dh = tile.size * scale;
-            if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+            if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
             if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top)
               continue;
             if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height)
               continue;
 
             try {
-              const resp = await fetch(tile.url, {
-                mode: "cors",
-                cache: "force-cache",
-              });
-              if (!resp.ok) continue;
-              const blob = await resp.blob();
-              const bitmap = await createImageBitmap(blob);
+              const bitmap = await loadImageBitmap(tile.url);
+              if (!bitmap) continue;
               ctx.drawImage(bitmap, dx, dy, dw, dh);
               bitmap.close();
             } catch {
@@ -315,12 +351,10 @@
           const dy = (t - rect.top) * scale;
           const dw = (r.width || w) * scale;
           const dh = (r.height || h) * scale;
-          if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+          if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
           try {
-            const resp = await fetch(img.src, { mode: "cors", cache: "force-cache" });
-            if (!resp.ok) continue;
-            const blob = await resp.blob();
-            const bitmap = await createImageBitmap(blob);
+            const bitmap = await loadImageBitmap(img.src);
+            if (!bitmap) continue;
             ctx.drawImage(bitmap, dx, dy, dw, dh);
             bitmap.close();
           } catch {
@@ -339,12 +373,12 @@
         const markers = [];
         const found = pane.querySelectorAll(CONST.SEL.MARKER);
         for (const el of found) {
-          if (el.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          if (el.closest(CONST.SEL.EXCLUDE)) continue;
           markers.push(el);
         }
         const labels = pane.querySelectorAll(CONST.SEL.LABEL);
         for (const label of labels) {
-          if (label.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          if (label.closest(CONST.SEL.EXCLUDE)) continue;
           markers.push(label);
         }
         if (markers.length) paneEntries.push({ z, markers });
@@ -391,8 +425,7 @@
         "visibility",
         "display",
       ];
-      const svgEls = pane.querySelectorAll("svg");
-      for (const svgEl of svgEls) {
+      for (const svgEl of pane.querySelectorAll("svg")) {
         const svgG = svgEl.querySelector("g");
         const hasContent =
           (svgG && svgG.children.length > 0) ||
@@ -432,12 +465,7 @@
         const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         try {
-          const svgImg = await new Promise((resolve, reject) => {
-            const i = new Image();
-            i.onload = () => resolve(i);
-            i.onerror = () => reject(new Error(_(`${CONST.name}.err_svg_load`)));
-            i.src = url;
-          });
+          const svgImg = await loadImage(url);
           ctx.drawImage(
             svgImg,
             rect.left - svgL,
@@ -469,15 +497,10 @@
         const dy = (t - rect.top) * scale;
         const dw = w * scale;
         const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
         try {
           const dataUrl = ce.toDataURL("image/png");
-          const img = await new Promise((resolve, reject) => {
-            const i = new Image();
-            i.onload = () => resolve(i);
-            i.onerror = () => reject(new Error(_(`${CONST.name}.err_canvas_load`)));
-            i.src = dataUrl;
-          });
+          const img = await loadImage(dataUrl);
           ctx.drawImage(img, dx, dy, dw, dh);
         } catch {
           /* skip */
@@ -496,14 +519,14 @@
         if (!pane) continue;
         const found = pane.querySelectorAll(CONST.SEL.MARKER);
         for (const el of found) {
-          if (el.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          if (el.closest(CONST.SEL.EXCLUDE)) continue;
           if (seen.has(el)) continue;
           seen.add(el);
           roots.push(el);
         }
         const labels = pane.querySelectorAll(CONST.SEL.LABEL);
         for (const label of labels) {
-          if (label.closest(".foliplus-del-icon, .leaflet-popup")) continue;
+          if (label.closest(CONST.SEL.EXCLUDE)) continue;
           if (seen.has(label)) continue;
           seen.add(label);
           roots.push(label);
@@ -512,9 +535,8 @@
       return roots;
     }
 
-    /** Render markers with background-image sprites.  Returns markerRoots for further passes. */
+    /** Render markers with background-image sprites. */
     async renderMarkers(ctx, rect, scale, contRect, cw, ch, markerRoots) {
-      if (!markerRoots) markerRoots = this.collectMarkerRoots();
       const drawableEls = [];
       for (const root of markerRoots) {
         drawableEls.push(root);
@@ -562,7 +584,7 @@
         const dy = (t - rect.top) * scale;
         const dw = w * scale;
         const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
         const cs = window.getComputedStyle(el);
         const bg = cs.backgroundImage;
         if (!bg || bg === "none") continue;
@@ -617,7 +639,7 @@
         const dy = (t - rect.top) * scale;
         const dw = w * scale;
         const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
         const iconEl = root.querySelector("i");
         if (!iconEl) continue;
         const before = window.getComputedStyle(iconEl, "::before");
@@ -652,19 +674,8 @@
           iconDH = ir.height * scale;
         }
         fontSize *= scale;
-        const fontSpec = fontWeight + " " + fontSize + "px " + fontFamily;
-        try {
-          await document.fonts.load(fontSpec);
-        } catch {
-          /* try anyway */
-        }
-        if (!document.fonts.check(fontSpec)) {
-          try {
-            await document.fonts.ready;
-          } catch {
-            /* skip */
-          }
-        }
+        const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
+        await ensureFont(fontSpec);
         ctx.save();
         ctx.font = fontSpec;
         ctx.textAlign = "center";
@@ -701,7 +712,7 @@
         const dy = (tr.top - contRect.top - rect.top) * scale;
         const dw = w * scale;
         const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
 
         // Draw background from textEl's computed style.
         // backdrop-filter: blur() is a browser-only visual effect that cannot
@@ -717,7 +728,6 @@
             ctx.roundRect(dx, dy, dw, dh, br * scale);
             ctx.fill();
           } else ctx.fillRect(dx, dy, dw, dh);
-          // Draw border if present
           const bw = parseFloat(textCS.borderWidth) || 0;
           if (bw > 0 && textCS.borderStyle !== "none") {
             ctx.strokeStyle = textCS.borderColor || bg;
@@ -739,18 +749,7 @@
         if (fontWeight === "bold") fontWeight = "700";
         fontSize *= scale;
         const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
-        try {
-          await document.fonts.load(fontSpec);
-        } catch {
-          /* try anyway */
-        }
-        if (!document.fonts.check(fontSpec)) {
-          try {
-            await document.fonts.ready;
-          } catch {
-            /* skip */
-          }
-        }
+        await ensureFont(fontSpec);
         ctx.save();
         ctx.font = fontSpec;
         ctx.textAlign = "center";
@@ -768,10 +767,8 @@
       }
     }
 
-    /** Render remaining icons not handled by other passes:
-     *  - <img> elements (default Leaflet markers, Unknown layer points)
-     *  - divIcon elements with inline SVG (PIN_ICON, LOCATE)
-     *  - divIcon elements with background-color but no sprite (center dot) */
+    /** Render remaining icon types not handled by other passes:
+     *  <img> → fallback sprite → inline SVG → background-color fill. */
     async renderRemaining(ctx, rect, scale, contRect, markerRoots) {
       const cw = rect.width * scale;
       const ch = rect.height * scale;
@@ -787,19 +784,13 @@
         const dy = (t - rect.top) * scale;
         const dw = w * scale;
         const dh = h * scale;
-        if (dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch) continue;
+        if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
 
         // 1. <img> elements (default Leaflet markers)
         const imgEl = root.tagName === "IMG" ? root : root.querySelector("img");
         if (imgEl && imgEl.src) {
           try {
-            const img = await new Promise((resolve, reject) => {
-              const i = new Image();
-              i.crossOrigin = "anonymous";
-              i.onload = () => resolve(i);
-              i.onerror = () => reject();
-              i.src = imgEl.src;
-            });
+            const img = await loadImage(imgEl.src, "anonymous");
             ctx.drawImage(img, dx, dy, dw, dh);
             continue;
           } catch {
@@ -816,9 +807,6 @@
             const sr = svgEl.getBoundingClientRect();
             clone.setAttribute("width", String(sr.width || 24));
             clone.setAttribute("height", String(sr.height || 24));
-            // Inline color from the SVG's parent element for currentColor support
-            // (PIN_ICON etc.).  The root (Leaflet divIcon wrapper) has default
-            // color=rgb(0,0,0); the actual color is on the inner container.
             const colorParent = svgEl.parentElement;
             const rootColor = colorParent
               ? window.getComputedStyle(colorParent).color
@@ -831,12 +819,7 @@
             const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             try {
-              const img = await new Promise((resolve, reject) => {
-                const i = new Image();
-                i.onload = () => resolve(i);
-                i.onerror = () => reject();
-                i.src = url;
-              });
+              const img = await loadImage(url);
               ctx.drawImage(img, dx, dy, dw, dh);
             } finally {
               URL.revokeObjectURL(url);
@@ -848,7 +831,6 @@
         }
 
         // 3. Elements with background-color but no background-image url (center dot)
-        // Skip elements that are text labels (handled by renderTextLabels).
         if (root.matches(CONST.SEL.LABEL)) continue;
         const rootCS = window.getComputedStyle(root);
         const bgImg = rootCS.backgroundImage;
@@ -864,10 +846,7 @@
             ctx.beginPath();
             ctx.roundRect(dx, dy, dw, dh, br * scale);
             ctx.fill();
-          } else {
-            ctx.fillRect(dx, dy, dw, dh);
-          }
-          // Draw border
+          } else ctx.fillRect(dx, dy, dw, dh);
           const bw = parseFloat(rootCS.borderWidth) || 0;
           if (bw > 0 && rootCS.borderStyle !== "none" && rootCS.borderColor) {
             ctx.strokeStyle = rootCS.borderColor;
@@ -876,9 +855,7 @@
               ctx.beginPath();
               ctx.roundRect(dx, dy, dw, dh, br * scale);
               ctx.stroke();
-            } else {
-              ctx.strokeRect(dx, dy, dw, dh);
-            }
+            } else ctx.strokeRect(dx, dy, dw, dh);
           }
           ctx.restore();
         }

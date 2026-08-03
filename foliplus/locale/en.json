@@ -16,6 +16,7 @@
   "ExportControl.err_crop_too_small": "Export area too small",
   "ExportControl.err_svg_load": "SVG layer load failed",
   "ExportControl.err_canvas_load": "Canvas layer load failed",
+  "ExportControl.err_image_load": "Image element load failed",
   "ExportControl.err_load_bounds": "Failed to load export bounds",
   "ExportControl.err_save_bounds": "Failed to save export bounds",
   "ExportControl.err_render": "Export render failed",

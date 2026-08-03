@@ -416,10 +416,10 @@ class TestExportControlRendering:
         assert "src.length < 100" in html
 
     def test_svg_error_handling(self, base_map: folium.Map):
-        """SVG load errors are caught with localized message."""
+        """SVG load errors are caught with error handling."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "err_svg_load" in html
+        assert "err_image_load" in html
         assert "reject" in html
 
     def test_render_methods_order(self, base_map: folium.Map):

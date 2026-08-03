@@ -41,6 +41,7 @@ _JS_USED_KEYS = {
     "ExportControl.err_crop_too_small",
     "ExportControl.err_svg_load",
     "ExportControl.err_canvas_load",
+    "ExportControl.err_image_load",
     "ExportControl.err_load_bounds",
     "ExportControl.err_save_bounds",
     "ExportControl.err_render",
