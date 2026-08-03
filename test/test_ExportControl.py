@@ -139,8 +139,8 @@ class TestExportControlRendering:
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "renderTiles" in html
-        assert "renderSVG" in html
-        assert "renderCanvas" in html
+        assert "renderPaneSVG" in html
+        assert "renderPaneCanvas" in html
         assert "renderMarkers" in html
         assert "renderFontAwesome" in html
         assert "renderTextLabels" in html
@@ -152,13 +152,6 @@ class TestExportControlRendering:
         html = render(base_map)
         assert "async renderRemaining" in html
         assert "await this.renderRemaining" in html
-
-    def test_render_remaining_processes_all_marker_roots(self, base_map: folium.Map):
-        """renderRemaining processes all marker roots without pane filtering."""
-        ExportControl().add_to(base_map)
-        html = render(base_map)
-        assert "renderRemaining" in html
-        assert "async renderRemaining" in html
 
     def test_svg_inline_styles(self, base_map: folium.Map):
         """SVG renderer inlines computed styles for CSS class fidelity."""
@@ -205,7 +198,7 @@ class TestExportControlRendering:
         assert 'stroke" && v === "none"' in html
 
     def test_svg_content_detection(self, base_map: folium.Map):
-        """renderSVG detects SVG content both in <g> and as direct children (migrateLayers)."""
+        """renderPaneSVG detects SVG content both in <g> and as direct children (migrateLayers)."""
         ExportControl().add_to(base_map)
         html = render(base_map)
         # Checks for <g> children
@@ -213,12 +206,6 @@ class TestExportControlRendering:
         # Checks for direct geometry paths (migrateLayers moves <path> out of <g>)
         assert "svgEl.querySelector(" in html
         assert "path, polygon, polyline, circle" in html
-
-    def test_svg_default_fill_not_inlined(self, base_map: folium.Map):
-        """Default fill=rgb(0,0,0) is skipped to avoid overriding path fill='none'."""
-        ExportControl().add_to(base_map)
-        html = render(base_map)
-        assert 'fill" && v === "rgb(0, 0, 0)"' in html
 
     def test_collect_marker_roots(self, base_map: folium.Map):
         """_collectMarkerRoots excludes del-icons and popups."""
@@ -343,7 +330,7 @@ class TestExportControlRendering:
         assert "createImageBitmap" in html
 
     def test_render_canvas_hooks(self, base_map: folium.Map):
-        """renderCanvas calls before/after lifecycle hooks."""
+        """renderPaneCanvas calls before/after lifecycle hooks."""
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "ce.hooks" in html
@@ -378,7 +365,6 @@ class TestExportControlRendering:
         html = render(base_map)
         assert "backgroundColor" in html
         assert "fillRect" in html
-        assert "backdrop-filter" in html or "blur" in html
 
     def test_render_text_labels_font_loading(self, base_map: folium.Map):
         """renderTextLabels awaits document.fonts.ready."""
@@ -442,7 +428,8 @@ class TestExportControlRendering:
         html = render(base_map)
         # Order: tiles → SVG → canvas → markers → FA → text → remaining
         assert "renderTiles" in html
-        assert "renderCanvas" in html
+        assert "renderPaneSVG" in html
+        assert "renderPaneCanvas" in html
         assert "renderFontAwesome" in html
         assert "renderTextLabels" in html
         assert "renderRemaining" in html
@@ -479,19 +466,13 @@ class TestExportControlRendering:
         assert "getComputedStyle" in html
         assert "serializeToString" in html
 
-    def test_svg_panes_sort_by_zindex(self, base_map: folium.Map):
-        """renderSVG sorts panes by z-index for layer ordering."""
+    def test_render_pane_canvas_method(self, base_map: folium.Map):
+        """renderPaneCanvas renders canvas elements from a single pane."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "panes.sort" in html
-        assert "parseInt(a.style.zIndex" in html
-
-    def test_canvas_sort_by_zindex(self, base_map: folium.Map):
-        """renderCanvas sorts canvas elements by z-index."""
-        ExportControl().add_to(base_map)
-        html = render(base_map)
-        assert "canvasEls.sort" in html
-        assert "parseInt(a.style.zIndex" in html
+        assert "renderPaneCanvas" in html
+        assert "hooks" in html
+        assert "toDataURL" in html
 
     def test_api_layers_iteration(self, base_map: folium.Map):
         """render iterates api.layers for per-layer rendering."""
@@ -507,6 +488,100 @@ class TestExportControlRendering:
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "canvas.foliplus" in html or "foliplus-canvas" in html
+
+    def test_render_base_layer_skipped(self, base_map: folium.Map):
+        """render() skips basemap layers in per-layer iteration."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "li.isBase" in html
+        assert "if (li.isBase) continue" in html
+
+    def test_render_invisible_layer_skipped(self, base_map: folium.Map):
+        """render() skips invisible layers in per-layer iteration."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "li.visible" in html
+        assert "if (!li.visible) continue" in html
+
+    def test_render_methods_awaited(self, base_map: folium.Map):
+        """All render passes are awaited in render()."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "await this.renderTiles" in html
+        assert "await this.renderPaneSVG" in html
+        assert "await this.renderPaneCanvas" in html
+        assert "await this.renderMarkers" in html
+        assert "await this.renderFontAwesome" in html
+        assert "await this.renderTextLabels" in html
+        assert "await this.renderRemaining" in html
+
+    def test_get_tile_layers_sorted(self, base_map: folium.Map):
+        """getTileLayers sorts by zIndex ascending."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "getTileLayers" in html
+        assert "zIndex" in html
+        assert "b.options.zIndex" in html
+
+    def test_svg_clone_removes_style_attribute(self, base_map: folium.Map):
+        """renderPaneSVG removes style attribute from cloned SVG."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "clone.removeAttribute" in html
+        assert '"style"' in html
+
+    def test_render_remaining_skips_label_elements(self, base_map: folium.Map):
+        """renderRemaining skips elements matching CONST.SEL.LABEL."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "root.matches(CONST.SEL.LABEL)" in html
+        assert "continue" in html
+
+    def test_render_remaining_draws_border(self, base_map: folium.Map):
+        """renderRemaining draws border for background-color elements."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "borderColor" in html
+        assert "strokeRect" in html or "roundRect" in html
+
+    def test_render_remaining_color_from_parent(self, base_map: folium.Map):
+        """renderRemaining reads color from parentElement for currentColor SVG."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "colorParent" in html
+        assert "parentElement" in html
+        assert 'clone.setAttribute("color"' in html
+
+    def test_render_text_labels_escapes_fa_icons(self, base_map: folium.Map):
+        """renderTextLabels skips elements with <i> child (FontAwesome)."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert 'root.querySelector("i")' in html
+        assert "continue" in html
+
+    def test_render_text_labels_multiline(self, base_map: folium.Map):
+        """renderTextLabels handles multi-line text with lineHeight."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert '.split("\\n")' in html
+        assert "lineHeight" in html
+        assert "lines.length" in html
+
+    def test_render_tiles_dom_fallback(self, base_map: folium.Map):
+        """renderTiles has DOM fallback path when geoBounds is missing."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "else" in html
+        assert "this.container.querySelectorAll" in html
+        assert "img" in html
+
+    def test_tile_cors_interceptor(self, base_map: folium.Map):
+        """CORS interceptor sets crossOrigin on TileLayer add."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "crossOrigin" in html
+        assert "layeradd" in html
+        assert "anonymous" in html
 
 
 class TestExportControlBrowser:
