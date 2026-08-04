@@ -1065,21 +1065,24 @@ class TestMeasureControlRendering:
         """Marker measurement is persisted immediately, before geocode resolves."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # saveMeasurements must be called BEFORE the await reverseGeocode
+        # saveMeasurements must be called BEFORE createLocationMarker (which
+        # triggers the async geocode) so a reload mid-lookup does not lose it
         save_pos = html.find("this.m.saveMeasurements()")
-        await_pos = html.find("await foliplus.reverseGeocode")
+        create_pos = html.find("foliplus.createLocationMarker(")
         assert save_pos != -1, "saveMeasurements() should exist"
-        assert await_pos != -1, "await reverseGeocode should exist"
-        assert save_pos < await_pos, (
-            "measurement must be saved before awaiting geocode so a reload "
+        assert create_pos != -1, "createLocationMarker should exist"
+        assert save_pos < create_pos, (
+            "measurement must be saved before triggering geocode so a reload "
             "mid-lookup does not lose the marker"
         )
 
     def test_marker_address_updated_after_geocode(self, base_map: folium.Map):
-        """measurement.address is filled in after geocode resolves."""
+        """measurement.address is filled in via onAddress callback after geocode."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # Address update happens after await and re-persists
+        # Address update happens through the createLocationMarker onAddress
+        # callback, then re-persists
+        assert "onAddress" in html or "onAddress" in html
         assert "measurement.address = addr" in html
         assert "this.m.saveMeasurements()" in html
 
@@ -1112,6 +1115,77 @@ class TestMeasureControlRendering:
             assert count == 1, f"expected 1 measurement after reload, got {count}"
             pins = page.evaluate("document.querySelectorAll('.foliplus-pin').length")
             assert pins >= 1, "marker pin should be visible after reload"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_restore_marker_address_backfilled(self, browser, tmp_path):
+        """Regression: marker restored with address:null resolves and persists address."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const data = [{
+                    id: 'foliplus_measurement_marker_nulladdr',
+                    type: 'marker',
+                    lng: 119.30,
+                    lat: 26.08,
+                    address: null
+                }];
+                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(3000)
+            # Address should be resolved by the onAddress callback
+            addr = page.evaluate("window.__measureManager.measurements[0]?.address")
+            assert addr, f"expected address to be backfilled, got {addr!r}"
+            # And persisted back to localStorage
+            saved = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            parsed = json.loads(saved) if saved else []
+            assert parsed and parsed[0]["address"], (
+                "address should be persisted after restore"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_clear_all_unbinds_circle_listeners(self, browser, tmp_path):
+        """Regression: clearAll unbinds all finalized-circle map click handlers.
+
+        Each completed circle binds an onMapClickActive handler to the map.
+        clearAll() must unbind them all (not just the last one) to avoid leaks.
+        """
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            baseline = page.evaluate(
+                "window.__map._events['click']?.length || 0"
+            )
+            # Draw 2 circles — each binds an onMapClickActive handler
+            for _ in range(2):
+                page.evaluate("""() => {
+                    const mm = window.__measureManager;
+                    const map = window.__map;
+                    mm.setMode('circle');
+                    map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                    map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                }""")
+                page.wait_for_timeout(500)
+            after_circles = page.evaluate(
+                "window.__map._events['click']?.length || 0"
+            )
+            assert after_circles == baseline + 2, (
+                f"expected {baseline + 2} click handlers after 2 circles, "
+                f"got {after_circles}"
+            )
+            # clearAll must unbind them all
+            page.evaluate("window.__measureManager.clearAll()")
+            page.wait_for_timeout(200)
+            after_clear = page.evaluate(
+                "window.__map._events['click']?.length || 0"
+            )
+            assert after_clear == baseline, (
+                f"expected {baseline} click handlers after clearAll, "
+                f"got {after_clear}"
+            )
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
