@@ -980,6 +980,28 @@ class TestMeasureControlRendering:
         finally:
             page.close()
 
+    def test_map_unload_keeps_measurements(self, browser, tmp_path):
+        """Regression: map unload must NOT wipe persisted measurements.
+
+        unload previously called clearAll(), which wrote an empty array back to
+        localStorage — a data-loss risk on page refresh. It must only clear
+        transient UI state and keep the persisted measurements.
+        """
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
+                mm.saveMeasurements();
+                mm.onUnload();
+            }""")
+            data = page.evaluate("localStorage.getItem('foliplus_measure')")
+            parsed = json.loads(data) if data else []
+            assert len(parsed) == 1, "unload should keep persisted measurements"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
     def test_delete_marker_removes_from_storage(self, browser, tmp_path):
         """Deleting a marker removes it from measurements and persists."""
         page, errors = self._make_page(browser, tmp_path)
