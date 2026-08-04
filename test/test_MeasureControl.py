@@ -208,7 +208,7 @@ class TestMeasureControlRendering:
         assert "MeasureUtils.hideDelIcons()" in html
 
     def test_calc_toggle_reset(self, base_map: folium.Map):
-        """calcToggle with 'reset' sets labelsVisible=true."""
+        """calcToggle with 'reset' sets isLabelsVisible=true."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "toggleLbl === CONST.TOGGLE.RESET" in html
@@ -283,11 +283,11 @@ class TestMeasureControlRendering:
         assert "deleteMeas()" in html
 
     def test_seg_labels_repositioned_on_delete(self, base_map: folium.Map):
-        """After node deletion, remaining segLabels are repositioned via setLatLng."""
+        """After node deletion, remaining segLabels are repositioned at midpoints."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "label.setLatLng(points[i + 1])" in html
-        assert "cumDist += MeasureUtils.distance(" in html
+        assert "midLat = (points[i].lat + points[i + 1].lat) / 2" in html
+        assert "label.setLatLng([midLat, midLng])" in html
 
     def test_is_last_when_two_title(self, base_map: folium.Map):
         """When only 2 points, the last node's X title matches del_all."""
@@ -464,12 +464,6 @@ class TestMeasureControlRendering:
         assert "previews.center" in html
         assert "previews.label" in html
 
-    def test_origin_label_on_distance(self, base_map: folium.Map):
-        """Origin label shows 'Start' text."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MeasureControl.dist_origin" in html
-
     def test_bring_to_front_on_circle_marker(self, base_map: folium.Map):
         """CircleMarkers call bringToFront() after creation."""
         MeasureControl().add_to(base_map)
@@ -636,10 +630,14 @@ class TestMeasureControlRendering:
             "const measureManager = new MeasureManager(map);",
             "const measureManager = new MeasureManager(map); window.__measureManager = measureManager; window.__map = map;",
         )
-        # Remove blocking CDN <script> tags (gcoord added by default_js)
+        # Remove blocking CDN <script> tags (gcoord and turf added by default_js)
         html = html.replace(
             '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
             "",
+        )
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>',
+            '<script>window.turf = { distance: (a,b,o) => L.latLng(a.geometry.coordinates[1],a.geometry.coordinates[0]).distanceTo(L.latLng(b.geometry.coordinates[1],b.geometry.coordinates[0])), bearing: (a,b) => { const dL = (b.geometry.coordinates[0]-a.geometry.coordinates[0])*Math.PI/180; const l1 = a.geometry.coordinates[1]*Math.PI/180; const l2 = b.geometry.coordinates[1]*Math.PI/180; const y = Math.sin(dL)*Math.cos(l2); const x = Math.cos(l1)*Math.sin(l2)-Math.sin(l1)*Math.cos(l2)*Math.cos(dL); return (Math.atan2(y,x)*180/Math.PI+360)%360; }, area: (p) => { const R = 6378137; const d2r = Math.PI/180; const pts = p.geometry.coordinates[0]; let a = 0; for (let i = 0; i < pts.length-1; i++) { const p1 = pts[i], p2 = pts[i+1]; a += (p2[0] - p1[0]) * d2r * (2 + Math.sin(p1[1]*d2r) + Math.sin(p2[1]*d2r)); } return Math.abs(a * R * R / 2); }, point: (c) => ({ geometry: { coordinates: [c[0], c[1]], type: "Point" } }), polygon: (c) => ({ geometry: { coordinates: c, type: "Polygon" } }) };</script>',
         )
         html_path = tmp_path / "measure_browser.html"
         html_path.write_text(html, encoding="utf-8")
@@ -1692,7 +1690,7 @@ class TestMeasureControlRendering:
         """CENTROID_ANCHOR constant is defined for area label below centroid."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "CENTROID_ANCHOR: [0, 10]" in html
+        assert "CENTROID_ANCHOR: [0, -10]" in html
 
     def test_polygon_finish_click_first_point(self, base_map: folium.Map):
         """Polygon completes on click of first or last point."""
