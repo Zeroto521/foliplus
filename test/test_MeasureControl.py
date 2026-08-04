@@ -1058,3 +1058,60 @@ class TestMeasureControlRendering:
         html = render(base_map)
         count = html.count("attachCircleUI")
         assert count >= 2, f"expected 2+ references to attachCircleUI, got {count}"
+
+    # ── Marker persistence timing (regression) ─────────────────────
+
+    def test_marker_saved_before_geocode(self, base_map: folium.Map):
+        """Marker measurement is persisted immediately, before geocode resolves."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # saveMeasurements must be called BEFORE the await reverseGeocode
+        save_pos = html.find("this.m.saveMeasurements()")
+        await_pos = html.find("await foliplus.reverseGeocode")
+        assert save_pos != -1, "saveMeasurements() should exist"
+        assert await_pos != -1, "await reverseGeocode should exist"
+        assert save_pos < await_pos, (
+            "measurement must be saved before awaiting geocode so a reload "
+            "mid-lookup does not lose the marker"
+        )
+
+    def test_marker_address_updated_after_geocode(self, base_map: folium.Map):
+        """measurement.address is filled in after geocode resolves."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # Address update happens after await and re-persists
+        assert "measurement.address = addr" in html
+        assert "this.m.saveMeasurements()" in html
+
+    def test_marker_survives_reload_with_blocked_geocode(self, browser, tmp_path):
+        """Regression: marker placed while geocode is blocked still survives reload."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # Block geocoding entirely — reverseGeocode never resolves
+            page.route(
+                "**/nominatim.openstreetmap.org/**",
+                lambda route: route.abort(),
+            )
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('marker');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            # Measurement must be persisted WITHOUT waiting for geocode
+            page.wait_for_timeout(300)
+            saved = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            parsed = json.loads(saved) if saved else []
+            assert len(parsed) == 1, (
+                f"marker must be saved immediately, got {len(parsed)}"
+            )
+            # Reload — marker must still appear
+            page.reload()
+            page.wait_for_timeout(2000)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 measurement after reload, got {count}"
+            pins = page.evaluate("document.querySelectorAll('.foliplus-pin').length")
+            assert pins >= 1, "marker pin should be visible after reload"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()

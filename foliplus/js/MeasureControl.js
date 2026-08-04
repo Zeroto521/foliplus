@@ -374,39 +374,21 @@
         }),
       );
 
-      // Bind popup events BEFORE async geocode so X appears on first popup open
-      marker.on("popupopen", () => {
-        MeasureUtils.hideDelIcons();
-        if (cachedAddr !== null)
-          marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, cachedAddr));
-        MeasureUtils.toggleDelIcon(delMarker, true);
-      });
-
-      marker.on("popupclose", () => {
-        MeasureUtils.toggleDelIcon(delMarker, false);
-      });
-
-      let cachedAddr = null;
-      const addr = await foliplus.reverseGeocode(
-        this.map,
-        parseFloat(lng),
-        parseFloat(lat),
-      );
-      cachedAddr = addr;
-
-      if (marker?.getPopup?.()?.isOpen())
-        marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
-
+      // Save the measurement IMMEDIATELY (address resolved later) so the
+      // marker survives a page reload even while geocoding is in flight.
       const markerId = this.nextMeasurementId();
-      this.m.measurements.push({
+      const measurement = {
         id: markerId,
         type: this.type,
         lng: parseFloat(lng),
         lat: parseFloat(lat),
-        address: cachedAddr,
-      });
+        address: null,
+      };
+      this.m.measurements.push(measurement);
       this.m.saveMeasurements();
 
+      // Bind delete + popup events BEFORE async geocode so the X works even
+      // while the address lookup is still in flight.
       const deleteMarker = () => {
         this.layers.removeLayer(marker);
         this.layers.removeLayer(delMarker);
@@ -415,6 +397,33 @@
         this.layers.unregister();
       };
       MeasureUtils.attachDelClick(delMarker, deleteMarker);
+
+      // Bind popup events BEFORE async geocode so X appears on first popup open
+      marker.on("popupopen", () => {
+        MeasureUtils.hideDelIcons();
+        if (measurement.address !== null)
+          marker.setPopupContent(
+            MeasureUtils.buildPopup(lng, lat, measurement.address),
+          );
+        MeasureUtils.toggleDelIcon(delMarker, true);
+      });
+
+      marker.on("popupclose", () => {
+        MeasureUtils.toggleDelIcon(delMarker, false);
+      });
+
+      // Resolve the address asynchronously and update both the popup and the
+      // persisted measurement. A slow/failed lookup must not block persistence.
+      const addr = await foliplus.reverseGeocode(
+        this.map,
+        parseFloat(lng),
+        parseFloat(lat),
+      );
+      measurement.address = addr;
+      this.m.saveMeasurements();
+
+      if (marker?.getPopup?.()?.isOpen())
+        marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
     }
   }
 
