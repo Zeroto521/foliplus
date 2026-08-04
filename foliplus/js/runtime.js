@@ -641,6 +641,12 @@
    * @param {string} addrLabel Locale key for address label
    * @param {L.Marker} [existing] Existing marker to remove before creating new one
    * @param {L.LayerGroup} [layerGroup] Optional layer group to add the marker to
+   * @param {Function} [onAddress] Called with the resolved address when the
+   *   reverse geocode completes (only when `addr` is null). Lets callers
+   *   persist the address without making a second geocode request.
+   * @param {boolean} [openPopup=true] Whether to auto-open the popup after
+   *   creation. Pass `false` when restoring markers so they don't pop open on
+   *   page load.
    * @returns {L.Marker} The newly created marker
    */
   foliplus.createLocationMarker = (
