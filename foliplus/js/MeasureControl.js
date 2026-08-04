@@ -1012,6 +1012,14 @@
         `${CONST.name}.popup_addr_label`,
         null,
         this.layers.mainLayer,
+        (addr) => {
+          // A marker restored with address:null (e.g. geocode was still in
+          // flight when the page was reloaded) resolves its address here and
+          // persists it so the next reload shows the address immediately.
+          m.address = addr;
+          this.saveMeasurements();
+        },
+        false, // do not auto-open popup on restore
       );
       const delMarker = this.layers.addLayer(
         MeasureUtils.makeDelIcon(L.latLng(m.lat, m.lng), {
