@@ -84,6 +84,7 @@
       CLEAR: "clear",
     },
     position: "{{ this.position }}",
+    show_bearing: {{ this.show_bearing | tojson }},
   };
 
   // ==================== Runtime Guard ====================
@@ -140,6 +141,28 @@
 
     static distance(lng1, lat1, lng2, lat2) {
       return L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2));
+    }
+
+    /** Initial bearing (azimuth) from point 1 to point 2, 0°–360° clockwise from north.
+     *  Great-circle formula — no external dependency needed. */
+    static bearing(lng1, lat1, lng2, lat2) {
+      const toRad = Math.PI / 180;
+      const lat1r = lat1 * toRad;
+      const lat2r = lat2 * toRad;
+      const dLng = (lng2 - lng1) * toRad;
+      const y = Math.sin(dLng) * Math.cos(lat2r);
+      const x =
+        Math.cos(lat1r) * Math.sin(lat2r) -
+        Math.sin(lat1r) * Math.cos(lat2r) * Math.cos(dLng);
+      return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
+    }
+
+    /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
+    static formatSegmentLabel(lng1, lat1, lng2, lat2, meters) {
+      const dist = MeasureUtils.formatDistance(meters);
+      if (!CONST.show_bearing) return dist;
+      const bearing = Math.round(MeasureUtils.bearing(lng1, lat1, lng2, lat2));
+      return `${bearing}° | ${dist}`;
     }
 
     static toggleVisibility(elements, visible) {
@@ -539,8 +562,18 @@
 
         // Format last label
         if (segLabels.length > 0) {
+          const lastPt = points[points.length - 1];
+          const prevPt = points[points.length - 2];
           segLabels[segLabels.length - 1].setIcon(
-            MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
+            MeasureUtils.makeLabelDivIcon(
+              MeasureUtils.formatSegmentLabel(
+                prevPt.lng,
+                prevPt.lat,
+                lastPt.lng,
+                lastPt.lat,
+                total,
+              ),
+            ),
           );
         }
 
@@ -592,22 +625,25 @@
           e.latlng.lat,
         );
         const showDist = total + seg;
+        const lastPt = points[points.length - 1];
+        const labelText = MeasureUtils.formatSegmentLabel(
+          lastPt.lng,
+          lastPt.lat,
+          e.latlng.lng,
+          e.latlng.lat,
+          showDist,
+        );
         if (!previewDistLabel) {
           previewDistLabel = this.layers.addLayer(
             L.marker(e.latlng, {
-              icon: MeasureUtils.makeLabelDivIcon(
-                MeasureUtils.formatDistance(showDist),
-              ),
+              icon: MeasureUtils.makeLabelDivIcon(labelText),
               interactive: false,
             }),
             true,
           );
         } else {
           previewDistLabel.setLatLng(e.latlng);
-          MeasureUtils.setLabelText(
-            previewDistLabel,
-            MeasureUtils.formatDistance(showDist),
-          );
+          MeasureUtils.setLabelText(previewDistLabel, labelText);
         }
       };
 
@@ -656,13 +692,29 @@
               points[points.length - 2].lat,
             );
             prevLabel.setIcon(
-              MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(prevSeg)),
+              MeasureUtils.makeLabelDivIcon(
+                MeasureUtils.formatSegmentLabel(
+                  points[points.length - 3].lng,
+                  points[points.length - 3].lat,
+                  points[points.length - 2].lng,
+                  points[points.length - 2].lat,
+                  prevSeg,
+                ),
+              ),
             );
           }
 
           const label = this.layers.addLayer(
             L.marker(points[points.length - 1], {
-              icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
+              icon: MeasureUtils.makeLabelDivIcon(
+                MeasureUtils.formatSegmentLabel(
+                  points[points.length - 2].lng,
+                  points[points.length - 2].lat,
+                  points[points.length - 1].lng,
+                  points[points.length - 1].lat,
+                  total,
+                ),
+              ),
             }),
             true,
           );
@@ -1088,9 +1140,19 @@
       if (m.segments) {
         m.segments.forEach((seg, i) => {
           const total = m.segments.slice(0, i + 1).reduce((s, x) => s + x.distance, 0);
+          const prev = points[i];
+          const cur = points[i + 1];
           const label = this.layers.addLayer(
             L.marker(L.latLng(seg.lat, seg.lng), {
-              icon: MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(total)),
+              icon: MeasureUtils.makeLabelDivIcon(
+                MeasureUtils.formatSegmentLabel(
+                  prev.lng,
+                  prev.lat,
+                  cur.lng,
+                  cur.lat,
+                  total,
+                ),
+              ),
             }),
             true,
           );
@@ -1367,7 +1429,15 @@
                 points[i + 1].lat,
               );
               label.setIcon(
-                MeasureUtils.makeLabelDivIcon(MeasureUtils.formatDistance(cumDist)),
+                MeasureUtils.makeLabelDivIcon(
+                  MeasureUtils.formatSegmentLabel(
+                    points[i].lng,
+                    points[i].lat,
+                    points[i + 1].lng,
+                    points[i + 1].lat,
+                    cumDist,
+                  ),
+                ),
               );
             });
 
