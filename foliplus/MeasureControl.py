@@ -25,6 +25,10 @@ class MeasureControl(BaseControl):
     position : str, default "bottomright"
         One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
+    show_bearing : bool, default True
+        Whether to show the bearing (azimuth, 0°–360° clockwise from north) alongside
+        the distance in measurement labels, e.g. ``45° | 1.2 km``.
+
     locale : str or LocaleConfig, optional
         Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
         Defaults to auto-detection, falling back to English.
@@ -48,9 +52,11 @@ class MeasureControl(BaseControl):
         self,
         *,
         position: Position = "bottomright",
+        show_bearing: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
+        self.show_bearing = show_bearing
         self._template = self._get_template(
             js_file="MeasureControl.js", css_file="MeasureControl.css"
         )

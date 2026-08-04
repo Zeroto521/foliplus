@@ -30,12 +30,30 @@ class TestMeasureControlPython:
     def test_custom_locale(self):
         assert MeasureControl(locale="zh")._locale_code == "zh"
 
+    def test_default_show_bearing(self):
+        assert MeasureControl().show_bearing is True
+
+    def test_custom_show_bearing(self):
+        assert MeasureControl(show_bearing=False).show_bearing is False
+
 
 class TestMeasureControlRendering:
     def test_default_params(self, base_map: folium.Map):
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "measure-ctrl" in html
+
+    def test_show_bearing_default_true(self, base_map: folium.Map):
+        """show_bearing defaults to true and renders as JS boolean."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "show_bearing: true" in html
+
+    def test_show_bearing_false(self, base_map: folium.Map):
+        """show_bearing=False renders false and disables bearing labels."""
+        MeasureControl(show_bearing=False).add_to(base_map)
+        html = render(base_map)
+        assert "show_bearing: false" in html
 
     def test_custom_position(self, base_map: folium.Map):
         MeasureControl(position="topleft").add_to(base_map)
@@ -86,7 +104,7 @@ class TestMeasureControlRendering:
         assert "previewDistLabel" in html
         assert "previewLine" in html
         assert "onDistMove" in html
-        assert "MeasureUtils.formatDistance(showDist)" in html
+        assert "MeasureUtils.formatSegmentLabel(" in html
 
     def test_create_layers_api_used(self, base_map: folium.Map):
         """MeasureControl uses createLayers with graphPane/labelPane."""
@@ -602,13 +620,13 @@ class TestMeasureControlRendering:
             not in css.split(".foliplus-measure-label-radius")[1].split("/*")[0]
         )
 
-    def _make_page(self, browser, tmp_path):
+    def _make_page(self, browser, tmp_path, show_bearing=True):
         """Build a page with MeasureControl and return (page, errors)."""
         from foliplus import LayerControl
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
-        MeasureControl().add_to(m)
+        MeasureControl(show_bearing=show_bearing).add_to(m)
 
         html = m.get_root().render()
         html = html.replace(
@@ -648,6 +666,56 @@ class TestMeasureControlRendering:
                 "document.querySelectorAll('.foliplus-measure-ctrl .foliplus-tool-btn').length"
             )
             assert btns >= 3
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_distance_labels_show_bearing(self, browser, tmp_path):
+        """Distance labels include bearing (e.g. '42° | 1.5 km') by default."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            labels = page.evaluate("""() => {
+                return Array.from(
+                    document.querySelectorAll('.foliplus-measure-label')
+                ).map(el => el.textContent);
+            }""")
+            assert any("° |" in l for l in labels), (
+                f"expected a bearing label '° |', got {labels!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_distance_labels_no_bearing_when_disabled(self, browser, tmp_path):
+        """show_bearing=False omits the bearing from distance labels."""
+        page, errors = self._make_page(browser, tmp_path, show_bearing=False)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            labels = page.evaluate("""() => {
+                return Array.from(
+                    document.querySelectorAll('.foliplus-measure-label')
+                ).map(el => el.textContent);
+            }""")
+            assert all("° |" not in l for l in labels), (
+                f"no bearing expected when disabled, got {labels!r}"
+            )
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -885,7 +953,7 @@ class TestMeasureControlRendering:
                 mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
                 mm.saveMeasurements();
             }""")
-            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            data = page.evaluate("localStorage.getItem('foliplus_measure')")
             assert data is not None, "localStorage should contain saved measurements"
 
             parsed = json.loads(data)
@@ -905,9 +973,31 @@ class TestMeasureControlRendering:
                 mm.saveMeasurements();
                 mm.clearAll();
             }""")
-            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            data = page.evaluate("localStorage.getItem('foliplus_measure')")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "clearAll should empty localStorage"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_map_unload_keeps_measurements(self, browser, tmp_path):
+        """Regression: map unload must NOT wipe persisted measurements.
+
+        unload previously called clearAll(), which wrote an empty array back to
+        localStorage — a data-loss risk on page refresh. It must only clear
+        transient UI state and keep the persisted measurements.
+        """
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
+                mm.saveMeasurements();
+                mm.onUnload();
+            }""")
+            data = page.evaluate("localStorage.getItem('foliplus_measure')")
+            parsed = json.loads(data) if data else []
+            assert len(parsed) == 1, "unload should keep persisted measurements"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -944,7 +1034,7 @@ class TestMeasureControlRendering:
             page.wait_for_timeout(300)
             after = page.evaluate("window.__measureManager.measurements.length")
             assert after == 0, f"expected 0 measurements after delete, got {after}"
-            data = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            data = page.evaluate("localStorage.getItem('foliplus_measure')")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "localStorage should be empty after deleting all"
             assert not errors, f"JS errors: {errors}"
@@ -958,13 +1048,13 @@ class TestMeasureControlRendering:
             # Pre-populate localStorage with a marker measurement
             page.evaluate("""() => {
                 const data = [{
-                    id: 'foliplus_measurement_marker_1',
+                    id: 'foliplus_measure_marker_1',
                     type: 'marker',
                     lng: 119.30,
                     lat: 26.08,
                     address: 'Test Address'
                 }];
-                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+                localStorage.setItem('foliplus_measure', JSON.stringify(data));
             }""")
             # Reload the page to trigger restoreMeasurements in constructor
             page.reload()
@@ -985,7 +1075,7 @@ class TestMeasureControlRendering:
         try:
             page.evaluate("""() => {
                 const data = [{
-                    id: 'foliplus_measurement_distance_1',
+                    id: 'foliplus_measure_distance_1',
                     type: 'distance',
                     points: [
                         { lng: 119.30, lat: 26.08 },
@@ -995,7 +1085,7 @@ class TestMeasureControlRendering:
                         { lng: 119.305, lat: 26.085, distance: 1234.56 }
                     ]
                 }];
-                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+                localStorage.setItem('foliplus_measure', JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(2000)
@@ -1013,13 +1103,13 @@ class TestMeasureControlRendering:
         try:
             page.evaluate("""() => {
                 const data = [{
-                    id: 'foliplus_measurement_circle_1',
+                    id: 'foliplus_measure_circle_1',
                     type: 'circle',
                     center: { lng: 119.30, lat: 26.08 },
                     target: { lng: 119.31, lat: 26.09 },
                     radius: 500
                 }];
-                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+                localStorage.setItem('foliplus_measure', JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(2000)
@@ -1125,7 +1215,7 @@ class TestMeasureControlRendering:
             }""")
             # Measurement must be persisted WITHOUT waiting for geocode
             page.wait_for_timeout(300)
-            saved = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            saved = page.evaluate("localStorage.getItem('foliplus_measure')")
             parsed = json.loads(saved) if saved else []
             assert len(parsed) == 1, (
                 f"marker must be saved immediately, got {len(parsed)}"
@@ -1147,13 +1237,13 @@ class TestMeasureControlRendering:
         try:
             page.evaluate("""() => {
                 const data = [{
-                    id: 'foliplus_measurement_marker_nulladdr',
+                    id: 'foliplus_measure_marker_nulladdr',
                     type: 'marker',
                     lng: 119.30,
                     lat: 26.08,
                     address: null
                 }];
-                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+                localStorage.setItem('foliplus_measure', JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(3000)
@@ -1161,7 +1251,7 @@ class TestMeasureControlRendering:
             addr = page.evaluate("window.__measureManager.measurements[0]?.address")
             assert addr, f"expected address to be backfilled, got {addr!r}"
             # And persisted back to localStorage
-            saved = page.evaluate("localStorage.getItem('foliplus_measurement')")
+            saved = page.evaluate("localStorage.getItem('foliplus_measure')")
             parsed = json.loads(saved) if saved else []
             assert parsed and parsed[0]["address"], (
                 "address should be persisted after restore"
@@ -1194,13 +1284,13 @@ class TestMeasureControlRendering:
             # Restore a marker with address:null
             page.evaluate("""() => {
                 const data = [{
-                    id: 'foliplus_measurement_marker_popup',
+                    id: 'foliplus_measure_marker_popup',
                     type: 'marker',
                     lng: 119.30,
                     lat: 26.08,
                     address: null
                 }];
-                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+                localStorage.setItem('foliplus_measure', JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(2000)
