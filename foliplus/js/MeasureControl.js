@@ -338,6 +338,35 @@
     }
   }
 
+  // ==================== Preview Mode Base Class ====================
+  class PreviewMode extends MeasureMode {
+    constructor(manager) {
+      super(manager);
+      this.previewLayers = [];
+      this.isFinished = false;
+    }
+
+    /** Track a preview layer (adds to layer group + tracks for cleanup). */
+    addPreview(layer) {
+      this.previewLayers.push(layer);
+      this.layers.addLayer(layer);
+      return layer;
+    }
+
+    /** Remove a specific preview layer. */
+    removePreview(layer) {
+      const idx = this.previewLayers.indexOf(layer);
+      if (idx !== -1) this.previewLayers.splice(idx, 1);
+      this.layers.removeLayer(layer);
+    }
+
+    /** Remove all tracked preview layers. */
+    clearPreviews() {
+      this.previewLayers.forEach((l) => this.layers.removeLayer(l));
+      this.previewLayers = [];
+    }
+  }
+
   // ==================== Marker Mode ====================
   class MarkerMode extends MeasureMode {
     static TYPE = CONST.MODE.MARKER;
@@ -421,61 +450,54 @@
   }
 
   // ==================== Distance Mode ====================
-  class DistanceMode extends MeasureMode {
+  class DistanceMode extends PreviewMode {
     static TYPE = CONST.MODE.DISTANCE;
 
     start() {
       const points = [];
       let total = 0;
-      const poly = L.polyline([], { className: CONST.CLASSES.LINE_DASHED });
+      const poly = this.addPreview(
+        L.polyline([], { className: CONST.CLASSES.LINE_DASHED }),
+      );
       const nodeMarkers = [];
       const segLabels = [];
       let startLabel = null;
-      const previewLine = L.polyline([], { className: CONST.CLASSES.LINE_PREVIEW });
-      const finalPoly = L.polyline([], {
-        className: CONST.CLASSES.LINE_SOLID,
-        interactive: true,
-      });
-      let isLayersRegistered = false;
-      let isDistFinished = false;
+      const previewLine = this.addPreview(
+        L.polyline([], { className: CONST.CLASSES.LINE_PREVIEW }),
+      );
+      const finalPoly = this.layers.addLayer(
+        L.polyline([], {
+          className: CONST.CLASSES.LINE_SOLID,
+          interactive: true,
+        }),
+      );
       let previewDistLabel = null;
-
-      const ensureLayersAdded = () => {
-        if (isLayersRegistered) return;
-        isLayersRegistered = true;
-        this.layers.addLayer(poly);
-        this.layers.addLayer(previewLine);
-        this.layers.addLayer(finalPoly);
-      };
 
       this._cleanup = () => {
         this.map.off("click", onDistClick);
         this.map.off("dblclick", onDistDbl);
         this.map.off("contextmenu", onDistContext);
         this.map.off("mousemove", onDistMove);
-        if (isLayersRegistered) {
-          this.layers.removeLayer(previewLine);
-          if (previewDistLabel) {
-            this.layers.removeLayer(previewDistLabel);
-            previewDistLabel = null;
-          }
-          this.layers.removeLayer(poly);
-          this.layers.removeLayer(finalPoly);
-          nodeMarkers.forEach((m) => this.layers.removeLayer(m));
-          segLabels.forEach((l) => this.layers.removeLayer(l));
-          if (startLabel) this.layers.removeLayer(startLabel);
-          this.layers.unregister();
+        this.layers.removeLayer(previewLine);
+        if (previewDistLabel) {
+          this.layers.removeLayer(previewDistLabel);
+          previewDistLabel = null;
         }
+        this.layers.removeLayer(poly);
+        this.layers.removeLayer(finalPoly);
+        nodeMarkers.forEach((m) => this.layers.removeLayer(m));
+        segLabels.forEach((l) => this.layers.removeLayer(l));
+        if (startLabel) this.layers.removeLayer(startLabel);
       };
 
       const finishDist = () => {
-        if (isDistFinished) return;
+        if (this.isFinished) return;
         if (points.length < 2) {
           this.cleanup();
           this.m.clearActiveMode();
           return;
         }
-        isDistFinished = true;
+        this.isFinished = true;
         this.layers.removeLayer(poly);
         finalPoly.setLatLngs(points);
 
@@ -591,7 +613,6 @@
 
       const onDistClick = (e) => {
         if (this.m.currentMode !== this.type) return;
-        ensureLayersAdded();
         points.push(e.latlng);
         if (previewDistLabel) {
           this.layers.removeLayer(previewDistLabel);
@@ -666,7 +687,7 @@
   }
 
   // ==================== Circle Mode ====================
-  class CircleMode extends MeasureMode {
+  class CircleMode extends PreviewMode {
     static TYPE = CONST.MODE.CIRCLE;
 
     start() {
@@ -682,12 +703,8 @@
         label: null,
       };
 
-      const clearPreviews = () => {
-        if (previews.center) this.layers.removeLayer(previews.center);
-        if (previews.circle) this.layers.removeLayer(previews.circle);
-        if (previews.line) this.layers.removeLayer(previews.line);
-        if (previews.node) this.layers.removeLayer(previews.node);
-        if (previews.label) this.layers.removeLayer(previews.label);
+      const resetPreviews = () => {
+        this.clearPreviews();
         previews.center = null;
         previews.circle = null;
         previews.line = null;
@@ -707,7 +724,7 @@
 
         if (state === 0) {
           center = e.latlng;
-          previews.center = this.layers.addLayer(
+          previews.center = this.addPreview(
             L.marker(center, {
               icon: L.divIcon({
                 className: CONST.CENTER_DOT.CLASS,
@@ -755,7 +772,7 @@
         );
 
         if (!previews.circle) {
-          previews.circle = this.layers.addLayer(
+          previews.circle = this.addPreview(
             L.circle(center, {
               radius: r,
               className: CONST.CLASSES.CIRCLE_PREVIEW,
@@ -765,7 +782,7 @@
         } else previews.circle.setRadius(r);
 
         if (!previews.line) {
-          previews.line = this.layers.addLayer(
+          previews.line = this.addPreview(
             L.polyline([center, e.latlng], {
               className: CONST.CLASSES.LINE_PREVIEW,
               interactive: false,
@@ -774,7 +791,7 @@
         } else previews.line.setLatLngs([center, e.latlng]);
 
         if (!previews.node) {
-          previews.node = this.layers.addLayer(
+          previews.node = this.addPreview(
             L.circleMarker(e.latlng, {
               radius: CONST.MARKER.RADIUS,
               className: CONST.CLASSES.NODE_PREVIEW,
@@ -797,7 +814,7 @@
             ),
             interactive: false,
           });
-          previews.label = this.layers.addLayer(previewLabel, true);
+          previews.label = this.addPreview(previewLabel);
         } else {
           previews.label.setLatLng(mid);
           MeasureUtils.setLabelText(previews.label, MeasureUtils.formatDistance(r));
@@ -917,8 +934,7 @@
         this.map.off("click", onMapClick);
         this.map.off("mousemove", onMouseMove);
         this.map.off("contextmenu", onContext);
-        clearPreviews();
-        this.layers.unregister();
+        resetPreviews();
         foliplus.hideHint(CONST.name);
       };
     }

@@ -381,9 +381,10 @@ class TestMeasureControlRendering:
         """MeasureManager has expected methods (start, set modes)."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "class DistanceMode extends MeasureMode" in html
-        assert "class CircleMode extends MeasureMode" in html
+        assert "class DistanceMode extends PreviewMode" in html
+        assert "class CircleMode extends PreviewMode" in html
         assert "class MarkerMode extends MeasureMode" in html
+        assert "class PreviewMode extends MeasureMode" in html
         assert "finishDist" in html
         assert "finalizeCircle" in html
 
