@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, get_args
 
+from ._cdn import GCOORD
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -39,6 +40,13 @@ class SearchControl(BaseControl):
     >>> m = folium.Map()
     >>> SearchControl().add_to(m)
     """
+
+    default_js = [
+        (
+            "gcoord",
+            f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD}/dist/gcoord.global.prod.js",
+        ),
+    ]
 
     def __init__(
         self,

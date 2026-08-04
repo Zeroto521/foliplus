@@ -338,12 +338,7 @@
    */
   const ensureGcoord = () => {
     if (typeof gcoord === "undefined") {
-      console.warn(`[SearchControl] ${foliplus.gt("SearchControl.gcoord_warn")}`);
-      foliplus.showHint(
-        "SearchControl",
-        `${foliplus.gt("SearchControl.gcoord_warn")}`,
-        CONST.HINT.LONG,
-      );
+      console.warn(`[foliplus] ${foliplus.gt("foliplus.gcoord_warn")}`);
       return false;
     }
     return true;
