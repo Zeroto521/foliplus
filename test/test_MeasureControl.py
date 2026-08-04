@@ -74,6 +74,7 @@ class TestMeasureControlRendering:
         assert '"data-mode": mode' in html
         assert "mode: CONST.MODE.MARKER" in html
         assert "mode: CONST.MODE.DISTANCE" in html
+        assert "mode: CONST.MODE.POLYGON" in html
         assert "mode: CONST.MODE.CIRCLE" in html
         assert "mode: CONST.MODE.CLEAR" in html
 
@@ -187,10 +188,11 @@ class TestMeasureControlRendering:
         assert "MeasureControl.unit_m" in html
 
     def test_distance_calculation(self, base_map: folium.Map):
-        """MeasureUtils.distance delegates to Leaflet's distanceTo."""
+        """MeasureUtils.distance delegates to turf.js distance."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2))" in html
+        assert "turf.distance(" in html
+        assert "units:" in html
 
     def test_toggle_visibility_utility(self, base_map: folium.Map):
         """toggleVisibility uses measure-hidden class."""
@@ -450,6 +452,7 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "MeasureControl.hint_marker" in html
         assert "MeasureControl.hint_dist_start" in html
+        assert "MeasureControl.hint_polygon" in html
         assert "MeasureControl.hint_circle_start" in html
         assert "MeasureControl.hint_circle_radius" in html
 
@@ -1603,3 +1606,250 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "this.isFinished = false" in html
+
+    # ── Polygon Area Mode ─────────────────────────────────────────
+
+    def test_polygon_mode_constant(self, base_map: folium.Map):
+        """POLYGON mode constant is defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'POLYGON: "polygon"' in html
+
+    def test_polygon_svg_icon(self, base_map: folium.Map):
+        """Polygon SVG icon with vertices is defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "POLYGON: `" in html
+        assert '<polygon points="12,3 21,9 18,21 6,21 3,9"/>' in html
+
+    def test_polygon_tool_button(self, base_map: folium.Map):
+        """Polygon tool button is configured between distance and circle."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "mode: CONST.MODE.POLYGON" in html
+        assert "SVGs.POLYGON" in html
+        assert "MeasureControl.tool_polygon" in html
+
+    def test_polygon_mode_class(self, base_map: folium.Map):
+        """PolygonMode class extends PreviewMode."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "class PolygonMode extends PreviewMode" in html
+        assert "static TYPE = CONST.MODE.POLYGON" in html
+
+    def test_polygon_set_mode(self, base_map: folium.Map):
+        """setMode instantiates PolygonMode for POLYGON."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "mode === CONST.MODE.POLYGON" in html
+        assert "new PolygonMode(this)" in html
+        assert "MeasureControl.hint_polygon" in html
+
+    def test_polygon_restore_case(self, base_map: folium.Map):
+        """restoreMeasurements handles POLYGON type."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "case CONST.MODE.POLYGON:" in html
+        assert "this.restorePolygon(m)" in html
+
+    def test_polygon_restore_method(self, base_map: folium.Map):
+        """restorePolygon method exists with POLYGON_FINAL class."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "restorePolygon(m)" in html
+        assert "POLYGON_FINAL" in html
+
+    def test_polygon_attach_method(self, base_map: folium.Map):
+        """attachPolygonUI method exists."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "attachPolygonUI(opts)" in html
+        assert "rebuildCentroid" in html
+
+    def test_polygon_area_utility(self, base_map: folium.Map):
+        """MeasureUtils.area and formatArea are defined."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static area(points)" in html
+        assert "static formatArea(sqMeters)" in html
+
+    def test_polygon_format_area(self, base_map: folium.Map):
+        """formatArea handles m² and km² thresholds."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "1_000_000" in html
+        assert "km²" in html
+        assert "m²" in html
+
+    def test_polygon_turf_dependency(self, base_map: folium.Map):
+        """MeasureControl includes turf.js as a CDN dependency."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "turf" in html
+        assert "turf.min.js" in html
+
+    def test_polygon_centroid_anchor(self, base_map: folium.Map):
+        """CENTROID_ANCHOR constant is defined for area label below centroid."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "CENTROID_ANCHOR: [0, 10]" in html
+
+    def test_polygon_finish_click_first_point(self, base_map: folium.Map):
+        """Polygon completes on click of first or last point."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "marker === nodeMarkers[0]" in html
+        assert "marker === nodeMarkers[nodeMarkers.length - 1]" in html
+
+    def test_polygon_finish_dblclick(self, base_map: folium.Map):
+        """Polygon completes on double-click."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "onPolyDbl" in html
+        assert "finishPoly()" in html
+
+    def test_polygon_finish_contextmenu(self, base_map: folium.Map):
+        """Polygon completes on right-click."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "onPolyContext" in html
+        assert "finishPoly()" in html
+
+    def test_polygon_minimum_three_points(self, base_map: folium.Map):
+        """Polygon requires at least 3 points to finish."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "points.length < 3" in html
+        assert "finishPoly" in html
+
+    def test_polygon_centroid_dot(self, base_map: folium.Map):
+        """Polygon centroid uses CENTER_DOT like circle."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "CENTER_DOT.CLASS_FINAL" in html
+        assert "centroidDot" in html
+
+    def test_polygon_centroid_del_icon(self, base_map: folium.Map):
+        """Polygon centroid has a delete icon."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "centroidDel" in html
+        assert "MeasureUtils.attachDelClick(centroidDel, deleteMeas)" in html
+
+    def test_polygon_closing_segment(self, base_map: folium.Map):
+        """Polygon segments include the closing edge from last to first point."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "lastSeg" in html
+        assert "points[points.length - 1]" in html
+        assert "points[0].lng" in html
+
+    def test_polygon_preview_fill(self, base_map: folium.Map):
+        """Polygon preview uses CIRCLE_PREVIEW class for semi-transparent fill."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "previewPoly" in html
+        assert "CONST.CLASSES.CIRCLE_PREVIEW" in html
+
+    def test_distance_click_first_point_finish(self, base_map: folium.Map):
+        """Distance mode also completes on click of first point."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "marker === nodeMarkers[0]" in html
+        assert "marker === nodeMarkers[nodeMarkers.length - 1]" in html
+
+    # ── Polygon browser tests ──────────────────────────────────────
+
+    def test_polygon_draw_and_delete(self, browser, tmp_path):
+        """Draw a polygon with 3 points, verify it renders, then delete via clearAll."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('polygon');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('click', {latlng: L.latLng(26.07, 119.32)});
+                map.fire('contextmenu', {latlng: L.latLng(26.07, 119.32)});
+            }""")
+            page.wait_for_timeout(500)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 polygon measurement, got {count}"
+            area = page.evaluate("window.__measureManager.measurements[0].area")
+            assert area > 0, f"expected positive area, got {area}"
+            # Delete the polygon via clearAll
+            page.evaluate("window.__measureManager.clearAll()")
+            page.wait_for_timeout(300)
+            page.wait_for_timeout(300)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 0, f"expected 0 measurements after delete, got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_polygon_node_delete(self, browser, tmp_path):
+        """Delete a middle node from a polygon, area recalculates."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('polygon');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('click', {latlng: L.latLng(26.07, 119.32)});
+                map.fire('click', {latlng: L.latLng(26.08, 119.33)});
+                map.fire('contextmenu', {latlng: L.latLng(26.08, 119.33)});
+            }""")
+            page.wait_for_timeout(500)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 polygon measurement, got {count}"
+            # Delete the polygon
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                // Trigger toggle so delete icons are visible
+                const poly = Object.values(mm.layers.mainLayer._layers || {}).find(
+                    l => l instanceof L.Polygon
+                );
+                if (poly) poly.fire('click', { originalEvent: { target: poly._path } });
+            }""")
+            page.wait_for_timeout(300)
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_restore_polygon_from_storage(self, browser, tmp_path):
+        """restorePolygon restores a polygon measurement from localStorage."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const data = [{
+                    id: 'foliplus_measure_polygon_1',
+                    type: 'polygon',
+                    points: [
+                        { lng: 119.30, lat: 26.08 },
+                        { lng: 119.31, lat: 26.09 },
+                        { lng: 119.32, lat: 26.07 }
+                    ],
+                    segments: [
+                        { lng: 119.305, lat: 26.085, distance: 1234 },
+                        { lng: 119.315, lat: 26.08, distance: 2345 },
+                        { lng: 119.31, lat: 26.075, distance: 3456 }
+                    ],
+                    area: 500000
+                }];
+                localStorage.setItem('foliplus_measure', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(2000)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 1, f"expected 1 restored polygon, got {count}"
+            area = page.evaluate("window.__measureManager.measurements[0].area")
+            assert area == 500000, f"expected area 500000, got {area}"
+            registered = page.evaluate("window.__measureManager.layers.registered()")
+            assert registered, "Layer should be registered after restoring polygon"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
