@@ -11,3 +11,4 @@ CHROMA = "2"
 
 # MeasureControl
 GCOORD = "1"
+TURF = "7"

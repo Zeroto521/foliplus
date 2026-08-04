@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ._cdn import GCOORD
+from ._cdn import GCOORD, TURF
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -45,6 +45,10 @@ class MeasureControl(BaseControl):
         (
             "gcoord",
             f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD}/dist/gcoord.global.prod.js",
+        ),
+        (
+            "turf",
+            f"https://cdn.jsdelivr.net/npm/@turf/turf@{TURF}/turf.min.js",
         ),
     ]
 
