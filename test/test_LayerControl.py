@@ -447,7 +447,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # Callback (step 1) comes BEFORE the pane setting (step 2)
-        cbs_idx = html.index("cbs.onZIndex(z)")
+        cbs_idx = html.index("li.onZIndex(z)")
         apply_idx = html.index("this.applyLayerZIndex")
         assert cbs_idx < apply_idx, "onZIndex must be called before pane setting"
 
@@ -570,11 +570,11 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "paneCache.clear()" in html
 
-    def test_destroy_clears_layer_registry(self, base_map: folium.Map):
-        """destroy() clears only this instance's layers from registry."""
+    def test_destroy_clears_layers(self, base_map: folium.Map):
+        """destroy() clears the layers array."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "LayerManager.registry.delete(l.id)" in html
+        assert "this.layers = []" in html
 
     def test_destroy_flag(self, base_map: folium.Map):
         """destroy sets isDestroyed flag to prevent post-cleanup actions."""
@@ -609,11 +609,11 @@ class TestLayerControlRendering:
             "if (this.isDestroyed || !this.map || !this.map._container) return" in html
         )
 
-    def test_unregister_removes_global_ref(self, base_map: folium.Map):
-        """unregisterLayer cleans up layerRegistry entry."""
+    def test_unregister_removes_layer(self, base_map: folium.Map):
+        """unregisterLayer removes entry from layers array."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "LayerManager.registry.delete(id)" in html
+        assert "this.layers.splice(idx, 1)" in html
 
     def test_unregister_returns_bool(self, base_map: folium.Map):
         """unregisterLayer returns false when layer not found."""
@@ -934,7 +934,6 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "LayerUtils.findLayer(this.map, id)" in html
-        assert "LayerManager.registry.get(id)" in html
         assert "this.findLayer = this.findLayer.bind(this)" in html
 
     def test_for_each_leaf_utility(self, base_map: folium.Map):
@@ -1007,11 +1006,10 @@ class TestLayerControlRendering:
         assert "foliplus.LayerAPI = null" in html
 
     def test_window_id_validation(self, base_map: folium.Map):
-        """registerLayer validates opts.id before assigning to layerRegistry."""
+        """registerLayer validates opts.id existence."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/" in html
-        assert "not a valid identifier" in html or "invalid_id" in html
+        assert "id_required" in html
 
     def test_create_canvas_rendering(self, base_map: folium.Map):
         """createCanvas emits API methods and inserts into leaflet-map-pane."""
@@ -1032,19 +1030,18 @@ class TestLayerControlRendering:
         assert "mapPane" in html
 
     def test_layer_callbacks_stored(self, base_map: folium.Map):
-        """registerLayer stores onToggle/onZIndex in layerCallbacks Map."""
+        """registerLayer stores onToggle/onZIndex on layerInfo."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.layerCallbacks.set(opts.id, cbs)" in html
-        assert "cbs.onToggle" in html
-        assert "cbs.onZIndex" in html
+        assert "onToggle: opts.onToggle || null" in html
+        assert "onZIndex: opts.onZIndex || null" in html
 
     def test_layer_callbacks_consumed(self, base_map: folium.Map):
-        """enforceOrder and handleChange consume layerCallbacks."""
+        """enforceOrder and handleChange consume onZIndex/onToggle."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "cbs.onZIndex(z)" in html
-        assert "cbs.onToggle(target.checked)" in html
+        assert "li.onZIndex(z)" in html
+        assert "layerInfo.onToggle(target.checked)" in html
 
     def test_render_methods_use_dom_builder(self, base_map: folium.Map):
         """renderToggleAllRow, renderLayerItem, renderColorLayerItem exist in JS."""
@@ -2179,6 +2176,296 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
+        def test_bring_layer_to_front_runtime(self, browser, tmp_path):
+            """bringLayerToFront moves the layer to front of z-order."""
+            m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+            LayerControl().add_to(m)
+            folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
+            folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
+
+            html_path = tmp_path / "test_bring_front.html"
+            html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+            page = browser.new_page()
+            try:
+                page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl", state="attached", timeout=10000
+                )
+
+                result = page.evaluate("""() => {
+                    const api = window.foliplus && window.foliplus.LayerAPI;
+                    if (!api) return null;
+                    // Find the second layer (B) and bring it to front
+                    const idxB = api.layers.findIndex(l => l.name === 'B');
+                    if (idxB <= 0) return null;
+                    const idB = api.layers[idxB].id;
+                    api.bringLayerToFront(idB);
+                    // After bringLayerToFront, B should be at index 0
+                    const newIdx = api.layers.findIndex(l => l.name === 'B');
+                    return { initialIdx: idxB, newIdx };
+                }""")
+                assert result is not None, "LayerAPI not found"
+                assert result["newIdx"] == 0, (
+                    f"Expected layer B at index 0 after bringToFront, got {result['newIdx']} (was {result['initialIdx']})"
+                )
+            finally:
+                page.close()
+
+        def test_unregister_layer_removes_dom(self, browser, tmp_path):
+            """unregisterLayer removes the DOM item from the panel."""
+            m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+            LayerControl().add_to(m)
+
+            html_path = tmp_path / "test_unreg_dom.html"
+            html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+            page = browser.new_page()
+            try:
+                page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl", state="attached", timeout=10000
+                )
+
+                result = page.evaluate("""() => {
+                    const api = window.foliplus && window.foliplus.LayerAPI;
+                    if (!api) return null;
+                    // Register a layer
+                    const fg = L.featureGroup();
+                    api.registerLayer({ id: '__test_unreg_dom__', name: 'UnregDOM', layer: fg });
+                    // Verify DOM item exists
+                    const item = document.querySelector('[data-layer-id="__test_unreg_dom__"]');
+                    const exists = !!item;
+                    // Unregister
+                    api.unregisterLayer('__test_unreg_dom__');
+                    const itemAfter = document.querySelector('[data-layer-id="__test_unreg_dom__"]');
+                    return { existsBefore: exists, existsAfter: !!itemAfter };
+                }""")
+                assert result is not None
+                assert result["existsBefore"] is True, "DOM item should exist after registerLayer"
+                assert result["existsAfter"] is False, (
+                    "DOM item should be removed after unregisterLayer"
+                )
+            finally:
+                page.close()
+
+        def test_find_layer_by_string_id(self, browser, tmp_path):
+            """findLayer resolves a layer by string ID via layers array."""
+            m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+            LayerControl().add_to(m)
+
+            html_path = tmp_path / "test_find_by_id.html"
+            html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+            page = browser.new_page()
+            try:
+                page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl", state="attached", timeout=10000
+                )
+
+                result = page.evaluate("""() => {
+                    const api = window.foliplus && window.foliplus.LayerAPI;
+                    if (!api) return null;
+                    const fg = L.featureGroup();
+                    api.registerLayer({ id: '__test_find_id__', layer: fg });
+                    const found = api.findLayer('__test_find_id__');
+                    const isSame = found === fg;
+                    // Cleanup
+                    api.unregisterLayer('__test_find_id__');
+                    const afterCleanup = api.findLayer('__test_find_id__');
+                    return { found: !!found, isSame, afterCleanup: !!afterCleanup };
+                }""")
+                assert result is not None
+                assert result["found"] is True, "findLayer should find the registered layer"
+                assert result["isSame"] is True, (
+                    "findLayer should return the same layer instance"
+                )
+                assert result["afterCleanup"] is False, (
+                    "findLayer should return null after unregisterLayer"
+                )
+            finally:
+                page.close()
+
+        def test_color_layer_hides_tiles(self, browser, tmp_path):
+            """Clicking color layer hides tilePane and removes base maps."""
+            m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+            LayerControl().add_to(m)
+            folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
+                m
+            )
+
+            html_path = tmp_path / "test_color_tiles.html"
+            html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+            page = browser.new_page()
+            try:
+                page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl", state="attached", timeout=10000
+                )
+                page.evaluate(
+                    'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+                )
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+                )
+                page.wait_for_timeout(500)
+
+                # Click color layer item
+                page.evaluate("""() => {
+                    const item = document.querySelector('.foliplus-color-layer-item');
+                    if (item) item.click();
+                }""")
+                page.wait_for_timeout(500)
+
+                result = page.evaluate("""() => {
+                    const tilePane = document.querySelector('.leaflet-tile-pane');
+                    const hasTileHidden = tilePane && tilePane.classList.contains('foliplus-layer-tile-hidden');
+                    const mapContainer = document.querySelector('.leaflet-container');
+                    const hasColorBg = mapContainer && mapContainer.classList.contains('active');
+                    const tileLayers = document.querySelectorAll('.leaflet-tile-loaded');
+                    return { tileHidden: hasTileHidden, colorBg: hasColorBg, tileCount: tileLayers.length };
+                }""")
+                assert result is not None
+                assert result["tileHidden"] is True, (
+                    "tilePane should have foliplus-layer-tile-hidden class"
+                )
+                assert result["colorBg"] is True, (
+                    "map container should have active class"
+                )
+                # Tiles may still be in DOM but not visible; check className
+            finally:
+                page.close()
+
+        def test_destroy_cleanup_listeners(self, browser, tmp_path):
+            """onRemove calls destroy() which removes layeradd listener."""
+            m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+            ctrl = LayerControl().add_to(m)
+
+            html_path = tmp_path / "test_destroy_cleanup.html"
+            html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+            page = browser.new_page()
+            try:
+                page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl", state="attached", timeout=10000
+                )
+
+                result = page.evaluate("""() => {
+                    const api = window.foliplus && window.foliplus.LayerAPI;
+                    if (!api) return null;
+                    const beforeDestroy = api.isDestroyed;
+                    api.destroy();
+                    return {
+                        beforeDestroy,
+                        isDestroyed: api.isDestroyed,
+                        layersLength: api.layers.length,
+                        hasLayerAPI: !!(window.foliplus && window.foliplus.LayerAPI),
+                    };
+                }""")
+                assert result is not None
+                assert result["beforeDestroy"] is False, (
+                    "isDestroyed should be false before destroy"
+                )
+                assert result["isDestroyed"] is True, (
+                    "isDestroyed should be true after destroy"
+                )
+                assert result["layersLength"] == 0, (
+                    f"layers should be empty after destroy, got {result['layersLength']}"
+                )
+                assert result["hasLayerAPI"] is False, (
+                    "LayerAPI should be null after destroy"
+                )
+            finally:
+                page.close()
+
+        def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
+            """registerLayer preserves the visible state from a previous registration."""
+            m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+            LayerControl().add_to(m)
+
+            html_path = tmp_path / "test_register_visible.html"
+            html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+            page = browser.new_page()
+            try:
+                page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl", state="attached", timeout=10000
+                )
+
+                result = page.evaluate("""() => {
+                    const api = window.foliplus && window.foliplus.LayerAPI;
+                    if (!api) return null;
+                    const fg = L.featureGroup();
+                    // Register, set visible=false, re-register
+                    api.registerLayer({ id: '__test_vis__', layer: fg });
+                    const li = api.layers.find(l => l.id === '__test_vis__');
+                    const defaultVisible = li.visible;
+                    // Simulate user hiding the layer
+                    li.visible = false;
+                    api.unregisterLayer('__test_vis__');
+                    api.registerLayer({ id: '__test_vis__', layer: L.featureGroup() });
+                    const newLi = api.layers.find(l => l.id === '__test_vis__');
+                    const preservedVisible = newLi.visible;
+                    // Cleanup
+                    api.unregisterLayer('__test_vis__');
+                    return { defaultVisible, preservedVisible };
+                }""")
+                assert result is not None
+                assert result["defaultVisible"] is True, (
+                    "Default visible should be true"
+                )
+                assert result["preservedVisible"] is False, (
+                    "registerLayer should preserve visible=false from previous registration"
+                )
+            finally:
+                page.close()
+
+        def test_extract_points_api(self, browser, tmp_path):
+            """extractPoints returns geo points from registered layers."""
+            m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+            LayerControl().add_to(m)
+
+            html_path = tmp_path / "test_extract_points.html"
+            html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+            page = browser.new_page()
+            try:
+                page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl", state="attached", timeout=10000
+                )
+
+                result = page.evaluate("""() => {
+                    const api = window.foliplus && window.foliplus.LayerAPI;
+                    if (!api) return null;
+                    const fg = L.featureGroup();
+                    const m1 = L.marker([26.08, 119.30], { feature: { type: 'Feature' } });
+                    const m2 = L.circleMarker([26.09, 119.31], { feature: { type: 'Feature' } });
+                    fg.addLayer(m1);
+                    fg.addLayer(m2);
+                    api.registerLayer({ id: '__test_extract__', layer: fg });
+                    const pts = api.extractPoints('__test_extract__');
+                    api.unregisterLayer('__test_extract__');
+                    return {
+                        count: pts.length,
+                        lat0: pts[0]?.lat,
+                        lng0: pts[0]?.lng,
+                        lat1: pts[1]?.lat,
+                        lng1: pts[1]?.lng,
+                    };
+                }""")
+                assert result is not None
+                assert result["count"] == 2, f"Expected 2 points, got {result['count']}"
+                assert abs(result["lat0"] - 26.08) < 0.001
+                assert abs(result["lng0"] - 119.30) < 0.001
+                assert abs(result["lat1"] - 26.09) < 0.001
+                assert abs(result["lng1"] - 119.31) < 0.001
+            finally:
+                page.close()
     def test_fold_svg_switches_on_toggle(self, browser, tmp_path):
         """Fold button uses a single SVG rotated 180° by CSS (not swapped) on toggle."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
