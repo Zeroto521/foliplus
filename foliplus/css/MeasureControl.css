@@ -202,6 +202,13 @@
     transform: var(--label-center) scale(1);
   }
 }
+
+/* Mid-segment label: centered on the line midpoint (both axes). */
+.foliplus-measure-label-mid {
+  --label-center: translate(-50%, -50%);
+  transform: var(--label-center);
+  animation: foliplus-measure-label-in-radius 0.2s ease-out;
+}
 /* ── Floating Delete Icon ── */
 .foliplus-measure-del-icon {
   display: flex;
