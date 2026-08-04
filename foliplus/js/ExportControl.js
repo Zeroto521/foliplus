@@ -265,18 +265,17 @@
       // 2. Overlay layers — iterate in LayerControl API order bottom-to-top.
       // Each layer may contain SVG, Canvas, and/or Marker elements, so we
       // render all passes per-layer to preserve cross-technology z-order.
-      if (foliplus.LayerAPI.layers) {
-        for (let i = foliplus.LayerAPI.layers.length - 1; i >= 0; i--) {
-          const li = foliplus.LayerAPI.layers[i];
+      const api = foliplus.LayerAPI;
+      if (api.layers) {
+        for (let i = api.layers.length - 1; i >= 0; i--) {
+          const li = api.layers[i];
           if (li.isBase) continue;
           if (!li.visible) continue;
-          const layer = foliplus.LayerAPI.findLayer(li.id);
+          const layer = api.findLayer(li.id);
           if (!layer) continue;
 
           // SVG paths, Canvas elements, and Markers in this layer's panes
-          const childPanes = foliplus.LayerAPI.discoverChildPanes(layer);
-          const panes =
-            childPanes.length > 0 ? childPanes : ["overlayPane", "markerPane"];
+          const panes = api.getLayerPanes(layer);
           for (const paneName of panes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;
@@ -466,12 +465,10 @@
 
     /** Collect markers belonging to a specific layer's panes. */
     collectLayerMarkers(layer) {
-      const childPanes = foliplus.LayerAPI.discoverChildPanes(layer);
-      const layerPanes =
-        childPanes.length > 0 ? childPanes : ["overlayPane", "markerPane"];
+      const panes = foliplus.LayerAPI.getLayerPanes(layer);
       const roots = [];
       const seen = new Set();
-      for (const paneName of layerPanes) {
+      for (const paneName of panes) {
         const pane = this.map.getPane(paneName);
         if (!pane) continue;
         const found = pane.querySelectorAll(CONST.SEL.MARKER);

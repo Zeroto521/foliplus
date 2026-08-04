@@ -277,8 +277,7 @@
       this.forEachLeaf = this.forEachLeaf.bind(this);
       this.extractPoints = this.extractPoints.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
-      this.discoverChildPanes = this.discoverChildPanes.bind(this);
-      this.isDefaultPane = this.isDefaultPane.bind(this);
+      this.getLayerPanes = this.getLayerPanes.bind(this);
       this.isEnforcing = false;
       this.isDestroyed = false;
 
@@ -289,11 +288,15 @@
         "shadowPane",
         "mapPane",
       ]);
-      this.fallbackPanes = new Set();
       this.labelPanes = new Set();
 
       // Cache for discoverChildPanes: layerId → string[] (pane names).
       this.paneCache = new Map();
+
+      // Explicit registry: layer stamp → fallback pane name.
+      // Used by getLayerPanes() to find content in auto-created fallback panes.
+      // Also used by isDefaultPane() to identify fallback panes by prefix.
+      this.fallbackPaneMap = new Map();
 
       // UI Controller reference (set by LayerUI construction)
       this.ui = null;
@@ -523,6 +526,8 @@
           );
       }
       this.paneCache.clear();
+      // Clear stale fallback mapping so enforceOrder re-creates it
+      if (opts.layer) this.fallbackPaneMap.delete(L.stamp(opts.layer));
       if (
         opts.paneName &&
         opts.layer &&
@@ -592,6 +597,7 @@
       if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
       LayerManager.registry.delete(id);
       this.paneCache.clear();
+      if (layer) this.fallbackPaneMap.delete(L.stamp(layer));
       // Recursively clear all sub-layers to prevent stale data on re-register
       this.clearAllLayers(layer);
 
@@ -987,7 +993,21 @@
     }
 
     isDefaultPane(pane) {
-      return this.defaultPanes.has(pane) || this.fallbackPanes.has(pane);
+      return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
+    }
+
+    /** Find all panes a layer's content lives in, including fallback panes.
+     *  Unlike discoverChildPanes(), this includes auto-created fallback panes
+     *  (`foliplus_pane_*`) so ExportControl can find paths that were moved
+     *  there by migrateLayers().
+     *  Results are NOT cached because fallback panes are assigned lazily. */
+    getLayerPanes(layer) {
+      const panes = this.discoverChildPanes(layer);
+      if (panes.length > 0) return panes;
+      // Check if a fallback pane was assigned to this layer
+      const fbName = this.fallbackPaneMap.get(L.stamp(layer));
+      if (fbName) return [fbName];
+      return ["overlayPane", "markerPane"];
     }
 
     /** Compute z-index for a layer at position i.
@@ -1087,7 +1107,7 @@
 
       // Unmanaged layer (GeoJSON, markers, etc.) → auto fallback pane
       const fbName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
-      this.fallbackPanes.add(fbName);
+      this.fallbackPaneMap.set(L.stamp(layer), fbName);
       const ep = this.ensurePane(fbName, !isTile);
       ep.pane.style.zIndex = z;
       if (layer.options.pane !== fbName || !layer.options.paneSet)
@@ -1211,6 +1231,7 @@
       this.layerCallbacks.clear();
       this.pendingRegistrations = [];
       this.paneCache.clear();
+      this.fallbackPaneMap.clear();
       this.ui = null;
       if (foliplus.LayerAPI === this) foliplus.LayerAPI = null;
     }

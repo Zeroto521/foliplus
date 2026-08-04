@@ -380,7 +380,8 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "defaultPanes.has(pane)" in html
-        assert "fallbackPanes.has(pane)" in html
+        assert "startsWith" in html
+        assert "FALLBACK_PANE_PREFIX" in html
         assert "this.defaultPanes = new Set([" in html
         assert '"overlayPane"' in html
         assert '"markerPane"' in html
@@ -503,11 +504,11 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "!this.isDefaultPane(p)" in html
 
-    def test_fallback_panes_tracked_in_set(self, base_map: folium.Map):
-        """fallbackPanes is a Set that tracks auto-created pane names."""
+    def test_fallback_panes_tracked_in_map(self, base_map: folium.Map):
+        """fallbackPaneMap is a Map that tracks auto-created pane names."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.fallbackPanes.add(fbName)" in html
+        assert "this.fallbackPaneMap.set(L.stamp(layer), fbName)" in html
 
     def test_leaflet_control_classes_applied(self, base_map: folium.Map):
         """LayerControl renders with leaflet-control classes for Leaflet theming."""
@@ -560,7 +561,7 @@ class TestLayerControlRendering:
         """destroy removes fallback panes from the map."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "fallbackPanes" in html
+        assert "fallbackPaneMap" in html
         assert "this.map.getPane(paneName)" in html
 
     def test_destroy_clears_pane_cache(self, base_map: folium.Map):

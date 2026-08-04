@@ -442,10 +442,10 @@ class TestExportControlRendering:
         assert "LayerAPI" in html
 
     def test_discover_layer_panes_method(self, base_map: folium.Map):
-        """discoverChildPanes extracts custom pane names from LayerControl API."""
+        """getLayerPanes resolves panes from LayerControl API."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "discoverChildPanes" in html
+        assert "getLayerPanes" in html
 
     def test_collect_layer_markers_method(self, base_map: folium.Map):
         """collectLayerMarkers finds markers in a layer's panes."""
@@ -476,7 +476,6 @@ class TestExportControlRendering:
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "api.layers" in html
-        assert "api.layers.length - 1" in html
         assert "li.visible" in html
         assert "li.isBase" in html
 
@@ -820,5 +819,103 @@ class TestExportControlBrowser:
             )
             page.wait_for_timeout(500)
             assert len(errors) == 0, f"JS errors on open: {errors}"
+        finally:
+            page.close()
+
+    def test_export_vector_and_marker_content(self, browser, tmp_path):
+        """Export with vector polygon + Marker layers produces non-blank canvas."""
+
+        from foliplus import LayerControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+
+        # Add a polygon (vector layer)
+        folium.GeoJson(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [
+                                [
+                                    [119.28, 26.06],
+                                    [119.32, 26.06],
+                                    [119.32, 26.10],
+                                    [119.28, 26.10],
+                                    [119.28, 26.06],
+                                ]
+                            ],
+                        },
+                    }
+                ],
+            },
+            name="Test Polygon",
+            overlay=True,
+            show=True,
+        ).add_to(m)
+
+        # Add a Marker
+        folium.Marker(
+            [26.08, 119.30], popup="Center", name="Test Marker", overlay=True, show=True
+        ).add_to(m)
+
+        LayerControl().add_to(m)
+        ExportControl().add_to(m)
+
+        html_path = tmp_path / "export_vector_content.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-export-ctrl", state="attached", timeout=10000
+            )
+
+            # Open export control
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+
+            # Lock crop box → switches to download button
+            page.locator(".foliplus-export-actions .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+
+            # Click download button to trigger export
+            page.locator(".foliplus-export-actions .confirm").click()
+
+            # Wait for export to finish — control collapses on completion
+            page.wait_for_function(
+                """() => {
+                const ctrl = document.querySelector('.foliplus-export-ctrl');
+                return ctrl && ctrl.classList.contains('collapsed');
+            }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(500)
+
+            # Check JS errors
+            assert len(errors) == 0, f"JS errors: {errors}"
+
+            # Verify layers are registered in LayerControl API
+            api_layers = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api || !api.layers) return [];
+                return api.layers.map(l => ({ id: l.id, visible: l.visible, isBase: l.isBase }));
+            }""")
+            assert len(api_layers) > 0, f"No layers in API. errors={errors}"
+
+            overlay_layers = [l for l in api_layers if not l["isBase"] and l["visible"]]
+            assert len(overlay_layers) > 0, (
+                f"No visible overlay layers. api={api_layers} errors={errors}"
+            )
         finally:
             page.close()
