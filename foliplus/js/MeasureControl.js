@@ -906,7 +906,7 @@
             this.m.saveMeasurements();
           },
         });
-        this.m.finalizedClickHandler = onMapClickActive;
+        this.m.finalizedClickHandlers.push(onMapClickActive);
       };
 
       this.map.on("click", onMapClick);
@@ -1162,7 +1162,7 @@
       );
 
       // Attach toggle/delete UI (shared with finalizeCircle)
-      this.attachCircleUI({
+      const { onMapClickActive } = this.attachCircleUI({
         layers: this.layers,
         circle,
         radiusLine,
@@ -1175,6 +1175,9 @@
           this.saveMeasurements();
         },
       });
+      // Track the handler so clearAll()/destroy() can unbind it (same as
+      // finalizeCircle does for freshly drawn circles).
+      this.finalizedClickHandlers.push(onMapClickActive);
     }
 
     bindGlobalEvents() {
@@ -1464,6 +1467,8 @@
           radiusLabel,
         );
         this.map.off("click", onMapClickActive);
+        const idx = this.finalizedClickHandlers.indexOf(onMapClickActive);
+        if (idx !== -1) this.finalizedClickHandlers.splice(idx, 1);
         onDelete();
         layers.unregister();
       };
@@ -1536,6 +1541,10 @@
       this.measurements = [];
       this.saveMeasurements();
       this.clearActiveMode();
+      // Unbind all finalized-circle map click handlers; clearLayers removed
+      // their targets so they would otherwise dangle until destroy().
+      this.finalizedClickHandlers.forEach((h) => this.map.off("click", h));
+      this.finalizedClickHandlers = [];
       // Collapse the panel after clearing all measurements
       if (this.ctrl) {
         this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
@@ -1560,10 +1569,8 @@
         document.removeEventListener("keydown", this.onKeyDown);
         this.onKeyDown = null;
       }
-      if (this.finalizedClickHandler) {
-        this.map.off("click", this.finalizedClickHandler);
-        this.finalizedClickHandler = null;
-      }
+      this.finalizedClickHandlers.forEach((h) => this.map.off("click", h));
+      this.finalizedClickHandlers = [];
     }
 
     cleanMapEvents() {
