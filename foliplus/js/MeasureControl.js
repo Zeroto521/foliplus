@@ -1139,11 +1139,10 @@
       const segLabels = [];
       if (m.segments) {
         m.segments.forEach((seg, i) => {
-          // Guard against corrupted data: segments count should be points-1.
-          if (!points[i + 1]) return;
           const total = m.segments.slice(0, i + 1).reduce((s, x) => s + x.distance, 0);
           const prev = points[i];
-          const cur = points[i + 1];
+          const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
+          if (!prev || !seg) return;
           const label = this.layers.addLayer(
             L.marker(L.latLng(seg.lat, seg.lng), {
               icon: MeasureUtils.makeLabelDivIcon(
