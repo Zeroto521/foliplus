@@ -1083,7 +1083,7 @@ class TestMeasureControlRendering:
         html = render(base_map)
         # Address update happens through the createLocationMarker onAddress
         # callback, then re-persists
-        assert "onAddress" in html or "onAddress" in html
+        assert "onAddress" in html
         assert "measurement.address = addr" in html
         assert "this.m.saveMeasurements()" in html
 
