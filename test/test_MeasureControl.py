@@ -1430,4 +1430,3 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "this.isFinished = false" in html
-
