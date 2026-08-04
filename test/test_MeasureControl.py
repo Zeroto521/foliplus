@@ -581,6 +581,27 @@ class TestMeasureControlRendering:
         assert "--sweep-length" in css
         assert "--sweep-duration" in css
 
+    def test_radius_label_has_animation(self, base_map: folium.Map):
+        """Circle radius label animates in with a decoupled centering transform.
+
+        The radius label's centering transform is stored in a CSS variable
+        (--label-center) so the animation keyframes reference it instead of
+        duplicating the translate values. This keeps centering and animation
+        decoupled.
+        """
+        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        assert "foliplus-measure-label-in-radius" in css
+        # Centering transform is defined once as a variable on the class
+        assert "--label-center: translate(-50%, -50%)" in css
+        # Keyframes reference the variable, not hardcoded translate values
+        assert "transform: var(--label-center) scale(0.9)" in css
+        assert "transform: var(--label-center) scale(1)" in css
+        # The radius label class no longer disables animation
+        assert (
+            "animation: none"
+            not in css.split(".foliplus-measure-label-radius")[1].split("/*")[0]
+        )
+
     def _make_page(self, browser, tmp_path):
         """Build a page with MeasureControl and return (page, errors)."""
         from foliplus import LayerControl
@@ -1162,11 +1183,14 @@ class TestMeasureControlRendering:
             # Intercept Nominatim so geocode resolves deterministically with a
             # known address. The marker is restored with address:null; geocode
             # completes while the popup is closed.
-            page.route("**/nominatim.openstreetmap.org/**", lambda route: route.fulfill(
-                status=200,
-                content_type="application/json",
-                body='{"display_name":"Resolved Address, Test City"}',
-            ))
+            page.route(
+                "**/nominatim.openstreetmap.org/**",
+                lambda route: route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"display_name":"Resolved Address, Test City"}',
+                ),
+            )
             # Restore a marker with address:null
             page.evaluate("""() => {
                 const data = [{
