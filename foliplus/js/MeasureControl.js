@@ -353,27 +353,6 @@
       const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
       const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
 
-      const marker = foliplus.createLocationMarker(
-        this.map,
-        parseFloat(lng),
-        parseFloat(lat),
-        null,
-        `${CONST.name}.popup_title`,
-        `${CONST.name}.popup_loading`,
-        `${CONST.name}.popup_loc_label`,
-        `${CONST.name}.popup_addr_label`,
-        null,
-        this.layers.mainLayer,
-      );
-
-      const delMarker = this.layers.addLayer(
-        MeasureUtils.makeDelIcon(e.latlng, {
-          zIndexOffset: CONST.Z_INDEX.OFFSET,
-          iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
-          title: _(`${CONST.name}.del_tooltip`),
-        }),
-      );
-
       // Save the measurement IMMEDIATELY (address resolved later) so the
       // marker survives a page reload even while geocoding is in flight.
       const markerId = this.nextMeasurementId();
@@ -386,6 +365,33 @@
       };
       this.m.measurements.push(measurement);
       this.m.saveMeasurements();
+
+      // createLocationMarker resolves the address async (popup + onAddress
+      // callback) — no separate geocode call here to avoid a duplicate request.
+      const marker = foliplus.createLocationMarker(
+        this.map,
+        parseFloat(lng),
+        parseFloat(lat),
+        null,
+        `${CONST.name}.popup_title`,
+        `${CONST.name}.popup_loading`,
+        `${CONST.name}.popup_loc_label`,
+        `${CONST.name}.popup_addr_label`,
+        null,
+        this.layers.mainLayer,
+        (addr) => {
+          measurement.address = addr;
+          this.m.saveMeasurements();
+        },
+      );
+
+      const delMarker = this.layers.addLayer(
+        MeasureUtils.makeDelIcon(e.latlng, {
+          zIndexOffset: CONST.Z_INDEX.OFFSET,
+          iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
+          title: _(`${CONST.name}.del_tooltip`),
+        }),
+      );
 
       // Bind delete + popup events BEFORE async geocode so the X works even
       // while the address lookup is still in flight.
@@ -957,7 +963,7 @@
       this.modeInstance = null;
       this.isSuppressHideDel = false;
       this.toolBtns = [];
-      this.finalizedClickHandler = null;
+      this.finalizedClickHandlers = [];
       this.measurements = [];
       this.measurementIdCounter = 0;
 
