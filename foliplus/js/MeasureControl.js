@@ -1139,6 +1139,8 @@
       const segLabels = [];
       if (m.segments) {
         m.segments.forEach((seg, i) => {
+          // Guard against corrupted data: segments count should be points-1.
+          if (!points[i + 1]) return;
           const total = m.segments.slice(0, i + 1).reduce((s, x) => s + x.distance, 0);
           const prev = points[i];
           const cur = points[i + 1];
@@ -1277,7 +1279,15 @@
       };
       document.addEventListener("keydown", this.onKeyDown);
 
-      this.onUnload = () => this.clearAll();
+      // On map unload (page refresh/close), clear transient UI state but KEEP
+      // persisted measurements. clearAll() would wipe localStorage, losing all
+      // saved data on every reload.
+      this.onUnload = () => {
+        this.clearActiveMode();
+        this.layers.clearLayers();
+        this.finalizedClickHandlers.forEach((h) => this.map.off("click", h));
+        this.finalizedClickHandlers = [];
+      };
       this.map.on("unload", this.onUnload);
     }
 
@@ -1416,7 +1426,7 @@
             }
 
             // Recalculate the polyline
-            finalPoly.setLatLngs(points.map((p) => L.latLng(p.lat, p.lng)));
+            finalPoly.setLatLngs(points);
 
             // Reposition and update ALL remaining segment labels
             let cumDist = 0;
