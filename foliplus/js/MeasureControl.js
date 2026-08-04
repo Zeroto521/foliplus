@@ -417,19 +417,6 @@
       marker.on("popupclose", () => {
         MeasureUtils.toggleDelIcon(delMarker, false);
       });
-
-      // Resolve the address asynchronously and update both the popup and the
-      // persisted measurement. A slow/failed lookup must not block persistence.
-      const addr = await foliplus.reverseGeocode(
-        this.map,
-        parseFloat(lng),
-        parseFloat(lat),
-      );
-      measurement.address = addr;
-      this.m.saveMeasurements();
-
-      if (marker?.getPopup?.()?.isOpen())
-        marker.setPopupContent(MeasureUtils.buildPopup(lng, lat, addr));
     }
   }
 
