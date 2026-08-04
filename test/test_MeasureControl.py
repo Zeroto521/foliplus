@@ -30,12 +30,30 @@ class TestMeasureControlPython:
     def test_custom_locale(self):
         assert MeasureControl(locale="zh")._locale_code == "zh"
 
+    def test_default_show_bearing(self):
+        assert MeasureControl().show_bearing is True
+
+    def test_custom_show_bearing(self):
+        assert MeasureControl(show_bearing=False).show_bearing is False
+
 
 class TestMeasureControlRendering:
     def test_default_params(self, base_map: folium.Map):
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "measure-ctrl" in html
+
+    def test_show_bearing_default_true(self, base_map: folium.Map):
+        """show_bearing defaults to true and renders as JS boolean."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "show_bearing: true" in html
+
+    def test_show_bearing_false(self, base_map: folium.Map):
+        """show_bearing=False renders false and disables bearing labels."""
+        MeasureControl(show_bearing=False).add_to(base_map)
+        html = render(base_map)
+        assert "show_bearing: false" in html
 
     def test_custom_position(self, base_map: folium.Map):
         MeasureControl(position="topleft").add_to(base_map)
@@ -86,7 +104,7 @@ class TestMeasureControlRendering:
         assert "previewDistLabel" in html
         assert "previewLine" in html
         assert "onDistMove" in html
-        assert "MeasureUtils.formatDistance(showDist)" in html
+        assert "MeasureUtils.formatSegmentLabel(" in html
 
     def test_create_layers_api_used(self, base_map: folium.Map):
         """MeasureControl uses createLayers with graphPane/labelPane."""
@@ -602,13 +620,13 @@ class TestMeasureControlRendering:
             not in css.split(".foliplus-measure-label-radius")[1].split("/*")[0]
         )
 
-    def _make_page(self, browser, tmp_path):
+    def _make_page(self, browser, tmp_path, show_bearing=True):
         """Build a page with MeasureControl and return (page, errors)."""
         from foliplus import LayerControl
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
-        MeasureControl().add_to(m)
+        MeasureControl(show_bearing=show_bearing).add_to(m)
 
         html = m.get_root().render()
         html = html.replace(
@@ -648,6 +666,56 @@ class TestMeasureControlRendering:
                 "document.querySelectorAll('.foliplus-measure-ctrl .foliplus-tool-btn').length"
             )
             assert btns >= 3
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_distance_labels_show_bearing(self, browser, tmp_path):
+        """Distance labels include bearing (e.g. '42° | 1.5 km') by default."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            labels = page.evaluate("""() => {
+                return Array.from(
+                    document.querySelectorAll('.foliplus-measure-label')
+                ).map(el => el.textContent);
+            }""")
+            assert any("° |" in l for l in labels), (
+                f"expected a bearing label '° |', got {labels!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_distance_labels_no_bearing_when_disabled(self, browser, tmp_path):
+        """show_bearing=False omits the bearing from distance labels."""
+        page, errors = self._make_page(browser, tmp_path, show_bearing=False)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            labels = page.evaluate("""() => {
+                return Array.from(
+                    document.querySelectorAll('.foliplus-measure-label')
+                ).map(el => el.textContent);
+            }""")
+            assert all("° |" not in l for l in labels), (
+                f"no bearing expected when disabled, got {labels!r}"
+            )
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
