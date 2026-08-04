@@ -511,6 +511,7 @@
       const cbs = {};
       if (opts.onToggle) cbs.onToggle = opts.onToggle;
       if (opts.onZIndex) cbs.onZIndex = opts.onZIndex;
+      if (opts.canvas) cbs.canvas = opts.canvas;
       if (Object.keys(cbs).length) this.layerCallbacks.set(opts.id, cbs);
 
       if (opts.paneName) this.ensurePane(opts.paneName);
@@ -920,6 +921,7 @@
         id: opts.id,
         name: opts.name || opts.id,
         iconSvg: opts.iconSvg || null,
+        canvas,
         onToggle,
         onZIndex,
       };

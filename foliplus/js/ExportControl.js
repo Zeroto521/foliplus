@@ -272,6 +272,13 @@
           if (li.isBase) continue;
           if (!li.visible) continue;
           const layer = api.findLayer(li.id);
+
+          // Callback-only layers (e.g. HeatmapControl canvas) — render via callbacks
+          const cbs = api.layerCallbacks?.get(li.id);
+          if (cbs?.canvas) {
+            await this.renderCanvasElement(ctx, rect, scale, contRect, cw, ch, cbs.canvas);
+            continue;
+          }
           if (!layer) continue;
 
           // SVG paths, Canvas elements, and Markers in this layer's panes
@@ -295,6 +302,30 @@
       }
 
       return canvas;
+    }
+
+    /** Render a standalone canvas element (e.g. HeatmapControl) with lifecycle hooks. */
+    async renderCanvasElement(ctx, rect, scale, contRect, cw, ch, ce) {
+      if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
+      const r = ce.getBoundingClientRect();
+      const l = r.left - contRect.left;
+      const t = r.top - contRect.top;
+      const w = r.width;
+      const h = r.height;
+      if (w < 1 || h < 1) return;
+      const dx = (l - rect.left) * scale;
+      const dy = (t - rect.top) * scale;
+      const dw = w * scale;
+      const dh = h * scale;
+      if (!isVisible(dx, dy, dw, dh, cw, ch)) { if (ce.hooks) ce.hooks.after.forEach((fn) => fn()); return; }
+      try {
+        const dataUrl = ce.toDataURL("image/png");
+        const img = await loadImage(dataUrl);
+        ctx.drawImage(img, dx, dy, dw, dh);
+      } catch {
+        /* skip */
+      }
+      if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
     }
 
     /** Render tiles by computing coordinates from geo bounds, or fallback to DOM images. */
@@ -1371,25 +1402,27 @@
           L.latLng(geoBounds.se.lat, geoBounds.se.lng),
         ).getCenter();
 
+        // Wait for both invalidateSize and setView to fire moveend,
+        // then render.  This ensures all SVG paths and markers in the
+        // enlarged viewport are created and positioned by Leaflet.
+        let moveEndCount = 0;
+        const onMoveEnd = () => {
+          moveEndCount++;
+          if (moveEndCount < 2) return;
+          this.map.off("moveend", onMoveEnd);
+          doRender();
+          setTimeout(() => {
+            this.map.options.zoomAnimation = savedAnim;
+            Object.keys(savedStyles).forEach((p) => {
+              this.mapContainer.style[p] = savedStyles[p];
+            });
+            this.map.invalidateSize(false);
+            this.map.setView(savedCenter, savedZoom, { animate: false });
+          }, CONST.TIMING.RESTORE_DELAY);
+        };
+        this.map.on("moveend", onMoveEnd);
         this.map.invalidateSize(false);
         this.map.setView(cropCenter, savedZoom, { animate: false });
-
-        // Wait for Leaflet to finish re-rendering paths in the enlarged
-        // container, then render.  Two frames are needed: one for Leaflet
-        // to update pane positions, one for the browser to paint them.
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            doRender();
-            setTimeout(() => {
-              this.map.options.zoomAnimation = savedAnim;
-              Object.keys(savedStyles).forEach((p) => {
-                this.mapContainer.style[p] = savedStyles[p];
-              });
-              this.map.invalidateSize(false);
-              this.map.setView(savedCenter, savedZoom, { animate: false });
-            }, CONST.TIMING.RESTORE_DELAY);
-          });
-        });
         return;
       }
 
