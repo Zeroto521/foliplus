@@ -1149,6 +1149,65 @@ class TestMeasureControlRendering:
         finally:
             page.close()
 
+    def test_restored_marker_popup_shows_resolved_address(self, browser, tmp_path):
+        """Regression: restored marker popup shows the resolved address even when
+        the popup is opened after geocoding completes.
+
+        createLocationMarker only updates popup content while it is open, so a
+        restored marker whose address resolves while the popup is closed would
+        otherwise show the loading placeholder on first open.
+        """
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # Intercept Nominatim so geocode resolves deterministically with a
+            # known address. The marker is restored with address:null; geocode
+            # completes while the popup is closed.
+            page.route("**/nominatim.openstreetmap.org/**", lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"display_name":"Resolved Address, Test City"}',
+            ))
+            # Restore a marker with address:null
+            page.evaluate("""() => {
+                const data = [{
+                    id: 'foliplus_measurement_marker_popup',
+                    type: 'marker',
+                    lng: 119.30,
+                    lat: 26.08,
+                    address: null
+                }];
+                localStorage.setItem('foliplus_measurement', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(2000)
+            # Geocode resolved while popup is closed — address backfilled
+            addr = page.evaluate("window.__measureManager.measurements[0]?.address")
+            assert addr, f"expected address to be backfilled, got {addr!r}"
+
+            # Now open the popup — it must show the resolved address
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.layers.mainLayer.eachLayer(sub => sub.eachLayer(l => {
+                    if (l instanceof L.Marker) {
+                        const po = l.getPopup && l.getPopup();
+                        if (po && po.getContent && po.getContent().includes) {
+                            l.openPopup();
+                        }
+                    }
+                }));
+            }""")
+            page.wait_for_timeout(200)
+            popup_text = page.evaluate("""() => {
+                const el = document.querySelector('.leaflet-popup-content');
+                return el ? el.textContent : '';
+            }""")
+            assert "Resolved Address" in popup_text, (
+                f"popup should show resolved address, got {popup_text!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
     def test_clear_all_unbinds_circle_listeners(self, browser, tmp_path):
         """Regression: clearAll unbinds all finalized-circle map click handlers.
 
@@ -1430,4 +1489,3 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "this.isFinished = false" in html
-
