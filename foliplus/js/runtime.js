@@ -654,6 +654,8 @@
     addrLabel,
     existing,
     layerGroup,
+    onAddress,
+    openPopup = true,
   ) => {
     if (existing) map.removeLayer(existing);
     const target = layerGroup || map;
@@ -672,7 +674,7 @@
       foliplus.buildPopupHtml(lng, lat, addr, title, loading, locLabel, addrLabel),
       { maxWidth: CONST.POPUP.MAX_WIDTH },
     );
-    marker.openPopup();
+    if (openPopup) marker.openPopup();
     // Add title to Leaflet's popup close button for hover tooltip.
     // Use window._LOCALE directly since _() may not be available in runtime.js context.
     const closeLabel = foliplus.gt("LayerControl.close_label");
@@ -683,6 +685,7 @@
     }
     if (!addr) {
       foliplus.reverseGeocode(map, lng, lat).then((resolved) => {
+        if (onAddress) onAddress(resolved);
         if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
           marker.setPopupContent(
             foliplus.buildPopupHtml(
