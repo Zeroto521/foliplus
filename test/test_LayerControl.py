@@ -2242,7 +2242,9 @@ class TestLayerControlBrowser:
                     return { existsBefore: exists, existsAfter: !!itemAfter };
                 }""")
                 assert result is not None
-                assert result["existsBefore"] is True, "DOM item should exist after registerLayer"
+                assert result["existsBefore"] is True, (
+                    "DOM item should exist after registerLayer"
+                )
                 assert result["existsAfter"] is False, (
                     "DOM item should be removed after unregisterLayer"
                 )
@@ -2277,7 +2279,9 @@ class TestLayerControlBrowser:
                     return { found: !!found, isSame, afterCleanup: !!afterCleanup };
                 }""")
                 assert result is not None
-                assert result["found"] is True, "findLayer should find the registered layer"
+                assert result["found"] is True, (
+                    "findLayer should find the registered layer"
+                )
                 assert result["isSame"] is True, (
                     "findLayer should return the same layer instance"
                 )
@@ -2291,9 +2295,9 @@ class TestLayerControlBrowser:
             """Clicking color layer hides tilePane and removes base maps."""
             m = folium.Map(location=[26.08, 119.30], zoom_start=12)
             LayerControl().add_to(m)
-            folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
-                m
-            )
+            folium.TileLayer(
+                "CartoDB positron", name="Light Canvas", overlay=False
+            ).add_to(m)
 
             html_path = tmp_path / "test_color_tiles.html"
             html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -2466,6 +2470,7 @@ class TestLayerControlBrowser:
                 assert abs(result["lng1"] - 119.31) < 0.001
             finally:
                 page.close()
+
     def test_fold_svg_switches_on_toggle(self, browser, tmp_path):
         """Fold button uses a single SVG rotated 180° by CSS (not swapped) on toggle."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)

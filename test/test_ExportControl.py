@@ -951,7 +951,12 @@ class TestExportControlBrowser:
                 # Drag the bottom-right handle (br) by 50px right and 30px down
                 handle = page.locator(".foliplus-export-handle.br")
                 box = page.locator(".foliplus-export-box")
-                handle.drag_to(box, source_position={x: 0, y: 0}, target_position={x: 50, y: 30}, force=True)
+                handle.drag_to(
+                    box,
+                    source_position={x: 0, y: 0},
+                    target_position={x: 50, y: 30},
+                    force=True,
+                )
                 page.wait_for_timeout(300)
 
                 after = page.evaluate("""() => {
@@ -998,7 +1003,12 @@ class TestExportControlBrowser:
                 # Drag the center by 30px right and 20px down
                 center = page.locator(".foliplus-export-center")
                 box = page.locator(".foliplus-export-box")
-                center.drag_to(box, source_position={x: 0, y: 0}, target_position={x: 30, y: 20}, force=True)
+                center.drag_to(
+                    box,
+                    source_position={x: 0, y: 0},
+                    target_position={x: 30, y: 20},
+                    force=True,
+                )
                 page.wait_for_timeout(300)
 
                 after = page.evaluate("""() => {
