@@ -1157,9 +1157,7 @@ class TestMeasureControlRendering:
         """
         page, errors = self._make_page(browser, tmp_path)
         try:
-            baseline = page.evaluate(
-                "window.__map._events['click']?.length || 0"
-            )
+            baseline = page.evaluate("window.__map._events['click']?.length || 0")
             # Draw 2 circles — each binds an onMapClickActive handler
             for _ in range(2):
                 page.evaluate("""() => {
@@ -1170,9 +1168,7 @@ class TestMeasureControlRendering:
                     map.fire('click', {latlng: L.latLng(26.09, 119.31)});
                 }""")
                 page.wait_for_timeout(500)
-            after_circles = page.evaluate(
-                "window.__map._events['click']?.length || 0"
-            )
+            after_circles = page.evaluate("window.__map._events['click']?.length || 0")
             assert after_circles == baseline + 2, (
                 f"expected {baseline + 2} click handlers after 2 circles, "
                 f"got {after_circles}"
@@ -1180,12 +1176,9 @@ class TestMeasureControlRendering:
             # clearAll must unbind them all
             page.evaluate("window.__measureManager.clearAll()")
             page.wait_for_timeout(200)
-            after_clear = page.evaluate(
-                "window.__map._events['click']?.length || 0"
-            )
+            after_clear = page.evaluate("window.__map._events['click']?.length || 0")
             assert after_clear == baseline, (
-                f"expected {baseline} click handlers after clearAll, "
-                f"got {after_clear}"
+                f"expected {baseline} click handlers after clearAll, got {after_clear}"
             )
             assert not errors, f"JS errors: {errors}"
         finally:
