@@ -75,7 +75,7 @@
       TOOL_BTN: ".foliplus-tool-btn",
     },
     STORAGE: {
-      KEY: "foliplus_measurement",
+      KEY: "foliplus_measure",
     },
     MODE: {
       MARKER: "marker",
