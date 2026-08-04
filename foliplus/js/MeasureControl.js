@@ -1051,9 +1051,7 @@
         // while the popup was closed still shows the real address on first open
         // (createLocationMarker only updates an open popup).
         if (m.address !== null)
-          marker.setPopupContent(
-            MeasureUtils.buildPopup(m.lng, m.lat, m.address),
-          );
+          marker.setPopupContent(MeasureUtils.buildPopup(m.lng, m.lat, m.address));
         MeasureUtils.toggleDelIcon(delMarker, true);
       });
       marker.on("popupclose", () => {

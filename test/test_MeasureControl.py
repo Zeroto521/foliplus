@@ -1162,11 +1162,14 @@ class TestMeasureControlRendering:
             # Intercept Nominatim so geocode resolves deterministically with a
             # known address. The marker is restored with address:null; geocode
             # completes while the popup is closed.
-            page.route("**/nominatim.openstreetmap.org/**", lambda route: route.fulfill(
-                status=200,
-                content_type="application/json",
-                body='{"display_name":"Resolved Address, Test City"}',
-            ))
+            page.route(
+                "**/nominatim.openstreetmap.org/**",
+                lambda route: route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"display_name":"Resolved Address, Test City"}',
+                ),
+            )
             # Restore a marker with address:null
             page.evaluate("""() => {
                 const data = [{
