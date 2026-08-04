@@ -273,10 +273,17 @@
           if (!li.visible) continue;
           const layer = api.findLayer(li.id);
 
-          // Callback-only layers (e.g. HeatmapControl canvas) — render via callbacks
-          const cbs = api.layerCallbacks?.get(li.id);
-          if (cbs?.canvas) {
-            await this.renderCanvasElement(ctx, rect, scale, contRect, cw, ch, cbs.canvas);
+          // Callback-only layers (e.g. HeatmapControl canvas) — render via stored canvas
+          if (li.canvas) {
+            await this.renderCanvasElement(
+              ctx,
+              rect,
+              scale,
+              contRect,
+              cw,
+              ch,
+              li.canvas,
+            );
             continue;
           }
           if (!layer) continue;
@@ -307,25 +314,26 @@
     /** Render a standalone canvas element (e.g. HeatmapControl) with lifecycle hooks. */
     async renderCanvasElement(ctx, rect, scale, contRect, cw, ch, ce) {
       if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
-      const r = ce.getBoundingClientRect();
-      const l = r.left - contRect.left;
-      const t = r.top - contRect.top;
-      const w = r.width;
-      const h = r.height;
-      if (w < 1 || h < 1) return;
-      const dx = (l - rect.left) * scale;
-      const dy = (t - rect.top) * scale;
-      const dw = w * scale;
-      const dh = h * scale;
-      if (!isVisible(dx, dy, dw, dh, cw, ch)) { if (ce.hooks) ce.hooks.after.forEach((fn) => fn()); return; }
       try {
+        const r = ce.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width;
+        const h = r.height;
+        if (w < 1 || h < 1) return;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale;
+        const dh = h * scale;
+        if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
         const dataUrl = ce.toDataURL("image/png");
         const img = await loadImage(dataUrl);
         ctx.drawImage(img, dx, dy, dw, dh);
       } catch {
         /* skip */
+      } finally {
+        if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
       }
-      if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
     }
 
     /** Render tiles by computing coordinates from geo bounds, or fallback to DOM images. */
@@ -472,25 +480,26 @@
     async renderPaneCanvas(ctx, rect, scale, contRect, cw, ch, pane) {
       for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
         if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
-        const r = ce.getBoundingClientRect();
-        const l = r.left - contRect.left;
-        const t = r.top - contRect.top;
-        const w = r.width;
-        const h = r.height;
-        if (w < 1 || h < 1) continue;
-        const dx = (l - rect.left) * scale;
-        const dy = (t - rect.top) * scale;
-        const dw = w * scale;
-        const dh = h * scale;
-        if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
         try {
+          const r = ce.getBoundingClientRect();
+          const l = r.left - contRect.left;
+          const t = r.top - contRect.top;
+          const w = r.width;
+          const h = r.height;
+          if (w < 1 || h < 1) continue;
+          const dx = (l - rect.left) * scale;
+          const dy = (t - rect.top) * scale;
+          const dw = w * scale;
+          const dh = h * scale;
+          if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
           const dataUrl = ce.toDataURL("image/png");
           const img = await loadImage(dataUrl);
           ctx.drawImage(img, dx, dy, dw, dh);
         } catch {
           /* skip */
+        } finally {
+          if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
         }
-        if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
       }
     }
 
