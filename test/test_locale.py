@@ -103,7 +103,7 @@ _JS_USED_KEYS = {
     "SearchControl.popup_addr_label",
     "SearchControl.addr_not_found",
     "SearchControl.addr_error",
-    "SearchControl.gcoord_warn",
+    "foliplus.gcoord_warn",
     # MeasureControl
     "MeasureControl.unit_km",
     "MeasureControl.unit_m",
@@ -431,4 +431,4 @@ class TestLocaleErrors:
 
         SearchControl().add_to(base_map)
         html = base_map.get_root().render()
-        assert "SearchControl.gcoord_warn" in html
+        assert "foliplus.gcoord_warn" in html
