@@ -29,6 +29,7 @@
     LABEL: {
       ANCHOR: [0, -10],
       RADIUS_ANCHOR: [0, 0],
+      CENTROID_ANCHOR: [0, 10],
       SIZE: [0, 0],
       CLASS: "foliplus-measure-label",
       CLASS_RADIUS: "foliplus-measure-label-radius",
@@ -52,6 +53,7 @@
       LINE_SOLID: "foliplus-measure-line foliplus-measure-line-solid",
       CIRCLE_PREVIEW: "foliplus-measure-circle foliplus-measure-circle-preview",
       CIRCLE_FINAL: "foliplus-measure-circle foliplus-measure-circle-final",
+      POLYGON_FINAL: "foliplus-measure-line-solid foliplus-measure-polygon-final",
       NODE_FINAL: "foliplus-measure-node foliplus-measure-node-final",
       NODE_PREVIEW: "foliplus-measure-node foliplus-measure-node-preview",
       RIPPLE: "foliplus-measure-ripple",
@@ -80,6 +82,7 @@
     MODE: {
       MARKER: "marker",
       DISTANCE: "distance",
+      POLYGON: "polygon",
       CIRCLE: "circle",
       CLEAR: "clear",
     },
@@ -112,6 +115,15 @@
         <circle cx="12" cy="12" r="9"/>
         <circle cx="12" cy="12" r="1.5" class="solid"/>
       </svg>`,
+    POLYGON: `
+      <svg viewBox="0 0 24 24">
+        <polygon points="12,3 21,9 18,21 6,21 3,9"/>
+        <circle cx="12" cy="3" r="1.5" class="solid"/>
+        <circle cx="21" cy="9" r="1.5" class="solid"/>
+        <circle cx="18" cy="21" r="1.5" class="solid"/>
+        <circle cx="6" cy="21" r="1.5" class="solid"/>
+        <circle cx="3" cy="9" r="1.5" class="solid"/>
+      </svg>`,
     TRASH: `
       <svg viewBox="0 0 24 24">
         <path d="M3 6h18"/>
@@ -140,21 +152,16 @@
     }
 
     static distance(lng1, lat1, lng2, lat2) {
-      return L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2));
+      return turf.distance(turf.point([lng1, lat1]), turf.point([lng2, lat2]), {
+        units: "meters",
+      });
     }
 
     /** Initial bearing (azimuth) from point 1 to point 2, 0°–360° clockwise from north.
-     *  Great-circle formula — no external dependency needed. */
+     *  Uses turf.js bearing. */
     static bearing(lng1, lat1, lng2, lat2) {
-      const toRad = Math.PI / 180;
-      const lat1r = lat1 * toRad;
-      const lat2r = lat2 * toRad;
-      const dLng = (lng2 - lng1) * toRad;
-      const y = Math.sin(dLng) * Math.cos(lat2r);
-      const x =
-        Math.cos(lat1r) * Math.sin(lat2r) -
-        Math.sin(lat1r) * Math.cos(lat2r) * Math.cos(dLng);
-      return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
+      const b = turf.bearing(turf.point([lng1, lat1]), turf.point([lng2, lat2]));
+      return (b + 360) % 360;
     }
 
     /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
@@ -163,6 +170,25 @@
       if (!CONST.show_bearing) return dist;
       const bearing = Math.round(MeasureUtils.bearing(lng1, lat1, lng2, lat2));
       return `${bearing}° | ${dist}`;
+    }
+
+    /** Geodesic area of a polygon using turf.js.
+     *  @param {Array<{lng:number,lat:number}>} points - Array of coordinate objects.
+     *  @returns {number} Area in square meters. */
+    static area(points) {
+      if (points.length < 3) return 0;
+      const coords = points.map((p) => [p.lng, p.lat]);
+      // Close the ring
+      coords.push(coords[0]);
+      return turf.area(turf.polygon([coords]));
+    }
+
+    /** Format area: "1,234 m²" or "1.23 km²". */
+    static formatArea(sqMeters) {
+      if (sqMeters >= 1_000_000) {
+        return `${(sqMeters / 1_000_000).toFixed(2)} km²`;
+      }
+      return `${Math.round(sqMeters).toLocaleString()} m²`;
     }
 
     static toggleVisibility(elements, visible) {
@@ -671,7 +697,11 @@
 
         marker.on("click", () => {
           if (points.length < 2) return;
-          if (marker === nodeMarkers[nodeMarkers.length - 1]) finishDist();
+          if (
+            marker === nodeMarkers[0] ||
+            marker === nodeMarkers[nodeMarkers.length - 1]
+          )
+            finishDist();
         });
 
         if (points.length > 1) {
@@ -735,6 +765,289 @@
       this.map.on("dblclick", onDistDbl);
       this.map.on("contextmenu", onDistContext);
       this.map.on("mousemove", onDistMove);
+    }
+  }
+
+  // ==================== Polygon Area Mode ====================
+  class PolygonMode extends PreviewMode {
+    static TYPE = CONST.MODE.POLYGON;
+
+    start() {
+      const points = [];
+      const poly = this.addPreview(
+        L.polyline([], { className: CONST.CLASSES.LINE_DASHED }),
+      );
+      const previewPoly = this.addPreview(
+        L.polygon([], { className: CONST.CLASSES.CIRCLE_PREVIEW }),
+      );
+      const nodeMarkers = [];
+      const segLabels = [];
+      const finalPoly = this.layers.addLayer(
+        L.polygon([], {
+          className: CONST.CLASSES.POLYGON_FINAL,
+          interactive: true,
+        }),
+      );
+      let previewDistLabel = null;
+      let isFinished = false;
+
+      this._cleanup = () => {
+        this.map.off("click", onPolyClick);
+        this.map.off("dblclick", onPolyDbl);
+        this.map.off("contextmenu", onPolyContext);
+        this.map.off("mousemove", onPolyMove);
+        this.layers.removeLayer(previewPoly);
+        this.layers.removeLayer(poly);
+        this.layers.removeLayer(finalPoly);
+        if (previewDistLabel) {
+          this.layers.removeLayer(previewDistLabel);
+          previewDistLabel = null;
+        }
+        nodeMarkers.forEach((m) => this.layers.removeLayer(m));
+        segLabels.forEach((l) => this.layers.removeLayer(l));
+      };
+
+      const finishPoly = () => {
+        if (isFinished) return;
+        if (points.length < 3) {
+          this.cleanup();
+          this.m.clearActiveMode();
+          return;
+        }
+        isFinished = true;
+        this.layers.removeLayer(poly);
+        this.layers.removeLayer(previewPoly);
+        // Close the polygon by appending the first point
+        const closedPts = [...points, points[0]];
+        finalPoly.setLatLngs(closedPts);
+
+        // Dash-sweep animation
+        if (finalPoly._path) {
+          const len = finalPoly._path.getTotalLength?.() || 0;
+          if (len > 0) {
+            finalPoly._path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, len);
+            finalPoly._path.classList.add(CONST.CLASSES.DASH_SWEEP);
+            const onEnd = () => {
+              finalPoly._path.removeEventListener("animationend", onEnd);
+              finalPoly._path.classList.remove(CONST.CLASSES.DASH_SWEEP);
+              finalPoly._path.style.removeProperty(CONST.STYLE.SWEEP_LENGTH);
+            };
+            finalPoly._path.addEventListener("animationend", onEnd);
+          }
+        }
+
+        // Calculate area
+        const area = MeasureUtils.area(points);
+
+        // Save measurement data
+        const polyId = this.nextMeasurementId();
+        const segments = points.slice(1).map((p, i) => ({
+          lng: p.lng,
+          lat: p.lat,
+          distance: MeasureUtils.distance(
+            points[i].lng,
+            points[i].lat,
+            points[i + 1].lng,
+            points[i + 1].lat,
+          ),
+        }));
+        // Add closing segment
+        const lastSeg = {
+          lng: points[0].lng,
+          lat: points[0].lat,
+          distance: MeasureUtils.distance(
+            points[points.length - 1].lng,
+            points[points.length - 1].lat,
+            points[0].lng,
+            points[0].lat,
+          ),
+        };
+        segments.push(lastSeg);
+        this.m.measurements.push({
+          id: polyId,
+          type: this.type,
+          points: points.map((p) => ({ lng: p.lng, lat: p.lat })),
+          segments,
+          area,
+        });
+        this.m.saveMeasurements();
+
+        // Format last segment label
+        if (segLabels.length > 0) {
+          const lastPt = points[points.length - 1];
+          const prevPt = points[points.length - 2];
+          segLabels[segLabels.length - 1].setIcon(
+            MeasureUtils.makeLabelDivIcon(
+              MeasureUtils.formatSegmentLabel(
+                prevPt.lng,
+                prevPt.lat,
+                lastPt.lng,
+                lastPt.lat,
+                segments[segments.length - 2].distance,
+              ),
+            ),
+          );
+        }
+
+        // Attach toggle/delete UI (shared with restorePolygon)
+        const onPolyMapClick = this.m.attachPolygonUI({
+          layers: this.layers,
+          finalPoly,
+          nodeMarkers,
+          segLabels,
+          points: points,
+          area,
+          onDelete: () => {
+            this.m.measurements = this.m.measurements.filter((x) => x.id !== polyId);
+            this.m.saveMeasurements();
+          },
+          onUpdate: () => {
+            const m = this.m.measurements.find((x) => x.id === polyId);
+            if (!m) return;
+            const newArea = MeasureUtils.area(points);
+            const { segments, totalDistance } =
+              MeasureUtils.recalculateSegments(points);
+            m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+            m.segments = segments;
+            m.area = newArea;
+            this.m.saveMeasurements();
+          },
+        });
+        this._cleanup = () => this.m.map.off("click", onPolyMapClick);
+        this.m.finalizedClickHandlers.push(onPolyMapClick);
+
+        // Cleanup drawing mode
+        this.map.off("click", onPolyClick);
+        this.map.off("dblclick", onPolyDbl);
+        this.map.off("contextmenu", onPolyContext);
+        this.map.off("mousemove", onPolyMove);
+        this.layers.removeLayer(previewPoly);
+        if (previewDistLabel) {
+          this.layers.removeLayer(previewDistLabel);
+          previewDistLabel = null;
+        }
+        this.m.clearActiveMode();
+      };
+
+      const onPolyMove = (e) => {
+        if (points.length === 0) return;
+        const allPts = [...points, e.latlng];
+        previewPoly.setLatLngs(allPts);
+        poly.setLatLngs([points[points.length - 1], e.latlng]);
+        const seg = MeasureUtils.distance(
+          points[points.length - 1].lng,
+          points[points.length - 1].lat,
+          e.latlng.lng,
+          e.latlng.lat,
+        );
+        const lastPt = points[points.length - 1];
+        const labelText = MeasureUtils.formatDistance(seg);
+        const bearingText = MeasureUtils.formatSegmentLabel(
+          lastPt.lng,
+          lastPt.lat,
+          e.latlng.lng,
+          e.latlng.lat,
+          seg,
+        );
+        if (!previewDistLabel) {
+          previewDistLabel = this.layers.addLayer(
+            L.marker(e.latlng, {
+              icon: MeasureUtils.makeLabelDivIcon(bearingText),
+              interactive: false,
+            }),
+            true,
+          );
+        } else {
+          previewDistLabel.setLatLng(e.latlng);
+          MeasureUtils.setLabelText(previewDistLabel, bearingText);
+        }
+      };
+
+      const onPolyClick = (e) => {
+        if (this.m.currentMode !== this.type) return;
+        points.push(e.latlng);
+        if (previewDistLabel) {
+          this.layers.removeLayer(previewDistLabel);
+          previewDistLabel = null;
+        }
+        poly.addLatLng(e.latlng);
+        previewPoly.setLatLngs(points);
+
+        const marker = this.layers.addLayer(MeasureUtils.makeNode(e.latlng));
+        marker.bringToFront();
+        nodeMarkers.push(marker);
+
+        marker.on("click", () => {
+          if (points.length < 3) return;
+          // Click first or last point → finish
+          if (
+            marker === nodeMarkers[0] ||
+            marker === nodeMarkers[nodeMarkers.length - 1]
+          ) {
+            finishPoly();
+          }
+        });
+
+        if (points.length > 1) {
+          const seg = MeasureUtils.distance(
+            points[points.length - 2].lng,
+            points[points.length - 2].lat,
+            points[points.length - 1].lng,
+            points[points.length - 1].lat,
+          );
+
+          if (segLabels.length > 0 && points.length >= 3) {
+            const prevLabel = segLabels[segLabels.length - 1];
+            const prevSeg = MeasureUtils.distance(
+              points[points.length - 3].lng,
+              points[points.length - 3].lat,
+              points[points.length - 2].lng,
+              points[points.length - 2].lat,
+            );
+            prevLabel.setIcon(
+              MeasureUtils.makeLabelDivIcon(
+                MeasureUtils.formatSegmentLabel(
+                  points[points.length - 3].lng,
+                  points[points.length - 3].lat,
+                  points[points.length - 2].lng,
+                  points[points.length - 2].lat,
+                  prevSeg,
+                ),
+              ),
+            );
+          }
+
+          const label = this.layers.addLayer(
+            L.marker(points[points.length - 1], {
+              icon: MeasureUtils.makeLabelDivIcon(
+                MeasureUtils.formatSegmentLabel(
+                  points[points.length - 2].lng,
+                  points[points.length - 2].lat,
+                  points[points.length - 1].lng,
+                  points[points.length - 1].lat,
+                  seg,
+                ),
+              ),
+            }),
+            true,
+          );
+          segLabels.push(label);
+        }
+      };
+
+      const onPolyDbl = (e) => {
+        MeasureUtils.stopEvent(e);
+        finishPoly();
+      };
+      const onPolyContext = (e) => {
+        MeasureUtils.stopEvent(e);
+        finishPoly();
+      };
+
+      this.map.on("click", onPolyClick);
+      this.map.on("dblclick", onPolyDbl);
+      this.map.on("contextmenu", onPolyContext);
+      this.map.on("mousemove", onPolyMove);
     }
   }
 
@@ -1061,6 +1374,9 @@
           case CONST.MODE.DISTANCE:
             this.restoreDistance(m);
             break;
+          case CONST.MODE.POLYGON:
+            this.restorePolygon(m);
+            break;
           case CONST.MODE.CIRCLE:
             this.restoreCircle(m);
             break;
@@ -1188,6 +1504,71 @@
           this.saveMeasurements();
         },
       });
+    }
+
+    restorePolygon(m) {
+      const points = m.points.map((p) => L.latLng(p.lat, p.lng));
+      const closedPts = [...points, points[0]];
+      const finalPoly = this.layers.addLayer(
+        L.polygon(closedPts, {
+          className: CONST.CLASSES.POLYGON_FINAL,
+          interactive: true,
+        }),
+      );
+
+      const nodeMarkers = [];
+      points.forEach((pt) => {
+        const node = this.layers.addLayer(MeasureUtils.makeNode(pt));
+        node.bringToFront();
+        nodeMarkers.push(node);
+      });
+
+      const segLabels = [];
+      if (m.segments) {
+        m.segments.forEach((seg, i) => {
+          const prev = points[i];
+          const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
+          if (!prev || !seg) return;
+          const label = this.layers.addLayer(
+            L.marker(L.latLng(seg.lat, seg.lng), {
+              icon: MeasureUtils.makeLabelDivIcon(
+                MeasureUtils.formatSegmentLabel(
+                  prev.lng,
+                  prev.lat,
+                  cur.lng,
+                  cur.lat,
+                  seg.distance,
+                ),
+              ),
+            }),
+            true,
+          );
+          segLabels.push(label);
+        });
+      }
+
+      // Attach toggle/delete UI (shared with finishPoly)
+      const { onMapClickActive } = this.attachPolygonUI({
+        layers: this.layers,
+        finalPoly,
+        nodeMarkers,
+        segLabels,
+        points: points,
+        area: m.area,
+        onDelete: () => {
+          this.measurements = this.measurements.filter((x) => x.id !== m.id);
+          this.saveMeasurements();
+        },
+        onUpdate: () => {
+          const newArea = MeasureUtils.area(points);
+          const { segments, totalDistance } = MeasureUtils.recalculateSegments(points);
+          m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+          m.segments = segments;
+          m.area = newArea;
+          this.saveMeasurements();
+        },
+      });
+      this.finalizedClickHandlers.push(onMapClickActive);
     }
 
     restoreCircle(m) {
@@ -1577,6 +1958,256 @@
       return { onMapClickActive, deleteCircle };
     }
 
+    /**
+     * Attach toggle/delete UI to a completed polygon measurement.
+     * Shared by finishPoly (PolygonMode) and restorePolygon (MeasureManager).
+     * @param {Object} opts
+     * @param {Object} opts.layers     - createLayers API object
+     * @param {Object} opts.finalPoly  - L.Polygon
+     * @param {Array}  opts.nodeMarkers - L.CircleMarker[]
+     * @param {Array}  opts.segLabels   - Label L.Marker[]
+     * @param {Array}  opts.points     - LatLng array
+     * @param {number} opts.area       - Area in square meters
+     * @param {Function} opts.onDelete - Called when user deletes the measurement
+     * @param {Function} opts.onUpdate - Called when points are modified
+     */
+    attachPolygonUI(opts) {
+      const {
+        layers,
+        finalPoly,
+        nodeMarkers,
+        segLabels,
+        onDelete,
+        onUpdate,
+        points,
+        area,
+      } = opts;
+      let labelsVisible = true;
+      let xVisible = false;
+      const nodeDelIcons = [];
+      let centroidLabel = null;
+      let centroidDot = null;
+      let centroidDel = null;
+
+      const rebuildCentroid = (showX) => {
+        // Remove old centroid elements
+        if (centroidLabel) layers.removeLayer(centroidLabel);
+        if (centroidDot) layers.removeLayer(centroidDot);
+        if (centroidDel) layers.removeLayer(centroidDel);
+
+        // Calculate centroid
+        const cx = points.reduce((s, p) => s + p.lat, 0) / points.length;
+        const cy = points.reduce((s, p) => s + p.lng, 0) / points.length;
+        const centroid = L.latLng(cx, cy);
+
+        centroidDot = layers.addLayer(
+          L.marker(centroid, {
+            icon: L.divIcon({
+              className: CONST.CENTER_DOT.CLASS_FINAL,
+              html: "",
+              iconSize: CONST.CENTER_DOT.SIZE,
+              iconAnchor: CONST.CENTER_DOT.ANCHOR,
+            }),
+            zIndexOffset: CONST.Z_INDEX.OFFSET,
+            interactive: true,
+          }),
+        );
+
+        centroidLabel = layers.addLayer(
+          L.marker(centroid, {
+            icon: MeasureUtils.makeLabelDivIcon(
+              MeasureUtils.formatArea(area),
+              CONST.LABEL.CENTROID_ANCHOR,
+            ),
+            interactive: false,
+          }),
+          true,
+        );
+
+        centroidDel = layers.addLayer(
+          MeasureUtils.makeDelIcon(centroid, {
+            zIndexOffset: CONST.Z_INDEX.OFFSET,
+            title: _(`${CONST.name}.del_all`),
+          }),
+        );
+        MeasureUtils.attachDelClick(centroidDel, deleteMeas);
+
+        // Toggle visibility based on current state
+        if (showX !== undefined) {
+          MeasureUtils.toggleDelIcon(centroidDel, showX);
+        }
+      };
+
+      const deleteMeas = () => {
+        layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
+        if (centroidDot) layers.removeLayer(centroidDot);
+        if (centroidLabel) layers.removeLayer(centroidLabel);
+        if (centroidDel) layers.removeLayer(centroidDel);
+        onDelete();
+        layers.unregister();
+      };
+
+      const toggleUI = (showX, toggleLabels) => {
+        const s = MeasureUtils.calcToggle(xVisible, labelsVisible, showX, toggleLabels);
+        xVisible = s.xVisible;
+        labelsVisible = s.labelsVisible;
+        nodeDelIcons.forEach((m) => MeasureUtils.toggleDelIcon(m, xVisible));
+        MeasureUtils.toggleDelIcon(centroidDel, xVisible);
+        MeasureUtils.applyToggle(null, xVisible, segLabels, labelsVisible, null);
+        // Also toggle centroid label visibility
+        if (centroidLabel) {
+          const el = centroidLabel.getElement();
+          if (el) {
+            const label = el.querySelector(CONST.SEL.LABEL);
+            if (label) label.classList.toggle(CONST.CLASSES.HIDDEN, !labelsVisible);
+          }
+        }
+      };
+
+      const handleItemClick = (e) => {
+        MeasureUtils.stopEvent(e);
+        MeasureUtils.suppressHide(this);
+        toggleUI(undefined);
+      };
+
+      finalPoly.on("click", handleItemClick);
+      nodeMarkers.forEach((m) => m.on("click", handleItemClick));
+      segLabels.forEach((l) => l.on("click", handleItemClick));
+
+      // Create centroid
+      rebuildCentroid(false);
+      if (centroidDot) centroidDot.on("click", handleItemClick);
+      if (centroidDel) centroidDel.on("click", handleItemClick);
+
+      toggleUI(false, CONST.TOGGLE.RESET);
+
+      const onMapClickActive = () => {
+        if (this.isSuppressHideDel) return;
+        if (xVisible) toggleUI(false, CONST.TOGGLE.RESET);
+      };
+      this.map.on("click", onMapClickActive);
+
+      // Create delete icons for each node
+      nodeMarkers.forEach((node, idx) => {
+        const isFirst = idx === 0;
+        const isLastWhenTwo = points.length === 2 && idx === 1;
+        const delMarker = layers.addLayer(
+          MeasureUtils.makeDelIcon(node.getLatLng(), {
+            zIndexOffset: CONST.Z_INDEX.OFFSET,
+            title:
+              isFirst || isLastWhenTwo
+                ? _(`${CONST.name}.del_all`)
+                : _(`${CONST.name}.del_node`),
+          }),
+        );
+        nodeDelIcons.push(delMarker);
+
+        if (isFirst || isLastWhenTwo)
+          MeasureUtils.attachDelClick(delMarker, deleteMeas);
+        else {
+          MeasureUtils.attachDelClick(delMarker, () => {
+            const latlng = node.getLatLng();
+            const ptIdx = points.findIndex(
+              (p) =>
+                Math.abs(p.lat - latlng.lat) < 0.0001 &&
+                Math.abs(p.lng - latlng.lng) < 0.0001,
+            );
+            if (ptIdx === -1) return;
+            const lblIdx = ptIdx - 1;
+            points.splice(ptIdx, 1);
+            layers.removeLayer(node, delMarker);
+            if (lblIdx >= 0 && lblIdx < segLabels.length) {
+              layers.removeLayer(segLabels[lblIdx]);
+              segLabels.splice(lblIdx, 1);
+            }
+            nodeMarkers.splice(ptIdx, 1);
+            nodeDelIcons.splice(ptIdx, 1);
+
+            if (points.length < 3) {
+              deleteMeas();
+              return;
+            }
+
+            if (points.length === 3 && nodeDelIcons.length === 3) {
+              const lastDel = nodeDelIcons[2];
+              if (lastDel) {
+                lastDel.off("click");
+                lastDel.on("click", (e) => {
+                  const t = e.originalEvent?.target;
+                  if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
+                    MeasureUtils.stopEvent(e);
+                    deleteMeas();
+                  }
+                });
+                const iconEl = lastDel._icon || lastDel.getElement();
+                if (iconEl) iconEl.title = _(`${CONST.name}.del_all`);
+              }
+            }
+
+            // Recalculate polygon
+            finalPoly.setLatLngs([...points, points[0]]);
+
+            // Recalculate area
+            const newArea = MeasureUtils.area(points);
+            if (centroidLabel) {
+              MeasureUtils.setLabelText(
+                centroidLabel,
+                MeasureUtils.formatArea(newArea),
+              );
+            }
+
+            // Reposition and update ALL remaining segment labels
+            let cumDist = 0;
+            segLabels.forEach((label, i) => {
+              label.setLatLng(points[i + 1]);
+              cumDist += MeasureUtils.distance(
+                points[i].lng,
+                points[i].lat,
+                points[i + 1].lng,
+                points[i + 1].lat,
+              );
+              label.setIcon(
+                MeasureUtils.makeLabelDivIcon(
+                  MeasureUtils.formatSegmentLabel(
+                    points[i].lng,
+                    points[i].lat,
+                    points[i + 1].lng,
+                    points[i + 1].lat,
+                    cumDist,
+                  ),
+                ),
+              );
+            });
+
+            // Rebuild centroid position
+            rebuildCentroid(xVisible);
+
+            if (onUpdate) {
+              // Pass new area to update callback
+              opts.area = newArea;
+              onUpdate();
+            }
+          });
+        }
+
+        delMarker.on("click", (e) => {
+          const t = e.originalEvent?.target;
+          if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+          handleItemClick(e);
+        });
+      });
+
+      // Re-sort layers
+      nodeMarkers.forEach((m) => layers.removeLayer(m));
+      nodeDelIcons.forEach((m) => layers.removeLayer(m));
+      segLabels.forEach((l) => layers.removeLayer(l));
+      nodeMarkers.forEach((m) => layers.addLayer(m));
+      nodeDelIcons.forEach((m) => layers.addLayer(m));
+      segLabels.forEach((l) => layers.addLayer(l));
+
+      return onMapClickActive;
+    }
+
     setMode(mode) {
       if (mode === CONST.MODE.CLEAR) {
         this.clearAll();
@@ -1616,6 +2247,14 @@
           foliplus.HINT_DURATION.PERSIST,
         );
         this.modeInstance = new DistanceMode(this);
+        this.modeInstance.start();
+      } else if (mode === CONST.MODE.POLYGON) {
+        foliplus.showHint(
+          CONST.name,
+          _(`${CONST.name}.hint_polygon`),
+          foliplus.HINT_DURATION.PERSIST,
+        );
+        this.modeInstance = new PolygonMode(this);
         this.modeInstance.start();
       } else if (mode === CONST.MODE.CIRCLE) {
         foliplus.showHint(
@@ -1713,6 +2352,11 @@
           mode: CONST.MODE.DISTANCE,
           title: _(`${CONST.name}.tool_distance`),
           svg: SVGs.RULER,
+        },
+        {
+          mode: CONST.MODE.POLYGON,
+          title: _(`${CONST.name}.tool_polygon`),
+          svg: SVGs.POLYGON,
         },
         {
           mode: CONST.MODE.CIRCLE,
