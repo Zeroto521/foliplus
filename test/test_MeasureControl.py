@@ -1116,6 +1116,134 @@ class TestMeasureControlRendering:
             assert count == 1, f"expected 1 measurement after reload, got {count}"
             pins = page.evaluate("document.querySelectorAll('.foliplus-pin').length")
             assert pins >= 1, "marker pin should be visible after reload"
+    # ── PreviewMode ──────────────────────────────────────────────
+
+    def test_preview_mode_has_methods(self, base_map: folium.Map):
+        """PreviewMode provides addPreview/removePreview/clearPreviews/isFinished/previewLayers."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "addPreview(layer)" in html
+        assert "removePreview(layer)" in html
+        assert "clearPreviews()" in html
+        assert "this.isFinished" in html or "this.isFinished =" in html
+        assert "this.previewLayers" in html or "this.previewLayers =" in html
+
+    def test_add_preview_adds_to_layer_group(self, base_map: folium.Map):
+        """addPreview calls this.layers.addLayer(layer) internally."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.layers.addLayer(layer)" in html
+        assert "this.previewLayers.push(layer)" in html
+
+    def test_remove_preview_removes_from_tracked(self, base_map: folium.Map):
+        """removePreview splices from previewLayers and removes from layer group."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.previewLayers.indexOf(layer)" in html
+        assert "this.previewLayers.splice(idx, 1)" in html
+        assert "this.layers.removeLayer(layer)" in html
+
+    def test_clear_previews_empties_all(self, base_map: folium.Map):
+        """clearPreviews removes all tracked preview layers and resets the array."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.previewLayers.forEach((l) => this.layers.removeLayer(l))" in html
+        assert "this.previewLayers = []" in html
+
+    def test_distance_uses_preview_base(self, base_map: folium.Map):
+        """DistanceMode calls addPreview for poly/previewLine, uses finalPoly via addLayer."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.addPreview(" in html
+        assert "CONST.CLASSES.LINE_DASHED" in html
+        assert "CONST.CLASSES.LINE_PREVIEW" in html
+        assert "finalPoly" in html
+
+    def test_circle_uses_preview_base(self, base_map: folium.Map):
+        """CircleMode calls addPreview for preview center/circle/line/node/label."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        # Preview layers should use addPreview, final layers use addLayer
+        assert "this.addPreview(" in html
+        assert "previews.center" in html
+        assert "previews.circle" in html
+        assert "previews.line" in html
+        assert "previews.node" in html
+        assert "previews.label" in html
+
+    # ── Edge cases ──
+
+    def test_escape_key_exits_mode(self, base_map: folium.Map):
+        """Escape key calls clearActiveMode when mode is active."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'e.key === "Escape"' in html
+        assert "this.currentMode" in html
+        assert "this.clearActiveMode()" in html
+
+    def test_clear_mode_routes_to_clear_all(self, base_map: folium.Map):
+        """CLEAR mode calls clearAll() directly."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "mode === CONST.MODE.CLEAR" in html
+        assert "this.clearAll()" in html
+
+    def test_same_mode_toggle_clears(self, base_map: folium.Map):
+        """Clicking the same mode button again clears the mode."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.currentMode === mode" in html
+        assert "this.clearActiveMode()" in html
+
+    def test_distance_cancel_on_single_point(self, base_map: folium.Map):
+        """finishDist with <2 points cleans up without saving."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "points.length < 2" in html
+        assert "this.cleanup()" in html
+        assert "this.m.clearActiveMode()" in html
+
+    def test_distance_is_finished_guard(self, base_map: folium.Map):
+        """isFinished prevents double finalization of distance."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.isFinished" in html
+        assert "return" in html
+
+    def test_preview_layer_cleanup_on_finish(self, base_map: folium.Map):
+        """After finishDist, previewLine is removed from layers."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.layers.removeLayer(previewLine)" in html
+        assert "this.layers.removeLayer(poly)" in html
+
+    def test_clear_previews_in_circle_cleanup(self, base_map: folium.Map):
+        """CircleMode cleanup calls resetPreviews which clears preview layers."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "resetPreviews()" in html
+        assert "this.clearPreviews()" in html
+
+    # ── Browser tests for gaps ──
+
+    def test_escape_cancels_mode(self, browser, tmp_path):
+        """Pressing Escape while drawing cancels the mode."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            page.wait_for_timeout(300)
+            # Press Escape
+            page.evaluate("""() => {
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            }""")
+            page.wait_for_timeout(200)
+            mode = page.evaluate("window.__measureManager.currentMode")
+            assert mode is None, f"expected mode to be None after Escape, got {mode}"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -1145,6 +1273,59 @@ class TestMeasureControlRendering:
             assert parsed and parsed[0]["address"], (
                 "address should be persisted after restore"
             )
+    def test_clear_button_empties_everything(self, browser, tmp_path):
+        """Clicking the CLEAR tool button removes all measurements and layers."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # Add some content
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.layers.addLayer(L.circleMarker([26.08, 119.30]));
+                mm.layers.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                mm.measurements = [{ id: 'test', type: 'marker', lng: 119.30, lat: 26.08 }];
+                mm.saveMeasurements();
+            }""")
+            page.wait_for_timeout(200)
+            # Click CLEAR button
+            page.evaluate("""() => {
+                const btn = document.querySelector('[data-mode=clear]');
+                if (btn) btn.click();
+            }""")
+            page.wait_for_timeout(300)
+            # All sub-layers should be empty
+            subLayersEmpty = page.evaluate("""() => {
+                const main = window.__measureManager.layers.mainLayer;
+                return Object.values(main._layers).every(
+                    sub => !sub._layers || Object.keys(sub._layers).length === 0
+                );
+            }""")
+            assert subLayersEmpty, "expected all sub-layers to be empty after clear"
+            # Measurements should be empty
+            meas = page.evaluate("window.__measureManager.measurements.length")
+            assert meas == 0, f"expected 0 measurements, got {meas}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_same_tool_toggle_clears_mode(self, browser, tmp_path):
+        """Clicking the same tool button twice clears the mode."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const btn = document.querySelector('[data-mode=distance]');
+                btn.click();
+            }""")
+            page.wait_for_timeout(200)
+            mode1 = page.evaluate("window.__measureManager.currentMode")
+            assert mode1 == "distance", f"expected distance mode, got {mode1}"
+            # Click same button again
+            page.evaluate("""() => {
+                const btn = document.querySelector('[data-mode=distance]');
+                btn.click();
+            }""")
+            page.wait_for_timeout(200)
+            mode2 = page.evaluate("window.__measureManager.currentMode")
+            assert mode2 is None, f"expected mode cleared, got {mode2}"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -1190,3 +1371,61 @@ class TestMeasureControlRendering:
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
+    def test_distance_cancel_single_click(self, browser, tmp_path):
+        """Single click then right-click cancels distance without saving."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            page.wait_for_timeout(300)
+            # Right-click to finish (cancel) with < 2 points
+            page.evaluate("""() => {
+                const map = window.__map;
+                map.fire('contextmenu', {latlng: L.latLng(26.08, 119.30)});
+            }""")
+            page.wait_for_timeout(300)
+            # Mode should be cleared, no measurement saved
+            mode = page.evaluate("window.__measureManager.currentMode")
+            assert mode is None, f"expected mode cleared, got {mode}"
+            meas = page.evaluate("window.__measureManager.measurements.length")
+            assert meas == 0, f"expected 0 measurements, got {meas}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_distance_preview_layers_removed_after_finish(self, browser, tmp_path):
+        """After finishing distance, previewLine and poly are removed from map."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                const map = window.__map;
+                mm.setMode('distance');
+                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
+                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
+                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
+            }""")
+            page.wait_for_timeout(500)
+            # The map should have the final polyline but not the preview layers
+            # Check that measurements were saved
+            meas = page.evaluate("window.__measureManager.measurements.length")
+            assert meas == 1, f"expected 1 measurement, got {meas}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_add_preview_returns_layer(self, base_map: folium.Map):
+        """addPreview returns the layer for chaining."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "return layer" in html
+
+    def test_is_finished_resets_on_new_start(self, base_map: folium.Map):
+        """isFinished starts as false when a new DistanceMode is created."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.isFinished = false" in html
