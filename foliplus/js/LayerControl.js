@@ -428,6 +428,8 @@
       this.extractPoints = this.extractPoints.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
       this.getLayerPanes = this.getLayerPanes.bind(this);
+      this.createLayers = this.createLayers.bind(this);
+      this.createCanvas = this.createCanvas.bind(this);
       this.isEnforcing = false;
       this.isDestroyed = false;
 
@@ -483,6 +485,15 @@
       this.loadFoldState();
       this.normalizeLayerGroups();
 
+      // Expose the manager as the public LayerAPI. The full instance is
+      // attached so tests and debuggers can reach internals, but the stable
+      // public contract is the bound methods below:
+      //   registerLayer / unregisterLayer / bringLayerToFront
+      //   getLayerType / getLayersByType / findLayer / forEachLeaf / extractPoints
+      //   ensurePane / getLayerPanes / createLayers / createCanvas
+      //   layers (read-only view) / layerRegistry (lookup: get/has/size/at)
+      // Other members (map, ui, paneCache, etc.) are internal — do not rely
+      // on them; mutate layers only through the API above.
       foliplus.LayerAPI = this;
     }
 
