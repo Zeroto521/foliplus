@@ -333,10 +333,15 @@
   };
 
   /**
-   * Ensure that the gcoord library is loaded. If not, logs a warning and shows a hint.
+   * Ensure that the gcoord library is loaded. If not, logs a warning.
    * @returns {boolean} True if gcoord is available, false otherwise.
    */
   const ensureGcoord = () => {
+    // gcoord_warn hint was removed in favor of console.warn because
+    // the warning only triggers when the user places a geopoint on a
+    // non-WGS84 map, which is an edge case that doesn't warrant a
+    // persistent UI hint.  The console warning is sufficient for
+    // developers to diagnose the missing dependency.  See #114.
     if (typeof gcoord === "undefined") {
       console.warn(`[foliplus] ${foliplus.gt("foliplus.gcoord_warn")}`);
       return false;

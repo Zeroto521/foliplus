@@ -597,6 +597,7 @@
         }),
       );
       let previewDistLabel = null;
+      let originLabel = null;
 
       this._cleanup = () => {
         this.map.off("click", onDistClick);
@@ -612,6 +613,7 @@
         this.layers.removeLayer(finalPoly);
         nodeMarkers.forEach((m) => this.layers.removeLayer(m));
         segLabels.forEach((l) => this.layers.removeLayer(l));
+        if (originLabel) this.layers.removeLayer(originLabel);
       };
 
       const finishDist = () => {
@@ -730,7 +732,7 @@
         nodeMarkers.push(marker);
 
         if (points.length === 1) {
-          this.layers.addLayer(
+          originLabel = this.layers.addLayer(
             L.marker(e.latlng, {
               icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
             }),
@@ -1788,16 +1790,15 @@
             finalPoly.setLatLngs(points);
 
             // Reposition and update ALL remaining segment labels
+            // Use cumulative total to stay consistent with initial finishDist and restoreDistance
+            let cumulative = 0;
             segLabels.forEach((label, i) => {
+              cumulative += MeasureUtils.distance(points[i], points[i + 1]);
               const mid = MeasureUtils.midpoint(points[i], points[i + 1]);
               label.setLatLng([mid.lat, mid.lng]);
               label.setIcon(
                 MeasureUtils.makeMidLabelDivIcon(
-                  MeasureUtils.formatSegmentLabel(
-                    points[i],
-                    points[i + 1],
-                    MeasureUtils.distance(points[i], points[i + 1]),
-                  ),
+                  MeasureUtils.formatSegmentLabel(points[i], points[i + 1], cumulative),
                 ),
               );
             });
