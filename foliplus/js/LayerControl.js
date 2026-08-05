@@ -246,16 +246,127 @@
     }
   }
 
+  // ==================== Ordered Layer Registry ====================
+  // Owns the ordered layer list and its id → layerInfo index. All mutations
+  // go through here so the index can never drift from the list. The exposed
+  // array (`this.layers`) remains the single source of order for DOM-aligned
+  // code (data-index = array index) — this class just keeps the index honest.
+  class LayerRegistry {
+    constructor(initial = []) {
+      this._list = [...initial];
+      this._byId = new Map(this._list.map((l) => [l.id, l]));
+    }
+
+    /** The ordered list array (read-only by convention; mutate via methods). */
+    get list() {
+      return this._list;
+    }
+
+    get size() {
+      return this._list.length;
+    }
+
+    at(i) {
+      return this._list[i];
+    }
+
+    get(id) {
+      return this._byId.get(id);
+    }
+
+    has(id) {
+      return this._byId.has(id);
+    }
+
+    indexOf(li) {
+      return this._list.indexOf(li);
+    }
+
+    /** Iterate in order (keeps `for...of` and spread working). */
+    [Symbol.iterator]() {
+      return this._list[Symbol.iterator]();
+    }
+
+    /** Insert or update in place — never reorders an existing layer. */
+    upsert(layerInfo) {
+      const existing = this._byId.get(layerInfo.id);
+      if (existing) {
+        const idx = this._list.indexOf(existing);
+        this._list[idx] = layerInfo;
+      } else this._list.push(layerInfo);
+
+      this._byId.set(layerInfo.id, layerInfo);
+      return layerInfo;
+    }
+
+    /** Insert at the front (used for new overlay layers). */
+    prepend(layerInfo) {
+      this._list.unshift(layerInfo);
+      this._byId.set(layerInfo.id, layerInfo);
+      return layerInfo;
+    }
+
+    /** Insert before the given index (used for new base layers). */
+    insertAt(layerInfo, idx) {
+      this._list.splice(idx, 0, layerInfo);
+      this._byId.set(layerInfo.id, layerInfo);
+      return layerInfo;
+    }
+
+    remove(id) {
+      const li = this._byId.get(id);
+      if (!li) return null;
+      const idx = this._list.indexOf(li);
+      if (idx !== -1) this._list.splice(idx, 1);
+      this._byId.delete(id);
+      return li;
+    }
+
+    /** Move an existing layer to index 0 (bring to front). */
+    moveToFront(id) {
+      const li = this._byId.get(id);
+      if (!li) return null;
+      const idx = this._list.indexOf(li);
+      if (idx <= 0) return li;
+      this._list.splice(idx, 1);
+      this._list.unshift(li);
+      return li;
+    }
+
+    /** Swap order of two positions (drag-and-drop). */
+    reorder(fromIdx, toIdx) {
+      const [moved] = this._list.splice(fromIdx, 1);
+      this._list.splice(toIdx, 0, moved);
+    }
+
+    /** Rebuild both list and index from a new ordered array.
+     *  Mutates the existing array in place so external references
+     *  (`manager.layers`) keep pointing at the same instance. */
+    replace(newList) {
+      this._list.splice(0, this._list.length, ...newList);
+      this._byId = new Map(this._list.map((l) => [l.id, l]));
+    }
+
+    clear() {
+      this._list.splice(0, this._list.length);
+      this._byId.clear();
+    }
+
+    toArray() {
+      return this._list.slice();
+    }
+  }
+
   // ==================== Core Manager: LayerManager ====================
   class LayerManager {
     constructor(mapInstance, initialData) {
       this.map = mapInstance;
       // Each entry: {id, name, visible, isBase, paneName, iconSvg,
       //              type, layer, canvas, onToggle, onZIndex}
-      this.layers = [...initialData];
-      // Fast lookup: id → layerInfo. `this.layers` remains the single source
-      // of order; this Map is a derived index kept in sync on every mutation.
-      this.layerIndex = new Map(this.layers.map((l) => [l.id, l]));
+      this.layerRegistry = new LayerRegistry(initialData);
+      // `this.layers` is the registry's ordered array — kept as a direct
+      // reference so DOM-aligned code (data-index = array index) is unchanged.
+      this.layers = this.layerRegistry.list;
       this.pendingRegistrations = [];
       this.uiContainer = null;
 
@@ -340,14 +451,10 @@
         if (l && l.isBase) bases.push(l);
         else overlays.push(l);
       }
-      this.layers = overlays.concat(bases);
-      this.rebuildLayerIndex();
+      // Replace in place so the registry index stays in sync AND `this.layers`
+      // keeps pointing at the same array instance (DOM-aligned code relies on it).
+      this.layerRegistry.replace(overlays.concat(bases));
       this.refreshFirstBaseIdx();
-    }
-
-    /** Rebuild the id → layerInfo index from the current layers array. */
-    rebuildLayerIndex() {
-      this.layerIndex = new Map(this.layers.map((l) => [l.id, l]));
     }
 
     /** Recompute the cached first-base-layer index after group mutations. */
@@ -369,8 +476,7 @@
             layerMap.delete(id);
           }
         }
-        this.layers = ordered.concat([...layerMap.values()]);
-        this.rebuildLayerIndex();
+        this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_order_fail`)}`, e);
       }
@@ -427,7 +533,7 @@
      * @returns {string|null} "point" | "line" | "polygon" | "base" | null
      */
     getLayerType(id) {
-      const li = this.layerIndex.get(id);
+      const li = this.layerRegistry.get(id);
       if (!li) return null;
       if (li.type) return li.type;
       if (li.isBase) return CONST.GROUP.BASE;
@@ -457,7 +563,7 @@
      * @returns {Object|null} Leaflet layer or null.
      */
     findLayer(id) {
-      const li = this.layerIndex.get(id);
+      const li = this.layerRegistry.get(id);
       if (li?.layer) return li.layer;
       return LayerUtils.findLayer(this.map, id);
     }
@@ -516,7 +622,7 @@
       if (!opts?.id)
         throw new Error(`[${CONST.name}] ${_(`${CONST.name}.id_required`)}`);
 
-      const existingLi = this.layerIndex.get(opts.id);
+      const existingLi = this.layerRegistry.get(opts.id);
       const existingIdx = existingLi ? this.layers.indexOf(existingLi) : -1;
       const existingVisible = existingLi ? existingLi.visible : true;
 
@@ -538,13 +644,13 @@
         // Do NOT splice+unshift — that would silently destroy the user's
         // drag order (e.g. MeasureControl.setMode calls register() on every
         // tool switch) and persist the accidental order via saveOrder.
-        this.layers[existingIdx] = layerInfo;
+        this.layerRegistry.upsert(layerInfo);
       } else if (layerInfo.isBase) {
         const firstBaseIdx = this.firstBaseIdx;
-        if (firstBaseIdx === -1) this.layers.push(layerInfo);
-        else this.layers.splice(firstBaseIdx, 0, layerInfo);
-      } else this.layers.unshift(layerInfo);
-      this.layerIndex.set(opts.id, layerInfo);
+        if (firstBaseIdx === -1)
+          this.layerRegistry.insertAt(layerInfo, this.layers.length);
+        else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      } else this.layerRegistry.prepend(layerInfo);
       this.refreshFirstBaseIdx();
 
       if (opts.paneName) this.ensurePane(opts.paneName);
@@ -597,15 +703,14 @@
      * @param {string} id - Layer ID previously passed to registerLayer().
      */
     bringLayerToFront(id) {
-      const item = this.layerIndex.get(id);
+      const item = this.layerRegistry.get(id);
       if (!item) return;
       const idx = this.layers.indexOf(item);
       if (idx <= 0) return;
       // Bringing a base layer to index 0 would break the overlay-before-base
       // invariant and corrupt the cached group boundary — ignore it.
       if (item?.isBase) return;
-      this.layers.splice(idx, 1);
-      this.layers.unshift(item);
+      this.layerRegistry.moveToFront(id);
       this.refreshFirstBaseIdx();
       this.enforceOrder();
       this.saveOrder();
@@ -627,11 +732,8 @@
      * @returns {boolean} true if layer was found and removed, false otherwise.
      */
     unregisterLayer(id) {
-      const layerInfo = this.layerIndex.get(id);
+      const layerInfo = this.layerRegistry.remove(id);
       if (!layerInfo) return false;
-      const idx = this.layers.indexOf(layerInfo);
-      if (idx !== -1) this.layers.splice(idx, 1);
-      this.layerIndex.delete(id);
       this.refreshFirstBaseIdx();
 
       const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id);
@@ -1302,8 +1404,7 @@
         this.uiContainer.innerHTML = "";
         this.uiContainer = null;
       }
-      this.layers = [];
-      this.layerIndex.clear();
+      this.layerRegistry.clear();
       this.pendingRegistrations = [];
       this.paneCache.clear();
       this.fallbackPaneMap.clear();
@@ -1865,8 +1966,9 @@
         return;
       }
 
-      const moved = this.m.layers.splice(this.m.dragIdx, 1)[0];
-      this.m.layers.splice(targetIdx, 0, moved);
+      // Reorder via the registry so the array + index stay consistent.
+      this.m.layerRegistry.reorder(this.m.dragIdx, targetIdx);
+      const moved = this.m.layers[targetIdx];
 
       const movedItem = this.m.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(moved.id)}"]`,
