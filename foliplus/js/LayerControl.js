@@ -298,21 +298,12 @@
      */
     constructor(initial = [], map) {
       // Normalize so every layerInfo carries all fields, regardless of
-      // source. Pass `{visible}` as existingLi only when the entry carries
-      // an explicit value; otherwise createLayerInfo defaults visible=true
-      // (a truthy-but-undefined existingLi would yield visible: undefined).
-      this.items = initial.map((l) =>
-        this.createLayerInfo(
-          l,
-          l.visible === undefined ? undefined : { visible: l.visible },
-        ),
-      );
+      // source. Both `visible` and `layer` fallback rules live inside
+      // createLayerInfo (opts.visible ?? existingLi.visible ?? true and
+      // opts.layer || findLayer(map, id) || existingLi.layer), so the
+      // constructor just normalizes each entry with no shim needed.
+      this.items = initial.map((l) => this.createLayerInfo(l, undefined, map));
       this.byId = new Map(this.items.map((l) => [l.id, l]));
-      // Resolve layer references for initial data entries
-      if (map) {
-        for (const li of this.items)
-          if (!li.layer && li.id) li.layer = LayerUtils.findLayer(map, li.id);
-      }
       // Cached index of the first base layer. The base group boundary is
       // stable between group mutations; caching it avoids a full-array
       // findIndex scan on every dragover (fires many times per second).
@@ -328,8 +319,8 @@
      * Each layer info has the following fields:
      *   - `name`     — display name (defaults to `id`)
      *   - `id`       — unique layer identifier
-     *   - `visible`  — visibility state; carries over from `existingLi` on
-     *                  re-registration, otherwise `true`
+     *   - `visible`  — visibility state; explicit `opts.visible` wins, then
+     *                  `existingLi.visible` on re-registration, else `true`
      *   - `isBase`   — whether this is a base layer
      *   - `paneName` — pane name for the layer's content, or `null`
      *   - `iconSvg`  — SVG icon string for the layer item, or `null`
@@ -339,23 +330,38 @@
      *   - `onToggle` — callback invoked when visibility toggles, or `null`
      *   - `onZIndex` — callback invoked when z-index changes, or `null`
      *
+     * Re-registration is idempotent: fields absent from `opts` (or null)
+     * fall back to `existingLi`'s values, so a partial re-register never
+     * silently drops a previously registered field.
+     *
      * @param {Object} opts - Raw options from registerLayer().
      * @param {Object} [existingLi] - Existing layer info for re-registration.
+     * @param {Object} [map] - Leaflet map. If provided, resolves `layer` from
+     *   the map/window globals when `opts.layer` is absent.
      * @returns {Object} A complete layerInfo object.
      */
-    createLayerInfo(opts, existingLi) {
+    createLayerInfo(opts, existingLi, map) {
       return {
-        name: opts.name ?? opts.id,
+        name: opts.name ?? existingLi?.name ?? opts.id,
         id: opts.id,
-        visible: existingLi ? existingLi.visible : true,
-        isBase: !!opts.isBase,
-        paneName: opts.paneName ?? null,
-        iconSvg: opts.iconSvg ?? null,
+        visible: opts.visible ?? existingLi?.visible ?? true,
+        isBase:
+          opts.isBase !== undefined
+            ? !!opts.isBase
+            : existingLi
+              ? existingLi.isBase
+              : false,
+        paneName: opts.paneName ?? existingLi?.paneName ?? null,
+        iconSvg: opts.iconSvg ?? existingLi?.iconSvg ?? null,
         type: null,
-        layer: opts.layer || null,
-        canvas: opts.canvas || null,
-        onToggle: opts.onToggle || null,
-        onZIndex: opts.onZIndex || null,
+        layer:
+          opts.layer ||
+          (map && opts.id ? LayerUtils.findLayer(map, opts.id) : null) ||
+          existingLi?.layer ||
+          null,
+        canvas: opts.canvas ?? existingLi?.canvas ?? null,
+        onToggle: opts.onToggle ?? existingLi?.onToggle ?? null,
+        onZIndex: opts.onZIndex ?? existingLi?.onZIndex ?? null,
       };
     }
 
@@ -994,7 +1000,7 @@
 
       const existingLi = this.layerRegistry.get(opts.id);
       const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
-      const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi);
+      const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
       // Idempotent re-registration: update fields in place, keep position.
       // Do NOT splice+unshift — that would silently destroy the user's
@@ -2032,7 +2038,7 @@
           newState ? this.m.map.addLayer(layer) : this.m.map.removeLayer(layer);
         if (newState && layer) layer.options.paneSet = false;
         if (layerInfo.onToggle) layerInfo.onToggle(newState);
-        layerInfo.visible = layer ? this.m.map.hasLayer(layer) : newState;
+        this.syncVisibility(layerInfo, layer, newState);
       });
 
       if (group === CONST.GROUP.BASE && !newState) {
@@ -2063,6 +2069,23 @@
       allCb.title = _(
         `${CONST.name}.${allChecked ? "toggle_all_deselect_tooltip" : "toggle_all_select_tooltip"}`,
       );
+    }
+
+    /**
+     * Derive and store a layer's effective visibility.
+     *
+     * For layers with a real Leaflet object the map is the source of truth
+     * (`map.hasLayer`); callback-only layers (no `layer`) fall back to the
+     * checkbox/operation state. Shared by toggleAll and handleChange so the
+     * visible-tracking rule lives in exactly one place.
+     * @param {Object} layerInfo - Layer info to update.
+     * @param {Object|null} layer - Resolved Leaflet layer, or null.
+     * @param {boolean} fallback - Value used when there is no Leaflet layer.
+     * @returns {boolean} The effective visibility stored on layerInfo.
+     */
+    syncVisibility(layerInfo, layer, fallback) {
+      layerInfo.visible = layer ? this.m.map.hasLayer(layer) : fallback;
+      return layerInfo.visible;
     }
 
     handleChange(e) {
@@ -2100,7 +2123,7 @@
       );
 
       if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
-      layerInfo.visible = layer ? this.m.map.hasLayer(layer) : target.checked;
+      this.syncVisibility(layerInfo, layer, target.checked);
 
       this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
       this.m.enforceOrder();
