@@ -274,8 +274,8 @@
    *   `size` / `at(i)` / `get(id)` / `has(id)` / `firstBaseIdx`
    *
    * **Internal (Manager only, not for external use):**
-   *   `upsert` / `prepend` / `insertAt` / `remove` / `moveToFront`
-   *   `reorder` / `replace` / `clear` / `normalizeGroups`
+   *   `createLayerInfo` / `upsert` / `prepend` / `insertAt` / `remove`
+   *   `moveToFront` / `reorder` / `replace` / `clear` / `normalizeGroups`
    *   `canReorderBetween` / `refreshFirstBaseIdx`
    *   `items` / `byId` / `view` / `list`
    *
@@ -307,6 +307,43 @@
       this.refreshFirstBaseIdx();
       // Read-only view shared by both internal code and external callers.
       this.view = this.createReadonlyView();
+    }
+
+    /**
+     * Create a layer info object with all fields populated.
+     *
+     * Each layer info has the following fields:
+     *   - `name`     — display name (defaults to `id`)
+     *   - `id`       — unique layer identifier
+     *   - `visible`  — visibility state; carries over from `existingLi` on
+     *                  re-registration, otherwise `true`
+     *   - `isBase`   — whether this is a base layer
+     *   - `paneName` — pane name for the layer's content, or `null`
+     *   - `iconSvg`  — SVG icon string for the layer item, or `null`
+     *   - `type`     — runtime-detected layer type, or `null`
+     *   - `layer`    — Leaflet layer object, or `null`
+     *   - `canvas`   — managed canvas for the layer, or `null`
+     *   - `onToggle` — callback invoked when visibility toggles, or `null`
+     *   - `onZIndex` — callback invoked when z-index changes, or `null`
+     *
+     * @param {Object} opts - Raw options from registerLayer().
+     * @param {Object} [existingLi] - Existing layer info for re-registration.
+     * @returns {Object} A complete layerInfo object.
+     */
+    createLayerInfo(opts, existingLi) {
+      return {
+        name: opts.name ?? opts.id,
+        id: opts.id,
+        visible: existingLi ? existingLi.visible : true,
+        isBase: !!opts.isBase,
+        paneName: opts.paneName ?? null,
+        iconSvg: opts.iconSvg ?? null,
+        type: null,
+        layer: opts.layer || null,
+        canvas: opts.canvas || null,
+        onToggle: opts.onToggle || null,
+        onZIndex: opts.onZIndex || null,
+      };
     }
 
     /** Recompute the cached first-base-layer index. */
@@ -924,6 +961,9 @@
      * geometry type icon, and drag handle. If the UI has already been
      * rendered, a corresponding DOM item is created immediately.
      *
+     * The layerInfo object is created by `LayerRegistry.createLayerInfo()`,
+     * which is the single source of truth for all layer metadata fields.
+     *
      * @param {Object} opts
      * @param {string} opts.id       - Unique identifier for the layer.
      * @param {string} [opts.name]   - Display name (falls back to id).
@@ -941,27 +981,14 @@
 
       const existingLi = this.layerRegistry.get(opts.id);
       const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
-      const layerInfo = {
-        name: opts.name ?? opts.id,
-        id: opts.id,
-        visible: existingLi ? existingLi.visible : true,
-        isBase: !!opts.isBase,
-        paneName: opts.paneName ?? null,
-        iconSvg: opts.iconSvg ?? null,
-        type: null,
-        layer: opts.layer || null,
-        canvas: opts.canvas || null,
-        onToggle: opts.onToggle || null,
-        onZIndex: opts.onZIndex || null,
-      };
+      const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi);
 
-      if (existingIdx !== -1) {
-        // Idempotent re-registration: update fields in place, keep position.
-        // Do NOT splice+unshift — that would silently destroy the user's
-        // drag order (e.g. MeasureControl.setMode calls register() on every
-        // tool switch) and persist the accidental order via saveOrder.
-        this.layerRegistry.upsert(layerInfo);
-      } else if (layerInfo.isBase) {
+      // Idempotent re-registration: update fields in place, keep position.
+      // Do NOT splice+unshift — that would silently destroy the user's
+      // drag order (e.g. MeasureControl.setMode calls register() on every
+      // tool switch) and persist the accidental order via saveOrder.
+      if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
+      else if (layerInfo.isBase) {
         const firstBaseIdx = this.layerRegistry.firstBaseIdx;
         if (firstBaseIdx === -1)
           this.layerRegistry.insertAt(layerInfo, this.layers.length);
