@@ -628,7 +628,7 @@ class TestMeasureControlRendering:
         html = m.get_root().render()
         html = html.replace(
             "const measureManager = new MeasureManager(map);",
-            "const measureManager = new MeasureManager(map); window.__measureManager = measureManager; window.__map = map;",
+            "const measureManager = new MeasureManager(map); window.__measureManager = measureManager; window.__map = map; window.__measureStorageKey = CONST.STORAGE.KEY;",
         )
         # Remove blocking CDN <script> tags (gcoord and turf added by default_js)
         html = html.replace(
@@ -954,7 +954,7 @@ class TestMeasureControlRendering:
                 mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
                 mm.saveMeasurements();
             }""")
-            data = page.evaluate("localStorage.getItem('foliplus_measure')")
+            data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             assert data is not None, "localStorage should contain saved measurements"
 
             parsed = json.loads(data)
@@ -974,7 +974,7 @@ class TestMeasureControlRendering:
                 mm.saveMeasurements();
                 mm.clearAll();
             }""")
-            data = page.evaluate("localStorage.getItem('foliplus_measure')")
+            data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "clearAll should empty localStorage"
             assert not errors, f"JS errors: {errors}"
@@ -996,7 +996,7 @@ class TestMeasureControlRendering:
                 mm.saveMeasurements();
                 mm.onUnload();
             }""")
-            data = page.evaluate("localStorage.getItem('foliplus_measure')")
+            data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 1, "unload should keep persisted measurements"
             assert not errors, f"JS errors: {errors}"
@@ -1035,7 +1035,7 @@ class TestMeasureControlRendering:
             page.wait_for_timeout(300)
             after = page.evaluate("window.__measureManager.measurements.length")
             assert after == 0, f"expected 0 measurements after delete, got {after}"
-            data = page.evaluate("localStorage.getItem('foliplus_measure')")
+            data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "localStorage should be empty after deleting all"
             assert not errors, f"JS errors: {errors}"
@@ -1055,7 +1055,7 @@ class TestMeasureControlRendering:
                     lat: 26.08,
                     address: 'Test Address'
                 }];
-                localStorage.setItem('foliplus_measure', JSON.stringify(data));
+                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
             }""")
             # Reload the page to trigger restoreMeasurements in constructor
             page.reload()
@@ -1086,7 +1086,7 @@ class TestMeasureControlRendering:
                         { lng: 119.305, lat: 26.085, distance: 1234.56 }
                     ]
                 }];
-                localStorage.setItem('foliplus_measure', JSON.stringify(data));
+                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(2000)
@@ -1110,7 +1110,7 @@ class TestMeasureControlRendering:
                     target: { lng: 119.31, lat: 26.09 },
                     radius: 500
                 }];
-                localStorage.setItem('foliplus_measure', JSON.stringify(data));
+                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(2000)
@@ -1216,7 +1216,7 @@ class TestMeasureControlRendering:
             }""")
             # Measurement must be persisted WITHOUT waiting for geocode
             page.wait_for_timeout(300)
-            saved = page.evaluate("localStorage.getItem('foliplus_measure')")
+            saved = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(saved) if saved else []
             assert len(parsed) == 1, (
                 f"marker must be saved immediately, got {len(parsed)}"
@@ -1244,7 +1244,7 @@ class TestMeasureControlRendering:
                     lat: 26.08,
                     address: null
                 }];
-                localStorage.setItem('foliplus_measure', JSON.stringify(data));
+                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(3000)
@@ -1252,7 +1252,7 @@ class TestMeasureControlRendering:
             addr = page.evaluate("window.__measureManager.measurements[0]?.address")
             assert addr, f"expected address to be backfilled, got {addr!r}"
             # And persisted back to localStorage
-            saved = page.evaluate("localStorage.getItem('foliplus_measure')")
+            saved = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(saved) if saved else []
             assert parsed and parsed[0]["address"], (
                 "address should be persisted after restore"
@@ -1291,7 +1291,7 @@ class TestMeasureControlRendering:
                     lat: 26.08,
                     address: null
                 }];
-                localStorage.setItem('foliplus_measure', JSON.stringify(data));
+                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(2000)
@@ -1838,7 +1838,7 @@ class TestMeasureControlRendering:
                     ],
                     area: 500000
                 }];
-                localStorage.setItem('foliplus_measure', JSON.stringify(data));
+                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
             }""")
             page.reload()
             page.wait_for_timeout(2000)
