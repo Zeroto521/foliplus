@@ -1133,13 +1133,18 @@ class TestLayerControlRendering:
         """handleChange records layerInfo.visible for callback-only layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layerInfo.visible = target.checked" in html
+        assert (
+            "layerInfo.visible = layer ? this.m.map.hasLayer(layer) : target.checked"
+            in html
+        )
 
     def test_callback_only_visible_tracking_in_toggle_all(self, base_map: folium.Map):
         """toggleAll records layerInfo.visible for callback-only layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layerInfo.visible = newState" in html
+        assert (
+            "layerInfo.visible = layer ? this.m.map.hasLayer(layer) : newState" in html
+        )
 
     def test_init_types_visibility_respects_callback_only_state(
         self, base_map: folium.Map

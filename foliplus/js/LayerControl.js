@@ -941,11 +941,10 @@
 
       const existingLi = this.layerRegistry.get(opts.id);
       const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
-      const existingVisible = existingLi ? existingLi.visible : true;
       const layerInfo = {
         name: opts.name ?? opts.id,
         id: opts.id,
-        visible: existingVisible,
+        visible: existingLi ? existingLi.visible : true,
         isBase: !!opts.isBase,
         paneName: opts.paneName ?? null,
         iconSvg: opts.iconSvg ?? null,
@@ -1843,6 +1842,7 @@
           const isCallbackOnly = !hasLayer && layerInfo.onToggle;
           if (isCallbackOnly) inputs[i].checked = layerInfo.visible !== false;
           else inputs[i].checked = hasLayer && this.m.map.hasLayer(layer);
+          layerInfo.visible = inputs[i].checked;
 
           inputs[i].title = _(
             `${CONST.name}.${inputs[i].checked ? "deselect_tooltip" : "select_tooltip"}`,
@@ -1992,7 +1992,7 @@
           newState ? this.m.map.addLayer(layer) : this.m.map.removeLayer(layer);
         if (newState && layer) layer.options.paneSet = false;
         if (layerInfo.onToggle) layerInfo.onToggle(newState);
-        if (!layer) layerInfo.visible = newState;
+        layerInfo.visible = layer ? this.m.map.hasLayer(layer) : newState;
       });
 
       if (group === CONST.GROUP.BASE && !newState) {
@@ -2060,7 +2060,7 @@
       );
 
       if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
-      if (!layer) layerInfo.visible = target.checked;
+      layerInfo.visible = layer ? this.m.map.hasLayer(layer) : target.checked;
 
       this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
       this.m.enforceOrder();
