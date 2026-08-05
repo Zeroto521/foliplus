@@ -388,7 +388,7 @@
       return Number(val);
     }
 
-    collectSelectedPoints() {
+    getSelectedPoints() {
       this.valueFallbackWarned = false;
       const key = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}`;
       if (this.cachedPoints && this.cachedPoints.key === key)
@@ -466,7 +466,7 @@
         this.clearHeatmapCanvas();
         return;
       }
-      const pts = this.collectSelectedPoints();
+      const pts = this.getSelectedPoints();
       const zoom = this.map.getZoom();
       const res = this.getH3Res(zoom);
       const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
