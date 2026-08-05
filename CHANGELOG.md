@@ -6,19 +6,10 @@
 
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `MeasureControl`: segment labels placed at geodesic midpoint of each edge via `turf.midpoint` ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `MeasureControl`: centroid dot, area label, and delete-all button for polygon measurements ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `MeasureControl`: 3-point "delete all" logic — when polygon has exactly 3 points, every node X icon deletes the entire measurement ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `MeasureControl`: `animateDashSweep` utility method for finalized polyline/polygon sweep animation ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `MeasureControl`: closing segment label for polygon area mode ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `SearchControl`: add gcoord CDN dependency for coordinate transformation ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 
 ### Changed
 
-- `MeasureControl`: `distance`, `bearing`, `formatSegmentLabel` now accept point objects instead of raw `lng, lat` pairs — all call sites simplified ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `MeasureControl`: `restoreDistance` uses O(n) accumulator instead of O(n²) slice+reduce ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `MeasureControl`: `ensureGcoord` log prefix changed from `[SearchControl]` to `[foliplus]` ([#114](https://github.com/Zeroto521/foliplus/pull/114))
+- `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 
 ### Fixed
 
