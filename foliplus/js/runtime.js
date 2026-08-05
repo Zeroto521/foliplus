@@ -338,17 +338,17 @@
   };
 
   /**
-   * Ensure that the gcoord library is loaded. If not, logs a warning and shows a hint.
+   * Ensure that the gcoord library is loaded. If not, logs a warning.
    * @returns {boolean} True if gcoord is available, false otherwise.
    */
   const ensureGcoord = () => {
+    // gcoord_warn hint was removed in favor of console.warn because
+    // the warning only triggers when the user places a geopoint on a
+    // non-WGS84 map, which is an edge case that doesn't warrant a
+    // persistent UI hint.  The console warning is sufficient for
+    // developers to diagnose the missing dependency.  See #114.
     if (typeof gcoord === "undefined") {
-      console.warn(`[SearchControl] ${foliplus.gt("SearchControl.gcoord_warn")}`);
-      foliplus.showHint(
-        "SearchControl",
-        `${foliplus.gt("SearchControl.gcoord_warn")}`,
-        CONST.HINT.LONG,
-      );
+      console.warn(`[foliplus] ${foliplus.gt("foliplus.gcoord_warn")}`);
       return false;
     }
     return true;
@@ -646,6 +646,12 @@
    * @param {string} addrLabel Locale key for address label
    * @param {L.Marker} [existing] Existing marker to remove before creating new one
    * @param {L.LayerGroup} [layerGroup] Optional layer group to add the marker to
+   * @param {Function} [onAddress] Called with the resolved address when the
+   *   reverse geocode completes (only when `addr` is null). Lets callers
+   *   persist the address without making a second geocode request.
+   * @param {boolean} [openPopup=true] Whether to auto-open the popup after
+   *   creation. Pass `false` when restoring markers so they don't pop open on
+   *   page load.
    * @returns {L.Marker} The newly created marker
    */
   foliplus.createLocationMarker = (
@@ -659,6 +665,8 @@
     addrLabel,
     existing,
     layerGroup,
+    onAddress,
+    openPopup = true,
   ) => {
     if (existing) map.removeLayer(existing);
     const target = layerGroup || map;
@@ -677,7 +685,7 @@
       foliplus.buildPopupHtml(lng, lat, addr, title, loading, locLabel, addrLabel),
       { maxWidth: CONST.POPUP.MAX_WIDTH },
     );
-    marker.openPopup();
+    if (openPopup) marker.openPopup();
     // Add title to Leaflet's popup close button for hover tooltip.
     // Use window._LOCALE directly since _() may not be available in runtime.js context.
     const closeLabel = foliplus.gt("LayerControl.close_label");
@@ -688,6 +696,7 @@
     }
     if (!addr) {
       foliplus.reverseGeocode(map, lng, lat).then((resolved) => {
+        if (onAddress) onAddress(resolved);
         if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
           marker.setPopupContent(
             foliplus.buildPopupHtml(

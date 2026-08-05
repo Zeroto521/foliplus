@@ -20,6 +20,7 @@ from foliplus.locale import (
 # Locale keys used across all JS files (resolved from CONST.name patterns).
 # Keep this list in sync with foliplus/js/*.js to catch missing translations.
 _JS_USED_KEYS = {
+    "foliplus.gcoord_warn",
     # FullscreenControl
     "FullscreenControl.title",
     "FullscreenControl.title_cancel",
@@ -126,17 +127,18 @@ _JS_USED_KEYS = {
     "SearchControl.popup_addr_label",
     "SearchControl.addr_not_found",
     "SearchControl.addr_error",
-    "SearchControl.gcoord_warn",
     # MeasureControl
     "MeasureControl.unit_km",
     "MeasureControl.unit_m",
     "MeasureControl.tool_toggle",
     "MeasureControl.tool_marker",
     "MeasureControl.tool_distance",
+    "MeasureControl.tool_polygon",
     "MeasureControl.tool_circle",
     "MeasureControl.tool_clear",
     "MeasureControl.hint_marker",
     "MeasureControl.hint_dist_start",
+    "MeasureControl.hint_polygon",
     "MeasureControl.hint_circle_start",
     "MeasureControl.hint_circle_radius",
     "MeasureControl.popup_title",
@@ -454,4 +456,4 @@ class TestLocaleErrors:
 
         SearchControl().add_to(base_map)
         html = base_map.get_root().render()
-        assert "SearchControl.gcoord_warn" in html
+        assert "foliplus.gcoord_warn" in html

@@ -43,6 +43,12 @@
   fill-opacity: 0.08;
 }
 
+/* ── Polygons ── */
+.foliplus-measure-polygon-final {
+  fill: var(--accent-primary);
+  fill-opacity: 0.25;
+}
+
 /* ── Shared stroke/fill/dasharray for all measurement paths ── */
 :is(
   .foliplus-measure-node,
@@ -50,7 +56,8 @@
   .foliplus-measure-line-dashed,
   .foliplus-measure-line-preview,
   .foliplus-measure-circle-final,
-  .foliplus-measure-circle-preview
+  .foliplus-measure-circle-preview,
+  .foliplus-measure-polygon-final
 ) {
   stroke: var(--accent-primary);
 }
@@ -59,7 +66,8 @@
   .foliplus-measure-node-final,
   .foliplus-measure-line-solid,
   .foliplus-measure-line-dashed,
-  .foliplus-measure-circle-final
+  .foliplus-measure-circle-final,
+  .foliplus-measure-polygon-final
 ) {
   stroke-width: 2.5px;
 }
@@ -92,6 +100,7 @@
 /* ── Finish animations ── */
 /* All animation parameters use CSS custom properties with sensible defaults. */
 .foliplus-measure-line-solid.foliplus-measure-dash-sweep,
+.foliplus-measure-polygon-final.foliplus-measure-dash-sweep,
 .foliplus-measure-ripple {
   --sweep-length: 1000;
   --sweep-duration: 0.5s;
@@ -160,10 +169,23 @@
     transform: translateX(-50%) scale(1);
   }
 }
-/* Radius label is centered on the midpoint horizontally and vertically */
-.foliplus-measure-label-radius {
-  transform: translate(-50%, -50%);
-  animation: none;
+/* Radius and mid-segment labels: centered on midpoint (both axes). */
+.foliplus-measure-label-radius,
+.foliplus-measure-label-mid {
+  --label-center: translate(-50%, -50%);
+  transform: var(--label-center);
+  animation: foliplus-measure-label-in-radius 0.2s ease-out;
+}
+
+@keyframes foliplus-measure-label-in-radius {
+  from {
+    opacity: 0;
+    transform: var(--label-center) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: var(--label-center) scale(1);
+  }
 }
 /* ── Floating Delete Icon ── */
 .foliplus-measure-del-icon {
