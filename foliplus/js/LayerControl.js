@@ -557,10 +557,8 @@
         if (
           !(e.layer instanceof L.Path || e.layer instanceof L.Marker) &&
           !e.layer.options?.paneName
-        ) {
-          this.debouncedEnforce();
+        )
           return;
-        }
 
         if (this.isEnforcing) {
           // enforceOrder is in flight; the layer was added mid-reorder.
@@ -574,7 +572,6 @@
       this.map.on("layeradd", this.onLayerAdd);
 
       this.loadSavedOrder();
-      this.loadFoldState();
       this.layerRegistry.normalizeGroups();
 
       // Expose the manager as the public LayerAPI. The full instance is
@@ -611,57 +608,25 @@
     }
 
     loadSavedOrder() {
-      try {
-        const data = localStorage.getItem(CONST.STORAGE.ORDER_KEY);
-        if (!data) return;
-        const ids = JSON.parse(data);
-        if (!Array.isArray(ids)) return;
-        const layerMap = new Map(this.layers.map((l) => [l.id, l]));
-        const ordered = [];
-        for (const id of ids) {
-          if (layerMap.has(id)) {
-            ordered.push(layerMap.get(id));
-            layerMap.delete(id);
-          }
+      const data = foliplus.storage.load(CONST.STORAGE.ORDER_KEY, CONST.name);
+      if (!data || !Array.isArray(data)) return;
+      const layerMap = new Map(this.layers.map((l) => [l.id, l]));
+      const ordered = [];
+      for (const id of data) {
+        if (layerMap.has(id)) {
+          ordered.push(layerMap.get(id));
+          layerMap.delete(id);
         }
-        this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
-      } catch (e) {
-        console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_order_fail`)}`, e);
       }
+      this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
     }
 
     saveOrder() {
-      try {
-        localStorage.setItem(
-          CONST.STORAGE.ORDER_KEY,
-          JSON.stringify(this.layers.map((l) => l.id)),
-        );
-      } catch (e) {
-        console.warn(`[${CONST.name}] ${_(`${CONST.name}.save_order_fail`)}`, e);
-      }
-    }
-
-    loadFoldState() {
-      try {
-        const data = localStorage.getItem(CONST.STORAGE.FOLD_KEY);
-        if (!data) return;
-        const groups = JSON.parse(data);
-        if (!Array.isArray(groups)) return;
-        this.foldedGroups = new Set(groups);
-      } catch (e) {
-        console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_fold_fail`)}`, e);
-      }
-    }
-
-    saveFoldState() {
-      try {
-        localStorage.setItem(
-          CONST.STORAGE.FOLD_KEY,
-          JSON.stringify(Array.from(this.foldedGroups)),
-        );
-      } catch (e) {
-        console.warn(`[${CONST.name}] ${_(`${CONST.name}.save_fold_fail`)}`, e);
-      }
+      foliplus.storage.save(
+        CONST.STORAGE.ORDER_KEY,
+        this.layers.map((l) => l.id),
+        CONST.name,
+      );
     }
 
     // ==================== Public API Methods ====================
@@ -1575,15 +1540,31 @@
      */
     attachUI(containerDiv) {
       this.m.uiContainer = containerDiv;
+      this.loadFoldState();
       this.renderInitialList();
       this.bindEvents();
 
-      while (this.pendingRegistrations.length) {
-        const li = this.pendingRegistrations.shift();
-        if (this.ui) this.ui.insertLayerItem(li);
+      while (this.m.pendingRegistrations.length) {
+        const li = this.m.pendingRegistrations.shift();
+        this.insertLayerItem(li);
       }
 
       setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
+    }
+
+    /** Load fold state from localStorage. */
+    loadFoldState() {
+      const data = foliplus.storage.load(CONST.STORAGE.FOLD_KEY, CONST.name);
+      if (Array.isArray(data)) this.foldedGroups = new Set(data);
+    }
+
+    /** Save fold state to localStorage. */
+    saveFoldState() {
+      foliplus.storage.save(
+        CONST.STORAGE.FOLD_KEY,
+        Array.from(this.foldedGroups),
+        CONST.name,
+      );
     }
 
     renderInitialList() {
@@ -1890,7 +1871,7 @@
         else this.foldedGroups.add(group);
         this.renderInitialList();
         this.initTypesAndVisibility();
-        this.m.saveFoldState();
+        this.saveFoldState();
       };
 
       this.onDragStart = (e) => this.handleDragStart(e);

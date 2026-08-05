@@ -1331,23 +1331,14 @@
 
     /** Persist all measurements to localStorage. */
     saveMeasurements() {
-      try {
-        localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(this.measurements));
-      } catch (e) {
-        console.warn(`[${CONST.name}] ${_(`${CONST.name}.save_fail`)}`, e);
-      }
+      foliplus.storage.save(CONST.STORAGE.KEY, this.measurements, CONST.name);
     }
 
     /** Load measurements from localStorage.
      *  @returns {Array} Restored measurements array. */
     loadMeasurements() {
-      try {
-        const data = localStorage.getItem(CONST.STORAGE.KEY);
-        return data ? JSON.parse(data) : [];
-      } catch (e) {
-        console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_fail`)}`, e);
-        return [];
-      }
+      const data = foliplus.storage.load(CONST.STORAGE.KEY, CONST.name);
+      return Array.isArray(data) ? data : [];
     }
 
     /** Generate a unique measurement ID.
