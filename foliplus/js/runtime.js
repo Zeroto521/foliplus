@@ -1086,4 +1086,55 @@
     };
     return debounced;
   };
+
+  /**
+   * Shared localStorage helper for all foliplus controls.
+   *
+   * Wraps JSON read/write in try/catch so a quota, privacy, or serialization
+   * failure never breaks map initialization. Failures are logged with the
+   * caller's component name as a prefix and a shared i18n key, so no control
+   * needs its own localStorage boilerplate (LayerControl layer order / fold
+   * state, MeasureControl measurements, etc.).
+   *
+   * @example
+   *   foliplus.storage.save("foliplus_order", ["a", "b"], "LayerControl");
+   *   const data = foliplus.storage.load("foliplus_order", "LayerControl");
+   */
+  foliplus.storage = {
+    /**
+     * Read and parse a value from localStorage.
+     * @param {string} key    - localStorage key.
+     * @param {string} [name] - Caller component name, used as the log prefix.
+     * @returns {*} Parsed value, or null when missing/unreadable.
+     */
+    load(key, name) {
+      try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : null;
+      } catch (e) {
+        console.warn(
+          `[${name || "foliplus"}] ${foliplus.gt("foliplus.storage_load_fail").replace("{key}", key)}`,
+          e,
+        );
+        return null;
+      }
+    },
+
+    /**
+     * Serialize and write a value to localStorage.
+     * @param {string} key    - localStorage key.
+     * @param {*} data        - Value to persist (must be JSON-serializable).
+     * @param {string} [name] - Caller component name, used as the log prefix.
+     */
+    save(key, data, name) {
+      try {
+        localStorage.setItem(key, JSON.stringify(data));
+      } catch (e) {
+        console.warn(
+          `[${name || "foliplus"}] ${foliplus.gt("foliplus.storage_save_fail").replace("{key}", key)}`,
+          e,
+        );
+      }
+    },
+  };
 })(window, document);
