@@ -153,24 +153,29 @@
         : `${Math.round(meters)} ` + _(`${CONST.name}.unit_m`);
     }
 
-    static distance(lng1, lat1, lng2, lat2) {
-      return turf.distance(turf.point([lng1, lat1]), turf.point([lng2, lat2]), {
+    /** Distance between two points in meters (turf.js geodesic).
+     *  @param {Object} a - Point with lng/lat properties.
+     *  @param {Object} b - Point with lng/lat properties. */
+    static distance(a, b) {
+      return turf.distance(turf.point([a.lng, a.lat]), turf.point([b.lng, b.lat]), {
         units: "meters",
       });
     }
 
-    /** Initial bearing (azimuth) from point 1 to point 2, 0°–360° clockwise from north.
+    /** Initial bearing (azimuth) from point a to point b, 0°–360° clockwise from north.
      *  Uses turf.js bearing. */
-    static bearing(lng1, lat1, lng2, lat2) {
-      const b = turf.bearing(turf.point([lng1, lat1]), turf.point([lng2, lat2]));
-      return (b + 360) % 360;
+    static bearing(a, b) {
+      const bVal = turf.bearing(turf.point([a.lng, a.lat]), turf.point([b.lng, b.lat]));
+      return (bVal + 360) % 360;
     }
 
-    /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
-    static formatSegmentLabel(lng1, lat1, lng2, lat2, meters) {
+    /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off.
+     *  @param {Object} a - Start point with lng/lat properties.
+     *  @param {Object} b - End point with lng/lat properties. */
+    static formatSegmentLabel(a, b, meters) {
       const dist = MeasureUtils.formatDistance(meters);
       if (!CONST.show_bearing) return dist;
-      const bearing = Math.round(MeasureUtils.bearing(lng1, lat1, lng2, lat2));
+      const bearing = Math.round(MeasureUtils.bearing(a, b));
       return `${bearing}° | ${dist}`;
     }
 
@@ -373,12 +378,7 @@
       const segments = [];
       let totalDistance = 0;
       for (let i = 1; i < points.length; i++) {
-        const d = MeasureUtils.distance(
-          points[i - 1].lng,
-          points[i - 1].lat,
-          points[i].lng,
-          points[i].lat,
-        );
+        const d = MeasureUtils.distance(points[i - 1], points[i]);
         segments.push({ lng: points[i].lng, lat: points[i].lat, distance: d });
         totalDistance += d;
       }
@@ -603,12 +603,7 @@
         const segments = points.slice(1).map((p, i) => ({
           lng: p.lng,
           lat: p.lat,
-          distance: MeasureUtils.distance(
-            points[i].lng,
-            points[i].lat,
-            points[i + 1].lng,
-            points[i + 1].lat,
-          ),
+          distance: MeasureUtils.distance(points[i], points[i + 1]),
         }));
         this.m.measurements.push({
           id: distId,
@@ -627,13 +622,7 @@
           segLabels[segLabels.length - 1].setLatLng([mid.lat, mid.lng]);
           segLabels[segLabels.length - 1].setIcon(
             MeasureUtils.makeMidLabelDivIcon(
-              MeasureUtils.formatSegmentLabel(
-                prevPt.lng,
-                prevPt.lat,
-                lastPt.lng,
-                lastPt.lat,
-                total,
-              ),
+              MeasureUtils.formatSegmentLabel(prevPt, lastPt, total),
             ),
           );
         }
@@ -678,22 +667,11 @@
       const onDistMove = (e) => {
         if (points.length === 0) return;
         previewLine.setLatLngs([points[points.length - 1], e.latlng]);
-        const seg = MeasureUtils.distance(
-          points[points.length - 1].lng,
-          points[points.length - 1].lat,
-          e.latlng.lng,
-          e.latlng.lat,
-        );
+        const seg = MeasureUtils.distance(points[points.length - 1], e.latlng);
         const showDist = total + seg;
         const lastPt = points[points.length - 1];
         const mid = MeasureUtils.midpoint(lastPt, e.latlng);
-        const labelText = MeasureUtils.formatSegmentLabel(
-          lastPt.lng,
-          lastPt.lat,
-          e.latlng.lng,
-          e.latlng.lat,
-          showDist,
-        );
+        const labelText = MeasureUtils.formatSegmentLabel(lastPt, e.latlng, showDist);
         if (!previewDistLabel) {
           previewDistLabel = this.layers.addLayer(
             L.marker([mid.lat, mid.lng], {
@@ -737,10 +715,8 @@
 
         if (points.length > 1) {
           const seg = MeasureUtils.distance(
-            points[points.length - 2].lng,
-            points[points.length - 2].lat,
-            points[points.length - 1].lng,
-            points[points.length - 1].lat,
+            points[points.length - 2],
+            points[points.length - 1],
           );
           total += seg;
 
@@ -752,18 +728,14 @@
           if (segLabels.length > 0 && points.length >= 3) {
             const prevLabel = segLabels[segLabels.length - 1];
             const prevSeg = MeasureUtils.distance(
-              points[points.length - 3].lng,
-              points[points.length - 3].lat,
-              points[points.length - 2].lng,
-              points[points.length - 2].lat,
+              points[points.length - 3],
+              points[points.length - 2],
             );
             prevLabel.setIcon(
               MeasureUtils.makeMidLabelDivIcon(
                 MeasureUtils.formatSegmentLabel(
-                  points[points.length - 3].lng,
-                  points[points.length - 3].lat,
-                  points[points.length - 2].lng,
-                  points[points.length - 2].lat,
+                  points[points.length - 3],
+                  points[points.length - 2],
                   prevSeg,
                 ),
               ),
@@ -774,10 +746,8 @@
             L.marker([mid.lat, mid.lng], {
               icon: MeasureUtils.makeMidLabelDivIcon(
                 MeasureUtils.formatSegmentLabel(
-                  points[points.length - 2].lng,
-                  points[points.length - 2].lat,
-                  points[points.length - 1].lng,
-                  points[points.length - 1].lat,
+                  points[points.length - 2],
+                  points[points.length - 1],
                   total,
                 ),
               ),
@@ -880,23 +850,13 @@
         const segments = points.slice(1).map((p, i) => ({
           lng: p.lng,
           lat: p.lat,
-          distance: MeasureUtils.distance(
-            points[i].lng,
-            points[i].lat,
-            points[i + 1].lng,
-            points[i + 1].lat,
-          ),
+          distance: MeasureUtils.distance(points[i], points[i + 1]),
         }));
         // Add closing segment
         const lastSeg = {
           lng: points[0].lng,
           lat: points[0].lat,
-          distance: MeasureUtils.distance(
-            points[points.length - 1].lng,
-            points[points.length - 1].lat,
-            points[0].lng,
-            points[0].lat,
-          ),
+          distance: MeasureUtils.distance(points[points.length - 1], points[0]),
         };
         segments.push(lastSeg);
         this.m.measurements.push({
@@ -953,12 +913,7 @@
             segments.push({
               lng: points[0].lng,
               lat: points[0].lat,
-              distance: MeasureUtils.distance(
-                points[n - 1].lng,
-                points[n - 1].lat,
-                points[0].lng,
-                points[0].lat,
-              ),
+              distance: MeasureUtils.distance(points[n - 1], points[0]),
             });
             m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
             m.segments = segments;
@@ -987,12 +942,7 @@
         const allPts = [...points, e.latlng];
         previewPoly.setLatLngs(allPts);
         poly.setLatLngs([points[points.length - 1], e.latlng]);
-        const seg = MeasureUtils.distance(
-          points[points.length - 1].lng,
-          points[points.length - 1].lat,
-          e.latlng.lng,
-          e.latlng.lat,
-        );
+        const seg = MeasureUtils.distance(points[points.length - 1], e.latlng);
         const lastPt = points[points.length - 1];
         const mid = MeasureUtils.midpoint(lastPt, e.latlng);
         const labelText = MeasureUtils.formatDistance(seg);
@@ -1037,19 +987,15 @@
 
         if (points.length > 1) {
           const seg = MeasureUtils.distance(
-            points[points.length - 2].lng,
-            points[points.length - 2].lat,
-            points[points.length - 1].lng,
-            points[points.length - 1].lat,
+            points[points.length - 2],
+            points[points.length - 1],
           );
 
           if (segLabels.length > 0 && points.length >= 3) {
             const prevLabel = segLabels[segLabels.length - 1];
             const prevSeg = MeasureUtils.distance(
-              points[points.length - 3].lng,
-              points[points.length - 3].lat,
-              points[points.length - 2].lng,
-              points[points.length - 2].lat,
+              points[points.length - 3],
+              points[points.length - 2],
             );
             prevLabel.setIcon(
               MeasureUtils.makeMidLabelDivIcon(MeasureUtils.formatDistance(prevSeg)),
@@ -1145,12 +1091,7 @@
         } else if (state === 1) {
           state = 2;
           lastFinishTime = Date.now();
-          const r = MeasureUtils.distance(
-            center.lng,
-            center.lat,
-            e.latlng.lng,
-            e.latlng.lat,
-          );
+          const r = MeasureUtils.distance(center, e.latlng);
           const savedCenter = center;
           this.cleanup();
           this.m.clearActiveMode();
@@ -1164,12 +1105,7 @@
 
       const onMouseMove = (e) => {
         if (state !== 1 || !center || this.m.currentMode !== this.type) return;
-        const r = MeasureUtils.distance(
-          center.lng,
-          center.lat,
-          e.latlng.lng,
-          e.latlng.lat,
-        );
+        const r = MeasureUtils.distance(center, e.latlng);
 
         if (!previews.circle) {
           previews.circle = this.addPreview(
@@ -1502,13 +1438,7 @@
           const label = this.layers.addLayer(
             L.marker([mid.lat, mid.lng], {
               icon: MeasureUtils.makeMidLabelDivIcon(
-                MeasureUtils.formatSegmentLabel(
-                  prev.lng,
-                  prev.lat,
-                  cur.lng,
-                  cur.lat,
-                  total,
-                ),
+                MeasureUtils.formatSegmentLabel(prev, cur, total),
               ),
             }),
             true,
@@ -1561,10 +1491,9 @@
           const prev = points[i];
           const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
           if (!prev || !cur) return;
-          const midLat = (prev.lat + cur.lat) / 2;
-          const midLng = (prev.lng + cur.lng) / 2;
+          const mid = MeasureUtils.midpoint(prev, cur);
           const label = this.layers.addLayer(
-            L.marker([midLat, midLng], {
+            L.marker([mid.lat, mid.lng], {
               icon: MeasureUtils.makeMidLabelDivIcon(
                 MeasureUtils.formatDistance(seg.distance),
               ),
@@ -1595,12 +1524,7 @@
           segments.push({
             lng: points[0].lng,
             lat: points[0].lat,
-            distance: MeasureUtils.distance(
-              points[n - 1].lng,
-              points[n - 1].lat,
-              points[0].lng,
-              points[0].lat,
-            ),
+            distance: MeasureUtils.distance(points[n - 1], points[0]),
           });
           m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
           m.segments = segments;
@@ -1652,10 +1576,9 @@
         }),
       );
 
-      const midLng = (centerLatLng.lng + targetLatLng.lng) / 2;
-      const midLat = (centerLatLng.lat + targetLatLng.lat) / 2;
+      const mid = MeasureUtils.midpoint(centerLatLng, targetLatLng);
       const radiusLabel = this.layers.addLayer(
-        L.marker([midLat, midLng], {
+        L.marker([mid.lat, mid.lng], {
           icon: MeasureUtils.makeLabelDivIcon(
             MeasureUtils.formatDistance(r),
             CONST.LABEL.RADIUS_ANCHOR,
@@ -1843,16 +1766,9 @@
               label.setIcon(
                 MeasureUtils.makeMidLabelDivIcon(
                   MeasureUtils.formatSegmentLabel(
-                    points[i].lng,
-                    points[i].lat,
-                    points[i + 1].lng,
-                    points[i + 1].lat,
-                    MeasureUtils.distance(
-                      points[i].lng,
-                      points[i].lat,
-                      points[i + 1].lng,
-                      points[i + 1].lat,
-                    ),
+                    points[i],
+                    points[i + 1],
+                    MeasureUtils.distance(points[i], points[i + 1]),
                   ),
                 ),
               );
@@ -2191,12 +2107,7 @@
                 L.marker([mid.lat, mid.lng], {
                   icon: MeasureUtils.makeMidLabelDivIcon(
                     MeasureUtils.formatDistance(
-                      MeasureUtils.distance(
-                        points[i].lng,
-                        points[i].lat,
-                        points[next].lng,
-                        points[next].lat,
-                      ),
+                      MeasureUtils.distance(points[i], points[next]),
                     ),
                   ),
                 }),
