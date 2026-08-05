@@ -1787,7 +1787,7 @@ class TestMeasureControlRendering:
             page.close()
 
     def test_polygon_node_delete(self, browser, tmp_path):
-        """Delete a middle node from a polygon, area recalculates."""
+        """Toggle polygon delete icons without raising JS errors."""
         page, errors = self._make_page(browser, tmp_path)
         try:
             page.evaluate("""() => {
