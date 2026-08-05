@@ -267,6 +267,23 @@
     "copyWithin",
   ]);
 
+  /**
+   * Ordered layer info list with O(1) id index.
+   *
+   * **Public API (read-only, safe for external callers):**
+   *   `size` / `at(i)` / `get(id)` / `has(id)` / `firstBaseIdx`
+   *
+   * **Internal (Manager only, not for external use):**
+   *   `upsert` / `prepend` / `insertAt` / `remove` / `moveToFront`
+   *   `reorder` / `replace` / `clear` / `normalizeGroups`
+   *   `canReorderBetween` / `refreshFirstBaseIdx`
+   *   `items` / `byId` / `view` / `list`
+   *
+   * External callers must use Manager API for mutations:
+   *   `api.registerLayer({...})`   — insert/update
+   *   `api.unregisterLayer(id)`    — remove
+   *   `api.bringLayerToFront(id)`  — reorder
+   */
   class LayerRegistry {
     /**
      * @param {Array} [initial=[]] - Initial layer info objects.
@@ -560,13 +577,34 @@
 
       // Expose the manager as the public LayerAPI. The full instance is
       // attached so tests and debuggers can reach internals, but the stable
-      // public contract is the bound methods below:
-      //   registerLayer / unregisterLayer / bringLayerToFront
-      //   getLayerType / getLayersByType / findLayer / forEachLeaf / extractPoints
-      //   ensurePane / getLayerPanes / createLayers / createCanvas
-      //   layers (read-only view) / layerRegistry (lookup: get/has/size/at)
-      // Other members (map, ui, paneCache, etc.) are internal — do not rely
-      // on them; mutate layers only through the API above.
+      // public contract is the bound methods and properties below:
+      //
+      //   **Read (safe for any caller):**
+      //   `layerRegistry`       — read-only data source (size/at/get/has/firstBaseIdx)
+      //   `layers`              — read-only view of the ordered array (indexed access)
+      //   `findLayer(id)`       — resolve Leaflet layer by id
+      //   `getLayerType(id)`    — geometry type of a layer
+      //   `getLayersByType(t)`  — layers matching a geometry type
+      //   `forEachLeaf(id, fn)` — walk leaf layers
+      //   `extractPoints(id)`   — get point markers from a layer
+      //
+      //   **Write (via Manager API — triggers map + UI + persistence):**
+      //   `registerLayer({...})`       — insert/update
+      //   `unregisterLayer(id)`        — remove
+      //   `bringLayerToFront(id)`      — reorder
+      //
+      //   **Factory (also write, but return new objects):**
+      //   `createLayers({...})`  — managed three-layer group
+      //   `createCanvas({...})`  — managed canvas element
+      //
+      //   **Pane helpers (read-only):**
+      //   `ensurePane(name)`    — ensure a Leaflet pane exists
+      //   `getLayerPanes(layer)` — discover panes for a layer
+      //
+      //   **Internal — do not rely on:**
+      //   `map`, `ui`, `uiContainer`, `paneCache`, `fallbackPaneMap`,
+      //   `pendingRegistrations`, `foldedGroups`, `debouncedEnforce`, etc.
+      //   Mutate layers only through registerLayer/unregisterLayer/bringLayerToFront.
       foliplus.LayerAPI = this;
     }
 
