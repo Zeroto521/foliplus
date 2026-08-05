@@ -277,20 +277,18 @@
       return new Proxy(this.items, {
         set() {
           // Block direct index assignment (e.g. layers[0] = x).
-          throw new TypeError(
-            `[LayerControl] layers is read-only; use LayerAPI (registerLayer / unregisterLayer / bringLayerToFront) instead.`,
-          );
+          throw new TypeError(`[${CONST.name}] ${_(`${CONST.name}.readonly_error`)}`);
         },
         deleteProperty() {
           throw new TypeError(
-            `[LayerControl] layers is read-only; use LayerAPI instead.`,
+            `[${CONST.name}] ${_(`${CONST.name}.readonly_del_error`)}`,
           );
         },
         get(target, prop, receiver) {
           if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
             return () => {
               throw new TypeError(
-                `[LayerControl] layers.${prop}() is read-only; use LayerAPI instead.`,
+                `[${CONST.name}] ${_(`${CONST.name}.readonly_method_error`).replace(`{method}`, prop)}`,
               );
             };
           }
@@ -1743,9 +1741,8 @@
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
             typeKey = `${CONST.name}.type_${gtype}`;
             layerInfo.type = gtype;
-          } else {
-            typeKey = `${CONST.name}.type_unknown`;
-          }
+          } else typeKey = `${CONST.name}.type_unknown`;
+
           const item = inputs[i]?.closest(CONST.SEL.LAYER_ITEM);
           if (item) item.title = _(typeKey);
         }
@@ -2105,7 +2102,7 @@
       const inputs = this.m.uiContainer.querySelectorAll(
         `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
       );
-      for (let i = 0; i < this.m.layers.length; i++) {
+      for (let i = 0; i < this.m.layers.length; i++)
         if (this.m.layers[i].isBase && i !== exceptIdx) {
           const bLayer = this.m.findLayer(this.m.layers[i].id);
           if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
@@ -2116,7 +2113,6 @@
               ?.classList.remove(CONST.CLASSES.ACTIVE);
           }
         }
-      }
     }
   }
 
