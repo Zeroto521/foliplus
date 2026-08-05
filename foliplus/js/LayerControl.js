@@ -794,8 +794,8 @@
       this.refreshFirstBaseIdx();
 
       const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id);
-      if (layer && this.map.hasLayer(layer)) {
-        this.map.removeLayer(layer);
+      if (layer) {
+        if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
         this.clearAllLayers(layer);
       }
       this.paneCache.clear();
