@@ -1487,7 +1487,9 @@
       if (childPanes.length > 0) {
         // Three-layer components (HeatmapControl, MeasureControl, etc.)
         childPanes.forEach((cp) => {
-          const ep = this.panes.ensurePane(cp, !isTile);
+          // Label panes need no renderer; skip unnecessary SVG creation.
+          const needRenderer = !isTile && !this.panes.labelPanes.has(cp);
+          const ep = this.panes.ensurePane(cp, needRenderer);
           ep.pane.style.zIndex = z;
         });
         this.panes.bumpLabelPanes(layer, z);
@@ -2170,6 +2172,7 @@
     }
 
     handleDragEnd() {
+      this.dragIdx = null;
       this.lastDragOverItem = null;
       const allItems = this.m.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
       allItems.forEach((i) =>
