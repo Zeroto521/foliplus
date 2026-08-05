@@ -293,6 +293,8 @@
           }
           // Use the layer reference from layerInfo (resolved at init or register)
           if (!li.layer) continue;
+          // Skip hidden layers (unchecked in LayerControl panel)
+          if (!this.map.hasLayer(li.layer)) continue;
 
           // SVG paths, Canvas elements, and Markers in this layer's panes
           const panes = api.getLayerPanes(li.layer);
@@ -878,42 +880,33 @@
     }
 
     loadSavedBounds() {
-      try {
-        const data = localStorage.getItem(CONST.STORAGE.KEY);
-        if (!data) return;
-        const saved = JSON.parse(data);
-        if (!saved || !saved.nw || !saved.se) return;
-        const nw = saved.nw,
-          se = saved.se;
-        const validLat = nw.lat >= -90 && nw.lat <= 90 && se.lat >= -90 && se.lat <= 90;
-        const validLng =
-          nw.lng >= -180 && nw.lng <= 180 && se.lng >= -180 && se.lng <= 180;
-        if (!validLat || !validLng) return;
-        const mapB = this.map.getBounds();
-        const overlap =
-          nw.lat >= mapB.getSouth() &&
-          se.lat <= mapB.getNorth() &&
-          nw.lng <= mapB.getEast() &&
-          se.lng >= mapB.getWest();
-        if (!overlap) return;
-        this.savedBounds = saved;
-      } catch (e) {
-        console.warn(`[${CONST.name}] ${_(`${CONST.name}.err_load_bounds`)}:`, e);
-      }
+      const data = foliplus.storage.load(CONST.STORAGE.KEY, CONST.name);
+      if (!data || !data.nw || !data.se) return;
+      const nw = data.nw,
+        se = data.se;
+      const validLat = nw.lat >= -90 && nw.lat <= 90 && se.lat >= -90 && se.lat <= 90;
+      const validLng =
+        nw.lng >= -180 && nw.lng <= 180 && se.lng >= -180 && se.lng <= 180;
+      if (!validLat || !validLng) return;
+      const mapB = this.map.getBounds();
+      const overlap =
+        nw.lat >= mapB.getSouth() &&
+        se.lat <= mapB.getNorth() &&
+        nw.lng <= mapB.getEast() &&
+        se.lng >= mapB.getWest();
+      if (!overlap) return;
+      this.savedBounds = data;
     }
 
     saveBounds(bounds) {
-      try {
-        localStorage.setItem(
-          CONST.STORAGE.KEY,
-          JSON.stringify({
-            nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
-            se: { lat: bounds.se.lat, lng: bounds.se.lng },
-          }),
-        );
-      } catch (e) {
-        console.warn(`[${CONST.name}] ${_(`${CONST.name}.err_save_bounds`)}:`, e);
-      }
+      foliplus.storage.save(
+        CONST.STORAGE.KEY,
+        {
+          nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
+          se: { lat: bounds.se.lat, lng: bounds.se.lng },
+        },
+        CONST.name,
+      );
     }
 
     showGlobalHint(text, duration, withLoadingIcon) {

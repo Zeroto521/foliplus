@@ -74,8 +74,8 @@ class TestExportControlRendering:
         assert "LeafletRenderer" in html
         assert "exportManager" in html
         assert "ctrl-fold" in html
-        assert "STORAGE.KEY" in html
-        assert "saveBounds" in html
+        assert "foliplus.storage.load(CONST.STORAGE.KEY, CONST.name)" in html
+        assert "foliplus.storage.save(" in html
         assert "loadSavedBounds" in html
         assert "foliplus-export-actions" in html
 
@@ -475,7 +475,6 @@ class TestExportControlRendering:
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "api.layerRegistry" in html
-        assert "li.visible" in html
 
     def test_canvas_selector_defined(self, base_map: folium.Map):
         """CONST.SEL.CANVAS selector targets foliplus-canvas elements."""
@@ -491,11 +490,10 @@ class TestExportControlRendering:
         assert "renderTileLayer" in html
 
     def test_render_invisible_layer_skipped(self, base_map: folium.Map):
-        """render() skips invisible layers in per-layer iteration."""
+        """render() skips hidden layers via map.hasLayer check."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "li.visible" in html
-        assert "if (!li.visible) continue" in html
+        assert "!this.map.hasLayer(li.layer)" in html
 
     def test_render_methods_awaited(self, base_map: folium.Map):
         """All render passes are awaited in render()."""
