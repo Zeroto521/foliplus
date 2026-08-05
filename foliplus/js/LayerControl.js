@@ -414,7 +414,10 @@
       return li;
     }
 
-    /** Move an existing layer to index 0 (bring to front). */
+    /** Move an existing layer to index 0 (bring to front).
+     *  Callers guarantee the layer is an overlay (bringLayerToFront
+     *  rejects base layers), so the base/overlay boundary never moves
+     *  and refreshFirstBaseIdx is skipped. */
     moveToFront(id) {
       const li = this.byId.get(id);
       if (!li) return null;
@@ -422,15 +425,16 @@
       if (idx <= 0) return li;
       this.items.splice(idx, 1);
       this.items.unshift(li);
-      this.refreshFirstBaseIdx();
       return li;
     }
 
-    /** Swap order of two positions (drag-and-drop). */
+    /** Swap order of two positions (drag-and-drop).
+     *  Callers guarantee same-group reordering (canReorderBetween), so
+     *  the base/overlay boundary never moves and refreshFirstBaseIdx
+     *  is skipped. */
     reorder(fromIdx, toIdx) {
       const [moved] = this.items.splice(fromIdx, 1);
       this.items.splice(toIdx, 0, moved);
-      this.refreshFirstBaseIdx();
     }
 
     /** Rebuild both list and index from a new ordered array.
@@ -746,7 +750,7 @@
         throw new Error(`[${CONST.name}] ${_(`${CONST.name}.id_required`)}`);
 
       const existingLi = this.layerRegistry.get(opts.id);
-      const existingIdx = existingLi ? this.layers.indexOf(existingLi) : -1;
+      const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
       const existingVisible = existingLi ? existingLi.visible : true;
       const layerInfo = {
         name: opts.name ?? opts.id,
@@ -827,7 +831,7 @@
     bringLayerToFront(id) {
       const item = this.layerRegistry.get(id);
       if (!item) return;
-      const idx = this.layers.indexOf(item);
+      const idx = this.layerRegistry.indexOf(item);
       if (idx <= 0) return;
       // Bringing a base layer to index 0 would break the overlay-before-base
       // invariant and corrupt the cached group boundary — ignore it.
@@ -1546,8 +1550,10 @@
 
       while (this.m.pendingRegistrations.length) {
         const li = this.m.pendingRegistrations.shift();
-        this.insertLayerItem(li);
+        // Batch-insert without reindexing each item; reindex once below.
+        this.insertLayerItem(li, { reindex: false });
       }
+      this.reindexItems();
 
       setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
     }
@@ -1607,9 +1613,13 @@
 
     /** Insert a single layer item (plus its group separator if needed)
      *  without rebuilding the whole list. O(n) worst case for reindexing,
-     *  but avoids wiping and re-creating every item on each registration. */
-    insertLayerItem(layerInfo) {
-      const idx = this.m.layers.indexOf(layerInfo);
+     *  but avoids wiping and re-creating every item on each registration.
+     *  @param {Object} layerInfo - Layer info to insert.
+     *  @param {Object} [opts] - Insert options.
+     *  @param {boolean} [opts.reindex=true] - Reindex all items after insert.
+     *    Pass false when batch-inserting so the caller can reindex once. */
+    insertLayerItem(layerInfo, { reindex = true } = {}) {
+      const idx = this.m.layerRegistry.indexOf(layerInfo);
       if (idx === -1) return;
       const container = this.m.uiContainer;
       const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
@@ -1634,8 +1644,7 @@
         );
       }
       const item = this.renderLayerItem(layerInfo, idx);
-      if (this.foldedGroups.has(group))
-        item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+      if (this.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
       frag.appendChild(item);
 
       if (!firstOfGroup) {
@@ -1650,7 +1659,7 @@
         else container.appendChild(frag);
       } else container.insertBefore(frag, firstOfGroup);
 
-      this.reindexItems();
+      if (reindex) this.reindexItems();
     }
 
     /** Update an existing item in place after an idempotent re-registration. */
