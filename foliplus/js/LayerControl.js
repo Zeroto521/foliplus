@@ -489,15 +489,27 @@
       }
       return hasBase && fromIdx >= firstBaseIdx && toIdx >= firstBaseIdx;
     }
-
-    toArray() {
-      return this.items.slice();
-    }
   }
 
   // ==================== Pane Manager: PaneManager ====================
-  // Owns Leaflet pane lifecycle: creation, SVG renderers, child-pane
-  // discovery cache, fallback-pane mapping, and DOM migration.
+  // Responsibility split — "who orders, who hosts":
+  //
+  //   Layer (LayerRegistry) decides ORDER + VISIBILITY:
+  //     - list order → computeZIndex() derives each layer's z-index number
+  //     - visibility → map.hasLayer(layer) / addLayer-removeLayer
+  //     - declares its main pane via layerInfo.paneName
+  //
+  //   Pane (PaneManager) HOSTS content and carries that number:
+  //     - a layer's content may span several panes (graphPane + labelPane),
+  //       discovered from the layer tree (discoverChildPanes, cached)
+  //     - enforceOrder writes the layer's z-index onto every pane the
+  //       layer's content lives in (applyLayerZIndex)
+  //     - intra-layer order: label panes are bumped above paths
+  //       (bumpLabelPanes → z + 1)
+  //
+  //   LayerManager ORCHESTRATES: reads layer order → computes z → hands
+  //   it to PaneManager to land on the panes.
+  //
   // Purely map-scoped and independent of the layer registry/UI, so the
   // z-order primitives are reusable across controls. The mechanism
   // *selection* (applyLayerZIndex) stays on the Manager because it
