@@ -182,11 +182,9 @@
     transform: translateX(-50%) scale(1);
   }
 }
-/* Radius label is centered on the midpoint horizontally and vertically.
-  The centering transform is stored in a CSS variable so the animation
-  keyframes can reference it without duplicating the translate values —
-  centering and animation stay decoupled. */
-.foliplus-measure-label-radius {
+/* Radius and mid-segment labels: centered on midpoint (both axes). */
+.foliplus-measure-label-radius,
+.foliplus-measure-label-mid {
   --label-center: translate(-50%, -50%);
   transform: var(--label-center);
   animation: foliplus-measure-label-in-radius 0.2s ease-out;
@@ -201,13 +199,6 @@
     opacity: 1;
     transform: var(--label-center) scale(1);
   }
-}
-
-/* Mid-segment label: centered on the line midpoint (both axes). */
-.foliplus-measure-label-mid {
-  --label-center: translate(-50%, -50%);
-  transform: var(--label-center);
-  animation: foliplus-measure-label-in-radius 0.2s ease-out;
 }
 /* ── Floating Delete Icon ── */
 .foliplus-measure-del-icon {
