@@ -1113,7 +1113,7 @@
         return data ? JSON.parse(data) : null;
       } catch (e) {
         console.warn(
-          `[${name || "foliplus"}] ${foliplus.gt("foliplus.storage_load_fail")}`,
+          `[${name || "foliplus"}] ${foliplus.gt("foliplus.storage_load_fail").replace("{key}", key)}`,
           e,
         );
         return null;
@@ -1131,7 +1131,7 @@
         localStorage.setItem(key, JSON.stringify(data));
       } catch (e) {
         console.warn(
-          `[${name || "foliplus"}] ${foliplus.gt("foliplus.storage_save_fail")}`,
+          `[${name || "foliplus"}] ${foliplus.gt("foliplus.storage_save_fail").replace("{key}", key)}`,
           e,
         );
       }
