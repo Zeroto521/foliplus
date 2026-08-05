@@ -79,7 +79,7 @@
       TOOL_BTN: ".foliplus-tool-btn",
     },
     STORAGE: {
-      KEY: "foliplus_measure",
+      KEY: "foliplus_measure_{{ this._parent.get_name() }}",
     },
     MODE: {
       MARKER: "marker",
