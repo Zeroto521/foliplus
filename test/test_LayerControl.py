@@ -3340,7 +3340,7 @@ class TestLayerControlEdgeCases:
                 if (!api) return null;
                 const check = () => {
                     const ids = api.layers.map(l => l.id);
-                    const indexKeys = Array.from(api.layerRegistry._byId.keys());
+                    const indexKeys = Array.from(api.layerRegistry.byId.keys());
                     const sameSet =
                         ids.length === indexKeys.length &&
                         ids.every(id => api.layerRegistry.has(id));
@@ -3494,5 +3494,61 @@ class TestLayerControlEdgeCases:
             assert result["afterReplace"]["hasX"] is True, "replace missing new id"
             assert result["afterReplace"]["hasOld"] is False, "replace left old id"
             assert result["afterReplace"]["first"] == "x", "replace order wrong"
+        finally:
+            page.close()
+
+    def test_layers_view_is_readonly(self, browser, tmp_path):
+        """api.layers is a read-only view — direct mutation is blocked.
+
+        External callers must go through LayerAPI (registerLayer/unregisterLayer
+        etc.) so the registry index can never be bypassed or drift from the list.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_layers_readonly.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const out = {};
+
+                // Read operations still work
+                out.length = api.layers.length;
+                out.firstId = api.layers[0] ? api.layers[0].id : null;
+                out.mapped = api.layers.map(l => l.id).length;
+
+                // Direct mutations must throw
+                out.pushThrew = false;
+                try { api.layers.push({ id: 'nope' }); } catch (e) { out.pushThrew = true; }
+
+                out.spliceThrew = false;
+                try { api.layers.splice(0, 1); } catch (e) { out.spliceThrew = true; }
+
+                out.assignThrew = false;
+                try { api.layers[0] = { id: 'nope' }; } catch (e) { out.assignThrew = true; }
+
+                out.shiftThrew = false;
+                try { api.layers.shift(); } catch (e) { out.shiftThrew = true; }
+
+                return out;
+            }""")
+            assert result is not None, "LayerAPI not found"
+            assert result["length"] > 0, "read length failed"
+            assert result["firstId"], "read index failed"
+            assert result["mapped"] == result["length"], "read map failed"
+            assert result["pushThrew"] is True, "push should throw"
+            assert result["spliceThrew"] is True, "splice should throw"
+            assert result["assignThrew"] is True, "index assign should throw"
+            assert result["shiftThrew"] is True, "shift should throw"
         finally:
             page.close()
