@@ -5,9 +5,9 @@
     INIT_DELAY_MS: 300,
     ENFORCE_ORDER_DEBOUNCE_MS: 50,
     Z_INDEX: {
-      BASE: 600,
-      TILE_BASE: 200,
-      STEP: 10,
+      BASE: 600, // Base for overlay layers (panes + markers)
+      TILE_BASE: 200, // Base for tile layers (below overlays)
+      STEP: 10, // Gap between consecutive layers
     },
     RECURSION: {
       PANE_DEPTH: 5,
@@ -200,12 +200,7 @@
 
     /** Resolve a layer by id from map._layers or window fallback. */
     static findLayer(map, id) {
-      return (
-        LayerManager.registry.get(id) ||
-        (map._layers && map._layers[id]) ||
-        window[id] ||
-        null
-      );
+      return (map._layers && map._layers[id]) || window[id] || null;
     }
 
     /**
@@ -252,13 +247,11 @@
 
   // ==================== Core Manager: LayerManager ====================
   class LayerManager {
-    /** Shared registry: layerId → Leaflet layer. */
-    static registry = new Map();
-
     constructor(mapInstance, initialData) {
       this.map = mapInstance;
+      // Each entry: {id, name, visible, isBase, paneName, iconSvg,
+      //              type, layer, canvas, onToggle, onZIndex}
       this.layers = [...initialData];
-      this.typeMap = new Map();
       this.pendingRegistrations = [];
       this.uiContainer = null;
 
@@ -277,6 +270,7 @@
       this.forEachLeaf = this.forEachLeaf.bind(this);
       this.extractPoints = this.extractPoints.bind(this);
       this.ensurePane = this.ensurePane.bind(this);
+      this.getLayerPanes = this.getLayerPanes.bind(this);
       this.isEnforcing = false;
       this.isDestroyed = false;
 
@@ -287,17 +281,16 @@
         "shadowPane",
         "mapPane",
       ]);
-      this.fallbackPanes = new Set();
       this.labelPanes = new Set();
 
       // Cache for discoverChildPanes: layerId → string[] (pane names).
       this.paneCache = new Map();
 
+      // Explicit registry: layer stamp → fallback pane name.
+      this.fallbackPaneMap = new Map();
+
       // UI Controller reference (set by LayerUI construction)
       this.ui = null;
-
-      // Store callbacks keyed by layer id:
-      this.layerCallbacks = new Map();
 
       this.debouncedEnforce = foliplus.debounce(() => {
         if (this.isDestroyed || !this.map || !this.map._container) return;
@@ -405,7 +398,8 @@
      * @returns {string|null} "point" | "line" | "polygon" | "base" | null
      */
     getLayerType(id) {
-      return this.typeMap.get(id)?.type ?? null;
+      const li = this.layers.find((l) => l.id === id);
+      return li ? li.type : null;
     }
 
     /**
@@ -414,18 +408,19 @@
      * @returns {Array<{id: string, name: string}>}
      */
     getLayersByType(type) {
-      const result = [];
-      for (const [id, info] of this.typeMap)
-        if (info.type === type) result.push({ id, name: info.name });
-      return result;
+      return this.layers
+        .filter((l) => l.type === type)
+        .map((l) => ({ id: l.id, name: l.name }));
     }
 
     /**
-     * Resolve a registered layer by id from map._layers or internal registry.
+     * Resolve a registered layer by id, searching layers array then map._layers.
      * @param {string} id - Layer ID.
      * @returns {Object|null} Leaflet layer or null.
      */
     findLayer(id) {
+      const li = this.layers.find((l) => l.id === id);
+      if (li?.layer) return li.layer;
       return LayerUtils.findLayer(this.map, id);
     }
 
@@ -495,6 +490,11 @@
         isBase: !!opts.isBase,
         paneName: opts.paneName ?? null,
         iconSvg: opts.iconSvg ?? null,
+        type: null,
+        layer: opts.layer || null,
+        canvas: opts.canvas || null,
+        onToggle: opts.onToggle || null,
+        onZIndex: opts.onZIndex || null,
       };
       if (layerInfo.isBase) {
         const firstBaseIdx = this.layers.findIndex((l) => !!l.isBase);
@@ -502,25 +502,14 @@
         else this.layers.splice(firstBaseIdx, 0, layerInfo);
       } else this.layers.unshift(layerInfo);
 
-      // Store callbacks for non-Leaflet layers (e.g. Canvas heatmap)
-      const cbs = {};
-      if (opts.onToggle) cbs.onToggle = opts.onToggle;
-      if (opts.onZIndex) cbs.onZIndex = opts.onZIndex;
-      if (Object.keys(cbs).length) this.layerCallbacks.set(opts.id, cbs);
-
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
         for (const cp of this.discoverChildPanes(opts.layer))
           this.ensurePane(cp, !this.labelPanes.has(cp));
-
-        if (/^(?:[a-zA-Z_$][a-zA-Z0-9_$]*)$/.test(opts.id))
-          LayerManager.registry.set(opts.id, opts.layer);
-        else
-          console.warn(
-            `[${CONST.name}] ${_(`${CONST.name}.invalid_id`).replace("{id}", opts.id)}`,
-          );
       }
       this.paneCache.clear();
+      // Clear stale fallback mapping so enforceOrder re-creates it
+      if (opts.layer) this.fallbackPaneMap.delete(L.stamp(opts.layer));
       if (
         opts.paneName &&
         opts.layer &&
@@ -584,14 +573,16 @@
     unregisterLayer(id) {
       const idx = this.layers.findIndex((l) => l.id === id);
       if (idx === -1) return false;
+      const layerInfo = this.layers[idx];
       this.layers.splice(idx, 1);
 
-      const layer = LayerUtils.findLayer(this.map, id);
-      if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
-      LayerManager.registry.delete(id);
+      const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id);
+      if (layer && this.map.hasLayer(layer)) {
+        this.map.removeLayer(layer);
+        this.clearAllLayers(layer);
+      }
       this.paneCache.clear();
-      // Recursively clear all sub-layers to prevent stale data on re-register
-      this.clearAllLayers(layer);
+      if (layer) this.fallbackPaneMap.delete(L.stamp(layer));
 
       if (this.uiContainer) {
         const target = this.uiContainer.querySelector(
@@ -603,7 +594,6 @@
         }
       }
       requestAnimationFrame(() => this.map.invalidateSize({ animate: false }));
-      this.layerCallbacks.delete(id);
       return true;
     }
 
@@ -834,6 +824,10 @@
      *   LayerControl.
      * @property {Function} setZIndex(z)   - Set CSS z-index directly on canvas.
      * @property {Function} setVisible(v)  - Show/hide canvas via CSS class.
+     * @property {Object} hooks
+     *   Lifecycle hooks: `{ before: Array.<Function>, after: Array.<Function> }`.
+     *   Push to `before` to prepare for full-content rendering, to `after`
+     *   to restore normal state. Used by ExportControl.
      */
     createCanvas(opts) {
       if (!opts?.id)
@@ -908,6 +902,7 @@
         id: opts.id,
         name: opts.name || opts.id,
         iconSvg: opts.iconSvg || null,
+        canvas,
         onToggle,
         onZIndex,
       };
@@ -927,6 +922,11 @@
       // Track map resize — re-measure canvas
       const onResize = () => resize();
       this.map.on("resize", onResize);
+
+      // Lifecycle hooks for full-content capture (e.g. ExportControl). Push functions
+      // to `before` to prepare for capture, and to`after` to restore normal state.
+      const hooks = { before: [], after: [] };
+      canvas.hooks = hooks;
 
       return {
         canvas,
@@ -950,6 +950,7 @@
         setVisible: (v) => {
           canvas.classList.toggle(CONST.CLASSES.HIDDEN, !v);
         },
+        hooks,
       };
     }
 
@@ -975,7 +976,21 @@
     }
 
     isDefaultPane(pane) {
-      return this.defaultPanes.has(pane) || this.fallbackPanes.has(pane);
+      return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
+    }
+
+    /** Find all panes a layer's content lives in, including fallback panes.
+     *  Unlike discoverChildPanes(), this includes auto-created fallback panes
+     *  (`foliplus_pane_*`) so ExportControl can find paths that were moved
+     *  there by migrateLayers().
+     *  Results are NOT cached because fallback panes are assigned lazily. */
+    getLayerPanes(layer) {
+      const panes = this.discoverChildPanes(layer);
+      if (panes.length > 0) return panes;
+      // Check if a fallback pane was assigned to this layer
+      const fbName = this.fallbackPaneMap.get(L.stamp(layer));
+      if (fbName) return [fbName];
+      return ["overlayPane", "markerPane"];
     }
 
     /** Compute z-index for a layer at position i.
@@ -994,14 +1009,13 @@
 
         for (let i = 0; i < this.layers.length; i++) {
           const li = this.layers[i];
-          const layer = LayerUtils.findLayer(this.map, li.id);
+          const layer = this.findLayer(li.id);
           const hasLayer = layer && this.map.hasLayer(layer);
           const isTile = layer instanceof L.TileLayer;
           const z = this.computeZIndex(i, isTile);
 
-          // 1. Notify callback-only layers (e.g. Canvas heatmap)
-          const cbs = this.layerCallbacks.get(li.id);
-          if (cbs?.onZIndex) cbs.onZIndex(z);
+          // 1. Notify callback-only layers (e.g. Canvas heatmap) via z-index callback
+          if (li.onZIndex) li.onZIndex(z);
           if (!hasLayer) continue;
 
           // 2. Apply z-index via the appropriate mechanism
@@ -1075,7 +1089,7 @@
 
       // Unmanaged layer (GeoJSON, markers, etc.) → auto fallback pane
       const fbName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
-      this.fallbackPanes.add(fbName);
+      this.fallbackPaneMap.set(L.stamp(layer), fbName);
       const ep = this.ensurePane(fbName, !isTile);
       ep.pane.style.zIndex = z;
       if (layer.options.pane !== fbName || !layer.options.paneSet)
@@ -1145,7 +1159,7 @@
       for (let i = 0; i < this.layers.length; i++) {
         const li = this.layers[i];
         if (!li.isBase) continue;
-        const layer = LayerUtils.findLayer(this.map, li.id);
+        const layer = this.findLayer(li.id);
         if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
         delete attrCtrl._attributions[layer.options.attribution];
         if (!topAttr && this.map.hasLayer(layer)) topAttr = layer.options.attribution;
@@ -1191,14 +1205,10 @@
         this.uiContainer.innerHTML = "";
         this.uiContainer = null;
       }
-      // Only remove this instance's layers from the shared registry so other
-      // controls (e.g. HeatmapControl) are not affected.
-      for (const l of this.layers) LayerManager.registry.delete(l.id);
       this.layers = [];
-      this.typeMap.clear();
-      this.layerCallbacks.clear();
       this.pendingRegistrations = [];
       this.paneCache.clear();
+      this.fallbackPaneMap.clear();
       this.ui = null;
       if (foliplus.LayerAPI === this) foliplus.LayerAPI = null;
     }
@@ -1378,11 +1388,11 @@
       for (let i = 0; i < this.m.layers.length; i++) {
         const layerInfo = this.m.layers[i];
         const id = layerInfo.id;
-        const layer = LayerUtils.findLayer(this.m.map, id);
+        const layer = this.m.findLayer(id);
 
         if (inputs[i]) {
           const hasLayer = layer != null;
-          const isCallbackOnly = !hasLayer && this.m.layerCallbacks.has(id);
+          const isCallbackOnly = !hasLayer && layerInfo.onToggle;
           if (isCallbackOnly) inputs[i].checked = layerInfo.visible !== false;
           else inputs[i].checked = hasLayer && this.m.map.hasLayer(layer);
 
@@ -1402,17 +1412,17 @@
           if (layerInfo.isBase) {
             typeCols[i].innerHTML = foliplus.SVGs.GLOBE;
             typeKey = `${CONST.name}.type_base`;
-            this.m.typeMap.set(id, { type: CONST.GROUP.BASE, name: layerInfo.name });
+            layerInfo.type = CONST.GROUP.BASE;
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
             typeKey = `${CONST.name}.type_custom`;
-            this.m.typeMap.set(id, { type: "custom", name: layerInfo.name });
+            layerInfo.type = "custom";
           } else if (layer) {
             const gtype = LayerUtils.getGeometryType(layer);
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
             typeKey = `${CONST.name}.type_${gtype}`;
-            this.m.typeMap.set(id, { type: gtype, name: layerInfo.name });
+            layerInfo.type = gtype;
           } else {
             typeKey = `${CONST.name}.type_unknown`;
           }
@@ -1490,7 +1500,7 @@
         const idx = parseInt(cb.dataset.index, 10);
         if (isNaN(idx) || idx < 0 || idx >= this.m.layers.length) return;
         const layerInfo = this.m.layers[idx];
-        const layer = LayerUtils.findLayer(this.m.map, layerInfo.id);
+        const layer = this.m.findLayer(layerInfo.id);
 
         cb.checked = newState;
         cb.title = _(
@@ -1502,10 +1512,7 @@
         if (layer)
           newState ? this.m.map.addLayer(layer) : this.m.map.removeLayer(layer);
         if (newState && layer) layer.options.paneSet = false;
-
-        const cbs = this.m.layerCallbacks.get(layerInfo.id);
-        if (cbs && cbs.onToggle) cbs.onToggle(newState);
-
+        if (layerInfo.onToggle) layerInfo.onToggle(newState);
         if (!layer) layerInfo.visible = newState;
       });
 
@@ -1554,7 +1561,7 @@
       const idx = parseInt(target.dataset.index, 10);
       if (isNaN(idx) || idx < 0 || idx >= this.m.layers.length) return;
       const layerInfo = this.m.layers[idx];
-      const layer = LayerUtils.findLayer(this.m.map, layerInfo.id);
+      const layer = this.m.findLayer(layerInfo.id);
       const item = target.closest(CONST.SEL.LAYER_ITEM);
 
       if (layerInfo.isBase) this.hideColorLayer();
@@ -1573,8 +1580,7 @@
         `${CONST.name}.${target.checked ? "deselect_tooltip" : "select_tooltip"}`,
       );
 
-      const cbs = this.m.layerCallbacks.get(layerInfo.id);
-      if (cbs && cbs.onToggle) cbs.onToggle(target.checked);
+      if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
       if (!layer) layerInfo.visible = target.checked;
 
       this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
@@ -1705,7 +1711,7 @@
 
       for (let i = 0; i < this.m.layers.length; i++) {
         if (this.m.layers[i].isBase) {
-          const bLayer = LayerUtils.findLayer(this.m.map, this.m.layers[i].id);
+          const bLayer = this.m.findLayer(this.m.layers[i].id);
           if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
         }
       }
@@ -1748,7 +1754,7 @@
       );
       for (let i = 0; i < this.m.layers.length; i++) {
         if (this.m.layers[i].isBase && i !== exceptIdx) {
-          const bLayer = LayerUtils.findLayer(this.m.map, this.m.layers[i].id);
+          const bLayer = this.m.findLayer(this.m.layers[i].id);
           if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
           if (inputs[i]) {
             inputs[i].checked = false;
