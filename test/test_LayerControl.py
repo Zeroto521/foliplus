@@ -752,8 +752,8 @@ class TestLayerControlRendering:
         """Saved order is normalized to overlay-first, base-last groups."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "normalizeLayerGroups" in html
-        assert "this.normalizeLayerGroups();" in html
+        assert "normalizeGroups" in html
+        assert "this.layerRegistry.normalizeGroups()" in html
 
     def test_blocked_reorder_hint_present(self, base_map: folium.Map):
         """Cross-group drag block exposes a throttled hint path."""
