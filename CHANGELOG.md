@@ -10,7 +10,7 @@
 
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
-- `FullscreenControl`: zoom +/- buttons are now hidden while in fullscreen. Previously `hide_self` only hid the fullscreen button itself, leaving the zoom buttons visible regardless of `hide_self`/`hide_others` ([#114](https://github.com/Zeroto521/foliplus/pull/114))
+- `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115))
 
 ## [v0.3.0] (2026-08-02)
 
