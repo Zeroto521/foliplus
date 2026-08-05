@@ -169,16 +169,14 @@
         }
 
         if ({{ this.hide_self | tojson }}) {
-          const fsToggle = container.querySelector(`.${CONST.CLASSES.FS_TOGGLE}`);
-          if (fsToggle) fsToggle.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
+          // The fullscreen button, zoom +/- are all part of the fullscreen
+          // control itself; hide them together while in fullscreen.
+          const selfBtns = container.querySelectorAll(
+            `.${CONST.CLASSES.FS_TOGGLE}, .${CONST.CLASSES.ZOOM_IN}, .${CONST.CLASSES.ZOOM_OUT}`,
+          );
+          for (const btn of selfBtns)
+            btn.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
         }
-
-        // Zoom +/- are part of the fullscreen control itself; always hide
-        // them while in fullscreen regardless of hide_self/hide_others.
-        const zoomBtns = container.querySelectorAll(
-          `.${CONST.CLASSES.ZOOM_IN}, .${CONST.CLASSES.ZOOM_OUT}`,
-        );
-        for (const btn of zoomBtns) btn.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
 
         foliplus.showHint(
           CONST.name,
