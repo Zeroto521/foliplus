@@ -396,17 +396,16 @@
 
       const pts = [];
       if (!this.selectedLayerId) return pts;
-      this.pointLayers.forEach((info) => {
-        if (info.id === this.selectedLayerId) {
-          foliplus.LayerAPI.extractPoints(info.id).forEach((p) => {
-            pts.push({
-              lat: p.lat,
-              lng: p.lng,
-              value: this.getPointValue(p.marker),
-              marker: p.marker,
-            });
-          });
-        }
+      const info = this.pointLayers.find((i) => i.id === this.selectedLayerId);
+      if (!info) return pts;
+
+      foliplus.LayerAPI.extractPoints(info.id).forEach((p) => {
+        pts.push({
+          lat: p.lat,
+          lng: p.lng,
+          value: this.getPointValue(p.marker),
+          marker: p.marker,
+        });
       });
       this.cachedPoints = { key, pts };
       return pts;
