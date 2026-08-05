@@ -2913,7 +2913,17 @@ class TestLayerControlEdgeCases:
         # Scope the assertion to the registerLayer method body so onLayerAdd's
         # debouncedEnforce call does not satisfy it.
         start = html.index("registerLayer(opts) {")
-        end = html.index("bringLayerToFront(")
+        # Find the next method-level closing brace after registerLayer
+        depth = 0
+        end = start
+        for k in range(start, len(html)):
+            if html[k] == "{":
+                depth += 1
+            elif html[k] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = k + 1
+                    break
         body = html[start:end]
         assert "this.debouncedEnforce()" in body, (
             "registerLayer must defer via debouncedEnforce"
