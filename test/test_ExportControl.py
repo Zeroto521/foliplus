@@ -490,10 +490,11 @@ class TestExportControlRendering:
         assert "renderTileLayer" in html
 
     def test_render_invisible_layer_skipped(self, base_map: folium.Map):
-        """render() skips hidden layers via map.hasLayer check."""
+        """render() skips hidden layers via li.visible (managed by LayerControl)."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "!this.map.hasLayer(li.layer)" in html
+        assert "li.visible" in html
+        assert "if (!li.visible) continue" in html
 
     def test_render_methods_awaited(self, base_map: folium.Map):
         """All render passes are awaited in render()."""

@@ -293,8 +293,6 @@
           }
           // Use the layer reference from layerInfo (resolved at init or register)
           if (!li.layer) continue;
-          // Skip hidden layers (unchecked in LayerControl panel)
-          if (!this.map.hasLayer(li.layer)) continue;
 
           // SVG paths, Canvas elements, and Markers in this layer's panes
           const panes = api.getLayerPanes(li.layer);
