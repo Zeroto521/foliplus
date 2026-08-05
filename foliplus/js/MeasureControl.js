@@ -220,7 +220,14 @@
       return { isXVisible: newX, isLabelsVisible: newLabel };
     }
 
-    static applyToggle(delMarker, isXVisible, labels, isLabelsVisible, extraLbl, onToggle) {
+    static applyToggle(
+      delMarker,
+      isXVisible,
+      labels,
+      isLabelsVisible,
+      extraLbl,
+      onToggle,
+    ) {
       const applyDelIcon = (marker, show, retries = 0) => {
         if (!marker) return;
         MeasureUtils.toggleDelIcon(marker, show, retries);
@@ -1715,7 +1722,12 @@
       const nodeDelIcons = [];
 
       const toggleUI = (showX, toggleLabels) => {
-        const s = MeasureUtils.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
+        const s = MeasureUtils.calcToggle(
+          isXVisible,
+          isLabelsVisible,
+          showX,
+          toggleLabels,
+        );
         isXVisible = s.isXVisible;
         isLabelsVisible = s.isLabelsVisible;
         nodeDelIcons.forEach((m) => MeasureUtils.toggleDelIcon(m, isXVisible));
@@ -1889,7 +1901,12 @@
       let isDeleted = false;
 
       const toggleUI = (showX, toggleLabels) => {
-        const s = MeasureUtils.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
+        const s = MeasureUtils.calcToggle(
+          isXVisible,
+          isLabelsVisible,
+          showX,
+          toggleLabels,
+        );
         isXVisible = s.isXVisible;
         isLabelsVisible = s.isLabelsVisible;
         MeasureUtils.applyToggle(
@@ -2052,7 +2069,12 @@
       };
 
       const toggleUI = (showX, toggleLabels) => {
-        const s = MeasureUtils.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
+        const s = MeasureUtils.calcToggle(
+          isXVisible,
+          isLabelsVisible,
+          showX,
+          toggleLabels,
+        );
         isXVisible = s.isXVisible;
         isLabelsVisible = s.isLabelsVisible;
         nodeDelIcons.forEach((m) => MeasureUtils.toggleDelIcon(m, isXVisible));
@@ -2091,96 +2113,101 @@
       };
       this.map.on("click", onMapClickActive);
 
-      // Create delete icons for each node — all nodes individually deletable
-      nodeMarkers.forEach((node, idx) => {
+      // Create delete icons for each node
+      nodeMarkers.forEach((node) => {
+        const is3pt = points.length === 3;
         const delMarker = layers.addLayer(
           MeasureUtils.makeDelIcon(node.getLatLng(), {
             zIndexOffset: CONST.Z_INDEX.OFFSET,
-            title: _(`${CONST.name}.del_node`),
+            title: is3pt ? _(`${CONST.name}.del_all`) : _(`${CONST.name}.del_node`),
           }),
         );
         nodeDelIcons.push(delMarker);
 
-        MeasureUtils.attachDelClick(delMarker, () => {
-          const latlng = node.getLatLng();
-          const ptIdx = points.findIndex(
-            (p) =>
-              Math.abs(p.lat - latlng.lat) < 0.0001 &&
-              Math.abs(p.lng - latlng.lng) < 0.0001,
-          );
-          if (ptIdx === -1) return;
-          points.splice(ptIdx, 1);
-          layers.removeLayer(node, delMarker);
-          nodeMarkers.splice(ptIdx, 1);
-          nodeDelIcons.splice(ptIdx, 1);
+        if (is3pt) MeasureUtils.attachDelClick(delMarker, deleteMeas);
+        else
+          MeasureUtils.attachDelClick(delMarker, () => {
+            const latlng = node.getLatLng();
+            const ptIdx = points.findIndex(
+              (p) =>
+                Math.abs(p.lat - latlng.lat) < 0.0001 &&
+                Math.abs(p.lng - latlng.lng) < 0.0001,
+            );
+            if (ptIdx === -1) return;
+            points.splice(ptIdx, 1);
+            layers.removeLayer(node, delMarker);
+            nodeMarkers.splice(ptIdx, 1);
+            nodeDelIcons.splice(ptIdx, 1);
 
-          // Remove all old segLabels and rebuild from scratch
-          segLabels.forEach((l) => layers.removeLayer(l));
-          segLabels.length = 0;
+            // Remove all old segLabels and rebuild from scratch
+            segLabels.forEach((l) => layers.removeLayer(l));
+            segLabels.length = 0;
 
-          if (points.length < 3) {
-            deleteMeas();
-            return;
-          }
+            if (points.length < 3) {
+              deleteMeas();
+              return;
+            }
 
-          // When exactly 3 points remain, every node X should delete all
-          if (points.length === 3) {
-            nodeDelIcons.forEach((d) => {
-              d.off("click");
-              // X click → delete all; toggle click → toggle UI
-              d.on("click", (ev) => {
-                const t = ev.originalEvent?.target;
-                if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                  MeasureUtils.stopEvent(ev);
-                  deleteMeas();
-                } else handleItemClick(ev);
+            // When exactly 3 points remain, every node X should delete all
+            if (points.length === 3) {
+              nodeDelIcons.forEach((d) => {
+                d.off("click");
+                d.on("click", (ev) => {
+                  const t = ev.originalEvent?.target;
+                  if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
+                    MeasureUtils.stopEvent(ev);
+                    deleteMeas();
+                  } else handleItemClick(ev);
+                });
+                const iconEl = d._icon || d.getElement();
+                if (iconEl) iconEl.title = _(`${CONST.name}.del_all`);
               });
-              const iconEl = d._icon || d.getElement();
-              if (iconEl) iconEl.title = _(`${CONST.name}.del_all`);
-            });
-          }
+            }
 
-          // Recalculate polygon
-          finalPoly.setLatLngs([...points, points[0]]);
+            // Recalculate polygon
+            finalPoly.setLatLngs([...points, points[0]]);
 
-          // Recalculate area
-          const newArea = MeasureUtils.area(points);
-          if (centroidLabel)
-            MeasureUtils.setLabelText(centroidLabel, MeasureUtils.formatArea(newArea));
+            // Recalculate area
+            const newArea = MeasureUtils.area(points);
+            if (centroidLabel)
+              MeasureUtils.setLabelText(
+                centroidLabel,
+                MeasureUtils.formatArea(newArea),
+              );
 
-          // Rebuild ALL segment labels from scratch
-          const n = points.length;
-          for (let i = 0; i < n; i++) {
-            const next = (i + 1) % n;
-            const midLat = (points[i].lat + points[next].lat) / 2;
-            const midLng = (points[i].lng + points[next].lng) / 2;
-            const label = layers.addLayer(
-              L.marker([midLat, midLng], {
-                icon: MeasureUtils.makeMidLabelDivIcon(
-                  MeasureUtils.formatDistance(
-                    MeasureUtils.distance(
-                      points[i].lng,
-                      points[i].lat,
-                      points[next].lng,
-                      points[next].lat,
+            // Rebuild ALL segment labels from scratch
+            const n = points.length;
+            for (let i = 0; i < n; i++) {
+              const next = (i + 1) % n;
+              const midLat = (points[i].lat + points[next].lat) / 2;
+              const midLng = (points[i].lng + points[next].lng) / 2;
+              const label = layers.addLayer(
+                L.marker([midLat, midLng], {
+                  icon: MeasureUtils.makeMidLabelDivIcon(
+                    MeasureUtils.formatDistance(
+                      MeasureUtils.distance(
+                        points[i].lng,
+                        points[i].lat,
+                        points[next].lng,
+                        points[next].lat,
+                      ),
                     ),
                   ),
-                ),
-              }),
-              true,
-            );
-            segLabels.push(label);
-            label.on("click", handleItemClick);
-          }
+                }),
+                true,
+              );
+              segLabels.push(label);
+              label.on("click", handleItemClick);
+            }
 
-          // Rebuild centroid position
-          rebuildCentroid(isXVisible, newArea);
+            // Rebuild centroid position
+            rebuildCentroid(isXVisible, newArea);
 
-          if (onUpdate) {
-            opts.area = newArea;
-            onUpdate();
-          }
-        });
+            if (onUpdate) {
+              opts.area = newArea;
+              onUpdate();
+            }
+          });
 
         delMarker.on("click", (e) => {
           const t = e.originalEvent?.target;
