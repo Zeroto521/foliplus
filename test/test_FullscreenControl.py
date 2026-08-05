@@ -264,11 +264,12 @@ class TestFullscreenControlBrowser:
     def _enter_fullscreen(self, page, hide_self=True):
         """Click the fullscreen toggle to enter fullscreen.
 
-        Waits for both the native fullscreen state AND the UI update that
-        follows the (async) `fullscreenchange` event, so assertions right
-        after this call are not racing the event dispatch.
+        Uses a real input event (page.click) — the Fullscreen API requires
+        user activation, which synthesized `.click()` via page.evaluate may
+        not provide. Waits for both the native fullscreen state AND the UI
+        update that follows the (async) `fullscreenchange` event.
         """
-        page.evaluate("document.querySelector('.foliplus-fullscreen-toggle').click()")
+        page.click(".foliplus-fullscreen-toggle")
         page.wait_for_function("() => document.fullscreenElement !== null")
         if hide_self:
             page.wait_for_function(
@@ -288,8 +289,10 @@ class TestFullscreenControlBrowser:
     def _exit_fullscreen(self, page):
         """Click the fullscreen toggle to exit fullscreen.
 
-        Waits for the UI to restore (zoom buttons visible again) after the
-        `fullscreenchange` event, not just for native state.
+        Uses a synthesized click via JS: the toggle is hidden while
+        fullscreen (hide_self=true), so Playwright's page.click cannot
+        target it. Exiting fullscreen does not require user activation.
+        Waits for the UI to restore after the `fullscreenchange` event.
         """
         page.evaluate("document.querySelector('.foliplus-fullscreen-toggle').click()")
         page.wait_for_function("() => document.fullscreenElement === null")
@@ -444,6 +447,90 @@ class TestFullscreenControlBrowser:
             page.wait_for_timeout(200)
             total = page.evaluate("window.__hintCount")
             assert total == 2, f"exit hint fired {total - enter_count} times"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def _make_pseudo_page(self, browser, tmp_path):
+        """Build a page with the native Fullscreen API disabled, so the
+        control falls back to pseudo-fullscreen mode (isEnabled=false)."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        FullscreenControl(hide_self=True, hide_others=False).add_to(m)
+
+        html = m.get_root().render()
+        # Disable the native Fullscreen API before the control initializes.
+        html = html.replace(
+            "<body>",
+            """<body>
+            <script>
+              Object.defineProperty(document, 'fullscreenEnabled', {
+                value: false,
+                configurable: true,
+              });
+              document.exitFullscreen = undefined;
+              document.documentElement.requestFullscreen = undefined;
+            </script>""",
+        )
+        html_path = tmp_path / "fullscreen_pseudo.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        errors = []
+        page.on(
+            "console",
+            lambda msg: (
+                errors.append(msg.text)
+                if msg.type == "error"
+                and not msg.text.startswith("Failed to load resource")
+                else None
+            ),
+        )
+        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        return page, errors
+
+    def test_pseudo_fullscreen_enter_exit(self, browser, tmp_path):
+        """Pseudo-fullscreen (no native API) can be entered and exited.
+
+        The exit branch must check the internal `map.isFullscreen` flag,
+        because `document.fullscreenElement` is always null when the native
+        Fullscreen API is unavailable.
+        """
+        page, errors = self._make_pseudo_page(browser, tmp_path)
+        try:
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            # Enter with a real input event (page.click generates one).
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function(
+                """() => document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            # Zoom hidden, icon MINIMIZE.
+            hidden = page.evaluate(
+                """() => document
+                    .querySelector('.foliplus-zoom-in')
+                    .classList.contains('foliplus-fullscreen-hidden')"""
+            )
+            assert hidden, "zoom not hidden in pseudo-fullscreen"
+
+            # Exit. The toggle button is hidden while fullscreen, so click via
+            # JS (Playwright's page.click would fail on the hidden element).
+            page.evaluate(
+                "document.querySelector('.foliplus-fullscreen-toggle').click()"
+            )
+            page.wait_for_function(
+                """() => !document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            visible = page.evaluate(
+                """() => !document
+                    .querySelector('.foliplus-zoom-in')
+                    .classList.contains('foliplus-fullscreen-hidden')"""
+            )
+            assert visible, "zoom not restored after exiting pseudo-fullscreen"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
