@@ -9,7 +9,7 @@
       CONTAINER_PADDING: 200,
     },
     STORAGE: {
-      KEY: "foliplus_export_rect",
+      KEY: "foliplus_export_rect_{{ this._parent.get_name() }}",
     },
     TIMING: {
       URL_REVOKE_DELAY: 10000,
