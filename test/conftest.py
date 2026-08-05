@@ -30,7 +30,6 @@ def render(m: folium.Map) -> str:
     return resolve_js_unicode(m.get_root().render())
 
 
-
 def pytest_collection_modifyitems(config, items):
     """Auto-mark test classes ending with 'Browser' as pytest.mark.browser."""
     for item in items:
