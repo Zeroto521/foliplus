@@ -187,7 +187,9 @@
 
       // ==================== FullscreenControl Toggle ====================
       const toggleFullscreen = () => {
-        if (getFullscreenEl()) {
+        // Exit when native fullscreen is active OR the internal flag is set
+        // (pseudo-fullscreen mode never sets document.fullscreenElement).
+        if (getFullscreenEl() || map.isFullscreen) {
           if (isEnabled) {
             document[nativeAPI.exitFullscreen]()
               .then(() => {
