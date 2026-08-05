@@ -571,10 +571,10 @@ class TestLayerControlRendering:
         assert "paneCache.clear()" in html
 
     def test_destroy_clears_layers(self, base_map: folium.Map):
-        """destroy() clears the layers array."""
+        """destroy() clears the layers array via the registry."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.layers = []" in html
+        assert "this.layerRegistry.clear()" in html
 
     def test_destroy_flag(self, base_map: folium.Map):
         """destroy sets isDestroyed flag to prevent post-cleanup actions."""
@@ -616,7 +616,8 @@ class TestLayerControlRendering:
         """unregisterLayer removes entry from layers array."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.layers.splice(idx, 1)" in html
+        # Removal goes through the registry (keeps array + index in sync)
+        assert "this.layerRegistry.remove(id)" in html
 
     def test_unregister_returns_bool(self, base_map: folium.Map):
         """unregisterLayer returns false when layer not found."""
@@ -1891,8 +1892,7 @@ class TestLayerControlBrowser:
                 // Register a layer
                 const fg = L.featureGroup();
                 api.registerLayer({ id: '__test_reentry__', name: 'ReEntry', layer: fg });
-                // Simulate uncheck: remove from map (as if user clicked checkbox off)
-                api.layers = api.layers.filter(l => l.id !== '__test_reentry__');
+                // Simulate uncheck: unregister (as if user toggled the layer off)
                 api.unregisterLayer('__test_reentry__');
                 // Re-register (simulating MeasureControl tool re-activation)
                 api.registerLayer({ id: '__test_reentry__', name: 'ReEntry', layer: fg });
@@ -2806,7 +2806,7 @@ class TestLayerControlEdgeCases:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "bringLayerToFront" in html
-        assert "this.layers.unshift(item)" in html
+        assert "this.layerRegistry.moveToFront(id)" in html
 
     def test_register_layer_requires_id(self, base_map: folium.Map):
         """registerLayer throws when id is missing."""
@@ -3340,13 +3340,13 @@ class TestLayerControlEdgeCases:
                 if (!api) return null;
                 const check = () => {
                     const ids = api.layers.map(l => l.id);
-                    const indexKeys = Array.from(api.layerIndex.keys());
+                    const indexKeys = Array.from(api.layerRegistry._byId.keys());
                     const sameSet =
                         ids.length === indexKeys.length &&
-                        ids.every(id => api.layerIndex.has(id));
+                        ids.every(id => api.layerRegistry.has(id));
                     // Index values must reference the same objects as the array
                     const sameRefs = ids.every(id =>
-                        api.layerIndex.get(id) === api.layers.find(l => l.id === id)
+                        api.layerRegistry.get(id) === api.layers.find(l => l.id === id)
                     );
                     return { sameSet, sameRefs };
                 };
@@ -3399,5 +3399,100 @@ class TestLayerControlEdgeCases:
             )
             assert result["found"], "findLayer failed via index"
             assert result["typeResolved"], "getLayerType failed via index"
+        finally:
+            page.close()
+
+    def test_layer_registry_api(self, browser, tmp_path):
+        """LayerRegistry exposes ordered list + id index semantics.
+
+        The registry must behave like an ordered array for DOM-aligned code
+        (length, index access, iteration) while keeping an id → layerInfo map
+        in sync on every mutation.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_registry_api.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const coll = api.layerRegistry;
+                if (!coll) return { error: 'no layerRegistry exposed' };
+                const out = {};
+
+                // Start from an empty registry so assertions are independent
+                // of the map's initial layers.
+                coll.replace([]);
+
+                // Ordered-array semantics
+                const a = { id: 'a', name: 'A' };
+                const b = { id: 'b', name: 'B' };
+                coll.prepend(a);
+                coll.prepend(b);          // b, a
+                out.afterPrepend = { len: coll.size, first: coll.at(0).id, second: coll.at(1).id };
+
+                // Index semantics
+                out.getById = coll.get('a').name;
+                out.hasA = coll.has('a');
+                out.indexOfA = coll.indexOf(a);
+
+                // Idempotent upsert keeps position
+                coll.upsert({ id: 'b', name: 'B2' });
+                out.afterUpsert = { len: coll.size, idxB: coll.indexOf(coll.get('b')), name: coll.get('b').name };
+
+                // Remove keeps index in sync
+                coll.remove('a');
+                out.afterRemove = { len: coll.size, hasA: coll.has('a'), first: coll.at(0).id };
+
+                // Iteration preserves order
+                coll.upsert({ id: 'c', name: 'C' });
+                const ids = [];
+                for (const li of coll) ids.push(li.id);
+                out.iter = ids;
+
+                // replace rebuilds both list and index
+                coll.replace([{ id: 'x', name: 'X' }, { id: 'y', name: 'Y' }]);
+                out.afterReplace = {
+                    len: coll.size,
+                    hasX: coll.has('x'),
+                    hasOld: coll.has('b'),
+                    first: coll.at(0).id,
+                };
+                return out;
+            }""")
+            assert result is not None and "error" not in result, (
+                result if result else "LayerAPI not found"
+            )
+            assert result["afterPrepend"] == {
+                "len": 2,
+                "first": "b",
+                "second": "a",
+            }, f"prepend order wrong: {result['afterPrepend']}"
+            assert result["getById"] == "A", "get by id failed"
+            assert result["hasA"] is True, "has failed"
+            assert result["indexOfA"] == 1, "indexOf failed"
+            assert result["afterUpsert"]["len"] == 2, "upsert changed size"
+            assert result["afterUpsert"]["idxB"] == 0, "upsert moved item"
+            assert result["afterUpsert"]["name"] == "B2", "upsert did not update"
+            assert result["afterRemove"]["len"] == 1, "remove changed size"
+            assert result["afterRemove"]["hasA"] is False, "remove left index entry"
+            assert result["afterRemove"]["first"] == "b", "remove reorder wrong"
+            assert result["iter"] == ["b", "c"], (
+                f"iteration order wrong: {result['iter']}"
+            )
+            assert result["afterReplace"]["len"] == 2, "replace size wrong"
+            assert result["afterReplace"]["hasX"] is True, "replace missing new id"
+            assert result["afterReplace"]["hasOld"] is False, "replace left old id"
+            assert result["afterReplace"]["first"] == "x", "replace order wrong"
         finally:
             page.close()
