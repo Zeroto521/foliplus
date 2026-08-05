@@ -152,7 +152,7 @@
 
       // ==================== UI Update ====================
       const updateUI = () => {
-        const isFull = !!getFullscreenEl() || map._isFullscreen;
+        const isFull = !!getFullscreenEl() || map.isFullscreen;
         fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
         fsBtn.title = isFull
           ? _(`${CONST.name}.title_cancel`)
@@ -191,10 +191,10 @@
           if (isEnabled) {
             document[nativeAPI.exitFullscreen]()
               .then(() => {
-                map._isFullscreen = false;
+                map.isFullscreen = false;
               })
               .catch(() => {
-                map._isFullscreen = !!getFullscreenEl();
+                map.isFullscreen = !!getFullscreenEl();
                 updateUI();
               });
             return;
@@ -202,15 +202,15 @@
             map._container.classList.remove(CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
-          map._isFullscreen = false;
+          map.isFullscreen = false;
         } else {
           if (isEnabled) {
             map._container[nativeAPI.requestFullscreen]()
               .then(() => {
-                map._isFullscreen = true;
+                map.isFullscreen = true;
               })
               .catch(() => {
-                map._isFullscreen = !!getFullscreenEl();
+                map.isFullscreen = !!getFullscreenEl();
                 updateUI();
               });
             return;
@@ -218,14 +218,14 @@
             map._container.classList.add(CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
-          map._isFullscreen = true;
+          map.isFullscreen = true;
         }
         updateUI();
       };
 
       // ==================== Event Listeners ====================
       const handleFSChange = () => {
-        map._isFullscreen = !!getFullscreenEl();
+        map.isFullscreen = !!getFullscreenEl();
         updateUI();
       };
 
