@@ -1889,3 +1889,35 @@ class TestMeasureControlRendering:
         assert "segLabels.forEach((l) => layers.removeLayer(l))" in html
         assert "segLabels.length = 0" in html
         assert "segLabels.push(label)" in html
+
+    def test_animate_dash_sweep_method(self, base_map: folium.Map):
+        """animateDashSweep static method is defined with guard and animationend cleanup."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "static animateDashSweep(path)" in html
+        assert "if (len <= 0) return" in html
+        assert 'removeEventListener("animationend", onEnd)' in html
+
+    def test_restore_distance_uses_accumulator(self, base_map: folium.Map):
+        """restoreDistance uses O(n) accumulator instead of O(n^2) slice+reduce."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "accTotal" in html
+        assert "accTotal += seg.distance" in html
+
+    def test_polygon_3pt_del_all_on_initial(self, base_map: folium.Map):
+        """When polygon has exactly 3 points, every node X shows del_all."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "is3pt = points.length === 3" in html
+        assert "CONST.name" in html
+        assert "del_all" in html
+        assert "del_node" in html
+
+    def test_polygon_3pt_del_all_on_delete_down(self, base_map: folium.Map):
+        """When polygon nodes are deleted down to 3, remaining nodes switch to del_all."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "points.length === 3" in html
+        assert "del_all" in html
+        assert "iconEl.title" in html

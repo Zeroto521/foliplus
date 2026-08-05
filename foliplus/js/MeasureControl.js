@@ -140,12 +140,16 @@
 
   // ==================== Utility Classes ====================
   class MeasureUtils {
+    /** Stop event propagation and prevent default. */
     static stopEvent(e) {
       const d = e.originalEvent || e;
       d?.stopPropagation?.();
       d?.preventDefault?.();
     }
 
+    /** Format meters to human-readable string (e.g. "1.2 km", "500 m").
+     *  @param {number} meters - Distance in meters.
+     *  @returns {string} Formatted distance string. */
     static formatDistance(meters) {
       return meters >= CONST.FORMAT.KM_THRESHOLD
         ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} ` +
@@ -214,12 +218,17 @@
       return `${Math.round(sqMeters).toLocaleString()} m²`;
     }
 
+    /** Toggle CSS hidden class on a list of DOM elements.
+     *  @param {Element[]} elements - DOM elements to toggle.
+     *  @param {boolean} visible - Whether elements should be visible. */
     static toggleVisibility(elements, visible) {
       elements.forEach((el) => {
         if (el) el.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
       });
     }
 
+    /** Temporarily suppress map click hide of delete icons.
+     *  @param {Object} manager - MeasureManager instance. */
     static suppressHide(manager) {
       manager.isSuppressHideDel = true;
       setTimeout(() => {
@@ -228,12 +237,19 @@
       MeasureUtils.hideDelIcons();
     }
 
+    /** Hide all visible delete icons on the page. */
     static hideDelIcons() {
       document
         .querySelectorAll(`${CONST.SEL.DEL_ICON}.${CONST.CLASSES.VISIBLE}`)
         .forEach((el) => el.classList.remove(CONST.CLASSES.VISIBLE));
     }
 
+    /** Calculate next toggle state for X icons and labels.
+     *  @param {boolean} curX - Current X visibility.
+     *  @param {boolean} curLabels - Current label visibility.
+     *  @param {boolean|undefined} showX - Requested X state.
+     *  @param {boolean|string|undefined} toggleLbl - Requested label toggle.
+     *  @returns {Object} `{isXVisible:boolean, isLabelsVisible:boolean}` */
     static calcToggle(curX, curLabels, showX, toggleLbl) {
       const newX = showX !== undefined ? showX : !curX;
       let newLabel = curLabels;
@@ -243,6 +259,13 @@
       return { isXVisible: newX, isLabelsVisible: newLabel };
     }
 
+    /** Apply toggle visibility state to del icon, labels, and optional extra label.
+     *  @param {Object} delMarker - Delete icon marker.
+     *  @param {boolean} isXVisible - Whether X icons are visible.
+     *  @param {Array} labels - Label markers to toggle.
+     *  @param {boolean} isLabelsVisible - Whether labels are visible.
+     *  @param {Object} [extraLbl] - Extra label marker to toggle.
+     *  @param {Function} [onToggle] - Callback after toggle. */
     static applyToggle(
       delMarker,
       isXVisible,
@@ -402,6 +425,7 @@
   }
 
   // ==================== Mode Base Class ====================
+  /** Base class for all measurement modes. Handles map reference, layer group, and cleanup lifecycle. */
   class MeasureMode {
     constructor(manager) {
       this.manager = manager;
@@ -438,6 +462,7 @@
   }
 
   // ==================== Preview Mode Base Class ====================
+  /** Base class for modes with preview layers (distance, polygon, circle). Tracks and cleans up preview artifacts. */
   class PreviewMode extends MeasureMode {
     constructor(manager) {
       super(manager);
@@ -467,6 +492,7 @@
   }
 
   // ==================== Marker Mode ====================
+  /** Marker placement mode. Places a geocoded marker on click. */
   class MarkerMode extends MeasureMode {
     static TYPE = CONST.MODE.MARKER;
 
@@ -549,6 +575,7 @@
   }
 
   // ==================== Distance Mode ====================
+  /** Distance measurement mode. Click to place nodes, double-click/context to finish. */
   class DistanceMode extends PreviewMode {
     static TYPE = CONST.MODE.DISTANCE;
 
@@ -778,6 +805,7 @@
   }
 
   // ==================== Polygon Area Mode ====================
+  /** Polygon area measurement mode. Click to place nodes, closes on first/last node click. */
   class PolygonMode extends PreviewMode {
     static TYPE = CONST.MODE.POLYGON;
 
@@ -1024,6 +1052,7 @@
   }
 
   // ==================== Circle Mode ====================
+  /** Circle radius measurement mode. Click center, then click edge. */
   class CircleMode extends PreviewMode {
     static TYPE = CONST.MODE.CIRCLE;
 
@@ -1275,6 +1304,7 @@
   }
 
   // ==================== Core Manager ====================
+  /** Central manager for all measurements. Handles persistence, layer management, mode switching, and UI toggle lifecycle. */
   class MeasureManager {
     constructor(mapInstance) {
       this.map = mapInstance;
@@ -1299,6 +1329,7 @@
 
     // ── Persistence ──
 
+    /** Persist all measurements to localStorage. */
     saveMeasurements() {
       try {
         localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(this.measurements));
@@ -1307,6 +1338,8 @@
       }
     }
 
+    /** Load measurements from localStorage.
+     *  @returns {Array} Restored measurements array. */
     loadMeasurements() {
       try {
         const data = localStorage.getItem(CONST.STORAGE.KEY);
@@ -1317,11 +1350,15 @@
       }
     }
 
+    /** Generate a unique measurement ID.
+     *  @param {string} type - Measurement type.
+     *  @returns {string} Unique ID. */
     nextMeasurementId(type) {
       this.measurementIdCounter += 1;
       return `${CONST.ID}_${type}_${Date.now()}_${this.measurementIdCounter}`;
     }
 
+    /** Restore all persisted measurements from localStorage and rebuild their UI. */
     restoreMeasurements() {
       this.measurements = this.loadMeasurements();
       this.measurements.forEach((m) => {
@@ -1600,6 +1637,7 @@
       this.finalizedClickHandlers.push(onMapClickActive);
     }
 
+    /** Bind global map click, keydown, and unload events. */
     bindGlobalEvents() {
       this.onMapClick = (e) => {
         if (this.isSuppressHideDel) return;
@@ -2136,6 +2174,8 @@
       return onMapClickActive;
     }
 
+    /** Activate a measurement mode. Clears previous mode if active.
+     *  @param {string} mode - Mode key from CONST.MODE. */
     setMode(mode) {
       if (mode === CONST.MODE.CLEAR) {
         this.clearAll();
@@ -2195,6 +2235,7 @@
       }
     }
 
+    /** Deactivate current mode, clean up events, and hide hints. */
     clearActiveMode() {
       this.currentMode = null;
       this.toolBtns.forEach((btn) => btn.classList.remove(CONST.CLASSES.ACTIVE));
@@ -2203,6 +2244,7 @@
       this.cleanMapEvents();
     }
 
+    /** Clear all measurements, layers, and persisted data. */
     clearAll() {
       this.layers.clearLayers();
       this.measurements = [];
@@ -2220,6 +2262,7 @@
       }
     }
 
+    /** Full cleanup including global events. Called on control removal. */
     /** Full cleanup including global events. Called on control removal. */
     destroy() {
       // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
@@ -2240,6 +2283,7 @@
       this.finalizedClickHandlers = [];
     }
 
+    /** Clean up current mode instance and hide hints. */
     cleanMapEvents() {
       if (this.modeInstance) {
         this.modeInstance.cleanup();
@@ -2251,6 +2295,7 @@
 
   const measureManager = new MeasureManager(map);
 
+  /** Leaflet control wrapper for the MeasureManager. Handles DOM creation and tool button events. */
   class MeasureControl extends L.Control {
     constructor(options) {
       super(options);
