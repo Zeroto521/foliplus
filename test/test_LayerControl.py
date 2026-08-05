@@ -333,11 +333,11 @@ class TestLayerControlRendering:
         assert "if (this.isEnforcing) return" in html
 
     def test_error_keys_injected(self, base_map: folium.Map):
-        """LayerControl error keys appear in rendered HTML."""
+        """LayerControl persistence uses the shared storage helper."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "LayerControl.load_order_fail" in html
-        assert "LayerControl.save_order_fail" in html
+        assert "foliplus.storage.load(CONST.STORAGE.ORDER_KEY, CONST.name)" in html
+        assert "foliplus.storage.save(" in html
 
     def test_debounced_enforce_order(self, base_map: folium.Map):
         """enforceOrder is debounced in layeradd listener to prevent performance issues."""
@@ -477,13 +477,13 @@ class TestLayerControlRendering:
         """handleDrop returns early when dragIdx is invalid."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.m.dragIdx < 0 || this.m.dragIdx >= this.m.layers.length" in html
+        assert "this.dragIdx < 0 || this.dragIdx >= this.m.layers.length" in html
 
     def test_ensure_pane_no_renderer_false(self, base_map: folium.Map):
         """ensurePane accepts needRenderer=false for label/overlay panes."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.ensurePane(paneName, false)" in html
+        assert "this.panes.ensurePane(paneName, false)" in html
 
     def test_icon_svg_custom_in_initial_data(self, base_map: folium.Map):
         """iconSvg in registerLayer opts appears in the initialData template."""
@@ -508,7 +508,24 @@ class TestLayerControlRendering:
         """fallbackPaneMap is a Map that tracks auto-created pane names."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.fallbackPaneMap.set(L.stamp(layer), fbName)" in html
+        assert "this.panes.fallbackPaneMap.set(L.stamp(layer), fbName)" in html
+
+    def test_panemanager_extracted_as_class(self, base_map: folium.Map):
+        """Pane lifecycle is extracted into a standalone PaneManager class."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "class PaneManager" in html
+        assert "this.panes = new PaneManager(" in html
+
+    def test_pane_primitives_delegated_but_mechanism_stays(self, base_map: folium.Map):
+        """Pane primitives are delegated to PaneManager; mechanism selection stays."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Pane primitives moved to PaneManager
+        assert "this.panes.ensurePane(" in html
+        assert "this.panes.migrateLayers(" in html
+        # applyLayerZIndex (mechanism selection) remains on the Manager
+        assert "this.applyLayerZIndex" in html
 
     def test_leaflet_control_classes_applied(self, base_map: folium.Map):
         """LayerControl renders with leaflet-control classes for Leaflet theming."""
@@ -554,7 +571,7 @@ class TestLayerControlRendering:
         """registerLayer queues registrations when UI not yet rendered."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.pendingRegistrations.push(opts)" in html
+        assert "this.pendingRegistrations.push(layerInfo)" in html
         assert "return null" in html
 
     def test_destroy_removes_panes(self, base_map: folium.Map):
@@ -1210,7 +1227,7 @@ class TestLayerControlBrowser:
                     const overlay = document.querySelector('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)');
                     const base = document.querySelector('.foliplus-layer-item[data-layer-type="base"]');
                     if (!overlay || !base) return false;
-                    api.dragIdx = parseInt(overlay.dataset.index, 10);
+                    api.ui.dragIdx = parseInt(overlay.dataset.index, 10);
                     const ev = new Event("dragover", { bubbles: true, cancelable: true });
                     base.dispatchEvent(ev);
                     return true;
@@ -3168,7 +3185,7 @@ class TestLayerControlEdgeCases:
                     return origDebounced.call(this);
                 };
                 api.isEnforcing = true; // simulate in-flight enforceOrder
-                api.onLayerAdd({ layer: {} });
+                api.onLayerAdd({ layer: { options: { paneName: "test" } } });
                 api.isEnforcing = false;
                 api.debouncedEnforce = origDebounced;
                 return { rescheduled };
