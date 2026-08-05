@@ -483,7 +483,7 @@ class TestLayerControlRendering:
         """ensurePane accepts needRenderer=false for label/overlay panes."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.ensurePane(paneName, false)" in html
+        assert "this.panes.ensurePane(paneName, false)" in html
 
     def test_icon_svg_custom_in_initial_data(self, base_map: folium.Map):
         """iconSvg in registerLayer opts appears in the initialData template."""
@@ -508,7 +508,24 @@ class TestLayerControlRendering:
         """fallbackPaneMap is a Map that tracks auto-created pane names."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.fallbackPaneMap.set(L.stamp(layer), fbName)" in html
+        assert "this.panes.fallbackPaneMap.set(L.stamp(layer), fbName)" in html
+
+    def test_panemanager_extracted_as_class(self, base_map: folium.Map):
+        """Pane lifecycle is extracted into a standalone PaneManager class."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "class PaneManager" in html
+        assert "this.panes = new PaneManager(" in html
+
+    def test_pane_primitives_delegated_but_mechanism_stays(self, base_map: folium.Map):
+        """Pane primitives are delegated to PaneManager; mechanism selection stays."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Pane primitives moved to PaneManager
+        assert "this.panes.ensurePane(" in html
+        assert "this.panes.migrateLayers(" in html
+        # applyLayerZIndex (mechanism selection) remains on the Manager
+        assert "this.applyLayerZIndex" in html
 
     def test_leaflet_control_classes_applied(self, base_map: folium.Map):
         """LayerControl renders with leaflet-control classes for Leaflet theming."""

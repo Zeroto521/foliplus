@@ -495,6 +495,194 @@
     }
   }
 
+  // ==================== Pane Manager: PaneManager ====================
+  // Owns Leaflet pane lifecycle: creation, SVG renderers, child-pane
+  // discovery cache, fallback-pane mapping, and DOM migration.
+  // Purely map-scoped and independent of the layer registry/UI, so the
+  // z-order primitives are reusable across controls. The mechanism
+  // *selection* (applyLayerZIndex) stays on the Manager because it
+  // depends on the layer registry and z-index computation.
+  class PaneManager {
+    constructor(map) {
+      this.map = map;
+      this.defaultPanes = new Set([
+        "overlayPane",
+        "markerPane",
+        "tilePane",
+        "shadowPane",
+        "mapPane",
+      ]);
+      this.labelPanes = new Set();
+
+      // Cache for discoverChildPanes: layerId → string[] (pane names).
+      this.paneCache = new Map();
+
+      // Explicit registry: layer stamp → fallback pane name.
+      this.fallbackPaneMap = new Map();
+    }
+
+    /**
+     * Ensure a custom pane exists on the map.
+     * Optionally creates an SVG renderer for Path layers.
+     * @param {string} paneName - Pane name.
+     * @param {boolean} [needRenderer=true] - Whether to create an SVG renderer.
+     * @returns {Object} `{pane: HTMLElement, renderer: L.SVG|null}`
+     */
+    ensurePane(paneName, needRenderer = true) {
+      let pane = this.map.getPane(paneName);
+      if (!pane) {
+        pane = this.map.createPane(paneName);
+        pane.classList.add("foliplus-layer-pane");
+        // Set an initial z-index so content in this pane is visible above
+        // the base map before enforceOrder() runs (e.g., MeasureControl
+        // dashed lines during drawing, before register() is called).
+        // enforceOrder() will override this with the correct layer z-index
+        // once the layer is registered.
+        pane.style.zIndex = String(CONST.Z_INDEX.BASE);
+      }
+      let renderer = null;
+      if (needRenderer) {
+        const key = CONST.RENDERER_KEY + paneName;
+        renderer = this.map[key];
+        if (!renderer) {
+          renderer = L.svg({ pane: paneName });
+          renderer.addTo(this.map);
+          this.map[key] = renderer;
+        }
+      }
+      return { pane, renderer };
+    }
+
+    /** Find all custom panes used by a container's tree.
+     *  Results are cached by layer stamp; call `reset()`
+     *  when layer structure changes (register/unregister). */
+    discoverChildPanes(layer, depth = 0) {
+      if (depth > CONST.RECURSION.PANE_DEPTH) return [];
+      const key = L.stamp(layer);
+      if (this.paneCache.has(key)) return this.paneCache.get(key);
+      const panes = new Set();
+      LayerUtils.forEachLayer(
+        layer,
+        (l) => {
+          const p = l.options?.pane;
+          if (p && !this.isDefaultPane(p)) panes.add(p);
+        },
+        depth,
+      );
+      const result = Array.from(panes);
+      this.paneCache.set(key, result);
+      return result;
+    }
+
+    isDefaultPane(pane) {
+      return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
+    }
+
+    /** Find all panes a layer's content lives in, including fallback panes.
+     *  Unlike discoverChildPanes(), this includes auto-created fallback panes
+     *  (`foliplus_pane_*`) so ExportControl can find paths that were moved
+     *  there by migrateLayers().
+     *  Results are NOT cached because fallback panes are assigned lazily.
+     *
+     *  NOTE: For a layer that has no custom panes and no assigned fallback
+     *  pane, the caller must verify `map.hasLayer(layer)` before trusting the
+     *  returned default (`overlayPane`/`markerPane`), since an unmanaged or
+     *  removed layer may not actually be rendered. */
+    getLayerPanes(layer) {
+      const panes = this.discoverChildPanes(layer);
+      if (panes.length > 0) return panes;
+      // Check if a fallback pane was assigned to this layer
+      const fbName = this.fallbackPaneMap.get(L.stamp(layer));
+      if (fbName) return [fbName];
+      return ["overlayPane", "markerPane"];
+    }
+
+    /** Bump label panes for a layer so labels render above paths.
+     *  Used by both Mechanism A and Mechanism C. */
+    bumpLabelPanes(layer, z) {
+      const childPanes = this.discoverChildPanes(layer);
+      childPanes.forEach((cp) => {
+        if (this.labelPanes.has(cp)) {
+          const lp = this.ensurePane(cp, false);
+          lp.pane.style.zIndex = z + 1;
+        }
+      });
+    }
+
+    /**
+     * Move layer DOM content into target panes, batched via
+     * DocumentFragment to avoid repeated layout thrash.
+     * @param {Array<{layer: Object, paneName: string, renderer: Object}>} layersToMove
+     */
+    migrateLayers(layersToMove) {
+      if (!layersToMove.length) return;
+      // Group by renderer container so we can batch-append via DocumentFragment.
+      const groups = new Map();
+      const markerGroups = new Map();
+      for (const { layer, paneName, renderer } of layersToMove) {
+        if (!paneName) continue;
+        const container = renderer?._container;
+        if (!container) continue;
+        // For markers, we need the pane div (not the SVG renderer container)
+        const paneEl = this.map.getPane(paneName);
+        if (!groups.has(container)) groups.set(container, []);
+        // Single pass: set options + move DOM to avoid double traversal.
+        // Container layers (eachLayer) keep their options unpolluted — only
+        // leaf layers get pane/paneSet so re-migration stays possible when a
+        // layer's paneName changes.
+        const collect = (l) => {
+          if (l.eachLayer) {
+            l.eachLayer(collect);
+            return;
+          }
+          l.options.pane = paneName;
+          l.options.paneSet = true;
+          if (l instanceof L.Path) l.options.renderer = renderer;
+          if (l._path && l._path.parentNode !== container)
+            groups.get(container).push(l._path);
+          // Move marker icon/shadow to the pane element (not SVG renderer)
+          if (l instanceof L.Marker && paneEl) {
+            if (l._shadow && l._shadow.parentNode !== paneEl) {
+              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+              markerGroups.get(paneEl).push(l._shadow);
+            }
+            if (l._icon && l._icon.parentNode !== paneEl) {
+              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+              markerGroups.get(paneEl).push(l._icon);
+            }
+          }
+        };
+        collect(layer);
+      }
+      // Batch-append paths per container to avoid repeated layout thrash
+      for (const [container, paths] of groups) {
+        if (!paths.length) continue;
+        const frag = document.createDocumentFragment();
+        for (const p of paths) frag.appendChild(p);
+        container.appendChild(frag);
+      }
+      // Batch-append markers per pane element
+      for (const [paneEl, markers] of markerGroups) {
+        if (!markers.length) continue;
+        const frag = document.createDocumentFragment();
+        for (const m of markers) frag.appendChild(m);
+        paneEl.appendChild(frag);
+      }
+    }
+
+    /** Invalidate the child-pane discovery cache. */
+    reset() {
+      this.paneCache.clear();
+    }
+
+    /** Release all pane state. Called by LayerManager.destroy(). */
+    destroy() {
+      this.paneCache.clear();
+      this.fallbackPaneMap.clear();
+      this.labelPanes.clear();
+    }
+  }
+
   // ==================== Core Manager: LayerManager ====================
   class LayerManager {
     constructor(mapInstance, initialData) {
@@ -517,27 +705,17 @@
       this.findLayer = this.findLayer.bind(this);
       this.forEachLeaf = this.forEachLeaf.bind(this);
       this.extractPoints = this.extractPoints.bind(this);
-      this.ensurePane = this.ensurePane.bind(this);
-      this.getLayerPanes = this.getLayerPanes.bind(this);
       this.createLayers = this.createLayers.bind(this);
       this.createCanvas = this.createCanvas.bind(this);
       this.isEnforcing = false;
       this.isDestroyed = false;
 
-      this.defaultPanes = new Set([
-        "overlayPane",
-        "markerPane",
-        "tilePane",
-        "shadowPane",
-        "mapPane",
-      ]);
-      this.labelPanes = new Set();
-
-      // Cache for discoverChildPanes: layerId → string[] (pane names).
-      this.paneCache = new Map();
-
-      // Explicit registry: layer stamp → fallback pane name.
-      this.fallbackPaneMap = new Map();
+      // Pane lifecycle is delegated to a dedicated PaneManager. The bound
+      // methods below keep the public API contract (api.ensurePane /
+      // api.getLayerPanes) for external callers (e.g. ExportControl).
+      this.panes = new PaneManager(mapInstance);
+      this.ensurePane = this.panes.ensurePane.bind(this.panes);
+      this.getLayerPanes = this.panes.getLayerPanes.bind(this.panes);
 
       // Last attribution string applied, so syncAttribution can skip
       // rebuilding the attribution DOM when the top layer's attribution
@@ -779,14 +957,14 @@
         else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
       } else this.layerRegistry.prepend(layerInfo);
 
-      if (opts.paneName) this.ensurePane(opts.paneName);
+      if (opts.paneName) this.panes.ensurePane(opts.paneName);
       if (opts.layer) {
-        for (const cp of this.discoverChildPanes(opts.layer))
-          this.ensurePane(cp, !this.labelPanes.has(cp));
+        for (const cp of this.panes.discoverChildPanes(opts.layer))
+          this.panes.ensurePane(cp, !this.panes.labelPanes.has(cp));
       }
-      this.paneCache.clear();
+      this.panes.reset();
       // Clear stale fallback mapping so enforceOrder re-creates it
-      if (opts.layer) this.fallbackPaneMap.delete(L.stamp(opts.layer));
+      if (opts.layer) this.panes.fallbackPaneMap.delete(L.stamp(opts.layer));
       if (
         opts.paneName &&
         opts.layer &&
@@ -865,8 +1043,8 @@
         if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
         this.clearAllLayers(layer);
       }
-      this.paneCache.clear();
-      if (layer) this.fallbackPaneMap.delete(L.stamp(layer));
+      this.panes.reset();
+      if (layer) this.panes.fallbackPaneMap.delete(L.stamp(layer));
 
       if (this.uiContainer) {
         const target = this.uiContainer.querySelector(
@@ -949,7 +1127,7 @@
       const register = () => {
         if (!registered) {
           registered = true;
-          if (opts.labelPane) this.labelPanes.add(opts.labelPane);
+          if (opts.labelPane) this.panes.labelPanes.add(opts.labelPane);
         }
         this.registerLayer(layerOpts);
       };
@@ -982,12 +1160,12 @@
           const paneName = isLabel ? opts.labelPane : opts.graphPane;
           layer.options.pane = paneName;
           if (layer instanceof L.Path) {
-            const { renderer } = this.ensurePane(opts.graphPane);
+            const { renderer } = this.panes.ensurePane(opts.graphPane);
             layer._renderer = renderer;
-          } else if (paneName) this.ensurePane(paneName, false);
+          } else if (paneName) this.panes.ensurePane(paneName, false);
           const result = target.addLayer(layer);
           // Content tree changed — invalidate cached pane discovery.
-          this.paneCache.clear();
+          this.panes.reset();
           return result;
         }
         return origAddLayer(layer);
@@ -996,12 +1174,12 @@
       mainLayer.removeLayer = (layer) => {
         if (graphLayer && graphLayer.hasLayer(layer)) {
           const result = graphLayer.removeLayer(layer);
-          this.paneCache.clear();
+          this.panes.reset();
           return result;
         }
         if (labelLayer && labelLayer.hasLayer(layer)) {
           const result = labelLayer.removeLayer(layer);
-          this.paneCache.clear();
+          this.panes.reset();
           return result;
         }
         return origRemoveLayer(layer);
@@ -1039,38 +1217,6 @@
         registered: () => registered,
         bringToFront: () => this.bringLayerToFront(opts.id),
       };
-    }
-
-    /**
-     * Ensure a custom pane exists on the map.
-     * Optionally creates an SVG renderer for Path layers.
-     * @param {string} paneName - Pane name.
-     * @param {boolean} [needRenderer=true] - Whether to create an SVG renderer.
-     * @returns {Object} `{pane: HTMLElement, renderer: L.SVG|null}`
-     */
-    ensurePane(paneName, needRenderer = true) {
-      let pane = this.map.getPane(paneName);
-      if (!pane) {
-        pane = this.map.createPane(paneName);
-        pane.classList.add("foliplus-layer-pane");
-        // Set an initial z-index so content in this pane is visible above
-        // the base map before enforceOrder() runs (e.g., MeasureControl
-        // dashed lines during drawing, before register() is called).
-        // enforceOrder() will override this with the correct layer z-index
-        // once the layer is registered.
-        pane.style.zIndex = String(CONST.Z_INDEX.BASE);
-      }
-      let renderer = null;
-      if (needRenderer) {
-        const key = CONST.RENDERER_KEY + paneName;
-        renderer = this.map[key];
-        if (!renderer) {
-          renderer = L.svg({ pane: paneName });
-          renderer.addTo(this.map);
-          this.map[key] = renderer;
-        }
-      }
-      return { pane, renderer };
     }
 
     /**
@@ -1248,50 +1394,6 @@
       };
     }
 
-    /** Find all custom panes used by a container's tree.
-     *  Results are cached by layer stamp; call `paneCache.clear()`
-     *  when layer structure changes (register/unregister). */
-    discoverChildPanes(layer, depth = 0) {
-      if (depth > CONST.RECURSION.PANE_DEPTH) return [];
-      const key = L.stamp(layer);
-      if (this.paneCache.has(key)) return this.paneCache.get(key);
-      const panes = new Set();
-      LayerUtils.forEachLayer(
-        layer,
-        (l) => {
-          const p = l.options?.pane;
-          if (p && !this.isDefaultPane(p)) panes.add(p);
-        },
-        depth,
-      );
-      const result = Array.from(panes);
-      this.paneCache.set(key, result);
-      return result;
-    }
-
-    isDefaultPane(pane) {
-      return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
-    }
-
-    /** Find all panes a layer's content lives in, including fallback panes.
-     *  Unlike discoverChildPanes(), this includes auto-created fallback panes
-     *  (`foliplus_pane_*`) so ExportControl can find paths that were moved
-     *  there by migrateLayers().
-     *  Results are NOT cached because fallback panes are assigned lazily.
-     *
-     *  NOTE: For a layer that has no custom panes and no assigned fallback
-     *  pane, the caller must verify `map.hasLayer(layer)` before trusting the
-     *  returned default (`overlayPane`/`markerPane`), since an unmanaged or
-     *  removed layer may not actually be rendered. */
-    getLayerPanes(layer) {
-      const panes = this.discoverChildPanes(layer);
-      if (panes.length > 0) return panes;
-      // Check if a fallback pane was assigned to this layer
-      const fbName = this.fallbackPaneMap.get(L.stamp(layer));
-      if (fbName) return [fbName];
-      return ["overlayPane", "markerPane"];
-    }
-
     /** Compute z-index for a layer at position i.
      *  The maximum z-index for any layer is `computeZIndex(0, false)`,
      *  used to bump popupPane above all managed panes. */
@@ -1311,7 +1413,7 @@
         // content add that did not go through the override). Re-discover
         // custom panes each pass so stale cache entries never cause a layer
         // to be mis-assigned to a fallback pane (breaking its z-order).
-        this.paneCache.clear();
+        this.panes.reset();
 
         for (let i = 0; i < this.layers.length; i++) {
           const li = this.layers[i];
@@ -1339,7 +1441,7 @@
         if (tp) tp.style.zIndex = String(topZ);
 
         // 3. Migrate layers to their target panes
-        this.migrateLayers(layersToMove);
+        this.panes.migrateLayers(layersToMove);
 
         // 4. Sync attribution: only show the topmost visible base TileLayer's
         // attribution to avoid clutter when multiple base layers are visible.
@@ -1349,28 +1451,16 @@
       }
     }
 
-    /** Bump label panes for a layer so labels render above paths.
-     *  Used by both Mechanism A and Mechanism C. */
-    bumpLabelPanes(layer, z) {
-      const childPanes = this.discoverChildPanes(layer);
-      childPanes.forEach((cp) => {
-        if (this.labelPanes.has(cp)) {
-          const lp = this.ensurePane(cp, false);
-          lp.pane.style.zIndex = z + 1;
-        }
-      });
-    }
-
     /** Apply z-index to a single layer using the appropriate mechanism. */
     applyLayerZIndex({ li, layer, z, isTile, layersToMove }) {
       const paneName = li.paneName;
       if (paneName) {
         // --- Mechanism A: Custom pane (Path layers with explicit paneName) ---
-        const ep = this.ensurePane(paneName, !isTile);
+        const ep = this.panes.ensurePane(paneName, !isTile);
         ep.pane.style.zIndex = z;
         if (layer.options.pane !== paneName || !layer.options.paneSet)
           layersToMove.push({ layer, paneName, renderer: ep.renderer });
-        this.bumpLabelPanes(layer, z);
+        this.panes.bumpLabelPanes(layer, z);
         return;
       }
 
@@ -1381,81 +1471,25 @@
       }
 
       // --- Mechanism C: Auto-discovered / fallback panes ---
-      const childPanes = this.discoverChildPanes(layer);
+      const childPanes = this.panes.discoverChildPanes(layer);
       if (childPanes.length > 0) {
         // Three-layer components (HeatmapControl, MeasureControl, etc.)
         childPanes.forEach((cp) => {
-          const ep = this.ensurePane(cp, !isTile);
+          const ep = this.panes.ensurePane(cp, !isTile);
           ep.pane.style.zIndex = z;
         });
-        this.bumpLabelPanes(layer, z);
+        this.panes.bumpLabelPanes(layer, z);
         layer.options.paneSet = true;
         return;
       }
 
       // Unmanaged layer (GeoJSON, markers, etc.) → auto fallback pane
       const fbName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
-      this.fallbackPaneMap.set(L.stamp(layer), fbName);
-      const ep = this.ensurePane(fbName, !isTile);
+      this.panes.fallbackPaneMap.set(L.stamp(layer), fbName);
+      const ep = this.panes.ensurePane(fbName, !isTile);
       ep.pane.style.zIndex = z;
       if (layer.options.pane !== fbName || !layer.options.paneSet)
         layersToMove.push({ layer, paneName: fbName, renderer: ep.renderer });
-    }
-
-    migrateLayers(layersToMove) {
-      if (!layersToMove.length) return;
-      // Group by renderer container so we can batch-append via DocumentFragment.
-      const groups = new Map();
-      const markerGroups = new Map();
-      for (const { layer, paneName, renderer } of layersToMove) {
-        if (!paneName) continue;
-        const container = renderer?._container;
-        if (!container) continue;
-        // For markers, we need the pane div (not the SVG renderer container)
-        const paneEl = this.map.getPane(paneName);
-        if (!groups.has(container)) groups.set(container, []);
-        // Single pass: set options + move DOM to avoid double traversal.
-        // Container layers (eachLayer) keep their options unpolluted — only
-        // leaf layers get pane/paneSet so re-migration stays possible when a
-        // layer's paneName changes.
-        const collect = (l) => {
-          if (l.eachLayer) {
-            l.eachLayer(collect);
-            return;
-          }
-          l.options.pane = paneName;
-          l.options.paneSet = true;
-          if (l instanceof L.Path) l.options.renderer = renderer;
-          if (l._path && l._path.parentNode !== container)
-            groups.get(container).push(l._path);
-          // Move marker icon/shadow to the pane element (not SVG renderer)
-          if (l instanceof L.Marker && paneEl) {
-            if (l._shadow && l._shadow.parentNode !== paneEl) {
-              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-              markerGroups.get(paneEl).push(l._shadow);
-            }
-            if (l._icon && l._icon.parentNode !== paneEl) {
-              if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-              markerGroups.get(paneEl).push(l._icon);
-            }
-          }
-        };
-        collect(layer);
-      }
-      // Batch-append paths per container to avoid repeated layout thrash
-      for (const [container, paths] of groups) {
-        if (!paths.length) continue;
-        const frag = document.createDocumentFragment();
-        for (const p of paths) frag.appendChild(p);
-        container.appendChild(frag);
-      }
-      // Batch-append markers per pane element
-      for (const [paneEl, markers] of markerGroups) {
-        if (!markers.length) continue;
-        const frag = document.createDocumentFragment();
-        for (const m of markers) frag.appendChild(m);
-        paneEl.appendChild(frag);
-      }
     }
 
     // Live attribution: only show the topmost visible base TileLayer.
@@ -1515,8 +1549,7 @@
       }
       this.layerRegistry.clear();
       this.pendingRegistrations = [];
-      this.paneCache.clear();
-      this.fallbackPaneMap.clear();
+      this.panes.destroy();
       if (foliplus.LayerAPI === this) foliplus.LayerAPI = null;
     }
   }
