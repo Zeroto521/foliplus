@@ -249,111 +249,153 @@
   // ==================== Ordered Layer Registry ====================
   // Owns the ordered layer list and its id → layerInfo index. All mutations
   // go through here so the index can never drift from the list. The exposed
-  // array (`this.layers`) remains the single source of order for DOM-aligned
-  // code (data-index = array index) — this class just keeps the index honest.
+  // array (`this.layers`) is a read-only view — DOM-aligned code can iterate
+  // and index it, but direct mutation (push/splice/assign) is blocked so the
+  // registry index can never be bypassed.
+  const MUTATING_METHODS = new Set([
+    "push",
+    "pop",
+    "shift",
+    "unshift",
+    "splice",
+    "reverse",
+    "sort",
+    "fill",
+    "copyWithin",
+  ]);
+
   class LayerRegistry {
     constructor(initial = []) {
-      this._list = [...initial];
-      this._byId = new Map(this._list.map((l) => [l.id, l]));
+      this.items = [...initial];
+      this.byId = new Map(this.items.map((l) => [l.id, l]));
+      // Read-only view shared by both internal code and external callers.
+      this.view = this.createReadonlyView();
     }
 
-    /** The ordered list array (read-only by convention; mutate via methods). */
+    /** Create a read-only proxy over the internal array. */
+    createReadonlyView() {
+      return new Proxy(this.items, {
+        set() {
+          // Block direct index assignment (e.g. layers[0] = x).
+          throw new TypeError(
+            `[LayerControl] layers is read-only; use LayerAPI (registerLayer / unregisterLayer / bringLayerToFront) instead.`,
+          );
+        },
+        deleteProperty() {
+          throw new TypeError(
+            `[LayerControl] layers is read-only; use LayerAPI instead.`,
+          );
+        },
+        get(target, prop, receiver) {
+          if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
+            return () => {
+              throw new TypeError(
+                `[LayerControl] layers.${prop}() is read-only; use LayerAPI instead.`,
+              );
+            };
+          }
+          return Reflect.get(target, prop, receiver);
+        },
+      });
+    }
+
+    /** The ordered list array (read-only view; mutate via methods). */
     get list() {
-      return this._list;
+      return this.view;
     }
 
     get size() {
-      return this._list.length;
+      return this.items.length;
     }
 
     at(i) {
-      return this._list[i];
+      return this.items[i];
     }
 
     get(id) {
-      return this._byId.get(id);
+      return this.byId.get(id);
     }
 
     has(id) {
-      return this._byId.has(id);
+      return this.byId.has(id);
     }
 
     indexOf(li) {
-      return this._list.indexOf(li);
+      return this.items.indexOf(li);
     }
 
     /** Iterate in order (keeps `for...of` and spread working). */
     [Symbol.iterator]() {
-      return this._list[Symbol.iterator]();
+      return this.items[Symbol.iterator]();
     }
 
     /** Insert or update in place — never reorders an existing layer. */
     upsert(layerInfo) {
-      const existing = this._byId.get(layerInfo.id);
+      const existing = this.byId.get(layerInfo.id);
       if (existing) {
-        const idx = this._list.indexOf(existing);
-        this._list[idx] = layerInfo;
-      } else this._list.push(layerInfo);
+        const idx = this.items.indexOf(existing);
+        this.items[idx] = layerInfo;
+      } else this.items.push(layerInfo);
 
-      this._byId.set(layerInfo.id, layerInfo);
+      this.byId.set(layerInfo.id, layerInfo);
       return layerInfo;
     }
 
     /** Insert at the front (used for new overlay layers). */
     prepend(layerInfo) {
-      this._list.unshift(layerInfo);
-      this._byId.set(layerInfo.id, layerInfo);
+      this.items.unshift(layerInfo);
+      this.byId.set(layerInfo.id, layerInfo);
       return layerInfo;
     }
 
     /** Insert before the given index (used for new base layers). */
     insertAt(layerInfo, idx) {
-      this._list.splice(idx, 0, layerInfo);
-      this._byId.set(layerInfo.id, layerInfo);
+      this.items.splice(idx, 0, layerInfo);
+      this.byId.set(layerInfo.id, layerInfo);
       return layerInfo;
     }
 
     remove(id) {
-      const li = this._byId.get(id);
+      const li = this.byId.get(id);
       if (!li) return null;
-      const idx = this._list.indexOf(li);
-      if (idx !== -1) this._list.splice(idx, 1);
-      this._byId.delete(id);
+      const idx = this.items.indexOf(li);
+      if (idx !== -1) this.items.splice(idx, 1);
+      this.byId.delete(id);
       return li;
     }
 
     /** Move an existing layer to index 0 (bring to front). */
     moveToFront(id) {
-      const li = this._byId.get(id);
+      const li = this.byId.get(id);
       if (!li) return null;
-      const idx = this._list.indexOf(li);
+      const idx = this.items.indexOf(li);
       if (idx <= 0) return li;
-      this._list.splice(idx, 1);
-      this._list.unshift(li);
+      this.items.splice(idx, 1);
+      this.items.unshift(li);
       return li;
     }
 
     /** Swap order of two positions (drag-and-drop). */
     reorder(fromIdx, toIdx) {
-      const [moved] = this._list.splice(fromIdx, 1);
-      this._list.splice(toIdx, 0, moved);
+      const [moved] = this.items.splice(fromIdx, 1);
+      this.items.splice(toIdx, 0, moved);
     }
 
     /** Rebuild both list and index from a new ordered array.
      *  Mutates the existing array in place so external references
      *  (`manager.layers`) keep pointing at the same instance. */
     replace(newList) {
-      this._list.splice(0, this._list.length, ...newList);
-      this._byId = new Map(this._list.map((l) => [l.id, l]));
+      this.items.splice(0, this.items.length, ...newList);
+      this.byId = new Map(this.items.map((l) => [l.id, l]));
     }
 
     clear() {
-      this._list.splice(0, this._list.length);
-      this._byId.clear();
+      this.items.splice(0, this.items.length);
+      this.byId.clear();
     }
 
     toArray() {
-      return this._list.slice();
+      return this.items.slice();
     }
   }
 
@@ -549,12 +591,16 @@
     /**
      * Get all registered layers of a given geometry type.
      * @param {string} type - "point" | "line" | "polygon" | "base"
-     * @returns {Array<{id: string, name: string}>}
+     * @returns {Array<{id: string, name: string, layer: Object|null}>}
      */
     getLayersByType(type) {
       return this.layers
         .filter((l) => this.getLayerType(l.id) === type)
-        .map((l) => ({ id: l.id, name: l.name }));
+        .map((l) => ({
+          id: l.id,
+          name: l.name,
+          layer: l.layer || LayerUtils.findLayer(this.map, l.id),
+        }));
     }
 
     /**

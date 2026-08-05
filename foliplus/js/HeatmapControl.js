@@ -328,11 +328,10 @@
 
         const pts = foliplus.LayerAPI.extractPoints(info.id);
         if (pts.length === 0) continue;
-        const layer = foliplus.LayerAPI.findLayer(info.id);
         this.pointLayers.push({
           id: info.id,
           name: info.name,
-          layer,
+          layer: info.layer, // provided by getLayersByType — no extra lookup
           count: pts.length,
         });
       }
