@@ -711,10 +711,11 @@
       this.isDestroyed = false;
 
       // Pane lifecycle is delegated to a dedicated PaneManager. The bound
-      // methods below keep the public API contract (api.ensurePane /
-      // api.getLayerPanes) for external callers (e.g. ExportControl).
+      // method below keeps the public API contract (api.getLayerPanes) for
+      // external callers — ExportControl reads a layer's panes when
+      // rendering an export. ensurePane is not part of the public API:
+      // no consumer outside LayerControl needs it.
       this.panes = new PaneManager(mapInstance);
-      this.ensurePane = this.panes.ensurePane.bind(this.panes);
       this.getLayerPanes = this.panes.getLayerPanes.bind(this.panes);
 
       // Last attribution string applied, so syncAttribution can skip
@@ -779,8 +780,7 @@
       //   `createCanvas({...})`  — managed canvas element
       //
       //   **Pane helpers (read-only):**
-      //   `ensurePane(name)`    — ensure a Leaflet pane exists
-      //   `getLayerPanes(layer)` — discover panes for a layer
+      //   `getLayerPanes(layer)` — discover all panes a layer's content lives in
       //
       //   **Internal — do not rely on:**
       //   `map`, `ui`, `uiContainer`, `paneCache`, `fallbackPaneMap`,

@@ -91,8 +91,8 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "removeLayer" in html
 
-    def test_pane_setting_via_ensure_pane(self, base_map: folium.Map):
-        """MeasureControl uses LayerAPI.ensurePane for renderer creation."""
+    def test_create_layers_via_panes(self, base_map: folium.Map):
+        """MeasureControl sets panes through createLayers (graphPane/labelPane)."""
 
         MeasureControl().add_to(base_map)
         html = render(base_map)
