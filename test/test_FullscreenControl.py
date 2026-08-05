@@ -261,15 +261,43 @@ class TestFullscreenControlBrowser:
         finally:
             page.close()
 
-    def _enter_fullscreen(self, page):
-        """Click the fullscreen toggle to enter fullscreen."""
+    def _enter_fullscreen(self, page, hide_self=True):
+        """Click the fullscreen toggle to enter fullscreen.
+
+        Waits for both the native fullscreen state AND the UI update that
+        follows the (async) `fullscreenchange` event, so assertions right
+        after this call are not racing the event dispatch.
+        """
         page.evaluate("document.querySelector('.foliplus-fullscreen-toggle').click()")
         page.wait_for_function("() => document.fullscreenElement !== null")
+        if hide_self:
+            page.wait_for_function(
+                """() => document
+                    .querySelector('.foliplus-zoom-in')
+                    .classList.contains('foliplus-fullscreen-hidden')"""
+            )
+        else:
+            # zoom stays visible when hide_self=false; wait for the icon swap
+            page.wait_for_function(
+                """() => document
+                    .querySelector('.foliplus-fullscreen-toggle path')
+                    .getAttribute('d')
+                    .indexOf('M8 3v3') === 0"""
+            )
 
     def _exit_fullscreen(self, page):
-        """Click the fullscreen toggle to exit fullscreen."""
+        """Click the fullscreen toggle to exit fullscreen.
+
+        Waits for the UI to restore (zoom buttons visible again) after the
+        `fullscreenchange` event, not just for native state.
+        """
         page.evaluate("document.querySelector('.foliplus-fullscreen-toggle').click()")
         page.wait_for_function("() => document.fullscreenElement === null")
+        page.wait_for_function(
+            """() => !document
+                .querySelector('.foliplus-zoom-in')
+                .classList.contains('foliplus-fullscreen-hidden')"""
+        )
 
     def _zoom_displays(self, page):
         """Return computed display of zoom in/out buttons."""
@@ -293,7 +321,7 @@ class TestFullscreenControlBrowser:
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
-            self._enter_fullscreen(page)
+            self._enter_fullscreen(page, hide_self=True)
             displays = self._zoom_displays(page)
             assert displays["zoomIn"] == "none", displays
             assert displays["zoomOut"] == "none", displays
@@ -311,7 +339,7 @@ class TestFullscreenControlBrowser:
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
-            self._enter_fullscreen(page)
+            self._enter_fullscreen(page, hide_self=False)
             displays = self._zoom_displays(page)
             assert displays["zoomIn"] == "flex", displays
             assert displays["zoomOut"] == "flex", displays
@@ -328,7 +356,7 @@ class TestFullscreenControlBrowser:
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
-            self._enter_fullscreen(page)
+            self._enter_fullscreen(page, hide_self=True)
             self._exit_fullscreen(page)
             displays = self._zoom_displays(page)
             assert displays["zoomIn"] == "flex", displays
@@ -364,7 +392,7 @@ class TestFullscreenControlBrowser:
                 }"""
             )
             page.wait_for_selector(".custom-ctrl", state="attached", timeout=10000)
-            self._enter_fullscreen(page)
+            self._enter_fullscreen(page, hide_self=False)
             hidden = page.evaluate(
                 """() => {
                     const el = document.querySelector('.custom-ctrl');
@@ -373,6 +401,49 @@ class TestFullscreenControlBrowser:
                 }"""
             )
             assert hidden, "sibling control with inline display was not hidden"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_show_hint_once_per_toggle(self, browser, tmp_path):
+        """showHint fires exactly once per fullscreen transition.
+
+        updateUI is driven by the `fullscreenchange` event, so the
+        requestFullscreen/exitFullscreen `.then()` callbacks must not call
+        updateUI again (which would double-fire the hint).
+        """
+        page, errors = self._make_page(
+            browser, tmp_path, hide_self=True, hide_others=False
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            # Wrap showHint to count calls.
+            page.evaluate(
+                """() => {
+                    window.__hintCount = 0;
+                    const orig = foliplus.showHint;
+                    foliplus.showHint = function (...args) {
+                        window.__hintCount++;
+                        return orig.apply(this, args);
+                    };
+                }"""
+            )
+            self._enter_fullscreen(page, hide_self=True)
+            page.wait_for_timeout(200)
+            enter_count = page.evaluate("window.__hintCount")
+            assert enter_count == 1, f"enter hint fired {enter_count} times"
+            # Icon switched to MINIMIZE (path M8 3v3...)
+            icon = page.evaluate(
+                "document.querySelector('.foliplus-fullscreen-toggle path').getAttribute('d')"
+            )
+            assert "M8 3v3" in icon, f"icon not switched to MINIMIZE: {icon}"
+
+            self._exit_fullscreen(page)
+            page.wait_for_timeout(200)
+            total = page.evaluate("window.__hintCount")
+            assert total == 2, f"exit hint fired {total - enter_count} times"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()

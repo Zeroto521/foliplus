@@ -192,7 +192,6 @@
             document[nativeAPI.exitFullscreen]()
               .then(() => {
                 map._isFullscreen = false;
-                updateUI();
               })
               .catch(() => {
                 map._isFullscreen = !!getFullscreenEl();
@@ -209,7 +208,6 @@
             map._container[nativeAPI.requestFullscreen]()
               .then(() => {
                 map._isFullscreen = true;
-                updateUI();
               })
               .catch(() => {
                 map._isFullscreen = !!getFullscreenEl();
