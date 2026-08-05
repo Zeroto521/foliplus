@@ -43,13 +43,13 @@ class TestFullscreeControlRendering:
         """hide_self=true injects the fullscreen-toggle hide block."""
         FullscreenControl().add_to(base_map)
         html = render(base_map)
-        assert 'classList.toggle("foliplus-fullscreen-hidden"' in html
+        assert "classList.toggle(CONST.CLASSES.HIDDEN" in html
 
     def test_hide_self_false(self, base_map: folium.Map):
         """hide_self=false wraps hide block in if (false)."""
         FullscreenControl(hide_self=False).add_to(base_map)
         html = render(base_map)
-        assert 'classList.toggle("foliplus-fullscreen-hidden"' in html
+        assert "classList.toggle(CONST.CLASSES.HIDDEN" in html
         assert "if (false)" in html
 
     def test_contains_fullscreenchange_listener(self, base_map: folium.Map):
@@ -165,7 +165,23 @@ class TestFullscreeControlRendering:
         """hide_self still works when hide_others=false."""
         FullscreenControl(hide_self=True, hide_others=False).add_to(base_map)
         html = render(base_map)
-        assert 'classList.toggle("foliplus-fullscreen-hidden"' in html
+        assert "classList.toggle(CONST.CLASSES.HIDDEN" in html
+
+    def test_zoom_buttons_hidden_with_hide_self(self, base_map: folium.Map):
+        """hide_self hides zoom +/- together with the fullscreen button."""
+        FullscreenControl(hide_self=True, hide_others=False).add_to(base_map)
+        html = render(base_map)
+        assert "ZOOM_IN" in html
+        assert "ZOOM_OUT" in html
+        assert "foliplus-fullscreen-hidden" in html
+
+    def test_zoom_buttons_hidden_without_hide_self(self, base_map: folium.Map):
+        """Zoom +/- are always hidden in fullscreen, even with hide_self=false."""
+        FullscreenControl(hide_self=False, hide_others=False).add_to(base_map)
+        html = render(base_map)
+        assert "ZOOM_IN" in html
+        assert "ZOOM_OUT" in html
+        assert "foliplus-fullscreen-hidden" in html
 
 
 class TestFullscreenControlBrowser:
@@ -240,6 +256,104 @@ class TestFullscreenControlBrowser:
                 "document.querySelector('.foliplus-fullscreen-toggle').innerHTML.indexOf('MINIMIZE') === -1"
             )
             assert has_self_hide
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def _enter_fullscreen(self, page):
+        """Click the fullscreen toggle to enter fullscreen."""
+        page.evaluate("document.querySelector('.foliplus-fullscreen-toggle').click()")
+        page.wait_for_function("() => document.fullscreenElement !== null")
+
+    def _exit_fullscreen(self, page):
+        """Click the fullscreen toggle to exit fullscreen."""
+        page.evaluate("document.querySelector('.foliplus-fullscreen-toggle').click()")
+        page.wait_for_function("() => document.fullscreenElement === null")
+
+    def _zoom_displays(self, page):
+        """Return computed display of zoom in/out buttons."""
+        return page.evaluate(
+            """() => ({
+                zoomIn: getComputedStyle(
+                    document.querySelector('.foliplus-zoom-in')
+                ).display,
+                zoomOut: getComputedStyle(
+                    document.querySelector('.foliplus-zoom-out')
+                ).display,
+            })"""
+        )
+
+    def test_zoom_hidden_in_fullscreen(self, browser, tmp_path):
+        """hide_self=false: zoom +/- are hidden while in fullscreen."""
+        page, errors = self._make_page(
+            browser, tmp_path, hide_self=False, hide_others=False
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._enter_fullscreen(page)
+            displays = self._zoom_displays(page)
+            assert displays["zoomIn"] == "none", displays
+            assert displays["zoomOut"] == "none", displays
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_zoom_visible_after_exit_fullscreen(self, browser, tmp_path):
+        """hide_self=false: zoom +/- are visible again after exit."""
+        page, errors = self._make_page(
+            browser, tmp_path, hide_self=False, hide_others=False
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._enter_fullscreen(page)
+            self._exit_fullscreen(page)
+            displays = self._zoom_displays(page)
+            assert displays["zoomIn"] == "flex", displays
+            assert displays["zoomOut"] == "flex", displays
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_hide_others_overrides_inline_display(self, browser, tmp_path):
+        """hide_others hides sibling controls even with inline display styles.
+
+        `.foliplus-fullscreen-hidden` uses `display: none !important` so it
+        wins over inline `display` set by third-party Leaflet plugins.
+        """
+        page, errors = self._make_page(
+            browser, tmp_path, hide_self=False, hide_others=True
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            # Inject a sibling control with inline display:block (like a
+            # third-party Leaflet plugin would set).
+            page.evaluate(
+                """() => {
+                    const div = document.createElement('div');
+                    div.className = 'leaflet-bar leaflet-control custom-ctrl';
+                    div.style.display = 'block';
+                    div.innerHTML = 'custom';
+                    document
+                        .querySelector('.leaflet-top.leaflet-right')
+                        .appendChild(div);
+                }"""
+            )
+            page.wait_for_selector(".custom-ctrl", state="attached", timeout=10000)
+            self._enter_fullscreen(page)
+            hidden = page.evaluate(
+                """() => {
+                    const el = document.querySelector('.custom-ctrl');
+                    return el.classList.contains('foliplus-fullscreen-hidden')
+                        && getComputedStyle(el).display === 'none';
+                }"""
+            )
+            assert hidden, "sibling control with inline display was not hidden"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
