@@ -128,6 +128,5 @@
   "SearchControl.btn_title": "地图搜索",
   "SearchControl.clear_title": "清除",
   "SearchControl.mode_coord": "坐标搜索",
-  "SearchControl.mode_addr": "地址搜索",
-  "SearchControl.gcoord_warn": "gcoord 加载失败，坐标转换不可用"
+  "SearchControl.mode_addr": "地址搜索"
 }
