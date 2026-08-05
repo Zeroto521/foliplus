@@ -1851,3 +1851,42 @@ class TestMeasureControlRendering:
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
+
+    # ── Mid-segment label ──────────────────────────────────────────
+
+    def test_mid_label_icon_helper(self, base_map: folium.Map):
+        """makeMidLabelDivIcon uses MID_ANCHOR and CLASS_MID for centered labels."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "MID_ANCHOR" in html
+        assert "CLASS_MID" in html
+        assert "makeMidLabelDivIcon" in html
+
+    def test_mid_label_css_class(self, base_map: folium.Map):
+        """CLASS_MID renders as foliplus-measure-label-mid."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert 'CLASS_MID: "foliplus-measure-label-mid"' in html
+
+    def test_start_label_restored(self, base_map: folium.Map):
+        """Distance mode restores the start label (dist_origin) on first click."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "dist_origin" in html
+        assert "MeasureControl.dist_origin" in html
+
+    def test_closing_segment_label(self, base_map: folium.Map):
+        """Polygon creates a closing segment label (lastPt→firstPt)."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "closeLabel" in html
+        assert "closeMidLat" in html
+        assert "closeMidLng" in html
+
+    def test_node_delete_rebuilds_labels(self, base_map: folium.Map):
+        """Polygon node deletion removes all segLabels and rebuilds from scratch."""
+        MeasureControl().add_to(base_map)
+        html = render(base_map)
+        assert "segLabels.forEach((l) => layers.removeLayer(l))" in html
+        assert "segLabels.length = 0" in html
+        assert "segLabels.push(label)" in html
