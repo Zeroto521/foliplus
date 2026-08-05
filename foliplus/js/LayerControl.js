@@ -17,8 +17,8 @@
       HINT_COOLDOWN_MS: 800,
     },
     STORAGE: {
-      ORDER_KEY: "foliplus_layer_order",
-      FOLD_KEY: "foliplus_fold_state",
+      ORDER_KEY: "foliplus_layer_order_{{ this._parent.get_name() }}",
+      FOLD_KEY: "foliplus_fold_state_{{ this._parent.get_name() }}",
     },
     COLOR: {
       MAP_ID: "foliplus_color_map",
