@@ -854,9 +854,8 @@
         isFinished = true;
         this.layers.removeLayer(poly);
         this.layers.removeLayer(previewPoly);
-        // Close the polygon by appending the first point
-        const closedPts = [...points, points[0]];
-        finalPoly.setLatLngs(closedPts);
+        // Leaflet automatically closes the polygon
+        finalPoly.setLatLngs(points);
 
         // Dash-sweep animation
         MeasureUtils.animateDashSweep(finalPoly._path);
@@ -999,9 +998,8 @@
           if (
             marker === nodeMarkers[0] ||
             marker === nodeMarkers[nodeMarkers.length - 1]
-          ) {
+          )
             finishPoly();
-          }
         });
 
         if (points.length > 1) {
@@ -1499,9 +1497,9 @@
 
     restorePolygon(m) {
       const points = m.points.map((p) => L.latLng(p.lat, p.lng));
-      const closedPts = [...points, points[0]];
+      // Leaflet automatically closes the polygon
       const finalPoly = this.layers.addLayer(
-        L.polygon(closedPts, {
+        L.polygon(points, {
           className: CONST.CLASSES.POLYGON_FINAL,
           interactive: true,
         }),
@@ -2117,8 +2115,8 @@
               });
             }
 
-            // Recalculate polygon
-            finalPoly.setLatLngs([...points, points[0]]);
+            // Recalculate polygon — Leaflet automatically closes
+            finalPoly.setLatLngs(points);
 
             // Recalculate area
             const newArea = MeasureUtils.area(points);
