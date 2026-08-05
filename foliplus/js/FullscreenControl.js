@@ -9,6 +9,7 @@
       ZOOM_IN: "foliplus-zoom-in",
       ZOOM_OUT: "foliplus-zoom-out",
       FS_TOGGLE: "foliplus-fullscreen-toggle",
+      HIDDEN: "foliplus-fullscreen-hidden",
     },
   };
   const ContainerId = `${CONST.name}_${CONST.position}_container`;
@@ -151,7 +152,7 @@
 
       // ==================== UI Update ====================
       const updateUI = () => {
-        const isFull = !!getFullscreenEl() || map._isFullscreen;
+        const isFull = !!getFullscreenEl() || map.isFullscreen;
         fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
         fsBtn.title = isFull
           ? _(`${CONST.name}.title_cancel`)
@@ -163,13 +164,18 @@
             .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
           for (const c of controls) {
             if (c.contains(container) || c.closest?.(`#${ContainerId}`)) continue;
-            c.classList.toggle("foliplus-fullscreen-hidden", isFull);
+            c.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
           }
         }
 
         if ({{ this.hide_self | tojson }}) {
-          const fsToggle = container.querySelector(`.${CONST.CLASSES.FS_TOGGLE}`);
-          if (fsToggle) fsToggle.classList.toggle("foliplus-fullscreen-hidden", isFull);
+          // The fullscreen button, zoom +/- are all part of the fullscreen
+          // control itself; hide them together while in fullscreen.
+          const selfBtns = container.querySelectorAll(
+            `.${CONST.CLASSES.FS_TOGGLE}, .${CONST.CLASSES.ZOOM_IN}, .${CONST.CLASSES.ZOOM_OUT}`,
+          );
+          for (const btn of selfBtns)
+            btn.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
         }
 
         foliplus.showHint(
@@ -185,11 +191,10 @@
           if (isEnabled) {
             document[nativeAPI.exitFullscreen]()
               .then(() => {
-                map._isFullscreen = false;
-                updateUI();
+                map.isFullscreen = false;
               })
               .catch(() => {
-                map._isFullscreen = !!getFullscreenEl();
+                map.isFullscreen = !!getFullscreenEl();
                 updateUI();
               });
             return;
@@ -197,16 +202,15 @@
             map._container.classList.remove(CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
-          map._isFullscreen = false;
+          map.isFullscreen = false;
         } else {
           if (isEnabled) {
             map._container[nativeAPI.requestFullscreen]()
               .then(() => {
-                map._isFullscreen = true;
-                updateUI();
+                map.isFullscreen = true;
               })
               .catch(() => {
-                map._isFullscreen = !!getFullscreenEl();
+                map.isFullscreen = !!getFullscreenEl();
                 updateUI();
               });
             return;
@@ -214,14 +218,14 @@
             map._container.classList.add(CONST.CLASSES.PSEUDO_FULLSCREEN);
             map.invalidateSize();
           }
-          map._isFullscreen = true;
+          map.isFullscreen = true;
         }
         updateUI();
       };
 
       // ==================== Event Listeners ====================
       const handleFSChange = () => {
-        map._isFullscreen = !!getFullscreenEl();
+        map.isFullscreen = !!getFullscreenEl();
         updateUI();
       };
 
