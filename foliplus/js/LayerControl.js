@@ -199,7 +199,10 @@
       return SVGs.UNKNOWN;
     }
 
-    /** Resolve a layer by id from map._layers or window fallback. */
+    /** Resolve a layer by id from map._layers or window.
+     *  Used internally by LayerRegistry (initial data resolution) and as a
+     *  safety fallback when `li.layer` is unavailable (e.g. unregistered
+     *  layers added directly to the map). */
     static findLayer(map, id) {
       return (map._layers && map._layers[id]) || window[id] || null;
     }
@@ -265,9 +268,21 @@
   ]);
 
   class LayerRegistry {
-    constructor(initial = []) {
+    /**
+     * @param {Array} [initial=[]] - Initial layer info objects.
+     * @param {Object} [map] - Leaflet map instance. If provided, resolves
+     *   `li.layer` for each entry so callers can always use `li.layer`
+     *   directly without a fallback (Jinja2 template entries are
+     *   plain {name, id, visible, isBase} — no `layer` reference).
+     */
+    constructor(initial = [], map) {
       this.items = [...initial];
       this.byId = new Map(this.items.map((l) => [l.id, l]));
+      // Resolve layer references for initial data entries
+      if (map) {
+        for (const li of this.items)
+          if (!li.layer && li.id) li.layer = LayerUtils.findLayer(map, li.id);
+      }
       // Read-only view shared by both internal code and external callers.
       this.view = this.createReadonlyView();
     }
@@ -405,7 +420,8 @@
       this.map = mapInstance;
       // Each entry: {id, name, visible, isBase, paneName, iconSvg,
       //              type, layer, canvas, onToggle, onZIndex}
-      this.layerRegistry = new LayerRegistry(initialData);
+      // `layer` is resolved by LayerRegistry from map._layers for init data.
+      this.layerRegistry = new LayerRegistry(initialData, this.map);
       // `this.layers` is the registry's ordered array — kept as a direct
       // reference so DOM-aligned code (data-index = array index) is unchanged.
       this.layers = this.layerRegistry.list;
@@ -591,8 +607,10 @@
       if (li.type) return li.type;
       if (li.isBase) return CONST.GROUP.BASE;
       if (li.iconSvg) return CONST.GEOM_TYPE.CUSTOM;
-      // Type not yet assigned by initTypesAndVisibility — infer it lazily so
-      // callers (e.g. HeatmapControl.scanMapLayers) work regardless of timing.
+      // Type not yet assigned by initTypesAndVisibility — infer it lazily.
+      // `li.layer` is resolved at init or register time, so this fallback
+      // is rarely needed (only for layers added directly to map without
+      // going through registerLayer).
       const layer = li.layer || LayerUtils.findLayer(this.map, id);
       if (!layer) return null;
       li.type = LayerUtils.getGeometryType(layer);
@@ -602,7 +620,8 @@
     /**
      * Get all registered layers of a given geometry type.
      * @param {string} type - "point" | "line" | "polygon" | "base"
-     * @returns {Array<{id: string, name: string, layer: Object|null}>}
+     * @returns {Array<{id: string, name: string, layer: Object}>}
+     *   `layer` is always populated (resolved at init or register time).
      */
     getLayersByType(type) {
       return this.layers
@@ -610,12 +629,15 @@
         .map((l) => ({
           id: l.id,
           name: l.name,
-          layer: l.layer || LayerUtils.findLayer(this.map, l.id),
+          layer: l.layer || LayerUtils.findLayer(this.map, l.id),  // safety fallback
         }));
     }
 
     /**
-     * Resolve a registered layer by id, searching layers array then map._layers.
+     * Resolve a registered layer by id, searching layerInfo then map._layers.
+     * Most layers have `li.layer` resolved at init (by LayerRegistry) or
+     * register time; the fallback handles edge cases (e.g. layers added
+     * directly to the map without going through registerLayer).
      * @param {string} id - Layer ID.
      * @returns {Object|null} Leaflet layer or null.
      */
@@ -793,7 +815,7 @@
       if (!layerInfo) return false;
       this.refreshFirstBaseIdx();
 
-      const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id);
+      const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id);  // safety fallback
       if (layer) {
         if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
         this.clearAllLayers(layer);
