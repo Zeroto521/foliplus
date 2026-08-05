@@ -88,7 +88,7 @@
   "MeasureControl.tool_circle": "Draw Circle",
   "MeasureControl.tool_clear": "Clear All",
   "MeasureControl.hint_marker": "Click the map to place a location marker",
-  "MeasureControl.hint_dist_start": "Click to start measuring distance, double-click / right-click / click first/last point to finish",
+  "MeasureControl.hint_dist_start": "Click to start measuring distance, double-click / right-click / click last point to finish",
   "MeasureControl.hint_polygon": "Click to start measuring area, double-click / right-click / click first/last point to finish",
   "MeasureControl.hint_circle_start": "Click to set the center, move mouse to set radius, click again to finish",
   "MeasureControl.hint_circle_radius": "Move mouse to set radius, click to confirm",
