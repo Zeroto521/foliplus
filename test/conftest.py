@@ -30,12 +30,6 @@ def render(m: folium.Map) -> str:
     return resolve_js_unicode(m.get_root().render())
 
 
-def get_map_name(html: str) -> str:
-    """Extract the Leaflet map variable name from rendered HTML."""
-    m = re.search(r"var\s+(\w+)\s*=\s*L\.map\(", html)
-    return m.group(1) if m else "map"
-
-
 def pytest_collection_modifyitems(config, items):
     """Auto-mark test classes ending with 'Browser' as pytest.mark.browser."""
     for item in items:

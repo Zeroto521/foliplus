@@ -2262,7 +2262,6 @@
     }
 
     /** Full cleanup including global events. Called on control removal. */
-    /** Full cleanup including global events. Called on control removal. */
     destroy() {
       // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
       if (this.onUnload) {
