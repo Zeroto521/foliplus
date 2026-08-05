@@ -167,18 +167,6 @@
 
     // ── Setup helpers ──
 
-    /** Get all active TileLayers on the map, sorted by z-index (bottom first). */
-    getTileLayers() {
-      const layers = [];
-      this.map.eachLayer((l) => {
-        if (l instanceof L.TileLayer && this.map.hasLayer(l)) layers.push(l);
-      });
-      // Sort by z-index ascending (bottom layer first) so LayerControl
-      // ordering is preserved in the exported image.
-      layers.sort((a, b) => (a.options.zIndex || 0) - (b.options.zIndex || 0));
-      return layers;
-    }
-
     /** Calculate tile coordinates covering geo bounds at a given zoom.
      *  Returns [{x, y, z, url, left, top, size}]. */
     calcTiles(tileLayer, bounds, zoom) {
@@ -259,19 +247,36 @@
       const cw = rect.width * scale;
       const ch = rect.height * scale;
 
-      // 1. Tiles — render all tile layers (bottom layer first)
-      await this.renderTiles(ctx, rect, scale, contRect, contW, contH, geoBounds);
+      // 1. Tiles — render all visible tile layers (bottom layer first)
+      // Tile rendering is now done inside the per-layer loop below.
+      // Standalone renderTiles is removed; tiles are rendered per visible layer.
 
-      // 2. Overlay layers — iterate in LayerControl API order bottom-to-top.
-      // Each layer may contain SVG, Canvas, and/or Marker elements, so we
+      // 2. All layers — iterate in LayerControl API order bottom-to-top.
+      // Each layer may contain Tile, SVG, Canvas, and/or Marker elements, so we
       // render all passes per-layer to preserve cross-technology z-order.
+      // Uses api.layerRegistry (read-only data source) for iteration.
       const api = foliplus.LayerAPI;
-      if (api.layers) {
-        for (let i = api.layers.length - 1; i >= 0; i--) {
-          const li = api.layers[i];
-          if (li.isBase) continue;
+      if (api?.layerRegistry) {
+        for (let i = api.layerRegistry.size - 1; i >= 0; i--) {
+          const li = api.layerRegistry.at(i);
           if (!li.visible) continue;
-          const layer = api.findLayer(li.id);
+
+          // Tile layers (e.g. basemaps) — render tiles via geo bounds
+          if (li.layer instanceof L.TileLayer) {
+            if (geoBounds && geoBounds.nw) {
+              await this.renderTileLayer(
+                ctx,
+                rect,
+                scale,
+                contRect,
+                contW,
+                contH,
+                geoBounds,
+                li.layer,
+              );
+            }
+            continue;
+          }
 
           // Callback-only layers (e.g. HeatmapControl canvas) — render via stored canvas
           if (li.canvas) {
@@ -286,10 +291,11 @@
             );
             continue;
           }
-          if (!layer) continue;
+          // Use the layer reference from layerInfo (resolved at init or register)
+          if (!li.layer) continue;
 
           // SVG paths, Canvas elements, and Markers in this layer's panes
-          const panes = api.getLayerPanes(layer);
+          const panes = api.getLayerPanes(li.layer);
           for (const paneName of panes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;
@@ -298,7 +304,7 @@
           }
 
           // Markers and divIcons in this layer
-          const markerRoots = this.collectLayerMarkers(layer);
+          const markerRoots = this.collectLayerMarkers(li.layer);
           if (markerRoots.length) {
             await this.renderMarkers(ctx, rect, scale, contRect, cw, ch, markerRoots);
             await this.renderFontAwesome(ctx, rect, scale, contRect, markerRoots);
@@ -336,69 +342,49 @@
       }
     }
 
-    /** Render tiles by computing coordinates from geo bounds, or fallback to DOM images. */
-    async renderTiles(ctx, rect, scale, contRect, contW, contH, geoBounds) {
+    /** Render a single tile layer from geo bounds. */
+    async renderTileLayer(
+      ctx,
+      rect,
+      scale,
+      contRect,
+      contW,
+      contH,
+      geoBounds,
+      tileLayer,
+    ) {
       const cw = rect.width * scale;
       const ch = rect.height * scale;
 
-      if (geoBounds && geoBounds.nw) {
-        const tileLayers = this.getTileLayers();
-        for (const tileLayer of tileLayers) {
-          const zoom = this.map.getZoom();
-          const tiles = this.calcTiles(tileLayer, geoBounds, zoom);
-          const crs = this.map.options.crs || L.CRS.EPSG3857;
-          const viewportCenter = crs.latLngToPoint(this.map.getCenter(), zoom);
-          const halfVpW = contW / 2;
-          const halfVpH = contH / 2;
-          const vpLeft = viewportCenter.x - halfVpW;
-          const vpTop = viewportCenter.y - halfVpH;
+      if (!geoBounds || !geoBounds.nw) return;
+      const zoom = this.map.getZoom();
+      const tiles = this.calcTiles(tileLayer, geoBounds, zoom);
+      const crs = this.map.options.crs || L.CRS.EPSG3857;
+      const viewportCenter = crs.latLngToPoint(this.map.getCenter(), zoom);
+      const halfVpW = contW / 2;
+      const halfVpH = contH / 2;
+      const vpLeft = viewportCenter.x - halfVpW;
+      const vpTop = viewportCenter.y - halfVpH;
 
-          for (const tile of tiles) {
-            const tileVpX = tile.left - vpLeft;
-            const tileVpY = tile.top - vpTop;
-            const dx = (tileVpX - rect.left) * scale;
-            const dy = (tileVpY - rect.top) * scale;
-            const dw = tile.size * scale;
-            const dh = tile.size * scale;
-            if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-            if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top)
-              continue;
-            if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height)
-              continue;
+      for (const tile of tiles) {
+        const tileVpX = tile.left - vpLeft;
+        const tileVpY = tile.top - vpTop;
+        const dx = (tileVpX - rect.left) * scale;
+        const dy = (tileVpY - rect.top) * scale;
+        const dw = tile.size * scale;
+        const dh = tile.size * scale;
+        if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
+        if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
+        if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height)
+          continue;
 
-            try {
-              const bitmap = await loadImageBitmap(tile.url);
-              if (!bitmap) continue;
-              ctx.drawImage(bitmap, dx, dy, dw, dh);
-              bitmap.close();
-            } catch {
-              /* skip */
-            }
-          }
-        }
-      } else {
-        // Fallback: use DOM images
-        for (const img of this.container.querySelectorAll("img")) {
-          if (!img.src || !img.complete || !img.naturalWidth) continue;
-          const r = img.getBoundingClientRect();
-          const l = r.left - contRect.left;
-          const t = r.top - contRect.top;
-          const w = img.naturalWidth || r.width || 256;
-          const h = img.naturalHeight || r.height || 256;
-          if (w < 1 || h < 1) continue;
-          const dx = (l - rect.left) * scale;
-          const dy = (t - rect.top) * scale;
-          const dw = (r.width || w) * scale;
-          const dh = (r.height || h) * scale;
-          if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-          try {
-            const bitmap = await loadImageBitmap(img.src);
-            if (!bitmap) continue;
-            ctx.drawImage(bitmap, dx, dy, dw, dh);
-            bitmap.close();
-          } catch {
-            /* skip */
-          }
+        try {
+          const bitmap = await loadImageBitmap(tile.url);
+          if (!bitmap) continue;
+          ctx.drawImage(bitmap, dx, dy, dw, dh);
+          bitmap.close();
+        } catch {
+          /* skip */
         }
       }
     }
@@ -1453,9 +1439,8 @@
       toolBar.classList.add(CONST.CLASSES.ACTIONS);
       exportManager.attachUI(ctrl, toolBar);
       toggleBtn.onclick = () => {
-        if (exportManager.cropState) {
-          exportManager.removeCropBox();
-        } else if (exportManager.savedBounds) {
+        if (exportManager.cropState) exportManager.removeCropBox();
+        else if (exportManager.savedBounds) {
           exportManager.showCropBox();
           requestAnimationFrame(() => {
             if (exportManager.cropState && !exportManager.cropState.locked) {

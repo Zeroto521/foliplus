@@ -138,7 +138,7 @@ class TestExportControlRendering:
         """All render sub-methods are defined."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "renderTiles" in html
+        assert "renderTileLayer" in html
         assert "renderPaneSVG" in html
         assert "renderPaneCanvas" in html
         assert "renderMarkers" in html
@@ -319,12 +319,11 @@ class TestExportControlRendering:
     # ── Rendering: individual render passes ──
 
     def test_render_tiles_geo_bounds_path(self, base_map: folium.Map):
-        """renderTiles iterates all TileLayers sorted by zIndex."""
+        """renderTileLayer renders a single tile layer from geo bounds."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "getTileLayers" in html
-        assert "tileLayers" in html
-        assert "zIndex" in html
+        assert "calcTiles" in html
+        assert "tileLayer" in html
         assert "createImageBitmap" in html
 
     def test_render_canvas_hooks(self, base_map: folium.Map):
@@ -425,7 +424,7 @@ class TestExportControlRendering:
         ExportControl().add_to(base_map)
         html = render(base_map)
         # Order: tiles → SVG → canvas → markers → FA → text → remaining
-        assert "renderTiles" in html
+        assert "renderTileLayer" in html
         assert "renderPaneSVG" in html
         assert "renderPaneCanvas" in html
         assert "renderFontAwesome" in html
@@ -472,12 +471,11 @@ class TestExportControlRendering:
         assert "toDataURL" in html
 
     def test_api_layers_iteration(self, base_map: folium.Map):
-        """render iterates api.layers for per-layer rendering."""
+        """render iterates api.layerRegistry for per-layer rendering."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "api.layers" in html
+        assert "api.layerRegistry" in html
         assert "li.visible" in html
-        assert "li.isBase" in html
 
     def test_canvas_selector_defined(self, base_map: folium.Map):
         """CONST.SEL.CANVAS selector targets foliplus-canvas elements."""
@@ -486,11 +484,11 @@ class TestExportControlRendering:
         assert "canvas.foliplus" in html or "foliplus-canvas" in html
 
     def test_render_base_layer_skipped(self, base_map: folium.Map):
-        """render() skips basemap layers in per-layer iteration."""
+        """render() renders TileLayer via renderTileLayer inside per-layer loop."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "li.isBase" in html
-        assert "if (li.isBase) continue" in html
+        assert "L.TileLayer" in html
+        assert "renderTileLayer" in html
 
     def test_render_invisible_layer_skipped(self, base_map: folium.Map):
         """render() skips invisible layers in per-layer iteration."""
@@ -503,7 +501,7 @@ class TestExportControlRendering:
         """All render passes are awaited in render()."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "await this.renderTiles" in html
+        assert "await this.renderTileLayer" in html
         assert "await this.renderPaneSVG" in html
         assert "await this.renderPaneCanvas" in html
         assert "await this.renderMarkers" in html
@@ -512,12 +510,11 @@ class TestExportControlRendering:
         assert "await this.renderRemaining" in html
 
     def test_get_tile_layers_sorted(self, base_map: folium.Map):
-        """getTileLayers sorts by zIndex ascending."""
+        """TileLayer detection uses instanceof L.TileLayer."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "getTileLayers" in html
-        assert "zIndex" in html
-        assert "b.options.zIndex" in html
+        assert "L.TileLayer" in html
+        assert "renderTileLayer" in html
 
     def test_svg_clone_removes_style_attribute(self, base_map: folium.Map):
         """renderPaneSVG removes style attribute from cloned SVG."""
@@ -564,12 +561,11 @@ class TestExportControlRendering:
         assert "lines.length" in html
 
     def test_render_tiles_dom_fallback(self, base_map: folium.Map):
-        """renderTiles has DOM fallback path when geoBounds is missing."""
+        """renderTileLayer returns early when geoBounds is missing."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "else" in html
-        assert "this.container.querySelectorAll" in html
-        assert "img" in html
+        assert "renderTileLayer" in html
+        assert "if (!geoBounds || !geoBounds.nw) return" in html
 
     def test_tile_cors_interceptor(self, base_map: folium.Map):
         """CORS interceptor sets crossOrigin on TileLayer add."""
@@ -1047,15 +1043,21 @@ class TestExportControlBrowser:
                     ".foliplus-export-ctrl", state="attached", timeout=10000
                 )
 
-                # Pre-set localStorage with saved bounds
-                page.evaluate("""() => {
-                    const map = document.querySelector('.leaflet-container').__leaflet_id;
-                    // Use reasonable bounds that overlap the current viewport
-                    localStorage.setItem('foliplus_export_rect', JSON.stringify({
+                # Pre-set localStorage with saved bounds using the map-specific key
+                map_name = page.evaluate("""() => {
+                    const html = document.querySelector('script:not([src])').textContent;
+                    const m = html.match(/var\\s+(\\w+)\\s*=\\s*L\\.map\\(/);
+                    return m ? m[1] : 'map';
+                }""")
+                page.evaluate(
+                    """(key) => {
+                    localStorage.setItem(key, JSON.stringify({
                         nw: { lat: 26.07, lng: 119.28 },
                         se: { lat: 26.09, lng: 119.32 }
                     }));
-                }""")
+                }""",
+                    "foliplus_export_rect_" + map_name,
+                )
 
                 # Open export control — should auto-restore saved bounds
                 page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
