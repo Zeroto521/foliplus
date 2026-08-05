@@ -507,12 +507,6 @@
       this.pendingRegistrations = [];
       this.uiContainer = null;
 
-      this.isColorActive = false;
-      this.currentColor = CONST.COLOR.DEFAULT;
-      this.dragIdx = null;
-      this.lastDragHintAt = 0;
-      this.foldedGroups = new Set();
-
       // Bind method context to prevent 'this' loss when called via window.foliplus.LayerAPI
       this.registerLayer = this.registerLayer.bind(this);
       this.unregisterLayer = this.unregisterLayer.bind(this);
@@ -1554,6 +1548,12 @@
   class LayerUI {
     constructor(manager) {
       this.manager = manager;
+      this.foldedGroups = new Set();
+      this.isColorActive = false;
+      this.currentColor = CONST.COLOR.DEFAULT;
+      this.dragIdx = null;
+      this.lastDragHintAt = 0;
+      this.lastDragOverItem = null;
     }
 
     /** Alias for convenience */
@@ -1600,13 +1600,13 @@
         }
         const group = l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
         const item = this.renderLayerItem(l, i);
-        if (this.m.foldedGroups.has(group))
+        if (this.foldedGroups.has(group))
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);
         frag.appendChild(item);
       }
 
       const colorItem = this.renderColorLayerItem();
-      if (this.m.foldedGroups.has(CONST.GROUP.BASE))
+      if (this.foldedGroups.has(CONST.GROUP.BASE))
         colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
       frag.appendChild(colorItem);
 
@@ -1643,7 +1643,7 @@
         );
       }
       const item = this.renderLayerItem(layerInfo, idx);
-      if (this.m.foldedGroups.has(group))
+      if (this.foldedGroups.has(group))
         item.classList.add(CONST.CLASSES.GROUP_FOLDED);
       frag.appendChild(item);
 
@@ -1680,7 +1680,7 @@
     }
 
     renderToggleAllRow(group, labelKey) {
-      const isFolded = this.m.foldedGroups.has(group);
+      const isFolded = this.foldedGroups.has(group);
       return foliplus.dom.el(
         "div",
         {
@@ -1768,7 +1768,7 @@
           foliplus.dom.el("input", {
             type: "color",
             class: CONST.CLASSES.COLOR_INPUT,
-            value: this.m.currentColor,
+            value: this.currentColor,
             "aria-label": _(`${CONST.name}.color_map_label`),
           }),
         ),
@@ -1832,7 +1832,7 @@
         }
       }
 
-      if (!anyBaseVisible) this.showColorLayer(this.m.currentColor);
+      if (!anyBaseVisible) this.showColorLayer(this.currentColor);
       this.m.enforceOrder();
       this.syncToggleAll(CONST.GROUP.OVERLAY);
       this.syncToggleAll(CONST.GROUP.BASE);
@@ -1868,7 +1868,7 @@
         // Color layer item → deselect bases
         if (e.target.closest(CONST.SEL.COLOR_ITEM)) {
           this.deselectAllBaseMaps(-1);
-          this.showColorLayer(this.m.currentColor);
+          this.showColorLayer(this.currentColor);
           this.syncToggleAll(CONST.GROUP.BASE);
           this.m.enforceOrder();
           return;
@@ -1877,8 +1877,8 @@
         const row = e.target.closest(CONST.SEL.TOGGLE_ALL);
         if (!row || e.target.closest('[data-role="toggle-all"]')) return;
         const group = row.dataset.group;
-        if (this.m.foldedGroups.has(group)) this.m.foldedGroups.delete(group);
-        else this.m.foldedGroups.add(group);
+        if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
+        else this.foldedGroups.add(group);
         this.renderInitialList();
         this.initTypesAndVisibility();
         this.m.saveFoldState();
@@ -1951,7 +1951,7 @@
 
       if (group === CONST.GROUP.BASE && !newState) {
         this.hideColorLayer();
-        this.showColorLayer(this.m.currentColor);
+        this.showColorLayer(this.currentColor);
       } else if (group === CONST.GROUP.BASE && newState) this.hideColorLayer();
 
       this.syncToggleAll(group);
@@ -2028,15 +2028,15 @@
     handleDragStart(e) {
       const item = e.target.closest(CONST.SEL.LAYER_ITEM);
       if (!item) return;
-      this.m.dragIdx = parseInt(item.dataset.index, 10);
+      this.dragIdx = parseInt(item.dataset.index, 10);
       item.classList.add(CONST.CLASSES.DRAGGING);
       e.dataTransfer.effectAllowed = "move";
     }
 
     showReorderBlockedHint() {
       const now = Date.now();
-      if (now - this.m.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
-      this.m.lastDragHintAt = now;
+      if (now - this.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
+      this.lastDragHintAt = now;
       foliplus.showHint(
         CONST.name,
         _(`${CONST.name}.reorder_group_only`),
@@ -2045,7 +2045,7 @@
     }
 
     handleDragOver(e) {
-      if (this.m.dragIdx === null) return;
+      if (this.dragIdx === null) return;
       e.preventDefault();
       const item = e.target.closest(CONST.SEL.LAYER_ITEM);
       if (!item || item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
@@ -2053,7 +2053,7 @@
       const targetIdx = parseInt(item.dataset.index, 10);
       // Only clear the previously highlighted item instead of scanning every
       // item on each dragover event (fires many times per second while dragging).
-      const prev = this.m.lastDragOverItem;
+      const prev = this.lastDragOverItem;
       if (prev && prev !== item)
         prev.classList.remove(
           CONST.CLASSES.DRAG_OVER_TOP,
@@ -2063,17 +2063,17 @@
         CONST.CLASSES.DRAG_OVER_TOP,
         CONST.CLASSES.DRAG_OVER_BOTTOM,
       );
-      this.m.lastDragOverItem = item;
+      this.lastDragOverItem = item;
 
-      if (!this.m.canReorderBetween(this.m.dragIdx, targetIdx)) {
+      if (!this.m.canReorderBetween(this.dragIdx, targetIdx)) {
         if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
         this.showReorderBlockedHint();
         return;
       }
       if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 
-      if (targetIdx < this.m.dragIdx) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
-      else if (targetIdx > this.m.dragIdx)
+      if (targetIdx < this.dragIdx) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
+      else if (targetIdx > this.dragIdx)
         item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
     }
 
@@ -2089,44 +2089,44 @@
     handleDrop(e) {
       e.preventDefault();
       const target = e.target.closest(CONST.SEL.LAYER_ITEM);
-      if (this.m.dragIdx === null) return;
+      if (this.dragIdx === null) return;
       if (!target || target.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
 
-      if (this.m.dragIdx < 0 || this.m.dragIdx >= this.m.layers.length) {
-        this.m.dragIdx = null;
+      if (this.dragIdx < 0 || this.dragIdx >= this.m.layers.length) {
+        this.dragIdx = null;
         return;
       }
 
       const targetIdx = parseInt(target.dataset.index, 10);
-      if (this.m.dragIdx === targetIdx) return;
-      if (!this.m.canReorderBetween(this.m.dragIdx, targetIdx)) {
+      if (this.dragIdx === targetIdx) return;
+      if (!this.m.canReorderBetween(this.dragIdx, targetIdx)) {
         this.showReorderBlockedHint();
         return;
       }
 
       // Reorder via the registry so the array + index stay consistent.
-      this.m.layerRegistry.reorder(this.m.dragIdx, targetIdx);
+      this.m.layerRegistry.reorder(this.dragIdx, targetIdx);
       const moved = this.m.layers[targetIdx];
 
       const movedItem = this.m.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(moved.id)}"]`,
       );
       if (!movedItem) {
-        this.m.dragIdx = null;
+        this.dragIdx = null;
         return;
       }
 
-      if (targetIdx < this.m.dragIdx) target.parentNode.insertBefore(movedItem, target);
+      if (targetIdx < this.dragIdx) target.parentNode.insertBefore(movedItem, target);
       else target.parentNode.insertBefore(movedItem, target.nextSibling);
 
       this.reindexItems();
       this.m.enforceOrder();
       this.m.saveOrder();
-      this.m.dragIdx = null;
+      this.dragIdx = null;
     }
 
     handleDragEnd() {
-      this.m.lastDragOverItem = null;
+      this.lastDragOverItem = null;
       const allItems = this.m.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
       allItems.forEach((i) =>
         i.classList.remove(
@@ -2138,8 +2138,8 @@
     }
 
     showColorLayer(color) {
-      this.m.isColorActive = true;
-      this.m.currentColor = color;
+      this.isColorActive = true;
+      this.currentColor = color;
       mapContainer.style.setProperty("--color-layer-bg", color);
       mapContainer.classList.add(CONST.CLASSES.ACTIVE);
 
@@ -2172,7 +2172,7 @@
     }
 
     hideColorLayer() {
-      this.m.isColorActive = false;
+      this.isColorActive = false;
       mapContainer.classList.remove(CONST.CLASSES.ACTIVE);
       mapContainer.style.removeProperty("--color-layer-bg");
       const tilePane = this.m.map.getPane("tilePane");
