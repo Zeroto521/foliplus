@@ -383,8 +383,8 @@
     }
 
     getPointValue(marker) {
-      if (this.currentAgg === "count") return 1;
-      const key = this.currentField === "_auto" ? this.autoFieldKey : this.currentField;
+      if (this.currentAgg === CONST.AGG.COUNT) return 1;
+      const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
       const val = this.readMarkerField(marker, key);
       if (val === undefined || isNaN(val)) {
         if (!this.valueFallbackWarned) {
