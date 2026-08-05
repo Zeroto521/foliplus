@@ -283,8 +283,23 @@
         for (const li of this.items)
           if (!li.layer && li.id) li.layer = LayerUtils.findLayer(map, li.id);
       }
+      // Cached index of the first base layer. The base group boundary is
+      // stable between group mutations; caching it avoids a full-array
+      // findIndex scan on every dragover (fires many times per second).
+      this._firstBaseIdx = -1;
+      this.refreshFirstBaseIdx();
       // Read-only view shared by both internal code and external callers.
       this.view = this.createReadonlyView();
+    }
+
+    /** Recompute the cached first-base-layer index. */
+    refreshFirstBaseIdx() {
+      this._firstBaseIdx = this.items.findIndex((l) => !!l.isBase);
+    }
+
+    /** Index of the first base layer, or -1 if none. */
+    get firstBaseIdx() {
+      return this._firstBaseIdx;
     }
 
     /** Create a read-only proxy over the internal array. */
@@ -350,8 +365,10 @@
       if (existing) {
         const idx = this.items.indexOf(existing);
         this.items[idx] = layerInfo;
-      } else this.items.push(layerInfo);
-
+      } else {
+        this.items.push(layerInfo);
+        this.refreshFirstBaseIdx();
+      }
       this.byId.set(layerInfo.id, layerInfo);
       return layerInfo;
     }
@@ -360,6 +377,7 @@
     prepend(layerInfo) {
       this.items.unshift(layerInfo);
       this.byId.set(layerInfo.id, layerInfo);
+      this.refreshFirstBaseIdx();
       return layerInfo;
     }
 
@@ -367,6 +385,7 @@
     insertAt(layerInfo, idx) {
       this.items.splice(idx, 0, layerInfo);
       this.byId.set(layerInfo.id, layerInfo);
+      this.refreshFirstBaseIdx();
       return layerInfo;
     }
 
@@ -376,6 +395,7 @@
       const idx = this.items.indexOf(li);
       if (idx !== -1) this.items.splice(idx, 1);
       this.byId.delete(id);
+      this.refreshFirstBaseIdx();
       return li;
     }
 
@@ -387,6 +407,7 @@
       if (idx <= 0) return li;
       this.items.splice(idx, 1);
       this.items.unshift(li);
+      this.refreshFirstBaseIdx();
       return li;
     }
 
@@ -394,6 +415,7 @@
     reorder(fromIdx, toIdx) {
       const [moved] = this.items.splice(fromIdx, 1);
       this.items.splice(toIdx, 0, moved);
+      this.refreshFirstBaseIdx();
     }
 
     /** Rebuild both list and index from a new ordered array.
@@ -402,11 +424,51 @@
     replace(newList) {
       this.items.splice(0, this.items.length, ...newList);
       this.byId = new Map(this.items.map((l) => [l.id, l]));
+      this.refreshFirstBaseIdx();
     }
 
     clear() {
       this.items.splice(0, this.items.length);
       this.byId.clear();
+      this.refreshFirstBaseIdx();
+    }
+
+    /**
+     * Reorder so all overlays come before all base layers.
+     *  Mutates the existing array in place so external references
+     *  (`manager.layers`) keep pointing at the same instance. */
+    normalizeGroups() {
+      const overlays = [];
+      const bases = [];
+      for (const l of this.items) {
+        if (l && l.isBase) bases.push(l);
+        else overlays.push(l);
+      }
+      this.items.splice(0, this.items.length, ...overlays.concat(bases));
+      this.byId = new Map(this.items.map((l) => [l.id, l]));
+      this.refreshFirstBaseIdx();
+    }
+
+    /**
+     * Check whether a layer at fromIdx can be reordered to toIdx.
+     * Only same-group (base↔base or overlay↔overlay) reordering is allowed. */
+    canReorderBetween(fromIdx, toIdx) {
+      if (fromIdx == null || toIdx == null) return false;
+      if (fromIdx < 0 || toIdx < 0) return false;
+      if (fromIdx >= this.items.length || toIdx >= this.items.length) return false;
+      const from = this.items[fromIdx];
+      const to = this.items[toIdx];
+      if (!from || !to) return false;
+      if (!!from.isBase !== !!to.isBase) return false;
+
+      const firstBaseIdx = this._firstBaseIdx;
+      const hasBase = firstBaseIdx !== -1;
+
+      if (!from.isBase) {
+        const overlayEnd = hasBase ? firstBaseIdx - 1 : this.items.length - 1;
+        return fromIdx <= overlayEnd && toIdx <= overlayEnd;
+      }
+      return hasBase && fromIdx >= firstBaseIdx && toIdx >= firstBaseIdx;
     }
 
     toArray() {
@@ -464,11 +526,6 @@
       // Explicit registry: layer stamp → fallback pane name.
       this.fallbackPaneMap = new Map();
 
-      // Cached index of the first base layer. The base group boundary is
-      // stable between group mutations; caching it avoids a full-array
-      // findIndex scan on every dragover (fires many times per second).
-      this.firstBaseIdx = -1;
-
       // Last attribution string applied, so syncAttribution can skip
       // rebuilding the attribution DOM when the top layer's attribution
       // is unchanged across enforceOrder runs.
@@ -499,7 +556,7 @@
 
       this.loadSavedOrder();
       this.loadFoldState();
-      this.normalizeLayerGroups();
+      this.layerRegistry.normalizeGroups();
 
       // Expose the manager as the public LayerAPI. The full instance is
       // attached so tests and debuggers can reach internals, but the stable
@@ -511,24 +568,6 @@
       // Other members (map, ui, paneCache, etc.) are internal — do not rely
       // on them; mutate layers only through the API above.
       foliplus.LayerAPI = this;
-    }
-
-    normalizeLayerGroups() {
-      const overlays = [];
-      const bases = [];
-      for (const l of this.layers) {
-        if (l && l.isBase) bases.push(l);
-        else overlays.push(l);
-      }
-      // Replace in place so the registry index stays in sync AND `this.layers`
-      // keeps pointing at the same array instance (DOM-aligned code relies on it).
-      this.layerRegistry.replace(overlays.concat(bases));
-      this.refreshFirstBaseIdx();
-    }
-
-    /** Recompute the cached first-base-layer index after group mutations. */
-    refreshFirstBaseIdx() {
-      this.firstBaseIdx = this.layers.findIndex((l) => !!l.isBase);
     }
 
     loadSavedOrder() {
@@ -629,7 +668,7 @@
         .map((l) => ({
           id: l.id,
           name: l.name,
-          layer: l.layer || LayerUtils.findLayer(this.map, l.id),  // safety fallback
+          layer: l.layer || LayerUtils.findLayer(this.map, l.id), // safety fallback
         }));
     }
 
@@ -704,7 +743,6 @@
       const existingLi = this.layerRegistry.get(opts.id);
       const existingIdx = existingLi ? this.layers.indexOf(existingLi) : -1;
       const existingVisible = existingLi ? existingLi.visible : true;
-
       const layerInfo = {
         name: opts.name ?? opts.id,
         id: opts.id,
@@ -718,6 +756,7 @@
         onToggle: opts.onToggle || null,
         onZIndex: opts.onZIndex || null,
       };
+
       if (existingIdx !== -1) {
         // Idempotent re-registration: update fields in place, keep position.
         // Do NOT splice+unshift — that would silently destroy the user's
@@ -725,12 +764,11 @@
         // tool switch) and persist the accidental order via saveOrder.
         this.layerRegistry.upsert(layerInfo);
       } else if (layerInfo.isBase) {
-        const firstBaseIdx = this.firstBaseIdx;
+        const firstBaseIdx = this.layerRegistry.firstBaseIdx;
         if (firstBaseIdx === -1)
           this.layerRegistry.insertAt(layerInfo, this.layers.length);
         else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
       } else this.layerRegistry.prepend(layerInfo);
-      this.refreshFirstBaseIdx();
 
       if (opts.paneName) this.ensurePane(opts.paneName);
       if (opts.layer) {
@@ -790,7 +828,6 @@
       // invariant and corrupt the cached group boundary — ignore it.
       if (item?.isBase) return;
       this.layerRegistry.moveToFront(id);
-      this.refreshFirstBaseIdx();
       this.enforceOrder();
       this.saveOrder();
       // Re-render the full list so DOM order matches `this.layers` order,
@@ -813,9 +850,8 @@
     unregisterLayer(id) {
       const layerInfo = this.layerRegistry.remove(id);
       if (!layerInfo) return false;
-      this.refreshFirstBaseIdx();
 
-      const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id);  // safety fallback
+      const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id); // safety fallback
       if (layer) {
         if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
         this.clearAllLayers(layer);
@@ -1449,25 +1485,10 @@
     }
 
     /** Check whether a layer at fromIdx can be reordered to toIdx.
-     *  Only same-group (base↔base or overlay↔overlay) reordering is allowed. */
+     *  Only same-group (base↔base or overlay↔overlay) reordering is allowed.
+     *  Delegates to LayerRegistry for the pure-data check. */
     canReorderBetween(fromIdx, toIdx) {
-      if (fromIdx == null || toIdx == null) return false;
-      if (fromIdx < 0 || toIdx < 0) return false;
-      if (fromIdx >= this.layers.length || toIdx >= this.layers.length) return false;
-      const from = this.layers[fromIdx];
-      const to = this.layers[toIdx];
-      if (!from || !to) return false;
-      if (!!from.isBase !== !!to.isBase) return false;
-
-      // Cached boundary avoids a full-array scan on every dragover.
-      const firstBaseIdx = this.firstBaseIdx;
-      const hasBase = firstBaseIdx !== -1;
-
-      if (!from.isBase) {
-        const overlayEnd = hasBase ? firstBaseIdx - 1 : this.layers.length - 1;
-        return fromIdx <= overlayEnd && toIdx <= overlayEnd;
-      }
-      return hasBase && fromIdx >= firstBaseIdx && toIdx >= firstBaseIdx;
+      return this.layerRegistry.canReorderBetween(fromIdx, toIdx);
     }
 
     /** Release all resources. Called by LayerControl.onRemove(). */
