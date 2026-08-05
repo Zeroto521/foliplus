@@ -554,6 +554,16 @@
         if (this.isDestroyed || e.layer === this.map || e.layer instanceof L.Renderer)
           return;
 
+        // Skip unmanaged layers (TileLayer, plain L.layerGroup, etc.)
+        // that don't have a custom pane or fallback pane assigned by us.
+        if (
+          !(e.layer instanceof L.Path || e.layer instanceof L.Marker) &&
+          !e.layer.options?.paneName
+        ) {
+          this.debouncedEnforce();
+          return;
+        }
+
         if (this.isEnforcing) {
           // enforceOrder is in flight; the layer was added mid-reorder.
           // Reschedule so it still gets z-indexed once the guard clears.
@@ -822,11 +832,11 @@
       if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
 
       if (!this.uiContainer) {
-        // UI not rendered yet — queue the registration and defer reordering.
+        // UI not rendered yet — queue the layerInfo and defer reordering.
         // The initial paint (attachUI → initTypesAndVisibility) runs a
         // synchronous enforceOrder, so a debounced call here just keeps the
         // map z-order sane if addLayer raced ahead of panel attach.
-        this.pendingRegistrations.push(opts);
+        this.pendingRegistrations.push(layerInfo);
         this.debouncedEnforce();
         return null;
       }
@@ -1570,8 +1580,10 @@
       this.renderInitialList();
       this.bindEvents();
 
-      while (this.m.pendingRegistrations.length)
-        this.m.registerLayer(this.m.pendingRegistrations.shift());
+      while (this.pendingRegistrations.length) {
+        const li = this.pendingRegistrations.shift();
+        if (this.ui) this.ui.insertLayerItem(li);
+      }
 
       setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
     }
