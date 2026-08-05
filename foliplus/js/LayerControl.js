@@ -1151,7 +1151,7 @@
       this.map.on("resize", onResize);
 
       // Lifecycle hooks for full-content capture (e.g. ExportControl). Push functions
-      // to `before` to prepare for capture, and to`after` to restore normal state.
+      // to `before` to prepare for capture, and to `after` to restore normal state.
       const hooks = { before: [], after: [] };
       canvas.hooks = hooks;
 
