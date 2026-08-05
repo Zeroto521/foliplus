@@ -64,6 +64,7 @@
       POLYGON: "polygon",
       EMPTY: "empty",
       UNKNOWN: "unknown",
+      CUSTOM: "custom",
     },
   };
 
@@ -417,7 +418,16 @@
      */
     getLayerType(id) {
       const li = this.layers.find((l) => l.id === id);
-      return li ? li.type : null;
+      if (!li) return null;
+      if (li.type) return li.type;
+      if (li.isBase) return CONST.GROUP.BASE;
+      if (li.iconSvg) return CONST.GEOM_TYPE.CUSTOM;
+      // Type not yet assigned by initTypesAndVisibility — infer it lazily so
+      // callers (e.g. HeatmapControl.scanMapLayers) work regardless of timing.
+      const layer = li.layer || LayerUtils.findLayer(this.map, id);
+      if (!layer) return null;
+      li.type = LayerUtils.getGeometryType(layer);
+      return li.type;
     }
 
     /**
@@ -427,7 +437,7 @@
      */
     getLayersByType(type) {
       return this.layers
-        .filter((l) => l.type === type)
+        .filter((l) => this.getLayerType(l.id) === type)
         .map((l) => ({ id: l.id, name: l.name }));
     }
 
@@ -578,8 +588,13 @@
     bringLayerToFront(id) {
       const idx = this.layers.findIndex((l) => l.id === id);
       if (idx <= 0) return;
-      const [item] = this.layers.splice(idx, 1);
+      const item = this.layers[idx];
+      // Bringing a base layer to index 0 would break the overlay-before-base
+      // invariant and corrupt the cached group boundary — ignore it.
+      if (item?.isBase) return;
+      this.layers.splice(idx, 1);
       this.layers.unshift(item);
+      this.refreshFirstBaseIdx();
       this.enforceOrder();
       this.saveOrder();
       // Re-render the full list so DOM order matches `this.layers` order,
@@ -1051,6 +1066,13 @@
       this.isEnforcing = true;
       try {
         const layersToMove = [];
+
+        // The layer tree may have changed since the last pass (e.g. a GeoJSON
+        // layer filled via addData after registration, or a createLayers
+        // content add that did not go through the override). Re-discover
+        // custom panes each pass so stale cache entries never cause a layer
+        // to be mis-assigned to a fallback pane (breaking its z-order).
+        this.paneCache.clear();
 
         for (let i = 0; i < this.layers.length; i++) {
           const li = this.layers[i];
@@ -1543,7 +1565,7 @@
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
             typeKey = `${CONST.name}.type_custom`;
-            layerInfo.type = "custom";
+            layerInfo.type = CONST.GEOM_TYPE.CUSTOM;
           } else if (layer) {
             const gtype = LayerUtils.getGeometryType(layer);
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
