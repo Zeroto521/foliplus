@@ -370,6 +370,21 @@
       });
     }
 
+    /** Animate a dash-sweep effect on a finalized polyline/polygon. */
+    static animateDashSweep(path) {
+      if (!path) return;
+      const len = path.getTotalLength?.() || 0;
+      if (len <= 0) return;
+      path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, len);
+      path.classList.add(CONST.CLASSES.DASH_SWEEP);
+      const onEnd = () => {
+        path.removeEventListener("animationend", onEnd);
+        path.classList.remove(CONST.CLASSES.DASH_SWEEP);
+        path.style.removeProperty(CONST.STYLE.SWEEP_LENGTH);
+      };
+      path.addEventListener("animationend", onEnd);
+    }
+
     /** Recalculate segments and total distance from a points array.
      * @param {Array} points - Array of L.LatLng
      * @returns {Object} { segments: Array, totalDistance: number }
@@ -584,19 +599,7 @@
         finalPoly.setLatLngs(points);
 
         // Dash-sweep animation
-        if (finalPoly._path) {
-          const len = finalPoly._path.getTotalLength?.() || 0;
-          if (len > 0) {
-            finalPoly._path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, len);
-            finalPoly._path.classList.add(CONST.CLASSES.DASH_SWEEP);
-            const onEnd = () => {
-              finalPoly._path.removeEventListener("animationend", onEnd);
-              finalPoly._path.classList.remove(CONST.CLASSES.DASH_SWEEP);
-              finalPoly._path.style.removeProperty(CONST.STYLE.SWEEP_LENGTH);
-            };
-            finalPoly._path.addEventListener("animationend", onEnd);
-          }
-        }
+        MeasureUtils.animateDashSweep(finalPoly._path);
 
         // Save measurement data
         const distId = this.nextMeasurementId();
@@ -828,19 +831,7 @@
         finalPoly.setLatLngs(closedPts);
 
         // Dash-sweep animation
-        if (finalPoly._path) {
-          const len = finalPoly._path.getTotalLength?.() || 0;
-          if (len > 0) {
-            finalPoly._path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, len);
-            finalPoly._path.classList.add(CONST.CLASSES.DASH_SWEEP);
-            const onEnd = () => {
-              finalPoly._path.removeEventListener("animationend", onEnd);
-              finalPoly._path.classList.remove(CONST.CLASSES.DASH_SWEEP);
-              finalPoly._path.style.removeProperty(CONST.STYLE.SWEEP_LENGTH);
-            };
-            finalPoly._path.addEventListener("animationend", onEnd);
-          }
-        }
+        MeasureUtils.animateDashSweep(finalPoly._path);
 
         // Calculate area
         const area = MeasureUtils.area(points);
@@ -1429,8 +1420,9 @@
 
       const segLabels = [];
       if (m.segments) {
+        let accTotal = 0;
         m.segments.forEach((seg, i) => {
-          const total = m.segments.slice(0, i + 1).reduce((s, x) => s + x.distance, 0);
+          accTotal += seg.distance;
           const prev = points[i];
           const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
           if (!prev || !cur) return;
@@ -1438,7 +1430,7 @@
           const label = this.layers.addLayer(
             L.marker([mid.lat, mid.lng], {
               icon: MeasureUtils.makeMidLabelDivIcon(
-                MeasureUtils.formatSegmentLabel(prev, cur, total),
+                MeasureUtils.formatSegmentLabel(prev, cur, accTotal),
               ),
             }),
             true,
