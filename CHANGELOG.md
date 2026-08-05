@@ -10,7 +10,7 @@
 ### Changed
 
 - `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `LayerControl`: rework internal data structure — introduce `LayerRegistry`; all mutations are now centralized so the index can never drift from the list; expose `api.layers` as a read-only view ([#117](https://github.com/Zeroto521/foliplus/pull/117))
+- `LayerControl`: rework internal data structure — introduce `LayerRegistry`; all mutations are now centralized so the index can never drift from the list; expose `api.layers` as a read-only view ([#117](https://github.com/Zeroto521/foliplus/pull/117), [#119](https://github.com/Zeroto521/foliplus/pull/119))
 
 ### Fixed
 
