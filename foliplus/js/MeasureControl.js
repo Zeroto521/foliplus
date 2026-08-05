@@ -174,6 +174,24 @@
       return `${bearing}° | ${dist}`;
     }
 
+    /** Geodesic midpoint between two points using turf.js.
+     *  @param {Object} a - First point with lng/lat properties.
+     *  @param {Object} b - Second point with lng/lat properties.
+     *  @returns {L.LatLng} Midpoint LatLng. */
+    static midpoint(a, b) {
+      const mid = turf.midpoint(turf.point([a.lng, a.lat]), turf.point([b.lng, b.lat]));
+      return L.latLng(mid.geometry.coordinates[1], mid.geometry.coordinates[0]);
+    }
+
+    /** Centroid (arithmetic mean of vertices) of a polygon.
+     *  @param {Array<{lng:number,lat:number}>} points - Array of coordinate objects.
+     *  @returns {L.LatLng} Centroid LatLng. */
+    static centroid(points) {
+      const cx = points.reduce((s, p) => s + p.lat, 0) / points.length;
+      const cy = points.reduce((s, p) => s + p.lng, 0) / points.length;
+      return L.latLng(cx, cy);
+    }
+
     /** Geodesic area of a polygon using turf.js.
      *  @param {Array<{lng:number,lat:number}>} points - Array of coordinate objects.
      *  @returns {number} Area in square meters. */
@@ -605,9 +623,8 @@
         if (segLabels.length > 0) {
           const lastPt = points[points.length - 1];
           const prevPt = points[points.length - 2];
-          const midLat = (prevPt.lat + lastPt.lat) / 2;
-          const midLng = (prevPt.lng + lastPt.lng) / 2;
-          segLabels[segLabels.length - 1].setLatLng([midLat, midLng]);
+          const mid = MeasureUtils.midpoint(prevPt, lastPt);
+          segLabels[segLabels.length - 1].setLatLng([mid.lat, mid.lng]);
           segLabels[segLabels.length - 1].setIcon(
             MeasureUtils.makeMidLabelDivIcon(
               MeasureUtils.formatSegmentLabel(
@@ -669,8 +686,7 @@
         );
         const showDist = total + seg;
         const lastPt = points[points.length - 1];
-        const midLat = (lastPt.lat + e.latlng.lat) / 2;
-        const midLng = (lastPt.lng + e.latlng.lng) / 2;
+        const mid = MeasureUtils.midpoint(lastPt, e.latlng);
         const labelText = MeasureUtils.formatSegmentLabel(
           lastPt.lng,
           lastPt.lat,
@@ -680,14 +696,14 @@
         );
         if (!previewDistLabel) {
           previewDistLabel = this.layers.addLayer(
-            L.marker([midLat, midLng], {
+            L.marker([mid.lat, mid.lng], {
               icon: MeasureUtils.makeMidLabelDivIcon(labelText),
               interactive: false,
             }),
             true,
           );
         } else {
-          previewDistLabel.setLatLng([midLat, midLng]);
+          previewDistLabel.setLatLng([mid.lat, mid.lng]);
           MeasureUtils.setLabelText(previewDistLabel, labelText);
         }
       };
@@ -728,10 +744,10 @@
           );
           total += seg;
 
-          const midLat =
-            (points[points.length - 2].lat + points[points.length - 1].lat) / 2;
-          const midLng =
-            (points[points.length - 2].lng + points[points.length - 1].lng) / 2;
+          const mid = MeasureUtils.midpoint(
+            points[points.length - 2],
+            points[points.length - 1],
+          );
 
           if (segLabels.length > 0 && points.length >= 3) {
             const prevLabel = segLabels[segLabels.length - 1];
@@ -755,7 +771,7 @@
           }
 
           const label = this.layers.addLayer(
-            L.marker([midLat, midLng], {
+            L.marker([mid.lat, mid.lng], {
               icon: MeasureUtils.makeMidLabelDivIcon(
                 MeasureUtils.formatSegmentLabel(
                   points[points.length - 2].lng,
@@ -895,10 +911,9 @@
         // Add closing segment label
         const lastPt = points[points.length - 1];
         const firstPt = points[0];
-        const closeMidLat = (lastPt.lat + firstPt.lat) / 2;
-        const closeMidLng = (lastPt.lng + firstPt.lng) / 2;
+        const closeMid = MeasureUtils.midpoint(lastPt, firstPt);
         const closeLabel = this.layers.addLayer(
-          L.marker([closeMidLat, closeMidLng], {
+          L.marker([closeMid.lat, closeMid.lng], {
             icon: MeasureUtils.makeMidLabelDivIcon(
               MeasureUtils.formatDistance(lastSeg.distance),
             ),
@@ -978,19 +993,19 @@
           e.latlng.lng,
           e.latlng.lat,
         );
-        const midLat = (points[points.length - 1].lat + e.latlng.lat) / 2;
-        const midLng = (points[points.length - 1].lng + e.latlng.lng) / 2;
+        const lastPt = points[points.length - 1];
+        const mid = MeasureUtils.midpoint(lastPt, e.latlng);
         const labelText = MeasureUtils.formatDistance(seg);
         if (!previewDistLabel) {
           previewDistLabel = this.layers.addLayer(
-            L.marker([midLat, midLng], {
+            L.marker([mid.lat, mid.lng], {
               icon: MeasureUtils.makeMidLabelDivIcon(labelText),
               interactive: false,
             }),
             true,
           );
         } else {
-          previewDistLabel.setLatLng([midLat, midLng]);
+          previewDistLabel.setLatLng([mid.lat, mid.lng]);
           MeasureUtils.setLabelText(previewDistLabel, labelText);
         }
       };
@@ -1041,12 +1056,12 @@
             );
           }
 
-          const midLat =
-            (points[points.length - 2].lat + points[points.length - 1].lat) / 2;
-          const midLng =
-            (points[points.length - 2].lng + points[points.length - 1].lng) / 2;
+          const mid = MeasureUtils.midpoint(
+            points[points.length - 2],
+            points[points.length - 1],
+          );
           const label = this.layers.addLayer(
-            L.marker([midLat, midLng], {
+            L.marker([mid.lat, mid.lng], {
               icon: MeasureUtils.makeMidLabelDivIcon(MeasureUtils.formatDistance(seg)),
             }),
             true,
@@ -1186,10 +1201,7 @@
           previews.node.bringToFront();
         } else previews.node.setLatLng(e.latlng);
 
-        const mid = L.latLng(
-          (center.lat + e.latlng.lat) / 2,
-          (center.lng + e.latlng.lng) / 2,
-        );
+        const mid = MeasureUtils.midpoint(center, e.latlng);
         if (!previews.label) {
           const previewLabel = L.marker(mid, {
             icon: MeasureUtils.makeLabelDivIcon(
@@ -1269,10 +1281,9 @@
           }),
         );
 
-        const midLng = (centerLatLng.lng + finalTargetLatLng.lng) / 2;
-        const midLat = (centerLatLng.lat + finalTargetLatLng.lat) / 2;
+        const mid = MeasureUtils.midpoint(centerLatLng, finalTargetLatLng);
         const radiusLabel = this.layers.addLayer(
-          L.marker([midLat, midLng], {
+          L.marker([mid.lat, mid.lng], {
             icon: MeasureUtils.makeLabelDivIcon(
               MeasureUtils.formatDistance(r),
               CONST.LABEL.RADIUS_ANCHOR,
@@ -1487,10 +1498,9 @@
           const prev = points[i];
           const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
           if (!prev || !cur) return;
-          const midLat = (prev.lat + cur.lat) / 2;
-          const midLng = (prev.lng + cur.lng) / 2;
+          const mid = MeasureUtils.midpoint(prev, cur);
           const label = this.layers.addLayer(
-            L.marker([midLat, midLng], {
+            L.marker([mid.lat, mid.lng], {
               icon: MeasureUtils.makeMidLabelDivIcon(
                 MeasureUtils.formatSegmentLabel(
                   prev.lng,
@@ -1828,9 +1838,8 @@
 
             // Reposition and update ALL remaining segment labels
             segLabels.forEach((label, i) => {
-              const midLat = (points[i].lat + points[i + 1].lat) / 2;
-              const midLng = (points[i].lng + points[i + 1].lng) / 2;
-              label.setLatLng([midLat, midLng]);
+              const mid = MeasureUtils.midpoint(points[i], points[i + 1]);
+              label.setLatLng([mid.lat, mid.lng]);
               label.setIcon(
                 MeasureUtils.makeMidLabelDivIcon(
                   MeasureUtils.formatSegmentLabel(
@@ -2016,10 +2025,8 @@
         if (centroidDot) layers.removeLayer(centroidDot);
         if (centroidDel) layers.removeLayer(centroidDel);
 
-        // Calculate centroid
-        const cx = points.reduce((s, p) => s + p.lat, 0) / points.length;
-        const cy = points.reduce((s, p) => s + p.lng, 0) / points.length;
-        const centroid = L.latLng(cx, cy);
+        // Calculate centroid (arithmetic mean of vertices)
+        const centroid = MeasureUtils.centroid(points);
         const a = currentArea !== undefined ? currentArea : area;
 
         centroidDot = layers.addLayer(
@@ -2179,10 +2186,9 @@
             const n = points.length;
             for (let i = 0; i < n; i++) {
               const next = (i + 1) % n;
-              const midLat = (points[i].lat + points[next].lat) / 2;
-              const midLng = (points[i].lng + points[next].lng) / 2;
+              const mid = MeasureUtils.midpoint(points[i], points[next]);
               const label = layers.addLayer(
-                L.marker([midLat, midLng], {
+                L.marker([mid.lat, mid.lng], {
                   icon: MeasureUtils.makeMidLabelDivIcon(
                     MeasureUtils.formatDistance(
                       MeasureUtils.distance(

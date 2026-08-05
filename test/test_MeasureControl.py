@@ -286,8 +286,8 @@ class TestMeasureControlRendering:
         """After node deletion, remaining segLabels are repositioned at midpoints."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "midLat = (points[i].lat + points[i + 1].lat) / 2" in html
-        assert "label.setLatLng([midLat, midLng])" in html
+        assert "MeasureUtils.midpoint(points[i], points[i + 1])" in html
+        assert "label.setLatLng([mid.lat, mid.lng])" in html
 
     def test_is_last_when_two_title(self, base_map: folium.Map):
         """When only 2 points, the last node's X title matches del_all."""
@@ -637,7 +637,7 @@ class TestMeasureControlRendering:
         )
         html = html.replace(
             '<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>',
-            '<script>window.turf = { distance: (a,b,o) => L.latLng(a.geometry.coordinates[1],a.geometry.coordinates[0]).distanceTo(L.latLng(b.geometry.coordinates[1],b.geometry.coordinates[0])), bearing: (a,b) => { const dL = (b.geometry.coordinates[0]-a.geometry.coordinates[0])*Math.PI/180; const l1 = a.geometry.coordinates[1]*Math.PI/180; const l2 = b.geometry.coordinates[1]*Math.PI/180; const y = Math.sin(dL)*Math.cos(l2); const x = Math.cos(l1)*Math.sin(l2)-Math.sin(l1)*Math.cos(l2)*Math.cos(dL); return (Math.atan2(y,x)*180/Math.PI+360)%360; }, area: (p) => { const R = 6378137; const d2r = Math.PI/180; const pts = p.geometry.coordinates[0]; let a = 0; for (let i = 0; i < pts.length-1; i++) { const p1 = pts[i], p2 = pts[i+1]; a += (p2[0] - p1[0]) * d2r * (2 + Math.sin(p1[1]*d2r) + Math.sin(p2[1]*d2r)); } return Math.abs(a * R * R / 2); }, point: (c) => ({ geometry: { coordinates: [c[0], c[1]], type: "Point" } }), polygon: (c) => ({ geometry: { coordinates: c, type: "Polygon" } }) };</script>',
+            '<script>window.turf = { distance: (a,b,o) => L.latLng(a.geometry.coordinates[1],a.geometry.coordinates[0]).distanceTo(L.latLng(b.geometry.coordinates[1],b.geometry.coordinates[0])), bearing: (a,b) => { const dL = (b.geometry.coordinates[0]-a.geometry.coordinates[0])*Math.PI/180; const l1 = a.geometry.coordinates[1]*Math.PI/180; const l2 = b.geometry.coordinates[1]*Math.PI/180; const y = Math.sin(dL)*Math.cos(l2); const x = Math.cos(l1)*Math.sin(l2)-Math.sin(l1)*Math.cos(l2)*Math.cos(dL); return (Math.atan2(y,x)*180/Math.PI+360)%360; }, area: (p) => { const R = 6378137; const d2r = Math.PI/180; const pts = p.geometry.coordinates[0]; let a = 0; for (let i = 0; i < pts.length-1; i++) { const p1 = pts[i], p2 = pts[i+1]; a += (p2[0] - p1[0]) * d2r * (2 + Math.sin(p1[1]*d2r) + Math.sin(p2[1]*d2r)); } return Math.abs(a * R * R / 2); }, point: (c) => ({ geometry: { coordinates: [c[0], c[1]], type: "Point" } }), polygon: (c) => ({ geometry: { coordinates: c, type: "Polygon" } }), midpoint: (a,b) => ({ geometry: { coordinates: [(a.geometry.coordinates[0]+b.geometry.coordinates[0])/2, (a.geometry.coordinates[1]+b.geometry.coordinates[1])/2], type: "Point" } }) };</script>',
         )
         html_path = tmp_path / "measure_browser.html"
         html_path.write_text(html, encoding="utf-8")
@@ -1880,8 +1880,7 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "closeLabel" in html
-        assert "closeMidLat" in html
-        assert "closeMidLng" in html
+        assert "closeMid" in html
 
     def test_node_delete_rebuilds_labels(self, base_map: folium.Map):
         """Polygon node deletion removes all segLabels and rebuilds from scratch."""
