@@ -622,7 +622,8 @@ class TestLayerControlRendering:
         """unregisterLayer returns false when layer not found."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "if (idx === -1) return false" in html
+        # Uses the layer index to check existence (was idx === -1 on the array)
+        assert "if (!layerInfo) return false" in html
         assert "return true" in html
 
     def test_unregister_clears_sublayers(self, base_map: folium.Map):
@@ -3310,5 +3311,93 @@ class TestLayerControlEdgeCases:
             assert result["afterSecond"] <= 1, (
                 f"registerLayer triggered full rebuilds: {result['afterSecond']}"
             )
+        finally:
+            page.close()
+
+    def test_layer_index_stays_in_sync(self, browser, tmp_path):
+        """layerIndex (id → layerInfo) stays consistent with the layers array.
+
+        The fast index must be updated on register/unregister/reorder so
+        O(1) lookups (findLayer, getLayerType) never diverge from the array
+        that owns the ordering.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_layer_index.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const check = () => {
+                    const ids = api.layers.map(l => l.id);
+                    const indexKeys = Array.from(api.layerIndex.keys());
+                    const sameSet =
+                        ids.length === indexKeys.length &&
+                        ids.every(id => api.layerIndex.has(id));
+                    // Index values must reference the same objects as the array
+                    const sameRefs = ids.every(id =>
+                        api.layerIndex.get(id) === api.layers.find(l => l.id === id)
+                    );
+                    return { sameSet, sameRefs };
+                };
+
+                // 1. Register several layers
+                for (let i = 0; i < 3; i++) {
+                    api.registerLayer({ id: '__idx_' + i + '__', name: 'Idx' + i, layer: L.marker([26.08 + i*0.01, 119.30]) });
+                }
+                const afterRegister = check();
+
+                // 2. Unregister one
+                api.unregisterLayer('__idx_1__');
+                const afterUnregister = check();
+
+                // 3. Reorder (bring to front)
+                api.bringLayerToFront('__idx_2__');
+                const afterReorder = check();
+
+                // 4. findLayer / getLayerType via the index
+                const found = api.findLayer('__idx_0__') != null;
+                // L.marker has no .feature so geometry type is UNKNOWN — the
+                // point here is that getLayerType resolves via the index at all
+                // (non-null, no exception), not its exact value.
+                const typeResolved = api.getLayerType('__idx_0__') != null;
+
+                return {
+                    afterRegister,
+                    afterUnregister,
+                    afterReorder,
+                    found,
+                    typeResolved,
+                };
+            }""")
+            assert result is not None, "LayerAPI not found"
+            assert result["afterRegister"]["sameSet"], (
+                "index set diverged after register"
+            )
+            assert result["afterRegister"]["sameRefs"], (
+                "index refs diverged after register"
+            )
+            assert result["afterUnregister"]["sameSet"], (
+                "index set diverged after unregister"
+            )
+            assert result["afterUnregister"]["sameRefs"], (
+                "index refs diverged after unregister"
+            )
+            assert result["afterReorder"]["sameSet"], "index set diverged after reorder"
+            assert result["afterReorder"]["sameRefs"], (
+                "index refs diverged after reorder"
+            )
+            assert result["found"], "findLayer failed via index"
+            assert result["typeResolved"], "getLayerType failed via index"
         finally:
             page.close()
