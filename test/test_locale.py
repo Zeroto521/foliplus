@@ -21,6 +21,8 @@ from foliplus.locale import (
 # Keep this list in sync with foliplus/js/*.js to catch missing translations.
 _JS_USED_KEYS = {
     "foliplus.gcoord_warn",
+    "foliplus.storage_load_fail",
+    "foliplus.storage_save_fail",
     # FullscreenControl
     "FullscreenControl.title",
     "FullscreenControl.title_cancel",
@@ -65,10 +67,6 @@ _JS_USED_KEYS = {
     "LayerControl.base_map_label",
     "LayerControl.color_map_label",
     "LayerControl.reorder_group_only",
-    "LayerControl.load_order_fail",
-    "LayerControl.save_order_fail",
-    "LayerControl.load_fold_fail",
-    "LayerControl.save_fold_fail",
     "LayerControl.type_base",
     "LayerControl.type_custom",
     "LayerControl.type_polygon",
@@ -128,8 +126,6 @@ _JS_USED_KEYS = {
     "MeasureControl.dist_origin",
     "MeasureControl.geo_fail",
     "MeasureControl.no_layercontrol",
-    "MeasureControl.save_fail",
-    "MeasureControl.load_fail",
     "MeasureControl.del_tooltip",
     "MeasureControl.del_node",
     "MeasureControl.del_all",
@@ -421,14 +417,14 @@ class TestLocaleErrors:
         assert "HeatmapControl.h3_boundary_fail" in html
         assert "HeatmapControl.close_title" in html
 
-    def test_layer_error_keys_in_html(self, base_map):
-        """LayerControl error keys appear in rendered HTML."""
+    def test_layer_storage_keys_in_html(self, base_map):
+        """Shared storage keys appear in rendered HTML (via runtime)."""
         from foliplus import LayerControl
 
         LayerControl().add_to(base_map)
         html = base_map.get_root().render()
-        assert "LayerControl.load_order_fail" in html
-        assert "LayerControl.save_order_fail" in html
+        assert "foliplus.storage_load_fail" in html
+        assert "foliplus.storage_save_fail" in html
 
     def test_runtime_error_keys_present(self, base_map):
         """Runtime error keys (gcoord, load) appear in rendered HTML."""

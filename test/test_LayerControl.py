@@ -333,11 +333,11 @@ class TestLayerControlRendering:
         assert "if (this.isEnforcing) return" in html
 
     def test_error_keys_injected(self, base_map: folium.Map):
-        """LayerControl error keys appear in rendered HTML."""
+        """LayerControl persistence uses the shared storage helper."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "LayerControl.load_order_fail" in html
-        assert "LayerControl.save_order_fail" in html
+        assert "foliplus.storage.load(CONST.STORAGE.ORDER_KEY, CONST.name)" in html
+        assert "foliplus.storage.save(" in html
 
     def test_debounced_enforce_order(self, base_map: folium.Map):
         """enforceOrder is debounced in layeradd listener to prevent performance issues."""
@@ -477,7 +477,7 @@ class TestLayerControlRendering:
         """handleDrop returns early when dragIdx is invalid."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.m.dragIdx < 0 || this.m.dragIdx >= this.m.layers.length" in html
+        assert "this.dragIdx < 0 || this.dragIdx >= this.m.layers.length" in html
 
     def test_ensure_pane_no_renderer_false(self, base_map: folium.Map):
         """ensurePane accepts needRenderer=false for label/overlay panes."""
@@ -554,7 +554,7 @@ class TestLayerControlRendering:
         """registerLayer queues registrations when UI not yet rendered."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.pendingRegistrations.push(opts)" in html
+        assert "this.pendingRegistrations.push(layerInfo)" in html
         assert "return null" in html
 
     def test_destroy_removes_panes(self, base_map: folium.Map):
@@ -1210,7 +1210,7 @@ class TestLayerControlBrowser:
                     const overlay = document.querySelector('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)');
                     const base = document.querySelector('.foliplus-layer-item[data-layer-type="base"]');
                     if (!overlay || !base) return false;
-                    api.dragIdx = parseInt(overlay.dataset.index, 10);
+                    api.ui.dragIdx = parseInt(overlay.dataset.index, 10);
                     const ev = new Event("dragover", { bubbles: true, cancelable: true });
                     base.dispatchEvent(ev);
                     return true;
@@ -3168,7 +3168,7 @@ class TestLayerControlEdgeCases:
                     return origDebounced.call(this);
                 };
                 api.isEnforcing = true; // simulate in-flight enforceOrder
-                api.onLayerAdd({ layer: {} });
+                api.onLayerAdd({ layer: { options: { paneName: "test" } } });
                 api.isEnforcing = false;
                 api.debouncedEnforce = origDebounced;
                 return { rescheduled };

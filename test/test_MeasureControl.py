@@ -1145,11 +1145,10 @@ class TestMeasureControlRendering:
         assert "toggleLbl === CONST.TOGGLE.RESET" in html
 
     def test_restore_measurements_corrupted_json(self, base_map: folium.Map):
-        """loadMeasurements returns empty array on corrupted JSON."""
+        """loadMeasurements falls back to an empty array on corrupted JSON."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "JSON.parse(data)" in html
-        assert "return []" in html
+        assert "Array.isArray(data) ? data : []" in html
 
     def test_next_measurement_id_format(self, base_map: folium.Map):
         """nextMeasurementId generates IDs with type prefix."""
