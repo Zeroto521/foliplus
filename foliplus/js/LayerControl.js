@@ -253,6 +253,9 @@
       // Each entry: {id, name, visible, isBase, paneName, iconSvg,
       //              type, layer, canvas, onToggle, onZIndex}
       this.layers = [...initialData];
+      // Fast lookup: id → layerInfo. `this.layers` remains the single source
+      // of order; this Map is a derived index kept in sync on every mutation.
+      this.layerIndex = new Map(this.layers.map((l) => [l.id, l]));
       this.pendingRegistrations = [];
       this.uiContainer = null;
 
@@ -338,7 +341,13 @@
         else overlays.push(l);
       }
       this.layers = overlays.concat(bases);
+      this.rebuildLayerIndex();
       this.refreshFirstBaseIdx();
+    }
+
+    /** Rebuild the id → layerInfo index from the current layers array. */
+    rebuildLayerIndex() {
+      this.layerIndex = new Map(this.layers.map((l) => [l.id, l]));
     }
 
     /** Recompute the cached first-base-layer index after group mutations. */
@@ -361,6 +370,7 @@
           }
         }
         this.layers = ordered.concat([...layerMap.values()]);
+        this.rebuildLayerIndex();
       } catch (e) {
         console.warn(`[${CONST.name}] ${_(`${CONST.name}.load_order_fail`)}`, e);
       }
@@ -417,7 +427,7 @@
      * @returns {string|null} "point" | "line" | "polygon" | "base" | null
      */
     getLayerType(id) {
-      const li = this.layers.find((l) => l.id === id);
+      const li = this.layerIndex.get(id);
       if (!li) return null;
       if (li.type) return li.type;
       if (li.isBase) return CONST.GROUP.BASE;
@@ -447,7 +457,7 @@
      * @returns {Object|null} Leaflet layer or null.
      */
     findLayer(id) {
-      const li = this.layers.find((l) => l.id === id);
+      const li = this.layerIndex.get(id);
       if (li?.layer) return li.layer;
       return LayerUtils.findLayer(this.map, id);
     }
@@ -506,9 +516,9 @@
       if (!opts?.id)
         throw new Error(`[${CONST.name}] ${_(`${CONST.name}.id_required`)}`);
 
-      const existingIdx = this.layers.findIndex((l) => l.id === opts.id);
-      const existingVisible =
-        existingIdx !== -1 ? this.layers[existingIdx].visible : true;
+      const existingLi = this.layerIndex.get(opts.id);
+      const existingIdx = existingLi ? this.layers.indexOf(existingLi) : -1;
+      const existingVisible = existingLi ? existingLi.visible : true;
 
       const layerInfo = {
         name: opts.name ?? opts.id,
@@ -534,6 +544,7 @@
         if (firstBaseIdx === -1) this.layers.push(layerInfo);
         else this.layers.splice(firstBaseIdx, 0, layerInfo);
       } else this.layers.unshift(layerInfo);
+      this.layerIndex.set(opts.id, layerInfo);
       this.refreshFirstBaseIdx();
 
       if (opts.paneName) this.ensurePane(opts.paneName);
@@ -586,9 +597,10 @@
      * @param {string} id - Layer ID previously passed to registerLayer().
      */
     bringLayerToFront(id) {
-      const idx = this.layers.findIndex((l) => l.id === id);
+      const item = this.layerIndex.get(id);
+      if (!item) return;
+      const idx = this.layers.indexOf(item);
       if (idx <= 0) return;
-      const item = this.layers[idx];
       // Bringing a base layer to index 0 would break the overlay-before-base
       // invariant and corrupt the cached group boundary — ignore it.
       if (item?.isBase) return;
@@ -615,10 +627,11 @@
      * @returns {boolean} true if layer was found and removed, false otherwise.
      */
     unregisterLayer(id) {
-      const idx = this.layers.findIndex((l) => l.id === id);
-      if (idx === -1) return false;
-      const layerInfo = this.layers[idx];
-      this.layers.splice(idx, 1);
+      const layerInfo = this.layerIndex.get(id);
+      if (!layerInfo) return false;
+      const idx = this.layers.indexOf(layerInfo);
+      if (idx !== -1) this.layers.splice(idx, 1);
+      this.layerIndex.delete(id);
       this.refreshFirstBaseIdx();
 
       const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id);
@@ -1290,6 +1303,7 @@
         this.uiContainer = null;
       }
       this.layers = [];
+      this.layerIndex.clear();
       this.pendingRegistrations = [];
       this.paneCache.clear();
       this.fallbackPaneMap.clear();
