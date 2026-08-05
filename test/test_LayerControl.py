@@ -3534,6 +3534,81 @@ class TestLayerControlEdgeCases:
         finally:
             page.close()
 
+    def test_initial_data_normalized_into_full_layerinfo(self, browser, tmp_path):
+        """Initial data entries get the full layerInfo field set.
+
+        Plain template entries are only {name, id, visible, isBase} — the
+        registry must normalize them through createLayerInfo so every entry
+        carries the complete field set (paneName/iconSvg/type/canvas/
+        onToggle/onZIndex present).
+
+        `li.layer` resolution is intentionally NOT asserted here: it is a
+        best-effort, timing-sensitive lookup (script order of the folium
+        template can define a layer's global var after the manager is
+        constructed) and is recovered lazily at runtime via the
+        `li.layer || findLayer()` fallback.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
+        folium.FeatureGroup(name="Markers", overlay=True, show=True).add_to(m)
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_init_normalized.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const coll = api.layerRegistry;
+                if (!coll) return { error: 'no layerRegistry exposed' };
+
+                const KEYS = [
+                    'name', 'id', 'visible', 'isBase', 'paneName',
+                    'iconSvg', 'type', 'layer', 'canvas', 'onToggle', 'onZIndex',
+                ];
+                const out = { entries: [] };
+                for (const li of coll) {
+                    const entry = {
+                        id: li.id,
+                        isBase: li.isBase,
+                        hasAllKeys: true,
+                        missing: [],
+                    };
+                    for (const k of KEYS)
+                        if (!(k in li)) { entry.hasAllKeys = false; entry.missing.push(k); }
+                    entry.typeNull = li.type === null;
+                    out.entries.push(entry);
+                }
+                return out;
+            }""")
+            assert result is not None and "error" not in result, (
+                result if result else "LayerAPI not found"
+            )
+            # tiles=None avoids folium's default OSM, so only the two
+            # explicitly added layers appear as initial data.
+            assert len(result["entries"]) == 2, (
+                f"expected 2 initial layers, got {result['entries']}"
+            )
+            for entry in result["entries"]:
+                assert entry["hasAllKeys"] is True, (
+                    f"layer {entry['id']} missing fields: {entry['missing']}"
+                )
+                assert entry["typeNull"] is True, (
+                    f"layer {entry['id']} type should start null"
+                )
+            # One overlay (isBase=false) and one base (isBase=true)
+            flags = sorted(e["isBase"] for e in result["entries"])
+            assert flags == [False, True], f"isBase flags wrong: {flags}"
+        finally:
+            page.close()
+
     def test_layers_view_is_readonly(self, browser, tmp_path):
         """api.layers is a read-only view — direct mutation is blocked.
 

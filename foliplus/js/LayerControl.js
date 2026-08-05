@@ -291,9 +291,22 @@
      *   `li.layer` for each entry so callers can always use `li.layer`
      *   directly without a fallback (Jinja2 template entries are
      *   plain {name, id, visible, isBase} — no `layer` reference).
+     *
+     * Every entry — whether from the Jinja2 template or a programmatic
+     * caller — is normalized through `createLayerInfo` so the registry
+     * only ever holds complete layerInfo objects with the full field set.
      */
     constructor(initial = [], map) {
-      this.items = [...initial];
+      // Normalize so every layerInfo carries all fields, regardless of
+      // source. Pass `{visible}` as existingLi only when the entry carries
+      // an explicit value; otherwise createLayerInfo defaults visible=true
+      // (a truthy-but-undefined existingLi would yield visible: undefined).
+      this.items = initial.map((l) =>
+        this.createLayerInfo(
+          l,
+          l.visible === undefined ? undefined : { visible: l.visible },
+        ),
+      );
       this.byId = new Map(this.items.map((l) => [l.id, l]));
       // Resolve layer references for initial data entries
       if (map) {
