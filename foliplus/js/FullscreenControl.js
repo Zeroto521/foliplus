@@ -9,6 +9,7 @@
       ZOOM_IN: "foliplus-zoom-in",
       ZOOM_OUT: "foliplus-zoom-out",
       FS_TOGGLE: "foliplus-fullscreen-toggle",
+      HIDDEN: "foliplus-fullscreen-hidden",
     },
   };
   const ContainerId = `${CONST.name}_${CONST.position}_container`;
@@ -163,14 +164,21 @@
             .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
           for (const c of controls) {
             if (c.contains(container) || c.closest?.(`#${ContainerId}`)) continue;
-            c.classList.toggle("foliplus-fullscreen-hidden", isFull);
+            c.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
           }
         }
 
         if ({{ this.hide_self | tojson }}) {
           const fsToggle = container.querySelector(`.${CONST.CLASSES.FS_TOGGLE}`);
-          if (fsToggle) fsToggle.classList.toggle("foliplus-fullscreen-hidden", isFull);
+          if (fsToggle) fsToggle.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
         }
+
+        // Zoom +/- are part of the fullscreen control itself; always hide
+        // them while in fullscreen regardless of hide_self/hide_others.
+        const zoomBtns = container.querySelectorAll(
+          `.${CONST.CLASSES.ZOOM_IN}, .${CONST.CLASSES.ZOOM_OUT}`,
+        );
+        for (const btn of zoomBtns) btn.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
 
         foliplus.showHint(
           CONST.name,

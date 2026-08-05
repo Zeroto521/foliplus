@@ -34,7 +34,7 @@
 
 /* ── Hide controls when entering fullscreen ── */
 .foliplus-fullscreen-hidden {
-  display: none;
+  display: none !important;
 }
 
 /* ── FullscreenControl container styles ──
