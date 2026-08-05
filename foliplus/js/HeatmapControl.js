@@ -337,11 +337,10 @@
 
         const pts = foliplus.LayerAPI.extractPoints(info.id);
         if (pts.length === 0) continue;
-        const layer = foliplus.LayerAPI.findLayer(info.id);
         this.pointLayers.push({
           id: info.id,
           name: info.name,
-          layer,
+          layer: info.layer, // provided by getLayersByType — no extra lookup
           count: pts.length,
         });
       }
@@ -398,7 +397,7 @@
       return Number(val);
     }
 
-    collectSelectedPoints() {
+    getSelectedPoints() {
       this.valueFallbackWarned = false;
       const key = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}`;
       if (this.cachedPoints && this.cachedPoints.key === key)
@@ -406,17 +405,16 @@
 
       const pts = [];
       if (!this.selectedLayerId) return pts;
-      this.pointLayers.forEach((info) => {
-        if (info.id === this.selectedLayerId) {
-          foliplus.LayerAPI.extractPoints(info.id).forEach((p) => {
-            pts.push({
-              lat: p.lat,
-              lng: p.lng,
-              value: this.getPointValue(p.marker),
-              marker: p.marker,
-            });
-          });
-        }
+      const info = this.pointLayers.find((i) => i.id === this.selectedLayerId);
+      if (!info) return pts;
+
+      foliplus.LayerAPI.extractPoints(info.id).forEach((p) => {
+        pts.push({
+          lat: p.lat,
+          lng: p.lng,
+          value: this.getPointValue(p.marker),
+          marker: p.marker,
+        });
       });
       this.cachedPoints = { key, pts };
       return pts;
@@ -477,7 +475,7 @@
         this.clearHeatmapCanvas();
         return;
       }
-      const pts = this.collectSelectedPoints();
+      const pts = this.getSelectedPoints();
       const zoom = this.map.getZoom();
       const res = this.getH3Res(zoom);
       const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
