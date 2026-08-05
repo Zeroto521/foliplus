@@ -583,11 +583,14 @@ class TestLayerControlRendering:
         assert "this.isDestroyed = true" in html
 
     def test_layeradd_guard_during_enforce(self, base_map: folium.Map):
-        """layeradd handler skips enforceOrder during active enforceOrder."""
+        """layeradd during active enforceOrder is rescheduled, not dropped."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.isEnforcing ||" in html
-        assert "this.isDestroyed ||" in html
+        # Guard exists: isEnforcing / isDestroyed checks are present
+        assert "this.isEnforcing" in html
+        assert "this.isDestroyed" in html
+        # New behavior: instead of silently dropping, reschedule via debounce
+        assert "this.debouncedEnforce()" in html
 
     def test_register_clears_pane_cache(self, base_map: folium.Map):
         """registerLayer clears paneCache when layer structure changes."""
@@ -634,12 +637,6 @@ class TestLayerControlRendering:
         html = render(base_map)
         assert "target = this.uiContainer.querySelector" in html
         assert "this.reindexItems()" in html
-
-    def test_unregister_invalidates_size(self, base_map: folium.Map):
-        """unregisterLayer calls invalidateSize after DOM removal."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.map.invalidateSize" in html
 
     def test_patch_bring_to_front_applied_once(self, base_map: folium.Map):
         """patchBringToFront is idempotent — skip if already patched."""
@@ -2697,10 +2694,16 @@ class TestLayerControlBrowser:
             page.close()
 
     def test_paneset_reset_after_hide_show(self, browser, tmp_path):
-        """Hiding and re-showing a layer resets paneSet so enforceOrder re-moves paths."""
+        """Hiding and re-showing a layer resets paneSet so enforceOrder re-moves paths.
+
+        Uses a FeatureGroup with a child marker — the marker (leaf) is what
+        gets migrated, so paneSet is asserted on the leaf layer. An empty
+        container has no DOM to migrate, so paneSet is meaningless there.
+        """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
-        folium.FeatureGroup(name="TestLayer", overlay=True, show=True).add_to(m)
+        fg = folium.FeatureGroup(name="TestLayer", overlay=True, show=True).add_to(m)
+        folium.Marker([26.08, 119.30], name="test_marker").add_to(fg)
 
         html_path = tmp_path / "test_paneset_reset.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
@@ -2719,7 +2722,7 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            # Step 1: enforceOrder sets paneSet=true on the layer
+            # Step 1: enforceOrder sets paneSet=true on the leaf marker
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2727,11 +2730,15 @@ class TestLayerControlBrowser:
                 if (!li) return null;
                 const layer = api.findLayer(li.id);
                 if (!layer) return null;
-                return { id: li.id, paneSet: layer.options.paneSet };
+                // Find the leaf marker inside the FeatureGroup
+                let leaf = null;
+                layer.eachLayer((l) => { if (!leaf) leaf = l; });
+                if (!leaf) return null;
+                return { id: li.id, paneSet: leaf.options.paneSet };
             }""")
             assert result is not None, "Layer not found"
             assert result["paneSet"] is True, (
-                f"Expected paneSet=true after enforceOrder, got {result['paneSet']}"
+                f"Expected paneSet=true on leaf after enforceOrder, got {result['paneSet']}"
             )
 
             # Step 2: Hide the layer by unchecking checkbox
@@ -2748,7 +2755,8 @@ class TestLayerControlBrowser:
             }""")
             page.wait_for_timeout(300)
 
-            # Step 4: paneSet was reset to false by handleChange, then enforceOrder set it back
+            # Step 4: handleChange reset the container paneSet; enforceOrder
+            # re-migrates the leaf marker and sets its paneSet back to true
             paneset = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2756,10 +2764,13 @@ class TestLayerControlBrowser:
                 if (!li) return null;
                 const layer = api.findLayer(li.id);
                 if (!layer) return null;
-                return layer.options.paneSet;
+                let leaf = null;
+                layer.eachLayer((l) => { if (!leaf) leaf = l; });
+                if (!leaf) return null;
+                return leaf.options.paneSet;
             }""")
             assert paneset is True, (
-                f"Expected paneSet=true after re-show + enforceOrder, got {paneset}"
+                f"Expected paneSet=true on leaf after re-show, got {paneset}"
             )
         finally:
             page.close()
@@ -2881,3 +2892,423 @@ class TestLayerControlEdgeCases:
         # When none checked, checked=false and noneChecked triggers indeterminate=false
         assert "noneChecked = checkedCount === 0" in html
         assert "allCb.indeterminate = !allChecked && !noneChecked" in html
+
+    # ── Performance optimizations ──
+
+    def test_register_uses_debounced_enforce(self, base_map: folium.Map):
+        """registerLayer defers enforceOrder via debouncedEnforce.
+
+        Batch registration (e.g. MeasureControl adding many measurements) must
+        coalesce reordering into a single pass instead of one synchronous
+        enforceOrder per registerLayer call.
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Scope the assertion to the registerLayer method body so onLayerAdd's
+        # debouncedEnforce call does not satisfy it.
+        start = html.index("registerLayer(opts) {")
+        end = html.index("bringLayerToFront(")
+        body = html[start:end]
+        assert "this.debouncedEnforce()" in body, (
+            "registerLayer must defer via debouncedEnforce"
+        )
+        assert "this.enforceOrder()" not in body, (
+            "registerLayer must not call enforceOrder synchronously"
+        )
+
+    def test_unregister_no_invalidate_size(self, base_map: folium.Map):
+        """unregisterLayer must not force invalidateSize.
+
+        map.removeLayer already triggers Leaflet's internal size bookkeeping.
+        A manual invalidateSize forces a full layout pass on every layer
+        removal, causing unnecessary layout thrash during rapid add/remove
+        (e.g. MeasureControl drawing sessions).
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "invalidateSize" not in html
+
+    def test_migrate_layers_skips_container_pane(self, base_map: folium.Map):
+        """migrateLayers must not write pane on container layers.
+
+        Only leaf layers (Path/Marker) should get options.pane + paneSet so a
+        layerGroup's options stay unpolluted. Container pane writes would
+        prevent re-migration when paneName changes.
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Container (eachLayer) nodes must be excluded from pane writes —
+        # collect() recurses into containers and returns before writing pane.
+        start = html.index("const collect = (l) => {")
+        end = html.index("collect(layer);")
+        collect_body = html[start:end]
+        # Container guard: recurse and skip pane writes for containers
+        assert "if (l.eachLayer) {" in collect_body, (
+            "migrateLayers must guard container layers"
+        )
+        assert "l.eachLayer(collect)" in collect_body, (
+            "migrateLayers must recurse into containers"
+        )
+        assert "return;" in collect_body, (
+            "migrateLayers must skip pane writes for containers"
+        )
+
+    def test_register_batch_coalesces_enforce(self, browser, tmp_path):
+        """Batch registration coalesces enforceOrder into a single pass.
+
+        Registering several layers back-to-back must not trigger a synchronous
+        enforceOrder inside registerLayer itself. The only synchronous
+        enforceOrder allowed comes from initTypesAndVisibility (first paint).
+        Redundant per-register reordering is what this test guards against.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_batch_reg.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                // Count synchronous enforceOrder calls NOT originating from
+                // initTypesAndVisibility (i.e. redundant per-register calls)
+                let redundant = 0;
+                const origEnforce = api.enforceOrder;
+                api.enforceOrder = function () {
+                    const caller = (new Error().stack.split('\\n')[2] || '');
+                    if (!caller.includes('initTypesAndVisibility')) redundant++;
+                    return origEnforce.call(this);
+                };
+                for (let i = 0; i < 3; i++) {
+                    const mg = api.createLayers({
+                        id: '__batch_' + i + '__',
+                        name: 'Batch' + i,
+                        graphPane: '__batch_graph_' + i + '__',
+                    });
+                    mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                }
+                const during = { redundant };
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        resolve({ during, after: { redundant } });
+                    }, 200);
+                });
+            }""")
+            assert result is not None, "LayerAPI not found"
+            # No redundant (non-initTypes) synchronous enforceOrder during batch
+            assert result["during"]["redundant"] == 0, (
+                f"registerLayer called enforceOrder synchronously {result['during']['redundant']} times"
+            )
+            # After debounce, exactly one coalesced enforceOrder runs
+            assert result["after"]["redundant"] == 1, (
+                f"Expected exactly 1 coalesced enforceOrder, got {result['after']['redundant']}"
+            )
+        finally:
+            page.close()
+
+    def test_migrate_container_keeps_clean_options(self, browser, tmp_path):
+        """Container layers are not re-migrated to fallback panes.
+
+        migrateLayers must skip container nodes when writing pane options.
+        The container's own pane stays whatever registerLayer assigned
+        (paneName), and must NOT be overwritten with a fallback
+        `foliplus_pane_*` name during migration.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_clean_container.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const mg = api.createLayers({
+                    id: '__clean_cont__',
+                    name: 'CleanCont',
+                    graphPane: '__clean_graph__',
+                });
+                const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
+                mg.mainLayer.addLayer(poly);
+                // Leaf layer must be in the graph pane
+                const leafPane = poly.options.pane;
+                // Container must NOT be in a fallback pane
+                const containerPane = mg.mainLayer.options.pane;
+                return {
+                    leafPane,
+                    containerPane: typeof containerPane === 'undefined' ? null : containerPane,
+                    isFallback: typeof containerPane === 'string' && containerPane.startsWith('foliplus_pane_'),
+                    leafHasPath: !!(poly._path && poly._path.parentNode),
+                };
+            }""")
+            assert result is not None
+            assert result["leafPane"] == "__clean_graph__", (
+                f"Leaf layer not migrated: {result['leafPane']}"
+            )
+            # Container must not be dumped into a per-layer fallback pane
+            assert not result["isFallback"], (
+                f"Container polluted with fallback pane: {result['containerPane']}"
+            )
+            # Leaf path must be rendered
+            assert result["leafHasPath"] is True, "Leaf path not rendered"
+        finally:
+            page.close()
+
+    def test_register_idempotent_keeps_order(self, browser, tmp_path):
+        """Re-registering an existing layer must not reorder the list.
+
+        MeasureControl.setMode calls layers.register() on every tool switch;
+        registerLayer on an already-registered id must update fields in place
+        instead of splice+unshift, which would silently destroy the user's
+        drag order and persist the accidental order via saveOrder.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_register_idempotent.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const ids = [];
+                for (let i = 0; i < 3; i++) {
+                    const mg = api.createLayers({
+                        id: '__idem_' + i + '__',
+                        name: 'Idem' + i,
+                        graphPane: '__idem_g' + i + '__',
+                    });
+                    mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                    ids.push('__idem_' + i + '__');
+                }
+                const orderBefore = api.layers.filter(l => ids.includes(l.id)).map(l => l.id);
+                // Re-register the middle layer with same id (no layer, callback-only)
+                api.registerLayer({ id: '__idem_1__', name: 'Idem1' });
+                const orderAfter = api.layers.filter(l => ids.includes(l.id)).map(l => l.id);
+                return { orderBefore, orderAfter, moved: orderBefore.join(',') !== orderAfter.join(',') };
+            }""")
+            assert result is not None, "LayerAPI not found"
+            assert not result["moved"], (
+                f"Re-register reordered layers: {result['orderBefore']} -> {result['orderAfter']}"
+            )
+        finally:
+            page.close()
+
+    def test_layeradd_during_enforce_reschedules(self, browser, tmp_path):
+        """layeradd fired during enforceOrder must reschedule, not drop.
+
+        onLayerAdd's isEnforcing guard returns early without rescheduling,
+        which can skip a needed reorder for a layer added inside the
+        enforceOrder window. The guard must fall back to debouncedEnforce.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_layeradd_during_enforce.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                // Simulate a layeradd arriving while enforceOrder is running.
+                // onLayerAdd must fall back to debouncedEnforce instead of
+                // silently dropping the reorder.
+                let rescheduled = 0;
+                const origDebounced = api.debouncedEnforce;
+                api.debouncedEnforce = function () {
+                    rescheduled++;
+                    return origDebounced.call(this);
+                };
+                api.isEnforcing = true; // simulate in-flight enforceOrder
+                api.onLayerAdd({ layer: {} });
+                api.isEnforcing = false;
+                api.debouncedEnforce = origDebounced;
+                return { rescheduled };
+            }""")
+            assert result is not None, "LayerAPI not found"
+            # layeradd during enforce must be rescheduled via debouncedEnforce
+            assert result["rescheduled"] >= 1, (
+                f"layeradd during enforce dropped, rescheduled={result['rescheduled']}"
+            )
+        finally:
+            page.close()
+
+    def test_can_reorder_caches_base_boundary(self, browser, tmp_path):
+        """canReorderBetween must not rescan findIndex on every call.
+
+        handleDragOver fires many times per second while dragging; the base
+        group boundary (firstBaseIdx) is stable during a drag session and
+        should be cached on the manager.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+        folium.FeatureGroup(name="Overlay B", overlay=True, show=True).add_to(m)
+        folium.TileLayer("CartoDB positron", name="Light", overlay=False).add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_can_reorder_cache.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                let findIndexCalls = 0;
+                const origFindIndex = Array.prototype.findIndex;
+                Array.prototype.findIndex = function (fn) {
+                    findIndexCalls++;
+                    return origFindIndex.call(this, fn);
+                };
+                // Simulate a drag session: many dragover events between two
+                // overlay layers (valid indices).
+                for (let i = 0; i < 50; i++) api.canReorderBetween(0, 1);
+                Array.prototype.findIndex = origFindIndex;
+                return { findIndexCalls };
+            }""")
+            assert result is not None, "LayerAPI not found"
+            # With a cached base boundary, repeated calls must not rescan.
+            # Allow a tiny constant (setup scans), but 50 calls should stay
+            # roughly flat, far below one scan per call.
+            assert result["findIndexCalls"] <= 2, (
+                f"canReorderBetween rescans findIndex per call: {result['findIndexCalls']}"
+            )
+        finally:
+            page.close()
+
+    def test_sync_attribution_caches_state(self, browser, tmp_path):
+        """syncAttribution must skip _update when attribution state is unchanged.
+
+        enforceOrder calls syncAttribution every run; rebuilding the
+        attribution DOM each time is wasteful when the top attribution did
+        not change.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.TileLayer("CartoDB positron", name="Light", overlay=False).add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_attribution_cache.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                let updateCalls = 0;
+                const attrCtrl = api.map.attributionControl;
+                if (!attrCtrl) return { error: 'no attrCtrl' };
+                const origUpdate = attrCtrl._update;
+                attrCtrl._update = function () { updateCalls++; return origUpdate.call(this); };
+                // Two consecutive enforceOrder with unchanged attribution
+                api.enforceOrder();
+                const afterFirst = updateCalls;
+                api.enforceOrder();
+                const afterSecond = updateCalls;
+                attrCtrl._update = origUpdate;
+                return { afterFirst, afterSecond, delta: afterSecond - afterFirst };
+            }""")
+            assert result is not None and "error" not in result
+            # Second enforceOrder with unchanged attribution must not rebuild
+            assert result["delta"] == 0, (
+                f"syncAttribution rebuilt DOM on unchanged state: {result['delta']}"
+            )
+        finally:
+            page.close()
+
+    def test_render_initial_list_incremental(self, browser, tmp_path):
+        """registerLayer on an existing UI must not rebuild the whole list.
+
+        renderInitialList currently wipes innerHTML and re-creates every item,
+        which is O(n) per registration (O(n^2) for n registrations). A
+        registered layer should insert a single DOM item instead.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_render_incremental.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const panel = document.querySelector('.foliplus-panel-content');
+                // Track re-renders by watching innerHTML replacement
+                let innerHTMLSets = 0;
+                const origDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+                // Count full-list rebuilds via ui.renderInitialList call
+                let renderCalls = 0;
+                const ui = api.ui;
+                if (ui && ui.renderInitialList) {
+                    const origRender = ui.renderInitialList;
+                    ui.renderInitialList = function () { renderCalls++; return origRender.call(this); };
+                }
+                // Register two layers; each should NOT trigger a full rebuild
+                const mg1 = api.createLayers({ id: '__incr_1__', name: 'Incr1', graphPane: '__incr_g1__' });
+                mg1.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                const afterFirst = renderCalls;
+                const mg2 = api.createLayers({ id: '__incr_2__', name: 'Incr2', graphPane: '__incr_g2__' });
+                mg2.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
+                const afterSecond = renderCalls;
+                return { afterFirst, afterSecond };
+            }""")
+            assert result is not None, "LayerAPI not found"
+            # After the initial attachUI render (1 call), dynamic registrations
+            # must not trigger additional full rebuilds.
+            assert result["afterSecond"] <= 1, (
+                f"registerLayer triggered full rebuilds: {result['afterSecond']}"
+            )
+        finally:
+            page.close()
