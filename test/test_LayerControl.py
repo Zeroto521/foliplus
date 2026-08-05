@@ -983,6 +983,13 @@ class TestLayerControlRendering:
         assert "this.extractPoints = this.extractPoints.bind(this)" in html
         assert "extractPoints(id)" in html
 
+    def test_factory_methods_bound(self, base_map: folium.Map):
+        """createLayers and createCanvas are bound for LayerAPI callers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "this.createLayers = this.createLayers.bind(this)" in html
+        assert "this.createCanvas = this.createCanvas.bind(this)" in html
+
     def test_onremove_destroys_manager(self, base_map: folium.Map):
         """LayerControl.onRemove calls destroy() which cleans up resources."""
         LayerControl().add_to(base_map)
