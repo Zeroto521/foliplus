@@ -2059,11 +2059,12 @@
       mapContainer.style.setProperty("--color-layer-bg", color);
       mapContainer.classList.add(CONST.CLASSES.ACTIVE);
 
-      for (let i = 0; i < this.m.layers.length; i++)
+      for (let i = 0; i < this.m.layers.length; i++) {
         if (this.m.layers[i].isBase) {
           const bLayer = this.m.findLayer(this.m.layers[i].id);
           if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
         }
+      }
 
       const tilePane = this.m.map.getPane("tilePane");
       if (tilePane) tilePane.classList.add("foliplus-layer-tile-hidden");
