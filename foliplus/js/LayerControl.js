@@ -752,7 +752,8 @@
       this.map = mapInstance;
       // Each entry: {id, name, visible, isBase, paneName, iconSvg,
       //              type, layer, canvas, onToggle, onZIndex}
-      // `layer` is resolved by LayerRegistry from map._layers for init data.
+      // `layer` is resolved inside LayerRegistry.createLayerInfo via
+      // findLayer (map._layers / window globals) for initial data.
       this.layerRegistry = new LayerRegistry(initialData, this.map);
       // `this.layers` is the registry's ordered array — kept as a direct
       // reference so DOM-aligned code (data-index = array index) is unchanged.
@@ -2071,8 +2072,9 @@
      *
      * For layers with a real Leaflet object the map is the source of truth
      * (`map.hasLayer`); callback-only layers (no `layer`) fall back to the
-     * checkbox/operation state. Shared by toggleAll and handleChange so the
-     * visible-tracking rule lives in exactly one place.
+     * checkbox/operation state. Shared by toggleAll, handleChange, and
+     * initTypesAndVisibility so the visible-tracking rule lives in exactly
+     * one place.
      * @param {Object} layerInfo - Layer info to update.
      * @param {Object|null} layer - Resolved Leaflet layer, or null.
      * @param {boolean} fallback - Value used when there is no Leaflet layer.
