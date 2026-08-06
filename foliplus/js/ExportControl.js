@@ -1098,12 +1098,19 @@
         e.stopPropagation();
         this.doExport();
       };
-      // Follow map during pan (RAF-throttled), hide during zoom to avoid flicker.
+      // Use containerPoint so the box stays fixed during zoom — the map
+      // content zooms underneath.  Hide during zoom to avoid visual lag
+      // between Leaflet's CSS scale animation and container coordinate updates.
       this.mapMoveCleanup = foliplus.bindMapSync({
         map: this.map,
         hideEvents: ["zoomstart"],
         showEvents: ["zoomend"],
+        updateEvents: ["zoomend"],
         onMove: () => {
+          if (!this.cropState || !this.cropState.locked) return;
+          this.onMapChange();
+        },
+        onUpdate: () => {
           if (!this.cropState || !this.cropState.locked) return;
           this.onMapChange();
         },
