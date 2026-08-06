@@ -471,10 +471,10 @@ class TestExportControlRendering:
         assert "toDataURL" in html
 
     def test_api_layers_iteration(self, base_map: folium.Map):
-        """render iterates api.layerRegistry for per-layer rendering."""
+        """render iterates api.layers (read-only view) for per-layer rendering."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "api.layerRegistry" in html
+        assert "api.layers" in html
 
     def test_canvas_selector_defined(self, base_map: folium.Map):
         """CONST.SEL.CANVAS selector targets foliplus-canvas elements."""

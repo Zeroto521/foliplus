@@ -224,8 +224,9 @@
 
     /** Orchestrate all rendering passes in painter's-algorithm order.
      *  Passes: tiles → SVG → canvas → markers → FA → text → remaining.
-     *  Overlay layers iterate via LayerControl API bottom-to-top so
-     *  cross-technology z-ordering is preserved per layer. */
+     *  Overlay layers iterate via `api.layers` (read-only view of
+     *  LayerRegistry's ordered array) bottom-to-top so cross-technology
+     *  z-ordering is preserved per layer. */
     async render(rect, scale, bg, geoBounds) {
       const sw = Math.round(rect.width * scale);
       const sh = Math.round(rect.height * scale);
@@ -247,18 +248,15 @@
       const cw = rect.width * scale;
       const ch = rect.height * scale;
 
-      // 1. Tiles — render all visible tile layers (bottom layer first)
-      // Tile rendering is now done inside the per-layer loop below.
-      // Standalone renderTiles is removed; tiles are rendered per visible layer.
-
       // 2. All layers — iterate in LayerControl API order bottom-to-top.
       // Each layer may contain Tile, SVG, Canvas, and/or Marker elements, so we
       // render all passes per-layer to preserve cross-technology z-order.
-      // Uses api.layerRegistry (read-only data source) for iteration.
+      // Uses api.layers (read-only view of LayerRegistry's ordered array).
       const api = foliplus.LayerAPI;
-      if (api?.layerRegistry) {
-        for (let i = api.layerRegistry.size - 1; i >= 0; i--) {
-          const li = api.layerRegistry.at(i);
+      const layers = api?.layers;
+      if (layers) {
+        for (let i = layers.length - 1; i >= 0; i--) {
+          const li = layers[i];
           if (!li.visible) continue;
 
           // Tile layers (e.g. basemaps) — render tiles via geo bounds
@@ -489,9 +487,12 @@
       }
     }
 
-    /** Collect markers belonging to a specific layer's panes. */
+    /** Collect markers belonging to a specific layer's panes.
+     *  Uses `api.getLayerPanes` to discover all panes a layer's content
+     *  lives in (including auto-created fallback panes from migrateLayers). */
     collectLayerMarkers(layer) {
-      const panes = foliplus.LayerAPI.getLayerPanes(layer);
+      const api = foliplus.LayerAPI;
+      const panes = api.getLayerPanes(layer);
       const roots = [];
       const seen = new Set();
       for (const paneName of panes) {
