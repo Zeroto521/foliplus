@@ -77,7 +77,7 @@ class TestExportControlRendering:
         assert "foliplus.storage.load(CONST.STORAGE.KEY, CONST.name)" in html
         assert "foliplus.storage.save(" in html
         assert "loadSavedBounds" in html
-        assert "foliplus-export-actions" in html
+        assert "foliplus-export-ctrl" in html
 
     def test_custom_params_rendering(self, base_map: folium.Map):
         ExportControl(
@@ -294,7 +294,6 @@ class TestExportControlRendering:
         assert "foliplus-export-box" in html
         assert "foliplus-export-handle" in html
         assert "foliplus-export-center" in html
-        assert "foliplus-export-actions" in html
         assert "foliplus-export-ctrl" in html
         assert "foliplus-export-preview" in html
         assert "foliplus-export-hidden" in html
@@ -701,7 +700,7 @@ class TestExportControlBrowser:
                 timeout=5000,
             )
             # Lock via confirm button
-            page.locator(".foliplus-export-actions .confirm").click()
+            page.locator(".foliplus-tool-bar .confirm").click()
             page.wait_for_selector(
                 ".foliplus-export-box.locked",
                 state="attached",
@@ -774,14 +773,14 @@ class TestExportControlBrowser:
             )
 
             # Lock
-            page.locator(".foliplus-export-actions .confirm").click()
+            page.locator(".foliplus-tool-bar .confirm").click()
             page.wait_for_selector(
                 ".foliplus-export-box.locked", state="attached", timeout=5000
             )
             assert page.locator(".foliplus-export-box.locked").is_visible()
 
             # Unlock (cancel resets to unlocked)
-            page.locator(".foliplus-export-actions .cancel").click()
+            page.locator(".foliplus-tool-bar .cancel").click()
             page.wait_for_selector(
                 ".foliplus-export-box:not(.locked)", state="attached", timeout=5000
             )
@@ -879,13 +878,13 @@ class TestExportControlBrowser:
             )
 
             # Lock crop box → switches to download button
-            page.locator(".foliplus-export-actions .confirm").click()
+            page.locator(".foliplus-tool-bar .confirm").click()
             page.wait_for_selector(
                 ".foliplus-export-box.locked", state="attached", timeout=5000
             )
 
             # Click download button to trigger export
-            page.locator(".foliplus-export-actions .confirm").click()
+            page.locator(".foliplus-tool-bar .confirm").click()
 
             # Wait for export to finish — control collapses on completion
             page.wait_for_function(
@@ -1068,7 +1067,7 @@ class TestExportControlBrowser:
                 )
 
                 # Verify the export button (download) is shown after lock
-                assert page.locator(".foliplus-export-actions .confirm").is_visible()
+                assert page.locator(".foliplus-tool-bar .confirm").is_visible()
             finally:
                 page.close()
 
@@ -1107,11 +1106,11 @@ class TestExportControlBrowser:
                 page.wait_for_selector(
                     ".foliplus-export-box", state="attached", timeout=5000
                 )
-                page.locator(".foliplus-export-actions .confirm").click()
+                page.locator(".foliplus-tool-bar .confirm").click()
                 page.wait_for_selector(
                     ".foliplus-export-box.locked", state="attached", timeout=5000
                 )
-                page.locator(".foliplus-export-actions .confirm").click()
+                page.locator(".foliplus-tool-bar .confirm").click()
 
                 page.wait_for_function(
                     """() => {
