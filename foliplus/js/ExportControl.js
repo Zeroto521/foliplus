@@ -490,8 +490,7 @@
      *  Uses `api.getLayerPanes` to discover all panes a layer's content
      *  lives in (including auto-created fallback panes from migrateLayers). */
     collectLayerMarkers(layer) {
-      const api = foliplus.LayerAPI;
-      const panes = api.getLayerPanes(layer);
+      const panes = foliplus.LayerAPI.getLayerPanes(layer);
       const roots = [];
       const seen = new Set();
       for (const paneName of panes) {
@@ -1098,18 +1097,13 @@
         e.stopPropagation();
         this.doExport();
       };
-      // Use containerPoint so the box stays fixed during zoom — the map
-      // content zooms underneath.  Hide during zoom to avoid visual lag
-      // between Leaflet's CSS scale animation and container coordinate updates.
+      // Follow geo bounds during pan (move updates container coordinates).
+      // Hide during zoom to avoid visual lag.
       this.mapMoveCleanup = foliplus.bindMapSync({
         map: this.map,
         hideEvents: ["zoomstart"],
         showEvents: ["zoomend"],
-        updateEvents: ["zoomend"],
-        onMove: () => {
-          if (!this.cropState || !this.cropState.locked) return;
-          this.onMapChange();
-        },
+        updateEvents: ["move", "zoomend"],
         onUpdate: () => {
           if (!this.cropState || !this.cropState.locked) return;
           this.onMapChange();
