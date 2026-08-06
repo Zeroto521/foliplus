@@ -213,19 +213,17 @@
             .replace("{s}", sub)
             .replace("{x}", tx)
             .replace("{y}", ty)
-            .replace("{z}", zoom);
-          // Use export scale for {r} (retina @2x) — screen DPR is irrelevant
-          url = url.replace("{r}", scaleVal > 1 ? "@2x" : "");
-          // Tile pixel position within the container viewport at this zoom
-          const tileLeft = tx * tileSize;
-          const tileTop = ty * tileSize;
+            .replace("{z}", zoom)
+            // Use export scale for {r} (retina @2x) — screen DPR is irrelevant
+            .replace("{r}", scaleVal > 1 ? "@2x" : "");
           tiles.push({
             x: tx,
             y: ty,
             z: zoom,
             url,
-            left: tileLeft,
-            top: tileTop,
+            // Tile pixel position within the container viewport at this zoom
+            left: tx * tileSize,
+            top: ty * tileSize,
             size: tileSize,
           });
         }
