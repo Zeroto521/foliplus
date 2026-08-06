@@ -1004,10 +1004,7 @@
         });
       });
 
-      foliplus.dom.el("div", {
-        class: CONST.CLASSES.CENTER,
-        parent: cropBox,
-      });
+      foliplus.dom.el("div", { class: CONST.CLASSES.CENTER, parent: cropBox });
 
       this.exportToolBar.innerHTML = "";
       foliplus.dom.el(
