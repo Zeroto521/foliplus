@@ -1023,7 +1023,7 @@
       foliplus.dom.el(
         "button",
         {
-          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL}`,
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} foliplus-close-btn`,
           title: _(`${CONST.name}.btn_cancel`),
           parent: this.exportToolBar,
         },
@@ -1080,7 +1080,7 @@
       foliplus.dom.el(
         "button",
         {
-          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL}`,
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} foliplus-close-btn`,
           title: _(`${CONST.name}.btn_cancel`),
           parent: this.cropState.actions,
         },
@@ -1121,7 +1121,7 @@
       foliplus.dom.el(
         "button",
         {
-          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL}`,
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} foliplus-close-btn`,
           title: _(`${CONST.name}.btn_cancel`),
           parent: this.cropState.actions,
         },
