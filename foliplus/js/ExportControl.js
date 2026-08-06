@@ -54,6 +54,10 @@
     return;
   }
 
+  // ==================== Dependencies ====================
+  const map = {{ this._parent.get_name() }};
+  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
+
   // ==================== Guard: LayerControl required ====================
   if (!foliplus.LayerAPI) {
     console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
@@ -64,10 +68,6 @@
     );
     return;
   }
-
-  // ==================== Dependencies ====================
-  const map = {{ this._parent.get_name() }};
-  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGS = {
