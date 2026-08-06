@@ -170,28 +170,6 @@
   display: none;
 }
 
-/* ── Action Buttons ── */
-.foliplus-export-actions {
-  display: flex;
-  gap: var(--space-xs);
-  align-items: center;
-}
-.foliplus-export-actions .foliplus-tool-btn {
-  width: calc(var(--ctrl-size) - var(--space-xs));
-  height: calc(var(--ctrl-size) - var(--space-xs));
-  border-radius: var(--size-2);
-  color: var(--text-muted);
-}
-.foliplus-export-actions .foliplus-tool-btn:hover {
-  background: var(--panel-header-hover);
-}
-.foliplus-export-actions .foliplus-tool-btn.confirm {
-  color: var(--accent-primary);
-}
-.foliplus-export-actions .foliplus-tool-btn.confirm:hover {
-  background: var(--accent-light);
-}
-
 /* ── Hidden state (used during render) ── */
 .foliplus-export-hidden {
   display: none !important;

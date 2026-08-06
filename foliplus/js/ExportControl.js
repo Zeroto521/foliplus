@@ -30,7 +30,6 @@
       BOX: "foliplus-export-box",
       HANDLE: "foliplus-export-handle",
       CENTER: "foliplus-export-center",
-      ACTIONS: "foliplus-export-actions",
       PREVIEW: "foliplus-export-preview",
       HIDDEN: "foliplus-export-hidden",
       LOCKED: "locked",
@@ -1428,7 +1427,6 @@
         toggleSvg: SVGS.CAMERA,
         isLeft: CONST.position.indexOf("left") >= 0,
       });
-      toolBar.classList.add(CONST.CLASSES.ACTIONS);
       exportManager.attachUI(ctrl, toolBar);
       toggleBtn.onclick = () => {
         if (exportManager.cropState) exportManager.removeCropBox();
