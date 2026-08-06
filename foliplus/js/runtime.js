@@ -858,30 +858,48 @@
    * Caller specifies which events trigger hide, update, and show.
    * @param {object} opts
    * @param {L.Map} opts.map - Leaflet map instance
-   * @param {string[]} [opts.hideEvents] - Event names that trigger hide (e.g. ["movestart", "zoomstart"])
+   * @param {string[]} [opts.hideEvents] - Event names that trigger hide (e.g. ["zoomstart"])
    * @param {string[]} [opts.updateEvents] - Event names that trigger update (e.g. ["moveend", "zoomend"])
-   * @param {string[]} [opts.showEvents] - Event names that trigger show (e.g. ["moveend", "zoomend"])
+   * @param {string[]} [opts.showEvents] - Event names that trigger show (e.g. ["zoomend"])
    * @param {Function} [opts.onHide] - Called on hide events
    * @param {Function} [opts.onUpdate] - Called on update events
    * @param {Function} [opts.onShow] - Called on show events
-   * @returns {Function} Cleanup function to remove all listeners
+   * @param {Function} [opts.onMove] - Called on `move` with RAF throttling.
+   *   The returned cleanup cancels pending RAF and removes the listener.
+   * @returns {Function} Cleanup function to remove all listeners and cancel RAF
    */
-  foliplus.bindMapEvents = (opts) => {
-    const register = (events, fn) => {
+  foliplus.bindMapSync = (opts) => {
+    const handlers = [];
+    const add = (events, fn) => {
       if (!events || !fn) return;
-      events.forEach((ev) => opts.map.on(ev, fn));
+      events.forEach((ev) => {
+        opts.map.on(ev, fn);
+        handlers.push([ev, fn]);
+      });
     };
-    const unregister = (events, fn) => {
-      if (!events || !fn) return;
-      events.forEach((ev) => opts.map.off(ev, fn));
-    };
-    register(opts.hideEvents, opts.onHide);
-    register(opts.updateEvents, opts.onUpdate);
-    register(opts.showEvents, opts.onShow);
+    add(opts.hideEvents, opts.onHide);
+    add(opts.updateEvents, opts.onUpdate);
+    add(opts.showEvents, opts.onShow);
+
+    let moveRafId = null;
+    if (opts.onMove) {
+      const onMove = () => {
+        if (moveRafId) return;
+        moveRafId = requestAnimationFrame(() => {
+          moveRafId = null;
+          opts.onMove();
+        });
+      };
+      opts.map.on("move", onMove);
+      handlers.push(["move", onMove]);
+    }
+
     return () => {
-      unregister(opts.hideEvents, opts.onHide);
-      unregister(opts.updateEvents, opts.onUpdate);
-      unregister(opts.showEvents, opts.onShow);
+      handlers.forEach(([ev, fn]) => opts.map.off(ev, fn));
+      if (moveRafId) {
+        cancelAnimationFrame(moveRafId);
+        moveRafId = null;
+      }
     };
   };
 

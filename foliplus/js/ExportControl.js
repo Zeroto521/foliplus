@@ -1098,11 +1098,15 @@
         e.stopPropagation();
         this.doExport();
       };
-      // Follow map during pan, hide during zoom to avoid flicker.
-      this.mapMoveCleanup = foliplus.bindMapEvents({
+      // Follow map during pan (RAF-throttled), hide during zoom to avoid flicker.
+      this.mapMoveCleanup = foliplus.bindMapSync({
         map: this.map,
         hideEvents: ["zoomstart"],
         showEvents: ["zoomend"],
+        onMove: () => {
+          if (!this.cropState || !this.cropState.locked) return;
+          this.onMapChange();
+        },
         onHide: () => {
           if (!this.cropState || !this.cropState.locked) return;
           this.cropState.box.style.display = "none";
@@ -1114,11 +1118,6 @@
           this.cropState.overlay.style.display = "";
         },
       });
-      this.onMove = () => {
-        if (!this.cropState || !this.cropState.locked) return;
-        this.onMapChange();
-      };
-      this.map.on("move", this.onMove);
       this.onMapChange();
       if (!skipHint) this.showHintWithInfo(r, _(`${CONST.name}.hint_locked`));
     }
@@ -1128,8 +1127,6 @@
       this.cropState.locked = false;
       this.cropState.box.classList.remove("locked");
       if (this.mapMoveCleanup) this.mapMoveCleanup();
-      this.map.off("move", this.onMove);
-      if (this.moveRafId) { cancelAnimationFrame(this.moveRafId); this.moveRafId = null; }
       this.cropState.actions.innerHTML = "";
       foliplus.dom.el(
         "button",
@@ -1175,8 +1172,6 @@
         this.mapMoveCleanup();
         this.mapMoveCleanup = null;
       }
-      this.map.off("move", this.onMove);
-      if (this.moveRafId) { cancelAnimationFrame(this.moveRafId); this.moveRafId = null; }
       if (this.cropState.box)
         this.cropState.box.removeEventListener("mousedown", this.onMouseDown);
       if (this.cropState.overlay?.parentNode) this.cropState.overlay.remove();

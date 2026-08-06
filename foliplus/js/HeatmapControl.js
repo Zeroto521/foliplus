@@ -200,14 +200,16 @@
     }
 
     bindMapEvents() {
-      // Hide canvas during zoom to avoid flicker, redraw and show on end.
-      // During pan (move without zoom): RAF-throttled redraw so hexagons
-      // follow the map content smoothly (canvas sits in mapPane with offset).
-      this.moveRafId = null;
-      this.mapCleanup = foliplus.bindMapEvents({
+      // Hide canvas during zoom to avoid flicker, RAF-throttled redraw during pan.
+      // zoomend triggers full re-render (renderHexagons) via separate handler
+      // because it needs debounced H3 hexbin recalculation, not just cache redraw.
+      this.mapCleanup = foliplus.bindMapSync({
         map: this.map,
         hideEvents: ["zoomstart"],
         showEvents: ["zoomend"],
+        onMove: () => {
+          if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
+        },
         onHide: () => {
           this.overlay.setVisible(false);
         },
@@ -215,15 +217,6 @@
           this.overlay.setVisible(true);
         },
       });
-
-      this.redrawOnMove = () => {
-        if (this.moveRafId) return;
-        this.moveRafId = requestAnimationFrame(() => {
-          this.moveRafId = null;
-          if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
-        });
-      };
-      this.map.on("move", this.redrawOnMove);
 
       this.onZoomEnd = foliplus.debounce(() => {
         if (this.selectedLayerId) {
@@ -1014,11 +1007,6 @@
     onRemove() {
       // Clean up map event listeners
       if (this.m.mapCleanup) this.m.mapCleanup();
-      if (this.m.moveRafId) {
-        cancelAnimationFrame(this.m.moveRafId);
-        this.m.moveRafId = null;
-      }
-      this.m.map.off("move", this.m.redrawOnMove);
       if (this.m.onZoomEnd) {
         this.m.onZoomEnd.cancel();
         this.m.map.off("zoomend", this.m.onZoomEnd);
