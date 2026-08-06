@@ -102,6 +102,7 @@
       "onmousemove",
       "onmouseup",
     ]),
+    GEO_CACHE_MAX: 1000,
   };
 
   const hintIcons = {};
@@ -437,12 +438,12 @@
   };
   // Uses throttled queue (1 req/s) and response cache.
   // geoCache is a Map with a FIFO cap to bound memory during long sessions.
-  const GEO_CACHE_MAX = 1000;
   const geoCache = new Map();
   const geoCacheGet = (key) => geoCache.get(key);
   const geoCacheSet = (key, val) => {
     geoCache.set(key, val);
-    if (geoCache.size > GEO_CACHE_MAX) geoCache.delete(geoCache.keys().next().value);
+    if (geoCache.size > CONST.GEO_CACHE_MAX)
+      geoCache.delete(geoCache.keys().next().value);
   };
   let geoPromise = Promise.resolve();
   let geoLastReq = 0;
