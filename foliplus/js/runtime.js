@@ -854,6 +854,38 @@
   };
 
   /**
+   * Bind map events to keep a visual element in sync.
+   * Caller specifies which events trigger hide, update, and show.
+   * @param {object} opts
+   * @param {L.Map} opts.map - Leaflet map instance
+   * @param {string[]} [opts.hideEvents] - Event names that trigger hide (e.g. ["movestart", "zoomstart"])
+   * @param {string[]} [opts.updateEvents] - Event names that trigger update (e.g. ["moveend", "zoomend"])
+   * @param {string[]} [opts.showEvents] - Event names that trigger show (e.g. ["moveend", "zoomend"])
+   * @param {Function} [opts.onHide] - Called on hide events
+   * @param {Function} [opts.onUpdate] - Called on update events
+   * @param {Function} [opts.onShow] - Called on show events
+   * @returns {Function} Cleanup function to remove all listeners
+   */
+  foliplus.bindMapEvents = (opts) => {
+    const register = (events, fn) => {
+      if (!events || !fn) return;
+      events.forEach((ev) => opts.map.on(ev, fn));
+    };
+    const unregister = (events, fn) => {
+      if (!events || !fn) return;
+      events.forEach((ev) => opts.map.off(ev, fn));
+    };
+    register(opts.hideEvents, opts.onHide);
+    register(opts.updateEvents, opts.onUpdate);
+    register(opts.showEvents, opts.onShow);
+    return () => {
+      unregister(opts.hideEvents, opts.onHide);
+      unregister(opts.updateEvents, opts.onUpdate);
+      unregister(opts.showEvents, opts.onShow);
+    };
+  };
+
+  /**
    * Create a panel-style control with toggle button, header, and content area.
    * Used by HeatmapControl and LayerControl for consistent panel UI.
    * Automatically wires up bindPanelToggle and bindOutsideCollapse.

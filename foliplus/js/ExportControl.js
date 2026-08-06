@@ -869,7 +869,7 @@
       this.onMouseMove = this.onMouseMove.bind(this);
       this.onMouseUp = this.onMouseUp.bind(this);
       this.onKeyDown = this.onKeyDown.bind(this);
-      this.onMapChange = foliplus.debounce(this.onMapChange.bind(this), 50);
+      this.onMapChange = this.onMapChange.bind(this);
     }
 
     attachUI(ctrl, toolBar) {
@@ -1098,8 +1098,28 @@
         e.stopPropagation();
         this.doExport();
       };
-      this.map.on("move zoom", this.onMapChange);
-      this.onMapChange(skipHint);
+      // Follow map during pan, hide during zoom to avoid flicker.
+      this.mapMoveCleanup = foliplus.bindMapEvents({
+        map: this.map,
+        hideEvents: ["zoomstart"],
+        showEvents: ["zoomend"],
+        onHide: () => {
+          if (!this.cropState || !this.cropState.locked) return;
+          this.cropState.box.style.display = "none";
+          this.cropState.overlay.style.display = "none";
+        },
+        onShow: () => {
+          if (!this.cropState || !this.cropState.locked) return;
+          this.cropState.box.style.display = "";
+          this.cropState.overlay.style.display = "";
+        },
+      });
+      this.onMove = () => {
+        if (!this.cropState || !this.cropState.locked) return;
+        this.onMapChange();
+      };
+      this.map.on("move", this.onMove);
+      this.onMapChange();
       if (!skipHint) this.showHintWithInfo(r, _(`${CONST.name}.hint_locked`));
     }
 
@@ -1107,7 +1127,9 @@
       if (!this.cropState || !this.cropState.locked) return;
       this.cropState.locked = false;
       this.cropState.box.classList.remove("locked");
-      this.map.off("move zoom", this.onMapChange);
+      if (this.mapMoveCleanup) this.mapMoveCleanup();
+      this.map.off("move", this.onMove);
+      if (this.moveRafId) { cancelAnimationFrame(this.moveRafId); this.moveRafId = null; }
       this.cropState.actions.innerHTML = "";
       foliplus.dom.el(
         "button",
@@ -1149,7 +1171,12 @@
       this.mapContainer.classList.remove(CONST.CLASSES.MODE);
       document.body.classList.remove(CONST.CLASSES.MODE);
       document.removeEventListener("keydown", this.onKeyDown);
-      this.map.off("move zoom", this.onMapChange);
+      if (this.mapMoveCleanup) {
+        this.mapMoveCleanup();
+        this.mapMoveCleanup = null;
+      }
+      this.map.off("move", this.onMove);
+      if (this.moveRafId) { cancelAnimationFrame(this.moveRafId); this.moveRafId = null; }
       if (this.cropState.box)
         this.cropState.box.removeEventListener("mousedown", this.onMouseDown);
       if (this.cropState.overlay?.parentNode) this.cropState.overlay.remove();

@@ -200,20 +200,23 @@
     }
 
     bindMapEvents() {
-      // Canvas in mapPane with position offset → no transform clipping.
-      // During zoom: hide canvas, re-render at new zoom after animation.
-      // During pan (move without zoom): RAF-throttled redraw for smoothness.
-      this.isZooming = false;
+      // Hide canvas during zoom to avoid flicker, redraw and show on end.
+      // During pan (move without zoom): RAF-throttled redraw so hexagons
+      // follow the map content smoothly (canvas sits in mapPane with offset).
       this.moveRafId = null;
-
-      this.onZoomStart = () => {
-        this.isZooming = true;
-        this.overlay.setVisible(false);
-      };
-      this.map.on("zoomstart", this.onZoomStart);
+      this.mapCleanup = foliplus.bindMapEvents({
+        map: this.map,
+        hideEvents: ["zoomstart"],
+        showEvents: ["zoomend"],
+        onHide: () => {
+          this.overlay.setVisible(false);
+        },
+        onShow: () => {
+          this.overlay.setVisible(true);
+        },
+      });
 
       this.redrawOnMove = () => {
-        if (this.isZooming) return;
         if (this.moveRafId) return;
         this.moveRafId = requestAnimationFrame(() => {
           this.moveRafId = null;
@@ -227,8 +230,6 @@
           this.renderHexagons();
           this.overlay.setVisible(true);
         }
-        // Always reset zooming state, even if no layer selected
-        this.isZooming = false;
       }, CONST.TIMING.ZOOM_DEBOUNCE);
       this.map.on("zoomend", this.onZoomEnd);
 
@@ -1012,13 +1013,20 @@
 
     onRemove() {
       // Clean up map event listeners
-      if (this.m.moveRafId) cancelAnimationFrame(this.m.moveRafId);
-      if (this.m.onZoomEnd) this.m.onZoomEnd.cancel();
-      if (this.m.onLayerChange) this.m.onLayerChange.cancel();
-      this.m.map.off("zoomstart", this.m.onZoomStart);
+      if (this.m.mapCleanup) this.m.mapCleanup();
+      if (this.m.moveRafId) {
+        cancelAnimationFrame(this.m.moveRafId);
+        this.m.moveRafId = null;
+      }
       this.m.map.off("move", this.m.redrawOnMove);
-      this.m.map.off("zoomend", this.m.onZoomEnd);
-      this.m.map.off("layeradd layerremove", this.m.onLayerChange);
+      if (this.m.onZoomEnd) {
+        this.m.onZoomEnd.cancel();
+        this.m.map.off("zoomend", this.m.onZoomEnd);
+      }
+      if (this.m.onLayerChange) {
+        this.m.onLayerChange.cancel();
+        this.m.map.off("layeradd layerremove", this.m.onLayerChange);
+      }
 
       // Disconnect MutationObserver
       if (this.observer) this.observer.disconnect();
