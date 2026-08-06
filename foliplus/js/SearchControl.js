@@ -33,7 +33,6 @@
       MAP_SEARCH: "foliplus-search",
       SEARCH_MODE_BTN: "foliplus-search-mode-btn",
       CLEAR: "clear",
-      CTRL_BTN: "foliplus-ctrl-btn",
       SUGGESTIONS: "foliplus-search-suggestions",
       SUGGESTION_ITEM: "foliplus-search-suggestion-item",
       SUGGESTION_ICON: "foliplus-search-suggestion-icon",
@@ -120,7 +119,10 @@
       });
       const clearBtn = foliplus.dom.el(
         "button",
-        { class: CONST.CLASSES.CTRL_BTN, title: _(`${CONST.name}.clear_title`) },
+        {
+          class: "foliplus-ctrl-btn foliplus-close-btn",
+          title: _(`${CONST.name}.clear_title`),
+        },
         { html: foliplus.SVGs.CLOSE },
       );
       this.modeBtn = modeBtn;

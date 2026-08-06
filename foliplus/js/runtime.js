@@ -896,7 +896,7 @@
     header.appendChild(
       foliplus.dom.el(
         "button",
-        { class: "foliplus-close-btn foliplus-ctrl-btn", title: opts.closeTitle },
+        { class: "foliplus-ctrl-btn foliplus-close-btn", title: opts.closeTitle },
         { html: foliplus.SVGs.CLOSE },
       ),
     );

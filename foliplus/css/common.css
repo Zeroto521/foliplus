@@ -394,8 +394,11 @@
   top: calc(50% - var(--ctrl-size) / 2);
   width: var(--ctrl-size);
   height: var(--ctrl-size);
-  color: var(--text-muted);
   border-radius: var(--radius-sm);
+}
+
+.foliplus-close-btn {
+  color: var(--text-muted);
 }
 
 .foliplus-pin {
