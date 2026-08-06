@@ -37,6 +37,7 @@
       CONFIRM: "confirm",
       CANCEL: "cancel",
     },
+    SVG_NS: "http://www.w3.org/2000/svg",
     SEL: {
       CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
       CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
@@ -434,8 +435,8 @@
         }
 
         let src = new XMLSerializer().serializeToString(clone);
-        if (!src.includes('xmlns="http://www.w3.org/2000/svg"'))
-          src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+        if (!src.includes(`xmlns="${CONST.SVG_NS}"`))
+          src = src.replace("<svg", `<svg xmlns="${CONST.SVG_NS}"`);
         if (src.length < 100) continue;
 
         const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
@@ -793,8 +794,8 @@
             if (rootColor && rootColor !== "rgb(0, 0, 0)")
               clone.setAttribute("color", rootColor);
             let src = new XMLSerializer().serializeToString(clone);
-            if (!src.includes('xmlns="http://www.w3.org/2000/svg"'))
-              src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+            if (!src.includes(`xmlns="${CONST.SVG_NS}"`))
+              src = src.replace("<svg", `<svg xmlns="${CONST.SVG_NS}"`);
             const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             try {
