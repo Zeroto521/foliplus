@@ -1280,7 +1280,6 @@
       };
       this.cropState.rect = newRect;
       this.updateBoxStyle(this.cropState.box, newRect);
-      if (!skipHint) this.showHintWithInfo(newRect, _(`${CONST.name}.hint_locked`));
     }
 
     doExport() {
