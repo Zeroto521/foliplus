@@ -31,6 +31,14 @@ class ExportControl(BaseControl):
         Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
         Defaults to auto-detection, falling back to English.
 
+    Notes
+    -----
+    **Export opt-out.**  By default, most elements inside a layer pane are captured
+    in the export.  To exclude an element from the exported image, set the
+    ``data-foliplus-export="exclude"`` attribute on it.  This is used by built-in
+    controls (e.g. ``MeasureControl``'s delete icons) and is the recommended way for
+    third-party controls to exclude internal UI without coupling to ``ExportControl``.
+
     Examples
     --------
     >>> import folium

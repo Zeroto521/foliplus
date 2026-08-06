@@ -39,10 +39,19 @@
     SEL: {
       CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
       CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
-      PANE: '.leaflet-map-pane [class*="pane"]',
-      MARKER: '.awesome-marker, .leaflet-marker-icon, .marker-icon, [class*="marker"]',
-      LABEL: ".foliplus-measure-label, .leaflet-div-icon",
       EXCLUDE: ".foliplus-del-icon, .leaflet-popup",
+      LABEL: ".foliplus-measure-label, .leaflet-div-icon",
+      /**
+       * Opt-out attribute for export.  Set this attribute on any element
+       * that should NOT appear in the exported image.
+       *
+       * Usage:  `<div data-foliplus-export="exclude">...</div>`
+       *
+       * Components that add elements to a layer pane can use this to
+       * exclude internal UI (delete buttons, resize handles, etc.)
+       * from the export canvas without needing to update ExportControl.
+       */
+      SKIP_EXPORT: '[data-foliplus-export="exclude"]',
     },
     TILE_CACHE_MAX: 500,
   };
@@ -504,7 +513,16 @@
 
     /** Collect markers belonging to a specific layer's panes.
      *  Uses `api.getLayerPanes` to discover all panes a layer's content
-     *  lives in (including auto-created fallback panes from migrateLayers). */
+     *  lives in (including auto-created fallback panes from migrateLayers).
+     *
+     *  Collects ALL direct children of each pane — no CSS class predicate —
+     *  so any Leaflet plugin's markers are automatically included without
+     *  maintaining a whitelist.  Elements that should be excluded can:
+     *    a) opt-out via `data-foliplus-export` attribute, or
+     *    b) match the `CONST.SEL.EXCLUDE` selector.
+     *
+     *  SVG elements and canvas elements are skipped: they have their own
+     *  dedicated rendering passes (renderPaneSVG / renderPaneCanvas). */
     collectLayerMarkers(layer) {
       const panes = foliplus.LayerAPI.getLayerPanes(layer);
       const roots = [];
@@ -512,19 +530,22 @@
       for (const paneName of panes) {
         const pane = this.map.getPane(paneName);
         if (!pane) continue;
-        const found = pane.querySelectorAll(CONST.SEL.MARKER);
-        for (const el of found) {
-          if (el.closest(CONST.SEL.EXCLUDE)) continue;
+        for (let i = 0; i < pane.children.length; i++) {
+          const el = pane.children[i];
+          // Skip canvas and SVG — handled by dedicated render passes
+          if (
+            el.tagName === "CANVAS" ||
+            el.tagName === "SVG" ||
+            el.matches(CONST.SEL.SKIP_EXPORT) ||
+            el.closest(CONST.SEL.SKIP_EXPORT, pane) ||
+            el.querySelector(CONST.SEL.SKIP_EXPORT) ||
+            el.matches(CONST.SEL.EXCLUDE) ||
+            el.closest(CONST.SEL.EXCLUDE, pane)
+          )
+            continue;
           if (seen.has(el)) continue;
           seen.add(el);
           roots.push(el);
-        }
-        const labels = pane.querySelectorAll(CONST.SEL.LABEL);
-        for (const label of labels) {
-          if (label.closest(CONST.SEL.EXCLUDE)) continue;
-          if (seen.has(label)) continue;
-          seen.add(label);
-          roots.push(label);
         }
       }
       return roots;

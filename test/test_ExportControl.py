@@ -351,11 +351,12 @@ class TestExportControlRendering:
         assert "bitmapCache" in html
 
     def test_render_marker_roots_marker_and_label(self, base_map: folium.Map):
-        """collectLayerMarkers uses CONST.SEL.MARKER and CONST.SEL.LABEL."""
+        """collectLayerMarkers collects pane children, skipping SVG/CANVAS and opt-out."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "CONST.SEL.MARKER" in html
-        assert "CONST.SEL.LABEL" in html
+        assert "CONST.SEL.SKIP_EXPORT" in html
+        assert "CONST.SEL.EXCLUDE" in html
+        assert "el.tagName === " in html
 
     def test_render_fontawesome_pseudo_element(self, base_map: folium.Map):
         """renderFontAwesome reads ::before pseudo-element content."""
@@ -459,8 +460,8 @@ class TestExportControlRendering:
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "collectLayerMarkers" in html
-        assert "CONST.SEL.MARKER" in html
-        assert "CONST.SEL.LABEL" in html
+        assert "CONST.SEL.SKIP_EXPORT" in html
+        assert "CONST.SEL.EXCLUDE" in html
 
     def test_render_pane_svg_method(self, base_map: folium.Map):
         """renderPaneSVG renders SVG content from a single pane."""
