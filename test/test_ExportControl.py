@@ -129,11 +129,19 @@ class TestExportControlRendering:
         html = render(base_map)
         assert "CONSTANT_PADDING" in html or "CONTAINER_PADDING" in html
         assert "TIMING" in html
-        assert "RENDER_DELAY" in html
+        assert "TIMEOUT" in html
         assert "RESTORE_DELAY" in html
         assert "CROP" in html
         assert "SEL" in html
         assert "CLASSES" in html
+
+    def test_bitmap_cache_shared(self, base_map: folium.Map):
+        """bitmapCache is shared between tile and sprite loading."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "bitmapCache" in html
+        assert "loadImageBitmap" in html
+        assert "TILE_CACHE_MAX" in html
 
     def test_render_methods_present(self, base_map: folium.Map):
         """All render sub-methods are defined."""
@@ -335,12 +343,12 @@ class TestExportControlRendering:
         assert "ce.hooks.after" in html
 
     def test_render_markers_sprite_loading(self, base_map: folium.Map):
-        """renderMarkers loads sprites via fetch and createImageBitmap."""
+        """renderMarkers loads sprites via shared bitmap cache (loadImageBitmap)."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "createImageBitmap" in html
-        assert "fetch(" in html
+        assert "loadImageBitmap" in html
         assert "spriteMap" in html
+        assert "bitmapCache" in html
 
     def test_render_marker_roots_marker_and_label(self, base_map: folium.Map):
         """collectLayerMarkers uses CONST.SEL.MARKER and CONST.SEL.LABEL."""

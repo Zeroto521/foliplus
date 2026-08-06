@@ -119,12 +119,15 @@
   const isVisible = (dx, dy, dw, dh, cw, ch) =>
     !(dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch);
 
-  /** Tile bitmap cache (LRU, capped at 500 entries). */
-  const tileBitmapCache = new Map();
+  /** Bitmap cache (LRU, capped at 500 entries).  Shared by tile
+   *  bitmap loading and sprite (background-image) loading so that
+   *  identical URLs are fetched and decoded only once. */
+  const bitmapCache = new Map();
 
-  /** Fetch a remote image as an ImageBitmap (CORS mode), cached in memory. */
+  /** Fetch a remote image as an ImageBitmap (CORS mode), cached in memory.
+   *  Reuses blob from browser's HTTP cache when possible. */
   const loadImageBitmap = async (url) => {
-    const cached = tileBitmapCache.get(url);
+    const cached = bitmapCache.get(url);
     if (cached) return cached;
     const resp = await fetch(url, {
       mode: "cors",
@@ -134,12 +137,12 @@
     if (!resp.ok) return null;
     const blob = await resp.blob();
     const bitmap = await createImageBitmap(blob);
-    tileBitmapCache.set(url, bitmap);
-    if (tileBitmapCache.size > CONST.TILE_CACHE_MAX) {
-      const firstKey = tileBitmapCache.keys().next().value;
-      const evicted = tileBitmapCache.get(firstKey);
+    bitmapCache.set(url, bitmap);
+    if (bitmapCache.size > CONST.TILE_CACHE_MAX) {
+      const firstKey = bitmapCache.keys().next().value;
+      const evicted = bitmapCache.get(firstKey);
       if (evicted) evicted.close();
-      tileBitmapCache.delete(firstKey);
+      bitmapCache.delete(firstKey);
     }
     return bitmap;
   };
@@ -543,9 +546,8 @@
         }
       }
 
-      // Load unique sprites
+      // Load unique sprites via shared bitmap cache
       const spriteMap = new Map();
-      const loadQueue = [];
       for (const el of drawableEls) {
         const cs = window.getComputedStyle(el);
         const bg = cs.backgroundImage;
@@ -553,20 +555,15 @@
         const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
         if (m && !m[1].startsWith("data:") && !spriteMap.has(m[1])) {
           spriteMap.set(m[1], null);
-          loadQueue.push(
-            fetch(m[1], {
-              mode: "cors",
-              cache: "force-cache",
-              signal: AbortSignal.timeout(CONST.TIMING.TIMEOUT),
-            })
-              .then((r) => (r.ok ? r.blob() : null))
-              .then((blob) => (blob ? createImageBitmap(blob) : null))
-              .then((bmp) => spriteMap.set(m[1], bmp))
-              .catch(() => {}),
-          );
+          loadImageBitmap(m[1])
+            .then((bmp) => spriteMap.set(m[1], bmp))
+            .catch(() => {});
         }
       }
-      await Promise.all(loadQueue);
+      // Wait for all in-flight loads to settle
+      await Promise.all(
+        [...spriteMap.keys()].map((url) => loadImageBitmap(url).catch(() => {})),
+      );
 
       // Draw sprites
       for (const el of drawableEls) {
