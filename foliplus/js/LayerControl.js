@@ -274,8 +274,8 @@
    *   `size` / `at(i)` / `get(id)` / `has(id)` / `firstBaseIdx`
    *
    * **Internal (Manager only, not for external use):**
-   *   `upsert` / `prepend` / `insertAt` / `remove` / `moveToFront`
-   *   `reorder` / `replace` / `clear` / `normalizeGroups`
+   *   `createLayerInfo` / `upsert` / `prepend` / `insertAt` / `remove`
+   *   `moveToFront` / `reorder` / `replace` / `clear` / `normalizeGroups`
    *   `canReorderBetween` / `refreshFirstBaseIdx`
    *   `items` / `byId` / `view` / `list`
    *
@@ -291,15 +291,19 @@
      *   `li.layer` for each entry so callers can always use `li.layer`
      *   directly without a fallback (Jinja2 template entries are
      *   plain {name, id, visible, isBase} — no `layer` reference).
+     *
+     * Every entry — whether from the Jinja2 template or a programmatic
+     * caller — is normalized through `createLayerInfo` so the registry
+     * only ever holds complete layerInfo objects with the full field set.
      */
     constructor(initial = [], map) {
-      this.items = [...initial];
+      // Normalize so every layerInfo carries all fields, regardless of
+      // source. Both `visible` and `layer` fallback rules live inside
+      // createLayerInfo (opts.visible ?? existingLi.visible ?? true and
+      // opts.layer || findLayer(map, id) || existingLi.layer), so the
+      // constructor just normalizes each entry with no shim needed.
+      this.items = initial.map((l) => this.createLayerInfo(l, undefined, map));
       this.byId = new Map(this.items.map((l) => [l.id, l]));
-      // Resolve layer references for initial data entries
-      if (map) {
-        for (const li of this.items)
-          if (!li.layer && li.id) li.layer = LayerUtils.findLayer(map, li.id);
-      }
       // Cached index of the first base layer. The base group boundary is
       // stable between group mutations; caching it avoids a full-array
       // findIndex scan on every dragover (fires many times per second).
@@ -307,6 +311,53 @@
       this.refreshFirstBaseIdx();
       // Read-only view shared by both internal code and external callers.
       this.view = this.createReadonlyView();
+    }
+
+    /**
+     * Create a layer info object with all fields populated.
+     *
+     * Each layer info has the following fields:
+     *   - `name`     — display name (defaults to `id`)
+     *   - `id`       — unique layer identifier
+     *   - `visible`  — visibility state; explicit `opts.visible` wins, then
+     *                  `existingLi.visible` on re-registration, else `true`
+     *   - `isBase`   — whether this is a base layer
+     *   - `paneName` — pane name for the layer's content, or `null`
+     *   - `iconSvg`  — SVG icon string for the layer item, or `null`
+     *   - `type`     — runtime-detected layer type, or `null`
+     *   - `layer`    — Leaflet layer object, or `null`
+     *   - `canvas`   — managed canvas for the layer, or `null`
+     *   - `onToggle` — callback invoked when visibility toggles, or `null`
+     *   - `onZIndex` — callback invoked when z-index changes, or `null`
+     *
+     * Re-registration is idempotent: fields absent from `opts` (or null)
+     * fall back to `existingLi`'s values, so a partial re-register never
+     * silently drops a previously registered field.
+     *
+     * @param {Object} opts - Raw options from registerLayer().
+     * @param {Object} [existingLi] - Existing layer info for re-registration.
+     * @param {Object} [map] - Leaflet map. If provided, resolves `layer` from
+     *   the map/window globals when `opts.layer` is absent.
+     * @returns {Object} A complete layerInfo object.
+     */
+    createLayerInfo(opts, existingLi, map) {
+      return {
+        name: opts.name ?? existingLi?.name ?? opts.id,
+        id: opts.id,
+        visible: opts.visible ?? existingLi?.visible ?? true,
+        isBase: opts.isBase ?? existingLi?.isBase ?? false,
+        paneName: opts.paneName ?? existingLi?.paneName ?? null,
+        iconSvg: opts.iconSvg ?? existingLi?.iconSvg ?? null,
+        type: null,
+        layer:
+          opts.layer ||
+          (map && opts.id ? LayerUtils.findLayer(map, opts.id) : null) ||
+          existingLi?.layer ||
+          null,
+        canvas: opts.canvas ?? existingLi?.canvas ?? null,
+        onToggle: opts.onToggle ?? existingLi?.onToggle ?? null,
+        onZIndex: opts.onZIndex ?? existingLi?.onZIndex ?? null,
+      };
     }
 
     /** Recompute the cached first-base-layer index. */
@@ -459,9 +510,9 @@
     normalizeGroups() {
       const overlays = [];
       const bases = [];
-      for (const l of this.items) {
-        if (l && l.isBase) bases.push(l);
-        else overlays.push(l);
+      for (const li of this.items) {
+        if (li && li.isBase) bases.push(li);
+        else overlays.push(li);
       }
       this.items.splice(0, this.items.length, ...overlays.concat(bases));
       this.byId = new Map(this.items.map((l) => [l.id, l]));
@@ -701,7 +752,8 @@
       this.map = mapInstance;
       // Each entry: {id, name, visible, isBase, paneName, iconSvg,
       //              type, layer, canvas, onToggle, onZIndex}
-      // `layer` is resolved by LayerRegistry from map._layers for init data.
+      // `layer` is resolved inside LayerRegistry.createLayerInfo via
+      // findLayer (map._layers / window globals) for initial data.
       this.layerRegistry = new LayerRegistry(initialData, this.map);
       // `this.layers` is the registry's ordered array — kept as a direct
       // reference so DOM-aligned code (data-index = array index) is unchanged.
@@ -768,6 +820,13 @@
 
       this.loadSavedOrder();
       this.layerRegistry.normalizeGroups();
+
+      // Run an initial enforceOrder before the UI is attached so that
+      // every managed layer's z-index is correct from the first paint.
+      // Without this, markers appear at the default pane z-index and
+      // "flash" to their correct position 300ms later when the deferred
+      // initTypesAndVisibility → enforceOrder fires.
+      this.enforceOrder();
 
       // Expose the manager as the public LayerAPI. The full instance is
       // attached so tests and debuggers can reach internals, but the stable
@@ -849,7 +908,7 @@
       // `li.layer` is resolved at init or register time, so this fallback
       // is rarely needed (only for layers added directly to map without
       // going through registerLayer).
-      const layer = li.layer || LayerUtils.findLayer(this.map, id);
+      const layer = this.findLayer(li);
       if (!layer) return null;
       li.type = LayerUtils.getGeometryType(layer);
       return li.type;
@@ -864,25 +923,32 @@
     getLayersByType(type) {
       return this.layers
         .filter((l) => this.getLayerType(l.id) === type)
-        .map((l) => ({
-          id: l.id,
-          name: l.name,
-          layer: l.layer || LayerUtils.findLayer(this.map, l.id), // safety fallback
-        }));
+        .map((l) => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
     }
 
     /**
-     * Resolve a registered layer by id, searching layerInfo then map._layers.
-     * Most layers have `li.layer` resolved at init (by LayerRegistry) or
-     * register time; the fallback handles edge cases (e.g. layers added
-     * directly to the map without going through registerLayer).
-     * @param {string} id - Layer ID.
+     * Resolve a registered layer by id or layerInfo, searching layerInfo then
+     * map._layers. Most layers have `li.layer` resolved at init (by
+     * LayerRegistry) or register time; the fallback handles edge cases
+     * (e.g. layers added directly to the map without going through
+     * registerLayer).
+     *
+     * Accepts either a string id or a layerInfo object.  When a layerInfo
+     * is passed (callers that already hold it from `this.layers[i]` or
+     * `registry.get(id)`), the redundant `registry.get(id)` hash lookup
+     * is skipped.
+     *
+     * @param {string|Object} idOrInfo - Layer ID or layerInfo object.
      * @returns {Object|null} Leaflet layer or null.
      */
-    findLayer(id) {
-      const li = this.layerRegistry.get(id);
+    findLayer(idOrInfo) {
+      const li =
+        typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
       if (li?.layer) return li.layer;
-      return LayerUtils.findLayer(this.map, id);
+      return LayerUtils.findLayer(
+        this.map,
+        typeof idOrInfo === "string" ? idOrInfo : li?.id,
+      );
     }
 
     /**
@@ -924,6 +990,9 @@
      * geometry type icon, and drag handle. If the UI has already been
      * rendered, a corresponding DOM item is created immediately.
      *
+     * The layerInfo object is created by `LayerRegistry.createLayerInfo()`,
+     * which is the single source of truth for all layer metadata fields.
+     *
      * @param {Object} opts
      * @param {string} opts.id       - Unique identifier for the layer.
      * @param {string} [opts.name]   - Display name (falls back to id).
@@ -933,6 +1002,9 @@
      *                                  like overlays.
      * @param {string} [opts.paneName] - Custom pane name for z-order grouping.
      * @param {string} [opts.iconSvg]  - Custom SVG icon HTML for the type column.
+     * @param {Function} [opts.onToggle] - Callback invoked when visibility toggles.
+     * @param {Function} [opts.onZIndex] - Callback invoked when z-index changes.
+     * @param {Object} [opts.canvas]  - Managed canvas element for the layer.
      * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
      */
     registerLayer(opts) {
@@ -941,28 +1013,14 @@
 
       const existingLi = this.layerRegistry.get(opts.id);
       const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
-      const existingVisible = existingLi ? existingLi.visible : true;
-      const layerInfo = {
-        name: opts.name ?? opts.id,
-        id: opts.id,
-        visible: existingVisible,
-        isBase: !!opts.isBase,
-        paneName: opts.paneName ?? null,
-        iconSvg: opts.iconSvg ?? null,
-        type: null,
-        layer: opts.layer || null,
-        canvas: opts.canvas || null,
-        onToggle: opts.onToggle || null,
-        onZIndex: opts.onZIndex || null,
-      };
+      const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
-      if (existingIdx !== -1) {
-        // Idempotent re-registration: update fields in place, keep position.
-        // Do NOT splice+unshift — that would silently destroy the user's
-        // drag order (e.g. MeasureControl.setMode calls register() on every
-        // tool switch) and persist the accidental order via saveOrder.
-        this.layerRegistry.upsert(layerInfo);
-      } else if (layerInfo.isBase) {
+      // Idempotent re-registration: update fields in place, keep position.
+      // Do NOT splice+unshift — that would silently destroy the user's
+      // drag order (e.g. MeasureControl.setMode calls register() on every
+      // tool switch) and persist the accidental order via saveOrder.
+      if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
+      else if (layerInfo.isBase) {
         const firstBaseIdx = this.layerRegistry.firstBaseIdx;
         if (firstBaseIdx === -1)
           this.layerRegistry.insertAt(layerInfo, this.layers.length);
@@ -1050,7 +1108,7 @@
       const layerInfo = this.layerRegistry.remove(id);
       if (!layerInfo) return false;
 
-      const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id); // safety fallback
+      const layer = this.findLayer(layerInfo); // `li.layer` or fallback via findLayer
       if (layer) {
         if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
         this.clearAllLayers(layer);
@@ -1429,7 +1487,7 @@
 
         for (let i = 0; i < this.layers.length; i++) {
           const li = this.layers[i];
-          const layer = this.findLayer(li.id);
+          const layer = this.findLayer(li);
           const hasLayer = layer && this.map.hasLayer(layer);
           const isTile = layer instanceof L.TileLayer;
           const z = this.computeZIndex(i, isTile);
@@ -1519,7 +1577,7 @@
       for (let i = 0; i < this.layers.length; i++) {
         const li = this.layers[i];
         if (!li.isBase) continue;
-        const layer = this.findLayer(li.id);
+        const layer = this.findLayer(li);
         if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
         delete attrCtrl._attributions[layer.options.attribution];
         if (!topAttr && this.map.hasLayer(layer)) topAttr = layer.options.attribution;
@@ -1626,8 +1684,8 @@
       let hasOverlays = false;
 
       for (let i = 0; i < this.m.layers.length; i++) {
-        const l = this.m.layers[i];
-        if (!l.isBase && !hasOverlays) {
+        const li = this.m.layers[i];
+        if (!li.isBase && !hasOverlays) {
           hasOverlays = true;
           frag.appendChild(
             this.renderToggleAllRow(
@@ -1636,14 +1694,14 @@
             ),
           );
         }
-        if (l.isBase && !hasBaseMaps) {
+        if (li.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
           frag.appendChild(
             this.renderToggleAllRow(CONST.GROUP.BASE, `${CONST.name}.base_map_label`),
           );
         }
-        const group = l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
-        const item = this.renderLayerItem(l, i);
+        const group = li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
+        const item = this.renderLayerItem(li, i);
         if (this.foldedGroups.has(group))
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);
         frag.appendChild(item);
@@ -1759,8 +1817,8 @@
       );
     }
 
-    renderLayerItem(l, idx) {
-      const en = LayerUtils.escapeHTML(l.name);
+    renderLayerItem(li, idx) {
+      const en = LayerUtils.escapeHTML(li.name);
       const children = [
         foliplus.dom.el(
           "span",
@@ -1780,9 +1838,9 @@
         ),
         foliplus.dom.el("label", null, en),
       ];
-      if (l.iconSvg)
+      if (li.iconSvg)
         children.push({
-          html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${l.iconSvg}</div>`,
+          html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${li.iconSvg}</div>`,
         });
       else
         children.push(foliplus.dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }));
@@ -1792,8 +1850,8 @@
           class: CONST.CLASSES.LAYER_ITEM,
           draggable: "true",
           [CONST.DATA.INDEX]: String(idx),
-          [CONST.DATA.LAYER_ID]: l.id,
-          "data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+          [CONST.DATA.LAYER_ID]: li.id,
+          "data-layer-type": li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
         },
         ...children,
       );
@@ -1835,14 +1893,14 @@
 
       for (let i = 0; i < this.m.layers.length; i++) {
         const layerInfo = this.m.layers[i];
-        const id = layerInfo.id;
-        const layer = this.m.findLayer(id);
+        const layer = this.m.findLayer(layerInfo);
 
         if (inputs[i]) {
           const hasLayer = layer != null;
           const isCallbackOnly = !hasLayer && layerInfo.onToggle;
           if (isCallbackOnly) inputs[i].checked = layerInfo.visible !== false;
           else inputs[i].checked = hasLayer && this.m.map.hasLayer(layer);
+          this.syncVisibility(layerInfo, layer, inputs[i].checked);
 
           inputs[i].title = _(
             `${CONST.name}.${inputs[i].checked ? "deselect_tooltip" : "select_tooltip"}`,
@@ -1979,7 +2037,7 @@
         const idx = parseInt(cb.dataset.index, 10);
         if (isNaN(idx) || idx < 0 || idx >= this.m.layers.length) return;
         const layerInfo = this.m.layers[idx];
-        const layer = this.m.findLayer(layerInfo.id);
+        const layer = this.m.findLayer(layerInfo);
 
         cb.checked = newState;
         cb.title = _(
@@ -1992,7 +2050,7 @@
           newState ? this.m.map.addLayer(layer) : this.m.map.removeLayer(layer);
         if (newState && layer) layer.options.paneSet = false;
         if (layerInfo.onToggle) layerInfo.onToggle(newState);
-        if (!layer) layerInfo.visible = newState;
+        this.syncVisibility(layerInfo, layer, newState);
       });
 
       if (group === CONST.GROUP.BASE && !newState) {
@@ -2025,6 +2083,24 @@
       );
     }
 
+    /**
+     * Derive and store a layer's effective visibility.
+     *
+     * For layers with a real Leaflet object the map is the source of truth
+     * (`map.hasLayer`); callback-only layers (no `layer`) fall back to the
+     * checkbox/operation state. Shared by toggleAll, handleChange, and
+     * initTypesAndVisibility so the visible-tracking rule lives in exactly
+     * one place.
+     * @param {Object} layerInfo - Layer info to update.
+     * @param {Object|null} layer - Resolved Leaflet layer, or null.
+     * @param {boolean} fallback - Value used when there is no Leaflet layer.
+     * @returns {boolean} The effective visibility stored on layerInfo.
+     */
+    syncVisibility(layerInfo, layer, fallback) {
+      layerInfo.visible = layer ? this.m.map.hasLayer(layer) : fallback;
+      return layerInfo.visible;
+    }
+
     handleChange(e) {
       const target = e.target;
       if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
@@ -2040,7 +2116,7 @@
       const idx = parseInt(target.dataset.index, 10);
       if (isNaN(idx) || idx < 0 || idx >= this.m.layers.length) return;
       const layerInfo = this.m.layers[idx];
-      const layer = this.m.findLayer(layerInfo.id);
+      const layer = this.m.findLayer(layerInfo);
       const item = target.closest(CONST.SEL.LAYER_ITEM);
 
       if (layerInfo.isBase) this.hideColorLayer();
@@ -2060,7 +2136,7 @@
       );
 
       if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
-      if (!layer) layerInfo.visible = target.checked;
+      this.syncVisibility(layerInfo, layer, target.checked);
 
       this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
       this.m.enforceOrder();
@@ -2192,7 +2268,7 @@
 
       for (let i = 0; i < this.m.layers.length; i++) {
         if (this.m.layers[i].isBase) {
-          const bLayer = this.m.findLayer(this.m.layers[i].id);
+          const bLayer = this.m.findLayer(this.m.layers[i]);
           if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
         }
       }
@@ -2235,7 +2311,7 @@
       );
       for (let i = 0; i < this.m.layers.length; i++)
         if (this.m.layers[i].isBase && i !== exceptIdx) {
-          const bLayer = this.m.findLayer(this.m.layers[i].id);
+          const bLayer = this.m.findLayer(this.m.layers[i]);
           if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
           if (inputs[i]) {
             inputs[i].checked = false;
