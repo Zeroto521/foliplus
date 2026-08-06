@@ -39,7 +39,6 @@
     SEL: {
       CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
       CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
-      EXCLUDE: ".foliplus-del-icon, .leaflet-popup",
       LABEL: ".foliplus-measure-label, .leaflet-div-icon",
       /**
        * Opt-out attribute for export.  Set this attribute on any element
@@ -517,9 +516,8 @@
      *
      *  Collects ALL direct children of each pane — no CSS class predicate —
      *  so any Leaflet plugin's markers are automatically included without
-     *  maintaining a whitelist.  Elements that should be excluded can:
-     *    a) opt-out via `data-foliplus-export` attribute, or
-     *    b) match the `CONST.SEL.EXCLUDE` selector.
+     *  maintaining a whitelist.  Elements that should be excluded can opt
+     *  out via the `data-foliplus-export` attribute.
      *
      *  SVG elements and canvas elements are skipped: they have their own
      *  dedicated rendering passes (renderPaneSVG / renderPaneCanvas). */
@@ -537,10 +535,7 @@
             el.tagName === "CANVAS" ||
             el.tagName === "SVG" ||
             el.matches(CONST.SEL.SKIP_EXPORT) ||
-            el.closest(CONST.SEL.SKIP_EXPORT, pane) ||
-            el.querySelector(CONST.SEL.SKIP_EXPORT) ||
-            el.matches(CONST.SEL.EXCLUDE) ||
-            el.closest(CONST.SEL.EXCLUDE, pane)
+            el.querySelector(CONST.SEL.SKIP_EXPORT)
           )
             continue;
           if (seen.has(el)) continue;

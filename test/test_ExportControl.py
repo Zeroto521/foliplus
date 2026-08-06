@@ -217,11 +217,11 @@ class TestExportControlRendering:
         assert "path, polygon, polyline, circle" in html
 
     def test_collect_layer_markers_excludes(self, base_map: folium.Map):
-        """collectLayerMarkers excludes del-icons and popups via CONST.SEL.EXCLUDE."""
+        """collectLayerMarkers excludes opt-out elements via SKIP_EXPORT."""
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "collectLayerMarkers" in html
-        assert "CONST.SEL.EXCLUDE" in html
+        assert "CONST.SEL.SKIP_EXPORT" in html
 
     def test_debounce_on_map_change(self, base_map: folium.Map):
         """onMapChange uses foliplus.debounce."""
@@ -269,10 +269,10 @@ class TestExportControlRendering:
         assert "ExportControl.btn_title" in html
 
     def test_del_icon_exclusion(self, base_map: folium.Map):
-        """del-icon and leaflet-popup are excluded from marker roots."""
+        """del-icon elements are excluded via data-foliplus-export attribute."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "CONST.SEL.EXCLUDE" in html
+        assert 'data-foliplus-export="exclude"' in html
 
     def test_hidden_class(self, base_map: folium.Map):
         """foliplus-export-hidden class for hiding controls during render."""
@@ -355,7 +355,6 @@ class TestExportControlRendering:
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "CONST.SEL.SKIP_EXPORT" in html
-        assert "CONST.SEL.EXCLUDE" in html
         assert "el.tagName === " in html
 
     def test_render_fontawesome_pseudo_element(self, base_map: folium.Map):
@@ -461,7 +460,6 @@ class TestExportControlRendering:
         html = render(base_map)
         assert "collectLayerMarkers" in html
         assert "CONST.SEL.SKIP_EXPORT" in html
-        assert "CONST.SEL.EXCLUDE" in html
 
     def test_render_pane_svg_method(self, base_map: folium.Map):
         """renderPaneSVG renders SVG content from a single pane."""
