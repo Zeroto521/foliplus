@@ -211,7 +211,7 @@ class TestLayerControlRendering:
 
         # Base maps have the attribute; overlay items should be checked separately
         assert (
-            'data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY'
+            'data-layer-type": li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY'
             in html
         )
 
@@ -564,7 +564,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "this.uiContainer.querySelector" in html
-        assert "CONST.DATA.LAYER_ID]: l.id" in html
+        assert "CONST.DATA.LAYER_ID]: li.id" in html
 
     def test_register_layer_pending_when_no_ui(self, base_map: folium.Map):
         """registerLayer queues registrations when UI not yet rendered."""

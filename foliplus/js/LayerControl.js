@@ -510,9 +510,9 @@
     normalizeGroups() {
       const overlays = [];
       const bases = [];
-      for (const l of this.items) {
-        if (l && l.isBase) bases.push(l);
-        else overlays.push(l);
+      for (const li of this.items) {
+        if (li && li.isBase) bases.push(li);
+        else overlays.push(li);
       }
       this.items.splice(0, this.items.length, ...overlays.concat(bases));
       this.byId = new Map(this.items.map((l) => [l.id, l]));
@@ -931,15 +931,16 @@
      * `registry.get(id)`), the redundant `registry.get(id)` hash lookup
      * is skipped.
      *
-     * @param {string|Object} idOrLi - Layer ID or layerInfo object.
+     * @param {string|Object} idOrInfo - Layer ID or layerInfo object.
      * @returns {Object|null} Leaflet layer or null.
      */
-    findLayer(idOrLi) {
-      const li = typeof idOrLi === "string" ? this.layerRegistry.get(idOrLi) : idOrLi;
+    findLayer(idOrInfo) {
+      const li =
+        typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
       if (li?.layer) return li.layer;
       return LayerUtils.findLayer(
         this.map,
-        typeof idOrLi === "string" ? idOrLi : li?.id,
+        typeof idOrInfo === "string" ? idOrInfo : li?.id,
       );
     }
 
@@ -994,6 +995,9 @@
      *                                  like overlays.
      * @param {string} [opts.paneName] - Custom pane name for z-order grouping.
      * @param {string} [opts.iconSvg]  - Custom SVG icon HTML for the type column.
+     * @param {Function} [opts.onToggle] - Callback invoked when visibility toggles.
+     * @param {Function} [opts.onZIndex] - Callback invoked when z-index changes.
+     * @param {Object} [opts.canvas]  - Managed canvas element for the layer.
      * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
      */
     registerLayer(opts) {
@@ -1673,8 +1677,8 @@
       let hasOverlays = false;
 
       for (let i = 0; i < this.m.layers.length; i++) {
-        const l = this.m.layers[i];
-        if (!l.isBase && !hasOverlays) {
+        const li = this.m.layers[i];
+        if (!li.isBase && !hasOverlays) {
           hasOverlays = true;
           frag.appendChild(
             this.renderToggleAllRow(
@@ -1683,14 +1687,14 @@
             ),
           );
         }
-        if (l.isBase && !hasBaseMaps) {
+        if (li.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
           frag.appendChild(
             this.renderToggleAllRow(CONST.GROUP.BASE, `${CONST.name}.base_map_label`),
           );
         }
-        const group = l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
-        const item = this.renderLayerItem(l, i);
+        const group = li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
+        const item = this.renderLayerItem(li, i);
         if (this.foldedGroups.has(group))
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);
         frag.appendChild(item);
@@ -1806,8 +1810,8 @@
       );
     }
 
-    renderLayerItem(l, idx) {
-      const en = LayerUtils.escapeHTML(l.name);
+    renderLayerItem(li, idx) {
+      const en = LayerUtils.escapeHTML(li.name);
       const children = [
         foliplus.dom.el(
           "span",
@@ -1827,9 +1831,9 @@
         ),
         foliplus.dom.el("label", null, en),
       ];
-      if (l.iconSvg)
+      if (li.iconSvg)
         children.push({
-          html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${l.iconSvg}</div>`,
+          html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${li.iconSvg}</div>`,
         });
       else
         children.push(foliplus.dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }));
@@ -1839,8 +1843,8 @@
           class: CONST.CLASSES.LAYER_ITEM,
           draggable: "true",
           [CONST.DATA.INDEX]: String(idx),
-          [CONST.DATA.LAYER_ID]: l.id,
-          "data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+          [CONST.DATA.LAYER_ID]: li.id,
+          "data-layer-type": li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
         },
         ...children,
       );
