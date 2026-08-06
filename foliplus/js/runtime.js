@@ -102,7 +102,7 @@
       "onmousemove",
       "onmouseup",
     ]),
-    GEO_CACHE_MAX: 1000,
+    GEO_CACHE_MAX: 500,
   };
 
   const hintIcons = {};
