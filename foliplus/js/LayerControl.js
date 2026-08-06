@@ -821,6 +821,13 @@
       this.loadSavedOrder();
       this.layerRegistry.normalizeGroups();
 
+      // Run an initial enforceOrder before the UI is attached so that
+      // every managed layer's z-index is correct from the first paint.
+      // Without this, markers appear at the default pane z-index and
+      // "flash" to their correct position 300ms later when the deferred
+      // initTypesAndVisibility → enforceOrder fires.
+      this.enforceOrder();
+
       // Expose the manager as the public LayerAPI. The full instance is
       // attached so tests and debuggers can reach internals, but the stable
       // public contract is the bound methods and properties below:
