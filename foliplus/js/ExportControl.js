@@ -925,8 +925,10 @@
     }
 
     updateBoxStyle(el, r) {
-      el.style.left = `${r.left}px`;
-      el.style.top = `${r.top}px`;
+      // Box in mapPane — convert container coords to layer coords
+      const panePos = L.DomUtil.getPosition(this.map._mapPane);
+      el.style.left = `${r.left - panePos.x}px`;
+      el.style.top = `${r.top - panePos.y}px`;
       el.style.width = `${r.width}px`;
       el.style.height = `${r.height}px`;
     }
@@ -993,7 +995,7 @@
 
       const cropBox = foliplus.dom.el("div", {
         class: CONST.CLASSES.BOX,
-        parent: this.mapContainer,
+        parent: this.map._mapPane,
       });
 
       ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach((pos) => {
@@ -1094,26 +1096,19 @@
         e.stopPropagation();
         this.doExport();
       };
-      // Follow geo bounds during pan (move updates container coordinates).
-      // Hide during zoom to avoid visual lag.
+      // RAF-throttled during pan for smooth following, zoomend after zoom
+      // animation completes — avoids wrong intermediate coordinates from
+      // latLngToContainerPoint during Leaflet's CSS scale animation.
       this.mapMoveCleanup = foliplus.bindMapSync({
         map: this.map,
-        hideEvents: ["zoomstart"],
-        showEvents: ["zoomend"],
-        updateEvents: ["move", "zoomend"],
-        onUpdate: () => {
+        updateEvents: ["zoomend"],
+        onMove: () => {
           if (!this.cropState || !this.cropState.locked) return;
           this.onMapChange();
         },
-        onHide: () => {
+        onUpdate: () => {
           if (!this.cropState || !this.cropState.locked) return;
-          this.cropState.box.style.display = "none";
-          this.cropState.overlay.style.display = "none";
-        },
-        onShow: () => {
-          if (!this.cropState || !this.cropState.locked) return;
-          this.cropState.box.style.display = "";
-          this.cropState.overlay.style.display = "";
+          this.onMapChange();
         },
       });
       this.onMapChange();
