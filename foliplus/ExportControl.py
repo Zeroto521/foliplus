@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from typing import Literal, get_args
+
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
+FORMAT = Literal["png", "jpeg", "webp"]
+
 
 class ExportControl(BaseControl):
-    """Capture a specific area of the map and export it as a PNG image.
+    """Capture a specific area of the map and export it as an image.
 
     Parameters
     ----------
@@ -14,8 +18,19 @@ class ExportControl(BaseControl):
         Button position. One of ``"topleft"``, ``"topright"``, ``"bottomleft"``,
         ``"bottomright"``.
 
-    filename : str, default "map.png"
-        Default filename for the exported image.
+    filename : str, default "map"
+        Base filename for the exported image, without the extension. The correct
+        extension (``.png``, ``.jpeg``, or ``.webp``) is appended automatically based on
+        :paramref:`~ExportControl.format`.
+
+    format : str, default "png"
+        Image format for the export. One of ``"png"``, ``"jpeg"``, or ``"webp"``. JPEG
+        and WebP are lossy and much smaller than PNG; PNG preserves transparency
+        (recommended when ``background`` is None).
+
+    quality : float, default 0.92
+        Compression quality for ``"jpeg"`` and ``"webp"`` formats, ranging from
+        0.0 (worst) to 1.0 (best). Ignored for ``"png"``.
 
     scale : float, default 2.0
         DPI scaling. 1.0 is original resolution, 2.0 is suitable for Retina screens,
@@ -23,6 +38,7 @@ class ExportControl(BaseControl):
 
     background : str, optional
         Export background color (e.g., ``"#ffffff"``). Default is None (transparent).
+        Required for ``"jpeg"`` (JPEG has no alpha channel).
 
     timeout : int, default 7500
         Maximum time (ms) to wait for map tiles to finish loading before capture.
@@ -39,26 +55,53 @@ class ExportControl(BaseControl):
     controls (e.g. ``MeasureControl``'s delete icons) and is the recommended way for
     third-party controls to exclude internal UI without coupling to ``ExportControl``.
 
+    **Text labels.**  Elements that should be rendered as text labels (with background
+    fill and centered text) can be marked with  ``data-foliplus-export="label"``.
+    ``MeasureControl``'s distance labels use this attribute.
+
+    **Keyboard shortcuts.**
+    While the crop box is visible:
+
+    * ``Enter`` — lock the current crop area, then begin export
+    * ``Escape`` — unlock or dismiss the crop box
+    * ``Ctrl+Z`` / ``Cmd+Z`` — undo the last crop adjustment
+
+    **Image format.**  The download filename is ``{filename}.{format}``.  For
+    example, ``filename="map"`` with ``format="jpeg"`` produces ``map.jpeg``.
+    JPEG and WebP use the :paramref:`~ExportControl.quality` parameter for
+    compression; PNG is always lossless.
+
     Examples
     --------
     >>> import folium
     >>> from foliplus import ExportControl
     >>> m = folium.Map()
     >>> ExportControl(position="bottomright").add_to(m)
+    >>> ExportControl(format="jpeg", quality=0.8, background="#ffffff").add_to(m)
+    >>> ExportControl(scale=3.0, filename="print").add_to(m)
     """
 
     def __init__(
         self,
         *,
         position: Position = "bottomright",
-        filename: str = "map.png",
+        filename: str = "map",
+        format: FORMAT = "png",
+        quality: float = 0.92,
         scale: float = 2.0,
         background: str | None = None,
         timeout: int = 7500,
         locale: str | LocaleConfig | None = None,
     ):
+        if format not in get_args(FORMAT):
+            raise ValueError(
+                f"format must be one of {get_args(FORMAT)}, got {format!r}"
+            )
+
         super().__init__(position=position, locale=locale)
         self.filename = filename
+        self.format = format
+        self.quality = quality
         self.scale = scale
         self.background = background
         self.timeout = timeout

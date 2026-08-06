@@ -22,19 +22,25 @@ class TestExportControlPython:
 
     def test_default_args(self):
         ctrl = ExportControl()
-        assert ctrl.filename == "map.png"
+        assert ctrl.filename == "map"
+        assert ctrl.format == "png"
+        assert ctrl.quality == 0.92
         assert ctrl.scale == 2.0
         assert ctrl.background is None
         assert ctrl.timeout == 7500
 
     def test_custom_args(self):
         ctrl = ExportControl(
-            filename="my_map.png",
+            filename="my_map",
+            format="jpeg",
+            quality=0.8,
             scale=3.5,
             background="#ffffff",
             timeout=10000,
         )
-        assert ctrl.filename == "my_map.png"
+        assert ctrl.filename == "my_map"
+        assert ctrl.format == "jpeg"
+        assert ctrl.quality == 0.8
         assert ctrl.scale == 3.5
         assert ctrl.background == "#ffffff"
         assert ctrl.timeout == 10000
@@ -59,6 +65,21 @@ class TestExportControlPython:
     def test_timeout_zero(self):
         assert ExportControl(timeout=0).timeout == 0
 
+    def test_format_default(self):
+        assert ExportControl().format == "png"
+
+    def test_format_jpeg(self):
+        assert ExportControl(format="jpeg").format == "jpeg"
+
+    def test_format_webp(self):
+        assert ExportControl(format="webp").format == "webp"
+
+    def test_quality_default(self):
+        assert ExportControl().quality == 0.92
+
+    def test_quality_custom(self):
+        assert ExportControl(quality=0.5).quality == 0.5
+
     def test_locale_config(self):
         from foliplus.locale import LocaleConfig
 
@@ -81,13 +102,17 @@ class TestExportControlRendering:
 
     def test_custom_params_rendering(self, base_map: folium.Map):
         ExportControl(
-            filename="custom.png",
+            filename="custom",
+            format="jpeg",
+            quality=0.8,
             scale=1.5,
             background="#000000",
             timeout=5000,
         ).add_to(base_map)
         html = render(base_map)
-        assert "custom.png" in html
+        assert "custom" in html
+        assert "jpeg" in html
+        assert "0.8" in html
         assert "1.5" in html
         assert "#000000" in html
         assert "5000" in html
@@ -134,6 +159,8 @@ class TestExportControlRendering:
         assert "CROP" in html
         assert "SEL" in html
         assert "CLASSES" in html
+        assert "MIME" in html
+        assert "QUALITY" in html
 
     def test_bitmap_cache_shared(self, base_map: folium.Map):
         """bitmapCache is shared between tile and sprite loading."""
@@ -141,7 +168,34 @@ class TestExportControlRendering:
         html = render(base_map)
         assert "bitmapCache" in html
         assert "loadImageBitmap" in html
-        assert "TILE_CACHE_MAX" in html
+        assert "CACHE" in html
+        assert "TILE_MAX" in html
+
+    def test_format_mime_lookup(self, base_map: folium.Map):
+        """MIME type lookup table is present in rendered JS."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "CONST.MIME" in html
+        assert "image/png" in html
+        assert "image/jpeg" in html
+        assert "image/webp" in html
+
+    def test_undo_stack(self, base_map: folium.Map):
+        """Undo stack and Ctrl+Z handler are present."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "undoStack" in html
+        assert "undoCropBox" in html
+        assert "pushUndoState" in html
+        assert "ctrlKey" in html
+        assert "e.key.toLowerCase()" in html
+
+    def test_preview_dismiss(self, base_map: folium.Map):
+        """Preview image can be dismissed by click."""
+        ExportControl().add_to(base_map)
+        html = render(base_map)
+        assert "addEventListener" in html
+        assert "dismissPreview" in html
 
     def test_render_methods_present(self, base_map: folium.Map):
         """All render sub-methods are defined."""
@@ -290,9 +344,9 @@ class TestExportControlRendering:
 
     def test_filename_rendered(self, base_map: folium.Map):
         """Filename is injected into the JS template."""
-        ExportControl(filename="custom.png").add_to(base_map)
+        ExportControl(filename="custom").add_to(base_map)
         html = render(base_map)
-        assert "custom.png" in html
+        assert "custom" in html
         assert "FILENAME" in html
 
     def test_css_loaded(self, base_map: folium.Map):

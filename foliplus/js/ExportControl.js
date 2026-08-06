@@ -19,7 +19,15 @@
     SCALE: {{ this.scale }},
     BACKGROUND: {{ '"' + this.background + '"' if this.background else "null" }},
     FILENAME: "{{ this.filename }}",
-    FORMAT: "image/png",
+    FORMAT: "{{ this.format }}",
+    QUALITY: {{ this.quality }},
+    // MIME type lookup (format → toBlob mime, toDataURL mime)
+    MIME: {
+      DEFAULT: "image/png", // Default MIME when CONST.FORMAT is not in MIME
+      png: "image/png",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
+    },
     CLASSES: {
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
@@ -53,7 +61,10 @@
        */
       SKIP_EXPORT: '[data-foliplus-export="exclude"]',
     },
-    TILE_CACHE_MAX: 500,
+    CACHE: {
+      UNDO_MAX: 20, // Max number of crop-box adjustment steps kept for undo
+      TILE_MAX: 1000,
+    },
   };
 
   // ==================== Runtime Guard ====================
@@ -79,7 +90,7 @@
   }
 
   // ==================== SVG Icons ====================
-  const SVGS = {
+  const SVGs = {
     CAMERA: `
       <svg viewBox="0 0 24 24">
         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -97,7 +108,7 @@
       </svg>`,
   };
 
-  foliplus.registerHintIcon(CONST.name, SVGS.CAMERA);
+  foliplus.registerHintIcon(CONST.name, SVGs.CAMERA);
 
   // ==================== CORS Pre-setup ====================
   // Set crossOrigin on ALL existing TileLayers so tiles load with CORS
@@ -147,7 +158,7 @@
     const blob = await resp.blob();
     const bitmap = await createImageBitmap(blob);
     bitmapCache.set(url, bitmap);
-    if (bitmapCache.size > CONST.TILE_CACHE_MAX) {
+    if (bitmapCache.size > CONST.CACHE.TILE_MAX) {
       const firstKey = bitmapCache.keys().next().value;
       const evicted = bitmapCache.get(firstKey);
       if (evicted) evicted.close();
@@ -355,7 +366,8 @@
         const dw = w * scale;
         const dh = h * scale;
         if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
-        const dataUrl = ce.toDataURL(CONST.FORMAT);
+        const mimeType = CONST.MIME[CONST.FORMAT] || CONST.MIME.DEFAULT;
+        const dataUrl = ce.toDataURL(mimeType);
         const img = await loadImage(dataUrl);
         ctx.drawImage(img, dx, dy, dw, dh);
       } catch {
@@ -500,7 +512,8 @@
           const dw = w * scale;
           const dh = h * scale;
           if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-          const dataUrl = ce.toDataURL(CONST.FORMAT);
+          const mimeType = CONST.MIME[CONST.FORMAT] || CONST.MIME.DEFAULT;
+          const dataUrl = ce.toDataURL(mimeType);
           const img = await loadImage(dataUrl);
           ctx.drawImage(img, dx, dy, dw, dh);
         } catch {
@@ -895,6 +908,9 @@
         startRect: null,
       };
 
+      /** Undo history for crop box adjustments. */
+      this.undoStack = [];
+
       this.onMouseDown = this.onMouseDown.bind(this);
       this.onMouseMove = this.onMouseMove.bind(this);
       this.onMouseUp = this.onMouseUp.bind(this);
@@ -1047,7 +1063,7 @@
           title: _(`${CONST.name}.btn_confirm`),
           parent: this.exportToolBar,
         },
-        { html: SVGS.CHECK },
+        { html: SVGs.CHECK },
       );
       foliplus.dom.el(
         "button",
@@ -1104,7 +1120,7 @@
           title: _(`${CONST.name}.btn_export`),
           parent: this.cropState.actions,
         },
-        { html: SVGS.DOWNLOAD },
+        { html: SVGs.DOWNLOAD },
       );
       foliplus.dom.el(
         "button",
@@ -1159,7 +1175,7 @@
           title: _(`${CONST.name}.btn_confirm`),
           parent: this.cropState.actions,
         },
-        { html: SVGS.CHECK },
+        { html: SVGs.CHECK },
       );
       foliplus.dom.el(
         "button",
@@ -1291,11 +1307,27 @@
       this.showHintWithInfo(r, _(`${CONST.name}.hint_unlocked`));
     }
 
+    pushUndoState() {
+      if (!this.cropState) return;
+      this.undoStack.push(Object.assign({}, this.cropState.rect));
+      if (this.undoStack.length > CONST.CACHE.UNDO_MAX) this.undoStack.shift();
+    }
+
+    undoCropBox() {
+      if (!this.cropState || !this.undoStack.length) return;
+      // If locked, unlock first so the user can see and continue adjusting
+      if (this.cropState.locked) this.unlockCropBox();
+      this.cropState.rect = this.undoStack.pop();
+      this.updateBoxStyle(this.cropState.box, this.cropState.rect);
+      this.showHintWithInfo(this.cropState.rect, _(`${CONST.name}.hint_unlocked`));
+    }
+
     onMouseUp() {
       this.dragState.dragging = false;
       this.dragState.dragType = null;
       document.removeEventListener("mousemove", this.onMouseMove);
       document.removeEventListener("mouseup", this.onMouseUp);
+      this.pushUndoState();
     }
 
     onKeyDown(e) {
@@ -1305,6 +1337,9 @@
       } else if (e.key === "Enter") {
         if (this.cropState && !this.cropState.locked) this.lockCropBox();
         else if (this.cropState?.locked) this.doExport();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        this.undoCropBox();
       }
     }
 
@@ -1439,37 +1474,49 @@
     /** Handle successful render: show preview and trigger download. */
     onRenderSuccess(canvas, hideEls) {
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
+      const mimeType = CONST.MIME[CONST.FORMAT] || CONST.MIME.DEFAULT;
       const prevImg = document.createElement("img");
-      prevImg.src = canvas.toDataURL(CONST.FORMAT);
+      prevImg.src = canvas.toDataURL(mimeType);
       prevImg.className = CONST.CLASSES.PREVIEW;
       document.body.appendChild(prevImg);
-      setTimeout(() => prevImg.remove(), foliplus.HINT_DURATION.SHORT);
-      canvas.toBlob((blob) => {
-        if (!blob) {
+      // Click to dismiss the preview early; otherwise auto-dismiss after SHORT.
+      const dismissPreview = () => prevImg.remove();
+      prevImg.addEventListener("click", dismissPreview);
+      setTimeout(() => {
+        prevImg.removeEventListener("click", dismissPreview);
+        prevImg.remove();
+      }, foliplus.HINT_DURATION.SHORT);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            this.showGlobalHint(
+              _(`${CONST.name}.status_fail`) + _(`${CONST.name}.err_gen_fail`),
+              foliplus.HINT_DURATION.LONG,
+              false,
+            );
+            this.isExporting = false;
+            return;
+          }
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          // Append the format extension to the base filename.
+          link.download = `${CONST.FILENAME}.${CONST.FORMAT}`;
+          link.href = url;
+          link.rel = "noopener";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
           this.showGlobalHint(
-            _(`${CONST.name}.status_fail`) + _(`${CONST.name}.err_gen_fail`),
+            _(`${CONST.name}.status_success`),
             foliplus.HINT_DURATION.LONG,
             false,
           );
           this.isExporting = false;
-          return;
-        }
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.download = CONST.FILENAME;
-        link.href = url;
-        link.rel = "noopener";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
-        this.showGlobalHint(
-          _(`${CONST.name}.status_success`),
-          foliplus.HINT_DURATION.LONG,
-          false,
-        );
-        this.isExporting = false;
-      }, CONST.FORMAT);
+        },
+        mimeType,
+        CONST.QUALITY,
+      );
     }
 
     /** Handle render failure. */
@@ -1493,7 +1540,7 @@
       const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
         cssClass: `foliplus-export-ctrl`,
         toggleTitle: _(`${CONST.name}.btn_title`),
-        toggleSvg: SVGS.CAMERA,
+        toggleSvg: SVGs.CAMERA,
         isLeft: CONST.position.indexOf("left") >= 0,
       });
       exportManager.attachUI(ctrl, toolBar);
