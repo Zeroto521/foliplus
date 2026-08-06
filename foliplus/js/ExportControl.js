@@ -19,6 +19,7 @@
     SCALE: {{ this.scale }},
     BACKGROUND: {{ '"' + this.background + '"' if this.background else "null" }},
     FILENAME: "{{ this.filename }}",
+    FORMAT: "image/png",
     CLASSES: {
       COLLAPSED: "collapsed",
       EXPANDED: "expanded",
@@ -354,7 +355,7 @@
         const dw = w * scale;
         const dh = h * scale;
         if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
-        const dataUrl = ce.toDataURL("image/png");
+        const dataUrl = ce.toDataURL(CONST.FORMAT);
         const img = await loadImage(dataUrl);
         ctx.drawImage(img, dx, dy, dw, dh);
       } catch {
@@ -499,7 +500,7 @@
           const dw = w * scale;
           const dh = h * scale;
           if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-          const dataUrl = ce.toDataURL("image/png");
+          const dataUrl = ce.toDataURL(CONST.FORMAT);
           const img = await loadImage(dataUrl);
           ctx.drawImage(img, dx, dy, dw, dh);
         } catch {
@@ -1439,7 +1440,7 @@
     onRenderSuccess(canvas, hideEls) {
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
       const prevImg = document.createElement("img");
-      prevImg.src = canvas.toDataURL("image/png");
+      prevImg.src = canvas.toDataURL(CONST.FORMAT);
       prevImg.className = CONST.CLASSES.PREVIEW;
       document.body.appendChild(prevImg);
       setTimeout(() => prevImg.remove(), foliplus.HINT_DURATION.SHORT);
@@ -1461,14 +1462,14 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), CONST.URL_REVOKE_DELAY);
+        setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
         this.showGlobalHint(
           _(`${CONST.name}.status_success`),
           foliplus.HINT_DURATION.LONG,
           false,
         );
         this.isExporting = false;
-      }, "image/png");
+      }, CONST.FORMAT);
     }
 
     /** Handle render failure. */
