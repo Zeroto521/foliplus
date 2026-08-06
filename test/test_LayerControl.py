@@ -211,7 +211,7 @@ class TestLayerControlRendering:
 
         # Base maps have the attribute; overlay items should be checked separately
         assert (
-            'data-layer-type": l.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY'
+            'data-layer-type": li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY'
             in html
         )
 
@@ -489,8 +489,7 @@ class TestLayerControlRendering:
         """iconSvg in registerLayer opts appears in the initialData template."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "iconSvg: opts.iconSvg ?? null" in html
-        assert "iconSvg: opts.iconSvg || null" in html
+        assert "iconSvg: opts.iconSvg ?? existingLi?.iconSvg ?? null" in html
 
     def test_discover_child_panes_depth_guard(self, base_map: folium.Map):
         """discoverChildPanes enforces recursion depth limit."""
@@ -565,7 +564,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "this.uiContainer.querySelector" in html
-        assert "CONST.DATA.LAYER_ID]: l.id" in html
+        assert "CONST.DATA.LAYER_ID]: li.id" in html
 
     def test_register_layer_pending_when_no_ui(self, base_map: folium.Map):
         """registerLayer queues registrations when UI not yet rendered."""
@@ -949,7 +948,7 @@ class TestLayerControlRendering:
         """LayerUtils.findLayer and LayerAPI.findLayer resolve layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "LayerUtils.findLayer(this.map, id)" in html
+        assert "return LayerUtils.findLayer(" in html
         assert "this.findLayer = this.findLayer.bind(this)" in html
 
     def test_for_each_leaf_utility(self, base_map: folium.Map):
@@ -1056,8 +1055,8 @@ class TestLayerControlRendering:
         """registerLayer stores onToggle/onZIndex on layerInfo."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "onToggle: opts.onToggle || null" in html
-        assert "onZIndex: opts.onZIndex || null" in html
+        assert "onToggle: opts.onToggle ?? existingLi?.onToggle ?? null" in html
+        assert "onZIndex: opts.onZIndex ?? existingLi?.onZIndex ?? null" in html
 
     def test_layer_callbacks_consumed(self, base_map: folium.Map):
         """enforceOrder and handleChange consume onZIndex/onToggle."""
@@ -1133,13 +1132,13 @@ class TestLayerControlRendering:
         """handleChange records layerInfo.visible for callback-only layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layerInfo.visible = target.checked" in html
+        assert "this.syncVisibility(layerInfo, layer, target.checked)" in html
 
     def test_callback_only_visible_tracking_in_toggle_all(self, base_map: folium.Map):
         """toggleAll records layerInfo.visible for callback-only layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "layerInfo.visible = newState" in html
+        assert "this.syncVisibility(layerInfo, layer, newState)" in html
 
     def test_init_types_visibility_respects_callback_only_state(
         self, base_map: folium.Map
@@ -2444,6 +2443,124 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
+    def test_register_re_register_preserves_fields(self, browser, tmp_path):
+        """A partial re-register never drops previously registered fields.
+
+        createLayerInfo is idempotent: fields absent from the second opts
+        (layer/paneName/iconSvg/onToggle/onZIndex/name/isBase) fall back to
+        the existing layerInfo instead of being reset to defaults.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html_path = tmp_path / "test_reregister_preserves.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+
+                const fg = L.featureGroup();
+                const onT = () => {};
+                const onZ = () => {};
+                api.registerLayer({
+                    id: '__keep__',
+                    name: 'Keep Me',
+                    isBase: true,
+                    layer: fg,
+                    paneName: 'customPane',
+                    iconSvg: '<svg></svg>',
+                    onToggle: onT,
+                    onZIndex: onZ,
+                });
+                const before = api.layers.find(l => l.id === '__keep__');
+                const beforeCb = {
+                    name: before.name, isBase: before.isBase,
+                    layerSame: before.layer === fg,
+                    paneName: before.paneName,
+                    iconSvg: before.iconSvg,
+                    hasOnToggle: before.onToggle === onT,
+                    hasOnZIndex: before.onZIndex === onZ,
+                };
+
+                // Re-register with only the id — nothing else should change.
+                api.registerLayer({ id: '__keep__' });
+                const after = api.layers.find(l => l.id === '__keep__');
+                const afterCb = {
+                    name: after.name, isBase: after.isBase,
+                    layerSame: after.layer === fg,
+                    paneName: after.paneName,
+                    iconSvg: after.iconSvg,
+                    hasOnToggle: after.onToggle === onT,
+                    hasOnZIndex: after.onZIndex === onZ,
+                };
+
+                api.unregisterLayer('__keep__');
+                return { before: beforeCb, after: afterCb };
+            }""")
+            assert result is not None and "error" not in result, result
+            for phase in ("before", "after"):
+                r = result[phase]
+                assert r["name"] == "Keep Me", f"{phase}: name lost"
+                assert r["isBase"] is True, f"{phase}: isBase lost"
+                assert r["layerSame"] is True, f"{phase}: layer lost"
+                assert r["paneName"] == "customPane", f"{phase}: paneName lost"
+                assert r["iconSvg"] == "<svg></svg>", f"{phase}: iconSvg lost"
+                assert r["hasOnToggle"] is True, f"{phase}: onToggle lost"
+                assert r["hasOnZIndex"] is True, f"{phase}: onZIndex lost"
+        finally:
+            page.close()
+
+    def test_register_resolves_layer_from_map(self, browser, tmp_path):
+        """createLayerInfo resolves layer from window globals when opts.layer is absent.
+
+        registerLayer without a `layer` opts falls back to LayerUtils.findLayer
+        (map._layers / window[id]) inside createLayerInfo, so li.layer is
+        populated without a separate resolution pass.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+
+        html_path = tmp_path / "test_resolve_layer_from_map.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+
+                // Simulate a folium-style global var that findLayer resolves.
+                window['__resolved_layer__'] = L.featureGroup().addTo(api.map);
+                api.registerLayer({ id: '__resolved_layer__' });
+                const li = api.layers.find(l => l.id === '__resolved_layer__');
+
+                const out = {
+                    resolved: !!li.layer,
+                    sameAsGlobal: li.layer === window['__resolved_layer__'],
+                };
+                api.unregisterLayer('__resolved_layer__');
+                delete window['__resolved_layer__'];
+                return out;
+            }""")
+            assert result is not None and "error" not in result, result
+            assert result["resolved"] is True, "layer not resolved from map"
+            assert result["sameAsGlobal"] is True, "resolved layer != window global"
+        finally:
+            page.close()
+
     def test_extract_points_api(self, browser, tmp_path):
         """extractPoints returns geo points from registered layers."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -3526,6 +3643,81 @@ class TestLayerControlEdgeCases:
             assert result["afterReplace"]["hasX"] is True, "replace missing new id"
             assert result["afterReplace"]["hasOld"] is False, "replace left old id"
             assert result["afterReplace"]["first"] == "x", "replace order wrong"
+        finally:
+            page.close()
+
+    def test_initial_data_normalized_into_full_layerinfo(self, browser, tmp_path):
+        """Initial data entries get the full layerInfo field set.
+
+        Plain template entries are only {name, id, visible, isBase} — the
+        registry must normalize them through createLayerInfo so every entry
+        carries the complete field set (paneName/iconSvg/type/canvas/
+        onToggle/onZIndex present).
+
+        `li.layer` resolution is intentionally NOT asserted here: it is a
+        best-effort, timing-sensitive lookup (script order of the folium
+        template can define a layer's global var after the manager is
+        constructed) and is recovered lazily at runtime via the
+        `li.layer || findLayer()` fallback.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
+        folium.FeatureGroup(name="Markers", overlay=True, show=True).add_to(m)
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_init_normalized.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const coll = api.layerRegistry;
+                if (!coll) return { error: 'no layerRegistry exposed' };
+
+                const KEYS = [
+                    'name', 'id', 'visible', 'isBase', 'paneName',
+                    'iconSvg', 'type', 'layer', 'canvas', 'onToggle', 'onZIndex',
+                ];
+                const out = { entries: [] };
+                for (const li of coll) {
+                    const entry = {
+                        id: li.id,
+                        isBase: li.isBase,
+                        hasAllKeys: true,
+                        missing: [],
+                    };
+                    for (const k of KEYS)
+                        if (!(k in li)) { entry.hasAllKeys = false; entry.missing.push(k); }
+                    entry.typeNull = li.type === null;
+                    out.entries.push(entry);
+                }
+                return out;
+            }""")
+            assert result is not None and "error" not in result, (
+                result if result else "LayerAPI not found"
+            )
+            # tiles=None avoids folium's default OSM, so only the two
+            # explicitly added layers appear as initial data.
+            assert len(result["entries"]) == 2, (
+                f"expected 2 initial layers, got {result['entries']}"
+            )
+            for entry in result["entries"]:
+                assert entry["hasAllKeys"] is True, (
+                    f"layer {entry['id']} missing fields: {entry['missing']}"
+                )
+                assert entry["typeNull"] is True, (
+                    f"layer {entry['id']} type should start null"
+                )
+            # One overlay (isBase=false) and one base (isBase=true)
+            flags = sorted(e["isBase"] for e in result["entries"])
+            assert flags == [False, True], f"isBase flags wrong: {flags}"
         finally:
             page.close()
 
