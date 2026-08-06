@@ -126,7 +126,11 @@
   const loadImageBitmap = async (url) => {
     const cached = tileBitmapCache.get(url);
     if (cached) return cached;
-    const resp = await fetch(url, { mode: "cors", cache: "force-cache" });
+    const resp = await fetch(url, {
+      mode: "cors",
+      cache: "force-cache",
+      signal: AbortSignal.timeout(CONST.TIMING.TIMEOUT),
+    });
     if (!resp.ok) return null;
     const blob = await resp.blob();
     const bitmap = await createImageBitmap(blob);
@@ -550,7 +554,11 @@
         if (m && !m[1].startsWith("data:") && !spriteMap.has(m[1])) {
           spriteMap.set(m[1], null);
           loadQueue.push(
-            fetch(m[1], { mode: "cors", cache: "force-cache" })
+            fetch(m[1], {
+              mode: "cors",
+              cache: "force-cache",
+              signal: AbortSignal.timeout(CONST.TIMING.TIMEOUT),
+            })
               .then((r) => (r.ok ? r.blob() : null))
               .then((blob) => (blob ? createImageBitmap(blob) : null))
               .then((bmp) => spriteMap.set(m[1], bmp))
