@@ -104,6 +104,7 @@ class TestExportControlRendering:
         assert "lockCropBox" in html
         assert "unlockCropBox" in html
         assert "removeCropBox" in html
+        assert "restoreFromSavedBounds" in html
         assert "8-way" in html or "tl" in html
 
     def test_hooks_and_events(self, base_map: folium.Map):
@@ -402,7 +403,7 @@ class TestExportControlRendering:
         """SVG serialization injects xmlns when missing."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert 'xmlns="http://www.w3.org/2000/svg"' in html
+        assert "CONST.SVG_NS" in html
         assert "src.includes" in html
 
     def test_svg_length_check(self, base_map: folium.Map):

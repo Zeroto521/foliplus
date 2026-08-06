@@ -14,8 +14,6 @@
     TIMING: {
       URL_REVOKE_DELAY: 10000,
       TIMEOUT: {{ this.timeout }},
-      PREVIEW_REMOVE: 3000,
-      RENDER_DELAY: 1500,
       RESTORE_DELAY: 200,
     },
     SCALE: {{ this.scale }},
@@ -46,6 +44,7 @@
       LABEL: ".foliplus-measure-label, .leaflet-div-icon",
       EXCLUDE: ".foliplus-del-icon, .leaflet-popup",
     },
+    TILE_CACHE_MAX: 500,
   };
 
   // ==================== Runtime Guard ====================
@@ -120,12 +119,25 @@
   const isVisible = (dx, dy, dw, dh, cw, ch) =>
     !(dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch);
 
-  /** Fetch a remote image as an ImageBitmap (CORS mode). */
+  /** Tile bitmap cache (LRU, capped at 500 entries). */
+  const tileBitmapCache = new Map();
+
+  /** Fetch a remote image as an ImageBitmap (CORS mode), cached in memory. */
   const loadImageBitmap = async (url) => {
+    const cached = tileBitmapCache.get(url);
+    if (cached) return cached;
     const resp = await fetch(url, { mode: "cors", cache: "force-cache" });
     if (!resp.ok) return null;
     const blob = await resp.blob();
-    return createImageBitmap(blob);
+    const bitmap = await createImageBitmap(blob);
+    tileBitmapCache.set(url, bitmap);
+    if (tileBitmapCache.size > CONST.TILE_CACHE_MAX) {
+      const firstKey = tileBitmapCache.keys().next().value;
+      const evicted = tileBitmapCache.get(firstKey);
+      if (evicted) evicted.close();
+      tileBitmapCache.delete(firstKey);
+    }
+    return bitmap;
   };
 
   /** Load an HTMLImageElement from a URL (or data URI). */
@@ -169,7 +181,7 @@
 
     /** Calculate tile coordinates covering geo bounds at a given zoom.
      *  Returns [{x, y, z, url, left, top, size}]. */
-    calcTiles(tileLayer, bounds, zoom) {
+    calcTiles(tileLayer, bounds, zoom, scaleVal) {
       const crs = this.map.options.crs || L.CRS.EPSG3857;
       const tileSize = tileLayer.options.tileSize || 256;
       const subdomains = tileLayer.options.subdomains || "abc";
@@ -202,9 +214,8 @@
             .replace("{x}", tx)
             .replace("{y}", ty)
             .replace("{z}", zoom);
-          // Also handle {r} for retina — Leaflet replaces with @2x on retina
-          const isRetina = window.devicePixelRatio > 1;
-          url = url.replace("{r}", isRetina ? "@2x" : "");
+          // Use export scale for {r} (retina @2x) — screen DPR is irrelevant
+          url = url.replace("{r}", scaleVal > 1 ? "@2x" : "");
           // Tile pixel position within the container viewport at this zoom
           const tileLeft = tx * tileSize;
           const tileTop = ty * tileSize;
@@ -356,7 +367,7 @@
 
       if (!geoBounds || !geoBounds.nw) return;
       const zoom = this.map.getZoom();
-      const tiles = this.calcTiles(tileLayer, geoBounds, zoom);
+      const tiles = this.calcTiles(tileLayer, geoBounds, zoom, scale);
       const crs = this.map.options.crs || L.CRS.EPSG3857;
       const viewportCenter = crs.latLngToPoint(this.map.getCenter(), zoom);
       const halfVpW = contW / 2;
@@ -380,7 +391,6 @@
           const bitmap = await loadImageBitmap(tile.url);
           if (!bitmap) continue;
           ctx.drawImage(bitmap, dx, dy, dw, dh);
-          bitmap.close();
         } catch {
           /* skip */
         }
@@ -1059,13 +1069,13 @@
       const r = this.cropState.rect;
       // Always recalculate geoBounds from the current screen rect, so user's
       // adjustments after unlock → re-lock are not lost.
-      this.cropState._savedGeoBounds = {
+      this.cropState.savedGeoBounds = {
         nw: this.map.containerPointToLatLng(L.point(r.left, r.top)),
         se: this.map.containerPointToLatLng(
           L.point(r.left + r.width, r.top + r.height),
         ),
       };
-      this.cropState.geoBounds = this.cropState._savedGeoBounds;
+      this.cropState.geoBounds = this.cropState.savedGeoBounds;
       this.cropState.actions.innerHTML = "";
       foliplus.dom.el(
         "button",
@@ -1154,6 +1164,25 @@
       };
       this.updateBoxStyle(this.cropState.box, this.cropState.rect);
       this.showHintWithInfo(this.cropState.rect, _(`${CONST.name}.hint_unlocked`));
+    }
+
+    /** Restore and lock crop box from saved geo bounds. */
+    restoreFromSavedBounds() {
+      this.showCropBox();
+      requestAnimationFrame(() => {
+        if (!this.cropState || this.cropState.locked) return;
+        this.cropState.savedGeoBounds = {
+          nw: { lat: this.savedBounds.nw.lat, lng: this.savedBounds.nw.lng },
+          se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
+        };
+        this.lockCropBox(true);
+        foliplus.showHint(
+          CONST.name,
+          _(`${CONST.name}.hint_restore`),
+          foliplus.HINT_DURATION.MEDIUM,
+          true,
+        );
+      });
     }
 
     removeCropBox() {
@@ -1280,7 +1309,6 @@
       this.isExporting = true;
       const r = Object.assign({}, this.cropState.rect);
       const geoBounds = this.cropState.geoBounds;
-      // Save bounds on successful export so next click goes directly to download
       if (geoBounds) {
         this.saveBounds(geoBounds);
         this.savedBounds = geoBounds;
@@ -1298,8 +1326,6 @@
         true,
       );
 
-      // Detect if crop area extends beyond the viewport.
-      // Only enlarge container when absolutely necessary (crop > viewport).
       const vpW = this.mapContainer.clientWidth;
       const vpH = this.mapContainer.clientHeight;
       const needsBigger =
@@ -1310,128 +1336,132 @@
         r.left + r.width > vpW * 1.02 ||
         r.top + r.height > vpH * 1.02;
 
-      const doRender = () => {
-        const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
-        hideEls.forEach((el) => {
-          el.classList.add(CONST.CLASSES.HIDDEN);
-        });
+      if (needsBigger && geoBounds && geoBounds.nw)
+        this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH);
+      else this.doRender(r, scaleValue, bg, geoBounds);
+    }
 
-        if (geoBounds && geoBounds.nw) {
-          const nw = this.map.latLngToContainerPoint(
-            L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
-          );
-          const se = this.map.latLngToContainerPoint(
-            L.latLng(geoBounds.se.lat, geoBounds.se.lng),
-          );
-          r.left = Math.min(nw.x, se.x);
-          r.top = Math.min(nw.y, se.y);
-          r.width = Math.abs(se.x - nw.x);
-          r.height = Math.abs(se.y - nw.y);
-        }
+    /** Render the crop area to a canvas and trigger download. */
+    doRender(r, scaleValue, bg, geoBounds) {
+      const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
+      hideEls.forEach((el) => el.classList.add(CONST.CLASSES.HIDDEN));
 
-        new LeafletRenderer(this.map)
-          .render(r, scaleValue, bg || undefined, geoBounds)
-          .then((canvas) => {
-            hideEls.forEach((el) => {
-              el.classList.remove(CONST.CLASSES.HIDDEN);
-            });
-            const prevImg = document.createElement("img");
-            prevImg.src = canvas.toDataURL("image/png");
-            prevImg.className = CONST.CLASSES.PREVIEW;
-            document.body.appendChild(prevImg);
-            setTimeout(() => prevImg.remove(), foliplus.HINT_DURATION.SHORT);
-            canvas.toBlob((blob) => {
-              if (!blob) {
-                this.showGlobalHint(
-                  _(`${CONST.name}.status_fail`) + _(`${CONST.name}.err_gen_fail`),
-                  foliplus.HINT_DURATION.LONG,
-                  false,
-                );
-                this.isExporting = false;
-                return;
-              }
-              const link = document.createElement("a");
-              const url = URL.createObjectURL(blob);
-              link.download = CONST.FILENAME;
-              link.href = url;
-              link.rel = "noopener";
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              setTimeout(() => URL.revokeObjectURL(url), CONST.URL_REVOKE_DELAY);
-              this.showGlobalHint(
-                _(`${CONST.name}.status_success`),
-                foliplus.HINT_DURATION.LONG,
-                false,
-              );
-              this.isExporting = false;
-            }, "image/png");
-          })
-          .catch((err) => {
-            hideEls.forEach((el) => {
-              el.classList.remove(CONST.CLASSES.HIDDEN);
-            });
-            console.error(`[${CONST.name}] ${_(`${CONST.name}.err_render`)}:`, err);
-            this.showGlobalHint(
-              _(`${CONST.name}.status_fail`) + (err.message || ""),
-              foliplus.HINT_DURATION.LONG,
-              false,
-            );
-            this.isExporting = false;
-          });
-      };
-
-      if (needsBigger && geoBounds && geoBounds.nw) {
-        const savedStyles = {};
-        ["width", "height", "minHeight", "maxHeight", "overflow"].forEach((p) => {
-          savedStyles[p] = this.mapContainer.style[p];
-        });
-        const savedCenter = this.map.getCenter();
-        const savedZoom = this.map.getZoom();
-        const savedAnim = this.map.options.zoomAnimation;
-        this.map.options.zoomAnimation = false;
-
-        const bigW = Math.max(vpW, r.left + r.width) + CONST.CROP.CONTAINER_PADDING;
-        const bigH = Math.max(vpH, r.top + r.height) + CONST.CROP.CONTAINER_PADDING;
-        this.mapContainer.style.width = `${Math.ceil(bigW)}px`;
-        this.mapContainer.style.height = `${Math.ceil(bigH)}px`;
-        this.mapContainer.style.minHeight = `${Math.ceil(bigH)}px`;
-        this.mapContainer.style.overflow = "hidden";
-
-        const cropCenter = L.latLngBounds(
+      if (geoBounds && geoBounds.nw) {
+        const nw = this.map.latLngToContainerPoint(
           L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
+        );
+        const se = this.map.latLngToContainerPoint(
           L.latLng(geoBounds.se.lat, geoBounds.se.lng),
-        ).getCenter();
-
-        // Wait for both invalidateSize and setView to fire moveend,
-        // then render.  Double requestAnimationFrame ensures the browser
-        // has painted the new layer positions before capturing.
-        let moveEndCount = 0;
-        const onMoveEnd = () => {
-          moveEndCount++;
-          if (moveEndCount < 2) return;
-          this.map.off("moveend", onMoveEnd);
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              doRender();
-            });
-          });
-          setTimeout(() => {
-            this.map.options.zoomAnimation = savedAnim;
-            Object.keys(savedStyles).forEach((p) => {
-              this.mapContainer.style[p] = savedStyles[p];
-            });
-            this.map.invalidateSize(false);
-            this.map.setView(savedCenter, savedZoom, { animate: false });
-          }, CONST.TIMING.RESTORE_DELAY);
-        };
-        this.map.on("moveend", onMoveEnd);
-        this.map.invalidateSize(false);
-        this.map.setView(cropCenter, savedZoom, { animate: false });
-        return;
+        );
+        r.left = Math.min(nw.x, se.x);
+        r.top = Math.min(nw.y, se.y);
+        r.width = Math.abs(se.x - nw.x);
+        r.height = Math.abs(se.y - nw.y);
       }
 
-      doRender();
+      new LeafletRenderer(this.map)
+        .render(r, scaleValue, bg || undefined, geoBounds)
+        .then((canvas) => {
+          this.onRenderSuccess(canvas, hideEls);
+        })
+        .catch((err) => {
+          this.onRenderError(err, hideEls);
+        });
+    }
+
+    /** Enlarge the container for over-size exports and render. */
+    enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH) {
+      const savedStyles = {};
+      ["width", "height", "minHeight", "maxHeight", "overflow"].forEach((p) => {
+        savedStyles[p] = this.mapContainer.style[p];
+      });
+      const savedCenter = this.map.getCenter();
+      const savedZoom = this.map.getZoom();
+      const savedAnim = this.map.options.zoomAnimation;
+      this.map.options.zoomAnimation = false;
+
+      const bigW = Math.max(vpW, r.left + r.width) + CONST.CROP.CONTAINER_PADDING;
+      const bigH = Math.max(vpH, r.top + r.height) + CONST.CROP.CONTAINER_PADDING;
+      this.mapContainer.style.width = `${Math.ceil(bigW)}px`;
+      this.mapContainer.style.height = `${Math.ceil(bigH)}px`;
+      this.mapContainer.style.minHeight = `${Math.ceil(bigH)}px`;
+      this.mapContainer.style.overflow = "hidden";
+
+      const cropCenter = L.latLngBounds(
+        L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
+        L.latLng(geoBounds.se.lat, geoBounds.se.lng),
+      ).getCenter();
+
+      let moveEndCount = 0;
+      const onMoveEnd = () => {
+        moveEndCount++;
+        if (moveEndCount < 2) return;
+        this.map.off("moveend", onMoveEnd);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            this.doRender(r, scaleValue, bg, geoBounds);
+          });
+        });
+        setTimeout(() => {
+          this.map.options.zoomAnimation = savedAnim;
+          Object.keys(savedStyles).forEach((p) => {
+            this.mapContainer.style[p] = savedStyles[p];
+          });
+          this.map.invalidateSize(false);
+          this.map.setView(savedCenter, savedZoom, { animate: false });
+        }, CONST.TIMING.RESTORE_DELAY);
+      };
+      this.map.on("moveend", onMoveEnd);
+      this.map.invalidateSize(false);
+      this.map.setView(cropCenter, savedZoom, { animate: false });
+    }
+
+    /** Handle successful render: show preview and trigger download. */
+    onRenderSuccess(canvas, hideEls) {
+      hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
+      const prevImg = document.createElement("img");
+      prevImg.src = canvas.toDataURL("image/png");
+      prevImg.className = CONST.CLASSES.PREVIEW;
+      document.body.appendChild(prevImg);
+      setTimeout(() => prevImg.remove(), foliplus.HINT_DURATION.SHORT);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          this.showGlobalHint(
+            _(`${CONST.name}.status_fail`) + _(`${CONST.name}.err_gen_fail`),
+            foliplus.HINT_DURATION.LONG,
+            false,
+          );
+          this.isExporting = false;
+          return;
+        }
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.download = CONST.FILENAME;
+        link.href = url;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), CONST.URL_REVOKE_DELAY);
+        this.showGlobalHint(
+          _(`${CONST.name}.status_success`),
+          foliplus.HINT_DURATION.LONG,
+          false,
+        );
+        this.isExporting = false;
+      }, "image/png");
+    }
+
+    /** Handle render failure. */
+    onRenderError(err, hideEls) {
+      hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
+      console.error(`[${CONST.name}] ${_(`${CONST.name}.err_render`)}:`, err);
+      this.showGlobalHint(
+        _(`${CONST.name}.status_fail`) + (err.message || ""),
+        foliplus.HINT_DURATION.LONG,
+        false,
+      );
+      this.isExporting = false;
     }
   }
 
@@ -1449,30 +1479,8 @@
       exportManager.attachUI(ctrl, toolBar);
       toggleBtn.onclick = () => {
         if (exportManager.cropState) exportManager.removeCropBox();
-        else if (exportManager.savedBounds) {
-          exportManager.showCropBox();
-          requestAnimationFrame(() => {
-            if (exportManager.cropState && !exportManager.cropState.locked) {
-              exportManager.cropState._savedGeoBounds = {
-                nw: {
-                  lat: exportManager.savedBounds.nw.lat,
-                  lng: exportManager.savedBounds.nw.lng,
-                },
-                se: {
-                  lat: exportManager.savedBounds.se.lat,
-                  lng: exportManager.savedBounds.se.lng,
-                },
-              };
-              exportManager.lockCropBox(true);
-              foliplus.showHint(
-                CONST.name,
-                _(`${CONST.name}.hint_restore`),
-                foliplus.HINT_DURATION.MEDIUM,
-                true,
-              );
-            }
-          });
-        } else exportManager.showCropBox();
+        else if (exportManager.savedBounds) exportManager.restoreFromSavedBounds();
+        else exportManager.showCropBox();
       };
       return container;
     }
