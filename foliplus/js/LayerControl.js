@@ -901,7 +901,7 @@
       // `li.layer` is resolved at init or register time, so this fallback
       // is rarely needed (only for layers added directly to map without
       // going through registerLayer).
-      const layer = li.layer || LayerUtils.findLayer(this.map, id);
+      const layer = this.findLayer(id);
       if (!layer) return null;
       li.type = LayerUtils.getGeometryType(layer);
       return li.type;
@@ -916,11 +916,7 @@
     getLayersByType(type) {
       return this.layers
         .filter((l) => this.getLayerType(l.id) === type)
-        .map((l) => ({
-          id: l.id,
-          name: l.name,
-          layer: l.layer || LayerUtils.findLayer(this.map, l.id), // safety fallback
-        }));
+        .map((l) => ({ id: l.id, name: l.name, layer: this.findLayer(l.id) }));
     }
 
     /**
@@ -1091,7 +1087,7 @@
       const layerInfo = this.layerRegistry.remove(id);
       if (!layerInfo) return false;
 
-      const layer = layerInfo.layer || LayerUtils.findLayer(this.map, id); // safety fallback
+      const layer = this.findLayer(id); // `li.layer` or fallback via findLayer
       if (layer) {
         if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
         this.clearAllLayers(layer);
