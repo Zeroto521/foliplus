@@ -345,12 +345,7 @@
         name: opts.name ?? existingLi?.name ?? opts.id,
         id: opts.id,
         visible: opts.visible ?? existingLi?.visible ?? true,
-        isBase:
-          opts.isBase !== undefined
-            ? !!opts.isBase
-            : existingLi
-              ? existingLi.isBase
-              : false,
+        isBase: opts.isBase ?? existingLi?.isBase ?? false,
         paneName: opts.paneName ?? existingLi?.paneName ?? null,
         iconSvg: opts.iconSvg ?? existingLi?.iconSvg ?? null,
         type: null,
@@ -1888,7 +1883,7 @@
           const isCallbackOnly = !hasLayer && layerInfo.onToggle;
           if (isCallbackOnly) inputs[i].checked = layerInfo.visible !== false;
           else inputs[i].checked = hasLayer && this.m.map.hasLayer(layer);
-          layerInfo.visible = inputs[i].checked;
+          this.syncVisibility(layerInfo, layer, inputs[i].checked);
 
           inputs[i].title = _(
             `${CONST.name}.${inputs[i].checked ? "deselect_tooltip" : "select_tooltip"}`,
