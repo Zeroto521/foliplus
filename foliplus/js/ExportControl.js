@@ -1389,14 +1389,18 @@
         ).getCenter();
 
         // Wait for both invalidateSize and setView to fire moveend,
-        // then render.  This ensures all SVG paths and markers in the
-        // enlarged viewport are created and positioned by Leaflet.
+        // then render.  Double requestAnimationFrame ensures the browser
+        // has painted the new layer positions before capturing.
         let moveEndCount = 0;
         const onMoveEnd = () => {
           moveEndCount++;
           if (moveEndCount < 2) return;
           this.map.off("moveend", onMoveEnd);
-          doRender();
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              doRender();
+            });
+          });
           setTimeout(() => {
             this.map.options.zoomAnimation = savedAnim;
             Object.keys(savedStyles).forEach((p) => {
