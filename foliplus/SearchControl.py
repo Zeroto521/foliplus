@@ -57,9 +57,7 @@ class SearchControl(BaseControl):
         locale: str | LocaleConfig | None = None,
     ):
         if mode not in get_args(MODE):
-            raise ValueError(
-                f"mode must be one of {sorted(get_args(MODE))}, got {mode!r}"
-            )
+            raise ValueError(f"mode must be one of {get_args(MODE)}, got {mode!r}")
         if not isinstance(zoom, int) or zoom < 1 or zoom > 18:
             raise ValueError(f"zoom must be an int between 1 and 18, got {zoom!r}")
 

@@ -112,14 +112,14 @@ class HeatmapControl(BaseControl):
     ):
         if method not in get_args(METHOD):
             raise ValueError(
-                f"method must be one of {sorted(get_args(METHOD))}, got {method!r}"
+                f"method must be one of {get_args(METHOD)}, got {method!r}"
             )
         if not isinstance(n_classes, int) or n_classes < 2 or n_classes > 9:
             raise ValueError(
                 f"n_classes must be an int between 2 and 9, got {n_classes!r}"
             )
         if agg not in get_args(AGG):
-            raise ValueError(f"agg must be one of {sorted(get_args(AGG))}, got {agg!r}")
+            raise ValueError(f"agg must be one of {get_args(AGG)}, got {agg!r}")
 
         super().__init__(position=position, locale=locale)
         self.color_scheme = color_scheme
