@@ -901,7 +901,7 @@
       // `li.layer` is resolved at init or register time, so this fallback
       // is rarely needed (only for layers added directly to map without
       // going through registerLayer).
-      const layer = this.findLayer(id);
+      const layer = this.findLayer(li);
       if (!layer) return null;
       li.type = LayerUtils.getGeometryType(layer);
       return li.type;
@@ -916,21 +916,31 @@
     getLayersByType(type) {
       return this.layers
         .filter((l) => this.getLayerType(l.id) === type)
-        .map((l) => ({ id: l.id, name: l.name, layer: this.findLayer(l.id) }));
+        .map((l) => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
     }
 
     /**
-     * Resolve a registered layer by id, searching layerInfo then map._layers.
-     * Most layers have `li.layer` resolved at init (by LayerRegistry) or
-     * register time; the fallback handles edge cases (e.g. layers added
-     * directly to the map without going through registerLayer).
-     * @param {string} id - Layer ID.
+     * Resolve a registered layer by id or layerInfo, searching layerInfo then
+     * map._layers. Most layers have `li.layer` resolved at init (by
+     * LayerRegistry) or register time; the fallback handles edge cases
+     * (e.g. layers added directly to the map without going through
+     * registerLayer).
+     *
+     * Accepts either a string id or a layerInfo object.  When a layerInfo
+     * is passed (callers that already hold it from `this.layers[i]` or
+     * `registry.get(id)`), the redundant `registry.get(id)` hash lookup
+     * is skipped.
+     *
+     * @param {string|Object} idOrLi - Layer ID or layerInfo object.
      * @returns {Object|null} Leaflet layer or null.
      */
-    findLayer(id) {
-      const li = this.layerRegistry.get(id);
+    findLayer(idOrLi) {
+      const li = typeof idOrLi === "string" ? this.layerRegistry.get(idOrLi) : idOrLi;
       if (li?.layer) return li.layer;
-      return LayerUtils.findLayer(this.map, id);
+      return LayerUtils.findLayer(
+        this.map,
+        typeof idOrLi === "string" ? idOrLi : li?.id,
+      );
     }
 
     /**
@@ -1087,7 +1097,7 @@
       const layerInfo = this.layerRegistry.remove(id);
       if (!layerInfo) return false;
 
-      const layer = this.findLayer(id); // `li.layer` or fallback via findLayer
+      const layer = this.findLayer(layerInfo); // `li.layer` or fallback via findLayer
       if (layer) {
         if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
         this.clearAllLayers(layer);
@@ -1466,7 +1476,7 @@
 
         for (let i = 0; i < this.layers.length; i++) {
           const li = this.layers[i];
-          const layer = this.findLayer(li.id);
+          const layer = this.findLayer(li);
           const hasLayer = layer && this.map.hasLayer(layer);
           const isTile = layer instanceof L.TileLayer;
           const z = this.computeZIndex(i, isTile);
@@ -1556,7 +1566,7 @@
       for (let i = 0; i < this.layers.length; i++) {
         const li = this.layers[i];
         if (!li.isBase) continue;
-        const layer = this.findLayer(li.id);
+        const layer = this.findLayer(li);
         if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
         delete attrCtrl._attributions[layer.options.attribution];
         if (!topAttr && this.map.hasLayer(layer)) topAttr = layer.options.attribution;
@@ -1872,8 +1882,7 @@
 
       for (let i = 0; i < this.m.layers.length; i++) {
         const layerInfo = this.m.layers[i];
-        const id = layerInfo.id;
-        const layer = this.m.findLayer(id);
+        const layer = this.m.findLayer(layerInfo);
 
         if (inputs[i]) {
           const hasLayer = layer != null;
@@ -2017,7 +2026,7 @@
         const idx = parseInt(cb.dataset.index, 10);
         if (isNaN(idx) || idx < 0 || idx >= this.m.layers.length) return;
         const layerInfo = this.m.layers[idx];
-        const layer = this.m.findLayer(layerInfo.id);
+        const layer = this.m.findLayer(layerInfo);
 
         cb.checked = newState;
         cb.title = _(
@@ -2096,7 +2105,7 @@
       const idx = parseInt(target.dataset.index, 10);
       if (isNaN(idx) || idx < 0 || idx >= this.m.layers.length) return;
       const layerInfo = this.m.layers[idx];
-      const layer = this.m.findLayer(layerInfo.id);
+      const layer = this.m.findLayer(layerInfo);
       const item = target.closest(CONST.SEL.LAYER_ITEM);
 
       if (layerInfo.isBase) this.hideColorLayer();
@@ -2248,7 +2257,7 @@
 
       for (let i = 0; i < this.m.layers.length; i++) {
         if (this.m.layers[i].isBase) {
-          const bLayer = this.m.findLayer(this.m.layers[i].id);
+          const bLayer = this.m.findLayer(this.m.layers[i]);
           if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
         }
       }
@@ -2291,7 +2300,7 @@
       );
       for (let i = 0; i < this.m.layers.length; i++)
         if (this.m.layers[i].isBase && i !== exceptIdx) {
-          const bLayer = this.m.findLayer(this.m.layers[i].id);
+          const bLayer = this.m.findLayer(this.m.layers[i]);
           if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
           if (inputs[i]) {
             inputs[i].checked = false;

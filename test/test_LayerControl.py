@@ -948,7 +948,7 @@ class TestLayerControlRendering:
         """LayerUtils.findLayer and LayerAPI.findLayer resolve layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "LayerUtils.findLayer(this.map, id)" in html
+        assert "return LayerUtils.findLayer(" in html
         assert "this.findLayer = this.findLayer.bind(this)" in html
 
     def test_for_each_leaf_utility(self, base_map: folium.Map):
