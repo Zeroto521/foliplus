@@ -353,7 +353,7 @@
     static makeLabelDivIcon(html, iconAnchor, className) {
       return L.divIcon({
         className: "",
-        html: `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}">${html}</div>`,
+        html: `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}" data-foliplus-export="label">${html}</div>`,
         iconSize: CONST.LABEL.SIZE,
         iconAnchor: iconAnchor || CONST.LABEL.DEFAULT_ANCHOR,
       });

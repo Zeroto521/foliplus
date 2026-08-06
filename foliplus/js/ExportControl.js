@@ -40,7 +40,7 @@
     SEL: {
       CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
       CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
-      LABEL: ".foliplus-measure-label, .leaflet-div-icon",
+      LABEL: "[data-foliplus-export='label']",
       /**
        * Opt-out attribute for export.  Set this attribute on any element
        * that should NOT appear in the exported image.
