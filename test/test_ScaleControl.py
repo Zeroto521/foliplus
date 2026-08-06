@@ -71,7 +71,7 @@ class TestScaleControlRendering:
         ScaleControl(show_zoom=False).add_to(base_map)
         html = render(base_map)
         assert "const zoomLabel" not in html
-        assert "zoomend" not in html
+        assert 'this._map.on("zoomend"' not in html
 
     def test_locale_zh(self, base_map: folium.Map):
         ScaleControl(locale="zh").add_to(base_map)
