@@ -71,7 +71,7 @@ class TestExportControlRendering:
     def test_default_params(self, base_map: folium.Map):
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "LeafletRenderer" in html
+        assert "ExportRenderer" in html
         assert "exportManager" in html
         assert "ctrl-fold" in html
         assert "foliplus.storage.load(CONST.STORAGE.KEY, CONST.name)" in html

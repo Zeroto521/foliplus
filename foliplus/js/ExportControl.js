@@ -122,7 +122,7 @@
   });
 
   // ==================== Render helpers ====================
-  // Stateless utilities used by LeafletRenderer passes.
+  // Stateless utilities used by ExportRenderer passes.
 
   /** Test whether a rectangle intersects the visible crop area. */
   const isVisible = (dx, dy, dw, dh, cw, ch) =>
@@ -182,12 +182,12 @@
     }
   };
 
-  // ==================== LeafletRenderer ====================
+  // ==================== ExportRenderer ====================
   // Mixed-mode renderer with independent rendering passes.
   // render() orchestrates the passes in painter's-algorithm order:
   //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome →
   //   6. text labels → 7. remaining (img, inline SVG, bg-color)
-  class LeafletRenderer {
+  class ExportRenderer {
     constructor(map) {
       this.map = map;
       this.container = map.getContainer();
@@ -1379,7 +1379,7 @@
         r.height = Math.abs(se.y - nw.y);
       }
 
-      new LeafletRenderer(this.map)
+      new ExportRenderer(this.map)
         .render(r, scaleValue, bg || undefined, geoBounds)
         .then((canvas) => {
           this.onRenderSuccess(canvas, hideEls);
