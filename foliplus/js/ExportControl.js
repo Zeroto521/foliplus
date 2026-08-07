@@ -1274,8 +1274,14 @@
         this.dragState.dragType = "move";
       } else return;
       this.dragState.dragging = true;
-      this.dragState.startX = e.clientX;
-      this.dragState.startY = e.clientY;
+      // Disable the box transition during drag so it tracks the cursor
+      // instantly (the 0.15s lag made the box feel "behind" the mouse and
+      // caused accidental drags). Re-enabled in onMouseUp.
+      this.cropState.box.classList.add("dragging");
+      // Track the last mouse position for incremental deltas (avoids
+      // sudden jumps from cumulative errors or stale startRect).
+      this.dragState.lastX = e.clientX;
+      this.dragState.lastY = e.clientY;
       this.dragState.startRect = Object.assign({}, this.cropState.rect);
       document.addEventListener("mousemove", this.onMouseMove);
       document.addEventListener("mouseup", this.onMouseUp);
@@ -1283,39 +1289,44 @@
 
     onMouseMove(e) {
       if (!this.dragState.dragging) return;
-      const dx = e.clientX - this.dragState.startX;
-      const dy = e.clientY - this.dragState.startY;
+      // Incremental delta from the last mouse position. Applying this to the
+      // *current* rect (not the startRect) avoids sudden jumps from cumulative
+      // error and keeps the box glued to the cursor.
+      const dx = e.clientX - this.dragState.lastX;
+      const dy = e.clientY - this.dragState.lastY;
+      this.dragState.lastX = e.clientX;
+      this.dragState.lastY = e.clientY;
       const mapRect = this.mapContainer.getBoundingClientRect();
-      const startRect = this.dragState.startRect;
-      const r = Object.assign({}, startRect);
+      const cur = this.cropState.rect;
+      const r = Object.assign({}, cur);
       const type = this.dragState.dragType;
       if (type === "move") {
-        r.left = Math.max(0, Math.min(mapRect.width - r.width, startRect.left + dx));
-        r.top = Math.max(0, Math.min(mapRect.height - r.height, startRect.top + dy));
+        r.left = Math.max(0, Math.min(mapRect.width - r.width, cur.left + dx));
+        r.top = Math.max(0, Math.min(mapRect.height - r.height, cur.top + dy));
       } else {
         if (["tl", "l", "bl"].includes(type)) {
-          const maxDx = startRect.width - CONST.CROP.MIN_SIZE;
-          const a = Math.max(-startRect.left, Math.min(dx, maxDx));
-          r.left = startRect.left + a;
-          r.width = startRect.width - a;
+          const maxDx = cur.width - CONST.CROP.MIN_SIZE;
+          const a = Math.max(-cur.left, Math.min(dx, maxDx));
+          r.left = cur.left + a;
+          r.width = cur.width - a;
         }
         if (["tr", "r", "br"].includes(type)) {
-          const maxDx = mapRect.width - (startRect.left + startRect.width);
-          const minDx = CONST.CROP.MIN_SIZE - startRect.width;
+          const maxDx = mapRect.width - (cur.left + cur.width);
+          const minDx = CONST.CROP.MIN_SIZE - cur.width;
           const a = Math.max(minDx, Math.min(dx, maxDx));
-          r.width = startRect.width + a;
+          r.width = cur.width + a;
         }
         if (["tl", "t", "tr"].includes(type)) {
-          const maxDy = startRect.height - CONST.CROP.MIN_SIZE;
-          const a = Math.max(-startRect.top, Math.min(dy, maxDy));
-          r.top = startRect.top + a;
-          r.height = startRect.height - a;
+          const maxDy = cur.height - CONST.CROP.MIN_SIZE;
+          const a = Math.max(-cur.top, Math.min(dy, maxDy));
+          r.top = cur.top + a;
+          r.height = cur.height - a;
         }
         if (["bl", "b", "br"].includes(type)) {
-          const maxDy = mapRect.height - (startRect.top + startRect.height);
-          const minDy = CONST.CROP.MIN_SIZE - startRect.height;
+          const maxDy = mapRect.height - (cur.top + cur.height);
+          const minDy = CONST.CROP.MIN_SIZE - cur.height;
           const a = Math.max(minDy, Math.min(dy, maxDy));
-          r.height = startRect.height + a;
+          r.height = cur.height + a;
         }
       }
       this.cropState.rect = r;
@@ -1359,6 +1370,9 @@
       this.dragState.dragType = null;
       document.removeEventListener("mousemove", this.onMouseMove);
       document.removeEventListener("mouseup", this.onMouseUp);
+      // Re-enable transition so the box animates smoothly to its final position
+      // on the next non-drag style update (e.g. after unlock).
+      if (this.cropState?.box) this.cropState.box.classList.remove("dragging");
       this.pushUndoState();
     }
 

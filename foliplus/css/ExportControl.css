@@ -38,6 +38,13 @@
     width var(--transition-fast), height var(--transition-fast);
 }
 
+/* Drag in progress: disable transition so the box tracks the cursor
+  instantly (a 0.15s lag makes the box feel "behind" the mouse and
+  causes accidental moves). The transition is re-enabled on mouseup. */
+.foliplus-export-box.dragging {
+  transition: none;
+}
+
 /* Reset Leaflet stacking context so controls can sit above the crop mask.
   leaflet-top/leaflet-bottom have z-index:1000 by default, creating a
   stacking context that would trap controls below the overlay. */
