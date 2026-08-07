@@ -408,7 +408,7 @@
 
       // Load and draw tiles in concurrent batches to avoid overwhelming the
       // browser connection limit (~6 per domain) while still parallelizing.
-      const concurrency = CONST.CACHE.TILE_CONCURRENCY;
+      const concurrency = CONST.TILE_CONCURRENCY;
       for (let i = 0; i < visibleTiles.length; i += concurrency) {
         const batch = visibleTiles.slice(i, i + concurrency);
         const bitmaps = await Promise.all(
