@@ -3,7 +3,7 @@
 // avoid threading `CONF` / `_` parameters through every call.
 
 import { nativeAPI, isEnabled, getFullscreenEl } from "./FullscreenControl.api.js";
-import { CONST, containerId } from "./FullscreenControl.const.js";
+import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as ICONS from "./FullscreenControl.icon.js";
 
 const conf = () => window.foliplus.CONFIG.FullscreenControl;
@@ -17,27 +17,27 @@ const updateUI = (map, fsBtn, container) => {
   const isFull = !!getFullscreenEl() || map.isFullscreen;
   fsBtn.innerHTML = isFull ? ICONS.MINIMIZE : ICONS.MAXIMIZE;
   fsBtn.title = isFull
-    ? _(`${CONST.name}.title_cancel`)
-    : _(`${CONST.name}.title`);
+    ? _(`${CONF.name}.title_cancel`)
+    : _(`${CONF.name}.title`);
 
   if (CONF.hide_others) {
     const controls = map.getContainer().querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
-    const cid = containerId(CONF.position);
+    const cid = containerId(CONF.name, CONF.position);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
-      c.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
+      c.classList.toggle(CLASSES.HIDDEN, isFull);
     }
   }
 
   if (CONF.hide_self) {
     const selfBtns = container.querySelectorAll(
-      `.${CONST.CLASSES.FS_TOGGLE}, .${CONST.CLASSES.ZOOM_IN}, .${CONST.CLASSES.ZOOM_OUT}`,
+      `.${CLASSES.FS_TOGGLE}, .${CLASSES.ZOOM_IN}, .${CLASSES.ZOOM_OUT}`,
     );
     for (const btn of selfBtns)
-      btn.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
+      btn.classList.toggle(CLASSES.HIDDEN, isFull);
   }
 
-  window.foliplus?.showHint?.(CONST.name, isFull ? _(`${CONST.name}.enter`) : _(`${CONST.name}.exit`), window.foliplus?.HINT_DURATION?.MEDIUM);
+  window.foliplus?.showHint?.(CONF.name, isFull ? _(`${CONF.name}.enter`) : _(`${CONF.name}.exit`), window.foliplus?.HINT_DURATION?.MEDIUM);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -51,7 +51,7 @@ const toggleFullscreen = (map, fsBtn, container) => {
         .catch(() => { map.isFullscreen = !!getFullscreenEl(); updateUI(map, fsBtn, container); });
       return;
     } else {
-      map._container.classList.remove(CONST.CLASSES.PSEUDO_FULLSCREEN);
+      map._container.classList.remove(CLASSES.PSEUDO_FULLSCREEN);
       map.invalidateSize();
     }
     map.isFullscreen = false;
@@ -62,7 +62,7 @@ const toggleFullscreen = (map, fsBtn, container) => {
         .catch(() => { map.isFullscreen = !!getFullscreenEl(); updateUI(map, fsBtn, container); });
       return;
     } else {
-      map._container.classList.add(CONST.CLASSES.PSEUDO_FULLSCREEN);
+      map._container.classList.add(CLASSES.PSEUDO_FULLSCREEN);
       map.invalidateSize();
     }
     map.isFullscreen = true;
