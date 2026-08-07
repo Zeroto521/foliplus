@@ -2,7 +2,6 @@
   const CONF = window.foliplus.CONFIG.ScaleControl;
   const CONST = {
     name: "ScaleControl",
-    isMetric: CONF.isMetric,
     CLASSES: {
       SCALE_WRAP: "foliplus-scale-wrap",
       SCALE_ZOOM_LABEL: "foliplus-scale-zoom-label",
@@ -23,8 +22,8 @@
   class ScaleControl extends L.Control {
     onAdd() {
       const scaleCtrl = L.control.scale({
-        metric: CONST.isMetric,
-        imperial: !CONST.isMetric,
+        metric: CONF.isMetric,
+        imperial: !CONF.isMetric,
       });
       scaleCtrl._map = this._map;
       const wrap = scaleCtrl.onAdd(this._map);
