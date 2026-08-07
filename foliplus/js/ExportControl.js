@@ -909,8 +909,9 @@
         startRect: null,
       };
 
-      /** Undo history for crop box adjustments. */
+      /** Undo / redo history for crop box adjustments. */
       this.undoStack = [];
+      this.redoStack = [];
 
       this.onMouseDown = this.onMouseDown.bind(this);
       this.onMouseMove = this.onMouseMove.bind(this);
@@ -1095,6 +1096,7 @@
         actions: this.exportToolBar,
       };
       this.updateBoxStyle(cropBox, box);
+      this.pushUndoState(); // Save initial rect so Ctrl+Z can restore it
       this.showHintWithInfo(box, _(`${CONST.name}.hint_unlocked`));
       cropBox.addEventListener("mousedown", this.onMouseDown);
       this.exportToolBar.querySelector(".cancel").onclick = (e) => {
@@ -1326,13 +1328,28 @@
       if (!this.cropState) return;
       this.undoStack.push(Object.assign({}, this.cropState.rect));
       if (this.undoStack.length > CONST.CACHE.UNDO_MAX) this.undoStack.shift();
+      // New drag invalidates the redo history
+      this.redoStack = [];
     }
 
     undoCropBox() {
       if (!this.cropState || !this.undoStack.length) return;
+      // Save current rect for possible redo
+      this.redoStack.push(Object.assign({}, this.cropState.rect));
+      if (this.redoStack.length > CONST.CACHE.UNDO_MAX) this.redoStack.shift();
       // If locked, unlock first so the user can see and continue adjusting
       if (this.cropState.locked) this.unlockCropBox();
       this.cropState.rect = this.undoStack.pop();
+      this.updateBoxStyle(this.cropState.box, this.cropState.rect);
+      this.showHintWithInfo(this.cropState.rect, _(`${CONST.name}.hint_unlocked`));
+    }
+
+    redoCropBox() {
+      if (!this.cropState || !this.redoStack.length) return;
+      this.undoStack.push(Object.assign({}, this.cropState.rect));
+      if (this.undoStack.length > CONST.CACHE.UNDO_MAX) this.undoStack.shift();
+      if (this.cropState.locked) this.unlockCropBox();
+      this.cropState.rect = this.redoStack.pop();
       this.updateBoxStyle(this.cropState.box, this.cropState.rect);
       this.showHintWithInfo(this.cropState.rect, _(`${CONST.name}.hint_unlocked`));
     }
@@ -1352,6 +1369,13 @@
       } else if (e.key === "Enter") {
         if (this.cropState && !this.cropState.locked) this.lockCropBox();
         else if (this.cropState?.locked) this.doExport();
+      } else if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "z"
+      ) {
+        e.preventDefault();
+        this.redoCropBox();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         this.undoCropBox();
