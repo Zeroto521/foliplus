@@ -70,6 +70,7 @@ class ExportControl(BaseControl):
     * ``Enter`` — lock the current crop area, then begin export
     * ``Escape`` — unlock or dismiss the crop box
     * ``Ctrl+Z`` / ``Cmd+Z`` — undo the last crop adjustment
+    * ``Ctrl+Shift+Z`` / ``Cmd+Shift+Z`` — redo the last crop adjustment
 
     **Image format.**  The download filename is ``{filename}.{format}``. For example,
     ``filename="map"`` with ``format="jpeg"`` produces ``map.jpeg``. JPEG and WebP use
