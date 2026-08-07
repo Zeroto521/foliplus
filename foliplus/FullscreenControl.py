@@ -48,5 +48,9 @@ class FullscreenControl(BaseControl):
         self.hide_self = hide_self
         self.hide_others = hide_others
         self._template = self._get_template(
-            js_file="FullscreenControl.js", css_file="FullscreenControl.css"
+            config={
+                "position": position,
+                "hide_self": hide_self,
+                "hide_others": hide_others,
+            },
         )

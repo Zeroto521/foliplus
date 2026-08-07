@@ -1,0 +1,90 @@
+// FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
+// Global config and translation are resolved from `window.foliplus` here to
+// avoid threading `CONF` / `_` parameters through every call.
+
+import { nativeAPI, isEnabled, getFullscreenEl } from "./FullscreenControl.api.js";
+import { CONST, containerId } from "./FullscreenControl.const.js";
+import * as ICONS from "./FullscreenControl.icon.js";
+
+const conf = () => window.foliplus.CONFIG.FullscreenControl;
+const _ = (k) => (window.foliplus.gt ? window.foliplus.gt(k) : k);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
+// ══════════════════════════════════════════════════════════════════════════════
+const updateUI = (map, fsBtn, container) => {
+  const CONF = conf();
+  const isFull = !!getFullscreenEl() || map.isFullscreen;
+  fsBtn.innerHTML = isFull ? ICONS.MINIMIZE : ICONS.MAXIMIZE;
+  fsBtn.title = isFull
+    ? _(`${CONST.name}.title_cancel`)
+    : _(`${CONST.name}.title`);
+
+  if (CONF.hide_others) {
+    const controls = map.getContainer().querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
+    const cid = containerId(CONF.position);
+    for (const c of controls) {
+      if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
+      c.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
+    }
+  }
+
+  if (CONF.hide_self) {
+    const selfBtns = container.querySelectorAll(
+      `.${CONST.CLASSES.FS_TOGGLE}, .${CONST.CLASSES.ZOOM_IN}, .${CONST.CLASSES.ZOOM_OUT}`,
+    );
+    for (const btn of selfBtns)
+      btn.classList.toggle(CONST.CLASSES.HIDDEN, isFull);
+  }
+
+  window.foliplus?.showHint?.(CONST.name, isFull ? _(`${CONST.name}.enter`) : _(`${CONST.name}.exit`), window.foliplus?.HINT_DURATION?.MEDIUM);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
+// ══════════════════════════════════════════════════════════════════════════════
+const toggleFullscreen = (map, fsBtn, container) => {
+  if (getFullscreenEl() || map.isFullscreen) {
+    if (isEnabled) {
+      document[nativeAPI.exitFullscreen]()
+        .then(() => { map.isFullscreen = false; })
+        .catch(() => { map.isFullscreen = !!getFullscreenEl(); updateUI(map, fsBtn, container); });
+      return;
+    } else {
+      map._container.classList.remove(CONST.CLASSES.PSEUDO_FULLSCREEN);
+      map.invalidateSize();
+    }
+    map.isFullscreen = false;
+  } else {
+    if (isEnabled) {
+      map._container[nativeAPI.requestFullscreen]()
+        .then(() => { map.isFullscreen = true; })
+        .catch(() => { map.isFullscreen = !!getFullscreenEl(); updateUI(map, fsBtn, container); });
+      return;
+    } else {
+      map._container.classList.add(CONST.CLASSES.PSEUDO_FULLSCREEN);
+      map.invalidateSize();
+    }
+    map.isFullscreen = true;
+  }
+  updateUI(map, fsBtn, container);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// bindFullscreenEvents  —  wire up fullscreenchange + unload listeners
+// ══════════════════════════════════════════════════════════════════════════════
+const bindFullscreenEvents = (map, fsBtn, container) => {
+  const handleFSChange = () => {
+    map.isFullscreen = !!getFullscreenEl();
+    updateUI(map, fsBtn, container);
+  };
+
+  if (isEnabled) document.addEventListener(nativeAPI.fullscreenchange, handleFSChange);
+  map.on("unload", () => {
+    if (isEnabled) document.removeEventListener(nativeAPI.fullscreenchange, handleFSChange);
+  });
+
+  return handleFSChange;
+}
+
+export { toggleFullscreen, bindFullscreenEvents };
