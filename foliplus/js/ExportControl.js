@@ -34,7 +34,6 @@
       EXPANDED: "expanded",
       TOOL_BTN: "foliplus-tool-btn",
       MODE: "foliplus-export-mode",
-      OVERLAY: "foliplus-export-overlay",
       BOX: "foliplus-export-box",
       HANDLE: "foliplus-export-handle",
       CENTER: "foliplus-export-center",
@@ -1056,7 +1055,7 @@
       }
 
       const overlay = foliplus.dom.el("div", {
-        class: `${CONST.CLASSES.OVERLAY} active`,
+        class: `foliplus-export-overlay active`,
         parent: this.mapContainer,
       });
       this.mapContainer.classList.add(CONST.CLASSES.MODE);
