@@ -9,11 +9,11 @@ import { toggleFullscreen, bindFullscreenEvents } from "./FullscreenControl.logi
     return;
   }
 
-  const CONF = window.foliplus.CONFIG.FullscreenControl;
-  const cid = containerId(CONF.position);
-
   const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
   foliplus.registerHintIcon(CONST.name, ICONS.MAXIMIZE);
+
+  const CONF = window.foliplus.CONFIG.FullscreenControl;
+  const cid = containerId(CONF.position);
 
   class FullscreenControl extends L.Control {
     onAdd() {
