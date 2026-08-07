@@ -38,7 +38,7 @@
       HANDLE: "foliplus-export-handle",
       CENTER: "foliplus-export-center",
       PREVIEW: "foliplus-export-preview",
-      HIDDEN: "foliplus-export-hidden",
+      HIDDEN: "foliplus-hidden",
       LOCKED: "locked",
       ACTIVE: "active",
       CONFIRM: "confirm",

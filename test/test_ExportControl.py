@@ -329,10 +329,10 @@ class TestExportControlRendering:
         assert 'data-foliplus-export="exclude"' in html
 
     def test_hidden_class(self, base_map: folium.Map):
-        """foliplus-export-hidden class for hiding controls during render."""
+        """foliplus-hidden class for hiding controls during render."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "foliplus-export-hidden" in html
+        assert "foliplus-hidden" in html
 
     def test_preview_image(self, base_map: folium.Map):
         """Preview image is created with correct class name."""
@@ -359,7 +359,7 @@ class TestExportControlRendering:
         assert "foliplus-export-center" in html
         assert "foliplus-export-ctrl" in html
         assert "foliplus-export-preview" in html
-        assert "foliplus-export-hidden" in html
+        assert "foliplus-hidden" in html
 
     def test_css_z_index_pattern(self, base_map: folium.Map):
         """CSS uses --z-export-base variable with calc()."""
