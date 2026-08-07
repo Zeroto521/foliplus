@@ -38,6 +38,7 @@
       HANDLE: "foliplus-export-handle",
       CENTER: "foliplus-export-center",
       PREVIEW: "foliplus-export-preview",
+      CLOSE: "foliplus-close-btn",
       HIDDEN: "foliplus-hidden",
       LOCKED: "locked",
       ACTIVE: "active",
@@ -1093,7 +1094,7 @@
       foliplus.dom.el(
         "button",
         {
-          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} foliplus-close-btn`,
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
           title: _(`${CONST.name}.btn_cancel`),
           parent: this.exportToolBar,
         },
@@ -1151,7 +1152,7 @@
       foliplus.dom.el(
         "button",
         {
-          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} foliplus-close-btn`,
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
           title: _(`${CONST.name}.btn_cancel`),
           parent: this.cropState.actions,
         },
@@ -1206,7 +1207,7 @@
       foliplus.dom.el(
         "button",
         {
-          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} foliplus-close-btn`,
+          class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
           title: _(`${CONST.name}.btn_cancel`),
           parent: this.cropState.actions,
         },
