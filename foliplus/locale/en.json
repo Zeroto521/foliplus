@@ -4,7 +4,7 @@
   "foliplus.gcoord_warn": "gcoord library failed to load, coordinate transformation unavailable",
   "foliplus.storage_load_fail": "Failed to load saved data (key={key})",
   "foliplus.storage_save_fail": "Failed to save data (key={key})",
-  "ExportControl.btn_title": "Export Map",
+  "ExportControl.btn_title": "Map Export",
   "ExportControl.btn_confirm": "Confirm Area",
   "ExportControl.btn_export": "Export Map",
   "ExportControl.btn_cancel": "Cancel",

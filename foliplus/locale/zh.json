@@ -4,7 +4,7 @@
   "foliplus.gcoord_warn": "gcoord 加载失败，坐标转换不可用",
   "foliplus.storage_load_fail": "数据 (key={key}) 加载失败",
   "foliplus.storage_save_fail": "数据 (key={key}) 保存失败",
-  "ExportControl.btn_title": "导出地图",
+  "ExportControl.btn_title": "地图导出",
   "ExportControl.btn_confirm": "确定区域",
   "ExportControl.btn_export": "导出地图",
   "ExportControl.btn_cancel": "取消",
