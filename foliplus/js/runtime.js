@@ -192,6 +192,17 @@
    *                                   same key. The instance auto-clears after
    *                                   `duration` ms. Keys are suffixed with a
    *                                   timestamp for individual removal.
+   * @param {string}  [subkey]       - Optional sub-identifier so multiple hints
+   *                                   can share the same key.  When set, the
+   *                                   internal store key is `key|subkey` and
+   *                                   `hideHint(key, subkey)` removes only that
+   *                                   instance.
+   *
+   * @example
+   *   // Subkey: two independent hints under the same key
+   *   foliplus.showHint('export', 'Map size: 800×600 px', 0, null, 'size');
+   *   foliplus.showHint('export', 'Export size exceeds limit', 0, null, 'limit');
+   *   foliplus.hideHint('export', 'limit');  // removes only the limit hint
    *
    * @example
    *   // Persistent hint (replaces previous 'export' hint)
@@ -205,12 +216,17 @@
    *   // Remove appended instances individually
    *   foliplus.hideHint('export-1234567890');
    */
-  foliplus.showHint = (key, text, duration, append) => {
-    if (!append) foliplus.hideHint(key);
+  foliplus.showHint = (key, text, duration, append, subkey) => {
+    // Remove existing subkey instance before creating new one
+    if (subkey) foliplus.hideHint(key, subkey);
+    else if (!append) foliplus.hideHint(key);
+
     const hintTarget = document.fullscreenElement || document.body;
-    const cls = append
-      ? `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}-${Date.now()}`
-      : `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}`;
+    const cls = subkey
+      ? `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}-${subkey}`
+      : append
+        ? `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}-${Date.now()}`
+        : `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}`;
     const el = document.createElement("div");
     el.className = cls;
     hintTarget.appendChild(el);
@@ -223,14 +239,18 @@
       const cs = window.getComputedStyle(hintTarget);
       if (cs.position === "static") hintTarget.style.position = "relative";
     }
-    const storeKey = append ? `${key}-${Date.now()}` : key;
+    const storeKey = subkey
+      ? `${key}|${subkey}`
+      : append
+        ? `${key}-${Date.now()}`
+        : key;
     hintMap.set(storeKey, { element: el, timer: null });
 
     repositionHints();
 
     if (duration !== 0) {
       hintMap.get(storeKey).timer = setTimeout(
-        () => foliplus.hideHint(storeKey),
+        () => (subkey ? foliplus.hideHint(key, subkey) : foliplus.hideHint(storeKey)),
         duration || CONST.HINT.DEFAULT_DURATION,
       );
     }
@@ -240,16 +260,29 @@
    * Remove a hint (and any appended instances sharing the key prefix).
    * Repositions remaining hints after removal.
    *
-   * @param {string} key - Hint key to remove (also removes `key-{timestamp}` appended instances)
+   * @param {string} key    - Hint key to remove (also removes `key-{timestamp}` appended instances)
+   * @param {string} [subkey] - Optional sub-identifier; when set, removes only that subkey instance.
    *
    * @example
    *   foliplus.hideHint('export');            // removes all export hints
    *   foliplus.hideHint('gcoord-warn');       // removes gcoord warning
+   *   foliplus.hideHint('export', 'limit');   // removes only the 'limit' subkey
    */
-  foliplus.hideHint = (key) => {
-    // Also clear appended instances (keys start with key+'-')
+  foliplus.hideHint = (key, subkey) => {
+    if (subkey) {
+      const storeKey = `${key}|${subkey}`;
+      const entry = hintMap.get(storeKey);
+      if (entry) {
+        if (entry.timer) clearTimeout(entry.timer);
+        if (entry.element) entry.element.remove();
+        hintMap.delete(storeKey);
+      }
+      repositionHints();
+      return;
+    }
+    // Also clear appended instances (keys start with key+'-') or subkey instances (key|subkey)
     for (const k of hintMap.keys()) {
-      if (k === key || k.startsWith(`${key}-`)) {
+      if (k === key || k.startsWith(`${key}-`) || k.startsWith(`${key}|`)) {
         const entry = hintMap.get(k);
         if (entry.timer) clearTimeout(entry.timer);
         if (entry.element) entry.element.remove();

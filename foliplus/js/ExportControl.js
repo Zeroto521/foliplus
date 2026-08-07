@@ -966,20 +966,30 @@
 
     showHintWithInfo(r, instruction) {
       this.checkPixelLimit(r);
+      // Size hint always shows persistence.
+      foliplus.showHint(
+        CONST.name,
+        `${_(`${CONST.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
+          `${_(`${CONST.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
+        foliplus.HINT_DURATION.PERSIST,
+        null,
+        "size",
+      );
+      // Over-limit warning shown as a separate persistent hint sharing the
+      // same key via a distinct subkey, so it stacks with the size hint
+      // instead of replacing it.
       if (this.pixelOverLimit) {
-        this.showGlobalHint(
-          _(`${CONST.name}.err_too_large`).replace("{limit}", CONST.MAX_PIXELS),
-          foliplus.HINT_DURATION.PERSIST,
-          false,
-        );
-      } else {
         foliplus.showHint(
           CONST.name,
-          `${_(`${CONST.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
-            `${_(`${CONST.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
+          _(`${CONST.name}.err_too_large`).replace(
+            "{limit}",
+            foliplus.formatNumber(CONST.MAX_PIXELS),
+          ),
           foliplus.HINT_DURATION.PERSIST,
+          null,
+          "limit",
         );
-      }
+      } else foliplus.hideHint(CONST.name, "limit");
     }
 
     updateBoxStyle(el, r) {
@@ -1418,12 +1428,10 @@
 
     /** Check pixel limit and set pixelOverLimit flag. */
     checkPixelLimit(r) {
-      const scaleValue =
-        typeof CONST.SCALE === "number" && !isNaN(CONST.SCALE)
-          ? CONST.SCALE
-          : window.devicePixelRatio || 1;
-      const totalPixels =
-        Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
+      // Pixel limit applies to the crop area itself (not scaled by export
+      // DPI). The override of r.width/r.height happens in doRender, so the
+      // check here matches the actual exported dimensions.
+      const totalPixels = Math.round(r.width) * Math.round(r.height);
       this.pixelOverLimit = CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
     }
 
