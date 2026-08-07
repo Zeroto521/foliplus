@@ -993,10 +993,9 @@
     }
 
     updateBoxStyle(el, r) {
-      // Box in mapPane — convert container coords to layer coords
-      const panePos = L.DomUtil.getPosition(this.map._mapPane);
-      el.style.left = `${r.left - panePos.x}px`;
-      el.style.top = `${r.top - panePos.y}px`;
+      // Box lives in mapContainer — r is in container coordinates already.
+      el.style.left = `${r.left}px`;
+      el.style.top = `${r.top}px`;
       el.style.width = `${r.width}px`;
       el.style.height = `${r.height}px`;
     }
@@ -1061,9 +1060,14 @@
       this.mapContainer.classList.add(CONST.CLASSES.MODE);
       document.body.classList.add(CONST.CLASSES.MODE);
 
+      // Box must stay in mapContainer (not map._mapPane): mapPane has
+      // z-index:400 which creates a stacking context, trapping the box's
+      // 9501 z-index inside a 400-level context — putting scale/attr (850)
+      // above the dim mask. In mapContainer (z auto) the box participates
+      // in the root stacking context, so the mask covers scale/attr.
       const cropBox = foliplus.dom.el("div", {
         class: CONST.CLASSES.BOX,
-        parent: this.map._mapPane,
+        parent: this.mapContainer,
       });
 
       ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach((pos) => {
