@@ -146,5 +146,5 @@ class HeatmapControl(BaseControl):
             "label_format": "auto",
         } | (style or {})
         self._template = self._get_template(
-            js_file="HeatmapControl.js", css_file="HeatmapControl.css"
+            js="HeatmapControl.js", css="HeatmapControl.css"
         )

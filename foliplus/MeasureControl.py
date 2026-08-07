@@ -62,5 +62,5 @@ class MeasureControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
         self._template = self._get_template(
-            js_file="MeasureControl.js", css_file="MeasureControl.css"
+            js="MeasureControl.js", css="MeasureControl.css"
         )

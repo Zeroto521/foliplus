@@ -113,5 +113,5 @@ class ExportControl(BaseControl):
         self.background = background
         self.timeout = timeout
         self._template = self._get_template(
-            css_file="ExportControl.css", js_file="ExportControl.js"
+            css="ExportControl.css", js="ExportControl.js"
         )

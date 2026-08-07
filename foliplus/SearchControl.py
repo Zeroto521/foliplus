@@ -65,5 +65,5 @@ class SearchControl(BaseControl):
         self.mode = mode
         self.zoom = zoom
         self._template = self._get_template(
-            js_file="SearchControl.js", css_file="SearchControl.css"
+            js="SearchControl.js", css="SearchControl.css"
         )
