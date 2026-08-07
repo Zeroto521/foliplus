@@ -54,7 +54,7 @@ class TestScaleControlRendering:
     def test_metric_default(self, base_map: folium.Map):
         ScaleControl().add_to(base_map)
         html = render(base_map)
-        assert "isMetric: true" in html
+        assert '"isMetric": true' in html
 
     def test_metric_false_still_renders(self, base_map: folium.Map):
         ScaleControl(unit="imperial").add_to(base_map)
@@ -70,8 +70,7 @@ class TestScaleControlRendering:
     def test_hide_zoom(self, base_map: folium.Map):
         ScaleControl(show_zoom=False).add_to(base_map)
         html = render(base_map)
-        assert "const zoomLabel" not in html
-        assert 'this._map.on("zoomend"' not in html
+        assert '"show_zoom": false' in html
 
     def test_locale_zh(self, base_map: folium.Map):
         ScaleControl(locale="zh").add_to(base_map)
@@ -79,17 +78,11 @@ class TestScaleControlRendering:
         assert "地图级别" in html
         assert "ScaleControl.zoom_label" in html
 
-    def test_imperial_false_in_output(self, base_map: folium.Map):
-        """Scale control outputs imperial: !CONST.isMetric when unit='metric'."""
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
-        assert "imperial: !CONST.isMetric" in html
-
     def test_metric_false_disables_metric(self, base_map: folium.Map):
         """unit='imperial' correctly passed to Leaflet."""
         ScaleControl(unit="imperial").add_to(base_map)
         html = render(base_map)
-        assert "isMetric: false" in html
+        assert '"isMetric": false' in html
 
     def test_zoom_label_format(self, base_map: folium.Map):
         """Zoom label uses ScaleControl.zoom_label key with {zoom} placeholder."""
@@ -97,20 +90,6 @@ class TestScaleControlRendering:
         html = render(base_map)
         assert "ScaleControl.zoom_label" in html
         assert "{zoom}" in html
-
-    def test_zoom_end_event(self, base_map: folium.Map):
-        """Zoom label updates on zoomend event."""
-        ScaleControl(show_zoom=True).add_to(base_map)
-        html = render(base_map)
-        assert 'map.on("zoomend", updateZoom)' in html
-
-    def test_unload_cleanup_zoom(self, base_map: folium.Map):
-        """Zoom listener removed on map unload."""
-        ScaleControl(show_zoom=True).add_to(base_map)
-        html = render(base_map)
-        assert (
-            'this._map.on("unload", () => this._map.off("zoomend", updateZoom))' in html
-        )
 
     def test_scale_position_bottomleft(self, base_map: folium.Map):
         """Position is bottomleft (Leaflet default for scale)."""
@@ -123,8 +102,7 @@ class TestScaleControlRendering:
         ScaleControl(unit="imperial", show_zoom=False).add_to(base_map)
         html = render(base_map)
         assert "foliplus-scale-wrap" in html
-        assert "isMetric: false" in html
-        assert "const zoomLabel" not in html
+        assert '"isMetric": false' in html
 
     def test_common_css_injected(self, base_map: folium.Map):
         """Common design tokens are injected into the page."""

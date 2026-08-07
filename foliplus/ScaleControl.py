@@ -45,5 +45,9 @@ class ScaleControl(BaseControl):
         self.unit = unit
         self.show_zoom = show_zoom
         self._template = self._get_template(
-            js_file="ScaleControl.js", css_file="ScaleControl.css"
+            config={
+                "position": "bottomleft",
+                "isMetric": unit == "metric",
+                "show_zoom": show_zoom,
+            },
         )
