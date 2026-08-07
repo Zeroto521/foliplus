@@ -43,7 +43,7 @@ write_to = "foliplus/_version.py"
 include = ["foliplus*"]
 
 [tool.setuptools.package-data]
-foliplus = ["js/*.js", "css/*.css", "locale/*.json"]
+foliplus = ["locale/*.json", "dist/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

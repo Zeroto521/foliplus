@@ -69,4 +69,5 @@ package-lock.json
 .DS_Store
 
 # Auto-generated
+foliplus/dist/
 foliplus/_version.py

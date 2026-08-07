@@ -1,5 +1,9 @@
 {
   "devDependencies": {
+    "esbuild": "^0.24.0",
     "prettier": "^3.9.5"
+  },
+  "dependencies": {
+    "svgo": "^4.0.2"
   }
 }

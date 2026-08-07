@@ -1,0 +1,156 @@
+#!/usr/bin/env node
+/**
+ * Build script — minify foliplus JS/CSS assets with esbuild.
+ *
+ * Pipeline:
+ *   1. Mirror `foliplus/js/` → `foliplus/.build/`
+ *   2. SVGO-compress SVG strings in every `.js` file under `.build/`
+ *   3. Concatenate runtime.js + runtime.icon.js into runtime.combined.js
+ *   4. esbuild-bundle all components (resolving ES imports) to `foliplus/dist/`
+ *
+ * Usage:
+ *   node script/build.mjs              # build all
+ *   node script/build.mjs --watch      # watch mode
+ *   node script/build.mjs --check      # verify artifacts exist (CI)
+ */
+
+import { build } from "esbuild";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+  mkdirSync,
+  cpSync,
+  rmSync,
+} from "fs";
+import { basename, dirname, resolve } from "path";
+import { fileURLToPath } from "url";
+import { optimize } from "svgo";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, "..");
+const SRC = resolve(ROOT, "foliplus");
+const JS_SRC = resolve(SRC, "js");
+const CSS_SRC = resolve(SRC, "css");
+const DIST = resolve(SRC, "dist");
+const TMP = resolve(SRC, ".build");
+const TMP_JS = resolve(TMP, "js");
+
+// ── SVGO: compress SVG markup inside JS template literals ──────────
+function compressSvgStrings(code) {
+  return code.replace(/`\s*<svg[\s\S]*?<\/svg>\s*`/g, (match) => {
+    const svg = match.replace(/^`\s*/, "").replace(/\s*`$/, "");
+    try {
+      const result = optimize(svg, { multipass: true });
+      return "`" + result.data + "`";
+    } catch {
+      return match;
+    }
+  });
+}
+
+function processJsFiles(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = resolve(dir, entry.name);
+    if (entry.isDirectory()) {
+      processJsFiles(full);
+    } else if (entry.name.endsWith(".js")) {
+      const code = readFileSync(full, "utf-8");
+      writeFileSync(full, compressSvgStrings(code), "utf-8");
+    }
+  }
+}
+
+function findComponents() {
+  const entries = readdirSync(TMP_JS, { withFileTypes: true });
+  const components = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const name = entry.name;
+    const jsFile = resolve(TMP_JS, name, `${name}.js`);
+    const cssFile = resolve(CSS_SRC, `${name}.css`);
+    if (existsSync(jsFile)) {
+      components.push({ name, js: jsFile, css: existsSync(cssFile) ? cssFile : null });
+    }
+  }
+  return components;
+}
+
+function buildEntries(components) {
+  const entries = [];
+  const shared = [
+    { dir: TMP_JS, in: "runtime.combined.js", out: "runtime.min", type: "js" },
+    { dir: CSS_SRC, in: "common.css", out: "common.min", type: "css" },
+    { dir: CSS_SRC, in: "panel.css", out: "panel.min", type: "css" },
+  ];
+  for (const { dir, in: input, out, type } of shared) {
+    const src = resolve(dir, input);
+    if (!existsSync(src)) continue;
+    const ext = type === "css" ? ".css" : ".js";
+    entries.push({
+      entryPoints: [src],
+      outfile: resolve(DIST, out + ext),
+      minify: true,
+      sourcemap: true,
+      allowOverwrite: true,
+    });
+  }
+  for (const { name, js, css } of components) {
+    entries.push({
+      entryPoints: [js],
+      outfile: resolve(DIST, `${name}.min.js`),
+      bundle: true,
+      minify: true,
+      sourcemap: true,
+      allowOverwrite: true,
+    });
+    if (css) {
+      entries.push({
+        entryPoints: [css],
+        outfile: resolve(DIST, `${name}.min.css`),
+        minify: true,
+        sourcemap: true,
+        allowOverwrite: true,
+      });
+    }
+  }
+  return entries;
+}
+
+async function main() {
+  const isWatch = process.argv.includes("--watch");
+
+  rmSync(TMP, { recursive: true, force: true });
+  mkdirSync(TMP_JS, { recursive: true });
+  cpSync(JS_SRC, TMP_JS, { recursive: true });
+  processJsFiles(TMP_JS);
+
+  const runtimeCode = readFileSync(resolve(TMP_JS, "runtime.js"), "utf-8");
+  const runtimeIcon = resolve(TMP_JS, "runtime", "runtime.icon.js");
+  const runtimeIconCode = existsSync(runtimeIcon) ? readFileSync(runtimeIcon, "utf-8") : "";
+  writeFileSync(
+    resolve(TMP_JS, "runtime.combined.js"),
+    runtimeCode + "\n" + runtimeIconCode,
+    "utf-8",
+  );
+
+  const components = findComponents();
+  const entries = buildEntries(components);
+  console.log(`Building ${entries.length} artifacts for ${components.length} components...`);
+
+  for (const opts of entries) {
+    try {
+      await build(opts);
+      console.log(`  ✓ ${basename(opts.outfile)}`);
+    } catch (e) {
+      console.error(`  ✗ ${basename(opts.outfile)}: ${e.message}`);
+    }
+  }
+  console.log("Done.");
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

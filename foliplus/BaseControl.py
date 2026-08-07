@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cache
 from json import dumps
 from pathlib import Path
 from textwrap import dedent
@@ -15,10 +16,72 @@ from .locale import _LOCALES_TABLES, LocaleConfig, resolve_locale
 src_dir = Path(__file__).parent
 js_dir = src_dir / "js"
 css_dir = src_dir / "css"
+dist_dir = src_dir / "dist"
 
 # Stable child name used to deduplicate the shared asset bundle in a figure's
 # header, so runtime.js / common.css / locale tables are emitted only once per map.
 _SHARED_ASSETS_NAME = "foliplus_shared"
+
+
+@cache
+def _load_shared_asset(src: Path, artifact: Path) -> str:
+    """Load a shared asset, preferring the minified artifact."""
+    if artifact.is_file():
+        return artifact.read_text(encoding="utf-8")
+    return src.read_text(encoding="utf-8")
+
+
+@cache
+def _build_shared_header() -> str:
+    """Build the shared asset bundle (<style> + <script>) injected once per map.
+
+    Contains common.css, panel.css, runtime.js (with runtime.icon.js bundled in),
+    and the locale tables. Built once and cached at module level.
+    """
+    common = _load_shared_asset(css_dir / "common.css", dist_dir / "common.min.css")
+    panel = _load_shared_asset(css_dir / "panel.css", dist_dir / "panel.min.css")
+    runtime = _load_shared_asset(js_dir / "runtime.js", dist_dir / "runtime.min.js")
+    return (
+        "<style>\n"
+        f"{common}\n{panel}\n"
+        "</style>\n"
+        "<script>\n"
+        f"{runtime}\n"
+        "window.foliplus = window.foliplus || {};\n"
+        f"window.foliplus._TABLES = {dumps(_LOCALES_TABLES, ensure_ascii=False)};\n"
+        "</script>"
+    )
+
+
+def _load_asset(src: Path, artifact: Path) -> str:
+    """Read an asset, preferring the minified artifact.
+
+    Resolution order:
+    1. Prefer the minified artifact from ``dist/`` if it exists.
+    2. Fall back to the source file.
+
+    Components that use ES module ``import`` (migrated ones) **must** be
+    read from the bundled artifact, which is always present after a
+    ``make build-js`` run.
+
+    Returns ``""`` when neither the source nor the artifact exists (a
+    component simply may not ship a given CSS/JS asset).
+    """
+    if artifact.is_file():
+        return artifact.read_text(encoding="utf-8")
+    if src.is_file():
+        return src.read_text(encoding="utf-8")
+    return ""
+
+
+def _get_js(filename: str) -> str:
+    src = js_dir.joinpath(filename)
+    return _load_asset(src, dist_dir.joinpath(f"{src.stem}.min.js"))
+
+
+def _get_css(filename: str) -> str:
+    src = css_dir.joinpath(filename)
+    return _load_asset(src, dist_dir.joinpath(f"{src.stem}.min.css"))
 
 
 class BaseControl(JSCSSMixin, MacroElement):
@@ -38,24 +101,6 @@ class BaseControl(JSCSSMixin, MacroElement):
         If omitted, the browser's ``navigator.language`` is used at runtime to
         select the appropriate locale table, falling back to English.
     """
-
-    _common = css_dir.joinpath("common.css").read_text(encoding="utf-8")
-    _panel = css_dir.joinpath("panel.css").read_text(encoding="utf-8")
-    _runtime = js_dir.joinpath("runtime.js").read_text(encoding="utf-8")
-
-    # Shared asset bundle injected once per map (see ``render``). Contains the
-    # common + panel CSS, the runtime JS namespace, and every locale table. Built
-    # once at import time and reused across all controls and maps.
-    _shared_header = (
-        "<style>\n"
-        f"{_common}\n{_panel}\n"
-        "</style>\n"
-        "<script>\n"
-        f"{_runtime}\n"
-        "window.foliplus = window.foliplus || {};\n"
-        f"window.foliplus._TABLES = {dumps(_LOCALES_TABLES, ensure_ascii=False)};\n"
-        "</script>"
-    )
 
     def __init__(
         self,
@@ -83,44 +128,58 @@ class BaseControl(JSCSSMixin, MacroElement):
             and _SHARED_ASSETS_NAME not in figure.header._children
         ):
             figure.header.add_child(
-                Element(self._shared_header), name=_SHARED_ASSETS_NAME
+                Element(_build_shared_header()), name=_SHARED_ASSETS_NAME
             )
         super().render(**kwargs)
-
-    def _get_js(self, filename: str) -> str:
-        return js_dir.joinpath(filename).read_text(encoding="utf-8")
-
-    def _get_css(self, filename: str) -> str:
-        return css_dir.joinpath(filename).read_text(encoding="utf-8")
 
     def _get_template(
         self,
         *,
-        js_file: str | None = None,
-        css_file: str | None = None,
+        js: str | None = None,
+        css: str | None = None,
+        config: dict | None = None,
     ) -> Template:
         """Build a Jinja2 template with this control's own CSS/JS.
 
-        Shared assets (``common.css``, ``panel.css``, ``runtime.js``, and the
-        locale tables) are injected once per map by :meth:`render`, so this
-        template only carries the component-specific CSS/JS plus a small call to
-        resolve the locale from the shared ``window.foliplus._TABLES``.
+        Shared assets (``common.css``, ``panel.css``, ``runtime.js``, and the locale
+        tables) are injected once per map by :meth:`render`, so this template only
+        carries the component-specific CSS/JS plus a small call to resolve the locale
+        from the shared ``window.foliplus._TABLES``.
 
         Parameters
         ----------
-        js_file : str, optional
-            Component JS filename (e.g. ``"LayerControl.js"``).
+        js : str, optional
+            Component JS filename. For migrated components the path is
+            resolved from ``self._name`` automatically (``{name}/{name}.js``).
+            Explicit paths (e.g. ``"LayerControl.js"``) are used as-is.
 
-        css_file : str, optional
-            Component CSS filename (e.g. ``"LayerControl.css"``).
+        css : str, optional
+            Component CSS filename.  Automatically resolved from
+            ``self._name`` when omitted (``{name}.css``).
+
+        config : dict, optional
+            Runtime config injected as ``window.foliplus.CONFIG[component]`` before the
+            component JS runs. Frees the JS source from Jinja tags.
 
         Returns
         -------
         Template
             A Jinja2 ``Template`` instance ready for folium rendering.
         """
-        js = self._get_js(js_file) if js_file else ""
-        css = self._get_css(css_file) if css_file else ""
+        js = js or f"{self._name}/{self._name}.js"
+        js = _get_js(js) if js else ""
+        css = css or f"{self._name}.css"
+        css = _get_css(css) if css else ""
+
+        config = (
+            (
+                "window.foliplus = window.foliplus || {};\n"
+                "window.foliplus.CONFIG = window.foliplus.CONFIG || {};\n"
+                f"window.foliplus.CONFIG[{self._name!r}] = {dumps(config or {})};\n"
+            )
+            if config
+            else ""
+        )
 
         return Template(
             dedent(f"""\
@@ -131,9 +190,13 @@ class BaseControl(JSCSSMixin, MacroElement):
             {{% endmacro %}}
 
             {{% macro script(this, kwargs) %}}
+            (function() {{
             if (window.foliplus && window.foliplus.resolveLocale) {{
                 window.foliplus.resolveLocale({{{{ this._locale_code | tojson }}}}, window.foliplus._TABLES);
             }}
+            const map = {{{{ this._parent.get_name() }}}};
+            {config}
             {js}
+            }})();
             {{% endmacro %}}""")
         )
