@@ -1111,6 +1111,72 @@ class TestExportControlBrowser:
         finally:
             page.close()
 
+    def test_scale_attr_dim_below_mask(self, browser, tmp_path):
+        """Scale/attribution stay below the dim mask (z-index stacking).
+
+        Regression: when the crop box was attached to map._mapPane (which has
+        z-index:400 creating a stacking context), the box's 9501 z-index was
+        trapped inside a 400-level context, so scale/attr (850) rendered above
+        the dim shadow. The box must live in mapContainer (z auto) so it
+        participates in the root stacking context.
+        """
+
+        from foliplus import LayerControl, ScaleControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        ScaleControl().add_to(m)
+        LayerControl().add_to(m)
+        ExportControl().add_to(m)
+        html_path = tmp_path / "export_scale_attr_mask.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-export-ctrl", state="attached", timeout=10000
+            )
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+
+            info = page.evaluate("""() => {
+                const box = document.querySelector('.foliplus-export-box');
+                const scale = document.querySelector('.leaflet-control-scale');
+                const attr = document.querySelector('.leaflet-control-attribution');
+                const get = (el) => el ? getComputedStyle(el) : null;
+                const boxParent = box ? box.parentElement : null;
+                const boxZ = box ? parseInt(get(box).zIndex, 10) : null;
+                const parentZ = boxParent ? get(boxParent).zIndex : null;
+                const scaleZ = scale ? parseInt(get(scale).zIndex, 10) : null;
+                const attrZ = attr ? parseInt(get(attr).zIndex, 10) : null;
+                return {
+                    boxZ, parentZ,
+                    parentIsContainer: boxParent
+                        ? boxParent.classList.contains('leaflet-container') : false,
+                    scaleZ, attrZ,
+                };
+            }""")
+
+            # Box must live in mapContainer (not mapPane) — mapPane's
+            # z-index:400 stacking context would trap the mask below scale/attr.
+            assert info["parentIsContainer"], (
+                f"Crop box must be inside mapContainer, got parentZ={info['parentZ']}"
+            )
+            assert info["parentZ"] == "auto" or info["parentZ"] == "", (
+                f"mapContainer must not create a stacking context, got {info['parentZ']}"
+            )
+            # Mask z (9501) must be above scale/attr z (850)
+            assert info["boxZ"] > info["scaleZ"], (
+                f"Mask z={info['boxZ']} must be above scale z={info['scaleZ']}"
+            )
+            assert info["boxZ"] > info["attrZ"], (
+                f"Mask z={info['boxZ']} must be above attr z={info['attrZ']}"
+            )
+        finally:
+            page.close()
+
     def test_saved_bounds_restore(self, browser, tmp_path):
         """Saved bounds in localStorage restore the crop box on toggle."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
