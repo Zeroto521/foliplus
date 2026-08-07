@@ -21,7 +21,7 @@ class ExportControl(BaseControl):
     filename : str, default "map"
         Base filename for the exported image, without the extension. The correct
         extension (``.png``, ``.jpeg``, or ``.webp``) is appended automatically based on
-        :paramref:`~ExportControl.format`.
+        ``format``.
 
     format : str, default "png"
         Image format for the export. One of ``"png"``, ``"jpeg"``, or ``"webp"``. JPEG
@@ -71,10 +71,9 @@ class ExportControl(BaseControl):
     * ``Escape`` — unlock or dismiss the crop box
     * ``Ctrl+Z`` / ``Cmd+Z`` — undo the last crop adjustment
 
-    **Image format.**  The download filename is ``{filename}.{format}``.  For
-    example, ``filename="map"`` with ``format="jpeg"`` produces ``map.jpeg``.
-    JPEG and WebP use the :paramref:`~ExportControl.quality` parameter for
-    compression; PNG is always lossless.
+    **Image format.**  The download filename is ``{filename}.{format}``. For example,
+    ``filename="map"`` with ``format="jpeg"`` produces ``map.jpeg``. JPEG and WebP use
+    the ``quality`` parameter for compression; PNG is always lossless.
 
     Examples
     --------
