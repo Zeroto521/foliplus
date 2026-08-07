@@ -1446,6 +1446,10 @@
       }
       this.removeCropBox();
 
+      // Lock map interactions during export so the user cannot pan/zoom
+      // while the render is in progress (which would cause offset errors).
+      this.lockMap();
+
       let scaleValue = CONST.SCALE;
       if (typeof scaleValue !== "number" || isNaN(scaleValue))
         scaleValue = window.devicePixelRatio || 1;
@@ -1484,6 +1488,9 @@
     doRender(r, scaleValue, bg, geoBounds) {
       const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
       hideEls.forEach((el) => el.classList.add(CONST.CLASSES.HIDDEN));
+      // Force a synchronous layout so getBoundingClientRect() in the
+      // render passes sees the final positions after hiding controls.
+      this.mapContainer.offsetHeight;
 
       if (geoBounds && geoBounds.nw) {
         const nw = this.map.latLngToContainerPoint(
@@ -1540,25 +1547,22 @@
         this.map.setView(savedCenter, savedZoom, { animate: false });
       };
 
-      let moveEndCount = 0;
-      const onMoveEnd = () => {
-        moveEndCount++;
-        if (moveEndCount < 2) return;
-        this.map.off("moveend", onMoveEnd);
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            this.doRender(r, scaleValue, bg, geoBounds).finally(restore);
-          });
-        });
-      };
-      this.map.on("moveend", onMoveEnd);
+      // Resize container and centre the map on the crop area.
+      // Both invalidateSize and setView are synchronous (animate: false),
+      // so the map state is updated immediately.  A single rAF ensures the
+      // browser has applied the layout changes before we render.
       this.map.invalidateSize(false);
       this.map.setView(cropCenter, savedZoom, { animate: false });
+      requestAnimationFrame(() => {
+        this.mapContainer.offsetHeight; // Force synchronous reflow
+        this.doRender(r, scaleValue, bg, geoBounds).finally(restore);
+      });
     }
 
     /** Handle successful render: show preview and trigger download. */
     onRenderSuccess(canvas, hideEls) {
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
+      this.unlockMap();
       const mimeType = CONST.MIME[CONST.FORMAT] || CONST.MIME.DEFAULT;
       const prevImg = document.createElement("img");
       prevImg.src = canvas.toDataURL(mimeType);
@@ -1607,6 +1611,7 @@
     /** Handle render failure. */
     onRenderError(err, hideEls) {
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
+      this.unlockMap();
       console.error(`[${CONST.name}] ${_(`${CONST.name}.err_render`)}:`, err);
       this.showGlobalHint(
         _(`${CONST.name}.status_fail`) + (err.message || ""),
@@ -1614,6 +1619,30 @@
         false,
       );
       this.isExporting = false;
+    }
+
+    /** Disable map interactions while an export is in progress to prevent
+     *  pan/zoom from shifting layer positions mid-render (which caused
+     *  offset or clipped exports). */
+    lockMap() {
+      if (!this.map) return;
+      this.map.dragging.disable();
+      this.map.scrollWheelZoom.disable();
+      this.map.doubleClickZoom.disable();
+      this.map.boxZoom.disable();
+      this.map.keyboard.disable();
+      this.map.touchZoom.disable();
+    }
+
+    /** Restore map interactions after export. */
+    unlockMap() {
+      if (!this.map) return;
+      this.map.dragging.enable();
+      this.map.scrollWheelZoom.enable();
+      this.map.doubleClickZoom.enable();
+      this.map.boxZoom.enable();
+      this.map.keyboard.enable();
+      this.map.touchZoom.enable();
     }
   }
 
