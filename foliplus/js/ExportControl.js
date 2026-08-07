@@ -282,11 +282,18 @@
         ctx.fillRect(0, 0, sw, sh);
       }
 
-      const contRect = this.container.getBoundingClientRect();
-      const contW = contRect.width;
-      const contH = contRect.height;
-      const cw = rect.width * scale;
-      const ch = rect.height * scale;
+      // Shared render context threaded through all passes.
+      const rc = {
+        ctx,
+        rect,
+        scale,
+        contRect: this.container.getBoundingClientRect(),
+        // Derived values used by every pass.
+        cw: rect.width * scale,
+        ch: rect.height * scale,
+        sw,
+        sh,
+      };
 
       // 2. All layers — iterate in LayerControl API order bottom-to-top.
       // Each layer may contain Tile, SVG, Canvas, and/or Marker elements, so we
@@ -304,31 +311,14 @@
           // (e.g. L.ImageOverlay) are skipped here.
           if (li.layer instanceof L.GridLayer && li.layer._url) {
             if (geoBounds && geoBounds.nw) {
-              await this.renderTileLayer(
-                ctx,
-                rect,
-                scale,
-                contRect,
-                contW,
-                contH,
-                geoBounds,
-                li.layer,
-              );
+              await this.renderTileLayer(rc, geoBounds, li.layer);
             }
             continue;
           }
 
           // Callback-only layers (e.g. HeatmapControl canvas) — render via stored canvas
           if (li.canvas) {
-            await this.renderCanvasElement(
-              ctx,
-              rect,
-              scale,
-              contRect,
-              cw,
-              ch,
-              li.canvas,
-            );
+            await this.renderCanvasElement(rc, li.canvas);
             continue;
           }
           // Use the layer reference from layerInfo (resolved at init or register)
@@ -339,17 +329,17 @@
           for (const paneName of panes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;
-            await this.renderPaneSVG(ctx, rect, scale, contRect, sw, sh, pane);
-            await this.renderPaneCanvas(ctx, rect, scale, contRect, cw, ch, pane);
+            await this.renderPaneSVG(rc, pane);
+            await this.renderPaneCanvas(rc, pane);
           }
 
           // Markers and divIcons in this layer
           const markerRoots = this.collectLayerMarkers(li.layer);
           if (markerRoots.length) {
-            await this.renderMarkers(ctx, rect, scale, contRect, cw, ch, markerRoots);
-            await this.renderFontAwesome(ctx, rect, scale, contRect, markerRoots);
-            await this.renderTextLabels(ctx, rect, scale, contRect, markerRoots);
-            await this.renderRemaining(ctx, rect, scale, contRect, markerRoots);
+            await this.renderMarkers(rc, markerRoots);
+            await this.renderFontAwesome(rc, markerRoots);
+            await this.renderTextLabels(rc, markerRoots);
+            await this.renderRemaining(rc, markerRoots);
           }
         }
       }
@@ -358,7 +348,8 @@
     }
 
     /** Render a standalone canvas element (e.g. HeatmapControl) with lifecycle hooks. */
-    async renderCanvasElement(ctx, rect, scale, contRect, cw, ch, ce) {
+    async renderCanvasElement(rc, ce) {
+      const { ctx, rect, scale, contRect, cw, ch } = rc;
       if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
       try {
         const r = ce.getBoundingClientRect();
@@ -384,18 +375,10 @@
     }
 
     /** Render a single tile layer from geo bounds with concurrent tile loading. */
-    async renderTileLayer(
-      ctx,
-      rect,
-      scale,
-      contRect,
-      contW,
-      contH,
-      geoBounds,
-      tileLayer,
-    ) {
-      const cw = rect.width * scale;
-      const ch = rect.height * scale;
+    async renderTileLayer(rc, geoBounds, tileLayer) {
+      const { ctx, rect, scale, contRect, cw, ch } = rc;
+      const contW = contRect.width;
+      const contH = contRect.height;
 
       if (!geoBounds || !geoBounds.nw) return;
       const zoom = this.map.getZoom();
@@ -425,8 +408,9 @@
 
       // Load and draw tiles in concurrent batches to avoid overwhelming the
       // browser connection limit (~6 per domain) while still parallelizing.
-      for (let i = 0; i < visibleTiles.length; i += CONST.TILE_CONCURRENCY) {
-        const batch = visibleTiles.slice(i, i + CONST.TILE_CONCURRENCY);
+      const concurrency = CONST.CACHE.TILE_CONCURRENCY;
+      for (let i = 0; i < visibleTiles.length; i += concurrency) {
+        const batch = visibleTiles.slice(i, i + concurrency);
         const bitmaps = await Promise.all(
           batch.map((t) => loadImageBitmap(t.url).catch(() => null)),
         );
@@ -440,7 +424,8 @@
     }
 
     /** Render SVG content from a single pane. */
-    async renderPaneSVG(ctx, rect, scale, contRect, sw, sh, pane) {
+    async renderPaneSVG(rc, pane) {
+      const { ctx, rect, scale, contRect, sw, sh } = rc;
       const props = [
         "fill",
         "stroke",
@@ -513,7 +498,8 @@
     }
 
     /** Render canvas elements from a single pane. */
-    async renderPaneCanvas(ctx, rect, scale, contRect, cw, ch, pane) {
+    async renderPaneCanvas(rc, pane) {
+      const { ctx, rect, scale, contRect, cw, ch } = rc;
       for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
         if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
         try {
@@ -577,7 +563,8 @@
     }
 
     /** Render markers with background-image sprites. */
-    async renderMarkers(ctx, rect, scale, contRect, cw, ch, markerRoots) {
+    async renderMarkers(rc, markerRoots) {
+      const { ctx, rect, scale, contRect, cw, ch } = rc;
       const drawableEls = [];
       for (const root of markerRoots) {
         drawableEls.push(root);
@@ -663,9 +650,8 @@
     }
 
     /** Render FontAwesome icons from ::before pseudo-element content. */
-    async renderFontAwesome(ctx, rect, scale, contRect, markerRoots) {
-      const cw = rect.width * scale;
-      const ch = rect.height * scale;
+    async renderFontAwesome(rc, markerRoots) {
+      const { ctx, rect, scale, contRect, cw, ch } = rc;
 
       for (const root of markerRoots) {
         const r = root.getBoundingClientRect();
@@ -726,9 +712,8 @@
     }
 
     /** Render plain text labels (e.g. MeasureControl distance labels) with background. */
-    async renderTextLabels(ctx, rect, scale, contRect, markerRoots) {
-      const cw = rect.width * scale;
-      const ch = rect.height * scale;
+    async renderTextLabels(rc, markerRoots) {
+      const { ctx, rect, scale, contRect, cw, ch } = rc;
 
       for (const root of markerRoots) {
         const textEl = root.querySelector(CONST.SEL.LABEL) || root;
@@ -808,9 +793,8 @@
 
     /** Render remaining icon types not handled by other passes:
      *  <img> → fallback sprite → inline SVG → background-color fill. */
-    async renderRemaining(ctx, rect, scale, contRect, markerRoots) {
-      const cw = rect.width * scale;
-      const ch = rect.height * scale;
+    async renderRemaining(rc, markerRoots) {
+      const { ctx, rect, scale, contRect, cw, ch } = rc;
 
       for (const root of markerRoots) {
         const r = root.getBoundingClientRect();
