@@ -1319,7 +1319,8 @@
       }
       this.cropState.rect = r;
       this.updateBoxStyle(this.cropState.box, r);
-      this.showHintWithInfo(r, _(`${CONST.name}.hint_unlocked`));
+      // Only update the hint when the size changes (resize), not on pure move
+      if (type !== "move") this.showHintWithInfo(r, _(`${CONST.name}.hint_unlocked`));
     }
 
     pushUndoState() {
@@ -1386,8 +1387,7 @@
           : window.devicePixelRatio || 1;
       const totalPixels =
         Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
-      this.pixelOverLimit =
-        CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
+      this.pixelOverLimit = CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
     }
 
     /** Check whether the given rect exceeds the pixel limit. */
@@ -1398,8 +1398,7 @@
           : window.devicePixelRatio || 1;
       const totalPixels =
         Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
-      this.pixelOverLimit =
-        CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
+      this.pixelOverLimit = CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
     }
 
     doExport() {
