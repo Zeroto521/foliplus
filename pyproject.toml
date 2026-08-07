@@ -39,11 +39,14 @@ dev = ["pytest", "pytest-cov", "pytest-xdist", "build", "twine"]
 [tool.setuptools_scm]
 write_to = "foliplus/_version.py"
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
 include = ["foliplus*"]
 
 [tool.setuptools.package-data]
-foliplus = ["locale/*.json", "dist/*"]
+foliplus = ["locale/*.json", "dist/*.min.js", "dist/*.min.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
