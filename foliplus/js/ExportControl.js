@@ -1227,6 +1227,10 @@
       this.mapContainer.classList.remove(CONST.CLASSES.MODE);
       document.body.classList.remove(CONST.CLASSES.MODE);
       document.removeEventListener("keydown", this.onKeyDown);
+      document.removeEventListener("mousemove", this.onMouseMove);
+      document.removeEventListener("mouseup", this.onMouseUp);
+      this.dragState.dragging = false;
+      this.dragState.dragType = null;
       if (this.mapMoveCleanup) {
         this.mapMoveCleanup();
         this.mapMoveCleanup = null;
