@@ -561,7 +561,7 @@ class TestExportControlRendering:
         """render() renders TileLayer via renderTileLayer inside per-layer loop."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "L.TileLayer" in html
+        assert "L.GridLayer" in html
         assert "renderTileLayer" in html
 
     def test_render_invisible_layer_skipped(self, base_map: folium.Map):
@@ -584,10 +584,10 @@ class TestExportControlRendering:
         assert "await this.renderRemaining" in html
 
     def test_get_tile_layers_sorted(self, base_map: folium.Map):
-        """TileLayer detection uses instanceof L.TileLayer."""
+        """TileLayer detection uses instanceof L.GridLayer."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "L.TileLayer" in html
+        assert "L.GridLayer" in html
         assert "renderTileLayer" in html
 
     def test_svg_clone_removes_style_attribute(self, base_map: folium.Map):

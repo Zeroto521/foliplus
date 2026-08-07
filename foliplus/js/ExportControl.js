@@ -122,7 +122,7 @@
   //
   // We also intercept future layer additions to set crossOrigin.
   map.eachLayer((layer) => {
-    if (layer instanceof L.TileLayer && !layer.options.crossOrigin) {
+    if (layer instanceof L.GridLayer && !layer.options.crossOrigin) {
       layer.options.crossOrigin = "anonymous";
       if (map.hasLayer(layer)) {
         map.removeLayer(layer);
@@ -131,7 +131,7 @@
     }
   });
   map.on("layeradd", (e) => {
-    if (e.layer instanceof L.TileLayer && !e.layer.options.crossOrigin) {
+    if (e.layer instanceof L.GridLayer && !e.layer.options.crossOrigin) {
       e.layer.options.crossOrigin = "anonymous";
     }
   });
@@ -299,8 +299,10 @@
           const li = layers[i];
           if (!li.visible) continue;
 
-          // Tile layers (e.g. basemaps) — render tiles via geo bounds
-          if (li.layer instanceof L.TileLayer) {
+          // Tile layers (e.g. basemaps) — render tiles via geo bounds.
+          // Only TileLayer subclasses have _url; other GridLayer types
+          // (e.g. L.ImageOverlay) are skipped here.
+          if (li.layer instanceof L.GridLayer && li.layer._url) {
             if (geoBounds && geoBounds.nw) {
               await this.renderTileLayer(
                 ctx,
@@ -423,9 +425,8 @@
 
       // Load and draw tiles in concurrent batches to avoid overwhelming the
       // browser connection limit (~6 per domain) while still parallelizing.
-      const concurrency = CONST.TILE_CONCURRENCY;
-      for (let i = 0; i < visibleTiles.length; i += concurrency) {
-        const batch = visibleTiles.slice(i, i + concurrency);
+      for (let i = 0; i < visibleTiles.length; i += CONST.TILE_CONCURRENCY) {
+        const batch = visibleTiles.slice(i, i + CONST.TILE_CONCURRENCY);
         const bitmaps = await Promise.all(
           batch.map((t) => loadImageBitmap(t.url).catch(() => null)),
         );
