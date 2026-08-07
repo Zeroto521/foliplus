@@ -1454,9 +1454,10 @@
       // This overlay catches ALL mouse events (hover, click, drag)
       // during export so Leaflet's JS event listeners on SVG paths
       // cannot trigger hover highlights.
-      this.exportOverlay = document.createElement("div");
-      this.exportOverlay.className = "foliplus-export-blocker";
-      document.body.appendChild(this.exportOverlay);
+      this.exportOverlay = foliplus.dom.el("div", {
+        class: "foliplus-export-blocker",
+        parent: document.body,
+      });
       // Lock map interactions (pan/zoom) so layer positions stay stable.
       this.lockMap();
 
