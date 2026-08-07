@@ -14,6 +14,20 @@
 
 .foliplus-export-mode {
   --z-export-base: 9500;
+  /* Dim mask shadow extent & color */
+  --export-dim-extent: 9999px;
+  --export-dim-color: rgba(0, 0, 0, 0.4);
+  --export-dim-color-locked: rgba(0, 0, 0, var(--alpha-50));
+  /* Controls above mask */
+  --export-controls-z: calc(var(--z-export-base) + 10);
+  --export-scale-z: 850;
+  /* Fold control z-index */
+  --export-ctrl-z: calc(var(--z-export-base) + 200);
+  /* Handle/center anchor size */
+  --export-anchor-size: var(--size-12);
+  /* Preview size caps */
+  --export-preview-max-w: 400px;
+  --export-preview-max-h: 300px;
 }
 
 /* Reset Leaflet stacking context so controls can sit above the crop mask.
@@ -27,18 +41,18 @@
 
 /* Keep controls visible above the crop mask */
 .foliplus-export-mode .leaflet-control {
-  z-index: calc(var(--z-export-base) + 10) !important;
+  z-index: var(--export-controls-z) !important;
 }
 /* Scale/attribution stay dim below the mask */
 .foliplus-export-mode .leaflet-control-scale,
 .foliplus-export-mode .leaflet-control-attribution {
-  z-index: 850 !important;
+  z-index: var(--export-scale-z) !important;
   background: var(--ctrl-bg-translucent);
 }
 
 /* Export ctrl container (above overlay, below hints at 10000+) */
 .foliplus-export-ctrl {
-  z-index: calc(var(--z-export-base) + 200);
+  z-index: var(--export-ctrl-z);
 }
 /* Confirm/download buttons: red accent to distinguish from cancel */
 .foliplus-export-ctrl .foliplus-tool-btn.confirm {
@@ -76,7 +90,7 @@
   position: absolute;
   inset: -1px;
   pointer-events: none;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color);
   z-index: -1;
 }
 .foliplus-export-box.locked {
@@ -87,7 +101,7 @@
   transition: none;
 }
 .foliplus-export-box.locked::before {
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, var(--alpha-50));
+  box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color-locked);
 }
 
 /* ── Corner/Edge Handles ── */
@@ -159,9 +173,9 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: var(--size-12);
-  height: var(--size-12);
-  margin: -6px 0 0 -6px;
+  width: var(--export-anchor-size);
+  height: var(--export-anchor-size);
+  margin: calc(var(--export-anchor-size) / -2) 0 0 calc(var(--export-anchor-size) / -2);
   background: var(--accent-primary);
   border: var(--border-thick) solid var(--ctrl-bg);
   border-radius: var(--radius-round);
@@ -185,8 +199,8 @@
   bottom: 10px;
   right: 10px;
   z-index: 100000;
-  max-width: 400px;
-  max-height: 300px;
+  max-width: var(--export-preview-max-w);
+  max-height: var(--export-preview-max-h);
   border: var(--border-thick) solid var(--input-focus-border);
   border-radius: var(--radius-sm);
   background: var(--ctrl-bg);
