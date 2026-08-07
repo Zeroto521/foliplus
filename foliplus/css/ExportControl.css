@@ -58,6 +58,16 @@
 .foliplus-export-mode .leaflet-control {
   z-index: var(--export-controls-z) !important;
 }
+
+/* Active export (rendering/over-size): disable pointer events so hover
+  highlights on layers (GeoJSON highlight_kwds, etc.) are not triggered
+  during capture, and clamp overflow so the enlarged container can't
+  scroll. Applied via .foliplus-exporting on the map container. */
+.foliplus-exporting {
+  pointer-events: none;
+  overflow: hidden;
+}
+
 /* Scale/attribution stay dim below the mask */
 .foliplus-export-mode .leaflet-control-scale,
 .foliplus-export-mode .leaflet-control-attribution {

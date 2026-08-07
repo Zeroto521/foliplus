@@ -44,6 +44,7 @@
       ACTIVE: "active",
       CONFIRM: "confirm",
       CANCEL: "cancel",
+      EXPORTING: "foliplus-exporting",
     },
     SVG_NS: "http://www.w3.org/2000/svg",
     SEL: {
@@ -1488,6 +1489,10 @@
     doRender(r, scaleValue, bg, geoBounds) {
       const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
       hideEls.forEach((el) => el.classList.add(CONST.CLASSES.HIDDEN));
+      // Disable pointer events + clamp overflow so hover highlights and
+      // scrollbars don't interfere with the render.  Restored in
+      // onRenderSuccess / onRenderError.
+      this.mapContainer.classList.add(CONST.CLASSES.EXPORTING);
       // Force a synchronous layout so getBoundingClientRect() in the
       // render passes sees the final positions after hiding controls.
       this.mapContainer.offsetHeight;
@@ -1518,7 +1523,7 @@
     /** Enlarge the container for over-size exports and render. */
     enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH) {
       const savedStyles = {};
-      ["width", "height", "minHeight", "maxHeight", "overflow"].forEach((p) => {
+      ["width", "height", "minHeight", "maxHeight"].forEach((p) => {
         savedStyles[p] = this.mapContainer.style[p];
       });
       const savedCenter = this.map.getCenter();
@@ -1531,7 +1536,6 @@
       this.mapContainer.style.width = `${Math.ceil(bigW)}px`;
       this.mapContainer.style.height = `${Math.ceil(bigH)}px`;
       this.mapContainer.style.minHeight = `${Math.ceil(bigH)}px`;
-      this.mapContainer.style.overflow = "hidden";
 
       const cropCenter = L.latLngBounds(
         L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
@@ -1562,6 +1566,7 @@
     /** Handle successful render: show preview and trigger download. */
     onRenderSuccess(canvas, hideEls) {
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
+      this.mapContainer.classList.remove(CONST.CLASSES.EXPORTING);
       this.unlockMap();
       const mimeType = CONST.MIME[CONST.FORMAT] || CONST.MIME.DEFAULT;
       const prevImg = document.createElement("img");
@@ -1611,6 +1616,7 @@
     /** Handle render failure. */
     onRenderError(err, hideEls) {
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
+      this.mapContainer.classList.remove(CONST.CLASSES.EXPORTING);
       this.unlockMap();
       console.error(`[${CONST.name}] ${_(`${CONST.name}.err_render`)}:`, err);
       this.showGlobalHint(
