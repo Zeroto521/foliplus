@@ -40,22 +40,9 @@
 
 /* Drag in progress: disable transition so the box tracks the cursor
   instantly (a 0.15s lag makes the box feel "behind" the mouse and
-  causes accidental moves). The transition is re-enabled on mouseup.
-  Also suppress layer hover highlights during drag by disabling pointer
-  events on the container (the crop box subtree is re-enabled below). */
-.foliplus-export-dragging {
-  pointer-events: none;
-}
-.foliplus-export-dragging .foliplus-export-box {
+  causes accidental moves). The transition is re-enabled on mouseup. */
+.foliplus-export-box.dragging {
   transition: none;
-}
-.foliplus-export-dragging .foliplus-export-box,
-.foliplus-export-dragging .foliplus-export-box * {
-  pointer-events: auto;
-  cursor: default;
-}
-.foliplus-export-dragging .foliplus-export-handle {
-  cursor: nwse-resize;
 }
 
 /* Reset Leaflet stacking context so controls can sit above the crop mask.
@@ -70,26 +57,6 @@
 /* Keep controls visible above the crop mask */
 .foliplus-export-mode .leaflet-control {
   z-index: var(--export-controls-z) !important;
-}
-
-/* Active export (rendering/over-size): disable pointer events so hover
-  highlights on layers (GeoJSON highlight_kwds, etc.) are not triggered
-  during capture, and clamp overflow so the enlarged container can't
-  scroll. Applied via .foliplus-exporting on the map container. */
-.foliplus-exporting {
-  pointer-events: none;
-  overflow: hidden;
-}
-/* While exporting, the crop box and its drag handles must stay interactive
-  (the user is still moving/resizing the box), so re-enable pointer events
-  on the box subtree only.  Everything else in the container stays inert. */
-.foliplus-exporting .foliplus-export-box,
-.foliplus-exporting .foliplus-export-box * {
-  pointer-events: auto;
-  cursor: default;
-}
-.foliplus-exporting .foliplus-export-handle {
-  cursor: nwse-resize;
 }
 
 /* Scale/attribution stay dim below the mask */
@@ -116,6 +83,17 @@
   pointer-events: none;
   z-index: var(--z-export-base);
   box-sizing: border-box;
+}
+
+/* Full-screen blocker during export: placed on document.body so it sits
+  above all map content (including Leaflet's SVG path elements that use
+  JS event listeners).  The cursor:wait gives visual feedback that the
+  export is in progress. */
+.foliplus-export-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: var(--export-preview-z);
+  cursor: wait;
 }
 
 /* Crop box: dashed border + ::before creates 9999px shadow to dim outside */

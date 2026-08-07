@@ -44,8 +44,7 @@
       ACTIVE: "active",
       CONFIRM: "confirm",
       CANCEL: "cancel",
-      EXPORTING: "foliplus-exporting",
-      DRAGGING: "foliplus-export-dragging",
+      DRAGGING: "dragging",
     },
     SVG_NS: "http://www.w3.org/2000/svg",
     SEL: {
@@ -1286,10 +1285,10 @@
         this.dragState.dragType = "move";
       } else return;
       this.dragState.dragging = true;
-      // Disable the box transition + suppress layer hover highlights during
-      // drag by adding a container-level class (the crop box subtree is
-      // re-enabled via CSS). Re-enabled in onMouseUp.
-      this.mapContainer.classList.add(CONST.CLASSES.DRAGGING);
+      // Disable the box transition during drag so it tracks the cursor
+      // instantly (the 0.15s lag made the box feel "behind" the mouse and
+      // caused accidental drags). Re-enabled in onMouseUp.
+      this.cropState.box.classList.add(CONST.CLASSES.DRAGGING);
       // Track the last mouse position for incremental deltas (avoids
       // sudden jumps from cumulative errors or stale startRect).
       this.dragState.lastX = e.clientX;
@@ -1382,8 +1381,10 @@
       this.dragState.dragType = null;
       document.removeEventListener("mousemove", this.onMouseMove);
       document.removeEventListener("mouseup", this.onMouseUp);
-      // Re-enable transition + re-enable layer hover highlights.
-      this.mapContainer.classList.remove(CONST.CLASSES.DRAGGING);
+      // Re-enable transition so the box animates smoothly to its final position
+      // on the next non-drag style update (e.g. after unlock).
+      if (this.cropState?.box)
+        this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
       this.pushUndoState();
     }
 
@@ -1447,8 +1448,16 @@
       }
       this.removeCropBox();
 
-      // Lock map interactions during export so the user cannot pan/zoom
-      // while the render is in progress (which would cause offset errors).
+      // Place a physical overlay on document.body (NOT inside the map
+      // container, because pointer-events:none on a parent blocks child
+      // elements from receiving events regardless of their own setting).
+      // This overlay catches ALL mouse events (hover, click, drag)
+      // during export so Leaflet's JS event listeners on SVG paths
+      // cannot trigger hover highlights.
+      this.exportOverlay = document.createElement("div");
+      this.exportOverlay.className = "foliplus-export-blocker";
+      document.body.appendChild(this.exportOverlay);
+      // Lock map interactions (pan/zoom) so layer positions stay stable.
       this.lockMap();
 
       let scaleValue = CONST.SCALE;
@@ -1459,6 +1468,7 @@
       // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
       if (this.pixelOverLimit) {
         this.isExporting = false;
+        this.removeExportOverlay();
         return;
       }
 
@@ -1489,10 +1499,6 @@
     doRender(r, scaleValue, bg, geoBounds) {
       const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
       hideEls.forEach((el) => el.classList.add(CONST.CLASSES.HIDDEN));
-      // Disable pointer events + clamp overflow so hover highlights and
-      // scrollbars don't interfere with the render.  Restored in
-      // onRenderSuccess / onRenderError.
-      this.mapContainer.classList.add(CONST.CLASSES.EXPORTING);
       // Force a synchronous layout so getBoundingClientRect() in the
       // render passes sees the final positions after hiding controls.
       this.mapContainer.offsetHeight;
@@ -1536,10 +1542,7 @@
       this.mapContainer.style.width = `${Math.ceil(bigW)}px`;
       this.mapContainer.style.height = `${Math.ceil(bigH)}px`;
       this.mapContainer.style.minHeight = `${Math.ceil(bigH)}px`;
-      // Add exporting class early so overflow: hidden (from CSS) takes
-      // effect immediately, before doRender adds it again in the rAF.
-      // This prevents scrollbars from appearing during the resize gap.
-      this.mapContainer.classList.add(CONST.CLASSES.EXPORTING);
+      this.mapContainer.style.overflow = "hidden";
 
       const cropCenter = L.latLngBounds(
         L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
@@ -1570,7 +1573,7 @@
     /** Handle successful render: show preview and trigger download. */
     onRenderSuccess(canvas, hideEls) {
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
-      this.mapContainer.classList.remove(CONST.CLASSES.EXPORTING);
+      this.removeExportOverlay();
       this.unlockMap();
       const mimeType = CONST.MIME[CONST.FORMAT] || CONST.MIME.DEFAULT;
       const prevImg = document.createElement("img");
@@ -1593,6 +1596,7 @@
               false,
             );
             this.isExporting = false;
+            this.removeExportOverlay();
             return;
           }
           const link = document.createElement("a");
@@ -1611,6 +1615,7 @@
             false,
           );
           this.isExporting = false;
+          this.removeExportOverlay();
         },
         mimeType,
         CONST.QUALITY,
@@ -1620,7 +1625,7 @@
     /** Handle render failure. */
     onRenderError(err, hideEls) {
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
-      this.mapContainer.classList.remove(CONST.CLASSES.EXPORTING);
+      this.removeExportOverlay();
       this.unlockMap();
       console.error(`[${CONST.name}] ${_(`${CONST.name}.err_render`)}:`, err);
       this.showGlobalHint(
@@ -1629,6 +1634,14 @@
         false,
       );
       this.isExporting = false;
+    }
+
+    /** Remove the physical export overlay to restore mouse interaction. */
+    removeExportOverlay() {
+      if (this.exportOverlay) {
+        this.exportOverlay.remove();
+        this.exportOverlay = null;
+      }
     }
 
     /** Disable map interactions while an export is in progress to prevent
