@@ -40,9 +40,22 @@
 
 /* Drag in progress: disable transition so the box tracks the cursor
   instantly (a 0.15s lag makes the box feel "behind" the mouse and
-  causes accidental moves). The transition is re-enabled on mouseup. */
-.foliplus-export-box.dragging {
+  causes accidental moves). The transition is re-enabled on mouseup.
+  Also suppress layer hover highlights during drag by disabling pointer
+  events on the container (the crop box subtree is re-enabled below). */
+.foliplus-export-dragging {
+  pointer-events: none;
+}
+.foliplus-export-dragging .foliplus-export-box {
   transition: none;
+}
+.foliplus-export-dragging .foliplus-export-box,
+.foliplus-export-dragging .foliplus-export-box * {
+  pointer-events: auto;
+  cursor: default;
+}
+.foliplus-export-dragging .foliplus-export-handle {
+  cursor: nwse-resize;
 }
 
 /* Reset Leaflet stacking context so controls can sit above the crop mask.
@@ -66,6 +79,17 @@
 .foliplus-exporting {
   pointer-events: none;
   overflow: hidden;
+}
+/* While exporting, the crop box and its drag handles must stay interactive
+  (the user is still moving/resizing the box), so re-enable pointer events
+  on the box subtree only.  Everything else in the container stays inert. */
+.foliplus-exporting .foliplus-export-box,
+.foliplus-exporting .foliplus-export-box * {
+  pointer-events: auto;
+  cursor: default;
+}
+.foliplus-exporting .foliplus-export-handle {
+  cursor: nwse-resize;
 }
 
 /* Scale/attribution stay dim below the mask */

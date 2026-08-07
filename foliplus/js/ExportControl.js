@@ -45,6 +45,7 @@
       CONFIRM: "confirm",
       CANCEL: "cancel",
       EXPORTING: "foliplus-exporting",
+      DRAGGING: "foliplus-export-dragging",
     },
     SVG_NS: "http://www.w3.org/2000/svg",
     SEL: {
@@ -1276,7 +1277,7 @@
       e.preventDefault();
       e.stopPropagation();
       const target = e.target;
-      if (target.classList.contains("foliplus-export-handle")) {
+      if (target.classList.contains(CONST.CLASSES.HANDLE)) {
         this.dragState.dragType = target.dataset.pos;
       } else if (
         target.classList.contains(CONST.CLASSES.CENTER) ||
@@ -1285,10 +1286,10 @@
         this.dragState.dragType = "move";
       } else return;
       this.dragState.dragging = true;
-      // Disable the box transition during drag so it tracks the cursor
-      // instantly (the 0.15s lag made the box feel "behind" the mouse and
-      // caused accidental drags). Re-enabled in onMouseUp.
-      this.cropState.box.classList.add("dragging");
+      // Disable the box transition + suppress layer hover highlights during
+      // drag by adding a container-level class (the crop box subtree is
+      // re-enabled via CSS). Re-enabled in onMouseUp.
+      this.mapContainer.classList.add(CONST.CLASSES.DRAGGING);
       // Track the last mouse position for incremental deltas (avoids
       // sudden jumps from cumulative errors or stale startRect).
       this.dragState.lastX = e.clientX;
@@ -1381,9 +1382,8 @@
       this.dragState.dragType = null;
       document.removeEventListener("mousemove", this.onMouseMove);
       document.removeEventListener("mouseup", this.onMouseUp);
-      // Re-enable transition so the box animates smoothly to its final position
-      // on the next non-drag style update (e.g. after unlock).
-      if (this.cropState?.box) this.cropState.box.classList.remove("dragging");
+      // Re-enable transition + re-enable layer hover highlights.
+      this.mapContainer.classList.remove(CONST.CLASSES.DRAGGING);
       this.pushUndoState();
     }
 
@@ -1523,7 +1523,7 @@
     /** Enlarge the container for over-size exports and render. */
     enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH) {
       const savedStyles = {};
-      ["width", "height", "minHeight", "maxHeight"].forEach((p) => {
+      ["width", "height", "minHeight", "maxHeight", "overflow"].forEach((p) => {
         savedStyles[p] = this.mapContainer.style[p];
       });
       const savedCenter = this.map.getCenter();
@@ -1536,6 +1536,10 @@
       this.mapContainer.style.width = `${Math.ceil(bigW)}px`;
       this.mapContainer.style.height = `${Math.ceil(bigH)}px`;
       this.mapContainer.style.minHeight = `${Math.ceil(bigH)}px`;
+      // Add exporting class early so overflow: hidden (from CSS) takes
+      // effect immediately, before doRender adds it again in the rAF.
+      // This prevents scrollbars from appearing during the resize gap.
+      this.mapContainer.classList.add(CONST.CLASSES.EXPORTING);
 
       const cropCenter = L.latLngBounds(
         L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
