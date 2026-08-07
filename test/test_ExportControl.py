@@ -86,7 +86,7 @@ class TestExportControlPython:
         assert ExportControl(quality=0.5).quality == 0.5
 
     def test_max_pixels_default(self):
-        assert ExportControl().max_pixels == 40960000
+        assert ExportControl().max_pixels == 10240000
 
     def test_max_pixels_none(self):
         assert ExportControl(max_pixels=None).max_pixels is None

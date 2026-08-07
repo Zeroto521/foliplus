@@ -965,32 +965,21 @@
     }
 
     showHintWithInfo(r, instruction) {
-      // When over the pixel limit, show the persistent warning instead of the
-      // normal size hint so the user knows the export is blocked.
-      if (CONST.MAX_PIXELS !== null) {
-        const scaleValue =
-          typeof CONST.SCALE === "number" && !isNaN(CONST.SCALE)
-            ? CONST.SCALE
-            : window.devicePixelRatio || 1;
-        const pixels =
-          Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
-        if (pixels > CONST.MAX_PIXELS) {
-          this.pixelOverLimit = true;
-          this.showGlobalHint(
-            _(`${CONST.name}.err_too_large`).replace("{limit}", CONST.MAX_PIXELS),
-            foliplus.HINT_DURATION.PERSIST,
-            false,
-          );
-          return;
-        }
+      this.checkPixelLimit(r);
+      if (this.pixelOverLimit) {
+        this.showGlobalHint(
+          _(`${CONST.name}.err_too_large`).replace("{limit}", CONST.MAX_PIXELS),
+          foliplus.HINT_DURATION.PERSIST,
+          false,
+        );
+      } else {
+        foliplus.showHint(
+          CONST.name,
+          `${_(`${CONST.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
+            `${_(`${CONST.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
+          foliplus.HINT_DURATION.PERSIST,
+        );
       }
-      this.pixelOverLimit = false;
-      foliplus.showHint(
-        CONST.name,
-        `${_(`${CONST.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
-          `${_(`${CONST.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
-        foliplus.HINT_DURATION.PERSIST,
-      );
     }
 
     updateBoxStyle(el, r) {
@@ -1173,11 +1162,11 @@
         updateEvents: ["zoomend"],
         onMove: () => {
           if (!this.cropState || !this.cropState.locked) return;
-          this.onMapChange();
+          this.onMapChange(true); // skipHint=true — pan doesn't change the rect
         },
         onUpdate: () => {
           if (!this.cropState || !this.cropState.locked) return;
-          this.onMapChange();
+          this.onMapChange(); // zoom changes the rect, update hint
         },
       });
       this.onMapChange();
@@ -1383,29 +1372,34 @@
       };
       this.cropState.rect = newRect;
       this.updateBoxStyle(this.cropState.box, newRect);
-      this.updatePixelWarning(newRect);
+      // Always check pixel limit regardless of hint visibility.
+      this.checkPixelLimit(newRect);
+      // Update hint text on zoom (rect changes), skip on pan (rect unchanged).
+      if (!skipHint) this.showHintWithInfo(newRect, _(`${CONST.name}.hint_locked`));
     }
 
-    /** Check whether the given rect exceeds the pixel limit.  Shows a
-     *  persistent warning when over, and a normal size hint when under.
-     *  Returns true if the export is allowed. */
-    updatePixelWarning(r) {
+    /** Check pixel limit and set pixelOverLimit flag. */
+    checkPixelLimit(r) {
       const scaleValue =
         typeof CONST.SCALE === "number" && !isNaN(CONST.SCALE)
           ? CONST.SCALE
           : window.devicePixelRatio || 1;
-      const totalPixels = Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
-      this.pixelOverLimit = CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
-      if (this.pixelOverLimit) {
-        this.showGlobalHint(
-          _(`${CONST.name}.err_too_large`).replace("{limit}", CONST.MAX_PIXELS),
-          foliplus.HINT_DURATION.PERSIST,
-          false,
-        );
-      } else {
-        foliplus.hideHint(CONST.name);
-      }
-      return !this.pixelOverLimit;
+      const totalPixels =
+        Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
+      this.pixelOverLimit =
+        CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
+    }
+
+    /** Check whether the given rect exceeds the pixel limit. */
+    checkPixelLimit(r) {
+      const scaleValue =
+        typeof CONST.SCALE === "number" && !isNaN(CONST.SCALE)
+          ? CONST.SCALE
+          : window.devicePixelRatio || 1;
+      const totalPixels =
+        Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
+      this.pixelOverLimit =
+        CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
     }
 
     doExport() {
