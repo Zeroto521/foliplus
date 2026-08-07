@@ -1,18 +1,16 @@
 import * as ICONS from "./FullscreenControl.icon.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import { toggleFullscreen, bindFullscreenEvents } from "./FullscreenControl.logic.js";
+import { requireRuntime } from "../runtime/runtime.guard.js";
 
 (function () {
-  const foliplus = window.foliplus || {};
-  if (!foliplus || !foliplus.SVGs) {
-    console.error(`[${CONF.name}] foliplus runtime not found, plugin disabled.`);
-    return;
-  }
+  const CONF = window.foliplus.CONFIG.FullscreenControl;
+  if (!requireRuntime(CONF.name)) return;
 
+  const foliplus = window.foliplus;
   const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
   foliplus.registerHintIcon(CONF.name, ICONS.MAXIMIZE);
 
-  const CONF = window.foliplus.CONFIG.FullscreenControl;
   const cid = containerId(CONF.name, CONF.position);
 
   class FullscreenControl extends L.Control {

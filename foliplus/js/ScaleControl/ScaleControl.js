@@ -1,3 +1,5 @@
+import { requireRuntime } from "../runtime/runtime.guard.js";
+
 (function () {
   const CONF = window.foliplus.CONFIG.ScaleControl;
   const CLASSES = {
@@ -6,13 +8,10 @@
   };
 
   // ==================== Runtime Guard ====================
-  const foliplus = window.foliplus || {};
-  if (!foliplus || !foliplus.SVGs) {
-    console.error(`[${CONF.name}] foliplus runtime not found, plugin disabled.`);
-    return;
-  }
+  if (!requireRuntime(CONF.name)) return;
 
   // ==================== Dependencies ====================
+  const foliplus = window.foliplus;
   const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== Control Definition ====================
