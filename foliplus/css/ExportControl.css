@@ -1,0 +1,227 @@
+/* ── Export Control ──
+  Z-index scope: 9500–9700 (between map content/controls and hints).
+  base = 9500, all elements use calc(var(--z-export-base) + N).
+
+    overlay    = base           (9500)  — transparent placeholder
+    box        = base + 1       (9501)  — dashed border, ::before dims outside
+    center     = base + 3       (9503)  — anchor dot inside box
+    handles    = base + 5       (9505)  — 8 drag handles on box edges
+    controls   = base + 10      (9510)  — other leaflet controls above mask
+    scale/attr = 850            — dim below overlay (Leaflet default is 800)
+    export ctrl= base + 200     (9700)  — toggle button, always clickable
+    preview    = 100000         — above fullscreen (99999)
+    hint       = 10000+         — JS-managed by runtime.js, no CSS rule needed */
+
+.foliplus-export-mode {
+  --z-export-base: 9500;
+  /* Dim mask shadow extent & color */
+  --export-dim-extent: 9999px;
+  --export-dim-color: rgba(0, 0, 0, 0.4);
+  --export-dim-color-locked: rgba(0, 0, 0, var(--alpha-50));
+  /* Controls above mask */
+  --export-controls-z: calc(var(--z-export-base) + 10);
+  --export-scale-z: 850;
+  /* Fold control z-index */
+  --export-ctrl-z: calc(var(--z-export-base) + 200);
+  /* Handle/center anchor size */
+  --export-anchor-size: var(--size-12);
+  /* Handle/center offset from box edge (half of 1px border) */
+  --export-handle-offset: -1px;
+  /* Preview size & position */
+  --export-preview-max-w: 400px;
+  --export-preview-max-h: 300px;
+  --export-preview-gap: 10px;
+  --export-preview-z: 100000;
+  /* Smooth box follow during drag */
+  --export-move-transition:
+    left var(--transition-fast), top var(--transition-fast),
+    width var(--transition-fast), height var(--transition-fast);
+}
+
+/* Drag in progress: disable transition so the box tracks the cursor
+  instantly (a 0.15s lag makes the box feel "behind" the mouse and
+  causes accidental moves). The transition is re-enabled on mouseup. */
+.foliplus-export-box.dragging {
+  transition: none;
+}
+
+/* Reset Leaflet stacking context so controls can sit above the crop mask.
+  leaflet-top/leaflet-bottom have z-index:1000 by default, creating a
+  stacking context that would trap controls below the overlay. */
+.foliplus-export-mode .leaflet-control-container,
+.foliplus-export-mode .leaflet-top,
+.foliplus-export-mode .leaflet-bottom {
+  z-index: auto !important;
+}
+
+/* Keep controls visible above the crop mask */
+.foliplus-export-mode .leaflet-control {
+  z-index: var(--export-controls-z) !important;
+}
+
+/* Scale/attribution stay dim below the mask */
+.foliplus-export-mode .leaflet-control-scale,
+.foliplus-export-mode .leaflet-control-attribution {
+  z-index: var(--export-scale-z) !important;
+  background: var(--ctrl-bg-translucent);
+}
+
+/* Export ctrl container (above overlay, below hints at 10000+) */
+.foliplus-export-ctrl {
+  z-index: var(--export-ctrl-z);
+}
+/* Confirm/download buttons: red accent to distinguish from cancel */
+.foliplus-export-ctrl .foliplus-tool-btn.confirm {
+  color: var(--accent-primary);
+}
+
+/* Dimming overlay: transparent placeholder, ::before on crop box does the work */
+.foliplus-export-overlay {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+  z-index: var(--z-export-base);
+  box-sizing: border-box;
+}
+
+/* Full-screen blocker during export: placed on document.body so it sits
+  above all map content (including Leaflet's SVG path elements that use
+  JS event listeners).  The cursor:wait gives visual feedback that the
+  export is in progress. */
+.foliplus-export-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: var(--export-preview-z);
+  cursor: wait;
+}
+
+/* Crop box: dashed border + ::before creates 9999px shadow to dim outside */
+.foliplus-export-box {
+  position: absolute;
+  border: var(--border-thick) dashed var(--accent-primary);
+  background: transparent;
+  cursor: move;
+  z-index: calc(var(--z-export-base) + 1);
+  box-sizing: border-box;
+  box-shadow: 0 0 var(--size-16) var(--input-focus-shadow);
+  border-radius: var(--size-2);
+  transition: var(--export-move-transition);
+}
+.foliplus-export-box::before {
+  content: "";
+  position: absolute;
+  inset: var(--export-handle-offset);
+  pointer-events: none;
+  box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color);
+  z-index: -1;
+}
+.foliplus-export-box.locked {
+  cursor: default;
+  border: var(--border-thick) solid var(--input-focus-border);
+  pointer-events: none;
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  transition: none;
+}
+.foliplus-export-box.locked::before {
+  box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color-locked);
+}
+
+/* ── Corner/Edge Handles ── */
+.foliplus-export-handle {
+  position: absolute;
+  width: var(--size-12);
+  height: var(--size-12);
+  background: var(--ctrl-bg);
+  border: var(--border-thick) solid var(--accent-primary);
+  border-radius: var(--radius-round);
+  z-index: calc(var(--z-export-base) + 5);
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+.foliplus-export-handle.tl {
+  top: var(--export-handle-offset);
+  left: var(--export-handle-offset);
+  transform: translate(-50%, -50%);
+  cursor: nwse-resize;
+}
+.foliplus-export-handle.tr {
+  top: var(--export-handle-offset);
+  right: var(--export-handle-offset);
+  transform: translate(50%, -50%);
+  cursor: nesw-resize;
+}
+.foliplus-export-handle.bl {
+  bottom: var(--export-handle-offset);
+  left: var(--export-handle-offset);
+  transform: translate(-50%, 50%);
+  cursor: nesw-resize;
+}
+.foliplus-export-handle.br {
+  bottom: var(--export-handle-offset);
+  right: var(--export-handle-offset);
+  transform: translate(50%, 50%);
+  cursor: nwse-resize;
+}
+.foliplus-export-handle.t {
+  top: var(--export-handle-offset);
+  left: 50%;
+  transform: translate(-50%, -50%);
+  cursor: ns-resize;
+}
+.foliplus-export-handle.b {
+  bottom: var(--export-handle-offset);
+  left: 50%;
+  transform: translate(-50%, 50%);
+  cursor: ns-resize;
+}
+.foliplus-export-handle.l {
+  left: var(--export-handle-offset);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+}
+.foliplus-export-handle.r {
+  right: var(--export-handle-offset);
+  top: 50%;
+  transform: translate(50%, -50%);
+  cursor: ew-resize;
+}
+.foliplus-export-box.locked .foliplus-export-handle {
+  display: none;
+}
+
+/* ── Center Anchor ── */
+.foliplus-export-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--export-anchor-size);
+  height: var(--export-anchor-size);
+  margin: calc(var(--export-anchor-size) / -2) 0 0 calc(var(--export-anchor-size) / -2);
+  background: var(--accent-primary);
+  border: var(--border-thick) solid var(--ctrl-bg);
+  border-radius: var(--radius-round);
+  z-index: calc(var(--z-export-base) + 3);
+  box-shadow: 0 1px var(--size-4) var(--export-dim-color);
+  pointer-events: auto;
+  cursor: move;
+}
+.foliplus-export-box.locked .foliplus-export-center {
+  display: none;
+}
+
+/* ── Preview image (auto-cleaned) ── */
+.foliplus-export-preview {
+  position: fixed;
+  bottom: var(--export-preview-gap);
+  right: var(--export-preview-gap);
+  z-index: var(--export-preview-z);
+  max-width: var(--export-preview-max-w);
+  max-height: var(--export-preview-max-h);
+  border: var(--border-thick) solid var(--input-focus-border);
+  border-radius: var(--radius-sm);
+  background: var(--ctrl-bg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-xs);
+}

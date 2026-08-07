@@ -34,6 +34,11 @@
 
   // ==================== Constants ====================
   // Private state (closure-scoped, not exposed on foliplus)
+  //
+  // Z-index: hints start at 10000 and stack upward via
+  //   element.style.zIndex = CONST.HINT.Z_BASE + stackIndex
+  // Map content (panes) sits at 0-600, controls at 800-9990,
+  // export overlay at 9500-9700, fullscreen at 99999.
   const CONST = {
     HINT: {
       BOTTOM_BASE: 20,
@@ -97,6 +102,7 @@
       "onmousemove",
       "onmouseup",
     ]),
+    GEO_CACHE_MAX: 500,
   };
 
   const hintIcons = {};
@@ -186,6 +192,17 @@
    *                                   same key. The instance auto-clears after
    *                                   `duration` ms. Keys are suffixed with a
    *                                   timestamp for individual removal.
+   * @param {string}  [subkey]       - Optional sub-identifier so multiple hints
+   *                                   can share the same key.  When set, the
+   *                                   internal store key is `key|subkey` and
+   *                                   `hideHint(key, subkey)` removes only that
+   *                                   instance.
+   *
+   * @example
+   *   // Subkey: two independent hints under the same key
+   *   foliplus.showHint('export', 'Map size: 800×600 px', 0, null, 'size');
+   *   foliplus.showHint('export', 'Export size exceeds limit', 0, null, 'limit');
+   *   foliplus.hideHint('export', 'limit');  // removes only the limit hint
    *
    * @example
    *   // Persistent hint (replaces previous 'export' hint)
@@ -199,12 +216,17 @@
    *   // Remove appended instances individually
    *   foliplus.hideHint('export-1234567890');
    */
-  foliplus.showHint = (key, text, duration, append) => {
-    if (!append) foliplus.hideHint(key);
+  foliplus.showHint = (key, text, duration, append, subkey) => {
+    // Remove existing subkey instance before creating new one
+    if (subkey) foliplus.hideHint(key, subkey);
+    else if (!append) foliplus.hideHint(key);
+
     const hintTarget = document.fullscreenElement || document.body;
-    const cls = append
-      ? `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}-${Date.now()}`
-      : `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}`;
+    const cls = subkey
+      ? `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}-${subkey}`
+      : append
+        ? `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}-${Date.now()}`
+        : `${CONST.CLASSES.HINT} ${CONST.CLASSES.HINT}-${key}`;
     const el = document.createElement("div");
     el.className = cls;
     hintTarget.appendChild(el);
@@ -217,14 +239,18 @@
       const cs = window.getComputedStyle(hintTarget);
       if (cs.position === "static") hintTarget.style.position = "relative";
     }
-    const storeKey = append ? `${key}-${Date.now()}` : key;
+    const storeKey = subkey
+      ? `${key}|${subkey}`
+      : append
+        ? `${key}-${Date.now()}`
+        : key;
     hintMap.set(storeKey, { element: el, timer: null });
 
     repositionHints();
 
     if (duration !== 0) {
       hintMap.get(storeKey).timer = setTimeout(
-        () => foliplus.hideHint(storeKey),
+        () => (subkey ? foliplus.hideHint(key, subkey) : foliplus.hideHint(storeKey)),
         duration || CONST.HINT.DEFAULT_DURATION,
       );
     }
@@ -234,16 +260,29 @@
    * Remove a hint (and any appended instances sharing the key prefix).
    * Repositions remaining hints after removal.
    *
-   * @param {string} key - Hint key to remove (also removes `key-{timestamp}` appended instances)
+   * @param {string} key    - Hint key to remove (also removes `key-{timestamp}` appended instances)
+   * @param {string} [subkey] - Optional sub-identifier; when set, removes only that subkey instance.
    *
    * @example
    *   foliplus.hideHint('export');            // removes all export hints
    *   foliplus.hideHint('gcoord-warn');       // removes gcoord warning
+   *   foliplus.hideHint('export', 'limit');   // removes only the 'limit' subkey
    */
-  foliplus.hideHint = (key) => {
-    // Also clear appended instances (keys start with key+'-')
+  foliplus.hideHint = (key, subkey) => {
+    if (subkey) {
+      const storeKey = `${key}|${subkey}`;
+      const entry = hintMap.get(storeKey);
+      if (entry) {
+        if (entry.timer) clearTimeout(entry.timer);
+        if (entry.element) entry.element.remove();
+        hintMap.delete(storeKey);
+      }
+      repositionHints();
+      return;
+    }
+    // Also clear appended instances (keys start with key+'-') or subkey instances (key|subkey)
     for (const k of hintMap.keys()) {
-      if (k === key || k.startsWith(`${key}-`)) {
+      if (k === key || k.startsWith(`${key}-`) || k.startsWith(`${key}|`)) {
         const entry = hintMap.get(k);
         if (entry.timer) clearTimeout(entry.timer);
         if (entry.element) entry.element.remove();
@@ -432,12 +471,12 @@
   };
   // Uses throttled queue (1 req/s) and response cache.
   // geoCache is a Map with a FIFO cap to bound memory during long sessions.
-  const GEO_CACHE_MAX = 1000;
   const geoCache = new Map();
   const geoCacheGet = (key) => geoCache.get(key);
   const geoCacheSet = (key, val) => {
     geoCache.set(key, val);
-    if (geoCache.size > GEO_CACHE_MAX) geoCache.delete(geoCache.keys().next().value);
+    if (geoCache.size > CONST.GEO_CACHE_MAX)
+      geoCache.delete(geoCache.keys().next().value);
   };
   let geoPromise = Promise.resolve();
   let geoLastReq = 0;
@@ -849,6 +888,56 @@
   };
 
   /**
+   * Bind map events to keep a visual element in sync.
+   * Caller specifies which events trigger hide, update, and show.
+   * @param {object} opts
+   * @param {L.Map} opts.map - Leaflet map instance
+   * @param {string[]} [opts.hideEvents] - Event names that trigger hide (e.g. ["zoomstart"])
+   * @param {string[]} [opts.updateEvents] - Event names that trigger update (e.g. ["moveend", "zoomend"])
+   * @param {string[]} [opts.showEvents] - Event names that trigger show (e.g. ["zoomend"])
+   * @param {Function} [opts.onHide] - Called on hide events
+   * @param {Function} [opts.onUpdate] - Called on update events
+   * @param {Function} [opts.onShow] - Called on show events
+   * @param {Function} [opts.onMove] - Called on `move` with RAF throttling.
+   *   The returned cleanup cancels pending RAF and removes the listener.
+   * @returns {Function} Cleanup function to remove all listeners and cancel RAF
+   */
+  foliplus.bindMapSync = (opts) => {
+    const handlers = [];
+    const add = (events, fn) => {
+      if (!events || !fn) return;
+      events.forEach((ev) => {
+        opts.map.on(ev, fn);
+        handlers.push([ev, fn]);
+      });
+    };
+    add(opts.hideEvents, opts.onHide);
+    add(opts.updateEvents, opts.onUpdate);
+    add(opts.showEvents, opts.onShow);
+
+    let moveRafId = null;
+    if (opts.onMove) {
+      const onMove = () => {
+        if (moveRafId) return;
+        moveRafId = requestAnimationFrame(() => {
+          moveRafId = null;
+          opts.onMove();
+        });
+      };
+      opts.map.on("move", onMove);
+      handlers.push(["move", onMove]);
+    }
+
+    return () => {
+      handlers.forEach(([ev, fn]) => opts.map.off(ev, fn));
+      if (moveRafId) {
+        cancelAnimationFrame(moveRafId);
+        moveRafId = null;
+      }
+    };
+  };
+
+  /**
    * Create a panel-style control with toggle button, header, and content area.
    * Used by HeatmapControl and LayerControl for consistent panel UI.
    * Automatically wires up bindPanelToggle and bindOutsideCollapse.
@@ -891,7 +980,7 @@
     header.appendChild(
       foliplus.dom.el(
         "button",
-        { class: "foliplus-close-btn foliplus-ctrl-btn", title: opts.closeTitle },
+        { class: "foliplus-ctrl-btn foliplus-close-btn", title: opts.closeTitle },
         { html: foliplus.SVGs.CLOSE },
       ),
     );

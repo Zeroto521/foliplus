@@ -9,7 +9,7 @@
       ZOOM_IN: "foliplus-zoom-in",
       ZOOM_OUT: "foliplus-zoom-out",
       FS_TOGGLE: "foliplus-fullscreen-toggle",
-      HIDDEN: "foliplus-fullscreen-hidden",
+      HIDDEN: "foliplus-hidden",
     },
   };
   const ContainerId = `${CONST.name}_${CONST.position}_container`;

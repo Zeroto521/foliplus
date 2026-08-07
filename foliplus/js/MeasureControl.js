@@ -353,7 +353,7 @@
     static makeLabelDivIcon(html, iconAnchor, className) {
       return L.divIcon({
         className: "",
-        html: `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}">${html}</div>`,
+        html: `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}" data-foliplus-export="label">${html}</div>`,
         iconSize: CONST.LABEL.SIZE,
         iconAnchor: iconAnchor || CONST.LABEL.DEFAULT_ANCHOR,
       });
@@ -384,7 +384,7 @@
       return L.marker(latlng, {
         icon: L.divIcon({
           className: CONST.DEL_ICON.WRAP_CLASS + (className ? " " + className : ""),
-          html: `<span class="${CONST.DEL_ICON.CLASS}">${CONST.DEL_ICON.CHAR}</span>`,
+          html: `<span class="${CONST.DEL_ICON.CLASS}" data-foliplus-export="exclude">${CONST.DEL_ICON.CHAR}</span>`,
           iconSize: CONST.DEL_ICON.SIZE,
           iconAnchor: iconAnchor || CONST.DEL_ICON.DEFAULT_ANCHOR,
         }),

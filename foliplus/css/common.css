@@ -154,6 +154,15 @@
   vertical-align: middle;
 }
 
+/* ── Shared hidden state ──
+  Used by ExportControl (hide controls during render) and FullscreenControl
+  (hide sibling controls when entering fullscreen). Components that need to
+  hide elements during transient states should reuse this class instead of
+  defining their own. */
+.foliplus-hidden {
+  display: none !important;
+}
+
 @keyframes foliplus-input-breathe {
   0%,
   100% {
@@ -326,10 +335,22 @@
 }
 .foliplus-toggle-btn {
   border-radius: var(--radius-sm);
+  border: var(--border-thin) solid transparent;
 }
 .foliplus-tool-btn,
 .foliplus-search-mode-btn {
   border-radius: 0;
+}
+/* Shared active state for tool buttons */
+.foliplus-tool-btn.active {
+  background-color: var(--input-bg);
+  color: var(--accent-primary);
+  border: var(--border-thin) solid var(--input-focus-border);
+  box-shadow: inset 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}
+.foliplus-tool-btn.active svg {
+  stroke: var(--accent-primary);
+  transform: scale(var(--scale-hover));
 }
 
 /* ── Map Hint (Toast Notification) ── */
@@ -383,8 +404,11 @@
   top: calc(50% - var(--ctrl-size) / 2);
   width: var(--ctrl-size);
   height: var(--ctrl-size);
-  color: var(--text-muted);
   border-radius: var(--radius-sm);
+}
+
+.foliplus-close-btn {
+  color: var(--text-muted);
 }
 
 .foliplus-pin {
@@ -461,12 +485,12 @@
 
 /* ── Separator between toggle button and tools (non-panel) ── */
 .foliplus-ctrl-fold:not(.foliplus-panel).expanded .foliplus-toggle-btn {
-  border-right: var(--border-thin) solid var(--divider-color);
+  border-right-color: var(--divider-color);
 }
 .foliplus-ctrl-fold:not(.foliplus-panel).expanded.foliplus-align-right
   .foliplus-toggle-btn {
-  border-right: none;
-  border-left: var(--border-thin) solid var(--divider-color);
+  border-right-color: transparent;
+  border-left-color: var(--divider-color);
 }
 
 /* ── Shared Toolbar ──

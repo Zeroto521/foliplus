@@ -7,29 +7,11 @@ data itself.
 
 .. grid:: 1 2 2 3
 
-   .. grid-item-card:: 🔍 SearchControl
+   .. grid-item-card:: 📷 ExportControl
       :padding: 2
-      :link: api/foliplus.SearchControl.html
+      :link: api/foliplus.ExportControl.html
 
-      Coordinate and address search via Nominatim reverse geocoding.
-
-   .. grid-item-card:: 🗂️ LayerControl
-      :padding: 2
-      :link: api/foliplus.LayerControl.html
-
-      Drag-and-drop layer ordering with geometry icons, color picker, and panes.
-
-   .. grid-item-card:: 🔥 HeatmapControl
-      :padding: 2
-      :link: api/foliplus.HeatmapControl.html
-
-      H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.
-
-   .. grid-item-card:: 📐 ScaleControl
-      :padding: 2
-      :link: api/foliplus.ScaleControl.html
-
-      Scale bar with metric or imperial units and optional zoom level display.
+      Capture a specific area of the map and export it as an image.
 
    .. grid-item-card:: 🖥️ FullscreenControl
       :padding: 2
@@ -37,11 +19,35 @@ data itself.
 
       FullscreenControl toggle with auto-hide for other controls.
 
+   .. grid-item-card:: 🔥 HeatmapControl
+      :padding: 2
+      :link: api/foliplus.HeatmapControl.html
+
+      H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.
+
+   .. grid-item-card:: 🗂️ LayerControl
+      :padding: 2
+      :link: api/foliplus.LayerControl.html
+
+      Drag-and-drop layer ordering with geometry icons, color picker, and panes.
+
    .. grid-item-card:: 📏 MeasureControl
       :padding: 2
       :link: api/foliplus.MeasureControl.html
 
       Distance measurement, circle drawing, and GPS marker with geocoding.
+
+   .. grid-item-card:: 📐 ScaleControl
+      :padding: 2
+      :link: api/foliplus.ScaleControl.html
+
+      Scale bar with metric or imperial units and optional zoom level display.
+
+   .. grid-item-card:: 🔍 SearchControl
+      :padding: 2
+      :link: api/foliplus.SearchControl.html
+
+      Coordinate and address search via Nominatim reverse geocoding.
 
 .. toctree::
    :maxdepth: 1

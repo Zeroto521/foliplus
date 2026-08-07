@@ -173,7 +173,7 @@ class TestFullscreeControlRendering:
         html = render(base_map)
         assert "ZOOM_IN" in html
         assert "ZOOM_OUT" in html
-        assert "foliplus-fullscreen-hidden" in html
+        assert "foliplus-hidden" in html
 
     def test_zoom_buttons_visible_without_hide_self(self, base_map: folium.Map):
         """hide_self=false keeps zoom +/- visible in fullscreen, like the
@@ -275,7 +275,7 @@ class TestFullscreenControlBrowser:
             page.wait_for_function(
                 """() => document
                     .querySelector('.foliplus-zoom-in')
-                    .classList.contains('foliplus-fullscreen-hidden')"""
+                    .classList.contains('foliplus-hidden')"""
             )
         else:
             # zoom stays visible when hide_self=false; wait for the icon swap
@@ -299,7 +299,7 @@ class TestFullscreenControlBrowser:
         page.wait_for_function(
             """() => !document
                 .querySelector('.foliplus-zoom-in')
-                .classList.contains('foliplus-fullscreen-hidden')"""
+                .classList.contains('foliplus-hidden')"""
         )
 
     def _zoom_displays(self, page):
@@ -371,7 +371,7 @@ class TestFullscreenControlBrowser:
     def test_hide_others_overrides_inline_display(self, browser, tmp_path):
         """hide_others hides sibling controls even with inline display styles.
 
-        `.foliplus-fullscreen-hidden` uses `display: none !important` so it
+        `.foliplus-hidden` uses `display: none !important` so it
         wins over inline `display` set by third-party Leaflet plugins.
         """
         page, errors = self._make_page(
@@ -399,7 +399,7 @@ class TestFullscreenControlBrowser:
             hidden = page.evaluate(
                 """() => {
                     const el = document.querySelector('.custom-ctrl');
-                    return el.classList.contains('foliplus-fullscreen-hidden')
+                    return el.classList.contains('foliplus-hidden')
                         && getComputedStyle(el).display === 'none';
                 }"""
             )
@@ -511,7 +511,7 @@ class TestFullscreenControlBrowser:
             hidden = page.evaluate(
                 """() => document
                     .querySelector('.foliplus-zoom-in')
-                    .classList.contains('foliplus-fullscreen-hidden')"""
+                    .classList.contains('foliplus-hidden')"""
             )
             assert hidden, "zoom not hidden in pseudo-fullscreen"
 
@@ -528,7 +528,7 @@ class TestFullscreenControlBrowser:
             visible = page.evaluate(
                 """() => !document
                     .querySelector('.foliplus-zoom-in')
-                    .classList.contains('foliplus-fullscreen-hidden')"""
+                    .classList.contains('foliplus-hidden')"""
             )
             assert visible, "zoom not restored after exiting pseudo-fullscreen"
             assert not errors, f"JS errors: {errors}"
