@@ -66,6 +66,9 @@
       UNDO_MAX: 20, // Max number of crop-box adjustment steps kept for undo
       TILE_MAX: 1000,
     },
+    // Max concurrent tile fetches during render (higher = faster for large
+    // exports, but may hit browser connection limits ~6 per domain).
+    TILE_CONCURRENCY: 6,
   };
 
   // ==================== Runtime Guard ====================
@@ -378,7 +381,7 @@
       }
     }
 
-    /** Render a single tile layer from geo bounds. */
+    /** Render a single tile layer from geo bounds with concurrent tile loading. */
     async renderTileLayer(
       ctx,
       rect,
@@ -402,6 +405,8 @@
       const vpLeft = viewportCenter.x - halfVpW;
       const vpTop = viewportCenter.y - halfVpH;
 
+      // Pre-filter visible tiles and compute their draw positions once.
+      const visibleTiles = [];
       for (const tile of tiles) {
         const tileVpX = tile.left - vpLeft;
         const tileVpY = tile.top - vpTop;
@@ -413,13 +418,22 @@
         if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
         if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height)
           continue;
+        visibleTiles.push({ ...tile, dx, dy, dw, dh });
+      }
 
-        try {
-          const bitmap = await loadImageBitmap(tile.url);
+      // Load and draw tiles in concurrent batches to avoid overwhelming the
+      // browser connection limit (~6 per domain) while still parallelizing.
+      const concurrency = CONST.TILE_CONCURRENCY;
+      for (let i = 0; i < visibleTiles.length; i += concurrency) {
+        const batch = visibleTiles.slice(i, i + concurrency);
+        const bitmaps = await Promise.all(
+          batch.map((t) => loadImageBitmap(t.url).catch(() => null)),
+        );
+        for (let j = 0; j < batch.length; j++) {
+          const bitmap = bitmaps[j];
           if (!bitmap) continue;
-          ctx.drawImage(bitmap, dx, dy, dw, dh);
-        } catch {
-          /* skip */
+          const t = batch[j];
+          ctx.drawImage(bitmap, t.dx, t.dy, t.dw, t.dh);
         }
       }
     }
@@ -1390,17 +1404,6 @@
       this.pixelOverLimit = CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
     }
 
-    /** Check whether the given rect exceeds the pixel limit. */
-    checkPixelLimit(r) {
-      const scaleValue =
-        typeof CONST.SCALE === "number" && !isNaN(CONST.SCALE)
-          ? CONST.SCALE
-          : window.devicePixelRatio || 1;
-      const totalPixels =
-        Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
-      this.pixelOverLimit = CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
-    }
-
     doExport() {
       if (this.isExporting || !this.cropState) return;
       this.isExporting = true;
@@ -1417,7 +1420,7 @@
         scaleValue = window.devicePixelRatio || 1;
       const bg = CONST.BACKGROUND;
 
-      // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo/updatePixelWarning).
+      // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
       if (this.pixelOverLimit) {
         this.isExporting = false;
         return;
