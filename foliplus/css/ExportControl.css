@@ -180,17 +180,12 @@
   border: var(--border-thick) solid var(--ctrl-bg);
   border-radius: var(--radius-round);
   z-index: calc(var(--z-export-base) + 3);
-  box-shadow: 0 1px var(--size-4) rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px var(--size-4) var(--export-dim-color);
   pointer-events: auto;
   cursor: move;
 }
 .foliplus-export-box.locked .foliplus-export-center {
   display: none;
-}
-
-/* ── Hidden state (used during render) ── */
-.foliplus-export-hidden {
-  display: none !important;
 }
 
 /* ── Preview image (auto-cleaned) ── */

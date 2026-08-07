@@ -154,6 +154,15 @@
   vertical-align: middle;
 }
 
+/* ── Shared hidden state ──
+  Used by ExportControl (hide controls during render) and FullscreenControl
+  (hide sibling controls when entering fullscreen). Components that need to
+  hide elements during transient states should reuse this class instead of
+  defining their own. */
+.foliplus-hidden {
+  display: none !important;
+}
+
 @keyframes foliplus-input-breathe {
   0%,
   100% {
