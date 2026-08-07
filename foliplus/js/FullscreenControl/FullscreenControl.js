@@ -1,7 +1,7 @@
-import * as ICONS from "./FullscreenControl.icon.js";
-import { CLASSES, containerId } from "./FullscreenControl.const.js";
-import { toggleFullscreen, bindFullscreenEvents } from "./FullscreenControl.logic.js";
 import { requireRuntime } from "../runtime/runtime.guard.js";
+import { CLASSES, containerId } from "./FullscreenControl.const.js";
+import * as ICONS from "./FullscreenControl.icon.js";
+import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logic.js";
 
 (function () {
   const CONF = window.foliplus.CONFIG.FullscreenControl;
