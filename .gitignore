@@ -71,3 +71,4 @@ package-lock.json
 # Auto-generated
 foliplus/dist/
 foliplus/_version.py
+foliplus/.build/
