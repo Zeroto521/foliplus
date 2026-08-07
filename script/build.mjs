@@ -38,31 +38,42 @@ const TMP = resolve(SRC, ".build");
 const TMP_JS = resolve(TMP, "js");
 
 // ── SVGO: compress SVG markup inside JS template literals ──────────
-function compressSvgStrings(code) {
-  return code.replace(/`\s*<svg[\s\S]*?<\/svg>\s*`/g, (match) => {
-    const svg = match.replace(/^`\s*/, "").replace(/\s*`$/, "");
-    try {
-      const result = optimize(svg, { multipass: true });
-      return "`" + result.data + "`";
-    } catch {
-      return match;
+const compressSvgStrings = (code) => {
+  // Match SVG template literals, with or without a <div> wrapper
+  const svgRe = new RegExp("`\\s*(?:<div[\\s\\S]*?<\\/div>|<svg[\\s\\S]*?<\\/svg>)\\s*`", "g");
+  return code.replace(svgRe, (match) => {
+    const raw = match.replace(/^`\s*/, "").replace(/\s*`$/, "");
+    // If wrapped in a <div>, extract the <svg> part, optimize it, then rewrap
+    const divMatch = raw.match(/^(<div[^>]*>)\s*([\s\S]*?)\s*(<\/div>)$/);
+    if (divMatch) {
+      const [, openTag, inner, closeTag] = divMatch;
+      const svgMatch = inner.match(/<svg[\s\S]*?<\/svg>/);
+      if (svgMatch) {
+        try {
+          const result = optimize(svgMatch[0], { multipass: true });
+          return "`" + openTag + result.data + closeTag + "`";
+        } catch { return match; }
+      }
     }
+    try {
+      const result = optimize(raw, { multipass: true });
+      return "`" + result.data + "`";
+    } catch { return match; }
   });
-}
+};
 
-function processJsFiles(dir) {
+const processJsFiles = (dir) => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = resolve(dir, entry.name);
-    if (entry.isDirectory()) {
-      processJsFiles(full);
-    } else if (entry.name.endsWith(".js")) {
+    if (entry.isDirectory()) processJsFiles(full);
+    else if (entry.name.endsWith(".js")) {
       const code = readFileSync(full, "utf-8");
       writeFileSync(full, compressSvgStrings(code), "utf-8");
     }
   }
-}
+};
 
-function findComponents() {
+const findComponents = () => {
   const entries = readdirSync(TMP_JS, { withFileTypes: true });
   const components = [];
   for (const entry of entries) {
@@ -75,9 +86,9 @@ function findComponents() {
     }
   }
   return components;
-}
+};
 
-function buildEntries(components) {
+const buildEntries = (components) => {
   const entries = [];
   const shared = [
     { dir: TMP_JS, in: "runtime.combined.js", out: "runtime.min", type: "js" },
@@ -116,7 +127,7 @@ function buildEntries(components) {
     }
   }
   return entries;
-}
+};
 
 async function main() {
   const isWatch = process.argv.includes("--watch");
