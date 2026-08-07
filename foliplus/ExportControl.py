@@ -36,6 +36,11 @@ class ExportControl(BaseControl):
         DPI scaling. 1.0 is original resolution, 2.0 is suitable for Retina screens,
         3.0 for printing. Note: excessively high values may crash the browser.
 
+    max_pixels : int, default 40960000
+        Maximum number of pixels in the exported image (``width * height``). Larger
+        exports may exceed the browser canvas limit or exhaust memory. Default is
+        40,960,000 (e.g. 6400×6400). Set to ``None`` to disable the limit.
+
     background : str, optional
         Export background color (e.g., ``"#ffffff"``). Default is None (transparent).
         Required for ``"jpeg"`` (JPEG has no alpha channel).
@@ -89,6 +94,7 @@ class ExportControl(BaseControl):
         format: FORMAT = "png",
         quality: float = 0.92,
         scale: float = 2.0,
+        max_pixels: int | None = 40960000,
         background: str | None = None,
         timeout: int = 7500,
         locale: str | LocaleConfig | None = None,
@@ -103,6 +109,7 @@ class ExportControl(BaseControl):
         self.format = format
         self.quality = quality
         self.scale = scale
+        self.max_pixels = max_pixels
         self.background = background
         self.timeout = timeout
         self._template = self._get_template(

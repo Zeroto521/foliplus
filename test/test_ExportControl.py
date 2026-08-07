@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import folium
+import pytest
 from conftest import render
 
 from foliplus import ExportControl
@@ -74,11 +75,24 @@ class TestExportControlPython:
     def test_format_webp(self):
         assert ExportControl(format="webp").format == "webp"
 
+    def test_format_invalid_raises(self):
+        with pytest.raises(ValueError, match="format must be one of"):
+            ExportControl(format="gif")
+
     def test_quality_default(self):
         assert ExportControl().quality == 0.92
 
     def test_quality_custom(self):
         assert ExportControl(quality=0.5).quality == 0.5
+
+    def test_max_pixels_default(self):
+        assert ExportControl().max_pixels == 40960000
+
+    def test_max_pixels_none(self):
+        assert ExportControl(max_pixels=None).max_pixels is None
+
+    def test_max_pixels_custom(self):
+        assert ExportControl(max_pixels=1000000).max_pixels == 1000000
 
     def test_locale_config(self):
         from foliplus.locale import LocaleConfig

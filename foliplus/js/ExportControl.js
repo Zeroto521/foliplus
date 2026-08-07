@@ -17,6 +17,7 @@
       RESTORE_DELAY: 200,
     },
     SCALE: {{ this.scale }},
+    MAX_PIXELS: {{ this.max_pixels if this.max_pixels else "null" }},
     BACKGROUND: {{ '"' + this.background + '"' if this.background else "null" }},
     FILENAME: "{{ this.filename }}",
     FORMAT: "{{ this.format }}",
@@ -896,6 +897,7 @@
       this.exportCtrl = null;
       this.exportToolBar = null;
       this.isExporting = false;
+      this.pixelOverLimit = false;
       this.lastScreenRect = null;
       this.savedBounds = null;
       this.loadSavedBounds();
@@ -963,6 +965,26 @@
     }
 
     showHintWithInfo(r, instruction) {
+      // When over the pixel limit, show the persistent warning instead of the
+      // normal size hint so the user knows the export is blocked.
+      if (CONST.MAX_PIXELS !== null) {
+        const scaleValue =
+          typeof CONST.SCALE === "number" && !isNaN(CONST.SCALE)
+            ? CONST.SCALE
+            : window.devicePixelRatio || 1;
+        const pixels =
+          Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
+        if (pixels > CONST.MAX_PIXELS) {
+          this.pixelOverLimit = true;
+          this.showGlobalHint(
+            _(`${CONST.name}.err_too_large`).replace("{limit}", CONST.MAX_PIXELS),
+            foliplus.HINT_DURATION.PERSIST,
+            false,
+          );
+          return;
+        }
+      }
+      this.pixelOverLimit = false;
       foliplus.showHint(
         CONST.name,
         `${_(`${CONST.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
@@ -1361,6 +1383,29 @@
       };
       this.cropState.rect = newRect;
       this.updateBoxStyle(this.cropState.box, newRect);
+      this.updatePixelWarning(newRect);
+    }
+
+    /** Check whether the given rect exceeds the pixel limit.  Shows a
+     *  persistent warning when over, and a normal size hint when under.
+     *  Returns true if the export is allowed. */
+    updatePixelWarning(r) {
+      const scaleValue =
+        typeof CONST.SCALE === "number" && !isNaN(CONST.SCALE)
+          ? CONST.SCALE
+          : window.devicePixelRatio || 1;
+      const totalPixels = Math.round(r.width * scaleValue) * Math.round(r.height * scaleValue);
+      this.pixelOverLimit = CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
+      if (this.pixelOverLimit) {
+        this.showGlobalHint(
+          _(`${CONST.name}.err_too_large`).replace("{limit}", CONST.MAX_PIXELS),
+          foliplus.HINT_DURATION.PERSIST,
+          false,
+        );
+      } else {
+        foliplus.hideHint(CONST.name);
+      }
+      return !this.pixelOverLimit;
     }
 
     doExport() {
@@ -1378,6 +1423,12 @@
       if (typeof scaleValue !== "number" || isNaN(scaleValue))
         scaleValue = window.devicePixelRatio || 1;
       const bg = CONST.BACKGROUND;
+
+      // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo/updatePixelWarning).
+      if (this.pixelOverLimit) {
+        this.isExporting = false;
+        return;
+      }
 
       this.showGlobalHint(
         _(`${CONST.name}.status_exporting`),

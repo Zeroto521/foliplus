@@ -17,6 +17,7 @@
   "ExportControl.err_render_fail": "Export failed, please try again",
   "ExportControl.err_gen_fail": "Could not export map",
   "ExportControl.err_crop_too_small": "Export area too small",
+  "ExportControl.err_too_large": "Export size exceeds limit ({limit}px), reduce scale or crop area",
   "ExportControl.err_svg_load": "SVG layer load failed",
   "ExportControl.err_canvas_load": "Canvas layer load failed",
   "ExportControl.err_image_load": "Image element load failed",
