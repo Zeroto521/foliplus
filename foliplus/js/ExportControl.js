@@ -1400,7 +1400,9 @@
       else this.doRender(r, scaleValue, bg, geoBounds);
     }
 
-    /** Render the crop area to a canvas and trigger download. */
+    /** Render the crop area to a canvas and trigger download.  Returns the
+     *  render promise so callers (e.g. enlargeAndRender) can chain work
+     *  after the render completes. */
     doRender(r, scaleValue, bg, geoBounds) {
       const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
       hideEls.forEach((el) => el.classList.add(CONST.CLASSES.HIDDEN));
@@ -1418,7 +1420,7 @@
         r.height = Math.abs(se.y - nw.y);
       }
 
-      new ExportRenderer(this.map)
+      return new ExportRenderer(this.map)
         .render(r, scaleValue, bg || undefined, geoBounds)
         .then((canvas) => {
           this.onRenderSuccess(canvas, hideEls);
@@ -1451,6 +1453,15 @@
         L.latLng(geoBounds.se.lat, geoBounds.se.lng),
       ).getCenter();
 
+      const restore = () => {
+        this.map.options.zoomAnimation = savedAnim;
+        Object.keys(savedStyles).forEach((p) => {
+          this.mapContainer.style[p] = savedStyles[p];
+        });
+        this.map.invalidateSize(false);
+        this.map.setView(savedCenter, savedZoom, { animate: false });
+      };
+
       let moveEndCount = 0;
       const onMoveEnd = () => {
         moveEndCount++;
@@ -1458,17 +1469,9 @@
         this.map.off("moveend", onMoveEnd);
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            this.doRender(r, scaleValue, bg, geoBounds);
+            this.doRender(r, scaleValue, bg, geoBounds).finally(restore);
           });
         });
-        setTimeout(() => {
-          this.map.options.zoomAnimation = savedAnim;
-          Object.keys(savedStyles).forEach((p) => {
-            this.mapContainer.style[p] = savedStyles[p];
-          });
-          this.map.invalidateSize(false);
-          this.map.setView(savedCenter, savedZoom, { animate: false });
-        }, CONST.TIMING.RESTORE_DELAY);
       };
       this.map.on("moveend", onMoveEnd);
       this.map.invalidateSize(false);
