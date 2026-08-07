@@ -1,17 +1,14 @@
 (function () {
   const CONF = window.foliplus.CONFIG.ScaleControl;
-  const CONST = {
-    name: "ScaleControl",
-    CLASSES: {
-      SCALE_WRAP: "foliplus-scale-wrap",
-      SCALE_ZOOM_LABEL: "foliplus-scale-zoom-label",
-    },
+  const CLASSES = {
+    SCALE_WRAP: "foliplus-scale-wrap",
+    SCALE_ZOOM_LABEL: "foliplus-scale-zoom-label",
   };
 
   // ==================== Runtime Guard ====================
   const foliplus = window.foliplus || {};
   if (!foliplus || !foliplus.SVGs) {
-    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
+    console.error(`[${CONF.name}] foliplus runtime not found, plugin disabled.`);
     return;
   }
 
@@ -27,16 +24,16 @@
       });
       scaleCtrl._map = this._map;
       const wrap = scaleCtrl.onAdd(this._map);
-      wrap.classList.add(CONST.CLASSES.SCALE_WRAP);
+      wrap.classList.add(CLASSES.SCALE_WRAP);
 
       // ==================== Zoom Label ====================
       if (CONF.show_zoom) {
         const zoomLabel = foliplus.dom.el("span", {
-          class: CONST.CLASSES.SCALE_ZOOM_LABEL,
+          class: CLASSES.SCALE_ZOOM_LABEL,
           parent: wrap,
         });
         const updateZoom = () => {
-          zoomLabel.textContent = _(`${CONST.name}.zoom_label`).replace(
+          zoomLabel.textContent = _(`${CONF.name}.zoom_label`).replace(
             "{zoom}",
             this._map.getZoom(),
           );
