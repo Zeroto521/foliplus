@@ -17,7 +17,7 @@
   "ExportControl.err_render_fail": "导出失败，请重试",
   "ExportControl.err_gen_fail": "无法导出地图",
   "ExportControl.err_crop_too_small": "导出区域过小",
-  "ExportControl.err_too_large": "导出尺寸超过限制 ({limit}px)，请缩小地图或者减小导出区域",
+  "ExportControl.err_too_large": "导出区域过大，尺寸超过限制 ({limit}px)",
   "ExportControl.err_svg_load": "SVG 图层加载失败",
   "ExportControl.err_canvas_load": "Canvas 图层加载失败",
   "ExportControl.err_image_load": "图片元素加载失败",
