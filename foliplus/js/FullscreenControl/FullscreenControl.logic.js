@@ -31,7 +31,7 @@ const updateUI = (map, fsBtn, container) => {
 
   if (CONF.hide_self) {
     const selfBtns = container.querySelectorAll(
-      `.${CLASSES.FS_TOGGLE}, .${CLASSES.ZOOM_IN}, .${CLASSES.ZOOM_OUT}`,
+      `.${CLASSES.TOGGLE}, .${CLASSES.ZOOM_IN}, .${CLASSES.ZOOM_OUT}`,
     );
     for (const btn of selfBtns)
       btn.classList.toggle(CLASSES.HIDDEN, isFull);

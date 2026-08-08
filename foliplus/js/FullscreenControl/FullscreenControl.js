@@ -25,7 +25,7 @@ class FullscreenControl extends L.Control {
       id: cid,
     });
     const container = foliplus.dom.el("div", {
-      class: `${CLASSES.FULLSCREEN_BAR} foliplus-ctrl-fold`,
+      class: `${CLASSES.BAR} foliplus-ctrl-fold`,
       parent: outer,
     });
 
@@ -62,7 +62,7 @@ class FullscreenControl extends L.Control {
     const fsBtn = foliplus.dom.el(
       "button",
       {
-        class: `${CLASSES.TOOL_BTN} ${CLASSES.FS_TOGGLE}`,
+        class: `${CLASSES.TOOL_BTN} ${CLASSES.TOGGLE}`,
         "aria-label": _(`${CONF.name}.title`),
         title: _(`${CONF.name}.title`),
         parent: container,
