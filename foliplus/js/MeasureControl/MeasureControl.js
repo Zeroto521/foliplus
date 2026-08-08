@@ -88,7 +88,7 @@ const CONST = {
     TOOL_BTN: ".foliplus-tool-btn",
   },
   STORAGE: {
-    KEY: "foliplus_measure_" + map._leaflet_id,
+    KEY: `foliplus_measure_${map._leaflet_id}`,
   },
   MODE: {
     MARKER: "marker",

@@ -26,8 +26,8 @@ const CONST = {
     HINT_COOLDOWN_MS: 800,
   },
   STORAGE: {
-    ORDER_KEY: "foliplus_layer_order_" + map._leaflet_id,
-    FOLD_KEY: "foliplus_fold_state_" + map._leaflet_id,
+    ORDER_KEY: `foliplus_layer_order_${map._leaflet_id}`,
+    FOLD_KEY: `foliplus_fold_state_${map._leaflet_id}`,
   },
   COLOR: {
     MAP_ID: "foliplus_color_map",
@@ -858,10 +858,7 @@ class LayerManager {
   }
 
   loadSavedOrder() {
-    const data = foliplus.storage.load(
-      "foliplus_layer_order_" + map._leaflet_id,
-      CONF.name,
-    );
+    const data = foliplus.storage.load(CONST.STORAGE.ORDER_KEY, CONF.name);
     if (!data || !Array.isArray(data)) return;
     const layerMap = new Map(this.layers.map((l) => [l.id, l]));
     const ordered = [];
@@ -875,9 +872,7 @@ class LayerManager {
   }
 
   saveOrder() {
-    foliplus.storage.save(
-      "foliplus_layer_order_" + map._leaflet_id,
-      this.layers.map((l) => l.id),
+    foliplus.storage.save(CONST.STORAGE.ORDER_KEY, this.layers.map((l) => l.id),
       CONF.name,
     );
   }
@@ -1664,17 +1659,14 @@ class LayerUI {
 
   /** Load fold state from localStorage. */
   loadFoldState() {
-    const data = foliplus.storage.load(
-      "foliplus_fold_state_" + map._leaflet_id,
-      CONF.name,
-    );
+    const data = foliplus.storage.load(CONST.STORAGE.FOLD_KEY, CONF.name);
     if (Array.isArray(data)) this.foldedGroups = new Set(data);
   }
 
   /** Save fold state to localStorage. */
   saveFoldState() {
     foliplus.storage.save(
-      "foliplus_fold_state_" + map._leaflet_id,
+      CONST.STORAGE.FOLD_KEY,
       Array.from(this.foldedGroups),
       CONF.name,
     );
