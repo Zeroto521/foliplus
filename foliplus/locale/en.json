@@ -1,6 +1,7 @@
 {
   "locale.name": "English",
   "locale.code": "en",
+  "foliplus.close_label": "Close",
   "foliplus.gcoord_warn": "gcoord library failed to load, coordinate transformation unavailable",
   "foliplus.storage_load_fail": "Failed to load saved data (key={key})",
   "foliplus.storage_save_fail": "Failed to save data (key={key})",
@@ -82,7 +83,6 @@
   "LayerControl.data_layer_label": "Data Layers",
   "LayerControl.fold_tooltip": "Collapse layers",
   "LayerControl.unfold_tooltip": "Expand layers",
-  "LayerControl.close_label": "Close",
   "LayerControl.toggle_all_select_tooltip": "Select all",
   "LayerControl.toggle_all_deselect_tooltip": "Deselect all",
   "LayerControl.select_tooltip": "Select",

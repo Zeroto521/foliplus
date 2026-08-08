@@ -4,7 +4,10 @@
 // icons live in each component's own `{Name}.icon.js` file instead.
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const LOADING = `<svg class="foliplus-spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`;
+export const LOADING = `
+  <svg class="foliplus-spin" viewBox="0 0 24 24">
+    <path d="M21 12a9 9 0 1 1-6.2-8.6"/>
+  </svg>`;
 
 export const CLOSE = `
     <svg viewBox="0 0 24 24">

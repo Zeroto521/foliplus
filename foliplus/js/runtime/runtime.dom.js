@@ -41,7 +41,12 @@ const EVENTS = new Set([
   "onmousemove",
   "onmouseup",
 ]);
-const PIN = { SIZE: [24, 36], ANCHOR: [12, 36], POPUP_ANCHOR: [0, -36], Z_OFFSET: 10000 };
+const PIN = {
+  SIZE: [24, 36],
+  ANCHOR: [12, 36],
+  POPUP_ANCHOR: [0, -36],
+  Z_OFFSET: 10000,
+};
 const POPUP_MAX_WIDTH = 300;
 
 /** @type {import("./runtime.dom.js")} */
@@ -172,7 +177,7 @@ const createLocationMarker = (
   );
   if (openPopup) marker.openPopup();
   // Add title to Leaflet's popup close button for hover tooltip.
-  const closeLabel = foliplus.gt ? foliplus.gt("LayerControl.close_label") : "";
+  const closeLabel = foliplus.gt ? foliplus.gt("foliplus.close_label") : "";
   const popupEl = marker.getPopup();
   if (popupEl) {
     const closeBtn = popupEl._closeButton;
