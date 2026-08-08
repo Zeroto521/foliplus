@@ -11,6 +11,8 @@ const CLASSES = {
   FOLD: "foliplus-ctrl-fold",
   TOGGLE_BTN: "foliplus-toggle-btn",
   LEAFLET_BAR: "leaflet-bar leaflet-control",
+  TOOL_BAR: "foliplus-tool-bar",
+  PANEL_HEADER: "foliplus-panel-header",
 };
 
 /**
@@ -126,7 +128,7 @@ const createFoldControl = (opts) => {
       { html: opts.toggleSvg },
     ),
   );
-  ctrl.appendChild(foliplus.dom.el("div", { class: "foliplus-tool-bar" }));
+  ctrl.appendChild(foliplus.dom.el("div", { class: CLASSES.TOOL_BAR }));
   container.appendChild(ctrl);
   if (!opts.isLeft) ctrl.classList.add("foliplus-align-right");
   L.DomEvent.disableClickPropagation(container);
@@ -134,8 +136,8 @@ const createFoldControl = (opts) => {
   return {
     container: container,
     ctrl: ctrl,
-    toolBar: ctrl.querySelector(".foliplus-tool-bar"),
-    toggleBtn: ctrl.querySelector(".foliplus-toggle-btn"),
+    toolBar: ctrl.querySelector(`.${CLASSES.TOOL_BAR}`),
+    toggleBtn: ctrl.querySelector(`.${CLASSES.TOGGLE_BTN}`),
   };
 };
 
@@ -216,7 +218,7 @@ const createPanelControl = (opts) => {
     ),
   );
   const panelWrap = foliplus.dom.el("div", { class: "foliplus-panel-wrap" });
-  const header = foliplus.dom.el("div", { class: "foliplus-panel-header" });
+  const header = foliplus.dom.el("div", { class: CLASSES.PANEL_HEADER });
   header.appendChild(
     foliplus.dom.el(
       "span",
@@ -237,9 +239,7 @@ const createPanelControl = (opts) => {
     ),
   );
   panelWrap.appendChild(header);
-  const panelContent = foliplus.dom.el("div", {
-    class: "foliplus-panel-content",
-  });
+  const panelContent = foliplus.dom.el("div", { class: "foliplus-panel-content" });
   panelWrap.appendChild(panelContent);
   ctrl.appendChild(panelWrap);
   container.appendChild(ctrl);
@@ -249,15 +249,15 @@ const createPanelControl = (opts) => {
 
   bindPanelToggle({
     container: ctrl,
-    toggleBtn: ".foliplus-toggle-btn",
-    header: ".foliplus-panel-header",
+    toggleBtn: `.${CLASSES.TOGGLE_BTN}`,
+    header: `.${CLASSES.PANEL_HEADER}`,
   });
   bindOutsideCollapse({ container: ctrl });
 
   return {
     container,
     ctrl,
-    toggleBtn: ctrl.querySelector(".foliplus-toggle-btn"),
+    toggleBtn: ctrl.querySelector(`.${CLASSES.TOGGLE_BTN}`),
     panelContent,
   };
 };
