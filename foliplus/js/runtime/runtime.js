@@ -7,6 +7,7 @@
  * `runtime/*.js` submodules) into `dist/runtime.min.js`, which BaseControl
  * injects once per map into the shared header.
  */
+import { getLocale } from "../shared/locale.js";
 import { fromWgs84, getMapCrsType, toWgs84 } from "./runtime.coord.js";
 import { buildPopupHtml, createLocationMarker, foliplusDom } from "./runtime.dom.js";
 import {
@@ -42,7 +43,7 @@ const foliplus = window.foliplus;
 foliplus.gt =
   foliplus.gt ||
   ((k) => {
-    const loc = window._LOCALE;
+    const loc = getLocale();
     return loc && loc[k] ? loc[k] : k;
   });
 

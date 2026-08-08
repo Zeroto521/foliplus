@@ -3,6 +3,7 @@
 // Depends on runtime.coord.js helpers (getMapCrsType, toWgs84) and reads
 // `foliplus.gt` from the global namespace at call time.
 
+import { getLocaleCode } from "../shared/locale.js";
 import { getMapCrsType, toWgs84 } from "./runtime.coord.js";
 
 // ── Geocode constants ───────────────────────────────────────────
@@ -38,8 +39,7 @@ const nominatimUrl = (endpoint, params = {}) => {
     if (v != null) url.searchParams.set(k, String(v));
 
   if (!url.searchParams.has("accept-language")) {
-    const loc = window._LOCALE;
-    url.searchParams.set("accept-language", (loc && loc["locale.code"]) || "en");
+    url.searchParams.set("accept-language", getLocaleCode());
   }
 
   return url.toString();
@@ -78,9 +78,8 @@ const formatAddress = (displayName, map) => {
   if (parts.length === 0) return "";
   // Domestic (Chinese) maps OR locale=zh: reverse order (small→large → large→small)
   // Foreign maps: keep original order
-  const loc = window._LOCALE;
   const isChinese =
-    (map && getMapCrsType(map) !== "WGS84") || (loc && loc["locale.code"] === "zh");
+    (map && getMapCrsType(map) !== "WGS84") || getLocaleCode() === "zh";
   if (isChinese) return parts.reverse().join(",");
   return parts.join(",");
 };
@@ -127,4 +126,5 @@ const reverseGeocode = (map, lng, lat) => {
   return geoPromise;
 };
 
-export { NOMINATIM, nominatimUrl, formatAddress, reverseGeocode };
+export { formatAddress, NOMINATIM, nominatimUrl, reverseGeocode };
+

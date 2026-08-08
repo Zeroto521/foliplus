@@ -3,6 +3,8 @@
 // Number formatting, debounce, storage, and CSS variable helpers.
 // Reads `foliplus.gt` from the global namespace at call time.
 
+import { getLocaleCode } from "../shared/locale.js";
+
 /**
  * Format a number for display.
  * @param {number} val Value to format
@@ -12,8 +14,7 @@
  * @returns {string} Formatted string
  */
 const formatNumber = (val, style, locale) => {
-  const loc = window._LOCALE;
-  locale = locale || (typeof loc !== "undefined" && loc["locale.code"]) || "en";
+  locale = locale || getLocaleCode();
   style = style || "auto";
   const absVal = Math.abs(val);
 
@@ -129,4 +130,5 @@ const storage = {
   },
 };
 
-export { formatNumber, debounce, cssVar, storage };
+export { cssVar, debounce, formatNumber, storage };
+
