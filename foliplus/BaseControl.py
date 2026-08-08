@@ -99,9 +99,9 @@ class BaseControl(JSCSSMixin, MacroElement):
         One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
-        If omitted, the browser's ``navigator.language`` is used at runtime to
-        select the appropriate locale table, falling back to English.
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance. If
+        omitted, the browser's ``navigator.language`` is used at runtime to select the
+        appropriate locale table, falling back to English.
     """
 
     def __init__(
@@ -135,8 +135,8 @@ class BaseControl(JSCSSMixin, MacroElement):
     def render(self, **kwargs):
         """Inject the shared asset bundle into the figure header exactly once.
 
-        The runtime JS, shared CSS, and locale tables are identical for every
-        control, so they are emitted a single time per map (deduplicated by
+        The runtime JS, shared CSS, and locale tables are identical for every control,
+        so they are emitted a single time per map (deduplicated by
         :data:`_SHARED_ASSETS_NAME`) instead of being repeated in each control's
         template. Placing them in ``<head>`` also guarantees they load before any
         control's body script runs.
@@ -151,13 +151,7 @@ class BaseControl(JSCSSMixin, MacroElement):
             )
         super().render(**kwargs)
 
-    def _get_template(
-        self,
-        *,
-        js: str | None = None,
-        css: str | None = None,
-        config: dict | None = None,
-    ) -> Template:
+    def _get_template(self, *, config: dict | None = None) -> Template:
         """Build a Jinja2 template with this control's own CSS/JS.
 
         Shared assets (``common.css``, ``panel.css``, ``runtime.js``, and the locale
@@ -167,15 +161,6 @@ class BaseControl(JSCSSMixin, MacroElement):
 
         Parameters
         ----------
-        js : str, optional
-            Component JS filename. For migrated components the path is
-            resolved from ``self._name`` automatically (``{name}/{name}.js``).
-            Explicit paths (e.g. ``"LayerControl.js"``) are used as-is.
-
-        css : str, optional
-            Component CSS filename.  Automatically resolved from
-            ``self._name`` when omitted (``{name}.css``).
-
         config : dict, optional
             Runtime config injected as ``window.foliplus.CONFIG[component]`` before the
             component JS runs. Frees the JS source from Jinja tags.
@@ -185,10 +170,8 @@ class BaseControl(JSCSSMixin, MacroElement):
         Template
             A Jinja2 ``Template`` instance ready for folium rendering.
         """
-        js = js or f"{self._name}/{self._name}.js"
-        js = _get_js(js) if js else ""
-        css = css or f"{self._name}.css"
-        css = _get_css(css) if css else ""
+        js = _get_js(f"{self._name}/{self._name}.js")
+        css = _get_css(f"{self._name}.css")
 
         if config is not None:
             self._config = config
