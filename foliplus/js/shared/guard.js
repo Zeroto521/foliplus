@@ -1,11 +1,9 @@
 // Runtime guard — ensures foliplus runtime is loaded before component init.
-// Returns `true` if runtime is available, `false` otherwise (caller should
-// `return` early in that case).
+// Throws a clear error when runtime is missing, stopping the component early
+// rather than letting it fail later at an obscure DOM access.
 export const requireRuntime = (componentName) => {
   const foliplus = window.foliplus || {};
   if (!foliplus || !foliplus.SVGs) {
-    console.error(`[${componentName}] foliplus runtime not found, plugin disabled.`);
-    return false;
+    throw new Error(`[${componentName}] foliplus runtime not found, plugin disabled.`);
   }
-  return true;
 };
