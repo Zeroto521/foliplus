@@ -15,6 +15,7 @@ const isBaiduCRS = (map) => {
     const crs = map.options.crs;
     if (L.CRS && L.CRS.Baidu && crs === L.CRS.Baidu) return true;
     if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
+
     const layers = map._layers;
     for (const id in layers)
       if (layers[id]._url && layers[id]._url.includes("bdimg.com")) return true;
@@ -66,11 +67,11 @@ const ensureGcoord = () => {
   // the warning only triggers when the user places a geopoint on a
   // non-WGS84 map, which is an edge case that doesn't warrant a
   // persistent UI hint.  The console warning is sufficient for
-  // developers to diagnose the missing dependency.  See #114.
+  // developers to diagnose the missing dependency.
+  const foliplus = window.foliplus || {};
+  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
   if (typeof gcoord === "undefined") {
-    console.warn(
-      `[foliplus] ${(window.foliplus && window.foliplus.gt) ? window.foliplus.gt("foliplus.gcoord_warn") : "foliplus.gcoord_warn"}`,
-    );
+    console.warn(`[foliplus] ${_("foliplus.gcoord_warn")}`);
     return false;
   }
   return true;
