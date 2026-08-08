@@ -10,9 +10,7 @@ const foliplus = window.foliplus;
 const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 foliplus.registerHintIcon(CONF.name, ICONS.MAXIMIZE);
 
-const cid = containerId(CONF.name, CONF.position);
-
-class FullscreenControl extends L.Control {
+  class FullscreenControl extends L.Control {
   onAdd() {
     if (map.zoomControl) map.removeControl(map.zoomControl);
     else {
@@ -22,10 +20,10 @@ class FullscreenControl extends L.Control {
 
     const outer = foliplus.dom.el("div", {
       class: "leaflet-bar leaflet-control",
-      id: cid,
+      id: containerId(CONF.name, CONF.position),
     });
     const container = foliplus.dom.el("div", {
-      class: `${CLASSES.BAR} foliplus-ctrl-fold`,
+      class: "foliplus-ctrl-fold foliplus-fullscreen-bar",
       parent: outer,
     });
 

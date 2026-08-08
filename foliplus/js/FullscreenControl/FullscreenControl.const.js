@@ -2,7 +2,6 @@
 const CLASSES = {
   PSEUDO_FULLSCREEN: "leaflet-pseudo-fullscreen",
   TOOL_BTN: "foliplus-tool-btn",
-  BAR: "foliplus-fullscreen-bar",
   ZOOM_IN: "foliplus-zoom-in",
   ZOOM_OUT: "foliplus-zoom-out",
   TOGGLE: "foliplus-fullscreen-toggle",
