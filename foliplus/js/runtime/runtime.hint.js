@@ -5,11 +5,7 @@
 // `window.foliplus.*`.
 
 // ── Hint constants ──────────────────────────────────────────────
-const HINT_BASE = {
-  BOTTOM_BASE: 20,
-  STACK_GAP: 40,
-  Z_BASE: 10000,
-};
+const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
 const CLASSES = "foliplus-hint";
 const HINT_DURATION = {
   SHORT: 1200,
@@ -25,8 +21,8 @@ const hintMap = new Map(); // key -> { element, timer }
 const repositionHints = () => {
   let idx = 0;
   for (const v of hintMap.values()) {
-    v.element.style.bottom = `${HINT_BASE.BOTTOM_BASE + idx * HINT_BASE.STACK_GAP}px`;
-    v.element.style.zIndex = HINT_BASE.Z_BASE + idx;
+    v.element.style.bottom = `${BASE.BOTTOM + idx * BASE.STACK_GAP}px`;
+    v.element.style.zIndex = BASE.ZINDEX + idx;
     idx++;
   }
 };
@@ -122,8 +118,8 @@ const reparentHints = () => {
   let idx = 0;
   for (const v of hintMap.values()) {
     if (v.element.parentNode !== newTarget) newTarget.appendChild(v.element);
-    v.element.style.bottom = `${HINT_BASE.BOTTOM_BASE + idx * HINT_BASE.STACK_GAP}px`;
-    v.element.style.zIndex = HINT_BASE.Z_BASE + idx;
+    v.element.style.bottom = `${BASE.BOTTOM + idx * BASE.STACK_GAP}px`;
+    v.element.style.zIndex = BASE.ZINDEX + idx;
     idx++;
   }
 };
