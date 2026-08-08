@@ -5,7 +5,7 @@
 // namespace at call time.
 
 // ── Panel CSS classes ───────────────────────────────────────────
-const PANEL_CLASSES = {
+const CLASSES = {
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
   FOLD: "foliplus-ctrl-fold",
@@ -52,8 +52,8 @@ const bindPanelToggle = ({ container, toggleBtn, header }) => {
   if (btn) {
     L.DomEvent.on(btn, "click", (e) => {
       L.DomEvent.stop(e);
-      container.classList.remove(PANEL_CLASSES.COLLAPSED);
-      container.classList.add(PANEL_CLASSES.EXPANDED);
+      container.classList.remove(CLASSES.COLLAPSED);
+      container.classList.add(CLASSES.EXPANDED);
       adjustPanelZIndex({ container, expanded: true });
     });
   }
@@ -61,8 +61,8 @@ const bindPanelToggle = ({ container, toggleBtn, header }) => {
   if (hdr) {
     L.DomEvent.on(hdr, "click", (e) => {
       L.DomEvent.stop(e);
-      container.classList.remove(PANEL_CLASSES.EXPANDED);
-      container.classList.add(PANEL_CLASSES.COLLAPSED);
+      container.classList.remove(CLASSES.EXPANDED);
+      container.classList.add(CLASSES.COLLAPSED);
       adjustPanelZIndex({ container, expanded: false });
     });
   }
@@ -81,10 +81,10 @@ const bindOutsideCollapse = ({ container, skipCheck }) => {
     if (skipCheck && skipCheck()) return;
     if (
       !container.contains(e.target) &&
-      container.classList.contains(PANEL_CLASSES.EXPANDED)
+      container.classList.contains(CLASSES.EXPANDED)
     ) {
-      container.classList.remove(PANEL_CLASSES.EXPANDED);
-      container.classList.add(PANEL_CLASSES.COLLAPSED);
+      container.classList.remove(CLASSES.EXPANDED);
+      container.classList.add(CLASSES.COLLAPSED);
       adjustPanelZIndex({ container, expanded: false });
     }
   };
@@ -115,14 +115,14 @@ const bindOutsideCollapse = ({ container, skipCheck }) => {
  */
 const createFoldControl = (opts) => {
   const foliplus = window.foliplus || {};
-  const container = foliplus.dom.el("div", { class: PANEL_CLASSES.LEAFLET_BAR });
+  const container = foliplus.dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = foliplus.dom.el("div", {
-    class: `${opts.cssClass} ${PANEL_CLASSES.FOLD} ${PANEL_CLASSES.COLLAPSED}`,
+    class: `${opts.cssClass} ${CLASSES.FOLD} ${CLASSES.COLLAPSED}`,
   });
   ctrl.appendChild(
     foliplus.dom.el(
       "button",
-      { class: PANEL_CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
+      { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
       { html: opts.toggleSvg },
     ),
   );
@@ -203,15 +203,15 @@ const bindMapSync = (opts) => {
 const createPanelControl = (opts) => {
   const foliplus = window.foliplus || {};
   const container = foliplus.dom.el("div", {
-    class: PANEL_CLASSES.LEAFLET_BAR,
+    class: CLASSES.LEAFLET_BAR,
   });
   const ctrl = foliplus.dom.el("div", {
-    class: `foliplus-panel ${PANEL_CLASSES.FOLD} ${opts.cssClass} ${PANEL_CLASSES.COLLAPSED}`,
+    class: `foliplus-panel ${CLASSES.FOLD} ${opts.cssClass} ${CLASSES.COLLAPSED}`,
   });
   ctrl.appendChild(
     foliplus.dom.el(
       "button",
-      { class: PANEL_CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
+      { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
       { html: opts.toggleSvg },
     ),
   );
