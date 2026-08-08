@@ -25,8 +25,8 @@ const CONST = {
     HINT_COOLDOWN_MS: 800,
   },
   STORAGE: {
-    ORDER_KEY: `foliplus_layer_order_${map._leaflet_id}`,
-    FOLD_KEY: `foliplus_fold_state_${map._leaflet_id}`,
+    ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
+    FOLD_KEY: `foliplus_fold_state_${map.getContainer().id}`,
   },
   COLOR: {
     MAP_ID: "foliplus_color_map",

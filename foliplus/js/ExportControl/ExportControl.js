@@ -17,7 +17,7 @@ const CONST = {
     CONTAINER_PADDING: 200,
   },
   STORAGE: {
-    KEY: `foliplus_export_rect_${map._leaflet_id}`,
+    KEY: `foliplus_export_rect_${map.getContainer().id}`,
   },
   TIMING: {
     URL_REVOKE_DELAY: 10000,
