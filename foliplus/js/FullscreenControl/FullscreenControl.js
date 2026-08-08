@@ -10,7 +10,7 @@ const foliplus = window.foliplus;
 const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 foliplus.registerHintIcon(CONF.name, ICONS.MAXIMIZE);
 
-  class FullscreenControl extends L.Control {
+class FullscreenControl extends L.Control {
   onAdd() {
     if (map.zoomControl) map.removeControl(map.zoomControl);
     else {
