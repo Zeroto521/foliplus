@@ -38,9 +38,10 @@ const TMP = resolve(SRC, ".build");
 const TMP_JS = resolve(TMP, "js");
 
 // ── SVGO: compress SVG markup inside JS template literals ──────────
+const svgRe =
+  /`\s*(?:<div[^>]*>\s*<svg[\s\S]*?<\/svg>\s*<\/div>|<svg[\s\S]*?<\/svg>)\s*`/g;
+
 const compressSvgStrings = (code) => {
-  // Match SVG template literals, with or without a <div> wrapper
-  const svgRe = new RegExp("`\\s*(?:<div[\\s\\S]*?<\\/div>|<svg[\\s\\S]*?<\\/svg>)\\s*`", "g");
   return code.replace(svgRe, (match) => {
     const raw = match.replace(/^`\s*/, "").replace(/\s*`$/, "");
     // If wrapped in a <div>, extract the <svg> part, optimize it, then rewrap
@@ -52,13 +53,17 @@ const compressSvgStrings = (code) => {
         try {
           const result = optimize(svgMatch[0], { multipass: true });
           return "`" + openTag + result.data + closeTag + "`";
-        } catch { return match; }
+        } catch {
+          return match;
+        }
       }
     }
     try {
       const result = optimize(raw, { multipass: true });
       return "`" + result.data + "`";
-    } catch { return match; }
+    } catch {
+      return match;
+    }
   });
 };
 
@@ -82,9 +87,8 @@ const findComponents = () => {
     const name = entry.name;
     const jsFile = resolve(TMP_JS, name, `${name}.js`);
     const cssFile = resolve(CSS_SRC, `${name}.css`);
-    if (existsSync(jsFile)) {
+    if (existsSync(jsFile))
       components.push({ name, js: jsFile, css: existsSync(cssFile) ? cssFile : null });
-    }
   }
   return components;
 };
@@ -103,6 +107,7 @@ const buildEntries = (components) => {
       allowOverwrite: true,
     });
   }
+
   const sharedCss = [
     { dir: CSS_SRC, in: "common.css", out: "common.min" },
     { dir: CSS_SRC, in: "panel.css", out: "panel.min" },
@@ -150,7 +155,9 @@ async function main() {
 
   const components = findComponents();
   const entries = buildEntries(components);
-  console.log(`Building ${entries.length} artifacts for ${components.length} components...`);
+  console.log(
+    `Building ${entries.length} artifacts for ${components.length} components...`,
+  );
 
   for (const opts of entries) {
     try {
