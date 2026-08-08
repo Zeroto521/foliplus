@@ -1,30 +1,38 @@
-(function () {
+import { requireRuntime } from "../shared/guard.js";
+
+const CONF = window.foliplus.CONFIG.ExportControl;
+
+requireRuntime(CONF.name);
+
+const foliplus = window.foliplus;
+const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
+
   // ==================== Constants ====================
   const CONST = {
     name: "ExportControl",
-    position: "{{ this.position }}",
+    position: CONF.position,
     CROP: {
       MIN_SIZE: 40,
       PADDING_RATIO: 0.25,
       CONTAINER_PADDING: 200,
     },
     STORAGE: {
-      KEY: "foliplus_export_rect_{{ this._parent.get_name() }}",
+      KEY: "foliplus_export_rect_" + map._leaflet_id,
     },
     TIMING: {
       URL_REVOKE_DELAY: 10000,
-      TIMEOUT: {{ this.timeout }},
+      TIMEOUT: CONF.timeout,
       RESTORE_DELAY: 200,
     },
-    SCALE: {{ this.scale }},
-    MAX_PIXELS: {{ this.max_pixels if this.max_pixels else "null" }},
-    BACKGROUND: {{ '"' + this.background + '"' if this.background else "null" }},
-    FILENAME: "{{ this.filename }}",
-    FORMAT: "{{ this.format }}",
-    QUALITY: {{ this.quality }},
+    SCALE: CONF.scale,
+    MAX_PIXELS: CONF.max_pixels,
+    BACKGROUND: CONF.background,
+    FILENAME: CONF.filename,
+    FORMAT: CONF.format,
+    QUALITY: CONF.quality,
     // MIME type lookup (format → toBlob mime, toDataURL mime)
     MIME: {
-      DEFAULT: "image/png", // Default MIME when CONST.FORMAT is not in MIME
+      DEFAULT: "image/png", // Default MIME when CONF.format is not in MIME
       png: "image/png",
       jpeg: "image/jpeg",
       webp: "image/webp",
@@ -72,26 +80,14 @@
     TILE_CONCURRENCY: 6,
   };
 
-  // ==================== Runtime Guard ====================
-  const foliplus = window.foliplus || {};
-  if (!foliplus || !foliplus.SVGs) {
-    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
-    return;
-  }
 
-  // ==================== Dependencies ====================
-  const map = {{ this._parent.get_name() }};
-  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== Guard: LayerControl required ====================
   if (!foliplus.LayerAPI) {
-    console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-    foliplus.showHint(
-      CONST.name,
-      _(`${CONST.name}.no_layercontrol`),
-      foliplus.HINT_DURATION.PERSIST,
-    );
-    return;
+    const msg = _(`${CONF.name}.no_layercontrol`);
+    console.error(`[${CONF.name}] ${msg}`);
+    foliplus.showHint(CONF.name, msg, foliplus.HINT_DURATION.PERSIST);
+    throw new Error(`[${CONF.name}] ${msg}`);
   }
 
   // ==================== SVG Icons ====================
@@ -113,7 +109,7 @@
       </svg>`,
   };
 
-  foliplus.registerHintIcon(CONST.name, SVGs.CAMERA);
+  foliplus.registerHintIcon(CONF.name, SVGs.CAMERA);
 
   // ==================== CORS Pre-setup ====================
   // Set crossOrigin on ALL existing TileLayers so tiles load with CORS
@@ -178,7 +174,7 @@
       const i = new Image();
       if (crossOrigin) i.crossOrigin = crossOrigin;
       i.onload = () => resolve(i);
-      i.onerror = () => reject(new Error(_(`${CONST.name}.err_image_load`)));
+      i.onerror = () => reject(new Error(_(`${CONF.name}.err_image_load`)));
       i.src = src;
     });
 
@@ -271,7 +267,7 @@
     async render(rect, scale, bg, geoBounds) {
       const sw = Math.round(rect.width * scale);
       const sh = Math.round(rect.height * scale);
-      if (sw < 1 || sh < 1) throw new Error(_(`${CONST.name}.err_crop_too_small`));
+      if (sw < 1 || sh < 1) throw new Error(_(`${CONF.name}.err_crop_too_small`));
 
       const canvas = document.createElement("canvas");
       canvas.width = sw;
@@ -364,7 +360,7 @@
         const dw = w * scale;
         const dh = h * scale;
         if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
-        const mimeType = CONST.MIME[CONST.FORMAT] || CONST.MIME.DEFAULT;
+        const mimeType = CONST.MIME[CONF.format] || CONST.MIME.DEFAULT;
         const dataUrl = ce.toDataURL(mimeType);
         const img = await loadImage(dataUrl);
         ctx.drawImage(img, dx, dy, dw, dh);
@@ -515,7 +511,7 @@
           const dw = w * scale;
           const dh = h * scale;
           if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-          const mimeType = CONST.MIME[CONST.FORMAT] || CONST.MIME.DEFAULT;
+          const mimeType = CONST.MIME[CONF.format] || CONST.MIME.DEFAULT;
           const dataUrl = ce.toDataURL(mimeType);
           const img = await loadImage(dataUrl);
           ctx.drawImage(img, dx, dy, dw, dh);
@@ -927,7 +923,7 @@
     }
 
     loadSavedBounds() {
-      const data = foliplus.storage.load(CONST.STORAGE.KEY, CONST.name);
+      const data = foliplus.storage.load(CONST.STORAGE.KEY, CONF.name);
       if (!data || !data.nw || !data.se) return;
       const nw = data.nw,
         se = data.se;
@@ -952,14 +948,14 @@
           nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
           se: { lat: bounds.se.lat, lng: bounds.se.lng },
         },
-        CONST.name,
+        CONF.name,
       );
     }
 
     showGlobalHint(text, duration, withLoadingIcon) {
       const loading = withLoadingIcon ? foliplus.SVGs.LOADING + " " : "";
       foliplus.showHint(
-        CONST.name,
+        CONF.name,
         loading + text,
         duration || foliplus.HINT_DURATION.PERSIST,
       );
@@ -969,9 +965,9 @@
       this.checkPixelLimit(r);
       // Size hint always shows persistence.
       foliplus.showHint(
-        CONST.name,
-        `${_(`${CONST.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
-          `${_(`${CONST.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
+        CONF.name,
+        `${_(`${CONF.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
+          `${_(`${CONF.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
         foliplus.HINT_DURATION.PERSIST,
         null,
         "size",
@@ -981,16 +977,16 @@
       // instead of replacing it.
       if (this.pixelOverLimit) {
         foliplus.showHint(
-          CONST.name,
-          _(`${CONST.name}.err_too_large`).replace(
+          CONF.name,
+          _(`${CONF.name}.err_too_large`).replace(
             "{limit}",
-            foliplus.formatNumber(CONST.MAX_PIXELS),
+            foliplus.formatNumber(CONF.max_pixels),
           ),
           foliplus.HINT_DURATION.PERSIST,
           null,
           "limit",
         );
-      } else foliplus.hideHint(CONST.name, "limit");
+      } else foliplus.hideHint(CONF.name, "limit");
     }
 
     updateBoxStyle(el, r) {
@@ -1086,7 +1082,7 @@
         "button",
         {
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
-          title: _(`${CONST.name}.btn_confirm`),
+          title: _(`${CONF.name}.btn_confirm`),
           parent: this.exportToolBar,
         },
         { html: SVGs.CHECK },
@@ -1095,7 +1091,7 @@
         "button",
         {
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
-          title: _(`${CONST.name}.btn_cancel`),
+          title: _(`${CONF.name}.btn_cancel`),
           parent: this.exportToolBar,
         },
         { html: foliplus.SVGs.CLOSE },
@@ -1112,7 +1108,7 @@
       };
       this.updateBoxStyle(cropBox, box);
       this.pushUndoState(); // Save initial rect so Ctrl+Z can restore it
-      this.showHintWithInfo(box, _(`${CONST.name}.hint_unlocked`));
+      this.showHintWithInfo(box, _(`${CONF.name}.hint_unlocked`));
       cropBox.addEventListener("mousedown", this.onMouseDown);
       this.exportToolBar.querySelector(".cancel").onclick = (e) => {
         e.stopPropagation();
@@ -1144,7 +1140,7 @@
         "button",
         {
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
-          title: _(`${CONST.name}.btn_export`),
+          title: _(`${CONF.name}.btn_export`),
           parent: this.cropState.actions,
         },
         { html: SVGs.DOWNLOAD },
@@ -1153,7 +1149,7 @@
         "button",
         {
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
-          title: _(`${CONST.name}.btn_cancel`),
+          title: _(`${CONF.name}.btn_cancel`),
           parent: this.cropState.actions,
         },
         { html: foliplus.SVGs.CLOSE },
@@ -1186,7 +1182,7 @@
         },
       });
       this.onMapChange();
-      if (!skipHint) this.showHintWithInfo(r, _(`${CONST.name}.hint_locked`));
+      if (!skipHint) this.showHintWithInfo(r, _(`${CONF.name}.hint_locked`));
     }
 
     unlockCropBox() {
@@ -1199,7 +1195,7 @@
         "button",
         {
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
-          title: _(`${CONST.name}.btn_confirm`),
+          title: _(`${CONF.name}.btn_confirm`),
           parent: this.cropState.actions,
         },
         { html: SVGs.CHECK },
@@ -1208,7 +1204,7 @@
         "button",
         {
           class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
-          title: _(`${CONST.name}.btn_cancel`),
+          title: _(`${CONF.name}.btn_cancel`),
           parent: this.cropState.actions,
         },
         { html: foliplus.SVGs.CLOSE },
@@ -1226,7 +1222,7 @@
         this.lockCropBox();
       };
       this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-      this.showHintWithInfo(this.cropState.rect, _(`${CONST.name}.hint_unlocked`));
+      this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
     }
 
     /** Restore and lock crop box from saved geo bounds. */
@@ -1240,8 +1236,8 @@
         };
         this.lockCropBox(true);
         foliplus.showHint(
-          CONST.name,
-          _(`${CONST.name}.hint_restore`),
+          CONF.name,
+          _(`${CONF.name}.hint_restore`),
           foliplus.HINT_DURATION.MEDIUM,
           true,
         );
@@ -1272,7 +1268,7 @@
         this.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
       }
       this.cropState = null;
-      foliplus.hideHint(CONST.name);
+      foliplus.hideHint(CONF.name);
     }
 
     onMouseDown(e) {
@@ -1347,7 +1343,7 @@
       this.cropState.rect = r;
       this.updateBoxStyle(this.cropState.box, r);
       // Only update the hint when the size changes (resize), not on pure move
-      if (type !== "move") this.showHintWithInfo(r, _(`${CONST.name}.hint_unlocked`));
+      if (type !== "move") this.showHintWithInfo(r, _(`${CONF.name}.hint_unlocked`));
     }
 
     pushUndoState() {
@@ -1367,7 +1363,7 @@
       if (this.cropState.locked) this.unlockCropBox();
       this.cropState.rect = this.undoStack.pop();
       this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-      this.showHintWithInfo(this.cropState.rect, _(`${CONST.name}.hint_unlocked`));
+      this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
     }
 
     redoCropBox() {
@@ -1377,7 +1373,7 @@
       if (this.cropState.locked) this.unlockCropBox();
       this.cropState.rect = this.redoStack.pop();
       this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-      this.showHintWithInfo(this.cropState.rect, _(`${CONST.name}.hint_unlocked`));
+      this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
     }
 
     onMouseUp() {
@@ -1429,7 +1425,7 @@
       // Always check pixel limit regardless of hint visibility.
       this.checkPixelLimit(newRect);
       // Update hint text on zoom (rect changes), skip on pan (rect unchanged).
-      if (!skipHint) this.showHintWithInfo(newRect, _(`${CONST.name}.hint_locked`));
+      if (!skipHint) this.showHintWithInfo(newRect, _(`${CONF.name}.hint_locked`));
     }
 
     /** Check pixel limit and set pixelOverLimit flag. */
@@ -1438,7 +1434,7 @@
       // DPI). The override of r.width/r.height happens in doRender, so the
       // check here matches the actual exported dimensions.
       const totalPixels = Math.round(r.width) * Math.round(r.height);
-      this.pixelOverLimit = CONST.MAX_PIXELS !== null && totalPixels > CONST.MAX_PIXELS;
+      this.pixelOverLimit = CONF.max_pixels !== null && totalPixels > CONF.max_pixels;
     }
 
     doExport() {
@@ -1465,10 +1461,10 @@
       // Lock map interactions (pan/zoom) so layer positions stay stable.
       this.lockMap();
 
-      let scaleValue = CONST.SCALE;
+      let scaleValue = CONF.scale;
       if (typeof scaleValue !== "number" || isNaN(scaleValue))
         scaleValue = window.devicePixelRatio || 1;
-      const bg = CONST.BACKGROUND;
+      const bg = CONF.background;
 
       // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
       if (this.pixelOverLimit) {
@@ -1478,7 +1474,7 @@
       }
 
       this.showGlobalHint(
-        _(`${CONST.name}.status_exporting`),
+        _(`${CONF.name}.status_exporting`),
         foliplus.HINT_DURATION.PERSIST,
         true,
       );
@@ -1580,7 +1576,7 @@
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
       this.removeExportOverlay();
       this.unlockMap();
-      const mimeType = CONST.MIME[CONST.FORMAT] || CONST.MIME.DEFAULT;
+      const mimeType = CONST.MIME[CONF.format] || CONST.MIME.DEFAULT;
       const prevImg = document.createElement("img");
       prevImg.src = canvas.toDataURL(mimeType);
       prevImg.className = CONST.CLASSES.PREVIEW;
@@ -1596,7 +1592,7 @@
         (blob) => {
           if (!blob) {
             this.showGlobalHint(
-              _(`${CONST.name}.status_fail`) + _(`${CONST.name}.err_gen_fail`),
+              _(`${CONF.name}.status_fail`) + _(`${CONF.name}.err_gen_fail`),
               foliplus.HINT_DURATION.LONG,
               false,
             );
@@ -1607,7 +1603,7 @@
           const link = document.createElement("a");
           const url = URL.createObjectURL(blob);
           // Append the format extension to the base filename.
-          link.download = `${CONST.FILENAME}.${CONST.FORMAT}`;
+          link.download = `${CONF.filename}.${CONF.format}`;
           link.href = url;
           link.rel = "noopener";
           document.body.appendChild(link);
@@ -1615,7 +1611,7 @@
           document.body.removeChild(link);
           setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
           this.showGlobalHint(
-            _(`${CONST.name}.status_success`),
+            _(`${CONF.name}.status_success`),
             foliplus.HINT_DURATION.LONG,
             false,
           );
@@ -1623,7 +1619,7 @@
           this.removeExportOverlay();
         },
         mimeType,
-        CONST.QUALITY,
+        CONF.quality,
       );
     }
 
@@ -1632,9 +1628,9 @@
       hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
       this.removeExportOverlay();
       this.unlockMap();
-      console.error(`[${CONST.name}] ${_(`${CONST.name}.err_render`)}:`, err);
+      console.error(`[${CONF.name}] ${_(`${CONF.name}.err_render`)}:`, err);
       this.showGlobalHint(
-        _(`${CONST.name}.status_fail`) + (err.message || ""),
+        _(`${CONF.name}.status_fail`) + (err.message || ""),
         foliplus.HINT_DURATION.LONG,
         false,
       );
@@ -1681,9 +1677,9 @@
     onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
         cssClass: `foliplus-export-ctrl`,
-        toggleTitle: _(`${CONST.name}.btn_title`),
+        toggleTitle: _(`${CONF.name}.btn_title`),
         toggleSvg: SVGs.CAMERA,
-        isLeft: CONST.position.indexOf("left") >= 0,
+        isLeft: CONF.position.indexOf("left") >= 0,
       });
       exportManager.attachUI(ctrl, toolBar);
       toggleBtn.onclick = () => {
@@ -1699,5 +1695,4 @@
     }
   }
 
-  new ExportControl({ position: CONST.position }).addTo(map);
-})();
+  new ExportControl({ position: CONF.position }).addTo(map);
