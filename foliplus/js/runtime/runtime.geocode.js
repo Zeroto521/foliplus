@@ -37,11 +37,10 @@ const nominatimUrl = (endpoint, params = {}) => {
   for (const [k, v] of Object.entries(params))
     if (v != null) url.searchParams.set(k, String(v));
 
-  if (!url.searchParams.has("accept-language"))
-    url.searchParams.set(
-      "accept-language",
-      (window._LOCALE && window._LOCALE["locale.code"]) || "en",
-    );
+  if (!url.searchParams.has("accept-language")) {
+    const loc = window._LOCALE;
+    url.searchParams.set("accept-language", (loc && loc["locale.code"]) || "en");
+  }
 
   return url.toString();
 };
@@ -79,9 +78,9 @@ const formatAddress = (displayName, map) => {
   if (parts.length === 0) return "";
   // Domestic (Chinese) maps OR locale=zh: reverse order (small→large → large→small)
   // Foreign maps: keep original order
+  const loc = window._LOCALE;
   const isChinese =
-    (map && getMapCrsType(map) !== "WGS84") ||
-    (window._LOCALE && window._LOCALE["locale.code"] === "zh");
+    (map && getMapCrsType(map) !== "WGS84") || (loc && loc["locale.code"] === "zh");
   if (isChinese) return parts.reverse().join(",");
   return parts.join(",");
 };
@@ -109,10 +108,7 @@ const reverseGeocode = (map, lng, lat) => {
 
   geoPromise = geoPromise
     .then(() => {
-      const wait = Math.max(
-        0,
-        NOMINATIM.THROTTLE_MS - (Date.now() - geoLastReq),
-      );
+      const wait = Math.max(0, NOMINATIM.THROTTLE_MS - (Date.now() - geoLastReq));
       return new Promise((r) => setTimeout(r, wait));
     })
     .then(() => {
