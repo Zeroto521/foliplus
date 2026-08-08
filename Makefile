@@ -52,16 +52,13 @@ build-py:
 # Parallel test workers. Use CPU count by default, override with JOBS=N.
 JOBS ?= auto
 
-test:
-	build-js
+test: build-js
 	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
 
-test-python:
-	build-js
+test-python: build-js
 	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
 
-test-browser:
-	build-js
+test-browser: build-js
 	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
 
 html:
