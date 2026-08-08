@@ -1,8 +1,7 @@
 import { requireRuntime } from "../shared/guard.js";
 import { createTranslator, resolveLocaleCode } from "../shared/locale.js";
 
-const CONF = window.foliplus.CONFIG.MeasureControl;
-
+// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 requireRuntime(CONF.name);
 
 const foliplus = window.foliplus;

@@ -4,7 +4,7 @@ import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as SVGs from "./FullscreenControl.icon.js";
 import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logic.js";
 
-const CONF = window.foliplus.CONFIG.FullscreenControl;
+// CONF is injected by the template wrapper (IIFE scope), see BaseControl._get_template.
 requireRuntime(CONF.name);
 
 const foliplus = window.foliplus;

@@ -5,8 +5,7 @@ import { bindEvents, initFromUrl } from "./SearchControl.events.js";
 import * as SVGs from "./SearchControl.icon.js";
 import { initDebouncedFetch, removeSuggestions } from "./SearchControl.logic.js";
 
-// ==================== Runtime Guard ====================
-const CONF = window.foliplus.CONFIG.SearchControl;
+// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 requireRuntime(CONF.name);
 
 // ==================== Dependencies ====================
@@ -18,7 +17,6 @@ foliplus.registerHintIcon(CONF.name, SVGs.SEARCH);
 class SearchControl extends L.Control {
   constructor(options) {
     super(options);
-    this.CONF = CONF;
     this._ = _;
   }
 

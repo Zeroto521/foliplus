@@ -1,7 +1,7 @@
 import { requireRuntime } from "../shared/guard.js";
 import { createTranslator } from "../shared/locale.js";
 
-const CONF = window.foliplus.CONFIG.ScaleControl;
+// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const CLASSES = {
   WRAP: "foliplus-scale-wrap",
   ZOOM_LABEL: "foliplus-scale-zoom-label",

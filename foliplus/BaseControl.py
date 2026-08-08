@@ -104,20 +104,11 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     @property
     def _config_block(self) -> str:
-        """Render the CONFIG assignment as a JS-safe string at render time."""
+        """Render the CONFIG dict as a JSON string for IIFE injection."""
         config = dict(self._config)
-        # Always inject the full per-component locale tables plus the explicit
-        # code ('' = auto-detect). JS resolves the active table via resolveLocale.
-
         config["locale_tables"] = _load_tables(f"{self._name}.*.json")
         config["locale_code"] = self._locale.code if self._locale else ""
-        if not config:
-            return ""
-        return (
-            "window.foliplus = window.foliplus || {};\n"
-            "window.foliplus.CONFIG = window.foliplus.CONFIG || {};\n"
-            f"window.foliplus.CONFIG[{self._name!r}] = {dumps(config)};\n"
-        )
+        return dumps(config) if config else "{}"
 
     def render(self, **kwargs):
         """Inject the shared asset bundle into the figure header exactly once.
@@ -174,7 +165,7 @@ class BaseControl(JSCSSMixin, MacroElement):
             {{% macro script(this, kwargs) %}}
             (function() {{
             const map = {{{{ this._parent.get_name() }}}};
-            {{{{ this._config_block | safe }}}}
+            const CONF = {{{{ this._config_block | safe }}}};
             {js}
             }})();
             {{% endmacro %}}""")

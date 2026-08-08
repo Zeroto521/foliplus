@@ -18,8 +18,8 @@ const searchCoord = (ctrl, raw) => {
 
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
     foliplus.showHint(
-      ctrl.CONF.name,
-      ctrl._(`${ctrl.CONF.name}.coord_error`),
+      CONF.name,
+      ctrl._(`${CONF.name}.coord_error`),
       foliplus.HINT_DURATION.LONG,
     );
     ctrl.inp.value = "";
@@ -30,27 +30,27 @@ const searchCoord = (ctrl, raw) => {
   const lat = parts[1];
   if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
     foliplus.showHint(
-      ctrl.CONF.name,
-      ctrl._(`${ctrl.CONF.name}.coord_error`),
+      CONF.name,
+      ctrl._(`${CONF.name}.coord_error`),
       foliplus.HINT_DURATION.LONG,
     );
     ctrl.inp.value = "";
     return;
   }
 
-  foliplus.hideHint(ctrl.CONF.name);
-  map.flyTo([lat, lng], ctrl.CONF.zoom || 16);
+  foliplus.hideHint(CONF.name);
+  map.flyTo([lat, lng], CONF.zoom || 16);
   ctrl.marker = foliplus.createLocationMarker(
     map,
     lng,
     lat,
     null,
-    ctrl._(`${ctrl.CONF.name}.popup_title_coord`),
-    ctrl._(`${ctrl.CONF.name}.popup_loading`),
-    ctrl._(`${ctrl.CONF.name}.popup_loc_label`),
-    ctrl._(`${ctrl.CONF.name}.popup_addr_label`),
+    ctrl._(`${CONF.name}.popup_title_coord`),
+    ctrl._(`${CONF.name}.popup_loading`),
+    ctrl._(`${CONF.name}.popup_loc_label`),
+    ctrl._(`${CONF.name}.popup_addr_label`),
     ctrl._("foliplus.close_label"),
-    ctrl.CONF.locale_code,
+    CONF.locale_code,
     ctrl.marker,
   );
 };
@@ -67,8 +67,8 @@ const searchAddress = (ctrl, query) => {
   }
 
   foliplus.showHint(
-    ctrl.CONF.name,
-    `${foliplus.SVGs.LOADING} ${ctrl._(`${ctrl.CONF.name}.popup_loading`)}`,
+    CONF.name,
+    `${foliplus.SVGs.LOADING} ${ctrl._(`${CONF.name}.popup_loading`)}`,
     foliplus.HINT_DURATION.PERSIST,
   );
 
@@ -79,11 +79,11 @@ const searchAddress = (ctrl, query) => {
   fetch(buildSearchUrl(ctrl, query, SEARCH.LIMIT), { signal })
     .then((r) => r.json())
     .then((results) => {
-      foliplus.hideHint(ctrl.CONF.name);
+      foliplus.hideHint(CONF.name);
       if (!results || results.length === 0) {
         foliplus.showHint(
-          ctrl.CONF.name,
-          ctrl._(`${ctrl.CONF.name}.addr_not_found`),
+          CONF.name,
+          ctrl._(`${CONF.name}.addr_not_found`),
           foliplus.HINT_DURATION.LONG,
         );
         ctrl.inp.value = "";
@@ -92,17 +92,17 @@ const searchAddress = (ctrl, query) => {
 
       const item = results[0];
       const displayName =
-        foliplus.formatAddress(item.display_name, map, ctrl.CONF.locale_code) || query;
+        foliplus.formatAddress(item.display_name, map, CONF.locale_code) || query;
       ctrl.cachedAddress[query] = { item, displayName };
       renderAddressResult(ctrl, { item, displayName });
     })
     .catch((err) => {
       if (err.name === "AbortError") return;
-      console.error(`[${ctrl.CONF.name}] Address lookup failed, check network`);
-      foliplus.hideHint(ctrl.CONF.name);
+      console.error(`[${CONF.name}] Address lookup failed, check network`);
+      foliplus.hideHint(CONF.name);
       foliplus.showHint(
-        ctrl.CONF.name,
-        ctrl._(`${ctrl.CONF.name}.addr_error`),
+        CONF.name,
+        ctrl._(`${CONF.name}.addr_error`),
         foliplus.HINT_DURATION.LONG,
       );
     });
@@ -132,12 +132,12 @@ const renderAddressResult = (ctrl, result) => {
     lng,
     lat,
     displayName,
-    ctrl._(`${ctrl.CONF.name}.popup_title_addr`),
-    ctrl._(`${ctrl.CONF.name}.popup_loading`),
-    ctrl._(`${ctrl.CONF.name}.popup_loc_label`),
-    ctrl._(`${ctrl.CONF.name}.popup_addr_label`),
+    ctrl._(`${CONF.name}.popup_title_addr`),
+    ctrl._(`${CONF.name}.popup_loading`),
+    ctrl._(`${CONF.name}.popup_loc_label`),
+    ctrl._(`${CONF.name}.popup_addr_label`),
     ctrl._("foliplus.close_label"),
-    ctrl.CONF.locale_code,
+    CONF.locale_code,
     ctrl.marker,
   );
 };

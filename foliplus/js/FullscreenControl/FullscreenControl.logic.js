@@ -1,13 +1,12 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
-// Global config and translation are resolved from `window.foliplus` here to
-// avoid threading `CONF` / `_` parameters through every call.
+// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
 import { createTranslator } from "../shared/locale.js";
 import { getFullscreenEl, isEnabled, nativeAPI } from "./FullscreenControl.api.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as SVGs from "./FullscreenControl.icon.js";
 
-const CONF = window.foliplus.CONFIG.FullscreenControl;
+// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
 // ══════════════════════════════════════════════════════════════════════════════

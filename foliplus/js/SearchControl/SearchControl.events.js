@@ -22,7 +22,7 @@ const bindEvents = (ctrl) => {
       ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
       ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
       foliplus.adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-      foliplus.hideHint(ctrl.CONF.name);
+      foliplus.hideHint(CONF.name);
       removeSuggestions(ctrl);
     } else {
       ctrl.ctrl.classList.remove(CLASSES.COLLAPSED);
@@ -44,8 +44,8 @@ const bindEvents = (ctrl) => {
   ctrl.inp.addEventListener("input", () => {
     ctrl.inp.placeholder =
       ctrl.mode === MODE.COORD
-        ? ctrl._(`${ctrl.CONF.name}.coord_placeholder`)
-        : ctrl._(`${ctrl.CONF.name}.addr_placeholder`);
+        ? ctrl._(`${CONF.name}.coord_placeholder`)
+        : ctrl._(`${CONF.name}.addr_placeholder`);
 
     if (ctrl.mode === MODE.ADDR) ctrl.debouncedFetch();
     else {
@@ -63,7 +63,7 @@ const bindEvents = (ctrl) => {
       ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
       ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
       foliplus.adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-      foliplus.hideHint(ctrl.CONF.name);
+      foliplus.hideHint(CONF.name);
       return;
     }
     if (e.key === "ArrowDown" && ctrl.suggestionsWrap) {
