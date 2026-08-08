@@ -1,6 +1,7 @@
 import { requireRuntime } from "../shared/guard.js";
-import { createTranslator, resolveLocaleCode } from "../shared/locale.js";
+import { createTranslator } from "../shared/locale.js";
 import * as SVGs from "./SearchControl.icon.js";
+import { AUTOCOMPLETE, CLASSES, MODE, PARAM, SEARCH, ZOOM } from "./SearchControl.const.js";
 
 // ==================== Runtime Guard ====================
 const CONF = window.foliplus.CONFIG.SearchControl;
@@ -10,25 +11,6 @@ requireRuntime(CONF.name);
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 foliplus.registerHintIcon(CONF.name, SVGs.SEARCH);
-
-// ==================== Constants ====================
-const MODE = { COORD: "coord", ADDR: "addr" };
-const SEARCH = { LIMIT: 5 };
-const ZOOM = { MAX: 16, MIN: 12, BASE: 18, DIVISOR: 20 };
-const AUTOCOMPLETE = { DEBOUNCE_MS: 300, MIN_CHARS: 3, MAX_ITEMS: 5 };
-const PARAM = { Q: "q", LAT: "lat", LNG: "lng" };
-const CLASSES = {
-  EXPANDED: "expanded",
-  COLLAPSED: "collapsed",
-  MAP_SEARCH: "foliplus-search",
-  SEARCH_MODE_BTN: "foliplus-search-mode-btn",
-  CLEAR: "clear",
-  SUGGESTIONS: "foliplus-search-suggestions",
-  SUGGESTION_ITEM: "foliplus-search-suggestion-item",
-  SUGGESTION_ICON: "foliplus-search-suggestion-icon",
-  SUGGESTION_TEXT: "foliplus-search-suggestion-text",
-  ACTIVE: "active",
-};
 
 // ==================== Control Definition ====================
 class SearchControl extends L.Control {
