@@ -173,15 +173,12 @@ class BaseControl(JSCSSMixin, MacroElement):
         css = css or f"{self._name}.css"
         css = _get_css(css) if css else ""
 
-        config = (
-            (
-                "window.foliplus = window.foliplus || {};\n"
-                "window.foliplus.CONFIG = window.foliplus.CONFIG || {};\n"
-                f"window.foliplus.CONFIG[{self._name!r}] = {dumps(config or {})};\n"
-            )
-            if config
-            else ""
-        )
+        if config is not None:
+            self._config = config
+            config_str = "window.foliplus = window.foliplus || {};\nwindow.foliplus.CONFIG = window.foliplus.CONFIG || {};\nwindow.foliplus.CONFIG[{self._name!r}] = {{{{ this._config | tojson }}}};\n"  # noqa: E501
+        else:
+            self._config = {}
+            config_str = ""
 
         return Template(
             dedent(f"""\

@@ -51,26 +51,31 @@ class LayerControl(BaseControl):
         self.base_layers: OrderedDict[str, str] = OrderedDict()
         self.overlays: OrderedDict[str, str] = OrderedDict()
         self._template = self._get_template(
-            js="LayerControl.js", css="LayerControl.css"
+            config={
+                "name": self._name,
+                "position": position,
+            },
         )
 
     def render(self, **kwargs):
-        """Collect layers from the parent map before rendering.
-
-        Traverses the parent map's ``_children`` to find ``Layer`` instances, then
-        populates ``self.base_layers`` and ``self.overlays`` according to each layer's
-        ``overlay`` flag.
-        """
+        """Collect layers from the parent map before rendering."""
         self.base_layers.clear()
         self.overlays.clear()
         for item in self._parent._children.values():
             if not isinstance(item, Layer) or not item.control:
                 continue
-
             key = item.layer_name
             if not item.overlay:
                 self.base_layers[key] = item.get_name()
             else:
                 self.overlays[key] = item.get_name()
+
+        # Build initialData from collected layers and inject into CONFIG
+        initial_data = []
+        for key, val in self.overlays.items():
+            initial_data.append({"name": key, "id": val, "visible": True, "isBase": False})
+        for key, val in self.base_layers.items():
+            initial_data.append({"name": key, "id": val, "visible": True, "isBase": True})
+        self._config["initialData"] = initial_data
 
         super().render(**kwargs)

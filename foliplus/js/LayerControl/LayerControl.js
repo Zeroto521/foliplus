@@ -1,4 +1,12 @@
-(function () {
+import { requireRuntime } from "../shared/guard.js";
+
+const CONF = window.foliplus.CONFIG.LayerControl;
+
+requireRuntime(CONF.name);
+
+const foliplus = window.foliplus;
+const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
+
   // ==================== Constants ====================
   const CONST = {
     name: "LayerControl",
@@ -17,8 +25,8 @@
       HINT_COOLDOWN_MS: 800,
     },
     STORAGE: {
-      ORDER_KEY: "foliplus_layer_order_{{ this._parent.get_name() }}",
-      FOLD_KEY: "foliplus_fold_state_{{ this._parent.get_name() }}",
+      ORDER_KEY: "foliplus_layer_order_" + map._leaflet_id,
+      FOLD_KEY: "foliplus_fold_state_" + map._leaflet_id,
     },
     COLOR: {
       MAP_ID: "foliplus_color_map",
@@ -68,17 +76,7 @@
     },
   };
 
-  // ==================== Runtime Guard ====================
-  const foliplus = window.foliplus || {};
-  if (!foliplus || !foliplus.SVGs) {
-    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
-    return;
-  }
-
-  // ==================== Dependencies ====================
-  const map = {{ this._parent.get_name() }};
   const mapContainer = map.getContainer();
-  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -123,7 +121,7 @@
     FOLD: `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`,
   };
 
-  foliplus.registerHintIcon(CONST.name, SVGs.LAYERS);
+  foliplus.registerHintIcon(CONF.name, SVGs.LAYERS);
 
   // ==================== BringToFront Guard (monkey-patch) ====================
   // Guard Leaflet's bringToFront against null parentNode during enforceOrder
@@ -375,18 +373,18 @@
       return new Proxy(this.items, {
         set() {
           // Block direct index assignment (e.g. layers[0] = x).
-          throw new TypeError(`[${CONST.name}] ${_(`${CONST.name}.readonly_error`)}`);
+          throw new TypeError(`[${CONF.name}] ${_(`${CONF.name}.readonly_error`)}`);
         },
         deleteProperty() {
           throw new TypeError(
-            `[${CONST.name}] ${_(`${CONST.name}.readonly_del_error`)}`,
+            `[${CONF.name}] ${_(`${CONF.name}.readonly_del_error`)}`,
           );
         },
         get(target, prop, receiver) {
           if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
             return () => {
               throw new TypeError(
-                `[${CONST.name}] ${_(`${CONST.name}.readonly_method_error`).replace(`{method}`, prop)}`,
+                `[${CONF.name}] ${_(`${CONF.name}.readonly_method_error`).replace(`{method}`, prop)}`,
               );
             };
           }
@@ -861,7 +859,7 @@
     }
 
     loadSavedOrder() {
-      const data = foliplus.storage.load(CONST.STORAGE.ORDER_KEY, CONST.name);
+      const data = foliplus.storage.load("foliplus_layer_order_" + map._leaflet_id, CONF.name);
       if (!data || !Array.isArray(data)) return;
       const layerMap = new Map(this.layers.map((l) => [l.id, l]));
       const ordered = [];
@@ -876,9 +874,9 @@
 
     saveOrder() {
       foliplus.storage.save(
-        CONST.STORAGE.ORDER_KEY,
+        "foliplus_layer_order_" + map._leaflet_id,
         this.layers.map((l) => l.id),
-        CONST.name,
+        CONF.name,
       );
     }
 
@@ -1009,7 +1007,7 @@
      */
     registerLayer(opts) {
       if (!opts?.id)
-        throw new Error(`[${CONST.name}] ${_(`${CONST.name}.id_required`)}`);
+        throw new Error(`[${CONF.name}] ${_(`${CONF.name}.id_required`)}`);
 
       const existingLi = this.layerRegistry.get(opts.id);
       const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
@@ -1341,11 +1339,11 @@
      */
     createCanvas(opts) {
       if (!opts?.id)
-        throw new Error(`[${CONST.name}] ${_(`${CONST.name}.require_canvas_id`)}`);
+        throw new Error(`[${CONF.name}] ${_(`${CONF.name}.require_canvas_id`)}`);
 
       const mapPane = this.map._mapPane;
       if (!mapPane)
-        throw new Error(`[${CONST.name}] ${_(`${CONST.name}.mapPane_not_available`)}`);
+        throw new Error(`[${CONF.name}] ${_(`${CONF.name}.mapPane_not_available`)}`);
 
       const canvas = foliplus.dom.el("canvas", {
         class: "foliplus-heatmap-canvas",
@@ -1665,16 +1663,16 @@
 
     /** Load fold state from localStorage. */
     loadFoldState() {
-      const data = foliplus.storage.load(CONST.STORAGE.FOLD_KEY, CONST.name);
+      const data = foliplus.storage.load("foliplus_fold_state_" + map._leaflet_id, CONF.name);
       if (Array.isArray(data)) this.foldedGroups = new Set(data);
     }
 
     /** Save fold state to localStorage. */
     saveFoldState() {
       foliplus.storage.save(
-        CONST.STORAGE.FOLD_KEY,
+        "foliplus_fold_state_" + map._leaflet_id,
         Array.from(this.foldedGroups),
-        CONST.name,
+        CONF.name,
       );
     }
 
@@ -1690,14 +1688,14 @@
           frag.appendChild(
             this.renderToggleAllRow(
               CONST.GROUP.OVERLAY,
-              `${CONST.name}.data_layer_label`,
+              `${CONF.name}.data_layer_label`,
             ),
           );
         }
         if (li.isBase && !hasBaseMaps) {
           hasBaseMaps = true;
           frag.appendChild(
-            this.renderToggleAllRow(CONST.GROUP.BASE, `${CONST.name}.base_map_label`),
+            this.renderToggleAllRow(CONST.GROUP.BASE, `${CONF.name}.base_map_label`),
           );
         }
         const group = li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
@@ -1743,8 +1741,8 @@
           this.renderToggleAllRow(
             group,
             group === CONST.GROUP.BASE
-              ? `${CONST.name}.base_map_label`
-              : `${CONST.name}.data_layer_label`,
+              ? `${CONF.name}.base_map_label`
+              : `${CONF.name}.data_layer_label`,
           ),
         );
       }
@@ -1793,7 +1791,7 @@
             `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
             (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
           "data-group": group,
-          title: _(`${CONST.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
+          title: _(`${CONF.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
         },
         foliplus.dom.el(
           "button",
@@ -1809,7 +1807,7 @@
             type: "checkbox",
             "data-role": "toggle-all",
             checked: "",
-            title: _(`${CONST.name}.toggle_all_deselect_tooltip`),
+            title: _(`${CONF.name}.toggle_all_deselect_tooltip`),
           }),
         ),
         foliplus.dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
@@ -1822,7 +1820,7 @@
       const children = [
         foliplus.dom.el(
           "span",
-          { title: _(`${CONST.name}.drag_tooltip`) },
+          { title: _(`${CONF.name}.drag_tooltip`) },
           { html: SVGs.DRAG_HANDLE },
         ),
         foliplus.dom.el(
@@ -1864,7 +1862,7 @@
           class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
           draggable: "false",
           [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
-          title: _(`${CONST.name}.color_map_label`),
+          title: _(`${CONF.name}.color_map_label`),
         },
         { html: SVGs.DRAG_HANDLE },
         foliplus.dom.el(
@@ -1874,10 +1872,10 @@
             type: "color",
             class: CONST.CLASSES.COLOR_INPUT,
             value: this.currentColor,
-            "aria-label": _(`${CONST.name}.color_map_label`),
+            "aria-label": _(`${CONF.name}.color_map_label`),
           }),
         ),
-        foliplus.dom.el("label", null, _(`${CONST.name}.color_map_label`)),
+        foliplus.dom.el("label", null, _(`${CONF.name}.color_map_label`)),
         { html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${SVGs.COLOR}</div>` },
       );
     }
@@ -1903,7 +1901,7 @@
           this.syncVisibility(layerInfo, layer, inputs[i].checked);
 
           inputs[i].title = _(
-            `${CONST.name}.${inputs[i].checked ? "deselect_tooltip" : "select_tooltip"}`,
+            `${CONF.name}.${inputs[i].checked ? "deselect_tooltip" : "select_tooltip"}`,
           );
 
           const item = inputs[i].closest(CONST.SEL.LAYER_ITEM);
@@ -1917,19 +1915,19 @@
           let typeKey;
           if (layerInfo.isBase) {
             typeCols[i].innerHTML = foliplus.SVGs.GLOBE;
-            typeKey = `${CONST.name}.type_base`;
+            typeKey = `${CONF.name}.type_base`;
             layerInfo.type = CONST.GROUP.BASE;
             if (inputs[i]?.checked) anyBaseVisible = true;
           } else if (layerInfo.iconSvg) {
             typeCols[i].innerHTML = layerInfo.iconSvg;
-            typeKey = `${CONST.name}.type_custom`;
+            typeKey = `${CONF.name}.type_custom`;
             layerInfo.type = CONST.GEOM_TYPE.CUSTOM;
           } else if (layer) {
             const gtype = LayerUtils.getGeometryType(layer);
             typeCols[i].innerHTML = LayerUtils.getTypeSVG(layer);
-            typeKey = `${CONST.name}.type_${gtype}`;
+            typeKey = `${CONF.name}.type_${gtype}`;
             layerInfo.type = gtype;
-          } else typeKey = `${CONST.name}.type_unknown`;
+          } else typeKey = `${CONF.name}.type_unknown`;
 
           const item = inputs[i]?.closest(CONST.SEL.LAYER_ITEM);
           if (item) item.title = _(typeKey);
@@ -2041,7 +2039,7 @@
 
         cb.checked = newState;
         cb.title = _(
-          `${CONST.name}.${newState ? "deselect_tooltip" : "select_tooltip"}`,
+          `${CONF.name}.${newState ? "deselect_tooltip" : "select_tooltip"}`,
         );
         if (newState) item.classList.add(CONST.CLASSES.ACTIVE);
         else item.classList.remove(CONST.CLASSES.ACTIVE);
@@ -2079,7 +2077,7 @@
       allCb.checked = allChecked;
       allCb.indeterminate = !allChecked && !noneChecked;
       allCb.title = _(
-        `${CONST.name}.${allChecked ? "toggle_all_deselect_tooltip" : "toggle_all_select_tooltip"}`,
+        `${CONF.name}.${allChecked ? "toggle_all_deselect_tooltip" : "toggle_all_select_tooltip"}`,
       );
     }
 
@@ -2132,7 +2130,7 @@
           : item.classList.remove(CONST.CLASSES.ACTIVE);
 
       target.title = _(
-        `${CONST.name}.${target.checked ? "deselect_tooltip" : "select_tooltip"}`,
+        `${CONF.name}.${target.checked ? "deselect_tooltip" : "select_tooltip"}`,
       );
 
       if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
@@ -2160,8 +2158,8 @@
       if (now - this.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
       this.lastDragHintAt = now;
       foliplus.showHint(
-        CONST.name,
-        _(`${CONST.name}.reorder_group_only`),
+        CONF.name,
+        _(`${CONF.name}.reorder_group_only`),
         foliplus.HINT_DURATION.SHORT,
       );
     }
@@ -2324,23 +2322,7 @@
   }
 
   // ==================== Initialize Manager with Data ====================
-  const initialData = [];
-  {%- for key, val in this.overlays.items() %};
-  initialData.push({
-    name: {{ key | tojson }},
-    id: "{{ val }}",
-    visible: true,
-    isBase: false,
-  });
-  {%- endfor %};
-  {%- for key, val in this.base_layers.items() %};
-  initialData.push({
-    name: {{ key | tojson }},
-    id: "{{ val }}",
-    visible: true,
-    isBase: true,
-  });
-  {%- endfor %};
+  const initialData = CONF.initialData;
 
   const layerManager = new LayerManager(map, initialData);
   layerManager.ui = new LayerUI(layerManager);
@@ -2360,19 +2342,19 @@
 
       container.innerHTML = `
         <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed"
-             id="{{ this.get_name() }}_ctrl">
-          <button class="foliplus-toggle-btn" title="${_(`${CONST.name}.toggle_title`)}"
-                  aria-label="${_(`${CONST.name}.toggle_title`)}">
+             id="LayerControl_ctrl">
+          <button class="foliplus-toggle-btn" title="${_(`${CONF.name}.toggle_title`)}"
+                  aria-label="${_(`${CONF.name}.toggle_title`)}">
             ${SVGs.LAYERS}
           </button>
-          <div class="foliplus-layer-panel" role="dialog" aria-label="${_(`${CONST.name}.panel_title`)}">
-            <div class="foliplus-panel-header" title="${_(`${CONST.name}.close_title`)}">
+          <div class="foliplus-layer-panel" role="dialog" aria-label="${_(`${CONF.name}.panel_title`)}">
+            <div class="foliplus-panel-header" title="${_(`${CONF.name}.close_title`)}">
               <span class="foliplus-header-title">
                 <span class="foliplus-header-icon">${SVGs.LAYERS}</span>
-                ${_(`${CONST.name}.panel_title`)}
+                ${_(`${CONF.name}.panel_title`)}
               </span>
-              <button class="foliplus-ctrl-btn foliplus-close-btn" title="${_(`${CONST.name}.close_title`)}"
-                      aria-label="${_(`${CONST.name}.close_title`)}">
+              <button class="foliplus-ctrl-btn foliplus-close-btn" title="${_(`${CONF.name}.close_title`)}"
+                      aria-label="${_(`${CONF.name}.close_title`)}">
                 ${foliplus.SVGs.CLOSE}
               </button>
             </div>
@@ -2401,5 +2383,4 @@
     }
   }
 
-  new LayerControl({ position: "{{ this.position }}" }).addTo(map);
-})();
+  new LayerControl({ position: CONF.position }).addTo(map);
