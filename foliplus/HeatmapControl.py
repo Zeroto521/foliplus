@@ -122,11 +122,7 @@ class HeatmapControl(BaseControl):
             raise ValueError(f"agg must be one of {get_args(AGG)}, got {agg!r}")
 
         super().__init__(position=position, locale=locale)
-        self.color_scheme = color_scheme
-        self.method = method
-        self.n_classes = n_classes
-        self.agg = agg
-        self.schemes = schemes or [
+        schemes = schemes or [
             "Blues",
             "Greens",
             "Reds",
@@ -135,7 +131,7 @@ class HeatmapControl(BaseControl):
             "YlOrRd",
             "Viridis",
         ]
-        self.style = {
+        style = {
             "border_weight": 1.5,
             "border_color": "#333333",
             "fill_opacity": 0.7,
@@ -146,5 +142,33 @@ class HeatmapControl(BaseControl):
             "label_format": "auto",
         } | (style or {})
         self._template = self._get_template(
-            js="HeatmapControl.js", css="HeatmapControl.css"
+            config={
+                "name": self._name,
+                "position": position,
+                "field": style.get("field", "auto"),
+                "color_scheme": color_scheme,
+                "method": method,
+                "n_classes": n_classes,
+                "agg": agg,
+                "schemes": (
+                    schemes
+                    or [
+                        "Blues",
+                        "Greens",
+                        "Reds",
+                        "Oranges",
+                        "Purples",
+                        "YlOrRd",
+                        "Viridis",
+                    ]
+                ),
+                "border_weight": style["border_weight"],
+                "border_color": style["border_color"],
+                "fill_opacity": style["fill_opacity"],
+                "border_opacity": style["border_opacity"],
+                "label_show": style["label_show"],
+                "label_size": style["label_size"],
+                "label_color": style["label_color"],
+                "label_format": style["label_format"],
+            },
         )
