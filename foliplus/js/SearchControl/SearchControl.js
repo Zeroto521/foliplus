@@ -1,5 +1,5 @@
 import { requireRuntime } from "../shared/guard.js";
-import * as ICONS from "./SearchControl.icon.js";
+import * as SVGs from "./SearchControl.icon.js";
 
 // ==================== Runtime Guard ====================
 const CONF = window.foliplus.CONFIG.SearchControl;
@@ -8,7 +8,7 @@ requireRuntime(CONF.name);
 // ==================== Dependencies ====================
 const foliplus = window.foliplus;
 const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
-foliplus.registerHintIcon(CONF.name, ICONS.SEARCH);
+foliplus.registerHintIcon(CONF.name, SVGs.SEARCH);
 
 // ==================== Constants ====================
 const MODE = { COORD: "coord", ADDR: "addr" };
@@ -61,7 +61,7 @@ class SearchControl extends L.Control {
     const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
       cssClass: CLASSES.MAP_SEARCH,
       toggleTitle: _(`${CONF.name}.btn_title`),
-      toggleSvg: ICONS.SEARCH,
+      toggleSvg: SVGs.SEARCH,
       isLeft: CONF.position.indexOf("left") >= 0,
     });
     ctrl.id = `${CONF.name}_${CONF.position}_ctrl`;
