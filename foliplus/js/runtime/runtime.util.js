@@ -12,11 +12,9 @@
  * @returns {string} Formatted string
  */
 const formatNumber = (val, style, locale) => {
+  const loc = window._LOCALE;
+  locale = locale || (typeof loc !== "undefined" && loc["locale.code"]) || "en";
   style = style || "auto";
-  locale =
-    locale ||
-    (typeof window._LOCALE !== "undefined" && window._LOCALE["locale.code"]) ||
-    "en";
   const absVal = Math.abs(val);
 
   const fmt = (maxFrac) =>
@@ -102,8 +100,9 @@ const storage = {
       return data ? JSON.parse(data) : null;
     } catch (e) {
       const foliplus = window.foliplus || {};
+      const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
       console.warn(
-        `[${name || "foliplus"}] ${foliplus.gt ? foliplus.gt("foliplus.storage_load_fail").replace("{key}", key) : key}`,
+        `[${name || "foliplus"}] ${_("foliplus.storage_load_fail").replace("{key}", key)}`,
         e,
       );
       return null;
@@ -121,8 +120,9 @@ const storage = {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (e) {
       const foliplus = window.foliplus || {};
+      const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
       console.warn(
-        `[${name || "foliplus"}] ${foliplus.gt ? foliplus.gt("foliplus.storage_save_fail").replace("{key}", key) : key}`,
+        `[${name || "foliplus"}] ${_("foliplus.storage_save_fail").replace("{key}", key)}`,
         e,
       );
     }
