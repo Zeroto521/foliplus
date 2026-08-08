@@ -60,7 +60,7 @@ class TestSearchControlRendering:
         """Key content is present in rendered output."""
         SearchControl().add_to(base_map)
         html = render(base_map)
-        assert "CONFIG.SearchControl" in html
+        assert "CONF.name" in html
         assert "foliplus-search" in html
         assert "foliplus-search-mode-btn" in html
         assert "foliplus-search-suggestions" in html
