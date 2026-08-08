@@ -78,7 +78,7 @@ const findComponents = () => {
   const components = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    if (entry.name === "runtime") continue;
+    if (entry.name === "runtime" || entry.name === "shared") continue;
     const name = entry.name;
     const jsFile = resolve(TMP_JS, name, `${name}.js`);
     const cssFile = resolve(CSS_SRC, `${name}.css`);

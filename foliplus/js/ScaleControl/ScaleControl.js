@@ -1,4 +1,4 @@
-import { requireRuntime } from "../runtime/runtime.guard.js";
+import { requireRuntime } from "../shared/guard.js";
 
 const CONF = window.foliplus.CONFIG.ScaleControl;
 const CLASSES = {

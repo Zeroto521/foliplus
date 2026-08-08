@@ -1,4 +1,4 @@
-import { requireRuntime } from "../runtime/runtime.guard.js";
+import { requireRuntime } from "../shared/guard.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as ICONS from "./FullscreenControl.icon.js";
 import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logic.js";
