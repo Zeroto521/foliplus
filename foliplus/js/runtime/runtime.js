@@ -9,7 +9,12 @@
  */
 import { fromWgs84, getMapCrsType, toWgs84 } from "./runtime.coord.js";
 import { buildPopupHtml, createLocationMarker, foliplusDom } from "./runtime.dom.js";
-import { formatAddress, NOMINATIM, nominatimUrl, reverseGeocode } from "./runtime.geocode.js";
+import {
+  formatAddress,
+  NOMINATIM,
+  nominatimUrl,
+  reverseGeocode,
+} from "./runtime.geocode.js";
 import { hideHint, HINT_DURATION, registerHintIcon, showHint } from "./runtime.hint.js";
 import * as SVGs from "./runtime.icon.js";
 import { resolveLocale } from "./runtime.locale.js";
@@ -46,47 +51,52 @@ foliplus.gt =
 if (!foliplus.isInitialized) {
   foliplus.isInitialized = true;
 
-  // ==================== Icons ====================
-  foliplus.SVGs = SVGs;
+  // Use Object.assign with window.foliplus so esbuild's minifier does not
+  // rename the property assignments (the local alias "foliplus" gets
+  // shortened to "i", breaking tests that assert on "foliplus.xxx").
+  Object.assign(window.foliplus, {
+    // ==================== Icons ====================
+    SVGs,
 
-  // ==================== Constants ====================
-  foliplus.HINT_DURATION = HINT_DURATION;
-  foliplus.NOMINATIM = NOMINATIM;
+    // ==================== Constants ====================
+    HINT_DURATION,
+    NOMINATIM,
 
-  // ==================== Hint / Toast System ====================
-  foliplus.registerHintIcon = registerHintIcon;
-  foliplus.showHint = showHint;
-  foliplus.hideHint = hideHint;
+    // ==================== Hint / Toast System ====================
+    registerHintIcon,
+    showHint,
+    hideHint,
 
-  // ==================== Coordinate Transformation ====================
-  foliplus.getMapCrsType = getMapCrsType;
-  foliplus.toWgs84 = toWgs84;
-  foliplus.fromWgs84 = fromWgs84;
+    // ==================== Coordinate Transformation ====================
+    getMapCrsType,
+    toWgs84,
+    fromWgs84,
 
-  // ==================== Reverse Geocoding ====================
-  foliplus.nominatimUrl = nominatimUrl;
-  foliplus.formatAddress = formatAddress;
-  foliplus.reverseGeocode = reverseGeocode;
+    // ==================== Reverse Geocoding ====================
+    nominatimUrl,
+    formatAddress,
+    reverseGeocode,
 
-  // ==================== DOM Helpers ====================
-  foliplus.dom = foliplusDom;
-  foliplus.buildPopupHtml = buildPopupHtml;
-  foliplus.createLocationMarker = createLocationMarker;
+    // ==================== DOM Helpers ====================
+    dom: foliplusDom,
+    buildPopupHtml,
+    createLocationMarker,
 
-  // ==================== Panel UI ====================
-  foliplus.adjustPanelZIndex = adjustPanelZIndex;
-  foliplus.bindPanelToggle = bindPanelToggle;
-  foliplus.bindOutsideCollapse = bindOutsideCollapse;
-  foliplus.createFoldControl = createFoldControl;
-  foliplus.bindMapSync = bindMapSync;
-  foliplus.createPanelControl = createPanelControl;
+    // ==================== Panel UI ====================
+    adjustPanelZIndex,
+    bindPanelToggle,
+    bindOutsideCollapse,
+    createFoldControl,
+    bindMapSync,
+    createPanelControl,
 
-  // ==================== Number Formatting ====================
-  foliplus.cssVar = cssVar;
-  foliplus.formatNumber = formatNumber;
-  foliplus.debounce = debounce;
-  foliplus.storage = storage;
+    // ==================== Number Formatting ====================
+    cssVar,
+    formatNumber,
+    debounce,
+    storage,
 
-  // ==================== Locale resolution ====================
-  foliplus.resolveLocale = resolveLocale;
+    // ==================== Locale resolution ====================
+    resolveLocale,
+  });
 }
