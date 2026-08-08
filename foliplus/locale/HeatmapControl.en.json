@@ -24,9 +24,6 @@
   "HeatmapControl.confirm": "Apply",
   "HeatmapControl.no_layer": "No point layers found, add a GeoJson/Marker layer with .feature to enable heatmap",
   "HeatmapControl.no_layercontrol": "HeatmapControl requires LayerControl, please add LayerControl to the map first",
-  "HeatmapControl.value_fallback": "Falling back to 1 for missing values, field={field}",
-  "HeatmapControl.h3_cell_fail": "h3 cell conversion failed",
-  "HeatmapControl.h3_boundary_fail": "h3 boundary conversion failed",
   "HeatmapControl.section_data": "Data",
   "HeatmapControl.section_style": "Style",
   "HeatmapControl.close_title": "Close"

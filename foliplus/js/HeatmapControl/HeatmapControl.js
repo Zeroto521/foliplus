@@ -377,7 +377,7 @@ class HeatmapManager {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
         console.warn(
-          `[${CONF.name}] ${_(`${CONF.name}.value_fallback`).replace("{field}", this.currentField)}`,
+          `[${CONF.name}] Falling back to 1 for missing values, field=${this.currentField}`,
         );
       }
       return 1;
@@ -493,7 +493,7 @@ class HeatmapManager {
         if (pt.value > cell.max) cell.max = pt.value;
       } catch (e) {
         console.warn(
-          `[${CONF.name}] ${_(`${CONF.name}.h3_cell_fail`)}`,
+          `[${CONF.name}] h3 cell conversion failed`,
           pt.lat,
           pt.lng,
           e,
@@ -571,7 +571,7 @@ class HeatmapManager {
           properties: { value: val, classIdx, fillColor, h3: h3Idx, centroid },
         });
       } catch (e) {
-        console.warn(`[${CONF.name}] ${_(`${CONF.name}.h3_boundary_fail`)}`, h3Idx, e);
+        console.warn(`[${CONF.name}] h3 boundary conversion failed`, h3Idx, e);
       }
     }
     return features;
