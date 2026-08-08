@@ -6,14 +6,13 @@ import { nativeAPI, isEnabled, getFullscreenEl } from "./FullscreenControl.api.j
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as ICONS from "./FullscreenControl.icon.js";
 
-const conf = () => window.foliplus.CONFIG.FullscreenControl;
+const CONF =  window.foliplus.CONFIG.FullscreenControl;
 const _ = (k) => (window.foliplus.gt ? window.foliplus.gt(k) : k);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
 const updateUI = (map, fsBtn, container) => {
-  const CONF = conf();
   const isFull = !!getFullscreenEl() || map.isFullscreen;
   fsBtn.innerHTML = isFull ? ICONS.MINIMIZE : ICONS.MAXIMIZE;
   fsBtn.title = isFull
