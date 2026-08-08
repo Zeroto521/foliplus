@@ -9,8 +9,6 @@ const _ = createTranslator(CONF);
 
 // ==================== Constants ====================
 const CONST = {
-  name: "ExportControl",
-  position: CONF.position,
   CROP: {
     MIN_SIZE: 40,
     PADDING_RATIO: 0.25,
@@ -24,12 +22,6 @@ const CONST = {
     TIMEOUT: CONF.timeout,
     RESTORE_DELAY: 200,
   },
-  SCALE: CONF.scale,
-  MAX_PIXELS: CONF.max_pixels,
-  BACKGROUND: CONF.background,
-  FILENAME: CONF.filename,
-  FORMAT: CONF.format,
-  QUALITY: CONF.quality,
   // MIME type lookup (format → toBlob mime, toDataURL mime)
   MIME: {
     DEFAULT: "image/png", // Default MIME when CONF.format is not in MIME
