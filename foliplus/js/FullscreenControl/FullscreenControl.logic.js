@@ -4,7 +4,7 @@
 
 import { nativeAPI, isEnabled, getFullscreenEl } from "./FullscreenControl.api.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
-import * as ICONS from "./FullscreenControl.icon.js";
+import * as SVGs from "./FullscreenControl.icon.js";
 
 const CONF =  window.foliplus.CONFIG.FullscreenControl;
 const _ = (k) => (window.foliplus.gt ? window.foliplus.gt(k) : k);
@@ -14,7 +14,7 @@ const _ = (k) => (window.foliplus.gt ? window.foliplus.gt(k) : k);
 // ══════════════════════════════════════════════════════════════════════════════
 const updateUI = (map, fsBtn, container) => {
   const isFull = !!getFullscreenEl() || map.isFullscreen;
-  fsBtn.innerHTML = isFull ? ICONS.MINIMIZE : ICONS.MAXIMIZE;
+  fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull
     ? _(`${CONF.name}.title_cancel`)
     : _(`${CONF.name}.title`);

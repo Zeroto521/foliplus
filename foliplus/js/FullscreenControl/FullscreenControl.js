@@ -1,6 +1,6 @@
 import { requireRuntime } from "../shared/guard.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
-import * as ICONS from "./FullscreenControl.icon.js";
+import * as SVGs from "./FullscreenControl.icon.js";
 import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logic.js";
 
 const CONF = window.foliplus.CONFIG.FullscreenControl;
@@ -8,7 +8,7 @@ requireRuntime(CONF.name);
 
 const foliplus = window.foliplus;
 const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
-foliplus.registerHintIcon(CONF.name, ICONS.MAXIMIZE);
+foliplus.registerHintIcon(CONF.name, SVGs.MAXIMIZE);
 
 class FullscreenControl extends L.Control {
   onAdd() {
@@ -39,7 +39,7 @@ class FullscreenControl extends L.Control {
           map.zoomIn();
         },
       },
-      { html: ICONS.ZOOM_IN },
+      { html: SVGs.ZOOM_IN },
     );
 
     foliplus.dom.el(
@@ -54,7 +54,7 @@ class FullscreenControl extends L.Control {
           map.zoomOut();
         },
       },
-      { html: ICONS.ZOOM_OUT },
+      { html: SVGs.ZOOM_OUT },
     );
 
     const fsBtn = foliplus.dom.el(
@@ -69,7 +69,7 @@ class FullscreenControl extends L.Control {
           toggleFullscreen(map, fsBtn, container);
         },
       },
-      { html: ICONS.MAXIMIZE },
+      { html: SVGs.MAXIMIZE },
     );
 
     L.DomEvent.disableClickPropagation(outer);
