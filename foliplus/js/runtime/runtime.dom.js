@@ -1,6 +1,6 @@
 // DOM helpers and popup/marker utilities for the foliplus runtime.
 //
-// Reads `foliplus.SVGs` / `foliplus.gt` from the global namespace at call time
+// Reads `foliplus.SVGs` from the global namespace at call time
 // and imports `reverseGeocode` from the geocode module.
 
 import { reverseGeocode } from "./runtime.geocode.js";
@@ -101,28 +101,35 @@ const foliplusDom = {
  * @param {number} lng Longitude
  * @param {number} lat Latitude
  * @param {string|null} addr Address text or null (triggers loading indicator)
- * @param {string} title Locale key for popup title
- * @param {string} loading Locale key for loading text
- * @param {string} locLabel Locale key for location label
- * @param {string} addrLabel Locale key for address label
+ * @param {string} titleText Resolved popup title text
+ * @param {string} loadingText Resolved loading text
+ * @param {string} locLabelText Resolved location label text
+ * @param {string} addrLabelText Resolved address label text
  * @returns {string} HTML string
  */
-const buildPopupHtml = (lng, lat, addr, title, loading, locLabel, addrLabel) => {
+const buildPopupHtml = (
+  lng,
+  lat,
+  addr,
+  titleText,
+  loadingText,
+  locLabelText,
+  addrLabelText,
+) => {
   const foliplus = window.foliplus || {};
-  const loadStr = foliplus.gt ? foliplus.gt(loading) : loading;
   const addrHtml =
     addr && addr.includes("LOADING")
-      ? { html: `${foliplus.SVGs ? foliplus.SVGs.LOADING : ""} ${loadStr}` }
-      : addr || loadStr;
+      ? { html: `${foliplus.SVGs ? foliplus.SVGs.LOADING : ""} ${loadingText}` }
+      : addr || loadingText;
 
   return foliplusDom.el(
     "div",
     { class: "foliplus-popup-content" },
-    foliplusDom.el("b", null, foliplus.gt ? foliplus.gt(title) : title),
+    foliplusDom.el("b", null, titleText),
     { html: "<br>" },
-    `${foliplus.gt ? foliplus.gt(locLabel) : locLabel}${lng},${lat}`,
+    `${locLabelText}${lng},${lat}`,
     { html: "<br>" },
-    foliplus.gt ? foliplus.gt(addrLabel) : addrLabel,
+    addrLabelText,
     addrHtml,
   ).outerHTML;
 };
@@ -133,10 +140,12 @@ const buildPopupHtml = (lng, lat, addr, title, loading, locLabel, addrLabel) => 
  * @param {number} lng Longitude
  * @param {number} lat Latitude
  * @param {string} addr Address string (null = pending reverse geocode)
- * @param {string} title Locale key for popup title
- * @param {string} loading Locale key for loading text
- * @param {string} locLabel Locale key for location label
- * @param {string} addrLabel Locale key for address label
+ * @param {string} titleText Resolved popup title text
+ * @param {string} loadingText Resolved loading text
+ * @param {string} locLabelText Resolved location label text
+ * @param {string} addrLabelText Resolved address label text
+ * @param {string} closeLabelText Resolved close button tooltip text
+ * @param {string} [code] Locale code for reverse geocode
  * @param {L.Marker} [existing] Existing marker to remove before creating new one
  * @param {L.LayerGroup} [layerGroup] Optional layer group to add the marker to
  * @param {Function} [onAddress] Called with the resolved address
@@ -148,10 +157,12 @@ const createLocationMarker = (
   lng,
   lat,
   addr,
-  title,
-  loading,
-  locLabel,
-  addrLabel,
+  titleText,
+  loadingText,
+  locLabelText,
+  addrLabelText,
+  closeLabelText,
+  code,
   existing,
   layerGroup,
   onAddress,
@@ -172,23 +183,30 @@ const createLocationMarker = (
   });
   target.addLayer(marker);
   marker.bindPopup(
-    buildPopupHtml(lng, lat, addr, title, loading, locLabel, addrLabel),
+    buildPopupHtml(lng, lat, addr, titleText, loadingText, locLabelText, addrLabelText),
     { maxWidth: POPUP_MAX_WIDTH },
   );
   if (openPopup) marker.openPopup();
   // Add title to Leaflet's popup close button for hover tooltip.
-  const closeLabel = foliplus.gt ? foliplus.gt("foliplus.close_label") : "";
   const popupEl = marker.getPopup();
   if (popupEl) {
     const closeBtn = popupEl._closeButton;
-    if (closeBtn) closeBtn.title = closeLabel;
+    if (closeBtn) closeBtn.title = closeLabelText || "";
   }
   if (!addr) {
-    reverseGeocode(map, lng, lat).then((resolved) => {
+    reverseGeocode(map, lng, lat, code).then((resolved) => {
       if (onAddress) onAddress(resolved);
       if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
         marker.setPopupContent(
-          buildPopupHtml(lng, lat, resolved, title, loading, locLabel, addrLabel),
+          buildPopupHtml(
+            lng,
+            lat,
+            resolved,
+            titleText,
+            loadingText,
+            locLabelText,
+            addrLabelText,
+          ),
         );
       }
     });
@@ -196,4 +214,5 @@ const createLocationMarker = (
   return marker;
 };
 
-export { foliplusDom, buildPopupHtml, createLocationMarker };
+export { buildPopupHtml, createLocationMarker, foliplusDom };
+

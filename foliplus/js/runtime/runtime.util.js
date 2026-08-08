@@ -1,9 +1,6 @@
 // Utility helpers for the foliplus runtime.
 //
 // Number formatting, debounce, storage, and CSS variable helpers.
-// Reads `foliplus.gt` from the global namespace at call time.
-
-import { getLocaleCode } from "../shared/locale.js";
 
 /**
  * Format a number for display.
@@ -13,8 +10,7 @@ import { getLocaleCode } from "../shared/locale.js";
  * @param {string} [locale] Locale code, defaults to browser language (en/zh)
  * @returns {string} Formatted string
  */
-const formatNumber = (val, style, locale) => {
-  locale = locale || getLocaleCode();
+const formatNumber = (val, style, locale = "en") => {
   style = style || "auto";
   const absVal = Math.abs(val);
 
@@ -100,10 +96,8 @@ const storage = {
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : null;
     } catch (e) {
-      const foliplus = window.foliplus || {};
-      const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
       console.warn(
-        `[${name || "foliplus"}] ${_("foliplus.storage_load_fail").replace("{key}", key)}`,
+        `[${name || "foliplus"}] Failed to load saved data (key=${key})`,
         e,
       );
       return null;
@@ -120,10 +114,8 @@ const storage = {
     try {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (e) {
-      const foliplus = window.foliplus || {};
-      const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
       console.warn(
-        `[${name || "foliplus"}] ${_("foliplus.storage_save_fail").replace("{key}", key)}`,
+        `[${name || "foliplus"}] Failed to save data (key=${key})`,
         e,
       );
     }

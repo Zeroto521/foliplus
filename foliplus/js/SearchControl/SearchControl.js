@@ -1,4 +1,5 @@
 import { requireRuntime } from "../shared/guard.js";
+import { createTranslator, resolveLocaleCode } from "../shared/locale.js";
 import * as SVGs from "./SearchControl.icon.js";
 
 // ==================== Runtime Guard ====================
@@ -7,7 +8,7 @@ requireRuntime(CONF.name);
 
 // ==================== Dependencies ====================
 const foliplus = window.foliplus;
-const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
+const _ = createTranslator(CONF);
 foliplus.registerHintIcon(CONF.name, SVGs.SEARCH);
 
 // ==================== Constants ====================
@@ -187,10 +188,12 @@ class SearchControl extends L.Control {
       lng,
       lat,
       null,
-      `${CONF.name}.popup_title_coord`,
-      `${CONF.name}.popup_loading`,
-      `${CONF.name}.popup_loc_label`,
-      `${CONF.name}.popup_addr_label`,
+      _(`${CONF.name}.popup_title_coord`),
+      _(`${CONF.name}.popup_loading`),
+      _(`${CONF.name}.popup_loc_label`),
+      _(`${CONF.name}.popup_addr_label`),
+      _("foliplus.close_label"),
+      CONF.locale_code,
       this.marker,
     );
   }
@@ -229,7 +232,7 @@ class SearchControl extends L.Control {
         }
 
         const item = results[0];
-        const displayName = foliplus.formatAddress(item.display_name, map) || query;
+        const displayName = foliplus.formatAddress(item.display_name, map, CONF.locale_code) || query;
         this.cachedAddress[query] = { item, displayName };
         this.renderAddressResult({ item, displayName });
       })
@@ -267,10 +270,12 @@ class SearchControl extends L.Control {
       lng,
       lat,
       displayName,
-      `${CONF.name}.popup_title_addr`,
-      `${CONF.name}.popup_loading`,
-      `${CONF.name}.popup_loc_label`,
-      `${CONF.name}.popup_addr_label`,
+      _(`${CONF.name}.popup_title_addr`),
+      _(`${CONF.name}.popup_loading`),
+      _(`${CONF.name}.popup_loc_label`),
+      _(`${CONF.name}.popup_addr_label`),
+      _("foliplus.close_label"),
+      CONF.locale_code,
       this.marker,
     );
   }

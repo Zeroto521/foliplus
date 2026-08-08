@@ -1,4 +1,5 @@
 import { requireRuntime } from "../shared/guard.js";
+import { createTranslator } from "../shared/locale.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as SVGs from "./FullscreenControl.icon.js";
 import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logic.js";
@@ -7,7 +8,7 @@ const CONF = window.foliplus.CONFIG.FullscreenControl;
 requireRuntime(CONF.name);
 
 const foliplus = window.foliplus;
-const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
+const _ = createTranslator(CONF);
 foliplus.registerHintIcon(CONF.name, SVGs.MAXIMIZE);
 
 class FullscreenControl extends L.Control {

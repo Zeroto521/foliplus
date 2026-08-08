@@ -68,10 +68,8 @@ const ensureGcoord = () => {
   // non-WGS84 map, which is an edge case that doesn't warrant a
   // persistent UI hint.  The console warning is sufficient for
   // developers to diagnose the missing dependency.
-  const foliplus = window.foliplus || {};
-  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
   if (typeof gcoord === "undefined") {
-    console.warn(`[foliplus] ${_("foliplus.gcoord_warn")}`);
+    console.warn("[foliplus] gcoord library failed to load, coordinate transformation unavailable");
     return false;
   }
   return true;

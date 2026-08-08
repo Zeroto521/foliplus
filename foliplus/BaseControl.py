@@ -11,7 +11,7 @@ from folium.elements import JSCSSMixin
 from jinja2 import Template
 
 from ._typing import Position
-from .locale import _LOCALES_TABLES, LocaleConfig, resolve_locale
+from .locale import LocaleConfig, _load_tables, resolve_locale
 
 src_dir = Path(__file__).parent
 js_dir = src_dir / "js"
@@ -24,25 +24,18 @@ _SHARED_ASSETS_NAME = "foliplus_shared"
 
 
 @cache
-def _load_shared_asset(src: Path, artifact: Path) -> str:
-    """Load a shared asset, preferring the minified artifact."""
-    if artifact.is_file():
-        return artifact.read_text(encoding="utf-8")
-    return src.read_text(encoding="utf-8")
-
-
-@cache
 def _build_shared_header() -> str:
     """Build the shared asset bundle (<style> + <script>) injected once per map.
 
-    Contains common.css, panel.css, runtime.js (with runtime/*.js bundled in),
-    and the locale tables. Built once and cached at module level.
+    Contains common.css, panel.css, runtime.js (with runtime/*.js bundled in), and the
+    common locale tables (shared by all components).
+    Built once and cached at module level.
     """
-    common = _load_shared_asset(css_dir / "common.css", dist_dir / "common.min.css")
-    panel = _load_shared_asset(css_dir / "panel.css", dist_dir / "panel.min.css")
-    runtime = _load_shared_asset(
-        js_dir / "runtime" / "runtime.js", dist_dir / "runtime.min.js"
-    )
+    from .locale import _load_tables
+
+    common = (dist_dir / "common.min.css").read_text(encoding="utf-8")
+    panel = (dist_dir / "panel.min.css").read_text(encoding="utf-8")
+    runtime = (dist_dir / "runtime.min.js").read_text(encoding="utf-8")
     return (
         "<style>\n"
         f"{common}\n{panel}\n"
@@ -50,40 +43,26 @@ def _build_shared_header() -> str:
         "<script>\n"
         f"{runtime}\n"
         "window.foliplus = window.foliplus || {};\n"
-        f"window.foliplus._TABLES = {dumps(_LOCALES_TABLES, ensure_ascii=False)};\n"
+        f"window.foliplus._TABLES = {dumps(_load_tables('common.*.json'), ensure_ascii=False)};\n"
         "</script>"
     )
 
 
-def _load_asset(src: Path, artifact: Path) -> str:
+def _load_asset(artifact: Path) -> str:
     """Read an asset, preferring the minified artifact.
 
     Resolution order:
     1. Prefer the minified artifact from ``dist/`` if it exists.
     2. Fall back to the source file.
 
-    Components that use ES module ``import`` (migrated ones) **must** be
-    read from the bundled artifact, which is always present after a
-    ``make build-js`` run.
+    Components that use ES module ``import`` (migrated ones) **must** be read from the
+    bundled artifact, which is always present after a ``make build-js`` run.
 
-    Returns ``""`` when neither the source nor the artifact exists (a
-    component simply may not ship a given CSS/JS asset).
+    Returns ``""`` when neither the source nor the artifact exists (a component simply
+    may not ship a given CSS/JS asset).
     """
-    if artifact.is_file():
-        return artifact.read_text(encoding="utf-8")
-    if src.is_file():
-        return src.read_text(encoding="utf-8")
-    return ""
 
-
-def _get_js(filename: str) -> str:
-    src = js_dir.joinpath(filename)
-    return _load_asset(src, dist_dir.joinpath(f"{src.stem}.min.js"))
-
-
-def _get_css(filename: str) -> str:
-    src = css_dir.joinpath(filename)
-    return _load_asset(src, dist_dir.joinpath(f"{src.stem}.min.css"))
+    return artifact.read_text(encoding="utf-8") if artifact.is_file() else ""
 
 
 class BaseControl(JSCSSMixin, MacroElement):
@@ -113,23 +92,31 @@ class BaseControl(JSCSSMixin, MacroElement):
         super().__init__()
         self._name = self.__class__.__name__
         self.position = position
-        self._locale_code = resolve_locale(locale).code if locale is not None else ""
+        self._locale = (
+            resolve_locale(locale, self._name) if locale is not None else None
+        )
         self._config: dict = {}
 
     @property
-    def _config_block(self) -> str:
-        """Render the CONFIG assignment as a JS-safe string at render time.
+    def _locale_code(self) -> str:
+        """Legacy property — returns the locale code for tests."""
+        return self._locale.code if self._locale else ""
 
-        Evaluated by Jinja when the template renders, so any mutations made to
-        ``self._config`` in a subclass's :meth:`render` (e.g. LayerControl's
-        ``initialData``) are reflected in the output.
-        """
-        if not self._config:
+    @property
+    def _config_block(self) -> str:
+        """Render the CONFIG assignment as a JS-safe string at render time."""
+        config = dict(self._config)
+        # Always inject the full per-component locale tables plus the explicit
+        # code ('' = auto-detect). JS resolves the active table via resolveLocale.
+
+        config["locale_tables"] = _load_tables(f"{self._name}.*.json")
+        config["locale_code"] = self._locale.code if self._locale else ""
+        if not config:
             return ""
         return (
             "window.foliplus = window.foliplus || {};\n"
             "window.foliplus.CONFIG = window.foliplus.CONFIG || {};\n"
-            f"window.foliplus.CONFIG[{self._name!r}] = {dumps(self._config)};\n"
+            f"window.foliplus.CONFIG[{self._name!r}] = {dumps(config)};\n"
         )
 
     def render(self, **kwargs):
@@ -170,8 +157,8 @@ class BaseControl(JSCSSMixin, MacroElement):
         Template
             A Jinja2 ``Template`` instance ready for folium rendering.
         """
-        js = _get_js(f"{self._name}/{self._name}.js")
-        css = _get_css(f"{self._name}.css")
+        js = _load_asset(dist_dir.joinpath(f"{self._name}.min.js"))
+        css = _load_asset(dist_dir.joinpath(f"{self._name}.min.css"))
 
         if config is not None:
             self._config = config
@@ -186,9 +173,6 @@ class BaseControl(JSCSSMixin, MacroElement):
 
             {{% macro script(this, kwargs) %}}
             (function() {{
-            if (window.foliplus && window.foliplus.resolveLocale) {{
-                window.foliplus.resolveLocale({{{{ this._locale_code | tojson }}}}, window.foliplus._TABLES);
-            }}
             const map = {{{{ this._parent.get_name() }}}};
             {{{{ this._config_block | safe }}}}
             {js}

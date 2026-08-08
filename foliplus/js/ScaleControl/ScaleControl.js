@@ -1,4 +1,5 @@
 import { requireRuntime } from "../shared/guard.js";
+import { createTranslator } from "../shared/locale.js";
 
 const CONF = window.foliplus.CONFIG.ScaleControl;
 const CLASSES = {
@@ -11,7 +12,7 @@ requireRuntime(CONF.name);
 
 // ==================== Dependencies ====================
 const foliplus = window.foliplus;
-const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
+const _ = createTranslator(CONF);
 
 // ==================== Control Definition ====================
 class ScaleControl extends L.Control {

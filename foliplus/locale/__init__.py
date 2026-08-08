@@ -31,21 +31,67 @@ _LOCALE_DIR = Path(__file__).parent
 
 
 # ===========================================================================
-# Language code → string table (loaded from JSON files)
+# Locale table loading
 # ===========================================================================
-def _load_builtin_tables() -> dict[str, dict[str, str]]:
-    """Scan ``foliplus/locale/*.json`` and load each as a language table."""
+def _load_tables(pattern: str) -> dict[str, dict[str, str]]:
+    """Load locale tables matching a glob pattern.
 
+    Parameters
+    ----------
+    pattern : str
+        Glob pattern, e.g. ``"common.*.json"`` or ``"HeatmapControl.*.json"``.
+
+    Returns
+    -------
+    dict[str, dict[str, str]]
+        Language code → string table.
+    """
     tables: dict[str, dict[str, str]] = {}
-    for path in sorted(_LOCALE_DIR.glob("*.json")):
+    for path in sorted(_LOCALE_DIR.glob(pattern)):
         table: dict[str, str] = loads(path.read_text(encoding="utf-8"))
         code = table.get("locale.code", path.stem)
         tables[code] = table
-
     return tables
 
 
-_LOCALES_TABLES: dict[str, dict[str, str]] = _load_builtin_tables()
+def resolve_locale(locale: str | LocaleConfig | None, component: str) -> LocaleConfig:
+    """Normalise a ``locale`` parameter to a :class:`LocaleConfig` instance.
+
+    Parameters
+    ----------
+    locale : str or LocaleConfig or None
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        ``None`` yields an empty (auto-detect) config.
+    component : str
+        Component name used to load the per-component tables.
+
+    Returns
+    -------
+    LocaleConfig
+
+    Raises
+    ------
+    ValueError
+        If ``locale`` is a string not available for the component.
+    """
+    if locale is None:
+        return LocaleConfig(language="")
+    if isinstance(locale, str):
+        tables = _load_tables(f"{component}.*.json")
+        if locale not in tables:
+            raise ValueError(
+                f"unsupported locale {locale!r} for {component}; "
+                f"available: {list(tables)}"
+            )
+        obj = LocaleConfig(language="")
+        obj._strings = dict(tables[locale])
+        return obj
+
+    if isinstance(locale, LocaleConfig):
+        return locale
+    raise TypeError(
+        f"locale must be a str, LocaleConfig, or None, got {type(locale).__name__!s}"
+    )
 
 
 # ===========================================================================
@@ -76,10 +122,6 @@ class LocaleConfig:
 
     language: str = "en"
     _strings: dict[str, str] = field(default_factory=dict, init=False, repr=False)
-
-    def __post_init__(self):
-        table = _LOCALES_TABLES.get(self.language, _LOCALES_TABLES["en"])
-        self._strings = dict(table)
 
     @classmethod
     def from_json(cls, path: str | Path) -> LocaleConfig:
@@ -125,34 +167,3 @@ class LocaleConfig:
     @property
     def code(self) -> str:
         return self._strings.get("locale.code", "en")
-
-
-def resolve_locale(locale: str | LocaleConfig) -> LocaleConfig:
-    """Normalise a ``locale`` parameter to a :class:`LocaleConfig` instance.
-
-    Parameters
-    ----------
-    locale : str or LocaleConfig
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
-
-    Returns
-    -------
-    LocaleConfig
-
-    Raises
-    ------
-    ValueError
-        If ``locale`` is a string not in ``_LOCALES_TABLES``, or if it is neither
-        a string nor a :class:`LocaleConfig`.
-    """
-    if isinstance(locale, str):
-        if locale not in _LOCALES_TABLES:
-            raise ValueError(
-                f"unsupported locale {locale!r}; available: {list(_LOCALES_TABLES)}"
-            )
-        return LocaleConfig(language=locale)
-    if isinstance(locale, LocaleConfig):
-        return locale
-    raise TypeError(
-        f"locale must be a str or LocaleConfig, got {type(locale).__name__!s}"
-    )

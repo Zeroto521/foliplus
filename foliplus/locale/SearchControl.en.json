@@ -1,0 +1,18 @@
+{
+  "locale.name": "English",
+  "locale.code": "en",
+  "SearchControl.coord_placeholder": "Please enter: longitude,latitude",
+  "SearchControl.addr_placeholder": "Please enter an address keyword",
+  "SearchControl.coord_error": "Invalid format. Please enter: longitude,latitude",
+  "SearchControl.addr_not_found": "Address not found, try different keywords",
+  "SearchControl.addr_error": "Address lookup failed, check network",
+  "SearchControl.popup_title_coord": "📍 Coordinate Search",
+  "SearchControl.popup_title_addr": "📍 Address Search",
+  "SearchControl.popup_loc_label": "📌 Location: ",
+  "SearchControl.popup_addr_label": "📌 Address: ",
+  "SearchControl.popup_loading": "Searching…",
+  "SearchControl.btn_title": "Map Search",
+  "SearchControl.clear_title": "Clear",
+  "SearchControl.mode_coord": "Coordinate Search",
+  "SearchControl.mode_addr": "Address Search"
+}

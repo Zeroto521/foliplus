@@ -1,11 +1,12 @@
 import { requireRuntime } from "../shared/guard.js";
+import { createTranslator } from "../shared/locale.js";
 
 const CONF = window.foliplus.CONFIG.LayerControl;
 
 requireRuntime(CONF.name);
 
 const foliplus = window.foliplus;
-const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
+const _ = createTranslator(CONF);
 
 // ==================== Constants ====================
 const CONST = {

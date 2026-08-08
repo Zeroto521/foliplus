@@ -1,11 +1,12 @@
 import { requireRuntime } from "../shared/guard.js";
+import { createTranslator, resolveLocaleCode } from "../shared/locale.js";
 
 const CONF = window.foliplus.CONFIG.MeasureControl;
 
 requireRuntime(CONF.name);
 
 const foliplus = window.foliplus;
-const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
+const _ = createTranslator(CONF);
 
 // ==================== Constants ====================
 const CONST = {
@@ -524,10 +525,12 @@ class MarkerMode extends MeasureMode {
       parseFloat(lng),
       parseFloat(lat),
       null,
-      `${CONF.name}.popup_title`,
-      `${CONF.name}.popup_loading`,
-      `${CONF.name}.popup_loc_label`,
-      `${CONF.name}.popup_addr_label`,
+      _(`${CONF.name}.popup_title`),
+      _(`${CONF.name}.popup_loading`),
+      _(`${CONF.name}.popup_loc_label`),
+      _(`${CONF.name}.popup_addr_label`),
+      _("foliplus.close_label"),
+      CONF.locale_code,
       null,
       this.layers.mainLayer,
       (addr) => {
@@ -1362,10 +1365,12 @@ class MeasureManager {
       m.lng,
       m.lat,
       m.address,
-      `${CONF.name}.popup_title`,
-      `${CONF.name}.popup_loading`,
-      `${CONF.name}.popup_loc_label`,
-      `${CONF.name}.popup_addr_label`,
+      _(`${CONF.name}.popup_title`),
+      _(`${CONF.name}.popup_loading`),
+      _(`${CONF.name}.popup_loc_label`),
+      _(`${CONF.name}.popup_addr_label`),
+      _("foliplus.close_label"),
+      CONF.locale_code,
       null,
       this.layers.mainLayer,
       (addr) => {

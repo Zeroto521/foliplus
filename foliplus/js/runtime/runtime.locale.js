@@ -1,24 +1,20 @@
 // Locale resolution for the foliplus runtime.
 //
-// Called from each control's Jinja2 template. Sets `window._LOCALE` so that
-// `foliplus.gt(key)` returns the correct translation.
+// Detects the browser language and selects a locale table from the ones
+// injected per-component. Used when a control's locale code is not fixed
+// by the user.
 
 /**
- * Resolve the locale table for the current page by checking (in order):
+ * Resolve the active locale table by checking (in order):
  * explicit code, parent iframe path, referrer URL, document URL path,
  * HTML lang attribute, and browser language. Defaults to `tables['en']`.
  *
- * Sets `window._LOCALE` so that `foliplus.gt(key)` returns the correct translation.
- *
- * Called automatically from each control's Jinja2 template, using the locale
- * tables that BaseControl injects once per map into `window.foliplus._TABLES`:
- *   `foliplus.resolveLocale(<locale_code>, window.foliplus._TABLES);`
- *
- * @param {string} code   - Locale code from Python (e.g. '' for auto-detect)
+ * @param {string} code   - Locale code from Python ('' for auto-detect)
  * @param {Object} tables - Map of locale code → translation table
+ * @returns {Object} The selected locale table.
  */
 const resolveLocale = (code, tables) => {
-  if (!tables) return;
+  if (!tables) return null;
   let lang = "";
 
   // 1. Explicit code from Python (Highest priority if provided)
@@ -80,7 +76,7 @@ const resolveLocale = (code, tables) => {
       .toLowerCase();
   }
 
-  window._LOCALE = tables[lang] || tables["en"];
+  return tables[lang] || tables["en"];
 };
 
 export { resolveLocale };

@@ -7,7 +7,6 @@
  * `runtime/*.js` submodules) into `dist/runtime.min.js`, which BaseControl
  * injects once per map into the shared header.
  */
-import { getLocale } from "../shared/locale.js";
 import { fromWgs84, getMapCrsType, toWgs84 } from "./runtime.coord.js";
 import { buildPopupHtml, createLocationMarker, foliplusDom } from "./runtime.dom.js";
 import {
@@ -32,20 +31,6 @@ import { cssVar, debounce, formatNumber, storage } from "./runtime.util.js";
 // Ensure the global namespace object exists.
 if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {};
 const foliplus = window.foliplus;
-
-/**
- * Translate a locale key to its localized value.
- * Falls back to the key itself if no translation is found.
- *
- * @param {string} k - Locale key (e.g. 'export.btn_title', 'heatmap.title')
- * @returns {string} Localized string, or the key if not found
- */
-foliplus.gt =
-  foliplus.gt ||
-  ((k) => {
-    const loc = getLocale();
-    return loc && loc[k] ? loc[k] : k;
-  });
 
 // Bail out if the shared runtime has already been initialized (it is inlined
 // once per map, but this guard keeps it idempotent across reloads/embeds).

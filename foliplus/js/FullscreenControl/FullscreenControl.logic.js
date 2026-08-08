@@ -2,12 +2,13 @@
 // Global config and translation are resolved from `window.foliplus` here to
 // avoid threading `CONF` / `_` parameters through every call.
 
-import { nativeAPI, isEnabled, getFullscreenEl } from "./FullscreenControl.api.js";
+import { createTranslator } from "../shared/locale.js";
+import { getFullscreenEl, isEnabled, nativeAPI } from "./FullscreenControl.api.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as SVGs from "./FullscreenControl.icon.js";
 
 const CONF = window.foliplus.CONFIG.FullscreenControl;
-const _ = (k) => (window.foliplus.gt ? window.foliplus.gt(k) : k);
+const _ = createTranslator(CONF);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
@@ -100,4 +101,5 @@ const bindFullscreenEvents = (map, fsBtn, container) => {
   return handleFSChange;
 };
 
-export { toggleFullscreen, bindFullscreenEvents };
+export { bindFullscreenEvents, toggleFullscreen };
+

@@ -1,9 +1,7 @@
 // Reverse geocoding and address formatting for the foliplus runtime.
 //
-// Depends on runtime.coord.js helpers (getMapCrsType, toWgs84) and reads
-// `foliplus.gt` from the global namespace at call time.
+// Depends on runtime.coord.js helpers (getMapCrsType, toWgs84).
 
-import { getLocaleCode } from "../shared/locale.js";
 import { getMapCrsType, toWgs84 } from "./runtime.coord.js";
 
 // ── Geocode constants ───────────────────────────────────────────
@@ -30,16 +28,17 @@ let geoLastReq = 0;
  * Build a Nominatim API URL with shared parameters.
  * @param {string} endpoint - Path like "/search", "/reverse", or "" for search
  * @param {Object} params - Additional query parameters
+ * @param {string} [code] - Locale code for accept-language (e.g. "en"/"zh")
  * @returns {string} Full URL
  */
-const nominatimUrl = (endpoint, params = {}) => {
+const nominatimUrl = (endpoint, params = {}, code = "en") => {
   const url = new URL(endpoint || "", NOMINATIM.URL);
   url.searchParams.set("format", NOMINATIM.FORMAT);
   for (const [k, v] of Object.entries(params))
     if (v != null) url.searchParams.set(k, String(v));
 
   if (!url.searchParams.has("accept-language")) {
-    url.searchParams.set("accept-language", getLocaleCode());
+    url.searchParams.set("accept-language", code);
   }
 
   return url.toString();
@@ -53,9 +52,10 @@ const nominatimUrl = (endpoint, params = {}) => {
  * @param {string} displayName - Nominatim display_name string
  * @param {L.Map} [map] - Leaflet map instance; if provided, detects
  *                        domestic vs foreign CRS to determine ordering
+ * @param {string} [code] - Locale code (e.g. "en"/"zh"); defaults to "en"
  * @returns {string} Formatted address
  */
-const formatAddress = (displayName, map) => {
+const formatAddress = (displayName, map, code = "en") => {
   if (!displayName) return "";
   const parts = displayName
     .split(",")
@@ -78,8 +78,7 @@ const formatAddress = (displayName, map) => {
   if (parts.length === 0) return "";
   // Domestic (Chinese) maps OR locale=zh: reverse order (small→large → large→small)
   // Foreign maps: keep original order
-  const isChinese =
-    (map && getMapCrsType(map) !== "WGS84") || getLocaleCode() === "zh";
+  const isChinese = (map && getMapCrsType(map) !== "WGS84") || code === "zh";
   if (isChinese) return parts.reverse().join(",");
   return parts.join(",");
 };
@@ -90,9 +89,10 @@ const formatAddress = (displayName, map) => {
  * @param {L.Map} map Leaflet map instance
  * @param {number} lng Longitude
  * @param {number} lat Latitude
+ * @param {string} [code] - Locale code for accept-language + fallback text
  * @returns {Promise<string>} Resolved address string
  */
-const reverseGeocode = (map, lng, lat) => {
+const reverseGeocode = (map, lng, lat, code = "en") => {
   const foliplus = window.foliplus || {};
   const key = `${lng},${lat}`;
   const cached = geoCacheGet(key);
@@ -103,7 +103,11 @@ const reverseGeocode = (map, lng, lat) => {
     lon: wgs[0],
     lat: wgs[1],
     zoom: NOMINATIM.ZOOM,
-  });
+  }, code);
+
+  const common = (window.foliplus && window.foliplus._TABLES && window.foliplus._TABLES[code]) || {};
+  const notFound = common["foliplus.addr_not_found"] || "Address not found";
+  const fail = common["foliplus.geo_fail"] || "Lookup failed";
 
   geoPromise = geoPromise
     .then(() => {
@@ -115,16 +119,13 @@ const reverseGeocode = (map, lng, lat) => {
       return fetch(url)
         .then((r) => r.json())
         .then((data) => {
-          const addr =
-            formatAddress(data.display_name, map) ||
-            foliplus.gt("SearchControl.addr_not_found");
+          const addr = formatAddress(data.display_name, map, code) || notFound;
           geoCacheSet(key, addr);
           return addr;
         })
-        .catch(() => foliplus.gt("MeasureControl.geo_fail"));
+        .catch(() => fail);
     });
   return geoPromise;
 };
 
 export { formatAddress, NOMINATIM, nominatimUrl, reverseGeocode };
-
