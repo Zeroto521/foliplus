@@ -5,7 +5,7 @@
  * Pipeline:
  *   1. Mirror `foliplus/js/` → `foliplus/.build/`
  *   2. SVGO-compress SVG strings in every `.js` file under `.build/`
- *   3. Concatenate runtime.js + runtime.icon.js into runtime.combined.js
+ *   3. esbuild-bundle runtime.js (resolves ES imports from runtime/*.js) to `dist/runtime.min.js`
  *   4. esbuild-bundle all components (resolving ES imports) to `foliplus/dist/`
  *
  * Usage:
@@ -78,6 +78,7 @@ const findComponents = () => {
   const components = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
+    if (entry.name === "runtime") continue;
     const name = entry.name;
     const jsFile = resolve(TMP_JS, name, `${name}.js`);
     const cssFile = resolve(CSS_SRC, `${name}.css`);
@@ -90,18 +91,28 @@ const findComponents = () => {
 
 const buildEntries = (components) => {
   const entries = [];
-  const shared = [
-    { dir: TMP_JS, in: "runtime.combined.js", out: "runtime.min", type: "js" },
-    { dir: CSS_SRC, in: "common.css", out: "common.min", type: "css" },
-    { dir: CSS_SRC, in: "panel.css", out: "panel.min", type: "css" },
+  // runtime.js is now an ES module entry — esbuild bundles it with all
+  // runtime/*.js imports, identical to how component JS is bundled.
+  if (existsSync(resolve(TMP_JS, "runtime", "runtime.js"))) {
+    entries.push({
+      entryPoints: [resolve(TMP_JS, "runtime", "runtime.js")],
+      outfile: resolve(DIST, "runtime.min.js"),
+      bundle: true,
+      minify: true,
+      sourcemap: true,
+      allowOverwrite: true,
+    });
+  }
+  const sharedCss = [
+    { dir: CSS_SRC, in: "common.css", out: "common.min" },
+    { dir: CSS_SRC, in: "panel.css", out: "panel.min" },
   ];
-  for (const { dir, in: input, out, type } of shared) {
+  for (const { dir, in: input, out } of sharedCss) {
     const src = resolve(dir, input);
     if (!existsSync(src)) continue;
-    const ext = type === "css" ? ".css" : ".js";
     entries.push({
       entryPoints: [src],
-      outfile: resolve(DIST, out + ext),
+      outfile: resolve(DIST, out + ".css"),
       minify: true,
       sourcemap: true,
       allowOverwrite: true,
@@ -136,15 +147,6 @@ async function main() {
   mkdirSync(TMP_JS, { recursive: true });
   cpSync(JS_SRC, TMP_JS, { recursive: true });
   processJsFiles(TMP_JS);
-
-  const runtimeCode = readFileSync(resolve(TMP_JS, "runtime.js"), "utf-8");
-  const runtimeIcon = resolve(TMP_JS, "runtime", "runtime.icon.js");
-  const runtimeIconCode = existsSync(runtimeIcon) ? readFileSync(runtimeIcon, "utf-8") : "";
-  writeFileSync(
-    resolve(TMP_JS, "runtime.combined.js"),
-    runtimeCode + "\n" + runtimeIconCode,
-    "utf-8",
-  );
 
   const components = findComponents();
   const entries = buildEntries(components);

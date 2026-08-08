@@ -35,12 +35,14 @@ def _load_shared_asset(src: Path, artifact: Path) -> str:
 def _build_shared_header() -> str:
     """Build the shared asset bundle (<style> + <script>) injected once per map.
 
-    Contains common.css, panel.css, runtime.js (with runtime.icon.js bundled in),
+    Contains common.css, panel.css, runtime.js (with runtime/*.js bundled in),
     and the locale tables. Built once and cached at module level.
     """
     common = _load_shared_asset(css_dir / "common.css", dist_dir / "common.min.css")
     panel = _load_shared_asset(css_dir / "panel.css", dist_dir / "panel.min.css")
-    runtime = _load_shared_asset(js_dir / "runtime.js", dist_dir / "runtime.min.js")
+    runtime = _load_shared_asset(
+        js_dir / "runtime" / "runtime.js", dist_dir / "runtime.min.js"
+    )
     return (
         "<style>\n"
         f"{common}\n{panel}\n"

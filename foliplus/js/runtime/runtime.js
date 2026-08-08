@@ -1,0 +1,92 @@
+/**
+ * Shared utility namespace for all foliplus map controls.
+ * Provides SVG icons, hint system, coordinate transformation, geocoding,
+ * and common UI helpers.
+ *
+ * This is the ES module entry point. esbuild bundles it (along with all
+ * `runtime/*.js` submodules) into `dist/runtime.min.js`, which BaseControl
+ * injects once per map into the shared header.
+ */
+import { fromWgs84, getMapCrsType, toWgs84 } from "./runtime.coord.js";
+import { buildPopupHtml, createLocationMarker, foliplusDom } from "./runtime.dom.js";
+import { formatAddress, NOMINATIM, nominatimUrl, reverseGeocode } from "./runtime.geocode.js";
+import { hideHint, HINT_DURATION, registerHintIcon, showHint } from "./runtime.hint.js";
+import * as SVGs from "./runtime.icon.js";
+import { resolveLocale } from "./runtime.locale.js";
+import {
+  adjustPanelZIndex,
+  bindMapSync,
+  bindOutsideCollapse,
+  bindPanelToggle,
+  createFoldControl,
+  createPanelControl,
+} from "./runtime.panel.js";
+import { cssVar, debounce, formatNumber, storage } from "./runtime.util.js";
+
+// Ensure the global namespace object exists.
+if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {};
+const foliplus = window.foliplus;
+
+/**
+ * Translate a locale key to its localized value.
+ * Falls back to the key itself if no translation is found.
+ *
+ * @param {string} k - Locale key (e.g. 'export.btn_title', 'heatmap.title')
+ * @returns {string} Localized string, or the key if not found
+ */
+foliplus.gt =
+  foliplus.gt ||
+  ((k) => {
+    const loc = window._LOCALE;
+    return loc && loc[k] ? loc[k] : k;
+  });
+
+// Bail out if the shared runtime has already been initialized (it is inlined
+// once per map, but this guard keeps it idempotent across reloads/embeds).
+if (!foliplus.isInitialized) {
+  foliplus.isInitialized = true;
+
+  // ==================== Icons ====================
+  foliplus.SVGs = SVGs;
+
+  // ==================== Constants ====================
+  foliplus.HINT_DURATION = HINT_DURATION;
+  foliplus.NOMINATIM = NOMINATIM;
+
+  // ==================== Hint / Toast System ====================
+  foliplus.registerHintIcon = registerHintIcon;
+  foliplus.showHint = showHint;
+  foliplus.hideHint = hideHint;
+
+  // ==================== Coordinate Transformation ====================
+  foliplus.getMapCrsType = getMapCrsType;
+  foliplus.toWgs84 = toWgs84;
+  foliplus.fromWgs84 = fromWgs84;
+
+  // ==================== Reverse Geocoding ====================
+  foliplus.nominatimUrl = nominatimUrl;
+  foliplus.formatAddress = formatAddress;
+  foliplus.reverseGeocode = reverseGeocode;
+
+  // ==================== DOM Helpers ====================
+  foliplus.dom = foliplusDom;
+  foliplus.buildPopupHtml = buildPopupHtml;
+  foliplus.createLocationMarker = createLocationMarker;
+
+  // ==================== Panel UI ====================
+  foliplus.adjustPanelZIndex = adjustPanelZIndex;
+  foliplus.bindPanelToggle = bindPanelToggle;
+  foliplus.bindOutsideCollapse = bindOutsideCollapse;
+  foliplus.createFoldControl = createFoldControl;
+  foliplus.bindMapSync = bindMapSync;
+  foliplus.createPanelControl = createPanelControl;
+
+  // ==================== Number Formatting ====================
+  foliplus.cssVar = cssVar;
+  foliplus.formatNumber = formatNumber;
+  foliplus.debounce = debounce;
+  foliplus.storage = storage;
+
+  // ==================== Locale resolution ====================
+  foliplus.resolveLocale = resolveLocale;
+}
