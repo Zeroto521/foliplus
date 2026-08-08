@@ -114,6 +114,23 @@ class BaseControl(JSCSSMixin, MacroElement):
         self._name = self.__class__.__name__
         self.position = position
         self._locale_code = resolve_locale(locale).code if locale is not None else ""
+        self._config: dict = {}
+
+    @property
+    def _config_block(self) -> str:
+        """Render the CONFIG assignment as a JS-safe string at render time.
+
+        Evaluated by Jinja when the template renders, so any mutations made to
+        ``self._config`` in a subclass's :meth:`render` (e.g. LayerControl's
+        ``initialData``) are reflected in the output.
+        """
+        if not self._config:
+            return ""
+        return (
+            "window.foliplus = window.foliplus || {};\n"
+            "window.foliplus.CONFIG = window.foliplus.CONFIG || {};\n"
+            f"window.foliplus.CONFIG[{self._name!r}] = {dumps(self._config)};\n"
+        )
 
     def render(self, **kwargs):
         """Inject the shared asset bundle into the figure header exactly once.
@@ -175,10 +192,6 @@ class BaseControl(JSCSSMixin, MacroElement):
 
         if config is not None:
             self._config = config
-            config_str = "window.foliplus = window.foliplus || {};\nwindow.foliplus.CONFIG = window.foliplus.CONFIG || {};\nwindow.foliplus.CONFIG[{self._name!r}] = {{{{ this._config | tojson }}}};\n"  # noqa: E501
-        else:
-            self._config = {}
-            config_str = ""
 
         return Template(
             dedent(f"""\
@@ -194,7 +207,7 @@ class BaseControl(JSCSSMixin, MacroElement):
                 window.foliplus.resolveLocale({{{{ this._locale_code | tojson }}}}, window.foliplus._TABLES);
             }}
             const map = {{{{ this._parent.get_name() }}}};
-            {config}
+            {{{{ this._config_block | safe }}}}
             {js}
             }})();
             {{% endmacro %}}""")

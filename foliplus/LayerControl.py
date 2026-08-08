@@ -73,9 +73,13 @@ class LayerControl(BaseControl):
         # Build initialData from collected layers and inject into CONFIG
         initial_data = []
         for key, val in self.overlays.items():
-            initial_data.append({"name": key, "id": val, "visible": True, "isBase": False})
+            initial_data.append(
+                {"name": key, "id": val, "visible": True, "isBase": False}
+            )
         for key, val in self.base_layers.items():
-            initial_data.append({"name": key, "id": val, "visible": True, "isBase": True})
+            initial_data.append(
+                {"name": key, "id": val, "visible": True, "isBase": True}
+            )
         self._config["initialData"] = initial_data
 
         super().render(**kwargs)
