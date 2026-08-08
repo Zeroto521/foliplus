@@ -812,7 +812,7 @@ class HeatmapControl extends L.Control {
         this.m.renderHexagons();
       },
     });
-    CONF.color_scheme_NAMES.forEach((name) => {
+    CONST.SCHEME_NAMES.forEach((name) => {
       foliplus.dom.el("option", { value: name, parent: this.schemeSelectHidden }, name);
     });
     this.schemeSelectHidden.value = this.m.currentScheme;
@@ -1133,7 +1133,7 @@ class HeatmapControl extends L.Control {
     });
 
     let focusIdx = -1;
-    CONF.color_scheme_NAMES.forEach((name, idx) => {
+    CONST.SCHEME_NAMES.forEach((name, idx) => {
       const item = foliplus.dom.el("div", {
         class: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
         role: "option",
@@ -1178,7 +1178,7 @@ class HeatmapControl extends L.Control {
         const active = document.activeElement;
         if (active?.classList.contains(CONST.CLASSES.SCHEME_DROPDOWN_ITEM)) {
           const idx = Array.from(items).indexOf(active);
-          this.selectScheme(CONF.color_scheme_NAMES[idx]);
+          this.selectScheme(CONST.SCHEME_NAMES[idx]);
         }
       } else if (e.key === "Escape") {
         this.schemeDropdown.remove();
