@@ -1,4 +1,12 @@
-(function () {
+import { requireRuntime } from "../shared/guard.js";
+
+const CONF = window.foliplus.CONFIG.MeasureControl;
+
+requireRuntime(CONF.name);
+
+const foliplus = window.foliplus;
+const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
+
   // ==================== Constants ====================
   const CONST = {
     name: "MeasureControl",
@@ -79,7 +87,7 @@
       TOOL_BTN: ".foliplus-tool-btn",
     },
     STORAGE: {
-      KEY: "foliplus_measure_{{ this._parent.get_name() }}",
+      KEY: "foliplus_measure_" + map._leaflet_id,
     },
     MODE: {
       MARKER: "marker",
@@ -88,20 +96,11 @@
       CIRCLE: "circle",
       CLEAR: "clear",
     },
-    position: "{{ this.position }}",
-    show_bearing: {{ this.show_bearing | tojson }},
+    position: CONF.position,
+    show_bearing: CONF.show_bearing,
   };
 
-  // ==================== Runtime Guard ====================
-  const foliplus = window.foliplus || {};
-  if (!foliplus || !foliplus.SVGs) {
-    console.error(`[${CONST.name}] foliplus runtime not found, plugin disabled.`);
-    return;
-  }
 
-  // ==================== Globals & Shared Dependencies ====================
-  const map = {{ this._parent.get_name() }};
-  const _ = (k) => (foliplus.gt ? foliplus.gt(k) : k);
 
   // ==================== SVG Icons ====================
   const SVGs = {
@@ -136,7 +135,7 @@
       </svg>`,
   };
 
-  foliplus.registerHintIcon(CONST.name, SVGs.RULER);
+  foliplus.registerHintIcon(CONF.name, SVGs.RULER);
 
   // ==================== Utility Classes ====================
   class MeasureUtils {
@@ -153,8 +152,8 @@
     static formatDistance(meters) {
       return meters >= CONST.FORMAT.KM_THRESHOLD
         ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} ` +
-            _(`${CONST.name}.unit_km`)
-        : `${Math.round(meters)} ` + _(`${CONST.name}.unit_m`);
+            _(`${CONF.name}.unit_km`)
+        : `${Math.round(meters)} ` + _(`${CONF.name}.unit_m`);
     }
 
     /** Distance between two points in meters (turf.js geodesic).
@@ -339,10 +338,10 @@
         lng,
         lat,
         addr,
-        `${CONST.name}.popup_title`,
-        `${CONST.name}.popup_loading`,
-        `${CONST.name}.popup_loc_label`,
-        `${CONST.name}.popup_addr_label`,
+        `${CONF.name}.popup_title`,
+        `${CONF.name}.popup_loading`,
+        `${CONF.name}.popup_loc_label`,
+        `${CONF.name}.popup_addr_label`,
       );
     }
 
@@ -527,10 +526,10 @@
         parseFloat(lng),
         parseFloat(lat),
         null,
-        `${CONST.name}.popup_title`,
-        `${CONST.name}.popup_loading`,
-        `${CONST.name}.popup_loc_label`,
-        `${CONST.name}.popup_addr_label`,
+        `${CONF.name}.popup_title`,
+        `${CONF.name}.popup_loading`,
+        `${CONF.name}.popup_loc_label`,
+        `${CONF.name}.popup_addr_label`,
         null,
         this.layers.mainLayer,
         (addr) => {
@@ -543,7 +542,7 @@
         MeasureUtils.makeDelIcon(e.latlng, {
           zIndexOffset: CONST.Z_INDEX.OFFSET,
           iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
-          title: _(`${CONST.name}.del_tooltip`),
+          title: _(`${CONF.name}.del_tooltip`),
         }),
       );
 
@@ -734,7 +733,7 @@
         if (points.length === 1) {
           originLabel = this.layers.addLayer(
             L.marker(e.latlng, {
-              icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
+              icon: MeasureUtils.makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
             }),
             true,
           );
@@ -1104,8 +1103,8 @@
           );
           state = 1;
           foliplus.showHint(
-            CONST.name,
-            _(`${CONST.name}.hint_circle_radius`),
+            CONF.name,
+            _(`${CONF.name}.hint_circle_radius`),
             foliplus.HINT_DURATION.PERSIST,
           );
         } else if (state === 1) {
@@ -1233,7 +1232,7 @@
         const delMarker = this.layers.addLayer(
           MeasureUtils.makeDelIcon(centerLatLng, {
             zIndexOffset: CONST.Z_INDEX.OFFSET,
-            title: _(`${CONST.name}.del_tooltip`),
+            title: _(`${CONF.name}.del_tooltip`),
           }),
         );
 
@@ -1287,20 +1286,17 @@
         this.map.off("mousemove", onMouseMove);
         this.map.off("contextmenu", onContext);
         resetPreviews();
-        foliplus.hideHint(CONST.name);
+        foliplus.hideHint(CONF.name);
       };
     }
   }
 
   // ==================== Guard: LayerControl required ====================
   if (!foliplus.LayerAPI) {
-    console.error(`[${CONST.name}] ${_(`${CONST.name}.no_layercontrol`)}`);
-    foliplus.showHint(
-      CONST.name,
-      _(`${CONST.name}.no_layercontrol`),
-      foliplus.HINT_DURATION.PERSIST,
-    );
-    return;
+    const msg = _(`${CONF.name}.no_layercontrol`);
+    console.error(`[${CONF.name}] ${msg}`);
+    foliplus.showHint(CONF.name, msg, foliplus.HINT_DURATION.PERSIST);
+    throw new Error(`[${CONF.name}] ${msg}`);
   }
 
   // ==================== Core Manager ====================
@@ -1310,7 +1306,7 @@
       this.map = mapInstance;
       this.layers = foliplus.LayerAPI.createLayers({
         id: CONST.ID,
-        name: _(`${CONST.name}.tool_toggle`),
+        name: _(`${CONF.name}.tool_toggle`),
         graphPane: CONST.PANES.GRAPH,
         labelPane: CONST.PANES.LABEL,
         iconSvg: SVGs.RULER,
@@ -1331,13 +1327,13 @@
 
     /** Persist all measurements to localStorage. */
     saveMeasurements() {
-      foliplus.storage.save(CONST.STORAGE.KEY, this.measurements, CONST.name);
+      foliplus.storage.save(CONST.STORAGE.KEY, this.measurements, CONF.name);
     }
 
     /** Load measurements from localStorage.
      *  @returns {Array} Restored measurements array. */
     loadMeasurements() {
-      const data = foliplus.storage.load(CONST.STORAGE.KEY, CONST.name);
+      const data = foliplus.storage.load(CONST.STORAGE.KEY, CONF.name);
       return Array.isArray(data) ? data : [];
     }
 
@@ -1376,10 +1372,10 @@
         m.lng,
         m.lat,
         m.address,
-        `${CONST.name}.popup_title`,
-        `${CONST.name}.popup_loading`,
-        `${CONST.name}.popup_loc_label`,
-        `${CONST.name}.popup_addr_label`,
+        `${CONF.name}.popup_title`,
+        `${CONF.name}.popup_loading`,
+        `${CONF.name}.popup_loc_label`,
+        `${CONF.name}.popup_addr_label`,
         null,
         this.layers.mainLayer,
         (addr) => {
@@ -1395,7 +1391,7 @@
         MeasureUtils.makeDelIcon(L.latLng(m.lat, m.lng), {
           zIndexOffset: CONST.Z_INDEX.OFFSET,
           iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
-          title: _(`${CONST.name}.del_tooltip`),
+          title: _(`${CONF.name}.del_tooltip`),
         }),
       );
 
@@ -1441,7 +1437,7 @@
       // Restore start label
       this.layers.addLayer(
         L.marker(points[0], {
-          icon: MeasureUtils.makeLabelDivIcon(_(`${CONST.name}.dist_origin`)),
+          icon: MeasureUtils.makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
         }),
         true,
       );
@@ -1592,7 +1588,7 @@
       const delMarker = this.layers.addLayer(
         MeasureUtils.makeDelIcon(centerLatLng, {
           zIndexOffset: CONST.Z_INDEX.OFFSET,
-          title: _(`${CONST.name}.del_tooltip`),
+          title: _(`${CONF.name}.del_tooltip`),
         }),
       );
 
@@ -1721,8 +1717,8 @@
             zIndexOffset: CONST.Z_INDEX.OFFSET,
             title:
               isFirst || isLastWhenTwo
-                ? _(`${CONST.name}.del_all`)
-                : _(`${CONST.name}.del_node`),
+                ? _(`${CONF.name}.del_all`)
+                : _(`${CONF.name}.del_node`),
           }),
         );
         nodeDelIcons.push(delMarker);
@@ -1773,7 +1769,7 @@
                 });
                 // Update title on the icon element directly
                 const iconEl = lastDel._icon || lastDel.getElement();
-                if (iconEl) iconEl.title = _(`${CONST.name}.del_all`);
+                if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
               }
             }
 
@@ -1993,7 +1989,7 @@
         centroidDel = layers.addLayer(
           MeasureUtils.makeDelIcon(centroid, {
             zIndexOffset: CONST.Z_INDEX.OFFSET,
-            title: _(`${CONST.name}.del_all`),
+            title: _(`${CONF.name}.del_all`),
           }),
         );
         MeasureUtils.attachDelClick(centroidDel, deleteMeas);
@@ -2062,7 +2058,7 @@
         const delMarker = layers.addLayer(
           MeasureUtils.makeDelIcon(node.getLatLng(), {
             zIndexOffset: CONST.Z_INDEX.OFFSET,
-            title: is3pt ? _(`${CONST.name}.del_all`) : _(`${CONST.name}.del_node`),
+            title: is3pt ? _(`${CONF.name}.del_all`) : _(`${CONF.name}.del_node`),
           }),
         );
         nodeDelIcons.push(delMarker);
@@ -2103,7 +2099,7 @@
                   } else handleItemClick(ev);
                 });
                 const iconEl = d._icon || d.getElement();
-                if (iconEl) iconEl.title = _(`${CONST.name}.del_all`);
+                if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
               });
             }
 
@@ -2192,32 +2188,32 @@
 
       if (mode === CONST.MODE.MARKER) {
         foliplus.showHint(
-          CONST.name,
-          _(`${CONST.name}.hint_marker`),
+          CONF.name,
+          _(`${CONF.name}.hint_marker`),
           foliplus.HINT_DURATION.PERSIST,
         );
         this.modeInstance = new MarkerMode(this);
         this.modeInstance.start();
       } else if (mode === CONST.MODE.DISTANCE) {
         foliplus.showHint(
-          CONST.name,
-          _(`${CONST.name}.hint_dist_start`),
+          CONF.name,
+          _(`${CONF.name}.hint_dist_start`),
           foliplus.HINT_DURATION.PERSIST,
         );
         this.modeInstance = new DistanceMode(this);
         this.modeInstance.start();
       } else if (mode === CONST.MODE.POLYGON) {
         foliplus.showHint(
-          CONST.name,
-          _(`${CONST.name}.hint_polygon`),
+          CONF.name,
+          _(`${CONF.name}.hint_polygon`),
           foliplus.HINT_DURATION.PERSIST,
         );
         this.modeInstance = new PolygonMode(this);
         this.modeInstance.start();
       } else if (mode === CONST.MODE.CIRCLE) {
         foliplus.showHint(
-          CONST.name,
-          _(`${CONST.name}.hint_circle_start`),
+          CONF.name,
+          _(`${CONF.name}.hint_circle_start`),
           foliplus.HINT_DURATION.PERSIST,
         );
         this.modeInstance = new CircleMode(this);
@@ -2229,7 +2225,7 @@
     clearActiveMode() {
       this.currentMode = null;
       this.toolBtns.forEach((btn) => btn.classList.remove(CONST.CLASSES.ACTIVE));
-      foliplus.hideHint(CONST.name);
+      foliplus.hideHint(CONF.name);
       this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
       this.cleanMapEvents();
     }
@@ -2278,7 +2274,7 @@
         this.modeInstance.cleanup();
         this.modeInstance = null;
       }
-      foliplus.hideHint(CONST.name);
+      foliplus.hideHint(CONF.name);
     }
   }
 
@@ -2299,7 +2295,7 @@
     onAdd() {
       const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
         cssClass: "foliplus-measure-ctrl",
-        toggleTitle: _(`${CONST.name}.tool_toggle`),
+        toggleTitle: _(`${CONF.name}.tool_toggle`),
         toggleSvg: SVGs.RULER,
         isLeft: CONST.position.indexOf("left") >= 0,
       });
@@ -2307,27 +2303,27 @@
       const btnConfigs = [
         {
           mode: CONST.MODE.MARKER,
-          title: _(`${CONST.name}.tool_marker`),
+          title: _(`${CONF.name}.tool_marker`),
           svg: foliplus.SVGs.LOCATE,
         },
         {
           mode: CONST.MODE.DISTANCE,
-          title: _(`${CONST.name}.tool_distance`),
+          title: _(`${CONF.name}.tool_distance`),
           svg: SVGs.RULER,
         },
         {
           mode: CONST.MODE.POLYGON,
-          title: _(`${CONST.name}.tool_polygon`),
+          title: _(`${CONF.name}.tool_polygon`),
           svg: SVGs.POLYGON,
         },
         {
           mode: CONST.MODE.CIRCLE,
-          title: _(`${CONST.name}.tool_circle`),
+          title: _(`${CONF.name}.tool_circle`),
           svg: SVGs.CIRCLE,
         },
         {
           mode: CONST.MODE.CLEAR,
-          title: _(`${CONST.name}.tool_clear`),
+          title: _(`${CONF.name}.tool_clear`),
           svg: SVGs.TRASH,
         },
       ];
@@ -2371,4 +2367,3 @@
   }
 
   new MeasureControl({ position: CONST.position }).addTo(map);
-})();
