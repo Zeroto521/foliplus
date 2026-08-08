@@ -5,9 +5,18 @@
 // `window.foliplus.*`.
 
 // ── Hint constants ──────────────────────────────────────────────
-const HINT_BASE = { BOTTOM_BASE: 20, STACK_GAP: 40, Z_BASE: 10000, DEFAULT_DURATION: 3000 };
-const HINT_CLASS = "foliplus-hint";
-const HINT_DURATION = { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 };
+const HINT_BASE = {
+  BOTTOM_BASE: 20,
+  STACK_GAP: 40,
+  Z_BASE: 10000,
+};
+const CLASSES = "foliplus-hint";
+const HINT_DURATION = {
+  SHORT: 1200,
+  MEDIUM: 2500,
+  LONG: 4000,
+  PERSIST: 0,
+};
 
 const hintIcons = {};
 const hintMap = new Map(); // key -> { element, timer }
@@ -45,27 +54,21 @@ const showHint = (key, text, duration, append, subkey) => {
 
   const hintTarget = document.fullscreenElement || document.body;
   const cls = subkey
-    ? `${HINT_CLASS} ${HINT_CLASS}-${key}-${subkey}`
+    ? `${CLASSES} ${CLASSES}-${key}-${subkey}`
     : append
-      ? `${HINT_CLASS} ${HINT_CLASS}-${key}-${Date.now()}`
-      : `${HINT_CLASS} ${HINT_CLASS}-${key}`;
+      ? `${CLASSES} ${CLASSES}-${key}-${Date.now()}`
+      : `${CLASSES} ${CLASSES}-${key}`;
   const el = document.createElement("div");
   el.className = cls;
   hintTarget.appendChild(el);
   const icon = (hintIcons && hintIcons[key]) || "";
-  el.innerHTML = icon
-    ? `<span class="foliplus-hint-icon">${icon}</span>${text}`
-    : text;
-  el.classList.add(HINT_CLASS);
+  el.innerHTML = icon ? `<span class="foliplus-hint-icon">${icon}</span>${text}` : text;
+  el.classList.add(CLASSES);
   if (hintTarget !== document.body && hintTarget !== document.documentElement) {
     const cs = window.getComputedStyle(hintTarget);
     if (cs.position === "static") hintTarget.style.position = "relative";
   }
-  const storeKey = subkey
-    ? `${key}|${subkey}`
-    : append
-      ? `${key}-${Date.now()}`
-      : key;
+  const storeKey = subkey ? `${key}|${subkey}` : append ? `${key}-${Date.now()}` : key;
   hintMap.set(storeKey, { element: el, timer: null });
 
   repositionHints();
@@ -73,7 +76,7 @@ const showHint = (key, text, duration, append, subkey) => {
   if (duration !== 0) {
     hintMap.get(storeKey).timer = setTimeout(
       () => (subkey ? hideHint(key, subkey) : hideHint(storeKey)),
-      duration || HINT_BASE.DEFAULT_DURATION,
+      duration || HINT_DURATION.MEDIUM,
     );
   }
 };
