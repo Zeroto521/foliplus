@@ -1,6 +1,8 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
+import { dom } from "../common/dom.js";
 import { createTranslator } from "../common/locale.js";
+import { adjustPanelZIndex } from "../common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
 
 const foliplus = window.foliplus;
@@ -8,26 +10,19 @@ const _ = createTranslator(CONF);
 
 /** Create a form-row with label + control-wrap. */
 const createFormRow = (ctrl, parent, labelKey, rowClass = CONST.CLASSES.FORM_ROW) => {
-  const row = foliplus.dom.el("div", { class: rowClass, parent });
-  foliplus.dom.el(
-    "label",
-    { class: CONST.CLASSES.FORM_LABEL, parent: row },
-    _(labelKey),
-  );
-  const wrap = foliplus.dom.el("div", {
-    class: CONST.CLASSES.FORM_CONTROL,
-    parent: row,
-  });
+  const row = dom.el("div", { class: rowClass, parent });
+  dom.el("label", { class: CONST.CLASSES.FORM_LABEL, parent: row }, _(labelKey));
+  const wrap = dom.el("div", { class: CONST.CLASSES.FORM_CONTROL, parent: row });
   return { row, wrap };
 };
 
 /** Build the data section: layer select, aggregation method, field selector. */
 const buildDataSection = (ctrl, panelContent) => {
-  const configBody = foliplus.dom.el("div", {
+  const configBody = dom.el("div", {
     class: CONST.CLASSES.CONFIG_BODY,
     parent: panelContent,
   });
-  foliplus.dom.el("div", {
+  dom.el("div", {
     class: CONST.CLASSES.SECTION_HEADING,
     parent: configBody,
     innerHTML: _(`${CONF.name}.section_data`),
@@ -38,12 +33,12 @@ const buildDataSection = (ctrl, panelContent) => {
     configBody,
     `${CONF.name}.layer`,
   );
-  ctrl.layerSelect = foliplus.dom.el("select", {
+  ctrl.layerSelect = dom.el("select", {
     class: CONST.CLASSES.FORM_SELECT,
     parent: layerSelectWrap,
   });
 
-  ctrl.extraBody = foliplus.dom.el("div", {
+  ctrl.extraBody = dom.el("div", {
     class: `${CONST.CLASSES.EXTRA_BODY} ${CONST.CLASSES.HIDDEN}`,
     parent: configBody,
   });
@@ -54,7 +49,7 @@ const buildDataSection = (ctrl, panelContent) => {
     ctrl.extraBody,
     `${CONF.name}.agg_method`,
   );
-  ctrl.aggSelect = foliplus.dom.el("select", {
+  ctrl.aggSelect = dom.el("select", {
     class: CONST.CLASSES.FORM_SELECT,
     parent: aggControlWrap,
     innerHTML: `
@@ -71,20 +66,20 @@ const buildDataSection = (ctrl, panelContent) => {
     },
   });
 
-  ctrl.fieldWrap = foliplus.dom.el("div", {
+  ctrl.fieldWrap = dom.el("div", {
     class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD} ${CONST.CLASSES.HIDDEN}`,
     parent: ctrl.extraBody,
   });
-  foliplus.dom.el("label", {
+  dom.el("label", {
     class: CONST.CLASSES.FORM_LABEL,
     parent: ctrl.fieldWrap,
     innerHTML: _(`${CONF.name}.field`),
   });
-  const fieldControlWrap = foliplus.dom.el("div", {
+  const fieldControlWrap = dom.el("div", {
     class: CONST.CLASSES.FORM_CONTROL,
     parent: ctrl.fieldWrap,
   });
-  ctrl.fieldSelect = foliplus.dom.el("select", {
+  ctrl.fieldSelect = dom.el("select", {
     class: CONST.CLASSES.FORM_SELECT,
     parent: fieldControlWrap,
     onchange: () => {
@@ -101,31 +96,31 @@ const buildDataSection = (ctrl, panelContent) => {
 
 /** Build the style section: classification, color scheme, border, label toggle, action buttons. */
 const buildStyleSection = (ctrl) => {
-  foliplus.dom.el("div", {
+  dom.el("div", {
     class: CONST.CLASSES.SECTION_HEADING,
     parent: ctrl.extraBody,
     innerHTML: _(`${CONF.name}.section_style`),
   });
-  const styleSection = foliplus.dom.el("div", {
+  const styleSection = dom.el("div", {
     class: CONST.CLASSES.SECTION_BLOCK,
     parent: ctrl.extraBody,
   });
 
   // Classification method / classes
-  const classRow = foliplus.dom.el("div", {
+  const classRow = dom.el("div", {
     class: CONST.CLASSES.FORM_ROW,
     parent: styleSection,
   });
-  foliplus.dom.el("label", {
+  dom.el("label", {
     class: CONST.CLASSES.FORM_LABEL,
     parent: classRow,
     innerHTML: _(`${CONF.name}.class_method`),
   });
-  const classControlWrap = foliplus.dom.el("div", {
+  const classControlWrap = dom.el("div", {
     class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
     parent: classRow,
   });
-  ctrl.methodSelect = foliplus.dom.el("select", {
+  ctrl.methodSelect = dom.el("select", {
     class: CONST.CLASSES.FORM_SELECT,
     parent: classControlWrap,
     innerHTML: `
@@ -140,7 +135,7 @@ const buildStyleSection = (ctrl) => {
     },
   });
 
-  ctrl.classSelect = foliplus.dom.el("select", {
+  ctrl.classSelect = dom.el("select", {
     class: `${CONST.CLASSES.FORM_SELECT} ${CONST.CLASSES.CLASS_COUNT_SELECT}`,
     parent: classControlWrap,
     onchange: () => {
@@ -154,35 +149,35 @@ const buildStyleSection = (ctrl) => {
     },
   });
   for (let ci = 2; ci <= 9; ci++)
-    foliplus.dom.el("option", { value: ci, parent: ctrl.classSelect }, String(ci));
+    dom.el("option", { value: ci, parent: ctrl.classSelect }, String(ci));
   ctrl.classSelect.value = Math.min(9, Math.max(2, ctrl.m.numClasses));
 
   // Color scheme
-  const schemeRow = foliplus.dom.el("div", {
+  const schemeRow = dom.el("div", {
     class: CONST.CLASSES.FORM_ROW,
     parent: styleSection,
   });
-  foliplus.dom.el("label", {
+  dom.el("label", {
     class: CONST.CLASSES.FORM_LABEL,
     parent: schemeRow,
     innerHTML: _(`${CONF.name}.scheme`),
   });
-  ctrl.schemeControlWrap = foliplus.dom.el("div", {
+  ctrl.schemeControlWrap = dom.el("div", {
     class: CONST.CLASSES.FORM_CONTROL,
     parent: schemeRow,
   });
-  ctrl.schemeBar = foliplus.dom.el("div", {
+  ctrl.schemeBar = dom.el("div", {
     class: CONST.CLASSES.SCHEME_BAR,
     tabindex: 0,
     role: "combobox",
     "aria-label": _(`${CONF.name}.scheme`),
     parent: ctrl.schemeControlWrap,
   });
-  ctrl.schemeBarInner = foliplus.dom.el("div", {
+  ctrl.schemeBarInner = dom.el("div", {
     class: CONST.CLASSES.SCHEME_BAR_INNER,
     parent: ctrl.schemeBar,
   });
-  ctrl.schemeSelectHidden = foliplus.dom.el("select", {
+  ctrl.schemeSelectHidden = dom.el("select", {
     class: CONST.CLASSES.SCHEME_SELECT_HIDDEN,
     parent: ctrl.schemeControlWrap,
     onchange: () => {
@@ -192,7 +187,7 @@ const buildStyleSection = (ctrl) => {
     },
   });
   CONF.schemes.forEach((name) => {
-    foliplus.dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
+    dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
   });
   ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
   updateSchemeBar(ctrl);
@@ -229,20 +224,20 @@ const buildStyleSection = (ctrl) => {
   };
 
   // Border settings
-  const borderRow = foliplus.dom.el("div", {
+  const borderRow = dom.el("div", {
     class: CONST.CLASSES.FORM_ROW,
     parent: styleSection,
   });
-  foliplus.dom.el("label", {
+  dom.el("label", {
     class: CONST.CLASSES.FORM_LABEL,
     parent: borderRow,
     innerHTML: _(`${CONF.name}.border`),
   });
-  const borderControlWrap = foliplus.dom.el("div", {
+  const borderControlWrap = dom.el("div", {
     class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
     parent: borderRow,
   });
-  ctrl.borderColorInput = foliplus.dom.el("input", {
+  ctrl.borderColorInput = dom.el("input", {
     class: CONST.CLASSES.BORDER_COLOR_INPUT,
     type: "color",
     parent: borderControlWrap,
@@ -252,7 +247,7 @@ const buildStyleSection = (ctrl) => {
       ctrl.m.renderHexagons();
     },
   });
-  ctrl.borderWeightInput = foliplus.dom.el("input", {
+  ctrl.borderWeightInput = dom.el("input", {
     class: CONST.CLASSES.BORDER_WEIGHT_INPUT,
     type: "number",
     min: 0,
@@ -276,24 +271,24 @@ const buildStyleSection = (ctrl) => {
   });
 
   // Label toggle
-  const labelRow = foliplus.dom.el("div", {
+  const labelRow = dom.el("div", {
     class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.SECTION_BLOCK_LAST}`,
     parent: styleSection,
   });
-  foliplus.dom.el("label", {
+  dom.el("label", {
     class: CONST.CLASSES.FORM_LABEL,
     parent: labelRow,
     innerHTML: _(`${CONF.name}.label`),
   });
-  const labelControlWrap = foliplus.dom.el("div", {
+  const labelControlWrap = dom.el("div", {
     class: CONST.CLASSES.FORM_CONTROL,
     parent: labelRow,
   });
-  const labelToggle = foliplus.dom.el("label", {
+  const labelToggle = dom.el("label", {
     class: CONST.CLASSES.TOGGLE_SWITCH,
     parent: labelControlWrap,
   });
-  ctrl.labelChk = foliplus.dom.el("input", {
+  ctrl.labelChk = dom.el("input", {
     type: "checkbox",
     parent: labelToggle,
     checked: ctrl.m.currentLabelShow,
@@ -302,21 +297,21 @@ const buildStyleSection = (ctrl) => {
       ctrl.m.renderHexagons();
     },
   });
-  foliplus.dom.el("span", {
+  dom.el("span", {
     class: CONST.CLASSES.TOGGLE_SLIDER,
     parent: labelToggle,
   });
-  foliplus.dom.el("hr", {
+  dom.el("hr", {
     class: CONST.CLASSES.SECTION_DIVIDER,
     parent: ctrl.extraBody,
   });
 
   // Bottom action buttons
-  const btnRow = foliplus.dom.el("div", {
+  const btnRow = dom.el("div", {
     class: CONST.CLASSES.BTN_ROW,
     parent: ctrl.extraBody,
   });
-  foliplus.dom.el("button", {
+  dom.el("button", {
     class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CLEAR}`,
     parent: btnRow,
     innerHTML: _(`${CONF.name}.clear`),
@@ -335,10 +330,10 @@ const buildStyleSection = (ctrl) => {
       ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
       ctrl.container.classList.remove(CONST.CLASSES.EXPANDED);
       ctrl.container.classList.add(CONST.CLASSES.COLLAPSED);
-      foliplus.adjustPanelZIndex({ container: ctrl.container, expanded: false });
+      adjustPanelZIndex({ container: ctrl.container, expanded: false });
     },
   });
-  foliplus.dom.el("button", {
+  dom.el("button", {
     class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CONFIRM}`,
     parent: btnRow,
     innerHTML: _(`${CONF.name}.confirm`),
@@ -346,7 +341,7 @@ const buildStyleSection = (ctrl) => {
       ctrl.m.renderHexagons();
       ctrl.container.classList.remove(CONST.CLASSES.EXPANDED);
       ctrl.container.classList.add(CONST.CLASSES.COLLAPSED);
-      foliplus.adjustPanelZIndex({ container: ctrl.container, expanded: false });
+      adjustPanelZIndex({ container: ctrl.container, expanded: false });
     },
   });
 };
@@ -370,7 +365,7 @@ const setupObserver = (ctrl) => {
 const buildLayerListItems = (ctrl, sel) => {
   ctrl.m.scanMapLayers();
   sel.innerHTML = "";
-  const placeholder = foliplus.dom.el(
+  const placeholder = dom.el(
     "option",
     {
       value: "",
@@ -383,7 +378,7 @@ const buildLayerListItems = (ctrl, sel) => {
   );
 
   ctrl.m.pointLayers.forEach((info) => {
-    foliplus.dom.el("option", { value: info.id, parent: sel }, info.name);
+    dom.el("option", { value: info.id, parent: sel }, info.name);
   });
 
   if (ctrl.m.selectedLayerId) sel.value = ctrl.m.selectedLayerId;
@@ -421,7 +416,7 @@ const updateFieldSelector = (ctrl) => {
   ctrl.m.autoFieldKey = ctrl.m.pickAutoField(fields);
 
   ctrl.fieldSelect.innerHTML = "";
-  foliplus.dom.el(
+  dom.el(
     "option",
     {
       value: "",
@@ -433,7 +428,7 @@ const updateFieldSelector = (ctrl) => {
   );
 
   fields.forEach((f) => {
-    foliplus.dom.el(
+    dom.el(
       "option",
       { value: f, parent: ctrl.fieldSelect },
       f.startsWith("properties.") ? f.substring(11) : f,
@@ -451,7 +446,7 @@ const renderColorBar = (ctrl, container, name, nClasses) => {
   const colors = ctrl.m.getColorScale(name, nClasses);
   container.innerHTML = "";
   for (const color of colors) {
-    foliplus.dom.el("div", {
+    dom.el("div", {
       class: CONST.CLASSES.SCHEME_BAR_BLOCK,
       style: `background:${color};width:${100 / colors.length}%`,
       parent: container,
@@ -483,7 +478,7 @@ const toggleSchemeDropdown = (ctrl) => {
     return;
   }
   ctrl.schemeBar.classList.add(CONST.CLASSES.SCHEME_BAR_OPEN);
-  ctrl.schemeDropdown = foliplus.dom.el("div", {
+  ctrl.schemeDropdown = dom.el("div", {
     class: CONST.CLASSES.SCHEME_DROPDOWN,
     role: "listbox",
     parent: ctrl.schemeControlWrap,
@@ -491,7 +486,7 @@ const toggleSchemeDropdown = (ctrl) => {
 
   let focusIdx = -1;
   CONF.schemes.forEach((name, idx) => {
-    const item = foliplus.dom.el("div", {
+    const item = dom.el("div", {
       class: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
       role: "option",
       tabindex: -1,
@@ -503,7 +498,7 @@ const toggleSchemeDropdown = (ctrl) => {
       focusIdx = idx;
     }
 
-    const itemBar = foliplus.dom.el("div", {
+    const itemBar = dom.el("div", {
       class: CONST.CLASSES.SCHEME_DROPDOWN_BAR,
       parent: item,
     });
@@ -594,18 +589,8 @@ const syncSelect = (ctrl, el, value) => {
 
 export {
   buildDataSection,
-  buildLayerListItems,
   buildStyleSection,
-  createFormRow,
   initScan,
   rebuildLayerDropdown,
-  refreshSchemeDropdownItems,
-  renderColorBar,
-  resetAll,
-  selectScheme,
   setupObserver,
-  syncSelect,
-  toggleSchemeDropdown,
-  updateFieldSelector,
-  updateSchemeBar,
 };

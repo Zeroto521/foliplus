@@ -1,6 +1,12 @@
+import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
 import { createTranslator } from "../common/locale.js";
+import {
+  adjustPanelZIndex,
+  bindOutsideCollapse,
+  createFoldControl,
+} from "../common/panel.js";
 import * as CONST from "./MeasureControl.const.js";
 import * as SVGs from "./MeasureControl.icon.js";
 import { MeasureManager } from "./MeasureControl.manager.js";
@@ -33,7 +39,7 @@ class MeasureControl extends L.Control {
   }
 
   onAdd() {
-    const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
+    const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: "foliplus-measure-ctrl",
       toggleTitle: _(`${CONF.name}.tool_toggle`),
       toggleSvg: SVGs.RULER,
@@ -68,7 +74,7 @@ class MeasureControl extends L.Control {
       },
     ];
     btnConfigs.forEach(({ mode, title, svg }) => {
-      foliplus.dom.el(
+      dom.el(
         "button",
         { class: "foliplus-tool-btn", "data-mode": mode, title, parent: toolBar },
         { html: svg },
@@ -82,11 +88,11 @@ class MeasureControl extends L.Control {
       const expanding = ctrl.classList.contains(CONST.CLASSES.COLLAPSED);
       ctrl.classList.toggle(CONST.CLASSES.COLLAPSED);
       ctrl.classList.toggle(CONST.CLASSES.EXPANDED);
-      foliplus.adjustPanelZIndex({ container: ctrl, expanded: expanding });
+      adjustPanelZIndex({ container: ctrl, expanded: expanding });
     };
 
     // Collapse when clicking outside, but NOT when a tool is active
-    foliplus.bindOutsideCollapse({
+    bindOutsideCollapse({
       container: ctrl,
       skipCheck: () => this.m.currentMode !== null,
     });

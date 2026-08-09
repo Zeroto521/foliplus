@@ -1,3 +1,4 @@
+import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
 
@@ -11,7 +12,6 @@ const CLASSES = {
 requireRuntime(CONF.name);
 
 // ==================== Dependencies ====================
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 // ==================== Control Definition ====================
@@ -27,7 +27,7 @@ class ScaleControl extends L.Control {
 
     // ==================== Zoom Label ====================
     if (CONF.show_zoom) {
-      const zoomLabel = foliplus.dom.el("span", {
+      const zoomLabel = dom.el("span", {
         class: CLASSES.ZOOM_LABEL,
         parent: wrap,
       });

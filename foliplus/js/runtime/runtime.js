@@ -1,14 +1,14 @@
 /**
- * Shared utility namespace for all foliplus map controls.
- * Provides SVG icons, hint system, coordinate transformation, geocoding,
- * and common UI helpers.
+ * Shared runtime for foliplus map controls.
+ * Provides the hint/toast system and the reverse-geocoding singleton — the
+ * only modules with shared global state that must exist once per map.
+ * Pure helpers (coord, dom, panel, util) live in common/ and are statically
+ * imported by each component's own bundle (谁用谁 import).
  *
  * This is the ES module entry point. esbuild bundles it (along with all
  * `runtime/*.js` submodules) into `dist/runtime.min.js`, which BaseControl
  * injects once per map into the shared header.
  */
-import { fromWgs84, getMapCrsType, toWgs84 } from "./runtime.coord.js";
-import { buildPopupHtml, createLocationMarker, foliplusDom } from "./runtime.dom.js";
 import {
   NOMINATIM,
   formatAddress,
@@ -16,15 +16,6 @@ import {
   reverseGeocode,
 } from "./runtime.geocode.js";
 import { HINT_DURATION, hideHint, registerHintIcon, showHint } from "./runtime.hint.js";
-import {
-  adjustPanelZIndex,
-  bindMapSync,
-  bindOutsideCollapse,
-  bindPanelToggle,
-  createFoldControl,
-  createPanelControl,
-} from "./runtime.panel.js";
-import { cssVar, debounce, formatNumber, storage } from "./runtime.util.js";
 
 // Ensure the global namespace object exists.
 if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {};
@@ -48,33 +39,9 @@ if (!foliplus.isInitialized) {
     showHint,
     hideHint,
 
-    // ==================== Coordinate Transformation ====================
-    getMapCrsType,
-    toWgs84,
-    fromWgs84,
-
     // ==================== Reverse Geocoding ====================
     nominatimUrl,
     formatAddress,
     reverseGeocode,
-
-    // ==================== DOM Helpers ====================
-    dom: foliplusDom,
-    buildPopupHtml,
-    createLocationMarker,
-
-    // ==================== Panel UI ====================
-    adjustPanelZIndex,
-    bindPanelToggle,
-    bindOutsideCollapse,
-    createFoldControl,
-    bindMapSync,
-    createPanelControl,
-
-    // ==================== Number Formatting ====================
-    cssVar,
-    formatNumber,
-    debounce,
-    storage,
   });
 }

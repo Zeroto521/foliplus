@@ -1,4 +1,6 @@
+import { dom } from "../common/dom.js";
 import { createTranslator } from "../common/locale.js";
+import * as Storage from "../common/storage.js";
 import * as CONST from "./ExportControl.const.js";
 import { ExportRenderer } from "./ExportControl.renderer.js";
 import {
@@ -67,7 +69,7 @@ class ExportManager {
   }
 
   loadSavedBounds() {
-    const data = foliplus.storage.load(CONST.STORAGE.KEY, CONF.name);
+    const data = Storage.load(CONST.STORAGE.KEY, CONF.name);
     if (!data || !data.nw || !data.se) return;
     const nw = data.nw,
       se = data.se;
@@ -85,7 +87,7 @@ class ExportManager {
   }
 
   saveBounds(bounds) {
-    foliplus.storage.save(
+    Storage.save(
       CONST.STORAGE.KEY,
       {
         nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
@@ -293,7 +295,7 @@ class ExportManager {
     // This overlay catches ALL mouse events (hover, click, drag)
     // during export so Leaflet's JS event listeners on SVG paths
     // cannot trigger hover highlights.
-    this.exportOverlay = foliplus.dom.el("div", {
+    this.exportOverlay = dom.el("div", {
       class: "foliplus-export-blocker",
       parent: document.body,
     });

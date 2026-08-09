@@ -6,9 +6,7 @@ export const CROP = {
 };
 
 /** Persistent storage key for the last crop rectangle. */
-export const STORAGE = {
-  KEY: `foliplus_export_rect_${map.getContainer().id}`,
-};
+export const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
 
 /** Timing / delay constants. */
 export const TIMING = {
@@ -65,10 +63,8 @@ export const SEL = {
 };
 
 /** Cache limits. */
-export const CACHE = {
-  UNDO_MAX: 20, // Max number of crop-box adjustment steps kept for undo
-  TILE_MAX: 1000,
-};
+// Max number of crop-box adjustment steps kept for undo
+export const CACHE = { UNDO_MAX: 20, TILE_MAX: 1000 };
 
 // Max concurrent tile fetches during render (higher = faster for large
 // exports, but may hit browser connection limits ~6 per domain).

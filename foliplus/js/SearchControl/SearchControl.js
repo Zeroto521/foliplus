@@ -1,6 +1,8 @@
+import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
 import { createTranslator } from "../common/locale.js";
+import { bindOutsideCollapse, createFoldControl } from "../common/panel.js";
 import { CLASSES, MODE } from "./SearchControl.const.js";
 import { bindEvents, initFromUrl } from "./SearchControl.events.js";
 import * as SVGs from "./SearchControl.icon.js";
@@ -27,7 +29,7 @@ class SearchControl extends L.Control {
     initDebouncedFetch(this);
     bindEvents(this);
     initFromUrl(this);
-    foliplus.bindOutsideCollapse({ container: this.ctrl });
+    bindOutsideCollapse({ container: this.ctrl });
     return this.container;
   }
 
@@ -48,7 +50,7 @@ class SearchControl extends L.Control {
 
   // ── DOM Creation ──
   createDOM() {
-    const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
+    const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: CLASSES.MAP_SEARCH,
       toggleTitle: _(`${CONF.name}.btn_title`),
       toggleSvg: SVGs.SEARCH,
@@ -60,7 +62,7 @@ class SearchControl extends L.Control {
     this.toggleBtn = toggleBtn;
     this.toolBar = toolBar;
 
-    const modeBtn = foliplus.dom.el(
+    const modeBtn = dom.el(
       "button",
       {
         class: CLASSES.SEARCH_MODE_BTN,
@@ -69,11 +71,11 @@ class SearchControl extends L.Control {
       },
       { html: Icons.LOCATE },
     );
-    const inp = foliplus.dom.el("input", {
+    const inp = dom.el("input", {
       type: "text",
       placeholder: _(`${CONF.name}.coord_placeholder`),
     });
-    const clearBtn = foliplus.dom.el(
+    const clearBtn = dom.el(
       "button",
       {
         class: "foliplus-ctrl-btn foliplus-close-btn",
@@ -85,7 +87,7 @@ class SearchControl extends L.Control {
     this.inp = inp;
     this.clearBtn = clearBtn;
 
-    foliplus.dom.el("div", { class: CLASSES.CLEAR, parent: toolBar }, inp, clearBtn);
+    dom.el("div", { class: CLASSES.CLEAR, parent: toolBar }, inp, clearBtn);
   }
 
   // ── State Initialization ──

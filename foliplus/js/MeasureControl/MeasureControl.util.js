@@ -1,9 +1,8 @@
+import { buildPopupHtml } from "../common/dom.js";
 import { createTranslator } from "../common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Stop event propagation and prevent default. */
@@ -201,7 +200,7 @@ const setLabelText = (marker, text) => {
 
 /** Build popup HTML for a marker location. */
 const buildPopup = (lng, lat, addr) => {
-  return foliplus.buildPopupHtml(
+  return buildPopupHtml(
     lng,
     lat,
     addr,
@@ -290,7 +289,6 @@ export {
   applyToggle,
   area,
   attachDelClick,
-  bearing,
   buildPopup,
   calcToggle,
   centroid,

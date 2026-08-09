@@ -1,3 +1,4 @@
+import { createLocationMarker } from "../common/dom.js";
 import { createTranslator } from "../common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 import {
@@ -97,7 +98,7 @@ class MarkerMode extends MeasureMode {
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager, data) {
-    const marker = foliplus.createLocationMarker(
+    const marker = createLocationMarker(
       manager.map,
       data.lng,
       data.lat,
@@ -176,7 +177,7 @@ class MarkerMode extends MeasureMode {
 
     // createLocationMarker resolves the address async (popup + onAddress
     // callback) — no separate geocode call here to avoid a duplicate request.
-    const marker = foliplus.createLocationMarker(
+    const marker = createLocationMarker(
       this.map,
       parseFloat(lng),
       parseFloat(lat),

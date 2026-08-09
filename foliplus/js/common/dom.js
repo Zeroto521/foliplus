@@ -1,7 +1,10 @@
-// DOM helpers and popup/marker utilities for the foliplus runtime.
+// DOM helpers and popup/marker utilities for foliplus components.
 //
-import * as SVGs from "../common/icon.js";
-import { reverseGeocode } from "./runtime.geocode.js";
+// Imported statically by components. Reverse geocoding is NOT imported here —
+// it lives in the runtime singleton (runtime.geocode.js) and is accessed
+// lazily via `foliplus.reverseGeocode` at call time, so the geocoder's shared
+// cache/throttle state is not duplicated into every component bundle.
+import * as SVGs from "./icon.js";
 
 // ── DOM constants ───────────────────────────────────────────────
 const BOOL_PROPS = new Set([
@@ -47,8 +50,8 @@ const PIN = {
 };
 const POPUP_MAX_WIDTH = 300;
 
-/** @type {import("./runtime.dom.js")} */
-const foliplusDom = {
+/** @type {import("./dom.js")} */
+const dom = {
   /**
    * Create an element with attributes, properties, events, and children.
    *
@@ -114,16 +117,15 @@ const buildPopupHtml = (
   locLabelText,
   addrLabelText,
 ) => {
-  const foliplus = window.foliplus || {};
   const addrHtml =
     addr && addr.includes("LOADING")
       ? { html: `${SVGs.LOADING} ${loadingText}` }
       : addr || loadingText;
 
-  return foliplusDom.el(
+  return dom.el(
     "div",
     { class: "foliplus-popup-content" },
-    foliplusDom.el("b", null, titleText),
+    dom.el("b", null, titleText),
     { html: "<br>" },
     `${locLabelText}${lng},${lat}`,
     { html: "<br>" },
@@ -166,7 +168,6 @@ const createLocationMarker = (
   onAddress,
   openPopup = true,
 ) => {
-  const foliplus = window.foliplus || {};
   if (existing) map.removeLayer(existing);
   const target = layerGroup || map;
   const marker = L.marker([lat, lng], {
@@ -192,24 +193,28 @@ const createLocationMarker = (
     if (closeBtn) closeBtn.title = closeLabelText || "";
   }
   if (!addr) {
-    reverseGeocode(map, lng, lat, code).then((resolved) => {
-      if (onAddress) onAddress(resolved);
-      if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
-        marker.setPopupContent(
-          buildPopupHtml(
-            lng,
-            lat,
-            resolved,
-            titleText,
-            loadingText,
-            locLabelText,
-            addrLabelText,
-          ),
-        );
-      }
-    });
+    // Lazy access to the runtime singleton geocoder (kept out of this bundle).
+    const foliplus = window.foliplus || {};
+    if (foliplus.reverseGeocode) {
+      foliplus.reverseGeocode(map, lng, lat, code).then((resolved) => {
+        if (onAddress) onAddress(resolved);
+        if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
+          marker.setPopupContent(
+            buildPopupHtml(
+              lng,
+              lat,
+              resolved,
+              titleText,
+              loadingText,
+              locLabelText,
+              addrLabelText,
+            ),
+          );
+        }
+      });
+    }
   }
   return marker;
 };
 
-export { buildPopupHtml, createLocationMarker, foliplusDom };
+export { buildPopupHtml, createLocationMarker, dom };

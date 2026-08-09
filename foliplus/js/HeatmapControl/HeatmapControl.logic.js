@@ -1,5 +1,9 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
+import { cssVar } from "../common/cssvar.js";
+import { debounce } from "../common/debounce.js";
+import { formatNumber } from "../common/format.js";
 import { createTranslator } from "../common/locale.js";
+import { bindMapSync } from "../common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
 import * as SVGs from "./HeatmapControl.icon.js";
 import { rebuildLayerDropdown } from "./HeatmapControl.ui.js";
@@ -58,7 +62,7 @@ class HeatmapManager {
     // Hide canvas during zoom to avoid flicker, RAF-throttled redraw during pan.
     // zoomend triggers full re-render (renderHexagons) via separate handler
     // because it needs debounced H3 hexbin recalculation, not just cache redraw.
-    this.mapCleanup = foliplus.bindMapSync({
+    this.mapCleanup = bindMapSync({
       map: this.map,
       hideEvents: ["zoomstart"],
       showEvents: ["zoomend"],
@@ -73,7 +77,7 @@ class HeatmapManager {
       },
     });
 
-    this.onZoomEnd = foliplus.debounce(() => {
+    this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
         this.overlay.setVisible(true);
@@ -81,7 +85,7 @@ class HeatmapManager {
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);
 
-    this.onLayerChange = foliplus.debounce(() => {
+    this.onLayerChange = debounce(() => {
       this.cachedPoints = null;
       this.cachedAgg = null;
       if (this.ui) {
@@ -146,7 +150,7 @@ class HeatmapManager {
   resolveLabelStyle() {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
 
-    const css = (prop, fb) => foliplus.cssVar(this.ui.container, prop, fb);
+    const css = (prop, fb) => cssVar(this.ui.container, prop, fb);
     this.cachedLabelStyle = {
       font: `${css("--heatmap-label-font-weight")} ${css("--heatmap-label-font-size")} ${css("--heatmap-label-font-family")}`,
       color: css("--heatmap-label-color"),
@@ -160,7 +164,7 @@ class HeatmapManager {
   drawHexLabel(ctx, feat, { font, color, stroke, strokeWidth }) {
     const centroid = feat.properties.centroid;
     const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
-    const text = foliplus.formatNumber(feat.properties.value, CONF.label_format);
+    const text = formatNumber(feat.properties.value, CONF.label_format);
     // Use cached font string to avoid repeated Canvas font parsing
     if (ctx.font !== font) ctx.font = font;
     ctx.textAlign = "center";

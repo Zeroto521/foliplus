@@ -1,7 +1,7 @@
 // Reverse geocoding and address formatting for the foliplus runtime.
 //
-// Depends on runtime.coord.js helpers (getMapCrsType, toWgs84).
-import { getMapCrsType, toWgs84 } from "./runtime.coord.js";
+// Depends on common/coord.js helpers (getMapCrsType, toWgs84).
+import { getMapCrsType, toWgs84 } from "../common/coord.js";
 
 // ── Geocode constants ───────────────────────────────────────────
 const GEO_CACHE_MAX = 500;

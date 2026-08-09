@@ -109,7 +109,6 @@ export {
   getGeometryType,
   getTypeSVG,
   findLayer,
-  traverse,
   forEachLeaf,
   forEachLayer,
 };

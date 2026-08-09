@@ -1,5 +1,7 @@
+import { dom } from "../common/dom.js";
 import * as Icons from "../common/icon.js";
 import { createTranslator } from "../common/locale.js";
+import * as Storage from "../common/storage.js";
 import * as CONST from "./LayerControl.const.js";
 import * as SVGs from "./LayerControl.icon.js";
 import * as Util from "./LayerControl.util.js";
@@ -48,17 +50,13 @@ class LayerUI {
 
   /** Load fold state from localStorage. */
   loadFoldState() {
-    const data = foliplus.storage.load(CONST.STORAGE.FOLD_KEY, CONF.name);
+    const data = Storage.load(CONST.STORAGE.FOLD_KEY, CONF.name);
     if (Array.isArray(data)) this.foldedGroups = new Set(data);
   }
 
   /** Save fold state to localStorage. */
   saveFoldState() {
-    foliplus.storage.save(
-      CONST.STORAGE.FOLD_KEY,
-      Array.from(this.foldedGroups),
-      CONF.name,
-    );
+    Storage.save(CONST.STORAGE.FOLD_KEY, Array.from(this.foldedGroups), CONF.name);
   }
 
   renderInitialList() {
@@ -153,7 +151,7 @@ class LayerUI {
 
   renderToggleAllRow(group, labelKey) {
     const isFolded = this.foldedGroups.has(group);
-    return foliplus.dom.el(
+    return dom.el(
       "div",
       {
         class:
@@ -162,40 +160,40 @@ class LayerUI {
         "data-group": group,
         title: _(`${CONF.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
       },
-      foliplus.dom.el(
+      dom.el(
         "button",
         {
           class: CONST.CLASSES.FOLD_BTN,
         },
         { html: SVGs.FOLD },
       ),
-      foliplus.dom.el(
+      dom.el(
         "div",
         { class: CONST.CLASSES.CHECKBOX },
-        foliplus.dom.el("input", {
+        dom.el("input", {
           type: "checkbox",
           "data-role": "toggle-all",
           checked: "",
           title: _(`${CONF.name}.toggle_all_deselect_tooltip`),
         }),
       ),
-      foliplus.dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
-      foliplus.dom.el("div", { class: "foliplus-section-divider" }),
+      dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
+      dom.el("div", { class: "foliplus-section-divider" }),
     );
   }
 
   renderLayerItem(li, idx) {
     const en = Util.escapeHTML(li.name);
     const children = [
-      foliplus.dom.el(
+      dom.el(
         "span",
         { title: _(`${CONF.name}.drag_tooltip`) },
         { html: SVGs.DRAG_HANDLE },
       ),
-      foliplus.dom.el(
+      dom.el(
         "div",
         { class: CONST.CLASSES.CHECKBOX },
-        foliplus.dom.el("input", {
+        dom.el("input", {
           type: "checkbox",
           checked: "",
           [CONST.DATA.INDEX]: String(idx),
@@ -203,14 +201,14 @@ class LayerUI {
           title: en,
         }),
       ),
-      foliplus.dom.el("label", null, en),
+      dom.el("label", null, en),
     ];
     if (li.iconSvg)
       children.push({
         html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${li.iconSvg}</div>`,
       });
-    else children.push(foliplus.dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }));
-    return foliplus.dom.el(
+    else children.push(dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }));
+    return dom.el(
       "div",
       {
         class: CONST.CLASSES.LAYER_ITEM,
@@ -224,7 +222,7 @@ class LayerUI {
   }
 
   renderColorLayerItem() {
-    return foliplus.dom.el(
+    return dom.el(
       "div",
       {
         class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
@@ -233,17 +231,17 @@ class LayerUI {
         title: _(`${CONF.name}.color_map_label`),
       },
       { html: SVGs.DRAG_HANDLE },
-      foliplus.dom.el(
+      dom.el(
         "div",
         { class: CONST.CLASSES.CHECKBOX },
-        foliplus.dom.el("input", {
+        dom.el("input", {
           type: "color",
           class: CONST.CLASSES.COLOR_INPUT,
           value: this.currentColor,
           "aria-label": _(`${CONF.name}.color_map_label`),
         }),
       ),
-      foliplus.dom.el("label", null, _(`${CONF.name}.color_map_label`)),
+      dom.el("label", null, _(`${CONF.name}.color_map_label`)),
       { html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${SVGs.COLOR}</div>` },
     );
   }

@@ -3,11 +3,11 @@
 // Internal state (hintIcons, hintMap) is module-scoped and exposed through
 // the functions below. The runtime entry module wires these onto
 // `window.foliplus.*`.
-import { foliplusDom } from "./runtime.dom.js";
+import { dom } from "../common/dom.js";
 
 // ── Hint constants ──────────────────────────────────────────────
 const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
-const CLASSES = "foliplus-hint";
+const CLASS = "foliplus-hint";
 const HINT_DURATION = {
   SHORT: 1200,
   MEDIUM: 2500,
@@ -51,14 +51,14 @@ const showHint = (key, text, duration, append, subkey) => {
 
   const hintTarget = document.fullscreenElement || document.body;
   const cls = subkey
-    ? `${CLASSES} ${CLASSES}-${key}-${subkey}`
+    ? `${CLASS} ${CLASS}-${key}-${subkey}`
     : append
-      ? `${CLASSES} ${CLASSES}-${key}-${Date.now()}`
-      : `${CLASSES} ${CLASSES}-${key}`;
+      ? `${CLASS} ${CLASS}-${key}-${Date.now()}`
+      : `${CLASS} ${CLASS}-${key}`;
 
   const icon = (hintIcons && hintIcons[key]) || "";
-  const el = foliplusDom.el("div", {
-    class: `${cls} ${CLASSES}`,
+  const el = dom.el("div", {
+    class: `${cls} ${CLASS}`,
     parent: hintTarget,
     innerHTML: icon ? `<span class="foliplus-hint-icon">${icon}</span>${text}` : text,
   });

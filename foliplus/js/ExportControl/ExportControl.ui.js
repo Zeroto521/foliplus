@@ -1,7 +1,10 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
+import { dom } from "../common/dom.js";
+import { formatNumber } from "../common/format.js";
 import * as Icons from "../common/icon.js";
 import { createTranslator } from "../common/locale.js";
+import { bindMapSync } from "../common/panel.js";
 import * as CONST from "./ExportControl.const.js";
 import * as SVGs from "./ExportControl.icon.js";
 
@@ -42,10 +45,7 @@ const showHintWithInfo = (mgr, r, instruction) => {
   if (mgr.pixelOverLimit) {
     foliplus.showHint(
       CONF.name,
-      _(`${CONF.name}.err_too_large`).replace(
-        "{limit}",
-        foliplus.formatNumber(CONF.max_pixels),
-      ),
+      _(`${CONF.name}.err_too_large`).replace("{limit}", formatNumber(CONF.max_pixels)),
       foliplus.HINT_DURATION.PERSIST,
       null,
       "limit",
@@ -104,29 +104,29 @@ const showCropBox = (mgr) => {
     };
   }
 
-  const overlay = foliplus.dom.el("div", {
+  const overlay = dom.el("div", {
     class: `foliplus-export-overlay active`,
     parent: mgr.mapContainer,
   });
   mgr.mapContainer.classList.add(CONST.CLASSES.MODE);
   document.body.classList.add(CONST.CLASSES.MODE);
 
-  const cropBox = foliplus.dom.el("div", {
+  const cropBox = dom.el("div", {
     class: CONST.CLASSES.BOX,
     parent: mgr.mapContainer,
   });
 
   ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach((pos) => {
-    foliplus.dom.el("div", {
+    dom.el("div", {
       class: `${CONST.CLASSES.HANDLE} ${pos}`,
       parent: cropBox,
       "data-pos": pos,
     });
   });
-  foliplus.dom.el("div", { class: CONST.CLASSES.CENTER, parent: cropBox });
+  dom.el("div", { class: CONST.CLASSES.CENTER, parent: cropBox });
 
   mgr.exportToolBar.innerHTML = "";
-  foliplus.dom.el(
+  dom.el(
     "button",
     {
       class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
@@ -135,7 +135,7 @@ const showCropBox = (mgr) => {
     },
     { html: SVGs.CHECK },
   );
-  foliplus.dom.el(
+  dom.el(
     "button",
     {
       class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
@@ -181,7 +181,7 @@ const lockCropBox = (mgr, skipHint) => {
   };
   mgr.cropState.geoBounds = mgr.cropState.savedGeoBounds;
   mgr.cropState.actions.innerHTML = "";
-  foliplus.dom.el(
+  dom.el(
     "button",
     {
       class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
@@ -190,7 +190,7 @@ const lockCropBox = (mgr, skipHint) => {
     },
     { html: SVGs.DOWNLOAD },
   );
-  foliplus.dom.el(
+  dom.el(
     "button",
     {
       class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
@@ -207,7 +207,7 @@ const lockCropBox = (mgr, skipHint) => {
     e.stopPropagation();
     mgr.doExport();
   };
-  mgr.mapMoveCleanup = foliplus.bindMapSync({
+  mgr.mapMoveCleanup = bindMapSync({
     map: mgr.map,
     updateEvents: ["zoomend"],
     onMove: () => {
@@ -228,7 +228,7 @@ const unlockCropBox = (mgr) => {
   mgr.cropState.box.classList.remove("locked");
   if (mgr.mapMoveCleanup) mgr.mapMoveCleanup();
   mgr.cropState.actions.innerHTML = "";
-  foliplus.dom.el(
+  dom.el(
     "button",
     {
       class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
@@ -237,7 +237,7 @@ const unlockCropBox = (mgr) => {
     },
     { html: SVGs.CHECK },
   );
-  foliplus.dom.el(
+  dom.el(
     "button",
     {
       class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,

@@ -1,4 +1,5 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
+import { adjustPanelZIndex } from "../common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./SearchControl.const.js";
 import {
   fetchSuggestions,
@@ -20,13 +21,13 @@ const bindEvents = (ctrl) => {
     if (ctrl.ctrl.classList.contains(CLASSES.EXPANDED)) {
       ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
       ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
-      foliplus.adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+      adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
       foliplus.hideHint(CONF.name);
       removeSuggestions(ctrl);
     } else {
       ctrl.ctrl.classList.remove(CLASSES.COLLAPSED);
       ctrl.ctrl.classList.add(CLASSES.EXPANDED);
-      foliplus.adjustPanelZIndex({ container: ctrl.ctrl, expanded: true });
+      adjustPanelZIndex({ container: ctrl.ctrl, expanded: true });
       ctrl.inp.focus();
     }
   };
@@ -61,7 +62,7 @@ const bindEvents = (ctrl) => {
       }
       ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
       ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
-      foliplus.adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+      adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
       foliplus.hideHint(CONF.name);
       return;
     }

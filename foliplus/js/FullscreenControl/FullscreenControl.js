@@ -1,3 +1,4 @@
+import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
@@ -19,16 +20,16 @@ class FullscreenControl extends L.Control {
       if (zoomEl) zoomEl.remove();
     }
 
-    const outer = foliplus.dom.el("div", {
+    const outer = dom.el("div", {
       class: "leaflet-bar leaflet-control",
       id: containerId(CONF.name, CONF.position),
     });
-    const container = foliplus.dom.el("div", {
+    const container = dom.el("div", {
       class: "foliplus-ctrl-fold foliplus-fullscreen-bar",
       parent: outer,
     });
 
-    foliplus.dom.el(
+    dom.el(
       "button",
       {
         class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_IN}`,
@@ -43,7 +44,7 @@ class FullscreenControl extends L.Control {
       { html: SVGs.ZOOM_IN },
     );
 
-    foliplus.dom.el(
+    dom.el(
       "button",
       {
         class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_OUT}`,
@@ -58,7 +59,7 @@ class FullscreenControl extends L.Control {
       { html: SVGs.ZOOM_OUT },
     );
 
-    const fsBtn = foliplus.dom.el(
+    const fsBtn = dom.el(
       "button",
       {
         class: `${CLASSES.TOOL_BTN} ${CLASSES.TOGGLE}`,

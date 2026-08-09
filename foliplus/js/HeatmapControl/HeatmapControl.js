@@ -1,5 +1,6 @@
 import { requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
+import { createPanelControl } from "../common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
 import * as SVGs from "./HeatmapControl.icon.js";
 import { HeatmapManager } from "./HeatmapControl.logic.js";
@@ -41,7 +42,7 @@ class HeatmapControl extends L.Control {
   }
 
   onAdd() {
-    const { container, ctrl, panelContent } = foliplus.createPanelControl({
+    const { container, ctrl, panelContent } = createPanelControl({
       cssClass: CONST.CLASSES.HEATMAP_CTRL,
       toggleTitle: _(`${CONF.name}.title`),
       toggleSvg: SVGs.HEXAGON,

@@ -1,7 +1,10 @@
-// Coordinate transformation and CRS detection for the foliplus runtime.
+// Coordinate transformation and CRS detection for foliplus components.
 //
-// These functions operate on Leaflet maps and coordinate systems, and are
-// assembled onto `window.foliplus.*` by the runtime entry module.
+// Pure functions (no module-level state) — imported statically by components.
+// The runtime geocoder (runtime.geocode.js) also imports these, which is fine:
+// esbuild inlines a copy into runtime.min.js as well.
+//
+// These functions operate on Leaflet maps and coordinate systems.
 
 /**
  * Detect whether the map uses Baidu coordinate system (BD-09).

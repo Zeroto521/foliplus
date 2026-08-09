@@ -1,5 +1,6 @@
 import { requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
+import { createFoldControl } from "../common/panel.js";
 import * as SVGs from "./ExportControl.icon.js";
 import { ExportManager } from "./ExportControl.manager.js";
 
@@ -45,7 +46,7 @@ const exportManager = new ExportManager(map);
 
 class ExportControl extends L.Control {
   onAdd() {
-    const { container, ctrl, toolBar, toggleBtn } = foliplus.createFoldControl({
+    const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: `foliplus-export-ctrl`,
       toggleTitle: _(`${CONF.name}.btn_title`),
       toggleSvg: SVGs.CAMERA,

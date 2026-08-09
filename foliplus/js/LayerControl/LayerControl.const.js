@@ -3,17 +3,10 @@ export const INIT_DELAY_MS = 300;
 export const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
 /** Z-index values. */
-export const Z_INDEX = {
-  BASE: 600,
-  TILE_BASE: 200,
-  STEP: 10,
-};
+export const Z_INDEX = { BASE: 600, TILE_BASE: 200, STEP: 10 };
 
 /** Recursion depth limits. */
-export const RECURSION = {
-  PANE_DEPTH: 5,
-  LAYER_DEPTH: 10,
-};
+export const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
 
 /** Drag hint cooldown. */
 export const DRAG = { HINT_COOLDOWN_MS: 800 };
@@ -25,10 +18,7 @@ export const STORAGE = {
 };
 
 /** Color map layer. */
-export const COLOR = {
-  MAP_ID: "foliplus_color_map",
-  DEFAULT: "#cccccc",
-};
+export const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
 
 /** Renderer key prefix. */
 export const RENDERER_KEY = "foliplus_renderer_";
@@ -57,10 +47,7 @@ export const CLASSES = {
 };
 
 /** Data attribute names. */
-export const DATA = {
-  INDEX: "data-index",
-  LAYER_ID: "data-layer-id",
-};
+export const DATA = { INDEX: "data-index", LAYER_ID: "data-layer-id" };
 
 /** DOM selectors. */
 export const SEL = {
@@ -71,10 +58,7 @@ export const SEL = {
 };
 
 /** Group names. */
-export const GROUP = {
-  OVERLAY: "overlay",
-  BASE: "base",
-};
+export const GROUP = { OVERLAY: "overlay", BASE: "base" };
 
 /** Geometry type names. */
 export const GEOM_TYPE = {

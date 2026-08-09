@@ -1,6 +1,8 @@
+import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
 import { createTranslator } from "../common/locale.js";
+import { bindPanelToggle } from "../common/panel.js";
 import * as SVGs from "./LayerControl.icon.js";
 import {
   LayerManager,
@@ -32,7 +34,7 @@ class LayerControl extends L.Control {
 
   onAdd() {
     patchBringToFront();
-    const container = foliplus.dom.el("div", {
+    const container = dom.el("div", {
       class: "leaflet-bar leaflet-control",
     });
 
@@ -62,7 +64,7 @@ class LayerControl extends L.Control {
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
 
-    foliplus.bindPanelToggle({
+    bindPanelToggle({
       container: container.querySelector(".foliplus-layer-ctrl"),
       toggleBtn: ".foliplus-toggle-btn",
       header: ".foliplus-panel-header",

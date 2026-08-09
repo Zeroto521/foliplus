@@ -1,4 +1,8 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
+import { fromWgs84 } from "../common/coord.js";
+import { debounce } from "../common/debounce.js";
+import { dom } from "../common/dom.js";
+import { createLocationMarker } from "../common/dom.js";
 import * as Icons from "../common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./SearchControl.const.js";
 
@@ -40,7 +44,7 @@ const searchCoord = (ctrl, raw) => {
 
   foliplus.hideHint(CONF.name);
   map.flyTo([lat, lng], CONF.zoom || 16);
-  ctrl.marker = foliplus.createLocationMarker(
+  ctrl.marker = createLocationMarker(
     map,
     lng,
     lat,
@@ -118,7 +122,7 @@ const renderAddressResult = (ctrl, result) => {
   let lat = parseFloat(item.lat);
   let lng = parseFloat(item.lon);
 
-  const converted = foliplus.fromWgs84(map, lng, lat);
+  const converted = fromWgs84(map, lng, lat);
   lng = converted[0];
   lat = converted[1];
 
@@ -127,7 +131,7 @@ const renderAddressResult = (ctrl, result) => {
     Math.max(ZOOM.MIN, ZOOM.BASE - Math.floor(displayName.length / ZOOM.DIVISOR)),
   );
   map.flyTo([lat, lng], zoom);
-  ctrl.marker = foliplus.createLocationMarker(
+  ctrl.marker = createLocationMarker(
     map,
     lng,
     lat,
@@ -175,7 +179,7 @@ const renderSuggestions = (ctrl, results, query) => {
   ctrl.cachedSuggestions[query] = results;
 
   if (!ctrl.suggestionsWrap) {
-    ctrl.suggestionsWrap = foliplus.dom.el("div", {
+    ctrl.suggestionsWrap = dom.el("div", {
       class: CLASSES.SUGGESTIONS,
       parent: document.body,
       onclick: (e) => e.stopPropagation(),
@@ -189,7 +193,7 @@ const renderSuggestions = (ctrl, results, query) => {
   results.forEach((item, idx) => {
     const displayName =
       foliplus.formatAddress(item.display_name, map) || item.name || "";
-    foliplus.dom.el(
+    dom.el(
       "div",
       {
         class: CLASSES.SUGGESTION_ITEM,
@@ -203,12 +207,8 @@ const renderSuggestions = (ctrl, results, query) => {
           renderAddressResult(ctrl, { item, displayName });
         },
       },
-      foliplus.dom.el(
-        "span",
-        { class: CLASSES.SUGGESTION_ICON },
-        { html: Icons.LOCATE },
-      ),
-      foliplus.dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, displayName),
+      dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: Icons.LOCATE }),
+      dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, displayName),
     );
   });
 };
@@ -258,7 +258,7 @@ const fetchSuggestions = (ctrl, query) => {
 };
 
 const initDebouncedFetch = (ctrl) => {
-  ctrl.debouncedFetch = foliplus.debounce(
+  ctrl.debouncedFetch = debounce(
     () => fetchSuggestions(ctrl, ctrl.inp.value.trim()),
     AUTOCOMPLETE.DEBOUNCE_MS,
   );
@@ -275,13 +275,10 @@ const buildSearchUrl = (ctrl, query, limit) => {
 };
 
 export {
-  buildSearchUrl,
   fetchSuggestions,
   initDebouncedFetch,
   positionSuggestions,
   removeSuggestions,
-  renderAddressResult,
-  renderSuggestions,
   searchAddress,
   searchCoord,
 };

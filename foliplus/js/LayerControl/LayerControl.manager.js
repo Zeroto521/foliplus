@@ -1,4 +1,7 @@
+import { debounce } from "../common/debounce.js";
+import { dom } from "../common/dom.js";
 import { createTranslator } from "../common/locale.js";
+import * as Storage from "../common/storage.js";
 import * as CONST from "./LayerControl.const.js";
 import { PaneManager } from "./LayerControl.pane.js";
 import * as Util from "./LayerControl.util.js";
@@ -306,7 +309,7 @@ class LayerManager {
     this.lastAttribution = null;
     this.ui = null;
 
-    this.debouncedEnforce = foliplus.debounce(() => {
+    this.debouncedEnforce = debounce(() => {
       if (this.isDestroyed || !this.map || !this.map._container) return;
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
@@ -338,7 +341,7 @@ class LayerManager {
   }
 
   loadSavedOrder() {
-    const data = foliplus.storage.load(CONST.STORAGE.ORDER_KEY, CONF.name);
+    const data = Storage.load(CONST.STORAGE.ORDER_KEY, CONF.name);
     if (!data || !Array.isArray(data)) return;
     const layerMap = new Map(this.layers.map((l) => [l.id, l]));
     const ordered = [];
@@ -352,7 +355,7 @@ class LayerManager {
   }
 
   saveOrder() {
-    foliplus.storage.save(
+    Storage.save(
       CONST.STORAGE.ORDER_KEY,
       this.layers.map((l) => l.id),
       CONF.name,
@@ -675,7 +678,7 @@ class LayerManager {
     if (!mapPane)
       throw new Error(`[${CONF.name}] ${_(`${CONF.name}.mapPane_not_available`)}`);
 
-    const canvas = foliplus.dom.el("canvas", {
+    const canvas = dom.el("canvas", {
       class: "foliplus-heatmap-canvas",
       parent: mapPane,
     });

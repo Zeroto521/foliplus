@@ -67,4 +67,4 @@ const ensureFont = async (fontSpec) => {
   }
 };
 
-export { isVisible, loadImageBitmap, loadImage, ensureFont, bitmapCache };
+export { isVisible, loadImageBitmap, loadImage, ensureFont };

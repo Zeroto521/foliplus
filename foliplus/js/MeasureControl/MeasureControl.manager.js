@@ -1,4 +1,6 @@
 import { createTranslator } from "../common/locale.js";
+import { adjustPanelZIndex } from "../common/panel.js";
+import * as Storage from "../common/storage.js";
 import * as CONST from "./MeasureControl.const.js";
 import * as SVGs from "./MeasureControl.icon.js";
 import {
@@ -43,13 +45,13 @@ class MeasureManager {
 
   /** Persist all measurements to localStorage. */
   saveMeasurements() {
-    foliplus.storage.save(CONST.STORAGE.KEY, this.measurements, CONF.name);
+    Storage.save(CONST.STORAGE.KEY, this.measurements, CONF.name);
   }
 
   /** Load measurements from localStorage.
    *  @returns {Array} Restored measurements array. */
   loadMeasurements() {
-    const data = foliplus.storage.load(CONST.STORAGE.KEY, CONF.name);
+    const data = Storage.load(CONST.STORAGE.KEY, CONF.name);
     return Array.isArray(data) ? data : [];
   }
 
@@ -195,7 +197,7 @@ class MeasureManager {
     if (this.ctrl) {
       this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
       this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
-      foliplus.adjustPanelZIndex({ container: this.ctrl, expanded: false });
+      adjustPanelZIndex({ container: this.ctrl, expanded: false });
     }
   }
 
