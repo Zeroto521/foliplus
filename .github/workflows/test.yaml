@@ -33,13 +33,13 @@ jobs:
           create-args: python=${{ matrix.python }}
 
       # Node is required for the JS build (esbuild) and vitest JS test suite.
+      # package-lock.json is intentionally gitignored, so use `npm install`
+      # (npm ci requires the lockfile) and skip the npm cache.
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: package-lock.json
+          node-version: "24"
 
-      - run: npm ci
+      - run: npm install
       - run: playwright install chromium
       - run: pip install -e .
       - run: make info
