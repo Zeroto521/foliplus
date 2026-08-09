@@ -2,13 +2,13 @@ import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const CLASSES = {
   WRAP: "foliplus-scale-wrap",
   ZOOM_LABEL: "foliplus-scale-zoom-label",
 };
 
 // ==================== Runtime Guard ====================
+// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 requireRuntime(CONF.name);
 
 // ==================== Dependencies ====================
