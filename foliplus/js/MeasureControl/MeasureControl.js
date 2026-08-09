@@ -1286,7 +1286,6 @@ class CircleMode extends PreviewMode {
 // ==================== Guard: LayerControl required ====================
 if (!foliplus.LayerAPI) {
   const msg = _(`${CONF.name}.no_layercontrol`);
-  console.error(`[${CONF.name}] ${msg}`);
   foliplus.showHint(CONF.name, msg, foliplus.HINT_DURATION.PERSIST);
   throw new Error(`[${CONF.name}] ${msg}`);
 }
