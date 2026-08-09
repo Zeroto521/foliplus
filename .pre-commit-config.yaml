@@ -56,4 +56,4 @@ repos:
         entry: npx prettier --write
         language: system
         types_or: [css, javascript]
-        files: ^foliplus/(js|css)/
+        files: ^foliplus/(js|css)/|^script/.*\.js$|^test/js/.*\.js$

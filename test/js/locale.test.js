@@ -66,7 +66,10 @@ describe("createTranslator", () => {
       get: () => "fr-FR",
     });
     try {
-      const conf = { locale_code: "", locale_tables: { en: { ok: "OK", "locale.code": "en" } } };
+      const conf = {
+        locale_code: "",
+        locale_tables: { en: { ok: "OK", "locale.code": "en" } },
+      };
       const t = createTranslator(conf);
       expect(conf.locale_code).toBe("en");
       expect(t("ok")).toBe("OK");

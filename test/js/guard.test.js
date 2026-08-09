@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { requireRuntime, requireLayerAPI } from "../../foliplus/js/common/guard.js";
+import { requireLayerAPI, requireRuntime } from "../../foliplus/js/common/guard.js";
 
 const mockShowHint = vi.fn();
 
@@ -24,7 +24,10 @@ describe("requireLayerAPI", () => {
   const _ = (s) => s;
 
   it("throws when LayerAPI is missing", () => {
-    vi.stubGlobal("foliplus", { showHint: mockShowHint, HINT_DURATION: { PERSIST: 0 } });
+    vi.stubGlobal("foliplus", {
+      showHint: mockShowHint,
+      HINT_DURATION: { PERSIST: 0 },
+    });
     expect(() => requireLayerAPI("Test", _)).toThrow("Test.no_layercontrol");
     expect(mockShowHint).toHaveBeenCalledWith("Test", "Test.no_layercontrol", 0);
   });

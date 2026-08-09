@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  CLASSES,
-  containerId,
-} from "../../foliplus/js/FullscreenControl/FullscreenControl.const.js";
-import {
   getFullscreenEl,
   isEnabled,
   nativeAPI,
 } from "../../foliplus/js/FullscreenControl/FullscreenControl.api.js";
+import {
+  CLASSES,
+  containerId,
+} from "../../foliplus/js/FullscreenControl/FullscreenControl.const.js";
 
 describe("const.js", () => {
   it("CLASSES has expected keys", () => {
@@ -20,7 +20,9 @@ describe("const.js", () => {
   });
 
   it("containerId formats correctly", () => {
-    expect(containerId("FullscreenControl", "topleft")).toBe("FullscreenControl_topleft_container");
+    expect(containerId("FullscreenControl", "topleft")).toBe(
+      "FullscreenControl_topleft_container",
+    );
     expect(containerId("Test", "bottomright")).toBe("Test_bottomright_container");
   });
 });

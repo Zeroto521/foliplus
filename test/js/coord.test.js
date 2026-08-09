@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  fromWgs84,
-  getMapCrsType,
-  toWgs84,
-} from "../../foliplus/js/common/coord.js";
+import { fromWgs84, getMapCrsType, toWgs84 } from "../../foliplus/js/common/coord.js";
 
 const baiduMap = {
   options: { crs: { code: "epsg:900913 baidu" } },
@@ -75,9 +71,7 @@ describe("ensureGcoord (via toWgs84)", () => {
     delete globalThis.gcoord;
     const result = toWgs84(foreignMap, 120, 30);
     expect(result).toEqual([120, 30]);
-    expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining("gcoord"),
-    );
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("gcoord"));
   });
 
   it("does not warn when gcoord is available", () => {

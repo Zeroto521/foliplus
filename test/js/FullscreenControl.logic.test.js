@@ -47,7 +47,9 @@ describe("updateUI", () => {
 
   it("skips hide_self when CONF.hide_self is not set", () => {
     updateUI(mapMock, fsBtn, container);
-    const selfBtns = container.querySelectorAll(".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out");
+    const selfBtns = container.querySelectorAll(
+      ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",
+    );
     for (const btn of selfBtns) {
       expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(false);
     }
@@ -81,7 +83,9 @@ describe("toggleFullscreen — pseudo path", () => {
   it("exits pseudo-fullscreen on second call", () => {
     toggleFullscreen(mapMock, fsBtn, container);
     toggleFullscreen(mapMock, fsBtn, container);
-    expect(mapMock._container.classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(false);
+    expect(mapMock._container.classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      false,
+    );
     expect(mapMock.isFullscreen).toBe(false);
   });
 
