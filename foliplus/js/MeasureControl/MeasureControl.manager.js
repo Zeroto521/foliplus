@@ -450,6 +450,10 @@ class MeasureManager {
     foliplus.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
+    // Unregister the measure layer if it has no content left (interrupted
+    // preview with no persisted measurements). Safe: unregister() is a no-op
+    // when there are still completed measurements in the layer.
+    this.layers.unregister();
   }
 
   /** Clear all measurements, layers, and persisted data. */
