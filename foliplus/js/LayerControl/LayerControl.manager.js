@@ -2,6 +2,7 @@ import { debounce } from "../common/debounce.js";
 import { dom } from "../common/dom.js";
 import { createTranslator } from "../common/locale.js";
 import * as Storage from "../common/storage.js";
+import { throttleRaf } from "../common/throttle.js";
 import * as CONST from "./LayerControl.const.js";
 import { PaneManager } from "./LayerControl.pane.js";
 import * as Util from "./LayerControl.util.js";
@@ -750,7 +751,7 @@ class LayerManager {
       this.registerLayer(layerOpts);
     };
 
-    const onMove = () => updatePosition();
+    const onMove = throttleRaf(() => updatePosition());
     this.map.on("move", onMove);
 
     const onResize = () => resize();
@@ -771,6 +772,7 @@ class LayerManager {
       destroy: () => {
         this.map.off("move", onMove);
         this.map.off("resize", onResize);
+        onMove.cancel();
         unregister();
         canvas.remove();
       },

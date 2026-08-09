@@ -6,6 +6,7 @@
 import { cssVar } from "./cssvar.js";
 import { dom } from "./dom.js";
 import * as SVGs from "./icon.js";
+import { throttleRaf } from "./throttle.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
@@ -193,25 +194,16 @@ const bindMapSync = (opts) => {
   add(opts.updateEvents, opts.onUpdate);
   add(opts.showEvents, opts.onShow);
 
-  let moveRafId = null;
+  let onMove = null;
   if (opts.onMove) {
-    const onMove = () => {
-      if (moveRafId) return;
-      moveRafId = requestAnimationFrame(() => {
-        moveRafId = null;
-        opts.onMove();
-      });
-    };
+    onMove = throttleRaf(opts.onMove);
     opts.map.on("move", onMove);
     handlers.push(["move", onMove]);
   }
 
   return () => {
     handlers.forEach(([ev, fn]) => opts.map.off(ev, fn));
-    if (moveRafId) {
-      cancelAnimationFrame(moveRafId);
-      moveRafId = null;
-    }
+    onMove?.cancel();
   };
 };
 
