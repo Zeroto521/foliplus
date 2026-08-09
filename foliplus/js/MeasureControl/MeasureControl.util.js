@@ -11,9 +11,8 @@ const _ = createTranslator(CONF);
  *  @returns {string} Formatted distance string. */
 const formatDistance = (meters) => {
   return meters >= CONST.FORMAT.KM_THRESHOLD
-    ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} ` +
-        _(`${CONF.name}.unit_km`)
-    : `${Math.round(meters)} ` + _(`${CONF.name}.unit_m`);
+    ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} km`
+    : `${Math.round(meters)} m`;
 };
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off.

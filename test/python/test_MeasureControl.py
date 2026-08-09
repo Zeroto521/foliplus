@@ -184,8 +184,6 @@ class TestMeasureControlRendering:
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "meters >= CONST.FORMAT.KM_THRESHOLD" in html
-        assert "MeasureControl.unit_km" in html
-        assert "MeasureControl.unit_m" in html
 
     def test_distance_calculation(self, base_map: folium.Map):
         """MeasureUtils.distance delegates to turf.js distance."""

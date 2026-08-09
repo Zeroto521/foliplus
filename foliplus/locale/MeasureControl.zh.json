@@ -17,8 +17,6 @@
   "MeasureControl.popup_addr_label": "📌 地址：",
   "MeasureControl.popup_loading": "查询中…",
   "MeasureControl.dist_origin": "起点",
-  "MeasureControl.unit_km": "km",
-  "MeasureControl.unit_m": "m",
   "MeasureControl.geo_fail": "查询失败",
   "MeasureControl.no_layercontrol": "MeasureControl 组件依赖 LayerControl，请先添加 LayerControl 组件",
   "MeasureControl.del_tooltip": "删除",

@@ -130,8 +130,6 @@ _JS_USED_KEYS = {
     "SearchControl.addr_not_found",
     "SearchControl.addr_error",
     # MeasureControl
-    "MeasureControl.unit_km",
-    "MeasureControl.unit_m",
     "MeasureControl.tool_toggle",
     "MeasureControl.tool_marker",
     "MeasureControl.tool_distance",
