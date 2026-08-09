@@ -12,11 +12,6 @@ const { _, foliplus } = createControlEnv(CONF, SVGs.SEARCH);
 
 // ==================== Control Definition ====================
 class SearchControl extends BaseControl {
-  constructor(options) {
-    super(options);
-    this._ = _;
-  }
-
   buildDOM() {
     this.createDOM();
     this.initState();

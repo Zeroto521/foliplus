@@ -68,7 +68,7 @@ describe("searchCoord", () => {
   });
 
   it("shows hint and clears input for invalid coordinates", () => {
-    const ctrl = { inp: { value: "" }, _: (s) => s, marker: null };
+    const ctrl = { inp: { value: "" }, marker: null };
     searchCoord(ctrl, "abc");
     expect(foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
@@ -79,7 +79,7 @@ describe("searchCoord", () => {
   });
 
   it("shows hint for out-of-range values", () => {
-    const ctrl = { inp: { value: "" }, _: (s) => s, marker: null };
+    const ctrl = { inp: { value: "" }, marker: null };
     searchCoord(ctrl, "200,100");
     expect(foliplus.showHint).toHaveBeenCalled();
     expect(ctrl.inp.value).toBe("");
@@ -88,7 +88,6 @@ describe("searchCoord", () => {
   it("flies to valid coordinates", () => {
     const ctrl = {
       inp: { value: "121.47,31.23" },
-      _: (s) => s,
       marker: null,
     };
     searchCoord(ctrl, "121.47,31.23");

@@ -3,11 +3,12 @@ import { fromWgs84 } from "../common/coord.js";
 import { debounce } from "../common/debounce.js";
 import { createLocationMarker, dom } from "../common/dom.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "../common/geocode.js";
+import { createControlEnv } from "../common/guard.js";
 import { HINT_DURATION } from "../common/hint.js";
 import * as Icons from "../common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./SearchControl.const.js";
 
-const foliplus = window.foliplus;
+const { _, foliplus } = createControlEnv(CONF);
 
 /**
  * Coordinate search: parse raw input, validate, fly to location, place marker.
@@ -22,11 +23,7 @@ const searchCoord = (ctrl, raw) => {
     .map(Number);
 
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-    foliplus.showHint(
-      CONF.name,
-      ctrl._(`${CONF.name}.coord_error`),
-      HINT_DURATION.LONG,
-    );
+    foliplus.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
     ctrl.inp.value = "";
     return;
   }
@@ -34,11 +31,7 @@ const searchCoord = (ctrl, raw) => {
   const lng = parts[0];
   const lat = parts[1];
   if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-    foliplus.showHint(
-      CONF.name,
-      ctrl._(`${CONF.name}.coord_error`),
-      HINT_DURATION.LONG,
-    );
+    foliplus.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
     ctrl.inp.value = "";
     return;
   }
@@ -50,11 +43,11 @@ const searchCoord = (ctrl, raw) => {
     lng,
     lat,
     null,
-    ctrl._(`${CONF.name}.popup_title_coord`),
-    ctrl._(`${CONF.name}.popup_loading`),
-    ctrl._(`${CONF.name}.popup_loc_label`),
-    ctrl._(`${CONF.name}.popup_addr_label`),
-    ctrl._("foliplus.close_label"),
+    _(`${CONF.name}.popup_title_coord`),
+    _(`${CONF.name}.popup_loading`),
+    _(`${CONF.name}.popup_loc_label`),
+    _(`${CONF.name}.popup_addr_label`),
+    _("foliplus.close_label"),
     CONF.locale_code,
     ctrl.marker,
   );
@@ -73,7 +66,7 @@ const searchAddress = (ctrl, query) => {
 
   foliplus.showHint(
     CONF.name,
-    `${Icons.LOADING} ${ctrl._(`${CONF.name}.popup_loading`)}`,
+    `${Icons.LOADING} ${_(`${CONF.name}.popup_loading`)}`,
     HINT_DURATION.PERSIST,
   );
 
@@ -88,7 +81,7 @@ const searchAddress = (ctrl, query) => {
       if (!results || results.length === 0) {
         foliplus.showHint(
           CONF.name,
-          ctrl._(`${CONF.name}.addr_not_found`),
+          _(`${CONF.name}.addr_not_found`),
           HINT_DURATION.LONG,
         );
         ctrl.inp.value = "";
@@ -105,11 +98,7 @@ const searchAddress = (ctrl, query) => {
       if (err.name === "AbortError") return;
       console.error(`[${CONF.name}] Address lookup failed, check network`);
       foliplus.hideHint(CONF.name);
-      foliplus.showHint(
-        CONF.name,
-        ctrl._(`${CONF.name}.addr_error`),
-        HINT_DURATION.LONG,
-      );
+      foliplus.showHint(CONF.name, _(`${CONF.name}.addr_error`), HINT_DURATION.LONG);
     });
 };
 
@@ -137,11 +126,11 @@ const renderAddressResult = (ctrl, result) => {
     lng,
     lat,
     displayName,
-    ctrl._(`${CONF.name}.popup_title_addr`),
-    ctrl._(`${CONF.name}.popup_loading`),
-    ctrl._(`${CONF.name}.popup_loc_label`),
-    ctrl._(`${CONF.name}.popup_addr_label`),
-    ctrl._("foliplus.close_label"),
+    _(`${CONF.name}.popup_title_addr`),
+    _(`${CONF.name}.popup_loading`),
+    _(`${CONF.name}.popup_loc_label`),
+    _(`${CONF.name}.popup_addr_label`),
+    _("foliplus.close_label"),
     CONF.locale_code,
     ctrl.marker,
   );

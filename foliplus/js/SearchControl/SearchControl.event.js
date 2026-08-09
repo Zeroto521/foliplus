@@ -1,4 +1,5 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
+import { createControlEnv } from "../common/guard.js";
 import { adjustPanelZIndex } from "../common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./SearchControl.const.js";
 import {
@@ -9,7 +10,7 @@ import {
   searchCoord,
 } from "./SearchControl.logic.js";
 
-const foliplus = window.foliplus;
+const { _, foliplus } = createControlEnv(CONF);
 
 /**
  * Bind all DOM events for the SearchControl.
@@ -44,8 +45,8 @@ const bindEvents = (ctrl) => {
   ctrl.inp.addEventListener("input", () => {
     ctrl.inp.placeholder =
       ctrl.mode === MODE.COORD
-        ? ctrl._(`${CONF.name}.coord_placeholder`)
-        : ctrl._(`${CONF.name}.addr_placeholder`);
+        ? _(`${CONF.name}.coord_placeholder`)
+        : _(`${CONF.name}.addr_placeholder`);
 
     if (ctrl.mode === MODE.ADDR) ctrl.debouncedFetch();
     else {
