@@ -18,6 +18,7 @@ const methodMap = [
     "webkitfullscreenerror",
   ],
 ];
+
 const nativeAPI = (() => {
   const base = methodMap[0];
   for (const m of methodMap)

@@ -76,7 +76,6 @@ class FullscreenControl extends L.Control {
 
     L.DomEvent.disableClickPropagation(outer);
     L.DomEvent.disableScrollPropagation(outer);
-
     bindFullscreenEvents(map, fsBtn, container);
 
     return outer;
