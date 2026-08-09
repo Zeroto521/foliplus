@@ -1,6 +1,6 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
-import { dom } from "../common/dom.js";
+import { createIconButton, dom } from "../common/dom.js";
 import { formatNumber } from "../common/format.js";
 import { HINT_DURATION } from "../common/hint.js";
 import * as Icons from "../common/icon.js";
@@ -13,6 +13,35 @@ import * as SVGs from "./ExportControl.icon.js";
 
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
+
+/** Render confirm/cancel action buttons into the crop toolbar.
+ *  Shared by showCropBox / lockCropBox / unlockCropBox.
+ *  @param {Object} mgr - ExportManager instance.
+ *  @param {Object} opts - { confirm: {title, svg, onclick}, cancel: {title, svg, onclick} } */
+const renderToolbarActions = (mgr, { confirm, cancel }) => {
+  const actions = mgr.cropState?.actions || mgr.exportToolBar;
+  actions.innerHTML = "";
+  createIconButton({
+    class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
+    title: confirm.title,
+    svg: confirm.svg,
+    parent: actions,
+    onclick: (e) => {
+      e.stopPropagation();
+      confirm.onclick(mgr);
+    },
+  });
+  createIconButton({
+    class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
+    title: cancel.title,
+    svg: cancel.svg,
+    parent: actions,
+    onclick: (e) => {
+      e.stopPropagation();
+      cancel.onclick(mgr);
+    },
+  });
+};
 
 /** Update crop box element position/size. */
 const updateBoxStyle = (mgr, el, r) => {
@@ -118,25 +147,18 @@ const showCropBox = (mgr) => {
   });
   dom.el("div", { class: CONST.CLASSES.CENTER, parent: cropBox });
 
-  mgr.exportToolBar.innerHTML = "";
-  dom.el(
-    "button",
-    {
-      class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
+  renderToolbarActions(mgr, {
+    confirm: {
       title: _(`${CONF.name}.btn_confirm`),
-      parent: mgr.exportToolBar,
+      svg: SVGs.CHECK,
+      onclick: () => mgr.lockCropBox(),
     },
-    { html: SVGs.CHECK },
-  );
-  dom.el(
-    "button",
-    {
-      class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
+    cancel: {
       title: _(`${CONF.name}.btn_cancel`),
-      parent: mgr.exportToolBar,
+      svg: Icons.CLOSE,
+      onclick: () => mgr.removeCropBox(),
     },
-    { html: Icons.CLOSE },
-  );
+  });
   mgr.exportCtrl.classList.remove(CONST.CLASSES.COLLAPSED);
   mgr.exportCtrl.classList.add(CONST.CLASSES.EXPANDED);
 
@@ -151,14 +173,6 @@ const showCropBox = (mgr) => {
   mgr.pushUndoState();
   showHintWithInfo(mgr, box, _(`${CONF.name}.hint_unlocked`));
   cropBox.addEventListener("mousedown", mgr.onMouseDown);
-  mgr.exportToolBar.querySelector(".cancel").onclick = (e) => {
-    e.stopPropagation();
-    mgr.removeCropBox();
-  };
-  mgr.exportToolBar.querySelector(".confirm").onclick = (e) => {
-    e.stopPropagation();
-    mgr.lockCropBox();
-  };
   document.addEventListener("keydown", mgr.onKeyDown);
 };
 
@@ -173,33 +187,18 @@ const lockCropBox = (mgr, skipHint) => {
     se: mgr.map.containerPointToLatLng(L.point(r.left + r.width, r.top + r.height)),
   };
   mgr.cropState.geoBounds = mgr.cropState.savedGeoBounds;
-  mgr.cropState.actions.innerHTML = "";
-  dom.el(
-    "button",
-    {
-      class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
+  renderToolbarActions(mgr, {
+    confirm: {
       title: _(`${CONF.name}.btn_export`),
-      parent: mgr.cropState.actions,
+      svg: SVGs.DOWNLOAD,
+      onclick: () => mgr.doExport(),
     },
-    { html: SVGs.DOWNLOAD },
-  );
-  dom.el(
-    "button",
-    {
-      class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
+    cancel: {
       title: _(`${CONF.name}.btn_cancel`),
-      parent: mgr.cropState.actions,
+      svg: Icons.CLOSE,
+      onclick: () => mgr.unlockCropBox(),
     },
-    { html: Icons.CLOSE },
-  );
-  mgr.cropState.actions.querySelector(`.${CONST.CLASSES.CANCEL}`).onclick = (e) => {
-    e.stopPropagation();
-    mgr.unlockCropBox();
-  };
-  mgr.cropState.actions.querySelector(`.${CONST.CLASSES.CONFIRM}`).onclick = (e) => {
-    e.stopPropagation();
-    mgr.doExport();
-  };
+  });
   mgr.mapMoveCleanup = bindMapSync({
     map: mgr.map,
     updateEvents: ["zoomend"],
@@ -220,33 +219,18 @@ const unlockCropBox = (mgr) => {
   mgr.cropState.locked = false;
   mgr.cropState.box.classList.remove("locked");
   if (mgr.mapMoveCleanup) mgr.mapMoveCleanup();
-  mgr.cropState.actions.innerHTML = "";
-  dom.el(
-    "button",
-    {
-      class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
+  renderToolbarActions(mgr, {
+    confirm: {
       title: _(`${CONF.name}.btn_confirm`),
-      parent: mgr.cropState.actions,
+      svg: SVGs.CHECK,
+      onclick: () => mgr.lockCropBox(),
     },
-    { html: SVGs.CHECK },
-  );
-  dom.el(
-    "button",
-    {
-      class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
+    cancel: {
       title: _(`${CONF.name}.btn_cancel`),
-      parent: mgr.cropState.actions,
+      svg: Icons.CLOSE,
+      onclick: () => mgr.removeCropBox(),
     },
-    { html: Icons.CLOSE },
-  );
-  mgr.cropState.actions.querySelector(`.${CONST.CLASSES.CANCEL}`).onclick = (e) => {
-    e.stopPropagation();
-    mgr.removeCropBox();
-  };
-  mgr.cropState.actions.querySelector(`.${CONST.CLASSES.CONFIRM}`).onclick = (e) => {
-    e.stopPropagation();
-    mgr.lockCropBox();
-  };
+  });
   updateBoxStyle(mgr, mgr.cropState.box, mgr.cropState.rect);
   showHintWithInfo(mgr, mgr.cropState.rect, _(`${CONF.name}.hint_unlocked`));
 };
