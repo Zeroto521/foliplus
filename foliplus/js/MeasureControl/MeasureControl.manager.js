@@ -12,22 +12,7 @@ import {
   attachDistanceUI,
   attachPolygonUI,
 } from "./MeasureControl.ui.js";
-import {
-  area,
-  attachDelClick,
-  buildPopup,
-  distance,
-  formatDistance,
-  formatSegmentLabel,
-  hideDelIcons,
-  makeDelIcon,
-  makeLabelDivIcon,
-  makeMidLabelDivIcon,
-  makeNode,
-  midpoint,
-  recalculateSegments,
-  toggleDelIcon,
-} from "./MeasureControl.util.js";
+import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
@@ -125,7 +110,7 @@ class MeasureManager {
       false, // do not auto-open popup on restore
     );
     const delMarker = this.layers.addLayer(
-      makeDelIcon(L.latLng(m.lat, m.lng), {
+      Util.makeDelIcon(L.latLng(m.lat, m.lng), {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
         title: _(`${CONF.name}.del_tooltip`),
@@ -133,16 +118,16 @@ class MeasureManager {
     );
 
     marker.on("popupopen", () => {
-      hideDelIcons();
+      Util.hideDelIcons();
       // Use the latest resolved address so a marker whose geocode finished
       // while the popup was closed still shows the real address on first open
       // (createLocationMarker only updates an open popup).
       if (m.address !== null)
-        marker.setPopupContent(buildPopup(m.lng, m.lat, m.address));
-      toggleDelIcon(delMarker, true);
+        marker.setPopupContent(Util.buildPopup(m.lng, m.lat, m.address));
+      Util.toggleDelIcon(delMarker, true);
     });
     marker.on("popupclose", () => {
-      toggleDelIcon(delMarker, false);
+      Util.toggleDelIcon(delMarker, false);
     });
 
     const deleteMarker = () => {
@@ -152,7 +137,7 @@ class MeasureManager {
       this.saveMeasurements();
       this.layers.unregister();
     };
-    attachDelClick(delMarker, deleteMarker);
+    Util.attachDelClick(delMarker, deleteMarker);
   }
 
   restoreDistance(m) {
@@ -166,7 +151,7 @@ class MeasureManager {
 
     const nodeMarkers = [];
     points.forEach((pt, i) => {
-      const node = this.layers.addLayer(makeNode(pt));
+      const node = this.layers.addLayer(Util.makeNode(pt));
       node.bringToFront();
       nodeMarkers.push(node);
     });
@@ -174,7 +159,7 @@ class MeasureManager {
     // Restore start label
     this.layers.addLayer(
       L.marker(points[0], {
-        icon: makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
+        icon: Util.makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
       }),
       true,
     );
@@ -187,10 +172,12 @@ class MeasureManager {
         const prev = points[i];
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
         if (!prev || !cur) return;
-        const mid = midpoint(prev, cur);
+        const mid = Util.midpoint(prev, cur);
         const label = this.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: makeMidLabelDivIcon(formatSegmentLabel(prev, cur, accTotal)),
+            icon: Util.makeMidLabelDivIcon(
+              Util.formatSegmentLabel(prev, cur, accTotal),
+            ),
           }),
           true,
         );
@@ -210,7 +197,7 @@ class MeasureManager {
         this.saveMeasurements();
       },
       onUpdate: () => {
-        const { segments, totalDistance } = recalculateSegments(points);
+        const { segments, totalDistance } = Util.recalculateSegments(points);
         m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
         m.segments = segments;
         m.totalDistance = totalDistance;
@@ -231,7 +218,7 @@ class MeasureManager {
 
     const nodeMarkers = [];
     points.forEach((pt) => {
-      const node = this.layers.addLayer(makeNode(pt));
+      const node = this.layers.addLayer(Util.makeNode(pt));
       node.bringToFront();
       nodeMarkers.push(node);
     });
@@ -242,10 +229,10 @@ class MeasureManager {
         const prev = points[i];
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
         if (!prev || !cur) return;
-        const mid = midpoint(prev, cur);
+        const mid = Util.midpoint(prev, cur);
         const label = this.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: makeMidLabelDivIcon(formatDistance(seg.distance)),
+            icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg.distance)),
           }),
           true,
         );
@@ -266,14 +253,14 @@ class MeasureManager {
         this.saveMeasurements();
       },
       onUpdate: () => {
-        const newArea = area(points);
-        const { segments } = recalculateSegments(points);
+        const newArea = Util.area(points);
+        const { segments } = Util.recalculateSegments(points);
         // Add closing segment
         const n = points.length;
         segments.push({
           lng: points[0].lng,
           lat: points[0].lat,
-          distance: distance(points[n - 1], points[0]),
+          distance: Util.distance(points[n - 1], points[0]),
         });
         m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
         m.segments = segments;
@@ -303,7 +290,7 @@ class MeasureManager {
         interactive: true,
       }),
     );
-    const radiusNode = this.layers.addLayer(makeNode(targetLatLng));
+    const radiusNode = this.layers.addLayer(Util.makeNode(targetLatLng));
 
     const centerFinal = this.layers.addLayer(
       L.marker(centerLatLng, {
@@ -319,17 +306,17 @@ class MeasureManager {
     );
 
     const delMarker = this.layers.addLayer(
-      makeDelIcon(centerLatLng, {
+      Util.makeDelIcon(centerLatLng, {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         title: _(`${CONF.name}.del_tooltip`),
       }),
     );
 
-    const mid = midpoint(centerLatLng, targetLatLng);
+    const mid = Util.midpoint(centerLatLng, targetLatLng);
     const radiusLabel = this.layers.addLayer(
       L.marker([mid.lat, mid.lng], {
-        icon: makeLabelDivIcon(
-          formatDistance(r),
+        icon: Util.makeLabelDivIcon(
+          Util.formatDistance(r),
           CONST.LABEL.RADIUS_ANCHOR,
           CONST.LABEL.CLASS_RADIUS,
         ),
@@ -363,7 +350,7 @@ class MeasureManager {
       if (this.isSuppressHideDel) return;
       const t = e.originalEvent?.target;
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      hideDelIcons();
+      Util.hideDelIcons();
     };
     this.map.on("click", this.onMapClick);
 

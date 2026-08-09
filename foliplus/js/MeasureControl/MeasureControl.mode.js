@@ -5,25 +5,7 @@ import {
   attachDistanceUI,
   attachPolygonUI,
 } from "./MeasureControl.ui.js";
-import {
-  animateDashSweep,
-  area,
-  attachDelClick,
-  buildPopup,
-  distance,
-  formatDistance,
-  formatSegmentLabel,
-  hideDelIcons,
-  makeDelIcon,
-  makeLabelDivIcon,
-  makeMidLabelDivIcon,
-  makeNode,
-  midpoint,
-  recalculateSegments,
-  setLabelText,
-  stopEvent,
-  toggleDelIcon,
-} from "./MeasureControl.util.js";
+import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;
@@ -147,7 +129,7 @@ class MarkerMode extends MeasureMode {
     );
 
     const delMarker = this.layers.addLayer(
-      makeDelIcon(e.latlng, {
+      Util.makeDelIcon(e.latlng, {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
         title: _(`${CONF.name}.del_tooltip`),
@@ -163,18 +145,18 @@ class MarkerMode extends MeasureMode {
       this.m.saveMeasurements();
       this.layers.unregister();
     };
-    attachDelClick(delMarker, deleteMarker);
+    Util.attachDelClick(delMarker, deleteMarker);
 
     // Bind popup events BEFORE async geocode so X appears on first popup open
     marker.on("popupopen", () => {
-      hideDelIcons();
+      Util.hideDelIcons();
       if (measurement.address !== null)
-        marker.setPopupContent(buildPopup(lng, lat, measurement.address));
-      toggleDelIcon(delMarker, true);
+        marker.setPopupContent(Util.buildPopup(lng, lat, measurement.address));
+      Util.toggleDelIcon(delMarker, true);
     });
 
     marker.on("popupclose", () => {
-      toggleDelIcon(delMarker, false);
+      Util.toggleDelIcon(delMarker, false);
     });
   }
 }
@@ -233,14 +215,14 @@ class DistanceMode extends PreviewMode {
       finalPoly.setLatLngs(points);
 
       // Dash-sweep animation
-      animateDashSweep(finalPoly._path);
+      Util.animateDashSweep(finalPoly._path);
 
       // Save measurement data
       const distId = this.nextMeasurementId();
       const segments = points.slice(1).map((p, i) => ({
         lng: p.lng,
         lat: p.lat,
-        distance: distance(points[i], points[i + 1]),
+        distance: Util.distance(points[i], points[i + 1]),
       }));
       this.m.measurements.push({
         id: distId,
@@ -255,10 +237,10 @@ class DistanceMode extends PreviewMode {
       if (segLabels.length > 0) {
         const lastPt = points[points.length - 1];
         const prevPt = points[points.length - 2];
-        const mid = midpoint(prevPt, lastPt);
+        const mid = Util.midpoint(prevPt, lastPt);
         segLabels[segLabels.length - 1].setLatLng([mid.lat, mid.lng]);
         segLabels[segLabels.length - 1].setIcon(
-          makeMidLabelDivIcon(formatSegmentLabel(prevPt, lastPt, total)),
+          Util.makeMidLabelDivIcon(Util.formatSegmentLabel(prevPt, lastPt, total)),
         );
       }
 
@@ -276,7 +258,7 @@ class DistanceMode extends PreviewMode {
         onUpdate: () => {
           const m = this.m.measurements.find((x) => x.id === distId);
           if (!m) return;
-          const { segments, totalDistance } = recalculateSegments(points);
+          const { segments, totalDistance } = Util.recalculateSegments(points);
           m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
           m.segments = segments;
           m.totalDistance = totalDistance;
@@ -301,22 +283,22 @@ class DistanceMode extends PreviewMode {
     const onDistMove = (e) => {
       if (points.length === 0) return;
       previewLine.setLatLngs([points[points.length - 1], e.latlng]);
-      const seg = distance(points[points.length - 1], e.latlng);
+      const seg = Util.distance(points[points.length - 1], e.latlng);
       const showDist = total + seg;
       const lastPt = points[points.length - 1];
-      const mid = midpoint(lastPt, e.latlng);
-      const labelText = formatSegmentLabel(lastPt, e.latlng, showDist);
+      const mid = Util.midpoint(lastPt, e.latlng);
+      const labelText = Util.formatSegmentLabel(lastPt, e.latlng, showDist);
       if (!previewDistLabel) {
         previewDistLabel = this.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: makeMidLabelDivIcon(labelText),
+            icon: Util.makeMidLabelDivIcon(labelText),
             interactive: false,
           }),
           true,
         );
       } else {
         previewDistLabel.setLatLng([mid.lat, mid.lng]);
-        setLabelText(previewDistLabel, labelText);
+        Util.setLabelText(previewDistLabel, labelText);
       }
     };
 
@@ -329,14 +311,14 @@ class DistanceMode extends PreviewMode {
       }
       poly.addLatLng(e.latlng);
 
-      const marker = this.layers.addLayer(makeNode(e.latlng));
+      const marker = this.layers.addLayer(Util.makeNode(e.latlng));
       marker.bringToFront();
       nodeMarkers.push(marker);
 
       if (points.length === 1) {
         originLabel = this.layers.addLayer(
           L.marker(e.latlng, {
-            icon: makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
+            icon: Util.makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
           }),
           true,
         );
@@ -348,20 +330,20 @@ class DistanceMode extends PreviewMode {
       });
 
       if (points.length > 1) {
-        const seg = distance(points[points.length - 2], points[points.length - 1]);
+        const seg = Util.distance(points[points.length - 2], points[points.length - 1]);
         total += seg;
 
-        const mid = midpoint(points[points.length - 2], points[points.length - 1]);
+        const mid = Util.midpoint(points[points.length - 2], points[points.length - 1]);
 
         if (segLabels.length > 0 && points.length >= 3) {
           const prevLabel = segLabels[segLabels.length - 1];
-          const prevSeg = distance(
+          const prevSeg = Util.distance(
             points[points.length - 3],
             points[points.length - 2],
           );
           prevLabel.setIcon(
-            makeMidLabelDivIcon(
-              formatSegmentLabel(
+            Util.makeMidLabelDivIcon(
+              Util.formatSegmentLabel(
                 points[points.length - 3],
                 points[points.length - 2],
                 prevSeg,
@@ -372,8 +354,8 @@ class DistanceMode extends PreviewMode {
 
         const label = this.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: makeMidLabelDivIcon(
-              formatSegmentLabel(
+            icon: Util.makeMidLabelDivIcon(
+              Util.formatSegmentLabel(
                 points[points.length - 2],
                 points[points.length - 1],
                 total,
@@ -387,11 +369,11 @@ class DistanceMode extends PreviewMode {
     };
 
     const onDistDbl = (e) => {
-      stopEvent(e);
+      Util.stopEvent(e);
       finishDist();
     };
     const onDistContext = (e) => {
-      stopEvent(e);
+      Util.stopEvent(e);
       finishDist();
     };
 
@@ -456,23 +438,23 @@ class PolygonMode extends PreviewMode {
       finalPoly.setLatLngs(points);
 
       // Dash-sweep animation
-      animateDashSweep(finalPoly._path);
+      Util.animateDashSweep(finalPoly._path);
 
       // Recalculate area
-      const a = area(points);
+      const area = Util.area(points);
 
       // Save measurement data
       const polyId = this.nextMeasurementId();
       const segments = points.slice(1).map((p, i) => ({
         lng: p.lng,
         lat: p.lat,
-        distance: distance(points[i], points[i + 1]),
+        distance: Util.distance(points[i], points[i + 1]),
       }));
       // Add closing segment
       const lastSeg = {
         lng: points[0].lng,
         lat: points[0].lat,
-        distance: distance(points[points.length - 1], points[0]),
+        distance: Util.distance(points[points.length - 1], points[0]),
       };
       segments.push(lastSeg);
       this.m.measurements.push({
@@ -480,17 +462,17 @@ class PolygonMode extends PreviewMode {
         type: this.type,
         points: points.map((p) => ({ lng: p.lng, lat: p.lat })),
         segments,
-        area: a,
+        area,
       });
       this.m.saveMeasurements();
 
       // Add closing segment label
       const lastPt = points[points.length - 1];
       const firstPt = points[0];
-      const closeMid = midpoint(lastPt, firstPt);
+      const closeMid = Util.midpoint(lastPt, firstPt);
       const closeLabel = this.layers.addLayer(
         L.marker([closeMid.lat, closeMid.lng], {
-          icon: makeMidLabelDivIcon(formatDistance(lastSeg.distance)),
+          icon: Util.makeMidLabelDivIcon(Util.formatDistance(lastSeg.distance)),
         }),
         true,
       );
@@ -499,7 +481,9 @@ class PolygonMode extends PreviewMode {
       // Format last open segment label (if it exists)
       if (segLabels.length > 1) {
         segLabels[segLabels.length - 2].setIcon(
-          makeMidLabelDivIcon(formatDistance(segments[segments.length - 2].distance)),
+          Util.makeMidLabelDivIcon(
+            Util.formatDistance(segments[segments.length - 2].distance),
+          ),
         );
       }
 
@@ -510,7 +494,7 @@ class PolygonMode extends PreviewMode {
         nodeMarkers,
         segLabels,
         points,
-        area: a,
+        area,
         onDelete: () => {
           this.m.measurements = this.m.measurements.filter((x) => x.id !== polyId);
           this.m.saveMeasurements();
@@ -518,17 +502,17 @@ class PolygonMode extends PreviewMode {
         onUpdate: () => {
           const m = this.m.measurements.find((x) => x.id === polyId);
           if (!m) return;
-          const { segments } = recalculateSegments(points);
+          const { segments } = Util.recalculateSegments(points);
           // Add closing segment
           const n = points.length;
           segments.push({
             lng: points[0].lng,
             lat: points[0].lat,
-            distance: distance(points[n - 1], points[0]),
+            distance: Util.distance(points[n - 1], points[0]),
           });
           m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
           m.segments = segments;
-          m.area = area(points);
+          m.area = Util.area(points);
           this.m.saveMeasurements();
         },
       });
@@ -553,21 +537,21 @@ class PolygonMode extends PreviewMode {
       const allPts = [...points, e.latlng];
       previewPoly.setLatLngs(allPts);
       poly.setLatLngs([points[points.length - 1], e.latlng]);
-      const seg = distance(points[points.length - 1], e.latlng);
+      const seg = Util.distance(points[points.length - 1], e.latlng);
       const lastPt = points[points.length - 1];
-      const mid = midpoint(lastPt, e.latlng);
-      const labelText = formatDistance(seg);
+      const mid = Util.midpoint(lastPt, e.latlng);
+      const labelText = Util.formatDistance(seg);
       if (!previewDistLabel) {
         previewDistLabel = this.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: makeMidLabelDivIcon(labelText),
+            icon: Util.makeMidLabelDivIcon(labelText),
             interactive: false,
           }),
           true,
         );
       } else {
         previewDistLabel.setLatLng([mid.lat, mid.lng]);
-        setLabelText(previewDistLabel, labelText);
+        Util.setLabelText(previewDistLabel, labelText);
       }
     };
 
@@ -581,7 +565,7 @@ class PolygonMode extends PreviewMode {
       poly.addLatLng(e.latlng);
       previewPoly.setLatLngs(points);
 
-      const marker = this.layers.addLayer(makeNode(e.latlng));
+      const marker = this.layers.addLayer(Util.makeNode(e.latlng));
       marker.bringToFront();
       nodeMarkers.push(marker);
 
@@ -593,21 +577,21 @@ class PolygonMode extends PreviewMode {
       });
 
       if (points.length > 1) {
-        const seg = distance(points[points.length - 2], points[points.length - 1]);
+        const seg = Util.distance(points[points.length - 2], points[points.length - 1]);
 
         if (segLabels.length > 0 && points.length >= 3) {
           const prevLabel = segLabels[segLabels.length - 1];
-          const prevSeg = distance(
+          const prevSeg = Util.distance(
             points[points.length - 3],
             points[points.length - 2],
           );
-          prevLabel.setIcon(makeMidLabelDivIcon(formatDistance(prevSeg)));
+          prevLabel.setIcon(Util.makeMidLabelDivIcon(Util.formatDistance(prevSeg)));
         }
 
-        const mid = midpoint(points[points.length - 2], points[points.length - 1]);
+        const mid = Util.midpoint(points[points.length - 2], points[points.length - 1]);
         const label = this.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: makeMidLabelDivIcon(formatDistance(seg)),
+            icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg)),
           }),
           true,
         );
@@ -616,11 +600,11 @@ class PolygonMode extends PreviewMode {
     };
 
     const onPolyDbl = (e) => {
-      stopEvent(e);
+      Util.stopEvent(e);
       finishPoly();
     };
     const onPolyContext = (e) => {
-      stopEvent(e);
+      Util.stopEvent(e);
       finishPoly();
     };
 
@@ -691,7 +675,7 @@ class CircleMode extends PreviewMode {
       } else if (state === 1) {
         state = 2;
         lastFinishTime = Date.now();
-        const r = distance(center, e.latlng);
+        const r = Util.distance(center, e.latlng);
         const savedCenter = center;
         this.cleanup();
         this.m.clearActiveMode();
@@ -705,7 +689,7 @@ class CircleMode extends PreviewMode {
 
     const onMouseMove = (e) => {
       if (state !== 1 || !center || this.m.currentMode !== this.type) return;
-      const r = distance(center, e.latlng);
+      const r = Util.distance(center, e.latlng);
 
       if (!previews.circle) {
         previews.circle = this.addPreview(
@@ -737,11 +721,11 @@ class CircleMode extends PreviewMode {
         previews.node.bringToFront();
       } else previews.node.setLatLng(e.latlng);
 
-      const mid = midpoint(center, e.latlng);
+      const mid = Util.midpoint(center, e.latlng);
       if (!previews.label) {
         const previewLabel = L.marker(mid, {
-          icon: makeLabelDivIcon(
-            formatDistance(r),
+          icon: Util.makeLabelDivIcon(
+            Util.formatDistance(r),
             CONST.LABEL.RADIUS_ANCHOR,
             CONST.LABEL.CLASS_RADIUS,
           ),
@@ -750,12 +734,12 @@ class CircleMode extends PreviewMode {
         previews.label = this.addPreview(previewLabel);
       } else {
         previews.label.setLatLng(mid);
-        setLabelText(previews.label, formatDistance(r));
+        Util.setLabelText(previews.label, Util.formatDistance(r));
       }
     };
 
     const onContext = (e) => {
-      stopEvent(e);
+      Util.stopEvent(e);
       this.m.clearActiveMode();
     };
 
@@ -793,7 +777,7 @@ class CircleMode extends PreviewMode {
           interactive: true,
         }),
       );
-      const radiusNode = this.layers.addLayer(makeNode(finalTargetLatLng));
+      const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
 
       const centerFinal = this.layers.addLayer(
         L.marker(centerLatLng, {
@@ -809,17 +793,17 @@ class CircleMode extends PreviewMode {
       );
 
       const delMarker = this.layers.addLayer(
-        makeDelIcon(centerLatLng, {
+        Util.makeDelIcon(centerLatLng, {
           zIndexOffset: CONST.Z_INDEX.OFFSET,
           title: _(`${CONF.name}.del_tooltip`),
         }),
       );
 
-      const mid = midpoint(centerLatLng, finalTargetLatLng);
+      const mid = Util.midpoint(centerLatLng, finalTargetLatLng);
       const radiusLabel = this.layers.addLayer(
         L.marker([mid.lat, mid.lng], {
-          icon: makeLabelDivIcon(
-            formatDistance(r),
+          icon: Util.makeLabelDivIcon(
+            Util.formatDistance(r),
             CONST.LABEL.RADIUS_ANCHOR,
             CONST.LABEL.CLASS_RADIUS,
           ),
