@@ -1,5 +1,5 @@
 import { dom } from "../common/dom.js";
-import { requireRuntime } from "../common/guard.js";
+import { requireLayerAPI, requireRuntime } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
 import { createTranslator } from "../common/locale.js";
 import {
@@ -18,11 +18,7 @@ const _ = createTranslator(CONF);
 foliplus.registerHintIcon(CONF.name, SVGs.RULER);
 
 // ==================== Guard: LayerControl required ====================
-if (!foliplus.LayerAPI) {
-  const msg = _(`${CONF.name}.no_layercontrol`);
-  foliplus.showHint(CONF.name, msg, foliplus.HINT_DURATION.PERSIST);
-  throw new Error(`[${CONF.name}] ${msg}`);
-}
+requireLayerAPI(CONF.name, _);
 
 const measureManager = new MeasureManager(map);
 

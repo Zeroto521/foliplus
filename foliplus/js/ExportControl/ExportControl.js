@@ -1,4 +1,4 @@
-import { requireRuntime } from "../common/guard.js";
+import { requireLayerAPI, requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
 import { createFoldControl } from "../common/panel.js";
 import * as SVGs from "./ExportControl.icon.js";
@@ -13,11 +13,7 @@ const _ = createTranslator(CONF);
 foliplus.registerHintIcon(CONF.name, SVGs.CAMERA);
 
 // ==================== Guard: LayerControl required ====================
-if (!foliplus.LayerAPI) {
-  const msg = _(`${CONF.name}.no_layercontrol`);
-  foliplus.showHint(CONF.name, msg, foliplus.HINT_DURATION.PERSIST);
-  throw new Error(`[${CONF.name}] ${msg}`);
-}
+requireLayerAPI(CONF.name, _);
 
 // ==================== CORS Pre-setup ====================
 // Set crossOrigin on ALL existing TileLayers so tiles load with CORS

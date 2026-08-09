@@ -9,3 +9,20 @@ export const requireRuntime = (componentName) => {
     throw new Error(`[${componentName}] foliplus runtime not found, plugin disabled.`);
   }
 };
+
+/**
+ * Guard that the LayerControl (foliplus.LayerAPI) is available.
+ * Shows a persistent hint and throws when the required API is missing.
+ * Used by components that depend on LayerControl (Export, Heatmap, Measure).
+ *
+ * @param {string} componentName - CONF.name, used as hint key and error prefix.
+ * @param {Function} _ - Translator function (from createTranslator).
+ */
+export const requireLayerAPI = (componentName, _) => {
+  const foliplus = window.foliplus || {};
+  if (!foliplus || !foliplus.LayerAPI) {
+    const msg = _(`${componentName}.no_layercontrol`);
+    foliplus.showHint(componentName, msg, foliplus.HINT_DURATION.PERSIST);
+    throw new Error(`[${componentName}] ${msg}`);
+  }
+};

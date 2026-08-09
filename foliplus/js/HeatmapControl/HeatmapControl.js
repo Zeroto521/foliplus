@@ -1,4 +1,4 @@
-import { requireRuntime } from "../common/guard.js";
+import { requireLayerAPI, requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
 import { createPanelControl } from "../common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
@@ -20,11 +20,7 @@ const _ = createTranslator(CONF);
 foliplus.registerHintIcon(CONF.name, SVGs.HEXAGON);
 
 // ==================== Guard: LayerControl required ====================
-if (!foliplus.LayerAPI) {
-  const msg = _(`${CONF.name}.no_layercontrol`);
-  foliplus.showHint(CONF.name, msg, foliplus.HINT_DURATION.PERSIST);
-  throw new Error(`[${CONF.name}] ${msg}`);
-}
+requireLayerAPI(CONF.name, _);
 
 // ==================== View & Control: HeatmapControl ====================
 class HeatmapControl extends L.Control {
