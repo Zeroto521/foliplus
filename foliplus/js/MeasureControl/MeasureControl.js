@@ -35,7 +35,6 @@ class MeasureControl extends BaseControl {
       toggleSvg: SVGs.RULER,
       position: CONF.position,
     });
-    this.ctrl = ctrl;
     const btnConfigs = [
       {
         mode: CONST.MODE.MARKER,
