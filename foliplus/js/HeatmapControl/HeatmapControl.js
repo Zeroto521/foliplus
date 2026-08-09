@@ -14,11 +14,13 @@ import {
 const { _ } = createControlEnv(CONF, SVGs.HEXAGON);
 requireLayerAPI(CONF.name, _);
 
+const heatmapManager = new HeatmapManager(map);
+
 // ==================== View & Control: HeatmapControl ====================
 class HeatmapControl extends BaseControl {
-  constructor(options, manager) {
+  constructor(options) {
     super(options);
-    this.manager = manager;
+    this.manager = heatmapManager;
     this.m.ui = this;
     this.schemeDropdown = null;
     this.expandHookDone = false;
@@ -67,9 +69,8 @@ class HeatmapControl extends BaseControl {
 }
 
 // ==================== Instantiation ====================
-// Instantiate manager and control, then add to map
-const heatmapManager = new HeatmapManager(map);
-const heatmapCtrl = new HeatmapControl({ position: CONF.position }, heatmapManager);
+// Instantiate control, then add to map
+const heatmapCtrl = new HeatmapControl({ position: CONF.position });
 
 heatmapCtrl.addTo(map);
 initScan(heatmapCtrl, CONST.TIMING.INIT_SCAN_ATTEMPTS);
