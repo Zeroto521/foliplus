@@ -1,5 +1,4 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
-
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./SearchControl.const.js";
 import {
   fetchSuggestions,

@@ -63,6 +63,6 @@ repos:
         entry: node script/format_jinja_js.js --type js
         language: node
         types_or: [javascript]
-        files: ^foliplus/js/
+        files: ^foliplus/js/|^script/.*\.js$
         pass_filenames: false
         additional_dependencies: [prettier]

@@ -13,20 +13,19 @@
  *   node script/build.mjs --watch      # watch mode
  *   node script/build.mjs --check      # verify artifacts exist (CI)
  */
-
 import { build } from "esbuild";
 import {
+  cpSync,
   existsSync,
+  mkdirSync,
   readFileSync,
   readdirSync,
-  writeFileSync,
-  mkdirSync,
-  cpSync,
   rmSync,
+  writeFileSync,
 } from "fs";
 import { basename, dirname, resolve } from "path";
-import { fileURLToPath } from "url";
 import { optimize } from "svgo";
+import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");

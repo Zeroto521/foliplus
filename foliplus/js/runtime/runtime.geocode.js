@@ -1,7 +1,6 @@
 // Reverse geocoding and address formatting for the foliplus runtime.
 //
 // Depends on runtime.coord.js helpers (getMapCrsType, toWgs84).
-
 import { getMapCrsType, toWgs84 } from "./runtime.coord.js";
 
 // ── Geocode constants ───────────────────────────────────────────
@@ -99,13 +98,18 @@ const reverseGeocode = (map, lng, lat, code = "en") => {
   if (cached) return Promise.resolve(cached);
 
   const wgs = toWgs84(map, parseFloat(lng), parseFloat(lat));
-  const url = nominatimUrl("/reverse", {
-    lon: wgs[0],
-    lat: wgs[1],
-    zoom: NOMINATIM.ZOOM,
-  }, code);
+  const url = nominatimUrl(
+    "/reverse",
+    {
+      lon: wgs[0],
+      lat: wgs[1],
+      zoom: NOMINATIM.ZOOM,
+    },
+    code,
+  );
 
-  const common = (window.foliplus && window.foliplus._TABLES && window.foliplus._TABLES[code]) || {};
+  const common =
+    (window.foliplus && window.foliplus._TABLES && window.foliplus._TABLES[code]) || {};
   const notFound = common["foliplus.addr_not_found"] || "Address not found";
   const fail = common["foliplus.geo_fail"] || "Lookup failed";
 

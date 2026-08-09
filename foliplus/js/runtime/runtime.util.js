@@ -96,10 +96,7 @@ const storage = {
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : null;
     } catch (e) {
-      console.warn(
-        `[${name || "foliplus"}] Failed to load saved data (key=${key})`,
-        e,
-      );
+      console.warn(`[${name || "foliplus"}] Failed to load saved data (key=${key})`, e);
       return null;
     }
   },
@@ -114,13 +111,9 @@ const storage = {
     try {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (e) {
-      console.warn(
-        `[${name || "foliplus"}] Failed to save data (key=${key})`,
-        e,
-      );
+      console.warn(`[${name || "foliplus"}] Failed to save data (key=${key})`, e);
     }
   },
 };
 
 export { cssVar, debounce, formatNumber, storage };
-

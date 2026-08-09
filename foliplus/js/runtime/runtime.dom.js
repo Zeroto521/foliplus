@@ -2,7 +2,6 @@
 //
 // Reads `foliplus.SVGs` from the global namespace at call time
 // and imports `reverseGeocode` from the geocode module.
-
 import { reverseGeocode } from "./runtime.geocode.js";
 
 // ── DOM constants ───────────────────────────────────────────────
@@ -215,4 +214,3 @@ const createLocationMarker = (
 };
 
 export { buildPopupHtml, createLocationMarker, foliplusDom };
-

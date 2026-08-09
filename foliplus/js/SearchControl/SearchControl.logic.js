@@ -1,5 +1,4 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
-
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./SearchControl.const.js";
 
 const foliplus = window.foliplus;
@@ -283,6 +282,5 @@ export {
   renderAddressResult,
   renderSuggestions,
   searchAddress,
-  searchCoord
+  searchCoord,
 };
-

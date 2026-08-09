@@ -1,6 +1,5 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
-
 import { createTranslator } from "../shared/locale.js";
 import * as CONST from "./HeatmapControl.const.js";
 
@@ -608,6 +607,5 @@ export {
   syncSelect,
   toggleSchemeDropdown,
   updateFieldSelector,
-  updateSchemeBar
+  updateSchemeBar,
 };
-

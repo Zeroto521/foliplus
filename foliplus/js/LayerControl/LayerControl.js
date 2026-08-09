@@ -871,7 +871,9 @@ class LayerManager {
   }
 
   saveOrder() {
-    foliplus.storage.save(CONST.STORAGE.ORDER_KEY, this.layers.map((l) => l.id),
+    foliplus.storage.save(
+      CONST.STORAGE.ORDER_KEY,
+      this.layers.map((l) => l.id),
       CONF.name,
     );
   }

@@ -30,6 +30,7 @@ from types import SimpleNamespace
 REPO = Path(__file__).resolve().parent.parent
 JS_DIR = REPO / "foliplus" / "js"
 CSS_DIR = REPO / "foliplus" / "css"
+SCRIPT_DIR = REPO / "script"
 
 STATUS = SimpleNamespace(OK="✓", FAIL="✗", SKIP="–")
 
@@ -155,6 +156,7 @@ def main() -> int:
     file_type = args.type
     if file_type in ("js", "all"):
         file_patterns.append(("*.js", JS_DIR))
+        file_patterns.append(("*.mjs", SCRIPT_DIR))
     if file_type in ("css", "all"):
         file_patterns.append(("*.css", CSS_DIR))
 
@@ -163,7 +165,7 @@ def main() -> int:
         for fp in (
             [Path(f).resolve() for f in args.files]
             if args.files
-            else sorted(directory.glob(pattern))
+            else sorted(directory.rglob(pattern))
         ):
             if not fp.exists():
                 print(_fmt(STATUS.SKIP, fp, "not found"))

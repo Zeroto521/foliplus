@@ -69,7 +69,9 @@ const ensureGcoord = () => {
   // persistent UI hint.  The console warning is sufficient for
   // developers to diagnose the missing dependency.
   if (typeof gcoord === "undefined") {
-    console.warn("[foliplus] gcoord library failed to load, coordinate transformation unavailable");
+    console.warn(
+      "[foliplus] gcoord library failed to load, coordinate transformation unavailable",
+    );
     return false;
   }
   return true;

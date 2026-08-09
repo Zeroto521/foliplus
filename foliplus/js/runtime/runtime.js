@@ -10,12 +10,12 @@
 import { fromWgs84, getMapCrsType, toWgs84 } from "./runtime.coord.js";
 import { buildPopupHtml, createLocationMarker, foliplusDom } from "./runtime.dom.js";
 import {
-  formatAddress,
   NOMINATIM,
+  formatAddress,
   nominatimUrl,
   reverseGeocode,
 } from "./runtime.geocode.js";
-import { hideHint, HINT_DURATION, registerHintIcon, showHint } from "./runtime.hint.js";
+import { HINT_DURATION, hideHint, registerHintIcon, showHint } from "./runtime.hint.js";
 import * as SVGs from "./runtime.icon.js";
 import { resolveLocale } from "./runtime.locale.js";
 import {

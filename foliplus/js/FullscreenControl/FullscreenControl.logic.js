@@ -1,6 +1,5 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
 import { createTranslator } from "../shared/locale.js";
 import { getFullscreenEl, isEnabled, nativeAPI } from "./FullscreenControl.api.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
@@ -101,4 +100,3 @@ const bindFullscreenEvents = (map, fsBtn, container) => {
 };
 
 export { bindFullscreenEvents, toggleFullscreen };
-
