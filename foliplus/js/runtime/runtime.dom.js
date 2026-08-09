@@ -1,6 +1,6 @@
 // DOM helpers and popup/marker utilities for the foliplus runtime.
 //
-import * as SVGs from "../shared/icon.js";
+import * as SVGs from "../common/icon.js";
 import { reverseGeocode } from "./runtime.geocode.js";
 
 // ── DOM constants ───────────────────────────────────────────────

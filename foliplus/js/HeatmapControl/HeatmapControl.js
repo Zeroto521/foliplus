@@ -1,5 +1,5 @@
-import { requireRuntime } from "../shared/guard.js";
-import { createTranslator } from "../shared/locale.js";
+import { requireRuntime } from "../common/guard.js";
+import { createTranslator } from "../common/locale.js";
 import * as CONST from "./HeatmapControl.const.js";
 import * as SVGs from "./HeatmapControl.icon.js";
 import { HeatmapManager } from "./HeatmapControl.logic.js";

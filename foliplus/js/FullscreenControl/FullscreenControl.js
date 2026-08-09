@@ -1,5 +1,5 @@
-import { requireRuntime } from "../shared/guard.js";
-import { createTranslator } from "../shared/locale.js";
+import { requireRuntime } from "../common/guard.js";
+import { createTranslator } from "../common/locale.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as SVGs from "./FullscreenControl.icon.js";
 import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logic.js";

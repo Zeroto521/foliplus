@@ -1,5 +1,5 @@
-import * as Icons from "../shared/icon.js";
-import { createTranslator } from "../shared/locale.js";
+import * as Icons from "../common/icon.js";
+import { createTranslator } from "../common/locale.js";
 import * as CONST from "./LayerControl.const.js";
 import * as SVGs from "./LayerControl.icon.js";
 import * as Util from "./LayerControl.util.js";

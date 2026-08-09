@@ -1,6 +1,6 @@
-import { requireRuntime } from "../shared/guard.js";
-import * as Icons from "../shared/icon.js";
-import { createTranslator } from "../shared/locale.js";
+import { requireRuntime } from "../common/guard.js";
+import * as Icons from "../common/icon.js";
+import { createTranslator } from "../common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 import * as SVGs from "./MeasureControl.icon.js";
 import { MeasureManager } from "./MeasureControl.manager.js";

@@ -1,4 +1,4 @@
-import { createTranslator } from "../shared/locale.js";
+import { createTranslator } from "../common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 import * as SVGs from "./MeasureControl.icon.js";
 import {

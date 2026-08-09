@@ -1,7 +1,7 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
-import * as Icons from "../shared/icon.js";
-import { createTranslator } from "../shared/locale.js";
+import * as Icons from "../common/icon.js";
+import { createTranslator } from "../common/locale.js";
 import * as CONST from "./ExportControl.const.js";
 import * as SVGs from "./ExportControl.icon.js";
 

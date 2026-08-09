@@ -1,5 +1,5 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
-import * as Icons from "../shared/icon.js";
+import * as Icons from "../common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./SearchControl.const.js";
 
 const foliplus = window.foliplus;

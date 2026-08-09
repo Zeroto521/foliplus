@@ -1,6 +1,6 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
-import { createTranslator } from "../shared/locale.js";
+import { createTranslator } from "../common/locale.js";
 import * as CONST from "./HeatmapControl.const.js";
 
 const foliplus = window.foliplus;

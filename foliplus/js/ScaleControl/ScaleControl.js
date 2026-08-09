@@ -1,5 +1,5 @@
-import { requireRuntime } from "../shared/guard.js";
-import { createTranslator } from "../shared/locale.js";
+import { requireRuntime } from "../common/guard.js";
+import { createTranslator } from "../common/locale.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const CLASSES = {

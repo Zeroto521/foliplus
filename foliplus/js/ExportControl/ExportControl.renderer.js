@@ -1,4 +1,4 @@
-import { createTranslator } from "../shared/locale.js";
+import { createTranslator } from "../common/locale.js";
 import * as CONST from "./ExportControl.const.js";
 import {
   ensureFont,

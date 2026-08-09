@@ -2,7 +2,7 @@
 //
 // Provides fold/expand controls, panel creation, and map sync utilities.
 // Reads `foliplus.dom`, `foliplus.cssVar` from the global namespace at call time.
-import * as SVGs from "../shared/icon.js";
+import * as SVGs from "../common/icon.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {

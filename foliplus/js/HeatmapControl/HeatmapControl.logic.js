@@ -1,5 +1,5 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
-import { createTranslator } from "../shared/locale.js";
+import { createTranslator } from "../common/locale.js";
 import * as CONST from "./HeatmapControl.const.js";
 import * as SVGs from "./HeatmapControl.icon.js";
 import { rebuildLayerDropdown } from "./HeatmapControl.ui.js";

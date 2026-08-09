@@ -1,5 +1,5 @@
-import { requireRuntime } from "../shared/guard.js";
-import { createTranslator } from "../shared/locale.js";
+import { requireRuntime } from "../common/guard.js";
+import { createTranslator } from "../common/locale.js";
 import * as SVGs from "./ExportControl.icon.js";
 import { ExportManager } from "./ExportControl.manager.js";
 
