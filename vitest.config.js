@@ -25,6 +25,8 @@ export default defineConfig({
   },
   define: {
     // Jinja IIFE free variables — each test can override as needed.
+    // Use a minimal object so module-level code (createTranslator) doesn't crash.
+    // Tests that need specific CONF properties should mock the module at import.
     CONF: "{}",
     map: "{}",
   },
