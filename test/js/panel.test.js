@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   adjustPanelZIndex,
+  bindFoldToggle,
   bindMapSync,
   bindOutsideCollapse,
   bindPanelToggle,
@@ -113,6 +114,57 @@ describe("bindPanelToggle", () => {
       bindPanelToggle({ container, toggleBtn: ".none", header: ".none-missing" }),
     ).not.toThrow();
     expect(domEvent.on).not.toHaveBeenCalled();
+  });
+});
+
+describe("bindFoldToggle", () => {
+  function makeFold() {
+    const container = document.createElement("div");
+    container.className = "foliplus-ctrl-fold collapsed";
+    const btn = document.createElement("button");
+    btn.className = "foliplus-toggle-btn";
+    container.appendChild(btn);
+    document.body.appendChild(container);
+    return { container, btn };
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("expands on first click and collapses on second", () => {
+    const { container, btn } = makeFold();
+    bindFoldToggle({ container, toggleBtn: btn });
+
+    btn.click();
+    expect(container.classList.contains("expanded")).toBe(true);
+    expect(container.classList.contains("collapsed")).toBe(false);
+
+    btn.click();
+    expect(container.classList.contains("collapsed")).toBe(true);
+    expect(container.classList.contains("expanded")).toBe(false);
+  });
+
+  it("calls onExpand/onCollapse hooks", () => {
+    const { container, btn } = makeFold();
+    const onExpand = vi.fn();
+    const onCollapse = vi.fn();
+    bindFoldToggle({ container, toggleBtn: btn, onExpand, onCollapse });
+
+    btn.click();
+    expect(onExpand).toHaveBeenCalledTimes(1);
+    expect(onCollapse).not.toHaveBeenCalled();
+
+    btn.click();
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+    expect(onExpand).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops propagation on click", () => {
+    const { container, btn } = makeFold();
+    bindFoldToggle({ container, toggleBtn: btn });
+    btn.click();
+    expect(domEvent.stop).toHaveBeenCalled();
   });
 });
 

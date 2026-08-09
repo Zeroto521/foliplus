@@ -3,7 +3,7 @@ import { dom } from "../common/dom.js";
 import { createControlEnv, requireLayerAPI } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
 import {
-  adjustPanelZIndex,
+  bindFoldToggle,
   bindOutsideCollapse,
   createFoldControl,
 } from "../common/panel.js";
@@ -72,13 +72,7 @@ class MeasureControl extends BaseControl {
     this.m.ctrl = ctrl;
     this.m.toolBtns = toolBar.querySelectorAll(CONST.SEL.TOOL_BTN);
 
-    toggleBtn.onclick = (e) => {
-      e.stopPropagation();
-      const expanding = ctrl.classList.contains(CONST.CLASSES.COLLAPSED);
-      ctrl.classList.toggle(CONST.CLASSES.COLLAPSED);
-      ctrl.classList.toggle(CONST.CLASSES.EXPANDED);
-      adjustPanelZIndex({ container: ctrl, expanded: expanding });
-    };
+    bindFoldToggle({ container: ctrl, toggleBtn });
 
     // Collapse when clicking outside, but NOT when a tool is active
     bindOutsideCollapse({

@@ -71,6 +71,28 @@ const bindPanelToggle = ({ container, toggleBtn, header }) => {
 };
 
 /**
+ * Bind a fold toggle button that expands AND collapses (toggle).
+ * Unlike bindPanelToggle (button only expands, header collapses), this
+ * toggles both ways — the behavior for fold controls without a header.
+ * @param {object} opts
+ * @param {HTMLElement} opts.container - Fold control root element
+ * @param {HTMLElement} opts.toggleBtn - Toggle button element
+ * @param {Function} [opts.onExpand] - Optional hook called after expanding
+ * @param {Function} [opts.onCollapse] - Optional hook called after collapsing
+ */
+const bindFoldToggle = ({ container, toggleBtn, onExpand, onCollapse }) => {
+  L.DomEvent.on(toggleBtn, "click", (e) => {
+    L.DomEvent.stop(e);
+    const expanding = container.classList.contains(CLASSES.COLLAPSED);
+    container.classList.toggle(CLASSES.COLLAPSED);
+    container.classList.toggle(CLASSES.EXPANDED);
+    adjustPanelZIndex({ container, expanded: expanding });
+    if (expanding) onExpand?.();
+    else onCollapse?.();
+  });
+};
+
+/**
  * Collapse a panel when clicking outside of it.
  * Sets up a MutationObserver to auto-cleanup when the container is removed.
  * @param {object} opts
@@ -119,9 +141,7 @@ const bindOutsideCollapse = ({ container, skipCheck }) => {
  */
 const createFoldControl = (opts) => {
   const isLeft =
-    opts.position !== undefined
-      ? opts.position.indexOf("left") >= 0
-      : opts.isLeft;
+    opts.position !== undefined ? opts.position.indexOf("left") >= 0 : opts.isLeft;
   const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = dom.el("div", {
     class: `${opts.cssClass} ${CLASSES.FOLD} ${CLASSES.COLLAPSED}`,
@@ -264,6 +284,7 @@ const createPanelControl = (opts) => {
 
 export {
   adjustPanelZIndex,
+  bindFoldToggle,
   bindMapSync,
   bindOutsideCollapse,
   bindPanelToggle,

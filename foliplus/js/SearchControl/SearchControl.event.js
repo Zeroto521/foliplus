@@ -1,6 +1,6 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import { createControlEnv } from "../common/guard.js";
-import { adjustPanelZIndex } from "../common/panel.js";
+import { adjustPanelZIndex, bindFoldToggle } from "../common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./SearchControl.const.js";
 import {
   fetchSuggestions,
@@ -17,21 +17,15 @@ const { _, foliplus } = createControlEnv(CONF);
  * @param {Object} ctrl - SearchControl instance
  */
 const bindEvents = (ctrl) => {
-  ctrl.toggleBtn.onclick = (e) => {
-    e.stopPropagation();
-    if (ctrl.ctrl.classList.contains(CLASSES.EXPANDED)) {
-      ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
-      ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+  bindFoldToggle({
+    container: ctrl.ctrl,
+    toggleBtn: ctrl.toggleBtn,
+    onExpand: () => ctrl.inp.focus(),
+    onCollapse: () => {
       foliplus.hideHint(CONF.name);
       removeSuggestions(ctrl);
-    } else {
-      ctrl.ctrl.classList.remove(CLASSES.COLLAPSED);
-      ctrl.ctrl.classList.add(CLASSES.EXPANDED);
-      adjustPanelZIndex({ container: ctrl.ctrl, expanded: true });
-      ctrl.inp.focus();
-    }
-  };
+    },
+  });
 
   ctrl.clearBtn.onclick = () => {
     ctrl.inp.value = "";
