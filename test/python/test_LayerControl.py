@@ -30,14 +30,12 @@ class TestLayerControlPython:
         assert LayerControl(locale="zh")._locale_code == "zh"
 
     def test_render_collects_layers(self):
-        """LayerControl has render() and layer collections."""
+        """LayerControl has render() and builds data from the parent map."""
         ctrl = LayerControl()
         assert hasattr(ctrl, "render")
-        assert hasattr(ctrl, "base_layers")
-        assert hasattr(ctrl, "overlays")
 
     def test_render_overlays_and_base(self):
-        """render() correctly distinguishes base vs overlay layers."""
+        """render() correctly flags base vs overlay layers in data."""
         m = folium.Map()
         ctrl = LayerControl().add_to(m)
         # TileLayer with overlay=False → base layer
@@ -46,8 +44,9 @@ class TestLayerControlPython:
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         m.render()
 
-        assert "OSM" in ctrl.base_layers, f"OSM not in base_layers: {ctrl.base_layers}"
-        assert "Points" in ctrl.overlays, f"Points not in overlays: {ctrl.overlays}"
+        flags = {d["name"]: d["isBase"] for d in ctrl._config["data"]}
+        assert flags["OSM"] is True, f"OSM should be base: {flags}"
+        assert flags["Points"] is False, f"Points should be overlay: {flags}"
 
 
 class TestLayerControlRendering:
@@ -197,7 +196,7 @@ class TestLayerControlRendering:
         folium.FeatureGroup(name="Markers", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # JS initialData should contain both with correct isBase flags
+        # JS data should contain both with correct isBase flags
         assert "isBase:true" in html.replace(" ", "")
         assert "isBase:false" in html.replace(" ", "")
 
@@ -486,7 +485,7 @@ class TestLayerControlRendering:
         assert "this.panes.ensurePane(paneName, false)" in html
 
     def test_icon_svg_custom_in_initial_data(self, base_map: folium.Map):
-        """iconSvg in registerLayer opts appears in the initialData template."""
+        """iconSvg in registerLayer opts appears in the data template."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "iconSvg: opts.iconSvg ?? existingLi?.iconSvg ?? null" in html
