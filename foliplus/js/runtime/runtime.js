@@ -16,7 +16,6 @@ import {
   reverseGeocode,
 } from "./runtime.geocode.js";
 import { HINT_DURATION, hideHint, registerHintIcon, showHint } from "./runtime.hint.js";
-import { resolveLocale } from "./runtime.locale.js";
 import {
   adjustPanelZIndex,
   bindMapSync,
@@ -77,8 +76,5 @@ if (!foliplus.isInitialized) {
     formatNumber,
     debounce,
     storage,
-
-    // ==================== Locale resolution ====================
-    resolveLocale,
   });
 }
