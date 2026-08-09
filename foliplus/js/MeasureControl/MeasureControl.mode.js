@@ -1,7 +1,7 @@
 import { createLocationMarker } from "../common/dom.js";
 import { HINT_DURATION } from "../common/hint.js";
 import { createTranslator } from "../common/locale.js";
-import { bindMapEvents, unbindMapEvents } from "../common/mapEvents.js";
+import { bindMapEvents, unbindMapEvents } from "../common/mapEvent.js";
 import * as CONST from "./MeasureControl.const.js";
 import {
   attachCircleUI,

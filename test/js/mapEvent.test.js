@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bindMapEvents, unbindMapEvents } from "../../foliplus/js/common/mapEvents.js";
+import { bindMapEvents, unbindMapEvents } from "../../foliplus/js/common/mapEvent.js";
 
 describe("mapEvents", () => {
   let map;
