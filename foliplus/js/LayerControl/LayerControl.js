@@ -1,8 +1,7 @@
 import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
-import { requireRuntime } from "../common/guard.js";
+import { createControlEnv } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
-import { createTranslator } from "../common/locale.js";
 import { bindPanelToggle } from "../common/panel.js";
 import * as SVGs from "./LayerControl.icon.js";
 import {
@@ -12,18 +11,10 @@ import {
 } from "./LayerControl.manager.js";
 import { LayerUI } from "./LayerControl.ui.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-requireRuntime(CONF.name);
-
-const foliplus = window.foliplus;
-const _ = createTranslator(CONF);
-
-foliplus.registerHintIcon(CONF.name, SVGs.LAYERS);
+const { _ } = createControlEnv(CONF, SVGs.LAYERS);
 
 // ==================== Initialize Manager with Data ====================
-const initialData = CONF.initialData;
-
-const layerManager = new LayerManager(map, initialData);
+const layerManager = new LayerManager(map, CONF.initialData);
 layerManager.ui = new LayerUI(layerManager);
 
 // ==================== Leaflet Control Definition ====================
@@ -41,7 +32,7 @@ class LayerControl extends BaseControl {
 
     container.innerHTML = `
         <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed"
-             id="LayerControl_ctrl">
+             id="${CONF.name}_ctrl">
           <button class="foliplus-toggle-btn" title="${_(`${CONF.name}.toggle_title`)}"
                   aria-label="${_(`${CONF.name}.toggle_title`)}">
             ${SVGs.LAYERS}

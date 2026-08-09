@@ -1,6 +1,5 @@
 import { BaseControl } from "../common/BaseControl.js";
-import { requireLayerAPI, requireRuntime } from "../common/guard.js";
-import { createTranslator } from "../common/locale.js";
+import { createControlEnv, requireLayerAPI } from "../common/guard.js";
 import { createPanelControl } from "../common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
 import * as SVGs from "./HeatmapControl.icon.js";
@@ -12,15 +11,7 @@ import {
   setupObserver,
 } from "./HeatmapControl.ui.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-requireRuntime(CONF.name);
-
-const foliplus = window.foliplus;
-const _ = createTranslator(CONF);
-
-foliplus.registerHintIcon(CONF.name, SVGs.HEXAGON);
-
-// ==================== Guard: LayerControl required ====================
+const { _ } = createControlEnv(CONF, SVGs.HEXAGON);
 requireLayerAPI(CONF.name, _);
 
 // ==================== View & Control: HeatmapControl ====================

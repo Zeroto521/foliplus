@@ -1,19 +1,10 @@
 import { BaseControl } from "../common/BaseControl.js";
-import { requireLayerAPI, requireRuntime } from "../common/guard.js";
-import { createTranslator } from "../common/locale.js";
+import { createControlEnv, requireLayerAPI } from "../common/guard.js";
 import { createFoldControl } from "../common/panel.js";
 import * as SVGs from "./ExportControl.icon.js";
 import { ExportManager } from "./ExportControl.manager.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-requireRuntime(CONF.name);
-
-const foliplus = window.foliplus;
-const _ = createTranslator(CONF);
-
-foliplus.registerHintIcon(CONF.name, SVGs.CAMERA);
-
-// ==================== Guard: LayerControl required ====================
+const { _ } = createControlEnv(CONF, SVGs.CAMERA);
 requireLayerAPI(CONF.name, _);
 
 // ==================== CORS Pre-setup ====================
@@ -47,7 +38,7 @@ class ExportControl extends BaseControl {
       cssClass: `foliplus-export-ctrl`,
       toggleTitle: _(`${CONF.name}.btn_title`),
       toggleSvg: SVGs.CAMERA,
-      isLeft: CONF.position.indexOf("left") >= 0,
+      position: CONF.position,
     });
     exportManager.attachUI(ctrl, toolBar);
     toggleBtn.onclick = () => {

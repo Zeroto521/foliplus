@@ -1,7 +1,6 @@
 import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
-import { requireRuntime } from "../common/guard.js";
-import { createTranslator } from "../common/locale.js";
+import { createControlEnv } from "../common/guard.js";
 
 const CLASSES = {
   WRAP: "foliplus-scale-wrap",
@@ -9,11 +8,7 @@ const CLASSES = {
 };
 
 // ==================== Runtime Guard ====================
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-requireRuntime(CONF.name);
-
-// ==================== Dependencies ====================
-const _ = createTranslator(CONF);
+const { _ } = createControlEnv(CONF);
 
 // ==================== Control Definition ====================
 class ScaleControl extends BaseControl {

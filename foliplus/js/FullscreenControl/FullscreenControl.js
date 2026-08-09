@@ -1,21 +1,12 @@
 import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
-import { requireRuntime } from "../common/guard.js";
-import { createTranslator } from "../common/locale.js";
+import { createControlEnv } from "../common/guard.js";
+import { isEnabled, nativeAPI } from "./FullscreenControl.api.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as SVGs from "./FullscreenControl.icon.js";
-import {
-  bindFullscreenEvents,
-  toggleFullscreen,
-} from "./FullscreenControl.logic.js";
-import { getFullscreenEl, isEnabled, nativeAPI } from "./FullscreenControl.api.js";
+import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logic.js";
 
-// CONF is injected by the template wrapper (IIFE scope), see BaseControl._get_template.
-requireRuntime(CONF.name);
-
-const foliplus = window.foliplus;
-const _ = createTranslator(CONF);
-foliplus.registerHintIcon(CONF.name, SVGs.MAXIMIZE);
+const { _ } = createControlEnv(CONF, SVGs.MAXIMIZE);
 
 class FullscreenControl extends BaseControl {
   buildDOM() {

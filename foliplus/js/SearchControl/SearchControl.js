@@ -1,21 +1,14 @@
 import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
-import { requireRuntime } from "../common/guard.js";
+import { createControlEnv } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
-import { createTranslator } from "../common/locale.js";
 import { bindOutsideCollapse, createFoldControl } from "../common/panel.js";
 import { CLASSES, MODE } from "./SearchControl.const.js";
 import { bindEvents, initFromUrl } from "./SearchControl.event.js";
 import * as SVGs from "./SearchControl.icon.js";
 import { initDebouncedFetch, removeSuggestions } from "./SearchControl.logic.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-requireRuntime(CONF.name);
-
-// ==================== Dependencies ====================
-const foliplus = window.foliplus;
-const _ = createTranslator(CONF);
-foliplus.registerHintIcon(CONF.name, SVGs.SEARCH);
+const { _, foliplus } = createControlEnv(CONF, SVGs.SEARCH);
 
 // ==================== Control Definition ====================
 class SearchControl extends BaseControl {
@@ -55,7 +48,7 @@ class SearchControl extends BaseControl {
       cssClass: CLASSES.MAP_SEARCH,
       toggleTitle: _(`${CONF.name}.btn_title`),
       toggleSvg: SVGs.SEARCH,
-      isLeft: CONF.position.indexOf("left") >= 0,
+      position: CONF.position,
     });
     ctrl.id = `${CONF.name}_${CONF.position}_ctrl`;
     this.container = container;

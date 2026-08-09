@@ -113,9 +113,15 @@ const bindOutsideCollapse = ({ container, skipCheck }) => {
  * @param {string} opts.toggleTitle - Tooltip for the toggle button
  * @param {string} opts.toggleSvg - SVG HTML for the toggle icon
  * @param {boolean} opts.isLeft - Whether position is left-aligned
+ * @param {string} [opts.position] - Leaflet position e.g. "topleft". When provided,
+ *                                   overrides `isLeft` (left = contains "left").
  * @returns {object} { container, ctrl, toolBar, toggleBtn }
  */
 const createFoldControl = (opts) => {
+  const isLeft =
+    opts.position !== undefined
+      ? opts.position.indexOf("left") >= 0
+      : opts.isLeft;
   const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = dom.el("div", {
     class: `${opts.cssClass} ${CLASSES.FOLD} ${CLASSES.COLLAPSED}`,
@@ -129,7 +135,7 @@ const createFoldControl = (opts) => {
   );
   ctrl.appendChild(dom.el("div", { class: CLASSES.TOOL_BAR }));
   container.appendChild(ctrl);
-  if (!opts.isLeft) ctrl.classList.add("foliplus-align-right");
+  if (!isLeft) ctrl.classList.add("foliplus-align-right");
   L.DomEvent.disableClickPropagation(container);
   L.DomEvent.disableScrollPropagation(container);
   return {

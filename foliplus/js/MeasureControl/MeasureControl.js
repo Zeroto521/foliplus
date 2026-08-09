@@ -1,8 +1,7 @@
 import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
-import { requireLayerAPI, requireRuntime } from "../common/guard.js";
+import { createControlEnv, requireLayerAPI } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
-import { createTranslator } from "../common/locale.js";
 import {
   adjustPanelZIndex,
   bindOutsideCollapse,
@@ -12,13 +11,7 @@ import * as CONST from "./MeasureControl.const.js";
 import * as SVGs from "./MeasureControl.icon.js";
 import { MeasureManager } from "./MeasureControl.manager.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-requireRuntime(CONF.name);
-const foliplus = window.foliplus;
-const _ = createTranslator(CONF);
-foliplus.registerHintIcon(CONF.name, SVGs.RULER);
-
-// ==================== Guard: LayerControl required ====================
+const { _ } = createControlEnv(CONF, SVGs.RULER);
 requireLayerAPI(CONF.name, _);
 
 const measureManager = new MeasureManager(map);
@@ -40,7 +33,7 @@ class MeasureControl extends BaseControl {
       cssClass: "foliplus-measure-ctrl",
       toggleTitle: _(`${CONF.name}.tool_toggle`),
       toggleSvg: SVGs.RULER,
-      isLeft: CONF.position.indexOf("left") >= 0,
+      position: CONF.position,
     });
     this.ctrl = ctrl;
     const btnConfigs = [
