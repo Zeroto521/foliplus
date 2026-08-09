@@ -4,6 +4,8 @@ import {
   createIconButton,
   createLocationMarker,
   dom,
+  escapeHTML,
+  stopEvent,
 } from "../../foliplus/js/common/dom.js";
 
 describe("dom.el", () => {
@@ -347,5 +349,31 @@ describe("createIconButton", () => {
     const btn = createIconButton({ class: "btn", svg: "<svg/>", onclick: fn });
     btn.click();
     expect(fn).toHaveBeenCalled();
+  });
+});
+
+describe("stopEvent", () => {
+  it("stops propagation and prevents default on a DOM event", () => {
+    const e = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+    stopEvent(e);
+    expect(e.stopPropagation).toHaveBeenCalled();
+    expect(e.preventDefault).toHaveBeenCalled();
+  });
+
+  it("unwraps Leaflet events via originalEvent", () => {
+    const original = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+    stopEvent({ originalEvent: original });
+    expect(original.stopPropagation).toHaveBeenCalled();
+    expect(original.preventDefault).toHaveBeenCalled();
+  });
+});
+
+describe("escapeHTML", () => {
+  it("escapes HTML special characters", () => {
+    expect(escapeHTML(`<a href="x">&'`)).toBe("&lt;a href=&quot;x&quot;&gt;&amp;&#39;");
+  });
+
+  it("coerces non-strings", () => {
+    expect(escapeHTML(5)).toBe("5");
   });
 });

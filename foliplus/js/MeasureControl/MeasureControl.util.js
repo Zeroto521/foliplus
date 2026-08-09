@@ -1,16 +1,9 @@
-import { buildPopupHtml } from "../common/dom.js";
+import { buildPopupHtml, stopEvent } from "../common/dom.js";
 import { createTranslator } from "../common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
-
-/** Stop event propagation and prevent default. */
-const stopEvent = (e) => {
-  const d = e.originalEvent || e;
-  d?.stopPropagation?.();
-  d?.preventDefault?.();
-};
 
 /** Format meters to human-readable string (e.g. "1.2 km", "500 m").
  *  @param {number} meters - Distance in meters.

@@ -129,6 +129,34 @@ const createIconButton = ({
 };
 
 /**
+ * Stop event propagation and prevent default.
+ * Handles both DOM events and Leaflet's wrapped events (e.originalEvent).
+ * @param {Event|L.Event} e - DOM event or Leaflet event.
+ */
+const stopEvent = (e) => {
+  const d = e.originalEvent || e;
+  d?.stopPropagation?.();
+  d?.preventDefault?.();
+};
+
+/** Escape HTML special characters in a string.
+ *  @param {string} str - String to escape.
+ *  @returns {string} Escaped string. */
+const escapeHTML = (str) => {
+  return String(str).replace(
+    /[&<>"']/g,
+    (m) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[m],
+  );
+};
+
+/**
  * Build a popup HTML string for a location marker.
  * @param {number} lng Longitude
  * @param {number} lat Latitude
@@ -248,4 +276,11 @@ const createLocationMarker = (
   return marker;
 };
 
-export { buildPopupHtml, createIconButton, createLocationMarker, dom };
+export {
+  buildPopupHtml,
+  createIconButton,
+  createLocationMarker,
+  dom,
+  escapeHTML,
+  stopEvent,
+};
