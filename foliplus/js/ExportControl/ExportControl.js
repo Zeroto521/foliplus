@@ -33,6 +33,16 @@ map.on("layeradd", (e) => {
 const exportManager = new ExportManager(map);
 
 class ExportControl extends BaseControl {
+  constructor(options) {
+    super(options);
+    this.manager = exportManager;
+  }
+
+  /** Shorthand for manager */
+  get m() {
+    return this.manager;
+  }
+
   buildDOM() {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: `foliplus-export-ctrl`,
@@ -40,17 +50,17 @@ class ExportControl extends BaseControl {
       toggleSvg: SVGs.CAMERA,
       position: CONF.position,
     });
-    exportManager.attachUI(ctrl, toolBar);
+    this.m.attachUI(ctrl, toolBar);
     toggleBtn.onclick = () => {
-      if (exportManager.cropState) exportManager.removeCropBox();
-      else if (exportManager.savedBounds) exportManager.restoreFromSavedBounds();
-      else exportManager.showCropBox();
+      if (this.m.cropState) this.m.removeCropBox();
+      else if (this.m.savedBounds) this.m.restoreFromSavedBounds();
+      else this.m.showCropBox();
     };
     return container;
   }
   destroy() {
-    if (exportManager.cropState) exportManager.removeCropBox();
-    document.removeEventListener("keydown", exportManager.onKeyDown);
+    if (this.m.cropState) this.m.removeCropBox();
+    document.removeEventListener("keydown", this.m.onKeyDown);
   }
 }
 
