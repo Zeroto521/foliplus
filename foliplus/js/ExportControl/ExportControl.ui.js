@@ -1,5 +1,6 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
+import * as Icons from "../shared/icon.js";
 import { createTranslator } from "../shared/locale.js";
 import * as CONST from "./ExportControl.const.js";
 import * as SVGs from "./ExportControl.icon.js";
@@ -19,7 +20,7 @@ const updateBoxStyle = (mgr, el, r) => {
 
 /** Show a global hint (e.g. exporting status). */
 const showGlobalHint = (mgr, text, duration, withLoadingIcon) => {
-  const loading = withLoadingIcon ? foliplus.SVGs.LOADING + " " : "";
+  const loading = withLoadingIcon ? Icons.LOADING + " " : "";
   foliplus.showHint(
     CONF.name,
     loading + text,
@@ -141,7 +142,7 @@ const showCropBox = (mgr) => {
       title: _(`${CONF.name}.btn_cancel`),
       parent: mgr.exportToolBar,
     },
-    { html: foliplus.SVGs.CLOSE },
+    { html: Icons.CLOSE },
   );
   mgr.exportCtrl.classList.remove(CONST.CLASSES.COLLAPSED);
   mgr.exportCtrl.classList.add(CONST.CLASSES.EXPANDED);
@@ -196,7 +197,7 @@ const lockCropBox = (mgr, skipHint) => {
       title: _(`${CONF.name}.btn_cancel`),
       parent: mgr.cropState.actions,
     },
-    { html: foliplus.SVGs.CLOSE },
+    { html: Icons.CLOSE },
   );
   mgr.cropState.actions.querySelector(`.${CONST.CLASSES.CANCEL}`).onclick = (e) => {
     e.stopPropagation();
@@ -243,7 +244,7 @@ const unlockCropBox = (mgr) => {
       title: _(`${CONF.name}.btn_cancel`),
       parent: mgr.cropState.actions,
     },
-    { html: foliplus.SVGs.CLOSE },
+    { html: Icons.CLOSE },
   );
   mgr.cropState.actions.querySelector(`.${CONST.CLASSES.CANCEL}`).onclick = (e) => {
     e.stopPropagation();
@@ -286,11 +287,11 @@ const removeCropBox = (mgr) => {
 };
 
 export {
-  showCropBox,
   lockCropBox,
-  unlockCropBox,
   removeCropBox,
-  updateBoxStyle,
+  showCropBox,
   showGlobalHint,
   showHintWithInfo,
+  unlockCropBox,
+  updateBoxStyle,
 };

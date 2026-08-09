@@ -1,4 +1,5 @@
 import { requireRuntime } from "../shared/guard.js";
+import * as Icons from "../shared/icon.js";
 import { createTranslator } from "../shared/locale.js";
 import { CLASSES, MODE } from "./SearchControl.const.js";
 import { bindEvents, initFromUrl } from "./SearchControl.events.js";
@@ -66,7 +67,7 @@ class SearchControl extends L.Control {
         title: _(`${CONF.name}.mode_coord`),
         parent: toolBar,
       },
-      { html: foliplus.SVGs.LOCATE },
+      { html: Icons.LOCATE },
     );
     const inp = foliplus.dom.el("input", {
       type: "text",
@@ -78,7 +79,7 @@ class SearchControl extends L.Control {
         class: "foliplus-ctrl-btn foliplus-close-btn",
         title: _(`${CONF.name}.clear_title`),
       },
-      { html: foliplus.SVGs.CLOSE },
+      { html: Icons.CLOSE },
     );
     this.modeBtn = modeBtn;
     this.inp = inp;
@@ -112,11 +113,11 @@ class SearchControl extends L.Control {
   setMode(newMode) {
     this.mode = newMode;
     if (this.mode === MODE.COORD) {
-      this.modeBtn.innerHTML = foliplus.SVGs.LOCATE;
+      this.modeBtn.innerHTML = Icons.LOCATE;
       this.modeBtn.title = _(`${CONF.name}.mode_coord`);
       this.inp.placeholder = _(`${CONF.name}.coord_placeholder`);
     } else {
-      this.modeBtn.innerHTML = foliplus.SVGs.GLOBE;
+      this.modeBtn.innerHTML = Icons.GLOBE;
       this.modeBtn.title = _(`${CONF.name}.mode_addr`);
       this.inp.placeholder = _(`${CONF.name}.addr_placeholder`);
     }

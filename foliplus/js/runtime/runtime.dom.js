@@ -1,7 +1,6 @@
 // DOM helpers and popup/marker utilities for the foliplus runtime.
 //
-// Reads `foliplus.SVGs` from the global namespace at call time
-// and imports `reverseGeocode` from the geocode module.
+import * as SVGs from "../shared/icon.js";
 import { reverseGeocode } from "./runtime.geocode.js";
 
 // ── DOM constants ───────────────────────────────────────────────
@@ -118,7 +117,7 @@ const buildPopupHtml = (
   const foliplus = window.foliplus || {};
   const addrHtml =
     addr && addr.includes("LOADING")
-      ? { html: `${foliplus.SVGs ? foliplus.SVGs.LOADING : ""} ${loadingText}` }
+      ? { html: `${SVGs.LOADING} ${loadingText}` }
       : addr || loadingText;
 
   return foliplusDom.el(
@@ -173,7 +172,7 @@ const createLocationMarker = (
   const marker = L.marker([lat, lng], {
     icon: L.divIcon({
       className: "",
-      html: foliplus.SVGs ? foliplus.SVGs.PIN_ICON : "",
+      html: SVGs.PIN_ICON,
       iconSize: PIN.SIZE,
       iconAnchor: PIN.ANCHOR,
       popupAnchor: PIN.POPUP_ANCHOR,

@@ -1,3 +1,4 @@
+import * as Icons from "../shared/icon.js";
 import { createTranslator } from "../shared/locale.js";
 import * as CONST from "./LayerControl.const.js";
 import * as SVGs from "./LayerControl.icon.js";
@@ -281,7 +282,7 @@ class LayerUI {
       if (typeCols[i]) {
         let typeKey;
         if (layerInfo.isBase) {
-          typeCols[i].innerHTML = foliplus.SVGs.GLOBE;
+          typeCols[i].innerHTML = Icons.GLOBE;
           typeKey = `${CONF.name}.type_base`;
           layerInfo.type = CONST.GROUP.BASE;
           if (inputs[i]?.checked) anyBaseVisible = true;

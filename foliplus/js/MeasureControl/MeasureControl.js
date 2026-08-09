@@ -1,4 +1,5 @@
 import { requireRuntime } from "../shared/guard.js";
+import * as Icons from "../shared/icon.js";
 import { createTranslator } from "../shared/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 import * as SVGs from "./MeasureControl.icon.js";
@@ -43,7 +44,7 @@ class MeasureControl extends L.Control {
       {
         mode: CONST.MODE.MARKER,
         title: _(`${CONF.name}.tool_marker`),
-        svg: foliplus.SVGs.LOCATE,
+        svg: Icons.LOCATE,
       },
       {
         mode: CONST.MODE.DISTANCE,

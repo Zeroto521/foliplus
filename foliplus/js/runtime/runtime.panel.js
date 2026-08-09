@@ -1,8 +1,8 @@
 // Panel UI helpers for the foliplus runtime.
 //
 // Provides fold/expand controls, panel creation, and map sync utilities.
-// Reads `foliplus.dom`, `foliplus.SVGs`, `foliplus.cssVar` from the global
-// namespace at call time.
+// Reads `foliplus.dom`, `foliplus.cssVar` from the global namespace at call time.
+import * as SVGs from "../shared/icon.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
@@ -235,7 +235,7 @@ const createPanelControl = (opts) => {
     foliplus.dom.el(
       "button",
       { class: "foliplus-ctrl-btn foliplus-close-btn", title: opts.closeTitle },
-      { html: foliplus.SVGs ? foliplus.SVGs.CLOSE : "" },
+      { html: SVGs.CLOSE },
     ),
   );
   panelWrap.appendChild(header);
@@ -264,9 +264,9 @@ const createPanelControl = (opts) => {
 
 export {
   adjustPanelZIndex,
-  bindPanelToggle,
-  bindOutsideCollapse,
-  createFoldControl,
   bindMapSync,
+  bindOutsideCollapse,
+  bindPanelToggle,
+  createFoldControl,
   createPanelControl,
 };

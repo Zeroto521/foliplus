@@ -16,7 +16,6 @@ import {
   reverseGeocode,
 } from "./runtime.geocode.js";
 import { HINT_DURATION, hideHint, registerHintIcon, showHint } from "./runtime.hint.js";
-import * as SVGs from "./runtime.icon.js";
 import { resolveLocale } from "./runtime.locale.js";
 import {
   adjustPanelZIndex,
@@ -41,9 +40,6 @@ if (!foliplus.isInitialized) {
   // rename the property assignments (the local alias "foliplus" gets
   // shortened to "i", breaking tests that assert on "foliplus.xxx").
   Object.assign(window.foliplus, {
-    // ==================== Icons ====================
-    SVGs,
-
     // ==================== Constants ====================
     HINT_DURATION,
     NOMINATIM,

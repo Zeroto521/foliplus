@@ -1,4 +1,5 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
+import * as Icons from "../shared/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./SearchControl.const.js";
 
 const foliplus = window.foliplus;
@@ -67,7 +68,7 @@ const searchAddress = (ctrl, query) => {
 
   foliplus.showHint(
     CONF.name,
-    `${foliplus.SVGs.LOADING} ${ctrl._(`${CONF.name}.popup_loading`)}`,
+    `${Icons.LOADING} ${ctrl._(`${CONF.name}.popup_loading`)}`,
     foliplus.HINT_DURATION.PERSIST,
   );
 
@@ -205,7 +206,7 @@ const renderSuggestions = (ctrl, results, query) => {
       foliplus.dom.el(
         "span",
         { class: CLASSES.SUGGESTION_ICON },
-        { html: foliplus.SVGs.LOCATE },
+        { html: Icons.LOCATE },
       ),
       foliplus.dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, displayName),
     );

@@ -1,6 +1,6 @@
 import { requireRuntime } from "../shared/guard.js";
+import * as Icons from "../shared/icon.js";
 import { createTranslator } from "../shared/locale.js";
-import * as CONST from "./LayerControl.const.js";
 import * as SVGs from "./LayerControl.icon.js";
 import {
   LayerManager,
@@ -51,7 +51,7 @@ class LayerControl extends L.Control {
               </span>
               <button class="foliplus-ctrl-btn foliplus-close-btn" title="${_(`${CONF.name}.close_title`)}"
                       aria-label="${_(`${CONF.name}.close_title`)}">
-                ${foliplus.SVGs.CLOSE}
+                ${Icons.CLOSE}
               </button>
             </div>
             <div class="foliplus-panel-content"></div>
