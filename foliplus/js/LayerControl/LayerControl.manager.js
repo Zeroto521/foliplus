@@ -7,7 +7,6 @@ import { PaneManager } from "./LayerControl.pane.js";
 import * as Util from "./LayerControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 

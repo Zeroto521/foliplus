@@ -1,3 +1,4 @@
+import { HINT_DURATION } from "../common/hint.js";
 import { createTranslator } from "../common/locale.js";
 import { adjustPanelZIndex } from "../common/panel.js";
 import * as Storage from "../common/storage.js";
@@ -13,7 +14,6 @@ import {
 import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
@@ -139,7 +139,7 @@ class MeasureManager {
       foliplus.showHint(
         CONF.name,
         _(`${CONF.name}.hint_marker`),
-        foliplus.HINT_DURATION.PERSIST,
+        HINT_DURATION.PERSIST,
       );
       this.modeInstance = new MarkerMode(this);
       this.modeInstance.start();
@@ -147,7 +147,7 @@ class MeasureManager {
       foliplus.showHint(
         CONF.name,
         _(`${CONF.name}.hint_dist_start`),
-        foliplus.HINT_DURATION.PERSIST,
+        HINT_DURATION.PERSIST,
       );
       this.modeInstance = new DistanceMode(this);
       this.modeInstance.start();
@@ -155,7 +155,7 @@ class MeasureManager {
       foliplus.showHint(
         CONF.name,
         _(`${CONF.name}.hint_polygon`),
-        foliplus.HINT_DURATION.PERSIST,
+        HINT_DURATION.PERSIST,
       );
       this.modeInstance = new PolygonMode(this);
       this.modeInstance.start();
@@ -163,7 +163,7 @@ class MeasureManager {
       foliplus.showHint(
         CONF.name,
         _(`${CONF.name}.hint_circle_start`),
-        foliplus.HINT_DURATION.PERSIST,
+        HINT_DURATION.PERSIST,
       );
       this.modeInstance = new CircleMode(this);
       this.modeInstance.start();

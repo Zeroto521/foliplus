@@ -1,4 +1,5 @@
 import { createLocationMarker } from "../common/dom.js";
+import { HINT_DURATION } from "../common/hint.js";
 import { createTranslator } from "../common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 import {
@@ -948,7 +949,7 @@ class CircleMode extends PreviewMode {
         foliplus.showHint(
           CONF.name,
           _(`${CONF.name}.hint_circle_radius`),
-          foliplus.HINT_DURATION.PERSIST,
+          HINT_DURATION.PERSIST,
         );
       } else if (state === 1) {
         state = 2;

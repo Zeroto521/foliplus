@@ -1,4 +1,5 @@
 import { dom } from "../common/dom.js";
+import { HINT_DURATION } from "../common/hint.js";
 import * as Icons from "../common/icon.js";
 import { createTranslator } from "../common/locale.js";
 import * as Storage from "../common/storage.js";
@@ -500,7 +501,7 @@ class LayerUI {
     foliplus.showHint(
       CONF.name,
       _(`${CONF.name}.reorder_group_only`),
-      foliplus.HINT_DURATION.SHORT,
+      HINT_DURATION.SHORT,
     );
   }
 

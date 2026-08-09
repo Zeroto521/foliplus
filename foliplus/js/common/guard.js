@@ -1,6 +1,8 @@
 // Runtime guard — ensures foliplus runtime is loaded before component init.
 // Throws a clear error when runtime is missing, stopping the component early
 // rather than letting it fail later at an obscure DOM access.
+import { HINT_DURATION } from "./hint.js";
+
 export const requireRuntime = (componentName) => {
   const foliplus = window.foliplus || {};
   // The runtime singleton (runtime.min.js) exposes hint + geocode on the
@@ -22,7 +24,7 @@ export const requireLayerAPI = (componentName, _) => {
   const foliplus = window.foliplus || {};
   if (!foliplus || !foliplus.LayerAPI) {
     const msg = _(`${componentName}.no_layercontrol`);
-    foliplus.showHint(componentName, msg, foliplus.HINT_DURATION.PERSIST);
+    foliplus.showHint(componentName, msg, HINT_DURATION.PERSIST);
     throw new Error(`[${componentName}] ${msg}`);
   }
 };

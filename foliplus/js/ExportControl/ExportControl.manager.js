@@ -1,4 +1,5 @@
 import { dom } from "../common/dom.js";
+import { HINT_DURATION } from "../common/hint.js";
 import { createTranslator } from "../common/locale.js";
 import * as Storage from "../common/storage.js";
 import * as CONST from "./ExportControl.const.js";
@@ -110,7 +111,7 @@ class ExportManager {
       foliplus.showHint(
         CONF.name,
         _(`${CONF.name}.hint_restore`),
-        foliplus.HINT_DURATION.MEDIUM,
+        HINT_DURATION.MEDIUM,
         true,
       );
     });
@@ -316,7 +317,7 @@ class ExportManager {
 
     this.showGlobalHint(
       _(`${CONF.name}.status_exporting`),
-      foliplus.HINT_DURATION.PERSIST,
+      HINT_DURATION.PERSIST,
       true,
     );
 
@@ -428,13 +429,13 @@ class ExportManager {
     setTimeout(() => {
       prevImg.removeEventListener("click", dismissPreview);
       prevImg.remove();
-    }, foliplus.HINT_DURATION.SHORT);
+    }, HINT_DURATION.SHORT);
     canvas.toBlob(
       (blob) => {
         if (!blob) {
           this.showGlobalHint(
             _(`${CONF.name}.status_fail`) + _(`${CONF.name}.err_gen_fail`),
-            foliplus.HINT_DURATION.LONG,
+            HINT_DURATION.LONG,
             false,
           );
           this.isExporting = false;
@@ -453,7 +454,7 @@ class ExportManager {
         setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
         this.showGlobalHint(
           _(`${CONF.name}.status_success`),
-          foliplus.HINT_DURATION.LONG,
+          HINT_DURATION.LONG,
           false,
         );
         this.isExporting = false;
@@ -472,7 +473,7 @@ class ExportManager {
     console.error(`[${CONF.name}] ${_(`${CONF.name}.err_render`)}:`, err);
     this.showGlobalHint(
       _(`${CONF.name}.status_fail`) + (err.message || ""),
-      foliplus.HINT_DURATION.LONG,
+      HINT_DURATION.LONG,
       false,
     );
     this.isExporting = false;

@@ -1,11 +1,13 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+import { HINT_DURATION } from "../common/hint.js";
 import { createTranslator } from "../common/locale.js";
 import { getFullscreenEl, isEnabled, nativeAPI } from "./FullscreenControl.api.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as SVGs from "./FullscreenControl.icon.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -34,10 +36,10 @@ const updateUI = (map, fsBtn, container) => {
     for (const btn of selfBtns) btn.classList.toggle(CLASSES.HIDDEN, isFull);
   }
 
-  window.foliplus?.showHint?.(
+  foliplus?.showHint?.(
     CONF.name,
     isFull ? _(`${CONF.name}.enter`) : _(`${CONF.name}.exit`),
-    window.foliplus?.HINT_DURATION?.MEDIUM,
+    HINT_DURATION.MEDIUM,
   );
 };
 

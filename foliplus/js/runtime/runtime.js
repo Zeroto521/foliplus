@@ -10,7 +10,7 @@
  * injects once per map into the shared header.
  */
 import { reverseGeocode } from "./runtime.geocode.js";
-import { HINT_DURATION, hideHint, registerHintIcon, showHint } from "./runtime.hint.js";
+import { hideHint, registerHintIcon, showHint } from "./runtime.hint.js";
 
 // Ensure the global namespace object exists.
 if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {};
@@ -25,9 +25,6 @@ if (!foliplus.isInitialized) {
   // rename the property assignments (the local alias "foliplus" gets
   // shortened to "i", breaking tests that assert on "foliplus.xxx").
   Object.assign(window.foliplus, {
-    // ==================== Constants ====================
-    HINT_DURATION,
-
     // ==================== Hint / Toast System ====================
     registerHintIcon,
     showHint,

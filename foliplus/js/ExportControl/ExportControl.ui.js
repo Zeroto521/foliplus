@@ -2,6 +2,7 @@
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { dom } from "../common/dom.js";
 import { formatNumber } from "../common/format.js";
+import { HINT_DURATION } from "../common/hint.js";
 import * as Icons from "../common/icon.js";
 import { createTranslator } from "../common/locale.js";
 import { bindMapSync } from "../common/panel.js";
@@ -24,11 +25,7 @@ const updateBoxStyle = (mgr, el, r) => {
 /** Show a global hint (e.g. exporting status). */
 const showGlobalHint = (mgr, text, duration, withLoadingIcon) => {
   const loading = withLoadingIcon ? Icons.LOADING + " " : "";
-  foliplus.showHint(
-    CONF.name,
-    loading + text,
-    duration || foliplus.HINT_DURATION.PERSIST,
-  );
+  foliplus.showHint(CONF.name, loading + text, duration || HINT_DURATION.PERSIST);
 };
 
 /** Show a hint with crop box size info. */
@@ -38,7 +35,7 @@ const showHintWithInfo = (mgr, r, instruction) => {
     CONF.name,
     `${_(`${CONF.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
       `${_(`${CONF.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
-    foliplus.HINT_DURATION.PERSIST,
+    HINT_DURATION.PERSIST,
     null,
     "size",
   );
@@ -46,7 +43,7 @@ const showHintWithInfo = (mgr, r, instruction) => {
     foliplus.showHint(
       CONF.name,
       _(`${CONF.name}.err_too_large`).replace("{limit}", formatNumber(CONF.max_pixels)),
-      foliplus.HINT_DURATION.PERSIST,
+      HINT_DURATION.PERSIST,
       null,
       "limit",
     );

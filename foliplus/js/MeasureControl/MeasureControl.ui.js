@@ -3,8 +3,6 @@ import * as CONST from "./MeasureControl.const.js";
 import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 const attachDistanceUI = (mgr, opts) => {

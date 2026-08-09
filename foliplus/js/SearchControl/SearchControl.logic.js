@@ -3,6 +3,7 @@ import { fromWgs84 } from "../common/coord.js";
 import { debounce } from "../common/debounce.js";
 import { createLocationMarker, dom } from "../common/dom.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "../common/geocode.js";
+import { HINT_DURATION } from "../common/hint.js";
 import * as Icons from "../common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./SearchControl.const.js";
 
@@ -24,7 +25,7 @@ const searchCoord = (ctrl, raw) => {
     foliplus.showHint(
       CONF.name,
       ctrl._(`${CONF.name}.coord_error`),
-      foliplus.HINT_DURATION.LONG,
+      HINT_DURATION.LONG,
     );
     ctrl.inp.value = "";
     return;
@@ -36,7 +37,7 @@ const searchCoord = (ctrl, raw) => {
     foliplus.showHint(
       CONF.name,
       ctrl._(`${CONF.name}.coord_error`),
-      foliplus.HINT_DURATION.LONG,
+      HINT_DURATION.LONG,
     );
     ctrl.inp.value = "";
     return;
@@ -73,7 +74,7 @@ const searchAddress = (ctrl, query) => {
   foliplus.showHint(
     CONF.name,
     `${Icons.LOADING} ${ctrl._(`${CONF.name}.popup_loading`)}`,
-    foliplus.HINT_DURATION.PERSIST,
+    HINT_DURATION.PERSIST,
   );
 
   if (ctrl.addrAbortController) ctrl.addrAbortController.abort();
@@ -88,7 +89,7 @@ const searchAddress = (ctrl, query) => {
         foliplus.showHint(
           CONF.name,
           ctrl._(`${CONF.name}.addr_not_found`),
-          foliplus.HINT_DURATION.LONG,
+          HINT_DURATION.LONG,
         );
         ctrl.inp.value = "";
         return;
@@ -107,7 +108,7 @@ const searchAddress = (ctrl, query) => {
       foliplus.showHint(
         CONF.name,
         ctrl._(`${CONF.name}.addr_error`),
-        foliplus.HINT_DURATION.LONG,
+        HINT_DURATION.LONG,
       );
     });
 };

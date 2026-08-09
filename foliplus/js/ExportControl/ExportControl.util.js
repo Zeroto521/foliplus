@@ -2,8 +2,6 @@ import { createTranslator } from "../common/locale.js";
 import * as CONST from "./ExportControl.const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 // ==================== Render helpers ====================
