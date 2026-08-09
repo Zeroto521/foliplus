@@ -22,15 +22,12 @@ class ScaleControl extends L.Control {
       imperial: !CONF.isMetric,
     });
     scaleCtrl._map = this._map;
-    const wrap = scaleCtrl.onAdd(this._map);
-    wrap.classList.add(CLASSES.WRAP);
+    const ctrl = scaleCtrl.onAdd(this._map);
+    ctrl.classList.add(CLASSES.WRAP);
 
     // ==================== Zoom Label ====================
     if (CONF.show_zoom) {
-      const zoomLabel = dom.el("span", {
-        class: CLASSES.ZOOM_LABEL,
-        parent: wrap,
-      });
+      const zoomLabel = dom.el("span", { class: CLASSES.ZOOM_LABEL, parent: ctrl });
       const updateZoom = () => {
         zoomLabel.textContent = _(`${CONF.name}.zoom_label`).replace(
           "{zoom}",
@@ -42,7 +39,7 @@ class ScaleControl extends L.Control {
       this._map.on("unload", () => this._map.off("zoomend", updateZoom));
     }
 
-    return wrap;
+    return ctrl;
   }
 }
 
