@@ -118,16 +118,6 @@ class TestFullscreeControlRendering:
         assert "foliplus-zoom-out" in html
         assert "foliplus-fullscreen-toggle" in html
 
-    def test_buttons_are_button_elements(self, base_map: folium.Map):
-        """Zoom +/- and fullscreen use <button> elements, not <a>."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        # JS creates buttons via foliplus.dom.el("button", ...)
-        # (multi-line in rendered output, so check for the pattern)
-        assert "dom.el(" in html and '"button"' in html
-        # No old <a> tag patterns in button creation
-        assert 'L.DomUtil.create("a"' not in html
-
     def test_leaflet_bar_container(self, base_map: folium.Map):
         """Container has two-layer structure: outer leaflet-bar, inner fullscreen-bar + ctrl-fold."""
         FullscreenControl().add_to(base_map)

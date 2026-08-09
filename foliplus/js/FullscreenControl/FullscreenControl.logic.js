@@ -101,4 +101,4 @@ const bindFullscreenEvents = (map, fsBtn, container) => {
   return handleFSChange;
 };
 
-export { bindFullscreenEvents, toggleFullscreen };
+export { bindFullscreenEvents, toggleFullscreen, updateUI };
