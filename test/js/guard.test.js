@@ -1,0 +1,36 @@
+import { describe, expect, it, vi } from "vitest";
+import { requireRuntime, requireLayerAPI } from "../../foliplus/js/common/guard.js";
+
+const mockShowHint = vi.fn();
+
+describe("requireRuntime", () => {
+  it("throws when foliplus is missing", () => {
+    vi.stubGlobal("foliplus", undefined);
+    expect(() => requireRuntime("Test")).toThrow("foliplus runtime not found");
+  });
+
+  it("throws when showHint is not a function", () => {
+    vi.stubGlobal("foliplus", {});
+    expect(() => requireRuntime("Test")).toThrow("foliplus runtime not found");
+  });
+
+  it("passes when foliplus.showHint is available", () => {
+    vi.stubGlobal("foliplus", { showHint: () => {} });
+    expect(() => requireRuntime("Test")).not.toThrow();
+  });
+});
+
+describe("requireLayerAPI", () => {
+  const _ = (s) => s;
+
+  it("throws when LayerAPI is missing", () => {
+    vi.stubGlobal("foliplus", { showHint: mockShowHint, HINT_DURATION: { PERSIST: 0 } });
+    expect(() => requireLayerAPI("Test", _)).toThrow("Test.no_layercontrol");
+    expect(mockShowHint).toHaveBeenCalledWith("Test", "Test.no_layercontrol", 0);
+  });
+
+  it("passes when LayerAPI is present", () => {
+    vi.stubGlobal("foliplus", { showHint: () => {}, LayerAPI: {} });
+    expect(() => requireLayerAPI("Test", _)).not.toThrow();
+  });
+});
