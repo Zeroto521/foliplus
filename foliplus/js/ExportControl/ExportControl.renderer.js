@@ -5,7 +5,7 @@ import {
   isVisible,
   loadImage,
   loadImageBitmap,
-} from "./ExportControl.helpers.js";
+} from "./ExportControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
