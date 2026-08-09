@@ -40,6 +40,7 @@ window.map = {
   flyTo: vi.fn(),
   addLayer: vi.fn(),
   getCenter: () => ({ lng: 119.3, lat: 26.08 }),
+  getContainer: () => ({ id: "test" }),
   eachLayer: vi.fn(),
   on: vi.fn(),
   off: vi.fn(),
