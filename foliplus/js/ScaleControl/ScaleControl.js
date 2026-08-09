@@ -1,9 +1,14 @@
 import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
-import { CLASSES } from "./ScaleControl.const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const CLASSES = {
+  WRAP: "foliplus-scale-wrap",
+  ZOOM_LABEL: "foliplus-scale-zoom-label",
+};
+
+// ==================== Runtime Guard ====================
 requireRuntime(CONF.name);
 
 // ==================== Dependencies ====================
@@ -22,7 +27,10 @@ class ScaleControl extends L.Control {
 
     // ==================== Zoom Label ====================
     if (CONF.show_zoom) {
-      const zoomLabel = dom.el("span", { class: CLASSES.ZOOM_LABEL, parent: wrap });
+      const zoomLabel = dom.el("span", {
+        class: CLASSES.ZOOM_LABEL,
+        parent: wrap,
+      });
       const updateZoom = () => {
         zoomLabel.textContent = _(`${CONF.name}.zoom_label`).replace(
           "{zoom}",
