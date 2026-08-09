@@ -270,6 +270,7 @@ const buildSearchUrl = (ctrl, q, limit) => {
 };
 
 export {
+  buildSearchUrl,
   fetchSuggestions,
   initDebouncedFetch,
   positionSuggestions,

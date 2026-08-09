@@ -1,4 +1,4 @@
-.PHONY : help clean clean-build clean-pyc clean-cov clean-html lint dist build-js build-py test test-browser test-pythonhtml info
+.PHONY : help clean clean-build clean-pyc clean-cov clean-html lint dist build-js build-python test test-browser test-python test-js html info
 
 help:
 	@echo "'clean'        - remove all build/cache artifacts"
@@ -10,9 +10,9 @@ help:
 	@echo "'test'         - run all tests with coverage"
 	@echo "'test-python'  - run Python-only tests (skip browser)"
 	@echo "'test-browser' - run browser tests"
-	@echo "'dist'         = build-js + build-py (full release)"
+	@echo "'dist'         = build-js + build-python (full release)"
 	@echo "'build-js'     - minify JS/CSS with esbuild to foliplus/dist/"
-	@echo "'build-py'     - build sdist + wheel only"
+	@echo "'build-python' - build sdist + wheel only"
 	@echo "'html'         - build HTML docs in doc/_build/html"
 	@echo "'info'         - show environment info"
 
@@ -39,12 +39,12 @@ clean: clean-build clean-pyc clean-cov clean-html
 lint:
 	pre-commit run -a -v
 
-dist: build-js build-py
+dist: build-js build-python
 
 build-js:
 	node script/build.mjs
 
-build-py:
+build-python:
 	python -m build
 	twine check --strict dist/*
 	ls -l dist
@@ -53,13 +53,16 @@ build-py:
 JOBS ?= auto
 
 test: build-js
-	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
 
 test-python: build-js
-	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
+	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
 
 test-browser: build-js
-	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
+	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
+
+test-js:
+	npx vitest run --reporter=verbose
 
 html:
 	cd doc/source && make html

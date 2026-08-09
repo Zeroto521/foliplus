@@ -49,7 +49,7 @@ include = ["foliplus*"]
 foliplus = ["locale/*.json", "dist/*.min.js", "dist/*.min.css"]
 
 [tool.pytest.ini_options]
-testpaths = ["test"]
+testpaths = ["test/python"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short --cov=foliplus --cov-report=term-missing"
 markers = [
