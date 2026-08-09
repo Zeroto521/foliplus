@@ -1,8 +1,8 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
 import { fromWgs84 } from "../common/coord.js";
 import { debounce } from "../common/debounce.js";
-import { dom } from "../common/dom.js";
-import { createLocationMarker } from "../common/dom.js";
+import { createLocationMarker, dom } from "../common/dom.js";
+import { NOMINATIM, formatAddress, nominatimUrl } from "../common/geocode.js";
 import * as Icons from "../common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./SearchControl.const.js";
 
@@ -96,7 +96,7 @@ const searchAddress = (ctrl, query) => {
 
       const item = results[0];
       const displayName =
-        foliplus.formatAddress(item.display_name, map, CONF.locale_code) || query;
+        formatAddress(item.display_name, map, CONF.locale_code) || query;
       ctrl.cachedAddress[query] = { item, displayName };
       renderAddressResult(ctrl, { item, displayName });
     })
@@ -191,8 +191,7 @@ const renderSuggestions = (ctrl, results, query) => {
   positionSuggestions(ctrl);
 
   results.forEach((item, idx) => {
-    const displayName =
-      foliplus.formatAddress(item.display_name, map) || item.name || "";
+    const displayName = formatAddress(item.display_name, map) || item.name || "";
     dom.el(
       "div",
       {
@@ -228,11 +227,11 @@ const fetchSuggestions = (ctrl, query) => {
   }
 
   const now = Date.now();
-  if (now - ctrl.lastSuggestFetch < foliplus.NOMINATIM.THROTTLE_MS) {
+  if (now - ctrl.lastSuggestFetch < NOMINATIM.THROTTLE_MS) {
     if (ctrl.suggestionsThrottleTimer) clearTimeout(ctrl.suggestionsThrottleTimer);
     ctrl.suggestionsThrottleTimer = setTimeout(
       () => fetchSuggestions(ctrl, query),
-      foliplus.NOMINATIM.THROTTLE_MS - (now - ctrl.lastSuggestFetch),
+      NOMINATIM.THROTTLE_MS - (now - ctrl.lastSuggestFetch),
     );
     return;
   }
@@ -264,14 +263,9 @@ const initDebouncedFetch = (ctrl) => {
   );
 };
 
-const buildSearchUrl = (ctrl, query, limit) => {
+const buildSearchUrl = (ctrl, q, limit) => {
   const center = map.getCenter();
-  return foliplus.nominatimUrl("/search", {
-    q: query,
-    limit,
-    lon: center.lng,
-    lat: center.lat,
-  });
+  return nominatimUrl("/search", { q, limit, lon: center.lng, lat: center.lat });
 };
 
 export {

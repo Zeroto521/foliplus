@@ -9,12 +9,7 @@
  * `runtime/*.js` submodules) into `dist/runtime.min.js`, which BaseControl
  * injects once per map into the shared header.
  */
-import {
-  NOMINATIM,
-  formatAddress,
-  nominatimUrl,
-  reverseGeocode,
-} from "./runtime.geocode.js";
+import { reverseGeocode } from "./runtime.geocode.js";
 import { HINT_DURATION, hideHint, registerHintIcon, showHint } from "./runtime.hint.js";
 
 // Ensure the global namespace object exists.
@@ -32,7 +27,6 @@ if (!foliplus.isInitialized) {
   Object.assign(window.foliplus, {
     // ==================== Constants ====================
     HINT_DURATION,
-    NOMINATIM,
 
     // ==================== Hint / Toast System ====================
     registerHintIcon,
@@ -40,8 +34,6 @@ if (!foliplus.isInitialized) {
     hideHint,
 
     // ==================== Reverse Geocoding ====================
-    nominatimUrl,
-    formatAddress,
     reverseGeocode,
   });
 }

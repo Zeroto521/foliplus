@@ -8,12 +8,7 @@ import { dom } from "../common/dom.js";
 // ── Hint constants ──────────────────────────────────────────────
 const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
 const CLASS = "foliplus-hint";
-const HINT_DURATION = {
-  SHORT: 1200,
-  MEDIUM: 2500,
-  LONG: 4000,
-  PERSIST: 0,
-};
+const HINT_DURATION = { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 };
 
 const hintIcons = {};
 const hintMap = new Map(); // key -> { element, timer }
