@@ -24,14 +24,15 @@ wheels/
 MANIFEST
 
 # Test & coverage
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
 nosetests.xml
 coverage.xml
+.coverage
+.coverage.*
 *.cover
+coverage/
+htmlcov/
+.tox/
+.cache
 .hypothesis/
 .pytest_cache/
 
