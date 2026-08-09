@@ -51,10 +51,7 @@ class LayerControl(BaseControl):
         self.base_layers: OrderedDict[str, str] = OrderedDict()
         self.overlays: OrderedDict[str, str] = OrderedDict()
         self._template = self._get_template(
-            config={
-                "name": self._name,
-                "position": position,
-            },
+            config={"name": self._name, "position": position}
         )
 
     def render(self, **kwargs):
@@ -70,16 +67,14 @@ class LayerControl(BaseControl):
             else:
                 self.overlays[key] = item.get_name()
 
-        # Build initialData from collected layers and inject into CONFIG
         initial_data = []
+        # Build initialData from collected layers. `visible` is omitted — the
+        # JS LayerRegistry defaults it to true (createLayerInfo), so only the
+        # fields JS cannot infer are supplied: name/id/isBase.
         for key, val in self.overlays.items():
-            initial_data.append(
-                {"name": key, "id": val, "visible": True, "isBase": False}
-            )
+            initial_data.append({"name": key, "id": val, "isBase": False})
         for key, val in self.base_layers.items():
-            initial_data.append(
-                {"name": key, "id": val, "visible": True, "isBase": True}
-            )
+            initial_data.append({"name": key, "id": val, "isBase": True})
         self._config["initialData"] = initial_data
 
         super().render(**kwargs)
