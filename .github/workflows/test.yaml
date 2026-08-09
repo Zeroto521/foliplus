@@ -32,6 +32,14 @@ jobs:
           environment-file: ${{ matrix.env }}
           create-args: python=${{ matrix.python }}
 
+      # Node is required for the JS build (esbuild) and vitest JS test suite.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
       - run: playwright install chromium
       - run: pip install -e .
       - run: make info

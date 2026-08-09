@@ -62,7 +62,7 @@ test-browser: build-js
 	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
 
 test-js:
-	npx vitest run --reporter=verbose
+	npx vitest run --coverage
 
 html:
 	cd doc/source && make html
