@@ -8,7 +8,6 @@ import {
 } from "./ExportControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
@@ -22,8 +21,6 @@ class ExportRenderer {
     this.map = map;
     this.container = map.getContainer();
   }
-
-  // ── Setup helpers ──
 
   /** Calculate tile coordinates covering geo bounds at a given zoom.
    *  Returns [{x, y, z, url, left, top, size}]. */
@@ -124,9 +121,9 @@ class ExportRenderer {
         // Only TileLayer subclasses have _url; other GridLayer types
         // (e.g. L.ImageOverlay) are skipped here.
         if (li.layer instanceof L.GridLayer && li.layer._url) {
-          if (geoBounds && geoBounds.nw) {
+          if (geoBounds && geoBounds.nw)
             await this.renderTileLayer(rc, geoBounds, li.layer);
-          }
+
           continue;
         }
 
@@ -228,6 +225,7 @@ class ExportRenderer {
       const bitmaps = await Promise.all(
         batch.map((t) => loadImageBitmap(t.url).catch(() => null)),
       );
+
       for (let j = 0; j < batch.length; j++) {
         const bitmap = bitmaps[j];
         if (!bitmap) continue;
@@ -261,6 +259,7 @@ class ExportRenderer {
           "path, polygon, polyline, circle, rect, ellipse, line, text",
         );
       if (!hasContent) continue;
+
       const svgRect = svgEl.getBoundingClientRect();
       const svgL = svgRect.left - contRect.left;
       const svgT = svgRect.top - contRect.top;
@@ -474,11 +473,13 @@ class ExportRenderer {
       const w = r.width;
       const h = r.height;
       if (w < 1 || h < 1) continue;
+
       const dx = (l - rect.left) * scale;
       const dy = (t - rect.top) * scale;
       const dw = w * scale;
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
+
       const iconEl = root.querySelector("i");
       if (!iconEl) continue;
       const before = window.getComputedStyle(iconEl, "::before");
@@ -492,6 +493,7 @@ class ExportRenderer {
         const match2 = raw.match(/^\\\\f([0-9a-fA-F]+)/);
         if (match2) iconText = String.fromCharCode(parseInt("f" + match2[1], 16));
       }
+
       const iconCS = window.getComputedStyle(iconEl);
       let fontSize = parseFloat(iconCS.fontSize) || 14;
       const fontFamily = iconCS.fontFamily || "FontAwesome";
@@ -541,6 +543,7 @@ class ExportRenderer {
         rootCS.backgroundImage.includes("url(")
       )
         continue;
+
       const textCS = window.getComputedStyle(textEl);
       const tr = textEl.getBoundingClientRect();
       const w = tr.width;
@@ -566,6 +569,7 @@ class ExportRenderer {
           ctx.roundRect(dx, dy, dw, dh, br * scale);
           ctx.fill();
         } else ctx.fillRect(dx, dy, dw, dh);
+
         const bw = parseFloat(textCS.borderWidth) || 0;
         if (bw > 0 && textCS.borderStyle !== "none") {
           ctx.strokeStyle = textCS.borderColor || bg;
@@ -598,9 +602,9 @@ class ExportRenderer {
       const lines = text.trim().split("\n");
       const lineHeight = fontSize * 1.2;
       const startY = cy - ((lines.length - 1) * lineHeight) / 2;
-      for (let i = 0; i < lines.length; i++) {
+      for (let i = 0; i < lines.length; i++)
         ctx.fillText(lines[i].trim(), cx, startY + i * lineHeight);
-      }
+
       ctx.restore();
     }
   }
@@ -684,6 +688,7 @@ class ExportRenderer {
           ctx.roundRect(dx, dy, dw, dh, br * scale);
           ctx.fill();
         } else ctx.fillRect(dx, dy, dw, dh);
+
         const bw = parseFloat(rootCS.borderWidth) || 0;
         if (bw > 0 && rootCS.borderStyle !== "none" && rootCS.borderColor) {
           ctx.strokeStyle = rootCS.borderColor;

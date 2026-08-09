@@ -4,9 +4,6 @@ import * as CONST from "./ExportControl.const.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
-// ==================== Render helpers ====================
-// Stateless utilities used by ExportRenderer passes.
-
 /** Test whether a rectangle intersects the visible crop area. */
 const isVisible = (dx, dy, dw, dh, cw, ch) =>
   !(dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch);

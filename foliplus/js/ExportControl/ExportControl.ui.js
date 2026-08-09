@@ -107,11 +107,7 @@ const showCropBox = (mgr) => {
   });
   mgr.mapContainer.classList.add(CONST.CLASSES.MODE);
   document.body.classList.add(CONST.CLASSES.MODE);
-
-  const cropBox = dom.el("div", {
-    class: CONST.CLASSES.BOX,
-    parent: mgr.mapContainer,
-  });
+  const cropBox = dom.el("div", { class: CONST.CLASSES.BOX, parent: mgr.mapContainer });
 
   ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach((pos) => {
     dom.el("div", {

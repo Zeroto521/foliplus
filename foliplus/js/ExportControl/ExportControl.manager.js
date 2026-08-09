@@ -15,7 +15,6 @@ import {
 } from "./ExportControl.ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
@@ -122,14 +121,15 @@ class ExportManager {
     e.preventDefault();
     e.stopPropagation();
     const target = e.target;
-    if (target.classList.contains(CONST.CLASSES.HANDLE)) {
+    if (target.classList.contains(CONST.CLASSES.HANDLE))
       this.dragState.dragType = target.dataset.pos;
-    } else if (
+    else if (
       target.classList.contains(CONST.CLASSES.CENTER) ||
       target.classList.contains(CONST.CLASSES.BOX)
-    ) {
+    )
       this.dragState.dragType = "move";
-    } else return;
+    else return;
+
     this.dragState.dragging = true;
     // Disable the box transition during drag so it tracks the cursor
     // instantly (the 0.15s lag made the box feel "behind" the mouse and
