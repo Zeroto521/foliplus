@@ -24,6 +24,11 @@ class LayerControl extends BaseControl {
     this.manager = layerManager;
   }
 
+  /** Shorthand for manager */
+  get m() {
+    return this.manager;
+  }
+
   buildDOM() {
     patchBringToFront();
     const container = dom.el("div", {
@@ -62,13 +67,13 @@ class LayerControl extends BaseControl {
       header: ".foliplus-panel-header",
     });
 
-    this.manager.attachUI(container.querySelector(".foliplus-panel-content"));
+    this.m.attachUI(container.querySelector(".foliplus-panel-content"));
 
     return container;
   }
 
   destroy() {
-    this.manager.destroy();
+    this.m.destroy();
     unpatchBringToFront();
   }
 }
