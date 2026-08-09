@@ -52,7 +52,12 @@ const updateBoxStyle = (mgr, el, r) => {
 };
 
 /** Show a global hint (e.g. exporting status). */
-const showGlobalHint = (mgr, text, duration, withLoadingIcon) => {
+const showGlobalHint = (
+  mgr,
+  text,
+  duration = HINT_DURATION.PERSIST,
+  withLoadingIcon = false,
+) => {
   const loading = withLoadingIcon ? Icons.LOADING + " " : "";
   foliplus.showHint(CONF.name, loading + text, duration || HINT_DURATION.PERSIST);
 };
@@ -177,7 +182,7 @@ const showCropBox = (mgr) => {
 };
 
 /** Update toolbar for locked state (export button). */
-const lockCropBox = (mgr, skipHint) => {
+const lockCropBox = (mgr, skipHint = false) => {
   if (!mgr.cropState || mgr.cropState.locked) return;
   mgr.cropState.locked = true;
   mgr.cropState.box.classList.add("locked");

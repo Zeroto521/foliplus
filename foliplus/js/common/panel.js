@@ -101,7 +101,7 @@ const bindFoldToggle = ({ container, toggleBtn, onExpand, onCollapse }) => {
  * @param {Function} [opts.skipCheck] - Optional function; if returns true, collapse is skipped
  * @returns {Function} Cleanup function
  */
-const bindOutsideCollapse = ({ container, skipCheck }) => {
+const bindOutsideCollapse = ({ container, skipCheck = () => false }) => {
   const handler = (e) => {
     if (skipCheck && skipCheck()) return;
     if (

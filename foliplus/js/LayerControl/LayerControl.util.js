@@ -57,7 +57,7 @@ const findLayer = (map, id) => {
  * @param {number} depth - Internal recursion depth.
  * @param {boolean} leafOnly - If true, only call fn on non-container layers.
  */
-const traverse = (layer, fn, depth, leafOnly) => {
+const traverse = (layer, fn, depth = 0, leafOnly = false) => {
   if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
   const isContainer = typeof layer.eachLayer === "function";
   if (!leafOnly) fn(layer);

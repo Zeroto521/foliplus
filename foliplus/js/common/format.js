@@ -9,8 +9,7 @@
  * @param {string} [locale] Locale code, defaults to browser language (en/zh)
  * @returns {string} Formatted string
  */
-const formatNumber = (val, style, locale = "en") => {
-  style = style || "auto";
+const formatNumber = (val, style = "auto", locale = "en") => {
   const absVal = Math.abs(val);
 
   const fmt = (maxFrac) =>
