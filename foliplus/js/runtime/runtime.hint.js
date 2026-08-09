@@ -3,6 +3,7 @@
 // Internal state (hintIcons, hintMap) is module-scoped and exposed through
 // the functions below. The runtime entry module wires these onto
 // `window.foliplus.*`.
+import { foliplusDom } from "./runtime.dom.js";
 
 // ── Hint constants ──────────────────────────────────────────────
 const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
@@ -54,12 +55,13 @@ const showHint = (key, text, duration, append, subkey) => {
     : append
       ? `${CLASSES} ${CLASSES}-${key}-${Date.now()}`
       : `${CLASSES} ${CLASSES}-${key}`;
-  const el = document.createElement("div");
-  el.className = cls;
-  hintTarget.appendChild(el);
+
   const icon = (hintIcons && hintIcons[key]) || "";
-  el.innerHTML = icon ? `<span class="foliplus-hint-icon">${icon}</span>${text}` : text;
-  el.classList.add(CLASSES);
+  const el = foliplusDom.el("div", {
+    class: `${cls} ${CLASSES}`,
+    parent: hintTarget,
+    innerHTML: icon ? `<span class="foliplus-hint-icon">${icon}</span>${text}` : text,
+  });
   if (hintTarget !== document.body && hintTarget !== document.documentElement) {
     const cs = window.getComputedStyle(hintTarget);
     if (cs.position === "static") hintTarget.style.position = "relative";
