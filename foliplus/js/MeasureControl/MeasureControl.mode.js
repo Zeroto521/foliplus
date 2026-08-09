@@ -32,7 +32,9 @@ class MeasureMode {
   }
 
   /** Start the mode — bind events, create UI. */
-  start() {}
+  start() {
+    console.warn(`[${CONF.name}] start not implemented for ${this.type}`);
+  }
 
   /** Cleanup — unbind events, remove temporary elements. */
   cleanup() {
@@ -45,6 +47,14 @@ class MeasureMode {
   /** Generate a unique measurement ID with type prefix. */
   nextMeasurementId() {
     return this.m.nextMeasurementId(this.type);
+  }
+
+  /** Rebuild a persisted measurement from data.
+   *  Subclasses override this to restore their specific visual elements.
+   *  @param {Object} manager - MeasureManager instance.
+   *  @param {Object} data - Persisted measurement data. */
+  static restore(manager, data) {
+    console.warn(`[${CONF.name}] restore not implemented for ${this.type}`);
   }
 }
 
@@ -82,6 +92,63 @@ class PreviewMode extends MeasureMode {
 /** Marker placement mode. Places a geocoded marker on click. */
 class MarkerMode extends MeasureMode {
   static TYPE = CONST.MODE.MARKER;
+
+  /** Rebuild a persisted marker measurement.
+   *  @param {Object} manager - MeasureManager instance.
+   *  @param {Object} data - Persisted measurement data. */
+  static restore(manager, data) {
+    const marker = foliplus.createLocationMarker(
+      manager.map,
+      data.lng,
+      data.lat,
+      data.address,
+      _(`${CONF.name}.popup_title`),
+      _(`${CONF.name}.popup_loading`),
+      _(`${CONF.name}.popup_loc_label`),
+      _(`${CONF.name}.popup_addr_label`),
+      _("foliplus.close_label"),
+      CONF.locale_code,
+      null,
+      manager.layers.mainLayer,
+      (addr) => {
+        // A marker restored with address:null (e.g. geocode was still in
+        // flight when the page was reloaded) resolves its address here and
+        // persists it so the next reload shows the address immediately.
+        data.address = addr;
+        manager.saveMeasurements();
+      },
+      false, // do not auto-open popup on restore
+    );
+    const delMarker = manager.layers.addLayer(
+      Util.makeDelIcon(L.latLng(data.lat, data.lng), {
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
+        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
+        title: _(`${CONF.name}.del_tooltip`),
+      }),
+    );
+
+    marker.on("popupopen", () => {
+      Util.hideDelIcons();
+      // Use the latest resolved address so a marker whose geocode finished
+      // while the popup was closed still shows the real address on first open
+      // (createLocationMarker only updates an open popup).
+      if (data.address !== null)
+        marker.setPopupContent(Util.buildPopup(data.lng, data.lat, data.address));
+      Util.toggleDelIcon(delMarker, true);
+    });
+    marker.on("popupclose", () => {
+      Util.toggleDelIcon(delMarker, false);
+    });
+
+    const deleteMarker = () => {
+      manager.layers.removeLayer(marker);
+      manager.layers.removeLayer(delMarker);
+      manager.measurements = manager.measurements.filter((x) => x.id !== data.id);
+      manager.saveMeasurements();
+      manager.layers.unregister();
+    };
+    Util.attachDelClick(delMarker, deleteMarker);
+  }
 
   start() {
     this.onMarkerClickRef = this.handleMarkerClick.bind(this);
@@ -165,6 +232,75 @@ class MarkerMode extends MeasureMode {
 /** Distance measurement mode. Click to place nodes, double-click/context to finish. */
 class DistanceMode extends PreviewMode {
   static TYPE = CONST.MODE.DISTANCE;
+
+  /** Rebuild a persisted distance measurement.
+   *  @param {Object} manager - MeasureManager instance.
+   *  @param {Object} data - Persisted measurement data. */
+  static restore(manager, data) {
+    const points = data.points.map((p) => L.latLng(p.lat, p.lng));
+    const finalPoly = manager.layers.addLayer(
+      L.polyline(points, {
+        className: CONST.CLASSES.LINE_SOLID,
+        interactive: true,
+      }),
+    );
+
+    const nodeMarkers = [];
+    points.forEach((pt, i) => {
+      const node = manager.layers.addLayer(Util.makeNode(pt));
+      node.bringToFront();
+      nodeMarkers.push(node);
+    });
+
+    // Restore start label
+    manager.layers.addLayer(
+      L.marker(points[0], {
+        icon: Util.makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
+      }),
+      true,
+    );
+
+    const segLabels = [];
+    if (data.segments) {
+      let accTotal = 0;
+      data.segments.forEach((seg, i) => {
+        accTotal += seg.distance;
+        const prev = points[i];
+        const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
+        if (!prev || !cur) return;
+        const mid = Util.midpoint(prev, cur);
+        const label = manager.layers.addLayer(
+          L.marker([mid.lat, mid.lng], {
+            icon: Util.makeMidLabelDivIcon(
+              Util.formatSegmentLabel(prev, cur, accTotal),
+            ),
+          }),
+          true,
+        );
+        segLabels.push(label);
+      });
+    }
+
+    // Attach toggle/delete UI (shared with finishDist)
+    attachDistanceUI(manager, {
+      layers: manager.layers,
+      finalPoly,
+      nodeMarkers,
+      segLabels,
+      points: points,
+      onDelete: () => {
+        manager.measurements = manager.measurements.filter((x) => x.id !== data.id);
+        manager.saveMeasurements();
+      },
+      onUpdate: () => {
+        const { segments, totalDistance } = Util.recalculateSegments(points);
+        data.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+        data.segments = segments;
+        data.totalDistance = totalDistance;
+        manager.saveMeasurements();
+      },
+    });
+  }
 
   start() {
     const points = [];
@@ -388,6 +524,73 @@ class DistanceMode extends PreviewMode {
 /** Polygon area measurement mode. Click to place nodes, closes on first/last node click. */
 class PolygonMode extends PreviewMode {
   static TYPE = CONST.MODE.POLYGON;
+
+  /** Rebuild a persisted polygon measurement.
+   *  @param {Object} manager - MeasureManager instance.
+   *  @param {Object} data - Persisted measurement data. */
+  static restore(manager, data) {
+    const points = data.points.map((p) => L.latLng(p.lat, p.lng));
+    const finalPoly = manager.layers.addLayer(
+      L.polygon(points, {
+        className: CONST.CLASSES.POLYGON_FINAL,
+        interactive: true,
+      }),
+    );
+
+    const nodeMarkers = [];
+    points.forEach((pt) => {
+      const node = manager.layers.addLayer(Util.makeNode(pt));
+      node.bringToFront();
+      nodeMarkers.push(node);
+    });
+
+    const segLabels = [];
+    if (data.segments) {
+      data.segments.forEach((seg, i) => {
+        const prev = points[i];
+        const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
+        if (!prev || !cur) return;
+        const mid = Util.midpoint(prev, cur);
+        const label = manager.layers.addLayer(
+          L.marker([mid.lat, mid.lng], {
+            icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg.distance)),
+          }),
+          true,
+        );
+        segLabels.push(label);
+      });
+    }
+
+    // Attach toggle/delete UI (shared with finishPoly)
+    const { onMapClickActive } = attachPolygonUI(manager, {
+      layers: manager.layers,
+      finalPoly,
+      nodeMarkers,
+      segLabels,
+      points: points,
+      area: data.area,
+      onDelete: () => {
+        manager.measurements = manager.measurements.filter((x) => x.id !== data.id);
+        manager.saveMeasurements();
+      },
+      onUpdate: () => {
+        const newArea = Util.area(points);
+        const { segments } = Util.recalculateSegments(points);
+        // Add closing segment
+        const n = points.length;
+        segments.push({
+          lng: points[0].lng,
+          lat: points[0].lat,
+          distance: Util.distance(points[n - 1], points[0]),
+        });
+        data.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+        data.segments = segments;
+        data.area = newArea;
+        manager.saveMeasurements();
+      },
+    });
+    manager.finalizedClickHandlers.push(onMapClickActive);
+  }
 
   start() {
     const points = [];
@@ -619,6 +822,80 @@ class PolygonMode extends PreviewMode {
 /** Circle radius measurement mode. Click center, then click edge. */
 class CircleMode extends PreviewMode {
   static TYPE = CONST.MODE.CIRCLE;
+
+  /** Rebuild a persisted circle measurement.
+   *  @param {Object} manager - MeasureManager instance.
+   *  @param {Object} data - Persisted measurement data. */
+  static restore(manager, data) {
+    const centerLatLng = L.latLng(data.center.lat, data.center.lng);
+    const targetLatLng = L.latLng(data.target.lat, data.target.lng);
+    const r = data.radius;
+
+    const circle = manager.layers.addLayer(
+      L.circle(centerLatLng, {
+        radius: r,
+        className: CONST.CLASSES.CIRCLE_FINAL,
+        interactive: true,
+      }),
+    );
+
+    const radiusLine = manager.layers.addLayer(
+      L.polyline([centerLatLng, targetLatLng], {
+        className: CONST.CLASSES.LINE_DASHED,
+        interactive: true,
+      }),
+    );
+    const radiusNode = manager.layers.addLayer(Util.makeNode(targetLatLng));
+
+    const centerFinal = manager.layers.addLayer(
+      L.marker(centerLatLng, {
+        icon: L.divIcon({
+          className: CONST.CENTER_DOT.CLASS_FINAL,
+          html: "",
+          iconSize: CONST.CENTER_DOT.SIZE,
+          iconAnchor: CONST.CENTER_DOT.ANCHOR,
+        }),
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
+        interactive: true,
+      }),
+    );
+
+    const delMarker = manager.layers.addLayer(
+      Util.makeDelIcon(centerLatLng, {
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
+        title: _(`${CONF.name}.del_tooltip`),
+      }),
+    );
+
+    const mid = Util.midpoint(centerLatLng, targetLatLng);
+    const radiusLabel = manager.layers.addLayer(
+      L.marker([mid.lat, mid.lng], {
+        icon: Util.makeLabelDivIcon(
+          Util.formatDistance(r),
+          CONST.LABEL.RADIUS_ANCHOR,
+          CONST.LABEL.CLASS_RADIUS,
+        ),
+        interactive: false,
+      }),
+      true,
+    );
+
+    // Attach toggle/delete UI (shared with finalizeCircle)
+    const { onMapClickActive } = attachCircleUI(manager, {
+      layers: manager.layers,
+      circle,
+      radiusLine,
+      radiusNode,
+      centerFinal,
+      delMarker,
+      radiusLabel,
+      onDelete: () => {
+        manager.measurements = manager.measurements.filter((x) => x.id !== data.id);
+        manager.saveMeasurements();
+      },
+    });
+    manager.finalizedClickHandlers.push(onMapClickActive);
+  }
 
   start() {
     let center = null;
@@ -855,3 +1132,11 @@ class CircleMode extends PreviewMode {
 }
 
 export { CircleMode, DistanceMode, MarkerMode, MeasureMode, PolygonMode, PreviewMode };
+
+/** Map of measurement type → mode class, used to dispatch restore. */
+export const MODE_MAP = {
+  [CONST.MODE.MARKER]: MarkerMode,
+  [CONST.MODE.DISTANCE]: DistanceMode,
+  [CONST.MODE.POLYGON]: PolygonMode,
+  [CONST.MODE.CIRCLE]: CircleMode,
+};
