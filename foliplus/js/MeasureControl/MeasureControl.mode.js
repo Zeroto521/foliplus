@@ -1,6 +1,7 @@
 import { createLocationMarker } from "../common/dom.js";
 import { HINT_DURATION } from "../common/hint.js";
 import { createTranslator } from "../common/locale.js";
+import { bindMapEvents, unbindMapEvents } from "../common/mapEvents.js";
 import * as CONST from "./MeasureControl.const.js";
 import {
   attachCircleUI,
@@ -325,10 +326,7 @@ class DistanceMode extends PreviewMode {
     let originLabel = null;
 
     this._cleanup = () => {
-      this.map.off("click", onDistClick);
-      this.map.off("dblclick", onDistDbl);
-      this.map.off("contextmenu", onDistContext);
-      this.map.off("mousemove", onDistMove);
+      unbindMapEvents(this.map, distEvents);
       this.layers.removeLayer(previewLine);
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
@@ -406,10 +404,7 @@ class DistanceMode extends PreviewMode {
       this._cleanup = () => this.m.map.off("click", onDistMapClick);
 
       // Cleanup drawing mode
-      this.map.off("click", onDistClick);
-      this.map.off("dblclick", onDistDbl);
-      this.map.off("contextmenu", onDistContext);
-      this.map.off("mousemove", onDistMove);
+      unbindMapEvents(this.map, distEvents);
       this.layers.removeLayer(previewLine);
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
@@ -515,10 +510,13 @@ class DistanceMode extends PreviewMode {
       finishDist();
     };
 
-    this.map.on("click", onDistClick);
-    this.map.on("dblclick", onDistDbl);
-    this.map.on("contextmenu", onDistContext);
-    this.map.on("mousemove", onDistMove);
+    const distEvents = [
+      ["click", onDistClick],
+      ["dblclick", onDistDbl],
+      ["contextmenu", onDistContext],
+      ["mousemove", onDistMove],
+    ];
+    bindMapEvents(this.map, distEvents);
   }
 }
 
@@ -614,10 +612,7 @@ class PolygonMode extends PreviewMode {
     let isFinished = false;
 
     this._cleanup = () => {
-      this.map.off("click", onPolyClick);
-      this.map.off("dblclick", onPolyDbl);
-      this.map.off("contextmenu", onPolyContext);
-      this.map.off("mousemove", onPolyMove);
+      unbindMapEvents(this.map, polyEvents);
       this.layers.removeLayer(previewPoly);
       this.layers.removeLayer(poly);
       this.layers.removeLayer(finalPoly);
@@ -725,10 +720,7 @@ class PolygonMode extends PreviewMode {
       this.m.finalizedClickHandlers.push(onPolyMapClick);
 
       // Cleanup drawing mode
-      this.map.off("click", onPolyClick);
-      this.map.off("dblclick", onPolyDbl);
-      this.map.off("contextmenu", onPolyContext);
-      this.map.off("mousemove", onPolyMove);
+      unbindMapEvents(this.map, polyEvents);
       this.layers.removeLayer(previewPoly);
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
@@ -813,10 +805,13 @@ class PolygonMode extends PreviewMode {
       finishPoly();
     };
 
-    this.map.on("click", onPolyClick);
-    this.map.on("dblclick", onPolyDbl);
-    this.map.on("contextmenu", onPolyContext);
-    this.map.on("mousemove", onPolyMove);
+    const polyEvents = [
+      ["click", onPolyClick],
+      ["dblclick", onPolyDbl],
+      ["contextmenu", onPolyContext],
+      ["mousemove", onPolyMove],
+    ];
+    bindMapEvents(this.map, polyEvents);
   }
 }
 
@@ -1119,14 +1114,15 @@ class CircleMode extends PreviewMode {
       this.m.finalizedClickHandlers.push(onMapClickActive);
     };
 
-    this.map.on("click", onMapClick);
-    this.map.on("mousemove", onMouseMove);
-    this.map.on("contextmenu", onContext);
+    const circleEvents = [
+      ["click", onMapClick],
+      ["mousemove", onMouseMove],
+      ["contextmenu", onContext],
+    ];
+    bindMapEvents(this.map, circleEvents);
 
     this._cleanup = () => {
-      this.map.off("click", onMapClick);
-      this.map.off("mousemove", onMouseMove);
-      this.map.off("contextmenu", onContext);
+      unbindMapEvents(this.map, circleEvents);
       resetPreviews();
       foliplus.hideHint(CONF.name);
     };
