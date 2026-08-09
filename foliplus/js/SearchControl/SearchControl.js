@@ -1,3 +1,4 @@
+import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
@@ -17,13 +18,13 @@ const _ = createTranslator(CONF);
 foliplus.registerHintIcon(CONF.name, SVGs.SEARCH);
 
 // ==================== Control Definition ====================
-class SearchControl extends L.Control {
+class SearchControl extends BaseControl {
   constructor(options) {
     super(options);
     this._ = _;
   }
 
-  onAdd() {
+  buildDOM() {
     this.createDOM();
     this.initState();
     initDebouncedFetch(this);
@@ -33,7 +34,7 @@ class SearchControl extends L.Control {
     return this.container;
   }
 
-  onRemove() {
+  destroy() {
     removeSuggestions(this);
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();

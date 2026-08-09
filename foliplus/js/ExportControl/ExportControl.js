@@ -1,3 +1,4 @@
+import { BaseControl } from "../common/BaseControl.js";
 import { requireLayerAPI, requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
 import { createFoldControl } from "../common/panel.js";
@@ -40,8 +41,8 @@ map.on("layeradd", (e) => {
 // ==================== Leaflet Control ====================
 const exportManager = new ExportManager(map);
 
-class ExportControl extends L.Control {
-  onAdd() {
+class ExportControl extends BaseControl {
+  buildDOM() {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: `foliplus-export-ctrl`,
       toggleTitle: _(`${CONF.name}.btn_title`),
@@ -56,7 +57,7 @@ class ExportControl extends L.Control {
     };
     return container;
   }
-  onRemove() {
+  destroy() {
     if (exportManager.cropState) exportManager.removeCropBox();
     document.removeEventListener("keydown", exportManager.onKeyDown);
   }

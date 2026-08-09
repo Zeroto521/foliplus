@@ -1,3 +1,4 @@
+import { BaseControl } from "../common/BaseControl.js";
 import { requireLayerAPI, requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
 import { createPanelControl } from "../common/panel.js";
@@ -23,7 +24,7 @@ foliplus.registerHintIcon(CONF.name, SVGs.HEXAGON);
 requireLayerAPI(CONF.name, _);
 
 // ==================== View & Control: HeatmapControl ====================
-class HeatmapControl extends L.Control {
+class HeatmapControl extends BaseControl {
   constructor(options, manager) {
     super(options);
     this.manager = manager;
@@ -37,7 +38,7 @@ class HeatmapControl extends L.Control {
     return this.manager;
   }
 
-  onAdd() {
+  buildDOM() {
     const { container, ctrl, panelContent } = createPanelControl({
       cssClass: CONST.CLASSES.HEATMAP_CTRL,
       toggleTitle: _(`${CONF.name}.title`),
@@ -52,7 +53,7 @@ class HeatmapControl extends L.Control {
     return container;
   }
 
-  onRemove() {
+  destroy() {
     // Clean up map event listeners
     if (this.m.mapCleanup) this.m.mapCleanup();
     if (this.m.onZoomEnd) {

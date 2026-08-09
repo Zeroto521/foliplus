@@ -1,3 +1,4 @@
+import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
 import { requireLayerAPI, requireRuntime } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
@@ -23,7 +24,7 @@ requireLayerAPI(CONF.name, _);
 const measureManager = new MeasureManager(map);
 
 /** Leaflet control wrapper for the MeasureManager. Handles DOM creation and tool button events. */
-class MeasureControl extends L.Control {
+class MeasureControl extends BaseControl {
   constructor(options) {
     super(options);
     this.manager = measureManager;
@@ -34,7 +35,7 @@ class MeasureControl extends L.Control {
     return this.manager;
   }
 
-  onAdd() {
+  buildDOM() {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: "foliplus-measure-ctrl",
       toggleTitle: _(`${CONF.name}.tool_toggle`),
@@ -103,7 +104,7 @@ class MeasureControl extends L.Control {
     return container;
   }
 
-  onRemove() {
+  destroy() {
     this.m.destroy();
   }
 }

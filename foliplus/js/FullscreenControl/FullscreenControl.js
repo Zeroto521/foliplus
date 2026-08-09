@@ -1,9 +1,14 @@
+import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as SVGs from "./FullscreenControl.icon.js";
-import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logic.js";
+import {
+  bindFullscreenEvents,
+  toggleFullscreen,
+} from "./FullscreenControl.logic.js";
+import { getFullscreenEl, isEnabled, nativeAPI } from "./FullscreenControl.api.js";
 
 // CONF is injected by the template wrapper (IIFE scope), see BaseControl._get_template.
 requireRuntime(CONF.name);
@@ -12,8 +17,8 @@ const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 foliplus.registerHintIcon(CONF.name, SVGs.MAXIMIZE);
 
-class FullscreenControl extends L.Control {
-  onAdd() {
+class FullscreenControl extends BaseControl {
+  buildDOM() {
     if (map.zoomControl) map.removeControl(map.zoomControl);
     else {
       const zoomEl = map.getContainer().querySelector(".leaflet-control-zoom");
@@ -76,9 +81,15 @@ class FullscreenControl extends L.Control {
 
     L.DomEvent.disableClickPropagation(outer);
     L.DomEvent.disableScrollPropagation(outer);
-    bindFullscreenEvents(map, fsBtn, container);
+    this.fsHandler = bindFullscreenEvents(map, fsBtn, container);
 
     return outer;
+  }
+
+  destroy() {
+    if (this.fsHandler && isEnabled) {
+      document.removeEventListener(nativeAPI.fullscreenchange, this.fsHandler);
+    }
   }
 }
 

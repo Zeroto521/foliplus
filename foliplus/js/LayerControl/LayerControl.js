@@ -1,3 +1,4 @@
+import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
@@ -26,13 +27,13 @@ const layerManager = new LayerManager(map, initialData);
 layerManager.ui = new LayerUI(layerManager);
 
 // ==================== Leaflet Control Definition ====================
-class LayerControl extends L.Control {
+class LayerControl extends BaseControl {
   constructor(options) {
     super(options);
     this.manager = layerManager;
   }
 
-  onAdd() {
+  buildDOM() {
     patchBringToFront();
     const container = dom.el("div", {
       class: "leaflet-bar leaflet-control",
@@ -75,7 +76,7 @@ class LayerControl extends L.Control {
     return container;
   }
 
-  onRemove() {
+  destroy() {
     this.manager.destroy();
     unpatchBringToFront();
   }

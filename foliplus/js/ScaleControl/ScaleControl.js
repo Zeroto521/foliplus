@@ -1,3 +1,4 @@
+import { BaseControl } from "../common/BaseControl.js";
 import { dom } from "../common/dom.js";
 import { requireRuntime } from "../common/guard.js";
 import { createTranslator } from "../common/locale.js";
@@ -15,8 +16,8 @@ requireRuntime(CONF.name);
 const _ = createTranslator(CONF);
 
 // ==================== Control Definition ====================
-class ScaleControl extends L.Control {
-  onAdd() {
+class ScaleControl extends BaseControl {
+  buildDOM() {
     const scaleCtrl = L.control.scale({
       metric: CONF.isMetric,
       imperial: !CONF.isMetric,
@@ -35,8 +36,8 @@ class ScaleControl extends L.Control {
         );
       };
       updateZoom();
-      this._map.on("zoomend", updateZoom);
-      this._map.on("unload", () => this._map.off("zoomend", updateZoom));
+      // Tracked — auto-unbound in onRemove via BaseControl.cleanup().
+      this.listenMap("zoomend", updateZoom);
     }
 
     return ctrl;
