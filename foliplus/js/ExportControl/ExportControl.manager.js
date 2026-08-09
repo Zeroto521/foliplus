@@ -1,7 +1,15 @@
 import { createTranslator } from "../shared/locale.js";
 import * as CONST from "./ExportControl.const.js";
-import * as SVGs from "./ExportControl.icon.js";
 import { ExportRenderer } from "./ExportControl.renderer.js";
+import {
+  lockCropBox,
+  removeCropBox,
+  showCropBox,
+  showGlobalHint,
+  showHintWithInfo,
+  unlockCropBox,
+  updateBoxStyle,
+} from "./ExportControl.ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
@@ -41,6 +49,16 @@ class ExportManager {
     this.onMouseUp = this.onMouseUp.bind(this);
     this.onKeyDown = this.onKeyDown.bind(this);
     this.onMapChange = this.onMapChange.bind(this);
+
+    // Mount UI functions directly on this instance
+    this.showCropBox = () => showCropBox(this);
+    this.lockCropBox = (skipHint) => lockCropBox(this, skipHint);
+    this.unlockCropBox = () => unlockCropBox(this);
+    this.removeCropBox = () => removeCropBox(this);
+    this.updateBoxStyle = (el, r) => updateBoxStyle(this, el, r);
+    this.showHintWithInfo = (r, instruction) => showHintWithInfo(this, r, instruction);
+    this.showGlobalHint = (text, duration, withLoadingIcon) =>
+      showGlobalHint(this, text, duration, withLoadingIcon);
   }
 
   attachUI(ctrl, toolBar) {
@@ -77,269 +95,6 @@ class ExportManager {
     );
   }
 
-  showGlobalHint(text, duration, withLoadingIcon) {
-    const loading = withLoadingIcon ? foliplus.SVGs.LOADING + " " : "";
-    foliplus.showHint(
-      CONF.name,
-      loading + text,
-      duration || foliplus.HINT_DURATION.PERSIST,
-    );
-  }
-
-  showHintWithInfo(r, instruction) {
-    this.checkPixelLimit(r);
-    // Size hint always shows persistence.
-    foliplus.showHint(
-      CONF.name,
-      `${_(`${CONF.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
-        `${_(`${CONF.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
-      foliplus.HINT_DURATION.PERSIST,
-      null,
-      "size",
-    );
-    // Over-limit warning shown as a separate persistent hint sharing the
-    // same key via a distinct subkey, so it stacks with the size hint
-    // instead of replacing it.
-    if (this.pixelOverLimit) {
-      foliplus.showHint(
-        CONF.name,
-        _(`${CONF.name}.err_too_large`).replace(
-          "{limit}",
-          foliplus.formatNumber(CONF.max_pixels),
-        ),
-        foliplus.HINT_DURATION.PERSIST,
-        null,
-        "limit",
-      );
-    } else foliplus.hideHint(CONF.name, "limit");
-  }
-
-  updateBoxStyle(el, r) {
-    // Box lives in mapContainer — r is in container coordinates already.
-    el.style.left = `${r.left}px`;
-    el.style.top = `${r.top}px`;
-    el.style.width = `${r.width}px`;
-    el.style.height = `${r.height}px`;
-  }
-
-  showCropBox() {
-    if (this.cropState) return;
-    const mapRect = this.mapContainer.getBoundingClientRect();
-    let box;
-
-    if (this.savedBounds) {
-      // Restore from saved geo bounds.  Do NOT clamp — the rect may
-      // extend beyond the viewport if the user zoomed in.  The locked
-      // state will use the original geoBounds directly.
-      const nw = this.map.latLngToContainerPoint(
-        L.latLng(this.savedBounds.nw.lat, this.savedBounds.nw.lng),
-      );
-      const se = this.map.latLngToContainerPoint(
-        L.latLng(this.savedBounds.se.lat, this.savedBounds.se.lng),
-      );
-      box = {
-        left: Math.min(nw.x, se.x),
-        top: Math.min(nw.y, se.y),
-        width: Math.max(1, Math.abs(se.x - nw.x)),
-        height: Math.max(1, Math.abs(se.y - nw.y)),
-      };
-    } else if (this.lastScreenRect) {
-      box = {
-        left: Math.max(
-          0,
-          Math.min(this.lastScreenRect.left, mapRect.width - CONST.CROP.MIN_SIZE),
-        ),
-        top: Math.max(
-          0,
-          Math.min(this.lastScreenRect.top, mapRect.height - CONST.CROP.MIN_SIZE),
-        ),
-        width: this.lastScreenRect.width,
-        height: this.lastScreenRect.height,
-      };
-      box.width = Math.max(
-        CONST.CROP.MIN_SIZE,
-        Math.min(box.width, mapRect.width - box.left),
-      );
-      box.height = Math.max(
-        CONST.CROP.MIN_SIZE,
-        Math.min(box.height, mapRect.height - box.top),
-      );
-    } else {
-      const padW = mapRect.width * CONST.CROP.PADDING_RATIO;
-      const padH = mapRect.height * CONST.CROP.PADDING_RATIO;
-      box = {
-        left: padW,
-        top: padH,
-        width: mapRect.width - padW * 2,
-        height: mapRect.height - padH * 2,
-      };
-    }
-
-    const overlay = foliplus.dom.el("div", {
-      class: `foliplus-export-overlay active`,
-      parent: this.mapContainer,
-    });
-    this.mapContainer.classList.add(CONST.CLASSES.MODE);
-    document.body.classList.add(CONST.CLASSES.MODE);
-
-    // Box must stay in mapContainer (not map._mapPane): mapPane has
-    // z-index:400 which creates a stacking context, trapping the box's
-    // 9501 z-index inside a 400-level context — putting scale/attr (850)
-    // above the dim mask. In mapContainer (z auto) the box participates
-    // in the root stacking context, so the mask covers scale/attr.
-    const cropBox = foliplus.dom.el("div", {
-      class: CONST.CLASSES.BOX,
-      parent: this.mapContainer,
-    });
-
-    ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach((pos) => {
-      foliplus.dom.el("div", {
-        class: `${CONST.CLASSES.HANDLE} ${pos}`,
-        parent: cropBox,
-        "data-pos": pos,
-      });
-    });
-
-    foliplus.dom.el("div", { class: CONST.CLASSES.CENTER, parent: cropBox });
-
-    this.exportToolBar.innerHTML = "";
-    foliplus.dom.el(
-      "button",
-      {
-        class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
-        title: _(`${CONF.name}.btn_confirm`),
-        parent: this.exportToolBar,
-      },
-      { html: SVGs.CHECK },
-    );
-    foliplus.dom.el(
-      "button",
-      {
-        class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
-        title: _(`${CONF.name}.btn_cancel`),
-        parent: this.exportToolBar,
-      },
-      { html: foliplus.SVGs.CLOSE },
-    );
-    this.exportCtrl.classList.remove(CONST.CLASSES.COLLAPSED);
-    this.exportCtrl.classList.add(CONST.CLASSES.EXPANDED);
-
-    this.cropState = {
-      overlay,
-      box: cropBox,
-      rect: box,
-      locked: false,
-      actions: this.exportToolBar,
-    };
-    this.updateBoxStyle(cropBox, box);
-    this.pushUndoState(); // Save initial rect so Ctrl+Z can restore it
-    this.showHintWithInfo(box, _(`${CONF.name}.hint_unlocked`));
-    cropBox.addEventListener("mousedown", this.onMouseDown);
-    this.exportToolBar.querySelector(".cancel").onclick = (e) => {
-      e.stopPropagation();
-      this.removeCropBox();
-    };
-    this.exportToolBar.querySelector(".confirm").onclick = (e) => {
-      e.stopPropagation();
-      this.lockCropBox();
-    };
-    document.addEventListener("keydown", this.onKeyDown);
-  }
-
-  lockCropBox(skipHint) {
-    if (!this.cropState || this.cropState.locked) return;
-    this.cropState.locked = true;
-    this.cropState.box.classList.add("locked");
-    const r = this.cropState.rect;
-    // Always recalculate geoBounds from the current screen rect, so user's
-    // adjustments after unlock → re-lock are not lost.
-    this.cropState.savedGeoBounds = {
-      nw: this.map.containerPointToLatLng(L.point(r.left, r.top)),
-      se: this.map.containerPointToLatLng(L.point(r.left + r.width, r.top + r.height)),
-    };
-    this.cropState.geoBounds = this.cropState.savedGeoBounds;
-    this.cropState.actions.innerHTML = "";
-    foliplus.dom.el(
-      "button",
-      {
-        class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
-        title: _(`${CONF.name}.btn_export`),
-        parent: this.cropState.actions,
-      },
-      { html: SVGs.DOWNLOAD },
-    );
-    foliplus.dom.el(
-      "button",
-      {
-        class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
-        title: _(`${CONF.name}.btn_cancel`),
-        parent: this.cropState.actions,
-      },
-      { html: foliplus.SVGs.CLOSE },
-    );
-    this.cropState.actions.querySelector(`.${CONST.CLASSES.CANCEL}`).onclick = (e) => {
-      e.stopPropagation();
-      this.unlockCropBox();
-    };
-    this.cropState.actions.querySelector(`.${CONST.CLASSES.CONFIRM}`).onclick = (e) => {
-      e.stopPropagation();
-      this.doExport();
-    };
-    // RAF-throttled during pan for smooth following, zoomend after zoom
-    // animation completes — avoids wrong intermediate coordinates from
-    // latLngToContainerPoint during Leaflet's CSS scale animation.
-    this.mapMoveCleanup = foliplus.bindMapSync({
-      map: this.map,
-      updateEvents: ["zoomend"],
-      onMove: () => {
-        if (!this.cropState || !this.cropState.locked) return;
-        this.onMapChange(true); // skipHint=true — pan doesn't change the rect
-      },
-      onUpdate: () => {
-        if (!this.cropState || !this.cropState.locked) return;
-        this.onMapChange(); // zoom changes the rect, update hint
-      },
-    });
-    this.onMapChange();
-    if (!skipHint) this.showHintWithInfo(r, _(`${CONF.name}.hint_locked`));
-  }
-
-  unlockCropBox() {
-    if (!this.cropState || !this.cropState.locked) return;
-    this.cropState.locked = false;
-    this.cropState.box.classList.remove("locked");
-    if (this.mapMoveCleanup) this.mapMoveCleanup();
-    this.cropState.actions.innerHTML = "";
-    foliplus.dom.el(
-      "button",
-      {
-        class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
-        title: _(`${CONF.name}.btn_confirm`),
-        parent: this.cropState.actions,
-      },
-      { html: SVGs.CHECK },
-    );
-    foliplus.dom.el(
-      "button",
-      {
-        class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
-        title: _(`${CONF.name}.btn_cancel`),
-        parent: this.cropState.actions,
-      },
-      { html: foliplus.SVGs.CLOSE },
-    );
-    this.cropState.actions.querySelector(`.${CONST.CLASSES.CANCEL}`).onclick = (e) => {
-      e.stopPropagation();
-      this.removeCropBox();
-    };
-    this.cropState.actions.querySelector(`.${CONST.CLASSES.CONFIRM}`).onclick = (e) => {
-      e.stopPropagation();
-      this.lockCropBox();
-    };
-    this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-    this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
-  }
-
   /** Restore and lock crop box from saved geo bounds. */
   restoreFromSavedBounds() {
     this.showCropBox();
@@ -357,33 +112,6 @@ class ExportManager {
         true,
       );
     });
-  }
-
-  removeCropBox() {
-    if (!this.cropState) return;
-    this.lastScreenRect = Object.assign({}, this.cropState.rect);
-    this.mapContainer.classList.remove(CONST.CLASSES.MODE);
-    document.body.classList.remove(CONST.CLASSES.MODE);
-    document.removeEventListener("keydown", this.onKeyDown);
-    document.removeEventListener("mousemove", this.onMouseMove);
-    document.removeEventListener("mouseup", this.onMouseUp);
-    this.dragState.dragging = false;
-    this.dragState.dragType = null;
-    if (this.mapMoveCleanup) {
-      this.mapMoveCleanup();
-      this.mapMoveCleanup = null;
-    }
-    if (this.cropState.box)
-      this.cropState.box.removeEventListener("mousedown", this.onMouseDown);
-    if (this.cropState.overlay?.parentNode) this.cropState.overlay.remove();
-    if (this.cropState.box?.parentNode) this.cropState.box.remove();
-    if (this.cropState.actions) this.cropState.actions.innerHTML = "";
-    if (this.exportCtrl) {
-      this.exportCtrl.classList.remove(CONST.CLASSES.EXPANDED);
-      this.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
-    }
-    this.cropState = null;
-    foliplus.hideHint(CONF.name);
   }
 
   onMouseDown(e) {
