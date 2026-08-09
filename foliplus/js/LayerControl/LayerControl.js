@@ -14,7 +14,7 @@ import { LayerUI } from "./LayerControl.ui.js";
 const { _ } = createControlEnv(CONF, SVGs.LAYERS);
 
 // ==================== Initialize Manager with Data ====================
-const layerManager = new LayerManager(map, CONF.initialData);
+const layerManager = new LayerManager(map, CONF.data);
 layerManager.ui = new LayerUI(layerManager);
 
 // ==================== Leaflet Control Definition ====================

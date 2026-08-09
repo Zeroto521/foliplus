@@ -65,7 +65,7 @@ const MUTATING_METHODS = new Set([
  */
 class LayerRegistry {
   /**
-   * @param {Array} [initial=[]] - Initial layer info objects.
+   * @param {Array} [data=[]] - Initial layer info objects.
    * @param {Object} [map] - Leaflet map instance. If provided, resolves
    *   `li.layer` for each entry so callers can always use `li.layer`
    *   directly without a fallback (Jinja2 template entries are
@@ -75,8 +75,8 @@ class LayerRegistry {
    * caller — is normalized through `createLayerInfo` so the registry
    * only ever holds complete layerInfo objects with the full field set.
    */
-  constructor(initial = [], map) {
-    this.items = initial.map((l) => this.createLayerInfo(l, undefined, map));
+  constructor(data = [], map) {
+    this.items = data.map((l) => this.createLayerInfo(l, undefined, map));
     this.byId = new Map(this.items.map((l) => [l.id, l]));
     this._firstBaseIdx = -1;
     this.refreshFirstBaseIdx();
@@ -283,9 +283,9 @@ class LayerRegistry {
 
 // ==================== Core Manager: LayerManager ====================
 class LayerManager {
-  constructor(mapInstance, initialData) {
+  constructor(mapInstance, data) {
     this.map = mapInstance;
-    this.layerRegistry = new LayerRegistry(initialData, this.map);
+    this.layerRegistry = new LayerRegistry(data, this.map);
     this.layers = this.layerRegistry.list;
     this.pendingRegistrations = [];
     this.uiContainer = null;
