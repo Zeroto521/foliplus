@@ -46,23 +46,14 @@ repos:
     hooks:
       - id: codespell
 
-  # ── JS / CSS / Jinja2 formatting (custom script) ──
+  # ── JS / CSS formatting (Prettier, project-local) ──
+  # JS/CSS are plain code now (no Jinja2), so format directly with the
+  # project's pinned prettier (package.json) instead of the custom wrapper.
   - repo: local
     hooks:
-      - id: format-css
-        name: format-css
-        entry: node script/format_jinja_js.js --type css
-        language: node
-        types_or: [css]
-        files: ^foliplus/css/
-        pass_filenames: false
-        additional_dependencies: [prettier]
-
-      - id: format-jinja-js
-        name: format-jinja-js
-        entry: node script/format_jinja_js.js --type js
-        language: node
-        types_or: [javascript]
-        files: ^foliplus/js/|^script/.*\.js$
-        pass_filenames: false
-        additional_dependencies: [prettier]
+      - id: format-prettier
+        name: format-prettier
+        entry: npx prettier --write
+        language: system
+        types_or: [css, javascript]
+        files: ^foliplus/(js|css)/
