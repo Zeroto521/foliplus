@@ -1,5 +1,5 @@
 import { BaseControl } from "../common/BaseControl.js";
-import { dom } from "../common/dom.js";
+import { createIconButton, dom } from "../common/dom.js";
 import { createControlEnv } from "../common/guard.js";
 import { isEnabled, nativeAPI } from "./FullscreenControl.api.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
@@ -25,50 +25,41 @@ class FullscreenControl extends BaseControl {
       parent: outer,
     });
 
-    dom.el(
-      "button",
-      {
-        class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_IN}`,
-        "aria-label": _(`${CONF.name}.zoom_in`),
-        title: _(`${CONF.name}.zoom_in`),
-        parent: container,
-        onclick: (e) => {
-          L.DomEvent.stopPropagation(e);
-          map.zoomIn();
-        },
+    createIconButton({
+      class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_IN}`,
+      title: _(`${CONF.name}.zoom_in`),
+      ariaLabel: _(`${CONF.name}.zoom_in`),
+      svg: SVGs.ZOOM_IN,
+      parent: container,
+      onclick: (e) => {
+        L.DomEvent.stopPropagation(e);
+        map.zoomIn();
       },
-      { html: SVGs.ZOOM_IN },
-    );
+    });
 
-    dom.el(
-      "button",
-      {
-        class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_OUT}`,
-        "aria-label": _(`${CONF.name}.zoom_out`),
-        title: _(`${CONF.name}.zoom_out`),
-        parent: container,
-        onclick: (e) => {
-          L.DomEvent.stopPropagation(e);
-          map.zoomOut();
-        },
+    createIconButton({
+      class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_OUT}`,
+      title: _(`${CONF.name}.zoom_out`),
+      ariaLabel: _(`${CONF.name}.zoom_out`),
+      svg: SVGs.ZOOM_OUT,
+      parent: container,
+      onclick: (e) => {
+        L.DomEvent.stopPropagation(e);
+        map.zoomOut();
       },
-      { html: SVGs.ZOOM_OUT },
-    );
+    });
 
-    const fsBtn = dom.el(
-      "button",
-      {
-        class: `${CLASSES.TOOL_BTN} ${CLASSES.TOGGLE}`,
-        "aria-label": _(`${CONF.name}.title`),
-        title: _(`${CONF.name}.title`),
-        parent: container,
-        onclick: (e) => {
-          L.DomEvent.stopPropagation(e);
-          toggleFullscreen(map, fsBtn, container);
-        },
+    const fsBtn = createIconButton({
+      class: `${CLASSES.TOOL_BTN} ${CLASSES.TOGGLE}`,
+      title: _(`${CONF.name}.title`),
+      ariaLabel: _(`${CONF.name}.title`),
+      svg: SVGs.MAXIMIZE,
+      parent: container,
+      onclick: (e) => {
+        L.DomEvent.stopPropagation(e);
+        toggleFullscreen(map, fsBtn, container);
       },
-      { html: SVGs.MAXIMIZE },
-    );
+    });
 
     L.DomEvent.disableClickPropagation(outer);
     L.DomEvent.disableScrollPropagation(outer);

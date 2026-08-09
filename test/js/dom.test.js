@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildPopupHtml, createLocationMarker, dom } from "../../foliplus/js/common/dom.js";
+import {
+  buildPopupHtml,
+  createIconButton,
+  createLocationMarker,
+  dom,
+} from "../../foliplus/js/common/dom.js";
 
 describe("dom.el", () => {
   it("creates a basic element with tag", () => {
@@ -89,8 +94,13 @@ describe("dom.el", () => {
 describe("buildPopupHtml", () => {
   it("builds popup HTML with all fields", () => {
     const html = buildPopupHtml(
-      120.5, 30.2, "Some Address", "Location", "Loading...",
-      "Lng,Lat:", "Address:",
+      120.5,
+      30.2,
+      "Some Address",
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
     );
     expect(html).toContain("foliplus-popup-content");
     expect(html).toContain("Location");
@@ -102,14 +112,26 @@ describe("buildPopupHtml", () => {
 
   it("shows loading indicator when addr is null", () => {
     const html = buildPopupHtml(
-      120, 30, null, "Location", "Loading...", "Lng,Lat:", "Address:",
+      120,
+      30,
+      null,
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
     );
     expect(html).toContain("Loading...");
   });
 
   it("shows loading indicator when addr contains LOADING", () => {
     const html = buildPopupHtml(
-      120, 30, "LOADING", "Location", "Loading...", "Lng,Lat:", "Address:",
+      120,
+      30,
+      "LOADING",
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
     );
     expect(html).toContain("Loading...");
   });
@@ -148,8 +170,15 @@ describe("createLocationMarker", () => {
 
   it("creates a marker with popup", () => {
     const marker = createLocationMarker(
-      map, 120, 30, "Address", "Title", "Loading...",
-      "Lng,Lat:", "Address:", "Close",
+      map,
+      120,
+      30,
+      "Address",
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
     );
     expect(window.L.marker).toHaveBeenCalledWith([30, 120], expect.any(Object));
     expect(map.addLayer).toHaveBeenCalled();
@@ -160,8 +189,17 @@ describe("createLocationMarker", () => {
   it("removes existing marker", () => {
     const existing = { _map: map };
     createLocationMarker(
-      map, 120, 30, "Address", "Title", "Loading...",
-      "Lng,Lat:", "Address:", "Close", "en", existing,
+      map,
+      120,
+      30,
+      "Address",
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+      "en",
+      existing,
     );
     expect(map.removeLayer).toHaveBeenCalledWith(existing);
   });
@@ -169,8 +207,18 @@ describe("createLocationMarker", () => {
   it("adds marker to layerGroup instead of map", () => {
     const layerGroup = { addLayer: vi.fn() };
     createLocationMarker(
-      map, 120, 30, "Address", "Title", "Loading...",
-      "Lng,Lat:", "Address:", "Close", "en", null, layerGroup,
+      map,
+      120,
+      30,
+      "Address",
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+      "en",
+      null,
+      layerGroup,
     );
     expect(layerGroup.addLayer).toHaveBeenCalled();
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -178,8 +226,20 @@ describe("createLocationMarker", () => {
 
   it("does not open popup when openPopup is false", () => {
     const marker = createLocationMarker(
-      map, 120, 30, "Address", "Title", "Loading...",
-      "Lng,Lat:", "Address:", "Close", "en", null, null, null, false,
+      map,
+      120,
+      30,
+      "Address",
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+      "en",
+      null,
+      null,
+      null,
+      false,
     );
     expect(marker.openPopup).not.toHaveBeenCalled();
   });
@@ -195,14 +255,23 @@ describe("createLocationMarker", () => {
       }),
     };
     window.L.marker = vi.fn(() => marker);
-    window.foliplus.reverseGeocode = vi.fn(() =>
-      Promise.resolve("Resolved Address"),
-    );
+    window.foliplus.reverseGeocode = vi.fn(() => Promise.resolve("Resolved Address"));
     const onAddress = vi.fn();
 
     createLocationMarker(
-      map, 120, 30, null, "Title", "Loading...",
-      "Lng,Lat:", "Address:", "Close", "en", null, null, onAddress,
+      map,
+      120,
+      30,
+      null,
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+      "en",
+      null,
+      null,
+      onAddress,
     );
 
     await Promise.resolve();
@@ -215,9 +284,68 @@ describe("createLocationMarker", () => {
     delete window.foliplus.reverseGeocode;
     expect(() =>
       createLocationMarker(
-        map, 120, 30, null, "Title", "Loading...",
-        "Lng,Lat:", "Address:", "Close",
+        map,
+        120,
+        30,
+        null,
+        "Title",
+        "Loading...",
+        "Lng,Lat:",
+        "Address:",
+        "Close",
       ),
     ).not.toThrow();
+  });
+});
+
+describe("createIconButton", () => {
+  it("creates a button with class, title, and svg content", () => {
+    const btn = createIconButton({
+      class: "foliplus-tool-btn",
+      title: "Zoom in",
+      svg: "<svg/>",
+    });
+    expect(btn.tagName).toBe("BUTTON");
+    expect(btn.className).toBe("foliplus-tool-btn");
+    expect(btn.title).toBe("Zoom in");
+    // insertAdjacentHTML normalizes the self-closing tag.
+    expect(btn.innerHTML).toBe("<svg></svg>");
+  });
+
+  it("appends to parent when provided", () => {
+    const parent = document.createElement("div");
+    const btn = createIconButton({ class: "btn", svg: "<svg/>", parent });
+    expect(parent.contains(btn)).toBe(true);
+  });
+
+  it("sets aria-label when provided", () => {
+    const btn = createIconButton({
+      class: "btn",
+      title: "T",
+      ariaLabel: "A",
+      svg: "<svg/>",
+    });
+    expect(btn.getAttribute("aria-label")).toBe("A");
+  });
+
+  it("omits aria-label when not provided", () => {
+    const btn = createIconButton({ class: "btn", title: "T", svg: "<svg/>" });
+    expect(btn.hasAttribute("aria-label")).toBe(false);
+  });
+
+  it("sets data-* attributes from data map", () => {
+    const btn = createIconButton({
+      class: "btn",
+      svg: "<svg/>",
+      data: { mode: "distance" },
+    });
+    expect(btn.getAttribute("data-mode")).toBe("distance");
+  });
+
+  it("assigns onclick handler", () => {
+    const fn = vi.fn();
+    const btn = createIconButton({ class: "btn", svg: "<svg/>", onclick: fn });
+    btn.click();
+    expect(fn).toHaveBeenCalled();
   });
 });

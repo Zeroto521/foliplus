@@ -98,6 +98,37 @@ const dom = {
 };
 
 /**
+ * Create an icon button — a <button> whose content is an SVG/HTML string.
+ * Shorthand for the repeated `dom.el("button", { class, title, aria-label,
+ * parent, onclick }, { html: svg })` pattern used across components.
+ * @param {object} opts
+ * @param {string} opts.class - CSS class(es) for the button
+ * @param {string} [opts.title] - Tooltip text
+ * @param {string} [opts.ariaLabel] - aria-label attribute
+ * @param {string} opts.svg - SVG/HTML string placed inside the button
+ * @param {HTMLElement} [opts.parent] - Parent element to append to
+ * @param {Function} [opts.onclick] - Click handler
+ * @param {Object} [opts.data] - Extra attributes as `data-*` (key → data-key)
+ * @returns {HTMLButtonElement}
+ */
+const createIconButton = ({
+  class: cls,
+  title,
+  ariaLabel,
+  svg,
+  parent,
+  onclick,
+  data,
+}) => {
+  const attrs = { class: cls, title, parent, onclick };
+  if (ariaLabel !== undefined) attrs["aria-label"] = ariaLabel;
+  if (data) {
+    for (const [k, v] of Object.entries(data)) attrs[`data-${k}`] = v;
+  }
+  return dom.el("button", attrs, { html: svg });
+};
+
+/**
  * Build a popup HTML string for a location marker.
  * @param {number} lng Longitude
  * @param {number} lat Latitude
@@ -217,4 +248,4 @@ const createLocationMarker = (
   return marker;
 };
 
-export { buildPopupHtml, createLocationMarker, dom };
+export { buildPopupHtml, createIconButton, createLocationMarker, dom };

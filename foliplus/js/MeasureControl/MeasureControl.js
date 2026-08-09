@@ -1,5 +1,5 @@
 import { BaseControl } from "../common/BaseControl.js";
-import { dom } from "../common/dom.js";
+import { createIconButton } from "../common/dom.js";
 import { createControlEnv, requireLayerAPI } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
 import {
@@ -63,11 +63,13 @@ class MeasureControl extends BaseControl {
       },
     ];
     btnConfigs.forEach(({ mode, title, svg }) => {
-      dom.el(
-        "button",
-        { class: "foliplus-tool-btn", "data-mode": mode, title, parent: toolBar },
-        { html: svg },
-      );
+      createIconButton({
+        class: "foliplus-tool-btn",
+        title,
+        svg,
+        parent: toolBar,
+        data: { mode },
+      });
     });
     this.m.ctrl = ctrl;
     this.m.toolBtns = toolBar.querySelectorAll(CONST.SEL.TOOL_BTN);

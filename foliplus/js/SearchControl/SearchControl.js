@@ -1,5 +1,5 @@
 import { BaseControl } from "../common/BaseControl.js";
-import { dom } from "../common/dom.js";
+import { createIconButton, dom } from "../common/dom.js";
 import { createControlEnv } from "../common/guard.js";
 import * as Icons from "../common/icon.js";
 import { bindOutsideCollapse, createFoldControl } from "../common/panel.js";
@@ -51,27 +51,21 @@ class SearchControl extends BaseControl {
     this.toggleBtn = toggleBtn;
     this.toolBar = toolBar;
 
-    const modeBtn = dom.el(
-      "button",
-      {
-        class: CLASSES.SEARCH_MODE_BTN,
-        title: _(`${CONF.name}.mode_coord`),
-        parent: toolBar,
-      },
-      { html: Icons.LOCATE },
-    );
+    const modeBtn = createIconButton({
+      class: CLASSES.SEARCH_MODE_BTN,
+      title: _(`${CONF.name}.mode_coord`),
+      svg: Icons.LOCATE,
+      parent: toolBar,
+    });
     const inp = dom.el("input", {
       type: "text",
       placeholder: _(`${CONF.name}.coord_placeholder`),
     });
-    const clearBtn = dom.el(
-      "button",
-      {
-        class: "foliplus-ctrl-btn foliplus-close-btn",
-        title: _(`${CONF.name}.clear_title`),
-      },
-      { html: Icons.CLOSE },
-    );
+    const clearBtn = createIconButton({
+      class: "foliplus-ctrl-btn foliplus-close-btn",
+      title: _(`${CONF.name}.clear_title`),
+      svg: Icons.CLOSE,
+    });
     this.modeBtn = modeBtn;
     this.inp = inp;
     this.clearBtn = clearBtn;
