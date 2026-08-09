@@ -150,7 +150,7 @@ class HeatmapManager {
   resolveLabelStyle() {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
 
-    const css = (prop, fb) => cssVar(this.ui.container, prop, fb);
+    const css = (prop, fb) => cssVar(this.ui.ctrl, prop, fb);
     this.cachedLabelStyle = {
       font: `${css("--heatmap-label-font-weight")} ${css("--heatmap-label-font-size")} ${css("--heatmap-label-font-family")}`,
       color: css("--heatmap-label-color"),

@@ -39,7 +39,7 @@ class HeatmapControl extends BaseControl {
       panelTitle: _(`${CONF.name}.title`),
       closeTitle: _(`${CONF.name}.close_title`),
     });
-    this.container = ctrl;
+    this.ctrl = ctrl;
     buildDataSection(this, panelContent);
     buildStyleSection(this);
     setupObserver(this);

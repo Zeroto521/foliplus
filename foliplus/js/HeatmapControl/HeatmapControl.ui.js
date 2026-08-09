@@ -329,9 +329,9 @@ const buildStyleSection = (ctrl) => {
       updateSchemeBar(ctrl);
       updateFieldSelector(ctrl);
       ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
-      ctrl.container.classList.remove(CONST.CLASSES.EXPANDED);
-      ctrl.container.classList.add(CONST.CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container: ctrl.container, expanded: false });
+      ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+      ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+      adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
     },
   });
   dom.el("button", {
@@ -340,9 +340,9 @@ const buildStyleSection = (ctrl) => {
     innerHTML: _(`${CONF.name}.confirm`),
     onclick: () => {
       ctrl.m.renderHexagons();
-      ctrl.container.classList.remove(CONST.CLASSES.EXPANDED);
-      ctrl.container.classList.add(CONST.CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container: ctrl.container, expanded: false });
+      ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+      ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+      adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
     },
   });
 };
@@ -350,17 +350,14 @@ const buildStyleSection = (ctrl) => {
 /** Set up MutationObserver to refresh layer dropdown on panel expand. */
 const setupObserver = (ctrl) => {
   ctrl.observer = new MutationObserver(() => {
-    if (
-      ctrl.container.classList.contains(CONST.CLASSES.EXPANDED) &&
-      !ctrl.expandHookDone
-    ) {
+    if (ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED) && !ctrl.expandHookDone) {
       ctrl.expandHookDone = true;
       rebuildLayerDropdown(ctrl);
     }
-    if (ctrl.container.classList.contains(CONST.CLASSES.COLLAPSED))
+    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED))
       ctrl.expandHookDone = false;
   });
-  ctrl.observer.observe(ctrl.container, { attributes: true });
+  ctrl.observer.observe(ctrl.ctrl, { attributes: true });
 };
 
 const buildLayerListItems = (ctrl, sel) => {
