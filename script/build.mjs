@@ -107,16 +107,21 @@ const buildEntries = (components) => {
     });
   }
 
-  const sharedCss = [
-    { dir: CSS_SRC, in: "common.css", out: "common.min" },
-    { dir: CSS_SRC, in: "panel.css", out: "panel.min" },
-  ];
-  for (const { dir, in: input, out } of sharedCss) {
-    const src = resolve(dir, input);
-    if (!existsSync(src)) continue;
+  const commonCssSrc = resolve(CSS_SRC, "common.css");
+  const panelCssSrc = resolve(CSS_SRC, "panel.css");
+  if (existsSync(commonCssSrc)) {
+    let css = readFileSync(commonCssSrc, "utf-8");
+    if (existsSync(panelCssSrc)) {
+      css += "\n" + readFileSync(panelCssSrc, "utf-8");
+    }
+    // Write merged CSS to temp dir so esbuild minifies it as one artifact
+    const tmpDir = resolve(TMP, "css");
+    mkdirSync(tmpDir, { recursive: true });
+    const tmpCss = resolve(tmpDir, "_common_merged.css");
+    writeFileSync(tmpCss, css, "utf-8");
     entries.push({
-      entryPoints: [src],
-      outfile: resolve(DIST, out + ".css"),
+      entryPoints: [tmpCss],
+      outfile: resolve(DIST, "common.min.css"),
       minify: true,
       sourcemap: true,
       allowOverwrite: true,

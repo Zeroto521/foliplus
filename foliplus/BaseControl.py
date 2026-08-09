@@ -27,18 +27,16 @@ _SHARED_ASSETS_NAME = "foliplus_shared"
 def _build_shared_header() -> str:
     """Build the shared asset bundle (<style> + <script>) injected once per map.
 
-    Contains common.css, panel.css, runtime.js (with runtime/*.js bundled in), and the
-    common locale tables (shared by all components).
+    Contains common.css (with panel.css merged in), runtime.js (with runtime/*.js
+    bundled in), and the common locale tables (shared by all components).
     Built once and cached at module level.
     """
-    from .locale import _load_tables
-
     common = (dist_dir / "common.min.css").read_text(encoding="utf-8")
-    panel = (dist_dir / "panel.min.css").read_text(encoding="utf-8")
     runtime = (dist_dir / "runtime.min.js").read_text(encoding="utf-8")
+
     return (
         "<style>\n"
-        f"{common}\n{panel}\n"
+        f"{common}\n"
         "</style>\n"
         "<script>\n"
         f"{runtime}\n"
@@ -132,7 +130,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     def _get_template(self, *, config: dict | None = None) -> Template:
         """Build a Jinja2 template with this control's own CSS/JS.
 
-        Shared assets (``common.css``, ``panel.css``, ``runtime.js``, and the locale
+        Shared assets (``common.css`` with ``panel.css`` merged in, ``runtime.js``, and the locale
         tables) are injected once per map by :meth:`render`, so this template only
         carries the component-specific CSS/JS plus a small call to resolve the locale
         from the shared ``window.foliplus._TABLES``.
