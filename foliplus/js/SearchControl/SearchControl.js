@@ -4,7 +4,7 @@ import * as Icons from "../common/icon.js";
 import { createTranslator } from "../common/locale.js";
 import { bindOutsideCollapse, createFoldControl } from "../common/panel.js";
 import { CLASSES, MODE } from "./SearchControl.const.js";
-import { bindEvents, initFromUrl } from "./SearchControl.events.js";
+import { bindEvents, initFromUrl } from "./SearchControl.event.js";
 import * as SVGs from "./SearchControl.icon.js";
 import { initDebouncedFetch, removeSuggestions } from "./SearchControl.logic.js";
 
