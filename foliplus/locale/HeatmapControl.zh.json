@@ -26,8 +26,5 @@
   "HeatmapControl.no_layercontrol": "HeatmapControl 组件依赖 LayerControl，请先添加 LayerControl 组件",
   "HeatmapControl.section_data": "数据",
   "HeatmapControl.section_style": "样式",
-  "HeatmapControl.close_title": "关闭",
-  "HeatmapControl.h3_cell_fail": "H3 网格分辨率失败",
-  "HeatmapControl.value_fallback": "无数据",
-  "HeatmapControl.h3_boundary_fail": "H3 边界分辨率失败"
+  "HeatmapControl.close_title": "关闭"
 }
