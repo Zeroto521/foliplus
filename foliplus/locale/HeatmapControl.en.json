@@ -26,5 +26,8 @@
   "HeatmapControl.no_layercontrol": "HeatmapControl requires LayerControl, please add LayerControl to the map first",
   "HeatmapControl.section_data": "Data",
   "HeatmapControl.section_style": "Style",
-  "HeatmapControl.close_title": "Close"
+  "HeatmapControl.close_title": "Close",
+  "HeatmapControl.h3_cell_fail": "H3 cell resolution failed",
+  "HeatmapControl.value_fallback": "No data",
+  "HeatmapControl.h3_boundary_fail": "H3 boundary resolution failed"
 }
