@@ -69,7 +69,7 @@ class TestBaseControlRendering:
 
     def test_format_number_auto(self, base_map: folium.Map):
         """formatNumber supports auto/compact style."""
-        from foliplus import SearchControl, HeatmapControl
+        from foliplus import HeatmapControl, SearchControl
 
         HeatmapControl().add_to(base_map)
         SearchControl().add_to(base_map)
@@ -113,7 +113,7 @@ class TestBaseControlRendering:
 
     def test_bind_panel_toggle(self, base_map: folium.Map):
         """bindPanelToggle is defined in a component bundle."""
-        from foliplus import SearchControl, LayerControl
+        from foliplus import LayerControl, SearchControl
 
         LayerControl().add_to(base_map)
         SearchControl().add_to(base_map)
@@ -149,11 +149,11 @@ class TestBaseControlRendering:
     def test_svg_icons_present(self, base_map: folium.Map):
         """SVG icons are defined in component bundles."""
         from foliplus import (
-            SearchControl,
             ExportControl,
             HeatmapControl,
             LayerControl,
             MeasureControl,
+            SearchControl,
         )
 
         # Shared SVG icons are statically imported by whichever component uses them.
@@ -211,7 +211,7 @@ class TestBaseControlRendering:
 
     def test_popup_max_width(self, base_map: folium.Map):
         """Popup max width is defined in popup CSS."""
-        from foliplus import SearchControl, MeasureControl
+        from foliplus import MeasureControl, SearchControl
 
         MeasureControl().add_to(base_map)
         SearchControl().add_to(base_map)
@@ -261,7 +261,7 @@ class TestBaseControlRendering:
 
     def test_css_var_utility(self, base_map: folium.Map):
         """cssVar utility is defined in a component bundle."""
-        from foliplus import SearchControl, HeatmapControl
+        from foliplus import HeatmapControl, SearchControl
 
         HeatmapControl().add_to(base_map)
         SearchControl().add_to(base_map)
@@ -274,7 +274,7 @@ class TestBaseControlRendering:
 
     def test_adjust_panel_zindex(self, base_map: folium.Map):
         """adjustPanelZIndex is defined in a component bundle."""
-        from foliplus import SearchControl, HeatmapControl
+        from foliplus import HeatmapControl, SearchControl
 
         HeatmapControl().add_to(base_map)
         SearchControl().add_to(base_map)
