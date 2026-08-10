@@ -16,7 +16,7 @@
 //   - onRemove is final — subclasses override destroy() instead.
 
 const alreadyBound = (list, item) =>
-  list.some((it) => it[0] === item[0] && it[1] === item[1] && it[2] === item[2]);
+  list.some(it => it[0] === item[0] && it[1] === item[1] && it[2] === item[2]);
 
 class BaseControl extends L.Control {
   constructor(options = {}) {

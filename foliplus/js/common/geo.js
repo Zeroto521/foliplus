@@ -30,7 +30,7 @@ const midpoint = (a, b) => {
 /** Centroid (arithmetic mean of vertices) of a polygon.
  *  @param {Array<{lng:number,lat:number}>} points - Array of coordinate objects.
  *  @returns {L.LatLng} Centroid LatLng. */
-const centroid = (points) => {
+const centroid = points => {
   const cx = points.reduce((s, p) => s + p.lat, 0) / points.length;
   const cy = points.reduce((s, p) => s + p.lng, 0) / points.length;
   return L.latLng(cx, cy);
@@ -39,9 +39,9 @@ const centroid = (points) => {
 /** Geodesic area of a polygon using turf.js.
  *  @param {Array<{lng:number,lat:number}>} points - Array of coordinate objects.
  *  @returns {number} Area in square meters. */
-const area = (points) => {
+const area = points => {
   if (points.length < 3) return 0;
-  const coords = points.map((p) => [p.lng, p.lat]);
+  const coords = points.map(p => [p.lng, p.lat]);
   // Close the ring
   coords.push(coords[0]);
   return turf.area(turf.polygon([coords]));

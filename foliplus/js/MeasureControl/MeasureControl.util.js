@@ -9,7 +9,7 @@ const _ = createTranslator(CONF);
 /** Format meters to human-readable string (e.g. "1.2 km", "500 m").
  *  @param {number} meters - Distance in meters.
  *  @returns {string} Formatted distance string. */
-const formatDistance = (meters) => {
+const formatDistance = meters => {
   return meters >= CONST.FORMAT.KM_THRESHOLD
     ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} km`
     : `${Math.round(meters)} m`;
@@ -26,7 +26,7 @@ const formatSegmentLabel = (a, b, meters) => {
 };
 
 /** Format area: "1,234 m²" or "1.23 km²". */
-const formatArea = (sqMeters) => {
+const formatArea = sqMeters => {
   if (sqMeters >= 1_000_000) return `${(sqMeters / 1_000_000).toFixed(2)} km²`;
   return `${Math.round(sqMeters).toLocaleString()} m²`;
 };
@@ -35,14 +35,14 @@ const formatArea = (sqMeters) => {
  *  @param {Element[]} elements - DOM elements to toggle.
  *  @param {boolean} visible - Whether elements should be visible. */
 const toggleVisibility = (elements, visible) => {
-  elements.forEach((el) => {
+  elements.forEach(el => {
     if (el) el.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
   });
 };
 
 /** Temporarily suppress map click hide of delete icons.
  *  @param {Object} manager - MeasureManager instance. */
-const suppressHide = (manager) => {
+const suppressHide = manager => {
   manager.isSuppressHideDel = true;
   setTimeout(() => {
     manager.isSuppressHideDel = false;
@@ -54,7 +54,7 @@ const suppressHide = (manager) => {
 const hideDelIcons = () => {
   document
     .querySelectorAll(`${CONST.SEL.DEL_ICON}.${CONST.CLASSES.VISIBLE}`)
-    .forEach((el) => el.classList.remove(CONST.CLASSES.VISIBLE));
+    .forEach(el => el.classList.remove(CONST.CLASSES.VISIBLE));
 };
 
 /** Calculate next toggle state for X icons and labels.
@@ -93,7 +93,7 @@ const applyToggle = (
   };
 
   applyDelIcon(delMarker, isXVisible);
-  labels.forEach((m) => {
+  labels.forEach(m => {
     const el = m.getElement();
     if (el) {
       const label = el.querySelector(CONST.SEL.LABEL);
@@ -129,7 +129,7 @@ const toggleDelIcon = (marker, show, retries = 0) => {
 
 /** Attach a click handler to a delete icon marker via Leaflet event (survives DOM rebuild). */
 const attachDelClick = (delMarker, callback) => {
-  delMarker.on("click", (ev) => {
+  delMarker.on("click", ev => {
     const t = ev.originalEvent?.target;
     if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
       stopEvent(ev);
@@ -174,7 +174,7 @@ const makeLabelDivIcon = (html, iconAnchor, className) => {
 
 /** Create a divIcon for a segment label centered on the line midpoint.
  *  @param {string} html - Text content for the label. */
-const makeMidLabelDivIcon = (html) => {
+const makeMidLabelDivIcon = html => {
   return makeLabelDivIcon(html, CONST.LABEL.MID_ANCHOR, CONST.LABEL.CLASS_MID);
 };
 
@@ -203,7 +203,7 @@ const makeDelIcon = (latlng, opts = {}) => {
 };
 
 /** Animate a dash-sweep effect on a finalized polyline/polygon. */
-const animateDashSweep = (path) => {
+const animateDashSweep = path => {
   if (!path) return;
   const len = path.getTotalLength?.() || 0;
   if (len <= 0) return;
@@ -221,7 +221,7 @@ const animateDashSweep = (path) => {
  * @param {Array} points - Array of L.LatLng
  * @returns {Object} { segments: Array, totalDistance: number }
  */
-const recalculateSegments = (points) => {
+const recalculateSegments = points => {
   const segments = [];
   let totalDistance = 0;
   for (let i = 1; i < points.length; i++) {

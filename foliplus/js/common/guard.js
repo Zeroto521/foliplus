@@ -4,7 +4,7 @@
 import { HINT_DURATION } from "./hint.js";
 import { createTranslator } from "./locale.js";
 
-export const requireRuntime = (componentName) => {
+export const requireRuntime = componentName => {
   const foliplus = window.foliplus || {};
   // The runtime singleton (runtime.min.js) exposes hint + geocode on the
   // global. Pure helpers are statically imported, so check a runtime API.

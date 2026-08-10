@@ -322,7 +322,7 @@ class LayerUI {
     const container = this.m.uiContainer;
     if (!container) return;
 
-    this.onChange = (e) => {
+    this.onChange = e => {
       const cb = e.target.closest('[data-role="toggle-all"]');
       if (cb) {
         const row = cb.closest(CONST.SEL.TOGGLE_ALL);
@@ -331,8 +331,8 @@ class LayerUI {
       }
       this.handleChange(e);
     };
-    this.onInput = (e) => this.handleInput(e);
-    this.onClick = (e) => {
+    this.onInput = e => this.handleInput(e);
+    this.onClick = e => {
       if (e.target.closest(CONST.SEL.COLOR_ITEM)) {
         this.deselectAllBaseMaps(-1);
         this.showColorLayer(this.currentColor);
@@ -350,11 +350,11 @@ class LayerUI {
       this.saveFoldState();
     };
 
-    this.onDragStart = (e) => this.handleDragStart(e);
-    this.onDragOver = (e) => this.handleDragOver(e);
-    this.onDragLeave = (e) => this.handleDragLeave(e);
-    this.onDrop = (e) => this.handleDrop(e);
-    this.onDragEnd = (e) => this.handleDragEnd(e);
+    this.onDragStart = e => this.handleDragStart(e);
+    this.onDragOver = e => this.handleDragOver(e);
+    this.onDragLeave = e => this.handleDragLeave(e);
+    this.onDrop = e => this.handleDrop(e);
+    this.onDragEnd = e => this.handleDragEnd(e);
 
     container.addEventListener("change", this.onChange);
     container.addEventListener("input", this.onInput);
@@ -390,7 +390,7 @@ class LayerUI {
 
   toggleAll(group, newState) {
     const items = this.getLayerItems(group);
-    items.forEach((item) => {
+    items.forEach(item => {
       const cb = item.querySelector('input[type="checkbox"]');
       if (!cb) return;
       const idx = parseInt(cb.dataset.index, 10);
@@ -426,7 +426,7 @@ class LayerUI {
     const allCb = row.querySelector('[data-role="toggle-all"]');
     if (!allCb) return;
     const items = this.getLayerItems(group);
-    const checkedCount = Array.from(items).filter((item) => {
+    const checkedCount = Array.from(items).filter(item => {
       const cb = item.querySelector('input[type="checkbox"]');
       return cb && cb.checked;
     }).length;
@@ -584,7 +584,7 @@ class LayerUI {
     this.dragIdx = null;
     this.lastDragOverItem = null;
     const allItems = this.m.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
-    allItems.forEach((i) =>
+    allItems.forEach(i =>
       i.classList.remove(
         CONST.CLASSES.DRAGGING,
         CONST.CLASSES.DRAG_OVER_TOP,

@@ -6,9 +6,9 @@ import * as SVGs from "./LayerControl.icon.js";
 /** Detect the geometry type of a layer tree.
  *  @param {Object} layer - Leaflet layer.
  *  @returns {string} Geometry type constant from GEOM_TYPE. */
-const getGeometryType = (layer) => {
+const getGeometryType = layer => {
   const leaves = [];
-  forEachLeaf(layer, (l) => leaves.push(l));
+  forEachLeaf(layer, l => leaves.push(l));
   if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY;
 
   let hasPoly = false,
@@ -33,7 +33,7 @@ const getGeometryType = (layer) => {
 /** Get the SVG icon for a layer's geometry type.
  *  @param {Object} layer - Leaflet layer.
  *  @returns {string} SVG HTML string. */
-const getTypeSVG = (layer) => {
+const getTypeSVG = layer => {
   const type = getGeometryType(layer);
   if (type === CONST.GEOM_TYPE.POLYGON) return SVGs.POLYGON;
   if (type === CONST.GEOM_TYPE.LINE) return SVGs.LINE;
@@ -61,7 +61,7 @@ const traverse = (layer, fn, depth = 0, leafOnly = false) => {
   if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
   const isContainer = typeof layer.eachLayer === "function";
   if (!leafOnly) fn(layer);
-  if (isContainer) layer.eachLayer((c) => traverse(c, fn, depth + 1, leafOnly));
+  if (isContainer) layer.eachLayer(c => traverse(c, fn, depth + 1, leafOnly));
   else if (layer._layers) {
     for (const k in layer._layers) {
       if (Object.hasOwn(layer._layers, k))

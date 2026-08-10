@@ -31,7 +31,7 @@ class FullscreenControl extends BaseControl {
       ariaLabel: _(`${CONF.name}.zoom_in`),
       svg: SVGs.ZOOM_IN,
       parent: container,
-      onclick: (e) => {
+      onclick: e => {
         L.DomEvent.stopPropagation(e);
         map.zoomIn();
       },
@@ -43,7 +43,7 @@ class FullscreenControl extends BaseControl {
       ariaLabel: _(`${CONF.name}.zoom_out`),
       svg: SVGs.ZOOM_OUT,
       parent: container,
-      onclick: (e) => {
+      onclick: e => {
         L.DomEvent.stopPropagation(e);
         map.zoomOut();
       },
@@ -55,7 +55,7 @@ class FullscreenControl extends BaseControl {
       ariaLabel: _(`${CONF.name}.title`),
       svg: SVGs.MAXIMIZE,
       parent: container,
-      onclick: (e) => {
+      onclick: e => {
         L.DomEvent.stopPropagation(e);
         toggleFullscreen(map, fsBtn, container);
       },

@@ -13,7 +13,7 @@
  * @param {L.Map} map - Leaflet map instance
  * @returns {boolean} True if the map uses Baidu CRS
  */
-const isBaiduCRS = (map) => {
+const isBaiduCRS = map => {
   try {
     const crs = map.options.crs;
     if (L.CRS && L.CRS.Baidu && crs === L.CRS.Baidu) return true;
@@ -36,7 +36,7 @@ const isBaiduCRS = (map) => {
  * @param {L.Map} map - Leaflet map instance
  * @returns {boolean} True if the map uses domestic tile providers
  */
-const isDomesticMap = (map) => {
+const isDomesticMap = map => {
   try {
     const crs = map.options.crs;
     if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
@@ -85,7 +85,7 @@ const ensureGcoord = () => {
  * @param {L.Map} map - Leaflet map instance
  * @returns {string} 'BD09' | 'GCJ02' | 'WGS84' (WGS84 indicates foreign maps that do not require conversion)
  */
-const getMapCrsType = (map) => {
+const getMapCrsType = map => {
   if (isBaiduCRS(map)) return "BD09";
   if (isDomesticMap(map)) return "GCJ02";
   return "WGS84";

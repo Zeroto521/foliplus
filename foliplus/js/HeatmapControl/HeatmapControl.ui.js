@@ -96,7 +96,7 @@ const buildDataSection = (ctrl, panelContent) => {
 };
 
 /** Build the style section: classification, color scheme, border, label toggle, action buttons. */
-const buildStyleSection = (ctrl) => {
+const buildStyleSection = ctrl => {
   dom.el("div", {
     class: CONST.CLASSES.SECTION_HEADING,
     parent: ctrl.extraBody,
@@ -187,17 +187,17 @@ const buildStyleSection = (ctrl) => {
       ctrl.m.renderHexagons();
     },
   });
-  CONF.schemes.forEach((name) => {
+  CONF.schemes.forEach(name => {
     dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
   });
   ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
   updateSchemeBar(ctrl);
 
-  ctrl.schemeBar.onclick = (e) => {
+  ctrl.schemeBar.onclick = e => {
     e.stopPropagation();
     toggleSchemeDropdown(ctrl);
   };
-  ctrl.schemeBar.onkeydown = (e) => {
+  ctrl.schemeBar.onkeydown = e => {
     if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(e.key)) {
       e.preventDefault();
       toggleSchemeDropdown(ctrl);
@@ -205,7 +205,7 @@ const buildStyleSection = (ctrl) => {
   };
 
   // Close scheme dropdown when clicking outside
-  ctrl.closeSchemeDropdown = (e) => {
+  ctrl.closeSchemeDropdown = e => {
     if (
       ctrl.schemeDropdown &&
       !ctrl.schemeBar.contains(e.target) &&
@@ -348,7 +348,7 @@ const buildStyleSection = (ctrl) => {
 };
 
 /** Set up MutationObserver to refresh layer dropdown on panel expand. */
-const setupObserver = (ctrl) => {
+const setupObserver = ctrl => {
   ctrl.observer = new MutationObserver(() => {
     if (ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED) && !ctrl.expandHookDone) {
       ctrl.expandHookDone = true;
@@ -375,7 +375,7 @@ const buildLayerListItems = (ctrl, sel) => {
     _(`${CONF.name}.layer_placeholder`),
   );
 
-  ctrl.m.pointLayers.forEach((info) => {
+  ctrl.m.pointLayers.forEach(info => {
     dom.el("option", { value: info.id, parent: sel }, info.name);
   });
 
@@ -395,11 +395,11 @@ const buildLayerListItems = (ctrl, sel) => {
   syncSelect(ctrl, sel, sel.value);
 };
 
-const rebuildLayerDropdown = (ctrl) => {
+const rebuildLayerDropdown = ctrl => {
   if (ctrl.layerSelect) buildLayerListItems(ctrl, ctrl.layerSelect);
 };
 
-const updateFieldSelector = (ctrl) => {
+const updateFieldSelector = ctrl => {
   if (!ctrl.fieldWrap || !ctrl.fieldSelect) return;
   if (ctrl.m.currentAgg === CONST.AGG.COUNT) {
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
@@ -408,7 +408,7 @@ const updateFieldSelector = (ctrl) => {
   ctrl.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
 
   const selected = ctrl.m.pointLayers.filter(
-    (info) => info.id === ctrl.m.selectedLayerId,
+    info => info.id === ctrl.m.selectedLayerId,
   );
   const fields = ctrl.m.collectFields(selected);
   ctrl.m.autoFieldKey = ctrl.m.pickAutoField(fields);
@@ -425,7 +425,7 @@ const updateFieldSelector = (ctrl) => {
     _(`${CONF.name}.field_auto`),
   );
 
-  fields.forEach((f) => {
+  fields.forEach(f => {
     dom.el(
       "option",
       { value: f, parent: ctrl.fieldSelect },
@@ -452,15 +452,15 @@ const renderColorBar = (ctrl, container, name, nClasses) => {
   }
 };
 
-const updateSchemeBar = (ctrl) => {
+const updateSchemeBar = ctrl => {
   renderColorBar(ctrl, ctrl.schemeBarInner, ctrl.m.currentScheme, ctrl.m.numClasses);
   ctrl.schemeBar.title = ctrl.m.currentScheme;
 };
 
-const refreshSchemeDropdownItems = (ctrl) => {
+const refreshSchemeDropdownItems = ctrl => {
   if (!ctrl.schemeDropdown) return;
   const items = ctrl.schemeDropdown.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM);
-  items.forEach((item) => {
+  items.forEach(item => {
     const name = item.getAttribute("data-scheme-name");
     if (!name) return;
     const bar = item.querySelector(CONST.SEL.SCHEME_DROPDOWN_BAR);
@@ -468,7 +468,7 @@ const refreshSchemeDropdownItems = (ctrl) => {
   });
 };
 
-const toggleSchemeDropdown = (ctrl) => {
+const toggleSchemeDropdown = ctrl => {
   if (ctrl.schemeDropdown) {
     ctrl.schemeDropdown.remove();
     ctrl.schemeDropdown = null;
@@ -503,7 +503,7 @@ const toggleSchemeDropdown = (ctrl) => {
     renderColorBar(ctrl, itemBar, name, ctrl.m.numClasses);
     item.title = name;
 
-    item.onclick = (ev) => {
+    item.onclick = ev => {
       ev.stopPropagation();
       selectScheme(ctrl, name);
     };
@@ -515,7 +515,7 @@ const toggleSchemeDropdown = (ctrl) => {
     else items[0].focus();
   }
 
-  ctrl.schemeDropdown.onkeydown = (e) => {
+  ctrl.schemeDropdown.onkeydown = e => {
     const activeIdx = Array.from(items).indexOf(document.activeElement);
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -561,7 +561,7 @@ const initScan = (ctrl, attempt) => {
   else rebuildLayerDropdown(ctrl);
 };
 
-const resetAll = (ctrl) => {
+const resetAll = ctrl => {
   ctrl.m.selectedLayerId = null;
   ctrl.m.autoFieldKey = null;
   ctrl.m.fieldAuto = true;

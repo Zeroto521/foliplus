@@ -16,19 +16,19 @@ const attachDistanceUI = (mgr, opts) => {
     const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
     isXVisible = s.isXVisible;
     isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach((m) => Util.toggleDelIcon(m, isXVisible));
+    nodeDelIcons.forEach(m => Util.toggleDelIcon(m, isXVisible));
     Util.applyToggle(null, isXVisible, segLabels, isLabelsVisible, null);
   };
 
-  const handleItemClick = (e) => {
+  const handleItemClick = e => {
     Util.stopEvent(e);
     Util.suppressHide(mgr);
     toggleUI(undefined);
   };
 
   finalPoly.on("click", handleItemClick);
-  nodeMarkers.forEach((m) => m.on("click", handleItemClick));
-  segLabels.forEach((l) => l.on("click", handleItemClick));
+  nodeMarkers.forEach(m => m.on("click", handleItemClick));
+  segLabels.forEach(l => l.on("click", handleItemClick));
   toggleUI(false, CONST.TOGGLE.RESET);
 
   const onMapClickActive = () => {
@@ -68,7 +68,7 @@ const attachDistanceUI = (mgr, opts) => {
         // Find the current index in the (possibly-shifted) points array
         const latlng = node.getLatLng();
         const ptIdx = points.findIndex(
-          (p) =>
+          p =>
             Math.abs(p.lat - latlng.lat) < 0.0001 &&
             Math.abs(p.lng - latlng.lng) < 0.0001,
         );
@@ -96,7 +96,7 @@ const attachDistanceUI = (mgr, opts) => {
           const lastDel = nodeDelIcons[1];
           if (lastDel) {
             lastDel.off("click");
-            lastDel.on("click", (e) => {
+            lastDel.on("click", e => {
               const t = e.originalEvent?.target;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
                 Util.stopEvent(e);
@@ -130,7 +130,7 @@ const attachDistanceUI = (mgr, opts) => {
       });
     }
 
-    delMarker.on("click", (e) => {
+    delMarker.on("click", e => {
       const t = e.originalEvent?.target;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
       handleItemClick(e);
@@ -138,12 +138,12 @@ const attachDistanceUI = (mgr, opts) => {
   });
 
   // Re-sort to ensure correct ordering
-  nodeMarkers.forEach((m) => layers.removeLayer(m));
-  nodeDelIcons.forEach((m) => layers.removeLayer(m));
-  segLabels.forEach((l) => layers.removeLayer(l));
-  nodeMarkers.forEach((m) => layers.addLayer(m));
-  nodeDelIcons.forEach((m) => layers.addLayer(m));
-  segLabels.forEach((l) => layers.addLayer(l));
+  nodeMarkers.forEach(m => layers.removeLayer(m));
+  nodeDelIcons.forEach(m => layers.removeLayer(m));
+  segLabels.forEach(l => layers.removeLayer(l));
+  nodeMarkers.forEach(m => layers.addLayer(m));
+  nodeDelIcons.forEach(m => layers.addLayer(m));
+  segLabels.forEach(l => layers.addLayer(l));
 
   return onMapClickActive;
 
@@ -188,7 +188,7 @@ const attachCircleUI = (mgr, opts) => {
       [radiusLabel],
       isLabelsVisible,
       null,
-      (xv) => {
+      xv => {
         if (delMarker.setZIndexOffset)
           delMarker.setZIndexOffset(
             xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
@@ -208,8 +208,8 @@ const attachCircleUI = (mgr, opts) => {
     toggleUI(undefined);
   };
 
-  const attachInteraction = (layer) => {
-    layer.on("click", (e) => {
+  const attachInteraction = layer => {
+    layer.on("click", e => {
       const t = e.originalEvent?.target;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
       Util.stopEvent(e);
@@ -341,7 +341,7 @@ const attachPolygonUI = (mgr, opts) => {
     const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
     isXVisible = s.isXVisible;
     isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach((m) => Util.toggleDelIcon(m, isXVisible));
+    nodeDelIcons.forEach(m => Util.toggleDelIcon(m, isXVisible));
     Util.toggleDelIcon(centroidDel, isXVisible);
     Util.applyToggle(null, isXVisible, segLabels, isLabelsVisible, null);
     // Also toggle Util.centroid label visibility
@@ -354,15 +354,15 @@ const attachPolygonUI = (mgr, opts) => {
     }
   };
 
-  const handleItemClick = (e) => {
+  const handleItemClick = e => {
     Util.stopEvent(e);
     Util.suppressHide(mgr);
     toggleUI(undefined);
   };
 
   finalPoly.on("click", handleItemClick);
-  nodeMarkers.forEach((m) => m.on("click", handleItemClick));
-  segLabels.forEach((l) => l.on("click", handleItemClick));
+  nodeMarkers.forEach(m => m.on("click", handleItemClick));
+  segLabels.forEach(l => l.on("click", handleItemClick));
 
   // Create Util.centroid
   rebuildCentroid(false);
@@ -378,7 +378,7 @@ const attachPolygonUI = (mgr, opts) => {
   mgr.map.on("click", onMapClickActive);
 
   // Create delete icons for each node
-  nodeMarkers.forEach((node) => {
+  nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
     const delMarker = layers.addLayer(
       Util.makeDelIcon(node.getLatLng(), {
@@ -393,7 +393,7 @@ const attachPolygonUI = (mgr, opts) => {
       Util.attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
         const ptIdx = points.findIndex(
-          (p) =>
+          p =>
             Math.abs(p.lat - latlng.lat) < 0.0001 &&
             Math.abs(p.lng - latlng.lng) < 0.0001,
         );
@@ -404,7 +404,7 @@ const attachPolygonUI = (mgr, opts) => {
         nodeDelIcons.splice(ptIdx, 1);
 
         // Remove all old segLabels and rebuild from scratch
-        segLabels.forEach((l) => layers.removeLayer(l));
+        segLabels.forEach(l => layers.removeLayer(l));
         segLabels.length = 0;
 
         if (points.length < 3) {
@@ -414,9 +414,9 @@ const attachPolygonUI = (mgr, opts) => {
 
         // When exactly 3 points remain, every node X should delete all
         if (points.length === 3) {
-          nodeDelIcons.forEach((d) => {
+          nodeDelIcons.forEach(d => {
             d.off("click");
-            d.on("click", (ev) => {
+            d.on("click", ev => {
               const t = ev.originalEvent?.target;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
                 Util.stopEvent(ev);
@@ -461,7 +461,7 @@ const attachPolygonUI = (mgr, opts) => {
         }
       });
 
-    delMarker.on("click", (e) => {
+    delMarker.on("click", e => {
       const t = e.originalEvent?.target;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
       handleItemClick(e);
@@ -469,12 +469,12 @@ const attachPolygonUI = (mgr, opts) => {
   });
 
   // Re-sort layers
-  nodeMarkers.forEach((m) => layers.removeLayer(m));
-  nodeDelIcons.forEach((m) => layers.removeLayer(m));
-  segLabels.forEach((l) => layers.removeLayer(l));
-  nodeMarkers.forEach((m) => layers.addLayer(m));
-  nodeDelIcons.forEach((m) => layers.addLayer(m));
-  segLabels.forEach((l) => layers.addLayer(l));
+  nodeMarkers.forEach(m => layers.removeLayer(m));
+  nodeDelIcons.forEach(m => layers.removeLayer(m));
+  segLabels.forEach(l => layers.removeLayer(l));
+  nodeMarkers.forEach(m => layers.addLayer(m));
+  nodeDelIcons.forEach(m => layers.addLayer(m));
+  segLabels.forEach(l => layers.addLayer(l));
 
   return onMapClickActive;
 

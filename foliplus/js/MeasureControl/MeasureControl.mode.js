@@ -86,7 +86,7 @@ class PreviewMode extends MeasureMode {
 
   /** Remove all tracked preview layers. */
   clearPreviews() {
-    this.previewLayers.forEach((l) => this.layers.removeLayer(l));
+    this.previewLayers.forEach(l => this.layers.removeLayer(l));
     this.previewLayers = [];
   }
 }
@@ -113,7 +113,7 @@ class MarkerMode extends MeasureMode {
       CONF.locale_code,
       null,
       manager.layers.mainLayer,
-      (addr) => {
+      addr => {
         // A marker restored with address:null (e.g. geocode was still in
         // flight when the page was reloaded) resolves its address here and
         // persists it so the next reload shows the address immediately.
@@ -146,7 +146,7 @@ class MarkerMode extends MeasureMode {
     const deleteMarker = () => {
       manager.layers.removeLayer(marker);
       manager.layers.removeLayer(delMarker);
-      manager.measurements = manager.measurements.filter((x) => x.id !== data.id);
+      manager.measurements = manager.measurements.filter(x => x.id !== data.id);
       manager.saveMeasurements();
       manager.layers.unregister();
     };
@@ -192,7 +192,7 @@ class MarkerMode extends MeasureMode {
       CONF.locale_code,
       null,
       this.layers.mainLayer,
-      (addr) => {
+      addr => {
         measurement.address = addr;
         this.m.saveMeasurements();
       },
@@ -211,7 +211,7 @@ class MarkerMode extends MeasureMode {
     const deleteMarker = () => {
       this.layers.removeLayer(marker);
       this.layers.removeLayer(delMarker);
-      this.m.measurements = this.m.measurements.filter((x) => x.id !== markerId);
+      this.m.measurements = this.m.measurements.filter(x => x.id !== markerId);
       this.m.saveMeasurements();
       this.layers.unregister();
     };
@@ -240,7 +240,7 @@ class DistanceMode extends PreviewMode {
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager, data) {
-    const points = data.points.map((p) => L.latLng(p.lat, p.lng));
+    const points = data.points.map(p => L.latLng(p.lat, p.lng));
     const finalPoly = manager.layers.addLayer(
       L.polyline(points, {
         className: CONST.CLASSES.LINE_SOLID,
@@ -292,12 +292,12 @@ class DistanceMode extends PreviewMode {
       segLabels,
       points: points,
       onDelete: () => {
-        manager.measurements = manager.measurements.filter((x) => x.id !== data.id);
+        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
         manager.saveMeasurements();
       },
       onUpdate: () => {
         const { segments, totalDistance } = Util.recalculateSegments(points);
-        data.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+        data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
         data.segments = segments;
         data.totalDistance = totalDistance;
         manager.saveMeasurements();
@@ -334,8 +334,8 @@ class DistanceMode extends PreviewMode {
       }
       this.layers.removeLayer(poly);
       this.layers.removeLayer(finalPoly);
-      nodeMarkers.forEach((m) => this.layers.removeLayer(m));
-      segLabels.forEach((l) => this.layers.removeLayer(l));
+      nodeMarkers.forEach(m => this.layers.removeLayer(m));
+      segLabels.forEach(l => this.layers.removeLayer(l));
       if (originLabel) this.layers.removeLayer(originLabel);
     };
 
@@ -363,7 +363,7 @@ class DistanceMode extends PreviewMode {
       this.m.measurements.push({
         id: distId,
         type: this.type,
-        points: points.map((p) => ({ lng: p.lng, lat: p.lat })),
+        points: points.map(p => ({ lng: p.lng, lat: p.lat })),
         segments,
         totalDistance: total,
       });
@@ -388,14 +388,14 @@ class DistanceMode extends PreviewMode {
         segLabels,
         points: points,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter((x) => x.id !== distId);
+          this.m.measurements = this.m.measurements.filter(x => x.id !== distId);
           this.m.saveMeasurements();
         },
         onUpdate: () => {
-          const m = this.m.measurements.find((x) => x.id === distId);
+          const m = this.m.measurements.find(x => x.id === distId);
           if (!m) return;
           const { segments, totalDistance } = Util.recalculateSegments(points);
-          m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+          m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
           m.segments = segments;
           m.totalDistance = totalDistance;
           this.m.saveMeasurements();
@@ -413,7 +413,7 @@ class DistanceMode extends PreviewMode {
       this.m.clearActiveMode();
     };
 
-    const onDistMove = (e) => {
+    const onDistMove = e => {
       if (points.length === 0) return;
       previewLine.setLatLngs([points[points.length - 1], e.latlng]);
       const seg = Util.distance(points[points.length - 1], e.latlng);
@@ -435,7 +435,7 @@ class DistanceMode extends PreviewMode {
       }
     };
 
-    const onDistClick = (e) => {
+    const onDistClick = e => {
       if (this.m.currentMode !== this.type) return;
       points.push(e.latlng);
       if (previewDistLabel) {
@@ -501,11 +501,11 @@ class DistanceMode extends PreviewMode {
       }
     };
 
-    const onDistDbl = (e) => {
+    const onDistDbl = e => {
       Util.stopEvent(e);
       finishDist();
     };
-    const onDistContext = (e) => {
+    const onDistContext = e => {
       Util.stopEvent(e);
       finishDist();
     };
@@ -529,7 +529,7 @@ class PolygonMode extends PreviewMode {
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager, data) {
-    const points = data.points.map((p) => L.latLng(p.lat, p.lng));
+    const points = data.points.map(p => L.latLng(p.lat, p.lng));
     const finalPoly = manager.layers.addLayer(
       L.polygon(points, {
         className: CONST.CLASSES.POLYGON_FINAL,
@@ -538,7 +538,7 @@ class PolygonMode extends PreviewMode {
     );
 
     const nodeMarkers = [];
-    points.forEach((pt) => {
+    points.forEach(pt => {
       const node = manager.layers.addLayer(Util.makeNode(pt));
       node.bringToFront();
       nodeMarkers.push(node);
@@ -570,7 +570,7 @@ class PolygonMode extends PreviewMode {
       points: points,
       area: data.area,
       onDelete: () => {
-        manager.measurements = manager.measurements.filter((x) => x.id !== data.id);
+        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
         manager.saveMeasurements();
       },
       onUpdate: () => {
@@ -583,7 +583,7 @@ class PolygonMode extends PreviewMode {
           lat: points[0].lat,
           distance: Util.distance(points[n - 1], points[0]),
         });
-        data.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+        data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
         data.segments = segments;
         data.area = newArea;
         manager.saveMeasurements();
@@ -620,8 +620,8 @@ class PolygonMode extends PreviewMode {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
       }
-      nodeMarkers.forEach((m) => this.layers.removeLayer(m));
-      segLabels.forEach((l) => this.layers.removeLayer(l));
+      nodeMarkers.forEach(m => this.layers.removeLayer(m));
+      segLabels.forEach(l => this.layers.removeLayer(l));
     };
 
     const finishPoly = () => {
@@ -660,7 +660,7 @@ class PolygonMode extends PreviewMode {
       this.m.measurements.push({
         id: polyId,
         type: this.type,
-        points: points.map((p) => ({ lng: p.lng, lat: p.lat })),
+        points: points.map(p => ({ lng: p.lng, lat: p.lat })),
         segments,
         area,
       });
@@ -696,11 +696,11 @@ class PolygonMode extends PreviewMode {
         points,
         area,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter((x) => x.id !== polyId);
+          this.m.measurements = this.m.measurements.filter(x => x.id !== polyId);
           this.m.saveMeasurements();
         },
         onUpdate: () => {
-          const m = this.m.measurements.find((x) => x.id === polyId);
+          const m = this.m.measurements.find(x => x.id === polyId);
           if (!m) return;
           const { segments } = Util.recalculateSegments(points);
           // Add closing segment
@@ -710,7 +710,7 @@ class PolygonMode extends PreviewMode {
             lat: points[0].lat,
             distance: Util.distance(points[n - 1], points[0]),
           });
-          m.points = points.map((p) => ({ lng: p.lng, lat: p.lat }));
+          m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
           m.segments = segments;
           m.area = Util.area(points);
           this.m.saveMeasurements();
@@ -729,7 +729,7 @@ class PolygonMode extends PreviewMode {
       this.m.clearActiveMode();
     };
 
-    const onPolyMove = (e) => {
+    const onPolyMove = e => {
       if (points.length === 0) return;
       const allPts = [...points, e.latlng];
       previewPoly.setLatLngs(allPts);
@@ -752,7 +752,7 @@ class PolygonMode extends PreviewMode {
       }
     };
 
-    const onPolyClick = (e) => {
+    const onPolyClick = e => {
       if (this.m.currentMode !== this.type) return;
       points.push(e.latlng);
       if (previewDistLabel) {
@@ -796,11 +796,11 @@ class PolygonMode extends PreviewMode {
       }
     };
 
-    const onPolyDbl = (e) => {
+    const onPolyDbl = e => {
       Util.stopEvent(e);
       finishPoly();
     };
-    const onPolyContext = (e) => {
+    const onPolyContext = e => {
       Util.stopEvent(e);
       finishPoly();
     };
@@ -887,7 +887,7 @@ class CircleMode extends PreviewMode {
       delMarker,
       radiusLabel,
       onDelete: () => {
-        manager.measurements = manager.measurements.filter((x) => x.id !== data.id);
+        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
         manager.saveMeasurements();
       },
     });
@@ -916,7 +916,7 @@ class CircleMode extends PreviewMode {
       previews.label = null;
     };
 
-    const onMapClick = (e) => {
+    const onMapClick = e => {
       if (
         isFinalizing ||
         this.m.currentMode !== this.type ||
@@ -961,7 +961,7 @@ class CircleMode extends PreviewMode {
       }
     };
 
-    const onMouseMove = (e) => {
+    const onMouseMove = e => {
       if (state !== 1 || !center || this.m.currentMode !== this.type) return;
       const r = Util.distance(center, e.latlng);
 
@@ -1012,7 +1012,7 @@ class CircleMode extends PreviewMode {
       }
     };
 
-    const onContext = (e) => {
+    const onContext = e => {
       Util.stopEvent(e);
       this.m.clearActiveMode();
     };
@@ -1107,7 +1107,7 @@ class CircleMode extends PreviewMode {
         delMarker,
         radiusLabel,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter((x) => x.id !== circleId);
+          this.m.measurements = this.m.measurements.filter(x => x.id !== circleId);
           this.m.saveMeasurements();
         },
       });

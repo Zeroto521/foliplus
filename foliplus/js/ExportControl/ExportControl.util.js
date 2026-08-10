@@ -15,7 +15,7 @@ const bitmapCache = new Map();
 
 /** Fetch a remote image as an ImageBitmap (CORS mode), cached in memory.
  *  Reuses blob from browser's HTTP cache when possible. */
-const loadImageBitmap = async (url) => {
+const loadImageBitmap = async url => {
   const cached = bitmapCache.get(url);
   if (cached) return cached;
   const resp = await fetch(url, {
@@ -47,7 +47,7 @@ const loadImage = (src, crossOrigin) =>
   });
 
 /** Wait for a font spec to be ready for canvas text rendering. */
-const ensureFont = async (fontSpec) => {
+const ensureFont = async fontSpec => {
   try {
     await document.fonts.load(fontSpec);
   } catch {

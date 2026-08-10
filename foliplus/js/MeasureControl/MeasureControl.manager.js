@@ -66,14 +66,14 @@ class MeasureManager {
   /** Restore all persisted measurements from localStorage and rebuild their UI. */
   restoreMeasurements() {
     this.measurements = this.loadMeasurements();
-    this.measurements.forEach((m) => {
+    this.measurements.forEach(m => {
       MODE_MAP[m.type]?.restore?.(this, m);
     });
   }
 
   /** Bind global map click, keydown, and unload events. */
   bindGlobalEvents() {
-    this.onMapClick = (e) => {
+    this.onMapClick = e => {
       if (this.isSuppressHideDel) return;
       const t = e.originalEvent?.target;
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
@@ -81,7 +81,7 @@ class MeasureManager {
     };
     this.map.on("click", this.onMapClick);
 
-    this.onKeyDown = (e) => {
+    this.onKeyDown = e => {
       if (e.key === "Escape" && this.currentMode) this.clearActiveMode();
     };
     document.addEventListener("keydown", this.onKeyDown);
@@ -92,7 +92,7 @@ class MeasureManager {
     this.onUnload = () => {
       this.clearActiveMode();
       this.layers.clearLayers();
-      this.finalizedClickHandlers.forEach((h) => this.map.off("click", h));
+      this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
       this.finalizedClickHandlers = [];
     };
     this.map.on("unload", this.onUnload);
@@ -129,7 +129,7 @@ class MeasureManager {
     this.cleanMapEvents();
     this.currentMode = mode;
 
-    this.toolBtns.forEach((btn) =>
+    this.toolBtns.forEach(btn =>
       btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
     );
 
@@ -173,7 +173,7 @@ class MeasureManager {
   /** Deactivate current mode, clean up events, and hide hints. */
   clearActiveMode() {
     this.currentMode = null;
-    this.toolBtns.forEach((btn) => btn.classList.remove(CONST.CLASSES.ACTIVE));
+    this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
     foliplus.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
@@ -191,7 +191,7 @@ class MeasureManager {
     this.clearActiveMode();
     // Unbind all finalized-circle map click handlers; clearLayers removed
     // their targets so they would otherwise dangle until destroy().
-    this.finalizedClickHandlers.forEach((h) => this.map.off("click", h));
+    this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
     this.finalizedClickHandlers = [];
     // Collapse the panel after clearing all measurements
     if (this.ctrl) {
@@ -217,7 +217,7 @@ class MeasureManager {
       document.removeEventListener("keydown", this.onKeyDown);
       this.onKeyDown = null;
     }
-    this.finalizedClickHandlers.forEach((h) => this.map.off("click", h));
+    this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
     this.finalizedClickHandlers = [];
   }
 

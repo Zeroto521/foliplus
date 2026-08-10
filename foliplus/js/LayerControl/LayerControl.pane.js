@@ -77,7 +77,7 @@ class PaneManager {
     const panes = new Set();
     Util.forEachLayer(
       layer,
-      (l) => {
+      l => {
         const p = l.options?.pane;
         if (p && !this.isDefaultPane(p)) panes.add(p);
       },
@@ -104,7 +104,7 @@ class PaneManager {
   /** Bump label panes for a layer so labels render above paths. */
   bumpLabelPanes(layer, z) {
     const childPanes = this.discoverChildPanes(layer);
-    childPanes.forEach((cp) => {
+    childPanes.forEach(cp => {
       if (this.labelPanes.has(cp)) {
         const lp = this.ensurePane(cp, false);
         lp.pane.style.zIndex = z + 1;
@@ -125,7 +125,7 @@ class PaneManager {
       if (!container) continue;
       const paneEl = this.map.getPane(paneName);
       if (!groups.has(container)) groups.set(container, []);
-      const collect = (l) => {
+      const collect = l => {
         if (l.eachLayer) {
           l.eachLayer(collect);
           return;

@@ -133,7 +133,7 @@ const createIconButton = ({
  * Handles both DOM events and Leaflet's wrapped events (e.originalEvent).
  * @param {Event|L.Event} e - DOM event or Leaflet event.
  */
-const stopEvent = (e) => {
+const stopEvent = e => {
   const d = e.originalEvent || e;
   d?.stopPropagation?.();
   d?.preventDefault?.();
@@ -142,10 +142,10 @@ const stopEvent = (e) => {
 /** Escape HTML special characters in a string.
  *  @param {string} str - String to escape.
  *  @returns {string} Escaped string. */
-const escapeHTML = (str) => {
+const escapeHTML = str => {
   return String(str).replace(
     /[&<>"']/g,
-    (m) =>
+    m =>
       ({
         "&": "&amp;",
         "<": "&lt;",
@@ -255,7 +255,7 @@ const createLocationMarker = (
     // Lazy access to the runtime singleton geocoder (kept out of this bundle).
     const foliplus = window.foliplus || {};
     if (foliplus.reverseGeocode) {
-      foliplus.reverseGeocode(map, lng, lat, code).then((resolved) => {
+      foliplus.reverseGeocode(map, lng, lat, code).then(resolved => {
         if (onAddress) onAddress(resolved);
         if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
           marker.setPopupContent(

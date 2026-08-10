@@ -9,7 +9,7 @@ import { NOMINATIM, formatAddress, nominatimUrl } from "../common/geocode.js";
 // geoCache is a Map with a FIFO cap to bound memory during long sessions.
 const GEO_CACHE_MAX = 500;
 const geoCache = new Map();
-const geoCacheGet = (key) => geoCache.get(key);
+const geoCacheGet = key => geoCache.get(key);
 const geoCacheSet = (key, val) => {
   geoCache.set(key, val);
   if (geoCache.size > GEO_CACHE_MAX) geoCache.delete(geoCache.keys().next().value);
@@ -47,13 +47,13 @@ const reverseGeocode = (map, lng, lat, code = "en") => {
   geoPromise = geoPromise
     .then(() => {
       const wait = Math.max(0, NOMINATIM.THROTTLE_MS - (Date.now() - geoLastReq));
-      return new Promise((r) => setTimeout(r, wait));
+      return new Promise(r => setTimeout(r, wait));
     })
     .then(() => {
       geoLastReq = Date.now();
       return fetch(url)
-        .then((r) => r.json())
-        .then((data) => {
+        .then(r => r.json())
+        .then(data => {
           const addr = formatAddress(data.display_name, map, code) || notFound;
           geoCacheSet(key, addr);
           return addr;

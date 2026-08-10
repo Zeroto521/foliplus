@@ -76,8 +76,8 @@ class LayerRegistry {
    * only ever holds complete layerInfo objects with the full field set.
    */
   constructor(data = [], map) {
-    this.items = data.map((l) => this.createLayerInfo(l, undefined, map));
-    this.byId = new Map(this.items.map((l) => [l.id, l]));
+    this.items = data.map(l => this.createLayerInfo(l, undefined, map));
+    this.byId = new Map(this.items.map(l => [l.id, l]));
     this._firstBaseIdx = -1;
     this.refreshFirstBaseIdx();
     this.view = this.createReadonlyView();
@@ -114,7 +114,7 @@ class LayerRegistry {
 
   /** Recompute the cached first-base-layer index. */
   refreshFirstBaseIdx() {
-    this._firstBaseIdx = this.items.findIndex((l) => !!l.isBase);
+    this._firstBaseIdx = this.items.findIndex(l => !!l.isBase);
   }
 
   /** Index of the first base layer, or -1 if none. */
@@ -234,7 +234,7 @@ class LayerRegistry {
   /** Rebuild both list and index from a new ordered array. */
   replace(newList) {
     this.items.splice(0, this.items.length, ...newList);
-    this.byId = new Map(this.items.map((l) => [l.id, l]));
+    this.byId = new Map(this.items.map(l => [l.id, l]));
     this.refreshFirstBaseIdx();
   }
 
@@ -254,7 +254,7 @@ class LayerRegistry {
       else overlays.push(li);
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
-    this.byId = new Map(this.items.map((l) => [l.id, l]));
+    this.byId = new Map(this.items.map(l => [l.id, l]));
     this.refreshFirstBaseIdx();
   }
 
@@ -314,7 +314,7 @@ class LayerManager {
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
-    this.onLayerAdd = (e) => {
+    this.onLayerAdd = e => {
       if (this.isDestroyed || e.layer === this.map || e.layer instanceof L.Renderer)
         return;
 
@@ -343,7 +343,7 @@ class LayerManager {
   loadSavedOrder() {
     const data = Storage.load(CONST.STORAGE.ORDER_KEY, CONF.name);
     if (!data || !Array.isArray(data)) return;
-    const layerMap = new Map(this.layers.map((l) => [l.id, l]));
+    const layerMap = new Map(this.layers.map(l => [l.id, l]));
     const ordered = [];
     for (const id of data) {
       if (layerMap.has(id)) {
@@ -357,7 +357,7 @@ class LayerManager {
   saveOrder() {
     Storage.save(
       CONST.STORAGE.ORDER_KEY,
-      this.layers.map((l) => l.id),
+      this.layers.map(l => l.id),
       CONF.name,
     );
   }
@@ -388,8 +388,8 @@ class LayerManager {
    */
   getLayersByType(type) {
     return this.layers
-      .filter((l) => this.getLayerType(l.id) === type)
-      .map((l) => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
+      .filter(l => this.getLayerType(l.id) === type)
+      .map(l => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
   }
 
   /**
@@ -422,7 +422,7 @@ class LayerManager {
   extractPoints(id) {
     const pts = [];
     const seen = new Set();
-    this.forEachLeaf(id, (l) => {
+    this.forEachLeaf(id, l => {
       if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
       if (!l.feature) return;
       const stamp = L.stamp(l);
@@ -549,7 +549,7 @@ class LayerManager {
   clearAllLayers(layer) {
     if (!layer) return;
     if (typeof layer.clearLayers === "function") layer.clearLayers();
-    else if (layer.eachLayer) layer.eachLayer((l) => this.clearAllLayers(l));
+    else if (layer.eachLayer) layer.eachLayer(l => this.clearAllLayers(l));
   }
 
   /**
@@ -600,7 +600,7 @@ class LayerManager {
     const origAddLayer = mainLayer.addLayer.bind(mainLayer);
     const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
 
-    mainLayer.addLayer = (layer) => {
+    mainLayer.addLayer = layer => {
       const isLabel = layer.isLabel;
       const target = isLabel ? labelLayer : graphLayer;
       if (target) {
@@ -618,7 +618,7 @@ class LayerManager {
       return origAddLayer(layer);
     };
 
-    mainLayer.removeLayer = (layer) => {
+    mainLayer.removeLayer = layer => {
       if (graphLayer && graphLayer.hasLayer(layer)) {
         const result = graphLayer.removeLayer(layer);
         this.panes.reset();
@@ -645,7 +645,7 @@ class LayerManager {
       return layer;
     };
     const removeLayer = (...items) => {
-      items.forEach((l) => {
+      items.forEach(l => {
         if (l != null) mainLayer.removeLayer(l);
       });
     };
@@ -715,13 +715,13 @@ class LayerManager {
 
     const onToggle =
       opts.onToggle ||
-      ((visible) => {
+      (visible => {
         canvas.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
       });
 
     const onZIndex =
       opts.onZIndex ||
-      ((z) => {
+      (z => {
         canvas.style.zIndex = String(z);
       });
 
@@ -777,10 +777,10 @@ class LayerManager {
         canvas.remove();
       },
       bringToFront: () => this.bringLayerToFront(opts.id),
-      setZIndex: (z) => {
+      setZIndex: z => {
         canvas.style.zIndex = String(z);
       },
-      setVisible: (v) => {
+      setVisible: v => {
         canvas.classList.toggle(CONST.CLASSES.HIDDEN, !v);
       },
       hooks,
@@ -843,7 +843,7 @@ class LayerManager {
 
     const childPanes = this.panes.discoverChildPanes(layer);
     if (childPanes.length > 0) {
-      childPanes.forEach((cp) => {
+      childPanes.forEach(cp => {
         const needRenderer = !isTile && !this.panes.labelPanes.has(cp);
         const ep = this.panes.ensurePane(cp, needRenderer);
         ep.pane.style.zIndex = z;

@@ -12,7 +12,7 @@
 const formatNumber = (val, style = "auto", locale = "en") => {
   const absVal = Math.abs(val);
 
-  const fmt = (maxFrac) =>
+  const fmt = maxFrac =>
     new Intl.NumberFormat(locale, {
       notation: style === "auto" && absVal >= 1000 ? "compact" : "standard",
       compactDisplay: "short",
@@ -23,8 +23,8 @@ const formatNumber = (val, style = "auto", locale = "en") => {
     const nf = fmt(1);
     const parts = nf.formatToParts(val);
     const intStr = parts
-      .filter((p) => p.type === "integer")
-      .map((p) => p.value)
+      .filter(p => p.type === "integer")
+      .map(p => p.value)
       .join("");
     if (intStr.length >= 3) return fmt(0).format(val);
 

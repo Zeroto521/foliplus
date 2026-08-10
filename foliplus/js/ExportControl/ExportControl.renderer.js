@@ -161,7 +161,7 @@ class ExportRenderer {
   /** Render a standalone canvas element (e.g. HeatmapControl) with lifecycle hooks. */
   async renderCanvasElement(rc, ce) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
+    if (ce.hooks) ce.hooks.before.forEach(fn => fn());
     try {
       const r = ce.getBoundingClientRect();
       const l = r.left - contRect.left;
@@ -181,7 +181,7 @@ class ExportRenderer {
     } catch {
       /* skip */
     } finally {
-      if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
+      if (ce.hooks) ce.hooks.after.forEach(fn => fn());
     }
   }
 
@@ -223,7 +223,7 @@ class ExportRenderer {
     for (let i = 0; i < visibleTiles.length; i += concurrency) {
       const batch = visibleTiles.slice(i, i + concurrency);
       const bitmaps = await Promise.all(
-        batch.map((t) => loadImageBitmap(t.url).catch(() => null)),
+        batch.map(t => loadImageBitmap(t.url).catch(() => null)),
       );
 
       for (let j = 0; j < batch.length; j++) {
@@ -314,7 +314,7 @@ class ExportRenderer {
   async renderPaneCanvas(rc, pane) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
     for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
-      if (ce.hooks) ce.hooks.before.forEach((fn) => fn());
+      if (ce.hooks) ce.hooks.before.forEach(fn => fn());
       try {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;
@@ -334,7 +334,7 @@ class ExportRenderer {
       } catch {
         /* skip */
       } finally {
-        if (ce.hooks) ce.hooks.after.forEach((fn) => fn());
+        if (ce.hooks) ce.hooks.after.forEach(fn => fn());
       }
     }
   }
@@ -402,13 +402,13 @@ class ExportRenderer {
       if (m && !m[1].startsWith("data:") && !spriteMap.has(m[1])) {
         spriteMap.set(m[1], null);
         loadImageBitmap(m[1])
-          .then((bmp) => spriteMap.set(m[1], bmp))
+          .then(bmp => spriteMap.set(m[1], bmp))
           .catch(() => {});
       }
     }
     // Wait for all in-flight loads to settle
     await Promise.all(
-      [...spriteMap.keys()].map((url) => loadImageBitmap(url).catch(() => {})),
+      [...spriteMap.keys()].map(url => loadImageBitmap(url).catch(() => {})),
     );
 
     // Draw sprites

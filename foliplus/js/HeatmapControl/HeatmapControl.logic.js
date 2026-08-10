@@ -110,13 +110,13 @@ class HeatmapManager {
     // Viewport culling: skip hexagons outside the visible map bounds.
     // Set renderAll = true (e.g. before export) to disable culling.
     const bounds = this.renderAll ? null : this.map.getBounds();
-    const isVisible = (feat) => {
+    const isVisible = feat => {
       if (!bounds) return true;
       const c = feat.properties.centroid;
       return c && bounds.contains(L.latLng(c[0], c[1]));
     };
 
-    this.cachedFeatures.forEach((feat) => {
+    this.cachedFeatures.forEach(feat => {
       if (!isVisible(feat)) return;
       this.drawHexagon(ctx, feat);
       if (this.currentLabelShow) this.drawHexLabel(ctx, feat, labelCfg);
@@ -125,7 +125,7 @@ class HeatmapManager {
 
   /** Draw a single hexagon polygon (fill + stroke). */
   drawHexagon(ctx, feat) {
-    const pts = feat.geometry.coordinates[0].map((p) =>
+    const pts = feat.geometry.coordinates[0].map(p =>
       this.map.latLngToContainerPoint(L.latLng(p[1], p[0])),
     );
     ctx.beginPath();
@@ -202,11 +202,11 @@ class HeatmapManager {
   collectFields(layers) {
     const fields = [];
     const seen = new Set();
-    layers.forEach((info) => {
-      foliplus.LayerAPI.extractPoints(info.id).forEach((pt) => {
+    layers.forEach(info => {
+      foliplus.LayerAPI.extractPoints(info.id).forEach(pt => {
         const m = pt.marker;
         if (m.feature?.properties) {
-          Object.keys(m.feature.properties).forEach((k) => {
+          Object.keys(m.feature.properties).forEach(k => {
             if (typeof m.feature.properties[k] === "number" && !seen.has(k)) {
               seen.add(k);
               fields.push(`properties.${k}`);
@@ -258,10 +258,10 @@ class HeatmapManager {
 
     const pts = [];
     if (!this.selectedLayerId) return pts;
-    const info = this.pointLayers.find((i) => i.id === this.selectedLayerId);
+    const info = this.pointLayers.find(i => i.id === this.selectedLayerId);
     if (!info) return pts;
 
-    foliplus.LayerAPI.extractPoints(info.id).forEach((p) => {
+    foliplus.LayerAPI.extractPoints(info.id).forEach(p => {
       pts.push({
         lat: p.lat,
         lng: p.lng,
@@ -298,7 +298,7 @@ class HeatmapManager {
       try {
         const clusters = ss.ckmeans(data, nClasses);
         const breaks = [clusters[0][0]];
-        clusters.forEach((c) => breaks.push(c[c.length - 1]));
+        clusters.forEach(c => breaks.push(c[c.length - 1]));
         return breaks;
       } catch (e) {}
       return [lo, hi];
@@ -346,7 +346,7 @@ class HeatmapManager {
   /** Aggregate points into H3 hex cells with current agg method. */
   aggregateData(pts, res) {
     const hexCells = {};
-    pts.forEach((pt) => {
+    pts.forEach(pt => {
       try {
         const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
         if (!hexCells[h3Idx])
@@ -361,7 +361,7 @@ class HeatmapManager {
       }
     });
 
-    const getAggValue = (cell) => {
+    const getAggValue = cell => {
       switch (this.currentAgg) {
         case CONST.AGG.COUNT:
           return cell.count;
@@ -388,7 +388,7 @@ class HeatmapManager {
     const breaks = this.computeBreaks(allVals, nClasses, this.currentMethod);
     const classColors = this.getColorScale(this.currentScheme, nClasses);
 
-    const valueToClassIdx = (val) => {
+    const valueToClassIdx = val => {
       if (breaks.length < 2) return 0;
       for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
       return breaks.length - 2;
@@ -414,7 +414,7 @@ class HeatmapManager {
       }
       try {
         const boundary = h3.cellToBoundary(h3Idx);
-        const coords = boundary.map((p) => [p[1], p[0]]);
+        const coords = boundary.map(p => [p[1], p[0]]);
         coords.push(coords[0]);
         if (!centroid) {
           let cx = 0,

@@ -10,7 +10,7 @@
  * @param {Function} fn - Function to throttle.
  * @returns {Function & { cancel: () => void }} Throttled wrapper.
  */
-const throttleRaf = (fn) => {
+const throttleRaf = fn => {
   let rafId = null;
   const wrapped = () => {
     if (rafId) return;

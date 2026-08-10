@@ -54,7 +54,7 @@ class ExportManager {
 
     // Mount UI functions directly on this instance
     this.showCropBox = () => showCropBox(this);
-    this.lockCropBox = (skipHint) => lockCropBox(this, skipHint);
+    this.lockCropBox = skipHint => lockCropBox(this, skipHint);
     this.unlockCropBox = () => unlockCropBox(this);
     this.removeCropBox = () => removeCropBox(this);
     this.updateBoxStyle = (el, r) => updateBoxStyle(this, el, r);
@@ -341,7 +341,7 @@ class ExportManager {
    *  after the render completes. */
   doRender(r, scaleValue, bg, geoBounds) {
     const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
-    hideEls.forEach((el) => el.classList.add(CONST.CLASSES.HIDDEN));
+    hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
     // Force a synchronous layout so getBoundingClientRect() in the
     // render passes sees the final positions after hiding controls.
     this.mapContainer.offsetHeight;
@@ -361,10 +361,10 @@ class ExportManager {
 
     return new ExportRenderer(this.map)
       .render(r, scaleValue, bg || undefined, geoBounds)
-      .then((canvas) => {
+      .then(canvas => {
         this.onRenderSuccess(canvas, hideEls);
       })
-      .catch((err) => {
+      .catch(err => {
         this.onRenderError(err, hideEls);
       });
   }
@@ -372,7 +372,7 @@ class ExportManager {
   /** Enlarge the container for over-size exports and render. */
   enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH) {
     const savedStyles = {};
-    ["width", "height", "minHeight", "maxHeight", "overflow"].forEach((p) => {
+    ["width", "height", "minHeight", "maxHeight", "overflow"].forEach(p => {
       savedStyles[p] = this.mapContainer.style[p];
     });
     const savedCenter = this.map.getCenter();
@@ -394,7 +394,7 @@ class ExportManager {
 
     const restore = () => {
       this.map.options.zoomAnimation = savedAnim;
-      Object.keys(savedStyles).forEach((p) => {
+      Object.keys(savedStyles).forEach(p => {
         this.mapContainer.style[p] = savedStyles[p];
       });
       this.map.invalidateSize(false);
@@ -415,7 +415,7 @@ class ExportManager {
 
   /** Handle successful render: show preview and trigger download. */
   onRenderSuccess(canvas, hideEls) {
-    hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
+    hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
     const mimeType = CONST.MIME[CONF.format] || CONST.MIME.DEFAULT;
@@ -431,7 +431,7 @@ class ExportManager {
       prevImg.remove();
     }, HINT_DURATION.SHORT);
     canvas.toBlob(
-      (blob) => {
+      blob => {
         if (!blob) {
           this.showGlobalHint(
             _(`${CONF.name}.status_fail`) + _(`${CONF.name}.err_gen_fail`),
@@ -467,7 +467,7 @@ class ExportManager {
 
   /** Handle render failure. */
   onRenderError(err, hideEls) {
-    hideEls.forEach((el) => el.classList.remove(CONST.CLASSES.HIDDEN));
+    hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
     console.error(`[${CONF.name}] ${_(`${CONF.name}.err_render`)}:`, err);

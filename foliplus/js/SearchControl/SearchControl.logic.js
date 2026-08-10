@@ -75,8 +75,8 @@ const searchAddress = (ctrl, query) => {
   const signal = ctrl.addrAbortController.signal;
 
   fetch(buildSearchUrl(ctrl, query, SEARCH.LIMIT), { signal })
-    .then((r) => r.json())
-    .then((results) => {
+    .then(r => r.json())
+    .then(results => {
       foliplus.hideHint(CONF.name);
       if (!results || results.length === 0) {
         foliplus.showHint(
@@ -94,7 +94,7 @@ const searchAddress = (ctrl, query) => {
       ctrl.cachedAddress[query] = { item, displayName };
       renderAddressResult(ctrl, { item, displayName });
     })
-    .catch((err) => {
+    .catch(err => {
       if (err.name === "AbortError") return;
       console.error(`[${CONF.name}] Address lookup failed, check network`);
       foliplus.hideHint(CONF.name);
@@ -138,7 +138,7 @@ const renderAddressResult = (ctrl, result) => {
 
 // ── Suggestions ──
 
-const removeSuggestions = (ctrl) => {
+const removeSuggestions = ctrl => {
   if (ctrl.suggestionsThrottleTimer) {
     clearTimeout(ctrl.suggestionsThrottleTimer);
     ctrl.suggestionsThrottleTimer = null;
@@ -150,7 +150,7 @@ const removeSuggestions = (ctrl) => {
   ctrl.selectedSuggestionIdx = -1;
 };
 
-const positionSuggestions = (ctrl) => {
+const positionSuggestions = ctrl => {
   if (!ctrl.suggestionsWrap) return;
   const rect = ctrl.ctrl.getBoundingClientRect();
   let left = rect.left + window.scrollX;
@@ -172,7 +172,7 @@ const renderSuggestions = (ctrl, results, query) => {
     ctrl.suggestionsWrap = dom.el("div", {
       class: CLASSES.SUGGESTIONS,
       parent: document.body,
-      onclick: (e) => e.stopPropagation(),
+      onclick: e => e.stopPropagation(),
     });
   }
 
@@ -188,7 +188,7 @@ const renderSuggestions = (ctrl, results, query) => {
         class: CLASSES.SUGGESTION_ITEM,
         "data-index": String(idx),
         parent: ctrl.suggestionsWrap,
-        onmousedown: (e) => {
+        onmousedown: e => {
           e.stopPropagation();
           e.preventDefault();
           removeSuggestions(ctrl);
@@ -234,19 +234,19 @@ const fetchSuggestions = (ctrl, query) => {
   fetch(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
     signal: ctrl.suggestAbortController.signal,
   })
-    .then((r) => r.json())
-    .then((results) => {
+    .then(r => r.json())
+    .then(results => {
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
       renderSuggestions(ctrl, results, query);
     })
-    .catch((err) => {
+    .catch(err => {
       if (err.name === "AbortError") return;
       removeSuggestions(ctrl);
     });
 };
 
-const initDebouncedFetch = (ctrl) => {
+const initDebouncedFetch = ctrl => {
   ctrl.debouncedFetch = debounce(
     () => fetchSuggestions(ctrl, ctrl.inp.value.trim()),
     AUTOCOMPLETE.DEBOUNCE_MS,

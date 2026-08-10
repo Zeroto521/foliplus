@@ -53,7 +53,7 @@ const adjustPanelZIndex = ({ container, expanded }) => {
 const bindPanelToggle = ({ container, toggleBtn, header }) => {
   const btn = container.querySelector(toggleBtn);
   if (btn) {
-    L.DomEvent.on(btn, "click", (e) => {
+    L.DomEvent.on(btn, "click", e => {
       L.DomEvent.stop(e);
       container.classList.remove(CLASSES.COLLAPSED);
       container.classList.add(CLASSES.EXPANDED);
@@ -62,7 +62,7 @@ const bindPanelToggle = ({ container, toggleBtn, header }) => {
   }
   const hdr = container.querySelector(header);
   if (hdr) {
-    L.DomEvent.on(hdr, "click", (e) => {
+    L.DomEvent.on(hdr, "click", e => {
       L.DomEvent.stop(e);
       container.classList.remove(CLASSES.EXPANDED);
       container.classList.add(CLASSES.COLLAPSED);
@@ -82,7 +82,7 @@ const bindPanelToggle = ({ container, toggleBtn, header }) => {
  * @param {Function} [opts.onCollapse] - Optional hook called after collapsing
  */
 const bindFoldToggle = ({ container, toggleBtn, onExpand, onCollapse }) => {
-  L.DomEvent.on(toggleBtn, "click", (e) => {
+  L.DomEvent.on(toggleBtn, "click", e => {
     L.DomEvent.stop(e);
     const expanding = container.classList.contains(CLASSES.COLLAPSED);
     container.classList.toggle(CLASSES.COLLAPSED);
@@ -102,7 +102,7 @@ const bindFoldToggle = ({ container, toggleBtn, onExpand, onCollapse }) => {
  * @returns {Function} Cleanup function
  */
 const bindOutsideCollapse = ({ container, skipCheck = () => false }) => {
-  const handler = (e) => {
+  const handler = e => {
     if (skipCheck && skipCheck()) return;
     if (
       !container.contains(e.target) &&
@@ -140,7 +140,7 @@ const bindOutsideCollapse = ({ container, skipCheck = () => false }) => {
  *                                   overrides `isLeft` (left = contains "left").
  * @returns {object} { container, ctrl, toolBar, toggleBtn }
  */
-const createFoldControl = (opts) => {
+const createFoldControl = opts => {
   const isLeft =
     opts.position !== undefined ? opts.position.indexOf("left") >= 0 : opts.isLeft;
   const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
@@ -181,11 +181,11 @@ const createFoldControl = (opts) => {
  * @param {Function} [opts.onMove] - Called on move with RAF throttling
  * @returns {Function} Cleanup function
  */
-const bindMapSync = (opts) => {
+const bindMapSync = opts => {
   const handlers = [];
   const add = (events, fn) => {
     if (!events || !fn) return;
-    events.forEach((ev) => {
+    events.forEach(ev => {
       opts.map.on(ev, fn);
       handlers.push([ev, fn]);
     });
@@ -219,7 +219,7 @@ const bindMapSync = (opts) => {
  * @param {string} opts.closeTitle - Tooltip for close button
  * @returns {object} { container, ctrl, toggleBtn, panelContent }
  */
-const createPanelControl = (opts) => {
+const createPanelControl = opts => {
   const container = dom.el("div", {
     class: CLASSES.LEAFLET_BAR,
   });

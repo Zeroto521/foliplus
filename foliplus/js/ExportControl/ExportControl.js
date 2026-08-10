@@ -14,7 +14,7 @@ requireLayerAPI(CONF.name, _);
 // toBlob() will return null (blank image).
 //
 // We also intercept future layer additions to set crossOrigin.
-map.eachLayer((layer) => {
+map.eachLayer(layer => {
   if (layer instanceof L.GridLayer && !layer.options.crossOrigin) {
     layer.options.crossOrigin = "anonymous";
     if (map.hasLayer(layer)) {
@@ -23,7 +23,7 @@ map.eachLayer((layer) => {
     }
   }
 });
-map.on("layeradd", (e) => {
+map.on("layeradd", e => {
   if (e.layer instanceof L.GridLayer && !e.layer.options.crossOrigin) {
     e.layer.options.crossOrigin = "anonymous";
   }

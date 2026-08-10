@@ -26,7 +26,7 @@ const renderToolbarActions = (mgr, { confirm, cancel }) => {
     title: confirm.title,
     svg: confirm.svg,
     parent: actions,
-    onclick: (e) => {
+    onclick: e => {
       e.stopPropagation();
       confirm.onclick(mgr);
     },
@@ -36,7 +36,7 @@ const renderToolbarActions = (mgr, { confirm, cancel }) => {
     title: cancel.title,
     svg: cancel.svg,
     parent: actions,
-    onclick: (e) => {
+    onclick: e => {
       e.stopPropagation();
       cancel.onclick(mgr);
     },
@@ -85,7 +85,7 @@ const showHintWithInfo = (mgr, r, instruction) => {
 };
 
 /** Build the crop box DOM and attach events. */
-const showCropBox = (mgr) => {
+const showCropBox = mgr => {
   if (mgr.cropState) return;
   const mapRect = mgr.mapContainer.getBoundingClientRect();
   let box;
@@ -143,7 +143,7 @@ const showCropBox = (mgr) => {
   document.body.classList.add(CONST.CLASSES.MODE);
   const cropBox = dom.el("div", { class: CONST.CLASSES.BOX, parent: mgr.mapContainer });
 
-  ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach((pos) => {
+  ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach(pos => {
     dom.el("div", {
       class: `${CONST.CLASSES.HANDLE} ${pos}`,
       parent: cropBox,
@@ -219,7 +219,7 @@ const lockCropBox = (mgr, skipHint = false) => {
 };
 
 /** Update toolbar for unlocked state (confirm button). */
-const unlockCropBox = (mgr) => {
+const unlockCropBox = mgr => {
   if (!mgr.cropState || !mgr.cropState.locked) return;
   mgr.cropState.locked = false;
   mgr.cropState.box.classList.remove("locked");
@@ -241,7 +241,7 @@ const unlockCropBox = (mgr) => {
 };
 
 /** Remove crop box DOM and restore UI state. */
-const removeCropBox = (mgr) => {
+const removeCropBox = mgr => {
   if (!mgr.cropState) return;
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);

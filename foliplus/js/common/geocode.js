@@ -47,8 +47,8 @@ const formatAddress = (displayName, map, code = "en") => {
   if (!displayName) return "";
   const parts = displayName
     .split(",")
-    .map((s) => s.trim())
-    .filter((s) => {
+    .map(s => s.trim())
+    .filter(s => {
       if (!s) return false;
       // Remove pure numeric tokens (postal codes, house numbers)
       if (/^\d+$/.test(s)) return false;
