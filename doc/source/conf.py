@@ -118,9 +118,7 @@ myst_enable_extensions = ["colon_fence", "substitution"]
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static", "data"]
 html_css_files = ["custom.css"]
-html_js_files = [
-    ("custom-icons.js", {"defer": "defer"}),
-]
+html_js_files = [("icon.js", {"defer": "defer"})]
 html_show_sourcelink = False  # sidebar "sourcelink" already provides this
 html_show_sphinx = False
 
