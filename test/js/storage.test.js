@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { load, save } from "../../foliplus/js/common/storage.js";
+import { load, save } from "#common/storage.js";
 
 describe("storage", () => {
   beforeEach(() => {

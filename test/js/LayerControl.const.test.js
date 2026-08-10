@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as CONST from "../../foliplus/js/LayerControl/LayerControl.const.js";
+import * as CONST from "#foliplus/LayerControl/LayerControl.const.js";
 
 describe("INIT_DELAY_MS", () => {
   it("is a positive number", () => {

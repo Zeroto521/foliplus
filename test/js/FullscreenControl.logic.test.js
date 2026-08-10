@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CLASSES } from "../../foliplus/js/FullscreenControl/FullscreenControl.const.js";
+import { CLASSES } from "#foliplus/FullscreenControl/FullscreenControl.const.js";
 import {
   bindFullscreenEvents,
   toggleFullscreen,
   updateUI,
-} from "../../foliplus/js/FullscreenControl/FullscreenControl.logic.js";
+} from "#foliplus/FullscreenControl/FullscreenControl.logic.js";
 
 // Mutable state controlled by each describe's beforeEach to switch between the
 // native API path (isEnabled=true) and the pseudo path (isEnabled=false).
@@ -41,7 +41,7 @@ const makeContainer = () => {
   return el;
 };
 
-const makeMapMock = (container) => ({
+const makeMapMock = container => ({
   _container: document.createElement("div"),
   getContainer: () => container,
   isFullscreen: false,
@@ -50,7 +50,7 @@ const makeMapMock = (container) => ({
   off: vi.fn(),
 });
 
-const makeNativeMapMock = (container) => {
+const makeNativeMapMock = container => {
   const map = makeMapMock(container);
   map._container.requestFullscreen = vi.fn(() => Promise.resolve());
   return map;

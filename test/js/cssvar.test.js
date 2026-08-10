@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cssVar } from "../../foliplus/js/common/cssvar.js";
+import { cssVar } from "#common/cssvar.js";
 
 describe("cssVar", () => {
   let el;

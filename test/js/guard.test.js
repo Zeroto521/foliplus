@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { requireLayerAPI, requireRuntime } from "../../foliplus/js/common/guard.js";
+import { requireLayerAPI, requireRuntime } from "#common/guard.js";
 
 const mockShowHint = vi.fn();
 
@@ -21,7 +21,7 @@ describe("requireRuntime", () => {
 });
 
 describe("requireLayerAPI", () => {
-  const _ = (s) => s;
+  const _ = s => s;
 
   it("throws when LayerAPI is missing", () => {
     vi.stubGlobal("foliplus", {

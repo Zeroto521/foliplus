@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as Util from "../../foliplus/js/MeasureControl/MeasureControl.util.js";
+import * as Util from "#foliplus/MeasureControl/MeasureControl.util.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
   window.L.circleMarker = vi.fn(() => ({}));
   globalThis.turf = {
-    point: (coords) => ({ coords }),
+    point: coords => ({ coords }),
     distance: vi.fn(() => 100),
   };
 });

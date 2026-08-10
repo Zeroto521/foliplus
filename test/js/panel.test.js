@@ -7,7 +7,7 @@ import {
   bindPanelToggle,
   createFoldControl,
   createPanelControl,
-} from "../../foliplus/js/common/panel.js";
+} from "#common/panel.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
 // but panel.js also needs on/off/stop — stub them here.

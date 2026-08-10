@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as SVGs from "../../foliplus/js/LayerControl/LayerControl.icon.js";
-import * as Util from "../../foliplus/js/LayerControl/LayerControl.util.js";
+import * as SVGs from "#foliplus/LayerControl/LayerControl.icon.js";
+import * as Util from "#foliplus/LayerControl/LayerControl.util.js";
 
 class Polygon {}
 class Polyline {}
 class CircleMarker {}
 class Marker {}
 
-const makeContainer = (children) => ({
-  eachLayer: (fn) => children.forEach(fn),
+const makeContainer = children => ({
+  eachLayer: fn => children.forEach(fn),
 });
 
 beforeEach(() => {
@@ -83,7 +83,7 @@ describe("forEachLeaf / forEachLayer", () => {
     const leafB = new Polyline();
     const root = makeContainer([leafA, makeContainer([leafB])]);
     const seen = [];
-    Util.forEachLeaf(root, (l) => seen.push(l));
+    Util.forEachLeaf(root, l => seen.push(l));
     expect(seen).toEqual([leafA, leafB]);
   });
 
@@ -92,7 +92,7 @@ describe("forEachLeaf / forEachLayer", () => {
     const inner = makeContainer([leaf]);
     const root = makeContainer([inner]);
     const seen = [];
-    Util.forEachLayer(root, (l) => seen.push(l));
+    Util.forEachLayer(root, l => seen.push(l));
     expect(seen).toContain(root);
     expect(seen).toContain(inner);
     expect(seen).toContain(leaf);
@@ -102,7 +102,7 @@ describe("forEachLeaf / forEachLayer", () => {
     const leaf = new CircleMarker();
     const root = { _layers: { a: leaf } };
     const seen = [];
-    Util.forEachLeaf(root, (l) => seen.push(l));
+    Util.forEachLeaf(root, l => seen.push(l));
     expect(seen).toEqual([leaf]);
   });
 });

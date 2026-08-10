@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createTranslator } from "../../foliplus/js/common/locale.js";
+import { createTranslator } from "#common/locale.js";
 
 describe("createTranslator", () => {
   beforeEach(() => {

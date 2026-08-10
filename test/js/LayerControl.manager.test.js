@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { LayerRegistry } from "../../foliplus/js/LayerControl/LayerControl.manager.js";
+import { LayerRegistry } from "#foliplus/LayerControl/LayerControl.manager.js";
 
 describe("LayerRegistry", () => {
   let registry;

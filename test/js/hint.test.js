@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HINT_DURATION } from "../../foliplus/js/common/hint.js";
+import { HINT_DURATION } from "#common/hint.js";
 
 describe("HINT_DURATION", () => {
   it("has correct values", () => {

@@ -5,16 +5,16 @@ import {
   centroid,
   distance,
   midpoint,
-} from "../../foliplus/js/common/geo.js";
+} from "#common/geo.js";
 
 beforeEach(() => {
   globalThis.turf = {
-    point: (coords) => ({ coords }),
+    point: coords => ({ coords }),
     distance: vi.fn((a, b) => 1234),
     bearing: vi.fn((a, b) => 45),
     midpoint: vi.fn((a, b) => ({ geometry: { coordinates: [12.5, 34.5] } })),
-    polygon: vi.fn((coords) => ({ coords })),
-    area: vi.fn((poly) => 5_000_000),
+    polygon: vi.fn(coords => ({ coords })),
+    area: vi.fn(poly => 5_000_000),
   };
 });
 

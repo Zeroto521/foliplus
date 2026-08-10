@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as ICON from "../../foliplus/js/common/icon.js";
+import * as ICON from "#common/icon.js";
 
 describe("LOADING", () => {
   it("is an SVG string", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as SVGs from "../../foliplus/js/SearchControl/SearchControl.icon.js";
+import * as SVGs from "#foliplus/SearchControl/SearchControl.icon.js";
 
 describe("SEARCH", () => {
   it("is an SVG string", () => {

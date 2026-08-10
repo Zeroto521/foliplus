@@ -3,11 +3,11 @@ import {
   getFullscreenEl,
   isEnabled,
   nativeAPI,
-} from "../../foliplus/js/FullscreenControl/FullscreenControl.api.js";
+} from "#foliplus/FullscreenControl/FullscreenControl.api.js";
 import {
   CLASSES,
   containerId,
-} from "../../foliplus/js/FullscreenControl/FullscreenControl.const.js";
+} from "#foliplus/FullscreenControl/FullscreenControl.const.js";
 
 describe("const.js", () => {
   it("CLASSES has expected keys", () => {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bindEvents,
   initFromUrl,
-} from "../../foliplus/js/SearchControl/SearchControl.event.js";
+} from "#foliplus/SearchControl/SearchControl.event.js";
 
 function makeCtrl() {
   const ctrlDiv = document.createElement("div");
@@ -67,7 +67,7 @@ describe("bindEvents", () => {
   it("navigates suggestions with ArrowDown", () => {
     const ctrl = makeCtrl();
     ctrl.suggestionsWrap = document.createElement("div");
-    const mk = (text) => {
+    const mk = text => {
       const el = document.createElement("div");
       el.innerHTML = `<span class="foliplus-search-suggestion-text">${text}</span>`;
       return el;

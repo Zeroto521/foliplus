@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BaseControl } from "../../foliplus/js/common/BaseControl.js";
+import { BaseControl } from "#common/BaseControl.js";
 
 describe("BaseControl", () => {
   let map;

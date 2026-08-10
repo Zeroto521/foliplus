@@ -7,7 +7,7 @@ import {
   removeSuggestions,
   searchAddress,
   searchCoord,
-} from "../../foliplus/js/SearchControl/SearchControl.logic.js";
+} from "#foliplus/SearchControl/SearchControl.logic.js";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
 // Use vi.spyOn to track calls on those already-setup mocks.
@@ -118,8 +118,8 @@ describe("searchAddress", () => {
       inp: { value: "abc" },
     };
     searchAddress(ctrl, "nowhere");
-    await new Promise((r) => setTimeout(r, 0));
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
     expect(foliplus.showHint).toHaveBeenLastCalledWith(
       "SearchControl",
       "SearchControl.addr_not_found",
@@ -142,8 +142,8 @@ describe("searchAddress", () => {
       marker: null,
     };
     searchAddress(ctrl, "X");
-    await new Promise((r) => setTimeout(r, 0));
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
     expect(foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
     expect(map.flyTo).toHaveBeenCalled();
     expect(ctrl.cachedAddress["X"]).toBeDefined();
@@ -245,8 +245,8 @@ describe("fetchSuggestions", () => {
       inp: { value: "abc" },
     };
     fetchSuggestions(ctrl, "abc");
-    await new Promise((r) => setTimeout(r, 0));
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
     expect(globalThis.fetch).toHaveBeenCalled();
     expect(ctrl.cachedSuggestions["abc"]).toHaveLength(1);
     expect(ctrl.suggestionsWrap).not.toBeNull();

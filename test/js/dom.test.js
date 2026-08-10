@@ -6,7 +6,7 @@ import {
   dom,
   escapeHTML,
   stopEvent,
-} from "../../foliplus/js/common/dom.js";
+} from "#common/dom.js";
 
 describe("dom.el", () => {
   it("creates a basic element with tag", () => {

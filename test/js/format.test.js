@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { cssVar } from "../../foliplus/js/common/cssvar.js";
-import { debounce } from "../../foliplus/js/common/debounce.js";
-import { formatNumber } from "../../foliplus/js/common/format.js";
+import { cssVar } from "#common/cssvar.js";
+import { debounce } from "#common/debounce.js";
+import { formatNumber } from "#common/format.js";
 
 describe("formatNumber", () => {
   it("formats small numbers as-is (auto style)", () => {

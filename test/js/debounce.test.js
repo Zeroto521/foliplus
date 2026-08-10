@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { debounce } from "../../foliplus/js/common/debounce.js";
+import { debounce } from "#common/debounce.js";
 
 describe("debounce", () => {
   beforeEach(() => {

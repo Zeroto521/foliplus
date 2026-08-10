@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { throttleRaf } from "../../foliplus/js/common/throttle.js";
+import { throttleRaf } from "#common/throttle.js";
 
 describe("throttleRaf", () => {
   beforeEach(() => {
-    vi.stubGlobal("requestAnimationFrame", (cb) => setTimeout(cb, 0));
-    vi.stubGlobal("cancelAnimationFrame", (id) => clearTimeout(id));
+    vi.stubGlobal("requestAnimationFrame", cb => setTimeout(cb, 0));
+    vi.stubGlobal("cancelAnimationFrame", id => clearTimeout(id));
   });
 
   afterEach(() => {
@@ -17,7 +17,7 @@ describe("throttleRaf", () => {
     throttled();
     throttled();
     throttled();
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise(r => setTimeout(r, 20));
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
@@ -25,9 +25,9 @@ describe("throttleRaf", () => {
     const fn = vi.fn();
     const throttled = throttleRaf(fn);
     throttled();
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise(r => setTimeout(r, 20));
     throttled();
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise(r => setTimeout(r, 20));
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
@@ -36,7 +36,7 @@ describe("throttleRaf", () => {
     const throttled = throttleRaf(fn);
     throttled();
     throttled.cancel();
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise(r => setTimeout(r, 20));
     expect(fn).not.toHaveBeenCalled();
   });
 });
