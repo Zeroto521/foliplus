@@ -51,7 +51,19 @@ class LayerControl(BaseControl):
         self._template = self._get_template()
 
     def _extra_config(self) -> dict:
-        """Collect layers from the parent map at render time."""
+        """Collect layers from the parent map at render time.
+
+        This is the canonical example of a control that needs render-time data the
+        constructor cannot know: the layer list only exists once the control is added
+        to a map. Traverses the parent map's ``_children`` and emits a serializable
+        list of ``{name, id, isBase}`` dicts.
+
+        Returns
+        -------
+        dict
+            ``{"data": [{"name", "id", "isBase"}, ...]}`` — the ``data`` key is merged
+            into the JS ``CONF`` object by :meth:`BaseControl._build_config`.
+        """
         data: list[dict[str, object]] = []
         if (parent := self._parent) is not None:
             for item in parent._children.values():

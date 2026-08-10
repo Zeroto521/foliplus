@@ -98,6 +98,9 @@ class HeatmapControl(BaseControl):
         ),
     ]
 
+    # The style dict is unpacked into flat instance attributes at init time so that
+    # each sub-field is individually serializable via _export_fields. This avoids
+    # passing a nested dict that the JS side would have to re-parse.
     _export_fields = (
         "field",
         "color_scheme",

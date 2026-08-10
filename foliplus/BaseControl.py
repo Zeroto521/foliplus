@@ -1,3 +1,20 @@
+"""Base class and shared asset pipeline for all foliplus controls.
+
+Every foliplus component (FullscreenControl, HeatmapControl, LayerControl, ...)
+inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
+
+* **Shared assets** — ``common.css`` (with ``panel.css`` merged in), ``runtime.js``
+  (with ``runtime/*.js`` bundled) and the common locale tables are emitted **once per
+  map** into ``<head>`` by :meth:`BaseControl.render`, deduplicated by
+  :data:`_SHARED_ASSETS_NAME`.
+
+* **Config serialization** — each control's instance attributes are serialized into
+  the JS ``CONF`` object. The static part is assembled by :meth:`BaseControl._build_config`
+  (shared ``name``/``position`` keys + subclass-declared :attr:`_export_fields` +
+  dynamic :meth:`_extra_config` data), then :attr:`BaseControl._config_block` overlays
+  the locale tables and code.
+"""
+
 from __future__ import annotations
 
 from functools import cache
@@ -87,7 +104,10 @@ class BaseControl(JSCSSMixin, MacroElement):
     """
 
     #: Instance attributes re-exported as JS ``CONF`` keys (key name == attr name).
-    #: Subclasses extend this with their public configuration fields.
+    #:
+    #: Subclasses declare their public configuration fields here. Each name is looked
+    #: up via ``getattr(self, name)`` during :meth:`_build_config`, so the attribute
+    #: must be set in ``__init__`` before the template is rendered.
     _export_fields: tuple[str, ...] = ()
 
     def __init__(
@@ -111,7 +131,19 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     @property
     def _config_block(self) -> str:
-        """Render the CONFIG dict as a JSON string for IIFE injection."""
+        """Render the JS ``CONF`` dict as a JSON string for IIFE injection.
+
+        Builds on the static config from :meth:`_build_config` (cached on
+        :attr:`_config`) and overlays the two render-time pieces only known when
+        the template is rendered:
+
+        * ``locale_tables`` — this control's own locale table for resolving translated
+          strings at runtime.
+        * ``locale_code`` — the resolved language code (``"en"``, ``"zh"``, ...).
+
+        Returns ``"{}"`` when the config is empty, otherwise a JSON string safe for
+        inline ``<script>`` injection.
+        """
         config = dict(self._build_config())
         config["locale_tables"] = _load_tables(f"{self._name}.*.json")
         config["locale_code"] = self._locale.code if self._locale else ""
@@ -129,9 +161,17 @@ class BaseControl(JSCSSMixin, MacroElement):
     def _build_config(self) -> dict:
         """Assemble the static part of the JS ``CONF`` dict.
 
-        Merges the shared ``name``/``position`` keys, the subclass-declared exported
-        fields, and any dynamic render-time data from :meth:`_extra_config`. The result
-        is also cached on :attr:`_config` for inspection in tests.
+        The merge order is:
+
+        1. Shared keys — ``name`` and ``position`` (always present).
+        2. Exported fields — every attribute named in :attr:`_export_fields`.
+        3. Dynamic data — whatever :meth:`_extra_config` returns (render-time only,
+           e.g. LayerControl's layer list).
+
+        Later entries win on key conflicts. The result is cached on :attr:`_config` so
+        tests can inspect exactly what gets serialized into the JS ``CONF`` object.
+        :attr:`_config_block` copies this dict before adding the locale overlay, so
+        the cache is never polluted with render-time keys.
         """
         config = {"name": self._name, "position": self.position}
         config.update({f: getattr(self, f) for f in self._export_fields})

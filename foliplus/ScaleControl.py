@@ -31,6 +31,8 @@ class ScaleControl(BaseControl):
     >>> ScaleControl().add_to(m)
     """
 
+    # Export ``isMetric`` (bool) instead of ``unit`` (str) so the JS side can do a
+    # simple truthy check without importing the string literal type.
     _export_fields = ("isMetric", "show_zoom")
 
     def __init__(
