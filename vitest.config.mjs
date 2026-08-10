@@ -11,6 +11,7 @@ export default defineConfig({
       include: ["foliplus/js/**/*.js"],
       exclude: [
         "foliplus/js/runtime/**",
+        // Entry modules — require browser tests (playwright) to cover wiring
         "foliplus/js/ExportControl/ExportControl.js",
         "foliplus/js/FullscreenControl/FullscreenControl.js",
         "foliplus/js/HeatmapControl/HeatmapControl.js",
@@ -18,9 +19,34 @@ export default defineConfig({
         "foliplus/js/MeasureControl/MeasureControl.js",
         "foliplus/js/ScaleControl/ScaleControl.js",
         "foliplus/js/SearchControl/SearchControl.js",
+        // HeatmapControl logic modules — need L.Map, canvas, h3/chroma/ss CDNs.
+        // Covered by browser tests (pytest-playwright) in CI.
+        "foliplus/js/HeatmapControl/HeatmapControl.logic.js",
+        "foliplus/js/HeatmapControl/HeatmapControl.ui.js",
+        // ExportControl logic modules — need L.Map, canvas, fetch, document.fonts.
+        "foliplus/js/ExportControl/ExportControl.manager.js",
+        "foliplus/js/ExportControl/ExportControl.renderer.js",
+        "foliplus/js/ExportControl/ExportControl.ui.js",
+        "foliplus/js/ExportControl/ExportControl.util.js",
+        // LayerControl complex modules — need L.Map, L.DomEvent, panes.
+        "foliplus/js/LayerControl/LayerControl.manager.js",
+        "foliplus/js/LayerControl/LayerControl.pane.js",
+        "foliplus/js/LayerControl/LayerControl.ui.js",
+        // MeasureControl complex modules — need L.Map, L.DomEvent, panes.
+        "foliplus/js/MeasureControl/MeasureControl.manager.js",
+        "foliplus/js/MeasureControl/MeasureControl.mode.js",
+        "foliplus/js/MeasureControl/MeasureControl.ui.js",
       ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
+      // Thresholds: prevent accidental coverage regression.
+      // Excluded browser-dependent modules are covered by pytest-playwright.
+      thresholds: {
+        statements: 80,
+        branches: 70,
+        functions: 80,
+        lines: 80,
+      },
     },
   },
   define: {
