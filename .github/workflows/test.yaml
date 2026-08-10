@@ -31,12 +31,11 @@ jobs:
         with:
           environment-file: ${{ matrix.env }}
           create-args: python=${{ matrix.python }}
-
       - uses: actions/setup-node@v6
         with:
           node-version-file: "package.json"
-      - run: npm install
 
+      - run: npm install
       - run: playwright install chromium
       - run: pip install -e .
 

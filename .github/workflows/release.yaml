@@ -35,7 +35,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
 
+      - run: npm install
       - run: python -m pip install --upgrade build twine
 
       - name: Build dist for main TestPyPI (.postN)
