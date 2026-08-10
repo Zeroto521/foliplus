@@ -6,15 +6,9 @@ import json
 import os
 import tempfile
 
-import folium
 import pytest
 
-from foliplus.locale import (
-    _LOCALE_DIR,
-    LocaleConfig,
-    _load_tables,
-    resolve_locale,
-)
+from foliplus.locale import _LOCALE_DIR, LocaleConfig, _load_tables, resolve_locale
 
 
 def _load_merged_tables() -> dict[str, dict[str, str]]:

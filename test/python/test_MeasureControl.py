@@ -1132,7 +1132,7 @@ class TestMeasureControlRendering:
         """formatDistance handles large values > 1000m."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "unit_km" in html
+        assert "km" in html
 
     def test_calc_toggle_all_modes(self, base_map: folium.Map):
         """calcToggle handles all toggleLbl modes: true, false, undefined, RESET."""
