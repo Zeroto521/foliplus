@@ -6,6 +6,7 @@ version: 2
 build:
   os: ubuntu-lts-latest
   tools:
+    nodejs: "24"
     python: "miniforge3-latest"
   jobs:
     post_checkout:
@@ -13,6 +14,11 @@ build:
       - git fetch origin --tags --force
     pre_create_environment:
       - export CONDA_SOLVER=libmamba
+    pre_install:
+      # Build bundled JS/CSS assets (foliplus/dist/) before pip install.
+      # foliplus cannot be imported without these files.
+      - npm install
+      - make build-js
     post_install:
       - make info
 
