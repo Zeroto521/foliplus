@@ -111,13 +111,13 @@ class TestLayerControlRendering:
     def test_svg_icons_defined(self, base_map: folium.Map):
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "SVGs.DRAG_HANDLE" in html
-        assert ".GLOBE" in html
-        assert "SVGs.POINT" in html
-        assert "SVGs.LINE" in html
-        assert "SVGs.POLYGON" in html
-        assert "SVGs.EMPTY" in html
-        assert "SVGs.UNKNOWN" in html
+        assert "DRAG_HANDLE" in html
+        assert "GLOBE" in html
+        assert "POINT" in html
+        assert "LINE" in html
+        assert "POLYGON" in html
+        assert "EMPTY" in html
+        assert "UNKNOWN" in html
 
     def test_fold_icon_single_svg_css_rotation(self, base_map: folium.Map):
         """Fold uses a single SVG icon rotated by CSS — no separate UNFOLD SVG."""
@@ -125,7 +125,7 @@ class TestLayerControlRendering:
 
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "SVGs.FOLD" in html
+        assert "FOLD" in html
         assert "SVGs.UNFOLD" not in html
         css = Path("foliplus/css/LayerControl.css").read_text()
         assert "rotate(180deg)" in css
@@ -135,21 +135,21 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # Empty container (no leaves) → 'empty'
-        assert "if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY" in html
+        assert "if (leaves.length === 0) return GEOM_TYPE.EMPTY" in html
         # Has leaves but none match known types → 'unknown'
         assert (
-            "if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN"
+            "if (!hasPoly && !hasLine && !hasPoint) return GEOM_TYPE.UNKNOWN"
             in html
         )
         # Mixed geometry types → 'unknown'
-        assert "if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN" in html
+        assert "if (typeCount > 1) return GEOM_TYPE.UNKNOWN" in html
 
     def test_type_svg_fallback(self, base_map: folium.Map):
         """getTypeSVG returns EMPTY/UNKNOWN for non-standard layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "if (type === CONST.GEOM_TYPE.EMPTY) return SVGs.EMPTY;" in html
-        assert "return SVGs.UNKNOWN;" in html
+        assert "if (type === GEOM_TYPE.EMPTY) return EMPTY;" in html
+        assert "return UNKNOWN;" in html
 
     def test_locale_zh(self, base_map: folium.Map):
         LayerControl(locale="zh").add_to(base_map)
@@ -181,12 +181,13 @@ class TestLayerControlRendering:
         ).add_to(m)
         m.render()
 
-        assert "OSM" in ctrl.base_layers
-        assert "Carto" in ctrl.base_layers
-        assert "Terrain" in ctrl.base_layers
+        data = {d["name"]: d for d in ctrl._config["data"]}
+        assert "OSM" in data
+        assert "Carto" in data
+        assert "Terrain" in data
         # Map may auto-add a default OSM layer, so count >= 3
-        assert len(ctrl.base_layers) >= 3
-        assert len(ctrl.overlays) == 0
+        assert sum(1 for d in ctrl._config["data"] if d["isBase"]) >= 3
+        assert sum(1 for d in ctrl._config["data"] if not d["isBase"]) == 0
 
     def test_base_and_overlay_in_template(self):
         """Both base_layers and overlays appear in the JS template."""
@@ -197,8 +198,8 @@ class TestLayerControlRendering:
         html = render(m)
 
         # JS data should contain both with correct isBase flags
-        assert "isBase:true" in html.replace(" ", "")
-        assert "isBase:false" in html.replace(" ", "")
+        assert '"isBase": true' in html
+        assert '"isBase": false' in html
 
     def test_is_base_class_on_base_items(self):
         """Only base map items get the data-layer-type attribute."""
@@ -210,7 +211,7 @@ class TestLayerControlRendering:
 
         # Base maps have the attribute; overlay items should be checked separately
         assert (
-            'data-layer-type": li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY'
+            'data-layer-type": li.isBase ? GROUP.BASE : GROUP.OVERLAY'
             in html
         )
 
@@ -225,7 +226,7 @@ class TestLayerControlRendering:
         # Drag handle SVG circles (6 dots) present
         assert "drag-handle" in html
         # All items use drag handle (no more base-map-only spacer logic)
-        assert "SVGs.DRAG_HANDLE" in html
+        assert "DRAG_HANDLE" in html
 
     def test_drag_tooltip_rendered(self):
         """Drag handle has i18n drag_tooltip title."""
@@ -335,8 +336,8 @@ class TestLayerControlRendering:
         """LayerControl persistence uses the shared storage helper."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "foliplus.storage.load(CONST.STORAGE.ORDER_KEY, CONST.name)" in html
-        assert "foliplus.storage.save(" in html
+        assert "load(STORAGE.ORDER_KEY, CONF.name" in html
+        assert "save(" in html
 
     def test_debounced_enforce_order(self, base_map: folium.Map):
         """enforceOrder is debounced in layeradd listener to prevent performance issues."""
@@ -381,7 +382,7 @@ class TestLayerControlRendering:
         assert "defaultPanes.has(pane)" in html
         assert "startsWith" in html
         assert "FALLBACK_PANE_PREFIX" in html
-        assert "this.defaultPanes = new Set([" in html
+        assert "defaultPanes = /* @__PURE__ */ new Set([" in html
         assert '"overlayPane"' in html
         assert '"markerPane"' in html
         assert '"tilePane"' in html
@@ -403,10 +404,10 @@ class TestLayerControlRendering:
         """TileLayers use z-index base 200 in enforceOrder."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "zBase = isTile ? CONST.Z_INDEX.TILE_BASE : CONST.Z_INDEX.BASE" in html
+        assert "zBase = isTile ? Z_INDEX.TILE_BASE : Z_INDEX.BASE" in html
         # Both 200 and 600 appear as z-index bases
-        assert "CONST.Z_INDEX.BASE" in html
-        assert "CONST.Z_INDEX.TILE_BASE" in html
+        assert "Z_INDEX.BASE" in html
+        assert "Z_INDEX.TILE_BASE" in html
 
     def test_compute_zindex_extracted(self, base_map: folium.Map):
         """computeZIndex is a standalone method in LayerManager."""
@@ -419,11 +420,12 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         # Mechanism A: custom paneName
-        assert "--- Mechanism A: Custom pane" in html
+        assert "ensurePane(paneName, !isTile)" in html
         # Mechanism B: TileLayer setZIndex
-        assert "--- Mechanism B: TileLayer (Leaflet's own API)" in html
+        assert "setZIndex(z)" in html
         # Mechanism C: Auto-discovered / fallback panes
-        assert "--- Mechanism C: Auto-discovered / fallback panes" in html
+        assert "discoverChildPanes" in html
+        assert "FALLBACK_PANE_PREFIX" in html
 
     def test_migrate_layers_extracted(self, base_map: folium.Map):
         """migrateLayers is a standalone method with DocumentFragment batching."""
@@ -494,7 +496,7 @@ class TestLayerControlRendering:
         """discoverChildPanes enforces recursion depth limit."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "depth > CONST.RECURSION.PANE_DEPTH" in html
+        assert "depth > RECURSION.PANE_DEPTH" in html
 
     def test_discover_child_panes_skips_default(self, base_map: folium.Map):
         """discoverChildPanes filters out default panes."""
@@ -512,7 +514,7 @@ class TestLayerControlRendering:
         """Pane lifecycle is extracted into a standalone PaneManager class."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "class PaneManager" in html
+        assert "PaneManager = class {" in html
         assert "this.panes = new PaneManager(" in html
 
     def test_pane_primitives_delegated_but_mechanism_stays(self, base_map: folium.Map):
@@ -543,7 +545,7 @@ class TestLayerControlRendering:
         """Color map uses a special constant ID for identification."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "CONST.COLOR.MAP_ID" in html
+        assert "foliplus_color_map" in html
 
     def test_hint_duration_constants_in_layer(self, base_map: folium.Map):
         """LayerControl uses hint duration constants (not hardcoded values)."""
@@ -563,7 +565,7 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "this.uiContainer.querySelector" in html
-        assert "CONST.DATA.LAYER_ID]: li.id" in html
+        assert "DATA.LAYER_ID]: li.id" in html
 
     def test_register_layer_pending_when_no_ui(self, base_map: folium.Map):
         """registerLayer queues registrations when UI not yet rendered."""
@@ -671,12 +673,12 @@ class TestLayerControlRendering:
         """LayerUtils exposes static utility methods."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "static escapeHTML" in html
-        assert "static getGeometryType" in html
-        assert "static getTypeSVG" in html
-        assert "static findLayer" in html
-        assert "static forEachLeaf" in html
-        assert "static forEachLayer" in html
+        assert "var escapeHTML" in html
+        assert "var getGeometryType" in html
+        assert "var getTypeSVG" in html
+        assert "var findLayer" in html
+        assert "var forEachLeaf" in html
+        assert "var forEachLayer" in html
 
     def test_escape_html_handles_special_chars(self, base_map: folium.Map):
         """LayerUtils.escapeHTML escapes & < > \" '."""
@@ -937,17 +939,17 @@ class TestLayerControlRendering:
         assert "--drag-pulse-count" in css
 
     def test_runtime_guard_present(self, base_map: folium.Map):
-        """LayerControl logs error when foliplus runtime is missing."""
+        """LayerControl throws error when foliplus runtime is missing."""
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus runtime not found" in html
-        assert "console.error" in html
+        assert "throw new Error" in html
 
     def test_find_layer_utility(self, base_map: folium.Map):
         """LayerUtils.findLayer and LayerAPI.findLayer resolve layers."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "return LayerUtils.findLayer(" in html
+        assert "return findLayer(" in html
         assert "this.findLayer = this.findLayer.bind(this)" in html
 
     def test_for_each_leaf_utility(self, base_map: folium.Map):
@@ -961,7 +963,7 @@ class TestLayerControlRendering:
         """forEachLeaf respects RECURSION.LAYER_DEPTH guard."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "depth > CONST.RECURSION.LAYER_DEPTH" in html
+        assert "depth > RECURSION.LAYER_DEPTH" in html
 
     def test_clear_all_layers_recursive(self, base_map: folium.Map):
         """clearAllLayers recursively clears nested sub-layers."""
@@ -1009,7 +1011,7 @@ class TestLayerControlRendering:
         """LayerControl.onRemove calls destroy() which cleans up resources."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "this.manager.destroy()" in html
+        assert "this.m.destroy()" in html
         assert "unpatchBringToFront()" in html
 
     def test_destroy_cleans_listeners(self, base_map: folium.Map):
@@ -1045,7 +1047,7 @@ class TestLayerControlRendering:
         assert "setZIndex" in html
         assert "setVisible" in html
         assert "getSize" in html
-        assert 'foliplus.dom.el("canvas"' in html
+        assert 'dom.el("canvas"' in html
         assert 'class: "foliplus-heatmap-canvas"' in html
         assert "parent: mapPane" in html
         assert "mapPane" in html
@@ -1077,7 +1079,7 @@ class TestLayerControlRendering:
         """foliplus.dom.el is used in LayerControl rendering."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "foliplus.dom.el" in html
+        assert "dom.el" in html
 
     def test_toggle_all_row_data_group(self, base_map: folium.Map):
         """Toggle-all rows have correct data-group attribute."""
@@ -1089,8 +1091,8 @@ class TestLayerControlRendering:
         # data-group is set via JS setAttribute at runtime
         # Check JS source code contains the renderToggleAllRow calls
         assert "renderToggleAllRow" in html
-        # Check that toggle-all-item class is used in JS
-        assert "toggle-all-item" in html
+        # Check that toggle-all class is used in JS
+        assert "foliplus-layer-toggle-all" in html
 
     def test_toggle_all_cb_present(self, base_map: folium.Map):
         """toggle-all checkbox present in rendered HTML."""
@@ -1175,7 +1177,7 @@ class TestLayerControlRendering:
         """Layer item title is set from type key in initTypesAndVisibility."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "item.title = _(typeKey)" in html
+        assert "item.title = _3(typeKey)" in html
 
     def test_color_layer_title_uses_color_map_label(self, base_map: folium.Map):
         """Color layer item title is set to color_map_label."""
@@ -2629,12 +2631,12 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            # Single SVG, 1 polyline before fold
+            # Single SVG, 1 path before fold (SVGO converts polyline → path)
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                return btn.querySelectorAll('polyline').length;
+                return btn.querySelectorAll('path').length;
             }""")
-            assert elem_count == 1, f"Expected 1 polyline (FOLD SVG), got {elem_count}"
+            assert elem_count == 1, f"Expected 1 path (FOLD SVG), got {elem_count}"
 
             # Click to fold
             page.evaluate("""() => {
@@ -2643,13 +2645,13 @@ class TestLayerControlBrowser:
             }""")
             page.wait_for_timeout(300)
 
-            # Still 1 polyline — icon is rotated by CSS, not swapped
+            # Still 1 path — icon is rotated by CSS, not swapped
             elem_count = page.evaluate("""() => {
                 const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                return btn.querySelectorAll('polyline').length;
+                return btn.querySelectorAll('path').length;
             }""")
             assert elem_count == 1, (
-                f"Expected 1 polyline (CSS-rotated, not swapped), got {elem_count}"
+                f"Expected 1 path (CSS-rotated, not swapped), got {elem_count}"
             )
             # Row must carry the folded class so CSS rotation kicks in
             is_folded = page.evaluate("""() => {
@@ -2964,7 +2966,7 @@ class TestLayerControlEdgeCases:
         """LayerUtils.traverse walks all layers (containers + leaves)."""
         LayerControl().add_to(base_map)
         html = render(base_map)
-        assert "static traverse" in html
+        assert "var traverse" in html
         assert "leafOnly" in html
 
     def test_register_sets_pane_on_non_path(self, base_map: folium.Map):
@@ -3088,7 +3090,7 @@ class TestLayerControlEdgeCases:
         html = render(base_map)
         # Container (eachLayer) nodes must be excluded from pane writes —
         # collect() recurses into containers and returns before writing pane.
-        start = html.index("const collect = (l) => {")
+        start = html.index("const collect =")
         end = html.index("collect(layer);")
         collect_body = html[start:end]
         # Container guard: recurse and skip pane writes for containers

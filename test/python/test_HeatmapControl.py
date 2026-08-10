@@ -34,7 +34,7 @@ class TestHeatmapControlPython:
         """Default params produce correct CONFIG JSON."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "CONFIG.HeatmapControl" in html
+        assert '"name": "HeatmapControl"' in html
         assert '"color_scheme": "Reds"' in html
         assert '"method": "jenks"' in html
         assert '"n_classes": 6' in html
@@ -313,9 +313,9 @@ class TestHeatmapControlRendering:
         """Error/warning locale keys appear in rendered HTML."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "HeatmapControl.value_fallback" in html
-        assert "HeatmapControl.h3_cell_fail" in html
-        assert "HeatmapControl.h3_boundary_fail" in html
+        assert "Falling back to 1" in html
+        assert "h3 cell conversion failed" in html
+        assert "h3 boundary conversion failed" in html
         assert "HeatmapControl.close_title" in html
 
     def test_no_layercontrol_guard(self, base_map: folium.Map):
@@ -673,11 +673,11 @@ class TestHeatmapControlBrowser:
             '<script src="https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"></script>',
             "",
         )
-        # Inject stubs before the HeatmapControl JS runs (after CONFIG entry)
-        # In the rendered HTML, the CONFIG preamble ends with:
-        #   window.foliplus.CONFIG['HeatmapControl'] = {...};
+        # Inject stubs before the HeatmapControl JS runs (after CONF entry)
+        # In the rendered HTML, the CONF preamble starts with:
+        #   CONF = {"name": "HeatmapControl", ...};
         # followed immediately by the bundled JS.
-        marker = "CONFIG['HeatmapControl']"
+        marker = 'CONF = {"name": "HeatmapControl"'
         idx = html.find(marker)
         if idx > 0:
             # Find the semicolon that ends the CONFIG assignment
@@ -694,14 +694,11 @@ class TestHeatmapControlBrowser:
     @staticmethod
     def _expose_ctrl(html: str) -> str:
         """Expose the created control as window.__heatmapCtrl for runtime assertions."""
-        # Inject after the CONFIG assignment for HeatmapControl
-        marker = "CONFIG['HeatmapControl']"
+        marker = "heatmapCtrl.addTo(map);"
         idx = html.find(marker)
         if idx > 0:
-            semi = html.find(";", idx)
-            if semi > 0:
-                hook = "window.__heatmapCtrl=null;var __origAddTo=L.Control.prototype.addTo;L.Control.prototype.addTo=function(m){window.__heatmapCtrl=this;return __origAddTo.call(this,m);};"
-                html = html[: semi + 1] + hook + html[semi + 1 :]
+            hook = "window.__heatmapCtrl = heatmapCtrl;"
+            html = html[: idx + len(marker)] + hook + html[idx + len(marker) :]
         return html
 
     def _make_page(self, browser, tmp_path, expose_ctrl=False):

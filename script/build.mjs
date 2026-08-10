@@ -51,11 +51,7 @@ const BASE_OPTS = {
   // to the mirrored .build/ directory so SVGO-compressed files are used.
   alias: { "#common": resolve(TMP_JS, "common") },
 };
-const artifact = (entryPoints, outfile) => ({
-  entryPoints,
-  outfile,
-  ...BASE_OPTS,
-});
+const artifact = (entryPoints, outfile) => ({ entryPoints, outfile, ...BASE_OPTS });
 
 // ── SVGO: compress SVG markup inside JS template literals ──────────
 const svgRe =
@@ -118,9 +114,8 @@ const buildEntries = components => {
   // runtime.js is now an ES module entry — esbuild bundles it with all
   // runtime/*.js imports, identical to how component JS is bundled.
   const runtimeJs = resolve(TMP_JS, "runtime", "runtime.js");
-  if (existsSync(runtimeJs)) {
+  if (existsSync(runtimeJs))
     entries.push(artifact([runtimeJs], resolve(DIST, "runtime.min.js")));
-  }
 
   const commonCssSrc = resolve(CSS_SRC, "common.css");
   const panelCssSrc = resolve(CSS_SRC, "panel.css");

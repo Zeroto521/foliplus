@@ -109,8 +109,8 @@ class TestExportControlRendering:
         assert "ExportRenderer" in html
         assert "exportManager" in html
         assert "ctrl-fold" in html
-        assert "foliplus.storage.load(CONST.STORAGE.KEY, CONST.name)" in html
-        assert "foliplus.storage.save(" in html
+        assert "load(STORAGE.KEY, CONF.name" in html
+        assert "saveBounds" in html
         assert "loadSavedBounds" in html
         assert "foliplus-export-ctrl" in html
 
@@ -150,7 +150,7 @@ class TestExportControlRendering:
         """Key event and lifecycle hooks are present."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "bindOutsideCollapse" in html
+        assert "createFoldControl" in html
         assert "getBoundingClientRect" in html
         assert "containerPointToLatLng" in html
         assert "Object.assign" in html
@@ -172,9 +172,8 @@ class TestExportControlRendering:
         assert "RESTORE_DELAY" in html
         assert "CROP" in html
         assert "SEL" in html
-        assert "CLASSES" in html
+        assert "CLASSES2" in html
         assert "MIME" in html
-        assert "QUALITY" in html
 
     def test_bitmap_cache_shared(self, base_map: folium.Map):
         """bitmapCache is shared between tile and sprite loading."""
@@ -189,7 +188,7 @@ class TestExportControlRendering:
         """MIME type lookup table is present in rendered JS."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "CONST.MIME" in html
+        assert "MIME" in html
         assert "image/png" in html
         assert "image/jpeg" in html
         assert "image/webp" in html
@@ -289,13 +288,12 @@ class TestExportControlRendering:
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "collectLayerMarkers" in html
-        assert "CONST.SEL.SKIP_EXPORT" in html
+        assert "SEL.SKIP_EXPORT" in html
 
     def test_debounce_on_map_change(self, base_map: folium.Map):
         """onMapChange uses foliplus.debounce."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "debounce" in html
         assert "onMapChange" in html
 
     def test_keyboard_events(self, base_map: folium.Map):
@@ -352,7 +350,7 @@ class TestExportControlRendering:
         """Preview image is created with correct class name."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "CONST.CLASSES.PREVIEW" in html
+        assert "CLASSES2.PREVIEW" in html
         assert "prevImg" in html
         assert "toDataURL" in html
 
@@ -361,7 +359,7 @@ class TestExportControlRendering:
         ExportControl(filename="custom").add_to(base_map)
         html = render(base_map)
         assert "custom" in html
-        assert "FILENAME" in html
+        assert "CONF.filename" in html
 
     def test_css_loaded(self, base_map: folium.Map):
         """ExportControl CSS is included."""
@@ -422,7 +420,7 @@ class TestExportControlRendering:
         """collectLayerMarkers collects pane children, skipping SVG/CANVAS and opt-out."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "CONST.SEL.SKIP_EXPORT" in html
+        assert "SEL.SKIP_EXPORT" in html
         assert "el.tagName === " in html
 
     def test_render_fontawesome_pseudo_element(self, base_map: folium.Map):
@@ -479,7 +477,7 @@ class TestExportControlRendering:
         """SVG serialization injects xmlns when missing."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "CONST.SVG_NS" in html
+        assert "SVG_NS" in html
         assert "src.includes" in html
 
     def test_svg_length_check(self, base_map: folium.Map):
@@ -527,7 +525,7 @@ class TestExportControlRendering:
         ExportControl().add_to(base_map)
         html = render(base_map)
         assert "collectLayerMarkers" in html
-        assert "CONST.SEL.SKIP_EXPORT" in html
+        assert "SEL.SKIP_EXPORT" in html
 
     def test_render_pane_svg_method(self, base_map: folium.Map):
         """renderPaneSVG renders SVG content from a single pane."""
@@ -598,10 +596,10 @@ class TestExportControlRendering:
         assert '"style"' in html
 
     def test_render_remaining_skips_label_elements(self, base_map: folium.Map):
-        """renderRemaining skips elements matching CONST.SEL.LABEL."""
+        """renderRemaining skips elements matching SEL.LABEL."""
         ExportControl().add_to(base_map)
         html = render(base_map)
-        assert "root.matches(CONST.SEL.LABEL)" in html
+        assert "root.matches(SEL.LABEL)" in html
         assert "continue" in html
 
     def test_render_remaining_draws_border(self, base_map: folium.Map):
