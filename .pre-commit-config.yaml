@@ -46,6 +46,20 @@ repos:
     hooks:
       - id: codespell
 
+  # ── TypeScript type checking ──
+  # Uses language: node so pre-commit.ci installs TypeScript itself (its
+  # isolated env has no node_modules). Keep the version in sync with the
+  # typescript devDependency in package.json.
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: typecheck
+        entry: tsc --noEmit
+        language: node
+        pass_filenames: false
+        additional_dependencies:
+          - "typescript@7.0.2"
+
   # ── JS / CSS formatting (Prettier) ──
   # Uses language: node so pre-commit.ci sets up Node and installs the
   # dependencies below itself (its isolated env has no npx/node_modules).
