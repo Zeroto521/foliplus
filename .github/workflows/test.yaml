@@ -32,22 +32,19 @@ jobs:
           environment-file: ${{ matrix.env }}
           create-args: python=${{ matrix.python }}
 
-      # Node is required for the JS build (esbuild) and vitest JS test suite.
-      # package-lock.json is intentionally gitignored, so use `npm install`
-      # (npm ci requires the lockfile) and skip the npm cache.
       - uses: actions/setup-node@v6
         with:
-          node-version: "24"
-
+          node-version-file: "package.json"
       - run: npm install
+
       - run: playwright install chromium
       - run: pip install -e .
+
       - run: make info
       - run: make test
 
       - uses: codecov/codecov-action@v6
         with:
-          # Auto-detects standard reports: Python (coverage.xml) and JS (coverage/lcov.info).
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
