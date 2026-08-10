@@ -11,6 +11,27 @@ window.foliplus = {
   HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
 };
 
+// Mock localStorage for Node 24 compat (native localStorage requires --localstorage-file).
+// jsdom provides localStorage via window, but Node 24's globalThis.localStorage is
+// undefined when the flag is absent, which can shadow jsdom's version.
+const store = {};
+globalThis.localStorage = {
+  getItem: vi.fn(key => store[key] ?? null),
+  setItem: vi.fn((key, val) => {
+    store[key] = String(val);
+  }),
+  removeItem: vi.fn(key => {
+    delete store[key];
+  }),
+  clear: vi.fn(() => {
+    for (const k in store) delete store[k];
+  }),
+  get length() {
+    return Object.keys(store).length;
+  },
+  key: vi.fn(i => Object.keys(store)[i] ?? null),
+};
+
 // Mock L (Leaflet)
 window.L = {
   DomEvent: {
