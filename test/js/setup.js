@@ -11,12 +11,18 @@ window.foliplus = {
   HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
 };
 
-// Point globalThis.localStorage at jsdom's real Storage implementation.
-// Node 24 defines globalThis.localStorage as `undefined` (without the flag
-// --experimental-webstorage --localstorage-file), which shadows jsdom's
-// window.localStorage in vitest.  This redirect ensures the real jsdom
-// Storage is always used, regardless of Node version or CLI flags.
-globalThis.localStorage = window.localStorage;
+// Redirect globalThis.localStorage to jsdom's real Storage implementation.
+// Node 24 defines globalThis.localStorage as a read-only getter that returns
+// `undefined` (without the flag --experimental-webstorage --localstorage-file),
+// which shadows jsdom's window.localStorage in vitest.  A plain assignment is
+// silently ignored, so we must redefine the property with defineProperty.
+// This ensures the real jsdom Storage is always used regardless of Node
+// version or CLI flags.
+Object.defineProperty(globalThis, "localStorage", {
+  value: window.localStorage,
+  configurable: true,
+  writable: true,
+});
 
 // Mock L (Leaflet)
 window.L = {
