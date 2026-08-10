@@ -58,7 +58,10 @@ repos:
     hooks:
       - id: format-prettier
         name: format-prettier
-        entry: npx prettier --write
-        language: system
+        entry: prettier --write
+        language: node
         types_or: [css, javascript]
         files: ^foliplus/(js|css)/|^script/.*\.js$|^test/js/.*\.js$
+        additional_dependencies:
+          - "prettier@3.9.5"
+          - "@trivago/prettier-plugin-sort-imports@5.2.2"
