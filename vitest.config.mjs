@@ -11,8 +11,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    include: ["test/js/**/*.test.js"],
-    setupFiles: ["test/js/setup.js"],
+    include: ["test/js/**/*.test.{js,ts}"],
+    setupFiles: ["test/js/setup.ts"],
     coverage: {
       provider: "v8",
       include: ["foliplus/js/**/*.js", "foliplus/js/**/*.ts"],

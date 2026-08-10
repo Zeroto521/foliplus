@@ -61,7 +61,7 @@ repos:
         entry: prettier --write
         language: node
         types_or: [css, javascript, ts]
-        files: ^foliplus/(js|css)/|^script/.*\.js$|^test/js/.*\.js$
+        files: ^foliplus/(js|css)/|^script/.*\.(js|ts)$|^test/js/.*\.(js|ts)$
         additional_dependencies:
           - "prettier@3.9.5"
           - "@trivago/prettier-plugin-sort-imports@5.2.2"

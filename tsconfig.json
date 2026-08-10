@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
@@ -13,5 +17,11 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["foliplus/js/**/*.ts", "foliplus/js/**/*.d.ts"]
+  // Tests are .ts and run via vitest (esbuild transpile), but are staged out
+  // of the strict typecheck program for now — they are heavily mock-based and
+  // would need hundreds of `any` annotations. Add test/js back when tightening.
+  "include": [
+    "foliplus/js/**/*.ts",
+    "foliplus/js/**/*.d.ts"
+  ]
 }
