@@ -166,4 +166,4 @@ class LocaleConfig:
 
     @property
     def code(self) -> str:
-        return self._strings.get("locale.code", "en")
+        return self._strings.get("locale.code", self.language)
