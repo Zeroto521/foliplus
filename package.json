@@ -14,9 +14,7 @@
     "build:dev": "node script/build.mjs --dev",
     "build:check": "node script/build.mjs --check",
     "test": "vitest run --coverage",
-    "test:watch": "vitest",
-    "format": "prettier --write \"foliplus/js/**/*.js\" \"foliplus/css/**/*.css\" \"script/**/*.js\" \"test/js/**/*.js\"",
-    "format:check": "prettier --check \"foliplus/js/**/*.js\" \"foliplus/css/**/*.css\" \"script/**/*.js\" \"test/js/**/*.js\""
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
