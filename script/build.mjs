@@ -4,9 +4,10 @@
  *
  * Pipeline:
  *   1. Mirror `foliplus/js/` → `foliplus/.build/`
- *   2. SVGO-compress SVG strings in every `.js` file under `.build/`
- *   3. esbuild-bundle runtime.js (resolves ES imports from runtime/*.js) to `dist/runtime.min.js`
- *   4. esbuild-bundle all components (resolving ES imports) to `foliplus/dist/`
+ *   2. SVGO-compress SVG strings in every `.js`/`.ts` file under `.build/`
+ *   3. html-minifier-terser: compress HTML template literals (innerHTML)
+ *   4. esbuild-bundle runtime.js (resolves ES imports from runtime/*.js) to `dist/runtime.min.js`
+ *   5. esbuild-bundle all components (resolving ES imports) to `foliplus/dist/`
  *
  * Usage:
  *   node script/build.mjs              # build all
@@ -83,13 +84,79 @@ const compressSvgStrings = code => {
   });
 };
 
+// ── HTML minifier: compress innerHTML template literals ──────────
+// Uses a character-level scanner to correctly handle nested backtick
+// template literals (e.g. `${CONF.name}` inside the HTML template).
+// Only processes templates that look like HTML (contain `<tag`).
+
+const HTML_RE = /<[a-z][a-z0-9]*[\s>]/i;
+
+/** Find the end of a template literal starting at `start` (the opening backtick).
+ *  Returns the index of the closing backtick, or -1 if unterminated. */
+const findTemplateEnd = (code, start) => {
+  let i = start + 1;
+  let depth = 0;
+  while (i < code.length) {
+    const ch = code[i];
+    if (ch === "`" && depth === 0) return i;
+    if (ch === "$" && code[i + 1] === "{" && depth === 0) {
+      depth = 1;
+      i += 2;
+    } else if (depth > 0) {
+      if (ch === "{") depth++;
+      else if (ch === "}") depth--;
+      i++;
+    } else {
+      i++;
+    }
+  }
+  return -1;
+};
+
+/** Synchronous HTML whitespace compression.
+ *  Collapses multi-line whitespace: newlines → single space, > < → ><. */
+const collapseHtml = html =>
+  html
+    .replace(/\n\s*/g, " ")
+    .replace(/>\s+</g, "><")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+/** Compress HTML-looking template literals in source code. */
+const compressHtmlStrings = code => {
+  const result = [];
+  let i = 0;
+  while (i < code.length) {
+    if (code[i] === "`") {
+      const end = findTemplateEnd(code, i);
+      if (end === -1) {
+        result.push(code.slice(i));
+        break;
+      }
+      const raw = code.slice(i + 1, end);
+      if (HTML_RE.test(raw)) {
+        result.push("`" + collapseHtml(raw) + "`");
+      } else {
+        result.push(code.slice(i, end + 1));
+      }
+      i = end + 1;
+    } else {
+      result.push(code[i]);
+      i++;
+    }
+  }
+  return result.join("");
+};
+
 const processJsFiles = dir => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = resolve(dir, entry.name);
     if (entry.isDirectory()) processJsFiles(full);
     else if (entry.name.endsWith(".js") || entry.name.endsWith(".ts")) {
-      const code = readFileSync(full, "utf-8");
-      writeFileSync(full, compressSvgStrings(code), "utf-8");
+      let code = readFileSync(full, "utf-8");
+      code = compressSvgStrings(code);
+      code = compressHtmlStrings(code);
+      writeFileSync(full, code, "utf-8");
     }
   }
 };
