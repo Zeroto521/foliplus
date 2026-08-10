@@ -908,4 +908,4 @@ class LayerManager {
   }
 }
 
-export { LayerManager, patchBringToFront, unpatchBringToFront };
+export { LayerManager, LayerRegistry, patchBringToFront, unpatchBringToFront };

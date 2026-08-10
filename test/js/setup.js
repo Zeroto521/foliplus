@@ -26,7 +26,15 @@ window.L = {
     getPopup: () => null,
   })),
   divIcon: vi.fn(() => ({})),
+  Path: class {},
+  Polygon: class {},
+  Polyline: class {},
+  CircleMarker: class {},
 };
+
+// L.Path.prototype.bringToFront is captured at module import time by
+// LayerControl.manager.js — set it up before test imports.
+window.L.Path.prototype.bringToFront = vi.fn();
 
 // Mock Jinja IIFE free variables
 window.CONF = {
