@@ -4,7 +4,7 @@
 import { HINT_DURATION } from "./hint.js";
 import { createTranslator } from "./locale.js";
 
-export const requireRuntime = componentName => {
+export const requireRuntime = (componentName: string): void => {
   const foliplus = window.foliplus || {};
   // The runtime singleton (runtime.min.js) exposes hint + geocode on the
   // global. Pure helpers are statically imported, so check a runtime API.
@@ -18,10 +18,13 @@ export const requireRuntime = componentName => {
  * Shows a persistent hint and throws when the required API is missing.
  * Used by components that depend on LayerControl (Export, Heatmap, Measure).
  *
- * @param {string} componentName - CONF.name, used as hint key and error prefix.
- * @param {Function} _ - Translator function (from createTranslator).
+ * @param componentName - CONF.name, used as hint key and error prefix.
+ * @param _ - Translator function (from createTranslator).
  */
-export const requireLayerAPI = (componentName, _) => {
+export const requireLayerAPI = (
+  componentName: string,
+  _: (key: string) => string,
+): void => {
   const foliplus = window.foliplus || {};
   if (!foliplus || !foliplus.LayerAPI) {
     const msg = _(`${componentName}.no_layercontrol`);
@@ -34,11 +37,13 @@ export const requireLayerAPI = (componentName, _) => {
  * Create the standard control environment (translator + runtime guard + hint icon).
  * Replaces the 4-line boilerplate at the top of every component entry file.
  *
- * @param {Object} CONF - Component configuration (from IIFE).
- * @param {string} [icon] - SVG icon string for the hint icon. Optional (ScaleControl omits it).
- * @returns {{ _: Function, foliplus: Object }}
+ * @param CONF - Component configuration (from IIFE).
+ * @param icon - SVG icon string for the hint icon. Optional (ScaleControl omits it).
  */
-export const createControlEnv = (CONF, icon) => {
+export const createControlEnv = (
+  CONF: { name: string },
+  icon?: string,
+): { _: (key: string) => string; foliplus: any } => {
   requireRuntime(CONF.name);
   const foliplus = window.foliplus;
   const _ = createTranslator(CONF);

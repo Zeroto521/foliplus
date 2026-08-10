@@ -14,7 +14,8 @@
     "build:dev": "node script/build.mjs --dev",
     "build:check": "node script/build.mjs --check",
     "test": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
@@ -22,6 +23,7 @@
     "esbuild": "^0.24.0",
     "jsdom": "^30.0.1",
     "prettier": "^3.9.5",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
   "dependencies": {

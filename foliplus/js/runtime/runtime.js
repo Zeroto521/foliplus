@@ -3,7 +3,7 @@
  * Provides the hint/toast system and the reverse-geocoding singleton — the
  * only modules with shared global state that must exist once per map.
  * Pure helpers (coord, dom, panel, util) live in common/ and are statically
- * imported by each component's own bundle (谁用谁 import).
+ * imported by each component's own bundle.
  *
  * This is the ES module entry point. esbuild bundles it (along with all
  * `runtime/*.js` submodules) into `dist/runtime.min.js`, which BaseControl

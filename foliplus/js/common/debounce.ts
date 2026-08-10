@@ -1,18 +1,22 @@
 // Debounce utility for foliplus components.
-// Imported statically by components at build time (谁用谁 import).
+// Imported statically by components at build time.
 
 /**
  * Shared debounce utility. Returns a debounced version of `func` that
  * delays invocation until `delayMs` ms after the last call.
  * The returned function has a `.cancel()` method to clear pending timers.
- *
- * @param {function} func      - The function to debounce.
- * @param {number}   delayMs - Delay in milliseconds.
- * @returns {function} Debounced function with `.cancel()`.
  */
-const debounce = (func, delayMs) => {
-  let timer = null;
-  const debounced = (...args) => {
+type Debounced = ((...args: unknown[]) => void) & {
+  cancel: () => void;
+  flush: () => void;
+};
+
+const debounce = (
+  func: (...args: unknown[]) => void,
+  delayMs: number,
+): Debounced => {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const debounced = (...args: unknown[]) => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;

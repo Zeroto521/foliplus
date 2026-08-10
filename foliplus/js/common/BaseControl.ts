@@ -15,18 +15,25 @@
 //   - Registration is idempotent: calling listen* twice never double-binds.
 //   - onRemove is final — subclasses override destroy() instead.
 
-const alreadyBound = (list, item) =>
+const alreadyBound = (list: any[], item: any[]): boolean =>
   list.some(it => it[0] === item[0] && it[1] === item[1] && it[2] === item[2]);
 
 class BaseControl extends L.Control {
-  constructor(options = {}) {
+  events: Array<[any, string, any]>;
+  mapListeners: Array<[string, any]>;
+  _map: any;
+  init?(): void;
+  buildDOM?(): HTMLElement;
+  build?(): HTMLElement;
+
+  constructor(options: Record<string, unknown> = {}) {
     super(options);
     this.events = [];
     this.mapListeners = [];
     this.init?.();
   }
 
-  onAdd() {
+  onAdd(): HTMLElement {
     const container =
       this.buildDOM?.() ?? this.build?.() ?? document.createElement("div");
     L.DomEvent.disableClickPropagation(container);
@@ -34,7 +41,7 @@ class BaseControl extends L.Control {
     return container;
   }
 
-  onRemove() {
+  onRemove(): void {
     this.destroy();
     // Auto-unbind tracked listeners — always runs, cannot be skipped by subclasses.
     this.events.forEach(([el, ev, fn]) => L.DomEvent.off(el, ev, fn));
@@ -44,19 +51,19 @@ class BaseControl extends L.Control {
   }
 
   /** Override to release resources on removal. Called before auto-unbind. */
-  destroy() {}
+  destroy(): void {}
 
   /** Track a L.DomEvent listener for auto-cleanup. */
-  listenDOM(el, ev, fn) {
-    const item = [el, ev, fn];
+  listenDOM(el: HTMLElement, ev: string, fn: any): void {
+    const item: [any, string, any] = [el, ev, fn];
     if (alreadyBound(this.events, item)) return;
     L.DomEvent.on(el, ev, fn);
     this.events.push(item);
   }
 
   /** Track a map event listener for auto-cleanup. */
-  listenMap(ev, fn) {
-    const item = [ev, fn];
+  listenMap(ev: string, fn: any): void {
+    const item: [string, any] = [ev, fn];
     if (alreadyBound(this.mapListeners, item)) return;
     this._map.on(ev, fn);
     this.mapListeners.push(item);

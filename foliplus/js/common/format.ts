@@ -1,18 +1,23 @@
 // Number formatting for foliplus components.
-// Imported statically by components at build time (谁用谁 import).
+// Imported statically by components at build time.
+
+type NumberStyle = "auto" | "comma" | "int";
 
 /**
  * Format a number for display.
- * @param {number} val Value to format
- * @param {string} [style='auto'] 'auto' (compact: 1.2K/1.2W/1.2M),
- *                                'comma' or 'int' (thousands separator: 1,234.6)
- * @param {string} [locale] Locale code, defaults to browser language (en/zh)
- * @returns {string} Formatted string
+ * @param val Value to format
+ * @param style 'auto' (compact: 1.2K/1.2W/1.2M),
+ *              'comma' or 'int' (thousands separator: 1,234.6)
+ * @param locale Locale code, defaults to 'en'
  */
-const formatNumber = (val, style = "auto", locale = "en") => {
+const formatNumber = (
+  val: number,
+  style: NumberStyle = "auto",
+  locale = "en",
+): string => {
   const absVal = Math.abs(val);
 
-  const fmt = maxFrac =>
+  const fmt = (maxFrac: number) =>
     new Intl.NumberFormat(locale, {
       notation: style === "auto" && absVal >= 1000 ? "compact" : "standard",
       compactDisplay: "short",

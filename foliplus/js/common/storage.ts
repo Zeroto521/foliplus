@@ -4,11 +4,11 @@
 
 /**
  * Read and parse a value from localStorage.
- * @param {string} key    - localStorage key.
- * @param {string} [name] - Caller component name, used as the log prefix.
- * @returns {*} Parsed value, or null when missing/unreadable.
+ * @param key - localStorage key.
+ * @param name - Caller component name, used as the log prefix.
+ * @returns Parsed value, or null when missing/unreadable.
  */
-const load = (key, name = "foliplus") => {
+const load = (key: string, name = "foliplus"): unknown => {
   try {
     const data = window.localStorage.getItem(key);
     return data ? JSON.parse(data) : null;
@@ -20,11 +20,11 @@ const load = (key, name = "foliplus") => {
 
 /**
  * Serialize and write a value to localStorage.
- * @param {string} key    - localStorage key.
- * @param {*} data        - Value to persist (must be JSON-serializable).
- * @param {string} [name] - Caller component name, used as the log prefix.
+ * @param key - localStorage key.
+ * @param data - Value to persist (must be JSON-serializable).
+ * @param name - Caller component name, used as the log prefix.
  */
-const save = (key, data, name = "foliplus") => {
+const save = (key: string, data: unknown, name = "foliplus"): void => {
   try {
     window.localStorage.setItem(key, JSON.stringify(data));
   } catch (e) {

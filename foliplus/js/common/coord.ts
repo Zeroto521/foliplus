@@ -6,14 +6,13 @@
 //
 // These functions operate on Leaflet maps and coordinate systems.
 
+type CrsType = "BD09" | "GCJ02" | "WGS84";
+
 /**
  * Detect whether the map uses Baidu coordinate system (BD-09).
  * Checks L.CRS.Baidu, crs.code, and tile URL patterns.
- *
- * @param {L.Map} map - Leaflet map instance
- * @returns {boolean} True if the map uses Baidu CRS
  */
-const isBaiduCRS = map => {
+const isBaiduCRS = (map: any): boolean => {
   try {
     const crs = map.options.crs;
     if (L.CRS && L.CRS.Baidu && crs === L.CRS.Baidu) return true;
@@ -32,11 +31,8 @@ const isBaiduCRS = map => {
 /**
  * Detect whether a map uses domestic Chinese tile providers.
  * Checks Baidu, AutoNavi, Tianditu, Tencent, Google, and AMap URL patterns.
- *
- * @param {L.Map} map - Leaflet map instance
- * @returns {boolean} True if the map uses domestic tile providers
  */
-const isDomesticMap = map => {
+const isDomesticMap = (map: any): boolean => {
   try {
     const crs = map.options.crs;
     if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
@@ -63,9 +59,8 @@ const isDomesticMap = map => {
 
 /**
  * Ensure that the gcoord library is loaded. If not, logs a warning.
- * @returns {boolean} True if gcoord is available, false otherwise.
  */
-const ensureGcoord = () => {
+const ensureGcoord = (): boolean => {
   // gcoord_warn hint was removed in favor of console.warn because
   // the warning only triggers when the user places a geopoint on a
   // non-WGS84 map, which is an edge case that doesn't warrant a
@@ -82,10 +77,8 @@ const ensureGcoord = () => {
 
 /**
  * Detect the map's coordinate reference system type: 'BD09', 'GCJ02', or 'WGS84'.
- * @param {L.Map} map - Leaflet map instance
- * @returns {string} 'BD09' | 'GCJ02' | 'WGS84' (WGS84 indicates foreign maps that do not require conversion)
  */
-const getMapCrsType = map => {
+const getMapCrsType = (map: any): CrsType => {
   if (isBaiduCRS(map)) return "BD09";
   if (isDomesticMap(map)) return "GCJ02";
   return "WGS84";
@@ -94,15 +87,8 @@ const getMapCrsType = map => {
 /**
  * Convert map-displayed coordinates (GCJ-02 / BD-09) to WGS-84.
  * Automatically detects the map CRS (Baidu → BD09, domestic → GCJ02).
- * If gcoord library is not yet loaded, schedules async loading and
- * returns the input coordinates unchanged (with a console warning).
- *
- * @param {L.Map} map - Leaflet map instance
- * @param {number} lng - Longitude in map CRS
- * @param {number} lat - Latitude in map CRS
- * @returns {number[]} [lng, lat] in WGS-84
  */
-const toWgs84 = (map, lng, lat) => {
+const toWgs84 = (map: any, lng: number, lat: number): number[] => {
   if (!ensureGcoord()) return [lng, lat];
 
   const srcType = getMapCrsType(map);
@@ -114,15 +100,9 @@ const toWgs84 = (map, lng, lat) => {
 
 /**
  * Convert WGS-84 coordinates to the map's display CRS (BD09 / GCJ02).
- * Automatically detects the map CRS. Non-domestic maps (no Baidu/AMap
- * tile patterns) are returned unchanged.
- *
- * @param {L.Map} map - Leaflet map instance
- * @param {number} lng - Longitude in WGS-84
- * @param {number} lat - Latitude in WGS-84
- * @returns {number[]} [lng, lat] in map CRS
+ * Automatically detects the map CRS. Non-domestic maps are returned unchanged.
  */
-const fromWgs84 = (map, lng, lat) => {
+const fromWgs84 = (map: any, lng: number, lat: number): number[] => {
   if (!ensureGcoord()) return [lng, lat];
 
   const dstType = getMapCrsType(map);

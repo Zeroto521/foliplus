@@ -87,7 +87,7 @@ const processJsFiles = dir => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = resolve(dir, entry.name);
     if (entry.isDirectory()) processJsFiles(full);
-    else if (entry.name.endsWith(".js")) {
+    else if (entry.name.endsWith(".js") || entry.name.endsWith(".ts")) {
       const code = readFileSync(full, "utf-8");
       writeFileSync(full, compressSvgStrings(code), "utf-8");
     }

@@ -22,14 +22,16 @@ const CLASSES = {
 /**
  * Adjust the z-index of a panel to ensure proper stacking order.
  * When expanded, sets a high z-index; when collapsed, resets to auto.
- * @param {object} opts
- * @param {HTMLElement} opts.container - Panel element
- * @param {boolean} opts.expanded - Whether the panel is being expanded
  */
-const adjustPanelZIndex = ({ container, expanded }) => {
-  const bar = container.closest(".leaflet-bar");
-  const section = container.closest(".leaflet-top, .leaflet-bottom");
-  if (!expanded) {
+const adjustPanelZIndex = (opts: {
+  container: HTMLElement;
+  expanded: boolean;
+}): void => {
+  const bar = opts.container.closest(".leaflet-bar") as HTMLElement | null;
+  const section = opts.container.closest(
+    ".leaflet-top, .leaflet-bottom",
+  ) as HTMLElement | null;
+  if (!opts.expanded) {
     if (bar) bar.style.zIndex = "";
     if (section) section.style.zIndex = "";
     return;
@@ -45,28 +47,28 @@ const adjustPanelZIndex = ({ container, expanded }) => {
 
 /**
  * Bind click events to toggle a panel (expand / collapse).
- * @param {object} opts
- * @param {HTMLElement} opts.container - Panel root element
- * @param {string} opts.toggleBtn - Selector for the toggle button
- * @param {string} opts.header - Selector for the header (click to collapse)
  */
-const bindPanelToggle = ({ container, toggleBtn, header }) => {
-  const btn = container.querySelector(toggleBtn);
+const bindPanelToggle = (opts: {
+  container: HTMLElement;
+  toggleBtn: string;
+  header: string;
+}): void => {
+  const btn = opts.container.querySelector(opts.toggleBtn);
   if (btn) {
-    L.DomEvent.on(btn, "click", e => {
+    L.DomEvent.on(btn, "click", (e: any) => {
       L.DomEvent.stop(e);
-      container.classList.remove(CLASSES.COLLAPSED);
-      container.classList.add(CLASSES.EXPANDED);
-      adjustPanelZIndex({ container, expanded: true });
+      opts.container.classList.remove(CLASSES.COLLAPSED);
+      opts.container.classList.add(CLASSES.EXPANDED);
+      adjustPanelZIndex({ container: opts.container, expanded: true });
     });
   }
-  const hdr = container.querySelector(header);
+  const hdr = opts.container.querySelector(opts.header);
   if (hdr) {
-    L.DomEvent.on(hdr, "click", e => {
+    L.DomEvent.on(hdr, "click", (e: any) => {
       L.DomEvent.stop(e);
-      container.classList.remove(CLASSES.EXPANDED);
-      container.classList.add(CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container, expanded: false });
+      opts.container.classList.remove(CLASSES.EXPANDED);
+      opts.container.classList.add(CLASSES.COLLAPSED);
+      adjustPanelZIndex({ container: opts.container, expanded: false });
     });
   }
 };
@@ -75,42 +77,43 @@ const bindPanelToggle = ({ container, toggleBtn, header }) => {
  * Bind a fold toggle button that expands AND collapses (toggle).
  * Unlike bindPanelToggle (button only expands, header collapses), this
  * toggles both ways — the behavior for fold controls without a header.
- * @param {object} opts
- * @param {HTMLElement} opts.container - Fold control root element
- * @param {HTMLElement} opts.toggleBtn - Toggle button element
- * @param {Function} [opts.onExpand] - Optional hook called after expanding
- * @param {Function} [opts.onCollapse] - Optional hook called after collapsing
  */
-const bindFoldToggle = ({ container, toggleBtn, onExpand, onCollapse }) => {
-  L.DomEvent.on(toggleBtn, "click", e => {
+const bindFoldToggle = (opts: {
+  container: HTMLElement;
+  toggleBtn: HTMLElement;
+  onExpand?: () => void;
+  onCollapse?: () => void;
+}): void => {
+  L.DomEvent.on(opts.toggleBtn, "click", (e: any) => {
     L.DomEvent.stop(e);
-    const expanding = container.classList.contains(CLASSES.COLLAPSED);
-    container.classList.toggle(CLASSES.COLLAPSED);
-    container.classList.toggle(CLASSES.EXPANDED);
-    adjustPanelZIndex({ container, expanded: expanding });
-    if (expanding) onExpand?.();
-    else onCollapse?.();
+    const expanding = opts.container.classList.contains(CLASSES.COLLAPSED);
+    opts.container.classList.toggle(CLASSES.COLLAPSED);
+    opts.container.classList.toggle(CLASSES.EXPANDED);
+    adjustPanelZIndex({ container: opts.container, expanded: expanding });
+    if (expanding) opts.onExpand?.();
+    else opts.onCollapse?.();
   });
 };
 
 /**
  * Collapse a panel when clicking outside of it.
  * Sets up a MutationObserver to auto-cleanup when the container is removed.
- * @param {object} opts
- * @param {HTMLElement} opts.container - Panel element to watch
- * @param {Function} [opts.skipCheck] - Optional function; if returns true, collapse is skipped
- * @returns {Function} Cleanup function
+ * @returns Cleanup function
  */
-const bindOutsideCollapse = ({ container, skipCheck = () => false }) => {
-  const handler = e => {
-    if (skipCheck && skipCheck()) return;
+const bindOutsideCollapse = (opts: {
+  container: HTMLElement;
+  skipCheck?: () => boolean;
+}): (() => void) => {
+  const skipCheck = opts.skipCheck || (() => false);
+  const handler = (e: MouseEvent) => {
+    if (skipCheck()) return;
     if (
-      !container.contains(e.target) &&
-      container.classList.contains(CLASSES.EXPANDED)
+      !opts.container.contains(e.target as Node) &&
+      opts.container.classList.contains(CLASSES.EXPANDED)
     ) {
-      container.classList.remove(CLASSES.EXPANDED);
-      container.classList.add(CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container, expanded: false });
+      opts.container.classList.remove(CLASSES.EXPANDED);
+      opts.container.classList.add(CLASSES.COLLAPSED);
+      adjustPanelZIndex({ container: opts.container, expanded: false });
     }
   };
   document.addEventListener("click", handler);
@@ -118,7 +121,7 @@ const bindOutsideCollapse = ({ container, skipCheck = () => false }) => {
   // Auto-cleanup: remove listener when container is removed from DOM
   const cleanup = () => document.removeEventListener("click", handler);
   const obs = new MutationObserver(() => {
-    if (!document.body.contains(container)) {
+    if (!document.body.contains(opts.container)) {
       cleanup();
       obs.disconnect();
     }
@@ -131,18 +134,23 @@ const bindOutsideCollapse = ({ container, skipCheck = () => false }) => {
 /**
  * Create a fold (expand/collapse) control container with toggle button and toolbar.
  * Shared by MeasureControl and ExportControl for consistent UI.
- * @param {object} opts
- * @param {string} opts.cssClass - Unique CSS class, e.g. 'measure-ctrl' or 'export-ctrl'
- * @param {string} opts.toggleTitle - Tooltip for the toggle button
- * @param {string} opts.toggleSvg - SVG HTML for the toggle icon
- * @param {boolean} opts.isLeft - Whether position is left-aligned
- * @param {string} [opts.position] - Leaflet position e.g. "topleft". When provided,
- *                                   overrides `isLeft` (left = contains "left").
- * @returns {object} { container, ctrl, toolBar, toggleBtn }
  */
-const createFoldControl = opts => {
+const createFoldControl = (opts: {
+  cssClass: string;
+  toggleTitle: string;
+  toggleSvg: string;
+  isLeft: boolean;
+  position?: string;
+}): {
+  container: HTMLElement;
+  ctrl: HTMLElement;
+  toolBar: HTMLElement | null;
+  toggleBtn: HTMLElement | null;
+} => {
   const isLeft =
-    opts.position !== undefined ? opts.position.indexOf("left") >= 0 : opts.isLeft;
+    opts.position !== undefined
+      ? opts.position.indexOf("left") >= 0
+      : opts.isLeft;
   const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = dom.el("div", {
     class: `${opts.cssClass} ${CLASSES.FOLD} ${CLASSES.COLLAPSED}`,
@@ -160,8 +168,8 @@ const createFoldControl = opts => {
   L.DomEvent.disableClickPropagation(container);
   L.DomEvent.disableScrollPropagation(container);
   return {
-    container: container,
-    ctrl: ctrl,
+    container,
+    ctrl,
     toolBar: ctrl.querySelector(`.${CLASSES.TOOL_BAR}`),
     toggleBtn: ctrl.querySelector(`.${CLASSES.TOGGLE_BTN}`),
   };
@@ -170,20 +178,20 @@ const createFoldControl = opts => {
 /**
  * Bind map events to keep a visual element in sync.
  * Caller specifies which events trigger hide, update, and show.
- * @param {object} opts
- * @param {L.Map} opts.map - Leaflet map instance
- * @param {string[]} [opts.hideEvents] - Event names that trigger hide
- * @param {string[]} [opts.updateEvents] - Event names that trigger update
- * @param {string[]} [opts.showEvents] - Event names that trigger show
- * @param {Function} [opts.onHide] - Called on hide events
- * @param {Function} [opts.onUpdate] - Called on update events
- * @param {Function} [opts.onShow] - Called on show events
- * @param {Function} [opts.onMove] - Called on move with RAF throttling
- * @returns {Function} Cleanup function
+ * @returns Cleanup function
  */
-const bindMapSync = opts => {
-  const handlers = [];
-  const add = (events, fn) => {
+const bindMapSync = (opts: {
+  map: any;
+  hideEvents?: string[];
+  updateEvents?: string[];
+  showEvents?: string[];
+  onHide?: () => void;
+  onUpdate?: () => void;
+  onShow?: () => void;
+  onMove?: () => void;
+}): (() => void) => {
+  const handlers: Array<[string, any]> = [];
+  const add = (events: string[] | undefined, fn: (() => void) | undefined) => {
     if (!events || !fn) return;
     events.forEach(ev => {
       opts.map.on(ev, fn);
@@ -194,7 +202,7 @@ const bindMapSync = opts => {
   add(opts.updateEvents, opts.onUpdate);
   add(opts.showEvents, opts.onShow);
 
-  let onMove = null;
+  let onMove: (() => void) & { cancel: () => void } | null = null;
   if (opts.onMove) {
     onMove = throttleRaf(opts.onMove);
     opts.map.on("move", onMove);
@@ -211,18 +219,20 @@ const bindMapSync = opts => {
  * Create a panel-style control with toggle button, header, and content area.
  * Used by HeatmapControl and LayerControl for consistent panel UI.
  * Automatically wires up bindPanelToggle and bindOutsideCollapse.
- * @param {object} opts
- * @param {string} opts.cssClass - Unique CSS class, e.g. 'heatmap-ctrl' or 'layer-ctrl'
- * @param {string} opts.toggleTitle - Tooltip for the toggle button
- * @param {string} opts.toggleSvg - SVG HTML for the toggle icon
- * @param {string} opts.panelTitle - Header title text
- * @param {string} opts.closeTitle - Tooltip for close button
- * @returns {object} { container, ctrl, toggleBtn, panelContent }
  */
-const createPanelControl = opts => {
-  const container = dom.el("div", {
-    class: CLASSES.LEAFLET_BAR,
-  });
+const createPanelControl = (opts: {
+  cssClass: string;
+  toggleTitle: string;
+  toggleSvg: string;
+  panelTitle: string;
+  closeTitle: string;
+}): {
+  container: HTMLElement;
+  ctrl: HTMLElement;
+  toggleBtn: HTMLElement | null;
+  panelContent: HTMLElement;
+} => {
+  const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = dom.el("div", {
     class: `foliplus-panel ${CLASSES.FOLD} ${opts.cssClass} ${CLASSES.COLLAPSED}`,
   });

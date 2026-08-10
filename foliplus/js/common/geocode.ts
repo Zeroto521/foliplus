@@ -14,12 +14,16 @@ const NOMINATIM = {
 
 /**
  * Build a Nominatim API URL with shared parameters.
- * @param {string} endpoint - Path like "/search", "/reverse", or "" for search
- * @param {Object} params - Additional query parameters
- * @param {string} [code] - Locale code for accept-language (e.g. "en"/"zh")
- * @returns {string} Full URL
+ * @param endpoint - Path like "/search", "/reverse", or "" for search
+ * @param params - Additional query parameters
+ * @param code - Locale code for accept-language (e.g. "en"/"zh")
+ * @returns Full URL
  */
-const nominatimUrl = (endpoint, params = {}, code = "en") => {
+const nominatimUrl = (
+  endpoint: string,
+  params: Record<string, unknown> = {},
+  code = "en",
+): string => {
   const url = new URL(endpoint || "", NOMINATIM.URL);
   url.searchParams.set("format", NOMINATIM.FORMAT);
   for (const [k, v] of Object.entries(params))
@@ -37,13 +41,17 @@ const nominatimUrl = (endpoint, params = {}, code = "en") => {
  * Used by both reverseGeocode and SearchControl search results to ensure
  * consistent address formatting across the codebase.
  *
- * @param {string} displayName - Nominatim display_name string
- * @param {L.Map} [map] - Leaflet map instance; if provided, detects
- *                        domestic vs foreign CRS to determine ordering
- * @param {string} [code] - Locale code (e.g. "en"/"zh"); defaults to "en"
- * @returns {string} Formatted address
+ * @param displayName - Nominatim display_name string
+ * @param map - Leaflet map instance; if provided, detects
+ *              domestic vs foreign CRS to determine ordering
+ * @param code - Locale code (e.g. "en"/"zh"); defaults to "en"
+ * @returns Formatted address
  */
-const formatAddress = (displayName, map, code = "en") => {
+const formatAddress = (
+  displayName: string,
+  map?: any,
+  code = "en",
+): string => {
   if (!displayName) return "";
   const parts = displayName
     .split(",")

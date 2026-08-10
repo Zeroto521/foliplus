@@ -4,16 +4,17 @@
 // injected per-component. Used when a control's locale code is not fixed
 // by the user.
 
+type LocaleTables = Record<string, Record<string, string>>;
+
 /**
  * Resolve the active locale table by checking (in order):
  * explicit code, parent iframe path, referrer URL, document URL path,
  * HTML lang attribute, and browser language. Defaults to `tables['en']`.
- *
- * @param {string} code   - Locale code from Python ('' for auto-detect)
- * @param {Object} tables - Map of locale code → translation table
- * @returns {Object} The selected locale table.
  */
-const resolveLocale = (code, tables) => {
+const resolveLocale = (
+  code: string,
+  tables: LocaleTables | null,
+): Record<string, string> | null => {
   if (!tables) return null;
   let lang = "";
 
@@ -68,7 +69,7 @@ const resolveLocale = (code, tables) => {
   if (!lang || !tables[lang]) {
     lang = (
       typeof navigator !== "undefined"
-        ? navigator.language || navigator.userLanguage || ""
+        ? navigator.language || (navigator as any).userLanguage || ""
         : ""
     )
       .split("-")[0]
@@ -84,11 +85,8 @@ const resolveLocale = (code, tables) => {
  * Uses explicit code when provided, otherwise auto-detects via URL/HTML/browser.
  * Mutates ``conf.locale_code`` with the resolved code so subsequent calls
  * short-circuit without repeating the detection.
- *
- * @param {Object} conf - The component's ``CONF`` object.
- * @returns {string} Resolved locale code (e.g. "en" or "zh").
  */
-const resolveLocaleCode = conf => {
+const resolveLocaleCode = (conf: any): string => {
   if (conf.locale_code) return conf.locale_code;
   const table = resolveLocale("", conf.locale_tables);
   conf.locale_code = (table && table["locale.code"]) || "en";
@@ -99,11 +97,8 @@ const resolveLocaleCode = conf => {
  * Create a translator function for a component.
  * Merges common tables (``window.foliplus._TABLES``) with component-specific
  * tables (``conf.locale_tables``) and resolves the active language.
- *
- * @param {Object} conf - The component's ``CONF`` object.
- * @returns {Function} Translator function ``_(key) => string``.
  */
-const createTranslator = conf => {
+const createTranslator = (conf: any): ((key: string) => string) => {
   const code = resolveLocaleCode(conf);
 
   // Merge common + component tables

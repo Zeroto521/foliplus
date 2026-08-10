@@ -15,7 +15,7 @@ export default defineConfig({
     setupFiles: ["test/js/setup.js"],
     coverage: {
       provider: "v8",
-      include: ["foliplus/js/**/*.js"],
+      include: ["foliplus/js/**/*.js", "foliplus/js/**/*.ts"],
       exclude: [
         "foliplus/js/runtime/**",
         // Entry modules — require browser tests (playwright) to cover wiring

@@ -60,7 +60,7 @@ repos:
         name: format-prettier
         entry: prettier --write
         language: node
-        types_or: [css, javascript]
+        types_or: [css, javascript, ts]
         files: ^foliplus/(js|css)/|^script/.*\.js$|^test/js/.*\.js$
         additional_dependencies:
           - "prettier@3.9.5"
