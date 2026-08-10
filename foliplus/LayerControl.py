@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from folium.map import Layer
 
 from ._typing import Position
@@ -46,28 +48,26 @@ class LayerControl(BaseControl):
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
-        self._template = self._get_template(
-            config={"name": self._name, "position": position}
-        )
+        self._template = self._get_template()
 
-    def render(self, **kwargs):
-        """Collect layers from the parent map before rendering."""
-        data = []
-        for item in self._parent._children.values():
-            # isinstance first — the control itself is a child but not a Layer
-            # (and has no `.control` attribute).
-            if not isinstance(item, Layer) or not item.control:
-                continue
+    def _extra_config(self) -> dict:
+        """Collect layers from the parent map at render time."""
+        data: list[dict[str, object]] = []
+        if (parent := self._parent) is not None:
+            for item in parent._children.values():
+                # isinstance first — the control itself is a child but not a Layer
+                # (and has no `.control` attribute).
+                if not isinstance(item, Layer) or not item.control:
+                    continue
 
-            data.append(
-                {
-                    "name": item.layer_name,
-                    "id": item.get_name(),
-                    "isBase": not item.overlay,
-                }
-            )
+                data.append(
+                    {
+                        "name": item.layer_name,
+                        "id": item.get_name(),
+                        "isBase": not item.overlay,
+                    }
+                )
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
-        data.sort(key=lambda d: d["isBase"])
-        self._config["data"] = data
-        super().render(**kwargs)
+        data.sort(key=lambda d: cast(bool, d["isBase"]))
+        return {"data": data}

@@ -98,6 +98,23 @@ class HeatmapControl(BaseControl):
         ),
     ]
 
+    _export_fields = (
+        "field",
+        "color_scheme",
+        "method",
+        "n_classes",
+        "agg",
+        "schemes",
+        "border_weight",
+        "border_color",
+        "fill_opacity",
+        "border_opacity",
+        "label_show",
+        "label_size",
+        "label_color",
+        "label_format",
+    )
+
     def __init__(
         self,
         *,
@@ -122,15 +139,6 @@ class HeatmapControl(BaseControl):
             raise ValueError(f"agg must be one of {get_args(AGG)}, got {agg!r}")
 
         super().__init__(position=position, locale=locale)
-        schemes = schemes or [
-            "Blues",
-            "Greens",
-            "Reds",
-            "Oranges",
-            "Purples",
-            "YlOrRd",
-            "Viridis",
-        ]
         style = {
             "border_weight": 1.5,
             "border_color": "#333333",
@@ -141,34 +149,26 @@ class HeatmapControl(BaseControl):
             "label_color": "#fff",
             "label_format": "auto",
         } | (style or {})
-        self._template = self._get_template(
-            config={
-                "name": self._name,
-                "position": position,
-                "field": style.get("field", "auto"),
-                "color_scheme": color_scheme,
-                "method": method,
-                "n_classes": n_classes,
-                "agg": agg,
-                "schemes": (
-                    schemes
-                    or [
-                        "Blues",
-                        "Greens",
-                        "Reds",
-                        "Oranges",
-                        "Purples",
-                        "YlOrRd",
-                        "Viridis",
-                    ]
-                ),
-                "border_weight": style["border_weight"],
-                "border_color": style["border_color"],
-                "fill_opacity": style["fill_opacity"],
-                "border_opacity": style["border_opacity"],
-                "label_show": style["label_show"],
-                "label_size": style["label_size"],
-                "label_color": style["label_color"],
-                "label_format": style["label_format"],
-            },
-        )
+        self.field = style.get("field", "auto")
+        self.color_scheme = color_scheme
+        self.method = method
+        self.n_classes = n_classes
+        self.agg = agg
+        self.schemes = schemes or [
+            "Blues",
+            "Greens",
+            "Reds",
+            "Oranges",
+            "Purples",
+            "YlOrRd",
+            "Viridis",
+        ]
+        self.border_weight = style["border_weight"]
+        self.border_color = style["border_color"]
+        self.fill_opacity = style["fill_opacity"]
+        self.border_opacity = style["border_opacity"]
+        self.label_show = style["label_show"]
+        self.label_size = style["label_size"]
+        self.label_color = style["label_color"]
+        self.label_format = style["label_format"]
+        self._template = self._get_template()

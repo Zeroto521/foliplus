@@ -108,4 +108,3 @@ const compressHtmlStrings = code => {
 const transformSource = code => compressHtmlStrings(compressSvgStrings(code));
 
 export { compressHtmlStrings, compressSvgStrings, transformSource };
-

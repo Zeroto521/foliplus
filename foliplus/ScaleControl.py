@@ -31,6 +31,8 @@ class ScaleControl(BaseControl):
     >>> ScaleControl().add_to(m)
     """
 
+    _export_fields = ("isMetric", "show_zoom")
+
     def __init__(
         self,
         *,
@@ -44,11 +46,5 @@ class ScaleControl(BaseControl):
         super().__init__(position="bottomleft", locale=locale)
         self.unit = unit
         self.show_zoom = show_zoom
-        self._template = self._get_template(
-            config={
-                "name": self._name,
-                "position": "bottomleft",
-                "isMetric": unit == "metric",
-                "show_zoom": show_zoom,
-            },
-        )
+        self.isMetric = unit == "metric"
+        self._template = self._get_template()

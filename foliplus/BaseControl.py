@@ -70,6 +70,11 @@ class BaseControl(JSCSSMixin, MacroElement):
     foliplus components (FullscreenControl, HeatmapControl, LayerControl, etc.) inherit
     from this class.
 
+    Subclasses declare which instance attributes are exported to the JS ``CONF`` object
+    via :attr:`_export_fields`, and may supply dynamic render-time data by overriding
+    :meth:`_extra_config`. The base class merges these with the shared
+    ``name``/``position`` keys and the locale tables into the ``CONF`` dict.
+
     Parameters
     ----------
     position : str, default "topleft"
@@ -80,6 +85,10 @@ class BaseControl(JSCSSMixin, MacroElement):
         omitted, the browser's ``navigator.language`` is used at runtime to select the
         appropriate locale table, falling back to English.
     """
+
+    #: Instance attributes re-exported as JS ``CONF`` keys (key name == attr name).
+    #: Subclasses extend this with their public configuration fields.
+    _export_fields: tuple[str, ...] = ()
 
     def __init__(
         self,
@@ -103,10 +112,32 @@ class BaseControl(JSCSSMixin, MacroElement):
     @property
     def _config_block(self) -> str:
         """Render the CONFIG dict as a JSON string for IIFE injection."""
-        config = dict(self._config)
+        config = dict(self._build_config())
         config["locale_tables"] = _load_tables(f"{self._name}.*.json")
         config["locale_code"] = self._locale.code if self._locale else ""
         return dumps(config) if config else "{}"
+
+    def _extra_config(self) -> dict:
+        """Return render-time config injected into the JS ``CONF`` object.
+
+        Subclasses override this to supply data that is only known at render time
+        (e.g. LayerControl's layer list collected from the parent map). The base
+        implementation returns an empty dict.
+        """
+        return {}
+
+    def _build_config(self) -> dict:
+        """Assemble the static part of the JS ``CONF`` dict.
+
+        Merges the shared ``name``/``position`` keys, the subclass-declared exported
+        fields, and any dynamic render-time data from :meth:`_extra_config`. The result
+        is also cached on :attr:`_config` for inspection in tests.
+        """
+        config = {"name": self._name, "position": self.position}
+        config.update({f: getattr(self, f) for f in self._export_fields})
+        config.update(self._extra_config())
+        self._config = config
+        return config
 
     def render(self, **kwargs):
         """Inject the shared asset bundle into the figure header exactly once.
@@ -127,19 +158,13 @@ class BaseControl(JSCSSMixin, MacroElement):
             )
         super().render(**kwargs)
 
-    def _get_template(self, *, config: dict | None = None) -> Template:
+    def _get_template(self) -> Template:
         """Build a Jinja2 template with this control's own CSS/JS.
 
         Shared assets (``common.css`` with ``panel.css`` merged in, ``runtime.js``, and
         the locale tables) are injected once per map by :meth:`render`, so this template
         only carries the component-specific CSS/JS plus a small call to resolve the
         locale from the shared ``window.foliplus._TABLES``.
-
-        Parameters
-        ----------
-        config : dict, optional
-            Runtime config injected as ``window.foliplus.CONFIG[component]`` before the
-            component JS runs. Frees the JS source from Jinja tags.
 
         Returns
         -------
@@ -148,9 +173,6 @@ class BaseControl(JSCSSMixin, MacroElement):
         """
         js = _load_asset(dist_dir.joinpath(f"{self._name}.min.js"))
         css = _load_asset(dist_dir.joinpath(f"{self._name}.min.css"))
-
-        if config is not None:
-            self._config = config
 
         return Template(
             dedent(f"""\
@@ -161,7 +183,7 @@ class BaseControl(JSCSSMixin, MacroElement):
             {{% endmacro %}}
 
             {{% macro script(this, kwargs) %}}
-            (function() {{
+            (() => {{
             const map = {{{{ this._parent.get_name() }}}};
             const CONF = {{{{ this._config_block | safe }}}};
             {js}
