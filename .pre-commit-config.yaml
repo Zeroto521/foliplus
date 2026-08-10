@@ -46,14 +46,22 @@ repos:
     hooks:
       - id: codespell
 
-  # ── JS / CSS formatting (Prettier, project-local) ──
-  # JS/CSS are plain code now (no Jinja2), so format directly with the
-  # project's pinned prettier (package.json) instead of the custom wrapper.
+  # ── JS / CSS formatting (Prettier) ──
+  # Uses language: node so pre-commit.ci sets up Node and installs the
+  # dependencies below itself (its isolated env has no npx/node_modules).
+  #
+  # NOTE: keep these versions in sync with the matching devDependencies
+  # in package.json (prettier, @trivago/prettier-plugin-sort-imports).
+  # pre-commit's additional_dependencies are static YAML and cannot read
+  # from package.json.
   - repo: local
     hooks:
       - id: format-prettier
         name: format-prettier
-        entry: npx prettier --write
-        language: system
+        entry: prettier --write
+        language: node
         types_or: [css, javascript]
         files: ^foliplus/(js|css)/|^script/.*\.js$|^test/js/.*\.js$
+        additional_dependencies:
+          - "prettier@3.9.5"
+          - "@trivago/prettier-plugin-sort-imports@6.0.2"
