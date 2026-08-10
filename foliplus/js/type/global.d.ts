@@ -13,6 +13,9 @@ declare const CONF: any;
 declare const CONFIG: any;
 declare const turf: any;
 declare const gcoord: any;
+declare const chroma: any;
+declare const ss: any;
+declare const h3: any;
 
 interface Window {
   /** foliplus runtime helpers injected by the Python wrapper. */

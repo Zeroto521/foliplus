@@ -29,7 +29,7 @@ class SearchControl extends BaseControl {
     if (this.suggestAbortController) this.suggestAbortController.abort();
     this.cachedSuggestions = {};
     this.cachedAddress = {};
-    this.scrollTargets.forEach(t =>
+    this.scrollTargets.forEach((t: any) =>
       t.removeEventListener("scroll", this.repositionHandler, true),
     );
     window.removeEventListener("resize", this.repositionHandler);
@@ -88,14 +88,14 @@ class SearchControl extends BaseControl {
     this.suggestSeq = 0;
 
     this.setMode(this.mode);
-    this.modeBtn.onclick = e => {
+    this.modeBtn.onclick = (e: MouseEvent) => {
       e.stopPropagation();
       this.setMode(this.mode === MODE.COORD ? MODE.ADDR : MODE.COORD);
     };
   }
 
   // ── Mode Switching ──
-  setMode(newMode) {
+  setMode(newMode: string) {
     this.mode = newMode;
     if (this.mode === MODE.COORD) {
       this.modeBtn.innerHTML = Icons.LOCATE;

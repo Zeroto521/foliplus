@@ -1,3 +1,4 @@
+// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";

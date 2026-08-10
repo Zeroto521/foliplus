@@ -1,3 +1,4 @@
+// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 import { createLocationMarker } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";

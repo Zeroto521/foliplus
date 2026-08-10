@@ -70,7 +70,7 @@ class FullscreenControl extends BaseControl {
 
   destroy() {
     if (this.fsHandler && isEnabled) {
-      document.removeEventListener(nativeAPI.fullscreenchange, this.fsHandler);
+      document.removeEventListener(nativeAPI!.fullscreenchange, this.fsHandler);
     }
   }
 }

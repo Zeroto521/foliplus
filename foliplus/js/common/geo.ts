@@ -16,19 +16,13 @@ const distance = (a: LatLngPoint, b: LatLngPoint): number => {
 
 /** Initial bearing (azimuth) from point a to point b, 0°–360° clockwise from north. */
 const bearing = (a: LatLngPoint, b: LatLngPoint): number => {
-  const bVal = turf.bearing(
-    turf.point([a.lng, a.lat]),
-    turf.point([b.lng, b.lat]),
-  );
+  const bVal = turf.bearing(turf.point([a.lng, a.lat]), turf.point([b.lng, b.lat]));
   return (bVal + 360) % 360;
 };
 
 /** Geodesic midpoint between two points using turf.js. */
 const midpoint = (a: LatLngPoint, b: LatLngPoint): any => {
-  const mid = turf.midpoint(
-    turf.point([a.lng, a.lat]),
-    turf.point([b.lng, b.lat]),
-  );
+  const mid = turf.midpoint(turf.point([a.lng, a.lat]), turf.point([b.lng, b.lat]));
   return L.latLng(mid.geometry.coordinates[1], mid.geometry.coordinates[0]);
 };
 

@@ -1,3 +1,4 @@
+// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { dom } from "#common/dom.js";

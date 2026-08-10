@@ -8,6 +8,6 @@ const CLASSES = {
   HIDDEN: "foliplus-hidden",
 };
 
-const containerId = (name, position) => `${name}_${position}_container`;
+const containerId = (name: string, position: string) => `${name}_${position}_container`;
 
 export { CLASSES, containerId };

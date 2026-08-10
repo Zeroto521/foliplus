@@ -8,13 +8,16 @@ import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 // Uses throttled queue (1 req/s) and response cache.
 // geoCache is a Map with a FIFO cap to bound memory during long sessions.
 const GEO_CACHE_MAX = 500;
-const geoCache = new Map();
-const geoCacheGet = key => geoCache.get(key);
-const geoCacheSet = (key, val) => {
+const geoCache = new Map<string, string>();
+const geoCacheGet = (key: string) => geoCache.get(key);
+const geoCacheSet = (key: string, val: string) => {
   geoCache.set(key, val);
-  if (geoCache.size > GEO_CACHE_MAX) geoCache.delete(geoCache.keys().next().value);
+  if (geoCache.size > GEO_CACHE_MAX) {
+    const oldest = geoCache.keys().next().value;
+    if (oldest !== undefined) geoCache.delete(oldest);
+  }
 };
-let geoPromise = Promise.resolve();
+let geoPromise: Promise<unknown> = Promise.resolve();
 let geoLastReq = 0;
 
 /**
@@ -26,21 +29,25 @@ let geoLastReq = 0;
  * @param {string} [code] - Locale code for accept-language + fallback text
  * @returns {Promise<string>} Resolved address string
  */
-const reverseGeocode = (map, lng, lat, code = "en") => {
-  const foliplus = window.foliplus || {};
+const reverseGeocode = (
+  map: any,
+  lng: number | string,
+  lat: number | string,
+  code = "en",
+): Promise<string> => {
   const key = `${lng},${lat}`;
   const cached = geoCacheGet(key);
   if (cached) return Promise.resolve(cached);
 
-  const wgs = toWgs84(map, parseFloat(lng), parseFloat(lat));
+  const wgs = toWgs84(map, parseFloat(String(lng)), parseFloat(String(lat)));
   const url = nominatimUrl(
     "/reverse",
     { lon: wgs[0], lat: wgs[1], zoom: NOMINATIM.ZOOM },
     code,
   );
 
-  const common =
-    (window.foliplus && window.foliplus._TABLES && window.foliplus._TABLES[code]) || {};
+  const foliplus = window.foliplus || {};
+  const common = (foliplus && foliplus._TABLES && foliplus._TABLES[code]) || {};
   const notFound = common["foliplus.addr_not_found"] || "Address not found";
   const fail = common["foliplus.geo_fail"] || "Lookup failed";
 
@@ -60,7 +67,7 @@ const reverseGeocode = (map, lng, lat, code = "en") => {
         })
         .catch(() => fail);
     });
-  return geoPromise;
+  return geoPromise as Promise<string>;
 };
 
 export { reverseGeocode };

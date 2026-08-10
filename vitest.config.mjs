@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config";
 import { resolve } from "path";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -19,30 +19,30 @@ export default defineConfig({
       exclude: [
         "foliplus/js/runtime/**",
         // Entry modules — require browser tests (playwright) to cover wiring
-        "foliplus/js/ExportControl/ExportControl.js",
-        "foliplus/js/FullscreenControl/FullscreenControl.js",
-        "foliplus/js/HeatmapControl/HeatmapControl.js",
-        "foliplus/js/LayerControl/LayerControl.js",
-        "foliplus/js/MeasureControl/MeasureControl.js",
-        "foliplus/js/ScaleControl/ScaleControl.js",
-        "foliplus/js/SearchControl/SearchControl.js",
+        "foliplus/js/ExportControl/ExportControl.ts",
+        "foliplus/js/FullscreenControl/FullscreenControl.ts",
+        "foliplus/js/HeatmapControl/HeatmapControl.ts",
+        "foliplus/js/LayerControl/LayerControl.ts",
+        "foliplus/js/MeasureControl/MeasureControl.ts",
+        "foliplus/js/ScaleControl/ScaleControl.ts",
+        "foliplus/js/SearchControl/SearchControl.ts",
         // HeatmapControl logic modules — need L.Map, canvas, h3/chroma/ss CDNs.
         // Covered by browser tests (pytest-playwright) in CI.
-        "foliplus/js/HeatmapControl/HeatmapControl.logic.js",
-        "foliplus/js/HeatmapControl/HeatmapControl.ui.js",
+        "foliplus/js/HeatmapControl/HeatmapControl.logic.ts",
+        "foliplus/js/HeatmapControl/HeatmapControl.ui.ts",
         // ExportControl logic modules — need L.Map, canvas, fetch, document.fonts.
-        "foliplus/js/ExportControl/ExportControl.manager.js",
-        "foliplus/js/ExportControl/ExportControl.renderer.js",
-        "foliplus/js/ExportControl/ExportControl.ui.js",
-        "foliplus/js/ExportControl/ExportControl.util.js",
+        "foliplus/js/ExportControl/ExportControl.manager.ts",
+        "foliplus/js/ExportControl/ExportControl.renderer.ts",
+        "foliplus/js/ExportControl/ExportControl.ui.ts",
+        "foliplus/js/ExportControl/ExportControl.util.ts",
         // LayerControl complex modules — need L.Map, L.DomEvent, panes.
-        "foliplus/js/LayerControl/LayerControl.manager.js",
-        "foliplus/js/LayerControl/LayerControl.pane.js",
-        "foliplus/js/LayerControl/LayerControl.ui.js",
+        "foliplus/js/LayerControl/LayerControl.manager.ts",
+        "foliplus/js/LayerControl/LayerControl.pane.ts",
+        "foliplus/js/LayerControl/LayerControl.ui.ts",
         // MeasureControl complex modules — need L.Map, L.DomEvent, panes.
-        "foliplus/js/MeasureControl/MeasureControl.manager.js",
-        "foliplus/js/MeasureControl/MeasureControl.mode.js",
-        "foliplus/js/MeasureControl/MeasureControl.ui.js",
+        "foliplus/js/MeasureControl/MeasureControl.manager.ts",
+        "foliplus/js/MeasureControl/MeasureControl.mode.ts",
+        "foliplus/js/MeasureControl/MeasureControl.ui.ts",
       ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",

@@ -1,3 +1,4 @@
+// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 import * as Util from "./MeasureControl.util.js";

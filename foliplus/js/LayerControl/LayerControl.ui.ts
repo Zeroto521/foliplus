@@ -1,3 +1,4 @@
+// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 import { dom } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";

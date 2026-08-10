@@ -11,10 +11,7 @@ type Debounced = ((...args: unknown[]) => void) & {
   flush: () => void;
 };
 
-const debounce = (
-  func: (...args: unknown[]) => void,
-  delayMs: number,
-): Debounced => {
+const debounce = (func: (...args: unknown[]) => void, delayMs: number): Debounced => {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const debounced = (...args: unknown[]) => {
     if (timer) clearTimeout(timer);

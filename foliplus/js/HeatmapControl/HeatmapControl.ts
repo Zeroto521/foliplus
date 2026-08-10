@@ -18,7 +18,7 @@ const heatmapManager = new HeatmapManager(map);
 
 // ==================== View & Control: HeatmapControl ====================
 class HeatmapControl extends BaseControl {
-  constructor(options) {
+  constructor(options: any) {
     super(options);
     this.manager = heatmapManager;
     this.m.ui = this;

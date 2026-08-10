@@ -13,7 +13,7 @@ const _ = createTranslator(CONF);
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
-const updateUI = (map, fsBtn, container) => {
+const updateUI = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
   const isFull = !!getFullscreenEl() || map.isFullscreen;
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? _(`${CONF.name}.title_cancel`) : _(`${CONF.name}.title`);
@@ -46,10 +46,11 @@ const updateUI = (map, fsBtn, container) => {
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
-const toggleFullscreen = (map, fsBtn, container) => {
+const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
   if (getFullscreenEl() || map.isFullscreen) {
     if (isEnabled) {
-      document[nativeAPI.exitFullscreen]()
+      (document as any)
+        [nativeAPI!.exitFullscreen]()
         .then(() => {
           map.isFullscreen = false;
         })
@@ -65,7 +66,8 @@ const toggleFullscreen = (map, fsBtn, container) => {
     map.isFullscreen = false;
   } else {
     if (isEnabled) {
-      map._container[nativeAPI.requestFullscreen]()
+      (map._container as any)
+        [nativeAPI!.requestFullscreen]()
         .then(() => {
           map.isFullscreen = true;
         })
@@ -86,16 +88,16 @@ const toggleFullscreen = (map, fsBtn, container) => {
 // ══════════════════════════════════════════════════════════════════════════════
 // bindFullscreenEvents  —  wire up fullscreenchange + unload listeners
 // ══════════════════════════════════════════════════════════════════════════════
-const bindFullscreenEvents = (map, fsBtn, container) => {
+const bindFullscreenEvents = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
   const handleFSChange = () => {
     map.isFullscreen = !!getFullscreenEl();
     updateUI(map, fsBtn, container);
   };
 
-  if (isEnabled) document.addEventListener(nativeAPI.fullscreenchange, handleFSChange);
+  if (isEnabled) document.addEventListener(nativeAPI!.fullscreenchange, handleFSChange);
   map.on("unload", () => {
     if (isEnabled)
-      document.removeEventListener(nativeAPI.fullscreenchange, handleFSChange);
+      document.removeEventListener(nativeAPI!.fullscreenchange, handleFSChange);
   });
 
   return handleFSChange;

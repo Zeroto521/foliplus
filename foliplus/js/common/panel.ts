@@ -139,18 +139,16 @@ const createFoldControl = (opts: {
   cssClass: string;
   toggleTitle: string;
   toggleSvg: string;
-  isLeft: boolean;
+  isLeft?: boolean;
   position?: string;
 }): {
   container: HTMLElement;
   ctrl: HTMLElement;
-  toolBar: HTMLElement | null;
-  toggleBtn: HTMLElement | null;
+  toolBar: HTMLElement;
+  toggleBtn: HTMLElement;
 } => {
   const isLeft =
-    opts.position !== undefined
-      ? opts.position.indexOf("left") >= 0
-      : opts.isLeft;
+    opts.position !== undefined ? opts.position.indexOf("left") >= 0 : opts.isLeft;
   const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = dom.el("div", {
     class: `${opts.cssClass} ${CLASSES.FOLD} ${CLASSES.COLLAPSED}`,
@@ -170,8 +168,8 @@ const createFoldControl = (opts: {
   return {
     container,
     ctrl,
-    toolBar: ctrl.querySelector(`.${CLASSES.TOOL_BAR}`),
-    toggleBtn: ctrl.querySelector(`.${CLASSES.TOGGLE_BTN}`),
+    toolBar: ctrl.querySelector(`.${CLASSES.TOOL_BAR}`) as HTMLElement,
+    toggleBtn: ctrl.querySelector(`.${CLASSES.TOGGLE_BTN}`) as HTMLElement,
   };
 };
 
@@ -202,7 +200,7 @@ const bindMapSync = (opts: {
   add(opts.updateEvents, opts.onUpdate);
   add(opts.showEvents, opts.onShow);
 
-  let onMove: (() => void) & { cancel: () => void } | null = null;
+  let onMove: ((() => void) & { cancel: () => void }) | null = null;
   if (opts.onMove) {
     onMove = throttleRaf(opts.onMove);
     opts.map.on("move", onMove);
@@ -279,7 +277,7 @@ const createPanelControl = (opts: {
   return {
     container,
     ctrl,
-    toggleBtn: ctrl.querySelector(`.${CLASSES.TOGGLE_BTN}`),
+    toggleBtn: ctrl.querySelector(`.${CLASSES.TOGGLE_BTN}`) as HTMLElement,
     panelContent,
   };
 };

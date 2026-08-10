@@ -101,9 +101,13 @@ const findComponents = () => {
     if (!entry.isDirectory()) continue;
     if (entry.name === "runtime" || entry.name === "shared") continue;
     const name = entry.name;
-    const jsFile = resolve(TMP_JS, name, `${name}.js`);
+    // Entry may be `.js` (legacy) or `.ts` (migrated) — prefer `.ts`.
+    const jsFile =
+      [resolve(TMP_JS, name, `${name}.ts`), resolve(TMP_JS, name, `${name}.js`)].find(
+        existsSync,
+      ) ?? null;
     const cssFile = resolve(CSS_SRC, `${name}.css`);
-    if (existsSync(jsFile))
+    if (jsFile)
       components.push({ name, js: jsFile, css: existsSync(cssFile) ? cssFile : null });
   }
   return components;
@@ -113,9 +117,12 @@ const buildEntries = components => {
   const entries = [];
   // runtime.js is now an ES module entry — esbuild bundles it with all
   // runtime/*.js imports, identical to how component JS is bundled.
-  const runtimeJs = resolve(TMP_JS, "runtime", "runtime.js");
-  if (existsSync(runtimeJs))
-    entries.push(artifact([runtimeJs], resolve(DIST, "runtime.min.js")));
+  const runtimeJs =
+    [
+      resolve(TMP_JS, "runtime", "runtime.ts"),
+      resolve(TMP_JS, "runtime", "runtime.js"),
+    ].find(existsSync) ?? null;
+  if (runtimeJs) entries.push(artifact([runtimeJs], resolve(DIST, "runtime.min.js")));
 
   const commonCssSrc = resolve(CSS_SRC, "common.css");
   const panelCssSrc = resolve(CSS_SRC, "panel.css");

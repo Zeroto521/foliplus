@@ -16,7 +16,7 @@ const { _, foliplus } = createControlEnv(CONF);
  * Bind all DOM events for the SearchControl.
  * @param {Object} ctrl - SearchControl instance
  */
-const bindEvents = ctrl => {
+const bindEvents = (ctrl: any) => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
@@ -49,7 +49,7 @@ const bindEvents = ctrl => {
     }
   });
 
-  ctrl.inp.addEventListener("keydown", e => {
+  ctrl.inp.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       if (ctrl.suggestionsWrap) {
         removeSuggestions(ctrl);
@@ -68,7 +68,7 @@ const bindEvents = ctrl => {
         ctrl.selectedSuggestionIdx + 1,
         items.length - 1,
       );
-      items.forEach((el, i) =>
+      items.forEach((el: Element, i: number) =>
         el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
       );
       if (items[ctrl.selectedSuggestionIdx])
@@ -81,7 +81,7 @@ const bindEvents = ctrl => {
       e.preventDefault();
       const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
       ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
-      items.forEach((el, i) =>
+      items.forEach((el: Element, i: number) =>
         el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
       );
       if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
@@ -111,7 +111,7 @@ const bindEvents = ctrl => {
   ctrl.scrollTargets = [window, document.querySelector(".leaflet-container")].filter(
     Boolean,
   );
-  ctrl.scrollTargets.forEach(t =>
+  ctrl.scrollTargets.forEach((t: any) =>
     t.addEventListener("scroll", ctrl.repositionHandler, true),
   );
   window.addEventListener("resize", ctrl.repositionHandler);
@@ -121,7 +121,7 @@ const bindEvents = ctrl => {
  * Parse URL parameters to initialize search state.
  * @param {Object} ctrl - SearchControl instance
  */
-const initFromUrl = ctrl => {
+const initFromUrl = (ctrl: any) => {
   try {
     const params = new URLSearchParams(window.location.search);
     const q = params.get(PARAM.Q);

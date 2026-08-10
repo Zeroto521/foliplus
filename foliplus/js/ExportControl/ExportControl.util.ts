@@ -5,8 +5,14 @@ import * as CONST from "./ExportControl.const.js";
 const _ = createTranslator(CONF);
 
 /** Test whether a rectangle intersects the visible crop area. */
-const isVisible = (dx, dy, dw, dh, cw, ch) =>
-  !(dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch);
+const isVisible = (
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+  cw: number,
+  ch: number,
+) => !(dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch);
 
 /** Bitmap cache (LRU, capped at 500 entries).  Shared by tile
  *  bitmap loading and sprite (background-image) loading so that
@@ -15,7 +21,7 @@ const bitmapCache = new Map();
 
 /** Fetch a remote image as an ImageBitmap (CORS mode), cached in memory.
  *  Reuses blob from browser's HTTP cache when possible. */
-const loadImageBitmap = async url => {
+const loadImageBitmap = async (url: string) => {
   const cached = bitmapCache.get(url);
   if (cached) return cached;
   const resp = await fetch(url, {
@@ -37,7 +43,7 @@ const loadImageBitmap = async url => {
 };
 
 /** Load an HTMLImageElement from a URL (or data URI). */
-const loadImage = (src, crossOrigin) =>
+const loadImage = (src: string, crossOrigin?: string) =>
   new Promise((resolve, reject) => {
     const i = new Image();
     if (crossOrigin) i.crossOrigin = crossOrigin;
@@ -47,7 +53,7 @@ const loadImage = (src, crossOrigin) =>
   });
 
 /** Wait for a font spec to be ready for canvas text rendering. */
-const ensureFont = async fontSpec => {
+const ensureFont = async (fontSpec: string) => {
   try {
     await document.fonts.load(fontSpec);
   } catch {

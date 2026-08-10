@@ -10,15 +10,20 @@ import { HINT_DURATION } from "#common/hint.js";
 const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
 const CLASS = "foliplus-hint";
 
-const hintIcons = {};
-const hintMap = new Map(); // key -> { element, timer }
+interface HintEntry {
+  element: HTMLElement;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
+const hintIcons: Record<string, string> = {};
+const hintMap = new Map<string, HintEntry>(); // key -> { element, timer }
 
 // Reposition all visible hints in a vertical stack (bottom-up).
 const repositionHints = () => {
   let idx = 0;
   for (const v of hintMap.values()) {
     v.element.style.bottom = `${BASE.BOTTOM + idx * BASE.STACK_GAP}px`;
-    v.element.style.zIndex = BASE.ZINDEX + idx;
+    v.element.style.zIndex = String(BASE.ZINDEX + idx);
     idx++;
   }
 };
@@ -30,7 +35,7 @@ const repositionHints = () => {
  * @param {string} key     - Unique hint type identifier (e.g. 'export', 'measure')
  * @param {string} iconSvg - SVG markup string to display before the text
  */
-const registerHintIcon = (key, iconSvg) => {
+const registerHintIcon = (key: string, iconSvg: string) => {
   hintIcons[key] = iconSvg;
 };
 
@@ -39,12 +44,19 @@ const registerHintIcon = (key, iconSvg) => {
  * During native browser fullscreen, hints are mounted on the fullscreen
  * element so they remain visible.
  */
-const showHint = (key, text, duration, append, subkey) => {
+const showHint = (
+  key: string,
+  text: string,
+  duration: number,
+  append?: boolean,
+  subkey?: string,
+) => {
   // Remove existing subkey instance before creating new one
   if (subkey) hideHint(key, subkey);
   else if (!append) hideHint(key);
 
-  const hintTarget = document.fullscreenElement || document.body;
+  const hintTarget: HTMLElement =
+    (document.fullscreenElement as HTMLElement | null) || document.body;
   const cls = subkey
     ? `${CLASS} ${CLASS}-${key}-${subkey}`
     : append
@@ -67,10 +79,13 @@ const showHint = (key, text, duration, append, subkey) => {
   repositionHints();
 
   if (duration !== 0) {
-    hintMap.get(storeKey).timer = setTimeout(
-      () => (subkey ? hideHint(key, subkey) : hideHint(storeKey)),
-      duration || HINT_DURATION.MEDIUM,
-    );
+    const entry = hintMap.get(storeKey);
+    if (entry) {
+      entry.timer = setTimeout(
+        () => (subkey ? hideHint(key, subkey) : hideHint(storeKey)),
+        duration || HINT_DURATION.MEDIUM,
+      );
+    }
   }
 };
 
@@ -78,7 +93,7 @@ const showHint = (key, text, duration, append, subkey) => {
  * Remove a hint (and any appended instances sharing the key prefix).
  * Repositions remaining hints after removal.
  */
-const hideHint = (key, subkey) => {
+const hideHint = (key: string, subkey?: string) => {
   if (subkey) {
     const storeKey = `${key}|${subkey}`;
     const entry = hintMap.get(storeKey);
@@ -94,9 +109,11 @@ const hideHint = (key, subkey) => {
   for (const k of hintMap.keys()) {
     if (k === key || k.startsWith(`${key}-`) || k.startsWith(`${key}|`)) {
       const entry = hintMap.get(k);
-      if (entry.timer) clearTimeout(entry.timer);
-      if (entry.element) entry.element.remove();
-      hintMap.delete(k);
+      if (entry) {
+        if (entry.timer) clearTimeout(entry.timer);
+        if (entry.element) entry.element.remove();
+        hintMap.delete(k);
+      }
     }
   }
 
@@ -107,7 +124,8 @@ const hideHint = (key, subkey) => {
 // visible regardless of whether the browser is in fullscreen or not.
 const reparentHints = () => {
   if (hintMap.size === 0) return;
-  const newTarget = document.fullscreenElement || document.body;
+  const newTarget: HTMLElement =
+    (document.fullscreenElement as HTMLElement | null) || document.body;
   if (newTarget !== document.body && newTarget !== document.documentElement) {
     const cs = window.getComputedStyle(newTarget);
     if (cs.position === "static") newTarget.style.position = "relative";
@@ -116,7 +134,7 @@ const reparentHints = () => {
   for (const v of hintMap.values()) {
     if (v.element.parentNode !== newTarget) newTarget.appendChild(v.element);
     v.element.style.bottom = `${BASE.BOTTOM + idx * BASE.STACK_GAP}px`;
-    v.element.style.zIndex = BASE.ZINDEX + idx;
+    v.element.style.zIndex = String(BASE.ZINDEX + idx);
     idx++;
   }
 };

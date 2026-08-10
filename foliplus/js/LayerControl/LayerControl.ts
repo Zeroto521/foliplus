@@ -15,11 +15,11 @@ const { _ } = createControlEnv(CONF, SVGs.LAYERS);
 
 // ==================== Initialize Manager with Data ====================
 const layerManager = new LayerManager(map, CONF.data);
-layerManager.ui = new LayerUI(layerManager);
+(layerManager as any).ui = new LayerUI(layerManager);
 
 // ==================== Leaflet Control Definition ====================
 class LayerControl extends BaseControl {
-  constructor(options) {
+  constructor(options: any) {
     super(options);
     this.manager = layerManager;
   }
@@ -62,12 +62,12 @@ class LayerControl extends BaseControl {
     L.DomEvent.disableScrollPropagation(container);
 
     bindPanelToggle({
-      container: container.querySelector(".foliplus-layer-ctrl"),
+      container: container.querySelector(".foliplus-layer-ctrl") as HTMLElement,
       toggleBtn: ".foliplus-toggle-btn",
       header: ".foliplus-panel-header",
     });
 
-    this.m.attachUI(container.querySelector(".foliplus-panel-content"));
+    this.m.attachUI(container.querySelector(".foliplus-panel-content") as HTMLElement);
 
     return container;
   }

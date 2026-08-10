@@ -8,9 +8,7 @@
  * Calls within a frame are coalesced; the last one runs on the next frame.
  * Returns the wrapped function with a `cancel()` method to drop a pending frame.
  */
-const throttleRaf = (
-  fn: () => void,
-): (() => void) & { cancel: () => void } => {
+const throttleRaf = (fn: () => void): (() => void) & { cancel: () => void } => {
   let rafId: number | null = null;
   const wrapped = () => {
     if (rafId) return;

@@ -15,7 +15,7 @@ const { _, foliplus } = createControlEnv(CONF);
  * @param {Object} ctrl - SearchControl instance
  * @param {string} raw - User input (e.g. "121.47,31.23")
  */
-const searchCoord = (ctrl, raw) => {
+const searchCoord = (ctrl: any, raw: string) => {
   const parts = raw
     .replace(/\uff0c/g, ",")
     .replace(/\s+/g, "")
@@ -58,7 +58,7 @@ const searchCoord = (ctrl, raw) => {
  * @param {Object} ctrl - SearchControl instance
  * @param {string} query - Address query string
  */
-const searchAddress = (ctrl, query) => {
+const searchAddress = (ctrl: any, query: string) => {
   if (ctrl.cachedAddress[query]) {
     renderAddressResult(ctrl, ctrl.cachedAddress[query]);
     return;
@@ -107,7 +107,7 @@ const searchAddress = (ctrl, query) => {
  * @param {Object} ctrl - SearchControl instance
  * @param {Object} result - { item, displayName }
  */
-const renderAddressResult = (ctrl, result) => {
+const renderAddressResult = (ctrl: any, result: any) => {
   const { item, displayName } = result;
   let lat = parseFloat(item.lat);
   let lng = parseFloat(item.lon);
@@ -138,7 +138,7 @@ const renderAddressResult = (ctrl, result) => {
 
 // ── Suggestions ──
 
-const removeSuggestions = ctrl => {
+const removeSuggestions = (ctrl: any) => {
   if (ctrl.suggestionsThrottleTimer) {
     clearTimeout(ctrl.suggestionsThrottleTimer);
     ctrl.suggestionsThrottleTimer = null;
@@ -150,7 +150,7 @@ const removeSuggestions = ctrl => {
   ctrl.selectedSuggestionIdx = -1;
 };
 
-const positionSuggestions = ctrl => {
+const positionSuggestions = (ctrl: any) => {
   if (!ctrl.suggestionsWrap) return;
   const rect = ctrl.ctrl.getBoundingClientRect();
   let left = rect.left + window.scrollX;
@@ -160,7 +160,7 @@ const positionSuggestions = ctrl => {
   ctrl.suggestionsWrap.style.top = `${rect.bottom + window.scrollY}px`;
 };
 
-const renderSuggestions = (ctrl, results, query) => {
+const renderSuggestions = (ctrl: any, results: any[], query: string) => {
   if (!results || results.length === 0) {
     removeSuggestions(ctrl);
     return;
@@ -172,7 +172,7 @@ const renderSuggestions = (ctrl, results, query) => {
     ctrl.suggestionsWrap = dom.el("div", {
       class: CLASSES.SUGGESTIONS,
       parent: document.body,
-      onclick: e => e.stopPropagation(),
+      onclick: (e: MouseEvent) => e.stopPropagation(),
     });
   }
 
@@ -180,7 +180,7 @@ const renderSuggestions = (ctrl, results, query) => {
   ctrl.selectedSuggestionIdx = -1;
   positionSuggestions(ctrl);
 
-  results.forEach((item, idx) => {
+  results.forEach((item: any, idx: number) => {
     const displayName = formatAddress(item.display_name, map) || item.name || "";
     dom.el(
       "div",
@@ -188,7 +188,7 @@ const renderSuggestions = (ctrl, results, query) => {
         class: CLASSES.SUGGESTION_ITEM,
         "data-index": String(idx),
         parent: ctrl.suggestionsWrap,
-        onmousedown: e => {
+        onmousedown: (e: MouseEvent) => {
           e.stopPropagation();
           e.preventDefault();
           removeSuggestions(ctrl);
@@ -202,7 +202,7 @@ const renderSuggestions = (ctrl, results, query) => {
   });
 };
 
-const fetchSuggestions = (ctrl, query) => {
+const fetchSuggestions = (ctrl: any, query: string) => {
   if (ctrl.mode !== MODE.ADDR) {
     removeSuggestions(ctrl);
     return;
@@ -246,14 +246,14 @@ const fetchSuggestions = (ctrl, query) => {
     });
 };
 
-const initDebouncedFetch = ctrl => {
+const initDebouncedFetch = (ctrl: any) => {
   ctrl.debouncedFetch = debounce(
     () => fetchSuggestions(ctrl, ctrl.inp.value.trim()),
     AUTOCOMPLETE.DEBOUNCE_MS,
   );
 };
 
-const buildSearchUrl = (ctrl, q, limit) => {
+const buildSearchUrl = (ctrl: any, q: string, limit: number) => {
   const center = map.getCenter();
   return nominatimUrl("/search", { q, limit, lon: center.lng, lat: center.lat });
 };

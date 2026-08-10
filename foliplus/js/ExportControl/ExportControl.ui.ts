@@ -18,7 +18,7 @@ const _ = createTranslator(CONF);
  *  Shared by showCropBox / lockCropBox / unlockCropBox.
  *  @param {Object} mgr - ExportManager instance.
  *  @param {Object} opts - { confirm: {title, svg, onclick}, cancel: {title, svg, onclick} } */
-const renderToolbarActions = (mgr, { confirm, cancel }) => {
+const renderToolbarActions = (mgr: any, { confirm, cancel }: any) => {
   const actions = mgr.cropState?.actions || mgr.exportToolBar;
   actions.innerHTML = "";
   createIconButton({
@@ -44,7 +44,7 @@ const renderToolbarActions = (mgr, { confirm, cancel }) => {
 };
 
 /** Update crop box element position/size. */
-const updateBoxStyle = (mgr, el, r) => {
+const updateBoxStyle = (mgr: any, el: HTMLElement, r: any) => {
   el.style.left = `${r.left}px`;
   el.style.top = `${r.top}px`;
   el.style.width = `${r.width}px`;
@@ -53,8 +53,8 @@ const updateBoxStyle = (mgr, el, r) => {
 
 /** Show a global hint (e.g. exporting status). */
 const showGlobalHint = (
-  mgr,
-  text,
+  mgr: any,
+  text: string,
   duration = HINT_DURATION.PERSIST,
   withLoadingIcon = false,
 ) => {
@@ -63,7 +63,7 @@ const showGlobalHint = (
 };
 
 /** Show a hint with crop box size info. */
-const showHintWithInfo = (mgr, r, instruction) => {
+const showHintWithInfo = (mgr: any, r: any, instruction?: string) => {
   mgr.checkPixelLimit(r);
   foliplus.showHint(
     CONF.name,
@@ -85,7 +85,7 @@ const showHintWithInfo = (mgr, r, instruction) => {
 };
 
 /** Build the crop box DOM and attach events. */
-const showCropBox = mgr => {
+const showCropBox = (mgr: any) => {
   if (mgr.cropState) return;
   const mapRect = mgr.mapContainer.getBoundingClientRect();
   let box;
@@ -182,7 +182,7 @@ const showCropBox = mgr => {
 };
 
 /** Update toolbar for locked state (export button). */
-const lockCropBox = (mgr, skipHint = false) => {
+const lockCropBox = (mgr: any, skipHint = false) => {
   if (!mgr.cropState || mgr.cropState.locked) return;
   mgr.cropState.locked = true;
   mgr.cropState.box.classList.add("locked");
@@ -219,7 +219,7 @@ const lockCropBox = (mgr, skipHint = false) => {
 };
 
 /** Update toolbar for unlocked state (confirm button). */
-const unlockCropBox = mgr => {
+const unlockCropBox = (mgr: any) => {
   if (!mgr.cropState || !mgr.cropState.locked) return;
   mgr.cropState.locked = false;
   mgr.cropState.box.classList.remove("locked");
@@ -241,7 +241,7 @@ const unlockCropBox = mgr => {
 };
 
 /** Remove crop box DOM and restore UI state. */
-const removeCropBox = mgr => {
+const removeCropBox = (mgr: any) => {
   if (!mgr.cropState) return;
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);

@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "imports": {
-    "#common/*": "./foliplus/js/common/*.js",
-    "#foliplus/*": "./foliplus/js/*.js"
+    "#common/*": "./foliplus/js/common/*",
+    "#foliplus/*": "./foliplus/js/*"
   },
   "engines": {
     "node": "24.x"

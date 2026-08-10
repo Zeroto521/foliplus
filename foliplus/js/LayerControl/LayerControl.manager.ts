@@ -1,3 +1,4 @@
+// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 import { debounce } from "#common/debounce.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";

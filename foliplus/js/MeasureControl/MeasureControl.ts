@@ -18,7 +18,7 @@ const measureManager = new MeasureManager(map);
 
 /** Leaflet control wrapper for the MeasureManager. Handles DOM creation and tool button events. */
 class MeasureControl extends BaseControl {
-  constructor(options) {
+  constructor(options: any) {
     super(options);
     this.manager = measureManager;
   }
@@ -82,8 +82,8 @@ class MeasureControl extends BaseControl {
       skipCheck: () => this.m.currentMode !== null,
     });
 
-    this.m.toolBtns.forEach(btn => {
-      btn.onclick = e => {
+    this.m.toolBtns.forEach((btn: any) => {
+      btn.onclick = (e: MouseEvent) => {
         e.stopPropagation();
         this.m.setMode(btn.dataset.mode);
       };

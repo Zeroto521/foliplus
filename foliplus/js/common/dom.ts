@@ -217,15 +217,7 @@ const createLocationMarker = (
   });
   target.addLayer(marker);
   marker.bindPopup(
-    buildPopupHtml(
-      lng,
-      lat,
-      addr,
-      titleText,
-      loadingText,
-      locLabelText,
-      addrLabelText,
-    ),
+    buildPopupHtml(lng, lat, addr, titleText, loadingText, locLabelText, addrLabelText),
     { maxWidth: POPUP_MAX_WIDTH },
   );
   if (openPopup) marker.openPopup();
