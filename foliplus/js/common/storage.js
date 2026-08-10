@@ -10,7 +10,7 @@
  */
 const load = (key, name = "foliplus") => {
   try {
-    const data = localStorage.getItem(key);
+    const data = window.localStorage.getItem(key);
     return data ? JSON.parse(data) : null;
   } catch (e) {
     console.warn(`[${name}] Failed to load saved data (key=${key})`, e);
@@ -26,7 +26,7 @@ const load = (key, name = "foliplus") => {
  */
 const save = (key, data, name = "foliplus") => {
   try {
-    localStorage.setItem(key, JSON.stringify(data));
+    window.localStorage.setItem(key, JSON.stringify(data));
   } catch (e) {
     console.warn(`[${name}] Failed to save data (key=${key})`, e);
   }
