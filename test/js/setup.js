@@ -11,6 +11,13 @@ window.foliplus = {
   HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
 };
 
+// Point globalThis.localStorage at jsdom's real Storage implementation.
+// Node 24 defines globalThis.localStorage as `undefined` (without the flag
+// --experimental-webstorage --localstorage-file), which shadows jsdom's
+// window.localStorage in vitest.  This redirect ensures the real jsdom
+// Storage is always used, regardless of Node version or CLI flags.
+globalThis.localStorage = window.localStorage;
+
 // Mock L (Leaflet)
 window.L = {
   DomEvent: {
