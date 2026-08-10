@@ -3,6 +3,51 @@
 // Use vi.fn() so tests can spy on calls even when module captures at import time.
 import { vi } from "vitest";
 
+// Spec-compliant in-memory Web Storage fallback.
+// Node.js (24.19+, and newer 24.x used by CI) exposes an experimental global
+// `localStorage` getter. Without `--localstorage-file` it yields undefined (or
+// throws), and vitest's populateGlobal then skips jsdom's real localStorage
+// because the key already exists on the global. Provide a fallback whenever the
+// environment lacks a working localStorage so storage tests run identically
+// locally and in CI.
+class MockStorage {
+  constructor() {
+    this._store = {};
+  }
+  get length() {
+    return Object.keys(this._store).length;
+  }
+  clear() {
+    this._store = {};
+  }
+  getItem(key) {
+    return key in this._store ? this._store[key] : null;
+  }
+  setItem(key, value) {
+    this._store[key] = String(value);
+  }
+  removeItem(key) {
+    delete this._store[key];
+  }
+  key(index) {
+    return Object.keys(this._store)[index] ?? null;
+  }
+}
+
+let hasLocalStorage = true;
+try {
+  hasLocalStorage = Boolean(window.localStorage);
+} catch {
+  hasLocalStorage = false;
+}
+if (!hasLocalStorage) {
+  Object.defineProperty(window, "localStorage", {
+    value: new MockStorage(),
+    configurable: true,
+    writable: true,
+  });
+}
+
 // Mock window.foliplus runtime (must be set before module imports that capture it)
 window.foliplus = {
   showHint: vi.fn(),
