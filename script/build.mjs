@@ -10,8 +10,7 @@
  *
  * Usage:
  *   node script/build.mjs              # build all
- *   node script/build.mjs --watch      # watch mode
- *   node script/build.mjs --check      # verify artifacts exist (CI)
+ *   node script/build.mjs --check      # build then verify all artifacts exist (CI)
  */
 import { build } from "esbuild";
 import {
@@ -35,6 +34,21 @@ const CSS_SRC = resolve(SRC, "css");
 const DIST = resolve(SRC, "dist");
 const TMP = resolve(SRC, ".build");
 const TMP_JS = resolve(TMP, "js");
+const TMP_CSS = resolve(TMP, "css");
+const MERGED_CSS_NAME = "_common_merged.css";
+
+// ── Shared esbuild options for every bundled artifact ─────────────
+const BASE_OPTS = {
+  bundle: true,
+  minify: true,
+  sourcemap: true,
+  allowOverwrite: true,
+};
+const artifact = (entryPoints, outfile) => ({
+  entryPoints,
+  outfile,
+  ...BASE_OPTS,
+});
 
 // ── SVGO: compress SVG markup inside JS template literals ──────────
 const svgRe =
@@ -96,61 +110,31 @@ const buildEntries = (components) => {
   const entries = [];
   // runtime.js is now an ES module entry — esbuild bundles it with all
   // runtime/*.js imports, identical to how component JS is bundled.
-  if (existsSync(resolve(TMP_JS, "runtime", "runtime.js"))) {
-    entries.push({
-      entryPoints: [resolve(TMP_JS, "runtime", "runtime.js")],
-      outfile: resolve(DIST, "runtime.min.js"),
-      bundle: true,
-      minify: true,
-      sourcemap: true,
-      allowOverwrite: true,
-    });
+  const runtimeJs = resolve(TMP_JS, "runtime", "runtime.js");
+  if (existsSync(runtimeJs)) {
+    entries.push(artifact([runtimeJs], resolve(DIST, "runtime.min.js")));
   }
 
   const commonCssSrc = resolve(CSS_SRC, "common.css");
   const panelCssSrc = resolve(CSS_SRC, "panel.css");
   if (existsSync(commonCssSrc)) {
     let css = readFileSync(commonCssSrc, "utf-8");
-    if (existsSync(panelCssSrc)) {
-      css += "\n" + readFileSync(panelCssSrc, "utf-8");
-    }
-    // Write merged CSS to temp dir so esbuild minifies it as one artifact
-    const tmpDir = resolve(TMP, "css");
-    mkdirSync(tmpDir, { recursive: true });
-    const tmpCss = resolve(tmpDir, "_common_merged.css");
+    if (existsSync(panelCssSrc)) css += "\n" + readFileSync(panelCssSrc, "utf-8");
+    // Write merged CSS to a temp file so esbuild minifies it as one artifact.
+    mkdirSync(TMP_CSS, { recursive: true });
+    const tmpCss = resolve(TMP_CSS, MERGED_CSS_NAME);
     writeFileSync(tmpCss, css, "utf-8");
-    entries.push({
-      entryPoints: [tmpCss],
-      outfile: resolve(DIST, "common.min.css"),
-      minify: true,
-      sourcemap: true,
-      allowOverwrite: true,
-    });
+    entries.push(artifact([tmpCss], resolve(DIST, "common.min.css")));
   }
   for (const { name, js, css } of components) {
-    entries.push({
-      entryPoints: [js],
-      outfile: resolve(DIST, `${name}.min.js`),
-      bundle: true,
-      minify: true,
-      sourcemap: true,
-      allowOverwrite: true,
-    });
-    if (css) {
-      entries.push({
-        entryPoints: [css],
-        outfile: resolve(DIST, `${name}.min.css`),
-        minify: true,
-        sourcemap: true,
-        allowOverwrite: true,
-      });
-    }
+    entries.push(artifact([js], resolve(DIST, `${name}.min.js`)));
+    if (css) entries.push(artifact([css], resolve(DIST, `${name}.min.css`)));
   }
   return entries;
 };
 
 async function main() {
-  const isWatch = process.argv.includes("--watch");
+  const check = process.argv.includes("--check");
 
   rmSync(TMP, { recursive: true, force: true });
   mkdirSync(TMP_JS, { recursive: true });
@@ -163,14 +147,26 @@ async function main() {
     `Building ${entries.length} artifacts for ${components.length} components...`,
   );
 
+  let failed = 0;
   for (const opts of entries) {
     try {
       await build(opts);
       console.log(`  ✓ ${basename(opts.outfile)}`);
     } catch (e) {
+      failed += 1;
       console.error(`  ✗ ${basename(opts.outfile)}: ${e.message}`);
     }
   }
+
+  if (check) {
+    const missing = entries.map((e) => e.outfile).filter((f) => !existsSync(f));
+    if (missing.length) {
+      console.error(`Missing artifacts: ${missing.join(", ")}`);
+      process.exit(1);
+    }
+    console.log(`All ${entries.length} artifacts present.`);
+  }
+  if (failed) process.exit(1);
   console.log("Done.");
 }
 
