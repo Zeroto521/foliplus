@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("storage", () => {
   beforeEach(() => {
-    localStorage.clear();
+    window.localStorage.clear();
     vi.stubGlobal("console", { warn: vi.fn() });
   });
 
@@ -17,7 +17,7 @@ describe("storage", () => {
   });
 
   it("returns null for corrupted JSON", () => {
-    localStorage.setItem("bad", "not json");
+    window.localStorage.setItem("bad", "not json");
     expect(load("bad")).toBeNull();
     expect(console.warn).toHaveBeenCalled();
   });
