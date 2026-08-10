@@ -29,25 +29,5 @@
   },
   "dependencies": {
     "svgo": "^4.0.2"
-  },
-  "prettier": {
-    "singleQuote": false,
-    "trailingComma": "all",
-    "printWidth": 88,
-    "tabWidth": 2,
-    "singleAttributePerLine": false,
-    "useTabs": false,
-    "semi": true,
-    "bracketSpacing": true,
-    "arrowParens": "avoid",
-    "htmlWhitespaceSensitivity": "css",
-    "plugins": [
-      "@trivago/prettier-plugin-sort-imports"
-    ],
-    "importOrder": [
-      "^[.]"
-    ],
-    "importOrderSeparation": false,
-    "importOrderSortSpecifiers": true
   }
 }

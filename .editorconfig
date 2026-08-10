@@ -12,7 +12,7 @@ indent_style = space
 indent_size = 4
 max_line_length = 88
 
-[*.{css,js,ts}]
+[*.{css,js,ts,cjs,mjs}]
 indent_size = 2
 max_line_length = 88
 

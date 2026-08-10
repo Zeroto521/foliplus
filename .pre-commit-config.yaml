@@ -61,13 +61,14 @@ repos:
           - "typescript@7.0.2"
 
   # ── JS / CSS formatting (Prettier) ──
-  # Uses language: node so pre-commit.ci sets up Node and installs the
-  # dependencies below itself (its isolated env has no npx/node_modules).
+  # Uses language: node so pre-commit.ci sets up Node and installs prettier
+  # itself (its isolated env has no npx/node_modules).
   #
-  # NOTE: @trivago/prettier-plugin-sort-imports@5.2.2 is the last CJS-
-  # compatible release (no "type": "module"). v6+ is ESM-only and
-  # incompatible with pre-commit's language:node CommonJS require().
-  # Keep the version in sync with package.json.
+  # Uses .prettierrc.cjs (with require.resolve for the plugin) because
+  # prettier resolves plugins from package.json's "prettier" block via
+  # ESM `import()` from /code/noop.js — which fails in pre-commit.ci's
+  # isolated env (ESM does not honor NODE_PATH). require.resolve() in a
+  # .cjs file resolves via CJS module resolution, which honors NODE_PATH.
   - repo: local
     hooks:
       - id: format-prettier
@@ -75,7 +76,6 @@ repos:
         entry: prettier --write
         language: node
         types_or: [css, javascript, ts]
-        files: ^foliplus/(js|css)/|^script/.*\.(js|ts)$|^test/js/.*\.(js|ts)$
+        files: ^foliplus/(js|css)/|^script/.*\.(js|cjs|mjs|ts)$|^test/js/.*\.(js|cjs|mjs|ts)$
         additional_dependencies:
           - "prettier@3.9.5"
-          - "@trivago/prettier-plugin-sort-imports@5.2.2"
