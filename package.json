@@ -1,17 +1,32 @@
 {
+  "private": true,
   "engines": {
     "node": "24.x"
   },
   "devDependencies": {
-    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-    "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.24.0",
     "jsdom": "^30.0.1",
     "prettier": "^3.9.5",
+    "vitest": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.10",
     "prettier-plugin-sort-imports": "^1.8.11",
-    "vitest": "^4.1.10"
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2"
   },
   "dependencies": {
     "svgo": "^4.0.2"
+  },
+  "prettier": {
+    "singleQuote": false,
+    "trailingComma": "all",
+    "printWidth": 88,
+    "tabWidth": 2,
+    "plugins": [
+      "@trivago/prettier-plugin-sort-imports"
+    ],
+    "importOrder": [
+      "^[.]"
+    ],
+    "importOrderSeparation": false,
+    "importOrderSortSpecifiers": true
   }
 }
