@@ -8,12 +8,159 @@ function presence and internal logic are covered by test/js/ unit tests.
 from __future__ import annotations
 
 import folium
+import pytest
 from conftest import render
 
 
+class TestBaseControlPython:
+    """Python-side API tests for BaseControl internals."""
+
+    def test_export_fields_defaults_to_empty(self):
+        from foliplus.BaseControl import BaseControl
+
+        assert BaseControl._export_fields == ()
+
+    def test_extra_config_defaults_to_empty(self):
+        from foliplus.BaseControl import BaseControl
+
+        ctrl = BaseControl()
+        assert ctrl._extra_config() == {}
+
+    def test_build_config_includes_shared_keys(self):
+        from foliplus.BaseControl import BaseControl
+
+        ctrl = BaseControl()
+        config = ctrl._build_config()
+        assert config["name"] == "BaseControl"
+        assert config["position"] == "topleft"
+
+    def test_build_config_caches_on_self_config(self):
+        from foliplus.BaseControl import BaseControl
+
+        ctrl = BaseControl()
+        config = ctrl._build_config()
+        assert ctrl._config is config
+
+    def test_build_config_missing_export_field_raises(self):
+        """If _export_fields names an attribute that doesn't exist, getattr raises."""
+        from foliplus.BaseControl import BaseControl
+
+        class BadControl(BaseControl):
+            _export_fields = ("nonexistent",)
+
+        ctrl = BadControl()
+        with pytest.raises(AttributeError):
+            ctrl._build_config()
+
+    def test_config_block_includes_locale_tables(self, base_map: folium.Map):
+        from foliplus import SearchControl
+
+        SearchControl(locale="en").add_to(base_map)
+        html = render(base_map)
+        # The CONF block contains locale_tables for the component
+        assert '"locale_code": "en"' in html
+        assert '"locale_tables"' in html
+
+    def test_config_block_does_not_pollute_config_cache(self):
+        """_config_block copies _build_config before adding locale overlay."""
+        from foliplus.BaseControl import BaseControl
+
+        ctrl = BaseControl()
+        _ = ctrl._config_block  # triggers locale overlay
+        # _config should not contain locale_tables or locale_code
+        assert "locale_tables" not in ctrl._config
+        assert "locale_code" not in ctrl._config
+
+    def test_export_fields_are_serialized_in_config(self):
+        from foliplus import FullscreenControl
+
+        ctrl = FullscreenControl(hide_self=False, hide_others=True)
+        config = ctrl._build_config()
+        assert config["hide_self"] is False
+        assert config["hide_others"] is True
+
+    def test_extra_config_merged_into_build_config(self):
+        import folium
+
+        from foliplus import LayerControl
+
+        m = folium.Map()
+        ctrl = LayerControl()
+        m.add_child(ctrl)
+        config = ctrl._build_config()
+        assert "data" in config
+        assert isinstance(config["data"], list)
+
+    def test_export_fields_shared_keys_extra_config_merge_order(self):
+        """_build_config merge order: shared keys → export fields → extra_config.
+        Later wins on conflicts."""
+        from foliplus.BaseControl import BaseControl
+
+        class OverrideControl(BaseControl):
+            _export_fields = ("position",)  # would override shared position
+
+            def __init__(self):
+                super().__init__(position="topleft")
+                self.position = "overridden_by_export"
+
+            def _extra_config(self):
+                return {"position": "overridden_by_extra"}
+
+        ctrl = OverrideControl()
+        config = ctrl._build_config()
+        # _extra_config wins because it's merged last
+        assert config["position"] == "overridden_by_extra"
+
+    def test_default_locale_code_empty(self):
+        from foliplus.BaseControl import BaseControl
+
+        ctrl = BaseControl()
+        assert ctrl._locale_code == ""
+
+    def test_config_block_empty_when_no_export_fields(self):
+        from foliplus.BaseControl import BaseControl
+
+        ctrl = BaseControl()
+        block = ctrl._config_block
+        import json
+
+        parsed = json.loads(block)
+        assert parsed["name"] == "BaseControl"
+        assert parsed["position"] == "topleft"
+        assert "locale_tables" in parsed
+        assert "locale_code" in parsed
+
+
 class TestBaseControlRendering:
+    """Rendering tests for shared assets and common.css."""
+
     def test_includes_common_css(self, base_map: folium.Map):
         from foliplus import SearchControl
+
+    # ── BaseControl Python API ──
+
+    def test_render_preserves_config(self, base_map: folium.Map):
+        """After rendering, _config is still accessible and contains expected keys."""
+        from foliplus import SearchControl
+
+        ctrl = SearchControl(mode="coord", zoom=15)
+        ctrl.add_to(base_map)
+        render(base_map)
+        assert ctrl._config["name"] == "SearchControl"
+        assert ctrl._config["mode"] == "coord"
+        assert ctrl._config["zoom"] == 15
+
+    def test_render_multiple_controls_has_unique_configs(self, base_map: folium.Map):
+        """Each control has its own _config cache after rendering."""
+        from foliplus import FullscreenControl, SearchControl
+
+        sc = SearchControl(mode="addr", zoom=10)
+        fc = FullscreenControl(hide_self=False)
+        sc.add_to(base_map)
+        fc.add_to(base_map)
+        render(base_map)
+        assert sc._config["mode"] == "addr"
+        assert fc._config["hide_self"] is False
 
         SearchControl().add_to(base_map)
         html = render(base_map)
