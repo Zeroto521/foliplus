@@ -1,6 +1,6 @@
-import { BaseControl } from "../common/BaseControl.js";
-import { dom } from "../common/dom.js";
-import { createControlEnv } from "../common/guard.js";
+import { BaseControl } from "#common/BaseControl.js";
+import { dom } from "#common/dom.js";
+import { createControlEnv } from "#common/guard.js";
 
 const CLASSES = {
   WRAP: "foliplus-scale-wrap",

@@ -1,9 +1,9 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
-import { dom } from "../common/dom.js";
-import { HINT_DURATION } from "../common/hint.js";
-import { createTranslator } from "../common/locale.js";
-import { adjustPanelZIndex } from "../common/panel.js";
+import { dom } from "#common/dom.js";
+import { HINT_DURATION } from "#common/hint.js";
+import { createTranslator } from "#common/locale.js";
+import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
 
 const foliplus = window.foliplus;

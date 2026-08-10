@@ -1,6 +1,6 @@
-import { BaseControl } from "../common/BaseControl.js";
-import { createControlEnv, requireLayerAPI } from "../common/guard.js";
-import { createPanelControl } from "../common/panel.js";
+import { BaseControl } from "#common/BaseControl.js";
+import { createControlEnv, requireLayerAPI } from "#common/guard.js";
+import { createPanelControl } from "#common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
 import * as SVGs from "./HeatmapControl.icon.js";
 import { HeatmapManager } from "./HeatmapControl.logic.js";

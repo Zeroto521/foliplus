@@ -1,12 +1,12 @@
-import { BaseControl } from "../common/BaseControl.js";
-import { createIconButton } from "../common/dom.js";
-import { createControlEnv, requireLayerAPI } from "../common/guard.js";
-import * as Icons from "../common/icon.js";
+import { BaseControl } from "#common/BaseControl.js";
+import { createIconButton } from "#common/dom.js";
+import { createControlEnv, requireLayerAPI } from "#common/guard.js";
+import * as Icons from "#common/icon.js";
 import {
   bindFoldToggle,
   bindOutsideCollapse,
   createFoldControl,
-} from "../common/panel.js";
+} from "#common/panel.js";
 import * as CONST from "./MeasureControl.const.js";
 import * as SVGs from "./MeasureControl.icon.js";
 import { MeasureManager } from "./MeasureControl.manager.js";

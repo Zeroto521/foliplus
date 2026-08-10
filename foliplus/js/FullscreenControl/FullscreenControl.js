@@ -1,6 +1,6 @@
-import { BaseControl } from "../common/BaseControl.js";
-import { createIconButton, dom } from "../common/dom.js";
-import { createControlEnv } from "../common/guard.js";
+import { BaseControl } from "#common/BaseControl.js";
+import { createIconButton, dom } from "#common/dom.js";
+import { createControlEnv } from "#common/guard.js";
 import { isEnabled, nativeAPI } from "./FullscreenControl.api.js";
 import { CLASSES, containerId } from "./FullscreenControl.const.js";
 import * as SVGs from "./FullscreenControl.icon.js";

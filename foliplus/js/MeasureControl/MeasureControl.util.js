@@ -1,6 +1,6 @@
-import { buildPopupHtml, stopEvent } from "../common/dom.js";
-import { area, bearing, centroid, distance, midpoint } from "../common/geo.js";
-import { createTranslator } from "../common/locale.js";
+import { buildPopupHtml, stopEvent } from "#common/dom.js";
+import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
+import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).

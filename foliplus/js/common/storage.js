@@ -1,5 +1,5 @@
 // localStorage helpers for foliplus components.
-// Imported via `import * as Storage from "../common/storage.js"` (B pattern).
+// Imported via `import * as Storage from "#common/storage.js"`.
 // Stateless over window.localStorage, so it is safe to inline per-component.
 
 /**

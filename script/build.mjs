@@ -38,11 +38,18 @@ const TMP_CSS = resolve(TMP, "css");
 const MERGED_CSS_NAME = "_common_merged.css";
 
 // ── Shared esbuild options for every bundled artifact ─────────────
+// --dev skips minification so Python render-string tests can find
+// JS identifiers like `foliplus.showHint` (minify renames locals).
+const DEV = process.argv.includes("--dev");
 const BASE_OPTS = {
   bundle: true,
-  minify: true,
-  sourcemap: true,
+  minify: !DEV,
+  sourcemap: !DEV,
   allowOverwrite: true,
+  keepNames: DEV,
+  // Resolve #common/* aliases (used in JS source via package.json imports)
+  // to the mirrored .build/ directory so SVGO-compressed files are used.
+  alias: { "#common": resolve(TMP_JS, "common") },
 };
 const artifact = (entryPoints, outfile) => ({
   entryPoints,
@@ -54,8 +61,8 @@ const artifact = (entryPoints, outfile) => ({
 const svgRe =
   /`\s*(?:<div[^>]*>\s*<svg[\s\S]*?<\/svg>\s*<\/div>|<svg[\s\S]*?<\/svg>)\s*`/g;
 
-const compressSvgStrings = (code) => {
-  return code.replace(svgRe, (match) => {
+const compressSvgStrings = code => {
+  return code.replace(svgRe, match => {
     const raw = match.replace(/^`\s*/, "").replace(/\s*`$/, "");
     // If wrapped in a <div>, extract the <svg> part, optimize it, then rewrap
     const divMatch = raw.match(/^(<div[^>]*>)\s*([\s\S]*?)\s*(<\/div>)$/);
@@ -80,7 +87,7 @@ const compressSvgStrings = (code) => {
   });
 };
 
-const processJsFiles = (dir) => {
+const processJsFiles = dir => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = resolve(dir, entry.name);
     if (entry.isDirectory()) processJsFiles(full);
@@ -106,7 +113,7 @@ const findComponents = () => {
   return components;
 };
 
-const buildEntries = (components) => {
+const buildEntries = components => {
   const entries = [];
   // runtime.js is now an ES module entry — esbuild bundles it with all
   // runtime/*.js imports, identical to how component JS is bundled.
@@ -159,7 +166,7 @@ async function main() {
   }
 
   if (check) {
-    const missing = entries.map((e) => e.outfile).filter((f) => !existsSync(f));
+    const missing = entries.map(e => e.outfile).filter(f => !existsSync(f));
     if (missing.length) {
       console.error(`Missing artifacts: ${missing.join(", ")}`);
       process.exit(1);
@@ -170,7 +177,7 @@ async function main() {
   console.log("Done.");
 }
 
-main().catch((e) => {
+main().catch(e => {
   console.error(e);
   process.exit(1);
 });

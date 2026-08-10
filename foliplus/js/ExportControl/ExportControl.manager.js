@@ -1,7 +1,7 @@
-import { dom } from "../common/dom.js";
-import { HINT_DURATION } from "../common/hint.js";
-import { createTranslator } from "../common/locale.js";
-import * as Storage from "../common/storage.js";
+import { dom } from "#common/dom.js";
+import { HINT_DURATION } from "#common/hint.js";
+import { createTranslator } from "#common/locale.js";
+import * as Storage from "#common/storage.js";
 import * as CONST from "./ExportControl.const.js";
 import { ExportRenderer } from "./ExportControl.renderer.js";
 import {

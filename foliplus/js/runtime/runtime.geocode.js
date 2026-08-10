@@ -2,8 +2,8 @@
 // Shared cache and throttle queue must be global once per map.
 // Pure helpers (NOMINATIM, nominatimUrl, formatAddress) live in
 // common/geocode.js and are statically imported by components.
-import { toWgs84 } from "../common/coord.js";
-import { NOMINATIM, formatAddress, nominatimUrl } from "../common/geocode.js";
+import { toWgs84 } from "#common/coord.js";
+import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 
 // Uses throttled queue (1 req/s) and response cache.
 // geoCache is a Map with a FIFO cap to bound memory during long sessions.

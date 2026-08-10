@@ -1,8 +1,8 @@
-import { BaseControl } from "../common/BaseControl.js";
-import { createIconButton, dom } from "../common/dom.js";
-import { createControlEnv } from "../common/guard.js";
-import * as Icons from "../common/icon.js";
-import { bindOutsideCollapse, createFoldControl } from "../common/panel.js";
+import { BaseControl } from "#common/BaseControl.js";
+import { createIconButton, dom } from "#common/dom.js";
+import { createControlEnv } from "#common/guard.js";
+import * as Icons from "#common/icon.js";
+import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { CLASSES, MODE } from "./SearchControl.const.js";
 import { bindEvents, initFromUrl } from "./SearchControl.event.js";
 import * as SVGs from "./SearchControl.icon.js";

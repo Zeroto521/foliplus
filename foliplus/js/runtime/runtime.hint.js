@@ -3,8 +3,8 @@
 // Internal state (hintIcons, hintMap) is module-scoped and exposed through
 // the functions below. The runtime entry module wires these onto
 // `window.foliplus.*`.
-import { dom } from "../common/dom.js";
-import { HINT_DURATION } from "../common/hint.js";
+import { dom } from "#common/dom.js";
+import { HINT_DURATION } from "#common/hint.js";
 
 // ── Hint constants ──────────────────────────────────────────────
 const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };

@@ -1,4 +1,4 @@
-import { createTranslator } from "../common/locale.js";
+import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 import * as Util from "./MeasureControl.util.js";
 

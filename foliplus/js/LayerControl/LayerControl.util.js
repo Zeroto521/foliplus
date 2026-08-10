@@ -1,5 +1,5 @@
 /** Utility functions for LayerControl. */
-import { escapeHTML } from "../common/dom.js";
+import { escapeHTML } from "#common/dom.js";
 import * as CONST from "./LayerControl.const.js";
 import * as SVGs from "./LayerControl.icon.js";
 

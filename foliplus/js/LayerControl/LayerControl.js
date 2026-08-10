@@ -1,8 +1,8 @@
-import { BaseControl } from "../common/BaseControl.js";
-import { dom } from "../common/dom.js";
-import { createControlEnv } from "../common/guard.js";
-import * as Icons from "../common/icon.js";
-import { bindPanelToggle } from "../common/panel.js";
+import { BaseControl } from "#common/BaseControl.js";
+import { dom } from "#common/dom.js";
+import { createControlEnv } from "#common/guard.js";
+import * as Icons from "#common/icon.js";
+import { bindPanelToggle } from "#common/panel.js";
 import * as SVGs from "./LayerControl.icon.js";
 import {
   LayerManager,

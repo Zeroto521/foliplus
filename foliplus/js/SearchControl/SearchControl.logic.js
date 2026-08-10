@@ -1,11 +1,11 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
-import { fromWgs84 } from "../common/coord.js";
-import { debounce } from "../common/debounce.js";
-import { createLocationMarker, dom } from "../common/dom.js";
-import { NOMINATIM, formatAddress, nominatimUrl } from "../common/geocode.js";
-import { createControlEnv } from "../common/guard.js";
-import { HINT_DURATION } from "../common/hint.js";
-import * as Icons from "../common/icon.js";
+import { fromWgs84 } from "#common/coord.js";
+import { debounce } from "#common/debounce.js";
+import { createLocationMarker, dom } from "#common/dom.js";
+import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
+import { createControlEnv } from "#common/guard.js";
+import { HINT_DURATION } from "#common/hint.js";
+import * as Icons from "#common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./SearchControl.const.js";
 
 const { _, foliplus } = createControlEnv(CONF);

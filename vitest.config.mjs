@@ -1,6 +1,13 @@
 import { defineConfig } from "vitest/config";
+import { resolve } from "path";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "#common": resolve("foliplus/js/common"),
+      "#foliplus": resolve("foliplus/js"),
+    },
+  },
   test: {
     environment: "jsdom",
     globals: true,

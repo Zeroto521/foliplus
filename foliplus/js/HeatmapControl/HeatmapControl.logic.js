@@ -1,9 +1,9 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
-import { cssVar } from "../common/cssvar.js";
-import { debounce } from "../common/debounce.js";
-import { formatNumber } from "../common/format.js";
-import { createTranslator } from "../common/locale.js";
-import { bindMapSync } from "../common/panel.js";
+import { cssVar } from "#common/cssvar.js";
+import { debounce } from "#common/debounce.js";
+import { formatNumber } from "#common/format.js";
+import { createTranslator } from "#common/locale.js";
+import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
 import * as SVGs from "./HeatmapControl.icon.js";
 import { rebuildLayerDropdown } from "./HeatmapControl.ui.js";
