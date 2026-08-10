@@ -55,8 +55,12 @@ const CFG = {
 // sources are bundled (not the raw `foliplus/js` originals).
 const esbuildCfg = {
   bundle: true,
+  format: "iife",
   minify: !CFG.dev,
-  sourcemap: !CFG.dev,
+  // Sourcemaps are only useful when debugging the minified bundle in a browser.
+  // Since foliplus bundles are embedded in Python-generated HTML and shipped
+  // to end users, production sourcemaps have no consumer — skip them.
+  sourcemap: false,
   allowOverwrite: true,
   keepNames: CFG.dev,
   alias: { "#common": CFG.tmp.js + "/common" },
