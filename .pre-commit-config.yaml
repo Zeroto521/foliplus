@@ -79,3 +79,4 @@ repos:
         files: ^foliplus/(js|css)/|^script/.*\.(js|cjs|mjs|ts)$|^test/js/.*\.(js|cjs|mjs|ts)$
         additional_dependencies:
           - "prettier@3.9.5"
+          - "@trivago/prettier-plugin-sort-imports@5.2.2"
