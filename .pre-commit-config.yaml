@@ -50,10 +50,11 @@ repos:
   # Uses language: node so pre-commit.ci sets up Node and installs the
   # dependencies below itself (its isolated env has no npx/node_modules).
   #
-  # NOTE: keep these versions in sync with the matching devDependencies
-  # in package.json (prettier, @trivago/prettier-plugin-sort-imports).
-  # pre-commit's additional_dependencies are static YAML and cannot read
-  # from package.json.
+  # NOTE: @trivago/prettier-plugin-sort-imports is intentionally not used —
+  # it is ESM-only (type: module), but pre-commit's language:node uses
+  # CommonJS require() to load deps, causing "Cannot find package" errors
+  # on pre-commit.ci. It has also been removed from package.json since the
+  # local `npm run format` uses the same prettier config.
   - repo: local
     hooks:
       - id: format-prettier
@@ -64,4 +65,3 @@ repos:
         files: ^foliplus/(js|css)/|^script/.*\.js$|^test/js/.*\.js$
         additional_dependencies:
           - "prettier@3.9.5"
-          - "@trivago/prettier-plugin-sort-imports@6.0.2"
