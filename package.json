@@ -19,11 +19,12 @@
     "format:check": "prettier --check \"foliplus/js/**/*.js\" \"foliplus/css/**/*.css\" \"script/**/*.js\" \"test/js/**/*.js\""
   },
   "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+    "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.24.0",
     "jsdom": "^30.0.1",
-    "vitest": "^4.1.10",
-    "@vitest/coverage-v8": "^4.1.10",
-    "prettier": "^3.9.5"
+    "prettier": "^3.9.5",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "svgo": "^4.0.2"
@@ -38,6 +39,14 @@
     "semi": true,
     "bracketSpacing": true,
     "arrowParens": "avoid",
-    "htmlWhitespaceSensitivity": "css"
+    "htmlWhitespaceSensitivity": "css",
+    "plugins": [
+      "@trivago/prettier-plugin-sort-imports"
+    ],
+    "importOrder": [
+      "^[.]"
+    ],
+    "importOrderSeparation": false,
+    "importOrderSortSpecifiers": true
   }
 }

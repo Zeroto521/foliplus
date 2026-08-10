@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
 import { createTranslator } from "#common/locale.js";
+import { beforeEach, describe, expect, it } from "vitest";
 
 describe("createTranslator", () => {
   beforeEach(() => {

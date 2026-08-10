@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import * as SVGs from "#foliplus/ExportControl/ExportControl.icon.js";
+import { describe, expect, it } from "vitest";
 
 describe("CAMERA", () => {
   it("is an SVG string", () => {

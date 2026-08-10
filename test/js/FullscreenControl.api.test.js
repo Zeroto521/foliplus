@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import {
   getFullscreenEl,
   isEnabled,
@@ -8,6 +7,7 @@ import {
   CLASSES,
   containerId,
 } from "#foliplus/FullscreenControl/FullscreenControl.const.js";
+import { describe, expect, it } from "vitest";
 
 describe("const.js", () => {
   it("CLASSES has expected keys", () => {

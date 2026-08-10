@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import * as CONST from "#foliplus/SearchControl/SearchControl.const.js";
+import { describe, expect, it } from "vitest";
 
 describe("MODE", () => {
   it("defines search modes", () => {

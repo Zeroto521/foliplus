@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { HINT_DURATION } from "#common/hint.js";
+import { describe, expect, it } from "vitest";
 
 describe("HINT_DURATION", () => {
   it("has correct values", () => {

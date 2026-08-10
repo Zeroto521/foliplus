@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/MeasureControl.const.js";
+import { describe, expect, it } from "vitest";
 
 describe("TIMING", () => {
   it("defines timing constants", () => {

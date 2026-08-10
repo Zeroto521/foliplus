@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import * as SVGs from "#foliplus/MeasureControl/MeasureControl.icon.js";
+import { describe, expect, it } from "vitest";
 
 describe("RULER", () => {
   it("is an SVG string", () => {

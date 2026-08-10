@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildSearchUrl,
   fetchSuggestions,
@@ -8,6 +7,7 @@ import {
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/SearchControl.logic.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
 // Use vi.spyOn to track calls on those already-setup mocks.

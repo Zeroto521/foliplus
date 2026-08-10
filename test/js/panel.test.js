@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   adjustPanelZIndex,
   bindFoldToggle,
@@ -8,6 +7,7 @@ import {
   createFoldControl,
   createPanelControl,
 } from "#common/panel.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
 // but panel.js also needs on/off/stop — stub them here.

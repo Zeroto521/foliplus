@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { load, save } from "#common/storage.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("storage", () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import { requireLayerAPI, requireRuntime } from "#common/guard.js";
+import { describe, expect, it, vi } from "vitest";
 
 const mockShowHint = vi.fn();
 

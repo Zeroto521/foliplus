@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BaseControl } from "#common/BaseControl.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("BaseControl", () => {
   let map;
