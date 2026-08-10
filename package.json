@@ -1,7 +1,22 @@
 {
+  "name": "foliplus",
   "private": true,
+  "type": "module",
+  "imports": {
+    "#common/*": "./foliplus/js/common/*.js",
+    "#foliplus/*": "./foliplus/js/*.js"
+  },
   "engines": {
     "node": "24.x"
+  },
+  "scripts": {
+    "build": "node script/build.mjs",
+    "build:dev": "node script/build.mjs --dev",
+    "build:check": "node script/build.mjs --check",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "format": "prettier --write \"foliplus/js/**/*.js\" \"foliplus/css/**/*.css\" \"script/**/*.js\" \"test/js/**/*.js\"",
+    "format:check": "prettier --check \"foliplus/js/**/*.js\" \"foliplus/css/**/*.css\" \"script/**/*.js\" \"test/js/**/*.js\""
   },
   "devDependencies": {
     "esbuild": "^0.24.0",
@@ -9,7 +24,6 @@
     "prettier": "^3.9.5",
     "vitest": "^4.1.10",
     "@vitest/coverage-v8": "^4.1.10",
-    "prettier-plugin-sort-imports": "^1.8.11",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2"
   },
   "dependencies": {
