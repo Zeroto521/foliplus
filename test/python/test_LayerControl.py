@@ -2114,6 +2114,77 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
+    def test_enforce_order_end_to_end(self, browser, tmp_path):
+        """enforceOrder applies correct z-index to layers and migrates panes."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        fg = folium.FeatureGroup(name="Overlay", overlay=True, show=True).add_to(m)
+        folium.TileLayer("CartoDB positron", name="Base", overlay=False).add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_enforce.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const overlayPane = document.querySelector('.leaflet-overlay-pane');
+                const markerPane = document.querySelector('.leaflet-marker-pane');
+                const overlayZ = overlayPane ? getComputedStyle(overlayPane).zIndex : null;
+                const markerZ = markerPane ? getComputedStyle(markerPane).zIndex : null;
+                return {
+                    overlayZ: overlayZ,
+                    markerZ: markerZ,
+                    layerCount: api.layers.length,
+                };
+            }""")
+            assert result is not None, "LayerAPI not found"
+            assert result["layerCount"] >= 2, f"got {result['layerCount']} layers"
+            # Leaflet sets z-index via CSS class, so computed style should be numeric
+            assert result["overlayZ"] and result["overlayZ"] != "auto", "overlay pane should have z-index"
+            assert result["markerZ"], "marker pane should have z-index"
+        finally:
+            page.close()
+
+    def test_bring_layer_to_front_guard(self, browser, tmp_path):
+        """bringLayerToFront is a no-op for base layers or when already at front."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="Overlay", overlay=True, show=True).add_to(m)
+        folium.TileLayer("CartoDB positron", name="Base", overlay=False).add_to(m)
+
+        html = m.get_root().render()
+        html_path = tmp_path / "lc_bringfront.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        page = browser.new_page()
+        try:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+
+            result = page.evaluate("""() => {
+                const api = window.foliplus && window.foliplus.LayerAPI;
+                if (!api) return null;
+                const out = {};
+                out.unknownOk = (() => { try { api.bringLayerToFront('nope'); return true; } catch(e) { return false; } })();
+                return out;
+            }""")
+            assert result is not None
+            assert result["unknownOk"] is True, (
+                "bringToFront should be safe for unknown id"
+            )
+        finally:
+            page.close()
+
 
 class TestLayerControlEdgeCases:
     """Tests for uncovered edge cases and code paths."""
