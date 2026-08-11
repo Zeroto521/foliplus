@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import folium
 import pytest
@@ -279,7 +280,6 @@ class TestHeatmapControlRendering:
 
     def test_ctrl_btn_svg_in_icon_selector(self):
         """ctrl-btn svg is included in the common icon selector so X lines are visible."""
-        from pathlib import Path
 
         css = Path("foliplus/css/common.css").read_text()
         assert ".foliplus-ctrl-btn" in css
@@ -360,26 +360,17 @@ class TestHeatmapControlBrowser:
     @staticmethod
     def _stub_html(html: str) -> str:
         """Remove blocking CDN <script> tags and inject stubs for h3/ss/chroma."""
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js"></script>',
-            "",
-        )
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js"></script>',
-            "",
-        )
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"></script>',
-            "",
-        )
-        # Inject stubs before the HeatmapControl JS runs (after CONF entry)
-        # In the rendered HTML, the CONF preamble starts with:
-        #   CONF = {"name": "HeatmapControl", ...};
-        # followed immediately by the bundled JS.
+        for cdn in (
+            "h3-js@4/dist/h3-js.umd.js",
+            "simple-statistics@7/dist/simple-statistics.min.js",
+            "chroma-js@2/chroma.min.js",
+        ):
+            html = html.replace(
+                f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
+            )
         marker = 'CONF = {"name": "HeatmapControl"'
         idx = html.find(marker)
         if idx > 0:
-            # Find the semicolon that ends the CONFIG assignment
             semi = html.find(";", idx)
             if semi > 0:
                 stub = (
@@ -392,12 +383,14 @@ class TestHeatmapControlBrowser:
 
     @staticmethod
     def _expose_ctrl(html: str) -> str:
-        """Expose the created control as window.__heatmapCtrl for runtime assertions."""
         marker = "heatmapCtrl.addTo(map);"
         idx = html.find(marker)
         if idx > 0:
-            hook = "window.__heatmapCtrl = heatmapCtrl;"
-            html = html[: idx + len(marker)] + hook + html[idx + len(marker) :]
+            html = (
+                html[: idx + len(marker)]
+                + "window.__heatmapCtrl = heatmapCtrl;"
+                + html[idx + len(marker) :]
+            )
         return html
 
     def _make_page(self, browser, tmp_path, expose_ctrl=False):

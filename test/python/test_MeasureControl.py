@@ -7,13 +7,7 @@ import pathlib
 import re
 
 import folium
-from conftest import (
-    assert_config_value,
-    assert_locale,
-    make_browser_page,
-    render,
-    render_control,
-)
+from conftest import assert_config_value, make_browser_page, render, render_control
 
 from foliplus import MeasureControl
 

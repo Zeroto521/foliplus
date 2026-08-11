@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import assert_locale, render, render_control
+from conftest import assert_locale, make_browser_page, render, render_control
 
 from foliplus import LayerControl
 
@@ -70,7 +70,6 @@ class TestLayerControlRendering:
 
     def test_fold_icon_single_svg_css_rotation(self):
         """Fold uses a single SVG icon rotated by CSS — no separate UNFOLD SVG."""
-        from pathlib import Path
 
         html = render_control(LayerControl())
         assert "FOLD" in html
@@ -387,25 +386,23 @@ class TestLayerControlRendering:
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
 
-    def test_cross_group_drag_shows_hint(self, browser, tmp_path):
-        """Dragging overlay toward base group should show blocked hint."""
+    @staticmethod
+    def _make_page(browser, tmp_path, *layers, slug="lc"):
+        """Create a map with LayerControl, render, and return (page, errors)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
-        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
-        folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
-            m
-        )
+        for layer in layers:
+            layer.add_to(m)
+        page, errors = make_browser_page(browser, tmp_path, m.get_root().render(), slug)
+        page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+        return page, errors
 
-        html_path = tmp_path / "test_layer_control_drag_hint.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+    def test_cross_group_drag_shows_hint(self, browser, tmp_path):
+        """Dragging overlay toward base group should show blocked hint."""
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        base = folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False)
+        page, errors = self._make_page(browser, tmp_path, overlay, base)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -445,20 +442,8 @@ class TestLayerControlBrowser:
 
     def test_create_managed_layers_api(self, browser, tmp_path):
         """layers() returns expected convenience methods."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_api.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
             api = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2148,7 +2133,9 @@ class TestLayerControlBrowser:
             assert result is not None, "LayerAPI not found"
             assert result["layerCount"] >= 2, f"got {result['layerCount']} layers"
             # Leaflet sets z-index via CSS class, so computed style should be numeric
-            assert result["overlayZ"] and result["overlayZ"] != "auto", "overlay pane should have z-index"
+            assert result["overlayZ"] and result["overlayZ"] != "auto", (
+                "overlay pane should have z-index"
+            )
             assert result["markerZ"], "marker pane should have z-index"
         finally:
             page.close()
@@ -2184,194 +2171,6 @@ class TestLayerControlBrowser:
             )
         finally:
             page.close()
-
-
-class TestLayerControlEdgeCases:
-    """Tests for uncovered edge cases and code paths."""
-
-    def test_hide_color_restores_tile_pane(self, base_map: folium.Map):
-        """hideColorLayer restores tilePane visibility."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert 'tilePane.classList.remove("foliplus-layer-tile-hidden")' in html
-        assert "mapContainer.style.removeProperty" in html
-
-    def test_deselect_all_bases_skips_except_index(self, base_map: folium.Map):
-        """deselectAllBaseMaps skips the excluded index."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "deselectAllBaseMaps" in html
-        assert "i !== exceptIdx" in html
-
-    def test_handle_input_color_change(self, base_map: folium.Map):
-        """handleInput reacts to color input changes."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "handleInput" in html
-        assert "showColorLayer(e.target.value)" in html
-
-    def test_bring_layer_to_front(self, base_map: folium.Map):
-        """bringLayerToFront moves layer to top of list."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "bringLayerToFront" in html
-        assert "this.layerRegistry.moveToFront(id)" in html
-
-    def test_register_layer_requires_id(self, base_map: folium.Map):
-        """registerLayer throws when id is missing."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "id_required" in html
-        assert "throw new Error" in html
-
-    def test_create_canvas_requires_id(self, base_map: folium.Map):
-        """createCanvas throws when id is missing."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "require_canvas_id" in html
-        assert "throw new Error" in html
-
-    def test_traverse_utility(self, base_map: folium.Map):
-        """LayerUtils.traverse walks all layers (containers + leaves)."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "var traverse" in html
-        assert "leafOnly" in html
-
-    def test_register_sets_pane_on_non_path(self, base_map: folium.Map):
-        """registerLayer sets pane on non-Path/Marker layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "opts.layer.options.pane = opts.paneName" in html
-        assert "opts.layer.options.paneSet = true" in html
-
-    def test_handle_change_resets_paneset_on_show(self, base_map: folium.Map):
-        """handleChange resets paneSet=false after re-add to trigger enforceOrder re-move."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "target.checked && layer) layer.options.paneSet = false" in html
-
-    def test_toggle_all_resets_paneset_on_show(self, base_map: folium.Map):
-        """toggleAll resets paneSet=false after re-add for all layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "newState && layer) layer.options.paneSet = false" in html
-
-    def test_drag_event_handlers_bound(self, base_map: folium.Map):
-        """Drag-and-drop event handlers are registered."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "handleDragStart" in html
-        assert "handleDragOver" in html
-        assert "handleDragLeave" in html
-        assert "handleDrop" in html
-        assert "handleDragEnd" in html
-
-    # ── Indeterminate checkbox (partial selection) tests ──
-
-    def test_indeterminate_css_style_present(self):
-        """:indeterminate CSS style exists for partial selection state."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
-        assert ":indeterminate" in css
-        assert ":indeterminate::after" in css
-        # Should use a dash/minus icon (not a checkmark)
-        assert "x1='6' y1='12' x2='18' y2='12'" in css
-
-    def test_sync_toggle_all_sets_indeterminate(self, base_map: folium.Map):
-        """syncToggleAll sets indeterminate when some (not all) layers are checked."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
-
-    def test_sync_toggle_all_resets_indeterminate_on_all_checked(
-        self, base_map: folium.Map
-    ):
-        """syncToggleAll resets indeterminate when all layers become checked."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        # When all checked, checked=true and indeterminate=false
-        assert "allCb.checked = allChecked" in html
-        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
-
-    def test_sync_toggle_all_resets_indeterminate_on_none_checked(
-        self, base_map: folium.Map
-    ):
-        """syncToggleAll resets indeterminate when no layers are checked."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        # When none checked, checked=false and noneChecked triggers indeterminate=false
-        assert "noneChecked = checkedCount === 0" in html
-        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
-
-    # ── Performance optimizations ──
-
-    def test_register_uses_debounced_enforce(self, base_map: folium.Map):
-        """registerLayer defers enforceOrder via debouncedEnforce.
-
-        Batch registration (e.g. MeasureControl adding many measurements) must
-        coalesce reordering into a single pass instead of one synchronous
-        enforceOrder per registerLayer call.
-        """
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        # Scope the assertion to the registerLayer method body so onLayerAdd's
-        # debouncedEnforce call does not satisfy it.
-        start = html.index("registerLayer(opts) {")
-        # Find the next method-level closing brace after registerLayer
-        depth = 0
-        end = start
-        for k in range(start, len(html)):
-            if html[k] == "{":
-                depth += 1
-            elif html[k] == "}":
-                depth -= 1
-                if depth == 0:
-                    end = k + 1
-                    break
-        body = html[start:end]
-        assert "this.debouncedEnforce()" in body, (
-            "registerLayer must defer via debouncedEnforce"
-        )
-        assert "this.enforceOrder()" not in body, (
-            "registerLayer must not call enforceOrder synchronously"
-        )
-
-    def test_unregister_no_invalidate_size(self, base_map: folium.Map):
-        """unregisterLayer must not force invalidateSize.
-
-        map.removeLayer already triggers Leaflet's internal size bookkeeping.
-        A manual invalidateSize forces a full layout pass on every layer
-        removal, causing unnecessary layout thrash during rapid add/remove
-        (e.g. MeasureControl drawing sessions).
-        """
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "invalidateSize" not in html
-
-    def test_migrate_layers_skips_container_pane(self, base_map: folium.Map):
-        """migrateLayers must not write pane on container layers.
-
-        Only leaf layers (Path/Marker) should get options.pane + paneSet so a
-        layerGroup's options stay unpolluted. Container pane writes would
-        prevent re-migration when paneName changes.
-        """
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        # Container (eachLayer) nodes must be excluded from pane writes —
-        # collect() recurses into containers and returns before writing pane.
-        start = html.index("const collect =")
-        end = html.index("collect(layer);")
-        collect_body = html[start:end]
-        # Container guard: recurse and skip pane writes for containers
-        assert "if (l.eachLayer) {" in collect_body, (
-            "migrateLayers must guard container layers"
-        )
-        assert "l.eachLayer(collect)" in collect_body, (
-            "migrateLayers must recurse into containers"
-        )
-        assert "return;" in collect_body, (
-            "migrateLayers must skip pane writes for containers"
-        )
 
     def test_register_batch_coalesces_enforce(self, browser, tmp_path):
         """Batch registration coalesces enforceOrder into a single pass.
@@ -3046,3 +2845,191 @@ class TestLayerControlEdgeCases:
             assert result["shiftThrew"] is True, "shift should throw"
         finally:
             page.close()
+
+
+class TestLayerControlEdgeCases:
+    """Tests for uncovered edge cases and code paths."""
+
+    def test_hide_color_restores_tile_pane(self, base_map: folium.Map):
+        """hideColorLayer restores tilePane visibility."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert 'tilePane.classList.remove("foliplus-layer-tile-hidden")' in html
+        assert "mapContainer.style.removeProperty" in html
+
+    def test_deselect_all_bases_skips_except_index(self, base_map: folium.Map):
+        """deselectAllBaseMaps skips the excluded index."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "deselectAllBaseMaps" in html
+        assert "i !== exceptIdx" in html
+
+    def test_handle_input_color_change(self, base_map: folium.Map):
+        """handleInput reacts to color input changes."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "handleInput" in html
+        assert "showColorLayer(e.target.value)" in html
+
+    def test_bring_layer_to_front(self, base_map: folium.Map):
+        """bringLayerToFront moves layer to top of list."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "bringLayerToFront" in html
+        assert "this.layerRegistry.moveToFront(id)" in html
+
+    def test_register_layer_requires_id(self, base_map: folium.Map):
+        """registerLayer throws when id is missing."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "id_required" in html
+        assert "throw new Error" in html
+
+    def test_create_canvas_requires_id(self, base_map: folium.Map):
+        """createCanvas throws when id is missing."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "require_canvas_id" in html
+        assert "throw new Error" in html
+
+    def test_traverse_utility(self, base_map: folium.Map):
+        """LayerUtils.traverse walks all layers (containers + leaves)."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "var traverse" in html
+        assert "leafOnly" in html
+
+    def test_register_sets_pane_on_non_path(self, base_map: folium.Map):
+        """registerLayer sets pane on non-Path/Marker layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "opts.layer.options.pane = opts.paneName" in html
+        assert "opts.layer.options.paneSet = true" in html
+
+    def test_handle_change_resets_paneset_on_show(self, base_map: folium.Map):
+        """handleChange resets paneSet=false after re-add to trigger enforceOrder re-move."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "target.checked && layer) layer.options.paneSet = false" in html
+
+    def test_toggle_all_resets_paneset_on_show(self, base_map: folium.Map):
+        """toggleAll resets paneSet=false after re-add for all layers."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "newState && layer) layer.options.paneSet = false" in html
+
+    def test_drag_event_handlers_bound(self, base_map: folium.Map):
+        """Drag-and-drop event handlers are registered."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "handleDragStart" in html
+        assert "handleDragOver" in html
+        assert "handleDragLeave" in html
+        assert "handleDrop" in html
+        assert "handleDragEnd" in html
+
+    # ── Indeterminate checkbox (partial selection) tests ──
+
+    def test_indeterminate_css_style_present(self):
+        """:indeterminate CSS style exists for partial selection state."""
+        css = Path("foliplus/css/LayerControl.css").read_text()
+        assert ":indeterminate" in css
+        assert ":indeterminate::after" in css
+        # Should use a dash/minus icon (not a checkmark)
+        assert "x1='6' y1='12' x2='18' y2='12'" in css
+
+    def test_sync_toggle_all_sets_indeterminate(self, base_map: folium.Map):
+        """syncToggleAll sets indeterminate when some (not all) layers are checked."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
+
+    def test_sync_toggle_all_resets_indeterminate_on_all_checked(
+        self, base_map: folium.Map
+    ):
+        """syncToggleAll resets indeterminate when all layers become checked."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # When all checked, checked=true and indeterminate=false
+        assert "allCb.checked = allChecked" in html
+        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
+
+    def test_sync_toggle_all_resets_indeterminate_on_none_checked(
+        self, base_map: folium.Map
+    ):
+        """syncToggleAll resets indeterminate when no layers are checked."""
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # When none checked, checked=false and noneChecked triggers indeterminate=false
+        assert "noneChecked = checkedCount === 0" in html
+        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
+
+    # ── Performance optimizations ──
+
+    def test_register_uses_debounced_enforce(self, base_map: folium.Map):
+        """registerLayer defers enforceOrder via debouncedEnforce.
+
+        Batch registration (e.g. MeasureControl adding many measurements) must
+        coalesce reordering into a single pass instead of one synchronous
+        enforceOrder per registerLayer call.
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Scope the assertion to the registerLayer method body so onLayerAdd's
+        # debouncedEnforce call does not satisfy it.
+        start = html.index("registerLayer(opts) {")
+        # Find the next method-level closing brace after registerLayer
+        depth = 0
+        end = start
+        for k in range(start, len(html)):
+            if html[k] == "{":
+                depth += 1
+            elif html[k] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = k + 1
+                    break
+        body = html[start:end]
+        assert "this.debouncedEnforce()" in body, (
+            "registerLayer must defer via debouncedEnforce"
+        )
+        assert "this.enforceOrder()" not in body, (
+            "registerLayer must not call enforceOrder synchronously"
+        )
+
+    def test_unregister_no_invalidate_size(self, base_map: folium.Map):
+        """unregisterLayer must not force invalidateSize.
+
+        map.removeLayer already triggers Leaflet's internal size bookkeeping.
+        A manual invalidateSize forces a full layout pass on every layer
+        removal, causing unnecessary layout thrash during rapid add/remove
+        (e.g. MeasureControl drawing sessions).
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        assert "invalidateSize" not in html
+
+    def test_migrate_layers_skips_container_pane(self, base_map: folium.Map):
+        """migrateLayers must not write pane on container layers.
+
+        Only leaf layers (Path/Marker) should get options.pane + paneSet so a
+        layerGroup's options stay unpolluted. Container pane writes would
+        prevent re-migration when paneName changes.
+        """
+        LayerControl().add_to(base_map)
+        html = render(base_map)
+        # Container (eachLayer) nodes must be excluded from pane writes —
+        # collect() recurses into containers and returns before writing pane.
+        start = html.index("const collect =")
+        end = html.index("collect(layer);")
+        collect_body = html[start:end]
+        # Container guard: recurse and skip pane writes for containers
+        assert "if (l.eachLayer) {" in collect_body, (
+            "migrateLayers must guard container layers"
+        )
+        assert "l.eachLayer(collect)" in collect_body, (
+            "migrateLayers must recurse into containers"
+        )
+        assert "return;" in collect_body, (
+            "migrateLayers must skip pane writes for containers"
+        )
