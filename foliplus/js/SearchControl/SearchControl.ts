@@ -40,7 +40,7 @@ class SearchControl extends BaseControl {
   declare repositionHandler: () => void;
   declare addrAbortController: AbortController | null;
   declare suggestAbortController: AbortController | null;
-  declare marker: LMarker | null;
+  declare marker: L.Marker | null;
   declare mode: string;
   declare suggestionsWrap: HTMLElement | null;
   declare selectedSuggestionIdx: number;

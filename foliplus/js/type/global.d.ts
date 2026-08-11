@@ -8,13 +8,18 @@
 import type * as L from "leaflet";
 
 declare global {
-  /** Re-export instead of inline `import("leaflet")` everywhere. */
-  type LMap = L.Map;
-  type LMarker = L.Marker;
-  type LPopup = L.Popup;
-
   const L: typeof L;
-  const map: LMap;
+  namespace L {
+    type ControlOptions = L.ControlOptions;
+    type Map = L.Map;
+    type Marker = L.Marker;
+    type Popup = L.Popup;
+    type LeafletEvent = L.LeafletEvent;
+    type LeafletMouseEvent = L.LeafletMouseEvent;
+    type PointExpression = L.PointExpression;
+  }
+
+const map: L.Map;
   const foliplus: any;
   const CONF: any;
   const CONFIG: any;
@@ -34,7 +39,7 @@ declare global {
     /** Leaflet global. */
     L: typeof L;
     /** Map instance global (used by some components/tests). */
-    map: LMap;
+    map: L.Map;
   }
 }
 
