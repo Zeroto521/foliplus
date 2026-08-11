@@ -1,3 +1,4 @@
+import * as Storage from "#common/storage.js";
 import * as CONST from "#foliplus/MeasureControl/MeasureControl.const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/MeasureControl.manager.js";
 import { describe, expect, it, vi } from "vitest";
@@ -120,5 +121,31 @@ describe("MeasureManager — lifecycle", () => {
     const calls = map.off.mock.calls.length;
     manager.destroy();
     expect(map.off.mock.calls.length).toBeGreaterThanOrEqual(calls);
+  });
+});
+
+describe("MeasureManager — persistence edge cases", () => {
+  it("loadMeasurements falls back to [] on corrupted JSON", () => {
+    const { manager } = makeManager();
+    const spy = vi.spyOn(Storage, "load").mockReturnValue({ not: "array" });
+    const result = manager.loadMeasurements();
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(0);
+    spy.mockRestore();
+  });
+
+  it("clearAll collapses expanded panel when ctrl exists", () => {
+    const { manager } = makeManager();
+    const ctrl = document.createElement("div");
+    ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    manager.ctrl = ctrl;
+    manager.clearAll();
+    expect(ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
+  });
+
+  it("clearAll is safe when ctrl is null", () => {
+    const { manager } = makeManager();
+    manager.ctrl = null;
+    expect(() => manager.clearAll()).not.toThrow();
   });
 });

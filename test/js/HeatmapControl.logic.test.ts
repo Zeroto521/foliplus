@@ -389,3 +389,53 @@ describe("buildFeatures — centroid fallback", () => {
     expect(m.buildFeatures(aggregated)).toEqual([]);
   });
 });
+
+describe("HeatmapManager — caching & lifecycle", () => {
+  it("clearHeatmapCanvas resets autoFieldKey and all caches", () => {
+    const m = makeManager();
+    m.autoFieldKey = "price";
+    m.cachedFeatures = { f: 1 };
+    m.cachedAgg = { key: "k", data: "d" };
+    m.cachedPoints = { key: "p", pts: [] };
+    m.clearHeatmapCanvas();
+    expect(m.cachedFeatures).toBeNull();
+    expect(m.cachedAgg).toBeNull();
+    expect(m.overlay.unregister).toHaveBeenCalled();
+  });
+
+  it("renderHexagons clears canvas when no layer selected", () => {
+    const m = makeManager();
+    m.selectedLayerId = null;
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+    m.map = { _container: {}, getZoom: () => 5 };
+    m.renderHexagons();
+    expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it("renderHexagons returns early when map or overlay missing", () => {
+    const m = makeManager();
+    m.map = null;
+    expect(() => m.renderHexagons()).not.toThrow();
+  });
+
+  it("resolveLabelStyle caches the computed style", () => {
+    const m = makeManager();
+    m.ui = { ctrl: document.createElement("div") };
+    const style1 = m.resolveLabelStyle();
+    const style2 = m.resolveLabelStyle();
+    expect(style1).toBe(style2);
+    expect(m.cachedLabelStyle).toBe(style1);
+  });
+
+  it("collectFields gathers numeric properties once", () => {
+    const m = makeManager();
+    window.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: { feature: { properties: { price: 1, name: "x" } } } },
+      { marker: { feature: { properties: { price: 2 } } } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }, { id: "b" }]);
+    expect(fields).toContain("properties.price");
+    expect(fields).not.toContain("properties.name");
+    expect(fields.filter(f => f === "properties.price")).toHaveLength(1);
+  });
+});
