@@ -240,3 +240,35 @@ describe("buildPopup", () => {
     expect(result).toBeDefined();
   });
 });
+
+describe("animateDashSweep", () => {
+  it("sets a delayed flag and clears it after the delay", () => {
+    vi.useFakeTimers();
+    const manager = { isSuppressHideDel: false };
+    Util.suppressHide(manager);
+    expect(manager.isSuppressHideDel).toBe(true);
+    vi.advanceTimersByTime(1000);
+    expect(manager.isSuppressHideDel).toBe(false);
+    vi.useRealTimers();
+  });
+});
+
+describe("applyToggle", () => {
+  it("toggles labels and calls onToggle", () => {
+    const labelEl = document.createElement("span");
+    labelEl.classList.add("foliplus-measure-label");
+    const marker = { getElement: () => ({ querySelector: () => labelEl }) };
+    const delMarker = { getElement: () => ({ querySelector: () => null }) };
+    const onToggle = vi.fn();
+    Util.applyToggle(delMarker, true, [marker], false, null, onToggle);
+    expect(labelEl.classList.contains("foliplus-measure-hidden")).toBe(true);
+    expect(onToggle).toHaveBeenCalledWith(true, false);
+  });
+});
+
+describe("buildPopup", () => {
+  it("delegates to buildPopupHtml", () => {
+    const result = Util.buildPopup(1, 2, "addr");
+    expect(result).toBeDefined();
+  });
+});

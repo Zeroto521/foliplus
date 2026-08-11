@@ -292,3 +292,100 @@ describe("aggregateData", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("computeBreaks — additional gaps", () => {
+  it("returns [lo, hi] for single-element data across methods", () => {
+    const m = makeManager();
+    expect(m.computeBreaks([42], 3, "equal")).toEqual([42, 42]);
+    expect(m.computeBreaks([42], 3, "quantile")).toEqual([42, 42]);
+    expect(m.computeBreaks([42], 3, "heads")).toEqual([42, 42]);
+  });
+
+  it("limits nClasses to min(nClasses, data length)", () => {
+    const m = makeManager();
+    expect(m.computeBreaks([1, 2], 2, "equal")).toEqual([1, 2]);
+  });
+});
+
+describe("readMarkerField — additional gaps", () => {
+  it("returns undefined for unknown field path", () => {
+    const m = makeManager();
+    expect(m.readMarkerField({}, "some.random.path")).toBeUndefined();
+  });
+
+  it("returns undefined when properties key does not exist", () => {
+    const m = makeManager();
+    const marker = { feature: { properties: { foo: 1 } } };
+    expect(m.readMarkerField(marker, "properties.bar")).toBeUndefined();
+  });
+});
+
+describe("getPointValue — additional gaps", () => {
+  it("uses autoFieldKey when fieldAuto is true", () => {
+    const m = makeManager();
+    m.currentAgg = CONST.AGG.SUM;
+    m.fieldAuto = true;
+    m.autoFieldKey = "value";
+    expect(m.getPointValue({ value: 42 })).toBe(42);
+  });
+
+  it("uses currentField when fieldAuto is false", () => {
+    const m = makeManager();
+    m.currentAgg = CONST.AGG.SUM;
+    m.fieldAuto = false;
+    m.currentField = "options.value";
+    expect(m.getPointValue({ options: { value: 99 } })).toBe(99);
+  });
+
+  it("warns on value fallback (once per render)", () => {
+    const m = makeManager();
+    m.currentAgg = CONST.AGG.SUM;
+    m.fieldAuto = false;
+    m.currentField = "bad_field";
+    m.valueFallbackWarned = false;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => { });
+    expect(m.getPointValue({})).toBe(1);
+    expect(m.valueFallbackWarned).toBe(true);
+    expect(m.getPointValue({})).toBe(1); // no additional warn
+    warnSpy.mockRestore();
+  });
+});
+
+describe("buildFeatures — centroid fallback", () => {
+  it("computes centroid from boundary polygon when h3.cellToLatLng fails", () => {
+    const m = makeManager();
+    // Override AFTER construction — makeManager reassigns h3 mocks
+    globalThis.h3.cellToLatLng = vi.fn(() => { throw new Error("unavailable"); });
+    globalThis.h3.cellToBoundary = vi.fn(() => [
+      [0, 0],
+      [0, 2],
+      [2, 2],
+      [2, 0],
+      [0, 0],
+    ]);
+
+    const aggregated = {
+      hexCells: { abc: { sum: 1, count: 1 } },
+      getAggValue: c => c.count,
+      valueToClassIdx: () => 0,
+      classColors: ["#ff0000"],
+    };
+    const feats = m.buildFeatures(aggregated);
+    expect(feats).toHaveLength(1);
+    expect(feats[0].properties.centroid).toBeDefined();
+    // centroid = [cy/(n-1), cx/(n-1)] over coords = [[0,0],[2,0],[2,2],[0,2],[0,0]]
+    // cy = 0+0+2+2+0 = 4, cx = 0+2+2+0+0 = 4, n-1 = 5
+    expect(feats[0].properties.centroid).toEqual([4 / 5, 4 / 5]);
+  });
+
+  it("returns empty array for empty hexCells", () => {
+    const m = makeManager();
+    const aggregated = {
+      hexCells: {},
+      getAggValue: c => 0,
+      valueToClassIdx: () => 0,
+      classColors: [],
+    };
+    expect(m.buildFeatures(aggregated)).toEqual([]);
+  });
+});

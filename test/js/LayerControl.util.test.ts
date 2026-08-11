@@ -1,11 +1,12 @@
+import * as CONST from "#foliplus/LayerControl/LayerControl.const.js";
 import * as SVGs from "#foliplus/LayerControl/LayerControl.icon.js";
 import * as Util from "#foliplus/LayerControl/LayerControl.util.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-class Polygon {}
-class Polyline {}
-class CircleMarker {}
-class Marker {}
+class Polygon { }
+class Polyline { }
+class CircleMarker { }
+class Marker { }
 
 const makeContainer = children => ({
   eachLayer: fn => children.forEach(fn),
@@ -104,5 +105,30 @@ describe("forEachLeaf / forEachLayer", () => {
     const seen = [];
     Util.forEachLeaf(root, l => seen.push(l));
     expect(seen).toEqual([leaf]);
+  });
+
+  it("respects recursion depth guard — traversal is bounded, not infinite", () => {
+    // Build a chain of 50 nested containers (far beyond RECURSION.LAYER_DEPTH=10).
+    const leaf = new Polygon();
+    let outer = makeContainer([leaf]);
+    for (let i = 0; i < 50; i++) outer = makeContainer([outer]);
+    const seen = [];
+    expect(() => Util.forEachLayer(outer, l => seen.push(l))).not.toThrow();
+    // Bounded by LAYER_DEPTH — should NOT be 51 (depth 0..50)
+    expect(seen.length).toBeLessThanOrEqual(CONST.RECURSION.LAYER_DEPTH + 2);
+  });
+});
+
+describe("escapeHTML", () => {
+  it("escapes < & > characters", () => {
+    expect(Util.escapeHTML("<div>&hello</div>")).toBe("&lt;div&gt;&amp;hello&lt;/div&gt;");
+  });
+
+  it("handles empty string", () => {
+    expect(Util.escapeHTML("")).toBe("");
+  });
+
+  it("leaves plain text unchanged except unsafe chars", () => {
+    expect(Util.escapeHTML("hello world 123")).toBe("hello world 123");
   });
 });
