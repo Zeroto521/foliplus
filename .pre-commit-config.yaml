@@ -46,23 +46,37 @@ repos:
     hooks:
       - id: codespell
 
-  # ── JS / CSS / Jinja2 formatting (custom script) ──
+  # ── TypeScript type checking ──
+  # Uses language: node so pre-commit.ci installs TypeScript itself (its
+  # isolated env has no node_modules). Keep the version in sync with the
+  # typescript devDependency in package.json.
   - repo: local
     hooks:
-      - id: format-css
-        name: format-css
-        entry: node script/format_jinja_js.js --type css
+      - id: typecheck
+        name: typecheck
+        entry: tsc --noEmit
         language: node
-        types_or: [css]
-        files: ^foliplus/css/
         pass_filenames: false
-        additional_dependencies: [prettier]
+        additional_dependencies:
+          - "typescript@7.0.2"
 
-      - id: format-jinja-js
-        name: format-jinja-js
-        entry: node script/format_jinja_js.js --type js
+  # ── JS / CSS formatting (Prettier) ──
+  # Uses language: node so pre-commit.ci sets up Node and installs prettier
+  # itself (its isolated env has no npx/node_modules).
+  #
+  # Uses .prettierrc.cjs (with require.resolve for the plugin) because
+  # prettier resolves plugins from package.json's "prettier" block via
+  # ESM `import()` from /code/noop.js — which fails in pre-commit.ci's
+  # isolated env (ESM does not honor NODE_PATH). require.resolve() in a
+  # .cjs file resolves via CJS module resolution, which honors NODE_PATH.
+  - repo: local
+    hooks:
+      - id: format-prettier
+        name: format-prettier
+        entry: prettier --write
         language: node
-        types_or: [javascript]
-        files: ^foliplus/js/
-        pass_filenames: false
-        additional_dependencies: [prettier]
+        types_or: [css, javascript, ts]
+        files: ^foliplus/(js|css)/|^script/.*\.(js|cjs|mjs|ts)$|^test/js/.*\.(js|cjs|mjs|ts)$
+        additional_dependencies:
+          - "prettier@3.9.5"
+          - "@trivago/prettier-plugin-sort-imports@5.2.2"

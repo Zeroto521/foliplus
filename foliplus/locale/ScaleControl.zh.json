@@ -1,0 +1,5 @@
+{
+  "locale.name": "中文",
+  "locale.code": "zh",
+  "ScaleControl.zoom_label": "地图级别：{zoom}"
+}

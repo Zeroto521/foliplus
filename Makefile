@@ -1,22 +1,33 @@
-.PHONY : help clean lint test dist info test-browser test-python
+.PHONY : help
+.PHONY: lint html info
+.PHONY: dist build-js build-js-dev build-python
+.PHONY: test test-browser test-python test-js
+.PHONY: clean clean-build clean-pyc clean-cov clean-html
 
 help:
 	@echo "'clean'        - remove all build/cache artifacts"
+	@echo "'lint'         - run pre-commit hooks"
+	@echo "'html'         - build HTML docs in doc/_build/html"
+	@echo "'info'         - show environment info"
+	@echo "'dist'         - build-js + build-python (full release)"
+	@echo "'build-js'     - minify JS/CSS with esbuild to foliplus/dist/"
+	@echo "'build-js-dev' - build JS/CSS without minification (for tests)"
+	@echo "'build-python' - build sdist + wheel only"
+	@echo "'test'         - run all tests with coverage"
+	@echo "'test-browser' - run browser tests"
+	@echo "'test-python'  - run Python-only tests (skip browser)"
+	@echo "'test-js'      - run JS tests (skip Python)"
 	@echo "'clean-build'  - remove build artifacts"
 	@echo "'clean-pyc'    - remove Python cache files"
 	@echo "'clean-cov'    - remove coverage files"
 	@echo "'clean-html'   - remove built documentation"
-	@echo "'lint'         - run pre-commit hooks"
-	@echo "'test'         - run all tests with coverage"
-	@echo "'test-python'  - run Python-only tests (skip browser)"
-	@echo "'test-browser' - run browser tests"
-	@echo "'dist'         - build sdist + wheel"
-	@echo "'info'         - show environment info"
 
 clean-build:
-	rm -fr build/
-	rm -fr dist/
-	rm -fr *.egg-info
+	rm -rf *.egg-info
+	rm -rf build/
+	rm -rf dist/
+	rm -rf foliplus/.build
+	rm -rf foliplus/dist
 
 clean-pyc:
 	find . -name '*.pyc' -exec rm -f {} +
@@ -35,22 +46,33 @@ clean: clean-build clean-pyc clean-cov clean-html
 lint:
 	pre-commit run -a -v
 
-# Parallel test workers. Use CPU count by default, override with JOBS=N.
-JOBS ?= auto
+dist: build-js build-python
 
-test:
-	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
+build-js:
+	npm run build
 
-test-python:
-	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
+build-js-dev:
+	npm run build:dev
 
-test-browser:
-	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test
-
-dist:
+build-python:
 	python -m build
 	twine check --strict dist/*
 	ls -l dist
+
+# Parallel test workers. Use CPU count by default, override with JOBS=N.
+JOBS ?= auto
+
+test: build-js-dev test-js
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
+
+test-python: build-js-dev
+	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
+
+test-browser: build-js-dev
+	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
+
+test-js:
+	npm test
 
 html:
 	cd doc/source && make html

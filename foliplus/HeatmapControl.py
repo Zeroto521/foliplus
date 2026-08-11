@@ -98,6 +98,26 @@ class HeatmapControl(BaseControl):
         ),
     ]
 
+    # The style dict is unpacked into flat instance attributes at init time so that
+    # each sub-field is individually serializable via _export_fields. This avoids
+    # passing a nested dict that the JS side would have to re-parse.
+    _export_fields = (
+        "field",
+        "color_scheme",
+        "method",
+        "n_classes",
+        "agg",
+        "schemes",
+        "border_weight",
+        "border_color",
+        "fill_opacity",
+        "border_opacity",
+        "label_show",
+        "label_size",
+        "label_color",
+        "label_format",
+    )
+
     def __init__(
         self,
         *,
@@ -122,6 +142,17 @@ class HeatmapControl(BaseControl):
             raise ValueError(f"agg must be one of {get_args(AGG)}, got {agg!r}")
 
         super().__init__(position=position, locale=locale)
+        style = {
+            "border_weight": 1.5,
+            "border_color": "#333333",
+            "fill_opacity": 0.7,
+            "border_opacity": 0.9,
+            "label_show": True,
+            "label_size": 11,
+            "label_color": "#fff",
+            "label_format": "auto",
+        } | (style or {})
+        self.field = style.get("field", "auto")
         self.color_scheme = color_scheme
         self.method = method
         self.n_classes = n_classes
@@ -135,16 +166,12 @@ class HeatmapControl(BaseControl):
             "YlOrRd",
             "Viridis",
         ]
-        self.style = {
-            "border_weight": 1.5,
-            "border_color": "#333333",
-            "fill_opacity": 0.7,
-            "border_opacity": 0.9,
-            "label_show": True,
-            "label_size": 11,
-            "label_color": "#fff",
-            "label_format": "auto",
-        } | (style or {})
-        self._template = self._get_template(
-            js_file="HeatmapControl.js", css_file="HeatmapControl.css"
-        )
+        self.border_weight = style["border_weight"]
+        self.border_color = style["border_color"]
+        self.fill_opacity = style["fill_opacity"]
+        self.border_opacity = style["border_opacity"]
+        self.label_show = style["label_show"]
+        self.label_size = style["label_size"]
+        self.label_color = style["label_color"]
+        self.label_format = style["label_format"]
+        self._template = self._get_template()

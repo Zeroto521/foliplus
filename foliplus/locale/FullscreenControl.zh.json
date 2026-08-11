@@ -1,0 +1,10 @@
+{
+  "locale.name": "中文",
+  "locale.code": "zh",
+  "FullscreenControl.enter": "已进入全屏，按 Esc 退出",
+  "FullscreenControl.exit": "已退出全屏",
+  "FullscreenControl.title": "全屏",
+  "FullscreenControl.title_cancel": "退出全屏",
+  "FullscreenControl.zoom_in": "放大",
+  "FullscreenControl.zoom_out": "缩小"
+}

@@ -24,14 +24,16 @@ wheels/
 MANIFEST
 
 # Test & coverage
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
 nosetests.xml
 coverage.xml
+.coverage
+.coverage.*
 *.cover
+coverage/
+htmlcov/
+html/
+.tox/
+.cache
 .hypothesis/
 .pytest_cache/
 
@@ -69,4 +71,6 @@ package-lock.json
 .DS_Store
 
 # Auto-generated
+foliplus/dist/
 foliplus/_version.py
+foliplus/.build/

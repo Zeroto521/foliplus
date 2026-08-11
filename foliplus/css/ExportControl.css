@@ -27,11 +27,6 @@
   --export-anchor-size: var(--size-12);
   /* Handle/center offset from box edge (half of 1px border) */
   --export-handle-offset: -1px;
-  /* Preview size & position */
-  --export-preview-max-w: 400px;
-  --export-preview-max-h: 300px;
-  --export-preview-gap: 10px;
-  --export-preview-z: 100000;
   /* Smooth box follow during drag */
   --export-move-transition:
     left var(--transition-fast), top var(--transition-fast),
@@ -92,7 +87,7 @@
 .foliplus-export-blocker {
   position: fixed;
   inset: 0;
-  z-index: var(--export-preview-z);
+  z-index: 100000;
   cursor: wait;
 }
 
@@ -214,11 +209,11 @@
 /* ── Preview image (auto-cleaned) ── */
 .foliplus-export-preview {
   position: fixed;
-  bottom: var(--export-preview-gap);
-  right: var(--export-preview-gap);
-  z-index: var(--export-preview-z);
-  max-width: var(--export-preview-max-w);
-  max-height: var(--export-preview-max-h);
+  bottom: 10px;
+  right: 10px;
+  z-index: 100000;
+  max-width: 400px;
+  max-height: 300px;
   border: var(--border-thick) solid var(--input-focus-border);
   border-radius: var(--radius-sm);
   background: var(--ctrl-bg);

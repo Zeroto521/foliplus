@@ -1,0 +1,18 @@
+{
+  "locale.name": "中文",
+  "locale.code": "zh",
+  "SearchControl.coord_placeholder": "请输入：经度,纬度",
+  "SearchControl.addr_placeholder": "请输入地址关键词",
+  "SearchControl.coord_error": "格式错误，请输入：经度,纬度",
+  "SearchControl.addr_not_found": "未找到该地址，请更换关键词重试",
+  "SearchControl.addr_error": "地址查询失败，请检查网络",
+  "SearchControl.popup_title_coord": "📍 坐标搜索",
+  "SearchControl.popup_title_addr": "📍 地址搜索",
+  "SearchControl.popup_loc_label": "📌 定位：",
+  "SearchControl.popup_addr_label": "📌 地址：",
+  "SearchControl.popup_loading": "查询中…",
+  "SearchControl.btn_title": "地图搜索",
+  "SearchControl.clear_title": "清除",
+  "SearchControl.mode_coord": "坐标搜索",
+  "SearchControl.mode_addr": "地址搜索"
+}
