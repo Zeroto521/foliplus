@@ -34,10 +34,9 @@ export default defineConfig({
         "foliplus/js/ExportControl/ExportControl.manager.ts",
         "foliplus/js/ExportControl/ExportControl.renderer.ts",
         "foliplus/js/ExportControl/ExportControl.ui.ts",
-        "foliplus/js/ExportControl/ExportControl.util.ts",
         // LayerControl complex modules — need L.Map, L.DomEvent, panes.
         "foliplus/js/LayerControl/LayerControl.manager.ts",
-        "foliplus/js/LayerControl/LayerControl.pane.ts",
+        // LayerControl.pane.ts — PaneManager isDefaultPane/getLayerPanes covered by LayerControl.pane.test.ts
         "foliplus/js/LayerControl/LayerControl.ui.ts",
         // MeasureControl complex modules — need L.Map, L.DomEvent, panes.
         "foliplus/js/MeasureControl/MeasureControl.manager.ts",
