@@ -314,7 +314,8 @@ class TestLayerControlRendering:
     def test_fold_btn_hover_color(self):
         """Fold button hover shows accent color (no bg/radius on fold-btn itself)."""
         css = Path("foliplus/css/LayerControl.css").read_text()
-        assert "foliplus-layer-fold-btn:hover" in css
+        assert ".foliplus-layer-fold-btn" in css
+        assert "&:hover" in css
         assert "color: var(--accent-primary)" in css
 
     def test_fold_btn_hover_bidirectional_preview(self):
@@ -331,7 +332,7 @@ class TestLayerControlRendering:
         """Fold button transitions color and transform (background removed — no bg to transition)."""
         css = Path("foliplus/css/LayerControl.css").read_text()
         # Find the base fold-btn rule (not the folded or hover variants)
-        idx = css.find(".foliplus-layer-ctrl .foliplus-layer-fold-btn {\n")
+        idx = css.find(".foliplus-layer-fold-btn {")
         assert idx != -1
         block = css[idx : css.index("}", idx) + 1]
         # Find the transition property value (between "transition:" and the next property)
@@ -346,13 +347,15 @@ class TestLayerControlRendering:
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
         css = Path("foliplus/css/LayerControl.css").read_text()
-        assert "foliplus-layer-fold-btn svg" in css
+        assert ".foliplus-layer-fold-btn" in css
+        assert "svg {" in css
         assert "fill: none" in css
 
     def test_drag_handle_circle_stroke(self):
         """drag-handle circles have explicit stroke so they appear bold."""
         css = Path("foliplus/css/LayerControl.css").read_text()
-        assert ".drag-handle circle" in css
+        assert ".drag-handle" in css
+        assert "circle {" in css
         assert "stroke: currentColor" in css
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):

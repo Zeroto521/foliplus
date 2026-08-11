@@ -31,6 +31,27 @@
   --export-move-transition:
     left var(--transition-fast), top var(--transition-fast),
     width var(--transition-fast), height var(--transition-fast);
+
+  /* Reset Leaflet stacking context so controls can sit above the crop mask.
+    leaflet-top/leaflet-bottom have z-index:1000 by default, creating a
+    stacking context that would trap controls below the overlay. */
+  .leaflet-control-container,
+  .leaflet-top,
+  .leaflet-bottom {
+    z-index: auto !important;
+  }
+
+  /* Keep controls visible above the crop mask */
+  .leaflet-control {
+    z-index: var(--export-controls-z) !important;
+  }
+
+  /* Scale/attribution stay dim below the mask */
+  .leaflet-control-scale,
+  .leaflet-control-attribution {
+    z-index: var(--export-scale-z) !important;
+    background: var(--ctrl-bg-translucent);
+  }
 }
 
 /* Drag in progress: disable transition so the box tracks the cursor
@@ -40,34 +61,14 @@
   transition: none;
 }
 
-/* Reset Leaflet stacking context so controls can sit above the crop mask.
-  leaflet-top/leaflet-bottom have z-index:1000 by default, creating a
-  stacking context that would trap controls below the overlay. */
-.foliplus-export-mode .leaflet-control-container,
-.foliplus-export-mode .leaflet-top,
-.foliplus-export-mode .leaflet-bottom {
-  z-index: auto !important;
-}
-
-/* Keep controls visible above the crop mask */
-.foliplus-export-mode .leaflet-control {
-  z-index: var(--export-controls-z) !important;
-}
-
-/* Scale/attribution stay dim below the mask */
-.foliplus-export-mode .leaflet-control-scale,
-.foliplus-export-mode .leaflet-control-attribution {
-  z-index: var(--export-scale-z) !important;
-  background: var(--ctrl-bg-translucent);
-}
-
 /* Export ctrl container (above overlay, below hints at 10000+) */
 .foliplus-export-ctrl {
   z-index: var(--export-ctrl-z);
-}
-/* Confirm/download buttons: red accent to distinguish from cancel */
-.foliplus-export-ctrl .foliplus-tool-btn.confirm {
-  color: var(--accent-primary);
+
+  /* Confirm/download buttons: red accent to distinguish from cancel */
+  .foliplus-tool-btn.confirm {
+    color: var(--accent-primary);
+  }
 }
 
 /* Dimming overlay: transparent placeholder, ::before on crop box does the work */
@@ -102,24 +103,26 @@
   box-shadow: 0 0 var(--size-16) var(--input-focus-shadow);
   border-radius: var(--size-2);
   transition: var(--export-move-transition);
-}
-.foliplus-export-box::before {
-  content: "";
-  position: absolute;
-  inset: var(--export-handle-offset);
-  pointer-events: none;
-  box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color);
-  z-index: -1;
-}
-.foliplus-export-box.locked {
-  cursor: default;
-  border: var(--border-thick) solid var(--input-focus-border);
-  pointer-events: none;
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
-  transition: none;
-}
-.foliplus-export-box.locked::before {
-  box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color-locked);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: var(--export-handle-offset);
+    pointer-events: none;
+    box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color);
+    z-index: -1;
+  }
+  &.locked {
+    cursor: default;
+    border: var(--border-thick) solid var(--input-focus-border);
+    pointer-events: none;
+    box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+    transition: none;
+
+    &::before {
+      box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color-locked);
+    }
+  }
 }
 
 /* ── Corner/Edge Handles ── */
@@ -133,57 +136,55 @@
   z-index: calc(var(--z-export-base) + 5);
   pointer-events: auto;
   box-sizing: border-box;
-}
-.foliplus-export-handle.tl {
-  top: var(--export-handle-offset);
-  left: var(--export-handle-offset);
-  transform: translate(-50%, -50%);
-  cursor: nwse-resize;
-}
-.foliplus-export-handle.tr {
-  top: var(--export-handle-offset);
-  right: var(--export-handle-offset);
-  transform: translate(50%, -50%);
-  cursor: nesw-resize;
-}
-.foliplus-export-handle.bl {
-  bottom: var(--export-handle-offset);
-  left: var(--export-handle-offset);
-  transform: translate(-50%, 50%);
-  cursor: nesw-resize;
-}
-.foliplus-export-handle.br {
-  bottom: var(--export-handle-offset);
-  right: var(--export-handle-offset);
-  transform: translate(50%, 50%);
-  cursor: nwse-resize;
-}
-.foliplus-export-handle.t {
-  top: var(--export-handle-offset);
-  left: 50%;
-  transform: translate(-50%, -50%);
-  cursor: ns-resize;
-}
-.foliplus-export-handle.b {
-  bottom: var(--export-handle-offset);
-  left: 50%;
-  transform: translate(-50%, 50%);
-  cursor: ns-resize;
-}
-.foliplus-export-handle.l {
-  left: var(--export-handle-offset);
-  top: 50%;
-  transform: translate(-50%, -50%);
-  cursor: ew-resize;
-}
-.foliplus-export-handle.r {
-  right: var(--export-handle-offset);
-  top: 50%;
-  transform: translate(50%, -50%);
-  cursor: ew-resize;
-}
-.foliplus-export-box.locked .foliplus-export-handle {
-  display: none;
+
+  &.tl {
+    top: var(--export-handle-offset);
+    left: var(--export-handle-offset);
+    transform: translate(-50%, -50%);
+    cursor: nwse-resize;
+  }
+  &.tr {
+    top: var(--export-handle-offset);
+    right: var(--export-handle-offset);
+    transform: translate(50%, -50%);
+    cursor: nesw-resize;
+  }
+  &.bl {
+    bottom: var(--export-handle-offset);
+    left: var(--export-handle-offset);
+    transform: translate(-50%, 50%);
+    cursor: nesw-resize;
+  }
+  &.br {
+    bottom: var(--export-handle-offset);
+    right: var(--export-handle-offset);
+    transform: translate(50%, 50%);
+    cursor: nwse-resize;
+  }
+  &.t {
+    top: var(--export-handle-offset);
+    left: 50%;
+    transform: translate(-50%, -50%);
+    cursor: ns-resize;
+  }
+  &.b {
+    bottom: var(--export-handle-offset);
+    left: 50%;
+    transform: translate(-50%, 50%);
+    cursor: ns-resize;
+  }
+  &.l {
+    left: var(--export-handle-offset);
+    top: 50%;
+    transform: translate(-50%, -50%);
+    cursor: ew-resize;
+  }
+  &.r {
+    right: var(--export-handle-offset);
+    top: 50%;
+    transform: translate(50%, -50%);
+    cursor: ew-resize;
+  }
 }
 
 /* ── Center Anchor ── */
@@ -201,6 +202,11 @@
   box-shadow: 0 1px var(--size-4) var(--export-dim-color);
   pointer-events: auto;
   cursor: move;
+}
+
+/* Locked: hide handles and center anchor */
+.foliplus-export-box.locked .foliplus-export-handle {
+  display: none;
 }
 .foliplus-export-box.locked .foliplus-export-center {
   display: none;

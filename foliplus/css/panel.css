@@ -11,89 +11,87 @@
   overflow: visible;
   pointer-events: auto;
   user-select: none;
-}
 
-/* ── Expanded State ── */
-.foliplus-panel.expanded {
-  width: var(--panel-width);
-  flex-direction: column;
-  border-radius: var(--radius-card);
-  overflow: hidden;
-}
+  /* ── Panel Wrapper (visible when expanded) ── */
+  .foliplus-panel-wrap {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+  }
 
-/* Hide toggle when expanded */
-.foliplus-panel.expanded .foliplus-toggle-btn {
-  display: none;
-}
+  /* ── Panel Header ── */
+  .foliplus-panel-header {
+    display: flex;
+    align-items: center;
+    height: var(--ctrl-size);
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 0 var(--panel-header-padding-right) 0 var(--panel-header-padding-left);
+    border-bottom: var(--border-thin) solid var(--divider-color);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+    background: var(--panel-header-bg);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    box-shadow: var(--shadow-xs);
+    position: relative;
 
-/* ── Accent color for expanded icon (all panel components) ── */
-.foliplus-panel.expanded .foliplus-header-icon,
-.foliplus-panel.expanded .foliplus-header-icon svg {
-  color: var(--accent-primary);
-}
+    &:hover {
+      background: var(--panel-header-hover);
+    }
+    .foliplus-header-icon {
+      width: var(--icon-size-md);
+      height: var(--icon-size-md);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: var(--space-sm);
+    }
+    .foliplus-header-title {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
 
-/* ── Panel Wrapper (visible when expanded) ── */
-.foliplus-panel .foliplus-panel-wrap {
-  display: none;
-  flex-direction: column;
-  width: 100%;
-}
+  /* ── Panel Content ── */
+  .foliplus-panel-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
 
-.foliplus-panel.expanded .foliplus-panel-wrap {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
+  /* ── Expanded State ── */
+  &.expanded {
+    width: var(--panel-width);
+    flex-direction: column;
+    border-radius: var(--radius-card);
+    overflow: hidden;
 
-/* ── Panel Header ── */
-.foliplus-panel .foliplus-panel-header {
-  display: flex;
-  align-items: center;
-  height: var(--ctrl-size);
-  flex-shrink: 0;
-  box-sizing: border-box;
-  padding: 0 var(--panel-header-padding-right) 0 var(--panel-header-padding-left);
-  border-bottom: var(--border-thin) solid var(--divider-color);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  cursor: pointer;
-  user-select: none;
-  background: var(--panel-header-bg);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  box-shadow: var(--shadow-xs);
-  position: relative;
-}
+    /* Hide toggle when expanded */
+    .foliplus-toggle-btn {
+      display: none;
+    }
 
-.foliplus-panel .foliplus-panel-header:hover {
-  background: var(--panel-header-hover);
-}
+    /* ── Accent color for expanded icon (all panel components) ── */
+    .foliplus-header-icon,
+    .foliplus-header-icon svg {
+      color: var(--accent-primary);
+    }
 
-.foliplus-panel .foliplus-panel-header .foliplus-header-icon {
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: var(--space-sm);
-}
-
-.foliplus-panel .foliplus-panel-header .foliplus-header-title {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Panel Content ── */
-.foliplus-panel .foliplus-panel-content {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow-x: hidden;
-  overflow-y: auto;
+    .foliplus-panel-wrap {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+  }
 }

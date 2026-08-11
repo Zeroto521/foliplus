@@ -41,6 +41,358 @@
   --heatmap-label-color: var(--neutral-0);
   --heatmap-label-stroke-color: rgba(0, 0, 0, 0.75);
   --heatmap-label-stroke-width: 3px;
+
+  /* ── Sections: Data / Style / Labels ── */
+  .foliplus-heatmap-section-block {
+    padding: 0;
+  }
+
+  /* ── Form Row ── */
+  .foliplus-heatmap-form-row {
+    display: flex;
+    align-items: center;
+    height: var(--toggle-size);
+    gap: var(--space-md);
+    box-sizing: border-box;
+  }
+  .foliplus-heatmap-form-label {
+    flex-shrink: 0;
+    width: var(--heatmap-label-width);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    text-align: right;
+    white-space: nowrap;
+    padding-right: var(--space-xs);
+  }
+  .foliplus-heatmap-form-control {
+    flex: 1;
+    min-width: 0;
+  }
+  .foliplus-heatmap-form-inline {
+    display: flex;
+    gap: var(--space-sm);
+  }
+
+  /* Shared select/input styles */
+  .foliplus-heatmap-form-select,
+  select {
+    width: 100%;
+    height: var(--ctrl-size);
+    font-size: var(--font-size-md);
+    padding: 0 var(--heatmap-select-pad-right) 0 var(--space-md);
+    border: var(--border-thin) solid var(--input-border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E")
+      no-repeat right var(--space-md) center;
+    background-size: var(--heatmap-select-arrow-width)
+      var(--heatmap-select-arrow-height);
+    color: var(--text-primary);
+    cursor: pointer;
+    outline: none;
+    box-sizing: border-box;
+    appearance: none;
+    transition: var(--transition-input);
+  }
+
+  /* Class count small select */
+  .foliplus-heatmap-class-select {
+    width: var(--heatmap-inline-width);
+    flex-shrink: 0;
+  }
+
+  /* Unified container */
+  .foliplus-heatmap-config-body {
+    padding: 0 var(--space-lg);
+  }
+  /* Dynamic content container */
+  .foliplus-heatmap-extra-body {
+    padding: 0;
+  }
+
+  /* ── Color Scheme Bar ── */
+  .foliplus-heatmap-scheme-bar {
+    width: 100%;
+    height: var(--ctrl-size);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    border: var(--border-thin) solid var(--btn-secondary-border);
+    position: relative;
+    padding-right: var(--icon-size-md);
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    transition: var(--transition-input);
+  }
+  .foliplus-heatmap-scheme-bar-inner {
+    flex: 1;
+    height: var(--heatmap-inline-height);
+    display: flex;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+  }
+  .foliplus-heatmap-scheme-bar-block {
+    flex: 1;
+    height: 100%;
+    transition:
+      filter var(--transition-fast),
+      opacity var(--transition-fast);
+  }
+  .foliplus-heatmap-scheme-bar::after {
+    content: "";
+    position: absolute;
+    right: var(--heatmap-accent-arrow-offset);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: var(--size-4) solid transparent;
+    border-right: var(--size-4) solid transparent;
+    border-top: var(--size-6) solid var(--text-muted);
+    pointer-events: none;
+  }
+  /* Scheme row: form-control needs relative positioning for the dropdown */
+  .foliplus-heatmap-form-row:has(.foliplus-heatmap-scheme-bar)
+    .foliplus-heatmap-form-control {
+    position: relative;
+  }
+  .hidden {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  /* Scheme dropdown */
+  .foliplus-heatmap-scheme-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: var(--space-xs);
+    background: var(--input-bg);
+    border: var(--border-thin) solid var(--input-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    z-index: var(--z-index-floating);
+    max-height: var(--dropdown-max-height);
+    overflow-y: auto;
+    padding: var(--space-sm) 0;
+  }
+  .foliplus-heatmap-scheme-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: 0 var(--space-lg);
+    height: var(--ctrl-size);
+    box-sizing: border-box;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    transition: background var(--transition-fast);
+
+    &:hover {
+      background: var(--accent-light);
+    }
+    &.active {
+      background: var(--accent-light);
+      color: var(--accent-primary);
+      font-weight: var(--font-weight-semibold);
+      border-left: var(--border-thick) solid var(--accent-primary);
+      padding-left: calc(var(--space-lg) - var(--border-thick));
+    }
+  }
+  .foliplus-heatmap-scheme-dropdown-bar {
+    flex: 1;
+    height: var(--heatmap-inline-height);
+    border-radius: var(--radius-sm);
+    border: var(--border-thin) solid var(--btn-secondary-border);
+    flex-shrink: 0;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── Border Inputs ── */
+  .foliplus-heatmap-color-input {
+    flex: 1;
+    height: var(--ctrl-size);
+    padding: var(--border-thin);
+    border: var(--border-thin) solid var(--input-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    background: none;
+    outline: none;
+    box-sizing: border-box;
+    transition: var(--transition-input);
+
+    &::-webkit-color-swatch-wrapper {
+      padding: var(--border-thin);
+    }
+    &::-webkit-color-swatch {
+      border: none;
+      border-radius: var(--radius-sm);
+    }
+  }
+  .foliplus-heatmap-weight-input {
+    width: var(--heatmap-inline-width);
+    height: var(--ctrl-size);
+    font-size: var(--font-size-sm);
+    padding: 0 var(--size-6);
+    border: var(--border-thin) solid var(--input-border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    outline: none;
+    box-sizing: border-box;
+    text-align: center;
+    transition: var(--transition-input);
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      appearance: none;
+      margin: 0;
+    }
+    &[type="number"] {
+      appearance: textfield;
+    }
+  }
+
+  /* ── Label Toggle ── */
+  .foliplus-heatmap-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: var(--heatmap-toggle-width);
+    height: var(--heatmap-toggle-height);
+    flex-shrink: 0;
+    cursor: pointer;
+
+    input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+  }
+  .foliplus-heatmap-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--toggle-off-bg);
+    border-radius: 10px;
+    transition: background-color var(--transition-fast);
+
+    &::before {
+      content: "";
+      position: absolute;
+      height: var(--size-16);
+      width: var(--size-16);
+      left: var(--size-2);
+      bottom: var(--size-2);
+      background-color: var(--neutral-0);
+      border-radius: var(--radius-round);
+      transition:
+        transform var(--transition-fast),
+        box-shadow var(--transition-fast);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
+    }
+  }
+  .foliplus-heatmap-toggle-switch:hover .foliplus-heatmap-toggle-slider {
+    background-color: var(--neutral-500);
+
+    &::before {
+      box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
+    }
+  }
+  .foliplus-heatmap-toggle-switch input:checked + .foliplus-heatmap-toggle-slider {
+    background-color: var(--accent-primary);
+  }
+  .foliplus-heatmap-toggle-switch:hover
+    input:checked
+    + .foliplus-heatmap-toggle-slider {
+    background-color: var(--btn-primary-hover);
+  }
+  .foliplus-heatmap-toggle-switch
+    input:checked
+    + .foliplus-heatmap-toggle-slider::before {
+    transform: translateX(var(--size-20)) scale(1.15);
+  }
+
+  /* ── Bottom Buttons ── */
+  .foliplus-heatmap-btn-row {
+    display: flex;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    border-top: var(--border-thin) solid var(--divider-color);
+  }
+  .foliplus-heatmap-btn {
+    flex: 1;
+    height: var(--ctrl-size);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    color: var(--neutral-0);
+    transition:
+      background var(--transition-fast),
+      box-shadow var(--transition-fast),
+      transform var(--transition-fast);
+
+    &:hover,
+    &:active {
+      color: var(--neutral-0);
+    }
+  }
+  .foliplus-heatmap-btn-clear {
+    background: var(--text-muted);
+    border: none;
+
+    &:hover {
+      background: var(--text-primary);
+      transform: scale(var(--scale-hover));
+    }
+    &:active {
+      background: var(--text-primary);
+      transform: scale(var(--scale-press));
+    }
+  }
+  .foliplus-heatmap-btn-confirm {
+    background: var(--btn-primary-bg);
+    box-shadow: var(--accent-shadow-sm);
+
+    &:hover {
+      background: var(--btn-primary-hover);
+      box-shadow: var(--accent-shadow-md);
+      transform: scale(var(--scale-hover));
+    }
+    &:active {
+      background: var(--btn-primary-hover);
+      box-shadow: var(--accent-shadow-md);
+      transform: scale(var(--scale-press));
+    }
+  }
+
+  .foliplus-section-divider {
+    margin: var(--space-md) var(--space-lg) var(--space-sm);
+  }
+  /* ── Section Headings ── */
+  .foliplus-heatmap-section-heading {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: var(--heatmap-heading-letter-spacing);
+    padding: var(--space-md) var(--space-xl) var(--space-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
 }
 
 /* ── Heatmap Canvas (inside mapPane, offset by -panX/-panY) ── */
@@ -50,69 +402,17 @@
   left: 0;
   pointer-events: none;
   image-rendering: auto;
+
+  /* ── Canvas visibility ── */
+  &.hidden {
+    display: none;
+  }
 }
 
-/* ── Canvas visibility ── */
-.foliplus-heatmap-canvas.hidden {
+/* Field selector: `.hidden` toggled by JS to hide the auto field block */
+.foliplus-heatmap-ctrl
+  :is(.foliplus-heatmap-extra-body, .foliplus-heatmap-field).hidden {
   display: none;
-}
-
-/* ── Sections: Data / Style / Labels ── */
-.foliplus-heatmap-ctrl .foliplus-heatmap-section-block {
-  padding: 0;
-}
-
-/* ── Form Row ── */
-.foliplus-heatmap-ctrl .foliplus-heatmap-form-row {
-  display: flex;
-  align-items: center;
-  height: var(--toggle-size);
-  gap: var(--space-md);
-  box-sizing: border-box;
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-form-label {
-  flex-shrink: 0;
-  width: var(--heatmap-label-width);
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  text-align: right;
-  white-space: nowrap;
-  padding-right: var(--space-xs);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-form-control {
-  flex: 1;
-  min-width: 0;
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-form-inline {
-  display: flex;
-  gap: var(--space-sm);
-}
-
-/* Shared select/input styles */
-.foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
-.foliplus-heatmap-ctrl select {
-  width: 100%;
-  height: var(--ctrl-size);
-  font-size: var(--font-size-md);
-  padding: 0 var(--heatmap-select-pad-right) 0 var(--space-md);
-  border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
-  background: var(--input-bg)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E")
-    no-repeat right var(--space-md) center;
-  background-size: var(--heatmap-select-arrow-width) var(--heatmap-select-arrow-height);
-  color: var(--text-primary);
-  cursor: pointer;
-  outline: none;
-  box-sizing: border-box;
-  appearance: none;
-  transition: var(--transition-input);
-}
-
-/* Class count small select */
-.foliplus-heatmap-ctrl .foliplus-heatmap-class-select {
-  width: var(--heatmap-inline-width);
-  flex-shrink: 0;
 }
 
 /* Placeholder select styling */
@@ -122,303 +422,4 @@
   .foliplus-heatmap-ctrl select option.foliplus-heatmap-placeholder-opt:disabled
 ) {
   color: var(--text-muted);
-}
-
-/* Unified container */
-.foliplus-heatmap-ctrl .foliplus-heatmap-config-body {
-  padding: 0 var(--space-lg);
-}
-/* Dynamic content container */
-.foliplus-heatmap-ctrl .foliplus-heatmap-extra-body {
-  padding: 0;
-}
-/* Field selector */
-.foliplus-heatmap-ctrl
-  :is(.foliplus-heatmap-extra-body, .foliplus-heatmap-field).hidden {
-  display: none;
-}
-
-/* ── Color Scheme Bar ── */
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar {
-  width: 100%;
-  height: var(--ctrl-size);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  border: var(--border-thin) solid var(--btn-secondary-border);
-  position: relative;
-  padding-right: var(--icon-size-md);
-  display: flex;
-  align-items: center;
-  box-sizing: border-box;
-  transition: var(--transition-input);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-inner {
-  flex: 1;
-  height: var(--heatmap-inline-height);
-  display: flex;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-block {
-  flex: 1;
-  height: 100%;
-  transition:
-    filter var(--transition-fast),
-    opacity var(--transition-fast);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar::after {
-  content: "";
-  position: absolute;
-  right: var(--heatmap-accent-arrow-offset);
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-left: var(--size-4) solid transparent;
-  border-right: var(--size-4) solid transparent;
-  border-top: var(--size-6) solid var(--text-muted);
-  pointer-events: none;
-}
-/* Scheme row: form-control needs relative positioning for the dropdown */
-.foliplus-heatmap-ctrl
-  .foliplus-heatmap-form-row:has(.foliplus-heatmap-scheme-bar)
-  .foliplus-heatmap-form-control {
-  position: relative;
-}
-.foliplus-heatmap-ctrl .hidden {
-  position: absolute;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-/* Scheme dropdown */
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-  box-sizing: border-box;
-  margin-top: var(--space-xs);
-  background: var(--input-bg);
-  border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  z-index: var(--z-index-floating);
-  max-height: var(--dropdown-max-height);
-  overflow-y: auto;
-  padding: var(--space-sm) 0;
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: 0 var(--space-lg);
-  height: var(--ctrl-size);
-  box-sizing: border-box;
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  transition: background var(--transition-fast);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-dropdown-item:hover {
-  background: var(--accent-light);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-dropdown-item.active {
-  background: var(--accent-light);
-  color: var(--accent-primary);
-  font-weight: var(--font-weight-semibold);
-  border-left: var(--border-thick) solid var(--accent-primary);
-  padding-left: calc(var(--space-lg) - var(--border-thick));
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-dropdown-bar {
-  flex: 1;
-  height: var(--heatmap-inline-height);
-  border-radius: var(--radius-sm);
-  border: var(--border-thin) solid var(--btn-secondary-border);
-  flex-shrink: 0;
-  display: flex;
-  overflow: hidden;
-}
-
-/* ── Border Inputs ── */
-.foliplus-heatmap-ctrl .foliplus-heatmap-color-input {
-  flex: 1;
-  height: var(--ctrl-size);
-  padding: var(--border-thin);
-  border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  background: none;
-  outline: none;
-  box-sizing: border-box;
-  transition: var(--transition-input);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-color-input::-webkit-color-swatch-wrapper {
-  padding: var(--border-thin);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-color-input::-webkit-color-swatch {
-  border: none;
-  border-radius: var(--radius-sm);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-weight-input {
-  width: var(--heatmap-inline-width);
-  height: var(--ctrl-size);
-  font-size: var(--font-size-sm);
-  padding: 0 var(--size-6);
-  border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
-  background: var(--input-bg);
-  color: var(--text-primary);
-  outline: none;
-  box-sizing: border-box;
-  text-align: center;
-  transition: var(--transition-input);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-weight-input::-webkit-outer-spin-button,
-.foliplus-heatmap-ctrl .foliplus-heatmap-weight-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-weight-input[type="number"] {
-  appearance: textfield;
-}
-
-/* ── Label Toggle ── */
-.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: var(--heatmap-toggle-width);
-  height: var(--heatmap-toggle-height);
-  flex-shrink: 0;
-  cursor: pointer;
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--toggle-off-bg);
-  border-radius: 10px;
-  transition: background-color var(--transition-fast);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-slider::before {
-  content: "";
-  position: absolute;
-  height: var(--size-16);
-  width: var(--size-16);
-  left: var(--size-2);
-  bottom: var(--size-2);
-  background-color: var(--neutral-0);
-  border-radius: var(--radius-round);
-  transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
-}
-.foliplus-heatmap-ctrl
-  .foliplus-heatmap-toggle-switch:hover
-  .foliplus-heatmap-toggle-slider {
-  background-color: var(--neutral-500);
-}
-.foliplus-heatmap-ctrl
-  .foliplus-heatmap-toggle-switch:hover
-  .foliplus-heatmap-toggle-slider::before {
-  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
-}
-.foliplus-heatmap-ctrl
-  .foliplus-heatmap-toggle-switch
-  input:checked
-  + .foliplus-heatmap-toggle-slider {
-  background-color: var(--accent-primary);
-}
-.foliplus-heatmap-ctrl
-  .foliplus-heatmap-toggle-switch:hover
-  input:checked
-  + .foliplus-heatmap-toggle-slider {
-  background-color: var(--btn-primary-hover);
-}
-.foliplus-heatmap-ctrl
-  .foliplus-heatmap-toggle-switch
-  input:checked
-  + .foliplus-heatmap-toggle-slider::before {
-  transform: translateX(var(--size-20)) scale(1.15);
-}
-
-/* ── Bottom Buttons ── */
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn-row {
-  display: flex;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
-  border-top: var(--border-thin) solid var(--divider-color);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn {
-  flex: 1;
-  height: var(--ctrl-size);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  color: var(--neutral-0);
-  transition:
-    background var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn:hover,
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn:active {
-  color: var(--neutral-0);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn-clear {
-  background: var(--text-muted);
-  border: none;
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn-clear:hover {
-  background: var(--text-primary);
-  transform: scale(var(--scale-hover));
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn-clear:active {
-  background: var(--text-primary);
-  transform: scale(var(--scale-press));
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn-confirm {
-  background: var(--btn-primary-bg);
-  box-shadow: var(--accent-shadow-sm);
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn-confirm:hover {
-  background: var(--btn-primary-hover);
-  box-shadow: var(--accent-shadow-md);
-  transform: scale(var(--scale-hover));
-}
-.foliplus-heatmap-ctrl .foliplus-heatmap-btn-confirm:active {
-  background: var(--btn-primary-hover);
-  box-shadow: var(--accent-shadow-md);
-  transform: scale(var(--scale-press));
-}
-
-.foliplus-heatmap-ctrl .foliplus-section-divider {
-  margin: var(--space-md) var(--space-lg) var(--space-sm);
-}
-/* ── Section Headings ── */
-.foliplus-heatmap-ctrl .foliplus-heatmap-section-heading {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: var(--heatmap-heading-letter-spacing);
-  padding: var(--space-md) var(--space-xl) var(--space-sm);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
 }
