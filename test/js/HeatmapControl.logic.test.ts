@@ -24,7 +24,13 @@ function makeManager() {
   globalThis.h3 = {
     latLngToCell: vi.fn(() => "abc123"),
     cellToLatLng: vi.fn(() => [26.08, 119.3]),
-    cellToBoundary: vi.fn(() => [[26.08, 119.3], [26.09, 119.3], [26.09, 119.31], [26.08, 119.31], [26.08, 119.3]]),
+    cellToBoundary: vi.fn(() => [
+      [26.08, 119.3],
+      [26.09, 119.3],
+      [26.09, 119.31],
+      [26.08, 119.31],
+      [26.08, 119.3],
+    ]),
   };
   globalThis.chroma = {
     scale: vi.fn(() => ({
@@ -52,10 +58,23 @@ function makeManager() {
     })),
   };
 
-  const map = { getContainer: vi.fn(), getBounds: vi.fn(), getZoom: vi.fn(), on: vi.fn(), off: vi.fn() };
+  const map = {
+    getContainer: vi.fn(),
+    getBounds: vi.fn(),
+    getZoom: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
+  };
   const manager = new HeatmapManager(map);
   // Re-stub overlay after constructor (constructor replaces it with createCanvas result)
-  manager.overlay = { canvas: null, ctx: null, register: vi.fn(), unregister: vi.fn(), setVisible: vi.fn(), hooks: { before: [], after: [] } };
+  manager.overlay = {
+    canvas: null,
+    ctx: null,
+    register: vi.fn(),
+    unregister: vi.fn(),
+    setVisible: vi.fn(),
+    hooks: { before: [], after: [] },
+  };
   return manager;
 }
 
@@ -67,9 +86,9 @@ afterEach(() => {
 describe("getH3Res", () => {
   it("returns matching resolution from RES_MAP", () => {
     const m = makeManager();
-    expect(m.getH3Res(2)).toBe(0);  // RES_MAP[0] = [2, 0]
-    expect(m.getH3Res(5)).toBe(2);  // RES_MAP[3] = [5, 2]
-    expect(m.getH3Res(7)).toBe(4);  // RES_MAP[5] = [7, 4]
+    expect(m.getH3Res(2)).toBe(0); // RES_MAP[0] = [2, 0]
+    expect(m.getH3Res(5)).toBe(2); // RES_MAP[3] = [5, 2]
+    expect(m.getH3Res(7)).toBe(4); // RES_MAP[5] = [7, 4]
     expect(m.getH3Res(10)).toBe(6); // RES_MAP[8] = [10, 6]
   });
 
@@ -214,8 +233,8 @@ describe("buildFeatures", () => {
         abc: { sum: 10, count: 5, min: 1, max: 5 },
         def: { sum: 20, count: 8, min: 2, max: 6 },
       },
-      getAggValue: (cell) => cell.count,
-      valueToClassIdx: (val) => Math.min(val - 1, 0),
+      getAggValue: cell => cell.count,
+      valueToClassIdx: val => Math.min(val - 1, 0),
       classColors: ["#ff0000", "#00ff00"],
     };
     const features = m.buildFeatures(aggregated);
@@ -246,7 +265,7 @@ describe("aggregateData", () => {
 
   it("aggregates points with COUNT", () => {
     m.currentAgg = CONST.AGG.COUNT;
-    globalThis.h3.latLngToCell = vi.fn((lat) => `cell_${lat}`);
+    globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
     const pts = [
       { lat: 26.08, lng: 119.3, value: 1 },
       { lat: 26.09, lng: 119.31, value: 1 },
