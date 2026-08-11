@@ -9,6 +9,8 @@ import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logi
 const { _ } = createControlEnv(CONF, SVGs.MAXIMIZE);
 
 class FullscreenControl extends BaseControl {
+  declare fsHandler: () => void;
+
   buildDOM() {
     if (map.zoomControl) map.removeControl(map.zoomControl);
     else {

@@ -19,7 +19,9 @@ const layerManager = new LayerManager(map, CONF.data);
 
 // ==================== Leaflet Control Definition ====================
 class LayerControl extends BaseControl {
-  constructor(options: any) {
+  declare manager: LayerManager;
+
+  constructor(options?: L.ControlOptions) {
     super(options);
     this.manager = layerManager;
   }

@@ -18,7 +18,9 @@ const measureManager = new MeasureManager(map);
 
 /** Leaflet control wrapper for the MeasureManager. Handles DOM creation and tool button events. */
 class MeasureControl extends BaseControl {
-  constructor(options: any) {
+  declare manager: MeasureManager;
+
+  constructor(options?: L.ControlOptions) {
     super(options);
     this.manager = measureManager;
   }

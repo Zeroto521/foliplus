@@ -33,7 +33,9 @@ map.on("layeradd", (e: any) => {
 const exportManager = new ExportManager(map);
 
 class ExportControl extends BaseControl {
-  constructor(options: any) {
+  declare manager: ExportManager;
+
+  constructor(options?: L.ControlOptions) {
     super(options);
     this.manager = exportManager;
   }

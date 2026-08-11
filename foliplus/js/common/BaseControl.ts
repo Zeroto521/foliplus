@@ -19,10 +19,10 @@
 const alreadyBound = (list: readonly unknown[][], item: readonly unknown[]): boolean =>
   list.some(it => it[0] === item[0] && it[1] === item[1]);
 
-class BaseControl extends L.Control<L.ControlOptions> {
+class BaseControl extends L.Control {
   events: Array<[HTMLElement, string, (e: Event) => void]>;
-  mapListeners: Array<[string, (...args: never[]) => void]>;
-  _map: L.Map;
+  mapListeners: Array<[string, L.LeafletEventHandlerFn]>;
+  _map!: L.Map;
   init?(): void;
   buildDOM?(): HTMLElement;
   build?(): HTMLElement;
@@ -47,7 +47,7 @@ class BaseControl extends L.Control<L.ControlOptions> {
     // Auto-unbind tracked listeners — always runs, cannot be skipped by subclasses.
     this.events.forEach(([el, ev, fn]) => L.DomEvent.off(el, ev, fn));
     this.events = [];
-    this.mapListeners.forEach(([ev, fn]) => this._map?.off(ev, fn));
+    this.mapListeners.forEach(([ev, fn]) => this._map.off(ev as any, fn));
     this.mapListeners = [];
   }
 
@@ -63,8 +63,8 @@ class BaseControl extends L.Control<L.ControlOptions> {
   }
 
   /** Track a map event listener for auto-cleanup. */
-  listenMap(ev: string, fn: (...args: never[]) => void): void {
-    const item: [string, (...args: never[]) => void] = [ev, fn];
+  listenMap(ev: string, fn: L.LeafletEventHandlerFn): void {
+    const item: [string, L.LeafletEventHandlerFn] = [ev, fn];
     if (alreadyBound(this.mapListeners, item)) return;
     this._map.on(ev, fn);
     this.mapListeners.push(item);
