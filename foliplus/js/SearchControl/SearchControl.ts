@@ -10,8 +10,44 @@ import { initDebouncedFetch, removeSuggestions } from "./SearchControl.logic.js"
 
 const { _, foliplus } = createControlEnv(CONF, SVGs.SEARCH);
 
+/** Nominatim search result element. */
+interface NominatimItem {
+  lat: string;
+  lon: string;
+  name?: string;
+  display_name: string;
+}
+
+/** Cached address result: the raw item + its formatted display name. */
+interface AddressResult {
+  item: NominatimItem;
+  displayName: string;
+}
+
 // ==================== Control Definition ====================
 class SearchControl extends BaseControl {
+  declare container: HTMLElement;
+  declare ctrl: HTMLElement;
+  declare toggleBtn: HTMLElement;
+  declare toolBar: HTMLElement;
+  declare modeBtn: HTMLElement;
+  declare inp: HTMLInputElement;
+  declare clearBtn: HTMLElement;
+  declare debouncedFetch: { cancel: () => void };
+  declare cachedSuggestions: Record<string, NominatimItem[]>;
+  declare cachedAddress: Record<string, AddressResult>;
+  declare scrollTargets: HTMLElement[];
+  declare repositionHandler: () => void;
+  declare addrAbortController: AbortController | null;
+  declare suggestAbortController: AbortController | null;
+  declare marker: LMarker | null;
+  declare mode: string;
+  declare suggestionsWrap: HTMLElement | null;
+  declare selectedSuggestionIdx: number;
+  declare lastSuggestFetch: number;
+  declare suggestionsThrottleTimer: ReturnType<typeof setTimeout> | null;
+  declare suggestSeq: number;
+
   buildDOM() {
     this.createDOM();
     this.initState();
@@ -29,7 +65,7 @@ class SearchControl extends BaseControl {
     if (this.suggestAbortController) this.suggestAbortController.abort();
     this.cachedSuggestions = {};
     this.cachedAddress = {};
-    this.scrollTargets.forEach((t: any) =>
+    this.scrollTargets.forEach(t =>
       t.removeEventListener("scroll", this.repositionHandler, true),
     );
     window.removeEventListener("resize", this.repositionHandler);
@@ -60,7 +96,7 @@ class SearchControl extends BaseControl {
     const inp = dom.el("input", {
       type: "text",
       placeholder: _(`${CONF.name}.coord_placeholder`),
-    });
+    }) as HTMLInputElement;
     const clearBtn = createIconButton({
       class: "foliplus-ctrl-btn foliplus-close-btn",
       title: _(`${CONF.name}.clear_title`),
