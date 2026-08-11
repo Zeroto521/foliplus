@@ -36,6 +36,8 @@ class FullscreenControl(BaseControl):
     >>> FullscreenControl().add_to(m)
     """
 
+    _export_fields = ("hide_self", "hide_others")
+
     def __init__(
         self,
         *,
@@ -47,6 +49,4 @@ class FullscreenControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self.hide_self = hide_self
         self.hide_others = hide_others
-        self._template = self._get_template(
-            js_file="FullscreenControl.js", css_file="FullscreenControl.css"
-        )
+        self._template = self._get_template()

@@ -1,8 +1,18 @@
-prune test
-prune doc
-prune ci
+prune .github
 prune script
+prune ci
+prune doc
+prune test
+prune foliplus/css
+prune foliplus/js
 exclude Makefile
+exclude .editorconfig
+exclude .gitattributes
+exclude .gitignore
+exclude .pre-commit-config.yaml
+exclude .prettierrc
+exclude .readthedocs.yaml
+exclude setup.cfg
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .pytest_cache
@@ -11,3 +21,4 @@ global-exclude codecov.yaml
 global-exclude coverage.xml
 global-exclude package.json
 global-exclude package-lock.json
+global-exclude *.map

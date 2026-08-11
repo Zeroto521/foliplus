@@ -1,0 +1,7 @@
+{
+  "locale.name": "English",
+  "locale.code": "en",
+  "foliplus.close_label": "Close",
+  "foliplus.addr_not_found": "Address not found, try different keywords",
+  "foliplus.geo_fail": "Lookup failed"
+}

@@ -41,6 +41,8 @@ class SearchControl(BaseControl):
     >>> SearchControl().add_to(m)
     """
 
+    _export_fields = ("mode", "zoom")
+
     default_js = [
         (
             "gcoord",
@@ -64,6 +66,4 @@ class SearchControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self.mode = mode
         self.zoom = zoom
-        self._template = self._get_template(
-            js_file="SearchControl.js", css_file="SearchControl.css"
-        )
+        self._template = self._get_template()

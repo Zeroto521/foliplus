@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import OrderedDict
+from typing import cast
 
 from folium.map import Layer
 
@@ -48,29 +48,38 @@ class LayerControl(BaseControl):
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
-        self.base_layers: OrderedDict[str, str] = OrderedDict()
-        self.overlays: OrderedDict[str, str] = OrderedDict()
-        self._template = self._get_template(
-            js_file="LayerControl.js", css_file="LayerControl.css"
-        )
+        self._template = self._get_template()
 
-    def render(self, **kwargs):
-        """Collect layers from the parent map before rendering.
+    def _extra_config(self) -> dict:
+        """Collect layers from the parent map at render time.
 
-        Traverses the parent map's ``_children`` to find ``Layer`` instances, then
-        populates ``self.base_layers`` and ``self.overlays`` according to each layer's
-        ``overlay`` flag.
+        This is the canonical example of a control that needs render-time data the
+        constructor cannot know: the layer list only exists once the control is added
+        to a map. Traverses the parent map's ``_children`` and emits a serializable
+        list of ``{name, id, isBase}`` dicts.
+
+        Returns
+        -------
+        dict
+            ``{"data": [{"name", "id", "isBase"}, ...]}`` — the ``data`` key is merged
+            into the JS ``CONF`` object by :meth:`BaseControl._build_config`.
         """
-        self.base_layers.clear()
-        self.overlays.clear()
-        for item in self._parent._children.values():
-            if not isinstance(item, Layer) or not item.control:
-                continue
+        data: list[dict[str, object]] = []
+        if (parent := self._parent) is not None:
+            for item in parent._children.values():
+                # isinstance first — the control itself is a child but not a Layer
+                # (and has no `.control` attribute).
+                if not isinstance(item, Layer) or not item.control:
+                    continue
 
-            key = item.layer_name
-            if not item.overlay:
-                self.base_layers[key] = item.get_name()
-            else:
-                self.overlays[key] = item.get_name()
+                data.append(
+                    {
+                        "name": item.layer_name,
+                        "id": item.get_name(),
+                        "isBase": not item.overlay,
+                    }
+                )
 
-        super().render(**kwargs)
+        # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
+        data.sort(key=lambda d: cast(bool, d["isBase"]))
+        return {"data": data}

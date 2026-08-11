@@ -1,0 +1,7 @@
+{
+  "locale.name": "中文",
+  "locale.code": "zh",
+  "foliplus.close_label": "关闭",
+  "foliplus.addr_not_found": "未找到该地址，请更换关键词重试",
+  "foliplus.geo_fail": "查询失败"
+}

@@ -86,6 +86,16 @@ class ExportControl(BaseControl):
     >>> ExportControl(scale=3.0, filename="print").add_to(m)
     """
 
+    _export_fields = (
+        "filename",
+        "format",
+        "quality",
+        "scale",
+        "max_pixels",
+        "background",
+        "timeout",
+    )
+
     def __init__(
         self,
         *,
@@ -112,6 +122,4 @@ class ExportControl(BaseControl):
         self.max_pixels = max_pixels
         self.background = background
         self.timeout = timeout
-        self._template = self._get_template(
-            css_file="ExportControl.css", js_file="ExportControl.js"
-        )
+        self._template = self._get_template()
