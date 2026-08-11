@@ -476,7 +476,6 @@ class TestLayerControlBrowser:
         """addGraph sets pane on the layer and calls register."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -505,7 +504,6 @@ class TestLayerControlBrowser:
         """clearAll clears content and unregisters the layer."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -530,7 +528,6 @@ class TestLayerControlBrowser:
         """addLabel sets pane on the marker."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -581,7 +578,6 @@ class TestLayerControlBrowser:
         """unregisterLayer removes a dynamically registered layer."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -606,7 +602,6 @@ class TestLayerControlBrowser:
         """createCanvas returns canvas API object with expected methods."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             api = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -640,7 +635,6 @@ class TestLayerControlBrowser:
         """Canvas register() creates a layer item; unregister() removes it."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -664,7 +658,6 @@ class TestLayerControlBrowser:
         """migrateLayers moves Markers to per-layer panes."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -686,7 +679,6 @@ class TestLayerControlBrowser:
         """migrateLayers moves Path layers to the target pane."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -708,7 +700,6 @@ class TestLayerControlBrowser:
         """getLayerType returns correct geometry type for registered layers."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -979,7 +970,6 @@ class TestLayerControlBrowser:
         """registerLayer can be re-called after a layer is hidden by checkbox."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -1002,7 +992,6 @@ class TestLayerControlBrowser:
         """register() re-adds mainLayer to map when layer was unchecked."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -1298,7 +1287,6 @@ class TestLayerControlBrowser:
         """unregisterLayer removes the DOM item from the panel."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -1327,7 +1315,6 @@ class TestLayerControlBrowser:
         """findLayer resolves a layer by string ID via layers array."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -1447,7 +1434,6 @@ class TestLayerControlBrowser:
         """registerLayer preserves the visible state from a previous registration."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -1483,7 +1469,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -1548,7 +1533,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -1576,7 +1560,6 @@ class TestLayerControlBrowser:
         """extractPoints returns geo points from registered layers."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -1989,7 +1972,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2039,7 +2021,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2084,7 +2065,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2120,7 +2100,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2251,7 +2230,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2293,7 +2271,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2370,7 +2347,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
@@ -2528,7 +2504,6 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
                 if (!api) return null;
