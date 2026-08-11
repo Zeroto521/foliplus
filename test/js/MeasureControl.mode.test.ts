@@ -90,6 +90,28 @@ describe("PreviewMode — tracking preview layers", () => {
     const mode = new PreviewMode(makeManagerMock());
     expect(mode.isFinished).toBe(false);
   });
+
+  it("addPreview returns the layer for chaining", () => {
+    const manager = makeManagerMock();
+    const mode = new PreviewMode(manager);
+    const fakeLayer = {};
+    const result = mode.addPreview(fakeLayer);
+    expect(result).toBe(fakeLayer);
+  });
+});
+
+describe("Mode — TYPE constants", () => {
+  it("DistanceMode TYPE equals MODE.DISTANCE", () => {
+    expect(MODE_MAP[CONST.MODE.DISTANCE].TYPE).toBe(CONST.MODE.DISTANCE);
+  });
+
+  it("PolygonMode TYPE equals MODE.POLYGON", () => {
+    expect(MODE_MAP[CONST.MODE.POLYGON].TYPE).toBe(CONST.MODE.POLYGON);
+  });
+
+  it("CircleMode TYPE equals MODE.CIRCLE", () => {
+    expect(MODE_MAP[CONST.MODE.CIRCLE].TYPE).toBe(CONST.MODE.CIRCLE);
+  });
 });
 
 describe("MarkerMode — TYPE", () => {

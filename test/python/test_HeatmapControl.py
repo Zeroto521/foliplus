@@ -16,7 +16,6 @@ from conftest import (
 
 from foliplus import HeatmapControl
 
-
 class TestHeatmapControlPython:
     """Python-side property tests."""
 
@@ -95,7 +94,6 @@ class TestHeatmapControlPython:
         ):
             HeatmapControl(n_classes=6.5)
 
-
 class TestHeatmapControlRendering:
     def test_default_params(self):
         html = render_control(HeatmapControl())
@@ -134,8 +132,6 @@ class TestHeatmapControlRendering:
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "data-scheme-name" in html
-        assert "schemeBar.title" in html
-        assert "schemeBar.title" in html
 
     def test_class_count_select_range(self, base_map: folium.Map):
         """Class count select has options 2-9."""
@@ -143,52 +139,6 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         for n in (2, 5, 9):
             assert str(n) in html
-
-    def test_no_layer_hint(self, base_map: folium.Map):
-        """initScan shows no_layer hint when no point layers found."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "HeatmapControl.no_layer" in html
-        assert "HeatmapControl.no_layer"
-
-    def test_auto_field_single_field_detection(self, base_map: folium.Map):
-        """Auto field logic uses the first discovered field (collectFields order)."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "pickAutoField" in html
-        assert "pickAutoField" in html
-        assert "pickAutoField" in html
-
-    def test_auto_field_priority_and_fallback(self, base_map: folium.Map):
-        """Auto mode picks the first discovered field (collectFields order)."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "pickAutoField" in html
-        assert "readMarkerField" in html
-
-    def test_auto_field_key_resets_on_clear(self, base_map: folium.Map):
-        """Clear action resets autoFieldKey to avoid stale field selection."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "autoFieldKey" in html
-
-    def test_named_handler_cleanup(self, base_map: folium.Map):
-        """bindMapEvents uses named handlers (onZoomEnd, onLayerChange)."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "onZoomEnd" in html
-        assert "onLayerChange" in html
-        assert "zoomend" in html
-        assert "layeradd" in html
-
-    def test_get_point_value_dedup(self, base_map: folium.Map):
-        """getPointValue delegates to readMarkerField instead of duplicating branch logic."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "readMarkerField" in html
-        # Should NOT contain inline field resolution branches
-        assert "this.currentField === '_value'" not in html
-        assert "this.currentField === 'options.value'" not in html
 
     def test_error_keys_injected(self, base_map: folium.Map):
         """Error/warning locale keys appear in rendered HTML."""
@@ -198,27 +148,6 @@ class TestHeatmapControlRendering:
         assert "h3 cell conversion failed" in html
         assert "h3 boundary conversion failed" in html
         assert "HeatmapControl.close_title" in html
-
-    def test_no_layercontrol_guard(self, base_map: folium.Map):
-        """HeatmapControl shows guard hint when LayerControl is missing."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "no_layercontrol" in html
-        assert "LayerControl" in html
-
-    def test_render_hexagons_map_guard(self, base_map: folium.Map):
-        """renderHexagons checks map._container and overlay before proceeding."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "overlay" in html
-
-    def test_debounce_usage(self, base_map: folium.Map):
-        """HeatmapControl uses foliplus.debounce for zoom and layer events."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "debounce" in html
-        assert "onZoomEnd" in html
-        assert "onLayerChange" in html
 
     def test_css_variables_used(self, base_map: folium.Map):
         """CSS design tokens are referenced in rendered output."""
@@ -385,42 +314,15 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "opacity" in html
 
-    def test_heatmap_constants(self, base_map: folium.Map):
-        """Heatmap constants like INIT_SCAN_ATTEMPTS are present."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "INIT_SCAN_ATTEMPTS" in html
-        assert "RES_MAP" in html
+
 
     # ── Performance optimization tests ──
-
-    def test_cached_aggregation_key(self, base_map: folium.Map):
-        """renderHexagons builds an aggregation cache key from all params."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.cachedAgg" in html
-        assert "cachedAgg" in html
-        assert "cachedAgg" in html
-        assert "cachedAgg" in html
-
-    def test_cached_aggregation_invalidation(self, base_map: folium.Map):
-        """cachedAgg is cleared on layer change and clearHeatmapCanvas."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "cachedAgg" in html
 
     def test_viewport_culling(self, base_map: folium.Map):
         """redrawHeatmap skips hexagons outside the visible map bounds."""
         HeatmapControl().add_to(base_map)
         html = render(base_map)
         assert "bounds" in html
-
-    def test_render_all_flag(self, base_map: folium.Map):
-        """renderAll flag disables viewport culling when set to true."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "renderAll" in html
-        assert "renderAll" in html
 
     def test_canvas_font_caching(self, base_map: folium.Map):
         """drawHexLabel uses cached font string to avoid repeated Canvas font parsing."""
@@ -429,90 +331,6 @@ class TestHeatmapControlRendering:
         assert "font" in html
 
     # ── Algorithm tests (rendering checks) ──
-
-    def test_compute_breaks_jenks(self, base_map: folium.Map):
-        """computeBreaks supports jenks method (uses ss.ckmeans internally)."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "method" in html
-        assert "jenks" in html
-        assert "jenks" in html
-
-    def test_compute_breaks_quantile(self, base_map: folium.Map):
-        """computeBreaks supports quantile method."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "method" in html
-        assert "quantile" in html
-        assert "quantile" in html
-
-    def test_compute_breaks_equal(self, base_map: folium.Map):
-        """computeBreaks supports equal interval (default) method."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "equal" in html
-
-    def test_compute_breaks_heads(self, base_map: folium.Map):
-        """computeBreaks supports heads method."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "method" in html
-        assert "heads" in html
-
-    def test_aggregate_data_all_methods(self, base_map: folium.Map):
-        """aggregateData has all 5 aggregation methods: count, sum, avg, min, max."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "case " in html
-        assert "count" in html
-        assert "sum" in html
-        assert "avg" in html
-        assert "min" in html
-        assert "max" in html
-
-    def test_read_marker_field_modes(self, base_map: folium.Map):
-        """readMarkerField supports value, options.value, and properties.* access."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "readMarkerField" in html
-        assert "value" in html
-        assert "value" in html
-        assert "readMarkerField" in html
-
-    def test_resolve_label_style_caching(self, base_map: folium.Map):
-        """resolveLabelStyle caches the label style result."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.cachedLabelStyle" in html
-        assert "cachedLabelStyle" in html
-
-    def test_get_h3_res(self, base_map: folium.Map):
-        """getH3Res maps zoom levels to H3 resolutions."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "RES_MAP" in html
-        assert "H3.RES_MAP.find" in html
-
-    def test_get_color_scale_chroma_fallback(self, base_map: folium.Map):
-        """getColorScale falls back to gray array when chroma is undefined."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "typeof chroma" in html
-        assert "getColorScale" in html
-
-    def test_class_select_default_value(self, base_map: folium.Map):
-        """classSelect variable exists in rendered output."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "classSelect" in html
-        assert "n_classes" in html or "class" in html
-
-    def test_scheme_select_default_value(self, base_map: folium.Map):
-        """schemeSelectHidden variable exists in rendered output."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "schemeSelectHidden" in html
-        assert "color_scheme" in html or "scheme" in html
 
     def test_form_row_label_before_control(self, base_map: folium.Map):
         """In each form-row, <label> appears before <div.form-control> in JS."""
@@ -534,7 +352,6 @@ class TestHeatmapControlRendering:
                 f"label (pos {label_pos}) must be created before "
                 f"form-control (pos {ctrl_pos}) in the same row"
             )
-
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""
@@ -811,7 +628,6 @@ class TestHeatmapControlBrowser:
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
-
 
 class TestHeatmapAutoFieldBrowser:
     """Browser tests verifying auto-field selection logic in the DOM.

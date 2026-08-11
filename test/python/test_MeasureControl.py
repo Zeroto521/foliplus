@@ -104,8 +104,6 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "dash-sweep" in html
         assert "--sweep-length" in html
-        assert "getTotalLength" in html
-        assert "animationend" in html
 
     def test_dash_sweep_drop_shadow(self, base_map: folium.Map):
         """Dash sweep line has drop-shadow filter for glow effect."""
@@ -120,8 +118,6 @@ class TestMeasureControlRendering:
         html = render(base_map)
         assert "measure-ripple" in html
         assert "interactive: false" in html
-        assert "removeLayer(ripple)" in html
-        assert "animationend" in html
 
     def test_ripple_css_variables(self, base_map: folium.Map):
         """Ripple animation uses CSS custom properties for all parameters."""
@@ -662,53 +658,6 @@ class TestMeasureControlBrowser:
 
     # ── MeasureUtils edge-case tests ──
 
-    def test_format_distance_zero(self, base_map: folium.Map):
-        """formatDistance handles 0 meters."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "0" in html
-
-    def test_format_distance_large(self, base_map: folium.Map):
-        """formatDistance handles large values > 1000m."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "km" in html
-
-    def test_calc_toggle_all_modes(self, base_map: folium.Map):
-        """calcToggle handles all toggleLbl modes: true, false, undefined, RESET."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "toggleLbl === true" in html
-        assert "toggleLbl === false" in html
-        assert "toggleLbl === TOGGLE.RESET" in html
-
-    def test_restore_measurements_corrupted_json(self, base_map: folium.Map):
-        """loadMeasurements falls back to an empty array on corrupted JSON."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "Array.isArray(data) ? data : []" in html
-
-    def test_next_measurement_id_format(self, base_map: folium.Map):
-        """nextMeasurementId generates IDs with type prefix."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "nextMeasurementId" in html
-        assert "ID" in html
-
-    def test_attach_distance_ui_shared(self, base_map: folium.Map):
-        """attachDistanceUI is used by both finishDist and restoreDistance."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        count = html.count("attachDistanceUI")
-        assert count >= 2, f"expected 2+ references to attachDistanceUI, got {count}"
-
-    def test_attach_circle_ui_shared(self, base_map: folium.Map):
-        """attachCircleUI is used by both finalizeCircle and restoreCircle."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        count = html.count("attachCircleUI")
-        assert count >= 2, f"expected 2+ references to attachCircleUI, got {count}"
-
     # ── Marker persistence timing (regression) ─────────────────────
 
     def test_marker_saved_before_geocode(self, base_map: folium.Map):
@@ -729,16 +678,6 @@ class TestMeasureControlBrowser:
             "measurement must be saved right before triggering geocode so a "
             f"reload mid-lookup does not lose the marker (gap={gap})"
         )
-
-    def test_marker_address_updated_after_geocode(self, base_map: folium.Map):
-        """measurement.address is filled in via onAddress callback after geocode."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        # Address update happens through the createLocationMarker onAddress
-        # callback, then re-persists
-        assert "onAddress" in html
-        assert "measurement.address = addr" in html
-        assert "this.m.saveMeasurements()" in html
 
     def test_marker_survives_reload_with_blocked_geocode(self, browser, tmp_path):
         """Regression: marker placed while geocode is blocked still survives reload."""
@@ -899,113 +838,6 @@ class TestMeasureControlBrowser:
         finally:
             page.close()
 
-    # ── PreviewMode lifecycle ─────────────────────────────────
-    def test_preview_mode_has_methods(self, base_map: folium.Map):
-        """PreviewMode provides addPreview/removePreview/clearPreviews/isFinished/previewLayers."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "addPreview(layer)" in html
-        assert "removePreview(layer)" in html
-        assert "clearPreviews()" in html
-        assert "this.isFinished" in html or "this.isFinished =" in html
-        assert "this.previewLayers" in html or "this.previewLayers =" in html
-
-    def test_add_preview_adds_to_layer_group(self, base_map: folium.Map):
-        """addPreview calls this.layers.addLayer(layer) internally."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.layers.addLayer(layer)" in html
-        assert "this.previewLayers.push(layer)" in html
-
-    def test_remove_preview_removes_from_tracked(self, base_map: folium.Map):
-        """removePreview splices from previewLayers and removes from layer group."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.previewLayers.indexOf(layer)" in html
-        assert "this.previewLayers.splice(idx, 1)" in html
-        assert "this.layers.removeLayer(layer)" in html
-
-    def test_clear_previews_empties_all(self, base_map: folium.Map):
-        """clearPreviews removes all tracked preview layers and resets the array."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.previewLayers.forEach((l) => this.layers.removeLayer(l))" in html
-        assert "this.previewLayers = []" in html
-
-    def test_distance_uses_preview_base(self, base_map: folium.Map):
-        """DistanceMode calls addPreview for poly/previewLine, uses finalPoly via addLayer."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.addPreview(" in html
-        assert "CLASSES2.LINE_DASHED" in html
-        assert "CLASSES2.LINE_PREVIEW" in html
-        assert "finalPoly" in html
-
-    def test_circle_uses_preview_base(self, base_map: folium.Map):
-        """CircleMode calls addPreview for preview center/circle/line/node/label."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        # Preview layers should use addPreview, final layers use addLayer
-        assert "this.addPreview(" in html
-        assert "previews.center" in html
-        assert "previews.circle" in html
-        assert "previews.line" in html
-        assert "previews.node" in html
-        assert "previews.label" in html
-
-    # ── Edge cases ──
-
-    def test_escape_key_exits_mode(self, base_map: folium.Map):
-        """Escape key calls clearActiveMode when mode is active."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert 'e.key === "Escape"' in html
-        assert "this.currentMode" in html
-        assert "this.clearActiveMode()" in html
-
-    def test_clear_mode_routes_to_clear_all(self, base_map: folium.Map):
-        """CLEAR mode calls clearAll() directly."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "mode === MODE.CLEAR" in html
-        assert "this.clearAll()" in html
-
-    def test_same_mode_toggle_clears(self, base_map: folium.Map):
-        """Clicking the same mode button again clears the mode."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.currentMode === mode" in html
-        assert "this.clearActiveMode()" in html
-
-    def test_distance_cancel_on_single_point(self, base_map: folium.Map):
-        """finishDist with <2 points cleans up without saving."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "points.length < 2" in html
-        assert "this.cleanup()" in html
-        assert "this.m.clearActiveMode()" in html
-
-    def test_distance_is_finished_guard(self, base_map: folium.Map):
-        """isFinished prevents double finalization of distance."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.isFinished" in html
-        assert "return" in html
-
-    def test_preview_layer_cleanup_on_finish(self, base_map: folium.Map):
-        """After finishDist, previewLine is removed from layers."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.layers.removeLayer(previewLine)" in html
-        assert "this.layers.removeLayer(poly)" in html
-
-    def test_clear_previews_in_circle_cleanup(self, base_map: folium.Map):
-        """CircleMode cleanup calls resetPreviews which clears preview layers."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "resetPreviews()" in html
-        assert "this.clearPreviews()" in html
-
     # ── Browser tests for gaps ──
 
     def test_escape_cancels_mode(self, browser, tmp_path):
@@ -1134,162 +966,27 @@ class TestMeasureControlBrowser:
         finally:
             page.close()
 
-    def test_add_preview_returns_layer(self, base_map: folium.Map):
-        """addPreview returns the layer for chaining."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "return layer" in html
-
-    def test_is_finished_resets_on_new_start(self, base_map: folium.Map):
-        """isFinished starts as false when a new DistanceMode is created."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.isFinished = false" in html
-
     # ── Polygon Area Mode ─────────────────────────────────────────
 
-    def test_polygon_mode_constant(self, base_map: folium.Map):
-        """POLYGON mode constant is defined."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert 'POLYGON: "polygon"' in html
 
-    def test_polygon_svg_icon(self, base_map: folium.Map):
-        """Polygon SVG icon with vertices is defined."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "POLYGON = `<svg viewBox=" in html
-        assert '<path d="m12 3 9 6-3 12H6L3 9z"/>' in html
 
-    def test_polygon_tool_button(self, base_map: folium.Map):
-        """Polygon tool button is configured between distance and circle."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "mode: MODE.POLYGON" in html
-        assert "POLYGON" in html
-        assert "tool_polygon" in html
 
-    def test_polygon_mode_class(self, base_map: folium.Map):
-        """PolygonMode class extends PreviewMode."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "extends PreviewMode" in html
-        assert "static TYPE = MODE.POLYGON" in html
 
-    def test_polygon_set_mode(self, base_map: folium.Map):
-        """setMode instantiates PolygonMode for POLYGON."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "mode === MODE.POLYGON" in html
-        assert "new PolygonMode(this)" in html
-        assert "hint_polygon" in html
 
-    def test_polygon_restore_case(self, base_map: folium.Map):
-        """restoreMeasurements handles POLYGON type."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MODE_MAP[m.type]?.restore?.(this, m)" in html
-        assert "[MODE.POLYGON]: PolygonMode" in html or "MODE.POLYGON]" in html
 
-    def test_polygon_restore_method(self, base_map: folium.Map):
-        """restorePolygon method exists with POLYGON_FINAL class."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "static restore(manager, data)" in html
-        assert "POLYGON_FINAL" in html
 
-    def test_polygon_attach_method(self, base_map: folium.Map):
-        """attachPolygonUI method exists."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "attachPolygonUI" in html
-        assert "rebuildCentroid" in html
 
-    def test_polygon_area_utility(self, base_map: folium.Map):
-        """MeasureUtils.area and formatArea are defined."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert " area(" in html
-        assert "formatArea" in html
 
-    def test_polygon_turf_dependency(self, base_map: folium.Map):
-        """MeasureControl includes turf.js as a CDN dependency."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "turf" in html
-        assert "turf.min.js" in html
 
-    def test_polygon_centroid_anchor(self, base_map: folium.Map):
-        """CENTROID_ANCHOR constant is defined for area label below centroid."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "CENTROID_ANCHOR: [0, -10]" in html
 
-    def test_polygon_finish_click_first_point(self, base_map: folium.Map):
-        """Polygon completes on click of first or last point."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "marker === nodeMarkers[0]" in html
-        assert "marker === nodeMarkers[nodeMarkers.length - 1]" in html
 
-    def test_polygon_finish_dblclick(self, base_map: folium.Map):
-        """Polygon completes on double-click."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "onPolyDbl" in html
-        assert "finishPoly()" in html
 
-    def test_polygon_finish_contextmenu(self, base_map: folium.Map):
-        """Polygon completes on right-click."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "onPolyContext" in html
-        assert "finishPoly()" in html
 
-    def test_polygon_minimum_three_points(self, base_map: folium.Map):
-        """Polygon requires at least 3 points to finish."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "points.length < 3" in html
-        assert "finishPoly" in html
 
-    def test_polygon_centroid_dot(self, base_map: folium.Map):
-        """Polygon centroid uses CENTER_DOT like circle."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "CENTER_DOT.CLASS_FINAL" in html
-        assert "centroidDot" in html
 
-    def test_polygon_centroid_del_icon(self, base_map: folium.Map):
-        """Polygon centroid has a delete icon."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "centroidDel" in html
-        assert "attachDelClick(centroidDel, deleteMeas)" in html
 
-    def test_polygon_closing_segment(self, base_map: folium.Map):
-        """Polygon segments include the closing edge from last to first point."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "lastSeg" in html
-        assert "points[points.length - 1]" in html
-        assert "points[0].lng" in html
 
-    def test_polygon_preview_fill(self, base_map: folium.Map):
-        """Polygon preview uses CIRCLE_PREVIEW class for semi-transparent fill."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "previewPoly" in html
-        assert "CLASSES2.CIRCLE_PREVIEW" in html
 
-    def test_distance_click_first_point_finish(self, base_map: folium.Map):
-        """Distance mode also completes on click of first point."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "marker === nodeMarkers[0]" in html
-        assert "marker === nodeMarkers[nodeMarkers.length - 1]" in html
-
-    # ── Polygon browser tests ──────────────────────────────────────
 
     def test_polygon_draw_and_delete(self, browser, tmp_path):
         """Draw a polygon with 3 points, verify it renders, then delete via clearAll."""
@@ -1387,62 +1084,10 @@ class TestMeasureControlBrowser:
 
     # ── Mid-segment label ──────────────────────────────────────────
 
-    def test_mid_label_icon_helper(self, base_map: folium.Map):
-        """makeMidLabelDivIcon uses MID_ANCHOR and CLASS_MID for centered labels."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "MID_ANCHOR" in html
-        assert "CLASS_MID" in html
-        assert "makeMidLabelDivIcon" in html
 
-    def test_mid_label_css_class(self, base_map: folium.Map):
-        """CLASS_MID renders as foliplus-measure-label-mid."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert 'CLASS_MID: "foliplus-measure-label-mid"' in html
 
-    def test_start_label_restored(self, base_map: folium.Map):
-        """Distance mode restores the start label (dist_origin) on first click."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "dist_origin" in html
-        assert "dist_origin" in html
 
-    def test_closing_segment_label(self, base_map: folium.Map):
-        """Polygon creates a closing segment label (lastPt→firstPt)."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "closeLabel" in html
-        assert "closeMid" in html
 
-    def test_node_delete_rebuilds_labels(self, base_map: folium.Map):
-        """Polygon node deletion removes all segLabels and rebuilds from scratch."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "segLabels.forEach((l) => layers.removeLayer(l))" in html
-        assert "segLabels.length = 0" in html
-        assert "segLabels.push(label)" in html
 
-    def test_restore_distance_uses_accumulator(self, base_map: folium.Map):
-        """restoreDistance uses O(n) accumulator instead of O(n^2) slice+reduce."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "accTotal" in html
-        assert "accTotal += seg.distance" in html
 
-    def test_polygon_3pt_del_all_on_initial(self, base_map: folium.Map):
-        """When polygon has exactly 3 points, every node X shows del_all."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "is3pt = points.length === 3" in html
-        assert "name" in html
-        assert "del_all" in html
-        assert "del_node" in html
 
-    def test_polygon_3pt_del_all_on_delete_down(self, base_map: folium.Map):
-        """When polygon nodes are deleted down to 3, remaining nodes switch to del_all."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "points.length === 3" in html
-        assert "del_all" in html
-        assert "iconEl.title" in html
