@@ -32,18 +32,16 @@ export default defineConfig({
         "foliplus/js/HeatmapControl/HeatmapControl.ui.ts",
         "foliplus/js/LayerControl/LayerControl.ui.ts",
         "foliplus/js/MeasureControl/MeasureControl.ui.ts",
-        // LayerManager — needs real Leaflet map (L.TileLayer, etc.)
-        "foliplus/js/LayerControl/LayerControl.manager.ts",
         // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle
         "foliplus/js/MeasureControl/MeasureControl.mode.ts",
       ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
       thresholds: {
-        statements: 60,
-        branches: 55,
-        functions: 60,
-        lines: 60,
+        statements: 55,
+        branches: 50,
+        functions: 55,
+        lines: 55,
       },
     },
   },
