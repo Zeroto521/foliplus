@@ -149,23 +149,13 @@ def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
 def pytest_collection_modifyitems(config, items):
     """Auto-mark tests that need a browser as pytest.mark.browser.
 
-    A test is considered browser-based if either:
-      1. Its class name ends with ``Browser`` (e.g. ``TestXxxBrowser``), or
-      2. Its function signature requests the ``browser`` fixture (e.g.
-         ``def test_xxx(self, browser, tmp_path)``).
-
-    This lets ``-m "not browser"`` exclude *all* playwright tests, including
-    those scattered inside ``*Rendering`` classes that use the ``browser``
-    fixture directly.
+    Browser-based tests live in classes whose name ends with ``Browser`` (e.g.
+    ``TestXxxBrowser``). This lets ``-m "not browser"`` exclude all playwright
+    tests from the fast unit-test run.
     """
     for item in items:
         cls = item.getparent(pytest.Class)
         if cls is not None and cls.name.endswith("Browser"):
-            item.add_marker(pytest.mark.browser)
-            continue
-
-        # Function requests the browser fixture by name → browser-based
-        if "browser" in getattr(item, "_fixtureinfo", None).name2fixturedefs:
             item.add_marker(pytest.mark.browser)
 
 
