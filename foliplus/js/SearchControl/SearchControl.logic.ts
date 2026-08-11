@@ -181,7 +181,8 @@ const renderSuggestions = (ctrl: any, results: any[], query: string) => {
   positionSuggestions(ctrl);
 
   results.forEach((item: any, idx: number) => {
-    const displayName = formatAddress(item.display_name, map) || item.name || "";
+    const displayName =
+      formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
     dom.el(
       "div",
       {
@@ -255,7 +256,11 @@ const initDebouncedFetch = (ctrl: any) => {
 
 const buildSearchUrl = (ctrl: any, q: string, limit: number) => {
   const center = map.getCenter();
-  return nominatimUrl("/search", { q, limit, lon: center.lng, lat: center.lat });
+  return nominatimUrl(
+    "/search",
+    { q, limit, lon: center.lng, lat: center.lat },
+    CONF.locale_code,
+  );
 };
 
 export {

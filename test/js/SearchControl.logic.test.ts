@@ -63,6 +63,28 @@ describe("buildSearchUrl", () => {
     expect(url).toContain("lat=26.08");
     expect(url).toContain("nominatim.openstreetmap.org");
   });
+
+  it("sends the active locale as accept-language so results match the UI language", () => {
+    const original = window.CONF.locale_code;
+    try {
+      window.CONF = { ...window.CONF, locale_code: "zh" };
+      const url = buildSearchUrl({}, "test", 5);
+      expect(url).toContain("accept-language=zh");
+    } finally {
+      window.CONF = { ...window.CONF, locale_code: original };
+    }
+  });
+
+  it("falls back to en when no locale is configured", () => {
+    const original = window.CONF.locale_code;
+    try {
+      window.CONF = { ...window.CONF, locale_code: undefined };
+      const url = buildSearchUrl({}, "test", 5);
+      expect(url).toContain("accept-language=en");
+    } finally {
+      window.CONF = { ...window.CONF, locale_code: original };
+    }
+  });
 });
 
 describe("searchCoord", () => {
@@ -224,6 +246,32 @@ describe("fetchSuggestions", () => {
     fetchSuggestions(ctrl, "abc");
     expect(globalThis.fetch).not.toHaveBeenCalled();
     expect(ctrl.suggestionsWrap).not.toBeNull();
+  });
+
+  it("formats suggestion display names with the active locale", () => {
+    globalThis.fetch = vi.fn();
+    const original = window.CONF.locale_code;
+    try {
+      window.CONF = { ...window.CONF, locale_code: "zh" };
+      const ctrl = {
+        mode: "addr",
+        cachedSuggestions: {
+          abc: [{ display_name: "Rue de Rivoli, 75001, Paris, France" }],
+        },
+        suggestionsWrap: null,
+        suggestionsThrottleTimer: null,
+        selectedSuggestionIdx: -1,
+        ctrl: {
+          getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+        },
+        inp: { value: "abc" },
+      };
+      fetchSuggestions(ctrl, "abc");
+      // zh: reverse order (large → small), postal code filtered
+      expect(ctrl.suggestionsWrap.textContent).toContain("France,Paris,Rue de Rivoli");
+    } finally {
+      window.CONF = { ...window.CONF, locale_code: original };
+    }
   });
 
   it("fetches and renders results", async () => {
