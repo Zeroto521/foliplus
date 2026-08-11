@@ -1,8 +1,8 @@
 import * as CONST from "#foliplus/MeasureControl/MeasureControl.const.js";
 import {
+  MODE_MAP,
   MarkerMode,
   MeasureMode,
-  MODE_MAP,
   PreviewMode,
 } from "#foliplus/MeasureControl/MeasureControl.mode.js";
 import { describe, expect, it, vi } from "vitest";
@@ -77,7 +77,8 @@ describe("PreviewMode — tracking preview layers", () => {
   it("clearPreviews removes all tracked layers", () => {
     const manager = makeManagerMock();
     const mode = new PreviewMode(manager);
-    const a = {}, b = {};
+    const a = {},
+      b = {};
     mode.previewLayers = [a, b];
     mode.clearPreviews();
     expect(mode.previewLayers).toHaveLength(0);

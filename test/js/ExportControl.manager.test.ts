@@ -51,7 +51,12 @@ describe("ExportManager — undo/redo", () => {
     manager.redoStack = [{ left: 0, top: 0, width: 50, height: 50 }];
     manager.pushUndoState();
     expect(manager.undoStack).toHaveLength(1);
-    expect(manager.undoStack[0]).toEqual({ left: 10, top: 10, width: 100, height: 100 });
+    expect(manager.undoStack[0]).toEqual({
+      left: 10,
+      top: 10,
+      width: 100,
+      height: 100,
+    });
     expect(manager.redoStack).toHaveLength(0);
   });
 
@@ -71,14 +76,24 @@ describe("ExportManager — undo/redo", () => {
   it("undoCropBox is a no-op when stack is empty", () => {
     setCropState(manager);
     manager.undoCropBox();
-    expect(manager.cropState.rect).toEqual({ left: 10, top: 10, width: 100, height: 100 });
+    expect(manager.cropState.rect).toEqual({
+      left: 10,
+      top: 10,
+      width: 100,
+      height: 100,
+    });
   });
 
   it("redoCropBox restores last redo state", () => {
     setCropState(manager);
     manager.redoStack = [{ left: 20, top: 20, width: 80, height: 80 }];
     manager.redoCropBox();
-    expect(manager.cropState.rect).toEqual({ left: 20, top: 20, width: 80, height: 80 });
+    expect(manager.cropState.rect).toEqual({
+      left: 20,
+      top: 20,
+      width: 80,
+      height: 80,
+    });
     expect(manager.undoStack).toHaveLength(1);
   });
 
@@ -129,13 +144,25 @@ describe("ExportManager — onKeyDown", () => {
 
   it("Ctrl+Z calls undoCropBox", () => {
     const spy = vi.spyOn(manager, "undoCropBox");
-    manager.onKeyDown({ key: "z", ctrlKey: true, metaKey: false, shiftKey: false, preventDefault: vi.fn() });
+    manager.onKeyDown({
+      key: "z",
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+      preventDefault: vi.fn(),
+    });
     expect(spy).toHaveBeenCalled();
   });
 
   it("Ctrl+Shift+Z calls redoCropBox", () => {
     const spy = vi.spyOn(manager, "redoCropBox");
-    manager.onKeyDown({ key: "z", ctrlKey: true, metaKey: false, shiftKey: true, preventDefault: vi.fn() });
+    manager.onKeyDown({
+      key: "z",
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: true,
+      preventDefault: vi.fn(),
+    });
     expect(spy).toHaveBeenCalled();
   });
 });
