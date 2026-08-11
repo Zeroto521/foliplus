@@ -2,45 +2,186 @@
  * Ambient declarations for globals injected at runtime by the foliplus
  * Python↔JS bridge (Leaflet, the foliplus runtime, per-control config).
  *
- * Kept intentionally loose (`any`) during the JS→TS migration; tighten as
- * modules are converted and real shared types emerge.
+ * This file provides type information for globals that are NOT available
+ * via normal imports — they are injected by the Jinja2 IIFE wrapper at
+ * runtime (e.g. `L`, `map`, `CONF`, `foliplus`) or loaded from CDN
+ * (e.g. `turf`, `chroma`, `h3`).
+ *
+ * `L` is declared as both a `const` (value) and a `namespace` (type),
+ * so code can write `L.Control` in type positions and `L.control()`
+ * in value positions — matching the real Leaflet global.
+ *
+ * Third-party libraries with no available @types (turf v7, gcoord,
+ * simple-statistics) have their used subset described inline.
  */
-import type * as L from "leaflet";
+import type * as Leaflet from "leaflet";
+import type * as GeoJSON from "geojson";
+import type * as ChromaJs from "chroma-js";
+
+// ── Runtime helpers ────────────────────────────────────────────
+
+/** Runtime helpers injected by the foliplus Python wrapper. */
+interface Foliplus {
+  isInitialized: boolean;
+  /** LayerControl public API, null until LayerControl is added. */
+  LayerAPI: LayerAPI | null;
+  registerHintIcon: (name: string, icon: string) => void;
+  showHint: (name: string, msg: string, duration: number) => void;
+  hideHint: (name: string) => void;
+  reverseGeocode: (
+    map: Leaflet.Map,
+    lng: number,
+    lat: number,
+    code?: string,
+  ) => Promise<string>;
+  _TABLES: Record<string, Record<string, string>>;
+}
+
+// ── LayerControl API ───────────────────────────────────────────
+
+/** Return type of `createCanvas`. Managed canvas inside mapPane. */
+interface CreateCanvasAPI {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D | null;
+  resize: () => void;
+  getSize: () => { width: number; height: number };
+  updatePosition: () => void;
+  register: () => void;
+  unregister: () => void;
+  registered: () => boolean;
+  destroy: () => void;
+  bringToFront: () => void;
+}
+
+/** Return type of `createLayers`. Managed layer group with graph/label sub-groups. */
+interface CreateLayersAPI {
+  mainLayer: L.LayerGroup;
+  addLayer: (layer: L.Layer, isLabel?: boolean) => L.Layer;
+  removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
+  clearLayers: () => void;
+  register: () => void;
+  unregister: () => void;
+  registered: () => boolean;
+  bringToFront: () => void;
+}
+
+/** LayerControl public API, exposed on `foliplus.LayerAPI`. */
+interface LayerAPI {
+  createCanvas: (opts: {
+    id: string;
+    name?: string;
+    className?: string;
+    iconSvg?: string;
+    onToggle?: (visible: boolean) => void;
+    onZIndex?: (z: number) => void;
+  }) => CreateCanvasAPI;
+  createLayers: (opts: {
+    name: string;
+    id: string;
+    graphPane?: string;
+    labelPane?: string;
+    iconSvg?: string;
+  }) => CreateLayersAPI;
+  extractPoints: (id: string) => Array<{ lat: number; lng: number }>;
+  getLayerPanes: (layer: L.Layer) => string[];
+  getLayersByType: (type: string) => Array<{ id: string; name: string; layer: L.Layer }>;
+}
+
+// ── Component config ───────────────────────────────────────────
+
+/** Per-component config injected by the Jinja2 IIFE. Fields are runtime-defined. */
+interface ComponentConfig {
+  name: string;
+  locale_code?: string;
+  position?: Leaflet.ControlPosition;
+  mode?: string;
+  zoom?: number;
+  data?: Array<{ name: string; id: string; isBase: boolean }>;
+  show_bearing?: boolean;
+  agg?: string;
+  method?: string;
+  n_classes?: number;
+  field?: string;
+  color_scheme?: string;
+  border_weight?: number;
+  border_color?: string;
+  border_opacity?: number;
+  fill_opacity?: number;
+  label_format?: string;
+  label_show?: boolean;
+  hide_self?: boolean;
+  hide_others?: boolean;
+  max_pixels?: number;
+  quality?: number;
+  scale?: string;
+  isMetric?: boolean;
+  background?: string;
+  timeout?: number;
+  [key: string]: unknown;
+}
+
+// ── CDN globals (no @types available) ──────────────────────────
+
+/** Turf.js (CDN v7). Only the subset used by foliplus. */
+type Turf = {
+  distance: (a: GeoJSON.Feature, b: GeoJSON.Feature, opts?: object) => number;
+  bearing: (a: GeoJSON.Feature, b: GeoJSON.Feature) => number;
+  midpoint: (a: GeoJSON.Feature, b: GeoJSON.Feature) => GeoJSON.Feature;
+  area: (polygon: GeoJSON.Feature) => number;
+  point: (coords: number[]) => GeoJSON.Feature;
+  polygon: (rings: number[][][]) => GeoJSON.Feature;
+};
+
+/** gcoord (CDN). */
+type Gcoord = {
+  transform: (coords: number[], from: number, to: number) => number[];
+  WGS: number;
+  GCJ: number;
+  BD: number;
+};
+
+/** simple-statistics (CDN). */
+type SimpleStats = {
+  ckmeans: (data: number[], n: number) => number[][];
+  quantileSorted: (sorted: number[], p: number) => number;
+};
+
+// ── Global declarations ────────────────────────────────────────
 
 declare global {
-  const L: typeof L;
+  const L: typeof Leaflet;
   namespace L {
-    type ControlOptions = L.ControlOptions;
-    type Map = L.Map;
-    type Marker = L.Marker;
-    type Popup = L.Popup;
-    type LeafletEvent = L.LeafletEvent;
-    type LeafletMouseEvent = L.LeafletMouseEvent;
-    type PointExpression = L.PointExpression;
+    type ControlOptions = Leaflet.ControlOptions;
+    type Control = Leaflet.Control;
+    type Map = Leaflet.Map;
+    type Marker = Leaflet.Marker;
+    type Popup = Leaflet.Popup;
+    type Layer = Leaflet.Layer;
+    type LayerGroup = Leaflet.LayerGroup;
+    type LeafletEvent = Leaflet.LeafletEvent;
+    type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
+    type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
+    type PointExpression = Leaflet.PointExpression;
   }
 
-const map: L.Map;
-  const foliplus: any;
-  const CONF: any;
-  const CONFIG: any;
-  const turf: any;
-  const gcoord: any;
-  const chroma: any;
-  const ss: any;
-  const h3: any;
+  const map: Leaflet.Map;
+  const foliplus: Foliplus;
+  const CONF: ComponentConfig;
+  const CONFIG: ComponentConfig;
+
+  const turf: Turf;
+  const gcoord: Gcoord;
+  const chroma: ChromaJs;
+  const ss: SimpleStats;
+  const h3: typeof import("h3-js");
 
   interface Window {
-    /** foliplus runtime helpers injected by the Python wrapper. */
-    foliplus: any;
-    /** Per-component config injected as a Jinja IIFE global. */
-    CONF: any;
-    /** Optional aliased config (some components). */
-    CONFIG?: any;
-    /** Leaflet global. */
-    L: typeof L;
-    /** Map instance global (used by some components/tests). */
-    map: L.Map;
+    foliplus: Foliplus;
+    CONF: ComponentConfig;
+    CONFIG?: ComponentConfig;
+    L: typeof Leaflet;
+    map: Leaflet.Map;
   }
 }
 
-export {};
+export { };
