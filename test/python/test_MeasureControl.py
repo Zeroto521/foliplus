@@ -511,6 +511,8 @@ class TestMeasureControlRendering:
             not in css.split(".foliplus-measure-label-radius")[1].split("/*")[0]
         )
 
+
+class TestMeasureControlBrowser:
     def _make_page(self, browser, tmp_path, show_bearing=True):
         """Build a page with MeasureControl and return (page, errors)."""
         from foliplus import LayerControl
