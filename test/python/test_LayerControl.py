@@ -383,6 +383,7 @@ class TestLayerControlRendering:
         assert "--drag-pulse-duration" in css
         assert "--drag-pulse-count" in css
 
+
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
 

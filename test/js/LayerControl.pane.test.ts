@@ -173,9 +173,7 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Path());
     const renderer = { _container: container };
-    pm.migrateLayers([
-      { layer, paneName: "measure_graph", renderer },
-    ]);
+    pm.migrateLayers([{ layer, paneName: "measure_graph", renderer }]);
     expect(layer.options.pane).toBe("measure_graph");
     expect(layer.options.paneSet).toBe(true);
     expect(path.parentNode).toBe(container);

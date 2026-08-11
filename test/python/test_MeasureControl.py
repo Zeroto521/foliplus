@@ -968,26 +968,6 @@ class TestMeasureControlBrowser:
 
     # ── Polygon Area Mode ─────────────────────────────────────────
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     def test_polygon_draw_and_delete(self, browser, tmp_path):
         """Draw a polygon with 3 points, verify it renders, then delete via clearAll."""
         page, errors = self._make_page(browser, tmp_path)
@@ -1083,11 +1063,3 @@ class TestMeasureControlBrowser:
             page.close()
 
     # ── Mid-segment label ──────────────────────────────────────────
-
-
-
-
-
-
-
-

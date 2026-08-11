@@ -3,10 +3,10 @@ import * as SVGs from "#foliplus/LayerControl/LayerControl.icon.js";
 import * as Util from "#foliplus/LayerControl/LayerControl.util.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-class Polygon { }
-class Polyline { }
-class CircleMarker { }
-class Marker { }
+class Polygon {}
+class Polyline {}
+class CircleMarker {}
+class Marker {}
 
 const makeContainer = children => ({
   eachLayer: fn => children.forEach(fn),
@@ -121,7 +121,9 @@ describe("forEachLeaf / forEachLayer", () => {
 
 describe("escapeHTML", () => {
   it("escapes < & > characters", () => {
-    expect(Util.escapeHTML("<div>&hello</div>")).toBe("&lt;div&gt;&amp;hello&lt;/div&gt;");
+    expect(Util.escapeHTML("<div>&hello</div>")).toBe(
+      "&lt;div&gt;&amp;hello&lt;/div&gt;",
+    );
   });
 
   it("handles empty string", () => {

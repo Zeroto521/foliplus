@@ -310,4 +310,25 @@ describe("LayerManager", () => {
     expect(manager.layerRegistry.size).toBe(0);
     expect(map.off).toHaveBeenCalled();
   });
+
+  it("unregisterLayer returns false for unknown id", () => {
+    expect(manager.unregisterLayer("nonexistent")).toBe(false);
+  });
+
+  it("unregisterLayer returns true when layer is found and removed", () => {
+    manager.registerLayer({ id: "test_layer", name: "Test" });
+    const result = manager.unregisterLayer("test_layer");
+    expect(result).toBe(true);
+  });
+
+  it("clearAllLayers is safe for null", () => {
+    expect(() => manager.clearAllLayers(null)).not.toThrow();
+  });
+
+  it("clearAllLayers handles eachLayer recursively", () => {
+    const child = { clearLayers: vi.fn() };
+    const parent = { eachLayer: vi.fn(cb => cb(child)) };
+    manager.clearAllLayers(parent);
+    expect(child.clearLayers).toHaveBeenCalled();
+  });
 });

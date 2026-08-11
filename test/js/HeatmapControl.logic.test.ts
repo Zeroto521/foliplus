@@ -343,7 +343,7 @@ describe("getPointValue — additional gaps", () => {
     m.fieldAuto = false;
     m.currentField = "bad_field";
     m.valueFallbackWarned = false;
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => { });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(m.getPointValue({})).toBe(1);
     expect(m.valueFallbackWarned).toBe(true);
     expect(m.getPointValue({})).toBe(1); // no additional warn
@@ -355,7 +355,9 @@ describe("buildFeatures — centroid fallback", () => {
   it("computes centroid from boundary polygon when h3.cellToLatLng fails", () => {
     const m = makeManager();
     // Override AFTER construction — makeManager reassigns h3 mocks
-    globalThis.h3.cellToLatLng = vi.fn(() => { throw new Error("unavailable"); });
+    globalThis.h3.cellToLatLng = vi.fn(() => {
+      throw new Error("unavailable");
+    });
     globalThis.h3.cellToBoundary = vi.fn(() => [
       [0, 0],
       [0, 2],
@@ -437,5 +439,40 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(fields).toContain("properties.price");
     expect(fields).not.toContain("properties.name");
     expect(fields.filter(f => f === "properties.price")).toHaveLength(1);
+  });
+});
+
+describe("scanMapLayers", () => {
+  it("extracts point layers from LayerAPI", () => {
+    const m = makeManager();
+    const info = { id: "layer1", name: "Points", layer: {} };
+    window.foliplus.LayerAPI.getLayersByType = vi.fn(() => [info]);
+    window.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { id: "p1", marker: { feature: { properties: { price: 1 } } } },
+    ]);
+    m.scanMapLayers();
+    expect(m.pointLayers).toHaveLength(1);
+    expect(m.pointLayers[0].id).toBe("layer1");
+  });
+
+  it("deduplicates point layers by id", () => {
+    const m = makeManager();
+    window.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "dup", name: "A", layer: {} },
+      { id: "dup", name: "B", layer: {} },
+    ]);
+    window.foliplus.LayerAPI.extractPoints = vi.fn(() => [{ marker: {} }]);
+    m.scanMapLayers();
+    expect(m.pointLayers).toHaveLength(1);
+  });
+
+  it("skips layers with no extractable points", () => {
+    const m = makeManager();
+    window.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "empty", name: "Empty", layer: {} },
+    ]);
+    window.foliplus.LayerAPI.extractPoints = vi.fn(() => []);
+    m.scanMapLayers();
+    expect(m.pointLayers).toHaveLength(0);
   });
 });

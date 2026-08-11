@@ -16,6 +16,7 @@ from conftest import (
 
 from foliplus import HeatmapControl
 
+
 class TestHeatmapControlPython:
     """Python-side property tests."""
 
@@ -93,6 +94,7 @@ class TestHeatmapControlPython:
             ValueError, match="n_classes must be an int between 2 and 9"
         ):
             HeatmapControl(n_classes=6.5)
+
 
 class TestHeatmapControlRendering:
     def test_default_params(self):
@@ -314,8 +316,6 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "opacity" in html
 
-
-
     # ── Performance optimization tests ──
 
     def test_viewport_culling(self, base_map: folium.Map):
@@ -352,6 +352,7 @@ class TestHeatmapControlRendering:
                 f"label (pos {label_pos}) must be created before "
                 f"form-control (pos {ctrl_pos}) in the same row"
             )
+
 
 class TestHeatmapControlBrowser:
     """Browser-based smoke tests for HeatmapControl."""
@@ -628,6 +629,7 @@ class TestHeatmapControlBrowser:
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
+
 
 class TestHeatmapAutoFieldBrowser:
     """Browser tests verifying auto-field selection logic in the DOM.
