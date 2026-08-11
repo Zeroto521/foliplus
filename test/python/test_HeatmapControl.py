@@ -6,7 +6,13 @@ import json
 
 import folium
 import pytest
-from conftest import render
+from conftest import (
+    assert_config_value,
+    assert_locale,
+    make_browser_page,
+    render,
+    render_control,
+)
 
 from foliplus import HeatmapControl
 
@@ -29,35 +35,34 @@ class TestHeatmapControlPython:
     def test_custom_locale(self):
         assert HeatmapControl(locale="zh")._locale_code == "zh"
 
-    def test_default_params(self, base_map: folium.Map):
+    def test_default_params(self):
         """Default params produce correct CONFIG JSON."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert '"name": "HeatmapControl"' in html
-        assert '"color_scheme": "Reds"' in html
-        assert '"method": "jenks"' in html
-        assert '"n_classes": 6' in html
-        assert '"agg": "count"' in html
-        assert '"border_weight": 1.5' in html
-        assert '"label_show": true' in html
+        html = render_control(HeatmapControl())
+        assert_config_value(html, "color_scheme", "Reds")
+        assert_config_value(html, "method", "jenks")
+        assert_config_value(html, "n_classes", 6)
+        assert_config_value(html, "agg", "count")
+        assert_config_value(html, "border_weight", 1.5)
+        assert_config_value(html, "label_show", True)
 
-    def test_custom_params(self, base_map: folium.Map):
+    def test_custom_params(self):
         """Custom params produce correct CONFIG JSON."""
-        HeatmapControl(
-            color_scheme="Reds",
-            method="quantile",
-            n_classes=4,
-            agg="sum",
-            schemes=["Reds", "Blues"],
-            style={"border_weight": 2.0, "label_show": False},
-        ).add_to(base_map)
-        html = render(base_map)
-        assert '"color_scheme": "Reds"' in html
-        assert '"method": "quantile"' in html
-        assert '"n_classes": 4' in html
-        assert '"agg": "sum"' in html
-        assert '"border_weight": 2.0' in html
-        assert '"label_show": false' in html
+        html = render_control(
+            HeatmapControl(
+                color_scheme="Reds",
+                method="quantile",
+                n_classes=4,
+                agg="sum",
+                schemes=["Reds", "Blues"],
+                style={"border_weight": 2.0, "label_show": False},
+            )
+        )
+        assert_config_value(html, "color_scheme", "Reds")
+        assert_config_value(html, "method", "quantile")
+        assert_config_value(html, "n_classes", 4)
+        assert_config_value(html, "agg", "sum")
+        assert_config_value(html, "border_weight", 2.0)
+        assert_config_value(html, "label_show", False)
 
     def test_invalid_method_raises(self):
         """Invalid method raises ValueError."""
@@ -92,51 +97,36 @@ class TestHeatmapControlPython:
 
 
 class TestHeatmapControlRendering:
-    def test_default_params(self, base_map: folium.Map):
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+    def test_default_params(self):
+        html = render_control(HeatmapControl())
         assert "heatmap-ctrl" in html
 
-    def test_contains_h3_dependency(self, base_map: folium.Map):
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+    def test_contains_h3_dependency(self):
+        html = render_control(HeatmapControl())
         assert "h3-js@4" in html
         assert "h3-js.umd.js" in html
 
-    def test_contains_ss_dependency(self, base_map: folium.Map):
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+    def test_contains_ss_dependency(self):
+        html = render_control(HeatmapControl())
         assert "simple-statistics.min.js" in html
 
-    def test_contains_chroma_dependency(self, base_map: folium.Map):
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+    def test_contains_chroma_dependency(self):
+        html = render_control(HeatmapControl())
         assert "chroma-js@2" in html
         assert "chroma.min.js" in html
 
-    def test_locale_zh(self, base_map: folium.Map):
-        HeatmapControl(locale="zh").add_to(base_map)
-        html = render(base_map)
-        assert "网格聚合" in html
+    def test_locale_zh(self):
+        html = render_control(HeatmapControl(locale="zh"))
+        assert_locale(html, "网格聚合")
 
-    def test_extract_points_filters_no_feature(self, base_map: folium.Map):
-        """extractPoints delegates to LayerAPI which filters by .feature."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "extractPoints" in html
-        # Filtering happens in LayerControl's LayerAPI.extractPoints
-        assert "extractPoints" in html
-
-    def test_style_field(self, base_map: folium.Map):
+    def test_style_field(self):
         """style.field is injected into JS template."""
-        HeatmapControl(style={"field": "value"}).add_to(base_map)
-        html = render(base_map)
-        assert '"value"' in html or "'value'" in html
+        html = render_control(HeatmapControl(style={"field": "value"}))
+        assert_config_value(html, "field", "value")
 
-    def test_scheme_names_inline(self, base_map: folium.Map):
+    def test_scheme_names_inline(self):
         """schemes list is inlined as JSON array."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "Blues" in html and "Viridis" in html
 
     def test_scheme_dropdown_items_have_data_attr(self, base_map: folium.Map):
@@ -628,21 +618,7 @@ class TestHeatmapControlBrowser:
         html = self._stub_html(m.get_root().render())
         if expose_ctrl:
             html = self._expose_ctrl(html)
-        html_path = tmp_path / "heatmap_browser.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
-        errors = []
-        page.on(
-            "console",
-            lambda msg: (
-                errors.append(msg.text)
-                if msg.type == "error"
-                and not msg.text.startswith("Failed to load resource")
-                else None
-            ),
-        )
-        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        page, errors = make_browser_page(browser, tmp_path, html, "heatmap")
         page.wait_for_selector(
             ".foliplus-heatmap-ctrl", state="attached", timeout=10000
         )

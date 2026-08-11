@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import folium
-from conftest import render
+from conftest import (
+    assert_config_value,
+    assert_locale,
+    make_browser_page,
+    render_control,
+)
 
 from foliplus import FullscreenControl
 
@@ -34,89 +39,76 @@ class TestFullscreenControlPython:
 
 
 class TestFullscreeControlRendering:
-    def test_default_params(self, base_map: folium.Map):
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
+    def test_default_params(self):
+        html = render_control(FullscreenControl())
         assert "foliplus-fullscreen-toggle" in html
 
-    def test_hide_self_default(self, base_map: folium.Map):
+    def test_hide_self_default(self):
         """hide_self=true is passed via CONFIG."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        assert '"hide_self": true' in html
+        html = render_control(FullscreenControl())
+        assert_config_value(html, "hide_self", True)
 
-    def test_hide_self_false(self, base_map: folium.Map):
+    def test_hide_self_false(self):
         """hide_self=false is passed via CONFIG."""
-        FullscreenControl(hide_self=False).add_to(base_map)
-        html = render(base_map)
-        assert '"hide_self": false' in html
+        html = render_control(FullscreenControl(hide_self=False))
+        assert_config_value(html, "hide_self", False)
 
-    def test_locale_zh(self, base_map: folium.Map):
-        FullscreenControl(locale="zh").add_to(base_map)
-        html = render(base_map)
-        assert "已进入全屏" in html
-        assert "FullscreenControl.enter" in html
+    def test_locale_zh(self):
+        html = render_control(FullscreenControl(locale="zh"))
+        assert_locale(html, "已进入全屏", "FullscreenControl.enter")
 
-    def test_css_fullscreen_variables(self, base_map: folium.Map):
+    def test_css_fullscreen_variables(self):
         """Fullscreen CSS includes fullscreen container styles."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(FullscreenControl())
         assert "foliplus-fullscreen-toggle" in html
         assert "ctrl-size" in html
         assert "foliplus-fullscreen-bar" in html
 
-    def test_zoom_svg_inline(self, base_map: folium.Map):
+    def test_zoom_svg_inline(self):
         """Zoom +/- use inline SVGs created by FullscreenControl.js."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(FullscreenControl())
         assert "foliplus-zoom-in" in html
         assert "foliplus-zoom-out" in html
 
-    def test_leaflet_bar_container(self, base_map: folium.Map):
+    def test_leaflet_bar_container(self):
         """Container has two-layer structure: outer leaflet-bar, inner fullscreen-bar + ctrl-fold."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(FullscreenControl())
         assert "leaflet-bar" in html
         assert "leaflet-control" in html
         assert "foliplus-fullscreen-bar" in html
         assert "foliplus-ctrl-fold" in html
 
-    def test_zoom_translation_keys(self, base_map: folium.Map):
+    def test_zoom_translation_keys(self):
         """Zoom in/out use translation keys."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(FullscreenControl())
         assert "FullscreenControl.zoom_in" in html
         assert "FullscreenControl.zoom_out" in html
 
-    def test_hide_others_false_skips_others_block(self, base_map: folium.Map):
+    def test_hide_others_false_skips_others_block(self):
         """hide_others=false is passed via CONFIG."""
-        FullscreenControl(hide_others=False).add_to(base_map)
-        html = render(base_map)
-        assert '"hide_others": false' in html
+        html = render_control(FullscreenControl(hide_others=False))
+        assert_config_value(html, "hide_others", False)
 
-    def test_hide_self_independent_of_hide_others(self, base_map: folium.Map):
+    def test_hide_self_independent_of_hide_others(self):
         """hide_self still works when hide_others=false."""
-        FullscreenControl(hide_self=True, hide_others=False).add_to(base_map)
-        html = render(base_map)
-        assert '"hide_self": true' in html
-        assert '"hide_others": false' in html
+        html = render_control(FullscreenControl(hide_self=True, hide_others=False))
+        assert_config_value(html, "hide_self", True)
+        assert_config_value(html, "hide_others", False)
 
-    def test_zoom_buttons_hidden_with_hide_self(self, base_map: folium.Map):
+    def test_zoom_buttons_hidden_with_hide_self(self):
         """hide_self hides zoom +/- together with the fullscreen button."""
-        FullscreenControl(hide_self=True, hide_others=False).add_to(base_map)
-        html = render(base_map)
+        html = render_control(FullscreenControl(hide_self=True, hide_others=False))
         assert "foliplus-zoom-in" in html
         assert "foliplus-zoom-out" in html
         assert "foliplus-hidden" in html
 
-    def test_zoom_buttons_visible_without_hide_self(self, base_map: folium.Map):
+    def test_zoom_buttons_visible_without_hide_self(self):
         """hide_self=false is passed via CONFIG."""
-        FullscreenControl(hide_self=False, hide_others=False).add_to(base_map)
-        html = render(base_map)
+        html = render_control(FullscreenControl(hide_self=False, hide_others=False))
         assert "foliplus-zoom-in" in html
         assert "foliplus-zoom-out" in html
-        assert '"hide_self": false' in html
-        assert '"hide_others": false' in html
+        assert_config_value(html, "hide_self", False)
+        assert_config_value(html, "hide_others", False)
 
 
 class TestFullscreenControlBrowser:
@@ -126,23 +118,8 @@ class TestFullscreenControlBrowser:
         """Build a page with FullscreenControl and return (page, errors)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         FullscreenControl(hide_self=hide_self, hide_others=hide_others).add_to(m)
-
         html = m.get_root().render()
-        html_path = tmp_path / "fullscreen_browser.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
-        errors = []
-        page.on(
-            "console",
-            lambda msg: (
-                errors.append(msg.text)
-                if msg.type == "error"
-                and not msg.text.startswith("Failed to load resource")
-                else None
-            ),
-        )
-        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        page, errors = make_browser_page(browser, tmp_path, html, "fullscreen")
         return page, errors
 
     def test_button_exists(self, browser, tmp_path):

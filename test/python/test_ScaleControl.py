@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import render
+from conftest import (
+    assert_config_value,
+    assert_locale,
+    make_browser_page,
+    render,
+    render_control,
+)
 
 from foliplus import ScaleControl
 
@@ -46,68 +52,56 @@ class TestScaleControlPython:
 
 
 class TestScaleControlRendering:
-    def test_default_params(self, base_map: folium.Map):
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
+    def test_default_params(self):
+        html = render_control(ScaleControl())
         assert "scale-wrap" in html
 
-    def test_metric_default(self, base_map: folium.Map):
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
-        assert '"isMetric": true' in html
+    def test_metric_default(self):
+        html = render_control(ScaleControl())
+        assert_config_value(html, "isMetric", True)
 
-    def test_metric_false_still_renders(self, base_map: folium.Map):
-        ScaleControl(unit="imperial").add_to(base_map)
-        html = render(base_map)
+    def test_metric_false_still_renders(self):
+        html = render_control(ScaleControl(unit="imperial"))
         assert "leaflet-control-scale-line" in html
 
-    def test_show_zoom(self, base_map: folium.Map):
-        ScaleControl(show_zoom=True).add_to(base_map)
-        html = render(base_map)
+    def test_show_zoom(self):
+        html = render_control(ScaleControl(show_zoom=True))
         assert "scale-zoom-label" in html
         assert "zoomend" in html
 
-    def test_hide_zoom(self, base_map: folium.Map):
-        ScaleControl(show_zoom=False).add_to(base_map)
-        html = render(base_map)
-        assert '"show_zoom": false' in html
+    def test_hide_zoom(self):
+        html = render_control(ScaleControl(show_zoom=False))
+        assert_config_value(html, "show_zoom", False)
 
-    def test_locale_zh(self, base_map: folium.Map):
-        ScaleControl(locale="zh").add_to(base_map)
-        html = render(base_map)
-        assert "地图级别" in html
-        assert "ScaleControl.zoom_label" in html
+    def test_locale_zh(self):
+        html = render_control(ScaleControl(locale="zh"))
+        assert_locale(html, "地图级别", "ScaleControl.zoom_label")
 
-    def test_metric_false_disables_metric(self, base_map: folium.Map):
+    def test_metric_false_disables_metric(self):
         """unit='imperial' correctly passed to Leaflet."""
-        ScaleControl(unit="imperial").add_to(base_map)
-        html = render(base_map)
-        assert '"isMetric": false' in html
+        html = render_control(ScaleControl(unit="imperial"))
+        assert_config_value(html, "isMetric", False)
 
-    def test_zoom_label_format(self, base_map: folium.Map):
+    def test_zoom_label_format(self):
         """Zoom label uses ScaleControl.zoom_label key with {zoom} placeholder."""
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(ScaleControl())
         assert "ScaleControl.zoom_label" in html
         assert "{zoom}" in html
 
-    def test_scale_position_bottomleft(self, base_map: folium.Map):
+    def test_scale_position_bottomleft(self):
         """Position is bottomleft (Leaflet default for scale)."""
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(ScaleControl())
         assert "bottomleft" in html
 
-    def test_both_disabled(self, base_map: folium.Map):
+    def test_both_disabled(self):
         """scale still renders with unit='imperial' and show_zoom=False."""
-        ScaleControl(unit="imperial", show_zoom=False).add_to(base_map)
-        html = render(base_map)
+        html = render_control(ScaleControl(unit="imperial", show_zoom=False))
         assert "foliplus-scale-wrap" in html
-        assert '"isMetric": false' in html
+        assert_config_value(html, "isMetric", False)
 
-    def test_common_css_injected(self, base_map: folium.Map):
+    def test_common_css_injected(self):
         """Common design tokens are injected into the page."""
-        ScaleControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(ScaleControl())
         assert "--ctrl-bg" in html
         assert "foliplus-scale-wrap" in html
 
@@ -116,26 +110,10 @@ class TestScaleControlBrowser:
     """Browser-based smoke tests for ScaleControl."""
 
     def _make_page(self, browser, tmp_path, show_zoom=True, unit="metric"):
-        """Build page with ScaleControl."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         ScaleControl(show_zoom=show_zoom, unit=unit).add_to(m)
-
         html = m.get_root().render()
-        html_path = tmp_path / "scale_browser.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
-        errors = []
-        page.on(
-            "console",
-            lambda msg: (
-                errors.append(msg.text)
-                if msg.type == "error"
-                and not msg.text.startswith("Failed to load resource")
-                else None
-            ),
-        )
-        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        page, errors = make_browser_page(browser, tmp_path, html, "scale")
         page.wait_for_selector(".foliplus-scale-wrap", state="attached", timeout=10000)
         return page, errors
 

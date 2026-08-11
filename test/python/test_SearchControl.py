@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import render
+from conftest import assert_locale, make_browser_page, render_control
 
 from foliplus import SearchControl
 
@@ -56,10 +56,9 @@ class TestSearchControlPython:
 class TestSearchControlRendering:
     """Rendering output tests (stable across minification)."""
 
-    def test_rendered_content(self, base_map: folium.Map):
+    def test_rendered_content(self):
         """Key content is present in rendered output."""
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert "foliplus-search" in html
         assert "foliplus-search-mode-btn" in html
         assert "foliplus-search-suggestions" in html
@@ -67,32 +66,26 @@ class TestSearchControlRendering:
         assert "ctrl-fold" in html
         assert "align-right" in html
 
-    def test_align_right_for_right_position(self, base_map: folium.Map):
+    def test_align_right_for_right_position(self):
         """Right positions add align-right class to SearchControl."""
-        SearchControl(position="topright").add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl(position="topright"))
         assert "align-right" in html
 
-    def test_align_right_bottomright(self, base_map: folium.Map):
+    def test_align_right_bottomright(self):
         """bottomright position also adds align-right."""
-        SearchControl(position="bottomright").add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl(position="bottomright"))
         assert "align-right" in html
 
-    def test_contains_gcoord_dependency(self, base_map: folium.Map):
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+    def test_contains_gcoord_dependency(self):
+        html = render_control(SearchControl())
         assert "gcoord.global.prod.js" in html
 
-    def test_locale_zh(self, base_map: folium.Map):
-        SearchControl(locale="zh").add_to(base_map)
-        html = render(base_map)
-        assert "地址搜索" in html
-        assert "SearchControl.addr_placeholder" in html
+    def test_locale_zh(self):
+        html = render_control(SearchControl(locale="zh"))
+        assert_locale(html, "地址搜索", "SearchControl.addr_placeholder")
 
-    def test_suggestion_item_classes(self, base_map: folium.Map):
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+    def test_suggestion_item_classes(self):
+        html = render_control(SearchControl())
         assert "foliplus-search-suggestion-icon" in html
         assert "foliplus-search-suggestion-text" in html
 
@@ -100,38 +93,29 @@ class TestSearchControlRendering:
 class TestSearchControlBrowser:
     """Browser-based smoke tests for SearchControl."""
 
+    def _make_page(self, browser, tmp_path, **kwargs):
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        SearchControl(**kwargs).add_to(m)
+        html = m.get_root().render()
+        page, errors = make_browser_page(browser, tmp_path, html, "search")
+        page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+        return page, errors
+
+    def _expand(self, page):
+        """Click the toggle button and wait for the expanded state."""
+        page.evaluate(
+            "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
+        )
+        page.wait_for_selector(
+            ".foliplus-search.expanded", state="attached", timeout=5000
+        )
+
     def test_initial_mode_addr(self, browser, tmp_path):
         """Verify that mode='addr' renders the address-search UI
         (globe icon, address placeholder) on first open."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        SearchControl(mode="addr").add_to(m)
-
-        html_path = tmp_path / "test_searchcontrol_browser.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path, mode="addr")
         try:
-            errors = []
-            page.on(
-                "console",
-                lambda msg: (
-                    errors.append(msg.text)
-                    if msg.type == "error"
-                    and not msg.text.startswith("Failed to load resource")
-                    else None
-                ),
-            )
-
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-
-            # Expand the panel
-            page.evaluate(
-                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-search.expanded", state="attached", timeout=5000
-            )
+            self._expand(page)
 
             # Verify the mode button shows the globe icon (address mode)
             globe_svg = page.evaluate(
@@ -151,22 +135,9 @@ class TestSearchControlBrowser:
 
     def test_initial_mode_coord_default(self, browser, tmp_path):
         """Verify default mode='coord' shows coordinate placeholder."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        SearchControl().add_to(m)
-
-        html_path = tmp_path / "test_searchcontrol_coord.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-            page.evaluate(
-                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-search.expanded", state="attached", timeout=5000
-            )
+            self._expand(page)
 
             # Verify the placeholder is for coordinate search
             placeholder = page.evaluate("document.querySelector('input').placeholder")
@@ -180,22 +151,9 @@ class TestSearchControlBrowser:
 
     def test_mode_switch_icon(self, browser, tmp_path):
         """Toggling mode switches icon between LOCATE (coord) and GLOBE (addr)."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        SearchControl(mode="coord").add_to(m)
-
-        html_path = tmp_path / "test_mode_switch.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path, mode="coord")
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-            page.evaluate(
-                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-search.expanded", state="attached", timeout=5000
-            )
+            self._expand(page)
 
             # Click mode switch button
             page.evaluate("document.querySelector('.foliplus-search-mode-btn').click()")
@@ -218,22 +176,9 @@ class TestSearchControlBrowser:
 
     def test_clear_button_clears_input(self, browser, tmp_path):
         """Clear button resets input value and hides hint."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        SearchControl().add_to(m)
-
-        html_path = tmp_path / "test_clear.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-            page.evaluate(
-                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-search.expanded", state="attached", timeout=5000
-            )
+            self._expand(page)
 
             # Type something in the input
             page.evaluate("document.querySelector('input').value = '26.08,119.30'")
@@ -248,24 +193,9 @@ class TestSearchControlBrowser:
 
     def test_escape_collapses_control(self, browser, tmp_path):
         """Escape key collapses the control when no suggestions are shown."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        SearchControl().add_to(m)
-
-        html_path = tmp_path / "test_escape.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-
-            # Expand
-            page.evaluate(
-                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-search.expanded", state="attached", timeout=5000
-            )
+            self._expand(page)
 
             # Press Escape
             page.evaluate("""
@@ -284,22 +214,9 @@ class TestSearchControlBrowser:
 
     def test_autocomplete_body_mount(self, browser, tmp_path):
         """Suggestions dropdown is mounted on document.body, not inside toolBar."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        SearchControl(mode="addr").add_to(m)
-
-        html_path = tmp_path / "test_autocomplete_body.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path, mode="addr")
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-            page.evaluate(
-                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-search.expanded", state="attached", timeout=5000
-            )
+            self._expand(page)
 
             # Fire input event in address mode to trigger debounced fetch
             page.evaluate("""
@@ -325,22 +242,9 @@ class TestSearchControlBrowser:
 
     def test_keyboard_suggestion_navigation_structure(self, browser, tmp_path):
         """ArrowDown/ArrowUp/Enter keyboard navigation structure exists in address mode."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        SearchControl(mode="addr").add_to(m)
-
-        html_path = tmp_path / "test_keyboard.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path, mode="addr")
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-            page.evaluate(
-                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-search.expanded", state="attached", timeout=5000
-            )
+            self._expand(page)
 
             # Verify keyboard navigation: ArrowDown/ArrowUp/Enter
             # These should NOT throw errors even without suggestions visible
@@ -363,22 +267,9 @@ class TestSearchControlBrowser:
 
     def test_input_switches_placeholder(self, browser, tmp_path):
         """Input event restores the placeholder for the current mode."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        SearchControl(mode="addr").add_to(m)
-
-        html_path = tmp_path / "test_input_placeholder.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path, mode="addr")
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-            page.evaluate(
-                "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-search.expanded", state="attached", timeout=5000
-            )
+            self._expand(page)
 
             # Fire input event to trigger placeholder restoration
             page.evaluate("""

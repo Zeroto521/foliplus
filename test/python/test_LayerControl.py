@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import render
+from conftest import assert_locale, render, render_control
 
 from foliplus import LayerControl
 
@@ -38,9 +38,7 @@ class TestLayerControlPython:
         """render() correctly flags base vs overlay layers in data."""
         m = folium.Map()
         ctrl = LayerControl().add_to(m)
-        # TileLayer with overlay=False → base layer
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
-        # FeatureGroup with overlay=True → overlay
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         m.render()
 
@@ -50,48 +48,41 @@ class TestLayerControlPython:
 
 
 class TestLayerControlRendering:
-    def test_default_params(self, base_map: folium.Map):
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+    def test_default_params(self):
+        html = render_control(LayerControl())
         assert "foliplus-layer-ctrl" in html
 
-    def test_color_layer_item(self, base_map: folium.Map):
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+    def test_color_layer_item(self):
+        html = render_control(LayerControl())
         assert "foliplus-color-layer-item" in html
         assert "foliplus-color-layer-input" in html
         assert "foliplus_color_map" in html
 
-    def test_color_layer_default_value(self, base_map: folium.Map):
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+    def test_color_layer_default_value(self):
+        html = render_control(LayerControl())
         assert "#cccccc" in html
 
-    def test_separator_label(self, base_map: folium.Map):
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+    def test_separator_label(self):
+        html = render_control(LayerControl())
+        html = render_control(LayerControl())
         assert "layer-sep" in html
         assert "layer-sep-label" in html
 
-    def test_fold_icon_single_svg_css_rotation(self, base_map: folium.Map):
+    def test_fold_icon_single_svg_css_rotation(self):
         """Fold uses a single SVG icon rotated by CSS — no separate UNFOLD SVG."""
         from pathlib import Path
 
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         assert "FOLD" in html
         css = Path("foliplus/css/LayerControl.css").read_text()
         assert "rotate(180deg)" in css
 
-    def test_locale_zh(self, base_map: folium.Map):
-        LayerControl(locale="zh").add_to(base_map)
-        html = render(base_map)
-        assert "图层" in html
-        assert "LayerControl.panel_title" in html
+    def test_locale_zh(self):
+        html = render_control(LayerControl(locale="zh"))
+        assert_locale(html, "图层", "LayerControl.panel_title")
 
-    def test_position_renders(self, base_map: folium.Map):
-        LayerControl(position="bottomright").add_to(base_map)
-        html = render(base_map)
+    def test_position_renders(self):
+        html = render_control(LayerControl(position="bottomright"))
         assert "bottomright" in html
 
     def test_multiple_base_layers(self):
