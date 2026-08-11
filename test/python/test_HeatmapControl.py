@@ -130,94 +130,81 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl())
         assert "Blues" in html and "Viridis" in html
 
-    def test_scheme_dropdown_items_have_data_attr(self, base_map: folium.Map):
+    def test_scheme_dropdown_items_have_data_attr(self):
         """Dropdown items store scheme name for refreshSchemeDropdownItems and title tooltip."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "data-scheme-name" in html
 
-    def test_class_count_select_range(self, base_map: folium.Map):
+    def test_class_count_select_range(self):
         """Class count select has options 2-9."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         for n in (2, 5, 9):
             assert str(n) in html
 
-    def test_error_keys_injected(self, base_map: folium.Map):
+    def test_error_keys_injected(self):
         """Error/warning locale keys appear in rendered HTML."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "Falling back to 1" in html
         assert "h3 cell conversion failed" in html
         assert "h3 boundary conversion failed" in html
         assert "HeatmapControl.close_title" in html
 
-    def test_css_variables_used(self, base_map: folium.Map):
+    def test_css_variables_used(self):
         """CSS design tokens are referenced in rendered output."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "var(--radius-sm)" in html
         assert "var(--input-border)" in html
         assert "var(--text-primary)" in html
         assert "var(--accent-primary)" in html
 
-    def test_css_icon_size_variable(self, base_map: folium.Map):
+    def test_css_icon_size_variable(self):
         """HeatmapControl SVGs use --icon-size-md via common.css."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "icon-size-md" in html
 
-    def test_css_panel_shadow(self, base_map: folium.Map):
+    def test_css_panel_shadow(self):
         """Expanded heatmap panel uses --panel-shadow."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "panel-shadow" in html
 
-    def test_css_scheme_dropdown_hover(self, base_map: folium.Map):
+    def test_css_scheme_dropdown_hover(self):
         """Scheme dropdown items use accent-light on hover."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "scheme-dropdown-item:hover" in html
         assert "accent-light" in html
 
-    def test_css_scheme_bar_open_rule(self, base_map: folium.Map):
+    def test_css_scheme_bar_open_rule(self):
         """scheme-bar-open class triggers breathing animation and red border."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "scheme-bar-open" in html
         assert "input-breathe" in html
 
-    def test_css_toggle_knob_scale(self, base_map: folium.Map):
+    def test_css_toggle_knob_scale(self):
         """Toggle knob has scale(1.15) on checked state."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "scale(1.15)" in html
 
-    def test_agg_select_options(self, base_map: folium.Map):
+    def test_agg_select_options(self):
         """Aggregation method select has all 6 options."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         for agg in ("count", "sum", "avg", "min", "max"):
             assert agg in html
 
-    def test_class_method_select_options(self, base_map: folium.Map):
+    def test_class_method_select_options(self):
         """Classification method select has all 4 options."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         for method in ("jenks", "quantile", "equal", "heads"):
             assert method in html
 
-    def test_border_control_renders(self, base_map: folium.Map):
+    def test_border_control_renders(self):
         """Border weight slider and color input are rendered."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "weight-input" in html
         assert "color-input" in html
 
-    def test_border_weight_input_has_min_max(self, base_map: folium.Map):
+    def test_border_weight_input_has_min_max(self):
         """Border weight input has min:0 max:10, clamps on change, and previews on input."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "weight-input" in html
         assert "color-input" in html
         assert "weight-input" in html
@@ -226,10 +213,9 @@ class TestHeatmapControlRendering:
         # onchange for final clamp
         assert "color-input" in html
 
-    def test_placeholder_options_disabled(self, base_map: folium.Map):
+    def test_placeholder_options_disabled(self):
         """Layer placeholder and field auto options use disabled:true (not the string)."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         # Must use boolean true so dom.el sets el.disabled = true
         assert "placeholder" in html
         # Must NOT use the string variant which silently sets disabled=false
@@ -243,38 +229,33 @@ class TestHeatmapControlRendering:
         assert "foliplus-heatmap-weight-input" in css
         assert "input-breathe" in css
 
-    def test_label_toggle_renders(self, base_map: folium.Map):
+    def test_label_toggle_renders(self):
         """Label toggle switch is rendered."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "toggle-switch" in html
         assert "labelChk" in html
 
-    def test_confirm_button_renders(self, base_map: folium.Map):
+    def test_confirm_button_renders(self):
         """Confirm (Apply) button is rendered."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "btn-confirm" in html
         assert "HeatmapControl.confirm" in html
 
-    def test_clear_button_renders(self, base_map: folium.Map):
+    def test_clear_button_renders(self):
         """Clear button is rendered."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "btn-clear" in html
         assert "HeatmapControl.clear" in html
 
-    def test_section_data_and_style(self, base_map: folium.Map):
+    def test_section_data_and_style(self):
         """Data and Style section labels are rendered."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "HeatmapControl.section_data" in html
         assert "HeatmapControl.section_style" in html
 
-    def test_close_button_renders(self, base_map: folium.Map):
+    def test_close_button_renders(self):
         """Close button is rendered in the panel header."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "close-btn" in html
         assert "HeatmapControl.close_title" in html
 
@@ -284,58 +265,50 @@ class TestHeatmapControlRendering:
         css = Path("foliplus/css/common.css").read_text()
         assert ".foliplus-ctrl-btn" in css
 
-    def test_layer_placeholder_option(self, base_map: folium.Map):
+    def test_layer_placeholder_option(self):
         """Layer select has a placeholder option."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "HeatmapControl.layer_placeholder" in html
 
-    def test_field_auto_option(self, base_map: folium.Map):
+    def test_field_auto_option(self):
         """Field select has an auto-detect option."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "HeatmapControl.field_auto" in html
 
-    def test_extra_body_structure(self, base_map: folium.Map):
+    def test_extra_body_structure(self):
         """Extra body has form-row with label and control-wrap."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "extra-body" in html
         assert "form-row" in html
         assert "form-control" in html
 
-    def test_resolution_select_renders(self, base_map: folium.Map):
+    def test_resolution_select_renders(self):
         """Resolution (H3 hex size) select is rendered."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "heatmap" in html
 
-    def test_opacity_control_renders(self, base_map: folium.Map):
+    def test_opacity_control_renders(self):
         """Opacity slider is rendered."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "opacity" in html
 
     # ── Performance optimization tests ──
 
-    def test_viewport_culling(self, base_map: folium.Map):
+    def test_viewport_culling(self):
         """redrawHeatmap skips hexagons outside the visible map bounds."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "bounds" in html
 
-    def test_canvas_font_caching(self, base_map: folium.Map):
+    def test_canvas_font_caching(self):
         """drawHexLabel uses cached font string to avoid repeated Canvas font parsing."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "font" in html
 
     # ── Algorithm tests (rendering checks) ──
 
-    def test_form_row_label_before_control(self, base_map: folium.Map):
+    def test_form_row_label_before_control(self):
         """In each form-row, <label> appears before <div.form-control> in JS."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         # For the classification method row, verify the JS creates label
         # before form-control within the same form-row.
         # In the rendered JS, 'classRow' should appear before 'classControlWrap'

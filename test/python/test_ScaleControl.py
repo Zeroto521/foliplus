@@ -8,7 +8,6 @@ from conftest import (
     assert_config_value,
     assert_locale,
     make_browser_page,
-    render,
     render_control,
 )
 

@@ -57,63 +57,55 @@ class TestMeasureControlRendering:
         assert "topleft" in html
         assert "topleft" in html
 
-    def test_contains_gcoord_dependency(self, base_map: folium.Map):
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
+    def test_contains_gcoord_dependency(self):
+        html = render_control(MeasureControl())
         assert "gcoord" in html
         assert "gcoord.global.prod.js" in html
 
-    def test_contains_turf_dependency(self, base_map: folium.Map):
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
+    def test_contains_turf_dependency(self):
+        html = render_control(MeasureControl())
         assert "turf.min.js" in html
 
-    def test_locale_zh(self, base_map: folium.Map):
-        MeasureControl(locale="zh").add_to(base_map)
-        html = render(base_map)
+    def test_locale_zh(self):
+        html = render_control(MeasureControl(locale="zh"))
         assert "量算工具" in html
         assert "tool_toggle" in html
 
-    def test_css_icon_size_variable(self, base_map: folium.Map):
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
+    def test_css_icon_size_variable(self):
+        html = render_control(MeasureControl())
         assert "icon-size-md" in html
 
-    def test_css_stroke_width_emphasis(self, base_map: folium.Map):
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
+    def test_css_stroke_width_emphasis(self):
+        html = render_control(MeasureControl())
         assert "stroke-width" in html
 
-    def test_tool_button_class(self, base_map: folium.Map):
+    def test_tool_button_class(self):
         """Tool buttons use the tool-btn class."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(MeasureControl())
         assert "tool-btn" in html
 
     # ── Finish animation tests ──
 
-    def test_dash_sweep_animation_classes(self, base_map: folium.Map):
+    def test_dash_sweep_animation_classes(self):
         """Distance finishDist adds is-dash-sweep class with --sweep-length."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(MeasureControl())
         assert "dash-sweep" in html
         assert "--sweep-length" in html
 
-    def test_dash_sweep_drop_shadow(self, base_map: folium.Map):
+    def test_dash_sweep_drop_shadow(self):
         """Dash sweep line has drop-shadow filter for glow effect."""
 
         css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
         assert "drop-shadow" in css
         assert "dash-sweep" in css
 
-    def test_ripple_animation_classes(self, base_map: folium.Map):
+    def test_ripple_animation_classes(self):
         """Circle finalizeCircle creates a measure-ripple circle with animationend cleanup."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(MeasureControl())
         assert "measure-ripple" in html
         assert "interactive: false" in html
 
-    def test_ripple_css_variables(self, base_map: folium.Map):
+    def test_ripple_css_variables(self):
         """Ripple animation uses CSS custom properties for all parameters."""
 
         css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
@@ -123,14 +115,14 @@ class TestMeasureControlRendering:
         assert "--ripple-stroke-end" in css
         assert "measure-ripple" in css
 
-    def test_dash_sweep_css_variables(self, base_map: folium.Map):
+    def test_dash_sweep_css_variables(self):
         """Dash sweep animation uses CSS custom properties for all parameters."""
 
         css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
         assert "--sweep-length" in css
         assert "--sweep-duration" in css
 
-    def test_radius_label_has_animation(self, base_map: folium.Map):
+    def test_radius_label_has_animation(self):
         """Circle radius label animates in with a decoupled centering transform.
 
         The radius label's centering transform is stored in a CSS variable
@@ -654,10 +646,9 @@ class TestMeasureControlBrowser:
 
     # ── Marker persistence timing (regression) ─────────────────────
 
-    def test_marker_saved_before_geocode(self, base_map: folium.Map):
+    def test_marker_saved_before_geocode(self):
         """Marker measurement is persisted immediately, before geocode resolves."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(MeasureControl())
         # In the new-marker flow, saveMeasurements() must be called BEFORE
         # createLocationMarker() (which triggers the async geocode), so a
         # reload mid-lookup does not lose the marker. Search for the
