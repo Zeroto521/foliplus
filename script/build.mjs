@@ -13,6 +13,7 @@
  *   node script/build.mjs --dev        # unminified, keepNames (for PY identifier tests)
  *   node script/build.mjs --check      # build and verify all artifacts exist
  */
+import autoprefixer from "autoprefixer";
 import { build } from "esbuild";
 import {
   cpSync,
@@ -24,6 +25,8 @@ import {
   writeFileSync,
 } from "fs";
 import { basename, dirname, resolve } from "path";
+import postcss from "postcss";
+import postcssNesting from "postcss-nesting";
 import { fileURLToPath } from "url";
 import { transformSource } from "./compress.mjs";
 
@@ -50,6 +53,26 @@ const CFG = {
   check: process.argv.includes("--check"),
 };
 
+// ── PostCSS pipeline ────────────────────────────────────────────
+// CSS sources are authored in nested syntax (CSS Nesting) and compiled to
+// flat selectors for maximum browser compatibility, then vendor-prefixed
+// via Autoprefixer (driven by the `browserslist` key in package.json).
+// `edition: '2021'` emits fully-flattened selectors (no `:is()` wrapper),
+// keeping specificity identical to hand-written flat CSS.
+const postcssProcessor = postcss([postcssNesting({ edition: "2021" }), autoprefixer()]);
+
+/** esbuild onLoad plugin that runs CSS through the PostCSS pipeline. */
+const postcssPlugin = {
+  name: "postcss",
+  setup(build) {
+    build.onLoad({ filter: /\.css$/ }, async args => {
+      const source = readFileSync(args.path, "utf-8");
+      const result = await postcssProcessor.process(source, { from: args.path });
+      return { contents: result.css, loader: "css" };
+    });
+  },
+};
+
 // ── Shared esbuild options ──────────────────────────────────────
 // `alias` maps `#common/*` to the processed `.build/` copy so compressed
 // sources are bundled (not the raw `foliplus/js` originals).
@@ -64,6 +87,7 @@ const esbuildCfg = {
   allowOverwrite: true,
   keepNames: CFG.dev,
   alias: { "#common": CFG.tmp.js + "/common" },
+  plugins: [postcssPlugin],
 };
 
 const artifact = (entryPoints, outfile) => ({ entryPoints, outfile, ...esbuildCfg });

@@ -3,20 +3,21 @@
   display: inline-flex;
   align-items: center;
   margin: 0;
-}
-.leaflet-control.foliplus-scale-wrap .leaflet-control-scale-line,
-.leaflet-control.foliplus-scale-wrap .foliplus-scale-zoom-label {
-  display: inline-flex;
-  align-items: baseline;
-  justify-content: center;
-  padding: 0 var(--space-md);
-  box-sizing: border-box;
-}
-.leaflet-control.foliplus-scale-wrap .leaflet-control-scale-line {
-  border: var(--border-thin) solid transparent;
-  border-bottom: var(--space-xs) solid var(--text-primary);
-  border-left: var(--space-xs) solid var(--text-primary);
-  border-right: var(--space-xs) solid var(--text-primary);
-  text-align: center;
-  background: transparent;
+
+  .leaflet-control-scale-line,
+  .foliplus-scale-zoom-label {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    padding: 0 var(--space-md);
+    box-sizing: border-box;
+  }
+  .leaflet-control-scale-line {
+    border: var(--border-thin) solid transparent;
+    border-bottom: var(--space-xs) solid var(--text-primary);
+    border-left: var(--space-xs) solid var(--text-primary);
+    border-right: var(--space-xs) solid var(--text-primary);
+    text-align: center;
+    background: transparent;
+  }
 }

@@ -9,9 +9,9 @@
   pointer-events: auto;
 }
 
-/* ── Drag & Drop Variables ── */
+/* ── Layer Control ── */
 .foliplus-layer-ctrl {
-  /* ── Drag & Drop ── */
+  /* ── Drag & Drop Variables ── */
   --drag-border-width: var(--border-thick);
   --drag-top-shadow: 0 calc(-1 * var(--size-2)) var(--size-6) calc(-1 * var(--size-2))
     var(--accent-primary);
@@ -26,254 +26,361 @@
 
   /* ── Layout ── */
   --layer-item-pad-x: calc(var(--space-md) - var(--size-2) + 1px);
-}
 
-/* ── Panel Content Overrides ── */
-.foliplus-layer-ctrl .foliplus-panel-content {
-  padding: var(--space-sm) 0;
-  max-height: var(--panel-max-height);
-}
-/* ── Layer panel container ── */
-.foliplus-layer-ctrl .foliplus-layer-panel {
-  display: none;
-  flex-direction: column;
-  width: 100%;
-}
-.foliplus-layer-ctrl.expanded .foliplus-layer-panel {
-  display: flex;
-}
-/* ── LAYERS icon: stacked diamond opacity ── */
-.foliplus-layer-ctrl .foliplus-toggle-btn svg polygon:nth-child(2),
-.foliplus-layer-ctrl .foliplus-header-icon svg polygon:nth-child(2) {
-  opacity: var(--alpha-70);
-}
-.foliplus-layer-ctrl .foliplus-toggle-btn svg polygon:nth-child(3),
-.foliplus-layer-ctrl .foliplus-header-icon svg polygon:nth-child(3) {
-  opacity: var(--alpha-30);
-}
-.foliplus-layer-ctrl .foliplus-type-icon-col {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  color: var(--text-primary);
-  flex-shrink: 0;
-  margin-left: var(--space-sm);
-}
-.foliplus-layer-ctrl .foliplus-type-icon-col svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  transition: transform var(--transition-fast);
-}
-/* Shared dashed style for EMPTY / UNKNOWN icons */
-.foliplus-layer-ctrl .foliplus-type-icon-col svg .dashed {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
-}
-.foliplus-layer-ctrl .foliplus-layer-sep {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-xxl);
-  flex-shrink: 0;
-}
-.foliplus-layer-ctrl .foliplus-layer-sep .foliplus-section-divider {
-  flex: 1;
-}
-.foliplus-layer-ctrl .foliplus-layer-sep-label {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-tight);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-/* ── Toggle-all item ── */
-.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all {
-  gap: var(--space-sm);
-  padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
-  border-left: var(--border-thick) solid transparent;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-/* Section label: primary color + semibold so it reads as a real header */
-.foliplus-layer-ctrl .foliplus-layer-toggle-all .foliplus-layer-sep-label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-}
-/* Hover: soft left-border hint (same language as active layer items) */
-.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
-  border-left-color: var(--accent-light);
-}
-/* Folded: accent left border + accent fold-btn; divider fades out */
-.foliplus-layer-ctrl
+  /* ── Panel Content Overrides ── */
+  .foliplus-panel-content {
+    padding: var(--space-sm) 0;
+    max-height: var(--panel-max-height);
+  }
+  /* ── Layer panel container ── */
+  .foliplus-layer-panel {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+  }
+  &.expanded .foliplus-layer-panel {
+    display: flex;
+  }
+  /* ── LAYERS icon: stacked diamond opacity ── */
+  .foliplus-toggle-btn svg polygon:nth-child(2),
+  .foliplus-header-icon svg polygon:nth-child(2) {
+    opacity: var(--alpha-70);
+  }
+  .foliplus-toggle-btn svg polygon:nth-child(3),
+  .foliplus-header-icon svg polygon:nth-child(3) {
+    opacity: var(--alpha-30);
+  }
+  .foliplus-type-icon-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+    color: var(--text-primary);
+    flex-shrink: 0;
+    margin-left: var(--space-sm);
+
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      transition: transform var(--transition-fast);
+
+      /* Shared dashed style for EMPTY / UNKNOWN icons */
+      .dashed {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        stroke-dasharray: 4 3;
+      }
+    }
+  }
+  .foliplus-layer-sep {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-xxl);
+    flex-shrink: 0;
+
+    .foliplus-section-divider {
+      flex: 1;
+    }
+  }
+  .foliplus-layer-sep-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-tight);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── Toggle-all item ── */
+  .foliplus-layer-sep.foliplus-layer-toggle-all {
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
+    border-left: var(--border-thick) solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition:
+      background-color var(--transition-fast),
+      border-color var(--transition-fast);
+  }
+  /* Section label: primary color + semibold so it reads as a real header */
+  .foliplus-layer-toggle-all .foliplus-layer-sep-label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+  }
+  /* Hover: soft left-border hint (same language as active layer items) */
+  .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
+    border-left-color: var(--accent-light);
+  }
+  /* Folded: accent left border + accent fold-btn; divider fades out */
   .foliplus-layer-sep.foliplus-layer-toggle-all.foliplus-layer-folded {
-  border-left-color: var(--accent-primary);
-}
-.foliplus-layer-ctrl
-  .foliplus-layer-toggle-all.foliplus-layer-folded
-  .foliplus-section-divider {
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
+    border-left-color: var(--accent-primary);
+  }
+  .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-section-divider {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
 
-/* ── Fold toggle button ── */
-.foliplus-layer-ctrl .foliplus-layer-fold-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  margin: 0;
-  width: var(--icon-size-xs);
-  height: var(--icon-size-md);
-  flex-shrink: 0;
-  color: var(--text-primary);
-  transition:
-    color var(--transition-fast),
-    transform var(--transition-fast);
-}
-.foliplus-layer-ctrl .foliplus-layer-fold-btn:hover {
-  color: var(--accent-primary);
-}
-.foliplus-layer-ctrl .foliplus-layer-fold-btn:hover svg {
-  transform: scale(var(--scale-hover));
-}
-.foliplus-layer-ctrl .foliplus-layer-fold-btn:active {
-  transform: scale(var(--scale-press));
-}
-.foliplus-layer-ctrl .foliplus-layer-fold-btn:active svg {
-  transform: scale(var(--scale-press));
-}
-.foliplus-layer-ctrl .foliplus-layer-fold-btn svg {
-  width: var(--icon-size-xs);
-  height: var(--icon-size-xs);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: var(--stroke-icon);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform var(--transition-fast);
-}
-.foliplus-layer-ctrl
-  .foliplus-layer-toggle-all.foliplus-layer-folded
-  .foliplus-layer-fold-btn
-  svg {
-  transform: rotate(180deg);
-}
-.foliplus-layer-ctrl
-  .foliplus-layer-toggle-all.foliplus-layer-folded
+  /* ── Fold toggle button ── */
   .foliplus-layer-fold-btn {
-  color: var(--accent-primary);
-}
-/* ── Fold button hover: bidirectional state preview ──
-  Folded → hover: red → black (preview expanded state)
-  Expanded → hover: black → red (preview folded state) */
-.foliplus-layer-ctrl
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: var(--icon-size-xs);
+    height: var(--icon-size-md);
+    flex-shrink: 0;
+    color: var(--text-primary);
+    transition:
+      color var(--transition-fast),
+      transform var(--transition-fast);
+
+    svg {
+      width: var(--icon-size-xs);
+      height: var(--icon-size-xs);
+      fill: none;
+      stroke: currentColor;
+      stroke-width: var(--stroke-icon);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform var(--transition-fast);
+    }
+    &:hover {
+      color: var(--accent-primary);
+
+      svg {
+        transform: scale(var(--scale-hover));
+      }
+    }
+    &:active {
+      transform: scale(var(--scale-press));
+
+      svg {
+        transform: scale(var(--scale-press));
+      }
+    }
+  }
+  /* ── Fold button hover: bidirectional state preview ──
+    Folded → hover: red → black (preview expanded state)
+    Expanded → hover: black → red (preview folded state) */
+  .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn svg {
+    transform: rotate(180deg);
+  }
+  .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn {
+    color: var(--accent-primary);
+  }
   .foliplus-layer-toggle-all:not(.foliplus-layer-folded):hover
-  .foliplus-layer-fold-btn {
-  color: var(--accent-primary);
-}
-.foliplus-layer-ctrl
-  .foliplus-layer-toggle-all.foliplus-layer-folded:hover
-  .foliplus-layer-fold-btn {
-  color: var(--text-primary);
+    .foliplus-layer-fold-btn {
+    color: var(--accent-primary);
+  }
+  .foliplus-layer-toggle-all.foliplus-layer-folded:hover .foliplus-layer-fold-btn {
+    color: var(--text-primary);
+  }
+
+  /* ── Folded layer items (hidden, but DOM preserved for index alignment) ── */
+  .foliplus-layer-item.foliplus-layer-group-folded {
+    display: none;
+  }
+
+  /* ── Drag handle ──
+    Shared size for all drag handles in layer rows.
+    Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
+  .drag-handle {
+    flex-shrink: 0;
+    width: var(--icon-size-xs);
+    height: var(--icon-size-md);
+
+    /* Circles use fill="currentColor"; add matching stroke so they stay bold,
+      matching the appearance they had when .foliplus-ctrl-fold svg provided
+      stroke: currentColor via inheritance. */
+    circle {
+      stroke: currentColor;
+      stroke-width: var(--stroke-icon);
+    }
+  }
+  .foliplus-layer-item .drag-handle {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+  .foliplus-layer-item:hover .drag-handle {
+    opacity: 1;
+  }
+  .foliplus-layer-toggle-all .drag-handle,
+  .foliplus-color-layer-item .drag-handle {
+    visibility: hidden;
+  }
+
+  /* ── Layer item hover (shared with toggle-all) ── */
+  .foliplus-layer-item:hover,
+  .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
+    background: var(--panel-header-hover);
+  }
+
+  /* ── Layer item ── */
+  .foliplus-layer-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
+    gap: var(--space-sm);
+    cursor: default;
+    user-select: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-md);
+    border-left: var(--border-thick) solid transparent;
+    transition:
+      background-color var(--transition-fast),
+      border-color var(--transition-fast);
+
+    &[draggable="true"] {
+      cursor: move;
+    }
+    &:hover .foliplus-type-icon-col svg,
+    &.active .foliplus-type-icon-col svg {
+      transform: scale(var(--scale-hover));
+    }
+    &.active {
+      border-left-color: var(--accent-primary);
+      background: var(--accent-light);
+    }
+    &.active .foliplus-type-icon-col {
+      color: var(--accent-primary);
+    }
+    &.foliplus-layer-dragging {
+      background: var(--accent-light);
+      opacity: var(--alpha-70);
+    }
+    &.foliplus-layer-drag-over-top {
+      border-top: var(--drag-border-width) solid var(--accent-primary);
+      background: var(--accent-soft-bg);
+      box-shadow: var(--drag-top-shadow);
+      animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
+        var(--drag-pulse-count);
+    }
+    &.foliplus-layer-drag-over-bottom {
+      border-bottom: var(--drag-border-width) solid var(--accent-primary);
+      background: var(--accent-soft-bg);
+      box-shadow: var(--drag-bottom-shadow);
+      animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
+        var(--drag-pulse-count);
+    }
+
+    label {
+      cursor: inherit;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+      font-weight: var(--font-weight-normal);
+    }
+  }
+  /* ── Color layer item overrides: pointer cursor (not draggable) ── */
+  .foliplus-color-layer-item {
+    cursor: pointer;
+  }
+  /* ── Checkbox styles ── */
+  .foliplus-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--space-xl);
+    height: var(--space-xl);
+    flex-shrink: 0;
+  }
+  input[type="checkbox"] {
+    appearance: none;
+    width: var(--space-xl);
+    height: var(--space-xl);
+    border: var(--border-thin) solid var(--input-border);
+    background: var(--input-bg);
+    margin: 0;
+    cursor: pointer;
+    position: relative;
+    border-radius: var(--radius-sm);
+    transition:
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast),
+      background-color var(--transition-fast);
+    flex-shrink: 0;
+
+    /* ── Checked & indeterminate (partial selection) share active bg ── */
+    &:is(:checked, :indeterminate) {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+
+      /* ── Shared ::after positioning for both states ── */
+      &::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-size: var(--size-12);
+        background-position: center;
+        background-repeat: no-repeat;
+      }
+    }
+    /* Checkmark icon */
+    &:checked::after {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    }
+    /* Dash icon (partial selection) */
+    &:indeterminate::after {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
+    }
+  }
+  :focus-visible {
+    outline: var(--border-thick) solid var(--accent-primary);
+    outline-offset: var(--border-thin);
+    border-radius: var(--radius-sm);
+  }
+  /* ── Solid color layer picker ── */
+  .foliplus-color-layer-input {
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+    border: var(--border-thick) solid var(--input-border);
+    border-radius: var(--radius-round);
+    cursor: pointer;
+    padding: 0;
+    background: none;
+    outline: none;
+    flex-shrink: 0;
+    transition: var(--transition-input);
+
+    &::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    &::-webkit-color-swatch {
+      border: none;
+      border-radius: var(--radius-round);
+    }
+    &::-moz-color-swatch {
+      border: none;
+      border-radius: var(--radius-round);
+    }
+  }
+  .foliplus-color-layer-item.active .foliplus-color-layer-input {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  }
 }
 
-/* ── Folded layer items (hidden, but DOM preserved for index alignment) ── */
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-group-folded {
-  display: none;
-}
-
-/* ── Drag handle ──
-  Shared size for all drag handles in layer rows.
-  Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
-.foliplus-layer-ctrl .drag-handle {
-  flex-shrink: 0;
-  width: var(--icon-size-xs);
-  height: var(--icon-size-md);
-}
-/* Circles use fill="currentColor"; add matching stroke so they stay bold,
-  matching the appearance they had when .foliplus-ctrl-fold svg provided
-  stroke: currentColor via inheritance. */
-.foliplus-layer-ctrl .drag-handle circle {
-  stroke: currentColor;
-  stroke-width: var(--stroke-icon);
-}
-.foliplus-layer-ctrl .foliplus-layer-item .drag-handle {
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-.foliplus-layer-ctrl .foliplus-layer-item:hover .drag-handle {
-  opacity: 1;
-}
-.foliplus-layer-ctrl .foliplus-layer-toggle-all .drag-handle,
-.foliplus-layer-ctrl .foliplus-color-layer-item .drag-handle {
+/* ── Tile pane hidden state ── */
+.foliplus-layer-tile-hidden {
   visibility: hidden;
+  opacity: 0;
 }
 
-/* ── Layer item ── */
-.foliplus-layer-ctrl .foliplus-layer-item {
-  display: flex;
-  align-items: center;
-  padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
-  gap: var(--space-sm);
-  cursor: default;
-  user-select: none;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-md);
-  border-left: var(--border-thick) solid transparent;
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-.foliplus-layer-ctrl .foliplus-layer-item[draggable="true"] {
-  cursor: move;
-}
-.foliplus-layer-ctrl .foliplus-layer-item:hover,
-.foliplus-layer-ctrl .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
-  background: var(--panel-header-hover);
-}
-.foliplus-layer-ctrl .foliplus-layer-item:hover .foliplus-type-icon-col svg,
-.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col svg {
-  transform: scale(var(--scale-hover));
-}
-.foliplus-layer-ctrl .foliplus-layer-item.active {
-  border-left-color: var(--accent-primary);
-  background: var(--accent-light);
-}
-.foliplus-layer-ctrl .foliplus-layer-item.active .foliplus-type-icon-col {
-  color: var(--accent-primary);
-}
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-dragging {
-  background: var(--accent-light);
-  opacity: var(--alpha-70);
-}
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-drag-over-top {
-  border-top: var(--drag-border-width) solid var(--accent-primary);
-  background: var(--accent-soft-bg);
-  box-shadow: var(--drag-top-shadow);
-  animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
-    var(--drag-pulse-count);
-}
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-drag-over-bottom {
-  border-bottom: var(--drag-border-width) solid var(--accent-primary);
-  background: var(--accent-soft-bg);
-  box-shadow: var(--drag-bottom-shadow);
-  animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
-    var(--drag-pulse-count);
-}
-
+/* ── Drag-over pulse animation ── */
 @keyframes foliplus-drag-pulse {
   0%,
   100% {
@@ -284,110 +391,6 @@
     border-color: var(--drag-border-to);
     box-shadow: var(--drag-shadow-to);
   }
-}
-/* Color layer item overrides: pointer cursor (not draggable) */
-.foliplus-layer-ctrl .foliplus-color-layer-item {
-  cursor: pointer;
-}
-/* ── Checkbox styles ── */
-.foliplus-layer-ctrl .foliplus-checkbox {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-xl);
-  height: var(--space-xl);
-  flex-shrink: 0;
-}
-.foliplus-layer-ctrl input[type="checkbox"] {
-  appearance: none;
-  width: var(--space-xl);
-  height: var(--space-xl);
-  border: var(--border-thin) solid var(--input-border);
-  background: var(--input-bg);
-  margin: 0;
-  cursor: pointer;
-  position: relative;
-  border-radius: var(--radius-sm);
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    background-color var(--transition-fast);
-  flex-shrink: 0;
-}
-/* ── Checked & indeterminate (partial selection) share active bg ── */
-.foliplus-layer-ctrl input[type="checkbox"]:is(:checked, :indeterminate) {
-  background: var(--accent-primary);
-  border-color: var(--accent-primary);
-}
-/* ── Shared ::after positioning for both states ── */
-.foliplus-layer-ctrl input[type="checkbox"]:is(:checked, :indeterminate)::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-size: var(--size-12);
-  background-position: center;
-  background-repeat: no-repeat;
-}
-/* Checkmark icon */
-.foliplus-layer-ctrl input[type="checkbox"]:checked::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
-}
-/* Dash icon (partial selection) */
-.foliplus-layer-ctrl input[type="checkbox"]:indeterminate::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
-}
-
-.foliplus-layer-ctrl .foliplus-layer-item label {
-  cursor: inherit;
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin: 0;
-  font-weight: var(--font-weight-normal);
-}
-
-.foliplus-layer-ctrl :focus-visible {
-  outline: var(--border-thick) solid var(--accent-primary);
-  outline-offset: var(--border-thin);
-  border-radius: var(--radius-sm);
-}
-/* ── Solid color layer picker ── */
-.foliplus-layer-ctrl .foliplus-color-layer-input {
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  border: var(--border-thick) solid var(--input-border);
-  border-radius: var(--radius-round);
-  cursor: pointer;
-  padding: 0;
-  background: none;
-  outline: none;
-  flex-shrink: 0;
-  transition: var(--transition-input);
-}
-.foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-.foliplus-layer-ctrl .foliplus-color-layer-input::-webkit-color-swatch {
-  border: none;
-  border-radius: var(--radius-round);
-}
-.foliplus-layer-ctrl .foliplus-color-layer-input::-moz-color-swatch {
-  border: none;
-  border-radius: var(--radius-round);
-}
-.foliplus-layer-ctrl .foliplus-color-layer-item.active .foliplus-color-layer-input {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
-}
-
-/* ── Tile pane hidden state ── */
-.foliplus-layer-tile-hidden {
-  visibility: hidden;
-  opacity: 0;
 }
 
 /* ── Color layer background on map container (via Leaflet container) ── */

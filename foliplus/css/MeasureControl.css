@@ -16,9 +16,10 @@
   background: var(--accent-primary);
   border: var(--border-thick) solid var(--neutral-0);
   border-radius: var(--radius-round);
-}
-.foliplus-measure-center-dot.final {
-  box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
+
+  &.final {
+    box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
+  }
 }
 
 /* ── Measurement Nodes (circleMarker) ── */
@@ -214,17 +215,18 @@
     visibility var(--transition-fast),
     transform var(--transition-fast),
     background var(--transition-fast);
-}
-.foliplus-measure-del-icon.visible {
-  opacity: 1;
-  visibility: visible;
-  display: flex;
-}
-.foliplus-measure-del-icon:hover {
-  background: rgba(var(--red-rgb), var(--alpha-95));
-  box-shadow: var(--shadow-xs);
-  transform: scale(var(--scale-hover));
-}
-.foliplus-measure-del-icon:active {
-  transform: scale(var(--scale-press));
+
+  &.visible {
+    opacity: 1;
+    visibility: visible;
+    display: flex;
+  }
+  &:hover {
+    background: rgba(var(--red-rgb), var(--alpha-95));
+    box-shadow: var(--shadow-xs);
+    transform: scale(var(--scale-hover));
+  }
+  &:active {
+    transform: scale(var(--scale-press));
+  }
 }
