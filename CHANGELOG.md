@@ -15,7 +15,7 @@
 - `Project architecture`: migrate from single Jinja-embedded JavaScript IIFE to modular TypeScript with ES module structure. Each component now has its own `*.ts` source file, bundled via esbuild into a single IIFE for distribution. ([#122](https://github.com/Zeroto521/foliplus/pull/122))
 - `Frontend language`: migrate all JavaScript source files to TypeScript (`*.js` → `*.ts`). Added `vitest` for JS unit tests. ([#122](https://github.com/Zeroto521/foliplus/pull/122))
 - `Test boundary refactoring`: establish clear PY ↔ JS bridge boundary rule — PY tests validate config serialization, locale injection, CDN dependencies, and CSS tokens only; JS tests (vitest) cover all internal component logic; browser tests (Playwright) cover real DOM interaction. ([#122](https://github.com/Zeroto521/foliplus/pull/122))
-- `BaseControl`: extract `_export_fields` and `_extra_config` protocol for clean PY→JS config injection. ([#122](https://github.com/Zeroto521/foliplus/pull/122))
+- `BaseControl`: extract `_export_fields` and `_extra_config` protocol for clean PY→JS config injection. Rework the **lifecycle management** in the shared JS `BaseControl`: a `L.Control` base class with `init()`/`buildDOM()`/`destroy()` hooks and final `onAdd()`/`onRemove()`. `onRemove` auto-unbinds all tracked DOM/map listeners before calling the subclass `destroy()` hook, eliminating listener leaks across controls. ([#122](https://github.com/Zeroto521/foliplus/pull/122))
 
 ### Fixed
 
