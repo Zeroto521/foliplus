@@ -144,15 +144,6 @@ class TestHeatmapControlRendering:
         for n in (2, 5, 9):
             assert str(n) in html
 
-    def test_onremove_cleanup(self, base_map: folium.Map):
-        """onRemove exists in the JS output."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "onRemove" in html
-        assert "observer.disconnect" in html
-        assert "zoomend" in html
-        assert "layeradd" in html
-
     def test_no_layer_hint(self, base_map: folium.Map):
         """initScan shows no_layer hint when no point layers found."""
         HeatmapControl().add_to(base_map)

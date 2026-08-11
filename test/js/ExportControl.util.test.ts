@@ -1,5 +1,5 @@
-import { isVisible } from "#foliplus/ExportControl/ExportControl.util.js";
-import { describe, expect, it } from "vitest";
+import { ensureFont, isVisible } from "#foliplus/ExportControl/ExportControl.util.js";
+import { describe, expect, it, vi } from "vitest";
 
 describe("isVisible", () => {
   it("returns true for a rectangle fully inside the viewport", () => {
@@ -35,5 +35,19 @@ describe("isVisible", () => {
 
   it("returns true for a zero-size rectangle at the origin", () => {
     expect(isVisible(0, 0, 0, 0, 500, 500)).toBe(true);
+  });
+});
+
+describe("ensureFont", () => {
+  it("loads and checks the font", async () => {
+    const fonts = {
+      load: vi.fn(() => Promise.resolve()),
+      check: vi.fn(() => true),
+      ready: Promise.resolve(),
+    };
+    Object.defineProperty(document, "fonts", { value: fonts, configurable: true });
+    await ensureFont("16px sans-serif");
+    expect(fonts.load).toHaveBeenCalledWith("16px sans-serif");
+    expect(fonts.check).toHaveBeenCalledWith("16px sans-serif");
   });
 });

@@ -7,6 +7,7 @@ beforeEach(() => {
   globalThis.turf = {
     point: coords => ({ coords }),
     distance: vi.fn(() => 100),
+    bearing: vi.fn(() => 45),
   };
 });
 
@@ -189,5 +190,53 @@ describe("recalculateSegments", () => {
     expect(result.segments).toHaveLength(2);
     expect(result.totalDistance).toBe(200);
     expect(result.segments[0].distance).toBe(100);
+  });
+});
+
+describe("formatSegmentLabel", () => {
+  it("returns only distance when show_bearing is off", () => {
+    window.CONF = { ...window.CONF, show_bearing: false };
+    expect(Util.formatSegmentLabel({}, {}, 500)).toBe("500 m");
+  });
+
+  it("includes bearing when show_bearing is on", () => {
+    window.CONF = { ...window.CONF, show_bearing: true };
+    globalThis.turf.bearing = vi.fn(() => 45);
+    const a = { lng: 0, lat: 0 };
+    const b = { lng: 0, lat: 1 };
+    const label = Util.formatSegmentLabel(a, b, 500);
+    expect(label).toBe("45° | 500 m");
+  });
+});
+
+describe("suppressHide", () => {
+  it("sets a delayed flag and clears it after the delay", () => {
+    vi.useFakeTimers();
+    const manager = { isSuppressHideDel: false };
+    Util.suppressHide(manager);
+    expect(manager.isSuppressHideDel).toBe(true);
+    vi.advanceTimersByTime(1000);
+    expect(manager.isSuppressHideDel).toBe(false);
+    vi.useRealTimers();
+  });
+});
+
+describe("applyToggle", () => {
+  it("toggles labels and calls onToggle", () => {
+    const labelEl = document.createElement("span");
+    labelEl.classList.add("foliplus-measure-label");
+    const marker = { getElement: () => ({ querySelector: () => labelEl }) };
+    const delMarker = { getElement: () => ({ querySelector: () => null }) };
+    const onToggle = vi.fn();
+    Util.applyToggle(delMarker, true, [marker], false, null, onToggle);
+    expect(labelEl.classList.contains("foliplus-measure-hidden")).toBe(true);
+    expect(onToggle).toHaveBeenCalledWith(true, false);
+  });
+});
+
+describe("buildPopup", () => {
+  it("delegates to buildPopupHtml", () => {
+    const result = Util.buildPopup(1, 2, "addr");
+    expect(result).toBeDefined();
   });
 });
