@@ -272,3 +272,29 @@ describe("buildPopup", () => {
     expect(result).toBeDefined();
   });
 });
+
+describe("stopEvent", () => {
+  it("prevents default and stops propagation", () => {
+    const ev = { preventDefault: vi.fn(), stopPropagation: vi.fn() };
+    Util.stopEvent(ev);
+    expect(ev.preventDefault).toHaveBeenCalled();
+    expect(ev.stopPropagation).toHaveBeenCalled();
+  });
+});
+
+describe("toggleDelIcon", () => {
+  it("toggles visible class on the delete icon element", () => {
+    const icon = document.createElement("span");
+    icon.className = "foliplus-measure-del-icon";
+    document.body.appendChild(icon);
+    const marker = { getElement: () => ({ querySelector: () => icon }) };
+    Util.toggleDelIcon(marker, true);
+    expect(icon.classList.contains("visible")).toBe(true);
+    Util.toggleDelIcon(marker, false);
+    expect(icon.classList.contains("visible")).toBe(false);
+  });
+
+  it("is safe when marker getElement returns null", () => {
+    expect(() => Util.toggleDelIcon({ getElement: () => null }, true)).not.toThrow();
+  });
+});

@@ -149,3 +149,31 @@ describe("MeasureManager — persistence edge cases", () => {
     expect(() => manager.clearAll()).not.toThrow();
   });
 });
+
+describe("MeasureManager — global events", () => {
+  it("onUnload clears active mode and layers without wiping measurements", () => {
+    const { manager, map } = makeManager();
+    manager.measurements = [{ id: 1, type: "marker" }];
+    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.onUnload();
+    expect(manager.currentMode).toBeNull();
+    expect(manager.layers.clearLayers).toHaveBeenCalled();
+    expect(manager.measurements).toHaveLength(1);
+  });
+
+  it("Escape keydown calls clearActiveMode when mode is active", () => {
+    const { manager } = makeManager();
+    const spy = vi.spyOn(manager, "clearActiveMode");
+    manager.currentMode = CONST.MODE.DISTANCE;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("Escape keydown does nothing when no mode is active", () => {
+    const { manager } = makeManager();
+    const spy = vi.spyOn(manager, "clearActiveMode");
+    manager.currentMode = null;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
