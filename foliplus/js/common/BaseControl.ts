@@ -15,18 +15,19 @@
 //   - Registration is idempotent: calling listen* twice never double-binds.
 //   - onRemove is final — subclasses override destroy() instead.
 
-const alreadyBound = (list: any[], item: any[]): boolean =>
-  list.some(it => it[0] === item[0] && it[1] === item[1] && it[2] === item[2]);
+/** True if a listener tuple with the same (target, event) is already tracked. */
+const alreadyBound = (list: readonly unknown[][], item: readonly unknown[]): boolean =>
+  list.some(it => it[0] === item[0] && it[1] === item[1]);
 
-class BaseControl extends L.Control {
-  events: Array<[any, string, any]>;
-  mapListeners: Array<[string, any]>;
-  _map: any;
+class BaseControl extends L.Control<L.ControlOptions> {
+  events: Array<[HTMLElement, string, (e: Event) => void]>;
+  mapListeners: Array<[string, (...args: never[]) => void]>;
+  _map: L.Map;
   init?(): void;
   buildDOM?(): HTMLElement;
   build?(): HTMLElement;
 
-  constructor(options: Record<string, unknown> = {}) {
+  constructor(options?: L.ControlOptions) {
     super(options);
     this.events = [];
     this.mapListeners = [];
@@ -51,19 +52,19 @@ class BaseControl extends L.Control {
   }
 
   /** Override to release resources on removal. Called before auto-unbind. */
-  destroy(): void {}
+  destroy(): void { }
 
   /** Track a L.DomEvent listener for auto-cleanup. */
-  listenDOM(el: HTMLElement, ev: string, fn: any): void {
-    const item: [any, string, any] = [el, ev, fn];
+  listenDOM(el: HTMLElement, ev: string, fn: (e: Event) => void): void {
+    const item: [HTMLElement, string, (e: Event) => void] = [el, ev, fn];
     if (alreadyBound(this.events, item)) return;
     L.DomEvent.on(el, ev, fn);
     this.events.push(item);
   }
 
   /** Track a map event listener for auto-cleanup. */
-  listenMap(ev: string, fn: any): void {
-    const item: [string, any] = [ev, fn];
+  listenMap(ev: string, fn: (...args: never[]) => void): void {
+    const item: [string, (...args: never[]) => void] = [ev, fn];
     if (alreadyBound(this.mapListeners, item)) return;
     this._map.on(ev, fn);
     this.mapListeners.push(item);
