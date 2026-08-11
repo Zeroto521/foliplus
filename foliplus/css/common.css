@@ -127,7 +127,7 @@
 
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.
-  Hint z-index is managed by runtime.js (HINT.foliplus-ZINDEX = 10000).
+  Hint z-index is managed by runtime.js (HINT z-index = 10000).
   CSS only defines floating/panel z-index (below hints). */
   --z-index-floating: 9990;
 }
