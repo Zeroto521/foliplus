@@ -474,19 +474,8 @@ class TestLayerControlBrowser:
 
     def test_add_graph_sets_pane(self, browser, tmp_path):
         """addGraph sets pane on the layer and calls register."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_addgraph.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -514,19 +503,8 @@ class TestLayerControlBrowser:
 
     def test_clear_all_unregisters(self, browser, tmp_path):
         """clearAll clears content and unregisters the layer."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_clearall.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -550,19 +528,8 @@ class TestLayerControlBrowser:
 
     def test_add_label_sets_pane(self, browser, tmp_path):
         """addLabel sets pane on the marker."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_addlabel.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -612,18 +579,8 @@ class TestLayerControlBrowser:
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_unregister.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -647,18 +604,8 @@ class TestLayerControlBrowser:
 
     def test_create_canvas_basic_api(self, browser, tmp_path):
         """createCanvas returns canvas API object with expected methods."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_create_canvas.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             api = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -691,18 +638,8 @@ class TestLayerControlBrowser:
 
     def test_canvas_register_unregister(self, browser, tmp_path):
         """Canvas register() creates a layer item; unregister() removes it."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_canvas_reg.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -725,18 +662,8 @@ class TestLayerControlBrowser:
 
     def test_migrate_layers_marker_pane(self, browser, tmp_path):
         """migrateLayers moves Markers to per-layer panes."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_marker_pane.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -757,18 +684,8 @@ class TestLayerControlBrowser:
 
     def test_migrate_layers_path_pane(self, browser, tmp_path):
         """migrateLayers moves Path layers to the target pane."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_path_pane.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -789,18 +706,8 @@ class TestLayerControlBrowser:
 
     def test_get_layer_type_api(self, browser, tmp_path):
         """getLayerType returns correct geometry type for registered layers."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_layer_type.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -1050,18 +957,8 @@ class TestLayerControlBrowser:
 
     def test_color_layer_item_title(self, browser, tmp_path):
         """Color layer item title shows the color map label."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_color_layer_title.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -1080,18 +977,8 @@ class TestLayerControlBrowser:
 
     def test_register_reentry_after_hide(self, browser, tmp_path):
         """registerLayer can be re-called after a layer is hidden by checkbox."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_register_reentry.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -1113,18 +1000,8 @@ class TestLayerControlBrowser:
 
     def test_register_readds_hidden_layer(self, browser, tmp_path):
         """register() re-adds mainLayer to map when layer was unchecked."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_register_readds.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -1419,18 +1296,8 @@ class TestLayerControlBrowser:
 
     def test_unregister_layer_removes_dom(self, browser, tmp_path):
         """unregisterLayer removes the DOM item from the panel."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_unreg_dom.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -1458,18 +1325,8 @@ class TestLayerControlBrowser:
 
     def test_find_layer_by_string_id(self, browser, tmp_path):
         """findLayer resolves a layer by string ID via layers array."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_find_by_id.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -1588,18 +1445,8 @@ class TestLayerControlBrowser:
 
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_register_visible.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -1634,18 +1481,8 @@ class TestLayerControlBrowser:
         (layer/paneName/iconSvg/onToggle/onZIndex/name/isBase) fall back to
         the existing layerInfo instead of being reset to defaults.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_reregister_preserves.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -1709,18 +1546,8 @@ class TestLayerControlBrowser:
         (map._layers / window[id]) inside createLayerInfo, so li.layer is
         populated without a separate resolution pass.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_resolve_layer_from_map.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -1747,18 +1574,8 @@ class TestLayerControlBrowser:
 
     def test_extract_points_api(self, browser, tmp_path):
         """extractPoints returns geo points from registered layers."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_extract_points.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -1847,18 +1664,8 @@ class TestLayerControlBrowser:
 
     def test_color_layer_pointer_cursor(self, browser, tmp_path):
         """Color layer item shows pointer cursor on hover."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_color_cursor.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -2180,19 +1987,8 @@ class TestLayerControlBrowser:
         enforceOrder allowed comes from initTypesAndVisibility (first paint).
         Redundant per-register reordering is what this test guards against.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_batch_reg.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -2241,19 +2037,8 @@ class TestLayerControlBrowser:
         (paneName), and must NOT be overwritten with a fallback
         `foliplus_pane_*` name during migration.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_clean_container.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -2297,19 +2082,8 @@ class TestLayerControlBrowser:
         instead of splice+unshift, which would silently destroy the user's
         drag order and persist the accidental order via saveOrder.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_register_idempotent.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -2344,19 +2118,8 @@ class TestLayerControlBrowser:
         which can skip a needed reorder for a layer added inside the
         enforceOrder window. The guard must fall back to debouncedEnforce.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_layeradd_during_enforce.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -2486,19 +2249,8 @@ class TestLayerControlBrowser:
         which is O(n) per registration (O(n^2) for n registrations). A
         registered layer should insert a single DOM item instead.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_render_incremental.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -2539,19 +2291,8 @@ class TestLayerControlBrowser:
         O(1) lookups (findLayer, getLayerType) never diverge from the array
         that owns the ordering.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_layer_index.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -2627,19 +2368,8 @@ class TestLayerControlBrowser:
         (length, index access, iteration) while keeping an id → layerInfo map
         in sync on every mutation.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_registry_api.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;
@@ -2796,19 +2526,8 @@ class TestLayerControlBrowser:
         External callers must go through LayerAPI (registerLayer/unregisterLayer
         etc.) so the registry index can never be bypassed or drift from the list.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_layers_readonly.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
 
             result = page.evaluate("""() => {
                 const api = window.foliplus && window.foliplus.LayerAPI;

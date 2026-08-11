@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import render
+from conftest import make_browser_page, render
 
 from foliplus import ExportControl
 
@@ -174,21 +174,23 @@ class TestExportControlRendering:
 class TestExportControlBrowser:
     """Browser-level tests for ExportControl."""
 
-    def test_toggle_button_present(self, browser, tmp_path):
-        """Export toggle button is rendered and clickable."""
-
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    @staticmethod
+    def _make_page(browser, tmp_path, *layers, slug="export"):
         from foliplus import LayerControl
 
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         ExportControl().add_to(m)
-        html = m.get_root().render()
-        html_path = tmp_path / "export_toggle.html"
-        html_path.write_text(html, encoding="utf-8")
+        for layer in layers:
+            layer.add_to(m)
+        page, errors = make_browser_page(browser, tmp_path, m.get_root().render(), slug)
+        page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
+        return page, errors
 
-        page = browser.new_page()
+    def test_toggle_button_present(self, browser, tmp_path):
+        """Export toggle button is rendered and clickable."""
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             btn = page.wait_for_selector(
                 ".foliplus-export-ctrl .foliplus-toggle-btn",
                 state="attached",
@@ -201,23 +203,8 @@ class TestExportControlBrowser:
     def test_crop_box_appears_on_click(self, browser, tmp_path):
         """Clicking toggle button shows the crop box."""
 
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html = m.get_root().render()
-        html_path = tmp_path / "export_crop.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl",
-                state="attached",
-                timeout=10000,
-            )
             btn = page.locator(".foliplus-export-ctrl .foliplus-toggle-btn")
             btn.click()
             page.wait_for_selector(
@@ -234,23 +221,8 @@ class TestExportControlBrowser:
     def test_escape_closes_crop_box(self, browser, tmp_path):
         """Pressing Escape with unlocked crop box removes it."""
 
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html = m.get_root().render()
-        html_path = tmp_path / "export_escape.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl",
-                state="attached",
-                timeout=10000,
-            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box",
@@ -273,23 +245,8 @@ class TestExportControlBrowser:
     def test_enter_locks_crop_box(self, browser, tmp_path):
         """Pressing Enter locks the crop box (dashed > solid border)."""
 
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html = m.get_root().render()
-        html_path = tmp_path / "export_enter.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl",
-                state="attached",
-                timeout=10000,
-            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box",
@@ -310,23 +267,8 @@ class TestExportControlBrowser:
     def test_export_mode_class(self, browser, tmp_path):
         """foliplus-export-mode class is added to body and map container."""
 
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html = m.get_root().render()
-        html_path = tmp_path / "export_mode.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl",
-                state="attached",
-                timeout=10000,
-            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box",
@@ -349,21 +291,8 @@ class TestExportControlBrowser:
 
     def test_lock_unlock_cycle(self, browser, tmp_path):
         """Lock then unlock crop box transitions correctly."""
-
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html_path = tmp_path / "export_lock_unlock.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -387,23 +316,8 @@ class TestExportControlBrowser:
 
     def test_no_console_errors_on_open(self, browser, tmp_path):
         """Opening export control should not produce JS errors."""
-
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html_path = tmp_path / "export_no_errors.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, errors = self._make_page(browser, tmp_path)
         try:
-            errors = []
-            page.on("pageerror", lambda e: errors.append(str(e)))
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -415,7 +329,6 @@ class TestExportControlBrowser:
 
     def test_export_vector_and_marker_content(self, browser, tmp_path):
         """Export with vector polygon + Marker layers produces non-blank canvas."""
-
         from foliplus import LayerControl
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -513,20 +426,8 @@ class TestExportControlBrowser:
 
     def test_crop_box_drag_resize(self, browser, tmp_path):
         """Dragging a crop box handle resizes the box."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html_path = tmp_path / "export_drag_resize.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -572,20 +473,8 @@ class TestExportControlBrowser:
 
     def test_crop_box_drag_move(self, browser, tmp_path):
         """Dragging the crop box center moves the box."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html_path = tmp_path / "export_drag_move.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -700,21 +589,8 @@ class TestExportControlBrowser:
 
     def test_saved_bounds_restore(self, browser, tmp_path):
         """Saved bounds in localStorage restore the crop box on toggle."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html_path = tmp_path / "export_saved_bounds.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
-
             # Pre-set localStorage with saved bounds using the exact storage key.
             # Extract the map name from the first script tag that defines L.map.
             map_name = page.evaluate("""() => {
@@ -818,20 +694,8 @@ class TestExportControlBrowser:
 
     def test_undo_redo_keyboard(self, browser, tmp_path):
         """Ctrl+Z/Ctrl+Shift+Z handlers are registered on document."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html_path = tmp_path / "export_undo_redo.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -878,20 +742,8 @@ class TestExportControlBrowser:
 
     def test_locked_box_follows_zoom(self, browser, tmp_path):
         """Locked crop box follows the map after zoom."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        from foliplus import LayerControl
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html_path = tmp_path / "export_zoom_follow.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path)
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
