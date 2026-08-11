@@ -12,10 +12,8 @@ Guidelines
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Generator
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import folium
@@ -101,13 +99,9 @@ def assert_locale(html: str, zh_text: str, en_key: str | None = None) -> None:
         ``"FullscreenControl.enter"``).
     """
     assert zh_text in html, f"Expected Chinese text {zh_text!r} not found"
+
     if en_key:
         assert en_key in html, f"Expected locale key {en_key!r} not found"
-
-
-def assert_css_token(html: str, token: str) -> None:
-    """Assert that a CSS custom property or class name is present."""
-    assert token in html, f"Expected CSS token {token!r} not found in rendered HTML"
 
 
 def assert_config_block(ctrl, expected: dict[str, Any]) -> None:

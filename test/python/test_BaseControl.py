@@ -7,9 +7,11 @@ function presence and internal logic are covered by test/js/ unit tests.
 
 from __future__ import annotations
 
+import json
+
 import folium
 import pytest
-from conftest import render
+from conftest import assert_config_block, render
 
 
 class TestBaseControlPython:
@@ -29,10 +31,9 @@ class TestBaseControlPython:
     def test_build_config_includes_shared_keys(self):
         from foliplus.BaseControl import BaseControl
 
-        ctrl = BaseControl()
-        config = ctrl._build_config()
-        assert config["name"] == "BaseControl"
-        assert config["position"] == "topleft"
+        assert_config_block(
+            BaseControl(), {"name": "BaseControl", "position": "topleft"}
+        )
 
     def test_build_config_caches_on_self_config(self):
         from foliplus.BaseControl import BaseControl
@@ -57,7 +58,6 @@ class TestBaseControlPython:
 
         SearchControl(locale="en").add_to(base_map)
         html = render(base_map)
-        # The CONF block contains locale_tables for the component
         assert '"locale_code": "en"' in html
         assert '"locale_tables"' in html
 
@@ -66,18 +66,17 @@ class TestBaseControlPython:
         from foliplus.BaseControl import BaseControl
 
         ctrl = BaseControl()
-        _ = ctrl._config_block  # triggers locale overlay
-        # _config should not contain locale_tables or locale_code
+        _ = ctrl._config_block
         assert "locale_tables" not in ctrl._config
         assert "locale_code" not in ctrl._config
 
     def test_export_fields_are_serialized_in_config(self):
         from foliplus import FullscreenControl
 
-        ctrl = FullscreenControl(hide_self=False, hide_others=True)
-        config = ctrl._build_config()
-        assert config["hide_self"] is False
-        assert config["hide_others"] is True
+        assert_config_block(
+            FullscreenControl(hide_self=False, hide_others=True),
+            {"hide_self": False, "hide_others": True},
+        )
 
     def test_extra_config_merged_into_build_config(self):
         import folium
@@ -97,7 +96,7 @@ class TestBaseControlPython:
         from foliplus.BaseControl import BaseControl
 
         class OverrideControl(BaseControl):
-            _export_fields = ("position",)  # would override shared position
+            _export_fields = ("position",)
 
             def __init__(self):
                 super().__init__(position="topleft")
@@ -106,10 +105,7 @@ class TestBaseControlPython:
             def _extra_config(self):
                 return {"position": "overridden_by_extra"}
 
-        ctrl = OverrideControl()
-        config = ctrl._build_config()
-        # _extra_config wins because it's merged last
-        assert config["position"] == "overridden_by_extra"
+        assert_config_block(OverrideControl(), {"position": "overridden_by_extra"})
 
     def test_default_locale_code_empty(self):
         from foliplus.BaseControl import BaseControl
@@ -117,14 +113,12 @@ class TestBaseControlPython:
         ctrl = BaseControl()
         assert ctrl._locale_code == ""
 
-    def test_config_block_empty_when_no_export_fields(self):
+    def test_config_block_parses(self):
+        """_config_block returns valid JSON with expected keys."""
         from foliplus.BaseControl import BaseControl
 
         ctrl = BaseControl()
-        block = ctrl._config_block
-        import json
-
-        parsed = json.loads(block)
+        parsed = json.loads(ctrl._config_block)
         assert parsed["name"] == "BaseControl"
         assert parsed["position"] == "topleft"
         assert "locale_tables" in parsed
@@ -136,6 +130,10 @@ class TestBaseControlRendering:
 
     def test_includes_common_css(self, base_map: folium.Map):
         from foliplus import SearchControl
+
+        SearchControl().add_to(base_map)
+        html = render(base_map)
+        assert "--ctrl-bg" in html
 
     # ── BaseControl Python API ──
 
@@ -161,10 +159,6 @@ class TestBaseControlRendering:
         render(base_map)
         assert sc._config["mode"] == "addr"
         assert fc._config["hide_self"] is False
-
-        SearchControl().add_to(base_map)
-        html = render(base_map)
-        assert "--ctrl-bg" in html
 
     def test_includes_runtime_js(self, base_map: folium.Map):
         from foliplus import SearchControl
