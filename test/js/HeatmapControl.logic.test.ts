@@ -552,7 +552,12 @@ describe("renderHexagons", () => {
     m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 1 }];
     m.cachedAgg = {
       key: "layer1|count|true|auto|2|jenks|Reds|6",
-      data: { hexCells: {}, getAggValue: () => 0, valueToClassIdx: () => 0, classColors: [] },
+      data: {
+        hexCells: {},
+        getAggValue: () => 0,
+        valueToClassIdx: () => 0,
+        classColors: [],
+      },
     };
     const spy = vi.spyOn(m, "aggregateData");
     m.renderHexagons();
