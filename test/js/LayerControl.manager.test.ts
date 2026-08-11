@@ -1,5 +1,5 @@
 import { LayerRegistry } from "#foliplus/LayerControl/LayerControl.manager.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("LayerRegistry", () => {
   let registry;
@@ -174,6 +174,31 @@ describe("LayerRegistry", () => {
       expect(() => {
         registry.list.splice(0, 1);
       }).toThrow();
+    });
+  });
+
+  describe("replace", () => {
+    it("rebuilds list and identifies from a new ordered array", () => {
+      const newList = [
+        registry.createLayerInfo({ id: "a", name: "A", isBase: false }),
+        registry.createLayerInfo({ id: "b", name: "B", isBase: true }),
+      ];
+      registry.replace(newList);
+      expect(registry.size).toBe(2);
+      expect(registry.at(0).id).toBe("a");
+      expect(registry.get("b").isBase).toBe(true);
+      expect(registry.firstBaseIdx).toBe(1);
+    });
+  });
+
+  describe("indexOf", () => {
+    it("returns the index of a layer info", () => {
+      const li = registry.get("overlay1");
+      expect(registry.indexOf(li)).toBe(0);
+    });
+
+    it("returns -1 for an unknown layer info", () => {
+      expect(registry.indexOf({ id: "nope" })).toBe(-1);
     });
   });
 });

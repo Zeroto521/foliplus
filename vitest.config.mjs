@@ -39,8 +39,9 @@ export default defineConfig({
         // LayerControl.pane.ts — PaneManager isDefaultPane/getLayerPanes covered by LayerControl.pane.test.ts
         "foliplus/js/LayerControl/LayerControl.ui.ts",
         // MeasureControl complex modules — need L.Map, L.DomEvent, panes.
-        "foliplus/js/MeasureControl/MeasureControl.manager.ts",
+        // MeasureControl.mode.ts — MeasureMode/PreviewMode covered by MeasureControl.mode.test.ts
         "foliplus/js/MeasureControl/MeasureControl.mode.ts",
+        "foliplus/js/MeasureControl/MeasureControl.manager.ts",
         "foliplus/js/MeasureControl/MeasureControl.ui.ts",
       ],
       reporter: ["text", "lcov"],
