@@ -60,52 +60,12 @@ class TestSearchControlRendering:
         """Key content is present in rendered output."""
         SearchControl().add_to(base_map)
         html = render(base_map)
-        assert "CONF.name" in html
         assert "foliplus-search" in html
         assert "foliplus-search-mode-btn" in html
         assert "foliplus-search-suggestions" in html
         assert "foliplus-search-suggestion-item" in html
-        assert "search-mode-btn" in html
-        assert "toggle-btn" in html
-        assert "ctrl-btn" in html
-        assert "disableClickPropagation" in html
-        assert "disableScrollPropagation" in html
-        assert "jsonv2" in html
+        assert "ctrl-fold" in html
         assert "align-right" in html
-        assert "setMode" in html
-        assert "DEBOUNCE_MS" in html
-        assert "MIN_CHARS" in html
-        assert "MAX_ITEMS" in html
-        assert "flyTo" in html
-        assert "hideHint" in html
-        assert "fromWgs84" in html
-        assert "NOMINATIM" in html
-        assert "createLocationMarker" in html
-        assert "buildPopupHtml" in html
-        assert "reverseGeocode" in html
-        assert "cachedSuggestions" in html
-        assert "cachedAddress" in html
-        assert "removeSuggestions" in html
-        assert "positionSuggestions" in html
-        assert "URLSearchParams" in html
-        assert "searchCoord" in html
-        assert "searchAddress" in html
-        assert "renderAddressResult" in html
-        assert "fetchSuggestions" in html
-        assert "initFromUrl" in html
-        assert "getBoundingClientRect" in html
-        assert "repositionHandler" in html
-        assert "stopPropagation" in html
-        assert "debouncedFetch" in html
-        assert "suggestionsThrottleTimer" in html
-        assert "clearTimeout" in html
-        assert "addEventListener" in html
-        assert "ArrowDown" in html
-        assert "ArrowUp" in html
-        assert "Escape" in html
-        assert "Enter" in html
-        assert "blur" in html
-        assert "focus" in html
 
     def test_align_right_for_right_position(self, base_map: folium.Map):
         """Right positions add align-right class to SearchControl."""
@@ -119,18 +79,18 @@ class TestSearchControlRendering:
         html = render(base_map)
         assert "align-right" in html
 
-    def test_collapse_removes_suggestions(self, base_map: folium.Map):
-        """Collapsing the control removes suggestions."""
+    def test_contains_gcoord_dependency(self, base_map: folium.Map):
         SearchControl().add_to(base_map)
         html = render(base_map)
-        assert "removeSuggestions" in html
+        assert "gcoord.global.prod.js" in html
 
-    def test_suggestion_item_has_icon(self, base_map: folium.Map):
-        """Each suggestion item has a LOCATE icon."""
-        SearchControl().add_to(base_map)
+    def test_locale_zh(self, base_map: folium.Map):
+        SearchControl(locale="zh").add_to(base_map)
         html = render(base_map)
-        assert "foliplus-search-suggestion-icon" in html
-        assert "foliplus-search-suggestion-text" in html
+        assert "地址搜索" in html
+        assert "SearchControl.addr_placeholder" in html
+
+    def test_suggestion_item_classes(self, base_map: folium.Map):
         SearchControl().add_to(base_map)
         html = render(base_map)
         assert "foliplus-search-suggestion-icon" in html

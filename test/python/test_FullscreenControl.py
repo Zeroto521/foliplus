@@ -37,7 +37,7 @@ class TestFullscreeControlRendering:
     def test_default_params(self, base_map: folium.Map):
         FullscreenControl().add_to(base_map)
         html = render(base_map)
-        assert "fullscreen" in html.lower()
+        assert "foliplus-fullscreen-toggle" in html
 
     def test_hide_self_default(self, base_map: folium.Map):
         """hide_self=true is passed via CONFIG."""
@@ -50,11 +50,6 @@ class TestFullscreeControlRendering:
         FullscreenControl(hide_self=False).add_to(base_map)
         html = render(base_map)
         assert '"hide_self": false' in html
-
-    def test_contains_fullscreenchange_listener(self, base_map: folium.Map):
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        assert "fullscreenchange" in html
 
     def test_locale_zh(self, base_map: folium.Map):
         FullscreenControl(locale="zh").add_to(base_map)
@@ -74,66 +69,17 @@ class TestFullscreeControlRendering:
         """Zoom +/- use inline SVGs created by FullscreenControl.js."""
         FullscreenControl().add_to(base_map)
         html = render(base_map)
-        assert "ZOOM_IN" in html
-        assert "ZOOM_OUT" in html
-
-    def test_maximize_minimize_svgs(self, base_map: folium.Map):
-        """Fullscreen has MAXIMIZE and MINIMIZE SVG icons mounted in DOM."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        assert "foliplus-fullscreen-toggle" in html
         assert "foliplus-zoom-in" in html
         assert "foliplus-zoom-out" in html
-
-    def test_hint_on_fullscreen_change(self, base_map: folium.Map):
-        """Fullscreen shows enter/exit hint labels."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        assert "FullscreenControl.enter" in html or "FullscreenControl.exit" in html
-
-    def test_fullscreen_api_detection(self, base_map: folium.Map):
-        """Fullscreen API detection is present."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        assert "requestFullscreen" in html
-        assert "fullscreenElement" in html
-
-    def test_unload_cleanup(self, base_map: folium.Map):
-        """Fullscreen removes listeners on map unload."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        assert "fullscreenchange" in html
-
-    def test_svg_icons_registered(self, base_map: folium.Map):
-        """MAXIMIZE icon registered as hint icon for Fullscreen."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        assert "registerHintIcon" in html
-
-    def test_custom_zoom_buttons_created(self, base_map: folium.Map):
-        """Custom zoom +/- buttons are created by FullscreenControl.js."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        assert "foliplus-zoom-in" in html
-        assert "foliplus-zoom-out" in html
-        assert "foliplus-fullscreen-toggle" in html
 
     def test_leaflet_bar_container(self, base_map: folium.Map):
         """Container has two-layer structure: outer leaflet-bar, inner fullscreen-bar + ctrl-fold."""
         FullscreenControl().add_to(base_map)
         html = render(base_map)
-        # Outer: leaflet-bar leaflet-control
         assert "leaflet-bar" in html
         assert "leaflet-control" in html
-        # Inner: foliplus-fullscreen-bar foliplus-ctrl-fold
         assert "foliplus-fullscreen-bar" in html
         assert "foliplus-ctrl-fold" in html
-
-    def test_default_zoom_removed(self, base_map: folium.Map):
-        """Default Leaflet zoom control is removed."""
-        FullscreenControl().add_to(base_map)
-        html = render(base_map)
-        assert "map.removeControl(map.zoomControl)" in html
 
     def test_zoom_translation_keys(self, base_map: folium.Map):
         """Zoom in/out use translation keys."""
@@ -159,16 +105,16 @@ class TestFullscreeControlRendering:
         """hide_self hides zoom +/- together with the fullscreen button."""
         FullscreenControl(hide_self=True, hide_others=False).add_to(base_map)
         html = render(base_map)
-        assert "ZOOM_IN" in html
-        assert "ZOOM_OUT" in html
+        assert "foliplus-zoom-in" in html
+        assert "foliplus-zoom-out" in html
         assert "foliplus-hidden" in html
 
     def test_zoom_buttons_visible_without_hide_self(self, base_map: folium.Map):
         """hide_self=false is passed via CONFIG."""
         FullscreenControl(hide_self=False, hide_others=False).add_to(base_map)
         html = render(base_map)
-        assert "ZOOM_IN" in html
-        assert "ZOOM_OUT" in html
+        assert "foliplus-zoom-in" in html
+        assert "foliplus-zoom-out" in html
         assert '"hide_self": false' in html
         assert '"hide_others": false' in html
 

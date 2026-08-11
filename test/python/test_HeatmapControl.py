@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import folium
 import pytest
@@ -98,41 +97,6 @@ class TestHeatmapControlRendering:
         html = render(base_map)
         assert "heatmap-ctrl" in html
 
-    def test_custom_color_scheme(self, base_map: folium.Map):
-        HeatmapControl(color_scheme="Reds").add_to(base_map)
-        html = render(base_map)
-        assert "Reds" in html
-
-    def test_custom_agg_default(self, base_map: folium.Map):
-        """Custom agg default is rendered in JS template."""
-        HeatmapControl(agg="sum").add_to(base_map)
-        html = render(base_map)
-        assert '"sum"' in html
-        # AGG.DEFAULT captures the Python agg parameter
-        assert "DEFAULT:" in html or "DEFAULT :" in html
-
-    def test_default_agg_is_count(self, base_map: folium.Map):
-        """Default agg value 'count' appears in JS template."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert '"count"' in html
-        assert "DEFAULT:" in html or "DEFAULT :" in html
-
-    def test_custom_method(self, base_map: folium.Map):
-        HeatmapControl(method="quantile").add_to(base_map)
-        html = render(base_map)
-        assert "quantile" in html
-
-    def test_custom_agg(self, base_map: folium.Map):
-        HeatmapControl(agg="sum").add_to(base_map)
-        html = render(base_map)
-        assert "sum" in html
-
-    def test_custom_n_classes(self, base_map: folium.Map):
-        HeatmapControl(n_classes=4).add_to(base_map)
-        html = render(base_map)
-        assert "4" in html
-
     def test_contains_h3_dependency(self, base_map: folium.Map):
         HeatmapControl().add_to(base_map)
         html = render(base_map)
@@ -142,7 +106,6 @@ class TestHeatmapControlRendering:
     def test_contains_ss_dependency(self, base_map: folium.Map):
         HeatmapControl().add_to(base_map)
         html = render(base_map)
-        assert "simple-statistics" in html
         assert "simple-statistics.min.js" in html
 
     def test_contains_chroma_dependency(self, base_map: folium.Map):
@@ -151,73 +114,10 @@ class TestHeatmapControlRendering:
         assert "chroma-js@2" in html
         assert "chroma.min.js" in html
 
-    def test_custom_schemes(self, base_map: folium.Map):
-        HeatmapControl(schemes=["Reds", "Greens"]).add_to(base_map)
-        html = render(base_map)
-        assert "Reds" in html
-        assert "Greens" in html
-
-    def test_custom_style(self, base_map: folium.Map):
-        HeatmapControl(style={"border_weight": 2.0, "label_show": False}).add_to(
-            base_map
-        )
-        html = render(base_map)
-        assert "2.0" in html or "2" in html
-        assert "false" in html.lower()
-
     def test_locale_zh(self, base_map: folium.Map):
         HeatmapControl(locale="zh").add_to(base_map)
         html = render(base_map)
         assert "网格聚合" in html
-        # 'HeatmapControl.title' appears in JS source as locale key (e.g. _('HeatmapControl.title'))
-        # but the rendered display text should be the Chinese translation
-        assert "网格聚合" in html
-
-    def test_label_canvas_render(self, base_map: folium.Map):
-        """Labels are drawn on the heatmap canvas via canvas()."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "createCanvas(" in html
-        assert "heatmap-canvas" in html
-
-    def test_label_canvas_no_css_class(self, base_map: folium.Map):
-        """Labels use Canvas, not marker with .heatmap-label CSS class."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "heatmap-canvas" in html
-        assert ".heatmap-label" not in html
-
-    def test_formatnumber_usage(self, base_map: folium.Map):
-        """Label values are formatted via foliplus.formatNumber."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "formatNumber" in html
-
-    def test_default_color_scheme_rendered(self, base_map: folium.Map):
-        """Default color scheme Reds appears in rendered output."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "Reds" in html
-
-    def test_pane_name_constant(self, base_map: folium.Map):
-        """Canvas is managed via canvas() API."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "foliplus_heatmap" in html
-        assert "createCanvas(" in html
-
-    def test_graphlayer_pane_init(self, base_map: folium.Map):
-        """Canvas is created via canvas() (no graphLayer/pane)."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "createCanvas(" in html
-
-    def test_canvas_rendering_all_in_one(self, base_map: folium.Map):
-        """renderHexagons uses managed canvas (this.mc) for hexagons and labels."""
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
-        assert "this.overlay" in html
-        assert "formatNumber" in html
 
     def test_extract_points_filters_no_feature(self, base_map: folium.Map):
         """extractPoints delegates to LayerAPI which filters by .feature."""

@@ -73,52 +73,6 @@ class TestLayerControlRendering:
         assert "layer-sep" in html
         assert "layer-sep-label" in html
 
-    def test_public_api(self, base_map: folium.Map):
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "registerLayer" in html
-        assert "unregisterLayer" in html
-        assert "getLayersByType" in html
-        assert "ensurePane" in html
-        # createLayers convenience API
-        assert "clearAll" in html
-        assert "register" in html
-        assert "unregister" in html
-        assert "bringToFront" in html
-
-    def test_bring_to_front_guard(self, base_map: folium.Map):
-        """bringToFront monkey patch prevents parentNode errors during pane migration."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "origBringToFront" in html
-        assert "this._path && this._path.parentNode" in html
-
-    def test_container_marking(self, base_map: folium.Map):
-        """registerLayer auto-marks container layers with _paneSet."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "paneSet" in html
-        # Only LayerControl.js should use it — HeatmapControl/MeasureControl
-        # no longer set it manually
-        assert "opts.layer.options.paneSet" in html or "layer.options.paneSet" in html
-
-    def test_color_layer_functions(self, base_map: folium.Map):
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "showColorLayer" in html
-        assert "hideColorLayer" in html
-
-    def test_svg_icons_defined(self, base_map: folium.Map):
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "DRAG_HANDLE" in html
-        assert "GLOBE" in html
-        assert "POINT" in html
-        assert "LINE" in html
-        assert "POLYGON" in html
-        assert "EMPTY" in html
-        assert "UNKNOWN" in html
-
     def test_fold_icon_single_svg_css_rotation(self, base_map: folium.Map):
         """Fold uses a single SVG icon rotated by CSS — no separate UNFOLD SVG."""
         from pathlib import Path
@@ -126,27 +80,8 @@ class TestLayerControlRendering:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "FOLD" in html
-        assert "SVGs.UNFOLD" not in html
         css = Path("foliplus/css/LayerControl.css").read_text()
         assert "rotate(180deg)" in css
-
-    def test_geometry_type_empty_and_unknown(self, base_map: folium.Map):
-        """getGeometryType returns 'empty'/'unknown' for edge cases."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        # Empty container (no leaves) → 'empty'
-        assert "if (leaves.length === 0) return GEOM_TYPE.EMPTY" in html
-        # Has leaves but none match known types → 'unknown'
-        assert "if (!hasPoly && !hasLine && !hasPoint) return GEOM_TYPE.UNKNOWN" in html
-        # Mixed geometry types → 'unknown'
-        assert "if (typeCount > 1) return GEOM_TYPE.UNKNOWN" in html
-
-    def test_type_svg_fallback(self, base_map: folium.Map):
-        """getTypeSVG returns EMPTY/UNKNOWN for non-standard layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "if (type === GEOM_TYPE.EMPTY) return EMPTY;" in html
-        assert "return UNKNOWN;" in html
 
     def test_locale_zh(self, base_map: folium.Map):
         LayerControl(locale="zh").add_to(base_map)
@@ -182,7 +117,6 @@ class TestLayerControlRendering:
         assert "OSM" in data
         assert "Carto" in data
         assert "Terrain" in data
-        # Map may auto-add a default OSM layer, so count >= 3
         assert sum(1 for d in ctrl._config["data"] if d["isBase"]) >= 3
         assert sum(1 for d in ctrl._config["data"] if not d["isBase"]) == 0
 

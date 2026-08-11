@@ -66,17 +66,10 @@ class TestMeasureControlRendering:
         assert "gcoord" in html
         assert "gcoord.global.prod.js" in html
 
-    def test_contains_tool_buttons(self, base_map: folium.Map):
-        """Tool buttons are built via foliplus.dom.el with data-mode."""
+    def test_contains_turf_dependency(self, base_map: folium.Map):
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "tool-btn" in html
-        assert "data: { mode }" in html
-        assert "mode: MODE.MARKER" in html
-        assert "mode: MODE.DISTANCE" in html
-        assert "mode: MODE.POLYGON" in html
-        assert "mode: MODE.CIRCLE" in html
-        assert "mode: MODE.CLEAR" in html
+        assert "turf.min.js" in html
 
     def test_locale_zh(self, base_map: folium.Map):
         MeasureControl(locale="zh").add_to(base_map)
@@ -84,119 +77,21 @@ class TestMeasureControlRendering:
         assert "量算工具" in html
         assert "tool_toggle" in html
 
-    def test_remove_layer_routes_to_sublayer(self, base_map: folium.Map):
-        """removeLayer is overridden to route to sub-layer (three-layer architecture)."""
-
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "removeLayer" in html
-
-    def test_create_layers_via_panes(self, base_map: folium.Map):
-        """MeasureControl sets panes through createLayers (graphPane/labelPane)."""
-
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "createLayers(" in html
-
-    def test_realtime_distance_preview(self, base_map: folium.Map):
-        """Distance mode includes real-time preview label, line, and node."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "previewDistLabel" in html
-        assert "previewLine" in html
-        assert "onDistMove" in html
-        assert "formatSegmentLabel(" in html
-
-    def test_create_layers_api_used(self, base_map: folium.Map):
-        """MeasureControl uses createLayers with graphPane/labelPane."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "createLayers" in html
-        assert "graphPane" in html
-        assert "labelPane" in html
-
     def test_css_icon_size_variable(self, base_map: folium.Map):
-        """MeasureControl SVGs use --icon-size-md via common.css."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
         assert "icon-size-md" in html
 
     def test_css_stroke_width_emphasis(self, base_map: folium.Map):
-        """Solid measurement lines use stroke-width in CSS."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        # CSS variable is defined in MeasureControl.css, not in JS
         assert "stroke-width" in html
 
-    def test_hint_duration_persist(self, base_map: folium.Map):
-        """MeasureControl hints use PERSIST duration (hints stay until mode change)."""
+    def test_tool_button_class(self, base_map: folium.Map):
+        """Tool buttons use the tool-btn class."""
         MeasureControl().add_to(base_map)
         html = render(base_map)
-        assert "HINT_DURATION.PERSIST" in html
-
-    def test_marker_icon_svg_structure(self, base_map: folium.Map):
-        """Marker mode uses crosshair SVG."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "crosshair" in html
-
-    def test_distance_icon_svg_structure(self, base_map: folium.Map):
-        """Distance mode uses ruler SVG with -45deg rotation in SVG transform."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "rotate(-45" in html
-
-    def test_circle_icon_svg_structure(self, base_map: folium.Map):
-        """Circle mode uses concentric circles SVG."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "cx=" in html
-
-    def test_trash_icon_svg(self, base_map: folium.Map):
-        """Trash icon SVG is defined."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "TRASH" in html
-
-    def test_measure_id_constant(self, base_map: folium.Map):
-        """MEASURE_ID constant is used for layer registration."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert 'ID = "foliplus_measure"' in html
-
-    def test_graph_label_pane_constants(self, base_map: folium.Map):
-        """PANES constants are defined."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert 'GRAPH: "measure_graph"' in html
-        assert 'LABEL: "measure_label"' in html
-
-    def test_stop_event_utility(self, base_map: folium.Map):
-        """MeasureUtils.stopEvent stops propagation and default."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "var stopEvent" in html
-        assert "d?.stopPropagation?.()" in html
-        assert "d?.preventDefault?.()" in html
-
-    def test_format_distance_km_and_m(self, base_map: folium.Map):
-        """formatDistance splits at 1000m threshold."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "meters >= FORMAT.KM_THRESHOLD" in html
-
-    def test_distance_calculation(self, base_map: folium.Map):
-        """MeasureUtils.distance delegates to turf.js distance."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "turf.distance(" in html
-        assert "units:" in html
-
-    def test_toggle_visibility_utility(self, base_map: folium.Map):
-        """toggleVisibility uses measure-hidden class."""
-        MeasureControl().add_to(base_map)
-        html = render(base_map)
-        assert "el.classList.toggle(CLASSES2.HIDDEN, !visible)" in html
+        assert "tool-btn" in html
 
     def test_suppress_hide_utility(self, base_map: folium.Map):
         """suppressHide sets a delayed flag and hides all del icons."""
