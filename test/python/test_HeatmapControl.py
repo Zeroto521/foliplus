@@ -630,6 +630,89 @@ class TestHeatmapControlBrowser:
         finally:
             page.close()
 
+    def test_render_all_flag_integration(self, browser, tmp_path):
+        """renderAll is toggled via hooks before/after export (full-content capture)."""
+        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
+        try:
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            # Select a layer so cachedFeatures is set
+            opts = page.evaluate(
+                "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
+            )
+            if opts:
+                page.evaluate(f"""() => {{
+                    window.__heatmapCtrl.layerSelect.value = '{opts[0]}';
+                    window.__heatmapCtrl.layerSelect.dispatchEvent(new Event('change'));
+                }}""")
+                page.wait_for_timeout(2000)
+
+            # Export hooks should toggle renderAll
+            before_hooks = page.evaluate(
+                "window.__heatmapCtrl.manager.overlay.hooks.before.length"
+            )
+            after_hooks = page.evaluate(
+                "window.__heatmapCtrl.manager.overlay.hooks.after.length"
+            )
+            assert before_hooks >= 1, "should have at least one before hook"
+            assert after_hooks >= 1, "should have at least one after hook"
+
+            # Invoke the before hook
+            page.evaluate("window.__heatmapCtrl.manager.overlay.hooks.before[0]()")
+            render_all = page.evaluate("window.__heatmapCtrl.manager.renderAll")
+            assert render_all is True, "renderAll should be True after before hook"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_cached_agg_invalidation_on_layer_change(self, browser, tmp_path):
+        """cachedAgg is nulled when the layer changes (via onLayerChange)."""
+        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
+        try:
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            # Set cachedAgg to simulate stale data
+            page.evaluate(
+                "window.__heatmapCtrl.manager.cachedAgg = { key: 'old', data: 'data' }"
+            )
+            # Fire a layer change event via the manager's map reference
+            page.evaluate(
+                "window.__heatmapCtrl.manager.map.fire('layeradd', { layer: {} })"
+            )
+            page.wait_for_timeout(1000)
+            cached = page.evaluate("window.__heatmapCtrl.manager.cachedAgg")
+            assert cached is None, "cachedAgg should be nulled after layer change"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_clear_heatmap_canvas_resets_caches(self, browser, tmp_path):
+        """clearHeatmapCanvas resets all aggregation caches (but not autoFieldKey)."""
+        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
+        try:
+            page.evaluate("window.__heatmapCtrl.manager.cachedFeatures = { f: 1 }")
+            page.evaluate(
+                "window.__heatmapCtrl.manager.cachedAgg = { key: 'k', data: 'd' }"
+            )
+            page.evaluate("window.__heatmapCtrl.manager.clearHeatmapCanvas()")
+            features = page.evaluate("window.__heatmapCtrl.manager.cachedFeatures")
+            agg = page.evaluate("window.__heatmapCtrl.manager.cachedAgg")
+            assert features is None, "cachedFeatures should be nulled"
+            assert agg is None, "cachedAgg should be nulled"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
 
 class TestHeatmapAutoFieldBrowser:
     """Browser tests verifying auto-field selection logic in the DOM.

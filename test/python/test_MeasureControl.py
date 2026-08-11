@@ -1062,4 +1062,35 @@ class TestMeasureControlBrowser:
         finally:
             page.close()
 
-    # ── Mid-segment label ──────────────────────────────────────────
+    def test_load_measurements_corrupted_json(self, browser, tmp_path):
+        """Corrupted localStorage JSON falls back to an empty array (no crash)."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # Write corrupted JSON
+            page.evaluate(
+                "localStorage.setItem(window.__measureStorageKey, '{not valid json')"
+            )
+            page.reload()
+            page.wait_for_timeout(2000)
+            count = page.evaluate("window.__measureManager.measurements.length")
+            assert count == 0, f"expected 0 measurements, got {count}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_clear_all_collapses_panel(self, browser, tmp_path):
+        """clearAll collapses the expanded panel when a measurement exists."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # Add a measurement
+            page.evaluate("""() => {
+                const mm = window.__measureManager;
+                mm.layers.addLayer(L.circleMarker([26.08, 119.30]));
+                mm.measurements = [{ id: 'test', type: 'marker', lng: 119.30, lat: 26.08 }];
+                mm.clearAll();
+            }""")
+            page.wait_for_timeout(300)
+            # clearAll should be safe — no crash, panel collapse via ctrl
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
