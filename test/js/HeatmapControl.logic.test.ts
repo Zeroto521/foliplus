@@ -476,3 +476,86 @@ describe("scanMapLayers", () => {
     expect(m.pointLayers).toHaveLength(0);
   });
 });
+
+describe("getSelectedPoints", () => {
+  it("returns cached points when key matches", () => {
+    const m = makeManager();
+    m.selectedLayerId = "layer1";
+    m.cachedPoints = { key: "layer1|count|true|auto", pts: [{ lat: 1 }] };
+    const pts = m.getSelectedPoints();
+    expect(pts).toHaveLength(1);
+  });
+
+  it("returns empty when no layer selected", () => {
+    const m = makeManager();
+    m.selectedLayerId = null;
+    expect(m.getSelectedPoints()).toEqual([]);
+  });
+
+  it("returns empty when layer not found in pointLayers", () => {
+    const m = makeManager();
+    m.selectedLayerId = "missing";
+    m.pointLayers = [{ id: "other", name: "O", layer: {}, count: 1 }];
+    expect(m.getSelectedPoints()).toEqual([]);
+  });
+
+  it("extracts points from LayerAPI and caches them", () => {
+    const m = makeManager();
+    m.selectedLayerId = "layer1";
+    m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 2 }];
+    m.currentAgg = CONST.AGG.COUNT;
+    window.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: {} },
+      { lat: 3, lng: 4, marker: {} },
+    ]);
+    const pts = m.getSelectedPoints();
+    expect(pts).toHaveLength(2);
+    expect(m.cachedPoints).toBeDefined();
+    expect(m.cachedPoints.key).toContain("layer1");
+  });
+});
+
+describe("renderFeatures", () => {
+  it("calls clearHeatmapCanvas for empty features", () => {
+    const m = makeManager();
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+    m.renderFeatures([]);
+    expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it("caches features, registers overlay, and redraws", () => {
+    const m = makeManager();
+    m.overlay.register = vi.fn();
+    m.redrawHeatmap = vi.fn();
+    const features = [{ type: "Feature" }];
+    m.renderFeatures(features);
+    expect(m.cachedFeatures).toBe(features);
+    expect(m.overlay.register).toHaveBeenCalled();
+    expect(m.redrawHeatmap).toHaveBeenCalled();
+  });
+});
+
+describe("renderHexagons", () => {
+  it("clears canvas when no layer selected", () => {
+    const m = makeManager();
+    m.selectedLayerId = null;
+    m.map = { _container: {}, getZoom: () => 5 };
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+    m.renderHexagons();
+    expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it("reuses cachedAgg when key matches", () => {
+    const m = makeManager();
+    m.selectedLayerId = "layer1";
+    m.map = { _container: {}, getZoom: () => 5 };
+    m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 1 }];
+    m.cachedAgg = {
+      key: "layer1|count|true|auto|2|jenks|Reds|6",
+      data: { hexCells: {}, getAggValue: () => 0, valueToClassIdx: () => 0, classColors: [] },
+    };
+    const spy = vi.spyOn(m, "aggregateData");
+    m.renderHexagons();
+    expect(spy).not.toHaveBeenCalled();
+  });
+});

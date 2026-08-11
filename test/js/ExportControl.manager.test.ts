@@ -1,3 +1,5 @@
+import * as Storage from "#common/storage.js";
+import * as CONST from "#foliplus/ExportControl/ExportControl.const.js";
 import { ExportManager } from "#foliplus/ExportControl/ExportControl.manager.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -164,5 +166,182 @@ describe("ExportManager — onKeyDown", () => {
       preventDefault: vi.fn(),
     });
     expect(spy).toHaveBeenCalled();
+  });
+});
+
+describe("ExportManager — pixel limit & storage", () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+  });
+
+  it("checkPixelLimit sets pixelOverLimit when over max_pixels", () => {
+    window.CONF.max_pixels = 10000; // 100x100
+    manager.checkPixelLimit({ width: 200, height: 200 });
+    expect(manager.pixelOverLimit).toBe(true);
+  });
+
+  it("checkPixelLimit does not flag when under max_pixels", () => {
+    window.CONF.max_pixels = 10000;
+    manager.checkPixelLimit({ width: 50, height: 50 });
+    expect(manager.pixelOverLimit).toBe(false);
+  });
+
+  it("checkPixelLimit does not flag when max_pixels is null", () => {
+    window.CONF.max_pixels = null;
+    manager.checkPixelLimit({ width: 9999, height: 9999 });
+    expect(manager.pixelOverLimit).toBe(false);
+  });
+
+  it("saveBounds persists geo bounds to storage", () => {
+    const saveSpy = vi.spyOn(Storage, "save");
+    manager.saveBounds({
+      nw: { lat: 26.1, lng: 119.2 },
+      se: { lat: 26.0, lng: 119.4 },
+    });
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("loadSavedBounds loads valid overlapping bounds", () => {
+    const loadSpy = vi.spyOn(Storage, "load").mockReturnValue({
+      nw: { lat: 10, lng: 10 },
+      se: { lat: -10, lng: -10 },
+    });
+    manager.loadSavedBounds();
+    expect(manager.savedBounds).toBeDefined();
+    expect(manager.savedBounds.nw.lat).toBe(10);
+    loadSpy.mockRestore();
+  });
+
+  it("loadSavedBounds ignores invalid lat/lng", () => {
+    manager.savedBounds = null;
+    const loadSpy = vi.spyOn(Storage, "load").mockReturnValue({
+      nw: { lat: 999, lng: 10 },
+      se: { lat: -10, lng: -10 },
+    });
+    manager.loadSavedBounds();
+    expect(manager.savedBounds).toBeNull();
+    loadSpy.mockRestore();
+  });
+
+  it("loadSavedBounds ignores bounds with no overlap with map", () => {
+    manager.savedBounds = null;
+    // nw.lat > map north (90) → no overlap
+    const loadSpy = vi.spyOn(Storage, "load").mockReturnValue({
+      nw: { lat: 95, lng: 170 },
+      se: { lat: 85, lng: 175 },
+    });
+    manager.loadSavedBounds();
+    expect(manager.savedBounds).toBeNull();
+    loadSpy.mockRestore();
+  });
+});
+
+describe("ExportManager — onMapChange", () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+  });
+
+  it("returns early when cropState is null", () => {
+    manager.cropState = null;
+    expect(() => manager.onMapChange(false)).not.toThrow();
+  });
+
+  it("returns early when not locked", () => {
+    manager.cropState.locked = false;
+    manager.updateBoxStyle = vi.fn();
+    manager.onMapChange(false);
+    expect(manager.updateBoxStyle).not.toHaveBeenCalled();
+  });
+
+  it("updates rect from geo bounds when locked", () => {
+    manager.cropState.locked = true;
+    manager.cropState.geoBounds = {
+      nw: { lat: 26.1, lng: 119.2 },
+      se: { lat: 26.0, lng: 119.4 },
+    };
+    manager.onMapChange(false);
+    expect(manager.updateBoxStyle).toHaveBeenCalled();
+    expect(manager.cropState.rect.width).toBeGreaterThan(0);
+  });
+
+  it("skipHint suppresses hint update", () => {
+    manager.cropState.locked = true;
+    manager.cropState.geoBounds = {
+      nw: { lat: 26.1, lng: 119.2 },
+      se: { lat: 26.0, lng: 119.4 },
+    };
+    manager.showHintWithInfo = vi.fn();
+    manager.onMapChange(true);
+    expect(manager.showHintWithInfo).not.toHaveBeenCalled();
+  });
+});
+
+describe("ExportManager — mouse drag", () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager, { left: 10, top: 10, width: 100, height: 100 });
+    manager.mapContainer.getBoundingClientRect = () => ({
+      width: 500,
+      height: 500,
+    });
+  });
+
+  it("onMouseDown sets dragging true for box body", () => {
+    const target = document.createElement("div");
+    target.classList.add(CONST.CLASSES.BOX);
+    manager.onMouseDown({
+      target,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      clientX: 50,
+      clientY: 50,
+    });
+    expect(manager.dragState.dragging).toBe(true);
+    expect(manager.dragState.dragType).toBe("move");
+  });
+
+  it("onMouseDown sets dragType for a handle", () => {
+    const target = document.createElement("div");
+    target.classList.add(CONST.CLASSES.HANDLE);
+    target.dataset.pos = "br";
+    manager.onMouseDown({
+      target,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      clientX: 50,
+      clientY: 50,
+    });
+    expect(manager.dragState.dragType).toBe("br");
+  });
+
+  it("onMouseMove moves the box when dragging move", () => {
+    manager.dragState = {
+      dragging: true,
+      dragType: "move",
+      lastX: 50,
+      lastY: 50,
+    };
+    manager.onMouseMove({ clientX: 60, clientY: 70 });
+    expect(manager.cropState.rect.left).toBe(20);
+    expect(manager.cropState.rect.top).toBe(30);
+  });
+
+  it("onMouseUp resets drag state and pushes undo", () => {
+    manager.dragState = {
+      dragging: true,
+      dragType: "move",
+      lastX: 50,
+      lastY: 50,
+    };
+    manager.onMouseUp();
+    expect(manager.dragState.dragging).toBe(false);
+    expect(manager.undoStack).toHaveLength(1);
   });
 });

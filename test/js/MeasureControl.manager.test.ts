@@ -177,3 +177,20 @@ describe("MeasureManager — global events", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+describe("MeasureManager — cleanMapEvents", () => {
+  it("cleans up modeInstance and hides hints", () => {
+    const { manager } = makeManager();
+    const mode = { cleanup: vi.fn() };
+    manager.modeInstance = mode;
+    manager.cleanMapEvents();
+    expect(mode.cleanup).toHaveBeenCalled();
+    expect(manager.modeInstance).toBeNull();
+    expect(window.foliplus.hideHint).toHaveBeenCalledWith(CONF.name);
+  });
+
+  it("cleanMapEvents is safe when no modeInstance", () => {
+    const { manager } = makeManager();
+    expect(() => manager.cleanMapEvents()).not.toThrow();
+  });
+});

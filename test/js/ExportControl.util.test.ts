@@ -51,3 +51,55 @@ describe("ensureFont", () => {
     expect(fonts.check).toHaveBeenCalledWith("16px sans-serif");
   });
 });
+
+describe("loadImageBitmap", () => {
+  beforeEach(() => {
+    // AbortSignal.timeout may be undefined in jsdom; provide a stub.
+    globalThis.AbortSignal = Object.assign(globalThis.AbortSignal || {}, {
+      timeout: () => ({}),
+    });
+    window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
+  });
+
+  it("returns null when fetch response is not ok", async () => {
+    const { loadImageBitmap } = await import("#foliplus/ExportControl/ExportControl.util.js");
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: false }));
+    const result = await loadImageBitmap("https://example.com/tile.png");
+    expect(result).toBeNull();
+  });
+
+  it("loads and caches an ImageBitmap", async () => {
+    const { loadImageBitmap } = await import("#foliplus/ExportControl/ExportControl.util.js");
+    const fakeBitmap = { close: vi.fn() };
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob()) }),
+    );
+    globalThis.createImageBitmap = vi.fn(() => Promise.resolve(fakeBitmap));
+    const first = await loadImageBitmap("https://example.com/a.png");
+    const second = await loadImageBitmap("https://example.com/a.png");
+    expect(first).toBe(fakeBitmap);
+    expect(second).toBe(fakeBitmap);
+    // Cache hit → fetch called only once
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("loadImage", () => {
+  it("resolves on image load", async () => {
+    const { loadImage } = await import("#foliplus/ExportControl/ExportControl.util.js");
+    // jsdom Image does not fire onload for data URIs reliably; mock it.
+    const origImage = globalThis.Image;
+    let onloadHandler;
+    globalThis.Image = class {
+      set src(v) {
+        queueMicrotask(() => onloadHandler?.());
+      }
+      set onload(fn) {
+        onloadHandler = fn;
+      }
+    };
+    const result = loadImage("data:image/png;base64,AAAA");
+    await expect(result).resolves.toBeDefined();
+    globalThis.Image = origImage;
+  });
+});
