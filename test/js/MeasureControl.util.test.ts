@@ -98,7 +98,7 @@ describe("makeNode", () => {
     Util.makeNode({ lat: 1, lng: 2 });
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
-      { radius: 5, className: "foliplus-measure-node foliplus-measure-node-final" },
+      { radius: 5, className: "foliplus-measure-node" },
     );
   });
 
