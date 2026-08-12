@@ -33,6 +33,13 @@ class MeasureControl(BaseControl):
         Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
         Defaults to auto-detection, falling back to English.
 
+    Notes
+    -----
+    **Keyboard shortcuts.**
+    While in measurement mode (after clicking the ruler icon):
+
+    * ``Esc`` — exit measurement mode
+
     Examples
     --------
     >>> import folium
