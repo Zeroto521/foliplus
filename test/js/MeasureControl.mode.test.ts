@@ -422,7 +422,9 @@ describe("DistanceMode — label count equals n-1", () => {
   function run(manager, mode) {
     manager.currentMode = CONST.MODE.DISTANCE;
     mode.start();
-    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "preclick")?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]) => ev === "preclick",
+    )?.[1];
     return clickHandler;
   }
 
@@ -473,17 +475,19 @@ describe("PolygonMode — label count equals n-1", () => {
   function run(manager, mode) {
     manager.currentMode = CONST.MODE.POLYGON;
     mode.start();
-    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "preclick")?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]) => ev === "preclick",
+    )?.[1];
     return clickHandler;
   }
 
   function segLabelCount() {
-      const calls = window.L.marker.mock.calls.filter(([, opts]) => {
-        const iconOpts = opts?.icon;
-        if (!iconOpts || !iconOpts._mockDivIconHtml) return false;
-        return iconOpts._mockDivIconHtml.includes("foliplus-measure-label-mid");
-      }).length;
-      return calls;
+    const calls = window.L.marker.mock.calls.filter(([, opts]) => {
+      const iconOpts = opts?.icon;
+      if (!iconOpts || !iconOpts._mockDivIconHtml) return false;
+      return iconOpts._mockDivIconHtml.includes("foliplus-measure-label-mid");
+    }).length;
+    return calls;
   }
 
   it("creates 2 segLabels for 3 points", () => {
