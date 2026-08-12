@@ -19,7 +19,10 @@ describe("CLASSES", () => {
   it("defines CSS class constants", () => {
     expect(CONST.CLASSES.ACTIVE).toBe("active");
     expect(CONST.CLASSES.MEASURING).toBe("foliplus-measuring");
-    expect(CONST.CLASSES.LINE_SOLID).toContain("foliplus-measure-line-solid");
+    expect(CONST.CLASSES.PATH_SOLID).toContain("foliplus-measure-path-solid");
+    expect(CONST.CLASSES.PATH_DASHED).toContain("foliplus-measure-path-dashed");
+    expect(CONST.CLASSES.PATH_PREVIEW).toContain("foliplus-measure-path-preview");
+    expect(CONST.CLASSES.SHAPE_FILL).toContain("foliplus-measure-shape-fill");
   });
 });
 

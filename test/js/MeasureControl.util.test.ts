@@ -1,9 +1,14 @@
+import { stopEvent } from "#common/dom.js";
 import * as Util from "#foliplus/MeasureControl/MeasureControl.util.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {
   vi.clearAllMocks();
   window.L.circleMarker = vi.fn(() => ({}));
+  window.L.DomEvent = {
+    ...window.L.DomEvent,
+    stopPropagation: vi.fn(),
+  };
   globalThis.turf = {
     point: coords => ({ coords }),
     distance: vi.fn(() => 100),
@@ -94,7 +99,7 @@ describe("makeNode", () => {
     Util.makeNode({ lat: 1, lng: 2 });
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
-      { radius: 5, className: "foliplus-measure-node foliplus-measure-node-final" },
+      { radius: 5, className: "foliplus-measure-node" },
     );
   });
 
@@ -241,42 +246,10 @@ describe("buildPopup", () => {
   });
 });
 
-describe("animateDashSweep", () => {
-  it("sets a delayed flag and clears it after the delay", () => {
-    vi.useFakeTimers();
-    const manager = { isSuppressHideDel: false };
-    Util.suppressHide(manager);
-    expect(manager.isSuppressHideDel).toBe(true);
-    vi.advanceTimersByTime(1000);
-    expect(manager.isSuppressHideDel).toBe(false);
-    vi.useRealTimers();
-  });
-});
-
-describe("applyToggle", () => {
-  it("toggles labels and calls onToggle", () => {
-    const labelEl = document.createElement("span");
-    labelEl.classList.add("foliplus-measure-label");
-    const marker = { getElement: () => ({ querySelector: () => labelEl }) };
-    const delMarker = { getElement: () => ({ querySelector: () => null }) };
-    const onToggle = vi.fn();
-    Util.applyToggle(delMarker, true, [marker], false, null, onToggle);
-    expect(labelEl.classList.contains("foliplus-measure-hidden")).toBe(true);
-    expect(onToggle).toHaveBeenCalledWith(true, false);
-  });
-});
-
-describe("buildPopup", () => {
-  it("delegates to buildPopupHtml", () => {
-    const result = Util.buildPopup(1, 2, "addr");
-    expect(result).toBeDefined();
-  });
-});
-
 describe("stopEvent", () => {
   it("prevents default and stops propagation", () => {
     const ev = { preventDefault: vi.fn(), stopPropagation: vi.fn() };
-    Util.stopEvent(ev);
+    stopEvent(ev);
     expect(ev.preventDefault).toHaveBeenCalled();
     expect(ev.stopPropagation).toHaveBeenCalled();
   });

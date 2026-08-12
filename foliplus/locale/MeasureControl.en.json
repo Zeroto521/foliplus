@@ -16,7 +16,6 @@
   "MeasureControl.popup_loc_label": "📌 Location: ",
   "MeasureControl.popup_addr_label": "📌 Address: ",
   "MeasureControl.popup_loading": "Searching…",
-  "MeasureControl.dist_origin": "Start",
   "MeasureControl.geo_fail": "Lookup failed",
   "MeasureControl.no_layercontrol": "MeasureControl requires LayerControl, please add LayerControl to the map first",
   "MeasureControl.del_tooltip": "Delete",

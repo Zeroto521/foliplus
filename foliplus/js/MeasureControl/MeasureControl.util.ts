@@ -180,7 +180,7 @@ const makeMidLabelDivIcon = html => {
 };
 
 /** Create a measure node circle marker. */
-const makeNode = (latlng, className = CONST.CLASSES.NODE_FINAL) => {
+const makeNode = (latlng, className = CONST.CLASSES.NODE_HOLLOW) => {
   return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
 };
 
@@ -253,7 +253,6 @@ export {
   midpoint,
   recalculateSegments,
   setLabelText,
-  stopEvent,
   suppressHide,
   toggleDelIcon,
   toggleVisibility,
