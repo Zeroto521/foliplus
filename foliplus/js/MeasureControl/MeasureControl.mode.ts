@@ -311,12 +311,12 @@ class DistanceMode extends PreviewMode {
     const points = [];
     let total = 0;
     const poly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.LINE_DASHED }),
+      L.polyline([], { className: CONST.CLASSES.LINE_DASHED, interactive: false }),
     );
     const nodeMarkers = [];
     const segLabels = [];
     const previewLine = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.LINE_PREVIEW }),
+      L.polyline([], { className: CONST.CLASSES.LINE_PREVIEW, interactive: false }),
     );
     const finalPoly = this.layers.addLayer(
       L.polyline([], {
@@ -603,10 +603,10 @@ class PolygonMode extends PreviewMode {
   start() {
     const points = [];
     const poly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.LINE_DASHED }),
+      L.polyline([], { className: CONST.CLASSES.LINE_DASHED, interactive: false }),
     );
     const previewPoly = this.addPreview(
-      L.polygon([], { className: CONST.CLASSES.CIRCLE_PREVIEW }),
+      L.polygon([], { className: CONST.CLASSES.CIRCLE_PREVIEW, interactive: false }),
     );
     const nodeMarkers = [];
     const segLabels = [];
