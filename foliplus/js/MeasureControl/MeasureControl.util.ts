@@ -183,6 +183,7 @@ interface DelIconOptions {
   className?: string;
   iconAnchor?: [number, number];
   zIndexOffset?: number;
+  title?: string;
 }
 
 /** Create a delete icon marker. */
