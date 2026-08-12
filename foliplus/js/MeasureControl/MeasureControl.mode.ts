@@ -587,13 +587,24 @@ class PolygonMode extends PreviewMode {
     const poly = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
+    // Confirmed segments between nodes — uses thick dashed style (matches
+    // DistanceMode's poly). Updated each time a new node is placed.
+    const confirmedPoly = this.addPreview(
+      L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
+    );
     const previewPoly = this.addPreview(
-      L.polygon([], { className: `${CONST.CLASSES.PATH_PREVIEW} ${CONST.CLASSES.SHAPE_FILL}`, interactive: false }),
+      L.polygon([], {
+        className: `${CONST.CLASSES.PATH_PREVIEW} ${CONST.CLASSES.SHAPE_FILL}`,
+        interactive: false,
+      }),
     );
     const nodeMarkers = [];
     const segLabels = [];
     const finalPoly = this.layers.addLayer(
-      L.polygon([], { className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`, interactive: true }),
+      L.polygon([], {
+        className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
+        interactive: true,
+      }),
     );
     let previewDistLabel = null;
     let isFinished = false;
@@ -602,6 +613,7 @@ class PolygonMode extends PreviewMode {
       unbindMapEvents(this.map, polyEvents);
       this.layers.removeLayer(previewPoly);
       this.layers.removeLayer(poly);
+      this.layers.removeLayer(confirmedPoly);
       this.layers.removeLayer(finalPoly);
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
@@ -709,6 +721,8 @@ class PolygonMode extends PreviewMode {
       // Cleanup drawing mode
       unbindMapEvents(this.map, polyEvents);
       this.layers.removeLayer(previewPoly);
+      this.layers.removeLayer(confirmedPoly);
+      this.layers.removeLayer(poly);
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -720,6 +734,7 @@ class PolygonMode extends PreviewMode {
       if (points.length === 0) return;
       const allPts = [...points, e.latlng];
       previewPoly.setLatLngs(allPts);
+      confirmedPoly.setLatLngs(points);
       poly.setLatLngs([points[points.length - 1], e.latlng]);
       const seg = Util.distance(points[points.length - 1], e.latlng);
       const lastPt = points[points.length - 1];
@@ -746,8 +761,9 @@ class PolygonMode extends PreviewMode {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
       }
-      poly.addLatLng(e.latlng);
+      confirmedPoly.setLatLngs(points);
       previewPoly.setLatLngs(points);
+      poly.setLatLngs([points[points.length - 1], e.latlng]);
 
       const marker = this.layers.addLayer(Util.makeNode(e.latlng));
       marker.bringToFront();
