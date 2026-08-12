@@ -23,15 +23,18 @@
 }
 
 /* ── Measurement Nodes (circleMarker) ── */
+/* Default nodes are hollow (neutral fill + accent stroke). */
 .foliplus-measure-node {
   fill: var(--neutral-0);
   fill-opacity: 1;
 }
-/* Start node of a distance measurement — solid fill to distinguish it from
-   the hollow intermediate nodes. */
-.foliplus-measure-node-origin {
+/* Solid nodes (e.g. the start point of a distance measurement) are filled
+  with the accent color and outlined in neutral — mirrors the center-dot
+  style so the start point reads as a distinct "solid" dot. */
+path.foliplus-measure-node-solid {
   fill: var(--accent-primary);
   fill-opacity: 1;
+  stroke: var(--neutral-0);
 }
 
 /* ── Lines (polylines) ── */
@@ -70,6 +73,7 @@
 }
 
 :is(
+  .foliplus-measure-node-solid,
   .foliplus-measure-node-final,
   .foliplus-measure-line-solid,
   .foliplus-measure-line-dashed,

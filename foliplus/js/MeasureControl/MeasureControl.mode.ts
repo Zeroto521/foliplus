@@ -254,7 +254,7 @@ class DistanceMode extends PreviewMode {
       // First node is the start point — render it solid to distinguish it
       // from the hollow intermediate/final nodes (no separate label needed).
       const node = manager.layers.addLayer(
-        Util.makeNode(pt, i === 0 ? CONST.CLASSES.NODE_ORIGIN : undefined),
+        Util.makeNode(pt, i === 0 ? CONST.CLASSES.NODE_SOLID : undefined),
       );
       node.bringToFront();
       nodeMarkers.push(node);
@@ -440,7 +440,7 @@ class DistanceMode extends PreviewMode {
       poly.addLatLng(e.latlng);
 
       const marker = this.layers.addLayer(
-        Util.makeNode(e.latlng, points.length === 1 ? CONST.CLASSES.NODE_ORIGIN : undefined),
+        Util.makeNode(e.latlng, points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined),
       );
       marker.bringToFront();
       nodeMarkers.push(marker);
