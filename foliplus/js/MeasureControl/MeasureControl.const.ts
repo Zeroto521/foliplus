@@ -62,7 +62,7 @@ export const CLASSES = {
   CIRCLE_PREVIEW: "foliplus-measure-circle foliplus-measure-circle-preview",
   CIRCLE_FINAL: "foliplus-measure-circle foliplus-measure-circle-final",
   POLYGON_FINAL: "foliplus-measure-line-solid foliplus-measure-polygon-final",
-  NODE_FINAL: "foliplus-measure-node foliplus-measure-node-final",
+  NODE_HOLLOW: "foliplus-measure-node",
   NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
