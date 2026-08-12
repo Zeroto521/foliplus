@@ -1,5 +1,5 @@
 // @ts-nocheck — complex module; tighten types in a dedicated follow-up.
-import { createLocationMarker } from "#common/dom.js";
+import { createLocationMarker, stopEvent } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
@@ -500,11 +500,11 @@ class DistanceMode extends PreviewMode {
     };
 
     const onDistDbl = e => {
-      Util.stopEvent(e);
+      stopEvent(e);
       finishDist();
     };
     const onDistContext = e => {
-      Util.stopEvent(e);
+      stopEvent(e);
       finishDist();
     };
 
@@ -822,11 +822,11 @@ class PolygonMode extends PreviewMode {
     };
 
     const onPolyDbl = e => {
-      Util.stopEvent(e);
+      stopEvent(e);
       finishPoly();
     };
     const onPolyContext = e => {
-      Util.stopEvent(e);
+      stopEvent(e);
       finishPoly();
     };
 
@@ -1044,7 +1044,7 @@ class CircleMode extends PreviewMode {
     };
 
     const onContext = e => {
-      Util.stopEvent(e);
+      stopEvent(e);
       this.m.clearActiveMode();
     };
 

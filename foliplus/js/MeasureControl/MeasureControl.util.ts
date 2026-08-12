@@ -253,7 +253,6 @@ export {
   midpoint,
   recalculateSegments,
   setLabelText,
-  stopEvent,
   suppressHide,
   toggleDelIcon,
   toggleVisibility,

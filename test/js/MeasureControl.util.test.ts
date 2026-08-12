@@ -1,3 +1,4 @@
+import { stopEvent } from "#common/dom.js";
 import * as Util from "#foliplus/MeasureControl/MeasureControl.util.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -248,7 +249,7 @@ describe("buildPopup", () => {
 describe("stopEvent", () => {
   it("prevents default and stops propagation", () => {
     const ev = { preventDefault: vi.fn(), stopPropagation: vi.fn() };
-    Util.stopEvent(ev);
+    stopEvent(ev);
     expect(ev.preventDefault).toHaveBeenCalled();
     expect(ev.stopPropagation).toHaveBeenCalled();
   });
