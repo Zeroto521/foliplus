@@ -260,6 +260,7 @@ class DistanceMode extends PreviewMode {
     manager.layers.addLayer(
       L.marker(points[0], {
         icon: Util.makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
+        interactive: false,
       }),
       true,
     );
