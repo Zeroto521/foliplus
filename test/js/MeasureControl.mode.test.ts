@@ -200,9 +200,7 @@ describe("DistanceMode — marker click stops map propagation", () => {
     manager.currentMode = CONST.MODE.DISTANCE;
     mode.start();
 
-    const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "click",
-    )?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
     expect(clickHandler).toBeDefined();
 
     // Create 2 nodes: pt1, pt2
@@ -242,9 +240,7 @@ describe("PolygonMode — marker click stops map propagation", () => {
     manager.currentMode = CONST.MODE.POLYGON;
     mode.start();
 
-    const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "click",
-    )?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
     expect(clickHandler).toBeDefined();
 
     const pt1 = { lat: 30, lng: 120 };
@@ -276,9 +272,7 @@ describe("DistanceMode — first node uses NODE_SOLID", () => {
     manager.currentMode = CONST.MODE.DISTANCE;
     mode.start();
 
-    const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "click",
-    )?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
     expect(clickHandler).toBeDefined();
 
     // First click — should use NODE_SOLID
@@ -351,9 +345,7 @@ describe("DistanceMode — click stops propagation to data layers", () => {
     manager.currentMode = CONST.MODE.DISTANCE;
     mode.start();
 
-    const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "click",
-    )?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
     expect(clickHandler).toBeDefined();
 
     const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} };
@@ -371,9 +363,7 @@ describe("PolygonMode — click stops propagation to data layers", () => {
     manager.currentMode = CONST.MODE.POLYGON;
     mode.start();
 
-    const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "click",
-    )?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
     expect(clickHandler).toBeDefined();
 
     const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} };
@@ -405,9 +395,7 @@ describe("CircleMode — click stops propagation to data layers", () => {
     manager.currentMode = CONST.MODE.CIRCLE;
     mode.start();
 
-    const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "click",
-    )?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
     expect(clickHandler).toBeDefined();
 
     const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} };
