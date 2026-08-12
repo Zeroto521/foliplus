@@ -16,80 +16,54 @@
   background: var(--accent-primary);
   border: var(--border-thick) solid var(--neutral-0);
   border-radius: var(--radius-round);
-
-  &.final {
-    box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
-  }
+  box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
 }
 
 /* ── Measurement Nodes (circleMarker) ── */
+/* Default nodes are hollow (neutral fill, accent stroke, 2.5px stroke-width). */
 .foliplus-measure-node {
   fill: var(--neutral-0);
   fill-opacity: 1;
-}
-
-/* ── Lines (polylines) ── */
-.foliplus-measure-line-dashed {
-  stroke-dasharray: 6 4;
-}
-.foliplus-measure-line-preview {
-  opacity: 0.6;
-}
-
-/* ── Circles ── */
-.foliplus-measure-circle-final {
-  fill-opacity: 0.25;
-}
-.foliplus-measure-circle-preview {
-  fill-opacity: 0.08;
-}
-
-/* ── Polygons ── */
-.foliplus-measure-polygon-final {
-  fill: var(--accent-primary);
-  fill-opacity: 0.25;
-}
-
-/* ── Shared stroke/fill/dasharray for all measurement paths ── */
-:is(
-  .foliplus-measure-node,
-  .foliplus-measure-line-solid,
-  .foliplus-measure-line-dashed,
-  .foliplus-measure-line-preview,
-  .foliplus-measure-circle-final,
-  .foliplus-measure-circle-preview,
-  .foliplus-measure-polygon-final
-) {
   stroke: var(--accent-primary);
-}
-
-:is(
-  .foliplus-measure-node-final,
-  .foliplus-measure-line-solid,
-  .foliplus-measure-line-dashed,
-  .foliplus-measure-circle-final,
-  .foliplus-measure-polygon-final
-) {
   stroke-width: 2.5px;
 }
-
-:is(
-  .foliplus-measure-node-preview,
-  .foliplus-measure-line-preview,
-  .foliplus-measure-circle-preview
-) {
-  stroke-width: var(--size-2);
-}
-
-.foliplus-measure-circle-final,
-.foliplus-measure-circle-preview {
+/* Solid nodes (e.g. the start point of a distance measurement) are filled
+  with the accent color and outlined in neutral — mirrors the center-dot
+  style so the start point reads as a distinct "solid" dot. */
+path.foliplus-measure-node-solid {
   fill: var(--accent-primary);
+  fill-opacity: 1;
+  stroke: var(--neutral-0);
 }
 
-/* Preview lines and circles share the same dashed pattern */
-.foliplus-measure-line-preview,
-.foliplus-measure-circle-preview {
+/* ── Measurement Paths (lines / circles / polygons) ──
+  Three shared states: solid (final), dashed, preview.
+  Area shapes additionally use .foliplus-measure-shape-fill for fill. */
+.foliplus-measure-path {
+  stroke: var(--accent-primary);
+}
+.foliplus-measure-path-solid {
+  stroke-width: 2.5px;
+}
+.foliplus-measure-path-dashed {
+  stroke-width: 2.5px;
+  stroke-dasharray: 6 4;
+}
+.foliplus-measure-path-preview {
+  stroke-width: var(--size-2);
+  opacity: 0.6;
   stroke-dasharray: 4 4;
+}
+.foliplus-measure-shape-fill {
+  fill: var(--accent-primary);
+  fill-opacity: 0.25;
+}
+.foliplus-measure-path-preview.foliplus-measure-shape-fill {
+  fill-opacity: 0.08;
+}
+/* Drawing-phase polygon (dashed outline) should also use a lighter fill. */
+.foliplus-measure-path-dashed.foliplus-measure-shape-fill {
+  fill-opacity: 0.08;
 }
 
 /* ── Visibility toggle for node/line hidden states ── */
@@ -100,8 +74,7 @@
 
 /* ── Finish animations ── */
 /* All animation parameters use CSS custom properties with sensible defaults. */
-.foliplus-measure-line-solid.foliplus-measure-dash-sweep,
-.foliplus-measure-polygon-final.foliplus-measure-dash-sweep,
+.foliplus-measure-path-solid.foliplus-measure-dash-sweep,
 .foliplus-measure-ripple {
   --sweep-length: 1000;
   --sweep-duration: 0.5s;
@@ -117,7 +90,7 @@
     stroke-dashoffset: 0;
   }
 }
-.foliplus-measure-line-solid.foliplus-measure-dash-sweep {
+.foliplus-measure-path-solid.foliplus-measure-dash-sweep {
   stroke-dasharray: var(--sweep-length) var(--sweep-length);
   stroke-dashoffset: var(--sweep-length);
   animation: foliplus-measure-dash-sweep var(--sweep-duration) ease-in-out;

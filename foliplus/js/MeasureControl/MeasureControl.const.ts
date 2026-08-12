@@ -25,7 +25,6 @@ export const CENTER_DOT = {
   SIZE: [12, 12],
   ANCHOR: [6, 6],
   CLASS: "foliplus-measure-center-dot",
-  CLASS_FINAL: "foliplus-measure-center-dot final",
 };
 
 /** Label markers. */
@@ -56,14 +55,14 @@ export const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
 
 /** CSS class names. */
 export const CLASSES = {
-  LINE_DASHED: "foliplus-measure-line foliplus-measure-line-dashed",
-  LINE_PREVIEW: "foliplus-measure-line foliplus-measure-line-preview",
-  LINE_SOLID: "foliplus-measure-line foliplus-measure-line-solid",
-  CIRCLE_PREVIEW: "foliplus-measure-circle foliplus-measure-circle-preview",
-  CIRCLE_FINAL: "foliplus-measure-circle foliplus-measure-circle-final",
-  POLYGON_FINAL: "foliplus-measure-line-solid foliplus-measure-polygon-final",
-  NODE_FINAL: "foliplus-measure-node foliplus-measure-node-final",
-  NODE_PREVIEW: "foliplus-measure-node foliplus-measure-node-preview",
+  // Three path states shared by lines, circles, and polygons.
+  PATH_SOLID: "foliplus-measure-path foliplus-measure-path-solid",
+  PATH_DASHED: "foliplus-measure-path foliplus-measure-path-dashed",
+  PATH_PREVIEW: "foliplus-measure-path foliplus-measure-path-preview",
+  // Fill modifier for area shapes (circle/polygon).
+  SHAPE_FILL: "foliplus-measure-shape-fill",
+  NODE_HOLLOW: "foliplus-measure-node",
+  NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   HIDDEN: "foliplus-measure-hidden",

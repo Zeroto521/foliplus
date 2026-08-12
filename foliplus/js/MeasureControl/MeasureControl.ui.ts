@@ -1,4 +1,5 @@
 // @ts-nocheck — complex module; tighten types in a dedicated follow-up.
+import { stopEvent } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
 import * as Util from "./MeasureControl.util.js";
@@ -22,7 +23,7 @@ const attachDistanceUI = (mgr, opts) => {
   };
 
   const handleItemClick = e => {
-    Util.stopEvent(e);
+    stopEvent(e);
     Util.suppressHide(mgr);
     toggleUI(undefined);
   };
@@ -100,7 +101,7 @@ const attachDistanceUI = (mgr, opts) => {
             lastDel.on("click", e => {
               const t = e.originalEvent?.target;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                Util.stopEvent(e);
+                stopEvent(e);
                 deleteMeas();
               }
             });
@@ -213,7 +214,7 @@ const attachCircleUI = (mgr, opts) => {
     layer.on("click", e => {
       const t = e.originalEvent?.target;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-      Util.stopEvent(e);
+      stopEvent(e);
       toggleCircleToggle();
     });
   };
@@ -298,7 +299,7 @@ const attachPolygonUI = (mgr, opts) => {
     centroidDot = layers.addLayer(
       L.marker(centroid, {
         icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS_FINAL,
+          className: CONST.CENTER_DOT.CLASS,
           html: "",
           iconSize: CONST.CENTER_DOT.SIZE,
           iconAnchor: CONST.CENTER_DOT.ANCHOR,
@@ -356,7 +357,7 @@ const attachPolygonUI = (mgr, opts) => {
   };
 
   const handleItemClick = e => {
-    Util.stopEvent(e);
+    stopEvent(e);
     Util.suppressHide(mgr);
     toggleUI(undefined);
   };
@@ -420,7 +421,7 @@ const attachPolygonUI = (mgr, opts) => {
             d.on("click", ev => {
               const t = ev.originalEvent?.target;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                Util.stopEvent(ev);
+                stopEvent(ev);
                 deleteMeas();
               } else handleItemClick(ev);
             });

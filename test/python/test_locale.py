@@ -151,7 +151,6 @@ _JS_USED_KEYS = {
     "MeasureControl.popup_loading",
     "MeasureControl.popup_loc_label",
     "MeasureControl.popup_addr_label",
-    "MeasureControl.dist_origin",
     "MeasureControl.geo_fail",
     "MeasureControl.no_layercontrol",
     "MeasureControl.del_tooltip",
