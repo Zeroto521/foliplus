@@ -27,6 +27,12 @@
   fill: var(--neutral-0);
   fill-opacity: 1;
 }
+/* Start node of a distance measurement — solid fill to distinguish it from
+   the hollow intermediate nodes. */
+.foliplus-measure-node-origin {
+  fill: var(--accent-primary);
+  fill-opacity: 1;
+}
 
 /* ── Lines (polylines) ── */
 .foliplus-measure-line-dashed {

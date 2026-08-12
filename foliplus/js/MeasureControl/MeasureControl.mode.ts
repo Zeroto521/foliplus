@@ -251,19 +251,14 @@ class DistanceMode extends PreviewMode {
 
     const nodeMarkers = [];
     points.forEach((pt, i) => {
-      const node = manager.layers.addLayer(Util.makeNode(pt));
+      // First node is the start point — render it solid to distinguish it
+      // from the hollow intermediate/final nodes (no separate label needed).
+      const node = manager.layers.addLayer(
+        Util.makeNode(pt, i === 0 ? CONST.CLASSES.NODE_ORIGIN : undefined),
+      );
       node.bringToFront();
       nodeMarkers.push(node);
     });
-
-    // Restore start label
-    manager.layers.addLayer(
-      L.marker(points[0], {
-        icon: Util.makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
-        interactive: false,
-      }),
-      true,
-    );
 
     const segLabels = [];
     if (data.segments) {
@@ -325,7 +320,6 @@ class DistanceMode extends PreviewMode {
       }),
     );
     let previewDistLabel = null;
-    let originLabel = null;
 
     this._cleanup = () => {
       unbindMapEvents(this.map, distEvents);
@@ -338,7 +332,6 @@ class DistanceMode extends PreviewMode {
       this.layers.removeLayer(finalPoly);
       nodeMarkers.forEach(m => this.layers.removeLayer(m));
       segLabels.forEach(l => this.layers.removeLayer(l));
-      if (originLabel) this.layers.removeLayer(originLabel);
     };
 
     const finishDist = () => {
@@ -446,19 +439,12 @@ class DistanceMode extends PreviewMode {
       }
       poly.addLatLng(e.latlng);
 
-      const marker = this.layers.addLayer(Util.makeNode(e.latlng));
+      const marker = this.layers.addLayer(
+        Util.makeNode(e.latlng, points.length === 1 ? CONST.CLASSES.NODE_ORIGIN : undefined),
+      );
       marker.bringToFront();
       nodeMarkers.push(marker);
 
-      if (points.length === 1) {
-        originLabel = this.layers.addLayer(
-          L.marker(e.latlng, {
-            icon: Util.makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
-              interactive: false,
-          }),
-          true,
-        );
-      }
 
       marker.on("click", e => {
         // Clicking an existing node must not propagate to the map click

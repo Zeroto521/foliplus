@@ -64,6 +64,7 @@ export const CLASSES = {
   POLYGON_FINAL: "foliplus-measure-line-solid foliplus-measure-polygon-final",
   NODE_FINAL: "foliplus-measure-node foliplus-measure-node-final",
   NODE_PREVIEW: "foliplus-measure-node foliplus-measure-node-preview",
+  NODE_ORIGIN: "foliplus-measure-node foliplus-measure-node-origin",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   HIDDEN: "foliplus-measure-hidden",
