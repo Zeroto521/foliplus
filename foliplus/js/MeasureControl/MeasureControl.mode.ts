@@ -243,10 +243,7 @@ class DistanceMode extends PreviewMode {
   static restore(manager, data) {
     const points = data.points.map(p => L.latLng(p.lat, p.lng));
     const finalPoly = manager.layers.addLayer(
-      L.polyline(points, {
-        className: CONST.CLASSES.LINE_SOLID,
-        interactive: true,
-      }),
+      L.polyline(points, { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     );
 
     const nodeMarkers = [];
@@ -306,18 +303,15 @@ class DistanceMode extends PreviewMode {
     const points = [];
     let total = 0;
     const poly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.LINE_DASHED, interactive: false }),
+      L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
     );
     const nodeMarkers = [];
     const segLabels = [];
     const previewLine = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.LINE_PREVIEW, interactive: false }),
+      L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
     const finalPoly = this.layers.addLayer(
-      L.polyline([], {
-        className: CONST.CLASSES.LINE_SOLID,
-        interactive: true,
-      }),
+      L.polyline([], { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     );
     let previewDistLabel = null;
 
@@ -440,11 +434,13 @@ class DistanceMode extends PreviewMode {
       poly.addLatLng(e.latlng);
 
       const marker = this.layers.addLayer(
-        Util.makeNode(e.latlng, points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined),
+        Util.makeNode(
+          e.latlng,
+          points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined,
+        ),
       );
       marker.bringToFront();
       nodeMarkers.push(marker);
-
 
       marker.on("click", e => {
         // Clicking an existing node must not propagate to the map click
@@ -526,7 +522,7 @@ class PolygonMode extends PreviewMode {
     const points = data.points.map(p => L.latLng(p.lat, p.lng));
     const finalPoly = manager.layers.addLayer(
       L.polygon(points, {
-        className: CONST.CLASSES.POLYGON_FINAL,
+        className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
     );
@@ -589,16 +585,19 @@ class PolygonMode extends PreviewMode {
   start() {
     const points = [];
     const poly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.LINE_DASHED, interactive: false }),
+      L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
     );
     const previewPoly = this.addPreview(
-      L.polygon([], { className: CONST.CLASSES.CIRCLE_PREVIEW, interactive: false }),
+      L.polygon([], {
+        className: `${CONST.CLASSES.PATH_PREVIEW} ${CONST.CLASSES.SHAPE_FILL}`,
+        interactive: false,
+      }),
     );
     const nodeMarkers = [];
     const segLabels = [];
     const finalPoly = this.layers.addLayer(
       L.polygon([], {
-        className: CONST.CLASSES.POLYGON_FINAL,
+        className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
     );
@@ -831,14 +830,14 @@ class CircleMode extends PreviewMode {
     const circle = manager.layers.addLayer(
       L.circle(centerLatLng, {
         radius: r,
-        className: CONST.CLASSES.CIRCLE_FINAL,
+        className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
     );
 
     const radiusLine = manager.layers.addLayer(
       L.polyline([centerLatLng, targetLatLng], {
-        className: CONST.CLASSES.LINE_DASHED,
+        className: CONST.CLASSES.PATH_DASHED,
         interactive: true,
       }),
     );
@@ -972,7 +971,7 @@ class CircleMode extends PreviewMode {
         previews.circle = this.addPreview(
           L.circle(center, {
             radius: r,
-            className: CONST.CLASSES.CIRCLE_PREVIEW,
+            className: `${CONST.CLASSES.PATH_PREVIEW} ${CONST.CLASSES.SHAPE_FILL}`,
             interactive: false,
           }),
         );
@@ -981,7 +980,7 @@ class CircleMode extends PreviewMode {
       if (!previews.line) {
         previews.line = this.addPreview(
           L.polyline([center, e.latlng], {
-            className: CONST.CLASSES.LINE_PREVIEW,
+            className: CONST.CLASSES.PATH_PREVIEW,
             interactive: false,
           }),
         );
@@ -1027,7 +1026,7 @@ class CircleMode extends PreviewMode {
       const circle = this.layers.addLayer(
         L.circle(centerLatLng, {
           radius: r,
-          className: CONST.CLASSES.CIRCLE_FINAL,
+          className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
           interactive: true,
         }),
       );
@@ -1050,7 +1049,7 @@ class CircleMode extends PreviewMode {
 
       const radiusLine = this.layers.addLayer(
         L.polyline([centerLatLng, finalTargetLatLng], {
-          className: CONST.CLASSES.LINE_DASHED,
+          className: CONST.CLASSES.PATH_DASHED,
           interactive: true,
         }),
       );
