@@ -69,7 +69,6 @@ class HeatmapControl extends BaseControl {
 
     this.m.clearHeatmapCanvas();
     if (this.m.overlay) this.m.overlay.destroy();
-    this.m.overlay = null;
     this.m.ui = null;
   }
 }

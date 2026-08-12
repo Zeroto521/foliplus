@@ -1,7 +1,7 @@
 // Number formatting for foliplus components.
 // Imported statically by components at build time.
 
-type NumberStyle = "auto" | "comma" | "int";
+export type NumberStyle = "auto" | "comma" | "int";
 
 /**
  * Format a number for display.

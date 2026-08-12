@@ -57,7 +57,7 @@ interface ComponentConfig {
   border_color?: string;
   border_opacity?: number;
   fill_opacity?: number;
-  label_format?: string;
+  label_format?: "auto" | "comma" | "int";
   label_show?: boolean;
   hide_self?: boolean;
   hide_others?: boolean;
