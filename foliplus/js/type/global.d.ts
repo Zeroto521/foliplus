@@ -69,6 +69,7 @@ interface ComponentConfig {
   timeout?: number;
   filename?: string;
   format?: string;
+  schemes?: string[];
   [key: string]: unknown;
 }
 
