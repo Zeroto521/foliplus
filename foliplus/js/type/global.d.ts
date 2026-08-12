@@ -37,58 +37,6 @@ interface Foliplus {
   _TABLES: Record<string, Record<string, string>>;
 }
 
-// ── LayerControl API ───────────────────────────────────────────
-
-/** Return type of `createCanvas`. Managed canvas inside mapPane. */
-interface CreateCanvasAPI {
-  canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D | null;
-  resize: () => void;
-  getSize: () => { width: number; height: number };
-  updatePosition: () => void;
-  register: () => void;
-  unregister: () => void;
-  registered: () => boolean;
-  destroy: () => void;
-  bringToFront: () => void;
-}
-
-/** Return type of `createLayers`. Managed layer group with graph/label sub-groups. */
-interface CreateLayersAPI {
-  mainLayer: L.LayerGroup;
-  addLayer: (layer: L.Layer, isLabel?: boolean) => L.Layer;
-  removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
-  clearLayers: () => void;
-  register: () => void;
-  unregister: () => void;
-  registered: () => boolean;
-  bringToFront: () => void;
-}
-
-/** LayerControl public API, exposed on `foliplus.LayerAPI`. */
-interface LayerAPI {
-  createCanvas: (opts: {
-    id: string;
-    name?: string;
-    className?: string;
-    iconSvg?: string;
-    onToggle?: (visible: boolean) => void;
-    onZIndex?: (z: number) => void;
-  }) => CreateCanvasAPI;
-  createLayers: (opts: {
-    name: string;
-    id: string;
-    graphPane?: string;
-    labelPane?: string;
-    iconSvg?: string;
-  }) => CreateLayersAPI;
-  extractPoints: (id: string) => Array<{ lat: number; lng: number }>;
-  getLayerPanes: (layer: L.Layer) => string[];
-  getLayersByType: (
-    type: string,
-  ) => Array<{ id: string; name: string; layer: L.Layer }>;
-}
-
 // ── Component config ───────────────────────────────────────────
 
 /** Per-component config injected by the Jinja2 IIFE. Fields are runtime-defined. */
@@ -165,6 +113,56 @@ declare global {
     type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
     type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
     type PointExpression = Leaflet.PointExpression;
+  }
+
+  /** Return type of `LayerAPI.createCanvas`. */
+  interface CreateCanvasAPI {
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D | null;
+    resize: () => void;
+    getSize: () => { width: number; height: number };
+    updatePosition: () => void;
+    register: () => void;
+    unregister: () => void;
+    registered: () => boolean;
+    destroy: () => void;
+    bringToFront: () => void;
+    hooks?: { before: Array<() => void>; after: Array<() => void> };
+    setVisible?: (v: boolean) => void;
+  }
+
+  /** Return type of `LayerAPI.createLayers`. */
+  interface CreateLayersAPI {
+    mainLayer: L.LayerGroup;
+    addLayer: (layer: L.Layer, isLabel?: boolean) => L.Layer;
+    removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
+    clearLayers: () => void;
+    register: () => void;
+    unregister: () => void;
+    registered: () => boolean;
+    bringToFront: () => void;
+  }
+
+  /** LayerControl public API, exposed on `foliplus.LayerAPI`. */
+  interface LayerAPI {
+    createCanvas: (opts: {
+      id: string;
+      name?: string;
+      className?: string;
+      iconSvg?: string;
+      onToggle?: (visible: boolean) => void;
+      onZIndex?: (z: number) => void;
+    }) => CreateCanvasAPI;
+    createLayers: (opts: {
+      name: string;
+      id: string;
+      graphPane?: string;
+      labelPane?: string;
+      iconSvg?: string;
+    }) => CreateLayersAPI;
+    extractPoints: (id: string) => Array<{ lat: number; lng: number; marker?: any }>;
+    getLayerPanes: (layer: L.Layer) => string[];
+    getLayersByType: (type: string) => Array<{ id: string; name: string; layer: L.Layer }>;
   }
 
   const map: Leaflet.Map;
