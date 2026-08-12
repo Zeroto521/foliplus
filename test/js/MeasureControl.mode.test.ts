@@ -36,7 +36,7 @@ beforeEach(() => {
     bringToFront: vi.fn(),
     getElement: vi.fn(() => null),
   }));
-  window.L.divIcon = vi.fn(() => ({}));
+  window.L.divIcon = vi.fn(opts => ({ _mockDivIconHtml: opts?.html }));
   window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
   window.L.DomEvent = {
     ...window.L.DomEvent,
@@ -403,5 +403,96 @@ describe("CircleMode — preclick stops propagation to data layers", () => {
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
     expect(leafletEvent.originalEvent._stopped).toBe(true);
+  });
+});
+
+describe("DistanceMode — label count equals n-1", () => {
+  function run(manager, mode) {
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "preclick")?.[1];
+    return clickHandler;
+  }
+
+  function segLabelCount() {
+    // segLabels are L.marker instances created by makeMidLabelDivIcon;
+    // count L.marker calls where the icon option has the mid-label class.
+    return window.L.marker.mock.calls.filter(([, opts]) => {
+      const iconOpts = opts?.icon;
+      // icon is a divIcon mock — inspect its first-call argument
+      if (!iconOpts || !iconOpts._mockDivIconHtml) return false;
+      return iconOpts._mockDivIconHtml.includes("foliplus-measure-label-mid");
+    }).length;
+  }
+
+  it("creates 1 segLabel for 2 points", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    const clickHandler = run(manager, mode);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    expect(segLabelCount()).toBe(1);
+  });
+
+  it("creates 2 segLabels for 3 points", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    const clickHandler = run(manager, mode);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 122 } });
+    expect(segLabelCount()).toBe(2);
+  });
+
+  it("does not create extra label when re-clicking last node", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    const clickHandler = run(manager, mode);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    const before = segLabelCount();
+    // Re-click at same position — should NOT add another segLabel
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    expect(segLabelCount()).toBe(before);
+  });
+});
+
+describe("PolygonMode — label count equals n-1", () => {
+  function run(manager, mode) {
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "preclick")?.[1];
+    return clickHandler;
+  }
+
+  function segLabelCount() {
+      const calls = window.L.marker.mock.calls.filter(([, opts]) => {
+        const iconOpts = opts?.icon;
+        if (!iconOpts || !iconOpts._mockDivIconHtml) return false;
+        return iconOpts._mockDivIconHtml.includes("foliplus-measure-label-mid");
+      }).length;
+      return calls;
+  }
+
+  it("creates 2 segLabels for 3 points", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    const clickHandler = run(manager, mode);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 122 } });
+    expect(segLabelCount()).toBe(2);
+  });
+
+  it("does not create extra label when re-clicking a node", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    const clickHandler = run(manager, mode);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    const before = segLabelCount();
+    // Re-click at same position — should NOT add another segLabel
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    expect(segLabelCount()).toBe(before);
   });
 });
