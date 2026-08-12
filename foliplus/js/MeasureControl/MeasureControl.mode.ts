@@ -1,9 +1,9 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 import { createLocationMarker, stopEvent } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 import * as CONST from "./MeasureControl.const.js";
+import type { MeasureManager } from "./MeasureControl.manager.js";
 import {
   attachCircleUI,
   attachDistanceUI,
@@ -12,13 +12,40 @@ import {
 import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const foliplus = window.foliplus;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+const foliplus: any = window.foliplus;
 const _ = createTranslator(CONF);
+
+/** Persisted measurement payload type. */
+interface MeasureData {
+  id?: string;
+  type: string;
+  lng?: number;
+  lat?: number;
+  address?: string | null;
+  points?: L.LatLng[];
+  segments?: Array<{ lng: number; lat: number; distance: number }>;
+  totalDistance?: number;
+  area?: number;
+  center?: { lng: number; lat: number };
+  target?: { lng: number; lat: number };
+  radius?: number;
+  [key: string]: unknown;
+}
+
+type Mode = { type: string };
+type LayerEvents = Array<[string, (e: any) => void]>;
 
 // ==================== Mode Base Class ====================
 /** Base class for all measurement modes. Handles map reference, layer group, and cleanup lifecycle. */
 class MeasureMode {
-  constructor(manager) {
+  static TYPE: string = "";
+  manager: any;
+  map: any;
+  layers: CreateLayersAPI;
+  _cleanup: (() => void) | null;
+
+  constructor(manager: any) {
     this.manager = manager;
     this.map = manager.map;
     this.layers = manager.layers;
@@ -31,17 +58,17 @@ class MeasureMode {
   }
 
   /** Shorthand for mode type */
-  get type() {
-    return this.constructor.TYPE;
+  get type(): string {
+    return (this.constructor as typeof MeasureMode).TYPE;
   }
 
   /** Start the mode — bind events, create UI. */
-  start() {
+  start(): void {
     console.warn(`[${CONF.name}] start not implemented for ${this.type}`);
   }
 
   /** Cleanup — unbind events, remove temporary elements. */
-  cleanup() {
+  cleanup(): void {
     if (this._cleanup) {
       this._cleanup();
       this._cleanup = null;
@@ -49,15 +76,15 @@ class MeasureMode {
   }
 
   /** Generate a unique measurement ID with type prefix. */
-  nextMeasurementId() {
+  nextMeasurementId(): string {
     return this.m.nextMeasurementId(this.type);
   }
 
   /** Rebuild a persisted measurement from data.
    *  Subclasses override this to restore their specific visual elements.
-   *  @param {Object} manager - MeasureManager instance.
-   *  @param {Object} data - Persisted measurement data. */
-  static restore(manager, data) {
+   *  @param manager - MeasureManager instance.
+   *  @param data - Persisted measurement data. */
+  static restore(manager: any, data: any): void {
     console.warn(`[${CONF.name}] restore not implemented for ${this.type}`);
   }
 }
@@ -65,28 +92,31 @@ class MeasureMode {
 // ==================== Preview Mode Base Class ====================
 /** Base class for modes with preview layers (distance, polygon, circle). Tracks and cleans up preview artifacts. */
 class PreviewMode extends MeasureMode {
-  constructor(manager) {
+  previewLayers: L.Layer[];
+  isFinished: boolean;
+
+  constructor(manager: MeasureManager) {
     super(manager);
     this.previewLayers = [];
     this.isFinished = false;
   }
 
   /** Track a preview layer (adds to layer group + tracks for cleanup). */
-  addPreview(layer) {
+  addPreview<T extends L.Layer>(layer: T): T {
     this.previewLayers.push(layer);
     this.layers.addLayer(layer);
     return layer;
   }
 
   /** Remove a specific preview layer. */
-  removePreview(layer) {
+  removePreview(layer: L.Layer): void {
     const idx = this.previewLayers.indexOf(layer);
     if (idx !== -1) this.previewLayers.splice(idx, 1);
     this.layers.removeLayer(layer);
   }
 
   /** Remove all tracked preview layers. */
-  clearPreviews() {
+  clearPreviews(): void {
     this.previewLayers.forEach(l => this.layers.removeLayer(l));
     this.previewLayers = [];
   }
@@ -97,10 +127,12 @@ class PreviewMode extends MeasureMode {
 class MarkerMode extends MeasureMode {
   static TYPE = CONST.MODE.MARKER;
 
+  onMarkerClickRef: (e: any) => void;
+
   /** Rebuild a persisted marker measurement.
-   *  @param {Object} manager - MeasureManager instance.
-   *  @param {Object} data - Persisted measurement data. */
-  static restore(manager, data) {
+   *  @param manager - MeasureManager instance.
+   *  @param data - Persisted measurement data. */
+  static restore(manager: MeasureManager, data: MeasureData): void {
     const marker = createLocationMarker(
       manager.map,
       data.lng,
@@ -160,7 +192,8 @@ class MarkerMode extends MeasureMode {
     this._cleanup = () => this.map.off("click", this.onMarkerClickRef);
   }
 
-  async handleMarkerClick(e) {
+  /** Handle marker click. */
+  async handleMarkerClick(e: L.LeafletMouseEvent) {
     if (this.m.currentMode !== this.type) return;
     const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
     const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
@@ -300,20 +333,20 @@ class DistanceMode extends PreviewMode {
   }
 
   start() {
-    const points = [];
+    const points: L.LatLng[] = [];
     let total = 0;
     const poly = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
     );
-    const nodeMarkers = [];
-    const segLabels = [];
+    const nodeMarkers: L.CircleMarker[] = [];
+    const segLabels: L.Marker[] = [];
     const previewLine = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
     const finalPoly = this.layers.addLayer(
       L.polyline([], { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     );
-    let previewDistLabel = null;
+    let previewDistLabel: L.Marker | null = null;
 
     this._cleanup = () => {
       unbindMapEvents(this.map, distEvents);

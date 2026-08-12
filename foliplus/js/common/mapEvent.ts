@@ -5,7 +5,7 @@
 // Handlers are plain [event, fn] tuples; the same array can be passed to
 // bindMapEvents and later to unbindMapEvents for symmetric cleanup.
 
-type MapHandler = (...args: unknown[]) => void;
+type MapHandler = (...args: any[]) => void;
 type MapEventHandlers = Array<[string, MapHandler]>;
 
 /**

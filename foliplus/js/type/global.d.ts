@@ -89,8 +89,11 @@ type Turf = {
 type Gcoord = {
   transform: (coords: number[], from: number, to: number) => number[];
   WGS: number;
+  WGS84: number;
   GCJ: number;
+  GCJ02: number;
   BD: number;
+  BD09: number;
 };
 
 /** simple-statistics (CDN). */

@@ -15,7 +15,8 @@ type CrsType = "BD09" | "GCJ02" | "WGS84";
 const isBaiduCRS = (map: any): boolean => {
   try {
     const crs = map.options.crs;
-    if (L.CRS && L.CRS.Baidu && crs === L.CRS.Baidu) return true;
+    const LCRS = L.CRS as any;
+    if (LCRS && LCRS.Baidu && crs === LCRS.Baidu) return true;
     if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
 
     const layers = map._layers;

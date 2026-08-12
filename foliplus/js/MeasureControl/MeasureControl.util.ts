@@ -72,16 +72,16 @@ const calcToggle = (
 
 /** Apply toggle visibility state to del icon, labels, and optional extra label. */
 const applyToggle = (
-  delMarker: L.Marker | undefined,
+  delMarker: L.Layer | undefined,
   isXVisible: boolean,
-  labels: L.Marker[],
+  labels: L.Layer[],
   isLabelsVisible: boolean,
-  extraLbl?: L.Marker,
+  extraLbl?: L.Layer,
   onToggle?: (xVisible: boolean, lblVisible: boolean) => void,
 ) => {
-  const applyDelIcon = (marker: L.Marker | undefined, show: boolean, retries = 0) => {
+  const applyDelIcon = (marker: L.Layer | undefined, show: boolean, retries = 0) => {
     if (!marker) return;
-    toggleDelIcon(marker, show, retries);
+    toggleDelIcon(marker as L.Marker, show, retries);
   };
 
   applyDelIcon(delMarker, isXVisible);
@@ -105,7 +105,7 @@ const applyToggle = (
 };
 
 /** Toggle a delete icon's visibility with retry. */
-const toggleDelIcon = (marker: L.Marker, show: boolean, retries = 0) => {
+const toggleDelIcon = (marker: L.Layer, show: boolean, retries = 0) => {
   if (!marker) return;
   const el = marker.getElement();
   if (el) {
@@ -120,7 +120,7 @@ const toggleDelIcon = (marker: L.Marker, show: boolean, retries = 0) => {
 };
 
 /** Attach a click handler to a delete icon marker via Leaflet event (survives DOM rebuild). */
-const attachDelClick = (delMarker: L.Marker, callback: () => void) => {
+const attachDelClick = (delMarker: L.Layer, callback: () => void) => {
   delMarker.on("click", (ev: L.LeafletMouseEvent) => {
     const t = (ev.originalEvent as MouseEvent)?.target as HTMLElement | null;
     if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
@@ -131,7 +131,7 @@ const attachDelClick = (delMarker: L.Marker, callback: () => void) => {
 };
 
 /** Update a label marker's text content. Always gets fresh DOM reference. */
-const setLabelText = (marker: L.Marker, text: string) => {
+const setLabelText = (marker: L.Layer, text: string) => {
   const el = marker.getElement();
   if (!el) return;
   const labelEl = el.querySelector(CONST.SEL.LABEL);
