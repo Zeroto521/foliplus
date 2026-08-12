@@ -458,7 +458,12 @@ class DistanceMode extends PreviewMode {
         );
       }
 
-      marker.on("click", () => {
+      marker.on("click", e => {
+        // Clicking an existing node must not propagate to the map click
+        // handler, which would push a duplicate point and create an
+        // overlapping label. Leaflet checks e.originalEvent._stopped
+        // before propagating layer click events to the map.
+        L.DomEvent.stopPropagation(e);
         if (points.length < 2) return;
         if (marker === nodeMarkers[nodeMarkers.length - 1]) finishDist();
       });
@@ -767,7 +772,13 @@ class PolygonMode extends PreviewMode {
       marker.bringToFront();
       nodeMarkers.push(marker);
 
-      marker.on("click", () => {
+      marker.on("click", e => {
+        // Clicking an existing node must not propagate to the map click
+        // handler, which would push a duplicate point and create an
+        // overlapping label (e.g. re-clicking the 2nd point of a 2-point
+        // Polygon creates a duplicate + "0 m" label that overlaps with
+        // the closing segment label).
+        L.DomEvent.stopPropagation(e);
         if (points.length < 3) return;
         // Click first or last point → finish
         if (marker === nodeMarkers[0] || marker === nodeMarkers[nodeMarkers.length - 1])
