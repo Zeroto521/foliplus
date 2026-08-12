@@ -131,6 +131,19 @@ declare global {
     type PathOptions = Leaflet.PathOptions;
     type LeafletMouseEventHandlerFn = Leaflet.LeafletMouseEventHandlerFn;
     type LeafletKeyboardEvent = Leaflet.LeafletKeyboardEvent;
+    type GridLayer = Leaflet.GridLayer;
+    type TileLayer = Leaflet.TileLayer;
+    type ImageOverlay = Leaflet.ImageOverlay;
+    type CRS = Leaflet.CRS;
+  }
+
+  /** A layer entry in the LayerControl ordered registry (read-only view). */
+  interface LayerInfo {
+    id: string;
+    name: string;
+    layer: L.Layer | null;
+    visible: boolean;
+    canvas?: HTMLCanvasElement;
   }
 
   /** Return type of `LayerAPI.createCanvas`. */
@@ -163,6 +176,8 @@ declare global {
 
   /** LayerControl public API, exposed on `foliplus.LayerAPI`. */
   interface LayerAPI {
+    /** Ordered array of layers (read-only view of LayerRegistry). */
+    layers: LayerInfo[];
     createCanvas: (opts: {
       id: string;
       name?: string;
