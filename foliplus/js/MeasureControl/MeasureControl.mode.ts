@@ -426,6 +426,9 @@ class DistanceMode extends PreviewMode {
 
     const onDistClick = e => {
       if (this.m.currentMode !== this.type) return;
+      // Use preclick (fires before data-layer click handlers) so we can stop
+      // Leaflet propagation and prevent the data layer from also responding.
+      L.DomEvent.stopPropagation(e);
       points.push(e.latlng);
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
@@ -501,7 +504,7 @@ class DistanceMode extends PreviewMode {
     };
 
     const distEvents = [
-      ["click", onDistClick],
+      ["preclick", onDistClick],
       ["dblclick", onDistDbl],
       ["contextmenu", onDistContext],
       ["mousemove", onDistMove],
@@ -756,6 +759,9 @@ class PolygonMode extends PreviewMode {
 
     const onPolyClick = e => {
       if (this.m.currentMode !== this.type) return;
+      // Stop Leaflet propagation so clicking a data layer while drawing does
+      // not also trigger the data layer's own click handler.
+      L.DomEvent.stopPropagation(e);
       points.push(e.latlng);
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
@@ -815,7 +821,7 @@ class PolygonMode extends PreviewMode {
     };
 
     const polyEvents = [
-      ["click", onPolyClick],
+      ["preclick", onPolyClick],
       ["dblclick", onPolyDbl],
       ["contextmenu", onPolyContext],
       ["mousemove", onPolyMove],
@@ -932,6 +938,9 @@ class CircleMode extends PreviewMode {
         (state !== 0 && state !== 1)
       )
         return;
+      // Stop Leaflet propagation so clicking a data layer while drawing does
+      // not also trigger the data layer's own click handler.
+      L.DomEvent.stopPropagation(e);
 
       if (Date.now() - lastFinishTime < CONST.TIMING.CLICK_COOLDOWN) return;
 
@@ -1127,7 +1136,7 @@ class CircleMode extends PreviewMode {
     };
 
     const circleEvents = [
-      ["click", onMapClick],
+      ["preclick", onMapClick],
       ["mousemove", onMouseMove],
       ["contextmenu", onContext],
     ];
