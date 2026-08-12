@@ -1,4 +1,3 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 import { dom } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
@@ -16,7 +15,23 @@ const mapContainer = map.getContainer();
 
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
 class LayerUI {
-  constructor(manager) {
+  manager: any;
+  foldedGroups: Set<string>;
+  isColorActive: boolean;
+  currentColor: string;
+  dragIdx: number | null;
+  lastDragHintAt: number;
+  lastDragOverItem: HTMLElement | null;
+  declare onChange: ((e: Event) => void) | null;
+  declare onInput: ((e: Event) => void) | null;
+  declare onClick: ((e: Event) => void) | null;
+  declare onDragStart: ((e: DragEvent) => void) | null;
+  declare onDragOver: ((e: DragEvent) => void) | null;
+  declare onDragLeave: ((e: DragEvent) => void) | null;
+  declare onDragEnd: ((e: DragEvent) => void) | null;
+  declare onDrop: ((e: DragEvent) => void) | null;
+
+  constructor(manager: any) {
     this.manager = manager;
     this.foldedGroups = new Set();
     this.isColorActive = false;
@@ -35,7 +50,7 @@ class LayerUI {
    * Attach UI to the given container div.
    * @param {HTMLElement} containerDiv - The panel-content div.
    */
-  attachUI(containerDiv) {
+  attachUI(containerDiv: HTMLElement) {
     this.m.uiContainer = containerDiv;
     this.loadFoldState();
     this.renderInitialList();
@@ -95,7 +110,7 @@ class LayerUI {
     this.m.uiContainer.appendChild(frag);
   }
 
-  insertLayerItem(layerInfo, { reindex = true } = {}) {
+  insertLayerItem(layerInfo: any, { reindex = true }: { reindex?: boolean } = {}) {
     const idx = this.m.layerRegistry.indexOf(layerInfo);
     if (idx === -1) return;
     const container = this.m.uiContainer;
@@ -135,7 +150,7 @@ class LayerUI {
     if (reindex) this.reindexItems();
   }
 
-  updateLayerItem(layerInfo, idx) {
+  updateLayerItem(layerInfo: any, idx: number) {
     const item = this.m.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
     );
@@ -151,7 +166,7 @@ class LayerUI {
     }
   }
 
-  renderToggleAllRow(group, labelKey) {
+  renderToggleAllRow(group: string, labelKey: string) {
     const isFolded = this.foldedGroups.has(group);
     return dom.el(
       "div",
@@ -184,9 +199,9 @@ class LayerUI {
     );
   }
 
-  renderLayerItem(li, idx) {
+  renderLayerItem(li: any, idx: number) {
     const en = Util.escapeHTML(li.name);
-    const children = [
+    const children: (HTMLElement | { html: string })[] = [
       dom.el(
         "span",
         { title: _(`${CONF.name}.drag_tooltip`) },
@@ -324,26 +339,31 @@ class LayerUI {
     if (!container) return;
 
     this.onChange = e => {
-      const cb = e.target.closest('[data-role="toggle-all"]');
+      const cb = (e.target as HTMLElement).closest(
+        '[data-role="toggle-all"]',
+      ) as HTMLInputElement | null;
       if (cb) {
-        const row = cb.closest(CONST.SEL.TOGGLE_ALL);
-        this.toggleAll(row.dataset.group, cb.checked);
+        const row = cb.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
+        if (!row) return;
+        this.toggleAll(row.dataset.group ?? "", cb.checked);
         return;
       }
       this.handleChange(e);
     };
     this.onInput = e => this.handleInput(e);
     this.onClick = e => {
-      if (e.target.closest(CONST.SEL.COLOR_ITEM)) {
+      if ((e.target as HTMLElement).closest(CONST.SEL.COLOR_ITEM)) {
         this.deselectAllBaseMaps(-1);
         this.showColorLayer(this.currentColor);
         this.syncToggleAll(CONST.GROUP.BASE);
         this.m.enforceOrder();
         return;
       }
-      const row = e.target.closest(CONST.SEL.TOGGLE_ALL);
-      if (!row || e.target.closest('[data-role="toggle-all"]')) return;
-      const group = row.dataset.group;
+      const row = (e.target as HTMLElement).closest(
+        CONST.SEL.TOGGLE_ALL,
+      ) as HTMLElement | null;
+      if (!row || (e.target as HTMLElement).closest('[data-role="toggle-all"]')) return;
+      const group = row.dataset.group ?? "";
       if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
       else this.foldedGroups.add(group);
       this.renderInitialList();
@@ -355,7 +375,7 @@ class LayerUI {
     this.onDragOver = e => this.handleDragOver(e);
     this.onDragLeave = e => this.handleDragLeave(e);
     this.onDrop = e => this.handleDrop(e);
-    this.onDragEnd = e => this.handleDragEnd(e);
+  this.onDragEnd = () => this.handleDragEnd();
 
     container.addEventListener("change", this.onChange);
     container.addEventListener("input", this.onInput);
@@ -383,18 +403,20 @@ class LayerUI {
     this.onDrop = this.onDragEnd = null;
   }
 
-  getLayerItems(group) {
+  getLayerItems(group: string): NodeListOf<Element> {
     return this.m.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}${group === CONST.GROUP.BASE ? `[data-layer-type="${CONST.GROUP.BASE}"]` : `:not([data-layer-type="${CONST.GROUP.BASE}"]):not(${CONST.SEL.COLOR_ITEM})`}`,
     );
   }
 
-  toggleAll(group, newState) {
+  toggleAll(group: string, newState: boolean) {
     const items = this.getLayerItems(group);
-    items.forEach(item => {
-      const cb = item.querySelector('input[type="checkbox"]');
+    items.forEach((item: Element) => {
+      const cb = item.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
       if (!cb) return;
-      const idx = parseInt(cb.dataset.index, 10);
+      const idx = parseInt(cb.dataset.index ?? "", 10);
       if (isNaN(idx) || idx < 0 || idx >= this.m.layers.length) return;
       const layerInfo = this.m.layers[idx];
       const layer = this.m.findLayer(layerInfo);
@@ -419,16 +441,20 @@ class LayerUI {
     this.m.enforceOrder();
   }
 
-  syncToggleAll(group) {
+  syncToggleAll(group: string) {
     const row = this.m.uiContainer.querySelector(
       `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
     );
     if (!row) return;
-    const allCb = row.querySelector('[data-role="toggle-all"]');
+    const allCb = row.querySelector(
+      '[data-role="toggle-all"]',
+    ) as HTMLInputElement | null;
     if (!allCb) return;
     const items = this.getLayerItems(group);
-    const checkedCount = Array.from(items).filter(item => {
-      const cb = item.querySelector('input[type="checkbox"]');
+    const checkedCount = Array.from(items).filter((item: Element) => {
+      const cb = item.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
       return cb && cb.checked;
     }).length;
     const allChecked = items.length > 0 && checkedCount === items.length;
@@ -440,13 +466,13 @@ class LayerUI {
     );
   }
 
-  syncVisibility(layerInfo, layer, fallback) {
+  syncVisibility(layerInfo: any, layer: any, fallback: boolean) {
     layerInfo.visible = layer ? this.m.map.hasLayer(layer) : fallback;
     return layerInfo.visible;
   }
 
-  handleChange(e) {
-    const target = e.target;
+  handleChange(e: Event) {
+    const target = e.target as HTMLInputElement;
     if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
       this.deselectAllBaseMaps(-1);
       this.showColorLayer(target.value);
@@ -456,7 +482,7 @@ class LayerUI {
     }
     if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
 
-    const idx = parseInt(target.dataset.index, 10);
+    const idx = parseInt(target.dataset.index ?? "", 10);
     if (isNaN(idx) || idx < 0 || idx >= this.m.layers.length) return;
     const layerInfo = this.m.layers[idx];
     const layer = this.m.findLayer(layerInfo);
@@ -482,17 +508,19 @@ class LayerUI {
     this.m.enforceOrder();
   }
 
-  handleInput(e) {
-    if (e.target.classList.contains(CONST.CLASSES.COLOR_INPUT))
-      this.showColorLayer(e.target.value);
+  handleInput(e: Event) {
+    if ((e.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT))
+      this.showColorLayer((e.target as HTMLInputElement).value);
   }
 
-  handleDragStart(e) {
-    const item = e.target.closest(CONST.SEL.LAYER_ITEM);
+  handleDragStart(e: DragEvent) {
+    const item = (e.target as HTMLElement).closest(
+      CONST.SEL.LAYER_ITEM,
+    ) as HTMLElement | null;
     if (!item) return;
-    this.dragIdx = parseInt(item.dataset.index, 10);
+    this.dragIdx = parseInt(item.dataset.index ?? "", 10);
     item.classList.add(CONST.CLASSES.DRAGGING);
-    e.dataTransfer.effectAllowed = "move";
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
   }
 
   showReorderBlockedHint() {
@@ -506,13 +534,15 @@ class LayerUI {
     );
   }
 
-  handleDragOver(e) {
+  handleDragOver(e: DragEvent) {
     if (this.dragIdx === null) return;
     e.preventDefault();
-    const item = e.target.closest(CONST.SEL.LAYER_ITEM);
+    const item = (e.target as HTMLElement).closest(
+      CONST.SEL.LAYER_ITEM,
+    ) as HTMLElement | null;
     if (!item || item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
 
-    const targetIdx = parseInt(item.dataset.index, 10);
+    const targetIdx = parseInt(item.dataset.index ?? "", 10);
     const prev = this.lastDragOverItem;
     if (prev && prev !== item)
       prev.classList.remove(
@@ -534,8 +564,10 @@ class LayerUI {
       item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
   }
 
-  handleDragLeave(e) {
-    const item = e.target.closest(CONST.SEL.LAYER_ITEM);
+  handleDragLeave(e: DragEvent) {
+    const item = (e.target as HTMLElement).closest(
+      CONST.SEL.LAYER_ITEM,
+    ) as HTMLElement | null;
     if (item)
       item.classList.remove(
         CONST.CLASSES.DRAG_OVER_TOP,
@@ -543,9 +575,11 @@ class LayerUI {
       );
   }
 
-  handleDrop(e) {
+  handleDrop(e: DragEvent) {
     e.preventDefault();
-    const target = e.target.closest(CONST.SEL.LAYER_ITEM);
+    const target = (e.target as HTMLElement).closest(
+      CONST.SEL.LAYER_ITEM,
+    ) as HTMLElement | null;
     if (this.dragIdx === null) return;
     if (!target || target.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
 
@@ -554,7 +588,7 @@ class LayerUI {
       return;
     }
 
-    const targetIdx = parseInt(target.dataset.index, 10);
+    const targetIdx = parseInt(target.dataset.index ?? "", 10);
     if (this.dragIdx === targetIdx) return;
     if (!this.m.canReorderBetween(this.dragIdx, targetIdx)) {
       this.showReorderBlockedHint();
@@ -572,8 +606,11 @@ class LayerUI {
       return;
     }
 
-    if (targetIdx < this.dragIdx) target.parentNode.insertBefore(movedItem, target);
-    else target.parentNode.insertBefore(movedItem, target.nextSibling);
+    if (targetIdx < this.dragIdx) {
+      if (target.parentNode) target.parentNode.insertBefore(movedItem, target);
+    } else if (target.parentNode) {
+      target.parentNode.insertBefore(movedItem, target.nextSibling);
+    }
 
     this.reindexItems();
     this.m.enforceOrder();
@@ -585,7 +622,7 @@ class LayerUI {
     this.dragIdx = null;
     this.lastDragOverItem = null;
     const allItems = this.m.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
-    allItems.forEach(i =>
+    allItems.forEach((i: Element) =>
       i.classList.remove(
         CONST.CLASSES.DRAGGING,
         CONST.CLASSES.DRAG_OVER_TOP,
@@ -594,7 +631,7 @@ class LayerUI {
     );
   }
 
-  showColorLayer(color) {
+  showColorLayer(color: string) {
     this.isColorActive = true;
     this.currentColor = color;
     mapContainer.style.setProperty("--color-layer-bg", color);
@@ -613,14 +650,18 @@ class LayerUI {
     const inputs = this.m.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
     );
-    inputs.forEach((input, j) => {
+    inputs.forEach((input: HTMLInputElement, j: number) => {
       if (this.m.layers[j]?.isBase) {
         input.checked = false;
-        input.closest(CONST.SEL.LAYER_ITEM)?.classList.remove(CONST.CLASSES.ACTIVE);
+        input
+          .closest(CONST.SEL.LAYER_ITEM)
+          ?.classList.remove(CONST.CLASSES.ACTIVE);
       }
     });
 
-    const ci = this.m.uiContainer.querySelector(CONST.SEL.COLOR_INPUT);
+    const ci = this.m.uiContainer.querySelector(
+      CONST.SEL.COLOR_INPUT,
+    ) as HTMLInputElement | null;
     if (ci) ci.value = color;
     this.m.uiContainer
       .querySelector(CONST.SEL.COLOR_ITEM)
@@ -639,7 +680,7 @@ class LayerUI {
       ?.classList.remove(CONST.CLASSES.ACTIVE);
   }
 
-  deselectAllBaseMaps(exceptIdx) {
+  deselectAllBaseMaps(exceptIdx: number) {
     const inputs = this.m.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
     );
