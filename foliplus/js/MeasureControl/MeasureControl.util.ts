@@ -133,7 +133,8 @@ const attachDelClick = (delMarker, callback) => {
   delMarker.on("click", ev => {
     const t = ev.originalEvent?.target;
     if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-      stopEvent(ev);
+      // Use Leaflet's stopPropagation so click does not reach map/data layers.
+      L.DomEvent.stopPropagation(ev);
       callback();
     }
   });

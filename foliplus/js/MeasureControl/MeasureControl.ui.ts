@@ -22,7 +22,9 @@ const attachDistanceUI = (mgr, opts) => {
   };
 
   const handleItemClick = e => {
-    Util.stopEvent(e);
+    // Must use Leaflet's stopPropagation (sets e.originalEvent._stopped) so
+    // the click does not propagate to the map and trigger data-layer events.
+    L.DomEvent.stopPropagation(e);
     Util.suppressHide(mgr);
     toggleUI(undefined);
   };
@@ -100,7 +102,7 @@ const attachDistanceUI = (mgr, opts) => {
             lastDel.on("click", e => {
               const t = e.originalEvent?.target;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                Util.stopEvent(e);
+                L.DomEvent.stopPropagation(e);
                 deleteMeas();
               }
             });
@@ -213,7 +215,8 @@ const attachCircleUI = (mgr, opts) => {
     layer.on("click", e => {
       const t = e.originalEvent?.target;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-      Util.stopEvent(e);
+      // Use Leaflet's stopPropagation so click does not reach map/data layers.
+      L.DomEvent.stopPropagation(e);
       toggleCircleToggle();
     });
   };
@@ -356,7 +359,8 @@ const attachPolygonUI = (mgr, opts) => {
   };
 
   const handleItemClick = e => {
-    Util.stopEvent(e);
+    // Use Leaflet's stopPropagation so click does not reach map/data layers.
+    L.DomEvent.stopPropagation(e);
     Util.suppressHide(mgr);
     toggleUI(undefined);
   };
@@ -420,7 +424,7 @@ const attachPolygonUI = (mgr, opts) => {
             d.on("click", ev => {
               const t = ev.originalEvent?.target;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                Util.stopEvent(ev);
+                L.DomEvent.stopPropagation(ev);
                 deleteMeas();
               } else handleItemClick(ev);
             });

@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 beforeEach(() => {
   vi.clearAllMocks();
   window.L.circleMarker = vi.fn(() => ({}));
+  window.L.DomEvent = {
+    ...window.L.DomEvent,
+    stopPropagation: vi.fn(),
+  };
   globalThis.turf = {
     point: coords => ({ coords }),
     distance: vi.fn(() => 100),
