@@ -84,7 +84,6 @@ path.foliplus-measure-node-solid {
 }
 
 :is(
-  .foliplus-measure-node-preview,
   .foliplus-measure-line-preview,
   .foliplus-measure-circle-preview
 ) {

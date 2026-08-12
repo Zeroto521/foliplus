@@ -991,7 +991,7 @@ class CircleMode extends PreviewMode {
         previews.node = this.addPreview(
           L.circleMarker(e.latlng, {
             radius: CONST.MARKER.RADIUS,
-            className: CONST.CLASSES.NODE_PREVIEW,
+            className: CONST.CLASSES.NODE_FINAL,
             interactive: false,
           }),
         );
