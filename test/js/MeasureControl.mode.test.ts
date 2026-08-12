@@ -478,12 +478,12 @@ describe("PolygonMode — label count equals n-1", () => {
   }
 
   function segLabelCount() {
-      const calls = window.L.marker.mock.calls.filter(([, opts]) => {
-        const iconOpts = opts?.icon;
-        if (!iconOpts || !iconOpts._mockDivIconHtml) return false;
-        return iconOpts._mockDivIconHtml.includes("foliplus-measure-label-mid");
-      }).length;
-      return calls;
+    const calls = window.L.marker.mock.calls.filter(([, opts]) => {
+      const iconOpts = opts?.icon;
+      if (!iconOpts || !iconOpts._mockDivIconHtml) return false;
+      return iconOpts._mockDivIconHtml.includes("foliplus-measure-label-mid");
+    }).length;
+    return calls;
   }
 
   it("creates 2 segLabels for 3 points", () => {
