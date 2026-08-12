@@ -52,7 +52,7 @@ class BaseControl extends L.Control {
   }
 
   /** Override to release resources on removal. Called before auto-unbind. */
-  destroy(): void { }
+  destroy(): void {}
 
   /** Track a L.DomEvent listener for auto-cleanup. */
   listenDOM(el: HTMLElement, ev: string, fn: (e: Event) => void): void {

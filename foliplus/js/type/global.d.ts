@@ -14,9 +14,9 @@
  * Third-party libraries with no available @types (turf v7, gcoord,
  * simple-statistics) have their used subset described inline.
  */
-import type * as Leaflet from "leaflet";
-import type * as GeoJSON from "geojson";
 import type * as ChromaJs from "chroma-js";
+import type * as GeoJSON from "geojson";
+import type * as Leaflet from "leaflet";
 
 // ── Runtime helpers ────────────────────────────────────────────
 
@@ -84,7 +84,9 @@ interface LayerAPI {
   }) => CreateLayersAPI;
   extractPoints: (id: string) => Array<{ lat: number; lng: number }>;
   getLayerPanes: (layer: L.Layer) => string[];
-  getLayersByType: (type: string) => Array<{ id: string; name: string; layer: L.Layer }>;
+  getLayersByType: (
+    type: string,
+  ) => Array<{ id: string; name: string; layer: L.Layer }>;
 }
 
 // ── Component config ───────────────────────────────────────────
@@ -158,6 +160,7 @@ declare global {
     type Popup = Leaflet.Popup;
     type Layer = Leaflet.Layer;
     type LayerGroup = Leaflet.LayerGroup;
+    type Renderer = Leaflet.Renderer;
     type LeafletEvent = Leaflet.LeafletEvent;
     type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
     type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
@@ -184,4 +187,4 @@ declare global {
   }
 }
 
-export { };
+export {};

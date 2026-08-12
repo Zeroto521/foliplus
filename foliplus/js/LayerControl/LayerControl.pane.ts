@@ -1,4 +1,3 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./LayerControl.const.js";
 import * as Util from "./LayerControl.util.js";
@@ -30,7 +29,13 @@ const _ = createTranslator(CONF);
 // *selection* (applyLayerZIndex) stays on the Manager because it
 // depends on the layer registry and z-index computation.
 class PaneManager {
-  constructor(map) {
+  map: L.Map;
+  defaultPanes: Set<string>;
+  labelPanes: Set<string>;
+  paneCache: Map<number, string[]>;
+  fallbackPaneMap: Map<number, string>;
+
+  constructor(map: L.Map) {
     this.map = map;
     this.defaultPanes = new Set([
       "overlayPane",
@@ -50,35 +55,38 @@ class PaneManager {
    * @param {boolean} [needRenderer=true] - Whether to create an SVG renderer.
    * @returns {Object} `{pane: HTMLElement, renderer: L.SVG|null}`
    */
-  ensurePane(paneName, needRenderer = true) {
+  ensurePane(
+    paneName: string,
+    needRenderer = true,
+  ): { pane: HTMLElement; renderer: any } {
     let pane = this.map.getPane(paneName);
     if (!pane) {
       pane = this.map.createPane(paneName);
       pane.classList.add("foliplus-layer-pane");
       pane.style.zIndex = String(CONST.Z_INDEX.BASE);
     }
-    let renderer = null;
+    let renderer: any = null;
     if (needRenderer) {
       const key = CONST.RENDERER_KEY + paneName;
-      renderer = this.map[key];
+      renderer = (this.map as any)[key];
       if (!renderer) {
         renderer = L.svg({ pane: paneName });
         renderer.addTo(this.map);
-        this.map[key] = renderer;
+        (this.map as any)[key] = renderer;
       }
     }
     return { pane, renderer };
   }
 
   /** Find all custom panes used by a container's tree. */
-  discoverChildPanes(layer, depth = 0) {
+  discoverChildPanes(layer: L.Layer, depth = 0): string[] {
     if (depth > CONST.RECURSION.PANE_DEPTH) return [];
     const key = L.stamp(layer);
-    if (this.paneCache.has(key)) return this.paneCache.get(key);
-    const panes = new Set();
+    if (this.paneCache.has(key)) return this.paneCache.get(key) as string[];
+    const panes = new Set<string>();
     Util.forEachLayer(
       layer,
-      l => {
+      (l: any) => {
         const p = l.options?.pane;
         if (p && !this.isDefaultPane(p)) panes.add(p);
       },
@@ -89,12 +97,12 @@ class PaneManager {
     return result;
   }
 
-  isDefaultPane(pane) {
+  isDefaultPane(pane: string): boolean {
     return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
   }
 
   /** Find all panes a layer's content lives in, including fallback panes. */
-  getLayerPanes(layer) {
+  getLayerPanes(layer: L.Layer): string[] {
     const panes = this.discoverChildPanes(layer);
     if (panes.length > 0) return panes;
     const fbName = this.fallbackPaneMap.get(L.stamp(layer));
@@ -103,12 +111,12 @@ class PaneManager {
   }
 
   /** Bump label panes for a layer so labels render above paths. */
-  bumpLabelPanes(layer, z) {
+  bumpLabelPanes(layer: L.Layer, z: number): void {
     const childPanes = this.discoverChildPanes(layer);
     childPanes.forEach(cp => {
       if (this.labelPanes.has(cp)) {
         const lp = this.ensurePane(cp, false);
-        lp.pane.style.zIndex = z + 1;
+        if (lp.pane) lp.pane.style.zIndex = String(z + 1);
       }
     });
   }
@@ -116,17 +124,19 @@ class PaneManager {
   /**
    * Move layer DOM content into target panes, batched via DocumentFragment.
    */
-  migrateLayers(layersToMove) {
+  migrateLayers(
+    layersToMove: Array<{ layer: L.Layer; paneName: string | null; renderer: any }>,
+  ): void {
     if (!layersToMove.length) return;
-    const groups = new Map();
-    const markerGroups = new Map();
+    const groups = new Map<HTMLElement, HTMLElement[]>();
+    const markerGroups = new Map<HTMLElement, HTMLElement[]>();
     for (const { layer, paneName, renderer } of layersToMove) {
       if (!paneName) continue;
-      const container = renderer?._container;
+      const container = (renderer as any)?._container as HTMLElement | undefined;
       if (!container) continue;
       const paneEl = this.map.getPane(paneName);
       if (!groups.has(container)) groups.set(container, []);
-      const collect = l => {
+      const collect = (l: any) => {
         if (l.eachLayer) {
           l.eachLayer(collect);
           return;
@@ -135,15 +145,15 @@ class PaneManager {
         l.options.paneSet = true;
         if (l instanceof L.Path) l.options.renderer = renderer;
         if (l._path && l._path.parentNode !== container)
-          groups.get(container).push(l._path);
+          groups.get(container)!.push(l._path);
         if (l instanceof L.Marker && paneEl) {
-          if (l._shadow && l._shadow.parentNode !== paneEl) {
+          if ((l as any)._shadow && (l as any)._shadow.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-            markerGroups.get(paneEl).push(l._shadow);
+            markerGroups.get(paneEl)!.push((l as any)._shadow);
           }
-          if (l._icon && l._icon.parentNode !== paneEl) {
+          if ((l as any)._icon && (l as any)._icon.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-            markerGroups.get(paneEl).push(l._icon);
+            markerGroups.get(paneEl)!.push((l as any)._icon);
           }
         }
       };
