@@ -201,7 +201,7 @@ describe("DistanceMode — marker click stops map propagation", () => {
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "preclick",
+      ([ev]) => ev === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
 
@@ -243,7 +243,7 @@ describe("PolygonMode — marker click stops map propagation", () => {
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "preclick",
+      ([ev]) => ev === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
 
@@ -277,7 +277,7 @@ describe("DistanceMode — first node uses NODE_SOLID", () => {
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "preclick",
+      ([ev]) => ev === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
 
@@ -344,7 +344,7 @@ describe("DistanceMode — restore first node uses NODE_SOLID", () => {
   });
 });
 
-describe("DistanceMode — preclick stops propagation to data layers", () => {
+describe("DistanceMode — click stops propagation to data layers", () => {
   it("calls L.DomEvent.stopPropagation when placing a point", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
@@ -352,7 +352,7 @@ describe("DistanceMode — preclick stops propagation to data layers", () => {
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "preclick",
+      ([ev]) => ev === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
 
@@ -364,7 +364,7 @@ describe("DistanceMode — preclick stops propagation to data layers", () => {
   });
 });
 
-describe("PolygonMode — preclick stops propagation to data layers", () => {
+describe("PolygonMode — click stops propagation to data layers", () => {
   it("calls L.DomEvent.stopPropagation when placing a point", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
@@ -372,7 +372,7 @@ describe("PolygonMode — preclick stops propagation to data layers", () => {
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "preclick",
+      ([ev]) => ev === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
 
@@ -398,7 +398,7 @@ describe("PolygonMode — confirmedPoly uses PATH_DASHED", () => {
   });
 });
 
-describe("CircleMode — preclick stops propagation to data layers", () => {
+describe("CircleMode — click stops propagation to data layers", () => {
   it("calls L.DomEvent.stopPropagation when placing center", () => {
     const manager = makeManagerMock();
     const mode = new CircleMode(manager);
@@ -406,7 +406,7 @@ describe("CircleMode — preclick stops propagation to data layers", () => {
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "preclick",
+      ([ev]) => ev === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
 
@@ -422,7 +422,7 @@ describe("DistanceMode — label count equals n-1", () => {
   function run(manager, mode) {
     manager.currentMode = CONST.MODE.DISTANCE;
     mode.start();
-    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "preclick")?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
     return clickHandler;
   }
 
@@ -473,7 +473,7 @@ describe("PolygonMode — label count equals n-1", () => {
   function run(manager, mode) {
     manager.currentMode = CONST.MODE.POLYGON;
     mode.start();
-    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "preclick")?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
     return clickHandler;
   }
 

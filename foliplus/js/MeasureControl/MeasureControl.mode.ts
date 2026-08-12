@@ -428,11 +428,11 @@ class DistanceMode extends PreviewMode {
       if (this.m.currentMode !== this.type) return;
       // Skip if click is on an existing node marker — the marker's own click
       // handler (registered below) will handle finishing. Without this guard,
-      // preclick fires before the marker handler and pushes a duplicate point,
+      // the map click fires before the marker handler and pushes a duplicate point,
       // creating an extra label at the node position with bearing 0°.
       if (points.some(p => p.lat === e.latlng.lat && p.lng === e.latlng.lng)) return;
-      // Use preclick (fires before data-layer click handlers) so we can stop
-      // Leaflet propagation and prevent the data layer from also responding.
+      // Stop Leaflet propagation so clicking a data layer while drawing does
+      // not also trigger the data layer's own click handler.
       L.DomEvent.stopPropagation(e);
       points.push(e.latlng);
       if (previewDistLabel) {
@@ -510,6 +510,7 @@ class DistanceMode extends PreviewMode {
 
     const distEvents = [
       ["preclick", onDistClick],
+      ["click", onDistClick],
       ["dblclick", onDistDbl],
       ["contextmenu", onDistContext],
       ["mousemove", onDistMove],
@@ -766,7 +767,7 @@ class PolygonMode extends PreviewMode {
       if (this.m.currentMode !== this.type) return;
       // Skip if click is on an existing node marker — the marker's own click
       // handler (registered below) will handle finishing. Without this guard,
-      // preclick fires before the marker handler and pushes a duplicate point,
+      // the map click fires before the marker handler and pushes a duplicate point,
       // creating an extra label at the node position with distance 0.
       if (points.some(p => p.lat === e.latlng.lat && p.lng === e.latlng.lng)) return;
       // Stop Leaflet propagation so clicking a data layer while drawing does
@@ -832,6 +833,7 @@ class PolygonMode extends PreviewMode {
 
     const polyEvents = [
       ["preclick", onPolyClick],
+      ["click", onPolyClick],
       ["dblclick", onPolyDbl],
       ["contextmenu", onPolyContext],
       ["mousemove", onPolyMove],
@@ -1147,6 +1149,7 @@ class CircleMode extends PreviewMode {
 
     const circleEvents = [
       ["preclick", onMapClick],
+      ["click", onMapClick],
       ["mousemove", onMouseMove],
       ["contextmenu", onContext],
     ];
