@@ -1,5 +1,6 @@
 import * as CONST from "#foliplus/MeasureControl/MeasureControl.const.js";
 import {
+  CircleMode,
   DistanceMode,
   MODE_MAP,
   MarkerMode,
@@ -334,5 +335,73 @@ describe("DistanceMode — restore first node uses NODE_SOLID", () => {
 
     const secondCall = window.L.circleMarker.mock.calls[1];
     expect(secondCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+  });
+});
+
+describe("DistanceMode — preclick stops propagation to data layers", () => {
+  it("calls L.DomEvent.stopPropagation when placing a point", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "preclick")?.[1];
+    expect(clickHandler).toBeDefined();
+
+    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} };
+    clickHandler(leafletEvent);
+
+    expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
+    expect(leafletEvent.originalEvent._stopped).toBe(true);
+  });
+});
+
+describe("PolygonMode — preclick stops propagation to data layers", () => {
+  it("calls L.DomEvent.stopPropagation when placing a point", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "preclick")?.[1];
+    expect(clickHandler).toBeDefined();
+
+    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} };
+    clickHandler(leafletEvent);
+
+    expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
+    expect(leafletEvent.originalEvent._stopped).toBe(true);
+  });
+});
+
+describe("PolygonMode — confirmedPoly uses PATH_DASHED", () => {
+  it("creates a polyline with PATH_DASHED class for confirmed segments", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+
+    const polylineCall = window.L.polyline.mock.calls.find(
+      ([, opts]) => opts.className === CONST.CLASSES.PATH_DASHED,
+    );
+    expect(polylineCall).toBeDefined();
+  });
+});
+
+describe("CircleMode — preclick stops propagation to data layers", () => {
+  it("calls L.DomEvent.stopPropagation when placing center", () => {
+    const manager = makeManagerMock();
+    const mode = new CircleMode(manager);
+    manager.currentMode = CONST.MODE.CIRCLE;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "preclick")?.[1];
+    expect(clickHandler).toBeDefined();
+
+    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} };
+    clickHandler(leafletEvent);
+
+    expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
+    expect(leafletEvent.originalEvent._stopped).toBe(true);
   });
 });
