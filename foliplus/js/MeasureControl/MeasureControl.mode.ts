@@ -453,6 +453,7 @@ class DistanceMode extends PreviewMode {
         originLabel = this.layers.addLayer(
           L.marker(e.latlng, {
             icon: Util.makeLabelDivIcon(_(`${CONF.name}.dist_origin`)),
+              interactive: false,
           }),
           true,
         );
@@ -959,9 +960,12 @@ class CircleMode extends PreviewMode {
           HINT_DURATION.PERSIST,
         );
       } else if (state === 1) {
+        const r = Util.distance(center, e.latlng);
+        // Ignore clicks too close to center — radius 0 creates an invisible
+        // circle that cannot be interacted with and has no visual effect.
+        if (r < 1) return;
         state = 2;
         lastFinishTime = Date.now();
-        const r = Util.distance(center, e.latlng);
         const savedCenter = center;
         this.cleanup();
         this.m.clearActiveMode();
