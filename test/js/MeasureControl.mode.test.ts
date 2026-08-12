@@ -263,3 +263,76 @@ describe("PolygonMode — marker click stops map propagation", () => {
     expect(window.L.circleMarker).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("DistanceMode — first node uses NODE_SOLID", () => {
+  it("creates the first node with NODE_SOLID class", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    expect(clickHandler).toBeDefined();
+
+    // First click — should use NODE_SOLID
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    const firstCall = window.L.circleMarker.mock.calls[0];
+    expect(firstCall[1].className).toContain("foliplus-measure-node-solid");
+
+    // Second click — should use default NODE_HOLLOW
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    const secondCall = window.L.circleMarker.mock.calls[1];
+    expect(secondCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+  });
+});
+
+describe("DistanceMode — drawing polyline uses PATH_PREVIEW", () => {
+  it("creates distance preview polylines with PATH_PREVIEW class", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    // First polyline created in start() should be PATH_PREVIEW
+    const polylineCall = window.L.polyline.mock.calls.find(
+      ([, opts]) => opts.className === CONST.CLASSES.PATH_PREVIEW,
+    );
+    expect(polylineCall).toBeDefined();
+  });
+});
+
+describe("PolygonMode — drawing polyline uses PATH_PREVIEW", () => {
+  it("creates polygon preview lines with PATH_PREVIEW class", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+
+    const polylineCall = window.L.polyline.mock.calls.find(
+      ([, opts]) => opts.className === CONST.CLASSES.PATH_PREVIEW,
+    );
+    expect(polylineCall).toBeDefined();
+  });
+});
+
+describe("DistanceMode — restore first node uses NODE_SOLID", () => {
+  it("creates first restored node with NODE_SOLID class", () => {
+    const manager = makeManagerMock();
+    DistanceMode.restore(manager, {
+      id: "test",
+      type: "distance",
+      points: [
+        { lng: 120, lat: 30 },
+        { lng: 121, lat: 31 },
+      ],
+      segments: [{ lng: 121, lat: 31, distance: 100 }],
+      totalDistance: 100,
+    });
+
+    const firstCall = window.L.circleMarker.mock.calls[0];
+    expect(firstCall[1].className).toContain("foliplus-measure-node-solid");
+
+    const secondCall = window.L.circleMarker.mock.calls[1];
+    expect(secondCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+  });
+});

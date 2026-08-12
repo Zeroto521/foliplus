@@ -25,7 +25,6 @@ export const CENTER_DOT = {
   SIZE: [12, 12],
   ANCHOR: [6, 6],
   CLASS: "foliplus-measure-center-dot",
-  CLASS_FINAL: "foliplus-measure-center-dot final",
 };
 
 /** Label markers. */

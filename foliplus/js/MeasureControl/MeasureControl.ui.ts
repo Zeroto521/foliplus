@@ -301,7 +301,7 @@ const attachPolygonUI = (mgr, opts) => {
     centroidDot = layers.addLayer(
       L.marker(centroid, {
         icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS_FINAL,
+          className: CONST.CENTER_DOT.CLASS,
           html: "",
           iconSize: CONST.CENTER_DOT.SIZE,
           iconAnchor: CONST.CENTER_DOT.ANCHOR,

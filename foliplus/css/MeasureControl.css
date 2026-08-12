@@ -16,10 +16,7 @@
   background: var(--accent-primary);
   border: var(--border-thick) solid var(--neutral-0);
   border-radius: var(--radius-round);
-
-  &.final {
-    box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
-  }
+  box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
 }
 
 /* ── Measurement Nodes (circleMarker) ── */
@@ -62,6 +59,10 @@ path.foliplus-measure-node-solid {
   fill-opacity: 0.25;
 }
 .foliplus-measure-path-preview.foliplus-measure-shape-fill {
+  fill-opacity: 0.08;
+}
+/* Drawing-phase polygon (dashed outline) should also use a lighter fill. */
+.foliplus-measure-path-dashed.foliplus-measure-shape-fill {
   fill-opacity: 0.08;
 }
 

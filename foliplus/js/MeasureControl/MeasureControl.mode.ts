@@ -303,7 +303,7 @@ class DistanceMode extends PreviewMode {
     const points = [];
     let total = 0;
     const poly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
+      L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
     );
     const nodeMarkers = [];
     const segLabels = [];
@@ -588,18 +588,12 @@ class PolygonMode extends PreviewMode {
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
     const previewPoly = this.addPreview(
-      L.polygon([], {
-        className: `${CONST.CLASSES.PATH_PREVIEW} ${CONST.CLASSES.SHAPE_FILL}`,
-        interactive: false,
-      }),
+      L.polygon([], { className: `${CONST.CLASSES.PATH_PREVIEW} ${CONST.CLASSES.SHAPE_FILL}`, interactive: false }),
     );
     const nodeMarkers = [];
     const segLabels = [];
     const finalPoly = this.layers.addLayer(
-      L.polygon([], {
-        className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
-        interactive: true,
-      }),
+      L.polygon([], { className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`, interactive: true }),
     );
     let previewDistLabel = null;
     let isFinished = false;
@@ -846,7 +840,7 @@ class CircleMode extends PreviewMode {
     const centerFinal = manager.layers.addLayer(
       L.marker(centerLatLng, {
         icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS_FINAL,
+          className: CONST.CENTER_DOT.CLASS,
           html: "",
           iconSize: CONST.CENTER_DOT.SIZE,
           iconAnchor: CONST.CENTER_DOT.ANCHOR,
@@ -1058,7 +1052,7 @@ class CircleMode extends PreviewMode {
       const centerFinal = this.layers.addLayer(
         L.marker(centerLatLng, {
           icon: L.divIcon({
-            className: CONST.CENTER_DOT.CLASS_FINAL,
+            className: CONST.CENTER_DOT.CLASS,
             html: "",
             iconSize: CONST.CENTER_DOT.SIZE,
             iconAnchor: CONST.CENTER_DOT.ANCHOR,
