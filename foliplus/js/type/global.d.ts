@@ -116,6 +116,21 @@ declare global {
     type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
     type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
     type PointExpression = Leaflet.PointExpression;
+    type LatLngExpression = Leaflet.LatLngExpression;
+    type LatLng = Leaflet.LatLng;
+    type LatLngBounds = Leaflet.LatLngBounds;
+    type CircleMarker = Leaflet.CircleMarker;
+    type DivIcon = Leaflet.DivIcon;
+    type Icon = Leaflet.Icon;
+    type Polyline = Leaflet.Polyline;
+    type Polygon = Leaflet.Polygon;
+    type Circle = Leaflet.Circle;
+    type MarkerOptions = Leaflet.MarkerOptions;
+    type IconOptions = Leaflet.IconOptions;
+    type DivIconOptions = Leaflet.DivIconOptions;
+    type PathOptions = Leaflet.PathOptions;
+    type LeafletMouseEventHandlerFn = Leaflet.LeafletMouseEventHandlerFn;
+    type LeafletKeyboardEvent = Leaflet.LeafletKeyboardEvent;
   }
 
   /** Return type of `LayerAPI.createCanvas`. */
