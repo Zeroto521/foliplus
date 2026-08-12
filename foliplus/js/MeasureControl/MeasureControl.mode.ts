@@ -303,7 +303,7 @@ class DistanceMode extends PreviewMode {
     const points = [];
     let total = 0;
     const poly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
+      L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
     const nodeMarkers = [];
     const segLabels = [];
@@ -585,7 +585,7 @@ class PolygonMode extends PreviewMode {
   start() {
     const points = [];
     const poly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
+      L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
     const previewPoly = this.addPreview(
       L.polygon([], {

@@ -27,6 +27,7 @@
 .foliplus-measure-node {
   fill: var(--neutral-0);
   fill-opacity: 1;
+  stroke: var(--accent-primary);
   stroke-width: 2.5px;
 }
 /* Solid nodes (e.g. the start point of a distance measurement) are filled
