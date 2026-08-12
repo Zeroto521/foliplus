@@ -1,18 +1,74 @@
 import * as CONST from "#foliplus/MeasureControl/MeasureControl.const.js";
 import {
+  DistanceMode,
   MODE_MAP,
   MarkerMode,
   MeasureMode,
+  PolygonMode,
   PreviewMode,
 } from "#foliplus/MeasureControl/MeasureControl.mode.js";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  window.L.circleMarker = vi.fn(() => ({
+    bringToFront: vi.fn(),
+    on: vi.fn(),
+    getLatLng: vi.fn(() => ({ lat: 31, lng: 121 })),
+  }));
+  window.L.polyline = vi.fn(() => ({
+    addLatLng: vi.fn(),
+    setLatLngs: vi.fn(),
+    getElement: vi.fn(() => null),
+    on: vi.fn(),
+  }));
+  window.L.polygon = vi.fn(() => ({
+    setLatLngs: vi.fn(),
+  }));
+  window.L.circle = vi.fn(() => ({
+    setRadius: vi.fn(),
+  }));
+  window.L.marker = vi.fn(() => ({
+    setLatLng: vi.fn(),
+    setIcon: vi.fn(),
+    on: vi.fn(),
+    bringToFront: vi.fn(),
+    getElement: vi.fn(() => null),
+  }));
+  window.L.divIcon = vi.fn(() => ({}));
+  window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
+  window.L.DomEvent = {
+    ...window.L.DomEvent,
+    // Mimic Leaflet's real stopPropagation: it sets `_stopped` on the
+    // original event, which _fireDOMEvent checks before propagating the
+    // click to the map.
+    stopPropagation: vi.fn(e => {
+      if (e?.originalEvent) e.originalEvent._stopped = true;
+    }),
+  };
+  globalThis.turf = {
+    point: coords => ({ coords }),
+    distance: vi.fn(() => 100),
+    bearing: vi.fn(() => 45),
+    midpoint: vi.fn(() => ({ geometry: { coordinates: [0, 0] } })),
+    area: vi.fn(() => 1000),
+  };
+});
 
 function makeManagerMock() {
   return {
-    map: { on: vi.fn(), off: vi.fn() },
+    map: {
+      on: vi.fn(),
+      off: vi.fn(),
+      getContainer: () => document.createElement("div"),
+    },
     layers: { addLayer: vi.fn(l => l), removeLayer: vi.fn() },
     nextMeasurementId: vi.fn(() => "test-id"),
+    saveMeasurements: vi.fn(),
+    clearActiveMode: vi.fn(),
+    cleanMapEvents: vi.fn(),
     currentMode: null,
+    measurements: [],
   };
 }
 
@@ -133,5 +189,77 @@ describe("MODE_MAP", () => {
     for (const key of modeKeys) {
       expect(MODE_MAP[key]).toBeDefined();
     }
+  });
+});
+
+describe("DistanceMode — marker click stops map propagation", () => {
+  it("does not add a duplicate point when re-clicking an existing node", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    expect(clickHandler).toBeDefined();
+
+    // Create 2 nodes: pt1, pt2
+    const pt1 = { lat: 30, lng: 120 };
+    const pt2 = { lat: 31, lng: 121 };
+    clickHandler({ latlng: pt1 });
+    clickHandler({ latlng: pt2 });
+    expect(window.L.circleMarker).toHaveBeenCalledTimes(2);
+
+    // Capture the second node's click handler (fires before the map handler)
+    const markerOnCalls = window.L.circleMarker.mock.results;
+    const marker2 = markerOnCalls[markerOnCalls.length - 1]?.value;
+    const markerClickHandler = marker2.on.mock.calls.find(
+      ([ev]) => ev === "click",
+    )?.[1];
+    expect(markerClickHandler).toBeDefined();
+
+    // Simulate Leaflet's propagation: marker handler runs first. It must set
+    // e.originalEvent._stopped so the map click handler is not invoked.
+    const leafletEvent = { latlng: pt2, originalEvent: {} };
+    markerClickHandler(leafletEvent);
+
+    // The marker handler must stop propagation (Leaflet sets _stopped on the
+    // original event, which _fireDOMEvent checks before firing the map click).
+    expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
+    expect(leafletEvent.originalEvent._stopped).toBe(true);
+
+    // The map click handler must NOT fire again (no duplicate node added).
+    expect(window.L.circleMarker).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("PolygonMode — marker click stops map propagation", () => {
+  it("does not add a duplicate point when re-clicking an existing node", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    expect(clickHandler).toBeDefined();
+
+    const pt1 = { lat: 30, lng: 120 };
+    const pt2 = { lat: 31, lng: 121 };
+    clickHandler({ latlng: pt1 });
+    clickHandler({ latlng: pt2 });
+    expect(window.L.circleMarker).toHaveBeenCalledTimes(2);
+
+    const markerOnCalls = window.L.circleMarker.mock.results;
+    const marker2 = markerOnCalls[markerOnCalls.length - 1]?.value;
+    const markerClickHandler = marker2.on.mock.calls.find(
+      ([ev]) => ev === "click",
+    )?.[1];
+    expect(markerClickHandler).toBeDefined();
+
+    const leafletEvent = { latlng: pt2, originalEvent: {} };
+    markerClickHandler(leafletEvent);
+
+    expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
+    expect(leafletEvent.originalEvent._stopped).toBe(true);
+    expect(window.L.circleMarker).toHaveBeenCalledTimes(2);
   });
 });
