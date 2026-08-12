@@ -7,18 +7,21 @@ from .locale import LocaleConfig
 
 
 class MeasureControl(BaseControl):
-    """Distance measurement, circle drawing, and GPS marker with geocoding.
+    """Distance measurement, area measurement, circle drawing, and GPS marker with geocoding.
 
     - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
       address. Click the popup or the × on the marker to delete it.
     - 📏 **Distance**: click to draw a polyline. Segment and total distances update
-      in real-time. Double-click / right-click / click the last point to finish.
+      in real-time. Double-click / right-click / click the last node to finish.
+    - 🔲 **Area**: click to draw a polygon. The enclosed area and each side's
+      length are labelled. Double-click / right-click / click the first or last
+      node to finish.
     - ⭕ **Circle**: first click sets the center; move the mouse to set the radius;
       second click confirms.
     - 🗑️ **Clear**: remove all measurement layers at once.
 
-    After drawing a line or circle: click the object to toggle labels and × buttons;
-    click empty map space to hide × buttons.
+    After drawing a line, polygon, circle, or placing a marker: click the object
+    to toggle labels and × buttons; click empty map space to hide × buttons.
 
     Parameters
     ----------
@@ -27,7 +30,8 @@ class MeasureControl(BaseControl):
 
     show_bearing : bool, default True
         Whether to show the bearing (azimuth, 0°–360° clockwise from north) alongside
-        the distance in measurement labels, e.g. ``45° | 1.2 km``.
+        the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to
+        distance mode; area and circle modes always show plain distance.
 
     locale : str or LocaleConfig, optional
         Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
@@ -35,10 +39,19 @@ class MeasureControl(BaseControl):
 
     Notes
     -----
+    **Persistence.** Measurements survive page reloads — they are saved to
+    ``localStorage`` (keyed by map container id) and restored automatically.
+
+    **Interaction.** Clicking an existing node during drawing does nothing (the marker
+    stops the event from propagating to the map). This prevents duplicate points and
+    overlapping labels.
+
     **Keyboard shortcuts.**
     While in measurement mode (after clicking the ruler icon):
 
     * ``Esc`` — exit measurement mode
+    * ``Double-click`` / ``right-click`` — finish the current line or polygon
+      (after at least 2 points for distance, 3 points for area)
 
     Examples
     --------
