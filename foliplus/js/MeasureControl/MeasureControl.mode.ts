@@ -426,6 +426,11 @@ class DistanceMode extends PreviewMode {
 
     const onDistClick = e => {
       if (this.m.currentMode !== this.type) return;
+      // Skip if click is on an existing node marker — the marker's own click
+      // handler (registered below) will handle finishing. Without this guard,
+      // preclick fires before the marker handler and pushes a duplicate point,
+      // creating an extra label at the node position with bearing 0°.
+      if (points.some(p => p.lat === e.latlng.lat && p.lng === e.latlng.lng)) return;
       // Use preclick (fires before data-layer click handlers) so we can stop
       // Leaflet propagation and prevent the data layer from also responding.
       L.DomEvent.stopPropagation(e);
@@ -759,6 +764,11 @@ class PolygonMode extends PreviewMode {
 
     const onPolyClick = e => {
       if (this.m.currentMode !== this.type) return;
+      // Skip if click is on an existing node marker — the marker's own click
+      // handler (registered below) will handle finishing. Without this guard,
+      // preclick fires before the marker handler and pushes a duplicate point,
+      // creating an extra label at the node position with distance 0.
+      if (points.some(p => p.lat === e.latlng.lat && p.lng === e.latlng.lng)) return;
       // Stop Leaflet propagation so clicking a data layer while drawing does
       // not also trigger the data layer's own click handler.
       L.DomEvent.stopPropagation(e);
