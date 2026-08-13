@@ -58,8 +58,8 @@ const locateMe = (ctrl: any) => {
       let lng = pos.coords.longitude;
       let lat = pos.coords.latitude;
       const converted = fromWgs84(map, lng, lat);
-      lng = converted[0];
-      lat = converted[1];
+      lng = Number(converted[0].toFixed(6));
+      lat = Number(converted[1].toFixed(6));
       placeMarker(ctrl, lng, lat, `${CONF.name}.popup_title_geo`);
     },
     () => {
