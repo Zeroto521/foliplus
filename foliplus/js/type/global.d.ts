@@ -26,8 +26,8 @@ interface Foliplus {
   /** LayerControl public API, null until LayerControl is added. */
   LayerAPI: LayerAPI | null;
   registerHintIcon: (name: string, icon: string) => void;
-  showHint: (name: string, msg: string, duration: number, withLoadingIcon?: boolean) => void;
-  hideHint: (name: string) => void;
+  showHint: (name: string, msg: string, duration: number, withLoadingIcon?: boolean | string | null, id?: string) => void;
+  hideHint: (name: string, id?: string) => void;
   reverseGeocode: (
     map: Leaflet.Map,
     lng: number,

@@ -74,7 +74,7 @@ class MeasureControl extends BaseControl {
       });
     });
     this.m.ctrl = ctrl;
-    this.m.toolBtns = toolBar.querySelectorAll(CONST.SEL.TOOL_BTN);
+    this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
 
     bindFoldToggle({ container: ctrl, toggleBtn });
 

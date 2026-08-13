@@ -46,9 +46,9 @@ class HeatmapControl extends BaseControl {
       closeTitle: _(`${CONF.name}.close_title`),
     });
     this.ctrl = ctrl;
-    buildDataSection(this, panelContent);
-    buildStyleSection(this);
-    setupObserver(this);
+    buildDataSection(this as any, panelContent);
+    buildStyleSection(this as any);
+    setupObserver(this as any);
     return container;
   }
 
@@ -78,4 +78,4 @@ class HeatmapControl extends BaseControl {
 const heatmapCtrl = new HeatmapControl({ position: CONF.position });
 
 heatmapCtrl.addTo(map);
-initScan(heatmapCtrl, CONST.TIMING.INIT_SCAN_ATTEMPTS);
+initScan(heatmapCtrl as any, CONST.TIMING.INIT_SCAN_ATTEMPTS);

@@ -112,7 +112,7 @@ class SearchControl extends BaseControl {
   // ── State Initialization ──
   initState() {
     this.marker = null;
-    this.mode = CONF.mode;
+    this.mode = CONF.mode ?? "";
     if (this.mode !== MODE.COORD && this.mode !== MODE.ADDR) this.mode = MODE.COORD;
     this.suggestionsWrap = null;
     this.selectedSuggestionIdx = -1;

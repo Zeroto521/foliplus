@@ -42,7 +42,12 @@ const EVENTS = new Set([
   "onmousemove",
   "onmouseup",
 ]);
-const PIN = {
+const PIN: {
+  SIZE: [number, number];
+  ANCHOR: [number, number];
+  POPUP_ANCHOR: [number, number];
+  Z_OFFSET: number;
+} = {
   SIZE: [24, 36],
   ANCHOR: [12, 36],
   POPUP_ANCHOR: [0, -36],
@@ -224,16 +229,16 @@ const createLocationMarker = (
   // Add title to Leaflet's popup close button for hover tooltip.
   const popupEl = marker.getPopup();
   if (popupEl) {
-    const closeBtn = popupEl._closeButton;
+    const closeBtn = (popupEl as any)._closeButton;
     if (closeBtn) closeBtn.title = closeLabelText || "";
   }
   if (!addr) {
     // Lazy access to the runtime singleton geocoder (kept out of this bundle).
     const foliplus = window.foliplus || {};
-    if (foliplus.reverseGeocode) {
-      foliplus.reverseGeocode(map, lng, lat, code).then((resolved: string) => {
+    if ((foliplus as any).reverseGeocode) {
+      (foliplus as any).reverseGeocode(map, lng, lat, code).then((resolved: string) => {
         if (onAddress) onAddress(resolved);
-        if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
+        if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
           marker.setPopupContent(
             buildPopupHtml(
               lng,

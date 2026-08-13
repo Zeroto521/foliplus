@@ -13,7 +13,7 @@ import { reverseGeocode } from "./runtime.geocode.js";
 import { hideHint, registerHintIcon, showHint } from "./runtime.hint.js";
 
 // Ensure the global namespace object exists.
-if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {};
+if (!window.foliplus || typeof window.foliplus !== "object") window.foliplus = {} as any;
 const foliplus = window.foliplus;
 
 // Bail out if the shared runtime has already been initialized (it is inlined

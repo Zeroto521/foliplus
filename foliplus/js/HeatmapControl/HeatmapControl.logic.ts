@@ -6,7 +6,7 @@ import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
 import * as SVGs from "./HeatmapControl.icon.js";
-import { rebuildLayerDropdown } from "./HeatmapControl.ui.js";
+import { rebuildLayerDropdown, type HeatmapControlUI } from "./HeatmapControl.ui.js";
 
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
@@ -168,7 +168,7 @@ class HeatmapManager {
       this.cachedAgg = null;
       if (this.ui) {
         this.scanMapLayers();
-        rebuildLayerDropdown(this.ui);
+        rebuildLayerDropdown(this.ui as HeatmapControlUI);
       }
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     this.map.on("layeradd layerremove", this.onLayerChange);

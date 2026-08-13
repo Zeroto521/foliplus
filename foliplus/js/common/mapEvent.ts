@@ -26,4 +26,4 @@ const unbindMapEvents = (map: any, handlers: MapEventHandlers): void => {
   handlers.forEach(([ev, fn]) => map.off(ev, fn));
 };
 
-export { bindMapEvents, unbindMapEvents };
+export { bindMapEvents, unbindMapEvents, type MapEventHandlers };

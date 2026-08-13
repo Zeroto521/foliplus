@@ -53,7 +53,7 @@ const bindPanelToggle = (opts: {
   toggleBtn: string;
   header: string;
 }): void => {
-  const btn = opts.container.querySelector(opts.toggleBtn);
+  const btn = opts.container.querySelector(opts.toggleBtn) as HTMLElement | null;
   if (btn) {
     L.DomEvent.on(btn, "click", (e: any) => {
       L.DomEvent.stop(e);
@@ -62,7 +62,7 @@ const bindPanelToggle = (opts: {
       adjustPanelZIndex({ container: opts.container, expanded: true });
     });
   }
-  const hdr = opts.container.querySelector(opts.header);
+  const hdr = opts.container.querySelector(opts.header) as HTMLElement | null;
   if (hdr) {
     L.DomEvent.on(hdr, "click", (e: any) => {
       L.DomEvent.stop(e);

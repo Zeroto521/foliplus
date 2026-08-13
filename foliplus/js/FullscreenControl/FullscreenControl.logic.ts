@@ -22,7 +22,7 @@ const updateUI = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
     const controls = map
       .getContainer()
       .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
-    const cid = containerId(CONF.name, CONF.position);
+    const cid = containerId(CONF.name, CONF.position as string);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
       c.classList.toggle(CLASSES.HIDDEN, isFull);

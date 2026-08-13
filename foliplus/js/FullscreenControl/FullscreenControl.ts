@@ -20,7 +20,7 @@ class FullscreenControl extends BaseControl {
 
     const outer = dom.el("div", {
       class: "leaflet-bar leaflet-control",
-      id: containerId(CONF.name, CONF.position),
+      id: containerId(CONF.name, CONF.position as string),
     });
     const container = dom.el("div", {
       class: "foliplus-ctrl-fold foliplus-fullscreen-bar",

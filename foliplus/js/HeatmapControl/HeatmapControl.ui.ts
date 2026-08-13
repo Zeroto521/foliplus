@@ -11,7 +11,7 @@ const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
-interface HeatmapControlUI {
+export interface HeatmapControlUI {
   manager: HeatmapManager;
   m: HeatmapManager;
   ctrl: HTMLElement;

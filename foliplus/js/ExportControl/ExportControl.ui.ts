@@ -76,7 +76,7 @@ const showHintWithInfo = (mgr: any, r: any, instruction?: string) => {
   if (mgr.pixelOverLimit) {
     foliplus.showHint(
       CONF.name,
-      _(`${CONF.name}.err_too_large`).replace("{limit}", formatNumber(CONF.max_pixels)),
+      _(`${CONF.name}.err_too_large`).replace("{limit}", formatNumber(CONF.max_pixels!)),
       HINT_DURATION.PERSIST,
       null,
       "limit",

@@ -15,8 +15,8 @@ requireLayerAPI(CONF.name, _);
 //
 // We also intercept future layer additions to set crossOrigin.
 map.eachLayer((layer: any) => {
-  if (layer instanceof L.GridLayer && !layer.options.crossOrigin) {
-    layer.options.crossOrigin = "anonymous";
+  if (layer instanceof L.GridLayer && !(layer.options as any).crossOrigin) {
+    (layer.options as any).crossOrigin = "anonymous";
     if (map.hasLayer(layer)) {
       map.removeLayer(layer);
       map.addLayer(layer);
@@ -24,8 +24,8 @@ map.eachLayer((layer: any) => {
   }
 });
 map.on("layeradd", (e: any) => {
-  if (e.layer instanceof L.GridLayer && !e.layer.options.crossOrigin) {
-    e.layer.options.crossOrigin = "anonymous";
+  if (e.layer instanceof L.GridLayer && !(e.layer.options as any).crossOrigin) {
+    (e.layer.options as any).crossOrigin = "anonymous";
   }
 });
 
