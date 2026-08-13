@@ -104,6 +104,28 @@ type SimpleStats = {
 
 // ── Global declarations ────────────────────────────────────────
 
+/** Augment Leaflet's Map with internal properties we use. */
+declare module "leaflet" {
+  interface Map {
+    isFullscreen?: boolean;
+  }
+  interface Path {
+    _path: SVGElement;
+  }
+  interface TileLayer {
+    _url: string;
+  }
+  interface AttributionControl {
+    _attributions: Record<string, number>;
+  }
+  interface Renderer {
+    _container: HTMLElement;
+  }
+  interface GridLayer {
+    _url: string;
+  }
+}
+
 declare global {
   const L: typeof Leaflet;
   namespace L {
@@ -146,7 +168,15 @@ declare global {
     name: string;
     layer: L.Layer | null;
     visible: boolean;
+    isBase: boolean;
+    paneName: string | null;
+    iconSvg: string | null;
+    type: string | null;
     canvas?: HTMLCanvasElement;
+    isLabel?: boolean;
+    onToggle?: ((visible: boolean) => void) | null;
+    onZIndex?: ((z: number) => void) | null;
+    [key: string]: unknown;
   }
 
   /** Return type of `LayerAPI.createCanvas`. */

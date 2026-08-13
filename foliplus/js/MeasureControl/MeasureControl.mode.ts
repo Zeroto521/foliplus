@@ -374,7 +374,7 @@ class DistanceMode extends PreviewMode {
       this.layers.removeLayer(poly);
       (finalPoly as any).setLatLngs(points);
 
-      Util.animateDashSweep((finalPoly as any)._path);
+      Util.animateDashSweep(finalPoly.getElement() as unknown as SVGElement);
 
       // Save measurement data
       const distId = this.nextMeasurementId();
@@ -664,7 +664,7 @@ class PolygonMode extends PreviewMode {
       this.layers.removeLayer(previewPoly);
       (finalPoly as any).setLatLngs(points);
 
-      Util.animateDashSweep((finalPoly as any)._path);
+      Util.animateDashSweep(finalPoly.getElement() as unknown as SVGElement);
 
       // Recalculate area
       const area = Util.area(points);
@@ -1086,7 +1086,7 @@ class CircleMode extends PreviewMode {
           interactive: false,
         }),
       );
-      const rippleEl = (ripple as any)._path;
+      const rippleEl = (ripple as L.Circle)._path;
       if (rippleEl) {
         const onEnd = () => {
           rippleEl.removeEventListener("animationend", onEnd);

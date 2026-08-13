@@ -63,7 +63,7 @@ class ExportRenderer {
     const crs = this.map.options.crs || L.CRS.EPSG3857;
     const tileSize = (tileLayer.options as any).tileSize || 256;
     const subdomains = (tileLayer.options as any).subdomains || "abc";
-    const urlTemplate = (tileLayer as any)._url || "";
+    const urlTemplate = tileLayer._url || "";
 
     // Get bounds in EPSG:3857
     const nw = crs.latLngToPoint(L.latLng(bounds.nw.lat, bounds.nw.lng), zoom);
@@ -160,7 +160,7 @@ class ExportRenderer {
         // Tile layers (e.g. basemaps) — render tiles via geo bounds.
         // Only TileLayer subclasses have _url; other GridLayer types
         // (e.g. L.ImageOverlay) are skipped here.
-        if (li.layer instanceof L.GridLayer && (li.layer as any)._url) {
+        if (li.layer instanceof L.GridLayer && li.layer._url) {
           if (geoBounds && geoBounds.nw)
             await this.renderTileLayer(rc, geoBounds, li.layer as L.GridLayer);
 

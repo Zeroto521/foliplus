@@ -60,27 +60,27 @@ const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) 
         });
       return;
     } else {
-      map._container.classList.remove(CLASSES.PSEUDO_FULLSCREEN);
+      map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
       map.invalidateSize();
     }
-    map.isFullscreen = false;
+    (map as any).isFullscreen = false;
   } else {
     if (isEnabled) {
-      (map._container as any)
+      (map.getContainer() as any)
         [nativeAPI!.requestFullscreen]()
         .then(() => {
-          map.isFullscreen = true;
+          (map as any).isFullscreen = true;
         })
         .catch(() => {
-          map.isFullscreen = !!getFullscreenEl();
+          (map as any).isFullscreen = !!getFullscreenEl();
           updateUI(map, fsBtn, container);
         });
       return;
     } else {
-      map._container.classList.add(CLASSES.PSEUDO_FULLSCREEN);
+      map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
       map.invalidateSize();
     }
-    map.isFullscreen = true;
+    (map as any).isFullscreen = true;
   }
   updateUI(map, fsBtn, container);
 };

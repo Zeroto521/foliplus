@@ -22,7 +22,7 @@ const patchBringToFront = () => {
   if (isBringToFrontPatched) return;
   isBringToFrontPatched = true;
   L.Path.prototype.bringToFront = function () {
-    if ((this as any)._path && (this as any)._path.parentNode)
+    if (this._path && this._path.parentNode)
       origBringToFront.call(this);
     return this;
   };
@@ -319,7 +319,7 @@ class LayerManager {
     this.ui = null;
 
     this.debouncedEnforce = debounce(() => {
-      if (this.isDestroyed || !this.map || !(this.map as any)._container) return;
+      if (this.isDestroyed || !this.map || !this.map.getContainer()) return;
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
@@ -568,8 +568,8 @@ class LayerManager {
     const unregister = () => {
       if (!registered) return;
       const hasContent =
-        (graphLayer && Object.keys((graphLayer as any)._layers || {}).length > 0) ||
-        (labelLayer && Object.keys((labelLayer as any)._layers || {}).length > 0);
+        (graphLayer && graphLayer.getLayers().length > 0) ||
+        (labelLayer && labelLayer.getLayers().length > 0);
       if (!hasContent) {
         registered = false;
         this.unregisterLayer(opts.id);
@@ -588,7 +588,7 @@ class LayerManager {
         layer.options.pane = paneName;
         if (layer instanceof L.Path) {
           const { renderer } = this.panes.ensurePane(opts.graphPane);
-          (layer as any)._renderer = renderer;
+          (layer.options as any).renderer = renderer;
         } else if (paneName) this.panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
         this.panes.reset();
@@ -653,7 +653,7 @@ class LayerManager {
     if (!opts?.id)
       throw new Error(`[${CONF.name}] ${_(`${CONF.name}.require_canvas_id`)}`);
 
-    const mapPane = (this.map as any)._mapPane as HTMLElement;
+    const mapPane = this.map.getPanes().mapPane as HTMLElement;
     if (!mapPane)
       throw new Error(`[${CONF.name}] ${_(`${CONF.name}.mapPane_not_available`)}`);
 
