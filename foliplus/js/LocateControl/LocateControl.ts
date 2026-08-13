@@ -22,7 +22,7 @@ const { _, foliplus } = createControlEnv(CONF, LOCATE);
 
 // ── Locate Logic ──
 /** Fly to a coordinate and place a reverse-geocoded location marker. */
-const placeMarker = (ctrl: any, lng: number, lat: number, titleKey: string) => {
+const placeMarker = (ctrl: { marker: L.Marker | null }, lng: number, lat: number, titleKey: string) => {
   foliplus.hideHint(CONF.name);
   map.flyTo([lat, lng], CONF.zoom || 15);
   ctrl.marker = createLocationMarker(
@@ -41,7 +41,7 @@ const placeMarker = (ctrl: any, lng: number, lat: number, titleKey: string) => {
 };
 
 /** Locate me via the browser geolocation API. */
-const locateMe = (ctrl: any) => {
+const locateMe = (ctrl: { marker: L.Marker | null }) => {
   const geo = navigator.geolocation;
   if (!geo) {
     foliplus.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
