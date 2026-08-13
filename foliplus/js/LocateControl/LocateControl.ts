@@ -17,8 +17,6 @@ const LOCATE = `
     <line x1="19" y1="12" x2="22.5" y2="12"/>
   </svg>`;
 
-// ── Constants ──
-const GEO = { TIMEOUT_MS: 10000, MAX_AGE_MS: 60000 };
 
 const { _, foliplus } = createControlEnv(CONF, LOCATE);
 
@@ -68,7 +66,6 @@ const locateMe = (ctrl: any) => {
       foliplus.hideHint(CONF.name);
       foliplus.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
     },
-    { timeout: GEO.TIMEOUT_MS, maximumAge: GEO.MAX_AGE_MS },
   );
 };
 
