@@ -12,7 +12,7 @@ type CrsType = "BD09" | "GCJ02" | "WGS84";
  * Detect whether the map uses Baidu coordinate system (BD-09).
  * Checks L.CRS.Baidu, crs.code, and tile URL patterns.
  */
-const isBaiduCRS = (map: any): boolean => {
+const isBaiduCRS = (map: L.Map): boolean => {
   try {
     const crs = map.options.crs;
     const LCRS = L.CRS as any;
@@ -21,7 +21,7 @@ const isBaiduCRS = (map: any): boolean => {
 
     const layers = map._layers;
     for (const id in layers)
-      if (layers[id]._url && layers[id]._url.includes("bdimg.com")) return true;
+      if ((layers[id] as any)._url && (layers[id] as any)._url.includes("bdimg.com")) return true;
 
     return false;
   } catch (e) {
@@ -33,14 +33,14 @@ const isBaiduCRS = (map: any): boolean => {
  * Detect whether a map uses domestic Chinese tile providers.
  * Checks Baidu, AutoNavi, Tianditu, Tencent, Google, and AMap URL patterns.
  */
-const isDomesticMap = (map: any): boolean => {
+const isDomesticMap = (map: L.Map): boolean => {
   try {
     const crs = map.options.crs;
     if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
     const layers = map._layers;
     for (const id in layers) {
-      if (layers[id]._url) {
-        const url = layers[id]._url;
+      const url = (layers[id] as any)._url;
+      if (url) {
         if (
           url.includes("bdimg.com") ||
           url.includes("autonavi") ||
