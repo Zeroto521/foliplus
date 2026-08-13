@@ -79,18 +79,18 @@ class LocateControl extends BaseControl {
 
   buildDOM() {
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
-    const btn = createIconButton({
+    const container = dom.el("div", { class: "foliplus-ctrl-fold", parent: outer });
+    createIconButton({
       class: "foliplus-tool-btn foliplus-locate-btn",
       title: _(`${CONF.name}.title`),
       ariaLabel: _(`${CONF.name}.title`),
       svg: LOCATE,
-      parent: outer,
+      parent: container,
       onclick: e => {
         L.DomEvent.stopPropagation(e);
         locateMe(this);
       },
     });
-
     L.DomEvent.disableClickPropagation(outer);
     L.DomEvent.disableScrollPropagation(outer);
     this.container = outer;
