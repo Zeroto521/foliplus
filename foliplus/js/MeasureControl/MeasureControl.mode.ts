@@ -84,7 +84,7 @@ class MeasureMode {
    *  Subclasses override this to restore their specific visual elements.
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
-  static restore(manager: any, data: any): void {
+  static restore(manager: MeasureManager, data: any): void {
     console.warn(`[${CONF.name}] restore not implemented for ${this.TYPE}`);
   }
 }
@@ -132,7 +132,7 @@ class MarkerMode extends MeasureMode {
   /** Rebuild a persisted marker measurement.
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
-  static restore(manager: any, data: any): void {
+  static restore(manager: MeasureManager, data: any): void {
     const marker = createLocationMarker(
       manager.map,
       data.lng!,
@@ -278,11 +278,11 @@ class MarkerMode extends MeasureMode {
 class DistanceMode extends PreviewMode {
   static TYPE = CONST.MODE.DISTANCE;
 
-  static restore(manager: any, data: any) {
+  static restore(manager: MeasureManager, data: any) {
     const points: L.LatLng[] = data.points.map((p: any) => L.latLng(p.lat, p.lng));
     const finalPoly = manager.layers.addLayer(
       L.polyline(points, { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
-    );
+    ) as L.Polyline;
 
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng, i: number) => {
@@ -551,14 +551,14 @@ class PolygonMode extends PreviewMode {
   /** Rebuild a persisted polygon measurement.
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
-  static restore(manager: any, data: any) {
+  static restore(manager: MeasureManager, data: any) {
     const points: L.LatLng[] = data.points.map((p: any) => L.latLng(p.lat, p.lng));
     const finalPoly = manager.layers.addLayer(
       L.polygon(points, {
         className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
-    );
+    ) as L.Polygon; // addLayer ret val narrowed
 
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng) => {
@@ -868,7 +868,7 @@ class CircleMode extends PreviewMode {
   /** Rebuild a persisted circle measurement.
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
-  static restore(manager: any, data: any) {
+  static restore(manager: MeasureManager, data: any) {
     const centerLatLng = L.latLng(data.center.lat, data.center.lng);
     const targetLatLng = L.latLng(data.target.lat, data.target.lng);
     const r = data.radius;
@@ -879,16 +879,14 @@ class CircleMode extends PreviewMode {
         className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
-    );
-
+    ) as L.Circle;
     const radiusLine = manager.layers.addLayer(
       L.polyline([centerLatLng, targetLatLng], {
         className: CONST.CLASSES.PATH_DASHED,
         interactive: true,
       }),
-    );
-    const radiusNode = manager.layers.addLayer(Util.makeNode(targetLatLng));
-
+    ) as L.Polyline;
+    const radiusNode = manager.layers.addLayer(Util.makeNode(targetLatLng)) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
       L.marker(centerLatLng, {
         icon: L.divIcon({
@@ -900,14 +898,13 @@ class CircleMode extends PreviewMode {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         interactive: true,
       }),
-    );
-
+    ) as L.Marker;
     const delMarker = manager.layers.addLayer(
       Util.makeDelIcon(centerLatLng, {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         title: _(`${CONF.name}.del_tooltip`),
       }),
-    );
+    ) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
     const radiusLabel = manager.layers.addLayer(
@@ -920,7 +917,7 @@ class CircleMode extends PreviewMode {
         interactive: false,
       }),
       true,
-    );
+    ) as L.Marker;
 
     const { onMapClickActive } = attachCircleUI(manager, {
       layers: manager.layers,
