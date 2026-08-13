@@ -1,9 +1,7 @@
 import { BaseControl } from "#common/BaseControl.js";
-import { createIconButton, createLocationMarker, dom } from "#common/dom.js";
+import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
-import { fromWgs84 } from "#common/coord.js";
-import { HINT_DURATION } from "#common/hint.js";
-import * as Icons from "#common/icon.js";
+import { locateMe } from "./LocateControl.logic.js";
 
 // ── SVG Icons ──
 // AMap-style crosshair locate icon (stroke-rendered, inherits common button SVG styles).
@@ -17,62 +15,12 @@ const LOCATE = `
     <line x1="19" y1="12" x2="22.5" y2="12"/>
   </svg>`;
 
-
-const { _, foliplus } = createControlEnv(CONF, LOCATE);
-
-// ── Locate Logic ──
-/** Fly to a coordinate and place a reverse-geocoded location marker. */
-const placeMarker = (ctrl: { marker: L.Marker | null }, lng: number, lat: number, titleKey: string) => {
-  foliplus.hideHint(CONF.name);
-  map.flyTo([lat, lng], CONF.zoom || 15);
-  ctrl.marker = createLocationMarker(
-    map,
-    lng,
-    lat,
-    null,
-    _(titleKey),
-    _(`${CONF.name}.popup_loading`),
-    _(`${CONF.name}.popup_loc_label`),
-    _(`${CONF.name}.popup_addr_label`),
-    _("foliplus.close_label"),
-    CONF.locale_code,
-    ctrl.marker,
-  );
-};
-
-/** Locate me via the browser geolocation API. */
-const locateMe = (ctrl: { marker: L.Marker | null }) => {
-  const geo = navigator.geolocation;
-  if (!geo) {
-    foliplus.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
-    return;
-  }
-  foliplus.showHint(
-    CONF.name,
-    `${Icons.LOADING} ${_(`${CONF.name}.locating`)}`,
-    HINT_DURATION.PERSIST,
-  );
-  geo.getCurrentPosition(
-    pos => {
-      foliplus.hideHint(CONF.name);
-      let lng = pos.coords.longitude;
-      let lat = pos.coords.latitude;
-      const converted = fromWgs84(map, lng, lat);
-      lng = Number(converted[0].toFixed(6));
-      lat = Number(converted[1].toFixed(6));
-      placeMarker(ctrl, lng, lat, `${CONF.name}.popup_title_geo`);
-    },
-    () => {
-      foliplus.hideHint(CONF.name);
-      foliplus.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
-    },
-  );
-};
+const { _ } = createControlEnv(CONF, LOCATE);
 
 // ==================== Control Definition ====================
 class LocateControl extends BaseControl {
   declare container: HTMLElement;
-  declare marker: L.Marker | null;
+  declare marker: any;
 
   buildDOM() {
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
