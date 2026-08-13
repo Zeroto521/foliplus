@@ -1,7 +1,7 @@
 import { BaseControl } from "#common/BaseControl.js";
+import { fromWgs84 } from "#common/coord.js";
 import { createIconButton, createLocationMarker, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
-import { fromWgs84 } from "#common/coord.js";
 import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
 
@@ -17,12 +17,16 @@ const LOCATE = `
     <line x1="19" y1="12" x2="22.5" y2="12"/>
   </svg>`;
 
-
 const { _, foliplus } = createControlEnv(CONF, LOCATE);
 
 // ── Locate Logic ──
 /** Fly to a coordinate and place a reverse-geocoded location marker. */
-const placeMarker = (ctrl: { marker: L.Marker | null }, lng: number, lat: number, titleKey: string) => {
+const placeMarker = (
+  ctrl: { marker: L.Marker | null },
+  lng: number,
+  lat: number,
+  titleKey: string,
+) => {
   foliplus.hideHint(CONF.name);
   map.flyTo([lat, lng], CONF.zoom || 15);
   ctrl.marker = createLocationMarker(

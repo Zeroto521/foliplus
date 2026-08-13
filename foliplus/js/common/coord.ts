@@ -21,7 +21,8 @@ const isBaiduCRS = (map: L.Map): boolean => {
 
     const layers = map._layers;
     for (const id in layers)
-      if ((layers[id] as any)._url && (layers[id] as any)._url.includes("bdimg.com")) return true;
+      if ((layers[id] as any)._url && (layers[id] as any)._url.includes("bdimg.com"))
+        return true;
 
     return false;
   } catch (e) {

@@ -1,7 +1,11 @@
 import { createLocationMarker, stopEvent } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
-import { bindMapEvents, unbindMapEvents, type MapEventHandlers } from "#common/mapEvent.js";
+import {
+  type MapEventHandlers,
+  bindMapEvents,
+  unbindMapEvents,
+} from "#common/mapEvent.js";
 import * as CONST from "./MeasureControl.const.js";
 import type { MeasureManager } from "./MeasureControl.manager.js";
 import {
@@ -321,7 +325,9 @@ class DistanceMode extends PreviewMode {
       segLabels,
       points: points,
       onDelete: () => {
-        manager.measurements = manager.measurements.filter((x: any) => x.id !== data.id);
+        manager.measurements = manager.measurements.filter(
+          (x: any) => x.id !== data.id,
+        );
         manager.saveMeasurements();
       },
       onUpdate: () => {
@@ -460,7 +466,10 @@ class DistanceMode extends PreviewMode {
 
     const onDistClick = (e: L.LeafletMouseEvent) => {
       if (this.m.currentMode !== this.type) return;
-      if (points.some((p: L.LatLng) => p.lat === e.latlng.lat && p.lng === e.latlng.lng)) return;
+      if (
+        points.some((p: L.LatLng) => p.lat === e.latlng.lat && p.lng === e.latlng.lng)
+      )
+        return;
       L.DomEvent.stopPropagation(e);
       points.push(e.latlng);
       if (previewDistLabel) {
@@ -592,7 +601,9 @@ class PolygonMode extends PreviewMode {
       points: points,
       area: data.area,
       onDelete: () => {
-        manager.measurements = manager.measurements.filter((x: any) => x.id !== data.id);
+        manager.measurements = manager.measurements.filter(
+          (x: any) => x.id !== data.id,
+        );
         manager.saveMeasurements();
       },
       onUpdate: () => {
@@ -931,7 +942,9 @@ class CircleMode extends PreviewMode {
       delMarker,
       radiusLabel,
       onDelete: () => {
-        manager.measurements = manager.measurements.filter((x: any) => x.id !== data.id);
+        manager.measurements = manager.measurements.filter(
+          (x: any) => x.id !== data.id,
+        );
         manager.saveMeasurements();
       },
     });
@@ -1067,7 +1080,11 @@ class CircleMode extends PreviewMode {
       this.m.clearActiveMode();
     };
 
-    const finalizeCircle = (centerLatLng: L.LatLng, r: number, targetLatLng: L.LatLng) => {
+    const finalizeCircle = (
+      centerLatLng: L.LatLng,
+      r: number,
+      targetLatLng: L.LatLng,
+    ) => {
       const finalTargetLatLng =
         targetLatLng || (L.CRS as any).Earth.destination(centerLatLng, r, 90);
 
@@ -1155,7 +1172,9 @@ class CircleMode extends PreviewMode {
         delMarker: delMarker as L.Marker,
         radiusLabel: radiusLabel as L.Marker,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter((x: any) => x.id !== circleId);
+          this.m.measurements = this.m.measurements.filter(
+            (x: any) => x.id !== circleId,
+          );
           this.m.saveMeasurements();
         },
       });

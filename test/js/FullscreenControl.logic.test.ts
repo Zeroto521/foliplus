@@ -114,7 +114,9 @@ describe("toggleFullscreen — pseudo path", () => {
 
   it("enters pseudo-fullscreen", () => {
     toggleFullscreen(mapMock, fsBtn, container);
-    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(true);
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      true,
+    );
     expect(mapMock.isFullscreen).toBe(true);
     expect(mapMock.invalidateSize).toHaveBeenCalled();
   });

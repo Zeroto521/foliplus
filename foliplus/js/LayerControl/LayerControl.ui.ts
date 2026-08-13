@@ -375,7 +375,7 @@ class LayerUI {
     this.onDragOver = e => this.handleDragOver(e);
     this.onDragLeave = e => this.handleDragLeave(e);
     this.onDrop = e => this.handleDrop(e);
-  this.onDragEnd = () => this.handleDragEnd();
+    this.onDragEnd = () => this.handleDragEnd();
 
     container.addEventListener("change", this.onChange);
     container.addEventListener("input", this.onInput);
@@ -653,9 +653,7 @@ class LayerUI {
     inputs.forEach((input: HTMLInputElement, j: number) => {
       if (this.m.layers[j]?.isBase) {
         input.checked = false;
-        input
-          .closest(CONST.SEL.LAYER_ITEM)
-          ?.classList.remove(CONST.CLASSES.ACTIVE);
+        input.closest(CONST.SEL.LAYER_ITEM)?.classList.remove(CONST.CLASSES.ACTIVE);
       }
     });
 

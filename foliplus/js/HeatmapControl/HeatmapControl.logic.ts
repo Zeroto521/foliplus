@@ -1,12 +1,12 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import { cssVar } from "#common/cssvar.js";
-import { debounce, type Debounced } from "#common/debounce.js";
-import { formatNumber, type NumberStyle } from "#common/format.js";
+import { type Debounced, debounce } from "#common/debounce.js";
+import { type NumberStyle, formatNumber } from "#common/format.js";
 import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./HeatmapControl.const.js";
 import * as SVGs from "./HeatmapControl.icon.js";
-import { rebuildLayerDropdown, type HeatmapControlUI } from "./HeatmapControl.ui.js";
+import { type HeatmapControlUI, rebuildLayerDropdown } from "./HeatmapControl.ui.js";
 
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
@@ -321,7 +321,9 @@ class HeatmapManager {
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
-        console.warn(`[${CONF.name}] Falling back to 1 for missing values, field=${this.currentField}`);
+        console.warn(
+          `[${CONF.name}] Falling back to 1 for missing values, field=${this.currentField}`,
+        );
       }
       return 1;
     }
@@ -331,7 +333,8 @@ class HeatmapManager {
   getSelectedPoints(): SelectedPoint[] {
     this.valueFallbackWarned = false;
     const key = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}`;
-    if (this.cachedPoints && this.cachedPoints.key === key) return this.cachedPoints.pts;
+    if (this.cachedPoints && this.cachedPoints.key === key)
+      return this.cachedPoints.pts;
 
     const pts: SelectedPoint[] = [];
     if (!this.selectedLayerId) return pts;
@@ -339,19 +342,27 @@ class HeatmapManager {
     if (!info) return pts;
 
     foliplus.LayerAPI!.extractPoints(info.id).forEach(p => {
-      pts.push({ lat: p.lat, lng: p.lng, value: this.getPointValue(p.marker), marker: p.marker as L.Marker });
+      pts.push({
+        lat: p.lat,
+        lng: p.lng,
+        value: this.getPointValue(p.marker),
+        marker: p.marker as L.Marker,
+      });
     });
     this.cachedPoints = { key, pts };
     return pts;
   }
 
   getH3Res(zoom: number): number {
-    const entry = (CONST.H3.RES_MAP as Array<[number, number]>).find(([z]) => zoom <= z);
+    const entry = (CONST.H3.RES_MAP as Array<[number, number]>).find(
+      ([z]) => zoom <= z,
+    );
     return entry ? entry[1] : CONST.H3.RES_FALLBACK;
   }
 
   getColorScale(name: string, n: number): string[] {
-    if (typeof chroma !== "undefined") return chroma.scale(name).mode("lab").colors(n) as string[];
+    if (typeof chroma !== "undefined")
+      return chroma.scale(name).mode("lab").colors(n) as string[];
     return Array(n).fill(CONST.GRAY);
   }
 
@@ -371,15 +382,19 @@ class HeatmapManager {
         const breaks: number[] = [clusters[0][0]];
         clusters.forEach(c => breaks.push(c[c.length - 1]));
         return breaks;
-      } catch (e) { /* fall through */ }
+      } catch (e) {
+        /* fall through */
+      }
       return [lo, hi];
     } else if (method === "quantile") {
       const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++) b.push(ss.quantileSorted(sorted, i / nClasses));
+      for (let i = 1; i < nClasses; i++)
+        b.push(ss.quantileSorted(sorted, i / nClasses));
       return b.concat(hi);
     } else if (method === "heads") {
       const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++) b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
+      for (let i = 1; i < nClasses; i++)
+        b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
       return b.concat(hi);
     } else {
       const step = (hi - lo) / nClasses;
@@ -391,13 +406,17 @@ class HeatmapManager {
 
   renderHexagons() {
     if (!this.map || !this.overlay) return;
-    if (!this.selectedLayerId) { this.clearHeatmapCanvas(); return; }
+    if (!this.selectedLayerId) {
+      this.clearHeatmapCanvas();
+      return;
+    }
     const pts = this.getSelectedPoints();
     const zoom = this.map.getZoom();
     const res = this.getH3Res(zoom);
     const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
     let aggregated: AggregatedData | undefined;
-    if (this.cachedAgg && this.cachedAgg.key === aggKey) aggregated = this.cachedAgg.data;
+    if (this.cachedAgg && this.cachedAgg.key === aggKey)
+      aggregated = this.cachedAgg.data;
     else {
       aggregated = this.aggregateData(pts, res) ?? undefined;
       if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
@@ -412,9 +431,11 @@ class HeatmapManager {
     pts.forEach(pt => {
       try {
         const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-        if (!hexCells[h3Idx]) hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
+        if (!hexCells[h3Idx])
+          hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
         const cell = hexCells[h3Idx];
-        cell.sum += pt.value; cell.count += 1;
+        cell.sum += pt.value;
+        cell.count += 1;
         if (pt.value < cell.min) cell.min = pt.value;
         if (pt.value > cell.max) cell.max = pt.value;
       } catch (e) {
@@ -424,17 +445,26 @@ class HeatmapManager {
 
     const getAggValue = (cell: HexCell): number => {
       switch (this.currentAgg) {
-        case CONST.AGG.COUNT: return cell.count;
-        case CONST.AGG.SUM: return cell.sum;
-        case CONST.AGG.AVG: return cell.count > 0 ? cell.sum / cell.count : 0;
-        case CONST.AGG.MIN: return cell.min;
-        case CONST.AGG.MAX: return cell.max;
-        default: return cell.count;
+        case CONST.AGG.COUNT:
+          return cell.count;
+        case CONST.AGG.SUM:
+          return cell.sum;
+        case CONST.AGG.AVG:
+          return cell.count > 0 ? cell.sum / cell.count : 0;
+        case CONST.AGG.MIN:
+          return cell.min;
+        case CONST.AGG.MAX:
+          return cell.max;
+        default:
+          return cell.count;
       }
     };
 
     const allVals = Object.values(hexCells).map(getAggValue);
-    if (allVals.length === 0) { this.clearHeatmapCanvas(); return null; }
+    if (allVals.length === 0) {
+      this.clearHeatmapCanvas();
+      return null;
+    }
 
     const nClasses = Math.min(this.numClasses, allVals.length);
     const breaks = this.computeBreaks(allVals, nClasses, this.currentMethod);
@@ -447,31 +477,54 @@ class HeatmapManager {
     return { hexCells, getAggValue, valueToClassIdx, classColors };
   }
 
-  buildFeatures({ hexCells, getAggValue, valueToClassIdx, classColors }: AggregatedData): HexFeature[] {
+  buildFeatures({
+    hexCells,
+    getAggValue,
+    valueToClassIdx,
+    classColors,
+  }: AggregatedData): HexFeature[] {
     const features: HexFeature[] = [];
     for (const [h3Idx, cell] of Object.entries(hexCells)) {
       const val = getAggValue(cell);
       const classIdx = valueToClassIdx(val);
       const fillColor = classColors[classIdx];
       let centroid: [number, number] | null = null;
-      try { const c = h3.cellToLatLng(h3Idx); centroid = [c[0], c[1]]; } catch (e) { /* fallback */ }
+      try {
+        const c = h3.cellToLatLng(h3Idx);
+        centroid = [c[0], c[1]];
+      } catch (e) {
+        /* fallback */
+      }
       try {
         const boundary = h3.cellToBoundary(h3Idx);
         const coords = boundary.map(p => [p[1], p[0]]);
         coords.push(coords[0]);
         if (!centroid) {
-          let cx = 0, cy = 0;
-          for (let j = 0; j < coords.length - 1; j++) { cx += coords[j][0]; cy += coords[j][1]; }
+          let cx = 0,
+            cy = 0;
+          for (let j = 0; j < coords.length - 1; j++) {
+            cx += coords[j][0];
+            cy += coords[j][1];
+          }
           centroid = [cy / (coords.length - 1), cx / (coords.length - 1)];
         }
-        features.push({ type: "Feature", geometry: { type: "Polygon", coordinates: [coords] }, properties: { value: val, classIdx, fillColor, h3: h3Idx, centroid } });
-      } catch (e) { console.warn(`[${CONF.name}] h3 boundary conversion failed`, h3Idx, e); }
+        features.push({
+          type: "Feature",
+          geometry: { type: "Polygon", coordinates: [coords] },
+          properties: { value: val, classIdx, fillColor, h3: h3Idx, centroid },
+        });
+      } catch (e) {
+        console.warn(`[${CONF.name}] h3 boundary conversion failed`, h3Idx, e);
+      }
     }
     return features;
   }
 
   renderFeatures(features: HexFeature[]) {
-    if (!features.length) { this.clearHeatmapCanvas(); return; }
+    if (!features.length) {
+      this.clearHeatmapCanvas();
+      return;
+    }
     this.cachedFeatures = features;
     this.overlay.register();
     this.redrawHeatmap();

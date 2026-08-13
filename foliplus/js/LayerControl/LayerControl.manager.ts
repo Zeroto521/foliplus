@@ -1,4 +1,4 @@
-import { debounce, type Debounced } from "#common/debounce.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
@@ -23,8 +23,7 @@ const patchBringToFront = () => {
   if (isBringToFrontPatched) return;
   isBringToFrontPatched = true;
   L.Path.prototype.bringToFront = function () {
-    if (this._path && this._path.parentNode)
-      origBringToFront.call(this);
+    if (this._path && this._path.parentNode) origBringToFront.call(this);
     return this;
   };
 };
@@ -88,7 +87,11 @@ class LayerRegistry {
    *   the map/window globals when `opts.layer` is absent.
    * @returns {Object} A complete layerInfo object.
    */
-  createLayerInfo(opts: RegisterLayerOpts, existingLi?: LayerInfo, map?: L.Map): LayerInfo {
+  createLayerInfo(
+    opts: RegisterLayerOpts,
+    existingLi?: LayerInfo,
+    map?: L.Map,
+  ): LayerInfo {
     return {
       name: opts.name ?? existingLi?.name ?? opts.id,
       id: opts.id,
@@ -395,7 +398,9 @@ class LayerManager {
         layerMap.delete(id);
       }
     }
-    this.layerRegistry.replace(ordered.concat([...layerMap.values()].filter((v): v is LayerInfo => v != null)));
+    this.layerRegistry.replace(
+      ordered.concat([...layerMap.values()].filter((v): v is LayerInfo => v != null)),
+    );
   }
 
   saveOrder() {
@@ -430,7 +435,9 @@ class LayerManager {
    * @param {string} type - "point" | "line" | "polygon" | "base"
    * @returns {Array<{id: string, name: string, layer: Object}>}
    */
-  getLayersByType(type: string): Array<{ id: string; name: string; layer: L.Layer | null }> {
+  getLayersByType(
+    type: string,
+  ): Array<{ id: string; name: string; layer: L.Layer | null }> {
     return this.layers
       .filter(l => this.getLayerType(l.id) === type)
       .map(l => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
@@ -440,7 +447,10 @@ class LayerManager {
     const li =
       typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
     if (li?.layer) return li.layer;
-    return Util.findLayer(this.map, typeof idOrInfo === "string" ? idOrInfo : li?.id ?? "");
+    return Util.findLayer(
+      this.map,
+      typeof idOrInfo === "string" ? idOrInfo : (li?.id ?? ""),
+    );
   }
 
   forEachLeaf(id: string, fn: (layer: L.Layer) => void) {
@@ -453,8 +463,11 @@ class LayerManager {
    * @param {string} id - Layer ID.
    * @returns {Array<{lat: number, lng: number, marker: L.Marker|L.CircleMarker}>}
    */
-  extractPoints(id: string): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
-    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> = [];
+  extractPoints(
+    id: string,
+  ): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
+    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> =
+      [];
     const seen = new Set();
     this.forEachLeaf(id, (l: L.Layer) => {
       if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
@@ -569,7 +582,8 @@ class LayerManager {
   clearAllLayers(layer: L.Layer | null) {
     if (!layer) return;
     if (typeof (layer as any).clearLayers === "function") (layer as any).clearLayers();
-    else if ((layer as any).eachLayer) (layer as any).eachLayer((l: L.Layer) => this.clearAllLayers(l));
+    else if ((layer as any).eachLayer)
+      (layer as any).eachLayer((l: L.Layer) => this.clearAllLayers(l));
   }
 
   createLayers(opts: CreateLayersOpts): CreateLayersAPI {
@@ -839,7 +853,19 @@ class LayerManager {
     }
   }
 
-  applyLayerZIndex({ li, layer, z, isTile, layersToMove }: { li: any; layer: any; z: number; isTile: boolean; layersToMove: any[] }) {
+  applyLayerZIndex({
+    li,
+    layer,
+    z,
+    isTile,
+    layersToMove,
+  }: {
+    li: any;
+    layer: any;
+    z: number;
+    isTile: boolean;
+    layersToMove: any[];
+  }) {
     const paneName = li.paneName;
     if (paneName) {
       const ep = this.panes.ensurePane(paneName, !isTile);
@@ -884,9 +910,11 @@ class LayerManager {
       const li = this.layers[i];
       if (!li.isBase) continue;
       const layer = this.findLayer(li);
-      if (!(layer instanceof L.TileLayer) || !(layer.options as any).attribution) continue;
+      if (!(layer instanceof L.TileLayer) || !(layer.options as any).attribution)
+        continue;
       delete attrCtrl._attributions[(layer.options as any).attribution];
-      if (!topAttr && this.map.hasLayer(layer)) topAttr = (layer.options as any).attribution;
+      if (!topAttr && this.map.hasLayer(layer))
+        topAttr = (layer.options as any).attribution;
     }
 
     if (topAttr) attrCtrl._attributions[topAttr] = 1;

@@ -117,7 +117,9 @@ class ExportRenderer {
     rect: { left: number; top: number; width: number; height: number },
     scale: number,
     bg: string | undefined,
-    geoBounds: { nw: { lat: number; lng: number }; se: { lat: number; lng: number } } | undefined,
+    geoBounds:
+      | { nw: { lat: number; lng: number }; se: { lat: number; lng: number } }
+      | undefined,
   ): Promise<HTMLCanvasElement> {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
@@ -201,7 +203,8 @@ class ExportRenderer {
   /** Render a standalone canvas element (e.g. HeatmapControl) with lifecycle hooks. */
   async renderCanvasElement(rc: RenderCtx, ce: HTMLCanvasElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    const hooks = (ce as any).hooks as { before: Array<() => void>; after: Array<() => void> } | undefined;
+    const hooks = (ce as any).hooks as
+      { before: Array<() => void>; after: Array<() => void> } | undefined;
     if (hooks) hooks.before.forEach(fn => fn());
     try {
       const r = ce.getBoundingClientRect();
@@ -359,7 +362,8 @@ class ExportRenderer {
   async renderPaneCanvas(rc: RenderCtx, pane: HTMLElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
     for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
-      const hooks = (ce as any).hooks as { before: Array<() => void>; after: Array<() => void> } | undefined;
+      const hooks = (ce as any).hooks as
+        { before: Array<() => void>; after: Array<() => void> } | undefined;
       if (hooks) hooks.before.forEach(fn => fn());
       try {
         const r = ce.getBoundingClientRect();
@@ -661,7 +665,8 @@ class ExportRenderer {
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
 
       // 1. <img> elements (default Leaflet markers)
-      const imgEl = root.tagName === "IMG" ? (root as HTMLImageElement) : root.querySelector("img");
+      const imgEl =
+        root.tagName === "IMG" ? (root as HTMLImageElement) : root.querySelector("img");
       if (imgEl && imgEl.src) {
         try {
           const img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;

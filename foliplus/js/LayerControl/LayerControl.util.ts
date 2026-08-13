@@ -43,11 +43,17 @@ const findLayer = (map: L.Map, id: string): L.Layer | null => {
   return (map._layers && map._layers[id]) || (window as any)[id] || null;
 };
 
-const traverse = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0, leafOnly = false) => {
+const traverse = (
+  layer: L.Layer,
+  fn: (layer: L.Layer) => void,
+  depth = 0,
+  leafOnly = false,
+) => {
   if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
   const isContainer = typeof (layer as any).eachLayer === "function";
   if (!leafOnly) fn(layer);
-  if (isContainer) (layer as any).eachLayer((c: L.Layer) => traverse(c, fn, depth + 1, leafOnly));
+  if (isContainer)
+    (layer as any).eachLayer((c: L.Layer) => traverse(c, fn, depth + 1, leafOnly));
   else if (layer._layers) {
     for (const k in layer._layers) {
       if (Object.hasOwn(layer._layers, k))

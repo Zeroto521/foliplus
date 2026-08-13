@@ -496,7 +496,9 @@ const updateSchemeBar = (ctrl: HeatmapControlUI) => {
 
 const refreshSchemeDropdownItems = (ctrl: HeatmapControlUI) => {
   if (!ctrl.schemeDropdown) return;
-  const items = ctrl.schemeDropdown.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM) as NodeListOf<HTMLElement>;
+  const items = ctrl.schemeDropdown.querySelectorAll(
+    CONST.SEL.SCHEME_DROPDOWN_ITEM,
+  ) as NodeListOf<HTMLElement>;
   items.forEach(item => {
     const name = item.getAttribute("data-scheme-name");
     if (!name) return;
@@ -546,7 +548,9 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     };
   });
 
-  const items = ctrl.schemeDropdown.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM) as NodeListOf<HTMLElement>;
+  const items = ctrl.schemeDropdown.querySelectorAll(
+    CONST.SEL.SCHEME_DROPDOWN_ITEM,
+  ) as NodeListOf<HTMLElement>;
   if (items.length) {
     if (focusIdx >= 0) items[focusIdx].focus();
     else items[0].focus();
