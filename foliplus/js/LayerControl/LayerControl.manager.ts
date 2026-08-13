@@ -1,10 +1,11 @@
-import { debounce } from "#common/debounce.js";
+import { debounce, type Debounced } from "#common/debounce.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "./LayerControl.const.js";
 import { PaneManager } from "./LayerControl.pane.js";
+import { LayerUI } from "./LayerControl.ui.js";
 import * as Util from "./LayerControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -65,12 +66,12 @@ const MUTATING_METHODS = new Set([
  *   `api.bringLayerToFront(id)`  — reorder
  */
 class LayerRegistry {
-  items: any[];
-  byId: Map<string, any>;
+  items: LayerInfo[];
+  byId: Map<string, LayerInfo>;
   _firstBaseIdx: number;
-  view: any[];
+  view: LayerInfo[];
 
-  constructor(data: any[] = [], map?: any) {
+  constructor(data: LayerInfo[] = [], map?: L.Map) {
     this.items = data.map(l => this.createLayerInfo(l, undefined, map));
     this.byId = new Map(this.items.map(l => [l.id, l]));
     this._firstBaseIdx = -1;
@@ -87,7 +88,7 @@ class LayerRegistry {
    *   the map/window globals when `opts.layer` is absent.
    * @returns {Object} A complete layerInfo object.
    */
-  createLayerInfo(opts: any, existingLi?: any, map?: any): any {
+  createLayerInfo(opts: RegisterLayerOpts, existingLi?: LayerInfo, map?: L.Map): LayerInfo {
     return {
       name: opts.name ?? existingLi?.name ?? opts.id,
       id: opts.id,
@@ -160,7 +161,7 @@ class LayerRegistry {
     return this.byId.has(id);
   }
 
-  indexOf(li: any) {
+  indexOf(li: LayerInfo) {
     return this.items.indexOf(li);
   }
 
@@ -170,7 +171,7 @@ class LayerRegistry {
   }
 
   /** Insert or update in place — never reorders an existing layer. */
-  upsert(layerInfo: any): any {
+  upsert(layerInfo: LayerInfo): LayerInfo {
     const existing = this.byId.get(layerInfo.id);
     if (existing) {
       const idx = this.items.indexOf(existing);
@@ -184,7 +185,7 @@ class LayerRegistry {
   }
 
   /** Insert at the front (used for new overlay layers). */
-  prepend(layerInfo: any): any {
+  prepend(layerInfo: LayerInfo): LayerInfo {
     this.items.unshift(layerInfo);
     this.byId.set(layerInfo.id, layerInfo);
     this.refreshFirstBaseIdx();
@@ -192,14 +193,14 @@ class LayerRegistry {
   }
 
   /** Insert before the given index (used for new base layers). */
-  insertAt(layerInfo: any, idx: number): any {
+  insertAt(layerInfo: LayerInfo, idx: number): LayerInfo {
     this.items.splice(idx, 0, layerInfo);
     this.byId.set(layerInfo.id, layerInfo);
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
 
-  remove(id: string): any {
+  remove(id: string): LayerInfo | null {
     const li = this.byId.get(id);
     if (!li) return null;
     const idx = this.items.indexOf(li);
@@ -210,7 +211,7 @@ class LayerRegistry {
   }
 
   /** Move an existing layer to index 0 (bring to front). */
-  moveToFront(id: string): any {
+  moveToFront(id: string): LayerInfo | null {
     const li = this.byId.get(id);
     if (!li) return null;
     const idx = this.items.indexOf(li);
@@ -227,7 +228,7 @@ class LayerRegistry {
   }
 
   /** Rebuild both list and index from a new ordered array. */
-  replace(newList: any[]) {
+  replace(newList: LayerInfo[]) {
     this.items.splice(0, this.items.length, ...newList);
     this.byId = new Map(this.items.map(l => [l.id, l]));
     this.refreshFirstBaseIdx();
@@ -276,23 +277,57 @@ class LayerRegistry {
   }
 }
 
+/** Options for registerLayer. */
+interface RegisterLayerOpts {
+  id: string;
+  name?: string | null;
+  layer?: L.Layer | null;
+  isBase?: boolean;
+  paneName?: string | null;
+  iconSvg?: string | null;
+  visible?: boolean;
+  canvas?: HTMLCanvasElement | null;
+  onToggle?: ((visible: boolean) => void) | null;
+  onZIndex?: ((z: number) => void) | null;
+  [key: string]: unknown;
+}
+
+/** Options for createLayers. */
+interface CreateLayersOpts {
+  id: string;
+  name?: string;
+  graphPane?: string;
+  labelPane?: string;
+  iconSvg?: string;
+}
+
+/** Options for createCanvas. */
+interface CreateCanvasOpts {
+  id: string;
+  name?: string;
+  className?: string;
+  iconSvg?: string;
+  onToggle?: (visible: boolean) => void;
+  onZIndex?: (z: number) => void;
+}
+
 // ==================== Core Manager: LayerManager ====================
 class LayerManager {
   map: L.Map;
   layerRegistry: LayerRegistry;
-  layers: any[];
-  pendingRegistrations: any[];
+  layers: LayerInfo[];
+  pendingRegistrations: LayerInfo[];
   uiContainer: HTMLElement | null;
   isEnforcing: boolean;
   isDestroyed: boolean;
   panes: PaneManager;
   lastAttribution: string | null;
-  ui: any;
-  debouncedEnforce: () => void;
+  ui: LayerUI | null;
+  debouncedEnforce: Debounced;
   onLayerAdd: (e: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
-  constructor(mapInstance: L.Map, data: any[]) {
+  constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
     this.layerRegistry = new LayerRegistry(data, this.map);
     this.layers = this.layerRegistry.list;
@@ -353,14 +388,14 @@ class LayerManager {
     const data = Storage.load(CONST.STORAGE.ORDER_KEY, CONF.name);
     if (!data || !Array.isArray(data)) return;
     const layerMap = new Map(this.layers.map(l => [l.id, l]));
-    const ordered = [];
+    const ordered: LayerInfo[] = [];
     for (const id of data) {
       if (layerMap.has(id)) {
-        ordered.push(layerMap.get(id));
+        ordered.push(layerMap.get(id)!);
         layerMap.delete(id);
       }
     }
-    this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
+    this.layerRegistry.replace(ordered.concat([...layerMap.values()].filter((v): v is LayerInfo => v != null)));
   }
 
   saveOrder() {
@@ -397,15 +432,15 @@ class LayerManager {
    */
   getLayersByType(type: string): Array<{ id: string; name: string; layer: L.Layer | null }> {
     return this.layers
-      .filter((l: any) => this.getLayerType(l.id) === type)
-      .map((l: any) => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
+      .filter(l => this.getLayerType(l.id) === type)
+      .map(l => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
   }
 
-  findLayer(idOrInfo: any): L.Layer | null {
+  findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
     const li =
       typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
     if (li?.layer) return li.layer;
-    return Util.findLayer(this.map, typeof idOrInfo === "string" ? idOrInfo : li?.id);
+    return Util.findLayer(this.map, typeof idOrInfo === "string" ? idOrInfo : li?.id ?? "");
   }
 
   forEachLeaf(id: string, fn: (layer: L.Layer) => void) {
@@ -418,22 +453,22 @@ class LayerManager {
    * @param {string} id - Layer ID.
    * @returns {Array<{lat: number, lng: number, marker: L.Marker|L.CircleMarker}>}
    */
-  extractPoints(id: string): Array<{ lat: number; lng: number; marker: any }> {
-    const pts: Array<{ lat: number; lng: number; marker: L.Marker }> = [];
+  extractPoints(id: string): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
+    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> = [];
     const seen = new Set();
-    this.forEachLeaf(id, (l: any) => {
+    this.forEachLeaf(id, (l: L.Layer) => {
       if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
       if (!l.feature) return;
       const stamp = L.stamp(l);
       if (seen.has(stamp)) return;
       seen.add(stamp);
       const ll = l.getLatLng();
-      pts.push({ lat: ll.lat, lng: ll.lng, marker: l as any });
+      pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
     });
     return pts;
   }
 
-  registerLayer(opts: any): any {
+  registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
     if (!opts?.id) throw new Error(`[${CONF.name}] ${_(`${CONF.name}.id_required`)}`);
 
     const existingLi = this.layerRegistry.get(opts.id);
@@ -531,13 +566,13 @@ class LayerManager {
     return true;
   }
 
-  clearAllLayers(layer: any) {
+  clearAllLayers(layer: L.Layer | null) {
     if (!layer) return;
-    if (typeof layer.clearLayers === "function") layer.clearLayers();
-    else if (layer.eachLayer) layer.eachLayer((l: any) => this.clearAllLayers(l));
+    if (typeof (layer as any).clearLayers === "function") (layer as any).clearLayers();
+    else if ((layer as any).eachLayer) (layer as any).eachLayer((l: L.Layer) => this.clearAllLayers(l));
   }
 
-  createLayers(opts: any): any {
+  createLayers(opts: CreateLayersOpts): CreateLayersAPI {
     const mainLayer = L.layerGroup();
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
@@ -587,7 +622,7 @@ class LayerManager {
         const paneName = isLabel ? opts.labelPane : opts.graphPane;
         layer.options.pane = paneName;
         if (layer instanceof L.Path) {
-          const { renderer } = this.panes.ensurePane(opts.graphPane);
+          const { renderer } = this.panes.ensurePane(opts.graphPane!);
           (layer.options as any).renderer = renderer;
         } else if (paneName) this.panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
@@ -649,7 +684,7 @@ class LayerManager {
    * @param {Object} opts
    * @returns {createCanvasAPI}
    */
-  createCanvas(opts: any): any {
+  createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
     if (!opts?.id)
       throw new Error(`[${CONF.name}] ${_(`${CONF.name}.require_canvas_id`)}`);
 

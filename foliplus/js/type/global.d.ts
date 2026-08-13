@@ -107,7 +107,17 @@ type SimpleStats = {
 /** Augment Leaflet's Map with internal properties we use. */
 declare module "leaflet" {
   interface Map {
+    _layers: Record<string, L.Layer>;
     isFullscreen?: boolean;
+  }
+  interface Layer {
+    _layers: Record<string, L.Layer>;
+  }
+  interface LayerGroup {
+    _layers: Record<string, L.Layer>;
+  }
+  interface LayerOptions {
+    paneSet?: boolean;
   }
   interface Path {
     _path: SVGElement;
@@ -172,7 +182,7 @@ declare global {
     paneName: string | null;
     iconSvg: string | null;
     type: string | null;
-    canvas?: HTMLCanvasElement;
+    canvas?: HTMLCanvasElement | null;
     isLabel?: boolean;
     onToggle?: ((visible: boolean) => void) | null;
     onZIndex?: ((z: number) => void) | null;
@@ -191,8 +201,9 @@ declare global {
     registered: () => boolean;
     destroy: () => void;
     bringToFront: () => void;
+    setZIndex: (z: number) => void;
+    setVisible: (v: boolean) => void;
     hooks?: { before: Array<() => void>; after: Array<() => void> };
-    setVisible?: (v: boolean) => void;
   }
 
   /** Return type of `LayerAPI.createLayers`. */
@@ -251,4 +262,4 @@ declare global {
   }
 }
 
-export {};
+export { };
