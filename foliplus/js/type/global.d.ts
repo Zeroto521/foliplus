@@ -168,6 +168,7 @@ declare global {
     type LeafletKeyboardEvent = Leaflet.LeafletKeyboardEvent;
     type GridLayer = Leaflet.GridLayer;
     type TileLayer = Leaflet.TileLayer;
+    type TileLayerOptions = Leaflet.TileLayerOptions;
     type ImageOverlay = Leaflet.ImageOverlay;
     type CRS = Leaflet.CRS;
   }

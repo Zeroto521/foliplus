@@ -11,14 +11,14 @@ type CrsType = "BD09" | "GCJ02" | "WGS84";
 /** Check if any tile layer in the map has a URL matching one of the patterns. */
 function hasTileUrlMatching(map: L.Map | null, patterns: string[]): boolean {
   try {
-    const layers = map?._layers;
+    const layers = (map as any)?._layers;
     if (!layers) return false;
     for (const id in layers) {
-      const url = (layers[id] as any)?._url;
+      const url = layers[id]?._url;
       if (url && patterns.some(p => url.includes(p))) return true;
     }
   } catch (_) {
-    // Ignore errors from _layers access.
+    // Ignore errors from layer traversal.
   }
   return false;
 }

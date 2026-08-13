@@ -108,7 +108,7 @@ const attachDistanceUI = (mgr: any, opts: AttachOpts): ((e: L.LeafletMouseEvent)
                 deleteMeas();
               }
             });
-            const iconEl = (lastDel as any)._icon || lastDel.getElement();
+            const iconEl = lastDel.getElement();
             if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
           }
         }
@@ -410,7 +410,7 @@ const attachPolygonUI = (mgr: any, opts: PolygonAttachOpts): (() => void) => {
                 deleteMeas();
               } else handleItemClick(ev);
             });
-            const iconEl = (d as any)._icon || d.getElement();
+            const iconEl = d.getElement();
             if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
           });
         }

@@ -1083,7 +1083,7 @@ class CircleMode extends PreviewMode {
           interactive: false,
         }),
       );
-      const rippleEl = (ripple as L.Circle)._path;
+      const rippleEl = (ripple as L.Circle).getElement() as SVGElement | null;
       if (rippleEl) {
         const onEnd = () => {
           rippleEl.removeEventListener("animationend", onEnd);

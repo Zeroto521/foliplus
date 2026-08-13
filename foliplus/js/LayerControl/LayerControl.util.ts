@@ -48,10 +48,10 @@ const traverse = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0, leafO
   const isContainer = typeof (layer as any).eachLayer === "function";
   if (!leafOnly) fn(layer);
   if (isContainer) (layer as any).eachLayer((c: L.Layer) => traverse(c, fn, depth + 1, leafOnly));
-  else if (layer._layers) {
-    for (const k in layer._layers) {
-      if (Object.hasOwn(layer._layers, k))
-        traverse(layer._layers[k], fn, depth + 1, leafOnly);
+  else if ((layer as any)._layers) {
+    for (const k in (layer as any)._layers) {
+      if (Object.hasOwn((layer as any)._layers, k))
+        traverse((layer as any)._layers[k], fn, depth + 1, leafOnly);
     }
   } else if (leafOnly) fn(layer);
 };

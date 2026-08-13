@@ -132,7 +132,7 @@ class PaneManager {
     const markerGroups = new Map<HTMLElement, HTMLElement[]>();
     for (const { layer, paneName, renderer } of layersToMove) {
       if (!paneName) continue;
-      const container = renderer?._container;
+      const container = renderer?.getContainer?.();
       if (!container) continue;
       const paneEl = this.map.getPane(paneName);
       if (!groups.has(container)) groups.set(container, []);
@@ -144,16 +144,18 @@ class PaneManager {
         l.options.pane = paneName;
         l.options.paneSet = true;
         if (l instanceof L.Path) l.options.renderer = renderer;
-        if (l._path && l._path.parentNode !== container)
-          groups.get(container)!.push(l._path);
+        const pathEl = l instanceof L.Path ? (l.getElement() as HTMLElement) : null;
+        if (pathEl && pathEl.parentNode !== container)
+          groups.get(container)!.push(pathEl);
         if (l instanceof L.Marker && paneEl) {
           if ((l as any)._shadow && (l as any)._shadow.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
             markerGroups.get(paneEl)!.push((l as any)._shadow);
           }
-          if ((l as any)._icon && (l as any)._icon.parentNode !== paneEl) {
+          const iconEl = l.getElement();
+          if (iconEl && iconEl.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-            markerGroups.get(paneEl)!.push((l as any)._icon);
+            markerGroups.get(paneEl)!.push(iconEl);
           }
         }
       };

@@ -884,15 +884,24 @@ class LayerManager {
       const li = this.layers[i];
       if (!li.isBase) continue;
       const layer = this.findLayer(li);
-      if (!(layer instanceof L.TileLayer) || !(layer.options as any).attribution) continue;
-      delete attrCtrl._attributions[(layer.options as any).attribution];
-      if (!topAttr && this.map.hasLayer(layer)) topAttr = (layer.options as any).attribution;
+      const attrOpts = (layer as L.TileLayer).options as L.TileLayerOptions;
+      if (!(layer instanceof L.TileLayer) || !attrOpts.attribution) continue;
+      if (attrCtrl.removeAttribution) {
+        attrCtrl.removeAttribution(attrOpts.attribution);
+      } else {
+        delete attrCtrl._attributions[attrOpts.attribution];
+        attrCtrl._update();
+      }
+      if (!topAttr && this.map.hasLayer(layer)) topAttr = attrOpts.attribution;
     }
 
-    if (topAttr) attrCtrl._attributions[topAttr] = 1;
+    if (topAttr) {
+      if (attrCtrl.addAttribution) attrCtrl.addAttribution(topAttr);
+      else attrCtrl._attributions[topAttr] = 1;
+    }
     if (topAttr === this.lastAttribution) return;
     this.lastAttribution = topAttr;
-    attrCtrl._update();
+    if (!attrCtrl.removeAttribution) attrCtrl._update();
   }
 
   attachUI(containerDiv: HTMLElement) {

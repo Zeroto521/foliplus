@@ -167,12 +167,12 @@ describe("PaneManager", () => {
     const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const layer = {
-      _path: path,
+      getElement: () => path,
       options: {},
       eachLayer: undefined,
     };
     Object.setPrototypeOf(layer, new window.L.Path());
-    const renderer = { _container: container };
+    const renderer = { getContainer: () => container };
     pm.migrateLayers([{ layer, paneName: "measure_graph", renderer }]);
     expect(layer.options.pane).toBe("measure_graph");
     expect(layer.options.paneSet).toBe(true);
@@ -186,14 +186,14 @@ describe("PaneManager", () => {
     const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const layer = {
-      _icon: icon,
+      getElement: () => icon,
       _shadow: shadow,
       options: {},
       eachLayer: undefined,
     };
     // Force instanceof checks by setting prototypes
     Object.setPrototypeOf(layer, new window.L.Marker());
-    const renderer = { _container: document.createElement("div") };
+    const renderer = { getContainer: () => document.createElement("div") };
     pm.migrateLayers([{ layer, paneName: "measure_graph", renderer }]);
     expect(icon.parentNode).toBe(paneEl);
     expect(shadow.parentNode).toBe(paneEl);
