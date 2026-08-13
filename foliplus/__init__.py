@@ -14,6 +14,7 @@ from .ExportControl import ExportControl
 from .FullscreenControl import FullscreenControl
 from .HeatmapControl import HeatmapControl
 from .LayerControl import LayerControl
+from .LocateControl import LocateControl
 from .MeasureControl import MeasureControl
 from .ScaleControl import ScaleControl
 from .SearchControl import SearchControl
@@ -23,6 +24,7 @@ __all__ = [
     "FullscreenControl",
     "HeatmapControl",
     "LayerControl",
+    "LocateControl",
     "MeasureControl",
     "ScaleControl",
     "SearchControl",

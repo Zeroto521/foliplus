@@ -1,0 +1,56 @@
+/* ── LocateControl ──
+  Single-button locate control: a crosshair "locate me" button that uses the
+  browser geolocation API. Inherits the shared .leaflet-bar button styling
+  from common.css; only the differentiated button class lives here. ── */
+
+.foliplus-locate-btn {
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+
+  &:hover {
+    background-color: var(--accent-light);
+    color: var(--accent-primary);
+    transform: scale(var(--scale-hover));
+  }
+
+  &:active {
+    transform: scale(var(--scale-press));
+  }
+
+  &:focus-visible {
+    outline: var(--border-thick) solid var(--accent-primary);
+    outline-offset: var(--border-thin);
+  }
+
+  svg {
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+    stroke: currentColor;
+    fill: none;
+    stroke-width: var(--stroke-icon);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover svg {
+    transform: scale(var(--scale-hover));
+  }
+
+  &:active svg {
+    transform: scale(var(--scale-press));
+  }
+}
