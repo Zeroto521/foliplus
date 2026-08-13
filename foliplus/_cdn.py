@@ -9,6 +9,5 @@ H3 = "4"
 SS = "7"
 CHROMA = "2"
 
-# MeasureControl
-GCOORD = "1"
-TURF = "7"
+GCOORD = "1"  # MeasureControl / LocateControl / SearchControl
+TURF = "7"  # MeasureControl
