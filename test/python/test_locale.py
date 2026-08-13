@@ -120,6 +120,14 @@ _JS_USED_KEYS = {
     "LayerControl.readonly_error",
     "LayerControl.readonly_del_error",
     "LayerControl.readonly_method_error",
+    # LocateControl
+    "LocateControl.title",
+    "LocateControl.locating",
+    "LocateControl.geo_error",
+    "LocateControl.popup_title_geo",
+    "LocateControl.popup_loc_label",
+    "LocateControl.popup_addr_label",
+    "LocateControl.popup_loading",
     # SearchControl
     "SearchControl.btn_title",
     "SearchControl.mode_coord",

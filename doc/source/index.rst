@@ -31,6 +31,12 @@ data itself.
 
       Drag-and-drop layer ordering with geometry icons, color picker, and panes.
 
+   .. grid-item-card:: 🎯 LocateControl
+      :padding: 2
+      :link: api/foliplus.LocateControl.html
+
+      Fly to the user's current position.
+
    .. grid-item-card:: 📏 MeasureControl
       :padding: 2
       :link: api/foliplus.MeasureControl.html
