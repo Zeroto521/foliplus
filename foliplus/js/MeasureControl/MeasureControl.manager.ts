@@ -28,7 +28,7 @@ class MeasureManager {
   isSuppressHideDel: boolean;
   toolBtns: HTMLElement[];
   finalizedClickHandlers: Array<(e: L.LeafletMouseEvent) => void>;
-  measurements: any[];
+  measurements: MeasureData[];
   measurementIdCounter: number;
   ctrl: HTMLElement | null;
   onMapClick!: (e: L.LeafletMouseEvent) => void;

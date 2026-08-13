@@ -190,6 +190,23 @@ declare global {
     [key: string]: unknown;
   }
 
+  /** A persisted MeasureControl measurement. */
+  interface MeasureData {
+    id?: string;
+    type: string;
+    lng?: number;
+    lat?: number;
+    address?: string | null;
+    points?: Array<{ lng: number; lat: number }>;
+    segments?: Array<{ lng: number; lat: number; distance: number }>;
+    totalDistance?: number;
+    area?: number;
+    center?: { lng: number; lat: number };
+    target?: { lng: number; lat: number };
+    radius?: number;
+    [key: string]: unknown;
+  }
+
   /** Return type of `LayerAPI.createCanvas`. */
   interface CreateCanvasAPI {
     canvas: HTMLCanvasElement;

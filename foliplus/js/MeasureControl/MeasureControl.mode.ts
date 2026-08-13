@@ -17,22 +17,6 @@ const foliplus: any = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Persisted measurement payload type. */
-interface MeasureData {
-  id?: string;
-  type: string;
-  lng?: number;
-  lat?: number;
-  address?: string | null;
-  points?: L.LatLng[];
-  segments?: Array<{ lng: number; lat: number; distance: number }>;
-  totalDistance?: number;
-  area?: number;
-  center?: { lng: number; lat: number };
-  target?: { lng: number; lat: number };
-  radius?: number;
-  [key: string]: unknown;
-}
-
 type Mode = { type: string };
 type LayerEvents = Array<[string, (e: any) => void]>;
 
@@ -179,7 +163,7 @@ class MarkerMode extends MeasureMode {
     const deleteMarker = () => {
       manager.layers.removeLayer(marker);
       manager.layers.removeLayer(delMarker);
-      manager.measurements = manager.measurements.filter((x: any) => x.id !== data.id);
+      manager.measurements = manager.measurements.filter(x => x.id !== data.id);
       manager.saveMeasurements();
       manager.layers.unregister();
     };
@@ -253,7 +237,7 @@ class MarkerMode extends MeasureMode {
     const deleteMarker = () => {
       this.layers.removeLayer(marker);
       this.layers.removeLayer(delMarker);
-      this.m.measurements = this.m.measurements.filter((x: any) => x.id !== markerId);
+      this.m.measurements = this.m.measurements.filter(x => x.id !== markerId);
       this.m.saveMeasurements();
       this.layers.unregister();
     };
@@ -321,7 +305,7 @@ class DistanceMode extends PreviewMode {
       segLabels,
       points: points,
       onDelete: () => {
-        manager.measurements = manager.measurements.filter((x: any) => x.id !== data.id);
+        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
         manager.saveMeasurements();
       },
       onUpdate: () => {
@@ -411,11 +395,11 @@ class DistanceMode extends PreviewMode {
         segLabels,
         points: points,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter((x: any) => x.id !== distId);
+          this.m.measurements = this.m.measurements.filter(x => x.id !== distId);
           this.m.saveMeasurements();
         },
         onUpdate: () => {
-          const m = this.m.measurements.find((x: any) => x.id === distId);
+          const m = this.m.measurements.find(x => x.id === distId);
           if (!m) return;
           const { segments, totalDistance } = Util.recalculateSegments(points);
           m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
@@ -592,7 +576,7 @@ class PolygonMode extends PreviewMode {
       points: points,
       area: data.area,
       onDelete: () => {
-        manager.measurements = manager.measurements.filter((x: any) => x.id !== data.id);
+        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
         manager.saveMeasurements();
       },
       onUpdate: () => {
@@ -722,11 +706,11 @@ class PolygonMode extends PreviewMode {
         points,
         area,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter((x: any) => x.id !== polyId);
+          this.m.measurements = this.m.measurements.filter(x => x.id !== polyId);
           this.m.saveMeasurements();
         },
         onUpdate: () => {
-          const m = this.m.measurements.find((x: any) => x.id === polyId);
+          const m = this.m.measurements.find(x => x.id === polyId);
           if (!m) return;
           const { segments } = Util.recalculateSegments(points);
           // Add closing segment
@@ -928,7 +912,7 @@ class CircleMode extends PreviewMode {
       delMarker,
       radiusLabel,
       onDelete: () => {
-        manager.measurements = manager.measurements.filter((x: any) => x.id !== data.id);
+        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
         manager.saveMeasurements();
       },
     });
@@ -1152,7 +1136,7 @@ class CircleMode extends PreviewMode {
         delMarker: delMarker as L.Marker,
         radiusLabel: radiusLabel as L.Marker,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter((x: any) => x.id !== circleId);
+          this.m.measurements = this.m.measurements.filter(x => x.id !== circleId);
           this.m.saveMeasurements();
         },
       });
