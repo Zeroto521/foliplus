@@ -40,12 +40,12 @@ type LayerEvents = Array<[string, (e: any) => void]>;
 /** Base class for all measurement modes. Handles map reference, layer group, and cleanup lifecycle. */
 class MeasureMode {
   static TYPE: string = "";
-  manager: any;
-  map: any;
+  manager: MeasureManager;
+  map: L.Map;
   layers: CreateLayersAPI;
   _cleanup: (() => void) | null;
 
-  constructor(manager: any) {
+  constructor(manager: MeasureManager) {
     this.manager = manager;
     this.map = manager.map;
     this.layers = manager.layers;
