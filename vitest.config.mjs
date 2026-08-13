@@ -23,6 +23,7 @@ export default defineConfig({
         "foliplus/js/FullscreenControl/FullscreenControl.ts",
         "foliplus/js/HeatmapControl/HeatmapControl.ts",
         "foliplus/js/LayerControl/LayerControl.ts",
+        "foliplus/js/LocateControl/LocateControl.ts",
         "foliplus/js/MeasureControl/MeasureControl.ts",
         "foliplus/js/ScaleControl/ScaleControl.ts",
         "foliplus/js/SearchControl/SearchControl.ts",
