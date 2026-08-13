@@ -163,6 +163,7 @@ declare global {
     type MarkerOptions = Leaflet.MarkerOptions;
     type IconOptions = Leaflet.IconOptions;
     type DivIconOptions = Leaflet.DivIconOptions;
+    type LayerOptions = Leaflet.LayerOptions;
     type PathOptions = Leaflet.PathOptions;
     type LeafletMouseEventHandlerFn = Leaflet.LeafletMouseEventHandlerFn;
     type LeafletKeyboardEvent = Leaflet.LeafletKeyboardEvent;

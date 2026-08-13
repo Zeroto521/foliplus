@@ -311,6 +311,12 @@ interface CreateCanvasOpts {
   onZIndex?: (z: number) => void;
 }
 
+/** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
+interface LabelAwareLayer extends L.Layer {
+  isLabel?: boolean;
+  options: L.LayerOptions & { renderer?: L.Renderer; pane?: string; paneSet?: boolean };
+}
+
 // ==================== Core Manager: LayerManager ====================
 class LayerManager {
   map: L.Map;
@@ -568,8 +574,10 @@ class LayerManager {
 
   clearAllLayers(layer: L.Layer | null) {
     if (!layer) return;
-    if (typeof (layer as any).clearLayers === "function") (layer as any).clearLayers();
-    else if ((layer as any).eachLayer) (layer as any).eachLayer((l: L.Layer) => this.clearAllLayers(l));
+    if ("clearLayers" in layer && typeof (layer as L.LayerGroup).clearLayers === "function")
+      (layer as L.LayerGroup).clearLayers();
+    else if ("eachLayer" in layer && typeof (layer as L.LayerGroup).eachLayer === "function")
+      (layer as L.LayerGroup).eachLayer(c => this.clearAllLayers(c));
   }
 
   createLayers(opts: CreateLayersOpts): CreateLayersAPI {
@@ -577,8 +585,7 @@ class LayerManager {
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
       : null;
-    const labelLayer = opts.labelPane ? L.layerGroup() : null;
-    if (labelLayer) (labelLayer as any).options.pane = opts.labelPane;
+    const labelLayer = opts.labelPane ? L.layerGroup([], { pane: opts.labelPane }) : null;
     if (graphLayer) mainLayer.addLayer(graphLayer);
     if (labelLayer) mainLayer.addLayer(labelLayer);
 
@@ -614,8 +621,8 @@ class LayerManager {
     const origAddLayer = mainLayer.addLayer.bind(mainLayer);
     const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
 
-    mainLayer.addLayer = (layer: any) => {
-      const isLabel = (layer as any).isLabel;
+    mainLayer.addLayer = (layer: LabelAwareLayer) => {
+      const isLabel = layer.isLabel;
       const target = isLabel ? labelLayer : graphLayer;
       if (target) {
         if (!this.map.hasLayer(mainLayer)) register();
@@ -623,7 +630,7 @@ class LayerManager {
         layer.options.pane = paneName;
         if (layer instanceof L.Path) {
           const { renderer } = this.panes.ensurePane(opts.graphPane!);
-          (layer.options as any).renderer = renderer;
+          layer.options.renderer = renderer;
         } else if (paneName) this.panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
         this.panes.reset();
@@ -632,7 +639,7 @@ class LayerManager {
       return origAddLayer(layer);
     };
 
-    mainLayer.removeLayer = (layer: any) => {
+    mainLayer.removeLayer = (layer: LabelAwareLayer) => {
       if (graphLayer && graphLayer.hasLayer(layer)) {
         const result = graphLayer.removeLayer(layer);
         this.panes.reset();
@@ -653,12 +660,12 @@ class LayerManager {
       unregister();
     };
 
-    const addLayer = (layer: any, isLabel?: boolean) => {
-      if (isLabel) (layer as any).isLabel = true;
+    const addLayer = (layer: LabelAwareLayer, isLabel?: boolean) => {
+      if (isLabel) layer.isLabel = true;
       mainLayer.addLayer(layer);
       return layer;
     };
-    const removeLayer = (...items: any[]) => {
+    const removeLayer = (...items: Array<L.Layer | null | undefined>) => {
       items.forEach(l => {
         if (l != null) mainLayer.removeLayer(l);
       });
@@ -786,7 +793,7 @@ class LayerManager {
       destroy: () => {
         this.map.off("move", onMove);
         this.map.off("resize", onResize);
-        (onMove as any).cancel();
+        onMove.cancel();
         unregister();
         canvas.remove();
       },
@@ -915,7 +922,7 @@ class LayerManager {
   destroy() {
     this.isDestroyed = true;
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
-    if (this.debouncedEnforce) (this.debouncedEnforce as any).cancel();
+    if (this.debouncedEnforce) this.debouncedEnforce.cancel();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;
