@@ -1,0 +1,11 @@
+{
+  "locale.name": "中文",
+  "locale.code": "zh",
+  "LocateControl.locating": "定位中…",
+  "LocateControl.geo_error": "无法获取您的位置，请检查浏览器定位权限",
+  "LocateControl.popup_title_geo": "📍 我的位置",
+  "LocateControl.popup_loc_label": "📌 定位：",
+  "LocateControl.popup_addr_label": "📌 地址：",
+  "LocateControl.popup_loading": "查询中…",
+  "LocateControl.title": "定位"
+}
