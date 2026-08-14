@@ -2,7 +2,7 @@
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./const.js";
-import type { SearchControl } from "./index.js";
+import type { SearchControl } from "./type.js";
 import {
   fetchSuggestions,
   positionSuggestions,

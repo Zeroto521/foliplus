@@ -13,22 +13,9 @@ import { createControlEnv } from "#common/guard.js";
 import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./const.js";
+import type { AddressResult, NominatimItem } from "./type.js";
 
 const { _, foliplus } = createControlEnv(CONF);
-
-/** Nominatim search result element. */
-interface NominatimItem {
-  lat: string;
-  lon: string;
-  name?: string;
-  display_name: string;
-}
-
-/** Cached address result: the raw item + its formatted display name. */
-interface AddressResult {
-  item: NominatimItem;
-  displayName: string;
-}
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
 interface SearchControlState {

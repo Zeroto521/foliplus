@@ -8,22 +8,9 @@ import { CLASSES, MODE } from "./const.js";
 import { bindEvents, initFromUrl } from "./event.js";
 import * as SVGs from "./icon.js";
 import { initDebouncedFetch, removeSuggestions } from "./logic.js";
+import type { AddressResult, NominatimItem } from "./type.js";
 
 const { _, foliplus } = createControlEnv(CONF, SVGs.SEARCH);
-
-/** Nominatim search result element. */
-interface NominatimItem {
-  lat: string;
-  lon: string;
-  name?: string;
-  display_name: string;
-}
-
-/** Cached address result: the raw item + its formatted display name. */
-interface AddressResult {
-  item: NominatimItem;
-  displayName: string;
-}
 
 // ==================== Control Definition ====================
 export class SearchControl extends BaseControl {
