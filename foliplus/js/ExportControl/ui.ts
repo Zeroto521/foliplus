@@ -6,9 +6,9 @@ import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
-import * as CONST from "./ExportControl.const.js";
-import * as SVGs from "./ExportControl.icon.js";
-import type { ExportManager, Rect } from "./ExportControl.manager.js";
+import * as CONST from "./const.js";
+import * as SVGs from "./icon.js";
+import type { ExportManager, Rect } from "./manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 

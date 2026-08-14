@@ -4,8 +4,8 @@ import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
-import * as CONST from "./MeasureControl.const.js";
-import * as SVGs from "./MeasureControl.icon.js";
+import * as CONST from "./const.js";
+import * as SVGs from "./icon.js";
 import {
   CircleMode,
   DistanceMode,
@@ -13,7 +13,7 @@ import {
   MarkerMode,
   MeasureMode,
   PolygonMode,
-} from "./MeasureControl.mode.js";
+} from "./mode.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;

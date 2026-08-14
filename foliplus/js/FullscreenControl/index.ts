@@ -1,10 +1,10 @@
 import { BaseControl } from "#common/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
-import { isEnabled, nativeAPI } from "./FullscreenControl.api.js";
-import { CLASSES, containerId } from "./FullscreenControl.const.js";
-import * as SVGs from "./FullscreenControl.icon.js";
-import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logic.js";
+import { isEnabled, nativeAPI } from "./api.js";
+import { CLASSES, containerId } from "./const.js";
+import * as SVGs from "./icon.js";
+import { bindFullscreenEvents, toggleFullscreen } from "./logic.js";
 
 const { _ } = createControlEnv(CONF, SVGs.MAXIMIZE);
 

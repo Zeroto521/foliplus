@@ -1,7 +1,7 @@
 import { BaseControl } from "#common/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
-import { locateMe, removeMarker } from "./LocateControl.logic.js";
+import { locateMe, removeMarker } from "./logic.js";
 
 // ── SVG Icons ──
 // AMap-style crosshair locate icon (stroke-rendered, inherits common button SVG styles).

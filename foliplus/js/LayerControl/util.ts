@@ -1,7 +1,7 @@
 /** Utility functions for LayerControl. */
 import { escapeHTML } from "#common/dom.js";
-import * as CONST from "./LayerControl.const.js";
-import * as SVGs from "./LayerControl.icon.js";
+import * as CONST from "./const.js";
+import * as SVGs from "./icon.js";
 
 /** Detect the geometry type of a layer tree.
  *  @param {Object} layer - Leaflet layer.

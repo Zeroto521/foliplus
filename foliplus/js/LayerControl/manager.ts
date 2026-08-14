@@ -3,10 +3,10 @@ import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { throttleRaf } from "#common/throttle.js";
-import * as CONST from "./LayerControl.const.js";
-import { PaneManager } from "./LayerControl.pane.js";
-import { LayerUI } from "./LayerControl.ui.js";
-import * as Util from "./LayerControl.util.js";
+import * as CONST from "./const.js";
+import { PaneManager } from "./pane.js";
+import { LayerUI } from "./ui.js";
+import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;

@@ -3,13 +3,13 @@ import { dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { bindPanelToggle } from "#common/panel.js";
-import * as SVGs from "./LayerControl.icon.js";
+import * as SVGs from "./icon.js";
 import {
   LayerManager,
   patchBringToFront,
   unpatchBringToFront,
-} from "./LayerControl.manager.js";
-import { LayerUI } from "./LayerControl.ui.js";
+} from "./manager.js";
+import { LayerUI } from "./ui.js";
 
 const { _ } = createControlEnv(CONF, SVGs.LAYERS);
 

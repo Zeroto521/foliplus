@@ -2,11 +2,6 @@ import { BaseControl } from "#common/BaseControl.js";
 import { dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 
-const CLASSES = {
-  WRAP: "foliplus-scale-wrap",
-  ZOOM_LABEL: "foliplus-scale-zoom-label",
-};
-
 // ==================== Runtime Guard ====================
 const { _ } = createControlEnv(CONF);
 
@@ -19,11 +14,13 @@ class ScaleControl extends BaseControl {
     });
     Reflect.set(scaleCtrl, "_map", this._map);
     const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
-    ctrl.classList.add(CLASSES.WRAP);
+    ctrl.classList.add("foliplus-scale-wrap");
 
     // ==================== Zoom Label ====================
     if (CONF.show_zoom) {
-      const zoomLabel = dom.el("span", { class: CLASSES.ZOOM_LABEL, parent: ctrl });
+      const zoomLabel = dom.el("span", {
+        class: "foliplus-scale-zoom-label", parent: ctrl
+      });
       const updateZoom = () => {
         zoomLabel.textContent = _(`${CONF.name}.zoom_label`).replace(
           "{zoom}",

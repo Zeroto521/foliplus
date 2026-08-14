@@ -3,8 +3,8 @@ import { dom } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
-import * as CONST from "./ExportControl.const.js";
-import { ExportRenderer } from "./ExportControl.renderer.js";
+import * as CONST from "./const.js";
+import { ExportRenderer } from "./renderer.js";
 import {
   lockCropBox,
   removeCropBox,
@@ -13,7 +13,7 @@ import {
   showHintWithInfo,
   unlockCropBox,
   updateBoxStyle,
-} from "./ExportControl.ui.js";
+} from "./ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;

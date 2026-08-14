@@ -1,7 +1,7 @@
 // DOM helpers and popup/marker utilities for foliplus components.
 //
 // Imported statically by components. Reverse geocoding is NOT imported here —
-// it lives in the runtime singleton (runtime.geocode.js) and is accessed
+// it lives in the runtime singleton (geocode.js) and is accessed
 // lazily via `foliplus.reverseGeocode` at call time, so the geocoder's shared
 // cache/throttle state is not duplicated into every component bundle.
 import * as SVGs from "./icon.js";

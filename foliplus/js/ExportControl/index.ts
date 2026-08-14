@@ -1,8 +1,8 @@
 import { BaseControl } from "#common/BaseControl.js";
 import { createControlEnv, requireLayerAPI } from "#common/guard.js";
 import { createFoldControl } from "#common/panel.js";
-import * as SVGs from "./ExportControl.icon.js";
-import { ExportManager } from "./ExportControl.manager.js";
+import * as SVGs from "./icon.js";
+import { ExportManager } from "./manager.js";
 
 const { _ } = createControlEnv(CONF, SVGs.CAMERA);
 requireLayerAPI(CONF.name, _);

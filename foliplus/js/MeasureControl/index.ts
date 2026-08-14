@@ -7,9 +7,9 @@ import {
   bindOutsideCollapse,
   createFoldControl,
 } from "#common/panel.js";
-import * as CONST from "./MeasureControl.const.js";
-import * as SVGs from "./MeasureControl.icon.js";
-import { MeasureManager } from "./MeasureControl.manager.js";
+import * as CONST from "./const.js";
+import * as SVGs from "./icon.js";
+import { MeasureManager } from "./manager.js";
 
 const { _ } = createControlEnv(CONF, SVGs.RULER);
 requireLayerAPI(CONF.name, _);

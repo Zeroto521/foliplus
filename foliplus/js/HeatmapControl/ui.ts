@@ -4,8 +4,8 @@ import { dom } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
-import * as CONST from "./HeatmapControl.const.js";
-import { HeatmapManager } from "./HeatmapControl.logic.js";
+import * as CONST from "./const.js";
+import { HeatmapManager } from "./logic.js";
 
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);

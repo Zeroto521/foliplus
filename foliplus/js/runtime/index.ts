@@ -9,8 +9,8 @@
  * `runtime/*.js` submodules) into `dist/runtime.min.js`, which BaseControl
  * injects once per map into the shared header.
  */
-import { reverseGeocode } from "./runtime.geocode.js";
-import { hideHint, registerHintIcon, showHint } from "./runtime.hint.js";
+import { reverseGeocode } from "./geocode.js";
+import { hideHint, registerHintIcon, showHint } from "./hint.js";
 
 // Ensure the global namespace object exists.
 if (!window.foliplus || typeof window.foliplus !== "object")

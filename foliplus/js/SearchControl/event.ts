@@ -1,15 +1,15 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
-import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./SearchControl.const.js";
-import type { SearchControl } from "./SearchControl.js";
+import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./const.js";
+import type { SearchControl } from "./index.js";
 import {
   fetchSuggestions,
   positionSuggestions,
   removeSuggestions,
   searchAddress,
   searchCoord,
-} from "./SearchControl.logic.js";
+} from "./logic.js";
 
 const { _, foliplus } = createControlEnv(CONF);
 

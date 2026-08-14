@@ -1,6 +1,6 @@
 import { createTranslator } from "#common/locale.js";
-import * as CONST from "./LayerControl.const.js";
-import * as Util from "./LayerControl.util.js";
+import * as CONST from "./const.js";
+import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);

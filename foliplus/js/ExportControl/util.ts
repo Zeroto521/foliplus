@@ -1,5 +1,5 @@
 import { createTranslator } from "#common/locale.js";
-import * as CONST from "./ExportControl.const.js";
+import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);

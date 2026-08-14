@@ -4,10 +4,10 @@ import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
-import { CLASSES, MODE } from "./SearchControl.const.js";
-import { bindEvents, initFromUrl } from "./SearchControl.event.js";
-import * as SVGs from "./SearchControl.icon.js";
-import { initDebouncedFetch, removeSuggestions } from "./SearchControl.logic.js";
+import { CLASSES, MODE } from "./const.js";
+import { bindEvents, initFromUrl } from "./event.js";
+import * as SVGs from "./icon.js";
+import { initDebouncedFetch, removeSuggestions } from "./logic.js";
 
 const { _, foliplus } = createControlEnv(CONF, SVGs.SEARCH);
 

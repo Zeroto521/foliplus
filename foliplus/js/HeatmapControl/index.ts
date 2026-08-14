@@ -1,15 +1,15 @@
 import { BaseControl } from "#common/BaseControl.js";
 import { createControlEnv, requireLayerAPI } from "#common/guard.js";
 import { createPanelControl } from "#common/panel.js";
-import * as CONST from "./HeatmapControl.const.js";
-import * as SVGs from "./HeatmapControl.icon.js";
-import { HeatmapManager } from "./HeatmapControl.logic.js";
+import * as CONST from "./const.js";
+import * as SVGs from "./icon.js";
+import { HeatmapManager } from "./logic.js";
 import {
   buildDataSection,
   buildStyleSection,
   initScan,
   setupObserver,
-} from "./HeatmapControl.ui.js";
+} from "./ui.js";
 
 const { _ } = createControlEnv(CONF, SVGs.HEXAGON);
 requireLayerAPI(CONF.name, _);

@@ -2,9 +2,9 @@
 import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
-import * as CONST from "./MeasureControl.const.js";
-import type { MeasureManager } from "./MeasureControl.manager.js";
-import * as Util from "./MeasureControl.util.js";
+import * as CONST from "./const.js";
+import type { MeasureManager } from "./manager.js";
+import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
