@@ -33,6 +33,10 @@ const bindEvents = (ctrl: SearchControl) => {
       map.removeLayer(ctrl.marker);
       ctrl.marker = null;
     }
+    if (ctrl.delIcon) {
+      map.removeLayer(ctrl.delIcon);
+      ctrl.delIcon = null;
+    }
     ctrl.inp.focus();
   };
 

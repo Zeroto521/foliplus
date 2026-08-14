@@ -42,6 +42,7 @@ export class SearchControl extends BaseControl {
   declare addrAbortController: AbortController | null;
   declare suggestAbortController: AbortController | null;
   declare marker: L.Marker | null;
+  declare delIcon: L.Marker | null;
   declare mode: string;
   declare suggestionsWrap: HTMLElement | null;
   declare selectedSuggestionIdx: number;
@@ -113,6 +114,7 @@ export class SearchControl extends BaseControl {
   // ── State Initialization ──
   initState() {
     this.marker = null;
+    this.delIcon = null;
     this.mode = CONF.mode ?? "";
     if (this.mode !== MODE.COORD && this.mode !== MODE.ADDR) this.mode = MODE.COORD;
     this.suggestionsWrap = null;
@@ -147,6 +149,10 @@ export class SearchControl extends BaseControl {
     if (this.marker) {
       map.removeLayer(this.marker);
       this.marker = null;
+    }
+    if (this.delIcon) {
+      map.removeLayer(this.delIcon);
+      this.delIcon = null;
     }
     if (this.suggestAbortController) this.suggestAbortController.abort();
     foliplus.hideHint(CONF.name);

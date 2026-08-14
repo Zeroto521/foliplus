@@ -1,6 +1,12 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
 import { fromWgs84 } from "#common/coord.js";
 import { type Debounced, debounce } from "#common/debounce.js";
+import {
+  DEL_ICON_MARKER_ANCHOR,
+  attachDelClick,
+  makeDelIcon,
+  toggleDelIcon,
+} from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
@@ -40,8 +46,48 @@ interface SearchControlState {
   suggestSeq: number;
   debouncedFetch: Debounced;
   marker: L.Marker | null;
+  delIcon: L.Marker | null;
   ctrl: HTMLElement;
 }
+
+/**
+ * Attach a floating ✕ delete icon to the search marker.
+ * The ✕ shows while the popup is open; clicking it removes the pin and
+ * clears the search input, mirroring MeasureControl / LocateControl UX.
+ * @param {Object} ctrl - SearchControl state
+ * @param {L.LatLngExpression} latlng - Marker position
+ */
+const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpression) => {
+  if (ctrl.delIcon) {
+    map.removeLayer(ctrl.delIcon);
+    ctrl.delIcon = null;
+  }
+  ctrl.delIcon = makeDelIcon(latlng, {
+    title: _("foliplus.close_label"),
+    iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the pin's bottom tip
+  });
+  map.addLayer(ctrl.delIcon);
+  const delIcon = ctrl.delIcon;
+
+  const clearSearch = () => {
+    if (ctrl.marker) {
+      map.removeLayer(ctrl.marker);
+      ctrl.marker = null;
+    }
+    if (ctrl.delIcon) {
+      map.removeLayer(ctrl.delIcon);
+      ctrl.delIcon = null;
+    }
+    ctrl.inp.value = "";
+    ctrl.inp.focus();
+  };
+  attachDelClick(delIcon, clearSearch);
+
+  // The ✕ is hidden by default and only appears while the popup is open,
+  // matching MeasureControl / LocateControl marker UX.
+  ctrl.marker?.on("popupopen", () => toggleDelIcon(delIcon, true));
+  ctrl.marker?.on("popupclose", () => toggleDelIcon(delIcon, false));
+};
 
 /**
  * Coordinate search: parse raw input, validate, fly to location, place marker.
@@ -84,6 +130,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
     CONF.locale_code,
     ctrl.marker,
   );
+  attachSearchDelIcon(ctrl, [lat, lng]);
 };
 
 /**
@@ -167,6 +214,7 @@ const renderAddressResult = (ctrl: SearchControlState, result: AddressResult) =>
     CONF.locale_code,
     ctrl.marker,
   );
+  attachSearchDelIcon(ctrl, [lat, lng]);
 };
 
 // ── Suggestions ──
@@ -301,6 +349,7 @@ const buildSearchUrl = (ctrl: SearchControlState, q: string, limit: number) => {
 };
 
 export {
+  attachSearchDelIcon,
   buildSearchUrl,
   fetchSuggestions,
   initDebouncedFetch,
