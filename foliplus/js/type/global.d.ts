@@ -20,29 +20,6 @@ import type * as Leaflet from "leaflet";
 
 // ── Runtime helpers ────────────────────────────────────────────
 
-/** Runtime helpers injected by the foliplus Python wrapper. */
-interface Foliplus {
-  isInitialized: boolean;
-  /** LayerControl public API, null until LayerControl is added. */
-  LayerAPI: LayerAPI | null;
-  registerHintIcon: (name: string, icon: string) => void;
-  showHint: (
-    name: string,
-    msg: string,
-    duration: number,
-    withLoadingIcon?: boolean | string | null,
-    id?: string,
-  ) => void;
-  hideHint: (name: string, id?: string) => void;
-  reverseGeocode: (
-    map: Leaflet.Map,
-    lng: number,
-    lat: number,
-    code?: string,
-  ) => Promise<string>;
-  _TABLES: Record<string, Record<string, string>>;
-}
-
 // ── Component config ───────────────────────────────────────────
 
 /** Per-component config injected by the Jinja2 IIFE. Fields are runtime-defined. */
@@ -165,6 +142,29 @@ declare module "leaflet" {
 }
 
 declare global {
+  /** Runtime helpers injected by the foliplus Python wrapper. */
+  interface Foliplus {
+    isInitialized: boolean;
+    /** LayerControl public API, null until LayerControl is added. */
+    LayerAPI: LayerAPI | null;
+    registerHintIcon: (name: string, icon: string) => void;
+    showHint: (
+      name: string,
+      msg: string,
+      duration: number,
+      withLoadingIcon?: boolean | string | null,
+      id?: string,
+    ) => void;
+    hideHint: (name: string, id?: string) => void;
+    reverseGeocode: (
+      map: Leaflet.Map,
+      lng: number,
+      lat: number,
+      code?: string,
+    ) => Promise<string>;
+    _TABLES: Record<string, Record<string, string>>;
+  }
+
   const L: typeof Leaflet;
   namespace L {
     type ControlOptions = Leaflet.ControlOptions;
@@ -290,7 +290,9 @@ declare global {
       labelPane?: string;
       iconSvg?: string;
     }) => CreateLayersAPI;
-    extractPoints: (id: string) => Array<{ lat: number; lng: number; marker?: any }>;
+    extractPoints: (
+      id: string,
+    ) => Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }>;
     getLayerPanes: (layer: L.Layer) => string[];
     getLayersByType: (
       type: string,

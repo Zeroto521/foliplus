@@ -73,7 +73,7 @@ class LayerUI {
 
   /** Load fold state from localStorage. */
   loadFoldState() {
-    const data = Storage.load(CONST.STORAGE.FOLD_KEY, CONF.name);
+    const data = Storage.load<string[]>(CONST.STORAGE.FOLD_KEY, CONF.name);
     if (Array.isArray(data)) this.foldedGroups = new Set(data);
   }
 

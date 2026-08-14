@@ -149,7 +149,7 @@ class ExportManager {
   }
 
   loadSavedBounds() {
-    const data = Storage.load(CONST.STORAGE.KEY, CONF.name) as SavedBounds | null;
+    const data = Storage.load<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
     if (!data || !data.nw || !data.se) return;
     const nw = data.nw,
       se = data.se;

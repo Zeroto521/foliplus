@@ -47,7 +47,7 @@ class BaseControl extends L.Control {
     // Auto-unbind tracked listeners — always runs, cannot be skipped by subclasses.
     this.events.forEach(([el, event, fn]) => L.DomEvent.off(el, event, fn));
     this.events = [];
-    this.mapListeners.forEach(([event, fn]) => this._map.off(event as any, fn));
+    this.mapListeners.forEach(([event, fn]) => this._map.off(event, fn));
     this.mapListeners = [];
   }
 

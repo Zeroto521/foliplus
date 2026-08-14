@@ -17,7 +17,7 @@ class ScaleControl extends BaseControl {
       metric: CONF.isMetric,
       imperial: !CONF.isMetric,
     });
-    (scaleCtrl as any)._map = this._map;
+    (scaleCtrl as unknown as { _map: L.Map })._map = this._map;
     const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
     ctrl.classList.add(CLASSES.WRAP);
 

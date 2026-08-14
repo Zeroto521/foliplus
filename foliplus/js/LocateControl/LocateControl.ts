@@ -20,7 +20,7 @@ const { _ } = createControlEnv(CONF, LOCATE);
 // ==================== Control Definition ====================
 class LocateControl extends BaseControl {
   declare container: HTMLElement;
-  declare marker: any;
+  declare marker: L.Marker | null;
 
   buildDOM() {
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });

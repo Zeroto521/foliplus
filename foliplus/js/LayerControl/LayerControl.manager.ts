@@ -398,7 +398,7 @@ class LayerManager {
   }
 
   loadSavedOrder() {
-    const data = Storage.load(CONST.STORAGE.ORDER_KEY, CONF.name);
+    const data = Storage.load<string[]>(CONST.STORAGE.ORDER_KEY, CONF.name);
     if (!data || !Array.isArray(data)) return;
     const layerMap = new Map(this.layers.map(l => [l.id, l]));
     const ordered: LayerInfo[] = [];

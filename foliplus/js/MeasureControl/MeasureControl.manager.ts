@@ -67,7 +67,7 @@ class MeasureManager {
   /** Load measurements from localStorage.
    *  @returns {Array} Restored measurements array. */
   loadMeasurements() {
-    const data = Storage.load(CONST.STORAGE.KEY, CONF.name);
+    const data = Storage.load<MeasureData[]>(CONST.STORAGE.KEY, CONF.name);
     return Array.isArray(data) ? data : [];
   }
 

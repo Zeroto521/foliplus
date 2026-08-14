@@ -2,6 +2,7 @@
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./SearchControl.const.js";
+import type { SearchControl } from "./SearchControl.js";
 import {
   fetchSuggestions,
   positionSuggestions,
@@ -16,7 +17,7 @@ const { _, foliplus } = createControlEnv(CONF);
  * Bind all DOM events for the SearchControl.
  * @param {Object} ctrl - SearchControl instance
  */
-const bindEvents = (ctrl: any) => {
+const bindEvents = (ctrl: SearchControl) => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
@@ -72,9 +73,10 @@ const bindEvents = (ctrl: any) => {
         el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
       );
       if (items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value = items[ctrl.selectedSuggestionIdx].querySelector(
-          `.${CLASSES.SUGGESTION_TEXT}`,
-        ).textContent;
+        ctrl.inp.value =
+          items[ctrl.selectedSuggestionIdx].querySelector(
+            `.${CLASSES.SUGGESTION_TEXT}`,
+          )?.textContent ?? "";
       return;
     }
     if (event.key === "ArrowUp" && ctrl.suggestionsWrap) {
@@ -85,9 +87,10 @@ const bindEvents = (ctrl: any) => {
         el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
       );
       if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value = items[ctrl.selectedSuggestionIdx].querySelector(
-          `.${CLASSES.SUGGESTION_TEXT}`,
-        ).textContent;
+        ctrl.inp.value =
+          items[ctrl.selectedSuggestionIdx].querySelector(
+            `.${CLASSES.SUGGESTION_TEXT}`,
+          )?.textContent ?? "";
       return;
     }
     if (event.key === "Enter") {
@@ -108,10 +111,9 @@ const bindEvents = (ctrl: any) => {
   });
 
   ctrl.repositionHandler = () => positionSuggestions(ctrl);
-  ctrl.scrollTargets = [window, document.querySelector(".leaflet-container")].filter(
-    Boolean,
-  );
-  ctrl.scrollTargets.forEach((t: any) =>
+  const leafletContainer = document.querySelector(".leaflet-container");
+  ctrl.scrollTargets = leafletContainer ? [window, leafletContainer] : [window];
+  ctrl.scrollTargets.forEach((t: Element | Window) =>
     t.addEventListener("scroll", ctrl.repositionHandler, true),
   );
   window.addEventListener("resize", ctrl.repositionHandler);
@@ -121,7 +123,7 @@ const bindEvents = (ctrl: any) => {
  * Parse URL parameters to initialize search state.
  * @param {Object} ctrl - SearchControl instance
  */
-const initFromUrl = (ctrl: any) => {
+const initFromUrl = (ctrl: SearchControl) => {
   try {
     const params = new URLSearchParams(window.location.search);
     const q = params.get(PARAM.Q);

@@ -286,8 +286,9 @@ class HeatmapManager {
       foliplus.LayerAPI!.extractPoints(info.id).forEach(pt => {
         const m = pt.marker;
         if (m?.feature?.properties) {
-          Object.keys(m.feature.properties).forEach(k => {
-            if (typeof m.feature.properties[k] === "number" && !seen.has(k)) {
+          const props = m.feature.properties;
+          Object.keys(props).forEach(k => {
+            if (typeof props[k] === "number" && !seen.has(k)) {
               seen.add(k);
               fields.push(`properties.${k}`);
             }

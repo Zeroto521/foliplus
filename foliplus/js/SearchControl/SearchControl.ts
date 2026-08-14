@@ -26,7 +26,7 @@ interface AddressResult {
 }
 
 // ==================== Control Definition ====================
-class SearchControl extends BaseControl {
+export class SearchControl extends BaseControl {
   declare container: HTMLElement;
   declare ctrl: HTMLElement;
   declare toggleBtn: HTMLElement;
@@ -37,7 +37,7 @@ class SearchControl extends BaseControl {
   declare debouncedFetch: Debounced;
   declare cachedSuggestions: Record<string, NominatimItem[]>;
   declare cachedAddress: Record<string, AddressResult>;
-  declare scrollTargets: HTMLElement[];
+  declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
   declare addrAbortController: AbortController | null;
   declare suggestAbortController: AbortController | null;
