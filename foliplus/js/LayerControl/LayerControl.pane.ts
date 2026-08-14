@@ -144,7 +144,8 @@ class PaneManager {
     const markerGroups = new Map<HTMLElement, HTMLElement[]>();
     for (const { layer, paneName, renderer } of layersToMove) {
       if (!paneName) continue;
-      const container = renderer?.getContainer?.();
+      const container = (renderer as (L.SVG & { _container?: HTMLElement }) | null)
+        ?._container;
       if (!container) continue;
       const paneEl = this.map.getPane(paneName);
       if (!groups.has(container)) groups.set(container, []);

@@ -937,23 +937,23 @@ class LayerManager {
       const li = this.layers[i];
       if (!li.isBase) continue;
       const layer = this.findLayer(li);
-      const attrOpts = (layer as L.TileLayer).options as L.TileLayerOptions;
-      if (!(layer instanceof L.TileLayer) || !attrOpts.attribution) continue;
-      if (attrCtrl.removeAttribution) {
-        attrCtrl.removeAttribution(attrOpts.attribution);
-      } else {
-        delete attrCtrl._attributions[attrOpts.attribution];
-        attrCtrl._update();
-      }
-      if (!topAttr && this.map.hasLayer(layer)) topAttr = attrOpts.attribution;
+      if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
+      if (!topAttr && this.map.hasLayer(layer)) topAttr = layer.options.attribution;
     }
 
+    // Unchanged top-most attribution: nothing to rebuild.
+    if (topAttr === this.lastAttribution) return;
+
+    const prev = this.lastAttribution;
+    this.lastAttribution = topAttr;
+    if (prev) {
+      if (attrCtrl.removeAttribution) attrCtrl.removeAttribution(prev);
+      else delete attrCtrl._attributions[prev];
+    }
     if (topAttr) {
       if (attrCtrl.addAttribution) attrCtrl.addAttribution(topAttr);
       else attrCtrl._attributions[topAttr] = 1;
     }
-    if (topAttr === this.lastAttribution) return;
-    this.lastAttribution = topAttr;
     if (!attrCtrl.removeAttribution) attrCtrl._update();
   }
 
