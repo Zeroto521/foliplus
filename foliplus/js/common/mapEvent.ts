@@ -5,7 +5,7 @@
 // Handlers are plain [event, fn] tuples; the same array can be passed to
 // bindMapEvents and later to unbindMapEvents for symmetric cleanup.
 
-type MapHandler = (...args: any[]) => void;
+type MapHandler = L.LeafletEventHandlerFn;
 type MapEventHandlers = Array<[string, MapHandler]>;
 
 /**

@@ -61,7 +61,7 @@ type AttrVal =
   | number
   | boolean
   | null
-  | ((e: Event) => void)
+  | EventListener
   | HTMLElement
   | Record<string, string>;
 type ElementAttrs = Record<string, AttrVal | undefined>;
@@ -97,21 +97,15 @@ const dom = {
           if (typeof val === "object" && val !== null && !("appendChild" in val)) {
             const styleObj: Record<string, string> = val as Record<string, string>;
             Object.assign(el.style, styleObj);
-          } else {
-            el.style.cssText = String(val);
-          }
+          } else el.style.cssText = String(val);
         } else if (key === "parent") (val as HTMLElement).appendChild(el);
         else if (key === "innerHTML") el.innerHTML = String(val);
-        else if (BOOL_PROPS.has(key)) {
-          const prop = key as keyof HTMLElement;
-          (el[prop] as unknown) = val === "" || val === true;
-        } else if (PROPS.has(key)) {
-          const prop = key as keyof HTMLElement;
-          (el[prop] as unknown) = val;
-        } else if (EVENTS.has(key)) {
-          const handler = val as (e: Event) => void;
-          const prop = ("on" + key.slice(2)) as keyof HTMLElement;
-          (el[prop] as unknown) = handler;
+        else if (BOOL_PROPS.has(key))
+          (el[key as keyof HTMLElement] as unknown) = val === "" || val === true;
+        else if (PROPS.has(key)) (el[key as keyof HTMLElement] as unknown) = val;
+        else if (EVENTS.has(key)) {
+          const handler = val as EventListener;
+          (el[("on" + key.slice(2)) as keyof HTMLElement] as unknown) = handler;
         } else el.setAttribute(key, String(val));
       }
     }
@@ -121,13 +115,9 @@ const dom = {
         typeof child === "object" &&
         "html" in child &&
         (child as { html: string }).html
-      ) {
-        el.insertAdjacentHTML("beforeend", (child as { html: string }).html);
-      } else if (typeof child === "number") {
-        el.append(String(child));
-      } else {
-        el.append(child as string | HTMLElement);
-      }
+      ) el.insertAdjacentHTML("beforeend", (child as { html: string }).html);
+      else if (typeof child === "number") el.append(String(child));
+      else el.append(child as string | HTMLElement);
     }
     return el;
   },
@@ -145,7 +135,7 @@ const createIconButton = (opts: {
   svg: string;
   parent?: HTMLElement;
   onclick?: (event: Event) => void;
-  data?: Record<string, unknown>;
+  data?: Record<string, string | number | boolean>;
 }): HTMLButtonElement => {
   const attrs: ElementAttrs = {
     class: opts.class,
@@ -164,14 +154,18 @@ const createIconButton = (opts: {
  * Stop event propagation and prevent default.
  * Handles both DOM events and Leaflet's wrapped events (e.originalEvent).
  */
-const stopEvent = (event: any): void => {
-  const d = event.originalEvent || event;
-  d?.stopPropagation?.();
-  d?.preventDefault?.();
+const stopEvent = (event: Event | { originalEvent?: Event }): void => {
+  const d = (event as { originalEvent?: Event }).originalEvent ?? (event as Event);
+  (
+    d as Event & { stopPropagation?: () => void; preventDefault?: () => void }
+  )?.stopPropagation?.();
+  (
+    d as Event & { stopPropagation?: () => void; preventDefault?: () => void }
+  )?.preventDefault?.();
 };
 
 /** Escape HTML special characters in a string. */
-const escapeHTML = (str: unknown): string => {
+const escapeHTML = (str: string | number | boolean | null | undefined): string => {
   const map: Record<string, string> = {
     "&": "&amp;",
     "<": "&lt;",
@@ -215,7 +209,7 @@ const buildPopupHtml = (
  * Create a location marker with a popup and add it to the map.
  */
 const createLocationMarker = (
-  map: any,
+  map: L.Map,
   lng: number,
   lat: number,
   addr: string | null,
@@ -225,13 +219,13 @@ const createLocationMarker = (
   addrLabelText: string,
   closeLabelText: string,
   code?: string,
-  existing?: any,
-  layerGroup?: any,
+  existing?: L.Marker | null,
+  layerGroup?: L.LayerGroup | L.Map,
   onAddress?: (addr: string) => void,
   openPopup = true,
-): any => {
+): L.Marker => {
   if (existing) map.removeLayer(existing);
-  const target = layerGroup || map;
+  const target = (layerGroup ?? map) as L.Map | L.LayerGroup;
   const marker = L.marker([lat, lng], {
     icon: L.divIcon({
       className: "",
@@ -251,14 +245,15 @@ const createLocationMarker = (
   // Add title to Leaflet's popup close button for hover tooltip.
   const popupEl = marker.getPopup();
   if (popupEl) {
-    const closeBtn = (popupEl as any)._closeButton;
+    const closeBtn = (popupEl as L.Popup & { _closeButton?: HTMLAnchorElement })
+      ._closeButton;
     if (closeBtn) closeBtn.title = closeLabelText || "";
   }
   if (!addr) {
     // Lazy access to the runtime singleton geocoder (kept out of this bundle).
-    const foliplus = window.foliplus || {};
-    if ((foliplus as any).reverseGeocode) {
-      (foliplus as any).reverseGeocode(map, lng, lat, code).then((resolved: string) => {
+    const foliplus = window.foliplus;
+    if (foliplus?.reverseGeocode) {
+      foliplus.reverseGeocode(map, lng, lat, code).then((resolved: string) => {
         if (onAddress) onAddress(resolved);
         if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
           marker.setPopupContent(

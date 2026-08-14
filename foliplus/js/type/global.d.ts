@@ -26,7 +26,13 @@ interface Foliplus {
   /** LayerControl public API, null until LayerControl is added. */
   LayerAPI: LayerAPI | null;
   registerHintIcon: (name: string, icon: string) => void;
-  showHint: (name: string, msg: string, duration: number, withLoadingIcon?: boolean | string | null, id?: string) => void;
+  showHint: (
+    name: string,
+    msg: string,
+    duration: number,
+    withLoadingIcon?: boolean | string | null,
+    id?: string,
+  ) => void;
   hideHint: (name: string, id?: string) => void;
   reverseGeocode: (
     map: Leaflet.Map,
@@ -133,6 +139,24 @@ declare module "leaflet" {
   }
   interface GridLayer {
     _url: string;
+  }
+  interface CRS {
+    /** Geodesic destination (leaflet-geodesy plugin, CDN). */
+    destination?: (
+      latlng: L.LatLngExpression,
+      distance: number,
+      bearing: number,
+    ) => L.LatLng;
+  }
+  namespace CRS {
+    // Override the @types declaration so the geodesy-augmented Earth has destination().
+    const Earth: CRS & {
+      destination: (
+        latlng: L.LatLngExpression,
+        distance: number,
+        bearing: number,
+      ) => L.LatLng;
+    };
   }
 }
 
@@ -258,7 +282,9 @@ declare global {
     }) => CreateLayersAPI;
     extractPoints: (id: string) => Array<{ lat: number; lng: number; marker?: any }>;
     getLayerPanes: (layer: L.Layer) => string[];
-    getLayersByType: (type: string) => Array<{ id: string; name: string; layer: L.Layer }>;
+    getLayersByType: (
+      type: string,
+    ) => Array<{ id: string; name: string; layer: L.Layer }>;
   }
 
   const map: Leaflet.Map;
@@ -281,4 +307,4 @@ declare global {
   }
 }
 
-export { };
+export {};
