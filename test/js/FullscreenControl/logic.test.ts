@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   getFullscreenEl: vi.fn(() => null),
 }));
 
-vi.mock("../../foliplus/js/FullscreenControl/FullscreenControl.api.js", () => ({
+vi.mock("#foliplus/FullscreenControl/FullscreenControl.api.js", () => ({
   nativeAPI: mocks.nativeAPI,
   get isEnabled() {
     return mocks.isEnabled;
