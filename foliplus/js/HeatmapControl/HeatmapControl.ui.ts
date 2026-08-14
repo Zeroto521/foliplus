@@ -435,6 +435,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
+  // Toggle extra body visibility based on current selection.
+  if (ctrl.extraBody)
+    ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
 };
 
 const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {

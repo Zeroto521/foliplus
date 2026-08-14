@@ -366,13 +366,27 @@ class TestHeatmapControlBrowser:
             )
         return html
 
-    def _make_page(self, browser, tmp_path, expose_ctrl=False):
-        """Build a page with point layers + HeatmapControl and return (page, errors)."""
+    def _make_page(self, browser, tmp_path, expose_ctrl=False, num_layers=3):
+        """Build a page with point layers + HeatmapControl and return (page, errors).
+
+        Parameters
+        ----------
+        browser
+            Playwright browser fixture.
+        tmp_path
+            Pytest tmp_path fixture.
+        expose_ctrl
+            If True, expose ``window.__heatmapCtrl`` for test assertions.
+        num_layers
+            Number of independent point FeatureGroups (default 3). Set to 1
+            for auto-select tests.
+        """
         from foliplus import LayerControl
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        fg = folium.FeatureGroup(name="Points", show=True)
-        for lat, lng in [(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]:
+        coords = [(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]
+        for i, (lat, lng) in enumerate(coords[:num_layers]):
+            fg = folium.FeatureGroup(name=f"Points {i}", show=True)
             gj = json.dumps(
                 {
                     "type": "FeatureCollection",
@@ -386,7 +400,8 @@ class TestHeatmapControlBrowser:
                 }
             )
             folium.GeoJson(gj).add_to(fg)
-        fg.add_to(m)
+            fg.add_to(m)
+
         LayerControl().add_to(m)
         HeatmapControl().add_to(m)
 
@@ -399,7 +414,59 @@ class TestHeatmapControlBrowser:
         )
         return page, errors
 
-    # ── Tests ──────────────────────────────────────────────────────
+    def test_auto_select_single_layer(self, browser, tmp_path):
+        """Single point layer is auto-selected on panel expand."""
+        page, errors = self._make_page(
+            browser, tmp_path, expose_ctrl=True, num_layers=1
+        )
+        try:
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(2000)
+
+            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            assert state["selectedLayerId"] is not None, "Layer should be auto-selected"
+            assert state["hasCachedFeatures"] is True, (
+                "renderHexagons should have been called"
+            )
+            assert state["extraBodyHidden"] is False, (
+                "Extra body should be visible after auto-select"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_auto_select_skipped_for_multiple_layers(self, browser, tmp_path):
+        """Multiple point layers: auto-select does NOT trigger."""
+        page, errors = self._make_page(
+            browser, tmp_path, expose_ctrl=True, num_layers=3
+        )
+        try:
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(2000)
+
+            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            assert state["selectedLayerId"] is None, (
+                "No layer should be auto-selected with multiple layers"
+            )
+            assert state["hasCachedFeatures"] is False, (
+                "renderHexagons should NOT have been auto-called"
+            )
+            assert state["extraBodyHidden"] is True, (
+                "Extra body should stay hidden without auto-select"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
 
     def test_panel_interaction(self, browser, tmp_path):
         """Open heatmap panel, verify layer dropdown populates."""
