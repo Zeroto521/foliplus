@@ -55,14 +55,8 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 
   const delIcon = ctrl.delIcon;
   attachDelClick(delIcon, () => removeMarker(ctrl));
-  ctrl.marker.on("popupopen", () => {
-    const iconEl = delIcon.getElement();
-    iconEl?.querySelector("[data-del-icon]")?.classList.add("visible");
-  });
-  ctrl.marker.on("popupclose", () => {
-    const iconEl = delIcon.getElement();
-    iconEl?.querySelector("[data-del-icon]")?.classList.remove("visible");
-  });
+  ctrl.marker.on("popupopen", () => toggleDelIcon(delIcon, true));
+  ctrl.marker.on("popupclose", () => toggleDelIcon(delIcon, false));
 };
 
 /** Locate me via the browser geolocation API. */

@@ -104,15 +104,11 @@ const attachDistanceUI = (
         if (points.length === 2 && nodeDelIcons.length === 2) {
           const lastDel = nodeDelIcons[1];
           if (lastDel) {
+            // After deleting an intermediate node only two nodes remain:
+            // rebind the last node's delete icon to delete the whole
+            // measurement (same behavior as the first node).
             lastDel.off("click");
-            lastDel.on("click", (event: L.LeafletMouseEvent) => {
-              const t = (event.originalEvent as MouseEvent)
-                ?.target as HTMLElement | null;
-              if (t?.closest?.(CONST.SEL.DEL_ICON)) {
-                stopEvent(event);
-                deleteMeas();
-              }
-            });
+            attachDelClick(lastDel, deleteMeas);
             const iconEl = lastDel.getElement();
             if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
           }
