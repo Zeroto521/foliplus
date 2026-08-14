@@ -357,7 +357,18 @@ class LayerUI {
       if (cb) {
         const row = cb.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
         if (!row) return;
-        this.toggleAll(row.dataset.group ?? "", cb.checked);
+        // Derive the target state from the actual layer selection rather than
+        // cb.checked — the browser resets indeterminate before the change
+        // event fires, making it impossible to detect the pre-click state.
+        const group = row.dataset.group ?? "";
+        const items = this.getLayerItems(group);
+        const noneChecked = Array.from(items).every((item: Element) => {
+          const c = item.querySelector(
+            'input[type="checkbox"]',
+          ) as HTMLInputElement | null;
+          return !c || !c.checked;
+        });
+        this.toggleAll(group, noneChecked);
         return;
       }
       this.handleChange(event);
@@ -475,7 +486,7 @@ class LayerUI {
     allCb.checked = allChecked;
     allCb.indeterminate = !allChecked && !noneChecked;
     allCb.title = _(
-      `${CONF.name}.${allChecked ? "toggle_all_deselect_tooltip" : "toggle_all_select_tooltip"}`,
+      `${CONF.name}.${allChecked || allCb.indeterminate ? "toggle_all_deselect_tooltip" : "toggle_all_select_tooltip"}`,
     );
   }
 
