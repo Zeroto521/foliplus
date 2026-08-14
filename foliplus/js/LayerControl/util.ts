@@ -2,14 +2,14 @@
  *  Layer traversal/detection logic lives in core/layer; this module only
  *  keeps UI concerns (SVG icons) and re-exports the shared helpers. */
 import { escapeHTML } from "#common/dom.js";
-import * as CONST from "./const.js";
-import * as SVGs from "./icon.js";
 import {
   findLayer,
   forEachLayer,
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/util.js";
+import * as CONST from "./const.js";
+import * as SVGs from "./icon.js";
 
 /** Geometry-type SVG icon (UI concern; type detection lives in core/layer). */
 const getTypeSVG = (layer: L.Layer): string => {

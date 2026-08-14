@@ -3,9 +3,9 @@ import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { throttleRaf } from "#common/throttle.js";
-import * as CONST from "./const.js";
 import { LayerRegistry, type RegisterLayerOpts } from "#core/layer/LayerRegistry.js";
 import { PaneManager } from "#core/layer/PaneManager.js";
+import * as CONST from "./const.js";
 import { LayerUI } from "./ui.js";
 import * as Util from "./util.js";
 
