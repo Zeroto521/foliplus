@@ -865,6 +865,11 @@ class LayerManager {
       if (pp) pp.style.zIndex = String(topZ + 1);
       const tp = this.map.getPane("tooltipPane");
       if (tp) tp.style.zIndex = String(topZ);
+      // Keep markers (search/locate pins, ✕, data markers) above data layers
+      // but below popup/tooltip. Data panes start at BASE (== markerPane 600),
+      // so without this the whole markerPane would be hidden under overlays.
+      const mp = this.map.getPane("markerPane");
+      if (mp) mp.style.zIndex = String(topZ - 1);
 
       this.panes.migrateLayers(layersToMove);
       this.syncAttribution();
