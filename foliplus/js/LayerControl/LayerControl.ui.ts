@@ -6,6 +6,7 @@ import * as Storage from "#common/storage.js";
 import * as CONST from "./LayerControl.const.js";
 import * as SVGs from "./LayerControl.icon.js";
 import * as Util from "./LayerControl.util.js";
+import type { LayerManager } from "./LayerControl.manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
@@ -15,7 +16,7 @@ const mapContainer = map.getContainer();
 
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
 class LayerUI {
-  manager: any;
+  manager: LayerManager;
   foldedGroups: Set<string>;
   isColorActive: boolean;
   currentColor: string;
@@ -31,7 +32,7 @@ class LayerUI {
   declare onDragEnd: ((event: DragEvent) => void) | null;
   declare onDrop: ((event: DragEvent) => void) | null;
 
-  constructor(manager: any) {
+  constructor(manager: LayerManager) {
     this.manager = manager;
     this.foldedGroups = new Set();
     this.isColorActive = false;
@@ -46,6 +47,11 @@ class LayerUI {
     return this.manager;
   }
 
+  /** The attached panel container. Only valid after attachUI(). */
+  get uiContainer(): HTMLElement {
+    return this.m.uiContainer!;
+  }
+
   /**
    * Attach UI to the given container div.
    * @param {HTMLElement} containerDiv - The panel-content div.
@@ -58,7 +64,7 @@ class LayerUI {
 
     while (this.m.pendingRegistrations.length) {
       const li = this.m.pendingRegistrations.shift();
-      this.insertLayerItem(li, { reindex: false });
+      if (li) this.insertLayerItem(li, { reindex: false });
     }
     this.reindexItems();
 
@@ -106,14 +112,14 @@ class LayerUI {
       colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
     frag.appendChild(colorItem);
 
-    this.m.uiContainer.innerHTML = "";
-    this.m.uiContainer.appendChild(frag);
+    this.uiContainer.innerHTML = "";
+    this.uiContainer.appendChild(frag);
   }
 
-  insertLayerItem(layerInfo: any, { reindex = true }: { reindex?: boolean } = {}) {
+  insertLayerItem(layerInfo: LayerInfo, { reindex = true }: { reindex?: boolean } = {}) {
     const idx = this.m.layerRegistry.indexOf(layerInfo);
     if (idx === -1) return;
-    const container = this.m.uiContainer;
+    const container = this.uiContainer;
     const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
 
     const anchorSel =
@@ -150,15 +156,17 @@ class LayerUI {
     if (reindex) this.reindexItems();
   }
 
-  updateLayerItem(layerInfo: any, idx: number) {
-    const item = this.m.uiContainer.querySelector(
+  updateLayerItem(layerInfo: LayerInfo, idx: number) {
+    const item = this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
-    );
+    ) as HTMLElement | null;
     if (!item) return;
     item.dataset.index = String(idx);
     const label = item.querySelector("label");
     if (label) label.textContent = layerInfo.name;
-    const cb = item.querySelector('input[type="checkbox"]');
+    const cb = item.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement | null;
     if (cb) {
       cb.dataset.index = String(idx);
       cb.setAttribute("aria-label", Util.escapeHTML(layerInfo.name));
@@ -199,7 +207,7 @@ class LayerUI {
     );
   }
 
-  renderLayerItem(li: any, idx: number) {
+  renderLayerItem(li: LayerInfo, idx: number) {
     const en = Util.escapeHTML(li.name);
     const children: (HTMLElement | { html: string })[] = [
       dom.el(
@@ -264,10 +272,10 @@ class LayerUI {
   }
 
   initTypesAndVisibility() {
-    const inputs = this.m.uiContainer.querySelectorAll(
+    const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
-    );
-    const typeCols = this.m.uiContainer.querySelectorAll(
+    ) as NodeListOf<HTMLInputElement>;
+    const typeCols = this.uiContainer.querySelectorAll(
       `.${CONST.CLASSES.TYPE_ICON_COL}`,
     );
     let anyBaseVisible = false;
@@ -295,7 +303,7 @@ class LayerUI {
       }
 
       if (typeCols[i]) {
-        let typeKey;
+        let typeKey: string;
         if (layerInfo.isBase) {
           typeCols[i].innerHTML = Icons.GLOBE;
           typeKey = `${CONF.name}.type_base`;
@@ -312,7 +320,9 @@ class LayerUI {
           layerInfo.type = gtype;
         } else typeKey = `${CONF.name}.type_unknown`;
 
-        const item = inputs[i]?.closest(CONST.SEL.LAYER_ITEM);
+        const item = inputs[i]?.closest(
+          CONST.SEL.LAYER_ITEM,
+        ) as HTMLElement | undefined;
         if (item) item.title = _(typeKey);
       }
     }
@@ -324,18 +334,20 @@ class LayerUI {
   }
 
   reindexItems() {
-    const items = this.m.uiContainer.querySelectorAll(
+    const items = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
-    );
+    ) as NodeListOf<HTMLElement>;
     for (let i = 0; i < items.length; i++) {
       items[i].dataset.index = String(i);
-      const cb = items[i].querySelector('input[type="checkbox"]');
+      const cb = items[i].querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
       if (cb) cb.dataset.index = String(i);
     }
   }
 
   bindEvents() {
-    const container = this.m.uiContainer;
+    const container = this.uiContainer;
     if (!container) return;
 
     this.onChange = event => {
@@ -389,7 +401,7 @@ class LayerUI {
   }
 
   unbindEvents() {
-    const container = this.m.uiContainer;
+    const container = this.uiContainer;
     if (!container) return;
     if (this.onChange) container.removeEventListener("change", this.onChange);
     if (this.onInput) container.removeEventListener("input", this.onInput);
@@ -405,7 +417,7 @@ class LayerUI {
   }
 
   getLayerItems(group: string): NodeListOf<Element> {
-    return this.m.uiContainer.querySelectorAll(
+    return this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}${group === CONST.GROUP.BASE ? `[data-layer-type="${CONST.GROUP.BASE}"]` : `:not([data-layer-type="${CONST.GROUP.BASE}"]):not(${CONST.SEL.COLOR_ITEM})`}`,
     );
   }
@@ -443,7 +455,7 @@ class LayerUI {
   }
 
   syncToggleAll(group: string) {
-    const row = this.m.uiContainer.querySelector(
+    const row = this.uiContainer.querySelector(
       `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
     );
     if (!row) return;
@@ -467,7 +479,7 @@ class LayerUI {
     );
   }
 
-  syncVisibility(layerInfo: any, layer: any, fallback: boolean) {
+  syncVisibility(layerInfo: LayerInfo, layer: L.Layer | null, fallback: boolean) {
     layerInfo.visible = layer ? this.m.map.hasLayer(layer) : fallback;
     return layerInfo.visible;
   }
@@ -599,7 +611,7 @@ class LayerUI {
     this.m.layerRegistry.reorder(this.dragIdx, targetIdx);
     const moved = this.m.layers[targetIdx];
 
-    const movedItem = this.m.uiContainer.querySelector(
+    const movedItem = this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(moved.id)}"]`,
     );
     if (!movedItem) {
@@ -622,7 +634,7 @@ class LayerUI {
   handleDragEnd() {
     this.dragIdx = null;
     this.lastDragOverItem = null;
-    const allItems = this.m.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
+    const allItems = this.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
     allItems.forEach((i: Element) =>
       i.classList.remove(
         CONST.CLASSES.DRAGGING,
@@ -648,9 +660,9 @@ class LayerUI {
     const tilePane = this.m.map.getPane("tilePane");
     if (tilePane) tilePane.classList.add("foliplus-layer-tile-hidden");
 
-    const inputs = this.m.uiContainer.querySelectorAll(
+    const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
-    );
+    ) as NodeListOf<HTMLInputElement>;
     inputs.forEach((input: HTMLInputElement, j: number) => {
       if (this.m.layers[j]?.isBase) {
         input.checked = false;
@@ -658,11 +670,11 @@ class LayerUI {
       }
     });
 
-    const ci = this.m.uiContainer.querySelector(
+    const ci = this.uiContainer.querySelector(
       CONST.SEL.COLOR_INPUT,
     ) as HTMLInputElement | null;
     if (ci) ci.value = color;
-    this.m.uiContainer
+    this.uiContainer
       .querySelector(CONST.SEL.COLOR_ITEM)
       ?.classList.add(CONST.CLASSES.ACTIVE);
     this.syncToggleAll(CONST.GROUP.BASE);
@@ -674,15 +686,15 @@ class LayerUI {
     mapContainer.style.removeProperty("--color-layer-bg");
     const tilePane = this.m.map.getPane("tilePane");
     if (tilePane) tilePane.classList.remove("foliplus-layer-tile-hidden");
-    this.m.uiContainer
+    this.uiContainer
       .querySelector(CONST.SEL.COLOR_ITEM)
       ?.classList.remove(CONST.CLASSES.ACTIVE);
   }
 
   deselectAllBaseMaps(exceptIdx: number) {
-    const inputs = this.m.uiContainer.querySelectorAll(
+    const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
-    );
+    ) as NodeListOf<HTMLInputElement>;
     for (let i = 0; i < this.m.layers.length; i++)
       if (this.m.layers[i].isBase && i !== exceptIdx) {
         const bLayer = this.m.findLayer(this.m.layers[i]);
