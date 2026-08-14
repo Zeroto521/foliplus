@@ -112,10 +112,10 @@ const buildPopup = (lng: number, lat: number, addr: string | null = null): strin
     lng,
     lat,
     addr,
-    `${CONF.name}.popup_title`,
-    `${CONF.name}.popup_loading`,
-    `${CONF.name}.popup_loc_label`,
-    `${CONF.name}.popup_addr_label`,
+    _(`${CONF.name}.popup_title`),
+    _(`${CONF.name}.popup_loading`),
+    _(`${CONF.name}.popup_loc_label`),
+    _(`${CONF.name}.popup_addr_label`),
   );
 };
 
