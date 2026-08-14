@@ -21,7 +21,7 @@ const NOMINATIM = {
  */
 const nominatimUrl = (
   endpoint: string,
-  params: Record<string, unknown> = {},
+  params: Record<string, string | number | boolean> = {},
   code = "en",
 ): string => {
   const url = new URL(endpoint || "", NOMINATIM.URL);

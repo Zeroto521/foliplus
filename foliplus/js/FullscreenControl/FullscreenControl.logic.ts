@@ -49,7 +49,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
 const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   if (getFullscreenEl() || map.isFullscreen) {
     if (isEnabled) {
-      (document as unknown as Record<string, () => Promise<void>>)[nativeAPI!.exitFullscreen]!()
+      (Reflect.get(document, nativeAPI!.exitFullscreen) as () => Promise<void>)()
         .then(() => {
           map.isFullscreen = false;
         })
@@ -65,7 +65,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
     map.isFullscreen = false;
   } else {
     if (isEnabled) {
-      (map.getContainer() as unknown as Record<string, () => Promise<void>>)[nativeAPI!.requestFullscreen]!()
+      (Reflect.get(map.getContainer(), nativeAPI!.requestFullscreen) as () => Promise<void>)()
         .then(() => {
           map.isFullscreen = true;
         })

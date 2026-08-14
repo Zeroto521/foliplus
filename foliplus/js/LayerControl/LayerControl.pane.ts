@@ -160,7 +160,7 @@ class PaneManager {
         if (pathEl && pathEl.parentNode !== container)
           groups.get(container)!.push(pathEl);
         if (l instanceof L.Marker && paneEl) {
-          const marker = l as unknown as MarkerWithShadow;
+          const marker = l as MarkerWithShadow;
           if (marker._shadow && marker._shadow.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
             markerGroups.get(paneEl)!.push(marker._shadow);

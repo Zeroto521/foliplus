@@ -100,12 +100,11 @@ const dom = {
           } else el.style.cssText = String(val);
         } else if (key === "parent") (val as HTMLElement).appendChild(el);
         else if (key === "innerHTML") el.innerHTML = String(val);
-        else if (BOOL_PROPS.has(key))
-          (el[key as keyof HTMLElement] as unknown) = val === "" || val === true;
-        else if (PROPS.has(key)) (el[key as keyof HTMLElement] as unknown) = val;
+        else if (BOOL_PROPS.has(key)) Reflect.set(el, key, val === "" || val === true);
+        else if (PROPS.has(key)) Reflect.set(el, key, val);
         else if (EVENTS.has(key)) {
           const handler = val as EventListener;
-          (el[("on" + key.slice(2)) as keyof HTMLElement] as unknown) = handler;
+          Reflect.set(el, "on" + key.slice(2), handler);
         } else el.setAttribute(key, String(val));
       }
     }
