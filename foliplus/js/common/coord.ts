@@ -1,7 +1,7 @@
 // Coordinate transformation and CRS detection for foliplus components.
 //
 // Pure functions (no module-level state) — imported statically by components.
-// The runtime geocoder (runtime.geocode.js) also imports these, which is fine:
+// The runtime geocoder (geocode.js) also imports these, which is fine:
 // esbuild inlines a copy into runtime.min.js as well.
 //
 // These functions operate on Leaflet maps and coordinate systems.

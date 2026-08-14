@@ -1,6 +1,6 @@
 // Nominatim URL building & address formatting for foliplus components.
 // Pure functions (no module-level state) — imported statically by components.
-// The stateful reverse-geocoder (runtime.geocode.js) also imports these, which
+// The stateful reverse-geocoder (geocode.js) also imports these, which
 // is fine: esbuild inlines a copy into runtime.min.js as well.
 import { getMapCrsType } from "./coord.js";
 
