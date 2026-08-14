@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import assert_locale, make_browser_page, render_control
+from conftest import _js, assert_locale, make_browser_page, render_control
 
 from foliplus import SearchControl
 
@@ -198,10 +198,7 @@ class TestSearchControlBrowser:
             self._expand(page)
 
             # Press Escape
-            page.evaluate("""
-                const inp = document.querySelector('input');
-                inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-            """)
+            page.evaluate(_js("SearchControl/press_escape"))
             page.wait_for_timeout(300)
 
             # Verify control is collapsed
@@ -219,11 +216,7 @@ class TestSearchControlBrowser:
             self._expand(page)
 
             # Fire input event in address mode to trigger debounced fetch
-            page.evaluate("""
-                const inp = document.querySelector('input');
-                inp.value = 'test query';
-                inp.dispatchEvent(new Event('input'));
-            """)
+            page.evaluate(_js("SearchControl/fire_input_query"))
             page.wait_for_timeout(600)  # > debounce 300ms
 
             # Suggestions container should be on body, not inside toolBar
@@ -248,19 +241,7 @@ class TestSearchControlBrowser:
 
             # Verify keyboard navigation: ArrowDown/ArrowUp/Enter
             # These should NOT throw errors even without suggestions visible
-            no_errors = page.evaluate("""
-                (() => {
-                    const inp = document.querySelector('input');
-                    try {
-                        inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
-                        inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
-                        inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-                        return true;
-                    } catch (e) {
-                        return false;
-                    }
-                })()
-            """)
+            no_errors = page.evaluate(_js("SearchControl/fire_keyboard_nav"))
             assert no_errors, "Keyboard navigation should not throw errors"
         finally:
             page.close()
@@ -272,11 +253,7 @@ class TestSearchControlBrowser:
             self._expand(page)
 
             # Fire input event to trigger placeholder restoration
-            page.evaluate("""
-                const inp = document.querySelector('input');
-                inp.value = 'some text';
-                inp.dispatchEvent(new Event('input'));
-            """)
+            page.evaluate(_js("SearchControl/fire_input_text"))
             page.wait_for_timeout(200)
 
             # Placeholder should still be address-related (not lost)

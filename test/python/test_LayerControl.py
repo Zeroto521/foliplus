@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import assert_locale, make_browser_page, render, render_control
+from conftest import _js, assert_locale, make_browser_page, render, render_control
 
 from foliplus import LayerControl
 
@@ -418,19 +418,7 @@ class TestLayerControlBrowser:
                 timeout=5000,
             )
 
-            ok = page.evaluate(
-                """() => {
-                    const api = window.foliplus && window.foliplus.LayerAPI;
-                    if (!api) return false;
-                    const overlay = document.querySelector('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)');
-                    const base = document.querySelector('.foliplus-layer-item[data-layer-type="base"]');
-                    if (!overlay || !base) return false;
-                    api.ui.dragIdx = parseInt(overlay.dataset.index, 10);
-                    const ev = new Event("dragover", { bubbles: true, cancelable: true });
-                    base.dispatchEvent(ev);
-                    return true;
-                }"""
-            )
+            ok = page.evaluate(_js("LayerControl/dispatch_cross_group_dragover"))
             assert ok, "Failed to dispatch simulated cross-group dragover"
 
             page.wait_for_selector(
@@ -447,24 +435,7 @@ class TestLayerControlBrowser:
         """layers() returns expected convenience methods."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            api = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const mg = api.createLayers({
-                    id: '__test__',
-                    name: 'Test',
-                    graphPane: '__test_graph__',
-                    labelPane: '__test_label__',
-                });
-                return {
-                    hasClearLayers: typeof mg.clearLayers === 'function',
-                    hasRegister: typeof mg.register === 'function',
-                    hasUnregister: typeof mg.unregister === 'function',
-                    hasRegistered: typeof mg.registered === 'function',
-                    hasMainLayer: !!mg.mainLayer,
-                    hasBringToFront: typeof mg.bringToFront === 'function',
-                };
-            }""")
+            api = page.evaluate(_js("LayerControl/create_layers_api"))
             assert api is not None, "LayerAPI not found"
             assert api["hasClearLayers"], "clearLayers missing"
             assert api["hasRegister"], "register missing"
@@ -479,23 +450,7 @@ class TestLayerControlBrowser:
         """addGraph sets pane on the layer and calls register."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const mg = api.createLayers({
-                    id: '__test_pane__',
-                    name: 'PaneTest',
-                    graphPane: '__pane_test_graph__',
-                    labelPane: '__pane_test_label__',
-                });
-                const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
-                mg.mainLayer.addLayer(poly);
-                return {
-                    pane: poly.options.pane,
-                    hasRenderer: !!poly._renderer,
-                    registered: mg.registered(),
-                };
-            }""")
+            result = page.evaluate(_js("LayerControl/add_graph_sets_pane"))
             assert result is not None
             assert result["pane"] == "__pane_test_graph__", f"got {result['pane']}"
             assert result["hasRenderer"] is True, "renderer not set"
@@ -507,20 +462,7 @@ class TestLayerControlBrowser:
         """clearAll clears content and unregisters the layer."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const mg = api.createLayers({
-                    id: '__test_clear__',
-                    name: 'ClearTest',
-                    graphPane: '__test_clear_graph__',
-                });
-                mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                const beforeRegistered = mg.registered();
-                mg.clearLayers();
-                const afterRegistered = mg.registered();
-                return { beforeRegistered, afterRegistered };
-            }""")
+            result = page.evaluate(_js("LayerControl/clear_all_unregisters"))
             assert result is not None
             assert result["beforeRegistered"] is True
             assert result["afterRegistered"] is False
@@ -531,20 +473,7 @@ class TestLayerControlBrowser:
         """addLabel sets pane on the marker."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const mg = api.createLayers({
-                    id: '__test_label__',
-                    name: 'LabelTest',
-                    graphPane: '__test_label_graph__',
-                    labelPane: '__test_label_pane__',
-                });
-                const mkr = L.marker([26.08,119.30]);
-                mkr.isLabel = true;
-                mg.mainLayer.addLayer(mkr);
-                return { pane: mkr.options.pane, registered: mg.registered() };
-            }""")
+            result = page.evaluate(_js("LayerControl/add_label_sets_pane"))
             assert result is not None
             assert result["pane"] == "__test_label_pane__", f"got {result['pane']}"
             assert result["registered"] is True
@@ -568,11 +497,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
 
-            ok = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return false;
-                return typeof api.canReorderBetween === 'function';
-            }""")
+            ok = page.evaluate(_js("LayerControl/can_reorder_between_defined"))
             assert ok
         finally:
             page.close()
@@ -581,20 +506,7 @@ class TestLayerControlBrowser:
         """unregisterLayer removes a dynamically registered layer."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const mg = api.createLayers({
-                    id: '__test_unreg__',
-                    name: 'UnregTest',
-                    graphPane: '__test_unreg_graph__',
-                });
-                mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                const before = mg.registered();
-                mg.clearLayers();
-                const after = mg.registered();
-                return { before, after };
-            }""")
+            result = page.evaluate(_js("LayerControl/unregister_layer_flow"))
             assert result is not None
             assert result["before"] is True
             assert result["after"] is False
@@ -605,22 +517,7 @@ class TestLayerControlBrowser:
         """createCanvas returns canvas API object with expected methods."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            api = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const cvs = api.createCanvas({ id: '__test_canvas__' });
-                return {
-                    hasCanvas: !!cvs.canvas,
-                    hasCtx: !!cvs.ctx,
-                    hasResize: typeof cvs.resize === 'function',
-                    hasDestroy: typeof cvs.destroy === 'function',
-                    hasUpdatePosition: typeof cvs.updatePosition === 'function',
-                    hasSetZIndex: typeof cvs.setZIndex === 'function',
-                    hasSetVisible: typeof cvs.setVisible === 'function',
-                    hasGetSize: typeof cvs.getSize === 'function',
-                    canvasTag: cvs.canvas.tagName,
-                };
-            }""")
+            api = page.evaluate(_js("LayerControl/create_canvas_api"))
             assert api is not None
             assert api["hasCanvas"]
             assert api["hasCtx"]
@@ -638,17 +535,7 @@ class TestLayerControlBrowser:
         """Canvas register() creates a layer item; unregister() removes it."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const cvs = api.createCanvas({ id: '__test_canvas_reg__', name: 'Canvas Test' });
-                cvs.register();
-                const item = document.querySelector('[data-layer-id="__test_canvas_reg__"]');
-                const hasItem = !!item;
-                cvs.unregister();
-                const itemAfter = document.querySelector('[data-layer-id="__test_canvas_reg__"]');
-                return { hasItem, hasItemAfter: !!itemAfter };
-            }""")
+            result = page.evaluate(_js("LayerControl/canvas_register_unregister_dom"))
             assert result is not None
             assert result["hasItem"], "Canvas layer item should exist after register"
             assert not result["hasItemAfter"], (
@@ -661,18 +548,7 @@ class TestLayerControlBrowser:
         """migrateLayers moves Markers to per-layer panes."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const mg = api.createLayers({
-                    id: '__test_marker_pane__',
-                    name: 'MarkerPane',
-                    graphPane: '__test_marker_pane_graph__',
-                });
-                const mkr = L.marker([26.08,119.30]);
-                mg.mainLayer.addLayer(mkr);
-                return { pane: mkr.options.pane };
-            }""")
+            result = page.evaluate(_js("LayerControl/migrate_marker_pane"))
             assert result is not None
             assert result["pane"] == "__test_marker_pane_graph__"
         finally:
@@ -682,18 +558,7 @@ class TestLayerControlBrowser:
         """migrateLayers moves Path layers to the target pane."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const mg = api.createLayers({
-                    id: '__test_path_pane__',
-                    name: 'PathPane',
-                    graphPane: '__test_path_pane_graph__',
-                });
-                const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
-                mg.mainLayer.addLayer(poly);
-                return { pane: poly.options.pane };
-            }""")
+            result = page.evaluate(_js("LayerControl/migrate_path_pane"))
             assert result is not None
             assert result["pane"] == "__test_path_pane_graph__"
         finally:
@@ -703,16 +568,7 @@ class TestLayerControlBrowser:
         """getLayerType returns correct geometry type for registered layers."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                // Register a polygon layer
-                const poly = L.polygon([[26.08,119.30],[26.09,119.31],[26.07,119.32]]);
-                api.registerLayer({ id: '__test_type__', layer: poly });
-                const type = api.getLayerType('__test_type__');
-                const layers = api.getLayersByType('polygon');
-                return { type, hasPolygon: layers.some(l => l.id === '__test_type__') };
-            }""")
+            result = page.evaluate(_js("LayerControl/get_layer_type"))
             assert result is not None
             assert result["type"] == "polygon"
             assert result["hasPolygon"] is True
@@ -737,12 +593,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
 
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const ids = api.layers.map(l => l.id);
-                return { count: ids.length, ids };
-            }""")
+            result = page.evaluate(_js("LayerControl/read_layer_ids"))
             assert result is not None
             assert result["count"] >= 3
         finally:
@@ -766,12 +617,7 @@ class TestLayerControlBrowser:
             )
 
             # Check initial state — all overlays checked
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
-                return cb ? cb.checked : 'no-cb';
-            }""")
+            result = page.evaluate(_js("LayerControl/read_toggle_all_checked"))
             assert result is True, f"Expected toggle-all checked, got {result}"
         finally:
             page.close()
@@ -800,17 +646,11 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            title = page.evaluate("""() => {
-                const item = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');
-                return item ? item.title : null;
-            }""")
+            title = page.evaluate(_js("LayerControl/read_layer_item_title"))
             # initTypesAndVisibility runs after 300ms delay; wait if needed
             if not title or "MyPoints" in (title or ""):
                 page.wait_for_timeout(500)
-                title = page.evaluate("""() => {
-                    const item = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');
-                    return item ? item.title : null;
-                }""")
+                title = page.evaluate(_js("LayerControl/read_layer_item_title"))
             # Should be a type description (e.g. "Point Layer") not the layer name
             assert title and "MyPoints" not in title, (
                 f"Expected type title, got '{title}'"
@@ -841,10 +681,7 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            title = page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item) input[type="checkbox"]');
-                return cb ? cb.title : null;
-            }""")
+            title = page.evaluate(_js("LayerControl/read_checkbox_title"))
             assert title and "MyPoints" not in title, (
                 f"Expected select/deselect title, got '{title}'"
             )
@@ -876,25 +713,16 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # All checked → title should be "Deselect all"
-            initial = page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
-                return cb ? cb.title : null;
-            }""")
+            initial = page.evaluate(_js("LayerControl/read_toggle_all_title"))
             assert initial and "Deselect" in initial, (
                 f"Expected 'Deselect all', got '{initial}'"
             )
 
             # Uncheck one layer → title should become "Select all"
-            page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item) input[type="checkbox"]');
-                if (cb) cb.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_first_layer_checkbox"))
             page.wait_for_timeout(300)
 
-            after = page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
-                return cb ? cb.title : null;
-            }""")
+            after = page.evaluate(_js("LayerControl/read_toggle_all_title"))
             assert after and "Select" in after, f"Expected 'Select all', got '{after}'"
         finally:
             page.close()
@@ -923,26 +751,17 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # Expanded → should show "Collapse layers"
-            initial = page.evaluate("""() => {
-                const row = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"]');
-                return row ? row.title : null;
-            }""")
+            initial = page.evaluate(_js("LayerControl/read_toggle_all_row_title"))
             assert initial and "Collapse" in initial, (
                 f"Expected 'Collapse layers', got '{initial}'"
             )
 
             # Click fold button
-            page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                if (btn) btn.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_overlay_fold_button"))
             page.wait_for_timeout(300)
 
             # Folded → should show "Expand layers"
-            folded = page.evaluate("""() => {
-                const row = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"]');
-                return row ? row.title : null;
-            }""")
+            folded = page.evaluate(_js("LayerControl/read_toggle_all_row_title"))
             assert folded and "Expand" in folded, (
                 f"Expected 'Expand layers', got '{folded}'"
             )
@@ -961,10 +780,7 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            title = page.evaluate("""() => {
-                const item = document.querySelector('.foliplus-color-layer-item');
-                return item ? item.title : null;
-            }""")
+            title = page.evaluate(_js("LayerControl/read_color_layer_title"))
             assert title, f"Expected non-empty title, got '{title}'"
         finally:
             page.close()
@@ -973,19 +789,7 @@ class TestLayerControlBrowser:
         """registerLayer can be re-called after a layer is hidden by checkbox."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                // Register a layer
-                const fg = L.featureGroup();
-                api.registerLayer({ id: '__test_reentry__', name: 'ReEntry', layer: fg });
-                // Simulate uncheck: unregister (as if user toggled the layer off)
-                api.unregisterLayer('__test_reentry__');
-                // Re-register (simulating MeasureControl tool re-activation)
-                api.registerLayer({ id: '__test_reentry__', name: 'ReEntry', layer: fg });
-                const found = api.layers.some(l => l.id === '__test_reentry__');
-                return { found };
-            }""")
+            result = page.evaluate(_js("LayerControl/register_reentry_after_hide"))
             assert result is not None
             assert result["found"] is True
         finally:
@@ -995,35 +799,7 @@ class TestLayerControlBrowser:
         """register() re-adds mainLayer to map when layer was unchecked."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                // Create a managed layer group (like MeasureControl does)
-                const layers = api.createLayers({
-                    id: '__test_measure__',
-                    name: 'Test Measure',
-                    graphPane: 'test_graph',
-                    labelPane: 'test_label',
-                });
-                // Add content (triggers register)
-                const mkr = L.circleMarker([26.08, 119.30]);
-                mkr.isLabel = false;
-                layers.mainLayer.addLayer(mkr);
-                const wasRegistered = layers.registered();
-                // Simulate uncheck: remove mainLayer from map
-                api.map.removeLayer(layers.mainLayer);
-                const onMapAfterUncheck = api.map.hasLayer(layers.mainLayer);
-                // Trigger re-add via register() path (simulating tool click)
-                const mkr2 = L.circleMarker([26.09, 119.31]);
-                mkr2.isLabel = false;
-                layers.mainLayer.addLayer(mkr2);
-                const onMapAfterReadd = api.map.hasLayer(layers.mainLayer);
-                // Check checkbox state in LayerControl panel
-                const item = document.querySelector('[data-layer-id="__test_measure__"]');
-                const cb = item ? item.querySelector('input[type="checkbox"]') : null;
-                const checkboxChecked = cb ? cb.checked : 'no-cb';
-                return { wasRegistered, onMapAfterUncheck, onMapAfterReadd, checkboxChecked };
-            }""")
+            result = page.evaluate(_js("LayerControl/register_readds_hidden_layer"))
             assert result is not None
             assert result["wasRegistered"] is True, "Layer should be registered"
             assert result["onMapAfterUncheck"] is False, (
@@ -1065,26 +841,17 @@ class TestLayerControlBrowser:
             )
 
             # Click the overlay fold button
-            page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                if (btn) btn.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_overlay_fold_button"))
             page.wait_for_timeout(300)
 
             # Verify overlay items are hidden
-            result = page.evaluate("""() => {
-                const items = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)');
-                return Array.from(items).map(el => getComputedStyle(el).display);
-            }""")
+            result = page.evaluate(_js("LayerControl/read_overlay_item_displays"))
             assert all(d == "none" for d in result), (
                 f"Expected all overlay items hidden, got {result}"
             )
 
             # Verify base items are still visible
-            base_result = page.evaluate("""() => {
-                const items = document.querySelectorAll('.foliplus-layer-item[data-layer-type="base"]');
-                return Array.from(items).map(el => getComputedStyle(el).display);
-            }""")
+            base_result = page.evaluate(_js("LayerControl/read_base_item_displays"))
             assert all(d != "none" for d in base_result), (
                 f"Expected base items visible, got {base_result}"
             )
@@ -1120,26 +887,19 @@ class TestLayerControlBrowser:
             )
 
             # Click the base fold button
-            page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="base"] .foliplus-layer-fold-btn');
-                if (btn) btn.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_base_fold_button"))
             page.wait_for_timeout(300)
 
             # Verify base items are hidden
-            result = page.evaluate("""() => {
-                const items = document.querySelectorAll('.foliplus-layer-item[data-layer-type="base"]');
-                return Array.from(items).map(el => getComputedStyle(el).display);
-            }""")
+            result = page.evaluate(_js("LayerControl/read_base_item_displays"))
             assert all(d == "none" for d in result), (
                 f"Expected all base items hidden, got {result}"
             )
 
             # Verify overlay items are still visible
-            overlay_result = page.evaluate("""() => {
-                const items = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)');
-                return Array.from(items).map(el => getComputedStyle(el).display);
-            }""")
+            overlay_result = page.evaluate(
+                _js("LayerControl/read_overlay_item_displays")
+            )
             assert all(d != "none" for d in overlay_result), (
                 f"Expected overlay items visible, got {overlay_result}"
             )
@@ -1170,33 +930,21 @@ class TestLayerControlBrowser:
             )
 
             # Click fold button
-            page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                if (btn) btn.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_overlay_fold_button"))
             page.wait_for_timeout(300)
 
             # Verify folded
-            folded = page.evaluate("""() => {
-                const items = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)');
-                return Array.from(items).map(el => getComputedStyle(el).display);
-            }""")
+            folded = page.evaluate(_js("LayerControl/read_overlay_item_displays"))
             assert all(d == "none" for d in folded), (
                 f"Expected hidden after fold, got {folded}"
             )
 
             # Click fold button again to unfold
-            page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                if (btn) btn.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_overlay_fold_button"))
             page.wait_for_timeout(300)
 
             # Verify unfolded
-            unfolded = page.evaluate("""() => {
-                const items = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)');
-                return Array.from(items).map(el => getComputedStyle(el).display);
-            }""")
+            unfolded = page.evaluate(_js("LayerControl/read_overlay_item_displays"))
             assert all(d != "none" for d in unfolded), (
                 f"Expected visible after unfold, got {unfolded}"
             )
@@ -1234,10 +982,7 @@ class TestLayerControlBrowser:
             assert before > 0, "Expected at least 1 layer item"
 
             # Fold overlay
-            page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                if (btn) btn.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_overlay_fold_button"))
             page.wait_for_timeout(300)
 
             # Count DOM items after fold — should still be same (not removed)
@@ -1267,18 +1012,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
 
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                // Find the second layer (B) and bring it to front
-                const idxB = api.layers.findIndex(l => l.name === 'B');
-                if (idxB <= 0) return null;
-                const idB = api.layers[idxB].id;
-                api.bringLayerToFront(idB);
-                // After bringLayerToFront, B should be at index 0
-                const newIdx = api.layers.findIndex(l => l.name === 'B');
-                return { initialIdx: idxB, newIdx };
-            }""")
+            result = page.evaluate(_js("LayerControl/bring_layer_to_front"))
             assert result is not None, "LayerAPI not found"
             assert result["newIdx"] == 0, (
                 f"Expected layer B at index 0 after bringToFront, got {result['newIdx']} (was {result['initialIdx']})"
@@ -1290,20 +1024,7 @@ class TestLayerControlBrowser:
         """unregisterLayer removes the DOM item from the panel."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                // Register a layer
-                const fg = L.featureGroup();
-                api.registerLayer({ id: '__test_unreg_dom__', name: 'UnregDOM', layer: fg });
-                // Verify DOM item exists
-                const item = document.querySelector('[data-layer-id="__test_unreg_dom__"]');
-                const exists = !!item;
-                // Unregister
-                api.unregisterLayer('__test_unreg_dom__');
-                const itemAfter = document.querySelector('[data-layer-id="__test_unreg_dom__"]');
-                return { existsBefore: exists, existsAfter: !!itemAfter };
-            }""")
+            result = page.evaluate(_js("LayerControl/unregister_layer_removes_dom"))
             assert result is not None
             assert result["existsBefore"] is True, (
                 "DOM item should exist after registerLayer"
@@ -1318,18 +1039,7 @@ class TestLayerControlBrowser:
         """findLayer resolves a layer by string ID via layers array."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const fg = L.featureGroup();
-                api.registerLayer({ id: '__test_find_id__', layer: fg });
-                const found = api.findLayer('__test_find_id__');
-                const isSame = found === fg;
-                // Cleanup
-                api.unregisterLayer('__test_find_id__');
-                const afterCleanup = api.findLayer('__test_find_id__');
-                return { found: !!found, isSame, afterCleanup: !!afterCleanup };
-            }""")
+            result = page.evaluate(_js("LayerControl/find_layer_by_string_id"))
             assert result is not None
             assert result["found"] is True, "findLayer should find the registered layer"
             assert result["isSame"] is True, (
@@ -1367,20 +1077,10 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # Click color layer item
-            page.evaluate("""() => {
-                const item = document.querySelector('.foliplus-color-layer-item');
-                if (item) item.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_color_layer_item"))
             page.wait_for_timeout(500)
 
-            result = page.evaluate("""() => {
-                const tilePane = document.querySelector('.leaflet-tile-pane');
-                const hasTileHidden = tilePane && tilePane.classList.contains('foliplus-layer-tile-hidden');
-                const mapContainer = document.querySelector('.leaflet-container');
-                const hasColorBg = mapContainer && mapContainer.classList.contains('active');
-                const tileLayers = document.querySelectorAll('.leaflet-tile-loaded');
-                return { tileHidden: hasTileHidden, colorBg: hasColorBg, tileCount: tileLayers.length };
-            }""")
+            result = page.evaluate(_js("LayerControl/read_color_tile_state"))
             assert result is not None
             assert result["tileHidden"] is True, (
                 "tilePane should have foliplus-layer-tile-hidden class"
@@ -1405,18 +1105,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
 
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const beforeDestroy = api.isDestroyed;
-                api.destroy();
-                return {
-                    beforeDestroy,
-                    isDestroyed: api.isDestroyed,
-                    layersLength: api.layers.length,
-                    hasLayerAPI: !!(window.foliplus && window.foliplus.LayerAPI),
-                };
-            }""")
+            result = page.evaluate(_js("LayerControl/destroy_cleanup_listeners"))
             assert result is not None
             assert result["beforeDestroy"] is False, (
                 "isDestroyed should be false before destroy"
@@ -1437,24 +1126,9 @@ class TestLayerControlBrowser:
         """registerLayer preserves the visible state from a previous registration."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const fg = L.featureGroup();
-                // Register, set visible=false, re-register
-                api.registerLayer({ id: '__test_vis__', layer: fg });
-                const li = api.layers.find(l => l.id === '__test_vis__');
-                const defaultVisible = li.visible;
-                // Simulate user hiding the layer
-                li.visible = false;
-                api.unregisterLayer('__test_vis__');
-                api.registerLayer({ id: '__test_vis__', layer: L.featureGroup() });
-                const newLi = api.layers.find(l => l.id === '__test_vis__');
-                const newVisible = newLi.visible;
-                // Cleanup
-                api.unregisterLayer('__test_vis__');
-                return { defaultVisible, newVisible };
-            }""")
+            result = page.evaluate(
+                _js("LayerControl/register_preserves_visible_on_reentry")
+            )
             assert result is not None
             assert result["defaultVisible"] is True, "Default visible should be true"
             assert result["newVisible"] is True, (
@@ -1472,48 +1146,7 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-
-                const fg = L.featureGroup();
-                const onT = () => {};
-                const onZ = () => {};
-                api.registerLayer({
-                    id: '__keep__',
-                    name: 'Keep Me',
-                    isBase: true,
-                    layer: fg,
-                    paneName: 'customPane',
-                    iconSvg: '<svg></svg>',
-                    onToggle: onT,
-                    onZIndex: onZ,
-                });
-                const before = api.layers.find(l => l.id === '__keep__');
-                const beforeCb = {
-                    name: before.name, isBase: before.isBase,
-                    layerSame: before.layer === fg,
-                    paneName: before.paneName,
-                    iconSvg: before.iconSvg,
-                    hasOnToggle: before.onToggle === onT,
-                    hasOnZIndex: before.onZIndex === onZ,
-                };
-
-                // Re-register with only the id — nothing else should change.
-                api.registerLayer({ id: '__keep__' });
-                const after = api.layers.find(l => l.id === '__keep__');
-                const afterCb = {
-                    name: after.name, isBase: after.isBase,
-                    layerSame: after.layer === fg,
-                    paneName: after.paneName,
-                    iconSvg: after.iconSvg,
-                    hasOnToggle: after.onToggle === onT,
-                    hasOnZIndex: after.onZIndex === onZ,
-                };
-
-                api.unregisterLayer('__keep__');
-                return { before: beforeCb, after: afterCb };
-            }""")
+            result = page.evaluate(_js("LayerControl/re_register_preserves_fields"))
             assert result is not None and "error" not in result, result
             for phase in ("before", "after"):
                 r = result[phase]
@@ -1536,23 +1169,7 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-
-                // Simulate a folium-style global var that findLayer resolves.
-                window['__resolved_layer__'] = L.featureGroup().addTo(api.map);
-                api.registerLayer({ id: '__resolved_layer__' });
-                const li = api.layers.find(l => l.id === '__resolved_layer__');
-
-                const out = {
-                    resolved: !!li.layer,
-                    sameAsGlobal: li.layer === window['__resolved_layer__'],
-                };
-                api.unregisterLayer('__resolved_layer__');
-                delete window['__resolved_layer__'];
-                return out;
-            }""")
+            result = page.evaluate(_js("LayerControl/register_resolves_layer_from_map"))
             assert result is not None and "error" not in result, result
             assert result["resolved"] is True, "layer not resolved from map"
             assert result["sameAsGlobal"] is True, "resolved layer != window global"
@@ -1563,29 +1180,7 @@ class TestLayerControlBrowser:
         """extractPoints returns geo points from registered layers."""
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const fg = L.featureGroup();
-                // feature must be set directly on the layer instance,
-                // not as an option — extractPoints checks l.feature
-                const m1 = L.marker([26.08, 119.30]);
-                m1.feature = { type: 'Feature' };
-                const m2 = L.circleMarker([26.09, 119.31]);
-                m2.feature = { type: 'Feature' };
-                fg.addLayer(m1);
-                fg.addLayer(m2);
-                api.registerLayer({ id: '__test_extract__', layer: fg });
-                const pts = api.extractPoints('__test_extract__');
-                api.unregisterLayer('__test_extract__');
-                return {
-                    count: pts.length,
-                    lat0: pts[0]?.lat,
-                    lng0: pts[0]?.lng,
-                    lat1: pts[1]?.lat,
-                    lng1: pts[1]?.lng,
-                };
-            }""")
+            result = page.evaluate(_js("LayerControl/extract_points"))
             assert result is not None
             assert result["count"] == 2, f"Expected 2 points, got {result['count']}"
             assert abs(result["lat0"] - 26.08) < 0.001
@@ -1618,32 +1213,20 @@ class TestLayerControlBrowser:
             )
 
             # Single SVG, 1 path before fold (SVGO converts polyline → path)
-            elem_count = page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                return btn.querySelectorAll('path').length;
-            }""")
+            elem_count = page.evaluate(_js("LayerControl/count_fold_paths"))
             assert elem_count == 1, f"Expected 1 path (FOLD SVG), got {elem_count}"
 
             # Click to fold
-            page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                if (btn) btn.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_overlay_fold_button"))
             page.wait_for_timeout(300)
 
             # Still 1 path — icon is rotated by CSS, not swapped
-            elem_count = page.evaluate("""() => {
-                const btn = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn');
-                return btn.querySelectorAll('path').length;
-            }""")
+            elem_count = page.evaluate(_js("LayerControl/count_fold_paths"))
             assert elem_count == 1, (
                 f"Expected 1 path (CSS-rotated, not swapped), got {elem_count}"
             )
             # Row must carry the folded class so CSS rotation kicks in
-            is_folded = page.evaluate("""() => {
-                const row = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"]');
-                return row.classList.contains('foliplus-layer-folded');
-            }""")
+            is_folded = page.evaluate(_js("LayerControl/read_fold_row_class"))
             assert is_folded, "Expected foliplus-layer-folded class on row after fold"
         finally:
             page.close()
@@ -1658,10 +1241,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            cursor = page.evaluate("""() => {
-                const el = document.querySelector('.foliplus-color-layer-item');
-                return el ? getComputedStyle(el).cursor : null;
-            }""")
+            cursor = page.evaluate(_js("LayerControl/read_color_layer_cursor"))
             assert cursor == "pointer", f"Expected pointer cursor, got {cursor}"
         finally:
             page.close()
@@ -1694,10 +1274,7 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # Step 1: All checked → toggle-all should be checked (not indeterminate)
-            all_checked = page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
-                return { checked: cb.checked, indeterminate: cb.indeterminate };
-            }""")
+            all_checked = page.evaluate(_js("LayerControl/read_toggle_all_state"))
             assert all_checked["checked"] is True, (
                 "Expected toggle-all checked when all layers checked"
             )
@@ -1706,16 +1283,10 @@ class TestLayerControlBrowser:
             )
 
             # Step 2: Uncheck one layer → toggle-all should be indeterminate
-            page.evaluate("""() => {
-                const cbs = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]');
-                if (cbs[1]) cbs[1].click();
-            }""")
+            page.evaluate(_js("LayerControl/uncheck_one_overlay"))
             page.wait_for_timeout(300)
 
-            partial = page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
-                return { checked: cb.checked, indeterminate: cb.indeterminate };
-            }""")
+            partial = page.evaluate(_js("LayerControl/read_toggle_all_state"))
             assert partial["checked"] is False, (
                 "Expected toggle-all unchecked when some layers checked"
             )
@@ -1724,16 +1295,10 @@ class TestLayerControlBrowser:
             )
 
             # Step 3: Uncheck all layers → toggle-all should be unchecked (not indeterminate)
-            page.evaluate("""() => {
-                const cbs = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]');
-                cbs.forEach(cb => { if (cb.checked) cb.click(); });
-            }""")
+            page.evaluate(_js("LayerControl/uncheck_all_overlays"))
             page.wait_for_timeout(300)
 
-            none = page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
-                return { checked: cb.checked, indeterminate: cb.indeterminate };
-            }""")
+            none = page.evaluate(_js("LayerControl/read_toggle_all_state"))
             assert none["checked"] is False, (
                 "Expected toggle-all unchecked when no layers checked"
             )
@@ -1769,38 +1334,23 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # Uncheck one layer to make toggle-all indeterminate
-            page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]');
-                if (cb) cb.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_first_overlay_checkbox"))
             page.wait_for_timeout(300)
 
             # Verify indeterminate
-            state = page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
-                return cb.indeterminate;
-            }""")
+            state = page.evaluate(_js("LayerControl/read_toggle_all_indeterminate"))
             assert state is True, "Expected toggle-all indeterminate before click"
 
             # Click toggle-all (indeterminate → checked will select all)
-            page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
-                if (cb) cb.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_toggle_all"))
             page.wait_for_timeout(300)
 
             # Verify all layers are now checked
-            result = page.evaluate("""() => {
-                const cbs = document.querySelectorAll('.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]');
-                return Array.from(cbs).map(cb => cb.checked);
-            }""")
+            result = page.evaluate(_js("LayerControl/read_overlay_checked"))
             assert all(result), f"Expected all layers checked, got {result}"
 
             # Verify toggle-all is now checked (not indeterminate)
-            final = page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]');
-                return { checked: cb.checked, indeterminate: cb.indeterminate };
-            }""")
+            final = page.evaluate(_js("LayerControl/read_toggle_all_state"))
             assert final["checked"] is True, (
                 "Expected toggle-all checked after select all"
             )
@@ -1840,52 +1390,23 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # Step 1: enforceOrder sets paneSet=true on the leaf marker
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const li = api.layers.find(l => l.name === 'TestLayer');
-                if (!li) return null;
-                const layer = api.findLayer(li.id);
-                if (!layer) return null;
-                // Find the leaf marker inside the FeatureGroup
-                let leaf = null;
-                layer.eachLayer((l) => { if (!leaf) leaf = l; });
-                if (!leaf) return null;
-                return { id: li.id, paneSet: leaf.options.paneSet };
-            }""")
+            result = page.evaluate(_js("LayerControl/read_leaf_paneset"))
             assert result is not None, "Layer not found"
             assert result["paneSet"] is True, (
                 f"Expected paneSet=true on leaf after enforceOrder, got {result['paneSet']}"
             )
 
             # Step 2: Hide the layer by unchecking checkbox
-            page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-item input[type="checkbox"]');
-                if (cb) cb.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_first_checkbox"))
             page.wait_for_timeout(300)
 
             # Step 3: Show the layer again
-            page.evaluate("""() => {
-                const cb = document.querySelector('.foliplus-layer-item input[type="checkbox"]');
-                if (cb) cb.click();
-            }""")
+            page.evaluate(_js("LayerControl/click_first_checkbox"))
             page.wait_for_timeout(300)
 
             # Step 4: handleChange reset the container paneSet; enforceOrder
             # re-migrates the leaf marker and sets its paneSet back to true
-            paneset = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const li = api.layers.find(l => l.name === 'TestLayer');
-                if (!li) return null;
-                const layer = api.findLayer(li.id);
-                if (!layer) return null;
-                let leaf = null;
-                layer.eachLayer((l) => { if (!leaf) leaf = l; });
-                if (!leaf) return null;
-                return leaf.options.paneSet;
-            }""")
+            paneset = page.evaluate(_js("LayerControl/read_leaf_paneset_value"))
             assert paneset is True, (
                 f"Expected paneSet=true on leaf after re-show, got {paneset}"
             )
@@ -1910,19 +1431,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
 
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const overlayPane = document.querySelector('.leaflet-overlay-pane');
-                const markerPane = document.querySelector('.leaflet-marker-pane');
-                const overlayZ = overlayPane ? getComputedStyle(overlayPane).zIndex : null;
-                const markerZ = markerPane ? getComputedStyle(markerPane).zIndex : null;
-                return {
-                    overlayZ: overlayZ,
-                    markerZ: markerZ,
-                    layerCount: api.layers.length,
-                };
-            }""")
+            result = page.evaluate(_js("LayerControl/read_pane_zindex"))
             assert result is not None, "LayerAPI not found"
             assert result["layerCount"] >= 2, f"got {result['layerCount']} layers"
             # Leaflet sets z-index via CSS class, so computed style should be numeric
@@ -1951,13 +1460,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
 
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const out = {};
-                out.unknownOk = (() => { try { api.bringLayerToFront('nope'); return true; } catch(e) { return false; } })();
-                return out;
-            }""")
+            result = page.evaluate(_js("LayerControl/bring_to_front_unknown_guard"))
             assert result is not None
             assert result["unknownOk"] is True, (
                 "bringToFront should be safe for unknown id"
@@ -1975,33 +1478,7 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                // Count synchronous enforceOrder calls NOT originating from
-                // initTypesAndVisibility (i.e. redundant per-register calls)
-                let redundant = 0;
-                const origEnforce = api.enforceOrder;
-                api.enforceOrder = function () {
-                    const caller = (new Error().stack.split('\\n')[2] || '');
-                    if (!caller.includes('initTypesAndVisibility')) redundant++;
-                    return origEnforce.call(this);
-                };
-                for (let i = 0; i < 3; i++) {
-                    const mg = api.createLayers({
-                        id: '__batch_' + i + '__',
-                        name: 'Batch' + i,
-                        graphPane: '__batch_graph_' + i + '__',
-                    });
-                    mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                }
-                const during = { redundant };
-                return new Promise((resolve) => {
-                    setTimeout(() => {
-                        resolve({ during, after: { redundant } });
-                    }, 200);
-                });
-            }""")
+            result = page.evaluate(_js("LayerControl/register_batch_coalesces_enforce"))
             assert result is not None, "LayerAPI not found"
             # No redundant (non-initTypes) synchronous enforceOrder during batch
             assert result["during"]["redundant"] == 0, (
@@ -2024,27 +1501,7 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const mg = api.createLayers({
-                    id: '__clean_cont__',
-                    name: 'CleanCont',
-                    graphPane: '__clean_graph__',
-                });
-                const poly = L.polyline([[26.08,119.30],[26.09,119.31]]);
-                mg.mainLayer.addLayer(poly);
-                // Leaf layer must be in the graph pane
-                const leafPane = poly.options.pane;
-                // Container must NOT be in a fallback pane
-                const containerPane = mg.mainLayer.options.pane;
-                return {
-                    leafPane,
-                    containerPane: typeof containerPane === 'undefined' ? null : containerPane,
-                    isFallback: typeof containerPane === 'string' && containerPane.startsWith('foliplus_pane_'),
-                    leafHasPath: !!(poly._path && poly._path.parentNode),
-                };
-            }""")
+            result = page.evaluate(_js("LayerControl/migrate_container_clean_options"))
             assert result is not None
             assert result["leafPane"] == "__clean_graph__", (
                 f"Leaf layer not migrated: {result['leafPane']}"
@@ -2068,25 +1525,7 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const ids = [];
-                for (let i = 0; i < 3; i++) {
-                    const mg = api.createLayers({
-                        id: '__idem_' + i + '__',
-                        name: 'Idem' + i,
-                        graphPane: '__idem_g' + i + '__',
-                    });
-                    mg.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                    ids.push('__idem_' + i + '__');
-                }
-                const orderBefore = api.layers.filter(l => ids.includes(l.id)).map(l => l.id);
-                // Re-register the middle layer with same id (no layer, callback-only)
-                api.registerLayer({ id: '__idem_1__', name: 'Idem1' });
-                const orderAfter = api.layers.filter(l => ids.includes(l.id)).map(l => l.id);
-                return { orderBefore, orderAfter, moved: orderBefore.join(',') !== orderAfter.join(',') };
-            }""")
+            result = page.evaluate(_js("LayerControl/register_idempotent_keeps_order"))
             assert result is not None, "LayerAPI not found"
             assert not result["moved"], (
                 f"Re-register reordered layers: {result['orderBefore']} -> {result['orderAfter']}"
@@ -2103,24 +1542,9 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                // Simulate a layeradd arriving while enforceOrder is running.
-                // onLayerAdd must fall back to debouncedEnforce instead of
-                // silently dropping the reorder.
-                let rescheduled = 0;
-                const origDebounced = api.debouncedEnforce;
-                api.debouncedEnforce = function () {
-                    rescheduled++;
-                    return origDebounced.call(this);
-                };
-                api.isEnforcing = true; // simulate in-flight enforceOrder
-                api.onLayerAdd({ layer: { options: { paneName: "test" } } });
-                api.isEnforcing = false;
-                api.debouncedEnforce = origDebounced;
-                return { rescheduled };
-            }""")
+            result = page.evaluate(
+                _js("LayerControl/layeradd_during_enforce_reschedules")
+            )
             assert result is not None, "LayerAPI not found"
             # layeradd during enforce must be rescheduled via debouncedEnforce
             assert result["rescheduled"] >= 1, (
@@ -2153,21 +1577,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
 
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                let findIndexCalls = 0;
-                const origFindIndex = Array.prototype.findIndex;
-                Array.prototype.findIndex = function (fn) {
-                    findIndexCalls++;
-                    return origFindIndex.call(this, fn);
-                };
-                // Simulate a drag session: many dragover events between two
-                // overlay layers (valid indices).
-                for (let i = 0; i < 50; i++) api.canReorderBetween(0, 1);
-                Array.prototype.findIndex = origFindIndex;
-                return { findIndexCalls };
-            }""")
+            result = page.evaluate(_js("LayerControl/can_reorder_caches_base_boundary"))
             assert result is not None, "LayerAPI not found"
             # With a cached base boundary, repeated calls must not rescan.
             # Allow a tiny constant (setup scans), but 50 calls should stay
@@ -2200,22 +1610,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
 
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                let updateCalls = 0;
-                const attrCtrl = api.map.attributionControl;
-                if (!attrCtrl) return { error: 'no attrCtrl' };
-                const origUpdate = attrCtrl._update;
-                attrCtrl._update = function () { updateCalls++; return origUpdate.call(this); };
-                // Two consecutive enforceOrder with unchanged attribution
-                api.enforceOrder();
-                const afterFirst = updateCalls;
-                api.enforceOrder();
-                const afterSecond = updateCalls;
-                attrCtrl._update = origUpdate;
-                return { afterFirst, afterSecond, delta: afterSecond - afterFirst };
-            }""")
+            result = page.evaluate(_js("LayerControl/sync_attribution_caches_state"))
             assert result is not None and "error" not in result
             # Second enforceOrder with unchanged attribution must not rebuild
             assert result["delta"] == 0, (
@@ -2233,29 +1628,7 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const panel = document.querySelector('.foliplus-panel-content');
-                // Track re-renders by watching innerHTML replacement
-                let innerHTMLSets = 0;
-                const origDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-                // Count full-list rebuilds via ui.renderInitialList call
-                let renderCalls = 0;
-                const ui = api.ui;
-                if (ui && ui.renderInitialList) {
-                    const origRender = ui.renderInitialList;
-                    ui.renderInitialList = function () { renderCalls++; return origRender.call(this); };
-                }
-                // Register two layers; each should NOT trigger a full rebuild
-                const mg1 = api.createLayers({ id: '__incr_1__', name: 'Incr1', graphPane: '__incr_g1__' });
-                mg1.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                const afterFirst = renderCalls;
-                const mg2 = api.createLayers({ id: '__incr_2__', name: 'Incr2', graphPane: '__incr_g2__' });
-                mg2.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                const afterSecond = renderCalls;
-                return { afterFirst, afterSecond };
-            }""")
+            result = page.evaluate(_js("LayerControl/render_initial_list_incremental"))
             assert result is not None, "LayerAPI not found"
             # After the initial attachUI render (1 call), dynamic registrations
             # must not trigger additional full rebuilds.
@@ -2274,51 +1647,7 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const check = () => {
-                    const ids = api.layers.map(l => l.id);
-                    const indexKeys = Array.from(api.layerRegistry.byId.keys());
-                    const sameSet =
-                        ids.length === indexKeys.length &&
-                        ids.every(id => api.layerRegistry.has(id));
-                    // Index values must reference the same objects as the array
-                    const sameRefs = ids.every(id =>
-                        api.layerRegistry.get(id) === api.layers.find(l => l.id === id)
-                    );
-                    return { sameSet, sameRefs };
-                };
-
-                // 1. Register several layers
-                for (let i = 0; i < 3; i++) {
-                    api.registerLayer({ id: '__idx_' + i + '__', name: 'Idx' + i, layer: L.marker([26.08 + i*0.01, 119.30]) });
-                }
-                const afterRegister = check();
-
-                // 2. Unregister one
-                api.unregisterLayer('__idx_1__');
-                const afterUnregister = check();
-
-                // 3. Reorder (bring to front)
-                api.bringLayerToFront('__idx_2__');
-                const afterReorder = check();
-
-                // 4. findLayer / getLayerType via the index
-                const found = api.findLayer('__idx_0__') != null;
-                // L.marker has no .feature so geometry type is UNKNOWN — the
-                // point here is that getLayerType resolves via the index at all
-                // (non-null, no exception), not its exact value.
-                const typeResolved = api.getLayerType('__idx_0__') != null;
-
-                return {
-                    afterRegister,
-                    afterUnregister,
-                    afterReorder,
-                    found,
-                    typeResolved,
-                };
-            }""")
+            result = page.evaluate(_js("LayerControl/layer_index_stays_in_sync"))
             assert result is not None, "LayerAPI not found"
             assert result["afterRegister"]["sameSet"], (
                 "index set diverged after register"
@@ -2350,53 +1679,7 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const coll = api.layerRegistry;
-                if (!coll) return { error: 'no layerRegistry exposed' };
-                const out = {};
-
-                // Start from an empty registry so assertions are independent
-                // of the map's initial layers.
-                coll.replace([]);
-
-                // Ordered-array semantics
-                const a = { id: 'a', name: 'A' };
-                const b = { id: 'b', name: 'B' };
-                coll.prepend(a);
-                coll.prepend(b);          // b, a
-                out.afterPrepend = { len: coll.size, first: coll.at(0).id, second: coll.at(1).id };
-
-                // Index semantics
-                out.getById = coll.get('a').name;
-                out.hasA = coll.has('a');
-                out.indexOfA = coll.indexOf(a);
-
-                // Idempotent upsert keeps position
-                coll.upsert({ id: 'b', name: 'B2' });
-                out.afterUpsert = { len: coll.size, idxB: coll.indexOf(coll.get('b')), name: coll.get('b').name };
-
-                // Remove keeps index in sync
-                coll.remove('a');
-                out.afterRemove = { len: coll.size, hasA: coll.has('a'), first: coll.at(0).id };
-
-                // Iteration preserves order
-                coll.upsert({ id: 'c', name: 'C' });
-                const ids = [];
-                for (const li of coll) ids.push(li.id);
-                out.iter = ids;
-
-                // replace rebuilds both list and index
-                coll.replace([{ id: 'x', name: 'X' }, { id: 'y', name: 'Y' }]);
-                out.afterReplace = {
-                    len: coll.size,
-                    hasX: coll.has('x'),
-                    hasOld: coll.has('b'),
-                    first: coll.at(0).id,
-                };
-                return out;
-            }""")
+            result = page.evaluate(_js("LayerControl/layer_registry_api"))
             assert result is not None and "error" not in result, (
                 result if result else "LayerAPI not found"
             )
@@ -2453,31 +1736,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
 
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const coll = api.layerRegistry;
-                if (!coll) return { error: 'no layerRegistry exposed' };
-
-                const KEYS = [
-                    'name', 'id', 'visible', 'isBase', 'paneName',
-                    'iconSvg', 'type', 'layer', 'canvas', 'onToggle', 'onZIndex',
-                ];
-                const out = { entries: [] };
-                for (const li of coll) {
-                    const entry = {
-                        id: li.id,
-                        isBase: li.isBase,
-                        hasAllKeys: true,
-                        missing: [],
-                    };
-                    for (const k of KEYS)
-                        if (!(k in li)) { entry.hasAllKeys = false; entry.missing.push(k); }
-                    entry.typeNull = li.type === null;
-                    out.entries.push(entry);
-                }
-                return out;
-            }""")
+            result = page.evaluate(_js("LayerControl/initial_data_normalized"))
             assert result is not None and "error" not in result, (
                 result if result else "LayerAPI not found"
             )
@@ -2507,31 +1766,7 @@ class TestLayerControlBrowser:
         """
         page, _ = self._make_page(browser, tmp_path)
         try:
-            result = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return null;
-                const out = {};
-
-                // Read operations still work
-                out.length = api.layers.length;
-                out.firstId = api.layers[0] ? api.layers[0].id : null;
-                out.mapped = api.layers.map(l => l.id).length;
-
-                // Direct mutations must throw
-                out.pushThrew = false;
-                try { api.layers.push({ id: 'nope' }); } catch (e) { out.pushThrew = true; }
-
-                out.spliceThrew = false;
-                try { api.layers.splice(0, 1); } catch (e) { out.spliceThrew = true; }
-
-                out.assignThrew = false;
-                try { api.layers[0] = { id: 'nope' }; } catch (e) { out.assignThrew = true; }
-
-                out.shiftThrew = false;
-                try { api.layers.shift(); } catch (e) { out.shiftThrew = true; }
-
-                return out;
-            }""")
+            result = page.evaluate(_js("LayerControl/layers_view_readonly"))
             assert result is not None, "LayerAPI not found"
             assert result["length"] > 0, "read length failed"
             assert result["firstId"], "read index failed"

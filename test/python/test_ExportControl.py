@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import make_browser_page, render
+from conftest import _js, make_browser_page, render
 
 from foliplus import ExportControl
 
@@ -281,10 +281,7 @@ class TestExportControlBrowser:
             )
             assert has_mode, "body should have foliplus-export-mode class"
             # Check on map container
-            has_map_mode = page.evaluate("""() => {
-                const c = document.querySelector('.leaflet-container');
-                return c && c.classList.contains('foliplus-export-mode');
-            }""")
+            has_map_mode = page.evaluate(_js("ExportControl/read_export_mode_class"))
             assert has_map_mode, "map container should have foliplus-export-mode"
         finally:
             page.close()
@@ -410,11 +407,7 @@ class TestExportControlBrowser:
             assert len(errors) == 0, f"JS errors: {errors}"
 
             # Verify layers are registered in LayerControl API
-            api_layers = page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api || !api.layers) return [];
-                return api.layers.map(l => ({ id: l.id, visible: l.visible, isBase: l.isBase }));
-            }""")
+            api_layers = page.evaluate(_js("ExportControl/read_api_layers"))
             assert len(api_layers) > 0, f"No layers in API. errors={errors}"
 
             overlay_layers = [l for l in api_layers if not l["isBase"] and l["visible"]]
@@ -434,11 +427,7 @@ class TestExportControlBrowser:
             )
 
             # Get initial box size and the br handle position
-            initial = page.evaluate("""() => {
-                const box = document.querySelector('.foliplus-export-box');
-                const r = box.getBoundingClientRect();
-                return { w: r.width, h: r.height, l: r.left, t: r.top };
-            }""")
+            initial = page.evaluate(_js("ExportControl/read_box_rect"))
 
             # Drag the bottom-right handle using absolute mouse coordinates
             handle = page.locator(".foliplus-export-handle.br")
@@ -457,11 +446,7 @@ class TestExportControlBrowser:
             page.mouse.up()
             page.wait_for_timeout(300)
 
-            after = page.evaluate("""() => {
-                const box = document.querySelector('.foliplus-export-box');
-                const r = box.getBoundingClientRect();
-                return { w: r.width, h: r.height, l: r.left, t: r.top };
-            }""")
+            after = page.evaluate(_js("ExportControl/read_box_rect"))
             assert after["w"] > initial["w"], (
                 f"Expected width increased, was {initial['w']} now {after['w']}"
             )
@@ -480,11 +465,7 @@ class TestExportControlBrowser:
                 ".foliplus-export-box", state="attached", timeout=5000
             )
 
-            initial = page.evaluate("""() => {
-                const box = document.querySelector('.foliplus-export-box');
-                const r = box.getBoundingClientRect();
-                return { l: r.left, t: r.top, w: r.width, h: r.height };
-            }""")
+            initial = page.evaluate(_js("ExportControl/read_box_rect"))
 
             # Drag the center by 30px right and 20px down using raw mouse events
             center = page.locator(".foliplus-export-center")
@@ -502,11 +483,7 @@ class TestExportControlBrowser:
             page.mouse.up()
             page.wait_for_timeout(300)
 
-            after = page.evaluate("""() => {
-                const box = document.querySelector('.foliplus-export-box');
-                const r = box.getBoundingClientRect();
-                return { l: r.left, t: r.top, w: r.width, h: r.height };
-            }""")
+            after = page.evaluate(_js("ExportControl/read_box_rect"))
             # Width/height should be unchanged
             assert after["w"] == initial["w"], (
                 f"Width should not change on move, was {initial['w']} now {after['w']}"
@@ -551,23 +528,7 @@ class TestExportControlBrowser:
                 ".foliplus-export-box", state="attached", timeout=5000
             )
 
-            info = page.evaluate("""() => {
-                const box = document.querySelector('.foliplus-export-box');
-                const scale = document.querySelector('.leaflet-control-scale');
-                const attr = document.querySelector('.leaflet-control-attribution');
-                const get = (el) => el ? getComputedStyle(el) : null;
-                const boxParent = box ? box.parentElement : null;
-                const boxZ = box ? parseInt(get(box).zIndex, 10) : null;
-                const parentZ = boxParent ? get(boxParent).zIndex : null;
-                const scaleZ = scale ? parseInt(get(scale).zIndex, 10) : null;
-                const attrZ = attr ? parseInt(get(attr).zIndex, 10) : null;
-                return {
-                    boxZ, parentZ,
-                    parentIsContainer: boxParent
-                        ? boxParent.classList.contains('leaflet-container') : false,
-                    scaleZ, attrZ,
-                };
-            }""")
+            info = page.evaluate(_js("ExportControl/read_mask_zindex"))
 
             # Box must live in mapContainer (not mapPane) — mapPane's
             # z-index:400 stacking context would trap the mask below scale/attr.
@@ -593,23 +554,9 @@ class TestExportControlBrowser:
         try:
             # Pre-set localStorage with saved bounds using the exact storage key.
             # Extract the map name from the first script tag that defines L.map.
-            map_name = page.evaluate("""() => {
-                for (const s of document.querySelectorAll('script')) {
-                    const m = s.textContent.match(/var\\s+(map_\\w+)\\s*=\\s*L\\.map\\(/);
-                    if (m) return m[1];
-                }
-                return 'map';
-            }""")
+            map_name = page.evaluate(_js("ExportControl/read_map_name"))
             storage_key = "foliplus_export_rect_" + map_name
-            page.evaluate(
-                """(key) => {
-                localStorage.setItem(key, JSON.stringify({
-                    nw: { lat: 26.07, lng: 119.28 },
-                    se: { lat: 26.09, lng: 119.32 }
-                }));
-            }""",
-                storage_key,
-            )
+            page.evaluate(_js("ExportControl/set_saved_bounds"), storage_key)
 
             # Reload so ExportControl's constructor re-reads saved bounds
             # (loadSavedBounds runs at init, not on toggle).
@@ -652,15 +599,7 @@ class TestExportControlBrowser:
             )
 
             # Create a canvas layer via LayerControl API
-            page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return;
-                const cvs = api.createCanvas({ id: '__test_export_canvas__', name: 'Test Canvas' });
-                const ctx = cvs.ctx;
-                ctx.fillStyle = 'red';
-                ctx.fillRect(10, 10, 100, 100);
-                cvs.register();
-            }""")
+            page.evaluate(_js("ExportControl/create_test_canvas"))
 
             # Open export, lock, export
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
@@ -683,11 +622,7 @@ class TestExportControlBrowser:
             page.wait_for_timeout(500)
 
             # Cleanup canvas layer
-            page.evaluate("""() => {
-                const api = window.foliplus && window.foliplus.LayerAPI;
-                if (!api) return;
-                api.unregisterLayer('__test_export_canvas__');
-            }""")
+            page.evaluate(_js("ExportControl/remove_test_canvas"))
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
         finally:
             page.close()
@@ -703,11 +638,7 @@ class TestExportControlBrowser:
 
             # Verify onKeyDown is wired to document keydown by checking
             # that the handler changes the undoStack after a resize drag.
-            initial = page.evaluate("""() => {
-                const box = document.querySelector('.foliplus-export-box');
-                const r = box.getBoundingClientRect();
-                return { w: r.width, h: r.height };
-            }""")
+            initial = page.evaluate(_js("ExportControl/read_box_rect"))
 
             # Drag bottom-right handle to enlarge
             handle = page.locator(".foliplus-export-handle.br")
@@ -722,11 +653,7 @@ class TestExportControlBrowser:
             page.mouse.up()
             page.wait_for_timeout(200)
 
-            after_resize = page.evaluate("""() => {
-                const box = document.querySelector('.foliplus-export-box');
-                const r = box.getBoundingClientRect();
-                return { w: r.width, h: r.height };
-            }""")
+            after_resize = page.evaluate(_js("ExportControl/read_box_rect"))
             assert after_resize["w"] > initial["w"], "Resize should enlarge width"
 
             # Verify that the handler strings exist in the rendered JS
@@ -761,11 +688,7 @@ class TestExportControlBrowser:
 
             # Box should still be visible and locked
             assert page.locator(".foliplus-export-box.locked").is_visible()
-            after_zoom = page.evaluate("""() => {
-                const box = document.querySelector('.foliplus-export-box');
-                const r = box.getBoundingClientRect();
-                return { w: r.width, h: r.height };
-            }""")
+            after_zoom = page.evaluate(_js("ExportControl/read_box_rect"))
             assert after_zoom["w"] > 0 and after_zoom["h"] > 0, (
                 f"Box disappeared after zoom, size={after_zoom}"
             )

@@ -5,6 +5,7 @@ from __future__ import annotations
 import folium
 import pytest
 from conftest import (
+    _js,
     assert_config_value,
     assert_locale,
     make_browser_page,
@@ -218,15 +219,7 @@ class TestScaleControlBrowser:
         """Scale wrap height equals attribution height."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            heights = page.evaluate("""() => {
-                const s = document.querySelector('.foliplus-scale-wrap');
-                const a = document.querySelector('.leaflet-control-attribution');
-                if (!s || !a) return null;
-                return {
-                    scale: s.getBoundingClientRect().height,
-                    attr: a.getBoundingClientRect().height,
-                };
-            }""")
+            heights = page.evaluate(_js("ScaleControl/read_heights"))
             assert heights is not None, "scale-wrap or attribution not found"
             assert heights["scale"] == heights["attr"], (
                 f"height mismatch: scale={heights['scale']}px attr={heights['attr']}px"
@@ -239,32 +232,7 @@ class TestScaleControlBrowser:
         """Scale line and zoom label font matches attribution font."""
         page, errors = self._make_page(browser, tmp_path, show_zoom=True)
         try:
-            fonts = page.evaluate("""() => {
-                const sl = document.querySelector('.leaflet-control-scale-line');
-                const zl = document.querySelector('.foliplus-scale-zoom-label');
-                const a = document.querySelector('.leaflet-control-attribution');
-                if (!sl || !a) return null;
-                const acs = getComputedStyle(a);
-                const slcs = getComputedStyle(sl);
-                const zlcs = zl ? getComputedStyle(zl) : null;
-                return {
-                    attr: {
-                        family: acs.fontFamily.split(',')[0].trim(),
-                        size: acs.fontSize,
-                        weight: acs.fontWeight,
-                    },
-                    scaleLine: {
-                        family: slcs.fontFamily.split(',')[0].trim(),
-                        size: slcs.fontSize,
-                        weight: slcs.fontWeight,
-                    },
-                    zoomLabel: zlcs ? {
-                        family: zlcs.fontFamily.split(',')[0].trim(),
-                        size: zlcs.fontSize,
-                        weight: zlcs.fontWeight,
-                    } : null,
-                };
-            }""")
+            fonts = page.evaluate(_js("ScaleControl/read_fonts"))
             assert fonts is not None, "elements not found"
             attr = fonts["attr"]
             sl = fonts["scaleLine"]
@@ -294,17 +262,7 @@ class TestScaleControlBrowser:
         """Scale wrap and zoom label line-height matches attribution."""
         page, errors = self._make_page(browser, tmp_path, show_zoom=True)
         try:
-            lh = page.evaluate("""() => {
-                const s = document.querySelector('.foliplus-scale-wrap');
-                const zl = document.querySelector('.foliplus-scale-zoom-label');
-                const a = document.querySelector('.leaflet-control-attribution');
-                if (!s || !a) return null;
-                return {
-                    wrap: getComputedStyle(s).lineHeight,
-                    attr: getComputedStyle(a).lineHeight,
-                    zoomLabel: zl ? getComputedStyle(zl).lineHeight : null,
-                };
-            }""")
+            lh = page.evaluate(_js("ScaleControl/read_line_heights"))
             assert lh is not None, "elements not found"
             assert lh["wrap"] == lh["attr"], (
                 f"wrap line-height mismatch: {lh['wrap']} vs {lh['attr']}"
@@ -321,16 +279,7 @@ class TestScaleControlBrowser:
         """Scale line has a visible bottom border (horizontal line)."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            border = page.evaluate("""() => {
-                const el = document.querySelector('.leaflet-control-scale-line');
-                if (!el) return null;
-                const cs = getComputedStyle(el);
-                return {
-                    bottomWidth: cs.borderBottomWidth,
-                    bottomStyle: cs.borderBottomStyle,
-                    bottomColor: cs.borderBottomColor,
-                };
-            }""")
+            border = page.evaluate(_js("ScaleControl/read_border"))
             assert border is not None, "scale-line not found"
             assert float(border["bottomWidth"].replace("px", "")) > 0, (
                 f"bottom border has no width: {border['bottomWidth']}"

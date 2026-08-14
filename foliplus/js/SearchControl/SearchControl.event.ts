@@ -15,7 +15,6 @@ const { _, foliplus } = createControlEnv(CONF);
 
 /**
  * Bind all DOM events for the SearchControl.
- * @param {Object} ctrl - SearchControl instance
  */
 const bindEvents = (ctrl: SearchControl) => {
   bindFoldToggle({
@@ -119,7 +118,6 @@ const bindEvents = (ctrl: SearchControl) => {
 
 /**
  * Parse URL parameters to initialize search state.
- * @param {Object} ctrl - SearchControl instance
  */
 const initFromUrl = (ctrl: SearchControl) => {
   try {

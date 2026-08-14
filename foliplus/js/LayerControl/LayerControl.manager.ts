@@ -442,8 +442,6 @@ class LayerManager {
 
   /**
    * Get all registered layers of a given geometry type.
-   * @param {string} type - "point" | "line" | "polygon" | "base"
-   * @returns {Array<{id: string, name: string, layer: Object}>}
    */
   getLayersByType(
     type: string,
@@ -471,7 +469,6 @@ class LayerManager {
   /**
    * Extract all point markers from a registered layer by id.
    * @param {string} id - Layer ID.
-   * @returns {Array<{lat: number, lng: number, marker: L.Marker|L.CircleMarker}>}
    */
   extractPoints(
     id: string,

@@ -8,10 +8,10 @@ from pathlib import Path
 import folium
 import pytest
 from conftest import (
+    _js,
     assert_config_value,
     assert_locale,
     make_browser_page,
-    render,
     render_control,
 )
 
@@ -434,18 +434,7 @@ class TestHeatmapControlBrowser:
         """Constructor initialises all user-configurable defaults."""
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
-            vals = page.evaluate("""() => {
-                const m = window.__heatmapCtrl.manager;
-                return {
-                    numClasses: m.numClasses,
-                    borderWeight: m.borderWeight,
-                    borderColor: m.borderColor,
-                    currentLabelShow: m.currentLabelShow,
-                    currentMethod: m.currentMethod,
-                    currentScheme: m.currentScheme,
-                    currentAgg: m.currentAgg,
-                };
-            }""")
+            vals = page.evaluate(_js("HeatmapControl/read_defaults"))
             assert vals["numClasses"] == 6, (
                 f"numClasses expected 6 got {vals['numClasses']}"
             )
@@ -504,11 +493,7 @@ class TestHeatmapControlBrowser:
                 "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
             )
             assert opts, "No layer options found"
-            page.evaluate(f"""() => {{
-                const sel = window.__heatmapCtrl.layerSelect;
-                sel.value = '{opts[0]}';
-                sel.dispatchEvent(new Event('change'));
-            }}""")
+            page.evaluate(_js("HeatmapControl/select_layer"), opts[0])
             page.wait_for_timeout(2000)
 
             # overlay (Canvas) should be visible with content after renderHexagons
@@ -540,11 +525,7 @@ class TestHeatmapControlBrowser:
                 'Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll("option")).slice(1).map(o => o.value)'
             )
             if opts:
-                page.evaluate(f"""() => {{
-                    const sel = window.__heatmapCtrl.layerSelect;
-                    sel.value = '{opts[0]}';
-                    sel.dispatchEvent(new Event('change'));
-                }}""")
+                page.evaluate(_js("HeatmapControl/select_layer"), opts[0])
                 page.wait_for_timeout(2000)
 
             # Call clearHeatmapCanvas
@@ -583,12 +564,7 @@ class TestHeatmapControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            mgr = page.evaluate("""() => {
-                const m = window.__heatmapCtrl.manager;
-                return { numClasses: m.numClasses, borderWeight: m.borderWeight,
-                         borderColor: m.borderColor, currentMethod: m.currentMethod,
-                         currentScheme: m.currentScheme };
-            }""")
+            mgr = page.evaluate(_js("HeatmapControl/read_manager_state"))
             assert mgr["numClasses"] == 6, f"expected 6 got {mgr['numClasses']}"
             assert mgr["borderWeight"] == 1.5
             assert mgr["currentMethod"] == "jenks"
@@ -612,10 +588,7 @@ class TestHeatmapControlBrowser:
                 "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
             )
             if opts:
-                page.evaluate(f"""() => {{
-                    window.__heatmapCtrl.layerSelect.value = '{opts[0]}';
-                    window.__heatmapCtrl.layerSelect.dispatchEvent(new Event('change'));
-                }}""")
+                page.evaluate(_js("HeatmapControl/select_layer"), opts[0])
                 page.wait_for_timeout(2000)
 
             # Export hooks should toggle renderAll
@@ -804,10 +777,7 @@ class TestHeatmapAutoFieldBrowser:
             # Skip the empty/default option, pick the first real layer
             real_options = [v for v in options if v]
             assert len(real_options) >= 1, f"No layer options found: {options}"
-            page.evaluate(f"""() => {{
-                window.__heatmapCtrl.layerSelect.value = '{real_options[0]}';
-                window.__heatmapCtrl.layerSelect.dispatchEvent(new Event('change'));
-            }}""")
+            page.evaluate(_js("HeatmapControl/select_layer"), real_options[0])
             page.wait_for_timeout(500)
 
             # Switch aggregation to 'sum' so the field selector appears.
@@ -873,10 +843,7 @@ class TestHeatmapAutoFieldBrowser:
             )
             real_options = [v for v in options if v]
             assert len(real_options) >= 1
-            page.evaluate(f"""() => {{
-                window.__heatmapCtrl.layerSelect.value = '{real_options[0]}';
-                window.__heatmapCtrl.layerSelect.dispatchEvent(new Event('change'));
-            }}""")
+            page.evaluate(_js("HeatmapControl/select_layer"), real_options[0])
             page.wait_for_timeout(500)
 
             # Switch to 'avg' so field selector appears.

@@ -25,6 +25,15 @@ if TYPE_CHECKING:
     from playwright.sync_api import Browser
 
 
+# ── JS snippet reader (browser tests) ──
+# Reads test/js/browser/<Component>/<name>.js for page.evaluate().
+def _js(path: str) -> str:
+    """Read a browser-test JS snippet, e.g. ``_js("LayerControl/read_layer_items")``."""
+    return (Path(__file__).resolve().parent.parent / f"js/browser/{path}.js").read_text(
+        encoding="utf-8"
+    )
+
+
 # ── CDN cache (browser tests) ──
 #
 # Browser tests load folium's base page which references CDN scripts
@@ -32,7 +41,6 @@ if TYPE_CHECKING:
 # these can exceed Playwright's navigation timeout and produce spurious
 # `Page.goto` timeouts.  We intercept those requests and serve them from a
 # local cache (downloaded once to /tmp) so tests are network-independent.
-
 _CDN_CACHE_DIR = Path("/tmp/foliplus-cdn-cache")
 
 # CDN URL fragment -> (cache filename, mime type)
