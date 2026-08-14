@@ -6,9 +6,9 @@ import * as SVGs from "./LayerControl.icon.js";
 /** Detect the geometry type of a layer tree.
  *  @param {Object} layer - Leaflet layer.
  *  @returns {string} Geometry type constant from GEOM_TYPE. */
-const getGeometryType = (layer: any) => {
-  const leaves: any[] = [];
-  forEachLeaf(layer, (l: any) => leaves.push(l));
+const getGeometryType = (layer: L.Layer): string => {
+  const leaves: L.Layer[] = [];
+  forEachLeaf(layer, l => leaves.push(l));
   if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY;
 
   let hasPoly = false,
@@ -30,10 +30,7 @@ const getGeometryType = (layer: any) => {
       : CONST.GEOM_TYPE.POINT;
 };
 
-/** Get the SVG icon for a layer's geometry type.
- *  @param {Object} layer - Leaflet layer.
- *  @returns {string} SVG HTML string. */
-const getTypeSVG = (layer: any) => {
+const getTypeSVG = (layer: L.Layer): string => {
   const type = getGeometryType(layer);
   if (type === CONST.GEOM_TYPE.POLYGON) return SVGs.POLYGON;
   if (type === CONST.GEOM_TYPE.LINE) return SVGs.LINE;
@@ -42,51 +39,36 @@ const getTypeSVG = (layer: any) => {
   return SVGs.UNKNOWN;
 };
 
-/** Resolve a layer by id from map._layers or window.
- *  @param {Object} map - Leaflet map.
- *  @param {string} id - Layer ID.
- *  @returns {Object|null} Leaflet layer or null. */
-const findLayer = (map: any, id: string) => {
-  return (map._layers && map._layers[id]) || (window as any)[id] || null;
+const findLayer = (map: L.Map, id: string): L.Layer | null => {
+  return ((map._layers && map._layers[id]) ||
+    Reflect.get(window, id) ||
+    null) as L.Layer | null;
 };
 
-/**
- * Internal: walk a layer tree, optionally calling fn on containers.
- * @param {Object} layer - Leaflet layer.
- * @param {function} fn - Called for each visited node.
- * @param {number} depth - Internal recursion depth.
- * @param {boolean} leafOnly - If true, only call fn on non-container layers.
- */
-const traverse = (layer: any, fn: any, depth = 0, leafOnly = false) => {
+const traverse = (
+  layer: L.Layer,
+  fn: (layer: L.Layer) => void,
+  depth = 0,
+  leafOnly = false,
+) => {
   if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
-  const isContainer = typeof layer.eachLayer === "function";
+  const container = layer as L.LayerGroup;
+  const isContainer = typeof container.eachLayer === "function";
   if (!leafOnly) fn(layer);
-  if (isContainer) layer.eachLayer((c: any) => traverse(c, fn, depth + 1, leafOnly));
-  else if (layer._layers) {
-    for (const k in layer._layers) {
-      if (Object.hasOwn(layer._layers, k))
-        traverse(layer._layers[k], fn, depth + 1, leafOnly);
+  if (isContainer) container.eachLayer(c => traverse(c, fn, depth + 1, leafOnly));
+  else if (container._layers) {
+    for (const k in container._layers) {
+      if (Object.hasOwn(container._layers, k))
+        traverse(container._layers[k], fn, depth + 1, leafOnly);
     }
   } else if (leafOnly) fn(layer);
 };
 
-/**
- * Walk every leaf (non-container) layer in a tree.
- * @param {Object} layer - Leaflet layer.
- * @param {function} fn - Called for each leaf with (leafLayer).
- * @param {number} [depth=0] - Internal recursion depth.
- */
-const forEachLeaf = (layer: any, fn: any, depth = 0) => {
+const forEachLeaf = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) => {
   traverse(layer, fn, depth, true);
 };
 
-/**
- * Walk all layers (including containers) in a tree, visiting each node.
- * @param {Object} layer - Leaflet layer.
- * @param {function} fn - Called for each node (container or leaf) with (nodeLayer).
- * @param {number} [depth=0] - Internal recursion depth.
- */
-const forEachLayer = (layer: any, fn: any, depth = 0) => {
+const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) => {
   traverse(layer, fn, depth, false);
 };
 

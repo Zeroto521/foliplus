@@ -1,6 +1,6 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
 import { fromWgs84 } from "#common/coord.js";
-import { debounce } from "#common/debounce.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { createLocationMarker, dom } from "#common/dom.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
@@ -10,12 +10,45 @@ import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./SearchControl.const
 
 const { _, foliplus } = createControlEnv(CONF);
 
+/** Nominatim search result element. */
+interface NominatimItem {
+  lat: string;
+  lon: string;
+  name?: string;
+  display_name: string;
+}
+
+/** Cached address result: the raw item + its formatted display name. */
+interface AddressResult {
+  item: NominatimItem;
+  displayName: string;
+}
+
+/** Subset of SearchControl state used by the logic functions (decouples the types). */
+interface SearchControlState {
+  inp: HTMLInputElement;
+  mode: string;
+  modeBtn: HTMLElement;
+  cachedAddress: Record<string, AddressResult>;
+  cachedSuggestions: Record<string, NominatimItem[]>;
+  suggestionsWrap: HTMLElement | null;
+  selectedSuggestionIdx: number;
+  lastSuggestFetch: number;
+  suggestionsThrottleTimer: ReturnType<typeof setTimeout> | null;
+  suggestAbortController: AbortController | null;
+  addrAbortController: AbortController | null;
+  suggestSeq: number;
+  debouncedFetch: Debounced;
+  marker: L.Marker | null;
+  ctrl: HTMLElement;
+}
+
 /**
  * Coordinate search: parse raw input, validate, fly to location, place marker.
  * @param {Object} ctrl - SearchControl instance
  * @param {string} raw - User input (e.g. "121.47,31.23")
  */
-const searchCoord = (ctrl: any, raw: string) => {
+const searchCoord = (ctrl: SearchControlState, raw: string) => {
   const parts = raw
     .replace(/\uff0c/g, ",")
     .replace(/\s+/g, "")
@@ -58,7 +91,7 @@ const searchCoord = (ctrl: any, raw: string) => {
  * @param {Object} ctrl - SearchControl instance
  * @param {string} query - Address query string
  */
-const searchAddress = (ctrl: any, query: string) => {
+const searchAddress = (ctrl: SearchControlState, query: string) => {
   if (ctrl.cachedAddress[query]) {
     renderAddressResult(ctrl, ctrl.cachedAddress[query]);
     return;
@@ -107,7 +140,7 @@ const searchAddress = (ctrl: any, query: string) => {
  * @param {Object} ctrl - SearchControl instance
  * @param {Object} result - { item, displayName }
  */
-const renderAddressResult = (ctrl: any, result: any) => {
+const renderAddressResult = (ctrl: SearchControlState, result: AddressResult) => {
   const { item, displayName } = result;
   let lat = parseFloat(item.lat);
   let lng = parseFloat(item.lon);
@@ -138,7 +171,7 @@ const renderAddressResult = (ctrl: any, result: any) => {
 
 // ── Suggestions ──
 
-const removeSuggestions = (ctrl: any) => {
+const removeSuggestions = (ctrl: SearchControlState) => {
   if (ctrl.suggestionsThrottleTimer) {
     clearTimeout(ctrl.suggestionsThrottleTimer);
     ctrl.suggestionsThrottleTimer = null;
@@ -150,7 +183,7 @@ const removeSuggestions = (ctrl: any) => {
   ctrl.selectedSuggestionIdx = -1;
 };
 
-const positionSuggestions = (ctrl: any) => {
+const positionSuggestions = (ctrl: SearchControlState) => {
   if (!ctrl.suggestionsWrap) return;
   const rect = ctrl.ctrl.getBoundingClientRect();
   let left = rect.left + window.scrollX;
@@ -160,7 +193,11 @@ const positionSuggestions = (ctrl: any) => {
   ctrl.suggestionsWrap.style.top = `${rect.bottom + window.scrollY}px`;
 };
 
-const renderSuggestions = (ctrl: any, results: any[], query: string) => {
+const renderSuggestions = (
+  ctrl: SearchControlState,
+  results: NominatimItem[],
+  query: string,
+) => {
   if (!results || results.length === 0) {
     removeSuggestions(ctrl);
     return;
@@ -172,7 +209,7 @@ const renderSuggestions = (ctrl: any, results: any[], query: string) => {
     ctrl.suggestionsWrap = dom.el("div", {
       class: CLASSES.SUGGESTIONS,
       parent: document.body,
-      onclick: (e: MouseEvent) => e.stopPropagation(),
+      onclick: (event: Event) => event.stopPropagation(),
     });
   }
 
@@ -180,7 +217,7 @@ const renderSuggestions = (ctrl: any, results: any[], query: string) => {
   ctrl.selectedSuggestionIdx = -1;
   positionSuggestions(ctrl);
 
-  results.forEach((item: any, idx: number) => {
+  results.forEach((item: NominatimItem, idx: number) => {
     const displayName =
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
     dom.el(
@@ -189,9 +226,9 @@ const renderSuggestions = (ctrl: any, results: any[], query: string) => {
         class: CLASSES.SUGGESTION_ITEM,
         "data-index": String(idx),
         parent: ctrl.suggestionsWrap,
-        onmousedown: (e: MouseEvent) => {
-          e.stopPropagation();
-          e.preventDefault();
+        onmousedown: (event: Event) => {
+          event.stopPropagation();
+          event.preventDefault();
           removeSuggestions(ctrl);
           ctrl.cachedAddress[displayName] = { item, displayName };
           renderAddressResult(ctrl, { item, displayName });
@@ -203,7 +240,7 @@ const renderSuggestions = (ctrl: any, results: any[], query: string) => {
   });
 };
 
-const fetchSuggestions = (ctrl: any, query: string) => {
+const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   if (ctrl.mode !== MODE.ADDR) {
     removeSuggestions(ctrl);
     return;
@@ -247,14 +284,14 @@ const fetchSuggestions = (ctrl: any, query: string) => {
     });
 };
 
-const initDebouncedFetch = (ctrl: any) => {
+const initDebouncedFetch = (ctrl: SearchControlState) => {
   ctrl.debouncedFetch = debounce(
     () => fetchSuggestions(ctrl, ctrl.inp.value.trim()),
     AUTOCOMPLETE.DEBOUNCE_MS,
   );
 };
 
-const buildSearchUrl = (ctrl: any, q: string, limit: number) => {
+const buildSearchUrl = (ctrl: SearchControlState, q: string, limit: number) => {
   const center = map.getCenter();
   return nominatimUrl(
     "/search",

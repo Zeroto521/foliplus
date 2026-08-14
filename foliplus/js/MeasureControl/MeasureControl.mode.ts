@@ -1,9 +1,13 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
 import { createLocationMarker, stopEvent } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
-import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
+import {
+  type MapEventHandlers,
+  bindMapEvents,
+  unbindMapEvents,
+} from "#common/mapEvent.js";
 import * as CONST from "./MeasureControl.const.js";
+import type { MeasureManager } from "./MeasureControl.manager.js";
 import {
   attachCircleUI,
   attachDistanceUI,
@@ -12,13 +16,30 @@ import {
 import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
+
+/** Persisted measurement payload type. */
+type Mode = { type: string };
+
+/** Circle-mode preview layers (center, radius circle, radius line, edge node, distance label). */
+interface CirclePreviews {
+  center: L.Marker | null;
+  circle: L.Circle | null;
+  line: L.Polyline | null;
+  node: L.CircleMarker | null;
+  label: L.Marker | null;
+}
 
 // ==================== Mode Base Class ====================
 /** Base class for all measurement modes. Handles map reference, layer group, and cleanup lifecycle. */
 class MeasureMode {
-  constructor(manager) {
+  static TYPE: string = "";
+  manager: MeasureManager;
+  map: L.Map;
+  layers: CreateLayersAPI;
+  _cleanup: (() => void) | null;
+
+  constructor(manager: MeasureManager) {
     this.manager = manager;
     this.map = manager.map;
     this.layers = manager.layers;
@@ -31,17 +52,17 @@ class MeasureMode {
   }
 
   /** Shorthand for mode type */
-  get type() {
-    return this.constructor.TYPE;
+  get type(): string {
+    return (this.constructor as typeof MeasureMode).TYPE;
   }
 
   /** Start the mode — bind events, create UI. */
-  start() {
+  start(): void {
     console.warn(`[${CONF.name}] start not implemented for ${this.type}`);
   }
 
   /** Cleanup — unbind events, remove temporary elements. */
-  cleanup() {
+  cleanup(): void {
     if (this._cleanup) {
       this._cleanup();
       this._cleanup = null;
@@ -49,44 +70,47 @@ class MeasureMode {
   }
 
   /** Generate a unique measurement ID with type prefix. */
-  nextMeasurementId() {
+  nextMeasurementId(): string {
     return this.m.nextMeasurementId(this.type);
   }
 
   /** Rebuild a persisted measurement from data.
    *  Subclasses override this to restore their specific visual elements.
-   *  @param {Object} manager - MeasureManager instance.
-   *  @param {Object} data - Persisted measurement data. */
-  static restore(manager, data) {
-    console.warn(`[${CONF.name}] restore not implemented for ${this.type}`);
+   *  @param manager - MeasureManager instance.
+   *  @param data - Persisted measurement data. */
+  static restore(manager: MeasureManager, data: MeasureData): void {
+    console.warn(`[${CONF.name}] restore not implemented for ${this.TYPE}`);
   }
 }
 
 // ==================== Preview Mode Base Class ====================
 /** Base class for modes with preview layers (distance, polygon, circle). Tracks and cleans up preview artifacts. */
 class PreviewMode extends MeasureMode {
-  constructor(manager) {
+  previewLayers: L.Layer[];
+  isFinished: boolean;
+
+  constructor(manager: MeasureManager) {
     super(manager);
     this.previewLayers = [];
     this.isFinished = false;
   }
 
   /** Track a preview layer (adds to layer group + tracks for cleanup). */
-  addPreview(layer) {
+  addPreview<T extends L.Layer>(layer: T): T {
     this.previewLayers.push(layer);
     this.layers.addLayer(layer);
     return layer;
   }
 
   /** Remove a specific preview layer. */
-  removePreview(layer) {
+  removePreview(layer: L.Layer): void {
     const idx = this.previewLayers.indexOf(layer);
     if (idx !== -1) this.previewLayers.splice(idx, 1);
     this.layers.removeLayer(layer);
   }
 
   /** Remove all tracked preview layers. */
-  clearPreviews() {
+  clearPreviews(): void {
     this.previewLayers.forEach(l => this.layers.removeLayer(l));
     this.previewLayers = [];
   }
@@ -97,15 +121,17 @@ class PreviewMode extends MeasureMode {
 class MarkerMode extends MeasureMode {
   static TYPE = CONST.MODE.MARKER;
 
+  onMarkerClickRef!: (event: L.LeafletMouseEvent) => void;
+
   /** Rebuild a persisted marker measurement.
-   *  @param {Object} manager - MeasureManager instance.
-   *  @param {Object} data - Persisted measurement data. */
-  static restore(manager, data) {
+   *  @param manager - MeasureManager instance.
+   *  @param data - Persisted measurement data. */
+  static restore(manager: MeasureManager, data: MeasureData): void {
     const marker = createLocationMarker(
       manager.map,
-      data.lng,
-      data.lat,
-      data.address,
+      data.lng!,
+      data.lat!,
+      data.address ?? null,
       _(`${CONF.name}.popup_title`),
       _(`${CONF.name}.popup_loading`),
       _(`${CONF.name}.popup_loc_label`),
@@ -124,9 +150,9 @@ class MarkerMode extends MeasureMode {
       false, // do not auto-open popup on restore
     );
     const delMarker = manager.layers.addLayer(
-      Util.makeDelIcon(L.latLng(data.lat, data.lng), {
+      Util.makeDelIcon(L.latLng(data.lat!, data.lng!), {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
+        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR as [number, number],
         title: _(`${CONF.name}.del_tooltip`),
       }),
     );
@@ -137,7 +163,7 @@ class MarkerMode extends MeasureMode {
       // while the popup was closed still shows the real address on first open
       // (createLocationMarker only updates an open popup).
       if (data.address !== null)
-        marker.setPopupContent(Util.buildPopup(data.lng, data.lat, data.address));
+        marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
       Util.toggleDelIcon(delMarker, true);
     });
     marker.on("popupclose", () => {
@@ -160,19 +186,28 @@ class MarkerMode extends MeasureMode {
     this._cleanup = () => this.map.off("click", this.onMarkerClickRef);
   }
 
-  async handleMarkerClick(e) {
+  /** Handle marker click. */
+  async handleMarkerClick(event: L.LeafletMouseEvent) {
     if (this.m.currentMode !== this.type) return;
-    const lng = e.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
-    const lat = e.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
+    const lng = event.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
+    const lat = event.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
+    const lngNum = parseFloat(lng);
+    const latNum = parseFloat(lat);
 
     // Save the measurement IMMEDIATELY (address resolved later) so the
     // marker survives a page reload even while geocoding is in flight.
     const markerId = this.nextMeasurementId();
-    const measurement = {
+    const measurement: {
+      id: string;
+      type: string;
+      lng: number;
+      lat: number;
+      address: string | null;
+    } = {
       id: markerId,
       type: this.type,
-      lng: parseFloat(lng),
-      lat: parseFloat(lat),
+      lng: lngNum,
+      lat: latNum,
       address: null,
     };
     this.m.measurements.push(measurement);
@@ -182,8 +217,8 @@ class MarkerMode extends MeasureMode {
     // callback) — no separate geocode call here to avoid a duplicate request.
     const marker = createLocationMarker(
       this.map,
-      parseFloat(lng),
-      parseFloat(lat),
+      lngNum,
+      latNum,
       null,
       _(`${CONF.name}.popup_title`),
       _(`${CONF.name}.popup_loading`),
@@ -200,9 +235,9 @@ class MarkerMode extends MeasureMode {
     );
 
     const delMarker = this.layers.addLayer(
-      Util.makeDelIcon(e.latlng, {
+      Util.makeDelIcon(event.latlng, {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR,
+        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR as [number, number],
         title: _(`${CONF.name}.del_tooltip`),
       }),
     );
@@ -222,7 +257,7 @@ class MarkerMode extends MeasureMode {
     marker.on("popupopen", () => {
       Util.hideDelIcons();
       if (measurement.address !== null)
-        marker.setPopupContent(Util.buildPopup(lng, lat, measurement.address));
+        marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
       Util.toggleDelIcon(delMarker, true);
     });
 
@@ -237,30 +272,27 @@ class MarkerMode extends MeasureMode {
 class DistanceMode extends PreviewMode {
   static TYPE = CONST.MODE.DISTANCE;
 
-  /** Rebuild a persisted distance measurement.
-   *  @param {Object} manager - MeasureManager instance.
-   *  @param {Object} data - Persisted measurement data. */
-  static restore(manager, data) {
-    const points = data.points.map(p => L.latLng(p.lat, p.lng));
+  static restore(manager: MeasureManager, data: MeasureData) {
+    const points: L.LatLng[] = data.points!.map((p: { lng: number; lat: number }) =>
+      L.latLng(p.lat, p.lng),
+    );
     const finalPoly = manager.layers.addLayer(
       L.polyline(points, { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
-    );
+    ) as L.Polyline;
 
-    const nodeMarkers = [];
-    points.forEach((pt, i) => {
-      // First node is the start point — render it solid to distinguish it
-      // from the hollow intermediate/final nodes (no separate label needed).
+    const nodeMarkers: L.CircleMarker[] = [];
+    points.forEach((pt: L.LatLng, i: number) => {
       const node = manager.layers.addLayer(
         Util.makeNode(pt, i === 0 ? CONST.CLASSES.NODE_SOLID : undefined),
-      );
+      ) as L.CircleMarker;
       node.bringToFront();
       nodeMarkers.push(node);
     });
 
-    const segLabels = [];
+    const segLabels: L.Marker[] = [];
     if (data.segments) {
       let accTotal = 0;
-      data.segments.forEach((seg, i) => {
+      data.segments.forEach((seg, i: number) => {
         accTotal += seg.distance;
         const prev = points[i];
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
@@ -273,12 +305,11 @@ class DistanceMode extends PreviewMode {
             ),
           }),
           true,
-        );
+        ) as L.Marker;
         segLabels.push(label);
       });
     }
 
-    // Attach toggle/delete UI (shared with finishDist)
     attachDistanceUI(manager, {
       layers: manager.layers,
       finalPoly,
@@ -300,20 +331,20 @@ class DistanceMode extends PreviewMode {
   }
 
   start() {
-    const points = [];
+    const points: L.LatLng[] = [];
     let total = 0;
     const poly = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
     );
-    const nodeMarkers = [];
-    const segLabels = [];
+    const nodeMarkers: L.CircleMarker[] = [];
+    const segLabels: L.Marker[] = [];
     const previewLine = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
     const finalPoly = this.layers.addLayer(
       L.polyline([], { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
-    );
-    let previewDistLabel = null;
+    ) as L.Polyline;
+    let previewDistLabel: L.Marker | null = null;
 
     this._cleanup = () => {
       unbindMapEvents(this.map, distEvents);
@@ -339,8 +370,7 @@ class DistanceMode extends PreviewMode {
       this.layers.removeLayer(poly);
       finalPoly.setLatLngs(points);
 
-      // Dash-sweep animation
-      Util.animateDashSweep(finalPoly._path);
+      Util.animateDashSweep(finalPoly.getElement() as SVGElement);
 
       // Save measurement data
       const distId = this.nextMeasurementId();
@@ -402,14 +432,14 @@ class DistanceMode extends PreviewMode {
       this.m.clearActiveMode();
     };
 
-    const onDistMove = e => {
+    const onDistMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
-      previewLine.setLatLngs([points[points.length - 1], e.latlng]);
-      const seg = Util.distance(points[points.length - 1], e.latlng);
+      previewLine.setLatLngs([points[points.length - 1], event.latlng]);
+      const seg = Util.distance(points[points.length - 1], event.latlng);
       const showDist = total + seg;
       const lastPt = points[points.length - 1];
-      const mid = Util.midpoint(lastPt, e.latlng);
-      const labelText = Util.formatSegmentLabel(lastPt, e.latlng, showDist);
+      const mid = Util.midpoint(lastPt, event.latlng);
+      const labelText = Util.formatSegmentLabel(lastPt, event.latlng, showDist);
       if (!previewDistLabel) {
         previewDistLabel = this.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
@@ -417,45 +447,40 @@ class DistanceMode extends PreviewMode {
             interactive: false,
           }),
           true,
-        );
+        ) as L.Marker;
       } else {
-        previewDistLabel.setLatLng([mid.lat, mid.lng]);
+        previewDistLabel!.setLatLng([mid.lat, mid.lng]);
         Util.setLabelText(previewDistLabel, labelText);
       }
     };
 
-    const onDistClick = e => {
+    const onDistClick = (event: L.LeafletMouseEvent) => {
       if (this.m.currentMode !== this.type) return;
-      // Skip if click is on an existing node marker — the marker's own click
-      // handler (registered below) will handle finishing. Without this guard,
-      // the map click fires before the marker handler and pushes a duplicate point,
-      // creating an extra label at the node position with bearing 0°.
-      if (points.some(p => p.lat === e.latlng.lat && p.lng === e.latlng.lng)) return;
-      // Stop Leaflet propagation so clicking a data layer while drawing does
-      // not also trigger the data layer's own click handler.
-      L.DomEvent.stopPropagation(e);
-      points.push(e.latlng);
+      if (
+        points.some(
+          (p: L.LatLng) => p.lat === event.latlng.lat && p.lng === event.latlng.lng,
+        )
+      )
+        return;
+      L.DomEvent.stopPropagation(event);
+      points.push(event.latlng);
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
       }
-      poly.addLatLng(e.latlng);
+      poly.addLatLng(event.latlng);
 
       const marker = this.layers.addLayer(
         Util.makeNode(
-          e.latlng,
+          event.latlng,
           points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined,
         ),
-      );
+      ) as L.CircleMarker;
       marker.bringToFront();
       nodeMarkers.push(marker);
 
-      marker.on("click", e => {
-        // Clicking an existing node must not propagate to the map click
-        // handler, which would push a duplicate point and create an
-        // overlapping label. Leaflet checks e.originalEvent._stopped
-        // before propagating layer click events to the map.
-        L.DomEvent.stopPropagation(e);
+      marker.on("click", (event: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(event);
         if (points.length < 2) return;
         if (marker === nodeMarkers[nodeMarkers.length - 1]) finishDist();
       });
@@ -494,17 +519,17 @@ class DistanceMode extends PreviewMode {
             ),
           }),
           true,
-        );
+        ) as L.Marker;
         segLabels.push(label);
       }
     };
 
-    const onDistDbl = e => {
-      stopEvent(e);
+    const onDistDbl = (event: L.LeafletMouseEvent) => {
+      stopEvent(event);
       finishDist();
     };
-    const onDistContext = e => {
-      stopEvent(e);
+    const onDistContext = (event: L.LeafletMouseEvent) => {
+      stopEvent(event);
       finishDist();
     };
 
@@ -514,7 +539,7 @@ class DistanceMode extends PreviewMode {
       ["dblclick", onDistDbl],
       ["contextmenu", onDistContext],
       ["mousemove", onDistMove],
-    ];
+    ] as MapEventHandlers;
     bindMapEvents(this.map, distEvents);
   }
 }
@@ -527,25 +552,27 @@ class PolygonMode extends PreviewMode {
   /** Rebuild a persisted polygon measurement.
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
-  static restore(manager, data) {
-    const points = data.points.map(p => L.latLng(p.lat, p.lng));
+  static restore(manager: MeasureManager, data: MeasureData) {
+    const points: L.LatLng[] = data.points!.map((p: { lng: number; lat: number }) =>
+      L.latLng(p.lat, p.lng),
+    );
     const finalPoly = manager.layers.addLayer(
       L.polygon(points, {
         className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
-    );
+    ) as L.Polygon; // addLayer ret val narrowed
 
-    const nodeMarkers = [];
-    points.forEach(pt => {
-      const node = manager.layers.addLayer(Util.makeNode(pt));
+    const nodeMarkers: L.CircleMarker[] = [];
+    points.forEach((pt: L.LatLng) => {
+      const node = manager.layers.addLayer(Util.makeNode(pt)) as L.CircleMarker;
       node.bringToFront();
       nodeMarkers.push(node);
     });
 
-    const segLabels = [];
+    const segLabels: L.Marker[] = [];
     if (data.segments) {
-      data.segments.forEach((seg, i) => {
+      data.segments.forEach((seg, i: number) => {
         const prev = points[i];
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
         if (!prev || !cur) return;
@@ -555,19 +582,18 @@ class PolygonMode extends PreviewMode {
             icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg.distance)),
           }),
           true,
-        );
+        ) as L.Marker;
         segLabels.push(label);
       });
     }
 
-    // Attach toggle/delete UI (shared with finishPoly)
-    const { onMapClickActive } = attachPolygonUI(manager, {
+    const onMapClickActive = attachPolygonUI(manager, {
       layers: manager.layers,
       finalPoly,
       nodeMarkers,
       segLabels,
       points: points,
-      area: data.area,
+      area: data.area ?? 0,
       onDelete: () => {
         manager.measurements = manager.measurements.filter(x => x.id !== data.id);
         manager.saveMeasurements();
@@ -575,14 +601,13 @@ class PolygonMode extends PreviewMode {
       onUpdate: () => {
         const newArea = Util.area(points);
         const { segments } = Util.recalculateSegments(points);
-        // Add closing segment
         const n = points.length;
         segments.push({
           lng: points[0].lng,
           lat: points[0].lat,
           distance: Util.distance(points[n - 1], points[0]),
         });
-        data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
+        data.points = points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat }));
         data.segments = segments;
         data.area = newArea;
         manager.saveMeasurements();
@@ -592,12 +617,10 @@ class PolygonMode extends PreviewMode {
   }
 
   start() {
-    const points = [];
+    const points: L.LatLng[] = [];
     const poly = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
-    // Confirmed segments between nodes — uses thick dashed style (matches
-    // DistanceMode's poly). Updated each time a new node is placed.
     const confirmedPoly = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
     );
@@ -607,15 +630,15 @@ class PolygonMode extends PreviewMode {
         interactive: false,
       }),
     );
-    const nodeMarkers = [];
-    const segLabels = [];
+    const nodeMarkers: L.CircleMarker[] = [];
+    const segLabels: L.Marker[] = [];
     const finalPoly = this.layers.addLayer(
       L.polygon([], {
         className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
-    );
-    let previewDistLabel = null;
+    ) as L.Polygon;
+    let previewDistLabel: L.Marker | null = null;
     let isFinished = false;
 
     this._cleanup = () => {
@@ -642,11 +665,9 @@ class PolygonMode extends PreviewMode {
       isFinished = true;
       this.layers.removeLayer(poly);
       this.layers.removeLayer(previewPoly);
-      // Leaflet automatically closes the polygon
       finalPoly.setLatLngs(points);
 
-      // Dash-sweep animation
-      Util.animateDashSweep(finalPoly._path);
+      Util.animateDashSweep(finalPoly.getElement() as SVGElement);
 
       // Recalculate area
       const area = Util.area(points);
@@ -684,7 +705,7 @@ class PolygonMode extends PreviewMode {
         }),
         true,
       );
-      segLabels.push(closeLabel);
+      segLabels.push(closeLabel as L.Marker);
 
       // Format last open segment label (if it exists)
       if (segLabels.length > 1) {
@@ -739,15 +760,15 @@ class PolygonMode extends PreviewMode {
       this.m.clearActiveMode();
     };
 
-    const onPolyMove = e => {
+    const onPolyMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
-      const allPts = [...points, e.latlng];
+      const allPts = [...points, event.latlng];
       previewPoly.setLatLngs(allPts);
       confirmedPoly.setLatLngs(points);
-      poly.setLatLngs([points[points.length - 1], e.latlng]);
-      const seg = Util.distance(points[points.length - 1], e.latlng);
+      poly.setLatLngs([points[points.length - 1], event.latlng]);
+      const seg = Util.distance(points[points.length - 1], event.latlng);
       const lastPt = points[points.length - 1];
-      const mid = Util.midpoint(lastPt, e.latlng);
+      const mid = Util.midpoint(lastPt, event.latlng);
       const labelText = Util.formatDistance(seg);
       if (!previewDistLabel) {
         previewDistLabel = this.layers.addLayer(
@@ -756,43 +777,46 @@ class PolygonMode extends PreviewMode {
             interactive: false,
           }),
           true,
-        );
+        ) as L.Marker;
       } else {
         previewDistLabel.setLatLng([mid.lat, mid.lng]);
         Util.setLabelText(previewDistLabel, labelText);
       }
     };
 
-    const onPolyClick = e => {
+    const onPolyClick = (event: L.LeafletMouseEvent) => {
       if (this.m.currentMode !== this.type) return;
       // Skip if click is on an existing node marker — the marker's own click
       // handler (registered below) will handle finishing. Without this guard,
       // the map click fires before the marker handler and pushes a duplicate point,
       // creating an extra label at the node position with distance 0.
-      if (points.some(p => p.lat === e.latlng.lat && p.lng === e.latlng.lng)) return;
+      if (points.some(p => p.lat === event.latlng.lat && p.lng === event.latlng.lng))
+        return;
       // Stop Leaflet propagation so clicking a data layer while drawing does
       // not also trigger the data layer's own click handler.
-      L.DomEvent.stopPropagation(e);
-      points.push(e.latlng);
+      L.DomEvent.stopPropagation(event);
+      points.push(event.latlng);
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
       }
       confirmedPoly.setLatLngs(points);
       previewPoly.setLatLngs(points);
-      poly.setLatLngs([points[points.length - 1], e.latlng]);
+      poly.setLatLngs([points[points.length - 1], event.latlng]);
 
-      const marker = this.layers.addLayer(Util.makeNode(e.latlng));
+      const marker = this.layers.addLayer(
+        Util.makeNode(event.latlng),
+      ) as L.CircleMarker;
       marker.bringToFront();
       nodeMarkers.push(marker);
 
-      marker.on("click", e => {
+      marker.on("click", (event: L.LeafletMouseEvent) => {
         // Clicking an existing node must not propagate to the map click
         // handler, which would push a duplicate point and create an
         // overlapping label (e.g. re-clicking the 2nd point of a 2-point
         // Polygon creates a duplicate + "0 m" label that overlaps with
         // the closing segment label).
-        L.DomEvent.stopPropagation(e);
+        L.DomEvent.stopPropagation(event);
         if (points.length < 3) return;
         // Click first or last point → finish
         if (marker === nodeMarkers[0] || marker === nodeMarkers[nodeMarkers.length - 1])
@@ -817,17 +841,17 @@ class PolygonMode extends PreviewMode {
             icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg)),
           }),
           true,
-        );
+        ) as L.Marker;
         segLabels.push(label);
       }
     };
 
-    const onPolyDbl = e => {
-      stopEvent(e);
+    const onPolyDbl = (event: L.LeafletMouseEvent) => {
+      stopEvent(event);
       finishPoly();
     };
-    const onPolyContext = e => {
-      stopEvent(e);
+    const onPolyContext = (event: L.LeafletMouseEvent) => {
+      stopEvent(event);
       finishPoly();
     };
 
@@ -837,7 +861,7 @@ class PolygonMode extends PreviewMode {
       ["dblclick", onPolyDbl],
       ["contextmenu", onPolyContext],
       ["mousemove", onPolyMove],
-    ];
+    ] as MapEventHandlers;
     bindMapEvents(this.map, polyEvents);
   }
 }
@@ -850,10 +874,10 @@ class CircleMode extends PreviewMode {
   /** Rebuild a persisted circle measurement.
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
-  static restore(manager, data) {
-    const centerLatLng = L.latLng(data.center.lat, data.center.lng);
-    const targetLatLng = L.latLng(data.target.lat, data.target.lng);
-    const r = data.radius;
+  static restore(manager: MeasureManager, data: MeasureData) {
+    const centerLatLng = L.latLng(data.center!.lat, data.center!.lng);
+    const targetLatLng = L.latLng(data.target!.lat, data.target!.lng);
+    const r = data.radius ?? 0;
 
     const circle = manager.layers.addLayer(
       L.circle(centerLatLng, {
@@ -861,50 +885,48 @@ class CircleMode extends PreviewMode {
         className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
-    );
-
+    ) as L.Circle;
     const radiusLine = manager.layers.addLayer(
       L.polyline([centerLatLng, targetLatLng], {
         className: CONST.CLASSES.PATH_DASHED,
         interactive: true,
       }),
-    );
-    const radiusNode = manager.layers.addLayer(Util.makeNode(targetLatLng));
-
+    ) as L.Polyline;
+    const radiusNode = manager.layers.addLayer(
+      Util.makeNode(targetLatLng),
+    ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
       L.marker(centerLatLng, {
         icon: L.divIcon({
           className: CONST.CENTER_DOT.CLASS,
           html: "",
-          iconSize: CONST.CENTER_DOT.SIZE,
-          iconAnchor: CONST.CENTER_DOT.ANCHOR,
+          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
+          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
         }),
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         interactive: true,
       }),
-    );
-
+    ) as L.Marker;
     const delMarker = manager.layers.addLayer(
       Util.makeDelIcon(centerLatLng, {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         title: _(`${CONF.name}.del_tooltip`),
       }),
-    );
+    ) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
     const radiusLabel = manager.layers.addLayer(
       L.marker([mid.lat, mid.lng], {
         icon: Util.makeLabelDivIcon(
           Util.formatDistance(r),
-          CONST.LABEL.RADIUS_ANCHOR,
+          CONST.LABEL.RADIUS_ANCHOR as [number, number],
           CONST.LABEL.CLASS_RADIUS,
         ),
         interactive: false,
       }),
       true,
-    );
+    ) as L.Marker;
 
-    // Attach toggle/delete UI (shared with finalizeCircle)
     const { onMapClickActive } = attachCircleUI(manager, {
       layers: manager.layers,
       circle,
@@ -922,11 +944,11 @@ class CircleMode extends PreviewMode {
   }
 
   start() {
-    let center = null;
+    let center: L.LatLng | null = null;
     let state = 0;
     let lastFinishTime = 0;
     let isFinalizing = false;
-    const previews = {
+    const previews: CirclePreviews = {
       center: null,
       circle: null,
       line: null,
@@ -943,7 +965,7 @@ class CircleMode extends PreviewMode {
       previews.label = null;
     };
 
-    const onMapClick = e => {
+    const onMapClick = (event: L.LeafletMouseEvent) => {
       if (
         isFinalizing ||
         this.m.currentMode !== this.type ||
@@ -952,19 +974,19 @@ class CircleMode extends PreviewMode {
         return;
       // Stop Leaflet propagation so clicking a data layer while drawing does
       // not also trigger the data layer's own click handler.
-      L.DomEvent.stopPropagation(e);
+      L.DomEvent.stopPropagation(event);
 
       if (Date.now() - lastFinishTime < CONST.TIMING.CLICK_COOLDOWN) return;
 
       if (state === 0) {
-        center = e.latlng;
+        center = event.latlng;
         previews.center = this.addPreview(
           L.marker(center, {
             icon: L.divIcon({
               className: CONST.CENTER_DOT.CLASS,
               html: "",
-              iconSize: CONST.CENTER_DOT.SIZE,
-              iconAnchor: CONST.CENTER_DOT.ANCHOR,
+              iconSize: CONST.CENTER_DOT.SIZE as [number, number],
+              iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
             }),
             zIndexOffset: CONST.Z_INDEX.OFFSET,
             interactive: false,
@@ -977,7 +999,7 @@ class CircleMode extends PreviewMode {
           HINT_DURATION.PERSIST,
         );
       } else if (state === 1) {
-        const r = Util.distance(center, e.latlng);
+        const r = Util.distance(center!, event.latlng);
         // Ignore clicks too close to center — radius 0 creates an invisible
         // circle that cannot be interacted with and has no visual effect.
         if (r < 1) return;
@@ -988,15 +1010,15 @@ class CircleMode extends PreviewMode {
         this.m.clearActiveMode();
         isFinalizing = true;
         setTimeout(() => {
-          finalizeCircle(savedCenter, r, e.latlng);
+          finalizeCircle(savedCenter!, r, event.latlng);
           isFinalizing = false;
         }, CONST.TIMING.FINALIZE_DELAY);
       }
     };
 
-    const onMouseMove = e => {
+    const onMouseMove = (event: L.LeafletMouseEvent) => {
       if (state !== 1 || !center || this.m.currentMode !== this.type) return;
-      const r = Util.distance(center, e.latlng);
+      const r = Util.distance(center!, event.latlng);
 
       if (!previews.circle) {
         previews.circle = this.addPreview(
@@ -1010,30 +1032,30 @@ class CircleMode extends PreviewMode {
 
       if (!previews.line) {
         previews.line = this.addPreview(
-          L.polyline([center, e.latlng], {
+          L.polyline([center, event.latlng], {
             className: CONST.CLASSES.PATH_PREVIEW,
             interactive: false,
           }),
         );
-      } else previews.line.setLatLngs([center, e.latlng]);
+      } else previews.line.setLatLngs([center, event.latlng]);
 
       if (!previews.node) {
         previews.node = this.addPreview(
-          L.circleMarker(e.latlng, {
+          L.circleMarker(event.latlng, {
             radius: CONST.MARKER.RADIUS,
             className: CONST.CLASSES.NODE_HOLLOW,
             interactive: false,
           }),
         );
         previews.node.bringToFront();
-      } else previews.node.setLatLng(e.latlng);
-
-      const mid = Util.midpoint(center, e.latlng);
+        previews.node.setLatLng(event.latlng);
+      }
+      const mid = Util.midpoint(center, event.latlng);
       if (!previews.label) {
         const previewLabel = L.marker(mid, {
           icon: Util.makeLabelDivIcon(
             Util.formatDistance(r),
-            CONST.LABEL.RADIUS_ANCHOR,
+            CONST.LABEL.RADIUS_ANCHOR as [number, number],
             CONST.LABEL.CLASS_RADIUS,
           ),
           interactive: false,
@@ -1045,14 +1067,18 @@ class CircleMode extends PreviewMode {
       }
     };
 
-    const onContext = e => {
-      stopEvent(e);
+    const onContext = (event: L.LeafletMouseEvent) => {
+      stopEvent(event);
       this.m.clearActiveMode();
     };
 
-    const finalizeCircle = (centerLatLng, r, targetLatLng) => {
+    const finalizeCircle = (
+      centerLatLng: L.LatLng,
+      r: number,
+      targetLatLng: L.LatLng,
+    ) => {
       const finalTargetLatLng =
-        targetLatLng || L.CRS.Earth.destination(centerLatLng, r, 90);
+        targetLatLng || L.CRS.Earth.destination!(centerLatLng, r, 90);
 
       const circle = this.layers.addLayer(
         L.circle(centerLatLng, {
@@ -1069,7 +1095,7 @@ class CircleMode extends PreviewMode {
           interactive: false,
         }),
       );
-      const rippleEl = ripple._path;
+      const rippleEl = (ripple as L.Circle).getElement() as SVGElement | null;
       if (rippleEl) {
         const onEnd = () => {
           rippleEl.removeEventListener("animationend", onEnd);
@@ -1091,8 +1117,8 @@ class CircleMode extends PreviewMode {
           icon: L.divIcon({
             className: CONST.CENTER_DOT.CLASS,
             html: "",
-            iconSize: CONST.CENTER_DOT.SIZE,
-            iconAnchor: CONST.CENTER_DOT.ANCHOR,
+            iconSize: CONST.CENTER_DOT.SIZE as [number, number],
+            iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
           }),
           zIndexOffset: CONST.Z_INDEX.OFFSET,
           interactive: true,
@@ -1111,7 +1137,7 @@ class CircleMode extends PreviewMode {
         L.marker([mid.lat, mid.lng], {
           icon: Util.makeLabelDivIcon(
             Util.formatDistance(r),
-            CONST.LABEL.RADIUS_ANCHOR,
+            CONST.LABEL.RADIUS_ANCHOR as [number, number],
             CONST.LABEL.CLASS_RADIUS,
           ),
           interactive: false,
@@ -1119,7 +1145,6 @@ class CircleMode extends PreviewMode {
         true,
       );
 
-      // Save measurement data
       const circleId = this.nextMeasurementId();
       this.m.measurements.push({
         id: circleId,
@@ -1130,15 +1155,14 @@ class CircleMode extends PreviewMode {
       });
       this.m.saveMeasurements();
 
-      // Attach toggle/delete UI (shared with restoreCircle)
       const { onMapClickActive } = attachCircleUI(this.m, {
         layers: this.layers,
-        circle,
-        radiusLine,
-        radiusNode,
-        centerFinal,
-        delMarker,
-        radiusLabel,
+        circle: circle as L.Circle,
+        radiusLine: radiusLine as L.Polyline,
+        radiusNode: radiusNode as L.CircleMarker,
+        centerFinal: centerFinal as L.Marker,
+        delMarker: delMarker as L.Marker,
+        radiusLabel: radiusLabel as L.Marker,
         onDelete: () => {
           this.m.measurements = this.m.measurements.filter(x => x.id !== circleId);
           this.m.saveMeasurements();
@@ -1152,7 +1176,7 @@ class CircleMode extends PreviewMode {
       ["click", onMapClick],
       ["mousemove", onMouseMove],
       ["contextmenu", onContext],
-    ];
+    ] as MapEventHandlers;
     bindMapEvents(this.map, circleEvents);
 
     this._cleanup = () => {

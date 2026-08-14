@@ -21,13 +21,14 @@ const bearing = (a: LatLngPoint, b: LatLngPoint): number => {
 };
 
 /** Geodesic midpoint between two points using turf.js. */
-const midpoint = (a: LatLngPoint, b: LatLngPoint): any => {
+const midpoint = (a: LatLngPoint, b: LatLngPoint): L.LatLng => {
   const mid = turf.midpoint(turf.point([a.lng, a.lat]), turf.point([b.lng, b.lat]));
-  return L.latLng(mid.geometry.coordinates[1], mid.geometry.coordinates[0]);
+  const coord = (mid.geometry as GeoJSON.Point).coordinates;
+  return L.latLng(coord[1], coord[0]);
 };
 
 /** Centroid (arithmetic mean of vertices) of a polygon. */
-const centroid = (points: LatLngPoint[]): any => {
+const centroid = (points: LatLngPoint[]): L.LatLng => {
   const cx = points.reduce((s, p) => s + p.lat, 0) / points.length;
   const cy = points.reduce((s, p) => s + p.lng, 0) / points.length;
   return L.latLng(cx, cy);

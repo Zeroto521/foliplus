@@ -11,6 +11,8 @@ import { vi } from "vitest";
 // environment lacks a working localStorage so storage tests run identically
 // locally and in CI.
 class MockStorage {
+  private _store: Record<string, string>;
+
   constructor() {
     this._store = {};
   }

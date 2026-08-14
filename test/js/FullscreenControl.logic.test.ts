@@ -42,7 +42,6 @@ const makeContainer = () => {
 };
 
 const makeMapMock = container => ({
-  _container: document.createElement("div"),
   getContainer: () => container,
   isFullscreen: false,
   invalidateSize: vi.fn(),
@@ -52,7 +51,7 @@ const makeMapMock = container => ({
 
 const makeNativeMapMock = container => {
   const map = makeMapMock(container);
-  map._container.requestFullscreen = vi.fn(() => Promise.resolve());
+  map.getContainer().requestFullscreen = vi.fn(() => Promise.resolve());
   return map;
 };
 
@@ -115,7 +114,9 @@ describe("toggleFullscreen — pseudo path", () => {
 
   it("enters pseudo-fullscreen", () => {
     toggleFullscreen(mapMock, fsBtn, container);
-    expect(mapMock._container.classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(true);
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      true,
+    );
     expect(mapMock.isFullscreen).toBe(true);
     expect(mapMock.invalidateSize).toHaveBeenCalled();
   });
@@ -123,7 +124,7 @@ describe("toggleFullscreen — pseudo path", () => {
   it("exits pseudo-fullscreen on second call", () => {
     toggleFullscreen(mapMock, fsBtn, container);
     toggleFullscreen(mapMock, fsBtn, container);
-    expect(mapMock._container.classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
       false,
     );
     expect(mapMock.isFullscreen).toBe(false);
@@ -184,7 +185,9 @@ describe("toggleFullscreen — native API path", () => {
     mapMock = makeNativeMapMock(container);
 
     // Stub document methods used by the native API path
-    document.requestFullscreen = vi.fn(() => Promise.resolve());
+    (
+      document as unknown as { requestFullscreen: () => Promise<void> }
+    ).requestFullscreen = vi.fn(() => Promise.resolve());
     document.exitFullscreen = vi.fn(() => Promise.resolve());
     document.addEventListener = vi.fn();
     document.removeEventListener = vi.fn();
@@ -192,7 +195,7 @@ describe("toggleFullscreen — native API path", () => {
 
   it("calls requestFullscreen and sets isFullscreen on resolve", async () => {
     toggleFullscreen(mapMock, fsBtn, container);
-    expect(mapMock._container.requestFullscreen).toHaveBeenCalled();
+    expect(mapMock.getContainer().requestFullscreen).toHaveBeenCalled();
     await Promise.resolve();
     await Promise.resolve();
     expect(mapMock.isFullscreen).toBe(true);
@@ -208,7 +211,7 @@ describe("toggleFullscreen — native API path", () => {
   });
 
   it("recovers state on reject", async () => {
-    mapMock._container.requestFullscreen = vi.fn(() =>
+    mapMock.getContainer().requestFullscreen = vi.fn(() =>
       Promise.reject(new Error("denied")),
     );
     toggleFullscreen(mapMock, fsBtn, container);

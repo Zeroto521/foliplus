@@ -18,7 +18,9 @@ const measureManager = new MeasureManager(map);
 
 /** Leaflet control wrapper for the MeasureManager. Handles DOM creation and tool button events. */
 class MeasureControl extends BaseControl {
-  constructor(options: any) {
+  declare manager: MeasureManager;
+
+  constructor(options?: L.ControlOptions) {
     super(options);
     this.manager = measureManager;
   }
@@ -72,7 +74,7 @@ class MeasureControl extends BaseControl {
       });
     });
     this.m.ctrl = ctrl;
-    this.m.toolBtns = toolBar.querySelectorAll(CONST.SEL.TOOL_BTN);
+    this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
 
     bindFoldToggle({ container: ctrl, toggleBtn });
 
@@ -82,10 +84,10 @@ class MeasureControl extends BaseControl {
       skipCheck: () => this.m.currentMode !== null,
     });
 
-    this.m.toolBtns.forEach((btn: any) => {
-      btn.onclick = (e: MouseEvent) => {
-        e.stopPropagation();
-        this.m.setMode(btn.dataset.mode);
+    this.m.toolBtns.forEach((btn: HTMLElement) => {
+      btn.onclick = (event: MouseEvent) => {
+        event.stopPropagation();
+        this.m.setMode(btn.dataset.mode ?? null);
       };
     });
 

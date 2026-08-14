@@ -167,8 +167,8 @@ describe("PaneManager", () => {
     const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const layer = {
-      _path: path,
-      options: {},
+      getElement: () => path,
+      options: {} as Record<string, unknown>,
       eachLayer: undefined,
     };
     Object.setPrototypeOf(layer, new window.L.Path());
@@ -186,7 +186,7 @@ describe("PaneManager", () => {
     const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const layer = {
-      _icon: icon,
+      getElement: () => icon,
       _shadow: shadow,
       options: {},
       eachLayer: undefined,

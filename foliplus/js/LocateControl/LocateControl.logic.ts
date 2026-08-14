@@ -10,7 +10,7 @@ const _ = createTranslator(CONF);
 
 /** Minimal ctrl interface for locate logic. */
 interface LocateCtrl {
-  marker: any;
+  marker: L.Marker | null;
 }
 
 /** Fly to a coordinate and place a reverse-geocoded location marker. */

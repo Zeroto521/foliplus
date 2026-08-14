@@ -17,8 +17,8 @@ class ScaleControl extends BaseControl {
       metric: CONF.isMetric,
       imperial: !CONF.isMetric,
     });
-    scaleCtrl._map = this._map;
-    const ctrl = scaleCtrl.onAdd(this._map);
+    Reflect.set(scaleCtrl, "_map", this._map);
+    const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
     ctrl.classList.add(CLASSES.WRAP);
 
     // ==================== Zoom Label ====================
@@ -27,7 +27,7 @@ class ScaleControl extends BaseControl {
       const updateZoom = () => {
         zoomLabel.textContent = _(`${CONF.name}.zoom_label`).replace(
           "{zoom}",
-          this._map.getZoom(),
+          String(this._map.getZoom()),
         );
       };
       updateZoom();

@@ -1,4 +1,4 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
+// MeasureControl core manager — persistence, mode switching, layer management.
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -10,6 +10,7 @@ import {
   DistanceMode,
   MODE_MAP,
   MarkerMode,
+  MeasureMode,
   PolygonMode,
 } from "./MeasureControl.mode.js";
 import * as Util from "./MeasureControl.util.js";
@@ -19,11 +20,25 @@ const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 // ==================== Core Manager ====================
-/** Central manager for all measurements. Handles persistence, layer management, mode switching, and UI toggle lifecycle. */
+/** Central manager for all measurements. */
 class MeasureManager {
-  constructor(mapInstance) {
+  map: L.Map;
+  layers: CreateLayersAPI;
+  currentMode: string | null;
+  modeInstance: MeasureMode | null;
+  isSuppressHideDel: boolean;
+  toolBtns: HTMLElement[];
+  finalizedClickHandlers: Array<(event: L.LeafletMouseEvent) => void>;
+  measurements: MeasureData[];
+  measurementIdCounter: number;
+  ctrl: HTMLElement | null;
+  onMapClick!: (event: L.LeafletMouseEvent) => void;
+  onKeyDown!: (event: KeyboardEvent) => void;
+  onUnload!: () => void;
+
+  constructor(mapInstance: L.Map) {
     this.map = mapInstance;
-    this.layers = foliplus.LayerAPI.createLayers({
+    this.layers = foliplus.LayerAPI!.createLayers({
       id: CONST.ID,
       name: _(`${CONF.name}.tool_toggle`),
       graphPane: CONST.PANES.GRAPH,
@@ -37,6 +52,7 @@ class MeasureManager {
     this.finalizedClickHandlers = [];
     this.measurements = [];
     this.measurementIdCounter = 0;
+    this.ctrl = null;
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -52,14 +68,12 @@ class MeasureManager {
   /** Load measurements from localStorage.
    *  @returns {Array} Restored measurements array. */
   loadMeasurements() {
-    const data = Storage.load(CONST.STORAGE.KEY, CONF.name);
+    const data = Storage.load<MeasureData[]>(CONST.STORAGE.KEY, CONF.name);
     return Array.isArray(data) ? data : [];
   }
 
-  /** Generate a unique measurement ID.
-   *  @param {string} type - Measurement type.
-   *  @returns {string} Unique ID. */
-  nextMeasurementId(type) {
+  /** Generate a unique measurement ID. */
+  nextMeasurementId(type: string): string {
     this.measurementIdCounter += 1;
     return `${CONST.ID}_${type}_${Date.now()}_${this.measurementIdCounter}`;
   }
@@ -68,22 +82,22 @@ class MeasureManager {
   restoreMeasurements() {
     this.measurements = this.loadMeasurements();
     this.measurements.forEach(m => {
-      MODE_MAP[m.type]?.restore?.(this, m);
+      MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
     });
   }
 
   /** Bind global map click, keydown, and unload events. */
   bindGlobalEvents() {
-    this.onMapClick = e => {
+    this.onMapClick = (event: L.LeafletMouseEvent) => {
       if (this.isSuppressHideDel) return;
-      const t = e.originalEvent?.target;
+      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       Util.hideDelIcons();
     };
     this.map.on("click", this.onMapClick);
 
-    this.onKeyDown = e => {
-      if (e.key === "Escape" && this.currentMode) this.clearActiveMode();
+    this.onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && this.currentMode) this.clearActiveMode();
     };
     document.addEventListener("keydown", this.onKeyDown);
 
@@ -112,7 +126,7 @@ class MeasureManager {
    * @param {Function} opts.onUpdate - Called when points are modified (node deletion)
    * @returns {Function} cleanup(mapClickHandler) to remove map click listener
    */
-  setMode(mode) {
+  setMode(mode: string | null) {
     if (mode === CONST.MODE.CLEAR) {
       this.clearAll();
       return;
@@ -205,19 +219,10 @@ class MeasureManager {
   /** Full cleanup including global events. Called on control removal. */
   destroy() {
     // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
-    if (this.onUnload) {
-      this.map.off("unload", this.onUnload);
-      this.onUnload = null;
-    }
+    this.map.off("unload", this.onUnload);
     this.clearAll();
-    if (this.onMapClick) {
-      this.map.off("click", this.onMapClick);
-      this.onMapClick = null;
-    }
-    if (this.onKeyDown) {
-      document.removeEventListener("keydown", this.onKeyDown);
-      this.onKeyDown = null;
-    }
+    this.map.off("click", this.onMapClick);
+    document.removeEventListener("keydown", this.onKeyDown);
     this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
     this.finalizedClickHandlers = [];
   }

@@ -1,4 +1,5 @@
 import { BaseControl } from "#common/BaseControl.js";
+import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
@@ -10,8 +11,44 @@ import { initDebouncedFetch, removeSuggestions } from "./SearchControl.logic.js"
 
 const { _, foliplus } = createControlEnv(CONF, SVGs.SEARCH);
 
+/** Nominatim search result element. */
+interface NominatimItem {
+  lat: string;
+  lon: string;
+  name?: string;
+  display_name: string;
+}
+
+/** Cached address result: the raw item + its formatted display name. */
+interface AddressResult {
+  item: NominatimItem;
+  displayName: string;
+}
+
 // ==================== Control Definition ====================
-class SearchControl extends BaseControl {
+export class SearchControl extends BaseControl {
+  declare container: HTMLElement;
+  declare ctrl: HTMLElement;
+  declare toggleBtn: HTMLElement;
+  declare toolBar: HTMLElement;
+  declare modeBtn: HTMLElement;
+  declare inp: HTMLInputElement;
+  declare clearBtn: HTMLElement;
+  declare debouncedFetch: Debounced;
+  declare cachedSuggestions: Record<string, NominatimItem[]>;
+  declare cachedAddress: Record<string, AddressResult>;
+  declare scrollTargets: Array<Element | Window>;
+  declare repositionHandler: () => void;
+  declare addrAbortController: AbortController | null;
+  declare suggestAbortController: AbortController | null;
+  declare marker: L.Marker | null;
+  declare mode: string;
+  declare suggestionsWrap: HTMLElement | null;
+  declare selectedSuggestionIdx: number;
+  declare lastSuggestFetch: number;
+  declare suggestionsThrottleTimer: ReturnType<typeof setTimeout> | null;
+  declare suggestSeq: number;
+
   buildDOM() {
     this.createDOM();
     this.initState();
@@ -29,7 +66,7 @@ class SearchControl extends BaseControl {
     if (this.suggestAbortController) this.suggestAbortController.abort();
     this.cachedSuggestions = {};
     this.cachedAddress = {};
-    this.scrollTargets.forEach((t: any) =>
+    this.scrollTargets.forEach(t =>
       t.removeEventListener("scroll", this.repositionHandler, true),
     );
     window.removeEventListener("resize", this.repositionHandler);
@@ -60,7 +97,7 @@ class SearchControl extends BaseControl {
     const inp = dom.el("input", {
       type: "text",
       placeholder: _(`${CONF.name}.coord_placeholder`),
-    });
+    }) as HTMLInputElement;
     const clearBtn = createIconButton({
       class: "foliplus-ctrl-btn foliplus-close-btn",
       title: _(`${CONF.name}.clear_title`),
@@ -76,7 +113,7 @@ class SearchControl extends BaseControl {
   // ── State Initialization ──
   initState() {
     this.marker = null;
-    this.mode = CONF.mode;
+    this.mode = CONF.mode ?? "";
     if (this.mode !== MODE.COORD && this.mode !== MODE.ADDR) this.mode = MODE.COORD;
     this.suggestionsWrap = null;
     this.selectedSuggestionIdx = -1;
@@ -88,8 +125,8 @@ class SearchControl extends BaseControl {
     this.suggestSeq = 0;
 
     this.setMode(this.mode);
-    this.modeBtn.onclick = (e: MouseEvent) => {
-      e.stopPropagation();
+    this.modeBtn.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
       this.setMode(this.mode === MODE.COORD ? MODE.ADDR : MODE.COORD);
     };
   }

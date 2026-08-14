@@ -21,7 +21,7 @@ const NOMINATIM = {
  */
 const nominatimUrl = (
   endpoint: string,
-  params: Record<string, unknown> = {},
+  params: Record<string, string | number | boolean> = {},
   code = "en",
 ): string => {
   const url = new URL(endpoint || "", NOMINATIM.URL);
@@ -47,7 +47,7 @@ const nominatimUrl = (
  * @param code - Locale code (e.g. "en"/"zh"); defaults to "en"
  * @returns Formatted address
  */
-const formatAddress = (displayName: string, map?: any, code = "en"): string => {
+const formatAddress = (displayName: string, map?: L.Map, code = "en"): string => {
   if (!displayName) return "";
   const parts = displayName
     .split(",")

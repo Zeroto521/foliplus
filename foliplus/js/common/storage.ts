@@ -8,10 +8,10 @@
  * @param name - Caller component name, used as the log prefix.
  * @returns Parsed value, or null when missing/unreadable.
  */
-const load = (key: string, name = "foliplus"): any => {
+const load = <T>(key: string, name = "foliplus"): T | null => {
   try {
     const data = window.localStorage.getItem(key);
-    return data ? JSON.parse(data) : null;
+    return data ? (JSON.parse(data) as T) : null;
   } catch (e) {
     console.warn(`[${name}] Failed to load saved data (key=${key})`, e);
     return null;

@@ -5,8 +5,8 @@
 //   - destroy()    — override to release resources on removal
 //
 // Listener helpers (tracked, auto-unbound on remove):
-//   - this.listenDOM(el, ev, fn)  — L.DomEvent.on + tracked
-//   - this.listenMap(ev, fn)      — this._map.on + tracked
+//   - this.listenDOM(el, event, fn)  — L.DomEvent.on + tracked
+//   - this.listenMap(event, fn)      — this._map.on + tracked
 //
 // Notes:
 //   - `map` is NOT a free variable here (common modules are imported, not
@@ -15,18 +15,19 @@
 //   - Registration is idempotent: calling listen* twice never double-binds.
 //   - onRemove is final — subclasses override destroy() instead.
 
-const alreadyBound = (list: any[], item: any[]): boolean =>
-  list.some(it => it[0] === item[0] && it[1] === item[1] && it[2] === item[2]);
+/** True if a listener tuple with the same (target, event) is already tracked. */
+const alreadyBound = (list: readonly unknown[][], item: readonly unknown[]): boolean =>
+  list.some(it => it[0] === item[0] && it[1] === item[1]);
 
 class BaseControl extends L.Control {
-  events: Array<[any, string, any]>;
-  mapListeners: Array<[string, any]>;
-  _map: any;
+  events: Array<[HTMLElement, string, (event: Event) => void]>;
+  mapListeners: Array<[string, L.LeafletEventHandlerFn]>;
+  _map!: L.Map;
   init?(): void;
   buildDOM?(): HTMLElement;
   build?(): HTMLElement;
 
-  constructor(options: Record<string, unknown> = {}) {
+  constructor(options?: L.ControlOptions) {
     super(options);
     this.events = [];
     this.mapListeners = [];
@@ -44,9 +45,9 @@ class BaseControl extends L.Control {
   onRemove(): void {
     this.destroy();
     // Auto-unbind tracked listeners — always runs, cannot be skipped by subclasses.
-    this.events.forEach(([el, ev, fn]) => L.DomEvent.off(el, ev, fn));
+    this.events.forEach(([el, event, fn]) => L.DomEvent.off(el, event, fn));
     this.events = [];
-    this.mapListeners.forEach(([ev, fn]) => this._map?.off(ev, fn));
+    this.mapListeners.forEach(([event, fn]) => this._map.off(event, fn));
     this.mapListeners = [];
   }
 
@@ -54,18 +55,18 @@ class BaseControl extends L.Control {
   destroy(): void {}
 
   /** Track a L.DomEvent listener for auto-cleanup. */
-  listenDOM(el: HTMLElement, ev: string, fn: any): void {
-    const item: [any, string, any] = [el, ev, fn];
+  listenDOM(el: HTMLElement, event: string, fn: (event: Event) => void): void {
+    const item: [HTMLElement, string, (event: Event) => void] = [el, event, fn];
     if (alreadyBound(this.events, item)) return;
-    L.DomEvent.on(el, ev, fn);
+    L.DomEvent.on(el, event, fn);
     this.events.push(item);
   }
 
   /** Track a map event listener for auto-cleanup. */
-  listenMap(ev: string, fn: any): void {
-    const item: [string, any] = [ev, fn];
+  listenMap(event: string, fn: L.LeafletEventHandlerFn): void {
+    const item: [string, L.LeafletEventHandlerFn] = [event, fn];
     if (alreadyBound(this.mapListeners, item)) return;
-    this._map.on(ev, fn);
+    this._map.on(event, fn);
     this.mapListeners.push(item);
   }
 }

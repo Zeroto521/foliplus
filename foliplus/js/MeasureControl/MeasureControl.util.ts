@@ -1,4 +1,4 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
+// MeasureControl utility functions — standalone, no manager dependency.
 import { buildPopupHtml, stopEvent } from "#common/dom.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createTranslator } from "#common/locale.js";
@@ -7,19 +7,19 @@ import * as CONST from "./MeasureControl.const.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
-/** Format meters to human-readable string (e.g. "1.2 km", "500 m").
- *  @param {number} meters - Distance in meters.
- *  @returns {string} Formatted distance string. */
-const formatDistance = meters => {
+/** Format meters to human-readable string (e.g. "1.2 km", "500 m"). */
+const formatDistance = (meters: number): string => {
   return meters >= CONST.FORMAT.KM_THRESHOLD
     ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} km`
     : `${Math.round(meters)} m`;
 };
 
-/** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off.
- *  @param {Object} a - Start point with lng/lat properties.
- *  @param {Object} b - End point with lng/lat properties. */
-const formatSegmentLabel = (a, b, meters) => {
+/** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
+const formatSegmentLabel = (
+  a: { lng: number; lat: number },
+  b: { lng: number; lat: number },
+  meters: number,
+): string => {
   const dist = formatDistance(meters);
   if (!CONF.show_bearing) return dist;
   const bVal = Math.round(bearing(a, b));
@@ -27,23 +27,20 @@ const formatSegmentLabel = (a, b, meters) => {
 };
 
 /** Format area: "1,234 m²" or "1.23 km²". */
-const formatArea = sqMeters => {
+const formatArea = (sqMeters: number): string => {
   if (sqMeters >= 1_000_000) return `${(sqMeters / 1_000_000).toFixed(2)} km²`;
   return `${Math.round(sqMeters).toLocaleString()} m²`;
 };
 
-/** Toggle CSS hidden class on a list of DOM elements.
- *  @param {Element[]} elements - DOM elements to toggle.
- *  @param {boolean} visible - Whether elements should be visible. */
-const toggleVisibility = (elements, visible) => {
+/** Toggle CSS hidden class on a list of DOM elements. */
+const toggleVisibility = (elements: (HTMLElement | null)[], visible: boolean) => {
   elements.forEach(el => {
     if (el) el.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
   });
 };
 
-/** Temporarily suppress map click hide of delete icons.
- *  @param {Object} manager - MeasureManager instance. */
-const suppressHide = manager => {
+/** Temporarily suppress map click hide of delete icons. */
+const suppressHide = (manager: { isSuppressHideDel: boolean }) => {
   manager.isSuppressHideDel = true;
   setTimeout(() => {
     manager.isSuppressHideDel = false;
@@ -58,13 +55,13 @@ const hideDelIcons = () => {
     .forEach(el => el.classList.remove(CONST.CLASSES.VISIBLE));
 };
 
-/** Calculate next toggle state for X icons and labels.
- *  @param {boolean} curX - Current X visibility.
- *  @param {boolean} curLabels - Current label visibility.
- *  @param {boolean|undefined} showX - Requested X state.
- *  @param {boolean|string|undefined} toggleLbl - Requested label toggle.
- *  @returns {Object} `{isXVisible:boolean, isLabelsVisible:boolean}` */
-const calcToggle = (curX, curLabels, showX, toggleLbl) => {
+/** Calculate next toggle state for X icons and labels. */
+const calcToggle = (
+  curX: boolean,
+  curLabels: boolean,
+  showX: boolean | undefined,
+  toggleLbl: boolean | string | undefined,
+): { isXVisible: boolean; isLabelsVisible: boolean } => {
   const newX = showX !== undefined ? showX : !curX;
   let newLabel = curLabels;
   if (toggleLbl === true) newLabel = !curLabels;
@@ -73,29 +70,23 @@ const calcToggle = (curX, curLabels, showX, toggleLbl) => {
   return { isXVisible: newX, isLabelsVisible: newLabel };
 };
 
-/** Apply toggle visibility state to del icon, labels, and optional extra label.
- *  @param {Object} delMarker - Delete icon marker.
- *  @param {boolean} isXVisible - Whether X icons are visible.
- *  @param {Array} labels - Label markers to toggle.
- *  @param {boolean} isLabelsVisible - Whether labels are visible.
- *  @param {Object} [extraLbl] - Extra label marker to toggle.
- *  @param {Function} [onToggle] - Callback after toggle. */
+/** Apply toggle visibility state to del icon, labels, and optional extra label. */
 const applyToggle = (
-  delMarker,
-  isXVisible,
-  labels,
-  isLabelsVisible,
-  extraLbl,
-  onToggle,
+  delMarker: L.Layer | undefined,
+  isXVisible: boolean,
+  labels: L.Layer[],
+  isLabelsVisible: boolean,
+  extraLbl?: L.Layer,
+  onToggle?: (xVisible: boolean, lblVisible: boolean) => void,
 ) => {
-  const applyDelIcon = (marker, show, retries = 0) => {
+  const applyDelIcon = (marker: L.Layer | undefined, show: boolean, retries = 0) => {
     if (!marker) return;
-    toggleDelIcon(marker, show, retries);
+    toggleDelIcon(marker as L.Marker, show, retries);
   };
 
   applyDelIcon(delMarker, isXVisible);
   labels.forEach(m => {
-    const el = m.getElement();
+    const el = (m as L.Marker).getElement();
     if (el) {
       const label = el.querySelector(CONST.SEL.LABEL);
       if (label) label.classList.toggle(CONST.CLASSES.HIDDEN, !isLabelsVisible);
@@ -103,7 +94,7 @@ const applyToggle = (
   });
 
   if (extraLbl) {
-    const sEl = extraLbl.getElement();
+    const sEl = (extraLbl as L.Marker).getElement();
     if (sEl) {
       const sL = sEl.querySelector(CONST.SEL.LABEL);
       if (sL) sL.classList.toggle(CONST.CLASSES.HIDDEN, !isLabelsVisible);
@@ -114,9 +105,9 @@ const applyToggle = (
 };
 
 /** Toggle a delete icon's visibility with retry. */
-const toggleDelIcon = (marker, show, retries = 0) => {
+const toggleDelIcon = (marker: L.Layer, show: boolean, retries = 0) => {
   if (!marker) return;
-  const el = marker.getElement();
+  const el = (marker as L.Marker).getElement();
   if (el) {
     const icon = el.querySelector(CONST.SEL.DEL_ICON);
     if (icon) icon.classList.toggle(CONST.CLASSES.VISIBLE, show);
@@ -129,26 +120,26 @@ const toggleDelIcon = (marker, show, retries = 0) => {
 };
 
 /** Attach a click handler to a delete icon marker via Leaflet event (survives DOM rebuild). */
-const attachDelClick = (delMarker, callback) => {
-  delMarker.on("click", ev => {
-    const t = ev.originalEvent?.target;
+const attachDelClick = (delMarker: L.Layer, callback: () => void) => {
+  delMarker.on("click", (event: L.LeafletMouseEvent) => {
+    const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
     if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-      stopEvent(ev);
+      stopEvent(event);
       callback();
     }
   });
 };
 
 /** Update a label marker's text content. Always gets fresh DOM reference. */
-const setLabelText = (marker, text) => {
-  const el = marker.getElement();
+const setLabelText = (marker: L.Layer, text: string) => {
+  const el = (marker as L.Marker).getElement();
   if (!el) return;
   const labelEl = el.querySelector(CONST.SEL.LABEL);
   if (labelEl) labelEl.textContent = text;
 };
 
 /** Build popup HTML for a marker location. */
-const buildPopup = (lng, lat, addr) => {
+const buildPopup = (lng: number, lat: number, addr: string | null = null): string => {
   return buildPopupHtml(
     lng,
     lat,
@@ -160,43 +151,57 @@ const buildPopup = (lng, lat, addr) => {
   );
 };
 
-/** Create a divIcon for a label marker.
- * @param {string} html - Text content for the label.
- * @param {number[]} [iconAnchor] - Override default LABEL_ANCHOR.
- * @param {string} [className] - Extra CSS class for the label div. */
-const makeLabelDivIcon = (html, iconAnchor, className) => {
+/** Create a divIcon for a label marker. */
+const makeLabelDivIcon = (
+  html: string,
+  iconAnchor?: [number, number],
+  className?: string,
+): L.DivIcon => {
   return L.divIcon({
     className: "",
     html: `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}" data-foliplus-export="label">${html}</div>`,
-    iconSize: CONST.LABEL.SIZE,
-    iconAnchor: iconAnchor || CONST.LABEL.DEFAULT_ANCHOR,
+    iconSize: CONST.LABEL.SIZE as [number, number],
+    iconAnchor: (iconAnchor || CONST.LABEL.DEFAULT_ANCHOR) as [number, number],
   });
 };
 
-/** Create a divIcon for a segment label centered on the line midpoint.
- *  @param {string} html - Text content for the label. */
-const makeMidLabelDivIcon = html => {
-  return makeLabelDivIcon(html, CONST.LABEL.MID_ANCHOR, CONST.LABEL.CLASS_MID);
+/** Create a divIcon for a segment label centered on the line midpoint. */
+const makeMidLabelDivIcon = (html: string): L.DivIcon => {
+  return makeLabelDivIcon(
+    html,
+    CONST.LABEL.MID_ANCHOR as [number, number],
+    CONST.LABEL.CLASS_MID,
+  );
 };
 
 /** Create a measure node circle marker. */
-const makeNode = (latlng, className = CONST.CLASSES.NODE_HOLLOW) => {
+const makeNode = (
+  latlng: L.LatLng,
+  className: string = CONST.CLASSES.NODE_HOLLOW,
+): L.CircleMarker => {
   return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
 };
 
-/** Create a delete icon marker.
- * @param {Object} [opts] - Extra options. className appended to del-icon-wrap
- *   for CSS targeting; iconAnchor overrides the default [0, 0];
- *   remaining opts passed to L.marker (e.g. zIndexOffset).
- */
-const makeDelIcon = (latlng, opts = {}) => {
+/** Options for makeDelIcon. */
+interface DelIconOptions {
+  className?: string;
+  iconAnchor?: [number, number];
+  zIndexOffset?: number;
+  title?: string;
+}
+
+/** Create a delete icon marker. */
+const makeDelIcon = (
+  latlng: L.LatLngExpression,
+  opts: DelIconOptions = {},
+): L.Marker => {
   const { className, iconAnchor, ...markerOpts } = opts;
   return L.marker(latlng, {
     icon: L.divIcon({
       className: CONST.DEL_ICON.WRAP_CLASS + (className ? " " + className : ""),
       html: `<span class="${CONST.DEL_ICON.CLASS}" data-foliplus-export="exclude">${CONST.DEL_ICON.CHAR}</span>`,
-      iconSize: CONST.DEL_ICON.SIZE,
-      iconAnchor: iconAnchor || CONST.DEL_ICON.DEFAULT_ANCHOR,
+      iconSize: CONST.DEL_ICON.SIZE as [number, number],
+      iconAnchor: (iconAnchor || CONST.DEL_ICON.DEFAULT_ANCHOR) as [number, number],
     }),
     interactive: true,
     ...markerOpts,
@@ -204,11 +209,11 @@ const makeDelIcon = (latlng, opts = {}) => {
 };
 
 /** Animate a dash-sweep effect on a finalized polyline/polygon. */
-const animateDashSweep = path => {
+const animateDashSweep = (path: SVGElement | null) => {
   if (!path) return;
-  const len = path.getTotalLength?.() || 0;
+  const len = (path as SVGPathElement).getTotalLength?.() || 0;
   if (len <= 0) return;
-  path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, len);
+  path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, String(len));
   path.classList.add(CONST.CLASSES.DASH_SWEEP);
   const onEnd = () => {
     path.removeEventListener("animationend", onEnd);
@@ -218,12 +223,18 @@ const animateDashSweep = path => {
   path.addEventListener("animationend", onEnd);
 };
 
-/** Recalculate segments and total distance from a points array.
- * @param {Array} points - Array of L.LatLng
- * @returns {Object} { segments: Array, totalDistance: number }
- */
-const recalculateSegments = points => {
-  const segments = [];
+/** A single segment with distance. */
+interface Segment {
+  lng: number;
+  lat: number;
+  distance: number;
+}
+
+/** Recalculate segments and total distance from a points array. */
+const recalculateSegments = (
+  points: L.LatLng[],
+): { segments: Segment[]; totalDistance: number } => {
+  const segments: Segment[] = [];
   let totalDistance = 0;
   for (let i = 1; i < points.length; i++) {
     const d = distance(points[i - 1], points[i]);
@@ -233,12 +244,45 @@ const recalculateSegments = points => {
   return { segments, totalDistance };
 };
 
+/** Calculate area from a closed polygon ring. */
+const calcArea = (points: L.LatLng[]): number => {
+  if (points.length < 3) return 0;
+  const pts: { lng: number; lat: number }[] = points.map(p => ({
+    lng: p.lng,
+    lat: p.lat,
+  }));
+  return area(pts);
+};
+
+/** Calculate centroid of a closed polygon ring. */
+const calcCentroid = (points: L.LatLng[]): { lng: number; lat: number } => {
+  if (points.length < 3) return { lng: 0, lat: 0 };
+  const pts: { lng: number; lat: number }[] = points.map(p => ({
+    lng: p.lng,
+    lat: p.lat,
+  }));
+  const c = centroid(pts);
+  return { lng: c.lng, lat: c.lat };
+};
+
+/** Calculate midpoint between two coordinates. */
+const calcMidpoint = (
+  a: { lng: number; lat: number },
+  b: { lng: number; lat: number },
+): { lng: number; lat: number } => {
+  const pt = midpoint(a, b);
+  return { lng: pt.lng, lat: pt.lat };
+};
+
 export {
   animateDashSweep,
   applyToggle,
   area,
   attachDelClick,
   buildPopup,
+  calcArea,
+  calcCentroid,
+  calcMidpoint,
   calcToggle,
   centroid,
   distance,

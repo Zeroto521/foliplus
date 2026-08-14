@@ -1,11 +1,11 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
-import { debounce } from "#common/debounce.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "./LayerControl.const.js";
 import { PaneManager } from "./LayerControl.pane.js";
+import { LayerUI } from "./LayerControl.ui.js";
 import * as Util from "./LayerControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -65,18 +65,12 @@ const MUTATING_METHODS = new Set([
  *   `api.bringLayerToFront(id)`  — reorder
  */
 class LayerRegistry {
-  /**
-   * @param {Array} [data=[]] - Initial layer info objects.
-   * @param {Object} [map] - Leaflet map instance. If provided, resolves
-   *   `li.layer` for each entry so callers can always use `li.layer`
-   *   directly without a fallback (Jinja2 template entries are
-   *   plain {name, id, visible, isBase} — no `layer` reference).
-   *
-   * Every entry — whether from the Jinja2 template or a programmatic
-   * caller — is normalized through `createLayerInfo` so the registry
-   * only ever holds complete layerInfo objects with the full field set.
-   */
-  constructor(data = [], map) {
+  items: LayerInfo[];
+  byId: Map<string, LayerInfo>;
+  _firstBaseIdx: number;
+  view: LayerInfo[];
+
+  constructor(data: LayerInfo[] = [], map?: L.Map) {
     this.items = data.map(l => this.createLayerInfo(l, undefined, map));
     this.byId = new Map(this.items.map(l => [l.id, l]));
     this._firstBaseIdx = -1;
@@ -93,7 +87,11 @@ class LayerRegistry {
    *   the map/window globals when `opts.layer` is absent.
    * @returns {Object} A complete layerInfo object.
    */
-  createLayerInfo(opts, existingLi, map) {
+  createLayerInfo(
+    opts: RegisterLayerOpts,
+    existingLi?: LayerInfo,
+    map?: L.Map,
+  ): LayerInfo {
     return {
       name: opts.name ?? existingLi?.name ?? opts.id,
       id: opts.id,
@@ -154,19 +152,19 @@ class LayerRegistry {
     return this.items.length;
   }
 
-  at(i) {
+  at(i: number) {
     return this.items[i];
   }
 
-  get(id) {
+  get(id: string) {
     return this.byId.get(id);
   }
 
-  has(id) {
+  has(id: string) {
     return this.byId.has(id);
   }
 
-  indexOf(li) {
+  indexOf(li: LayerInfo) {
     return this.items.indexOf(li);
   }
 
@@ -176,7 +174,7 @@ class LayerRegistry {
   }
 
   /** Insert or update in place — never reorders an existing layer. */
-  upsert(layerInfo) {
+  upsert(layerInfo: LayerInfo): LayerInfo {
     const existing = this.byId.get(layerInfo.id);
     if (existing) {
       const idx = this.items.indexOf(existing);
@@ -190,7 +188,7 @@ class LayerRegistry {
   }
 
   /** Insert at the front (used for new overlay layers). */
-  prepend(layerInfo) {
+  prepend(layerInfo: LayerInfo): LayerInfo {
     this.items.unshift(layerInfo);
     this.byId.set(layerInfo.id, layerInfo);
     this.refreshFirstBaseIdx();
@@ -198,14 +196,14 @@ class LayerRegistry {
   }
 
   /** Insert before the given index (used for new base layers). */
-  insertAt(layerInfo, idx) {
+  insertAt(layerInfo: LayerInfo, idx: number): LayerInfo {
     this.items.splice(idx, 0, layerInfo);
     this.byId.set(layerInfo.id, layerInfo);
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
 
-  remove(id) {
+  remove(id: string): LayerInfo | null {
     const li = this.byId.get(id);
     if (!li) return null;
     const idx = this.items.indexOf(li);
@@ -216,7 +214,7 @@ class LayerRegistry {
   }
 
   /** Move an existing layer to index 0 (bring to front). */
-  moveToFront(id) {
+  moveToFront(id: string): LayerInfo | null {
     const li = this.byId.get(id);
     if (!li) return null;
     const idx = this.items.indexOf(li);
@@ -227,13 +225,13 @@ class LayerRegistry {
   }
 
   /** Swap order of two positions (drag-and-drop). */
-  reorder(fromIdx, toIdx) {
+  reorder(fromIdx: number, toIdx: number) {
     const [moved] = this.items.splice(fromIdx, 1);
     this.items.splice(toIdx, 0, moved);
   }
 
   /** Rebuild both list and index from a new ordered array. */
-  replace(newList) {
+  replace(newList: LayerInfo[]) {
     this.items.splice(0, this.items.length, ...newList);
     this.byId = new Map(this.items.map(l => [l.id, l]));
     this.refreshFirstBaseIdx();
@@ -262,7 +260,7 @@ class LayerRegistry {
   /**
    * Check whether a layer at fromIdx can be reordered to toIdx.
    * Only same-group (base↔base or overlay↔overlay) reordering is allowed. */
-  canReorderBetween(fromIdx, toIdx) {
+  canReorderBetween(fromIdx: number, toIdx: number): boolean {
     if (fromIdx == null || toIdx == null) return false;
     if (fromIdx < 0 || toIdx < 0) return false;
     if (fromIdx >= this.items.length || toIdx >= this.items.length) return false;
@@ -282,9 +280,63 @@ class LayerRegistry {
   }
 }
 
+/** Options for registerLayer. */
+interface RegisterLayerOpts {
+  id: string;
+  name?: string | null;
+  layer?: L.Layer | null;
+  isBase?: boolean;
+  paneName?: string | null;
+  iconSvg?: string | null;
+  visible?: boolean;
+  canvas?: HTMLCanvasElement | null;
+  onToggle?: ((visible: boolean) => void) | null;
+  onZIndex?: ((z: number) => void) | null;
+  [key: string]: unknown;
+}
+
+/** Options for createLayers. */
+interface CreateLayersOpts {
+  id: string;
+  name?: string;
+  graphPane?: string;
+  labelPane?: string;
+  iconSvg?: string;
+}
+
+/** Options for createCanvas. */
+interface CreateCanvasOpts {
+  id: string;
+  name?: string;
+  className?: string;
+  iconSvg?: string;
+  onToggle?: (visible: boolean) => void;
+  onZIndex?: (z: number) => void;
+}
+
+/** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
+interface LabelAwareLayer extends L.Layer {
+  isLabel?: boolean;
+  options: L.LayerOptions & { renderer?: L.Renderer; pane?: string; paneSet?: boolean };
+}
+
 // ==================== Core Manager: LayerManager ====================
 class LayerManager {
-  constructor(mapInstance, data) {
+  map: L.Map;
+  layerRegistry: LayerRegistry;
+  layers: LayerInfo[];
+  pendingRegistrations: LayerInfo[];
+  uiContainer: HTMLElement | null;
+  isEnforcing: boolean;
+  isDestroyed: boolean;
+  panes: PaneManager;
+  lastAttribution: string | null;
+  ui: LayerUI | null;
+  debouncedEnforce: Debounced;
+  onLayerAdd: (event: L.LeafletEvent) => void;
+  getLayerPanes: (layer: L.Layer) => string[];
+
+  constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
     this.layerRegistry = new LayerRegistry(data, this.map);
     this.layers = this.layerRegistry.list;
@@ -311,17 +363,21 @@ class LayerManager {
     this.ui = null;
 
     this.debouncedEnforce = debounce(() => {
-      if (this.isDestroyed || !this.map || !this.map._container) return;
+      if (this.isDestroyed || !this.map || !this.map.getContainer()) return;
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
-    this.onLayerAdd = e => {
-      if (this.isDestroyed || e.layer === this.map || e.layer instanceof L.Renderer)
+    this.onLayerAdd = event => {
+      if (
+        this.isDestroyed ||
+        event.layer === this.map ||
+        event.layer instanceof L.Renderer
+      )
         return;
 
       if (
-        !(e.layer instanceof L.Path || e.layer instanceof L.Marker) &&
-        !e.layer.options?.paneName
+        !(event.layer instanceof L.Path || event.layer instanceof L.Marker) &&
+        !event.layer.options?.paneName
       )
         return;
 
@@ -338,21 +394,23 @@ class LayerManager {
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
 
-    foliplus.LayerAPI = this;
+    foliplus.LayerAPI = this as LayerAPI;
   }
 
   loadSavedOrder() {
-    const data = Storage.load(CONST.STORAGE.ORDER_KEY, CONF.name);
+    const data = Storage.load<string[]>(CONST.STORAGE.ORDER_KEY, CONF.name);
     if (!data || !Array.isArray(data)) return;
     const layerMap = new Map(this.layers.map(l => [l.id, l]));
-    const ordered = [];
+    const ordered: LayerInfo[] = [];
     for (const id of data) {
       if (layerMap.has(id)) {
-        ordered.push(layerMap.get(id));
+        ordered.push(layerMap.get(id)!);
         layerMap.delete(id);
       }
     }
-    this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
+    this.layerRegistry.replace(
+      ordered.concat([...layerMap.values()].filter((v): v is LayerInfo => v != null)),
+    );
   }
 
   saveOrder() {
@@ -370,7 +428,7 @@ class LayerManager {
    * @param {string} id - Layer ID set when calling registerLayer().
    * @returns {string|null} "point" | "line" | "polygon" | "base" | null
    */
-  getLayerType(id) {
+  getLayerType(id: string): string | null {
     const li = this.layerRegistry.get(id);
     if (!li) return null;
     if (li.type) return li.type;
@@ -387,30 +445,25 @@ class LayerManager {
    * @param {string} type - "point" | "line" | "polygon" | "base"
    * @returns {Array<{id: string, name: string, layer: Object}>}
    */
-  getLayersByType(type) {
+  getLayersByType(
+    type: string,
+  ): Array<{ id: string; name: string; layer: L.Layer | null }> {
     return this.layers
       .filter(l => this.getLayerType(l.id) === type)
       .map(l => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
   }
 
-  /**
-   * Resolve a registered layer by id or layerInfo.
-   * @param {string|Object} idOrInfo - Layer ID or layerInfo object.
-   * @returns {Object|null} Leaflet layer or null.
-   */
-  findLayer(idOrInfo) {
+  findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
     const li =
       typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
     if (li?.layer) return li.layer;
-    return Util.findLayer(this.map, typeof idOrInfo === "string" ? idOrInfo : li?.id);
+    return Util.findLayer(
+      this.map,
+      typeof idOrInfo === "string" ? idOrInfo : (li?.id ?? ""),
+    );
   }
 
-  /**
-   * Walk every leaf (non-container) layer in a registered layer tree.
-   * @param {string} id - Layer ID.
-   * @param {function} fn - Called for each leaf with (leafLayer).
-   */
-  forEachLeaf(id, fn) {
+  forEachLeaf(id: string, fn: (layer: L.Layer) => void) {
     const layer = this.findLayer(id);
     if (layer) Util.forEachLeaf(layer, fn);
   }
@@ -420,10 +473,13 @@ class LayerManager {
    * @param {string} id - Layer ID.
    * @returns {Array<{lat: number, lng: number, marker: L.Marker|L.CircleMarker}>}
    */
-  extractPoints(id) {
-    const pts = [];
+  extractPoints(
+    id: string,
+  ): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
+    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> =
+      [];
     const seen = new Set();
-    this.forEachLeaf(id, l => {
+    this.forEachLeaf(id, (l: L.Layer) => {
       if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
       if (!l.feature) return;
       const stamp = L.stamp(l);
@@ -435,21 +491,7 @@ class LayerManager {
     return pts;
   }
 
-  /**
-   * Register (or re-register) a layer with the LayerManager.
-   * @param {Object} opts
-   * @param {string} opts.id       - Unique identifier for the layer.
-   * @param {string} [opts.name]   - Display name (falls back to id).
-   * @param {Object} [opts.layer]  - Leaflet layer instance.
-   * @param {boolean} [opts.isBase] - If true, grouped under "Base Map" separator.
-   * @param {string} [opts.paneName] - Custom pane name for z-order grouping.
-   * @param {string} [opts.iconSvg]  - Custom SVG icon HTML for the type column.
-   * @param {Function} [opts.onToggle] - Callback invoked when visibility toggles.
-   * @param {Function} [opts.onZIndex] - Callback invoked when z-index changes.
-   * @param {Object} [opts.canvas]  - Managed canvas element for the layer.
-   * @returns {HTMLElement|null} The created DOM item, or null if UI not ready.
-   */
-  registerLayer(opts) {
+  registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
     if (!opts?.id) throw new Error(`[${CONF.name}] ${_(`${CONF.name}.id_required`)}`);
 
     const existingLi = this.layerRegistry.get(opts.id);
@@ -503,7 +545,7 @@ class LayerManager {
    * Bring a registered layer to the front (top of z-order).
    * @param {string} id - Layer ID previously passed to registerLayer().
    */
-  bringLayerToFront(id) {
+  bringLayerToFront(id: string) {
     const item = this.layerRegistry.get(id);
     if (!item) return;
     const idx = this.layerRegistry.indexOf(item);
@@ -523,7 +565,7 @@ class LayerManager {
    * @param {string} id - The layer ID previously passed to registerLayer().
    * @returns {boolean} true if layer was found and removed, false otherwise.
    */
-  unregisterLayer(id) {
+  unregisterLayer(id: string): boolean {
     const layerInfo = this.layerRegistry.remove(id);
     if (!layerInfo) return false;
 
@@ -547,25 +589,28 @@ class LayerManager {
     return true;
   }
 
-  clearAllLayers(layer) {
+  clearAllLayers(layer: L.Layer | null) {
     if (!layer) return;
-    if (typeof layer.clearLayers === "function") layer.clearLayers();
-    else if (layer.eachLayer) layer.eachLayer(l => this.clearAllLayers(l));
+    if (
+      "clearLayers" in layer &&
+      typeof (layer as L.LayerGroup).clearLayers === "function"
+    )
+      (layer as L.LayerGroup).clearLayers();
+    else if (
+      "eachLayer" in layer &&
+      typeof (layer as L.LayerGroup).eachLayer === "function"
+    )
+      (layer as L.LayerGroup).eachLayer(c => this.clearAllLayers(c));
   }
 
-  /**
-   * Create a managed three-layer group (graph + label + main) for
-   * components that need sub-layers with custom panes.
-   * @param {Object} opts
-   * @returns {createLayersAPI}
-   */
-  createLayers(opts) {
+  createLayers(opts: CreateLayersOpts): CreateLayersAPI {
     const mainLayer = L.layerGroup();
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
       : null;
-    const labelLayer = opts.labelPane ? L.layerGroup() : null;
-    if (labelLayer) labelLayer.options.pane = opts.labelPane;
+    const labelLayer = opts.labelPane
+      ? L.layerGroup([], { pane: opts.labelPane })
+      : null;
     if (graphLayer) mainLayer.addLayer(graphLayer);
     if (labelLayer) mainLayer.addLayer(labelLayer);
 
@@ -590,8 +635,8 @@ class LayerManager {
     const unregister = () => {
       if (!registered) return;
       const hasContent =
-        (graphLayer && Object.keys(graphLayer._layers || {}).length > 0) ||
-        (labelLayer && Object.keys(labelLayer._layers || {}).length > 0);
+        (graphLayer && graphLayer.getLayers().length > 0) ||
+        (labelLayer && labelLayer.getLayers().length > 0);
       if (!hasContent) {
         registered = false;
         this.unregisterLayer(opts.id);
@@ -601,7 +646,7 @@ class LayerManager {
     const origAddLayer = mainLayer.addLayer.bind(mainLayer);
     const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
 
-    mainLayer.addLayer = layer => {
+    mainLayer.addLayer = (layer: LabelAwareLayer) => {
       const isLabel = layer.isLabel;
       const target = isLabel ? labelLayer : graphLayer;
       if (target) {
@@ -609,8 +654,8 @@ class LayerManager {
         const paneName = isLabel ? opts.labelPane : opts.graphPane;
         layer.options.pane = paneName;
         if (layer instanceof L.Path) {
-          const { renderer } = this.panes.ensurePane(opts.graphPane);
-          layer._renderer = renderer;
+          const { renderer } = this.panes.ensurePane(opts.graphPane!);
+          layer.options.renderer = renderer ?? undefined;
         } else if (paneName) this.panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
         this.panes.reset();
@@ -619,7 +664,7 @@ class LayerManager {
       return origAddLayer(layer);
     };
 
-    mainLayer.removeLayer = layer => {
+    mainLayer.removeLayer = (layer: LabelAwareLayer) => {
       if (graphLayer && graphLayer.hasLayer(layer)) {
         const result = graphLayer.removeLayer(layer);
         this.panes.reset();
@@ -638,14 +683,15 @@ class LayerManager {
       if (labelLayer) labelLayer.clearLayers();
       if (this.map.hasLayer(mainLayer)) this.map.removeLayer(mainLayer);
       unregister();
+      return mainLayer;
     };
 
-    const addLayer = (layer, isLabel) => {
+    const addLayer = (layer: LabelAwareLayer, isLabel?: boolean) => {
       if (isLabel) layer.isLabel = true;
       mainLayer.addLayer(layer);
       return layer;
     };
-    const removeLayer = (...items) => {
+    const removeLayer = (...items: Array<L.Layer | null | undefined>) => {
       items.forEach(l => {
         if (l != null) mainLayer.removeLayer(l);
       });
@@ -671,18 +717,18 @@ class LayerManager {
    * @param {Object} opts
    * @returns {createCanvasAPI}
    */
-  createCanvas(opts) {
+  createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
     if (!opts?.id)
       throw new Error(`[${CONF.name}] ${_(`${CONF.name}.require_canvas_id`)}`);
 
-    const mapPane = this.map._mapPane;
+    const mapPane = this.map.getPanes().mapPane as HTMLElement;
     if (!mapPane)
       throw new Error(`[${CONF.name}] ${_(`${CONF.name}.mapPane_not_available`)}`);
 
     const canvas = dom.el("canvas", {
       class: "foliplus-heatmap-canvas",
       parent: mapPane,
-    });
+    }) as HTMLCanvasElement;
     if (opts.className) canvas.classList.add(opts.className);
 
     const ctx = canvas.getContext("2d");
@@ -716,21 +762,21 @@ class LayerManager {
 
     const onToggle =
       opts.onToggle ||
-      (visible => {
+      ((visible: boolean) => {
         canvas.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
       });
 
     const onZIndex =
       opts.onZIndex ||
-      (z => {
+      ((z: number) => {
         canvas.style.zIndex = String(z);
       });
 
     const unregister = () => {
       if (!registered) return;
       registered = false;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx!.setTransform(1, 0, 0, 1, 0, 0);
+      ctx!.clearRect(0, 0, canvas.width, canvas.height);
       canvas.classList.add(CONST.CLASSES.HIDDEN);
       this.unregisterLayer(opts.id);
     };
@@ -758,8 +804,8 @@ class LayerManager {
     const onResize = () => resize();
     this.map.on("resize", onResize);
 
-    const hooks = { before: [], after: [] };
-    canvas.hooks = hooks;
+    const hooks = { before: [] as Array<() => void>, after: [] as Array<() => void> };
+    (canvas as CanvasWithHooks).hooks = hooks;
 
     return {
       canvas,
@@ -778,17 +824,17 @@ class LayerManager {
         canvas.remove();
       },
       bringToFront: () => this.bringLayerToFront(opts.id),
-      setZIndex: z => {
+      setZIndex: (z: number) => {
         canvas.style.zIndex = String(z);
       },
-      setVisible: v => {
+      setVisible: (v: boolean) => {
         canvas.classList.toggle(CONST.CLASSES.HIDDEN, !v);
       },
       hooks,
     };
   }
 
-  computeZIndex(i, isTile) {
+  computeZIndex(i: number, isTile: boolean): number {
     const zBase = isTile ? CONST.Z_INDEX.TILE_BASE : CONST.Z_INDEX.BASE;
     return zBase + (this.layers.length - i) * CONST.Z_INDEX.STEP;
   }
@@ -797,7 +843,11 @@ class LayerManager {
     if (this.isEnforcing) return;
     this.isEnforcing = true;
     try {
-      const layersToMove = [];
+      const layersToMove: Array<{
+        layer: L.Layer;
+        paneName: string | null;
+        renderer: L.SVG | null;
+      }> = [];
       this.panes.reset();
 
       for (let i = 0; i < this.layers.length; i++) {
@@ -826,28 +876,44 @@ class LayerManager {
     }
   }
 
-  applyLayerZIndex({ li, layer, z, isTile, layersToMove }) {
+  applyLayerZIndex({
+    li,
+    layer,
+    z,
+    isTile,
+    layersToMove,
+  }: {
+    li: LayerInfo;
+    layer: L.Layer;
+    z: number;
+    isTile: boolean;
+    layersToMove: Array<{
+      layer: L.Layer;
+      paneName: string | null;
+      renderer: L.SVG | null;
+    }>;
+  }) {
     const paneName = li.paneName;
     if (paneName) {
       const ep = this.panes.ensurePane(paneName, !isTile);
-      ep.pane.style.zIndex = z;
+      ep.pane.style.zIndex = String(z);
       if (layer.options.pane !== paneName || !layer.options.paneSet)
         layersToMove.push({ layer, paneName, renderer: ep.renderer });
       this.panes.bumpLabelPanes(layer, z);
       return;
     }
 
-    if (isTile && typeof layer.setZIndex === "function") {
-      layer.setZIndex(z);
+    if (isTile) {
+      (layer as L.TileLayer).setZIndex(z);
       return;
     }
 
     const childPanes = this.panes.discoverChildPanes(layer);
     if (childPanes.length > 0) {
-      childPanes.forEach(cp => {
+      childPanes.forEach((cp: string) => {
         const needRenderer = !isTile && !this.panes.labelPanes.has(cp);
         const ep = this.panes.ensurePane(cp, needRenderer);
-        ep.pane.style.zIndex = z;
+        ep.pane.style.zIndex = String(z);
       });
       this.panes.bumpLabelPanes(layer, z);
       layer.options.paneSet = true;
@@ -857,7 +923,7 @@ class LayerManager {
     const fbName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
     this.panes.fallbackPaneMap.set(L.stamp(layer), fbName);
     const ep = this.panes.ensurePane(fbName, !isTile);
-    ep.pane.style.zIndex = z;
+    ep.pane.style.zIndex = String(z);
     if (layer.options.pane !== fbName || !layer.options.paneSet)
       layersToMove.push({ layer, paneName: fbName, renderer: ep.renderer });
   }
@@ -872,21 +938,30 @@ class LayerManager {
       if (!li.isBase) continue;
       const layer = this.findLayer(li);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
-      delete attrCtrl._attributions[layer.options.attribution];
       if (!topAttr && this.map.hasLayer(layer)) topAttr = layer.options.attribution;
     }
 
-    if (topAttr) attrCtrl._attributions[topAttr] = 1;
+    // Unchanged top-most attribution: nothing to rebuild.
     if (topAttr === this.lastAttribution) return;
+
+    const prev = this.lastAttribution;
     this.lastAttribution = topAttr;
-    attrCtrl._update();
+    if (prev) {
+      if (attrCtrl.removeAttribution) attrCtrl.removeAttribution(prev);
+      else delete attrCtrl._attributions[prev];
+    }
+    if (topAttr) {
+      if (attrCtrl.addAttribution) attrCtrl.addAttribution(topAttr);
+      else attrCtrl._attributions[topAttr] = 1;
+    }
+    if (!attrCtrl.removeAttribution) attrCtrl._update();
   }
 
-  attachUI(containerDiv) {
+  attachUI(containerDiv: HTMLElement) {
     if (this.ui) this.ui.attachUI(containerDiv);
   }
 
-  canReorderBetween(fromIdx, toIdx) {
+  canReorderBetween(fromIdx: number, toIdx: number): boolean {
     return this.layerRegistry.canReorderBetween(fromIdx, toIdx);
   }
 

@@ -14,8 +14,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const domEvent = window.L.DomEvent;
 beforeEach(() => {
   // Delegate to real DOM addEventListener so click handlers actually fire.
-  domEvent.on = vi.fn((el, ev, fn) => el.addEventListener(ev, fn));
-  domEvent.off = vi.fn((el, ev, fn) => el.removeEventListener(ev, fn));
+  domEvent.on = vi.fn((el, event, fn) => el.addEventListener(event, fn));
+  domEvent.off = vi.fn((el, event, fn) => el.removeEventListener(event, fn));
   domEvent.stop = vi.fn();
 });
 
@@ -287,10 +287,10 @@ describe("createPanelControl", () => {
 
 describe("bindMapSync", () => {
   function makeMap() {
-    const handlers = {};
+    const handlers = {} as Record<string, (...args: unknown[]) => unknown>;
     return {
-      on: vi.fn((ev, fn) => {
-        handlers[ev] = fn;
+      on: vi.fn((event, fn) => {
+        handlers[event] = fn;
       }),
       off: vi.fn(),
       _handlers: handlers,
@@ -339,7 +339,7 @@ describe("bindMapSync", () => {
 
   it("skips binding when events/fn missing", () => {
     const map = makeMap();
-    const opts = { map, hideEvents: ["zoom"] };
+    const opts = { map, hideEvents: ["zoom"] } as any;
     const cleanup = bindMapSync(opts);
     expect(opts.onHide).toBeUndefined();
     expect(map.on).not.toHaveBeenCalled();

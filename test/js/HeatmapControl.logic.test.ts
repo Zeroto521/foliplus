@@ -366,7 +366,7 @@ describe("buildFeatures — centroid fallback", () => {
       [0, 0],
     ]);
 
-    const aggregated = {
+    const aggregated: any = {
       hexCells: { abc: { sum: 1, count: 1 } },
       getAggValue: c => c.count,
       valueToClassIdx: () => 0,
@@ -382,7 +382,7 @@ describe("buildFeatures — centroid fallback", () => {
 
   it("returns empty array for empty hexCells", () => {
     const m = makeManager();
-    const aggregated = {
+    const aggregated: any = {
       hexCells: {},
       getAggValue: c => 0,
       valueToClassIdx: () => 0,
@@ -396,9 +396,9 @@ describe("HeatmapManager — caching & lifecycle", () => {
   it("clearHeatmapCanvas resets autoFieldKey and all caches", () => {
     const m = makeManager();
     m.autoFieldKey = "price";
-    m.cachedFeatures = { f: 1 };
-    m.cachedAgg = { key: "k", data: "d" };
-    m.cachedPoints = { key: "p", pts: [] };
+    m.cachedFeatures = { f: 1 } as any;
+    m.cachedAgg = { key: "k", data: "d" } as any;
+    m.cachedPoints = { key: "p", pts: [] } as any;
     m.clearHeatmapCanvas();
     expect(m.cachedFeatures).toBeNull();
     expect(m.cachedAgg).toBeNull();
@@ -481,7 +481,7 @@ describe("getSelectedPoints", () => {
   it("returns cached points when key matches", () => {
     const m = makeManager();
     m.selectedLayerId = "layer1";
-    m.cachedPoints = { key: "layer1|count|true|auto", pts: [{ lat: 1 }] };
+    m.cachedPoints = { key: "layer1|count|true|auto", pts: [{ lat: 1 }] } as any;
     const pts = m.getSelectedPoints();
     expect(pts).toHaveLength(1);
   });
@@ -527,7 +527,7 @@ describe("renderFeatures", () => {
     const m = makeManager();
     m.overlay.register = vi.fn();
     m.redrawHeatmap = vi.fn();
-    const features = [{ type: "Feature" }];
+    const features = [{ type: "Feature" }] as any;
     m.renderFeatures(features);
     expect(m.cachedFeatures).toBe(features);
     expect(m.overlay.register).toHaveBeenCalled();

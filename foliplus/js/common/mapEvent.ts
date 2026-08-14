@@ -5,7 +5,7 @@
 // Handlers are plain [event, fn] tuples; the same array can be passed to
 // bindMapEvents and later to unbindMapEvents for symmetric cleanup.
 
-type MapHandler = (...args: unknown[]) => void;
+type MapHandler = L.LeafletEventHandlerFn;
 type MapEventHandlers = Array<[string, MapHandler]>;
 
 /**
@@ -13,8 +13,8 @@ type MapEventHandlers = Array<[string, MapHandler]>;
  * @param map - Leaflet map.
  * @param handlers - Array of [eventName, handler] pairs.
  */
-const bindMapEvents = (map: any, handlers: MapEventHandlers): void => {
-  handlers.forEach(([ev, fn]) => map.on(ev, fn));
+const bindMapEvents = (map: L.Map, handlers: MapEventHandlers): void => {
+  handlers.forEach(([event, fn]) => map.on(event, fn));
 };
 
 /**
@@ -22,8 +22,8 @@ const bindMapEvents = (map: any, handlers: MapEventHandlers): void => {
  * @param map - Leaflet map.
  * @param handlers - Array of [eventName, handler] pairs.
  */
-const unbindMapEvents = (map: any, handlers: MapEventHandlers): void => {
-  handlers.forEach(([ev, fn]) => map.off(ev, fn));
+const unbindMapEvents = (map: L.Map, handlers: MapEventHandlers): void => {
+  handlers.forEach(([event, fn]) => map.off(event, fn));
 };
 
-export { bindMapEvents, unbindMapEvents };
+export { bindMapEvents, unbindMapEvents, type MapEventHandlers };

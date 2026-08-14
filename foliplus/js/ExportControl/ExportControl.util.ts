@@ -27,7 +27,7 @@ const loadImageBitmap = async (url: string) => {
   const resp = await fetch(url, {
     mode: "cors",
     cache: "force-cache",
-    signal: AbortSignal.timeout(CONST.TIMING.TIMEOUT),
+    signal: AbortSignal.timeout(CONST.TIMING.TIMEOUT as number),
   });
   if (!resp.ok) return null;
   const blob = await resp.blob();

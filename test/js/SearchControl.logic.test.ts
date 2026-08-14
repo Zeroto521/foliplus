@@ -19,7 +19,7 @@ describe("removeSuggestions", () => {
   it("removes suggestionsWrap and resets state", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
-    const ctrl = {
+    const ctrl: any = {
       suggestionsWrap: el,
       suggestionsThrottleTimer: setTimeout(() => {}, 1000),
       selectedSuggestionIdx: 2,
@@ -34,7 +34,7 @@ describe("removeSuggestions", () => {
   });
 
   it("handles null suggestionsWrap without error", () => {
-    const ctrl = {
+    const ctrl: any = {
       suggestionsWrap: null,
       suggestionsThrottleTimer: null,
       selectedSuggestionIdx: -1,
@@ -45,7 +45,7 @@ describe("removeSuggestions", () => {
 
 describe("initDebouncedFetch", () => {
   it("creates a debounced function on ctrl.debouncedFetch", () => {
-    const ctrl = { inp: { value: "test" }, debouncedFetch: null };
+    const ctrl: any = { inp: { value: "test" }, debouncedFetch: null };
     initDebouncedFetch(ctrl);
     expect(ctrl.debouncedFetch).toBeDefined();
     expect(typeof ctrl.debouncedFetch).toBe("function");
@@ -55,7 +55,7 @@ describe("initDebouncedFetch", () => {
 
 describe("buildSearchUrl", () => {
   it("includes query, limit, and center coordinates", () => {
-    const ctrl = {};
+    const ctrl: any = {};
     const url = buildSearchUrl(ctrl, "test query", 5);
     expect(url).toContain("q=test+query");
     expect(url).toContain("limit=5");
@@ -68,7 +68,7 @@ describe("buildSearchUrl", () => {
     const original = window.CONF.locale_code;
     try {
       window.CONF = { ...window.CONF, locale_code: "zh" };
-      const url = buildSearchUrl({}, "test", 5);
+      const url = buildSearchUrl({} as any, "test", 5);
       expect(url).toContain("accept-language=zh");
     } finally {
       window.CONF = { ...window.CONF, locale_code: original };
@@ -79,7 +79,7 @@ describe("buildSearchUrl", () => {
     const original = window.CONF.locale_code;
     try {
       window.CONF = { ...window.CONF, locale_code: undefined };
-      const url = buildSearchUrl({}, "test", 5);
+      const url = buildSearchUrl({} as any, "test", 5);
       expect(url).toContain("accept-language=en");
     } finally {
       window.CONF = { ...window.CONF, locale_code: original };
@@ -93,7 +93,7 @@ describe("searchCoord", () => {
   });
 
   it("shows hint and clears input for invalid coordinates", () => {
-    const ctrl = { inp: { value: "" }, marker: null };
+    const ctrl: any = { inp: { value: "" }, marker: null };
     searchCoord(ctrl, "abc");
     expect(foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
@@ -104,14 +104,14 @@ describe("searchCoord", () => {
   });
 
   it("shows hint for out-of-range values", () => {
-    const ctrl = { inp: { value: "" }, marker: null };
+    const ctrl: any = { inp: { value: "" }, marker: null };
     searchCoord(ctrl, "200,100");
     expect(foliplus.showHint).toHaveBeenCalled();
     expect(ctrl.inp.value).toBe("");
   });
 
   it("flies to valid coordinates", () => {
-    const ctrl = {
+    const ctrl: any = {
       inp: { value: "121.47,31.23" },
       marker: null,
     };
@@ -133,8 +133,8 @@ describe("searchAddress", () => {
   it("shows hint and clears input when no results", async () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ json: () => Promise.resolve([]) }),
-    );
-    const ctrl = {
+    ) as unknown as typeof fetch;
+    const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "abc" },
@@ -156,8 +156,8 @@ describe("searchAddress", () => {
         json: () =>
           Promise.resolve([{ lat: "30.2", lon: "120.5", display_name: "X, Y" }]),
       }),
-    );
-    const ctrl = {
+    ) as unknown as typeof fetch;
+    const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "X" },
@@ -174,7 +174,7 @@ describe("searchAddress", () => {
 
   it("serves cached results without fetching", () => {
     globalThis.fetch = vi.fn();
-    const ctrl = {
+    const ctrl: any = {
       cachedAddress: {
         X: { item: { lat: "30", lon: "120" }, displayName: "X" },
       },
@@ -190,7 +190,7 @@ describe("searchAddress", () => {
 
 describe("positionSuggestions", () => {
   it("places wrap below the control", () => {
-    const ctrl = {
+    const ctrl: any = {
       suggestionsWrap: { style: {} },
       ctrl: {
         getBoundingClientRect: () => ({
@@ -209,7 +209,7 @@ describe("positionSuggestions", () => {
 
 describe("fetchSuggestions", () => {
   it("removes suggestions when not in ADDR mode", () => {
-    const ctrl = {
+    const ctrl: any = {
       mode: "coord",
       suggestionsWrap: null,
       suggestionsThrottleTimer: null,
@@ -220,7 +220,7 @@ describe("fetchSuggestions", () => {
   });
 
   it("ignores queries below min chars", () => {
-    const ctrl = {
+    const ctrl: any = {
       mode: "addr",
       suggestionsWrap: null,
       suggestionsThrottleTimer: null,
@@ -232,7 +232,7 @@ describe("fetchSuggestions", () => {
 
   it("renders cached suggestions without fetching", () => {
     globalThis.fetch = vi.fn();
-    const ctrl = {
+    const ctrl: any = {
       mode: "addr",
       cachedSuggestions: { abc: [{ display_name: "A" }] },
       suggestionsWrap: null,
@@ -253,7 +253,7 @@ describe("fetchSuggestions", () => {
     const original = window.CONF.locale_code;
     try {
       window.CONF = { ...window.CONF, locale_code: "zh" };
-      const ctrl = {
+      const ctrl: any = {
         mode: "addr",
         cachedSuggestions: {
           abc: [{ display_name: "Rue de Rivoli, 75001, Paris, France" }],
@@ -277,8 +277,8 @@ describe("fetchSuggestions", () => {
   it("fetches and renders results", async () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ json: () => Promise.resolve([{ display_name: "A, Place" }]) }),
-    );
-    const ctrl = {
+    ) as unknown as typeof fetch;
+    const ctrl: any = {
       mode: "addr",
       cachedSuggestions: {},
       suggestionsWrap: null,

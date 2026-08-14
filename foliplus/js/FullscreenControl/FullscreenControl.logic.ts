@@ -13,7 +13,7 @@ const _ = createTranslator(CONF);
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
-const updateUI = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
+const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   const isFull = !!getFullscreenEl() || map.isFullscreen;
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? _(`${CONF.name}.title_cancel`) : _(`${CONF.name}.title`);
@@ -22,7 +22,7 @@ const updateUI = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
     const controls = map
       .getContainer()
       .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
-    const cid = containerId(CONF.name, CONF.position);
+    const cid = containerId(CONF.name, CONF.position as string);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
       c.classList.toggle(CLASSES.HIDDEN, isFull);
@@ -46,10 +46,10 @@ const updateUI = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
-const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
+const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   if (getFullscreenEl() || map.isFullscreen) {
     if (isEnabled) {
-      (document as any)
+      (document as unknown as Record<string, () => Promise<void>>)
         [nativeAPI!.exitFullscreen]()
         .then(() => {
           map.isFullscreen = false;
@@ -60,13 +60,13 @@ const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) 
         });
       return;
     } else {
-      map._container.classList.remove(CLASSES.PSEUDO_FULLSCREEN);
+      map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
       map.invalidateSize();
     }
     map.isFullscreen = false;
   } else {
     if (isEnabled) {
-      (map._container as any)
+      (map.getContainer() as unknown as Record<string, () => Promise<void>>)
         [nativeAPI!.requestFullscreen]()
         .then(() => {
           map.isFullscreen = true;
@@ -77,7 +77,7 @@ const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) 
         });
       return;
     } else {
-      map._container.classList.add(CLASSES.PSEUDO_FULLSCREEN);
+      map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
       map.invalidateSize();
     }
     map.isFullscreen = true;
@@ -88,7 +88,11 @@ const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) 
 // ══════════════════════════════════════════════════════════════════════════════
 // bindFullscreenEvents  —  wire up fullscreenchange + unload listeners
 // ══════════════════════════════════════════════════════════════════════════════
-const bindFullscreenEvents = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
+const bindFullscreenEvents = (
+  map: L.Map,
+  fsBtn: HTMLElement,
+  container: HTMLElement,
+) => {
   const handleFSChange = () => {
     map.isFullscreen = !!getFullscreenEl();
     updateUI(map, fsBtn, container);

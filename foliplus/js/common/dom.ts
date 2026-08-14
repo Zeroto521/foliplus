@@ -42,7 +42,12 @@ const EVENTS = new Set([
   "onmousemove",
   "onmouseup",
 ]);
-const PIN = {
+const PIN: {
+  SIZE: [number, number];
+  ANCHOR: [number, number];
+  POPUP_ANCHOR: [number, number];
+  Z_OFFSET: number;
+} = {
   SIZE: [24, 36],
   ANCHOR: [12, 36],
   POPUP_ANCHOR: [0, -36],
@@ -50,7 +55,16 @@ const PIN = {
 };
 const POPUP_MAX_WIDTH = 300;
 
-type ElementAttrs = Record<string, any>;
+/** Attribute value: primitives, style object, event handler, or parent element. */
+type AttrVal =
+  | string
+  | number
+  | boolean
+  | null
+  | EventListener
+  | HTMLElement
+  | Record<string, string>;
+type ElementAttrs = Record<string, AttrVal | undefined>;
 type Child = HTMLElement | string | number | { html: string } | null | undefined;
 
 const dom = {
@@ -78,16 +92,20 @@ const dom = {
     if (attrs) {
       for (const [key, val] of Object.entries(attrs)) {
         if (val == null) continue;
-        if (key === "class") el.className = val;
+        if (key === "class") el.className = String(val);
         else if (key === "style") {
-          if (typeof val === "object") Object.assign(el.style, val);
-          else el.style.cssText = val;
-        } else if (key === "parent") val.appendChild(el);
-        else if (key === "innerHTML") el.innerHTML = val;
-        else if (BOOL_PROPS.has(key)) (el as any)[key] = val === "" || val === true;
-        else if (PROPS.has(key)) (el as any)[key] = val;
-        else if (EVENTS.has(key)) (el as any)[key] = val;
-        else el.setAttribute(key, String(val));
+          if (typeof val === "object" && val !== null && !("appendChild" in val)) {
+            const styleObj: Record<string, string> = val as Record<string, string>;
+            Object.assign(el.style, styleObj);
+          } else el.style.cssText = String(val);
+        } else if (key === "parent") (val as HTMLElement).appendChild(el);
+        else if (key === "innerHTML") el.innerHTML = String(val);
+        else if (BOOL_PROPS.has(key)) Reflect.set(el, key, val === "" || val === true);
+        else if (PROPS.has(key)) Reflect.set(el, key, val);
+        else if (EVENTS.has(key)) {
+          const handler = val as EventListener;
+          Reflect.set(el, "on" + key.slice(2), handler);
+        } else el.setAttribute(key, String(val));
       }
     }
     for (const child of children) {
@@ -96,11 +114,10 @@ const dom = {
         typeof child === "object" &&
         "html" in child &&
         (child as { html: string }).html
-      ) {
+      )
         el.insertAdjacentHTML("beforeend", (child as { html: string }).html);
-      } else {
-        el.append(child as any);
-      }
+      else if (typeof child === "number") el.append(String(child));
+      else el.append(child as string | HTMLElement);
     }
     return el;
   },
@@ -117,8 +134,8 @@ const createIconButton = (opts: {
   ariaLabel?: string;
   svg: string;
   parent?: HTMLElement;
-  onclick?: (e: Event) => void;
-  data?: Record<string, unknown>;
+  onclick?: (event: Event) => void;
+  data?: Record<string, string | number | boolean>;
 }): HTMLButtonElement => {
   const attrs: ElementAttrs = {
     class: opts.class,
@@ -137,14 +154,18 @@ const createIconButton = (opts: {
  * Stop event propagation and prevent default.
  * Handles both DOM events and Leaflet's wrapped events (e.originalEvent).
  */
-const stopEvent = (e: any): void => {
-  const d = e.originalEvent || e;
-  d?.stopPropagation?.();
-  d?.preventDefault?.();
+const stopEvent = (event: Event | { originalEvent?: Event }): void => {
+  const d = (event as { originalEvent?: Event }).originalEvent ?? (event as Event);
+  (
+    d as Event & { stopPropagation?: () => void; preventDefault?: () => void }
+  )?.stopPropagation?.();
+  (
+    d as Event & { stopPropagation?: () => void; preventDefault?: () => void }
+  )?.preventDefault?.();
 };
 
 /** Escape HTML special characters in a string. */
-const escapeHTML = (str: unknown): string => {
+const escapeHTML = (str: string | number | boolean | null | undefined): string => {
   const map: Record<string, string> = {
     "&": "&amp;",
     "<": "&lt;",
@@ -188,7 +209,7 @@ const buildPopupHtml = (
  * Create a location marker with a popup and add it to the map.
  */
 const createLocationMarker = (
-  map: any,
+  map: L.Map,
   lng: number,
   lat: number,
   addr: string | null,
@@ -198,13 +219,13 @@ const createLocationMarker = (
   addrLabelText: string,
   closeLabelText: string,
   code?: string,
-  existing?: any,
-  layerGroup?: any,
+  existing?: L.Marker | null,
+  layerGroup?: L.LayerGroup | L.Map,
   onAddress?: (addr: string) => void,
   openPopup = true,
-): any => {
+): L.Marker => {
   if (existing) map.removeLayer(existing);
-  const target = layerGroup || map;
+  const target = (layerGroup ?? map) as L.Map | L.LayerGroup;
   const marker = L.marker([lat, lng], {
     icon: L.divIcon({
       className: "",
@@ -224,16 +245,17 @@ const createLocationMarker = (
   // Add title to Leaflet's popup close button for hover tooltip.
   const popupEl = marker.getPopup();
   if (popupEl) {
-    const closeBtn = popupEl._closeButton;
+    const closeBtn = (popupEl as L.Popup & { _closeButton?: HTMLAnchorElement })
+      ._closeButton;
     if (closeBtn) closeBtn.title = closeLabelText || "";
   }
   if (!addr) {
     // Lazy access to the runtime singleton geocoder (kept out of this bundle).
-    const foliplus = window.foliplus || {};
-    if (foliplus.reverseGeocode) {
+    const foliplus = window.foliplus;
+    if (foliplus?.reverseGeocode) {
       foliplus.reverseGeocode(map, lng, lat, code).then((resolved: string) => {
         if (onAddress) onAddress(resolved);
-        if (marker && marker.getPopup() && marker.getPopup().isOpen()) {
+        if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
           marker.setPopupContent(
             buildPopupHtml(
               lng,

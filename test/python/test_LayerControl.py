@@ -2566,7 +2566,7 @@ class TestLayerControlEdgeCases:
         LayerControl().add_to(base_map)
         html = render(base_map)
         assert "handleInput" in html
-        assert "showColorLayer(e.target.value)" in html
+        assert "showColorLayer(event.target.value)" in html
 
     def test_bring_layer_to_front(self, base_map: folium.Map):
         """bringLayerToFront moves layer to top of list."""
@@ -2724,7 +2724,7 @@ class TestLayerControlEdgeCases:
         assert "if (l.eachLayer) {" in collect_body, (
             "migrateLayers must guard container layers"
         )
-        assert "l.eachLayer(collect)" in collect_body, (
+        assert re.search(r"l\.eachLayer\(\s*collect\s*\)", collect_body), (
             "migrateLayers must recurse into containers"
         )
         assert "return;" in collect_body, (

@@ -181,7 +181,7 @@ describe("MeasureManager — global events", () => {
 describe("MeasureManager — cleanMapEvents", () => {
   it("cleans up modeInstance and hides hints", () => {
     const { manager } = makeManager();
-    const mode = { cleanup: vi.fn() };
+    const mode = { cleanup: vi.fn() } as any;
     manager.modeInstance = mode;
     manager.cleanMapEvents();
     expect(mode.cleanup).toHaveBeenCalled();

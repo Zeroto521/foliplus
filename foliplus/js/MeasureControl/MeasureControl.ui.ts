@@ -1,31 +1,46 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
+// MeasureControl UI — standalone functions invoked with a MeasureManager context.
 import { stopEvent } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
+import type { MeasureManager } from "./MeasureControl.manager.js";
 import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
-const attachDistanceUI = (mgr, opts) => {
+/** Options for attachDistanceUI. */
+interface AttachOpts {
+  layers: CreateLayersAPI;
+  finalPoly: L.Polyline;
+  nodeMarkers: L.CircleMarker[];
+  segLabels: L.Marker[];
+  onDelete: () => void;
+  onUpdate: (points: L.LatLng[]) => void;
+  points: L.LatLng[];
+}
+
+const attachDistanceUI = (
+  mgr: MeasureManager,
+  opts: AttachOpts,
+): ((event: L.LeafletMouseEvent) => void) => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
     opts;
   let isLabelsVisible = true;
   let isXVisible = false;
-  const nodeDelIcons = [];
+  const nodeDelIcons: L.Marker[] = [];
 
-  const toggleUI = (showX, toggleLabels) => {
+  const toggleUI = (showX?: boolean, toggleLabels?: boolean | string) => {
     const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
     isXVisible = s.isXVisible;
     isLabelsVisible = s.isLabelsVisible;
     nodeDelIcons.forEach(m => Util.toggleDelIcon(m, isXVisible));
-    Util.applyToggle(null, isXVisible, segLabels, isLabelsVisible, null);
+    Util.applyToggle(undefined, isXVisible, segLabels, isLabelsVisible);
   };
 
-  const handleItemClick = e => {
-    stopEvent(e);
+  const handleItemClick = (event: L.LeafletMouseEvent) => {
+    stopEvent(event);
     Util.suppressHide(mgr);
-    toggleUI(undefined);
+    toggleUI();
   };
 
   finalPoly.on("click", handleItemClick);
@@ -58,33 +73,26 @@ const attachDistanceUI = (mgr, opts) => {
             ? _(`${CONF.name}.del_all`)
             : _(`${CONF.name}.del_node`),
       }),
-    );
+    ) as L.Marker;
     nodeDelIcons.push(delMarker);
 
-    if (isFirst || isLastWhenTwo)
-      // First node or last node when only 2 points → delete entire measurement
-      Util.attachDelClick(delMarker, deleteMeas);
-    else {
-      // Other nodes X → delete this point only
+    if (isFirst || isLastWhenTwo) Util.attachDelClick(delMarker, deleteMeas);
+    else
       Util.attachDelClick(delMarker, () => {
-        // Find the current index in the (possibly-shifted) points array
         const latlng = node.getLatLng();
         const ptIdx = points.findIndex(
-          p =>
+          (p: L.LatLng) =>
             Math.abs(p.lat - latlng.lat) < 0.0001 &&
             Math.abs(p.lng - latlng.lng) < 0.0001,
         );
         if (ptIdx === -1) return;
-        // segLabels[i] corresponds to points[i+1]
         const lblIdx = ptIdx - 1;
-        // Remove the point and its associated DOM elements
         points.splice(ptIdx, 1);
         layers.removeLayer(node, delMarker);
         if (lblIdx >= 0 && lblIdx < segLabels.length) {
           layers.removeLayer(segLabels[lblIdx]);
           segLabels.splice(lblIdx, 1);
         }
-
         nodeMarkers.splice(ptIdx, 1);
         nodeDelIcons.splice(ptIdx, 1);
 
@@ -93,29 +101,25 @@ const attachDistanceUI = (mgr, opts) => {
           return;
         }
 
-        // When only 2 points remain, update the last node's X to delete all
         if (points.length === 2 && nodeDelIcons.length === 2) {
           const lastDel = nodeDelIcons[1];
           if (lastDel) {
             lastDel.off("click");
-            lastDel.on("click", e => {
-              const t = e.originalEvent?.target;
+            lastDel.on("click", (event: L.LeafletMouseEvent) => {
+              const t = (event.originalEvent as MouseEvent)
+                ?.target as HTMLElement | null;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                stopEvent(e);
+                stopEvent(event);
                 deleteMeas();
               }
             });
-            // Update title on the icon element directly
-            const iconEl = lastDel._icon || lastDel.getElement();
+            const iconEl = lastDel.getElement();
             if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
           }
         }
 
-        // Recalculate the polyline
         finalPoly.setLatLngs(points);
 
-        // Reposition and update ALL remaining segment labels
-        // Use cumulative total to stay consistent with initial finishDist and restoreDistance
         let cumulative = 0;
         segLabels.forEach((label, i) => {
           cumulative += Util.distance(points[i], points[i + 1]);
@@ -128,14 +132,13 @@ const attachDistanceUI = (mgr, opts) => {
           );
         });
 
-        if (onUpdate) onUpdate();
+        if (onUpdate) onUpdate(points);
       });
-    }
 
-    delMarker.on("click", e => {
-      const t = e.originalEvent?.target;
+    delMarker.on("click", (event: L.LeafletMouseEvent) => {
+      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-      handleItemClick(e);
+      handleItemClick(event);
     });
   });
 
@@ -148,24 +151,24 @@ const attachDistanceUI = (mgr, opts) => {
   segLabels.forEach(l => layers.addLayer(l));
 
   return onMapClickActive;
-
-  /**
-   * Attach toggle/delete UI to a completed circle measurement.
-   * Shared by finalizeCircle (CircleMode) and restoreCircle (MeasureManager).
-   * @param {Object} opts
-   * @param {Object} opts.layers     - createLayers API object
-   * @param {Object} opts.circle     - L.Circle
-   * @param {Object} opts.radiusLine - L.Polyline
-   * @param {Object} opts.radiusNode - L.CircleMarker
-   * @param {Object} opts.centerFinal - L.Marker (center dot)
-   * @param {Object} opts.delMarker  - Delete icon L.Marker
-   * @param {Object} opts.radiusLabel - Label L.Marker
-   * @param {Function} opts.onDelete - Called when user deletes the measurement
-   * @returns {Function} cleanup(mapClickHandler) to remove map click listener
-   */
 };
 
-const attachCircleUI = (mgr, opts) => {
+/** Options for attachCircleUI. */
+interface CircleAttachOpts {
+  layers: CreateLayersAPI;
+  circle: L.Circle;
+  radiusLine: L.Polyline | null;
+  radiusNode: L.CircleMarker | null;
+  centerFinal: L.Marker;
+  delMarker: L.Marker;
+  radiusLabel: L.Marker | null;
+  onDelete: () => void;
+}
+
+const attachCircleUI = (
+  mgr: MeasureManager,
+  opts: CircleAttachOpts,
+): { onMapClickActive: () => void; deleteCircle: () => void } => {
   const {
     layers,
     circle,
@@ -180,23 +183,23 @@ const attachCircleUI = (mgr, opts) => {
   let isXVisible = false;
   let isDeleted = false;
 
-  const toggleUI = (showX, toggleLabels) => {
+  const toggleUI = (showX?: boolean, toggleLabels?: boolean | string) => {
     const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
     isXVisible = s.isXVisible;
     isLabelsVisible = s.isLabelsVisible;
     Util.applyToggle(
       delMarker,
       isXVisible,
-      [radiusLabel],
+      radiusLabel ? [radiusLabel] : [],
       isLabelsVisible,
-      null,
+      undefined,
       xv => {
-        if (delMarker.setZIndexOffset)
-          delMarker.setZIndexOffset(
-            xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
-          );
+        delMarker.setZIndexOffset(xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET);
         Util.toggleVisibility(
-          [radiusLine?.getElement(), radiusNode?.getElement()],
+          [
+            radiusLine?.getElement() as HTMLElement | null,
+            radiusNode?.getElement() as HTMLElement | null,
+          ],
           isLabelsVisible,
         );
       },
@@ -207,23 +210,23 @@ const attachCircleUI = (mgr, opts) => {
   const toggleCircleToggle = () => {
     if (isDeleted) return;
     Util.suppressHide(mgr);
-    toggleUI(undefined);
+    toggleUI();
   };
 
-  const attachInteraction = layer => {
-    layer.on("click", e => {
-      const t = e.originalEvent?.target;
+  const attachInteraction = (layer: L.Layer) => {
+    layer.on("click", (event: L.LeafletMouseEvent) => {
+      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-      stopEvent(e);
+      stopEvent(event);
       toggleCircleToggle();
     });
   };
 
   attachInteraction(delMarker);
   attachInteraction(circle);
-  attachInteraction(radiusLine);
-  attachInteraction(radiusNode);
-  attachInteraction(centerFinal);
+  if (radiusLine) attachInteraction(radiusLine);
+  if (radiusNode) attachInteraction(radiusNode);
+  if (centerFinal) attachInteraction(centerFinal);
   if (radiusLabel) attachInteraction(radiusLabel);
 
   const onMapClickActive = () => {
@@ -239,9 +242,9 @@ const attachCircleUI = (mgr, opts) => {
       delMarker,
       circle,
       centerFinal,
-      radiusLine,
-      radiusNode,
-      radiusLabel,
+      ...(radiusLine ? [radiusLine] : []),
+      ...(radiusNode ? [radiusNode] : []),
+      ...(radiusLabel ? [radiusLabel] : []),
     );
     mgr.map.off("click", onMapClickActive);
     const idx = mgr.finalizedClickHandlers.indexOf(onMapClickActive);
@@ -252,23 +255,24 @@ const attachCircleUI = (mgr, opts) => {
   Util.attachDelClick(delMarker, deleteCircle);
 
   return { onMapClickActive, deleteCircle };
-
-  /**
-   * Attach toggle/delete UI to a completed polygon measurement.
-   * Shared by finishPoly (PolygonMode) and restorePolygon (MeasureManager).
-   * @param {Object} opts
-   * @param {Object} opts.layers     - createLayers API object
-   * @param {Object} opts.finalPoly  - L.Polygon
-   * @param {Array}  opts.nodeMarkers - L.CircleMarker[]
-   * @param {Array}  opts.segLabels   - Label L.Marker[]
-   * @param {Array}  opts.points     - LatLng array
-   * @param {number} opts.area       - Area in square meters
-   * @param {Function} opts.onDelete - Called when user deletes the measurement
-   * @param {Function} opts.onUpdate - Called when points are modified
-   */
 };
 
-const attachPolygonUI = (mgr, opts) => {
+/** Options for attachPolygonUI. */
+interface PolygonAttachOpts {
+  layers: CreateLayersAPI;
+  finalPoly: L.Polygon;
+  nodeMarkers: L.CircleMarker[];
+  segLabels: L.Marker[];
+  onDelete: () => void;
+  onUpdate: () => void;
+  points: L.LatLng[];
+  area: number;
+}
+
+const attachPolygonUI = (
+  mgr: MeasureManager,
+  opts: PolygonAttachOpts,
+): (() => void) => {
   const {
     layers,
     finalPoly,
@@ -281,18 +285,16 @@ const attachPolygonUI = (mgr, opts) => {
   } = opts;
   let isLabelsVisible = true;
   let isXVisible = false;
-  const nodeDelIcons = [];
-  let centroidLabel = null;
-  let centroidDot = null;
-  let centroidDel = null;
+  const nodeDelIcons: L.Marker[] = [];
+  let centroidLabel: L.Marker | null = null;
+  let centroidDot: L.Marker | null = null;
+  let centroidDel: L.Marker | null = null;
 
-  const rebuildCentroid = (showX, currentArea) => {
-    // Remove old Util.centroid elements
+  const rebuildCentroid = (showX?: boolean, currentArea?: number) => {
     if (centroidLabel) layers.removeLayer(centroidLabel);
     if (centroidDot) layers.removeLayer(centroidDot);
     if (centroidDel) layers.removeLayer(centroidDel);
 
-    // Calculate Util.centroid (arithmetic mean of vertices)
     const centroid = Util.centroid(points);
     const area = currentArea !== undefined ? currentArea : initArea;
 
@@ -301,32 +303,34 @@ const attachPolygonUI = (mgr, opts) => {
         icon: L.divIcon({
           className: CONST.CENTER_DOT.CLASS,
           html: "",
-          iconSize: CONST.CENTER_DOT.SIZE,
-          iconAnchor: CONST.CENTER_DOT.ANCHOR,
+          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
+          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
         }),
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         interactive: true,
       }),
       true,
-    );
+    ) as L.Marker;
 
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
-        icon: Util.makeLabelDivIcon(Util.formatArea(area), CONST.LABEL.CENTROID_ANCHOR),
+        icon: Util.makeLabelDivIcon(
+          Util.formatArea(area),
+          CONST.LABEL.CENTROID_ANCHOR as [number, number],
+        ),
         interactive: false,
       }),
       true,
-    );
+    ) as L.Marker;
 
     centroidDel = layers.addLayer(
       Util.makeDelIcon(centroid, {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         title: _(`${CONF.name}.del_all`),
       }),
-    );
+    ) as L.Marker;
     Util.attachDelClick(centroidDel, deleteMeas);
 
-    // Toggle visibility based on current state
     if (showX !== undefined) Util.toggleDelIcon(centroidDel, showX);
   };
 
@@ -339,14 +343,13 @@ const attachPolygonUI = (mgr, opts) => {
     layers.unregister();
   };
 
-  const toggleUI = (showX, toggleLabels) => {
+  const toggleUI = (showX?: boolean, toggleLabels?: boolean | string) => {
     const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
     isXVisible = s.isXVisible;
     isLabelsVisible = s.isLabelsVisible;
     nodeDelIcons.forEach(m => Util.toggleDelIcon(m, isXVisible));
-    Util.toggleDelIcon(centroidDel, isXVisible);
-    Util.applyToggle(null, isXVisible, segLabels, isLabelsVisible, null);
-    // Also toggle Util.centroid label visibility
+    if (centroidDel) Util.toggleDelIcon(centroidDel, isXVisible);
+    Util.applyToggle(undefined, isXVisible, segLabels, isLabelsVisible);
     if (centroidLabel) {
       const el = centroidLabel.getElement();
       if (el) {
@@ -356,20 +359,19 @@ const attachPolygonUI = (mgr, opts) => {
     }
   };
 
-  const handleItemClick = e => {
-    stopEvent(e);
+  const handleItemClick = (event: L.LeafletMouseEvent) => {
+    stopEvent(event);
     Util.suppressHide(mgr);
-    toggleUI(undefined);
+    toggleUI();
   };
 
   finalPoly.on("click", handleItemClick);
   nodeMarkers.forEach(m => m.on("click", handleItemClick));
   segLabels.forEach(l => l.on("click", handleItemClick));
 
-  // Create Util.centroid
   rebuildCentroid(false);
-  if (centroidDot) centroidDot.on("click", handleItemClick);
-  if (centroidDel) centroidDel.on("click", handleItemClick);
+  centroidDot!.on("click", handleItemClick);
+  centroidDel!.on("click", handleItemClick);
 
   toggleUI(false, CONST.TOGGLE.RESET);
 
@@ -379,7 +381,6 @@ const attachPolygonUI = (mgr, opts) => {
   };
   mgr.map.on("click", onMapClickActive);
 
-  // Create delete icons for each node
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
     const delMarker = layers.addLayer(
@@ -387,7 +388,7 @@ const attachPolygonUI = (mgr, opts) => {
         zIndexOffset: CONST.Z_INDEX.OFFSET,
         title: is3pt ? _(`${CONF.name}.del_all`) : _(`${CONF.name}.del_node`),
       }),
-    );
+    ) as L.Marker;
     nodeDelIcons.push(delMarker);
 
     if (is3pt) Util.attachDelClick(delMarker, deleteMeas);
@@ -395,7 +396,7 @@ const attachPolygonUI = (mgr, opts) => {
       Util.attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
         const ptIdx = points.findIndex(
-          p =>
+          (p: L.LatLng) =>
             Math.abs(p.lat - latlng.lat) < 0.0001 &&
             Math.abs(p.lng - latlng.lng) < 0.0001,
         );
@@ -405,7 +406,6 @@ const attachPolygonUI = (mgr, opts) => {
         nodeMarkers.splice(ptIdx, 1);
         nodeDelIcons.splice(ptIdx, 1);
 
-        // Remove all old segLabels and rebuild from scratch
         segLabels.forEach(l => layers.removeLayer(l));
         segLabels.length = 0;
 
@@ -414,30 +414,27 @@ const attachPolygonUI = (mgr, opts) => {
           return;
         }
 
-        // When exactly 3 points remain, every node X should delete all
         if (points.length === 3) {
           nodeDelIcons.forEach(d => {
             d.off("click");
-            d.on("click", ev => {
-              const t = ev.originalEvent?.target;
+            d.on("click", (event: L.LeafletMouseEvent) => {
+              const t = (event.originalEvent as MouseEvent)
+                ?.target as HTMLElement | null;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                stopEvent(ev);
+                stopEvent(event);
                 deleteMeas();
-              } else handleItemClick(ev);
+              } else handleItemClick(event);
             });
-            const iconEl = d._icon || d.getElement();
+            const iconEl = d.getElement();
             if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
           });
         }
 
-        // Recalculate polygon — Leaflet automatically closes
         finalPoly.setLatLngs(points);
 
-        // Recalculate area
         const area = Util.area(points);
         if (centroidLabel) Util.setLabelText(centroidLabel, Util.formatArea(area));
 
-        // Rebuild ALL segment labels from scratch
         const n = points.length;
         for (let i = 0; i < n; i++) {
           const next = (i + 1) % n;
@@ -449,12 +446,11 @@ const attachPolygonUI = (mgr, opts) => {
               ),
             }),
             true,
-          );
+          ) as L.Marker;
           segLabels.push(label);
           label.on("click", handleItemClick);
         }
 
-        // Rebuild centroid position
         rebuildCentroid(isXVisible, area);
 
         if (onUpdate) {
@@ -463,14 +459,13 @@ const attachPolygonUI = (mgr, opts) => {
         }
       });
 
-    delMarker.on("click", e => {
-      const t = e.originalEvent?.target;
+    delMarker.on("click", (event: L.LeafletMouseEvent) => {
+      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-      handleItemClick(e);
+      handleItemClick(event);
     });
   });
 
-  // Re-sort layers
   nodeMarkers.forEach(m => layers.removeLayer(m));
   nodeDelIcons.forEach(m => layers.removeLayer(m));
   segLabels.forEach(l => layers.removeLayer(l));
@@ -479,9 +474,6 @@ const attachPolygonUI = (mgr, opts) => {
   segLabels.forEach(l => layers.addLayer(l));
 
   return onMapClickActive;
-
-  /** Activate a measurement mode. Clears previous mode if active.
-   *  @param {string} mode - Mode key from CONST.MODE. */
 };
 
 export { attachCircleUI, attachDistanceUI, attachPolygonUI };

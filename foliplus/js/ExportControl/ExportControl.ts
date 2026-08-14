@@ -14,18 +14,23 @@ requireLayerAPI(CONF.name, _);
 // toBlob() will return null (blank image).
 //
 // We also intercept future layer additions to set crossOrigin.
-map.eachLayer((layer: any) => {
-  if (layer instanceof L.GridLayer && !layer.options.crossOrigin) {
-    layer.options.crossOrigin = "anonymous";
-    if (map.hasLayer(layer)) {
-      map.removeLayer(layer);
-      map.addLayer(layer);
+map.eachLayer((layer: L.Layer) => {
+  if (layer instanceof L.GridLayer) {
+    const opts = layer.options as L.TileLayerOptions;
+    if (!opts.crossOrigin) {
+      opts.crossOrigin = "anonymous";
+      if (map.hasLayer(layer)) {
+        map.removeLayer(layer);
+        map.addLayer(layer);
+      }
     }
   }
 });
-map.on("layeradd", (e: any) => {
-  if (e.layer instanceof L.GridLayer && !e.layer.options.crossOrigin) {
-    e.layer.options.crossOrigin = "anonymous";
+map.on("layeradd", (event: L.LeafletEvent) => {
+  const layer = (event as L.LayerEvent).layer;
+  if (layer instanceof L.GridLayer) {
+    const opts = layer.options as L.TileLayerOptions;
+    if (!opts.crossOrigin) opts.crossOrigin = "anonymous";
   }
 });
 
@@ -33,7 +38,9 @@ map.on("layeradd", (e: any) => {
 const exportManager = new ExportManager(map);
 
 class ExportControl extends BaseControl {
-  constructor(options: any) {
+  declare manager: ExportManager;
+
+  constructor(options?: L.ControlOptions) {
     super(options);
     this.manager = exportManager;
   }

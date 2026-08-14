@@ -68,9 +68,9 @@ describe("findLayer", () => {
 
   it("resolves a layer from the window global by id", () => {
     const layer = {};
-    window.foo = layer;
+    Reflect.set(window, "foo", layer);
     expect(Util.findLayer({ _layers: {} }, "foo")).toBe(layer);
-    delete window.foo;
+    Reflect.deleteProperty(window, "foo");
   });
 
   it("returns null when not found", () => {

@@ -43,7 +43,7 @@ export const requireLayerAPI = (
 export const createControlEnv = (
   CONF: { name: string },
   icon?: string,
-): { _: (key: string) => string; foliplus: any } => {
+): { _: (key: string) => string; foliplus: Foliplus } => {
   requireRuntime(CONF.name);
   const foliplus = window.foliplus;
   const _ = createTranslator(CONF);

@@ -2,6 +2,7 @@
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./SearchControl.const.js";
+import type { SearchControl } from "./SearchControl.js";
 import {
   fetchSuggestions,
   positionSuggestions,
@@ -16,7 +17,7 @@ const { _, foliplus } = createControlEnv(CONF);
  * Bind all DOM events for the SearchControl.
  * @param {Object} ctrl - SearchControl instance
  */
-const bindEvents = (ctrl: any) => {
+const bindEvents = (ctrl: SearchControl) => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
@@ -49,8 +50,8 @@ const bindEvents = (ctrl: any) => {
     }
   });
 
-  ctrl.inp.addEventListener("keydown", (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
+  ctrl.inp.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
       if (ctrl.suggestionsWrap) {
         removeSuggestions(ctrl);
         return;
@@ -61,8 +62,8 @@ const bindEvents = (ctrl: any) => {
       foliplus.hideHint(CONF.name);
       return;
     }
-    if (e.key === "ArrowDown" && ctrl.suggestionsWrap) {
-      e.preventDefault();
+    if (event.key === "ArrowDown" && ctrl.suggestionsWrap) {
+      event.preventDefault();
       const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
       ctrl.selectedSuggestionIdx = Math.min(
         ctrl.selectedSuggestionIdx + 1,
@@ -72,25 +73,25 @@ const bindEvents = (ctrl: any) => {
         el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
       );
       if (items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value = items[ctrl.selectedSuggestionIdx].querySelector(
-          `.${CLASSES.SUGGESTION_TEXT}`,
-        ).textContent;
+        ctrl.inp.value =
+          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
+            ?.textContent ?? "";
       return;
     }
-    if (e.key === "ArrowUp" && ctrl.suggestionsWrap) {
-      e.preventDefault();
+    if (event.key === "ArrowUp" && ctrl.suggestionsWrap) {
+      event.preventDefault();
       const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
       ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
       items.forEach((el: Element, i: number) =>
         el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
       );
       if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value = items[ctrl.selectedSuggestionIdx].querySelector(
-          `.${CLASSES.SUGGESTION_TEXT}`,
-        ).textContent;
+        ctrl.inp.value =
+          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
+            ?.textContent ?? "";
       return;
     }
-    if (e.key === "Enter") {
+    if (event.key === "Enter") {
       const raw = ctrl.inp.value.trim();
       removeSuggestions(ctrl);
       if (!raw) return;
@@ -108,10 +109,9 @@ const bindEvents = (ctrl: any) => {
   });
 
   ctrl.repositionHandler = () => positionSuggestions(ctrl);
-  ctrl.scrollTargets = [window, document.querySelector(".leaflet-container")].filter(
-    Boolean,
-  );
-  ctrl.scrollTargets.forEach((t: any) =>
+  const leafletContainer = document.querySelector(".leaflet-container");
+  ctrl.scrollTargets = leafletContainer ? [window, leafletContainer] : [window];
+  ctrl.scrollTargets.forEach((t: Element | Window) =>
     t.addEventListener("scroll", ctrl.repositionHandler, true),
   );
   window.addEventListener("resize", ctrl.repositionHandler);
@@ -121,7 +121,7 @@ const bindEvents = (ctrl: any) => {
  * Parse URL parameters to initialize search state.
  * @param {Object} ctrl - SearchControl instance
  */
-const initFromUrl = (ctrl: any) => {
+const initFromUrl = (ctrl: SearchControl) => {
   try {
     const params = new URLSearchParams(window.location.search);
     const q = params.get(PARAM.Q);

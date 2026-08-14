@@ -1,4 +1,4 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
+// ExportControl mixed-mode renderer — orchestrates independent rendering passes.
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./ExportControl.const.js";
 import {
@@ -12,26 +12,58 @@ import {
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
+/** Render context threaded through all rendering passes. */
+interface RenderCtx {
+  ctx: CanvasRenderingContext2D;
+  rect: { left: number; top: number; width: number; height: number };
+  scale: number;
+  contRect: DOMRect;
+  cw: number;
+  ch: number;
+  sw: number;
+  sh: number;
+}
+
+/** A tile descriptor computed by calcTiles. */
+interface TileDesc {
+  x: number;
+  y: number;
+  z: number;
+  url: string;
+  left: number;
+  top: number;
+  size: number;
+  dx?: number;
+  dy?: number;
+  dw?: number;
+  dh?: number;
+}
+
 // ==================== ExportRenderer ====================
 // Mixed-mode renderer with independent rendering passes.
 // render() orchestrates the passes in painter's-algorithm order:
 //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome →
 //   6. text labels → 7. remaining (img, inline SVG, bg-color)
 class ExportRenderer {
-  map: any;
-  container: any;
+  map: L.Map;
+  container: HTMLElement;
 
-  constructor(map: any) {
+  constructor(map: L.Map) {
     this.map = map;
     this.container = map.getContainer();
   }
 
-  /** Calculate tile coordinates covering geo bounds at a given zoom.
-   *  Returns [{x, y, z, url, left, top, size}]. */
-  calcTiles(tileLayer, bounds, zoom, scaleVal) {
+  /** Calculate tile coordinates covering geo bounds at a given zoom. */
+  calcTiles(
+    tileLayer: L.GridLayer & { _url?: string },
+    bounds: { nw: { lat: number; lng: number }; se: { lat: number; lng: number } },
+    zoom: number,
+    scaleVal: number,
+  ): TileDesc[] {
     const crs = this.map.options.crs || L.CRS.EPSG3857;
-    const tileSize = tileLayer.options.tileSize || 256;
-    const subdomains = tileLayer.options.subdomains || "abc";
+    const opts = tileLayer.options as L.TileLayerOptions;
+    const tileSize = typeof opts.tileSize === "number" ? opts.tileSize : 256;
+    const subdomains = opts.subdomains || "abc";
     const urlTemplate = tileLayer._url || "";
 
     // Get bounds in EPSG:3857
@@ -44,7 +76,7 @@ class ExportRenderer {
     const minTy = Math.floor(nw.y / tileSize);
     const maxTy = Math.ceil(se.y / tileSize) - 1;
 
-    const tiles = [];
+    const tiles: TileDesc[] = [];
     const maxTile = crs.infinite ? Infinity : Math.pow(2, zoom);
 
     for (let tx = minTx; tx <= maxTx; tx++) {
@@ -57,9 +89,9 @@ class ExportRenderer {
         const sub = typeof subdomains === "string" ? subdomains[subIdx] : subdomains[0];
         url = url
           .replace("{s}", sub)
-          .replace("{x}", tx)
-          .replace("{y}", ty)
-          .replace("{z}", zoom)
+          .replace("{x}", tx.toString())
+          .replace("{y}", ty.toString())
+          .replace("{z}", zoom.toString())
           // Use export scale for {r} (retina @2x) — screen DPR is irrelevant
           .replace("{r}", scaleVal > 1 ? "@2x" : "");
         tiles.push({
@@ -82,7 +114,14 @@ class ExportRenderer {
    *  Overlay layers iterate via `api.layers` (read-only view of
    *  LayerRegistry's ordered array) bottom-to-top so cross-technology
    *  z-ordering is preserved per layer. */
-  async render(rect, scale, bg, geoBounds) {
+  async render(
+    rect: { left: number; top: number; width: number; height: number },
+    scale: number,
+    bg: string | undefined,
+    geoBounds:
+      | { nw: { lat: number; lng: number }; se: { lat: number; lng: number } }
+      | undefined,
+  ): Promise<HTMLCanvasElement> {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
     if (sw < 1 || sh < 1) throw new Error(_(`${CONF.name}.err_crop_too_small`));
@@ -90,7 +129,7 @@ class ExportRenderer {
     const canvas = document.createElement("canvas");
     canvas.width = sw;
     canvas.height = sh;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d")!;
 
     if (bg) {
       ctx.fillStyle = bg;
@@ -98,7 +137,7 @@ class ExportRenderer {
     }
 
     // Shared render context threaded through all passes.
-    const rc = {
+    const rc: RenderCtx = {
       ctx,
       rect,
       scale,
@@ -126,7 +165,7 @@ class ExportRenderer {
         // (e.g. L.ImageOverlay) are skipped here.
         if (li.layer instanceof L.GridLayer && li.layer._url) {
           if (geoBounds && geoBounds.nw)
-            await this.renderTileLayer(rc, geoBounds, li.layer);
+            await this.renderTileLayer(rc, geoBounds, li.layer as L.GridLayer);
 
           continue;
         }
@@ -163,9 +202,10 @@ class ExportRenderer {
   }
 
   /** Render a standalone canvas element (e.g. HeatmapControl) with lifecycle hooks. */
-  async renderCanvasElement(rc, ce) {
+  async renderCanvasElement(rc: RenderCtx, ce: HTMLCanvasElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    if (ce.hooks) ce.hooks.before.forEach(fn => fn());
+    const hooks = (ce as CanvasWithHooks).hooks;
+    if (hooks) hooks.before.forEach(fn => fn());
     try {
       const r = ce.getBoundingClientRect();
       const l = r.left - contRect.left;
@@ -178,19 +218,23 @@ class ExportRenderer {
       const dw = w * scale;
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
-      const mimeType = CONST.MIME[CONF.format] || CONST.MIME.DEFAULT;
+      const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
       const dataUrl = ce.toDataURL(mimeType);
-      const img = await loadImage(dataUrl);
+      const img = (await loadImage(dataUrl)) as HTMLImageElement;
       ctx.drawImage(img, dx, dy, dw, dh);
     } catch {
       /* skip */
     } finally {
-      if (ce.hooks) ce.hooks.after.forEach(fn => fn());
+      if (hooks) hooks.after.forEach(fn => fn());
     }
   }
 
   /** Render a single tile layer from geo bounds with concurrent tile loading. */
-  async renderTileLayer(rc, geoBounds, tileLayer) {
+  async renderTileLayer(
+    rc: RenderCtx,
+    geoBounds: { nw: { lat: number; lng: number }; se: { lat: number; lng: number } },
+    tileLayer: L.GridLayer,
+  ) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
     const contW = contRect.width;
     const contH = contRect.height;
@@ -206,7 +250,7 @@ class ExportRenderer {
     const vpTop = viewportCenter.y - halfVpH;
 
     // Pre-filter visible tiles and compute their draw positions once.
-    const visibleTiles = [];
+    const visibleTiles: TileDesc[] = [];
     for (const tile of tiles) {
       const tileVpX = tile.left - vpLeft;
       const tileVpY = tile.top - vpTop;
@@ -234,13 +278,13 @@ class ExportRenderer {
         const bitmap = bitmaps[j];
         if (!bitmap) continue;
         const t = batch[j];
-        ctx.drawImage(bitmap, t.dx, t.dy, t.dw, t.dh);
+        ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
       }
     }
   }
 
   /** Render SVG content from a single pane. */
-  async renderPaneSVG(rc, pane) {
+  async renderPaneSVG(rc: RenderCtx, pane: HTMLElement) {
     const { ctx, rect, scale, contRect, sw, sh } = rc;
     const props = [
       "fill",
@@ -269,7 +313,7 @@ class ExportRenderer {
       const svgT = svgRect.top - contRect.top;
       if (svgRect.width < 1 || svgRect.height < 1) continue;
 
-      const clone = svgEl.cloneNode(true);
+      const clone = svgEl.cloneNode(true) as SVGElement;
       clone.removeAttribute("style");
       clone.setAttribute("width", String(svgRect.width));
       clone.setAttribute("height", String(svgRect.height));
@@ -278,13 +322,13 @@ class ExportRenderer {
       const originals = svgEl.querySelectorAll("*");
       for (let i = 0; i < allEls.length && i < originals.length; i++) {
         const cs = window.getComputedStyle(originals[i]);
-        const inline = allEls[i];
+        const inline = allEls[i] as HTMLElement;
         for (const p of props) {
           const v = cs.getPropertyValue(p);
           if (!v || v === "none") continue;
           if (p === "fill" && v === "rgb(0, 0, 0)") continue;
           if (p === "stroke" && v === "none") continue;
-          inline.style[p] = v;
+          inline.style.setProperty(p, v);
         }
       }
 
@@ -298,7 +342,7 @@ class ExportRenderer {
       try {
         const svgImg = await loadImage(url);
         ctx.drawImage(
-          svgImg,
+          svgImg as HTMLImageElement,
           rect.left - svgL,
           rect.top - svgT,
           rect.width,
@@ -315,10 +359,11 @@ class ExportRenderer {
   }
 
   /** Render canvas elements from a single pane. */
-  async renderPaneCanvas(rc, pane) {
+  async renderPaneCanvas(rc: RenderCtx, pane: HTMLElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
     for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
-      if (ce.hooks) ce.hooks.before.forEach(fn => fn());
+      const hooks = (ce as CanvasWithHooks).hooks;
+      if (hooks) hooks.before.forEach(fn => fn());
       try {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;
@@ -331,38 +376,28 @@ class ExportRenderer {
         const dw = w * scale;
         const dh = h * scale;
         if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-        const mimeType = CONST.MIME[CONF.format] || CONST.MIME.DEFAULT;
-        const dataUrl = ce.toDataURL(mimeType);
-        const img = await loadImage(dataUrl);
+        const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
+        const dataUrl = (ce as HTMLCanvasElement).toDataURL(mimeType);
+        const img = (await loadImage(dataUrl)) as HTMLImageElement;
         ctx.drawImage(img, dx, dy, dw, dh);
       } catch {
         /* skip */
       } finally {
-        if (ce.hooks) ce.hooks.after.forEach(fn => fn());
+        if (hooks) hooks.after.forEach(fn => fn());
       }
     }
   }
 
-  /** Collect markers belonging to a specific layer's panes.
-   *  Uses `api.getLayerPanes` to discover all panes a layer's content
-   *  lives in (including auto-created fallback panes from migrateLayers).
-   *
-   *  Collects ALL direct children of each pane — no CSS class predicate —
-   *  so any Leaflet plugin's markers are automatically included without
-   *  maintaining a whitelist.  Elements that should be excluded can opt
-   *  out via the `data-foliplus-export` attribute.
-   *
-   *  SVG elements and canvas elements are skipped: they have their own
-   *  dedicated rendering passes (renderPaneSVG / renderPaneCanvas). */
-  collectLayerMarkers(layer) {
-    const panes = foliplus.LayerAPI.getLayerPanes(layer);
-    const roots = [];
-    const seen = new Set();
+  /** Collect markers belonging to a specific layer's panes. */
+  collectLayerMarkers(layer: L.Layer): HTMLElement[] {
+    const panes = foliplus.LayerAPI!.getLayerPanes(layer);
+    const roots: HTMLElement[] = [];
+    const seen = new Set<HTMLElement>();
     for (const paneName of panes) {
       const pane = this.map.getPane(paneName);
       if (!pane) continue;
       for (let i = 0; i < pane.children.length; i++) {
-        const el = pane.children[i];
+        const el = pane.children[i] as HTMLElement;
         // Skip canvas and SVG — handled by dedicated render passes
         if (
           el.tagName === "CANVAS" ||
@@ -380,9 +415,9 @@ class ExportRenderer {
   }
 
   /** Render markers with background-image sprites. */
-  async renderMarkers(rc, markerRoots) {
+  async renderMarkers(rc: RenderCtx, markerRoots: HTMLElement[]) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    const drawableEls = [];
+    const drawableEls: HTMLElement[] = [];
     for (const root of markerRoots) {
       drawableEls.push(root);
       for (const sub of root.querySelectorAll("*")) {
@@ -392,12 +427,12 @@ class ExportRenderer {
           scs.backgroundImage.includes("url(") &&
           scs.backgroundImage !== "none"
         )
-          drawableEls.push(sub);
+          drawableEls.push(sub as HTMLElement);
       }
     }
 
     // Load unique sprites via shared bitmap cache
-    const spriteMap = new Map();
+    const spriteMap = new Map<string, ImageBitmap | null>();
     for (const el of drawableEls) {
       const cs = window.getComputedStyle(el);
       const bg = cs.backgroundImage;
@@ -405,14 +440,11 @@ class ExportRenderer {
       const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
       if (m && !m[1].startsWith("data:") && !spriteMap.has(m[1])) {
         spriteMap.set(m[1], null);
-        loadImageBitmap(m[1])
-          .then(bmp => spriteMap.set(m[1], bmp))
-          .catch(() => {});
       }
     }
     // Wait for all in-flight loads to settle
     await Promise.all(
-      [...spriteMap.keys()].map(url => loadImageBitmap(url).catch(() => {})),
+      [...spriteMap.keys()].map(url => loadImageBitmap(url).catch(() => null)),
     );
 
     // Draw sprites
@@ -437,7 +469,7 @@ class ExportRenderer {
       if (!sprite) continue;
       const bgs = cs.backgroundSize || "auto";
       const bgsParts = bgs.trim().split(/\s+/);
-      let cssBgW, cssBgH;
+      let cssBgW: number, cssBgH: number;
       if (bgs === "auto" || bgs === "auto auto") {
         cssBgW = sprite.width / (window.devicePixelRatio || 1);
         cssBgH = sprite.height / (window.devicePixelRatio || 1);
@@ -467,7 +499,7 @@ class ExportRenderer {
   }
 
   /** Render FontAwesome icons from ::before pseudo-element content. */
-  async renderFontAwesome(rc, markerRoots) {
+  async renderFontAwesome(rc: RenderCtx, markerRoots: HTMLElement[]) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
 
     for (const root of markerRoots) {
@@ -532,7 +564,7 @@ class ExportRenderer {
   }
 
   /** Render plain text labels (e.g. MeasureControl distance labels) with background. */
-  async renderTextLabels(rc, markerRoots) {
+  async renderTextLabels(rc: RenderCtx, markerRoots: HTMLElement[]) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
 
     for (const root of markerRoots) {
@@ -615,7 +647,7 @@ class ExportRenderer {
 
   /** Render remaining icon types not handled by other passes:
    *  <img> → fallback sprite → inline SVG → background-color fill. */
-  async renderRemaining(rc, markerRoots) {
+  async renderRemaining(rc: RenderCtx, markerRoots: HTMLElement[]) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
 
     for (const root of markerRoots) {
@@ -632,10 +664,11 @@ class ExportRenderer {
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
 
       // 1. <img> elements (default Leaflet markers)
-      const imgEl = root.tagName === "IMG" ? root : root.querySelector("img");
+      const imgEl =
+        root.tagName === "IMG" ? (root as HTMLImageElement) : root.querySelector("img");
       if (imgEl && imgEl.src) {
         try {
-          const img = await loadImage(imgEl.src, "anonymous");
+          const img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
           ctx.drawImage(img, dx, dy, dw, dh);
           continue;
         } catch {
@@ -647,7 +680,7 @@ class ExportRenderer {
       const svgEl = root.querySelector("svg");
       if (svgEl) {
         try {
-          const clone = svgEl.cloneNode(true);
+          const clone = svgEl.cloneNode(true) as SVGElement;
           clone.removeAttribute("style");
           const sr = svgEl.getBoundingClientRect();
           clone.setAttribute("width", String(sr.width || 24));
@@ -664,7 +697,7 @@ class ExportRenderer {
           const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
           const url = URL.createObjectURL(blob);
           try {
-            const img = await loadImage(url);
+            const img = (await loadImage(url)) as HTMLImageElement;
             ctx.drawImage(img, dx, dy, dw, dh);
           } finally {
             URL.revokeObjectURL(url);

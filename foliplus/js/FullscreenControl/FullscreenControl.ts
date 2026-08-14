@@ -9,6 +9,8 @@ import { bindFullscreenEvents, toggleFullscreen } from "./FullscreenControl.logi
 const { _ } = createControlEnv(CONF, SVGs.MAXIMIZE);
 
 class FullscreenControl extends BaseControl {
+  declare fsHandler: () => void;
+
   buildDOM() {
     if (map.zoomControl) map.removeControl(map.zoomControl);
     else {
@@ -18,7 +20,7 @@ class FullscreenControl extends BaseControl {
 
     const outer = dom.el("div", {
       class: "leaflet-bar leaflet-control",
-      id: containerId(CONF.name, CONF.position),
+      id: containerId(CONF.name, CONF.position as string),
     });
     const container = dom.el("div", {
       class: "foliplus-ctrl-fold foliplus-fullscreen-bar",
@@ -31,8 +33,8 @@ class FullscreenControl extends BaseControl {
       ariaLabel: _(`${CONF.name}.zoom_in`),
       svg: SVGs.ZOOM_IN,
       parent: container,
-      onclick: e => {
-        L.DomEvent.stopPropagation(e);
+      onclick: event => {
+        L.DomEvent.stopPropagation(event);
         map.zoomIn();
       },
     });
@@ -43,8 +45,8 @@ class FullscreenControl extends BaseControl {
       ariaLabel: _(`${CONF.name}.zoom_out`),
       svg: SVGs.ZOOM_OUT,
       parent: container,
-      onclick: e => {
-        L.DomEvent.stopPropagation(e);
+      onclick: event => {
+        L.DomEvent.stopPropagation(event);
         map.zoomOut();
       },
     });
@@ -55,8 +57,8 @@ class FullscreenControl extends BaseControl {
       ariaLabel: _(`${CONF.name}.title`),
       svg: SVGs.MAXIMIZE,
       parent: container,
-      onclick: e => {
-        L.DomEvent.stopPropagation(e);
+      onclick: event => {
+        L.DomEvent.stopPropagation(event);
         toggleFullscreen(map, fsBtn, container);
       },
     });

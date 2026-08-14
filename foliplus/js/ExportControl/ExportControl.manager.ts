@@ -1,4 +1,4 @@
-// @ts-nocheck — complex module; tighten types in a dedicated follow-up.
+// ExportControl manager — crop box state machine, export orchestration.
 import { dom } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
@@ -19,37 +19,93 @@ import {
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
+/** A screen-space rectangle. */
+export interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** A lat/lng point. */
+interface LatLngPoint {
+  lat: number;
+  lng: number;
+}
+
+/** Geo bounds for the crop area. */
+interface GeoBounds {
+  nw: LatLngPoint;
+  se: LatLngPoint;
+}
+
+/** Drag state for interactive crop box adjustment. */
+interface DragState {
+  dragging: boolean;
+  dragType: string | null;
+  startX: number;
+  startY: number;
+  startRect: Rect | null;
+  lastX: number;
+  lastY: number;
+}
+
+/** Crop box state machine. */
+interface CropState {
+  overlay: HTMLElement;
+  box: HTMLElement;
+  rect: Rect;
+  locked: boolean;
+  actions: HTMLElement;
+  geoBounds?: GeoBounds;
+  savedGeoBounds?: GeoBounds;
+}
+
+/** Loaded saved bounds from storage. */
+interface SavedBounds {
+  nw: LatLngPoint;
+  se: LatLngPoint;
+}
+
 // ==================== ExportManager ====================
 
 class ExportManager {
-  map: any;
-  mapContainer: any;
-  cropState: any;
-  exportCtrl: any;
-  exportToolBar: any;
-  exportOverlay: any;
+  map: L.Map;
+  mapContainer: HTMLElement;
+  cropState: CropState | null;
+  exportCtrl: HTMLElement | null;
+  exportToolBar: HTMLElement | null;
+  exportOverlay: HTMLElement | null;
   isExporting: boolean;
   pixelOverLimit: boolean;
-  lastScreenRect: any;
-  savedBounds: any;
-  dragState: any;
-  undoStack: any[];
-  redoStack: any[];
-  showCropBox: any;
-  lockCropBox: any;
-  unlockCropBox: any;
-  removeCropBox: any;
-  updateBoxStyle: any;
-  showHintWithInfo: any;
-  showGlobalHint: any;
+  lastScreenRect: Rect | null;
+  savedBounds: SavedBounds | null;
+  dragState: DragState;
+  undoStack: Rect[];
+  redoStack: Rect[];
+  declare mapMoveCleanup: (() => void) | null;
 
-  constructor(mapInstance: any) {
+  // Mounted UI helpers (assigned in constructor).
+  declare showCropBox: () => void;
+  declare lockCropBox: (skipHint?: boolean) => void;
+  declare unlockCropBox: () => void;
+  declare removeCropBox: () => void;
+  declare updateBoxStyle: (el: HTMLElement, r: Rect) => void;
+  declare showHintWithInfo: (r: Rect, instruction?: string) => void;
+  declare showGlobalHint: (
+    text: string,
+    duration: number,
+    withLoadingIcon?: boolean,
+  ) => void;
+
+  constructor(mapInstance: L.Map) {
     this.map = mapInstance;
     this.mapContainer = this.map.getContainer();
 
     this.cropState = null;
     this.exportCtrl = null;
     this.exportToolBar = null;
+    this.exportOverlay = null;
     this.isExporting = false;
     this.pixelOverLimit = false;
     this.lastScreenRect = null;
@@ -62,6 +118,8 @@ class ExportManager {
       startX: 0,
       startY: 0,
       startRect: null,
+      lastX: 0,
+      lastY: 0,
     };
 
     /** Undo / redo history for crop box adjustments. */
@@ -76,22 +134,23 @@ class ExportManager {
 
     // Mount UI functions directly on this instance
     this.showCropBox = () => showCropBox(this);
-    this.lockCropBox = skipHint => lockCropBox(this, skipHint);
+    this.lockCropBox = (skipHint?: boolean) => lockCropBox(this, skipHint);
     this.unlockCropBox = () => unlockCropBox(this);
     this.removeCropBox = () => removeCropBox(this);
-    this.updateBoxStyle = (el, r) => updateBoxStyle(this, el, r);
-    this.showHintWithInfo = (r, instruction) => showHintWithInfo(this, r, instruction);
-    this.showGlobalHint = (text, duration, withLoadingIcon) =>
+    this.updateBoxStyle = (el: HTMLElement, r: Rect) => updateBoxStyle(this, el, r);
+    this.showHintWithInfo = (r: Rect, instruction?: string) =>
+      showHintWithInfo(this, r, instruction);
+    this.showGlobalHint = (text: string, duration: number, withLoadingIcon?: boolean) =>
       showGlobalHint(this, text, duration, withLoadingIcon);
   }
 
-  attachUI(ctrl, toolBar) {
+  attachUI(ctrl: HTMLElement, toolBar: HTMLElement) {
     this.exportCtrl = ctrl;
     this.exportToolBar = toolBar;
   }
 
   loadSavedBounds() {
-    const data = Storage.load(CONST.STORAGE.KEY, CONF.name);
+    const data = Storage.load<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
     if (!data || !data.nw || !data.se) return;
     const nw = data.nw,
       se = data.se;
@@ -108,7 +167,7 @@ class ExportManager {
     this.savedBounds = data;
   }
 
-  saveBounds(bounds) {
+  saveBounds(bounds: GeoBounds) {
     Storage.save(
       CONST.STORAGE.KEY,
       {
@@ -124,6 +183,7 @@ class ExportManager {
     this.showCropBox();
     requestAnimationFrame(() => {
       if (!this.cropState || this.cropState.locked) return;
+      if (!this.savedBounds) return;
       this.cropState.savedGeoBounds = {
         nw: { lat: this.savedBounds.nw.lat, lng: this.savedBounds.nw.lng },
         se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
@@ -138,13 +198,14 @@ class ExportManager {
     });
   }
 
-  onMouseDown(e) {
-    if (this.cropState.locked) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.target;
+  onMouseDown(event: MouseEvent) {
+    const st = this.cropState;
+    if (!st || st.locked) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const target = event.target as HTMLElement;
     if (target.classList.contains(CONST.CLASSES.HANDLE))
-      this.dragState.dragType = target.dataset.pos;
+      this.dragState.dragType = target.dataset.pos ?? null;
     else if (
       target.classList.contains(CONST.CLASSES.CENTER) ||
       target.classList.contains(CONST.CLASSES.BOX)
@@ -156,60 +217,62 @@ class ExportManager {
     // Disable the box transition during drag so it tracks the cursor
     // instantly (the 0.15s lag made the box feel "behind" the mouse and
     // caused accidental drags). Re-enabled in onMouseUp.
-    this.cropState.box.classList.add(CONST.CLASSES.DRAGGING);
+    st.box.classList.add(CONST.CLASSES.DRAGGING);
     // Track the last mouse position for incremental deltas (avoids
     // sudden jumps from cumulative errors or stale startRect).
-    this.dragState.lastX = e.clientX;
-    this.dragState.lastY = e.clientY;
-    this.dragState.startRect = Object.assign({}, this.cropState.rect);
+    this.dragState.lastX = event.clientX;
+    this.dragState.lastY = event.clientY;
+    this.dragState.startRect = Object.assign({}, st.rect);
     document.addEventListener("mousemove", this.onMouseMove);
     document.addEventListener("mouseup", this.onMouseUp);
   }
 
-  onMouseMove(e) {
+  onMouseMove(event: MouseEvent) {
     if (!this.dragState.dragging) return;
     // Incremental delta from the last mouse position. Applying this to the
     // *current* rect (not the startRect) avoids sudden jumps from cumulative
     // error and keeps the box glued to the cursor.
-    const dx = e.clientX - this.dragState.lastX;
-    const dy = e.clientY - this.dragState.lastY;
-    this.dragState.lastX = e.clientX;
-    this.dragState.lastY = e.clientY;
+    const dx = event.clientX - this.dragState.lastX;
+    const dy = event.clientY - this.dragState.lastY;
+    this.dragState.lastX = event.clientX;
+    this.dragState.lastY = event.clientY;
     const mapRect = this.mapContainer.getBoundingClientRect();
-    const cur = this.cropState.rect;
+    const st = this.cropState;
+    if (!st) return;
+    const cur = st.rect;
     const r = Object.assign({}, cur);
     const type = this.dragState.dragType;
     if (type === "move") {
       r.left = Math.max(0, Math.min(mapRect.width - r.width, cur.left + dx));
       r.top = Math.max(0, Math.min(mapRect.height - r.height, cur.top + dy));
     } else {
-      if (["tl", "l", "bl"].includes(type)) {
+      if (["tl", "l", "bl"].includes(type!)) {
         const maxDx = cur.width - CONST.CROP.MIN_SIZE;
         const a = Math.max(-cur.left, Math.min(dx, maxDx));
         r.left = cur.left + a;
         r.width = cur.width - a;
       }
-      if (["tr", "r", "br"].includes(type)) {
+      if (["tr", "r", "br"].includes(type!)) {
         const maxDx = mapRect.width - (cur.left + cur.width);
         const minDx = CONST.CROP.MIN_SIZE - cur.width;
         const a = Math.max(minDx, Math.min(dx, maxDx));
         r.width = cur.width + a;
       }
-      if (["tl", "t", "tr"].includes(type)) {
+      if (["tl", "t", "tr"].includes(type!)) {
         const maxDy = cur.height - CONST.CROP.MIN_SIZE;
         const a = Math.max(-cur.top, Math.min(dy, maxDy));
         r.top = cur.top + a;
         r.height = cur.height - a;
       }
-      if (["bl", "b", "br"].includes(type)) {
+      if (["bl", "b", "br"].includes(type!)) {
         const maxDy = mapRect.height - (cur.top + cur.height);
         const minDy = CONST.CROP.MIN_SIZE - cur.height;
         const a = Math.max(minDy, Math.min(dy, maxDy));
         r.height = cur.height + a;
       }
     }
-    this.cropState.rect = r;
-    this.updateBoxStyle(this.cropState.box, r);
+    st.rect = r;
+    this.updateBoxStyle(st.box, r);
     // Only update the hint when the size changes (resize), not on pure move
     if (type !== "move") this.showHintWithInfo(r, _(`${CONF.name}.hint_unlocked`));
   }
@@ -229,7 +292,7 @@ class ExportManager {
     if (this.redoStack.length > CONST.CACHE.UNDO_MAX) this.redoStack.shift();
     // If locked, unlock first so the user can see and continue adjusting
     if (this.cropState.locked) this.unlockCropBox();
-    this.cropState.rect = this.undoStack.pop();
+    this.cropState.rect = this.undoStack.pop()!;
     this.updateBoxStyle(this.cropState.box, this.cropState.rect);
     this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
   }
@@ -239,7 +302,7 @@ class ExportManager {
     this.undoStack.push(Object.assign({}, this.cropState.rect));
     if (this.undoStack.length > CONST.CACHE.UNDO_MAX) this.undoStack.shift();
     if (this.cropState.locked) this.unlockCropBox();
-    this.cropState.rect = this.redoStack.pop();
+    this.cropState.rect = this.redoStack.pop()!;
     this.updateBoxStyle(this.cropState.box, this.cropState.rect);
     this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
   }
@@ -256,29 +319,33 @@ class ExportManager {
     this.pushUndoState();
   }
 
-  onKeyDown(e) {
-    if (e.key === "Escape") {
+  onKeyDown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
       if (this.cropState?.locked) this.unlockCropBox();
       else this.removeCropBox();
-    } else if (e.key === "Enter") {
+    } else if (event.key === "Enter") {
       if (this.cropState && !this.cropState.locked) this.lockCropBox();
       else if (this.cropState?.locked) this.doExport();
-    } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z") {
-      e.preventDefault();
+    } else if (
+      (event.ctrlKey || event.metaKey) &&
+      event.shiftKey &&
+      event.key.toLowerCase() === "z"
+    ) {
+      event.preventDefault();
       this.redoCropBox();
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
-      e.preventDefault();
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
       this.undoCropBox();
     }
   }
 
-  onMapChange(skipHint) {
+  onMapChange(skipHint?: boolean) {
     if (!this.cropState || !this.cropState.locked) return;
-    const nw = this.cropState.geoBounds.nw;
-    const se = this.cropState.geoBounds.se;
+    const nw = this.cropState.geoBounds!.nw;
+    const se = this.cropState.geoBounds!.se;
     const tl = this.map.latLngToContainerPoint(L.latLng(nw.lat, nw.lng));
     const br = this.map.latLngToContainerPoint(L.latLng(se.lat, se.lng));
-    const newRect = {
+    const newRect: Rect = {
       left: tl.x,
       top: tl.y,
       width: Math.abs(br.x - tl.x),
@@ -293,12 +360,12 @@ class ExportManager {
   }
 
   /** Check pixel limit and set pixelOverLimit flag. */
-  checkPixelLimit(r) {
+  checkPixelLimit(r: Rect) {
     // Pixel limit applies to the crop area itself (not scaled by export
     // DPI). The override of r.width/r.height happens in doRender, so the
     // check here matches the actual exported dimensions.
     const totalPixels = Math.round(r.width) * Math.round(r.height);
-    this.pixelOverLimit = CONF.max_pixels !== null && totalPixels > CONF.max_pixels;
+    this.pixelOverLimit = CONF.max_pixels != null && totalPixels > CONF.max_pixels;
   }
 
   doExport() {
@@ -361,7 +428,12 @@ class ExportManager {
   /** Render the crop area to a canvas and trigger download.  Returns the
    *  render promise so callers (e.g. enlargeAndRender) can chain work
    *  after the render completes. */
-  doRender(r, scaleValue, bg, geoBounds) {
+  doRender(
+    r: Rect,
+    scaleValue: number,
+    bg: string | undefined,
+    geoBounds: GeoBounds | undefined,
+  ) {
     const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
     hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
     // Force a synchronous layout so getBoundingClientRect() in the
@@ -392,10 +464,19 @@ class ExportManager {
   }
 
   /** Enlarge the container for over-size exports and render. */
-  enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH) {
-    const savedStyles = {};
-    ["width", "height", "minHeight", "maxHeight", "overflow"].forEach(p => {
-      savedStyles[p] = this.mapContainer.style[p];
+  enlargeAndRender(
+    r: Rect,
+    scaleValue: number,
+    bg: string | undefined,
+    geoBounds: GeoBounds,
+    vpW: number,
+    vpH: number,
+  ) {
+    const savedStyles: Record<string, string> = {};
+    const style = this.mapContainer.style;
+    const styleProps = ["width", "height", "min-height", "max-height", "overflow"];
+    styleProps.forEach(p => {
+      savedStyles[p] = style.getPropertyValue(p);
     });
     const savedCenter = this.map.getCenter();
     const savedZoom = this.map.getZoom();
@@ -417,7 +498,7 @@ class ExportManager {
     const restore = () => {
       this.map.options.zoomAnimation = savedAnim;
       Object.keys(savedStyles).forEach(p => {
-        this.mapContainer.style[p] = savedStyles[p];
+        this.mapContainer.style.setProperty(p, savedStyles[p]);
       });
       this.map.invalidateSize(false);
       this.map.setView(savedCenter, savedZoom, { animate: false });
@@ -436,11 +517,11 @@ class ExportManager {
   }
 
   /** Handle successful render: show preview and trigger download. */
-  onRenderSuccess(canvas, hideEls) {
+  onRenderSuccess(canvas: HTMLCanvasElement, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
-    const mimeType = CONST.MIME[CONF.format] || CONST.MIME.DEFAULT;
+    const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
     const prevImg = document.createElement("img");
     prevImg.src = canvas.toDataURL(mimeType);
     prevImg.className = CONST.CLASSES.PREVIEW;
@@ -488,7 +569,7 @@ class ExportManager {
   }
 
   /** Handle render failure. */
-  onRenderError(err, hideEls) {
+  onRenderError(err: Error, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();

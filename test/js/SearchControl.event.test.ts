@@ -4,15 +4,15 @@ import {
 } from "#foliplus/SearchControl/SearchControl.event.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-function makeCtrl() {
+function makeCtrl(): any {
   const ctrlDiv = document.createElement("div");
   ctrlDiv.className = "foliplus-search collapsed";
   const toggleBtn = document.createElement("button");
   const clearBtn = document.createElement("button");
   const inp = document.createElement("input");
   const handlers = {};
-  inp.addEventListener = vi.fn((ev, fn) => {
-    handlers[ev] = fn;
+  inp.addEventListener = vi.fn((event, fn) => {
+    handlers[event] = fn;
   });
   return {
     ctrl: ctrlDiv,
@@ -34,8 +34,8 @@ function makeCtrl() {
 beforeEach(() => {
   vi.clearAllMocks();
   // Let panel.js bindFoldToggle delegate to real DOM listeners so clicks fire.
-  window.L.DomEvent.on = vi.fn((el, ev, fn) => el.addEventListener(ev, fn));
-  window.L.DomEvent.off = vi.fn((el, ev, fn) => el.removeEventListener(ev, fn));
+  window.L.DomEvent.on = vi.fn((el, event, fn) => el.addEventListener(event, fn));
+  window.L.DomEvent.off = vi.fn((el, event, fn) => el.removeEventListener(event, fn));
   window.L.DomEvent.stop = vi.fn();
 });
 
@@ -74,8 +74,8 @@ describe("bindEvents", () => {
     };
     ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
-    const e = { key: "ArrowDown", preventDefault: vi.fn() };
-    ctrl._handlers.keydown(e);
+    const event = { key: "ArrowDown", preventDefault: vi.fn() };
+    ctrl._handlers.keydown(event);
     expect(ctrl.selectedSuggestionIdx).toBe(0);
     expect(ctrl.inp.value).toBe("One");
   });
@@ -121,7 +121,7 @@ describe("bindEvents", () => {
   it("fetches suggestions on focus in ADDR mode", () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ json: () => Promise.resolve([]) }),
-    );
+    ) as unknown as typeof fetch;
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
     ctrl.inp.value = "abcdef";

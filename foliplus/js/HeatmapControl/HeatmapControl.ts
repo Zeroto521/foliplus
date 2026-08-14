@@ -18,7 +18,29 @@ const heatmapManager = new HeatmapManager(map);
 
 // ==================== View & Control: HeatmapControl ====================
 class HeatmapControl extends BaseControl {
-  constructor(options: any) {
+  declare manager: HeatmapManager;
+  declare schemeDropdown: HTMLElement | null;
+  declare expandHookDone: boolean;
+  declare ctrl: HTMLElement;
+  declare observer: MutationObserver | null;
+  declare layerSelect: HTMLSelectElement;
+  declare extraBody: HTMLElement;
+  declare aggSelect: HTMLSelectElement;
+  declare fieldWrap: HTMLElement;
+  declare fieldSelect: HTMLSelectElement;
+  declare methodSelect: HTMLSelectElement;
+  declare classSelect: HTMLSelectElement;
+  declare schemeControlWrap: HTMLElement;
+  declare schemeBar: HTMLElement;
+  declare schemeBarInner: HTMLElement;
+  declare schemeSelectHidden: HTMLSelectElement;
+  declare borderColorInput: HTMLInputElement;
+  declare borderWeightInput: HTMLInputElement;
+  declare labelChk: HTMLInputElement;
+  declare closeSchemeDropdown: (event: MouseEvent) => void;
+  declare toggleSchemeDropdown: () => void;
+
+  constructor(options?: L.ControlOptions) {
     super(options);
     this.manager = heatmapManager;
     this.m.ui = this;
@@ -63,7 +85,6 @@ class HeatmapControl extends BaseControl {
 
     this.m.clearHeatmapCanvas();
     if (this.m.overlay) this.m.overlay.destroy();
-    this.m.overlay = null;
     this.m.ui = null;
   }
 }

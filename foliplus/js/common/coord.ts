@@ -8,53 +8,64 @@
 
 type CrsType = "BD09" | "GCJ02" | "WGS84";
 
+/** Check if any tile layer in the map has a URL matching one of the patterns. */
+function hasTileUrlMatching(map: L.Map | null, patterns: string[]): boolean {
+  try {
+    const layers = map?._layers as Record<string, L.TileLayer> | undefined;
+    if (!layers) return false;
+    for (const id in layers) {
+      const url = layers[id]?._url;
+      if (url && patterns.some(p => url.includes(p))) return true;
+    }
+  } catch (_) {
+    // Ignore errors from layer traversal.
+  }
+  return false;
+}
+
+/** Check if the map's CRS code contains a pattern (case-insensitive). */
+function hasCrsCode(map: L.Map | null, codePattern: string): boolean {
+  try {
+    const crs = map?.options?.crs;
+    if (!crs) return false;
+    const code = crs.code || "";
+    return code.toLowerCase().includes(codePattern.toLowerCase());
+  } catch (_) {
+    return false;
+  }
+}
+
 /**
  * Detect whether the map uses Baidu coordinate system (BD-09).
  * Checks L.CRS.Baidu, crs.code, and tile URL patterns.
  */
-const isBaiduCRS = (map: any): boolean => {
+const isBaiduCRS = (map: L.Map | null): boolean => {
   try {
-    const crs = map.options.crs;
-    if (L.CRS && L.CRS.Baidu && crs === L.CRS.Baidu) return true;
-    if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
-
-    const layers = map._layers;
-    for (const id in layers)
-      if (layers[id]._url && layers[id]._url.includes("bdimg.com")) return true;
-
-    return false;
-  } catch (e) {
-    return false;
+    const LCRS = L.CRS as { Baidu?: L.CRS };
+    if (LCRS && LCRS.Baidu && map?.options.crs === LCRS.Baidu) return true;
+  } catch (_) {
+    // L.CRS plugin may be unavailable (jsdom).
   }
+  if (hasCrsCode(map, "baidu")) return true;
+  return hasTileUrlMatching(map, ["bdimg.com"]);
 };
 
 /**
  * Detect whether a map uses domestic Chinese tile providers.
  * Checks Baidu, AutoNavi, Tianditu, Tencent, Google, and AMap URL patterns.
  */
-const isDomesticMap = (map: any): boolean => {
-  try {
-    const crs = map.options.crs;
-    if (crs && (crs.code || "").toLowerCase().includes("baidu")) return true;
-    const layers = map._layers;
-    for (const id in layers) {
-      if (layers[id]._url) {
-        const url = layers[id]._url;
-        if (
-          url.includes("bdimg.com") ||
-          url.includes("autonavi") ||
-          url.includes("tianditu") ||
-          url.includes("gtimg.com") ||
-          url.includes("googleapis") ||
-          url.includes("amap.com")
-        )
-          return true;
-      }
-    }
-    return false;
-  } catch (e) {
-    return false;
-  }
+const isDomesticMap = (map: L.Map | null): boolean => {
+  if (isBaiduCRS(map)) return true;
+  const domesticPatterns = [
+    "autonavi",
+    "tianditu",
+    "gtimg.com",
+    "googleapis",
+    "amap.com",
+  ];
+  if (hasTileUrlMatching(map, domesticPatterns)) return true;
+  if (hasCrsCode(map, "gcj02")) return true;
+  return false;
 };
 
 /**
@@ -78,7 +89,7 @@ const ensureGcoord = (): boolean => {
 /**
  * Detect the map's coordinate reference system type: 'BD09', 'GCJ02', or 'WGS84'.
  */
-const getMapCrsType = (map: any): CrsType => {
+const getMapCrsType = (map: L.Map | null): CrsType => {
   if (isBaiduCRS(map)) return "BD09";
   if (isDomesticMap(map)) return "GCJ02";
   return "WGS84";
@@ -88,7 +99,7 @@ const getMapCrsType = (map: any): CrsType => {
  * Convert map-displayed coordinates (GCJ-02 / BD-09) to WGS-84.
  * Automatically detects the map CRS (Baidu → BD09, domestic → GCJ02).
  */
-const toWgs84 = (map: any, lng: number, lat: number): number[] => {
+const toWgs84 = (map: L.Map, lng: number, lat: number): number[] => {
   if (!ensureGcoord()) return [lng, lat];
 
   const srcType = getMapCrsType(map);
@@ -102,7 +113,7 @@ const toWgs84 = (map: any, lng: number, lat: number): number[] => {
  * Convert WGS-84 coordinates to the map's display CRS (BD09 / GCJ02).
  * Automatically detects the map CRS. Non-domestic maps are returned unchanged.
  */
-const fromWgs84 = (map: any, lng: number, lat: number): number[] => {
+const fromWgs84 = (map: L.Map, lng: number, lat: number): number[] => {
   if (!ensureGcoord()) return [lng, lat];
 
   const dstType = getMapCrsType(map);

@@ -17,7 +17,7 @@ const geoCacheSet = (key: string, val: string) => {
     if (oldest !== undefined) geoCache.delete(oldest);
   }
 };
-let geoPromise: Promise<unknown> = Promise.resolve();
+let geoPromise: Promise<string> = Promise.resolve("");
 let geoLastReq = 0;
 
 /**
@@ -30,7 +30,7 @@ let geoLastReq = 0;
  * @returns {Promise<string>} Resolved address string
  */
 const reverseGeocode = (
-  map: any,
+  map: L.Map,
   lng: number | string,
   lat: number | string,
   code = "en",
@@ -67,7 +67,7 @@ const reverseGeocode = (
         })
         .catch(() => fail);
     });
-  return geoPromise as Promise<string>;
+  return geoPromise;
 };
 
 export { reverseGeocode };
