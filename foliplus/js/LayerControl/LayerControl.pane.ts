@@ -61,7 +61,6 @@ class PaneManager {
    * Ensure a custom pane exists on the map.
    * @param {string} paneName - Pane name.
    * @param {boolean} [needRenderer=true] - Whether to create an SVG renderer.
-   * @returns {Object} `{pane: HTMLElement, renderer: L.SVG|null}`
    */
   ensurePane(
     paneName: string,
