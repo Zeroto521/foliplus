@@ -2,7 +2,6 @@
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./const.js";
-import type { SearchControl } from "./type.js";
 import {
   fetchSuggestions,
   positionSuggestions,
@@ -10,6 +9,7 @@ import {
   searchAddress,
   searchCoord,
 } from "./logic.js";
+import type { SearchControl } from "./type.js";
 
 const { _, foliplus } = createControlEnv(CONF);
 
