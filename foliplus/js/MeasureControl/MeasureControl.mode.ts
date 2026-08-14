@@ -1,7 +1,11 @@
 import { createLocationMarker, stopEvent } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
-import { bindMapEvents, unbindMapEvents, type MapEventHandlers } from "#common/mapEvent.js";
+import {
+  type MapEventHandlers,
+  bindMapEvents,
+  unbindMapEvents,
+} from "#common/mapEvent.js";
 import * as CONST from "./MeasureControl.const.js";
 import type { MeasureManager } from "./MeasureControl.manager.js";
 import {
@@ -12,13 +16,19 @@ import {
 import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-const foliplus: any = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Persisted measurement payload type. */
 type Mode = { type: string };
-type LayerEvents = Array<[string, (e: any) => void]>;
+
+/** Circle-mode preview layers (center, radius circle, radius line, edge node, distance label). */
+interface CirclePreviews {
+  center: L.Marker | null;
+  circle: L.Circle | null;
+  line: L.Polyline | null;
+  node: L.CircleMarker | null;
+  label: L.Marker | null;
+}
 
 // ==================== Mode Base Class ====================
 /** Base class for all measurement modes. Handles map reference, layer group, and cleanup lifecycle. */
@@ -68,7 +78,7 @@ class MeasureMode {
    *  Subclasses override this to restore their specific visual elements.
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
-  static restore(manager: MeasureManager, data: any): void {
+  static restore(manager: MeasureManager, data: MeasureData): void {
     console.warn(`[${CONF.name}] restore not implemented for ${this.TYPE}`);
   }
 }
@@ -116,7 +126,7 @@ class MarkerMode extends MeasureMode {
   /** Rebuild a persisted marker measurement.
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
-  static restore(manager: MeasureManager, data: any): void {
+  static restore(manager: MeasureManager, data: MeasureData): void {
     const marker = createLocationMarker(
       manager.map,
       data.lng!,
@@ -262,8 +272,10 @@ class MarkerMode extends MeasureMode {
 class DistanceMode extends PreviewMode {
   static TYPE = CONST.MODE.DISTANCE;
 
-  static restore(manager: MeasureManager, data: any) {
-    const points: L.LatLng[] = data.points.map((p: any) => L.latLng(p.lat, p.lng));
+  static restore(manager: MeasureManager, data: MeasureData) {
+    const points: L.LatLng[] = data.points!.map((p: { lng: number; lat: number }) =>
+      L.latLng(p.lat, p.lng),
+    );
     const finalPoly = manager.layers.addLayer(
       L.polyline(points, { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     ) as L.Polyline;
@@ -280,7 +292,7 @@ class DistanceMode extends PreviewMode {
     const segLabels: L.Marker[] = [];
     if (data.segments) {
       let accTotal = 0;
-      data.segments.forEach((seg: any, i: number) => {
+      data.segments.forEach((seg, i: number) => {
         accTotal += seg.distance;
         const prev = points[i];
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
@@ -356,9 +368,9 @@ class DistanceMode extends PreviewMode {
       }
       this.isFinished = true;
       this.layers.removeLayer(poly);
-      (finalPoly as any).setLatLngs(points);
+      finalPoly.setLatLngs(points);
 
-      Util.animateDashSweep(finalPoly.getElement() as unknown as SVGElement);
+      Util.animateDashSweep(finalPoly.getElement() as SVGElement);
 
       // Save measurement data
       const distId = this.nextMeasurementId();
@@ -437,14 +449,19 @@ class DistanceMode extends PreviewMode {
           true,
         ) as L.Marker;
       } else {
-        (previewDistLabel as any).setLatLng([mid.lat, mid.lng]);
+        previewDistLabel!.setLatLng([mid.lat, mid.lng]);
         Util.setLabelText(previewDistLabel, labelText);
       }
     };
 
     const onDistClick = (event: L.LeafletMouseEvent) => {
       if (this.m.currentMode !== this.type) return;
-      if (points.some((p: L.LatLng) => p.lat === event.latlng.lat && p.lng === event.latlng.lng)) return;
+      if (
+        points.some(
+          (p: L.LatLng) => p.lat === event.latlng.lat && p.lng === event.latlng.lng,
+        )
+      )
+        return;
       L.DomEvent.stopPropagation(event);
       points.push(event.latlng);
       if (previewDistLabel) {
@@ -459,7 +476,7 @@ class DistanceMode extends PreviewMode {
           points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined,
         ),
       ) as L.CircleMarker;
-      (marker as any).bringToFront();
+      marker.bringToFront();
       nodeMarkers.push(marker);
 
       marker.on("click", (event: L.LeafletMouseEvent) => {
@@ -480,7 +497,7 @@ class DistanceMode extends PreviewMode {
             points[points.length - 3],
             points[points.length - 2],
           );
-          (prevLabel as any).setIcon(
+          prevLabel.setIcon(
             Util.makeMidLabelDivIcon(
               Util.formatSegmentLabel(
                 points[points.length - 3],
@@ -522,7 +539,7 @@ class DistanceMode extends PreviewMode {
       ["dblclick", onDistDbl],
       ["contextmenu", onDistContext],
       ["mousemove", onDistMove],
-    ] as unknown as MapEventHandlers;
+    ] as MapEventHandlers;
     bindMapEvents(this.map, distEvents);
   }
 }
@@ -535,8 +552,10 @@ class PolygonMode extends PreviewMode {
   /** Rebuild a persisted polygon measurement.
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
-  static restore(manager: MeasureManager, data: any) {
-    const points: L.LatLng[] = data.points.map((p: any) => L.latLng(p.lat, p.lng));
+  static restore(manager: MeasureManager, data: MeasureData) {
+    const points: L.LatLng[] = data.points!.map((p: { lng: number; lat: number }) =>
+      L.latLng(p.lat, p.lng),
+    );
     const finalPoly = manager.layers.addLayer(
       L.polygon(points, {
         className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
@@ -547,13 +566,13 @@ class PolygonMode extends PreviewMode {
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng) => {
       const node = manager.layers.addLayer(Util.makeNode(pt)) as L.CircleMarker;
-      (node as any).bringToFront();
+      node.bringToFront();
       nodeMarkers.push(node);
     });
 
     const segLabels: L.Marker[] = [];
     if (data.segments) {
-      data.segments.forEach((seg: any, i: number) => {
+      data.segments.forEach((seg, i: number) => {
         const prev = points[i];
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
         if (!prev || !cur) return;
@@ -574,7 +593,7 @@ class PolygonMode extends PreviewMode {
       nodeMarkers,
       segLabels,
       points: points,
-      area: data.area,
+      area: data.area ?? 0,
       onDelete: () => {
         manager.measurements = manager.measurements.filter(x => x.id !== data.id);
         manager.saveMeasurements();
@@ -646,9 +665,9 @@ class PolygonMode extends PreviewMode {
       isFinished = true;
       this.layers.removeLayer(poly);
       this.layers.removeLayer(previewPoly);
-      (finalPoly as any).setLatLngs(points);
+      finalPoly.setLatLngs(points);
 
-      Util.animateDashSweep(finalPoly.getElement() as unknown as SVGElement);
+      Util.animateDashSweep(finalPoly.getElement() as SVGElement);
 
       // Recalculate area
       const area = Util.area(points);
@@ -771,7 +790,8 @@ class PolygonMode extends PreviewMode {
       // handler (registered below) will handle finishing. Without this guard,
       // the map click fires before the marker handler and pushes a duplicate point,
       // creating an extra label at the node position with distance 0.
-      if (points.some(p => p.lat === event.latlng.lat && p.lng === event.latlng.lng)) return;
+      if (points.some(p => p.lat === event.latlng.lat && p.lng === event.latlng.lng))
+        return;
       // Stop Leaflet propagation so clicking a data layer while drawing does
       // not also trigger the data layer's own click handler.
       L.DomEvent.stopPropagation(event);
@@ -784,7 +804,9 @@ class PolygonMode extends PreviewMode {
       previewPoly.setLatLngs(points);
       poly.setLatLngs([points[points.length - 1], event.latlng]);
 
-      const marker = this.layers.addLayer(Util.makeNode(event.latlng)) as L.CircleMarker;
+      const marker = this.layers.addLayer(
+        Util.makeNode(event.latlng),
+      ) as L.CircleMarker;
       marker.bringToFront();
       nodeMarkers.push(marker);
 
@@ -839,7 +861,7 @@ class PolygonMode extends PreviewMode {
       ["dblclick", onPolyDbl],
       ["contextmenu", onPolyContext],
       ["mousemove", onPolyMove],
-    ] as unknown as MapEventHandlers;
+    ] as MapEventHandlers;
     bindMapEvents(this.map, polyEvents);
   }
 }
@@ -852,10 +874,10 @@ class CircleMode extends PreviewMode {
   /** Rebuild a persisted circle measurement.
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
-  static restore(manager: MeasureManager, data: any) {
-    const centerLatLng = L.latLng(data.center.lat, data.center.lng);
-    const targetLatLng = L.latLng(data.target.lat, data.target.lng);
-    const r = data.radius;
+  static restore(manager: MeasureManager, data: MeasureData) {
+    const centerLatLng = L.latLng(data.center!.lat, data.center!.lng);
+    const targetLatLng = L.latLng(data.target!.lat, data.target!.lng);
+    const r = data.radius ?? 0;
 
     const circle = manager.layers.addLayer(
       L.circle(centerLatLng, {
@@ -870,7 +892,9 @@ class CircleMode extends PreviewMode {
         interactive: true,
       }),
     ) as L.Polyline;
-    const radiusNode = manager.layers.addLayer(Util.makeNode(targetLatLng)) as L.CircleMarker;
+    const radiusNode = manager.layers.addLayer(
+      Util.makeNode(targetLatLng),
+    ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
       L.marker(centerLatLng, {
         icon: L.divIcon({
@@ -924,7 +948,7 @@ class CircleMode extends PreviewMode {
     let state = 0;
     let lastFinishTime = 0;
     let isFinalizing = false;
-    const previews: Record<string, L.Layer | null> = {
+    const previews: CirclePreviews = {
       center: null,
       circle: null,
       line: null,
@@ -1004,7 +1028,7 @@ class CircleMode extends PreviewMode {
             interactive: false,
           }),
         );
-      } else (previews.circle as any).setRadius(r);
+      } else previews.circle.setRadius(r);
 
       if (!previews.line) {
         previews.line = this.addPreview(
@@ -1017,15 +1041,15 @@ class CircleMode extends PreviewMode {
 
       if (!previews.node) {
         previews.node = this.addPreview(
-          L.circleMarker(e.latlng, {
+          L.circleMarker(event.latlng, {
             radius: CONST.MARKER.RADIUS,
             className: CONST.CLASSES.NODE_HOLLOW,
             interactive: false,
           }),
         );
-        (previews.node as any).bringToFront();
-      } else (previews.node as any).setLatLng(e.latlng);
-
+        previews.node.bringToFront();
+        previews.node.setLatLng(event.latlng);
+      }
       const mid = Util.midpoint(center, event.latlng);
       if (!previews.label) {
         const previewLabel = L.marker(mid, {
@@ -1038,8 +1062,8 @@ class CircleMode extends PreviewMode {
         });
         previews.label = this.addPreview(previewLabel);
       } else {
-        (previews.label as any).setLatLng(mid);
-        Util.setLabelText(previews.label as L.Marker, Util.formatDistance(r));
+        previews.label.setLatLng(mid);
+        Util.setLabelText(previews.label, Util.formatDistance(r));
       }
     };
 
@@ -1048,9 +1072,13 @@ class CircleMode extends PreviewMode {
       this.m.clearActiveMode();
     };
 
-    const finalizeCircle = (centerLatLng: L.LatLng, r: number, targetLatLng: L.LatLng) => {
+    const finalizeCircle = (
+      centerLatLng: L.LatLng,
+      r: number,
+      targetLatLng: L.LatLng,
+    ) => {
       const finalTargetLatLng =
-        targetLatLng || (L.CRS as any).Earth.destination(centerLatLng, r, 90);
+        targetLatLng || L.CRS.Earth.destination!(centerLatLng, r, 90);
 
       const circle = this.layers.addLayer(
         L.circle(centerLatLng, {
@@ -1148,7 +1176,7 @@ class CircleMode extends PreviewMode {
       ["click", onMapClick],
       ["mousemove", onMouseMove],
       ["contextmenu", onContext],
-    ] as unknown as MapEventHandlers;
+    ] as MapEventHandlers;
     bindMapEvents(this.map, circleEvents);
 
     this._cleanup = () => {

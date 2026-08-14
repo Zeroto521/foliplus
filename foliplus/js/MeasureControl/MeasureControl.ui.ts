@@ -18,8 +18,12 @@ interface AttachOpts {
   points: L.LatLng[];
 }
 
-const attachDistanceUI = (mgr: any, opts: AttachOpts): ((event: L.LeafletMouseEvent) => void) => {
-  const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } = opts;
+const attachDistanceUI = (
+  mgr: any,
+  opts: AttachOpts,
+): ((event: L.LeafletMouseEvent) => void) => {
+  const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
+    opts;
   let isLabelsVisible = true;
   let isXVisible = false;
   const nodeDelIcons: L.Marker[] = [];
@@ -71,8 +75,7 @@ const attachDistanceUI = (mgr: any, opts: AttachOpts): ((event: L.LeafletMouseEv
     ) as L.Marker;
     nodeDelIcons.push(delMarker);
 
-    if (isFirst || isLastWhenTwo)
-      Util.attachDelClick(delMarker, deleteMeas);
+    if (isFirst || isLastWhenTwo) Util.attachDelClick(delMarker, deleteMeas);
     else
       Util.attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
@@ -102,7 +105,8 @@ const attachDistanceUI = (mgr: any, opts: AttachOpts): ((event: L.LeafletMouseEv
           if (lastDel) {
             lastDel.off("click");
             lastDel.on("click", (event: L.LeafletMouseEvent) => {
-              const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+              const t = (event.originalEvent as MouseEvent)
+                ?.target as HTMLElement | null;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
                 stopEvent(event);
                 deleteMeas();
@@ -160,7 +164,10 @@ interface CircleAttachOpts {
   onDelete: () => void;
 }
 
-const attachCircleUI = (mgr: any, opts: CircleAttachOpts): { onMapClickActive: () => void; deleteCircle: () => void } => {
+const attachCircleUI = (
+  mgr: any,
+  opts: CircleAttachOpts,
+): { onMapClickActive: () => void; deleteCircle: () => void } => {
   const {
     layers,
     circle,
@@ -191,7 +198,10 @@ const attachCircleUI = (mgr: any, opts: CircleAttachOpts): { onMapClickActive: (
             xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
           );
         Util.toggleVisibility(
-          [radiusLine?.getElement() as HTMLElement | null, radiusNode?.getElement() as HTMLElement | null],
+          [
+            radiusLine?.getElement() as HTMLElement | null,
+            radiusNode?.getElement() as HTMLElement | null,
+          ],
           isLabelsVisible,
         );
       },
@@ -303,7 +313,10 @@ const attachPolygonUI = (mgr: any, opts: PolygonAttachOpts): (() => void) => {
 
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
-        icon: Util.makeLabelDivIcon(Util.formatArea(area), CONST.LABEL.CENTROID_ANCHOR as [number, number]),
+        icon: Util.makeLabelDivIcon(
+          Util.formatArea(area),
+          CONST.LABEL.CENTROID_ANCHOR as [number, number],
+        ),
         interactive: false,
       }),
       true,
@@ -404,7 +417,8 @@ const attachPolygonUI = (mgr: any, opts: PolygonAttachOpts): (() => void) => {
           nodeDelIcons.forEach(d => {
             d.off("click");
             d.on("click", (event: L.LeafletMouseEvent) => {
-              const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+              const t = (event.originalEvent as MouseEvent)
+                ?.target as HTMLElement | null;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
                 stopEvent(event);
                 deleteMeas();

@@ -167,7 +167,11 @@ const makeLabelDivIcon = (
 
 /** Create a divIcon for a segment label centered on the line midpoint. */
 const makeMidLabelDivIcon = (html: string): L.DivIcon => {
-  return makeLabelDivIcon(html, CONST.LABEL.MID_ANCHOR as [number, number], CONST.LABEL.CLASS_MID);
+  return makeLabelDivIcon(
+    html,
+    CONST.LABEL.MID_ANCHOR as [number, number],
+    CONST.LABEL.CLASS_MID,
+  );
 };
 
 /** Create a measure node circle marker. */
@@ -187,7 +191,10 @@ interface DelIconOptions {
 }
 
 /** Create a delete icon marker. */
-const makeDelIcon = (latlng: L.LatLngExpression, opts: DelIconOptions = {}): L.Marker => {
+const makeDelIcon = (
+  latlng: L.LatLngExpression,
+  opts: DelIconOptions = {},
+): L.Marker => {
   const { className, iconAnchor, ...markerOpts } = opts;
   return L.marker(latlng, {
     icon: L.divIcon({
@@ -224,7 +231,9 @@ interface Segment {
 }
 
 /** Recalculate segments and total distance from a points array. */
-const recalculateSegments = (points: L.LatLng[]): { segments: Segment[]; totalDistance: number } => {
+const recalculateSegments = (
+  points: L.LatLng[],
+): { segments: Segment[]; totalDistance: number } => {
   const segments: Segment[] = [];
   let totalDistance = 0;
   for (let i = 1; i < points.length; i++) {
@@ -238,14 +247,20 @@ const recalculateSegments = (points: L.LatLng[]): { segments: Segment[]; totalDi
 /** Calculate area from a closed polygon ring. */
 const calcArea = (points: L.LatLng[]): number => {
   if (points.length < 3) return 0;
-  const pts: { lng: number; lat: number }[] = points.map(p => ({ lng: p.lng, lat: p.lat }));
+  const pts: { lng: number; lat: number }[] = points.map(p => ({
+    lng: p.lng,
+    lat: p.lat,
+  }));
   return area(pts);
 };
 
 /** Calculate centroid of a closed polygon ring. */
 const calcCentroid = (points: L.LatLng[]): { lng: number; lat: number } => {
   if (points.length < 3) return { lng: 0, lat: 0 };
-  const pts: { lng: number; lat: number }[] = points.map(p => ({ lng: p.lng, lat: p.lat }));
+  const pts: { lng: number; lat: number }[] = points.map(p => ({
+    lng: p.lng,
+    lat: p.lat,
+  }));
   const c = centroid(pts);
   return { lng: c.lng, lat: c.lat };
 };
