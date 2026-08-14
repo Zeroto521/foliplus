@@ -172,7 +172,7 @@ describe("PaneManager", () => {
       eachLayer: undefined,
     };
     Object.setPrototypeOf(layer, new window.L.Path());
-    const renderer = { getContainer: () => container };
+    const renderer = { _container: container };
     pm.migrateLayers([{ layer, paneName: "measure_graph", renderer }]);
     expect(layer.options.pane).toBe("measure_graph");
     expect(layer.options.paneSet).toBe(true);
@@ -193,7 +193,7 @@ describe("PaneManager", () => {
     };
     // Force instanceof checks by setting prototypes
     Object.setPrototypeOf(layer, new window.L.Marker());
-    const renderer = { getContainer: () => document.createElement("div") };
+    const renderer = { _container: document.createElement("div") };
     pm.migrateLayers([{ layer, paneName: "measure_graph", renderer }]);
     expect(icon.parentNode).toBe(paneEl);
     expect(shadow.parentNode).toBe(paneEl);

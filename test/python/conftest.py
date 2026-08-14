@@ -13,7 +13,9 @@ Guidelines
 from __future__ import annotations
 
 import re
+import urllib.request
 from collections.abc import Generator
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import folium
@@ -21,6 +23,115 @@ import pytest
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser
+
+
+# ── CDN cache (browser tests) ──
+#
+# Browser tests load folium's base page which references CDN scripts
+# (leaflet/jquery/bootstrap/awesome-markers).  In slow or flaky networks
+# these can exceed Playwright's navigation timeout and produce spurious
+# `Page.goto` timeouts.  We intercept those requests and serve them from a
+# local cache (downloaded once to /tmp) so tests are network-independent.
+
+_CDN_CACHE_DIR = Path("/tmp/foliplus-cdn-cache")
+
+# CDN URL fragment -> (cache filename, mime type)
+_CDN_CACHE: dict[str, tuple[str, str]] = {
+    "cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js": (
+        "leaflet.js",
+        "application/javascript",
+    ),
+    "cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css": (
+        "leaflet.css",
+        "text/css",
+    ),
+    "code.jquery.com/jquery-1.12.4.min.js": (
+        "jquery-1.12.4.min.js",
+        "application/javascript",
+    ),
+    "cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js": (
+        "bootstrap.bundle.min.js",
+        "application/javascript",
+    ),
+    "cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js": (
+        "leaflet.awesome-markers.js",
+        "application/javascript",
+    ),
+    "cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css": (
+        "leaflet.awesome-markers.css",
+        "text/css",
+    ),
+}
+
+
+def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
+    """Return (bytes, mime) served from a local cache for a CDN url.
+
+    Downloads once into ``_CDN_CACHE_DIR`` on first use.  Returns
+    ``(None, None)`` for URLs outside the cache map so the request can be
+    forwarded to the network as-is.
+    """
+    for fragment, (fname, mime) in _CDN_CACHE.items():
+        if fragment not in url:
+            continue
+
+        _CDN_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        if not (cache_path := _CDN_CACHE_DIR / fname).exists():
+            try:
+                urllib.request.urlretrieve(url, cache_path)
+            except Exception:
+                # Download failed; let the request hit the network.
+                return None, None
+        try:
+            return cache_path.read_bytes(), mime
+        except OSError:
+            return None, None
+    return None, None
+
+
+def _install_cdn_route(page) -> None:
+    """Intercept CDN + tile requests so browser tests run offline.
+
+    Known CDN scripts are served from the local cache; OSM tile requests are
+    answered with 404 (Leaflet skips failed tiles) so pages don't stall on
+    slow tile downloads.
+    """
+    from playwright.sync_api import Route
+
+    def handler(route: Route) -> None:
+        url = route.request.url
+        if "tile.openstreetmap.org" in url:
+            route.fulfill(status=404, body=b"")
+            return
+
+        data, mime = _cdn_cached(url)
+        if data is None:
+            route.continue_()
+            return
+        route.fulfill(status=200, body=data, content_type=mime)
+
+    page.route("**/*", handler)
+
+
+class _CdnBrowserProxy:
+    """Wrap a Playwright Browser so every ``new_page()`` gets the CDN route.
+
+    ``browser.new_page()`` is a shortcut for creating a fresh context + page,
+    so there is no single context on which we can install a global route.
+    Routing per-page via this proxy covers every test, including those that
+    call ``browser.new_page()`` directly instead of ``make_browser_page``.
+    """
+
+    def __init__(self, browser: Browser) -> None:
+        self._browser = browser
+
+    def __getattr__(self, name: str):
+        return getattr(self._browser, name)
+
+    def new_page(self, *args, **kwargs):
+        page = self._browser.new_page(*args, **kwargs)
+        _install_cdn_route(page)
+        return page
 
 
 # ── Helpers ──
@@ -175,6 +286,9 @@ def rendered(base_map: folium.Map) -> str:
 def browser() -> Generator[Browser, None, None]:
     """Launch a headless Chromium once per session.
 
+    Every ``new_page()`` is wrapped with a CDN/tile route (see
+    ``_CdnBrowserProxy``) so browser tests don't depend on a fast network.
+
     Skipped if Playwright is not installed::
 
         pip install playwright
@@ -185,5 +299,5 @@ def browser() -> Generator[Browser, None, None]:
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
-        yield browser
+        yield _CdnBrowserProxy(browser)
         browser.close()
