@@ -44,12 +44,15 @@ describe("makeDelIcon", () => {
   });
 
   it("lets callers override className / anchor / z-index / title", () => {
-    makeDelIcon({ lat: 1, lng: 2 }, {
-      className: "extra",
-      iconAnchor: [5, 10],
-      zIndexOffset: 99,
-      title: "delete",
-    });
+    makeDelIcon(
+      { lat: 1, lng: 2 },
+      {
+        className: "extra",
+        iconAnchor: [5, 10],
+        zIndexOffset: 99,
+        title: "delete",
+      },
+    );
     const [, opts] = window.L.marker.mock.calls[0];
     const iconOpts = window.L.divIcon.mock.calls[0][0];
     expect(opts.zIndexOffset).toBe(99);
