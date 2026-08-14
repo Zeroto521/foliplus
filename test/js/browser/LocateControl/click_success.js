@@ -3,7 +3,7 @@
   Object.defineProperty(navigator, "geolocation", {
     configurable: true,
     value: {
-      getCurrentPosition: (s) => {
+      getCurrentPosition: s => {
         s({ coords: { longitude: 119.3, latitude: 26.08 } });
       },
     },
