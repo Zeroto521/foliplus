@@ -91,7 +91,11 @@ class ExportManager {
   declare removeCropBox: () => void;
   declare updateBoxStyle: (el: HTMLElement, r: Rect) => void;
   declare showHintWithInfo: (r: Rect, instruction?: string) => void;
-  declare showGlobalHint: (text: string, duration: number, withLoadingIcon?: boolean) => void;
+  declare showGlobalHint: (
+    text: string,
+    duration: number,
+    withLoadingIcon?: boolean,
+  ) => void;
 
   constructor(mapInstance: L.Map) {
     this.map = mapInstance;
@@ -321,7 +325,11 @@ class ExportManager {
     } else if (event.key === "Enter") {
       if (this.cropState && !this.cropState.locked) this.lockCropBox();
       else if (this.cropState?.locked) this.doExport();
-    } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "z") {
+    } else if (
+      (event.ctrlKey || event.metaKey) &&
+      event.shiftKey &&
+      event.key.toLowerCase() === "z"
+    ) {
       event.preventDefault();
       this.redoCropBox();
     } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
@@ -419,7 +427,12 @@ class ExportManager {
   /** Render the crop area to a canvas and trigger download.  Returns the
    *  render promise so callers (e.g. enlargeAndRender) can chain work
    *  after the render completes. */
-  doRender(r: Rect, scaleValue: number, bg: string | undefined, geoBounds: GeoBounds | undefined) {
+  doRender(
+    r: Rect,
+    scaleValue: number,
+    bg: string | undefined,
+    geoBounds: GeoBounds | undefined,
+  ) {
     const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
     hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
     // Force a synchronous layout so getBoundingClientRect() in the
