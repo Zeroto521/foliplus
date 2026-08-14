@@ -843,7 +843,11 @@ class LayerManager {
     if (this.isEnforcing) return;
     this.isEnforcing = true;
     try {
-      const layersToMove: Array<{ layer: any; paneName: string; renderer: any }> = [];
+      const layersToMove: Array<{
+        layer: L.Layer;
+        paneName: string | null;
+        renderer: L.SVG | null;
+      }> = [];
       this.panes.reset();
 
       for (let i = 0; i < this.layers.length; i++) {
@@ -879,11 +883,15 @@ class LayerManager {
     isTile,
     layersToMove,
   }: {
-    li: any;
-    layer: any;
+    li: LayerInfo;
+    layer: L.Layer;
     z: number;
     isTile: boolean;
-    layersToMove: any[];
+    layersToMove: Array<{
+      layer: L.Layer;
+      paneName: string | null;
+      renderer: L.SVG | null;
+    }>;
   }) {
     const paneName = li.paneName;
     if (paneName) {
@@ -895,8 +903,8 @@ class LayerManager {
       return;
     }
 
-    if (isTile && typeof layer.setZIndex === "function") {
-      layer.setZIndex(z);
+    if (isTile) {
+      (layer as L.TileLayer).setZIndex(z);
       return;
     }
 
@@ -921,7 +929,7 @@ class LayerManager {
   }
 
   syncAttribution() {
-    const attrCtrl = (this.map as any).attributionControl;
+    const attrCtrl = this.map.attributionControl;
     if (!attrCtrl) return;
 
     let topAttr = "";
