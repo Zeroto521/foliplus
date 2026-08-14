@@ -5,11 +5,19 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+from pathlib import Path
 
 import folium
 from conftest import assert_config_value, make_browser_page, render, render_control
 
 from foliplus import MeasureControl
+
+_JS_DIR = Path(__file__).resolve().parents[1] / "js" / "browser"
+
+
+def _js(path: str) -> str:
+    """Read a browser-test JS snippet, e.g. ``_js("MeasureControl/read_labels")``."""
+    return (_JS_DIR / f"{path}.js").read_text(encoding="utf-8")
 
 
 class TestMeasureControlPython:
@@ -195,20 +203,9 @@ class TestMeasureControlBrowser:
         """Distance labels include bearing (e.g. '42° | 1.5 km') by default."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('distance');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
-            }""")
+            page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
-            labels = page.evaluate("""() => {
-                return Array.from(
-                    document.querySelectorAll('.foliplus-measure-label')
-                ).map(el => el.textContent);
-            }""")
+            labels = page.evaluate(_js("MeasureControl/read_labels"))
             assert any("° |" in l for l in labels), (
                 f"expected a bearing label '° |', got {labels!r}"
             )
@@ -220,20 +217,9 @@ class TestMeasureControlBrowser:
         """show_bearing=False omits the bearing from distance labels."""
         page, errors = self._make_page(browser, tmp_path, show_bearing=False)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('distance');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
-            }""")
+            page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
-            labels = page.evaluate("""() => {
-                return Array.from(
-                    document.querySelectorAll('.foliplus-measure-label')
-                ).map(el => el.textContent);
-            }""")
+            labels = page.evaluate(_js("MeasureControl/read_labels"))
             assert all("° |" not in l for l in labels), (
                 f"no bearing expected when disabled, got {labels!r}"
             )
@@ -253,21 +239,12 @@ class TestMeasureControlBrowser:
                 "Layer should be registered immediately after tool select"
             )
             # First click on map — triggers content addition
-            page.evaluate("""() => {
-                const map = window.__map;
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-            }""")
+            page.evaluate(_js("MeasureControl/click_map_start_point"))
             page.wait_for_timeout(500)
             # Second click + right-click to finish
-            page.evaluate("""() => {
-                const map = window.__map;
-                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-            }""")
+            page.evaluate(_js("MeasureControl/click_map_point"))
             page.wait_for_timeout(500)
-            page.evaluate("""() => {
-                const map = window.__map;
-                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
-            }""")
+            page.evaluate(_js("MeasureControl/finish_measurement"))
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, "Layer should be registered after completing measurement"
@@ -279,10 +256,7 @@ class TestMeasureControlBrowser:
         """mainLayer.addLayer() auto-registers the layer."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.layers.mainLayer.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
-            }""")
+            page.evaluate(_js("MeasureControl/add_polyline_to_main_layer"))
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, "addLayer should auto-register"
@@ -294,11 +268,7 @@ class TestMeasureControlBrowser:
         """destroy() empties content and unregisters."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.layers.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                mm.layers.addLayer(L.circleMarker([26.08,119.30]));
-            }""")
+            page.evaluate(_js("MeasureControl/add_layers"))
             page.wait_for_timeout(500)
             page.evaluate("window.__measureManager.layers.clearLayers()")
             page.wait_for_timeout(500)
@@ -312,15 +282,7 @@ class TestMeasureControlBrowser:
         """mainLayer.removeLayer removes a single layer without affecting others."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const p1 = L.polyline([[26.08,119.30],[26.09,119.31]]);
-                const p2 = L.circleMarker([26.08,119.30]);
-                mm.layers.mainLayer.addLayer(p1);
-                mm.layers.mainLayer.addLayer(p2);
-                mm.layers.mainLayer.removeLayer(p1);
-                window.__test = mm.layers.registered();
-            }""")
+            page.evaluate(_js("MeasureControl/remove_single_layer"))
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__test")
             assert registered, "layer should remain registered after removing one item"
@@ -333,13 +295,7 @@ class TestMeasureControlBrowser:
         page, errors = self._make_page(browser, tmp_path)
         try:
             # First, create a circle to trigger onMapClickActive listener
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('circle');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-            }""")
+            page.evaluate(_js("MeasureControl/draw_circle"))
             page.wait_for_timeout(500)
             # Destroy the manager
             page.evaluate("window.__measureManager.destroy()")
@@ -353,36 +309,13 @@ class TestMeasureControlBrowser:
         """Clicking the delete X in marker mode removes the marker pin."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('marker');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-            }""")
+            page.evaluate(_js("MeasureControl/place_marker"))
             page.wait_for_timeout(500)
             # Remove the layer via API directly (testing the delete logic)
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const layers = mm.layers.mainLayer._layers || {};
-                const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
-                );
-                if (delMkr) {
-                    // Simulate clicking the del icon: make it visible, then fire
-                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
-                    if (icon) icon.classList.add('visible');
-                    // Fire with a mock originalEvent that has the del-icon target
-                    delMkr.fire('click', { originalEvent: { target: icon } });
-                }
-            }""")
+            page.evaluate(_js("MeasureControl/delete_marker_del_icon"))
             page.wait_for_timeout(300)
             # Check that delMkr is no longer in the layer group
-            hasDelMkr = page.evaluate("""() => {
-                const mm = window.__measureManager;
-                return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
-                );
-            }""")
+            hasDelMkr = page.evaluate(_js("MeasureControl/has_delete_marker"))
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -392,35 +325,12 @@ class TestMeasureControlBrowser:
         """Clicking the delete X in distance mode removes the entire measurement."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('distance');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
-            }""")
+            page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
             # Fire the delMkr click with a mock originalEvent targeting the X icon
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const layers = mm.layers.mainLayer._layers || {};
-                const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
-                );
-                if (delMkr) {
-                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
-                    if (icon) icon.classList.add('visible');
-                    delMkr.fire('click', { originalEvent: { target: icon } });
-                }
-            }""")
+            page.evaluate(_js("MeasureControl/delete_measurement_del_icon"))
             page.wait_for_timeout(300)
-            hasDelMkr = page.evaluate("""() => {
-                const mm = window.__measureManager;
-                return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
-                );
-            }""")
+            hasDelMkr = page.evaluate(_js("MeasureControl/has_delete_marker"))
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -430,34 +340,12 @@ class TestMeasureControlBrowser:
         """Clicking the delete X in circle mode removes the entire circle."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('circle');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-            }""")
+            page.evaluate(_js("MeasureControl/draw_circle"))
             page.wait_for_timeout(500)
             # Fire the delMkr click with a mock originalEvent targeting the X icon
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const layers = mm.layers.mainLayer._layers || {};
-                const delMkr = Object.values(layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
-                );
-                if (delMkr) {
-                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
-                    if (icon) icon.classList.add('visible');
-                    delMkr.fire('click', { originalEvent: { target: icon } });
-                }
-            }""")
+            page.evaluate(_js("MeasureControl/delete_measurement_del_icon"))
             page.wait_for_timeout(300)
-            hasDelMkr = page.evaluate("""() => {
-                const mm = window.__measureManager;
-                return Object.values(mm.layers.mainLayer._layers || {}).some(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
-                );
-            }""")
+            hasDelMkr = page.evaluate(_js("MeasureControl/has_delete_marker"))
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -469,11 +357,7 @@ class TestMeasureControlBrowser:
         """saveMeasurements() writes measurements to localStorage."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
-                mm.saveMeasurements();
-            }""")
+            page.evaluate(_js("MeasureControl/save_marker_measurement"))
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             assert data is not None, "localStorage should contain saved measurements"
 
@@ -488,12 +372,7 @@ class TestMeasureControlBrowser:
         """clearAll() empties measurements array and persists to localStorage."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
-                mm.saveMeasurements();
-                mm.clearAll();
-            }""")
+            page.evaluate(_js("MeasureControl/save_then_clear_measurements"))
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "clearAll should empty localStorage"
@@ -510,12 +389,7 @@ class TestMeasureControlBrowser:
         """
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.measurements = [{ id: 't1', type: 'marker', lng: 119.30, lat: 26.08 }];
-                mm.saveMeasurements();
-                mm.onUnload();
-            }""")
+            page.evaluate(_js("MeasureControl/save_then_unload"))
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 1, "unload should keep persisted measurements"
@@ -527,12 +401,7 @@ class TestMeasureControlBrowser:
         """Deleting a marker removes it from measurements and persists."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('marker');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-            }""")
+            page.evaluate(_js("MeasureControl/place_marker"))
             # Poll for measurement to appear (async reverse geocode may take time)
             page.wait_for_timeout(500)
             for _ in range(20):
@@ -541,17 +410,7 @@ class TestMeasureControlBrowser:
                     break
                 page.wait_for_timeout(500)
             assert before == 1, f"expected 1 measurement, got {before}"
-            page.evaluate("""() => {
-                const map = window.__map;
-                const delMkr = Object.values(map._layers).find(
-                    l => l instanceof L.Marker && l.options.icon?.options?.className?.includes('foliplus-del-icon')
-                );
-                if (delMkr) {
-                    const icon = delMkr.getElement().querySelector('.foliplus-measure-del-icon');
-                    if (icon) icon.classList.add('visible');
-                    delMkr.fire('click', { originalEvent: { target: icon } });
-                }
-            }""")
+            page.evaluate(_js("MeasureControl/delete_marker_via_map"))
             page.wait_for_timeout(300)
             after = page.evaluate("window.__measureManager.measurements.length")
             assert after == 0, f"expected 0 measurements after delete, got {after}"
@@ -567,16 +426,7 @@ class TestMeasureControlBrowser:
         page, errors = self._make_page(browser, tmp_path)
         try:
             # Pre-populate localStorage with a marker measurement
-            page.evaluate("""() => {
-                const data = [{
-                    id: 'foliplus_measure_marker_1',
-                    type: 'marker',
-                    lng: 119.30,
-                    lat: 26.08,
-                    address: 'Test Address'
-                }];
-                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
-            }""")
+            page.evaluate(_js("MeasureControl/seed_marker_storage"))
             # Reload the page to trigger restoreMeasurements in constructor
             page.reload()
             page.wait_for_timeout(2000)
@@ -594,20 +444,7 @@ class TestMeasureControlBrowser:
         """restoreDistance restores a distance measurement from localStorage without ReferenceError."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const data = [{
-                    id: 'foliplus_measure_distance_1',
-                    type: 'distance',
-                    points: [
-                        { lng: 119.30, lat: 26.08 },
-                        { lng: 119.31, lat: 26.09 }
-                    ],
-                    segments: [
-                        { lng: 119.305, lat: 26.085, distance: 1234.56 }
-                    ]
-                }];
-                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
-            }""")
+            page.evaluate(_js("MeasureControl/seed_distance_storage"))
             page.reload()
             page.wait_for_timeout(2000)
             count = page.evaluate("window.__measureManager.measurements.length")
@@ -622,16 +459,7 @@ class TestMeasureControlBrowser:
         """restoreCircle restores a circle measurement from localStorage without ReferenceError."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const data = [{
-                    id: 'foliplus_measure_circle_1',
-                    type: 'circle',
-                    center: { lng: 119.30, lat: 26.08 },
-                    target: { lng: 119.31, lat: 26.09 },
-                    radius: 500
-                }];
-                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
-            }""")
+            page.evaluate(_js("MeasureControl/seed_circle_storage"))
             page.reload()
             page.wait_for_timeout(2000)
             count = page.evaluate("window.__measureManager.measurements.length")
@@ -673,12 +501,7 @@ class TestMeasureControlBrowser:
                 "**/nominatim.openstreetmap.org/**",
                 lambda route: route.abort(),
             )
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('marker');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-            }""")
+            page.evaluate(_js("MeasureControl/place_marker"))
             # Measurement must be persisted WITHOUT waiting for geocode
             page.wait_for_timeout(300)
             saved = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
@@ -701,16 +524,7 @@ class TestMeasureControlBrowser:
         """Regression: marker restored with address:null resolves and persists address."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const data = [{
-                    id: 'foliplus_measure_marker_nulladdr',
-                    type: 'marker',
-                    lng: 119.30,
-                    lat: 26.08,
-                    address: null
-                }];
-                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
-            }""")
+            page.evaluate(_js("MeasureControl/seed_marker_nulladdr_storage"))
             page.reload()
             page.wait_for_timeout(3000)
             # Address should be resolved by the onAddress callback
@@ -748,16 +562,7 @@ class TestMeasureControlBrowser:
                 ),
             )
             # Restore a marker with address:null
-            page.evaluate("""() => {
-                const data = [{
-                    id: 'foliplus_measure_marker_popup',
-                    type: 'marker',
-                    lng: 119.30,
-                    lat: 26.08,
-                    address: null
-                }];
-                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
-            }""")
+            page.evaluate(_js("MeasureControl/seed_marker_popup_storage"))
             page.reload()
             page.wait_for_timeout(2000)
             # Geocode resolved while popup is closed — address backfilled
@@ -765,22 +570,9 @@ class TestMeasureControlBrowser:
             assert addr, f"expected address to be backfilled, got {addr!r}"
 
             # Now open the popup — it must show the resolved address
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.layers.mainLayer.eachLayer(sub => sub.eachLayer(l => {
-                    if (l instanceof L.Marker) {
-                        const po = l.getPopup && l.getPopup();
-                        if (po && po.getContent && po.getContent().includes) {
-                            l.openPopup();
-                        }
-                    }
-                }));
-            }""")
+            page.evaluate(_js("MeasureControl/open_restored_marker_popup"))
             page.wait_for_timeout(200)
-            popup_text = page.evaluate("""() => {
-                const el = document.querySelector('.leaflet-popup-content');
-                return el ? el.textContent : '';
-            }""")
+            popup_text = page.evaluate(_js("MeasureControl/read_popup_text"))
             assert "Resolved Address" in popup_text, (
                 f"popup should show resolved address, got {popup_text!r}"
             )
@@ -799,13 +591,7 @@ class TestMeasureControlBrowser:
             baseline = page.evaluate("window.__map._events['click']?.length || 0")
             # Draw 2 circles — each binds an onMapClickActive handler
             for _ in range(2):
-                page.evaluate("""() => {
-                    const mm = window.__measureManager;
-                    const map = window.__map;
-                    mm.setMode('circle');
-                    map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-                    map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-                }""")
+                page.evaluate(_js("MeasureControl/draw_circle"))
                 page.wait_for_timeout(500)
             after_circles = page.evaluate("window.__map._events['click']?.length || 0")
             assert after_circles == baseline + 2, (
@@ -829,17 +615,10 @@ class TestMeasureControlBrowser:
         """Pressing Escape while drawing cancels the mode."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('distance');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-            }""")
+            page.evaluate(_js("MeasureControl/start_distance"))
             page.wait_for_timeout(300)
             # Press Escape
-            page.evaluate("""() => {
-                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-            }""")
+            page.evaluate(_js("MeasureControl/press_escape"))
             page.wait_for_timeout(200)
             mode = page.evaluate("window.__measureManager.currentMode")
             assert mode is None, f"expected mode to be None after Escape, got {mode}"
@@ -852,27 +631,13 @@ class TestMeasureControlBrowser:
         page, errors = self._make_page(browser, tmp_path)
         try:
             # Add some content
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.layers.addLayer(L.circleMarker([26.08, 119.30]));
-                mm.layers.addLayer(L.polyline([[26.08,119.30],[26.09,119.31]]));
-                mm.measurements = [{ id: 'test', type: 'marker', lng: 119.30, lat: 26.08 }];
-                mm.saveMeasurements();
-            }""")
+            page.evaluate(_js("MeasureControl/add_layers_and_measurements"))
             page.wait_for_timeout(200)
             # Click CLEAR button
-            page.evaluate("""() => {
-                const btn = document.querySelector('[data-mode=clear]');
-                if (btn) btn.click();
-            }""")
+            page.evaluate(_js("MeasureControl/click_clear_button"))
             page.wait_for_timeout(300)
             # All sub-layers should be empty
-            subLayersEmpty = page.evaluate("""() => {
-                const main = window.__measureManager.layers.mainLayer;
-                return Object.values(main._layers).every(
-                    sub => !sub._layers || Object.keys(sub._layers).length === 0
-                );
-            }""")
+            subLayersEmpty = page.evaluate(_js("MeasureControl/read_sub_layers_empty"))
             assert subLayersEmpty, "expected all sub-layers to be empty after clear"
             # Measurements should be empty
             meas = page.evaluate("window.__measureManager.measurements.length")
@@ -885,18 +650,12 @@ class TestMeasureControlBrowser:
         """Clicking the same tool button twice clears the mode."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const btn = document.querySelector('[data-mode=distance]');
-                btn.click();
-            }""")
+            page.evaluate(_js("MeasureControl/click_distance_button"))
             page.wait_for_timeout(200)
             mode1 = page.evaluate("window.__measureManager.currentMode")
             assert mode1 == "distance", f"expected distance mode, got {mode1}"
             # Click same button again
-            page.evaluate("""() => {
-                const btn = document.querySelector('[data-mode=distance]');
-                btn.click();
-            }""")
+            page.evaluate(_js("MeasureControl/click_distance_button"))
             page.wait_for_timeout(200)
             mode2 = page.evaluate("window.__measureManager.currentMode")
             assert mode2 is None, f"expected mode cleared, got {mode2}"
@@ -908,18 +667,10 @@ class TestMeasureControlBrowser:
         """Single click then right-click cancels distance without saving."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('distance');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-            }""")
+            page.evaluate(_js("MeasureControl/start_distance"))
             page.wait_for_timeout(300)
             # Right-click to finish (cancel) with < 2 points
-            page.evaluate("""() => {
-                const map = window.__map;
-                map.fire('contextmenu', {latlng: L.latLng(26.08, 119.30)});
-            }""")
+            page.evaluate(_js("MeasureControl/cancel_distance"))
             page.wait_for_timeout(300)
             # Mode should be cleared, no measurement saved
             mode = page.evaluate("window.__measureManager.currentMode")
@@ -934,14 +685,7 @@ class TestMeasureControlBrowser:
         """After finishing distance, previewLine and poly are removed from map."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('distance');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-                map.fire('contextmenu', {latlng: L.latLng(26.09, 119.31)});
-            }""")
+            page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
             # The map should have the final polyline but not the preview layers
             # Check that measurements were saved
@@ -957,15 +701,7 @@ class TestMeasureControlBrowser:
         """Draw a polygon with 3 points, verify it renders, then delete via clearAll."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('polygon');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-                map.fire('click', {latlng: L.latLng(26.07, 119.32)});
-                map.fire('contextmenu', {latlng: L.latLng(26.07, 119.32)});
-            }""")
+            page.evaluate(_js("MeasureControl/draw_polygon"))
             page.wait_for_timeout(500)
             count = page.evaluate("window.__measureManager.measurements.length")
             assert count == 1, f"expected 1 polygon measurement, got {count}"
@@ -985,29 +721,12 @@ class TestMeasureControlBrowser:
         """Toggle polygon delete icons without raising JS errors."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                mm.setMode('polygon');
-                map.fire('click', {latlng: L.latLng(26.08, 119.30)});
-                map.fire('click', {latlng: L.latLng(26.09, 119.31)});
-                map.fire('click', {latlng: L.latLng(26.07, 119.32)});
-                map.fire('click', {latlng: L.latLng(26.08, 119.33)});
-                map.fire('contextmenu', {latlng: L.latLng(26.08, 119.33)});
-            }""")
+            page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
             page.wait_for_timeout(500)
             count = page.evaluate("window.__measureManager.measurements.length")
             assert count == 1, f"expected 1 polygon measurement, got {count}"
             # Delete the polygon
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                // Trigger toggle so delete icons are visible
-                const poly = Object.values(mm.layers.mainLayer._layers || {}).find(
-                    l => l instanceof L.Polygon
-                );
-                if (poly) poly.fire('click', { originalEvent: { target: poly._path } });
-            }""")
+            page.evaluate(_js("MeasureControl/toggle_polygon_delete"))
             page.wait_for_timeout(300)
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -1017,24 +736,7 @@ class TestMeasureControlBrowser:
         """restorePolygon restores a polygon measurement from localStorage."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""() => {
-                const data = [{
-                    id: 'foliplus_measure_polygon_1',
-                    type: 'polygon',
-                    points: [
-                        { lng: 119.30, lat: 26.08 },
-                        { lng: 119.31, lat: 26.09 },
-                        { lng: 119.32, lat: 26.07 }
-                    ],
-                    segments: [
-                        { lng: 119.305, lat: 26.085, distance: 1234 },
-                        { lng: 119.315, lat: 26.08, distance: 2345 },
-                        { lng: 119.31, lat: 26.075, distance: 3456 }
-                    ],
-                    area: 500000
-                }];
-                localStorage.setItem(window.__measureStorageKey, JSON.stringify(data));
-            }""")
+            page.evaluate(_js("MeasureControl/seed_polygon_storage"))
             page.reload()
             page.wait_for_timeout(2000)
             count = page.evaluate("window.__measureManager.measurements.length")
@@ -1068,12 +770,7 @@ class TestMeasureControlBrowser:
         page, errors = self._make_page(browser, tmp_path)
         try:
             # Add a measurement
-            page.evaluate("""() => {
-                const mm = window.__measureManager;
-                mm.layers.addLayer(L.circleMarker([26.08, 119.30]));
-                mm.measurements = [{ id: 'test', type: 'marker', lng: 119.30, lat: 26.08 }];
-                mm.clearAll();
-            }""")
+            page.evaluate(_js("MeasureControl/add_layer_and_clear_all"))
             page.wait_for_timeout(300)
             # clearAll should be safe — no crash, panel collapse via ctrl
             assert not errors, f"JS errors: {errors}"
@@ -1091,71 +788,7 @@ class TestMeasureControlBrowser:
         try:
             # Build distance, circle, and polygon measurements in one evaluate so
             # no state is lost between calls.
-            offsets = page.evaluate("""() => {
-                const mm = window.__measureManager;
-                const map = window.__map;
-                const P = (lat, lng) => L.latLng(lat, lng);
-
-                // distance: two clicks + contextmenu to finish
-                mm.setMode('distance');
-                map.fire('click', {latlng: P(26.08, 119.30)});
-                map.fire('click', {latlng: P(26.09, 119.31)});
-                map.fire('contextmenu', {latlng: P(26.09, 119.31)});
-
-                // circle: center + edge clicks
-                mm.setMode('circle');
-                map.fire('click', {latlng: P(26.05, 119.28)});
-                map.fire('click', {latlng: P(26.06, 119.29)});
-
-                // polygon: 4 clicks + contextmenu to finish
-                mm.setMode('polygon');
-                map.fire('click', {latlng: P(26.10, 119.35)});
-                map.fire('click', {latlng: P(26.11, 119.36)});
-                map.fire('click', {latlng: P(26.09, 119.37)});
-                map.fire('click', {latlng: P(26.08, 119.36)});
-                map.fire('contextmenu', {latlng: P(26.08, 119.36)});
-
-                // Show all delete icons so they get DOM elements
-                document.querySelectorAll('.foliplus-measure-del-icon').forEach(i => i.classList.add('visible'));
-                map.invalidateSize();
-
-                // Collect every delIcon's offset relative to its anchor point.
-                // A delIcon is a Leaflet marker whose wrapper is `.foliplus-del-icon`
-                // (0×0); the visible ✕ is the inner `.foliplus-measure-del-icon`.
-                const result = { modes: {} };
-                const dels = [];
-                const walk = node => {
-                    if (!node) return;
-                    if (typeof node.eachLayer === 'function') node.eachLayer(walk);
-                    if (node._layers && typeof node._layers === 'object') Object.values(node._layers).forEach(walk);
-                    if (node instanceof L.Marker) {
-                        const cls = node.options?.icon?.options?.className || '';
-                        if (String(cls).includes('foliplus-del-icon')) dels.push(node);
-                    }
-                };
-                walk(mm.layers.mainLayer);
-
-                const seenLL = new Set();
-                for (const l of dels) {
-                    const ll = l.getLatLng();
-                    if (!ll) continue;
-                    const llKey = `${ll.lat.toFixed(6)},${ll.lng.toFixed(6)}`;
-                    if (seenLL.has(llKey)) continue; // 递归会重复访问嵌套 group，去重
-                    seenLL.add(llKey);
-                    const wrap = l.getElement();
-                    const inner = wrap?.querySelector?.('.foliplus-measure-del-icon') || wrap;
-                    if (!inner) continue;
-                    const rect = inner.getBoundingClientRect();
-                    if (rect.width === 0 && rect.height === 0) continue; // 不可见
-                    const anchor = map.latLngToContainerPoint(ll);
-                    result.modes[llKey] = {
-                        title: l.options.title || 'x',
-                        dx: (rect.left + rect.width / 2) - anchor.x,
-                        dy: (rect.top + rect.height / 2) - anchor.y,
-                    };
-                }
-                return result;
-            }""")
+            offsets = page.evaluate(_js("MeasureControl/read_del_icon_offsets"))
             assert errors == [], f"JS errors: {errors}"
             assert len(offsets["modes"]) >= 7, (
                 f"expected ≥7 del icons (2 distance + 1 circle + 4 polygon + centroid), got {len(offsets['modes'])}"
