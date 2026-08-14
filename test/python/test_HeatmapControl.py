@@ -16,13 +16,6 @@ from conftest import (
 
 from foliplus import HeatmapControl
 
-_JS_DIR = Path(__file__).resolve().parents[1] / "js" / "browser"
-
-
-def _js(path: str) -> str:
-    """Read a browser-test JS snippet, e.g. ``_js("HeatmapControl/read_defaults")``."""
-    return (_JS_DIR / f"{path}.js").read_text(encoding="utf-8")
-
 
 class TestHeatmapControlPython:
     """Python-side property tests."""

@@ -2,20 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import folium
 import pytest
-from conftest import make_browser_page, render
-
-from foliplus import ExportControl
-
-_JS_DIR = Path(__file__).resolve().parents[1] / "js" / "browser"
-
-
-def _js(path: str) -> str:
-    """Read a browser-test JS snippet, e.g. ``_js("ExportControl/read_box_rect")``."""
-    return (_JS_DIR / f"{path}.js").read_text(encoding="utf-8")
+from conftest import _js, make_browser_page, render
 
 
 class TestExportControlPython:

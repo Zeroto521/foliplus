@@ -2,20 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import folium
 import pytest
-from conftest import assert_locale, make_browser_page, render_control
+from conftest import _js, assert_locale, make_browser_page, render_control
 
 from foliplus import SearchControl
-
-_JS_DIR = Path(__file__).resolve().parents[1] / "js" / "browser"
-
-
-def _js(path: str) -> str:
-    """Read a browser-test JS snippet, e.g. ``_js("SearchControl/press_escape")``."""
-    return (_JS_DIR / f"{path}.js").read_text(encoding="utf-8")
 
 
 class TestSearchControlPython:

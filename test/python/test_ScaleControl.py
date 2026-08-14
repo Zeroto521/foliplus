@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import folium
 import pytest
 from conftest import (
+    _js,
     assert_config_value,
     assert_locale,
     make_browser_page,
@@ -14,13 +13,6 @@ from conftest import (
 )
 
 from foliplus import ScaleControl
-
-_JS_DIR = Path(__file__).resolve().parents[1] / "js" / "browser"
-
-
-def _js(path: str) -> str:
-    """Read a browser-test JS snippet, e.g. ``_js("ScaleControl/read_heights")``."""
-    return (_JS_DIR / f"{path}.js").read_text(encoding="utf-8")
 
 
 class TestScaleControlPython:
