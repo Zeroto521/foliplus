@@ -1049,6 +1049,8 @@ class CircleMode extends PreviewMode {
           }),
         );
         previews.node.bringToFront();
+      } else {
+        // Keep the radius node glued to the cursor while drawing.
         previews.node.setLatLng(event.latlng);
       }
       const mid = Util.midpoint(center, event.latlng);

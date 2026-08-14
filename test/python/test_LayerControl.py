@@ -1444,6 +1444,56 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
+    def test_pane_zindex_hierarchy(self, browser, tmp_path):
+        """LayerControl keeps data < marker < tooltip < popup z-index ordering.
+
+        Regression: markers (search/locate pins, ✕, data markers) must render
+        above LayerControl-managed data layers, while tooltip/popup stay on top.
+        """
+        page, errors = self._make_page(
+            browser,
+            tmp_path,
+            folium.GeoJson(
+                {
+                    "type": "Feature",
+                    "properties": {},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [121.4, 31.2],
+                                [121.5, 31.2],
+                                [121.5, 31.3],
+                                [121.4, 31.3],
+                                [121.4, 31.2],
+                            ]
+                        ],
+                    },
+                },
+                name="Polygons",
+            ),
+            folium.Marker([26.08, 119.30], name="Points"),
+        )
+        try:
+            result = page.evaluate(_js("LayerControl/read_pane_zindex"))
+            assert result is not None, "LayerAPI not found"
+            assert result["dataZ"] is not None, "no data layer pane found"
+            assert result["markerZNum"] > result["dataZ"], (
+                f"marker({result['markerZNum']}) should be above data "
+                f"({result['dataZ']})"
+            )
+            assert result["tooltipZ"] > result["markerZNum"], (
+                f"tooltip({result['tooltipZ']}) should be above marker "
+                f"({result['markerZNum']})"
+            )
+            assert result["popupZ"] > result["tooltipZ"], (
+                f"popup({result['popupZ']}) should be above tooltip "
+                f"({result['tooltipZ']})"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
     def test_bring_layer_to_front_guard(self, browser, tmp_path):
         """bringLayerToFront is a no-op for base layers or when already at front."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)

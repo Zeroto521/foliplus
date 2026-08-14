@@ -220,6 +220,53 @@ class TestSearchControlBrowser:
         finally:
             page.close()
 
+    def test_search_pin_above_data_layers(self, browser, tmp_path):
+        """Regression: search pin must render above LayerControl data layers.
+
+        Data panes start at the markerPane's z-index (BASE == 600), so without
+        the markerPane lift the pin would be hidden under overlay polygons.
+        """
+        from foliplus import LayerControl
+
+        m = folium.Map(location=[31.23, 121.47], zoom_start=10)
+        LayerControl().add_to(m)
+        SearchControl().add_to(m)
+        folium.GeoJson(
+            {
+                "type": "Feature",
+                "properties": {},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [121.4, 31.2],
+                            [121.5, 31.2],
+                            [121.5, 31.3],
+                            [121.4, 31.3],
+                            [121.4, 31.2],
+                        ]
+                    ],
+                },
+            },
+            name="Municipal Boundaries",
+        ).add_to(m)
+        html = m.get_root().render()
+        page, errors = make_browser_page(browser, tmp_path, html, "search")
+        try:
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            z = page.evaluate(_js("SearchControl/read_pane_zindex"))
+            assert z["dataPane"] is not None, "data layer pane not found"
+            assert z["markerPane"] > z["dataPane"], (
+                f"markerPane({z['markerPane']}) should be above data layers "
+                f"({z['dataPane']})"
+            )
+            assert z["popupPane"] > z["markerPane"], (
+                f"popup({z['popupPane']}) should stay above markers ({z['markerPane']})"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
     def test_escape_collapses_control(self, browser, tmp_path):
         """Escape key collapses the control when no suggestions are shown."""
         page, errors = self._make_page(browser, tmp_path)

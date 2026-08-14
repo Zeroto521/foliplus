@@ -344,6 +344,25 @@ class TestMeasureControlBrowser:
         finally:
             page.close()
 
+    def test_circle_preview_node_follows_mouse(self, browser, tmp_path):
+        """Regression: the circle preview node must follow the mouse while drawing.
+
+        Previously the node was only positioned at creation and stayed pinned
+        at that spot on the map during the preview.
+        """
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            state = page.evaluate(
+                _js("MeasureControl/draw_circle_preview_follows_mouse")
+            )
+            assert state["x1"] is not None, "preview node not rendered"
+            assert state["x2"] is not None
+            moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
+            assert moved, "circle preview node did not follow the mouse"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
     # ── Persistence (browser) ──────────────────────────────────────
 
     def test_save_measurements_stores_to_localStorage(self, browser, tmp_path):
