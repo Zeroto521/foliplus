@@ -36,6 +36,7 @@ jobs:
           node-version-file: "package.json"
 
       - run: npm install
+      - run: npm run typecheck
       - run: playwright install chromium
       - run: pip install -e .
 
