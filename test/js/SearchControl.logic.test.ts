@@ -1,4 +1,5 @@
 import {
+  attachSearchDelIcon,
   buildSearchUrl,
   fetchSuggestions,
   initDebouncedFetch,
@@ -298,5 +299,106 @@ describe("fetchSuggestions", () => {
     expect(globalThis.fetch).toHaveBeenCalled();
     expect(ctrl.cachedSuggestions["abc"]).toHaveLength(1);
     expect(ctrl.suggestionsWrap).not.toBeNull();
+  });
+});
+
+describe("attachSearchDelIcon", () => {
+  // A real DOM wrap so toggleDelIcon can flip the inner ✕'s visible class.
+  // makeMarkerWithEl: each L.marker() call returns a fresh marker sharing the
+  // same wrap element, so ctrl.marker and the del icon are distinct objects.
+  function makeMarkerWithEl() {
+    const span = document.createElement("span");
+    span.setAttribute("data-del-icon", "");
+    const wrap = document.createElement("div");
+    wrap.appendChild(span);
+    const makeMarker = () => ({
+      bindPopup: vi.fn(),
+      openPopup: vi.fn(),
+      addTo: vi.fn(),
+      getPopup: () => ({ isOpen: () => false }),
+      on: vi.fn(),
+      getElement: () => wrap,
+    });
+    window.L.marker = vi.fn(makeMarker);
+    const marker = makeMarker();
+    return { marker, span };
+  }
+
+  it("shows the ✕ while the popup is open, hides on close", () => {
+    const { marker, span } = makeMarkerWithEl();
+    const ctrl: any = {
+      marker,
+      delIcon: null,
+      inp: { value: "abc", focus: vi.fn() },
+    };
+    attachSearchDelIcon(ctrl, [31.23, 121.47]);
+
+    expect(ctrl.delIcon).not.toBeNull();
+    expect(map.addLayer).toHaveBeenCalledWith(ctrl.delIcon);
+
+    const popupOpen = marker.on.mock.calls.find(c => c[0] === "popupopen")?.[1];
+    expect(popupOpen).toBeDefined();
+    popupOpen();
+    expect(span.classList.contains("visible")).toBe(true);
+
+    const popupClose = marker.on.mock.calls.find(c => c[0] === "popupclose")?.[1];
+    popupClose();
+    expect(span.classList.contains("visible")).toBe(false);
+  });
+
+  it("keeps the ✕ hidden by default (only popupopen reveals it)", () => {
+    // SearchControl opens the popup during creation, before the popupopen
+    // listener is attached — the ✕ must stay hidden until the user actually
+    // opens the popup again, matching MeasureControl / LocateControl.
+    const { marker, span } = makeMarkerWithEl();
+    const ctrl: any = {
+      marker,
+      delIcon: null,
+      inp: { value: "abc", focus: vi.fn() },
+    };
+    attachSearchDelIcon(ctrl, [31.23, 121.47]);
+    expect(span.classList.contains("visible")).toBe(false);
+
+    const popupOpen = marker.on.mock.calls.find(c => c[0] === "popupopen")?.[1];
+    popupOpen();
+    expect(span.classList.contains("visible")).toBe(true);
+  });
+
+  it("clicking the ✕ removes the pin and clears the search input", () => {
+    const { marker } = makeMarkerWithEl();
+    const ctrl: any = {
+      marker,
+      delIcon: null,
+      inp: { value: "abc", focus: vi.fn() },
+    };
+    attachSearchDelIcon(ctrl, [31.23, 121.47]);
+    const delIcon = ctrl.delIcon;
+
+    const delClick = delIcon.on.mock.calls.find(c => c[0] === "click")?.[1];
+    expect(delClick).toBeDefined();
+    const x = document.createElement("span");
+    x.setAttribute("data-del-icon", "");
+    delClick({ originalEvent: { target: x } });
+
+    expect(map.removeLayer).toHaveBeenCalledWith(marker);
+    expect(map.removeLayer).toHaveBeenCalledWith(delIcon);
+    expect(ctrl.marker).toBeNull();
+    expect(ctrl.delIcon).toBeNull();
+    expect(ctrl.inp.value).toBe("");
+    expect(ctrl.inp.focus).toHaveBeenCalled();
+  });
+
+  it("replaces any previous del icon when called again", () => {
+    const { marker } = makeMarkerWithEl();
+    const ctrl: any = {
+      marker,
+      delIcon: null,
+      inp: { value: "abc", focus: vi.fn() },
+    };
+    attachSearchDelIcon(ctrl, [31.23, 121.47]);
+    const first = ctrl.delIcon;
+    attachSearchDelIcon(ctrl, [31.24, 121.48]);
+    expect(map.removeLayer).toHaveBeenCalledWith(first);
+    expect(ctrl.delIcon).not.toBe(first);
   });
 });
