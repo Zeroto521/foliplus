@@ -411,6 +411,16 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     dom.el("option", { value: info.id, parent: sel }, info.name);
   });
 
+  // Auto-select when only one point layer exists — skip the
+  // "Please select a point layer" step entirely.
+  if (ctrl.m.pointLayers.length === 1 && !ctrl.m.selectedLayerId) {
+    ctrl.m.selectedLayerId = ctrl.m.pointLayers[0].id;
+    if (ctrl.extraBody) ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
+    syncSelect(ctrl, sel, ctrl.m.selectedLayerId);
+    updateFieldSelector(ctrl);
+    ctrl.m.renderHexagons();
+  }
+
   if (ctrl.m.selectedLayerId) sel.value = ctrl.m.selectedLayerId;
   else sel.selectedIndex = 0;
 
@@ -425,6 +435,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
+  // Toggle extra body visibility based on current selection.
+  if (ctrl.extraBody)
+    ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
 };
 
 const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
