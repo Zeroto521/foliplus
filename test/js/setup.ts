@@ -71,6 +71,7 @@ window.L = {
     openPopup: vi.fn(),
     addTo: vi.fn(),
     getPopup: () => null,
+    on: vi.fn(),
   })),
   divIcon: vi.fn(() => ({})),
   Path: class {},

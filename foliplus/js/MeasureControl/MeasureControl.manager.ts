@@ -1,4 +1,5 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
+import { hideDelIcons } from "#common/delicon.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -13,7 +14,6 @@ import {
   MeasureMode,
   PolygonMode,
 } from "./MeasureControl.mode.js";
-import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;
@@ -92,7 +92,7 @@ class MeasureManager {
       if (this.isSuppressHideDel) return;
       const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      Util.hideDelIcons();
+      hideDelIcons();
     };
     this.map.on("click", this.onMapClick);
 

@@ -528,3 +528,52 @@
   border: var(--border-thin) solid var(--divider-color);
   box-shadow: var(--shadow-xs);
 }
+
+/* ── Floating Delete Icon (shared by MeasureControl / LocateControl) ── */
+.foliplus-del-icon {
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+.foliplus-del-icon [data-del-icon] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  background: var(--accent-primary);
+  border: var(--border-thick) solid var(--ctrl-bg);
+  border-radius: var(--radius-round);
+  color: var(--ctrl-bg);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: none;
+  opacity: 0;
+  visibility: hidden;
+  top: -18px;
+  left: var(--size-2);
+  right: auto;
+  margin: 0;
+  transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast),
+    transform var(--transition-fast),
+    background var(--transition-fast);
+
+  &.visible {
+    opacity: 1;
+    visibility: visible;
+    display: flex;
+  }
+  &:hover {
+    background: rgba(var(--red-rgb), var(--alpha-95));
+    box-shadow: var(--shadow-xs);
+    transform: scale(var(--scale-hover));
+  }
+  &:active {
+    transform: scale(var(--scale-press));
+  }
+}

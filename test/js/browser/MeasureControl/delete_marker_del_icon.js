@@ -8,7 +8,7 @@
   );
   if (delMkr) {
     // Simulate clicking the del icon: make it visible, then fire
-    const icon = delMkr.getElement().querySelector(".foliplus-measure-del-icon");
+    const icon = delMkr.getElement().querySelector("[data-del-icon]");
     if (icon) icon.classList.add("visible");
     // Fire with a mock originalEvent that has the del-icon target
     delMkr.fire("click", { originalEvent: { target: icon } });

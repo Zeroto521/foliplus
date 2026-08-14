@@ -1,3 +1,10 @@
+import {
+  DEL_ICON_MARKER_ANCHOR,
+  attachDelClick,
+  hideDelIcons,
+  makeDelIcon,
+  toggleDelIcon,
+} from "#common/delicon.js";
 import { createLocationMarker, stopEvent } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
@@ -150,24 +157,23 @@ class MarkerMode extends MeasureMode {
       false, // do not auto-open popup on restore
     );
     const delMarker = manager.layers.addLayer(
-      Util.makeDelIcon(L.latLng(data.lat!, data.lng!), {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR as [number, number],
+      makeDelIcon(L.latLng(data.lat!, data.lng!), {
         title: _(`${CONF.name}.del_tooltip`),
+        iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
       }),
     );
 
     marker.on("popupopen", () => {
-      Util.hideDelIcons();
+      hideDelIcons();
       // Use the latest resolved address so a marker whose geocode finished
       // while the popup was closed still shows the real address on first open
       // (createLocationMarker only updates an open popup).
       if (data.address !== null)
         marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
-      Util.toggleDelIcon(delMarker, true);
+      toggleDelIcon(delMarker, true);
     });
     marker.on("popupclose", () => {
-      Util.toggleDelIcon(delMarker, false);
+      toggleDelIcon(delMarker, false);
     });
 
     const deleteMarker = () => {
@@ -177,7 +183,7 @@ class MarkerMode extends MeasureMode {
       manager.saveMeasurements();
       manager.layers.unregister();
     };
-    Util.attachDelClick(delMarker, deleteMarker);
+    attachDelClick(delMarker, deleteMarker);
   }
 
   start() {
@@ -235,10 +241,9 @@ class MarkerMode extends MeasureMode {
     );
 
     const delMarker = this.layers.addLayer(
-      Util.makeDelIcon(event.latlng, {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR as [number, number],
+      makeDelIcon(event.latlng, {
         title: _(`${CONF.name}.del_tooltip`),
+        iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
       }),
     );
 
@@ -251,18 +256,18 @@ class MarkerMode extends MeasureMode {
       this.m.saveMeasurements();
       this.layers.unregister();
     };
-    Util.attachDelClick(delMarker, deleteMarker);
+    attachDelClick(delMarker, deleteMarker);
 
     // Bind popup events BEFORE async geocode so X appears on first popup open
     marker.on("popupopen", () => {
-      Util.hideDelIcons();
+      hideDelIcons();
       if (measurement.address !== null)
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
-      Util.toggleDelIcon(delMarker, true);
+      toggleDelIcon(delMarker, true);
     });
 
     marker.on("popupclose", () => {
-      Util.toggleDelIcon(delMarker, false);
+      toggleDelIcon(delMarker, false);
     });
   }
 }
@@ -601,11 +606,10 @@ class PolygonMode extends PreviewMode {
       onUpdate: () => {
         const newArea = Util.area(points);
         const { segments } = Util.recalculateSegments(points);
-        const n = points.length;
         segments.push({
           lng: points[0].lng,
           lat: points[0].lat,
-          distance: Util.distance(points[n - 1], points[0]),
+          distance: Util.distance(points[points.length - 1], points[0]),
         });
         data.points = points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat }));
         data.segments = segments;
@@ -908,10 +912,7 @@ class CircleMode extends PreviewMode {
       }),
     ) as L.Marker;
     const delMarker = manager.layers.addLayer(
-      Util.makeDelIcon(centerLatLng, {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        title: _(`${CONF.name}.del_tooltip`),
-      }),
+      makeDelIcon(centerLatLng, { title: _(`${CONF.name}.del_tooltip`) }),
     ) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
@@ -1126,10 +1127,7 @@ class CircleMode extends PreviewMode {
       );
 
       const delMarker = this.layers.addLayer(
-        Util.makeDelIcon(centerLatLng, {
-          zIndexOffset: CONST.Z_INDEX.OFFSET,
-          title: _(`${CONF.name}.del_tooltip`),
-        }),
+        makeDelIcon(centerLatLng, { title: _(`${CONF.name}.del_tooltip`) }),
       );
 
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);

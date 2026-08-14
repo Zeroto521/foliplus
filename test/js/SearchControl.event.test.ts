@@ -22,6 +22,7 @@ function makeCtrl(): any {
     _handlers: handlers,
     mode: "coord",
     marker: null,
+    delIcon: null,
     debouncedFetch: { cancel: vi.fn() },
     suggestionsWrap: null,
     suggestionsThrottleTimer: null,
@@ -88,16 +89,20 @@ describe("bindEvents", () => {
     expect(map.flyTo).toHaveBeenCalled();
   });
 
-  it("clears input and removes marker on clear", () => {
+  it("clears input and removes marker + del icon on clear", () => {
     const ctrl = makeCtrl();
     ctrl.inp.value = "abc";
     const marker = { id: 1 };
+    const delIcon = { id: 2 };
     ctrl.marker = marker;
+    ctrl.delIcon = delIcon;
     bindEvents(ctrl);
     ctrl.clearBtn.click();
     expect(ctrl.inp.value).toBe("");
     expect(map.removeLayer).toHaveBeenCalledWith(marker);
+    expect(map.removeLayer).toHaveBeenCalledWith(delIcon);
     expect(ctrl.marker).toBeNull();
+    expect(ctrl.delIcon).toBeNull();
   });
 
   it("debounce-fetches on addr input", () => {

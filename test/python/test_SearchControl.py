@@ -191,6 +191,35 @@ class TestSearchControlBrowser:
         finally:
             page.close()
 
+    def test_del_icon_removes_pin_and_clears_input(self, browser, tmp_path):
+        """Floating ✕ appears with the popup and removes the pin + clears input."""
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # Coordinate search → pin placed, but ✕ is hidden by default.
+            page.evaluate(_js("SearchControl/trigger_coord_search"))
+            page.wait_for_timeout(500)
+            state = page.evaluate(_js("SearchControl/read_delicon"))
+            assert not state["delIconVisible"], "✕ should be hidden by default"
+
+            # Open the pin's popup → ✕ appears (unified with Measure/Locate).
+            assert page.evaluate(_js("SearchControl/toggle_popup")), "pin not found"
+            page.wait_for_selector(
+                "[data-del-icon].visible", state="attached", timeout=10000
+            )
+            assert page.evaluate(_js("SearchControl/read_delicon"))["delIconVisible"]
+
+            # Click the ✕ → pin removed + input cleared.
+            clicked = page.evaluate(_js("SearchControl/click_delicon"))
+            assert clicked, "no visible ✕ to click"
+            page.wait_for_timeout(300)
+            cleared = page.evaluate(_js("SearchControl/read_clear_state"))
+            assert cleared["inputCleared"], "input should be cleared after clicking ✕"
+            assert cleared["delIconCount"] == 0, "✕ should be removed after click"
+            assert cleared["popupCount"] == 0, "popup should be closed after click"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
     def test_escape_collapses_control(self, browser, tmp_path):
         """Escape key collapses the control when no suggestions are shown."""
         page, errors = self._make_page(browser, tmp_path)
