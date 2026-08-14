@@ -69,7 +69,9 @@ const resolveLocale = (
   if (!lang || !tables[lang]) {
     lang = (
       typeof navigator !== "undefined"
-        ? navigator.language || (navigator as any).userLanguage || ""
+        ? navigator.language ||
+            (navigator as Navigator & { userLanguage?: string }).userLanguage ||
+            ""
         : ""
     )
       .split("-")[0]
@@ -86,9 +88,9 @@ const resolveLocale = (
  * Mutates ``conf.locale_code`` with the resolved code so subsequent calls
  * short-circuit without repeating the detection.
  */
-const resolveLocaleCode = (conf: any): string => {
+const resolveLocaleCode = (conf: ComponentConfig): string => {
   if (conf.locale_code) return conf.locale_code;
-  const table = resolveLocale("", conf.locale_tables);
+  const table = resolveLocale("", conf.locale_tables as LocaleTables | null);
   conf.locale_code = (table && table["locale.code"]) || "en";
   return conf.locale_code;
 };
@@ -98,12 +100,12 @@ const resolveLocaleCode = (conf: any): string => {
  * Merges common tables (``window.foliplus._TABLES``) with component-specific
  * tables (``conf.locale_tables``) and resolves the active language.
  */
-const createTranslator = (conf: any): ((key: string) => string) => {
+const createTranslator = (conf: ComponentConfig): ((key: string) => string) => {
   const code = resolveLocaleCode(conf);
 
   // Merge common + component tables
   const common = (window.foliplus._TABLES || {})[code] || {};
-  const own = (conf.locale_tables || {})[code] || {};
+  const own = ((conf.locale_tables as LocaleTables | null) || {})[code] || {};
   const table = { ...common, ...own };
   table["locale.code"] = code;
 

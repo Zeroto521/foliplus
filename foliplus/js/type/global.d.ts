@@ -20,42 +20,6 @@ import type * as Leaflet from "leaflet";
 
 // ── Runtime helpers ────────────────────────────────────────────
 
-// ── Component config ───────────────────────────────────────────
-
-/** Per-component config injected by the Jinja2 IIFE. Fields are runtime-defined. */
-interface ComponentConfig {
-  name: string;
-  locale_code?: string;
-  position?: Leaflet.ControlPosition;
-  mode?: string;
-  zoom?: number;
-  data?: Array<{ name: string; id: string; isBase: boolean }>;
-  show_bearing?: boolean;
-  agg?: string;
-  method?: string;
-  n_classes?: number;
-  field?: string;
-  color_scheme?: string;
-  border_weight?: number;
-  border_color?: string;
-  border_opacity?: number;
-  fill_opacity?: number;
-  label_format?: "auto" | "comma" | "int";
-  label_show?: boolean;
-  hide_self?: boolean;
-  hide_others?: boolean;
-  max_pixels?: number;
-  quality?: number;
-  scale?: string | number;
-  isMetric?: boolean;
-  background?: string;
-  timeout?: number;
-  filename?: string;
-  format?: string;
-  schemes?: string[];
-  [key: string]: unknown;
-}
-
 // ── CDN globals (no @types available) ──────────────────────────
 
 /** Turf.js (CDN v7). Only the subset used by foliplus. */
@@ -142,6 +106,40 @@ declare module "leaflet" {
 }
 
 declare global {
+  /** Per-component config injected by the Jinja2 IIFE. Fields are runtime-defined. */
+  interface ComponentConfig {
+    name: string;
+    locale_code?: string;
+    position?: Leaflet.ControlPosition;
+    mode?: string;
+    zoom?: number;
+    data?: Array<{ name: string; id: string; isBase: boolean }>;
+    show_bearing?: boolean;
+    agg?: string;
+    method?: string;
+    n_classes?: number;
+    field?: string;
+    color_scheme?: string;
+    border_weight?: number;
+    border_color?: string;
+    border_opacity?: number;
+    fill_opacity?: number;
+    label_format?: "auto" | "comma" | "int";
+    label_show?: boolean;
+    hide_self?: boolean;
+    hide_others?: boolean;
+    max_pixels?: number;
+    quality?: number;
+    scale?: string | number;
+    isMetric?: boolean;
+    background?: string;
+    timeout?: number;
+    filename?: string;
+    format?: string;
+    schemes?: string[];
+    [key: string]: unknown;
+  }
+
   /** Runtime helpers injected by the foliplus Python wrapper. */
   interface Foliplus {
     isInitialized: boolean;

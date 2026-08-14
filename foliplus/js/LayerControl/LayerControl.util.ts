@@ -40,7 +40,9 @@ const getTypeSVG = (layer: L.Layer): string => {
 };
 
 const findLayer = (map: L.Map, id: string): L.Layer | null => {
-  return (map._layers && map._layers[id]) || (window as any)[id] || null;
+  return (
+    (map._layers && map._layers[id]) || Reflect.get(window, id) || null
+  ) as L.Layer | null;
 };
 
 const traverse = (
@@ -50,14 +52,14 @@ const traverse = (
   leafOnly = false,
 ) => {
   if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
-  const isContainer = typeof (layer as any).eachLayer === "function";
+  const container = layer as L.LayerGroup;
+  const isContainer = typeof container.eachLayer === "function";
   if (!leafOnly) fn(layer);
-  if (isContainer)
-    (layer as any).eachLayer((c: L.Layer) => traverse(c, fn, depth + 1, leafOnly));
-  else if ((layer as any)._layers) {
-    for (const k in (layer as any)._layers) {
-      if (Object.hasOwn((layer as any)._layers, k))
-        traverse((layer as any)._layers[k], fn, depth + 1, leafOnly);
+  if (isContainer) container.eachLayer(c => traverse(c, fn, depth + 1, leafOnly));
+  else if (container._layers) {
+    for (const k in container._layers) {
+      if (Object.hasOwn(container._layers, k))
+        traverse(container._layers[k], fn, depth + 1, leafOnly);
     }
   } else if (leafOnly) fn(layer);
 };

@@ -55,7 +55,7 @@ const bindPanelToggle = (opts: {
 }): void => {
   const btn = opts.container.querySelector(opts.toggleBtn) as HTMLElement | null;
   if (btn) {
-    L.DomEvent.on(btn, "click", (event: any) => {
+    L.DomEvent.on(btn, "click", (event: Event) => {
       L.DomEvent.stop(event);
       opts.container.classList.remove(CLASSES.COLLAPSED);
       opts.container.classList.add(CLASSES.EXPANDED);
@@ -64,7 +64,7 @@ const bindPanelToggle = (opts: {
   }
   const hdr = opts.container.querySelector(opts.header) as HTMLElement | null;
   if (hdr) {
-    L.DomEvent.on(hdr, "click", (event: any) => {
+    L.DomEvent.on(hdr, "click", (event: Event) => {
       L.DomEvent.stop(event);
       opts.container.classList.remove(CLASSES.EXPANDED);
       opts.container.classList.add(CLASSES.COLLAPSED);
@@ -84,7 +84,7 @@ const bindFoldToggle = (opts: {
   onExpand?: () => void;
   onCollapse?: () => void;
 }): void => {
-  L.DomEvent.on(opts.toggleBtn, "click", (event: any) => {
+  L.DomEvent.on(opts.toggleBtn, "click", (event: Event) => {
     L.DomEvent.stop(event);
     const expanding = opts.container.classList.contains(CLASSES.COLLAPSED);
     opts.container.classList.toggle(CLASSES.COLLAPSED);
@@ -179,7 +179,7 @@ const createFoldControl = (opts: {
  * @returns Cleanup function
  */
 const bindMapSync = (opts: {
-  map: any;
+  map: L.Map;
   hideEvents?: string[];
   updateEvents?: string[];
   showEvents?: string[];
@@ -188,7 +188,7 @@ const bindMapSync = (opts: {
   onShow?: () => void;
   onMove?: () => void;
 }): (() => void) => {
-  const handlers: Array<[string, any]> = [];
+  const handlers: Array<[string, () => void]> = [];
   const add = (events: string[] | undefined, fn: (() => void) | undefined) => {
     if (!events || !fn) return;
     events.forEach(event => {
