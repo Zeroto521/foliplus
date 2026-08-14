@@ -114,8 +114,8 @@ const findComponents = () => {
     if (entry.name === "shared") continue; // not a control component
     const name = entry.name;
     const jsFile = resolveEntry([
-      resolve(CFG.tmp.js, name, `${name}.ts`),
-      resolve(CFG.tmp.js, name, `${name}.js`),
+      resolve(CFG.tmp.js, name, "index.ts"),
+      resolve(CFG.tmp.js, name, "index.js"),
     ]);
     const cssFile = resolve(CFG.src.css, `${name}.css`);
     if (jsFile)
