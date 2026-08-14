@@ -26,8 +26,8 @@ const nativeAPI = (() => {
   return null;
 })();
 
-const isEnabled = nativeAPI && Boolean((document as any)[nativeAPI.fullscreenEnabled]);
-const getFullscreenEl = () =>
-  nativeAPI && (document as any)[nativeAPI.fullscreenElement];
+const isEnabled = nativeAPI && Boolean((document as unknown as Record<string, unknown>)[nativeAPI.fullscreenEnabled]);
+const getFullscreenEl = (): Element | null =>
+  (nativeAPI && (document as unknown as Record<string, Element | null>)[nativeAPI.fullscreenElement]) ?? null;
 
 export { nativeAPI, isEnabled, getFullscreenEl };

@@ -13,7 +13,7 @@ const _ = createTranslator(CONF);
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
-const updateUI = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
+const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   const isFull = !!getFullscreenEl() || map.isFullscreen;
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? _(`${CONF.name}.title_cancel`) : _(`${CONF.name}.title`);
@@ -46,11 +46,10 @@ const updateUI = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
-const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
+const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   if (getFullscreenEl() || map.isFullscreen) {
     if (isEnabled) {
-      (document as any)
-        [nativeAPI!.exitFullscreen]()
+      (document as unknown as Record<string, () => Promise<void>>)[nativeAPI!.exitFullscreen]!()
         .then(() => {
           map.isFullscreen = false;
         })
@@ -63,16 +62,15 @@ const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) 
       map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
       map.invalidateSize();
     }
-    (map as any).isFullscreen = false;
+    map.isFullscreen = false;
   } else {
     if (isEnabled) {
-      (map.getContainer() as any)
-        [nativeAPI!.requestFullscreen]()
+      (map.getContainer() as unknown as Record<string, () => Promise<void>>)[nativeAPI!.requestFullscreen]!()
         .then(() => {
-          (map as any).isFullscreen = true;
+          map.isFullscreen = true;
         })
         .catch(() => {
-          (map as any).isFullscreen = !!getFullscreenEl();
+          map.isFullscreen = !!getFullscreenEl();
           updateUI(map, fsBtn, container);
         });
       return;
@@ -80,7 +78,7 @@ const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) 
       map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
       map.invalidateSize();
     }
-    (map as any).isFullscreen = true;
+    map.isFullscreen = true;
   }
   updateUI(map, fsBtn, container);
 };
@@ -88,7 +86,7 @@ const toggleFullscreen = (map: any, fsBtn: HTMLElement, container: HTMLElement) 
 // ══════════════════════════════════════════════════════════════════════════════
 // bindFullscreenEvents  —  wire up fullscreenchange + unload listeners
 // ══════════════════════════════════════════════════════════════════════════════
-const bindFullscreenEvents = (map: any, fsBtn: HTMLElement, container: HTMLElement) => {
+const bindFullscreenEvents = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   const handleFSChange = () => {
     map.isFullscreen = !!getFullscreenEl();
     updateUI(map, fsBtn, container);

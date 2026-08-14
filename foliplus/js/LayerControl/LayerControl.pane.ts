@@ -5,6 +5,14 @@ import * as Util from "./LayerControl.util.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
+/** Marker with protected Leaflet internals (shadow element). */
+type MarkerWithShadow = L.Marker & { _shadow?: HTMLElement };
+
+/** Renderer storage on L.Map (keyed by CONST.RENDERER_KEY + pane name). */
+interface PaneRendererMap {
+  [key: string]: L.SVG | undefined;
+}
+
 // ==================== Pane Manager: PaneManager ====================
 // Responsibility split — "who orders, who hosts":
 //
@@ -58,21 +66,21 @@ class PaneManager {
   ensurePane(
     paneName: string,
     needRenderer = true,
-  ): { pane: HTMLElement; renderer: any } {
+  ): { pane: HTMLElement; renderer: L.SVG | null } {
     let pane = this.map.getPane(paneName);
     if (!pane) {
       pane = this.map.createPane(paneName);
       pane.classList.add("foliplus-layer-pane");
       pane.style.zIndex = String(CONST.Z_INDEX.BASE);
     }
-    let renderer: any = null;
+    let renderer: L.SVG | null = null;
     if (needRenderer) {
       const key = CONST.RENDERER_KEY + paneName;
-      renderer = (this.map as any)[key];
+      renderer = (this.map as L.Map & PaneRendererMap)[key] ?? null;
       if (!renderer) {
         renderer = L.svg({ pane: paneName });
         renderer.addTo(this.map);
-        (this.map as any)[key] = renderer;
+        (this.map as L.Map & PaneRendererMap)[key] = renderer;
       }
     }
     return { pane, renderer };
@@ -86,8 +94,8 @@ class PaneManager {
     const panes = new Set<string>();
     Util.forEachLayer(
       layer,
-      (l: any) => {
-        const p = l.options?.pane;
+      (l: L.Layer) => {
+        const p = l.options.pane;
         if (p && !this.isDefaultPane(p)) panes.add(p);
       },
       depth,
@@ -125,7 +133,11 @@ class PaneManager {
    * Move layer DOM content into target panes, batched via DocumentFragment.
    */
   migrateLayers(
-    layersToMove: Array<{ layer: L.Layer; paneName: string | null; renderer: any }>,
+    layersToMove: Array<{
+      layer: L.Layer;
+      paneName: string | null;
+      renderer: L.SVG | null;
+    }>,
   ): void {
     if (!layersToMove.length) return;
     const groups = new Map<HTMLElement, HTMLElement[]>();
@@ -136,21 +148,22 @@ class PaneManager {
       if (!container) continue;
       const paneEl = this.map.getPane(paneName);
       if (!groups.has(container)) groups.set(container, []);
-      const collect = (l: any) => {
-        if (l.eachLayer) {
-          l.eachLayer(collect);
+      const collect = (l: L.Layer): void => {
+        if ((l as L.Layer & { eachLayer?: (fn: (c: L.Layer) => void) => void }).eachLayer) {
+          (l as L.Layer & { eachLayer: (fn: (c: L.Layer) => void) => void }).eachLayer(collect);
           return;
         }
         l.options.pane = paneName;
         l.options.paneSet = true;
-        if (l instanceof L.Path) l.options.renderer = renderer;
+        if (l instanceof L.Path) l.options.renderer = renderer ?? undefined;
         const pathEl = l instanceof L.Path ? (l.getElement() as HTMLElement) : null;
         if (pathEl && pathEl.parentNode !== container)
           groups.get(container)!.push(pathEl);
         if (l instanceof L.Marker && paneEl) {
-          if ((l as any)._shadow && (l as any)._shadow.parentNode !== paneEl) {
+          const marker = l as unknown as MarkerWithShadow;
+          if (marker._shadow && marker._shadow.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-            markerGroups.get(paneEl)!.push((l as any)._shadow);
+            markerGroups.get(paneEl)!.push(marker._shadow);
           }
           const iconEl = l.getElement();
           if (iconEl && iconEl.parentNode !== paneEl) {
