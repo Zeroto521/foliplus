@@ -1,4 +1,5 @@
 // MeasureControl UI — standalone functions invoked with a MeasureManager context.
+import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
@@ -33,7 +34,7 @@ const attachDistanceUI = (
     const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
     isXVisible = s.isXVisible;
     isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach(m => Util.toggleDelIcon(m, isXVisible));
+    nodeDelIcons.forEach(m => toggleDelIcon(m, isXVisible));
     Util.applyToggle(undefined, isXVisible, segLabels, isLabelsVisible);
   };
 
@@ -66,8 +67,7 @@ const attachDistanceUI = (
     const isFirst = idx === 0;
     const isLastWhenTwo = points.length === 2 && idx === 1;
     const delMarker = layers.addLayer(
-      Util.makeDelIcon(node.getLatLng(), {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
+      makeDelIcon(node.getLatLng(), {
         title:
           isFirst || isLastWhenTwo
             ? _(`${CONF.name}.del_all`)
@@ -76,9 +76,9 @@ const attachDistanceUI = (
     ) as L.Marker;
     nodeDelIcons.push(delMarker);
 
-    if (isFirst || isLastWhenTwo) Util.attachDelClick(delMarker, deleteMeas);
+    if (isFirst || isLastWhenTwo) attachDelClick(delMarker, deleteMeas);
     else
-      Util.attachDelClick(delMarker, () => {
+      attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
         const ptIdx = points.findIndex(
           (p: L.LatLng) =>
@@ -104,15 +104,11 @@ const attachDistanceUI = (
         if (points.length === 2 && nodeDelIcons.length === 2) {
           const lastDel = nodeDelIcons[1];
           if (lastDel) {
+            // After deleting an intermediate node only two nodes remain:
+            // rebind the last node's delete icon to delete the whole
+            // measurement (same behavior as the first node).
             lastDel.off("click");
-            lastDel.on("click", (event: L.LeafletMouseEvent) => {
-              const t = (event.originalEvent as MouseEvent)
-                ?.target as HTMLElement | null;
-              if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                stopEvent(event);
-                deleteMeas();
-              }
-            });
+            attachDelClick(lastDel, deleteMeas);
             const iconEl = lastDel.getElement();
             if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
           }
@@ -137,7 +133,7 @@ const attachDistanceUI = (
 
     delMarker.on("click", (event: L.LeafletMouseEvent) => {
       const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
-      if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       handleItemClick(event);
     });
   });
@@ -216,7 +212,7 @@ const attachCircleUI = (
   const attachInteraction = (layer: L.Layer) => {
     layer.on("click", (event: L.LeafletMouseEvent) => {
       const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
-      if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       stopEvent(event);
       toggleCircleToggle();
     });
@@ -252,7 +248,7 @@ const attachCircleUI = (
     onDelete();
     layers.unregister();
   };
-  Util.attachDelClick(delMarker, deleteCircle);
+  attachDelClick(delMarker, deleteCircle);
 
   return { onMapClickActive, deleteCircle };
 };
@@ -324,14 +320,11 @@ const attachPolygonUI = (
     ) as L.Marker;
 
     centroidDel = layers.addLayer(
-      Util.makeDelIcon(centroid, {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        title: _(`${CONF.name}.del_all`),
-      }),
+      makeDelIcon(centroid, { title: _(`${CONF.name}.del_all`) }),
     ) as L.Marker;
-    Util.attachDelClick(centroidDel, deleteMeas);
+    attachDelClick(centroidDel, deleteMeas);
 
-    if (showX !== undefined) Util.toggleDelIcon(centroidDel, showX);
+    if (showX !== undefined) toggleDelIcon(centroidDel, showX);
   };
 
   const deleteMeas = () => {
@@ -347,8 +340,8 @@ const attachPolygonUI = (
     const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
     isXVisible = s.isXVisible;
     isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach(m => Util.toggleDelIcon(m, isXVisible));
-    if (centroidDel) Util.toggleDelIcon(centroidDel, isXVisible);
+    nodeDelIcons.forEach(m => toggleDelIcon(m, isXVisible));
+    if (centroidDel) toggleDelIcon(centroidDel, isXVisible);
     Util.applyToggle(undefined, isXVisible, segLabels, isLabelsVisible);
     if (centroidLabel) {
       const el = centroidLabel.getElement();
@@ -384,16 +377,15 @@ const attachPolygonUI = (
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
     const delMarker = layers.addLayer(
-      Util.makeDelIcon(node.getLatLng(), {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
+      makeDelIcon(node.getLatLng(), {
         title: is3pt ? _(`${CONF.name}.del_all`) : _(`${CONF.name}.del_node`),
       }),
     ) as L.Marker;
     nodeDelIcons.push(delMarker);
 
-    if (is3pt) Util.attachDelClick(delMarker, deleteMeas);
+    if (is3pt) attachDelClick(delMarker, deleteMeas);
     else
-      Util.attachDelClick(delMarker, () => {
+      attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
         const ptIdx = points.findIndex(
           (p: L.LatLng) =>
@@ -420,7 +412,7 @@ const attachPolygonUI = (
             d.on("click", (event: L.LeafletMouseEvent) => {
               const t = (event.originalEvent as MouseEvent)
                 ?.target as HTMLElement | null;
-              if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
+              if (t?.closest?.(CONST.SEL.DEL_ICON)) {
                 stopEvent(event);
                 deleteMeas();
               } else handleItemClick(event);
@@ -461,7 +453,7 @@ const attachPolygonUI = (
 
     delMarker.on("click", (event: L.LeafletMouseEvent) => {
       const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
-      if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       handleItemClick(event);
     });
   });

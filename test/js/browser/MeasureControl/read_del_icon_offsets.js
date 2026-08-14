@@ -23,14 +23,12 @@
   map.fire("contextmenu", { latlng: P(26.08, 119.36) });
 
   // Show all delete icons so they get DOM elements
-  document
-    .querySelectorAll(".foliplus-measure-del-icon")
-    .forEach(i => i.classList.add("visible"));
+  document.querySelectorAll("[data-del-icon]").forEach(i => i.classList.add("visible"));
   map.invalidateSize();
 
   // Collect every delIcon's offset relative to its anchor point.
   // A delIcon is a Leaflet marker whose wrapper is `.foliplus-del-icon`
-  // (0×0); the visible ✕ is the inner `.foliplus-measure-del-icon`.
+  // (0×0); the visible ✕ is the inner `[data-del-icon]`.
   const result = { modes: {} };
   const dels = [];
   const walk = node => {
@@ -53,7 +51,7 @@
     if (seenLL.has(llKey)) continue; // 递归会重复访问嵌套 group，去重
     seenLL.add(llKey);
     const wrap = l.getElement();
-    const inner = wrap?.querySelector?.(".foliplus-measure-del-icon") || wrap;
+    const inner = wrap?.querySelector?.("[data-del-icon]") || wrap;
     if (!inner) continue;
     const rect = inner.getBoundingClientRect();
     if (rect.width === 0 && rect.height === 0) continue; // 不可见

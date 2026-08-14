@@ -1,7 +1,7 @@
 import { BaseControl } from "#common/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
-import { locateMe } from "./LocateControl.logic.js";
+import { locateMe, removeMarker } from "./LocateControl.logic.js";
 
 // ── SVG Icons ──
 // AMap-style crosshair locate icon (stroke-rendered, inherits common button SVG styles).
@@ -21,6 +21,7 @@ const { _ } = createControlEnv(CONF, LOCATE);
 class LocateControl extends BaseControl {
   declare container: HTMLElement;
   declare marker: L.Marker | null;
+  declare delIcon: L.Marker | null;
 
   buildDOM() {
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
@@ -43,8 +44,7 @@ class LocateControl extends BaseControl {
   }
 
   destroy() {
-    if (this.marker) map.removeLayer(this.marker);
-    this.marker = null;
+    removeMarker(this);
   }
 }
 

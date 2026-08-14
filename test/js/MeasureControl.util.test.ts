@@ -109,52 +109,12 @@ describe("makeNode", () => {
   });
 });
 
-describe("makeDelIcon", () => {
-  it("creates a marker with a delete icon divIcon", () => {
-    const marker = Util.makeDelIcon({ lat: 1, lng: 2 });
-    expect(window.L.marker).toHaveBeenCalled();
-    const [latlng, opts] = window.L.marker.mock.calls[0];
-    expect(latlng).toEqual({ lat: 1, lng: 2 });
-    expect(opts.interactive).toBe(true);
-    expect(opts.icon).toBeDefined();
-  });
-});
-
 describe("setLabelText", () => {
   it("updates the label element text", () => {
     const labelEl = document.createElement("span");
     const marker = { getElement: () => ({ querySelector: () => labelEl }) };
     Util.setLabelText(marker, "new text");
     expect(labelEl.textContent).toBe("new text");
-  });
-});
-
-describe("attachDelClick", () => {
-  it("calls callback only for delete icon clicks", () => {
-    const callback = vi.fn();
-    const delMarker = { on: vi.fn() };
-    Util.attachDelClick(delMarker, callback);
-    const handler = delMarker.on.mock.calls[0][1];
-
-    // Click on the delete icon → callback fires
-    const target = document.createElement("span");
-    target.className = "foliplus-measure-del-icon";
-    handler({ originalEvent: { target } });
-    expect(callback).toHaveBeenCalledTimes(1);
-
-    // Click elsewhere → no callback
-    handler({ originalEvent: { target: document.createElement("div") } });
-    expect(callback).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("hideDelIcons", () => {
-  it("removes visible class from delete icons", () => {
-    const el = document.createElement("div");
-    el.className = "foliplus-measure-del-icon visible";
-    document.body.appendChild(el);
-    Util.hideDelIcons();
-    expect(el.classList.contains("visible")).toBe(false);
   });
 });
 
@@ -255,22 +215,5 @@ describe("stopEvent", () => {
     stopEvent(event);
     expect(event.preventDefault).toHaveBeenCalled();
     expect(event.stopPropagation).toHaveBeenCalled();
-  });
-});
-
-describe("toggleDelIcon", () => {
-  it("toggles visible class on the delete icon element", () => {
-    const icon = document.createElement("span");
-    icon.className = "foliplus-measure-del-icon";
-    document.body.appendChild(icon);
-    const marker = { getElement: () => ({ querySelector: () => icon }) };
-    Util.toggleDelIcon(marker, true);
-    expect(icon.classList.contains("visible")).toBe(true);
-    Util.toggleDelIcon(marker, false);
-    expect(icon.classList.contains("visible")).toBe(false);
-  });
-
-  it("is safe when marker getElement returns null", () => {
-    expect(() => Util.toggleDelIcon({ getElement: () => null }, true)).not.toThrow();
   });
 });
