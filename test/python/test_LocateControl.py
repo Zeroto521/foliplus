@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import folium
 import pytest
 from conftest import (
@@ -12,6 +14,13 @@ from conftest import (
 )
 
 from foliplus import LocateControl
+
+_JS_DIR = Path(__file__).resolve().parents[1] / "js" / "browser"
+
+
+def _js(path: str) -> str:
+    """Read a browser-test JS snippet, e.g. ``_js("LocateControl/click")``."""
+    return (_JS_DIR / f"{path}.js").read_text(encoding="utf-8")
 
 
 class TestLocateControlPython:
@@ -108,22 +117,7 @@ class TestLocateControlBrowser:
         """Clicking the button calls navigator.geolocation.getCurrentPosition."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            called = page.evaluate("""
-                () => {
-                    let invoked = false;
-                    Object.defineProperty(navigator, 'geolocation', {
-                        configurable: true,
-                        value: {
-                            getCurrentPosition: (s, e, o) => {
-                                invoked = true;
-                                s({ coords: { longitude: 119.30, latitude: 26.08 } });
-                            },
-                        },
-                    });
-                    document.querySelector('.foliplus-locate-btn').click();
-                    return invoked;
-                }
-            """)
+            called = page.evaluate(_js("LocateControl/click"))
             assert called, "geolocation.getCurrentPosition was not invoked on click"
             page.wait_for_selector(".foliplus-pin", state="attached", timeout=5000)
             assert not errors, f"JS errors: {errors}"
@@ -134,15 +128,7 @@ class TestLocateControlBrowser:
         """Missing navigator.geolocation shows an error hint, no JS errors."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""
-                () => {
-                    Object.defineProperty(navigator, 'geolocation', {
-                        configurable: true,
-                        value: undefined,
-                    });
-                    document.querySelector('.foliplus-locate-btn').click();
-                }
-            """)
+            page.evaluate(_js("LocateControl/geolocation_unsupported"))
             page.wait_for_timeout(300)
             assert not errors, f"JS errors: {errors}"
         finally:
@@ -152,28 +138,10 @@ class TestLocateControlBrowser:
         """Clicking with geolocation success places a location marker."""
         page, errors = self._make_page(browser, tmp_path)
         try:
-            page.evaluate("""
-                () => {
-                    Object.defineProperty(navigator, 'geolocation', {
-                        configurable: true,
-                        value: {
-                            getCurrentPosition: (s) => {
-                                s({ coords: { longitude: 119.30, latitude: 26.08 } });
-                            },
-                        },
-                    });
-                    document.querySelector('.foliplus-locate-btn').click();
-                }
-            """)
+            page.evaluate(_js("LocateControl/click_success"))
             page.wait_for_selector(".foliplus-pin", state="attached", timeout=5000)
             # The marker's popup should show the located coordinates.
-            popup = page.evaluate("""
-                () => {
-                    const pin = document.querySelector('.foliplus-pin');
-                    const popup = document.querySelector('.foliplus-popup-content');
-                    return popup ? popup.textContent : null;
-                }
-            """)
+            popup = page.evaluate(_js("LocateControl/read_popup"))
             assert popup and "119.3" in popup and "26.08" in popup, (
                 f"Expected located coords in popup, got: {popup!r}"
             )

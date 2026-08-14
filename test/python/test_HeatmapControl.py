@@ -11,11 +11,17 @@ from conftest import (
     assert_config_value,
     assert_locale,
     make_browser_page,
-    render,
     render_control,
 )
 
 from foliplus import HeatmapControl
+
+_JS_DIR = Path(__file__).resolve().parents[1] / "js" / "browser"
+
+
+def _js(path: str) -> str:
+    """Read a browser-test JS snippet, e.g. ``_js("HeatmapControl/read_defaults")``."""
+    return (_JS_DIR / f"{path}.js").read_text(encoding="utf-8")
 
 
 class TestHeatmapControlPython:
@@ -434,18 +440,7 @@ class TestHeatmapControlBrowser:
         """Constructor initialises all user-configurable defaults."""
         page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
         try:
-            vals = page.evaluate("""() => {
-                const m = window.__heatmapCtrl.manager;
-                return {
-                    numClasses: m.numClasses,
-                    borderWeight: m.borderWeight,
-                    borderColor: m.borderColor,
-                    currentLabelShow: m.currentLabelShow,
-                    currentMethod: m.currentMethod,
-                    currentScheme: m.currentScheme,
-                    currentAgg: m.currentAgg,
-                };
-            }""")
+            vals = page.evaluate(_js("HeatmapControl/read_defaults"))
             assert vals["numClasses"] == 6, (
                 f"numClasses expected 6 got {vals['numClasses']}"
             )
@@ -583,12 +578,7 @@ class TestHeatmapControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            mgr = page.evaluate("""() => {
-                const m = window.__heatmapCtrl.manager;
-                return { numClasses: m.numClasses, borderWeight: m.borderWeight,
-                         borderColor: m.borderColor, currentMethod: m.currentMethod,
-                         currentScheme: m.currentScheme };
-            }""")
+            mgr = page.evaluate(_js("HeatmapControl/read_manager_state"))
             assert mgr["numClasses"] == 6, f"expected 6 got {mgr['numClasses']}"
             assert mgr["borderWeight"] == 1.5
             assert mgr["currentMethod"] == "jenks"
