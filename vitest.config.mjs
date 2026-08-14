@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "#common": resolve("foliplus/js/common"),
+      "#core": resolve("foliplus/js/core"),
       "#foliplus": resolve("foliplus/js"),
     },
   },

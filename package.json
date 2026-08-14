@@ -4,6 +4,7 @@
   "type": "module",
   "imports": {
     "#common/*": "./foliplus/js/common/*",
+    "#core/*": "./foliplus/js/core/*",
     "#foliplus/*": "./foliplus/js/*"
   },
   "engines": {
