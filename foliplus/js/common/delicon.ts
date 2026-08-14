@@ -5,12 +5,14 @@ import { stopEvent } from "./dom.js";
 /** Click target data-role for the delete icon span. */
 const DEL_ICON_ROLE = "del-icon";
 const DEL_ICON_CLASS = "foliplus-del-icon";
+/** The ✕ glyph rendered inside the delete icon span. */
+const DEL_ICON_CHAR = "\u2715";
 /** CSS selector matching the delete icon span. */
 const DEL_ICON_SELECTOR = `[data-${DEL_ICON_ROLE}]`;
 /** Default icon anchor: floats the ✕ at the marker's bottom tip. */
 const DEL_ICON_MARKER_ANCHOR: [number, number] = [0, 24];
 /** Z-index offset so the ✕ always renders above the marker it floats on. */
-const DEL_ICON_Z_OFFSET = 11000;
+const DEL_ICON_Z_OFFSET = 11000; // above the pin (PIN.Z_OFFSET = 10000)
 
 /** Create a delete icon marker (X icon, common version). */
 const makeDelIcon = (
@@ -26,7 +28,7 @@ const makeDelIcon = (
   return L.marker(latlng, {
     icon: L.divIcon({
       className: (className ? className + " " : "") + DEL_ICON_CLASS,
-      html: `<span data-${DEL_ICON_ROLE}="" data-foliplus-export="exclude">✕</span>`,
+      html: `<span data-${DEL_ICON_ROLE}="" data-foliplus-export="exclude">${DEL_ICON_CHAR}</span>`,
       iconSize: [0, 0],
       iconAnchor: iconAnchor || DEL_ICON_MARKER_ANCHOR,
     }),
@@ -62,6 +64,7 @@ const hideDelIcons = () => {
 };
 
 export {
+  DEL_ICON_CHAR,
   DEL_ICON_CLASS,
   DEL_ICON_MARKER_ANCHOR,
   DEL_ICON_ROLE,

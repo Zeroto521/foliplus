@@ -1,9 +1,5 @@
 // MeasureControl UI — standalone functions invoked with a MeasureManager context.
-import {
-  attachDelClick,
-  makeDelIcon,
-  toggleDelIcon
-} from "#common/delicon.js";
+import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";

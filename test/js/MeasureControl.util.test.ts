@@ -1,3 +1,9 @@
+import {
+  attachDelClick,
+  hideDelIcons,
+  makeDelIcon,
+  toggleDelIcon,
+} from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import * as Util from "#foliplus/MeasureControl/MeasureControl.util.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -111,7 +117,7 @@ describe("makeNode", () => {
 
 describe("makeDelIcon", () => {
   it("creates a marker with a delete icon divIcon", () => {
-    const marker = Util.makeDelIcon({ lat: 1, lng: 2 });
+    const marker = makeDelIcon({ lat: 1, lng: 2 });
     expect(window.L.marker).toHaveBeenCalled();
     const [latlng, opts] = window.L.marker.mock.calls[0];
     expect(latlng).toEqual({ lat: 1, lng: 2 });
@@ -133,7 +139,7 @@ describe("attachDelClick", () => {
   it("calls callback only for delete icon clicks", () => {
     const callback = vi.fn();
     const delMarker = { on: vi.fn() };
-    Util.attachDelClick(delMarker, callback);
+    attachDelClick(delMarker, callback);
     const handler = delMarker.on.mock.calls[0][1];
 
     // Click on the delete icon → callback fires
@@ -154,7 +160,7 @@ describe("hideDelIcons", () => {
     el.setAttribute("data-del-icon", "");
     el.classList.add("visible");
     document.body.appendChild(el);
-    Util.hideDelIcons();
+    hideDelIcons();
     expect(el.classList.contains("visible")).toBe(false);
   });
 });
@@ -265,13 +271,13 @@ describe("toggleDelIcon", () => {
     icon.setAttribute("data-del-icon", "");
     document.body.appendChild(icon);
     const marker = { getElement: () => ({ querySelector: () => icon }) };
-    Util.toggleDelIcon(marker, true);
+    toggleDelIcon(marker, true);
     expect(icon.classList.contains("visible")).toBe(true);
-    Util.toggleDelIcon(marker, false);
+    toggleDelIcon(marker, false);
     expect(icon.classList.contains("visible")).toBe(false);
   });
 
   it("is safe when marker getElement returns null", () => {
-    expect(() => Util.toggleDelIcon({ getElement: () => null }, true)).not.toThrow();
+    expect(() => toggleDelIcon({ getElement: () => null }, true)).not.toThrow();
   });
 });

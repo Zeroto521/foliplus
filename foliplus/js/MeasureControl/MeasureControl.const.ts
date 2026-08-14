@@ -1,15 +1,15 @@
-import { DEL_ICON_SELECTOR, DEL_ICON_Z_OFFSET } from "#common/delicon.js";
+import {
+  DEL_ICON_CHAR,
+  DEL_ICON_SELECTOR,
+  DEL_ICON_Z_OFFSET,
+} from "#common/delicon.js";
 
 /** Timing / delay constants. */
 export const TIMING = {
   CLICK_COOLDOWN: 300,
   FINALIZE_DELAY: 50,
-  DEL_ICON_RETRY_DELAY: 50,
   SUPPRESS_HIDE_DELAY: 100,
 };
-
-/** Delete icon ✕ character. */
-export const DEL_ICON = { CHAR: "\u2715" };
 
 /** Measure node marker. */
 export const MARKER = { RADIUS: 5 };

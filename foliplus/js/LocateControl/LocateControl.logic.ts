@@ -1,10 +1,6 @@
 // LocateControl locate logic — locate me via the browser geolocation API.
 import { fromWgs84 } from "#common/coord.js";
-import {
-  DEL_ICON_Z_OFFSET,
-  attachDelClick,
-  makeDelIcon,
-} from "#common/delicon.js";
+import { DEL_ICON_Z_OFFSET, attachDelClick, makeDelIcon } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";

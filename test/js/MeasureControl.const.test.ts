@@ -1,3 +1,4 @@
+import { DEL_ICON_CHAR } from "#common/delicon.js";
 import * as CONST from "#foliplus/MeasureControl/MeasureControl.const.js";
 import { describe, expect, it } from "vitest";
 
@@ -10,7 +11,7 @@ describe("TIMING", () => {
 
 describe("DEL_ICON", () => {
   it("defines delete icon config", () => {
-    expect(CONST.DEL_ICON.CHAR).toBe("\u2715");
+    expect(DEL_ICON_CHAR).toBe("\u2715");
   });
   it("defines the delete icon selector", () => {
     expect(CONST.SEL.DEL_ICON).toBe("[data-del-icon]");

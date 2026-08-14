@@ -1,11 +1,6 @@
 // MeasureControl utility functions — standalone, no manager dependency.
-import {
-  attachDelClick,
-  hideDelIcons,
-  makeDelIcon,
-  toggleDelIcon,
-} from "#common/delicon.js";
-import { buildPopupHtml, stopEvent } from "#common/dom.js";
+import { hideDelIcons, toggleDelIcon } from "#common/delicon.js";
+import { buildPopupHtml } from "#common/dom.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
@@ -225,7 +220,6 @@ export {
   animateDashSweep,
   applyToggle,
   area,
-  attachDelClick,
   buildPopup,
   calcArea,
   calcCentroid,
@@ -236,8 +230,6 @@ export {
   formatArea,
   formatDistance,
   formatSegmentLabel,
-  hideDelIcons,
-  makeDelIcon,
   makeLabelDivIcon,
   makeMidLabelDivIcon,
   makeNode,
@@ -245,6 +237,5 @@ export {
   recalculateSegments,
   setLabelText,
   suppressHide,
-  toggleDelIcon,
   toggleVisibility,
 };
