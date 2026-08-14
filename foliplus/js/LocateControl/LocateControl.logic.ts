@@ -1,5 +1,10 @@
 // LocateControl locate logic — locate me via the browser geolocation API.
 import { fromWgs84 } from "#common/coord.js";
+import {
+  DEL_ICON_Z_OFFSET,
+  attachDelClick,
+  makeDelIcon,
+} from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
@@ -11,12 +16,26 @@ const _ = createTranslator(CONF);
 /** Minimal ctrl interface for locate logic. */
 interface LocateCtrl {
   marker: L.Marker | null;
+  delIcon: L.Marker | null;
 }
+
+/** Remove the current location pin and its delete icon. */
+const removeMarker = (ctrl: LocateCtrl) => {
+  if (ctrl.delIcon) {
+    map.removeLayer(ctrl.delIcon);
+    ctrl.delIcon = null;
+  }
+  if (ctrl.marker) {
+    map.removeLayer(ctrl.marker);
+    ctrl.marker = null;
+  }
+};
 
 /** Fly to a coordinate and place a reverse-geocoded location marker. */
 const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: string) => {
   foliplus.hideHint(CONF.name);
   map.flyTo([lat, lng], CONF.zoom || 15);
+  removeMarker(ctrl);
   ctrl.marker = createLocationMarker(
     map,
     lng,
@@ -28,8 +47,29 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
     _(`${CONF.name}.popup_addr_label`),
     _("foliplus.close_label"),
     CONF.locale_code,
-    ctrl.marker,
+    null,
+    undefined,
+    undefined,
   );
+
+  // Floating ✕ next to the pin: shown while the popup is open (popupopen),
+  // hidden otherwise (popupclose), matching MeasureControl's marker UX.
+  ctrl.delIcon = makeDelIcon([lat, lng], {
+    title: _("foliplus.close_label"),
+    zIndexOffset: DEL_ICON_Z_OFFSET, // above the pin (PIN.Z_OFFSET = 10000)
+  });
+  map.addLayer(ctrl.delIcon);
+
+  const delIcon = ctrl.delIcon;
+  attachDelClick(delIcon, () => removeMarker(ctrl));
+  ctrl.marker.on("popupopen", () => {
+    const iconEl = delIcon.getElement();
+    iconEl?.querySelector("[data-del-icon]")?.classList.add("visible");
+  });
+  ctrl.marker.on("popupclose", () => {
+    const iconEl = delIcon.getElement();
+    iconEl?.querySelector("[data-del-icon]")?.classList.remove("visible");
+  });
 };
 
 /** Locate me via the browser geolocation API. */
@@ -61,4 +101,4 @@ const locateMe = (ctrl: LocateCtrl) => {
   );
 };
 
-export { locateMe, placeMarker };
+export { locateMe, placeMarker, removeMarker };

@@ -138,7 +138,7 @@ describe("attachDelClick", () => {
 
     // Click on the delete icon → callback fires
     const target = document.createElement("span");
-    target.className = "foliplus-measure-del-icon";
+    target.setAttribute("data-del-icon", "");
     handler({ originalEvent: { target } });
     expect(callback).toHaveBeenCalledTimes(1);
 
@@ -151,7 +151,8 @@ describe("attachDelClick", () => {
 describe("hideDelIcons", () => {
   it("removes visible class from delete icons", () => {
     const el = document.createElement("div");
-    el.className = "foliplus-measure-del-icon visible";
+    el.setAttribute("data-del-icon", "");
+    el.classList.add("visible");
     document.body.appendChild(el);
     Util.hideDelIcons();
     expect(el.classList.contains("visible")).toBe(false);
@@ -261,7 +262,7 @@ describe("stopEvent", () => {
 describe("toggleDelIcon", () => {
   it("toggles visible class on the delete icon element", () => {
     const icon = document.createElement("span");
-    icon.className = "foliplus-measure-del-icon";
+    icon.setAttribute("data-del-icon", "");
     document.body.appendChild(icon);
     const marker = { getElement: () => ({ querySelector: () => icon }) };
     Util.toggleDelIcon(marker, true);

@@ -108,7 +108,7 @@ const attachDistanceUI = (
             lastDel.on("click", (event: L.LeafletMouseEvent) => {
               const t = (event.originalEvent as MouseEvent)
                 ?.target as HTMLElement | null;
-              if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
+              if (t?.closest?.(CONST.SEL.DEL_ICON)) {
                 stopEvent(event);
                 deleteMeas();
               }
@@ -137,7 +137,7 @@ const attachDistanceUI = (
 
     delMarker.on("click", (event: L.LeafletMouseEvent) => {
       const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
-      if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       handleItemClick(event);
     });
   });
@@ -216,7 +216,7 @@ const attachCircleUI = (
   const attachInteraction = (layer: L.Layer) => {
     layer.on("click", (event: L.LeafletMouseEvent) => {
       const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
-      if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       stopEvent(event);
       toggleCircleToggle();
     });
@@ -420,7 +420,7 @@ const attachPolygonUI = (
             d.on("click", (event: L.LeafletMouseEvent) => {
               const t = (event.originalEvent as MouseEvent)
                 ?.target as HTMLElement | null;
-              if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
+              if (t?.closest?.(CONST.SEL.DEL_ICON)) {
                 stopEvent(event);
                 deleteMeas();
               } else handleItemClick(event);
@@ -461,7 +461,7 @@ const attachPolygonUI = (
 
     delMarker.on("click", (event: L.LeafletMouseEvent) => {
       const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
-      if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
+      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       handleItemClick(event);
     });
   });

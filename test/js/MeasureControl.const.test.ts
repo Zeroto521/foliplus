@@ -11,7 +11,9 @@ describe("TIMING", () => {
 describe("DEL_ICON", () => {
   it("defines delete icon config", () => {
     expect(CONST.DEL_ICON.CHAR).toBe("\u2715");
-    expect(CONST.DEL_ICON.CLASS).toBe("foliplus-measure-del-icon");
+  });
+  it("defines the delete icon selector", () => {
+    expect(CONST.SEL.DEL_ICON).toBe("[data-del-icon]");
   });
 });
 

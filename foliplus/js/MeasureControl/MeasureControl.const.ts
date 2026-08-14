@@ -1,3 +1,9 @@
+import {
+  DEL_ICON_MARKER_ANCHOR,
+  DEL_ICON_SELECTOR,
+  DEL_ICON_Z_OFFSET,
+} from "#common/delicon.js";
+
 /** Timing / delay constants. */
 export const TIMING = {
   CLICK_COOLDOWN: 300,
@@ -10,11 +16,9 @@ export const TIMING = {
 export const DEL_ICON = {
   RETRY_LIMIT: 10,
   DEFAULT_ANCHOR: [0, 0],
-  MARKER_ANCHOR: [0, 24],
+  MARKER_ANCHOR: DEL_ICON_MARKER_ANCHOR,
   SIZE: [0, 0],
-  CHAR: "\u2715",
-  CLASS: "foliplus-measure-del-icon",
-  WRAP_CLASS: "foliplus-del-icon",
+  CHAR: "\u2715", // ✕
 };
 
 /** Measure node marker. */
@@ -47,7 +51,7 @@ export const FORMAT = {
 };
 
 /** Z-index. */
-export const Z_INDEX = { OFFSET: 11000 };
+export const Z_INDEX = { OFFSET: DEL_ICON_Z_OFFSET };
 
 /** IDs and pane names. */
 export const ID = "foliplus_measure";
@@ -82,7 +86,7 @@ export const STYLE = { SWEEP_LENGTH: "--sweep-length" };
 /** DOM selectors. */
 export const SEL = {
   LABEL: ".foliplus-measure-label",
-  DEL_ICON: ".foliplus-measure-del-icon",
+  DEL_ICON: DEL_ICON_SELECTOR,
   TOOL_BTN: ".foliplus-tool-btn",
 };
 

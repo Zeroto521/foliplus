@@ -1,4 +1,10 @@
 // MeasureControl utility functions — standalone, no manager dependency.
+import {
+  attachDelClick,
+  hideDelIcons,
+  makeDelIcon,
+  toggleDelIcon,
+} from "#common/delicon.js";
 import { buildPopupHtml, stopEvent } from "#common/dom.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createTranslator } from "#common/locale.js";
@@ -48,13 +54,6 @@ const suppressHide = (manager: { isSuppressHideDel: boolean }) => {
   hideDelIcons();
 };
 
-/** Hide all visible delete icons on the page. */
-const hideDelIcons = () => {
-  document
-    .querySelectorAll(`${CONST.SEL.DEL_ICON}.${CONST.CLASSES.VISIBLE}`)
-    .forEach(el => el.classList.remove(CONST.CLASSES.VISIBLE));
-};
-
 /** Calculate next toggle state for X icons and labels. */
 const calcToggle = (
   curX: boolean,
@@ -79,9 +78,9 @@ const applyToggle = (
   extraLbl?: L.Layer,
   onToggle?: (xVisible: boolean, lblVisible: boolean) => void,
 ) => {
-  const applyDelIcon = (marker: L.Layer | undefined, show: boolean, retries = 0) => {
+  const applyDelIcon = (marker: L.Layer | undefined, show: boolean) => {
     if (!marker) return;
-    toggleDelIcon(marker as L.Marker, show, retries);
+    toggleDelIcon(marker as L.Marker, show);
   };
 
   applyDelIcon(delMarker, isXVisible);
@@ -102,32 +101,6 @@ const applyToggle = (
   }
 
   if (onToggle) onToggle(isXVisible, isLabelsVisible);
-};
-
-/** Toggle a delete icon's visibility with retry. */
-const toggleDelIcon = (marker: L.Layer, show: boolean, retries = 0) => {
-  if (!marker) return;
-  const el = (marker as L.Marker).getElement();
-  if (el) {
-    const icon = el.querySelector(CONST.SEL.DEL_ICON);
-    if (icon) icon.classList.toggle(CONST.CLASSES.VISIBLE, show);
-  } else if (retries < CONST.DEL_ICON.RETRY_LIMIT) {
-    setTimeout(
-      () => toggleDelIcon(marker, show, retries + 1),
-      CONST.TIMING.DEL_ICON_RETRY_DELAY,
-    );
-  }
-};
-
-/** Attach a click handler to a delete icon marker via Leaflet event (survives DOM rebuild). */
-const attachDelClick = (delMarker: L.Layer, callback: () => void) => {
-  delMarker.on("click", (event: L.LeafletMouseEvent) => {
-    const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
-    if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-      stopEvent(event);
-      callback();
-    }
-  });
 };
 
 /** Update a label marker's text content. Always gets fresh DOM reference. */
@@ -180,32 +153,6 @@ const makeNode = (
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
   return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
-};
-
-/** Options for makeDelIcon. */
-interface DelIconOptions {
-  className?: string;
-  iconAnchor?: [number, number];
-  zIndexOffset?: number;
-  title?: string;
-}
-
-/** Create a delete icon marker. */
-const makeDelIcon = (
-  latlng: L.LatLngExpression,
-  opts: DelIconOptions = {},
-): L.Marker => {
-  const { className, iconAnchor, ...markerOpts } = opts;
-  return L.marker(latlng, {
-    icon: L.divIcon({
-      className: CONST.DEL_ICON.WRAP_CLASS + (className ? " " + className : ""),
-      html: `<span class="${CONST.DEL_ICON.CLASS}" data-foliplus-export="exclude">${CONST.DEL_ICON.CHAR}</span>`,
-      iconSize: CONST.DEL_ICON.SIZE as [number, number],
-      iconAnchor: (iconAnchor || CONST.DEL_ICON.DEFAULT_ANCHOR) as [number, number],
-    }),
-    interactive: true,
-    ...markerOpts,
-  });
 };
 
 /** Animate a dash-sweep effect on a finalized polyline/polygon. */

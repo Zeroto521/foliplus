@@ -6,7 +6,7 @@
       l.options.icon?.options?.className?.includes("foliplus-del-icon"),
   );
   if (delMkr) {
-    const icon = delMkr.getElement().querySelector(".foliplus-measure-del-icon");
+    const icon = delMkr.getElement().querySelector("[data-del-icon]");
     if (icon) icon.classList.add("visible");
     delMkr.fire("click", { originalEvent: { target: icon } });
   }
