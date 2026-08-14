@@ -23,6 +23,22 @@ class HeatmapControl extends BaseControl {
   declare expandHookDone: boolean;
   declare ctrl: HTMLElement;
   declare observer: MutationObserver | null;
+  declare layerSelect: HTMLSelectElement;
+  declare extraBody: HTMLElement;
+  declare aggSelect: HTMLSelectElement;
+  declare fieldWrap: HTMLElement;
+  declare fieldSelect: HTMLSelectElement;
+  declare methodSelect: HTMLSelectElement;
+  declare classSelect: HTMLSelectElement;
+  declare schemeControlWrap: HTMLElement;
+  declare schemeBar: HTMLElement;
+  declare schemeBarInner: HTMLElement;
+  declare schemeSelectHidden: HTMLSelectElement;
+  declare borderColorInput: HTMLInputElement;
+  declare borderWeightInput: HTMLInputElement;
+  declare labelChk: HTMLInputElement;
+  declare closeSchemeDropdown: (event: MouseEvent) => void;
+  declare toggleSchemeDropdown: () => void;
 
   constructor(options?: L.ControlOptions) {
     super(options);
@@ -46,9 +62,9 @@ class HeatmapControl extends BaseControl {
       closeTitle: _(`${CONF.name}.close_title`),
     });
     this.ctrl = ctrl;
-    buildDataSection(this as any, panelContent);
-    buildStyleSection(this as any);
-    setupObserver(this as any);
+    buildDataSection(this, panelContent);
+    buildStyleSection(this);
+    setupObserver(this);
     return container;
   }
 
@@ -78,4 +94,4 @@ class HeatmapControl extends BaseControl {
 const heatmapCtrl = new HeatmapControl({ position: CONF.position });
 
 heatmapCtrl.addTo(map);
-initScan(heatmapCtrl as any, CONST.TIMING.INIT_SCAN_ATTEMPTS);
+initScan(heatmapCtrl, CONST.TIMING.INIT_SCAN_ATTEMPTS);

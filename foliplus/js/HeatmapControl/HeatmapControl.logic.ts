@@ -11,6 +11,12 @@ import { type HeatmapControlUI, rebuildLayerDropdown } from "./HeatmapControl.ui
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
+/** A point marker carrying an optional numeric value (foliplus data contract). */
+type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {
+  value?: number;
+  options?: { value?: number };
+};
+
 /** A hexagon feature drawn on the heatmap canvas. */
 interface HexFeature {
   type?: string;
@@ -304,10 +310,18 @@ class HeatmapManager {
     return fields[0];
   }
 
-  readMarkerField(marker: any, field: string | null): number | undefined {
+  /**
+   * Read a numeric field off a point marker (foliplus data contract).
+   * Supported field syntax: "value", "options.value", "properties.<key>".
+   */
+  readMarkerField(
+    marker: L.Marker | L.CircleMarker,
+    field: string | null,
+  ): number | undefined {
     if (!field) return undefined;
-    if (field === "value") return marker.value;
-    if (field === "options.value") return marker.options?.value;
+    const extended = marker as HeatmapPointMarker;
+    if (field === "value") return extended.value;
+    if (field === "options.value") return extended.options?.value;
     if (field.startsWith("properties.")) {
       const key = field.substring(11);
       return marker.feature?.properties?.[key];
@@ -315,7 +329,7 @@ class HeatmapManager {
     return undefined;
   }
 
-  getPointValue(marker: any): number {
+  getPointValue(marker: L.Marker | L.CircleMarker): number {
     if (this.currentAgg === CONST.AGG.COUNT) return 1;
     const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
     const val = this.readMarkerField(marker, key);
