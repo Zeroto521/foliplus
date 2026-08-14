@@ -1,6 +1,6 @@
 import * as Storage from "#common/storage.js";
-import * as CONST from "#foliplus/MeasureControl/MeasureControl.const.js";
-import { MeasureManager } from "#foliplus/MeasureControl/MeasureControl.manager.js";
+import * as CONST from "#foliplus/MeasureControl/const.js";
+import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import { describe, expect, it, vi } from "vitest";
 
 function makeManager() {

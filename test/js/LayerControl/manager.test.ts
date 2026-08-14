@@ -1,8 +1,8 @@
-import * as CONST from "#foliplus/LayerControl/LayerControl.const.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   LayerManager,
   LayerRegistry,
-} from "#foliplus/LayerControl/LayerControl.manager.js";
+} from "#foliplus/LayerControl/manager.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("LayerRegistry", () => {

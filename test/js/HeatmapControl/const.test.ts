@@ -1,4 +1,4 @@
-import * as CONST from "#foliplus/HeatmapControl/HeatmapControl.const.js";
+import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { describe, expect, it } from "vitest";
 
 describe("TIMING", () => {

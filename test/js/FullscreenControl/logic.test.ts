@@ -1,9 +1,9 @@
-import { CLASSES } from "#foliplus/FullscreenControl/FullscreenControl.const.js";
+import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 import {
   bindFullscreenEvents,
   toggleFullscreen,
   updateUI,
-} from "#foliplus/FullscreenControl/FullscreenControl.logic.js";
+} from "#foliplus/FullscreenControl/logic.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mutable state controlled by each describe's beforeEach to switch between the
@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   getFullscreenEl: vi.fn(() => null),
 }));
 
-vi.mock("#foliplus/FullscreenControl/FullscreenControl.api.js", () => ({
+vi.mock("#foliplus/FullscreenControl/api.js", () => ({
   nativeAPI: mocks.nativeAPI,
   get isEnabled() {
     return mocks.isEnabled;

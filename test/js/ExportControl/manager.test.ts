@@ -1,6 +1,6 @@
 import * as Storage from "#common/storage.js";
-import * as CONST from "#foliplus/ExportControl/ExportControl.const.js";
-import { ExportManager } from "#foliplus/ExportControl/ExportControl.manager.js";
+import * as CONST from "#foliplus/ExportControl/const.js";
+import { ExportManager } from "#foliplus/ExportControl/manager.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Minimal map mock satisfying ExportManager constructor requirements.

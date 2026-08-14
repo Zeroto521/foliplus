@@ -1,4 +1,4 @@
-import * as CONST from "#foliplus/SearchControl/SearchControl.const.js";
+import * as CONST from "#foliplus/SearchControl/const.js";
 import { describe, expect, it } from "vitest";
 
 describe("MODE", () => {

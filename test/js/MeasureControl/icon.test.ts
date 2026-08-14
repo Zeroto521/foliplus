@@ -1,4 +1,4 @@
-import * as SVGs from "#foliplus/MeasureControl/MeasureControl.icon.js";
+import * as SVGs from "#foliplus/MeasureControl/icon.js";
 import { describe, expect, it } from "vitest";
 
 describe("RULER", () => {

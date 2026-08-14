@@ -1,4 +1,4 @@
-import { locateMe } from "#foliplus/LocateControl/LocateControl.logic.js";
+import { locateMe } from "#foliplus/LocateControl/logic.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {

@@ -1,4 +1,4 @@
-import * as CONST from "#foliplus/ExportControl/ExportControl.const.js";
+import * as CONST from "#foliplus/ExportControl/const.js";
 import { describe, expect, it } from "vitest";
 
 // export const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };

@@ -1,5 +1,5 @@
 import { DEL_ICON_CHAR } from "#common/delicon.js";
-import * as CONST from "#foliplus/MeasureControl/MeasureControl.const.js";
+import * as CONST from "#foliplus/MeasureControl/const.js";
 import { describe, expect, it } from "vitest";
 
 describe("TIMING", () => {

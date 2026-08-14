@@ -1,4 +1,4 @@
-import * as CONST from "#foliplus/LayerControl/LayerControl.const.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { describe, expect, it } from "vitest";
 
 describe("INIT_DELAY_MS", () => {

@@ -1,4 +1,4 @@
-import { ensureFont, isVisible } from "#foliplus/ExportControl/ExportControl.util.js";
+import { ensureFont, isVisible } from "#foliplus/ExportControl/util.js";
 import { describe, expect, it, vi } from "vitest";
 
 describe("isVisible", () => {
@@ -63,7 +63,7 @@ describe("loadImageBitmap", () => {
 
   it("returns null when fetch response is not ok", async () => {
     const { loadImageBitmap } =
-      await import("#foliplus/ExportControl/ExportControl.util.js");
+      await import("#foliplus/ExportControl/util.js");
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: false }),
     ) as unknown as typeof fetch;
@@ -73,7 +73,7 @@ describe("loadImageBitmap", () => {
 
   it("loads and caches an ImageBitmap", async () => {
     const { loadImageBitmap } =
-      await import("#foliplus/ExportControl/ExportControl.util.js");
+      await import("#foliplus/ExportControl/util.js");
     const fakeBitmap = { close: vi.fn() };
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob()) }),
@@ -92,7 +92,7 @@ describe("loadImageBitmap", () => {
 
 describe("loadImage", () => {
   it("resolves on image load", async () => {
-    const { loadImage } = await import("#foliplus/ExportControl/ExportControl.util.js");
+    const { loadImage } = await import("#foliplus/ExportControl/util.js");
     // jsdom Image does not fire onload for data URIs reliably; mock it.
     const origImage = globalThis.Image;
     let onloadHandler;

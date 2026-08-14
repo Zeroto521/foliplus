@@ -1,4 +1,4 @@
-import * as CONST from "#foliplus/MeasureControl/MeasureControl.const.js";
+import * as CONST from "#foliplus/MeasureControl/const.js";
 import {
   CircleMode,
   DistanceMode,
@@ -7,7 +7,7 @@ import {
   MeasureMode,
   PolygonMode,
   PreviewMode,
-} from "#foliplus/MeasureControl/MeasureControl.mode.js";
+} from "#foliplus/MeasureControl/mode.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {

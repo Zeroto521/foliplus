@@ -1,5 +1,5 @@
 import { stopEvent } from "#common/dom.js";
-import * as Util from "#foliplus/MeasureControl/MeasureControl.util.js";
+import * as Util from "#foliplus/MeasureControl/util.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {

@@ -1,6 +1,6 @@
-import * as CONST from "#foliplus/LayerControl/LayerControl.const.js";
-import * as SVGs from "#foliplus/LayerControl/LayerControl.icon.js";
-import * as Util from "#foliplus/LayerControl/LayerControl.util.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import * as SVGs from "#foliplus/LayerControl/icon.js";
+import * as Util from "#foliplus/LayerControl/util.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 class Polygon {}

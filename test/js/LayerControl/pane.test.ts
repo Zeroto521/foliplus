@@ -1,4 +1,4 @@
-import { PaneManager } from "#foliplus/LayerControl/LayerControl.pane.js";
+import { PaneManager } from "#foliplus/LayerControl/pane.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock L.svg — needed by PaneManager.ensurePane

@@ -1,7 +1,7 @@
 import {
   CLASSES,
   containerId,
-} from "#foliplus/FullscreenControl/FullscreenControl.const.js";
+} from "#foliplus/FullscreenControl/const.js";
 import { describe, expect, it } from "vitest";
 
 describe("CLASSES", () => {

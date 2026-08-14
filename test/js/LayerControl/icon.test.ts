@@ -1,4 +1,4 @@
-import * as SVGs from "#foliplus/LayerControl/LayerControl.icon.js";
+import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { describe, expect, it } from "vitest";
 
 describe("LAYERS", () => {
