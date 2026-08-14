@@ -24,16 +24,22 @@ const makeDelIcon = (
     title?: string;
   } = {},
 ): L.Marker => {
-  const { className, iconAnchor, ...markerOpts } = opts;
+  const {
+    className,
+    iconAnchor = DEL_ICON_MARKER_ANCHOR,
+    zIndexOffset = DEL_ICON_Z_OFFSET,
+    title,
+  } = opts;
   return L.marker(latlng, {
     icon: L.divIcon({
       className: (className ? className + " " : "") + DEL_ICON_CLASS,
       html: `<span data-${DEL_ICON_ROLE}="" data-foliplus-export="exclude">${DEL_ICON_CHAR}</span>`,
       iconSize: [0, 0],
-      iconAnchor: iconAnchor || DEL_ICON_MARKER_ANCHOR,
+      iconAnchor,
     }),
     interactive: true,
-    ...markerOpts,
+    zIndexOffset,
+    title,
   });
 };
 
@@ -65,9 +71,6 @@ const hideDelIcons = () => {
 
 export {
   DEL_ICON_CHAR,
-  DEL_ICON_CLASS,
-  DEL_ICON_MARKER_ANCHOR,
-  DEL_ICON_ROLE,
   DEL_ICON_SELECTOR,
   DEL_ICON_Z_OFFSET,
   attachDelClick,

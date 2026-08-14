@@ -1,6 +1,6 @@
 // LocateControl locate logic — locate me via the browser geolocation API.
 import { fromWgs84 } from "#common/coord.js";
-import { DEL_ICON_Z_OFFSET, attachDelClick, makeDelIcon } from "#common/delicon.js";
+import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
@@ -50,10 +50,7 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 
   // Floating ✕ next to the pin: shown while the popup is open (popupopen),
   // hidden otherwise (popupclose), matching MeasureControl's marker UX.
-  ctrl.delIcon = makeDelIcon([lat, lng], {
-    title: _("foliplus.close_label"),
-    zIndexOffset: DEL_ICON_Z_OFFSET, // above the pin (PIN.Z_OFFSET = 10000)
-  });
+  ctrl.delIcon = makeDelIcon([lat, lng], { title: _("foliplus.close_label") });
   map.addLayer(ctrl.delIcon);
 
   const delIcon = ctrl.delIcon;
