@@ -157,8 +157,6 @@ class MarkerMode extends MeasureMode {
     );
     const delMarker = manager.layers.addLayer(
       makeDelIcon(L.latLng(data.lat!, data.lng!), {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR as [number, number],
         title: _(`${CONF.name}.del_tooltip`),
       }),
     );
@@ -241,11 +239,7 @@ class MarkerMode extends MeasureMode {
     );
 
     const delMarker = this.layers.addLayer(
-      makeDelIcon(event.latlng, {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        iconAnchor: CONST.DEL_ICON.MARKER_ANCHOR as [number, number],
-        title: _(`${CONF.name}.del_tooltip`),
-      }),
+      makeDelIcon(event.latlng, { title: _(`${CONF.name}.del_tooltip`) }),
     );
 
     // Bind delete + popup events BEFORE async geocode so the X works even
@@ -913,10 +907,7 @@ class CircleMode extends PreviewMode {
       }),
     ) as L.Marker;
     const delMarker = manager.layers.addLayer(
-      makeDelIcon(centerLatLng, {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        title: _(`${CONF.name}.del_tooltip`),
-      }),
+      makeDelIcon(centerLatLng, { title: _(`${CONF.name}.del_tooltip`) }),
     ) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
@@ -1131,10 +1122,7 @@ class CircleMode extends PreviewMode {
       );
 
       const delMarker = this.layers.addLayer(
-        makeDelIcon(centerLatLng, {
-          zIndexOffset: CONST.Z_INDEX.OFFSET,
-          title: _(`${CONF.name}.del_tooltip`),
-        }),
+        makeDelIcon(centerLatLng, { title: _(`${CONF.name}.del_tooltip`) }),
       );
 
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);

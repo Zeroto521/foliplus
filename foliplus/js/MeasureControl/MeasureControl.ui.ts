@@ -1,4 +1,9 @@
 // MeasureControl UI — standalone functions invoked with a MeasureManager context.
+import {
+  attachDelClick,
+  makeDelIcon,
+  toggleDelIcon
+} from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
@@ -33,7 +38,7 @@ const attachDistanceUI = (
     const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
     isXVisible = s.isXVisible;
     isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach(m => Util.toggleDelIcon(m, isXVisible));
+    nodeDelIcons.forEach(m => toggleDelIcon(m, isXVisible));
     Util.applyToggle(undefined, isXVisible, segLabels, isLabelsVisible);
   };
 
@@ -66,8 +71,7 @@ const attachDistanceUI = (
     const isFirst = idx === 0;
     const isLastWhenTwo = points.length === 2 && idx === 1;
     const delMarker = layers.addLayer(
-      Util.makeDelIcon(node.getLatLng(), {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
+      makeDelIcon(node.getLatLng(), {
         title:
           isFirst || isLastWhenTwo
             ? _(`${CONF.name}.del_all`)
@@ -76,9 +80,9 @@ const attachDistanceUI = (
     ) as L.Marker;
     nodeDelIcons.push(delMarker);
 
-    if (isFirst || isLastWhenTwo) Util.attachDelClick(delMarker, deleteMeas);
+    if (isFirst || isLastWhenTwo) attachDelClick(delMarker, deleteMeas);
     else
-      Util.attachDelClick(delMarker, () => {
+      attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
         const ptIdx = points.findIndex(
           (p: L.LatLng) =>
@@ -252,7 +256,7 @@ const attachCircleUI = (
     onDelete();
     layers.unregister();
   };
-  Util.attachDelClick(delMarker, deleteCircle);
+  attachDelClick(delMarker, deleteCircle);
 
   return { onMapClickActive, deleteCircle };
 };
@@ -324,14 +328,11 @@ const attachPolygonUI = (
     ) as L.Marker;
 
     centroidDel = layers.addLayer(
-      Util.makeDelIcon(centroid, {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        title: _(`${CONF.name}.del_all`),
-      }),
+      makeDelIcon(centroid, { title: _(`${CONF.name}.del_all`) }),
     ) as L.Marker;
-    Util.attachDelClick(centroidDel, deleteMeas);
+    attachDelClick(centroidDel, deleteMeas);
 
-    if (showX !== undefined) Util.toggleDelIcon(centroidDel, showX);
+    if (showX !== undefined) toggleDelIcon(centroidDel, showX);
   };
 
   const deleteMeas = () => {
@@ -347,8 +348,8 @@ const attachPolygonUI = (
     const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
     isXVisible = s.isXVisible;
     isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach(m => Util.toggleDelIcon(m, isXVisible));
-    if (centroidDel) Util.toggleDelIcon(centroidDel, isXVisible);
+    nodeDelIcons.forEach(m => toggleDelIcon(m, isXVisible));
+    if (centroidDel) toggleDelIcon(centroidDel, isXVisible);
     Util.applyToggle(undefined, isXVisible, segLabels, isLabelsVisible);
     if (centroidLabel) {
       const el = centroidLabel.getElement();
@@ -384,16 +385,15 @@ const attachPolygonUI = (
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
     const delMarker = layers.addLayer(
-      Util.makeDelIcon(node.getLatLng(), {
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
+      makeDelIcon(node.getLatLng(), {
         title: is3pt ? _(`${CONF.name}.del_all`) : _(`${CONF.name}.del_node`),
       }),
     ) as L.Marker;
     nodeDelIcons.push(delMarker);
 
-    if (is3pt) Util.attachDelClick(delMarker, deleteMeas);
+    if (is3pt) attachDelClick(delMarker, deleteMeas);
     else
-      Util.attachDelClick(delMarker, () => {
+      attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
         const ptIdx = points.findIndex(
           (p: L.LatLng) =>

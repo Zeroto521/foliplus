@@ -1,8 +1,4 @@
-import {
-  DEL_ICON_MARKER_ANCHOR,
-  DEL_ICON_SELECTOR,
-  DEL_ICON_Z_OFFSET,
-} from "#common/delicon.js";
+import { DEL_ICON_SELECTOR, DEL_ICON_Z_OFFSET } from "#common/delicon.js";
 
 /** Timing / delay constants. */
 export const TIMING = {
@@ -12,14 +8,8 @@ export const TIMING = {
   SUPPRESS_HIDE_DELAY: 100,
 };
 
-/** Delete icon config. */
-export const DEL_ICON = {
-  RETRY_LIMIT: 10,
-  DEFAULT_ANCHOR: [0, 0],
-  MARKER_ANCHOR: DEL_ICON_MARKER_ANCHOR,
-  SIZE: [0, 0],
-  CHAR: "\u2715", // ✕
-};
+/** Delete icon ✕ character. */
+export const DEL_ICON = { CHAR: "\u2715" };
 
 /** Measure node marker. */
 export const MARKER = { RADIUS: 5 };
