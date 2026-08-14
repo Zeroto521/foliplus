@@ -248,10 +248,10 @@ describe("buildPopup", () => {
 
 describe("stopEvent", () => {
   it("prevents default and stops propagation", () => {
-    const ev = { preventDefault: vi.fn(), stopPropagation: vi.fn() };
-    stopEvent(ev);
-    expect(ev.preventDefault).toHaveBeenCalled();
-    expect(ev.stopPropagation).toHaveBeenCalled();
+    const event = { preventDefault: vi.fn(), stopPropagation: vi.fn() };
+    stopEvent(event);
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(event.stopPropagation).toHaveBeenCalled();
   });
 });
 
