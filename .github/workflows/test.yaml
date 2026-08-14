@@ -48,3 +48,12 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
+      # Codecov Test Analytics — upload JUnit results (pytest junit.xml +
+      # vitest test-report.junit.xml) even when tests fail.
+      # https://docs.codecov.com/docs/test-analytics
+      - uses: codecov/test-results-action@v5
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report-type: test_results
+          flags: py${{ matrix.python }}
