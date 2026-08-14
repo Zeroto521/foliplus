@@ -63,13 +63,13 @@ build-python:
 JOBS ?= auto
 
 test: build-js-dev test-js
-	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 test-python: build-js-dev
-	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
+	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 test-browser: build-js-dev
-	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml test/python
+	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit-browser.xml -o junit_family=legacy test/python
 
 test-js:
 	npm test

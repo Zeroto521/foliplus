@@ -13,6 +13,11 @@ export default defineConfig({
     globals: true,
     include: ["test/js/**/*.test.{js,ts}"],
     setupFiles: ["test/js/setup.ts"],
+    // JUnit XML output for Codecov Test Analytics.
+    reporters: [
+      "default",
+      ["junit", { outputFile: "test-report.junit.xml", className: "{filepath}" }],
+    ],
     coverage: {
       provider: "v8",
       include: ["foliplus/js/**/*.js", "foliplus/js/**/*.ts"],

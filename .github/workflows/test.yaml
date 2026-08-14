@@ -48,3 +48,12 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
+      # Upload test results (Codecov Test Analytics) even when tests fail.
+      # codecov/test-results-action is deprecated → use codecov-action with
+      # report_type: test_results. https://docs.codecov.com/docs/test-analytics
+      - uses: codecov/codecov-action@v6
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          flags: py${{ matrix.python }}
