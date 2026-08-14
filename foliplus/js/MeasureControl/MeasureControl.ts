@@ -84,10 +84,10 @@ class MeasureControl extends BaseControl {
       skipCheck: () => this.m.currentMode !== null,
     });
 
-    this.m.toolBtns.forEach((btn: any) => {
+    this.m.toolBtns.forEach((btn: HTMLElement) => {
       btn.onclick = (event: MouseEvent) => {
         event.stopPropagation();
-        this.m.setMode(btn.dataset.mode);
+        this.m.setMode(btn.dataset.mode ?? null);
       };
     });
 

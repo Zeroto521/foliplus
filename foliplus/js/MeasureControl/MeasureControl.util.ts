@@ -86,7 +86,7 @@ const applyToggle = (
 
   applyDelIcon(delMarker, isXVisible);
   labels.forEach(m => {
-    const el = (m as any).getElement();
+    const el = (m as L.Marker).getElement();
     if (el) {
       const label = el.querySelector(CONST.SEL.LABEL);
       if (label) label.classList.toggle(CONST.CLASSES.HIDDEN, !isLabelsVisible);
@@ -94,7 +94,7 @@ const applyToggle = (
   });
 
   if (extraLbl) {
-    const sEl = (extraLbl as any).getElement();
+    const sEl = (extraLbl as L.Marker).getElement();
     if (sEl) {
       const sL = sEl.querySelector(CONST.SEL.LABEL);
       if (sL) sL.classList.toggle(CONST.CLASSES.HIDDEN, !isLabelsVisible);
@@ -107,7 +107,7 @@ const applyToggle = (
 /** Toggle a delete icon's visibility with retry. */
 const toggleDelIcon = (marker: L.Layer, show: boolean, retries = 0) => {
   if (!marker) return;
-  const el = (marker as any).getElement();
+  const el = (marker as L.Marker).getElement();
   if (el) {
     const icon = el.querySelector(CONST.SEL.DEL_ICON);
     if (icon) icon.classList.toggle(CONST.CLASSES.VISIBLE, show);
@@ -132,7 +132,7 @@ const attachDelClick = (delMarker: L.Layer, callback: () => void) => {
 
 /** Update a label marker's text content. Always gets fresh DOM reference. */
 const setLabelText = (marker: L.Layer, text: string) => {
-  const el = (marker as any).getElement();
+  const el = (marker as L.Marker).getElement();
   if (!el) return;
   const labelEl = el.querySelector(CONST.SEL.LABEL);
   if (labelEl) labelEl.textContent = text;
@@ -213,7 +213,7 @@ const animateDashSweep = (path: SVGElement | null) => {
   if (!path) return;
   const len = (path as SVGPathElement).getTotalLength?.() || 0;
   if (len <= 0) return;
-  path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, len as unknown as string);
+  path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, String(len));
   path.classList.add(CONST.CLASSES.DASH_SWEEP);
   const onEnd = () => {
     path.removeEventListener("animationend", onEnd);
@@ -270,9 +270,8 @@ const calcMidpoint = (
   a: { lng: number; lat: number },
   b: { lng: number; lat: number },
 ): { lng: number; lat: number } => {
-  const pt = midpoint(a, b) as any;
-  const coords = pt.geometry?.coordinates || [0, 0];
-  return { lng: coords[0], lat: coords[1] };
+  const pt = midpoint(a, b);
+  return { lng: pt.lng, lat: pt.lat };
 };
 
 export {

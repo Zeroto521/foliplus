@@ -2,6 +2,7 @@
 import { stopEvent } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./MeasureControl.const.js";
+import type { MeasureManager } from "./MeasureControl.manager.js";
 import * as Util from "./MeasureControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -19,7 +20,7 @@ interface AttachOpts {
 }
 
 const attachDistanceUI = (
-  mgr: any,
+  mgr: MeasureManager,
   opts: AttachOpts,
 ): ((event: L.LeafletMouseEvent) => void) => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
@@ -165,7 +166,7 @@ interface CircleAttachOpts {
 }
 
 const attachCircleUI = (
-  mgr: any,
+  mgr: MeasureManager,
   opts: CircleAttachOpts,
 ): { onMapClickActive: () => void; deleteCircle: () => void } => {
   const {
@@ -193,10 +194,9 @@ const attachCircleUI = (
       isLabelsVisible,
       undefined,
       xv => {
-        if ((delMarker as any).setZIndexOffset)
-          (delMarker as any).setZIndexOffset(
-            xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
-          );
+        delMarker.setZIndexOffset(
+          xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
+        );
         Util.toggleVisibility(
           [
             radiusLine?.getElement() as HTMLElement | null,
@@ -271,7 +271,7 @@ interface PolygonAttachOpts {
   area: number;
 }
 
-const attachPolygonUI = (mgr: any, opts: PolygonAttachOpts): (() => void) => {
+const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): (() => void) => {
   const {
     layers,
     finalPoly,

@@ -8,6 +8,7 @@ import * as SVGs from "./MeasureControl.icon.js";
 import {
   CircleMode,
   DistanceMode,
+  MeasureMode,
   MODE_MAP,
   MarkerMode,
   PolygonMode,
@@ -24,7 +25,7 @@ class MeasureManager {
   map: L.Map;
   layers: CreateLayersAPI;
   currentMode: string | null;
-  modeInstance: any;
+  modeInstance: MeasureMode | null;
   isSuppressHideDel: boolean;
   toolBtns: HTMLElement[];
   finalizedClickHandlers: Array<(event: L.LeafletMouseEvent) => void>;
