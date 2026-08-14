@@ -64,7 +64,9 @@ describe("loadImageBitmap", () => {
   it("returns null when fetch response is not ok", async () => {
     const { loadImageBitmap } =
       await import("#foliplus/ExportControl/ExportControl.util.js");
-    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: false })) as unknown as typeof fetch;
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ ok: false }),
+    ) as unknown as typeof fetch;
     const result = await loadImageBitmap("https://example.com/tile.png");
     expect(result).toBeNull();
   });

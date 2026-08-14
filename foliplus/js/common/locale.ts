@@ -70,8 +70,8 @@ const resolveLocale = (
     lang = (
       typeof navigator !== "undefined"
         ? navigator.language ||
-            (navigator as Navigator & { userLanguage?: string }).userLanguage ||
-            ""
+          (navigator as Navigator & { userLanguage?: string }).userLanguage ||
+          ""
         : ""
     )
       .split("-")[0]

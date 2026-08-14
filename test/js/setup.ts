@@ -64,7 +64,7 @@ window.L = {
     disableClickPropagation: vi.fn(),
     disableScrollPropagation: vi.fn(),
   },
-  Control: class { },
+  Control: class {},
   latLng: (lat, lng) => ({ lat, lng }),
   marker: vi.fn(() => ({
     bindPopup: vi.fn(),
@@ -73,10 +73,10 @@ window.L = {
     getPopup: () => null,
   })),
   divIcon: vi.fn(() => ({})),
-  Path: class { },
-  Polygon: class { },
-  Polyline: class { },
-  CircleMarker: class { },
+  Path: class {},
+  Polygon: class {},
+  Polyline: class {},
+  CircleMarker: class {},
 };
 
 // L.Path.prototype.bringToFront is captured at module import time by

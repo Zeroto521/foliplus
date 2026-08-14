@@ -8,9 +8,9 @@ import * as SVGs from "./MeasureControl.icon.js";
 import {
   CircleMode,
   DistanceMode,
-  MeasureMode,
   MODE_MAP,
   MarkerMode,
+  MeasureMode,
   PolygonMode,
 } from "./MeasureControl.mode.js";
 import * as Util from "./MeasureControl.util.js";

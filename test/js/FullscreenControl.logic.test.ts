@@ -185,8 +185,9 @@ describe("toggleFullscreen — native API path", () => {
     mapMock = makeNativeMapMock(container);
 
     // Stub document methods used by the native API path
-    (document as unknown as { requestFullscreen: () => Promise<void> }).requestFullscreen =
-      vi.fn(() => Promise.resolve());
+    (
+      document as unknown as { requestFullscreen: () => Promise<void> }
+    ).requestFullscreen = vi.fn(() => Promise.resolve());
     document.exitFullscreen = vi.fn(() => Promise.resolve());
     document.addEventListener = vi.fn();
     document.removeEventListener = vi.fn();

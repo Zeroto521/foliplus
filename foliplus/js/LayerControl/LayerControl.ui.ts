@@ -5,8 +5,8 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./LayerControl.const.js";
 import * as SVGs from "./LayerControl.icon.js";
-import * as Util from "./LayerControl.util.js";
 import type { LayerManager } from "./LayerControl.manager.js";
+import * as Util from "./LayerControl.util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
@@ -116,7 +116,10 @@ class LayerUI {
     this.uiContainer.appendChild(frag);
   }
 
-  insertLayerItem(layerInfo: LayerInfo, { reindex = true }: { reindex?: boolean } = {}) {
+  insertLayerItem(
+    layerInfo: LayerInfo,
+    { reindex = true }: { reindex?: boolean } = {},
+  ) {
     const idx = this.m.layerRegistry.indexOf(layerInfo);
     if (idx === -1) return;
     const container = this.uiContainer;
@@ -164,9 +167,7 @@ class LayerUI {
     item.dataset.index = String(idx);
     const label = item.querySelector("label");
     if (label) label.textContent = layerInfo.name;
-    const cb = item.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement | null;
+    const cb = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
     if (cb) {
       cb.dataset.index = String(idx);
       cb.setAttribute("aria-label", Util.escapeHTML(layerInfo.name));
@@ -320,9 +321,8 @@ class LayerUI {
           layerInfo.type = gtype;
         } else typeKey = `${CONF.name}.type_unknown`;
 
-        const item = inputs[i]?.closest(
-          CONST.SEL.LAYER_ITEM,
-        ) as HTMLElement | undefined;
+        const item = inputs[i]?.closest(CONST.SEL.LAYER_ITEM) as
+          HTMLElement | undefined;
         if (item) item.title = _(typeKey);
       }
     }

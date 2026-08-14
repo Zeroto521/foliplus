@@ -68,7 +68,7 @@ describe("buildSearchUrl", () => {
     const original = window.CONF.locale_code;
     try {
       window.CONF = { ...window.CONF, locale_code: "zh" };
-    const url = buildSearchUrl({} as any, "test", 5);
+      const url = buildSearchUrl({} as any, "test", 5);
       expect(url).toContain("accept-language=zh");
     } finally {
       window.CONF = { ...window.CONF, locale_code: original };

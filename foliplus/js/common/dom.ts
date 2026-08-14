@@ -114,7 +114,8 @@ const dom = {
         typeof child === "object" &&
         "html" in child &&
         (child as { html: string }).html
-      ) el.insertAdjacentHTML("beforeend", (child as { html: string }).html);
+      )
+        el.insertAdjacentHTML("beforeend", (child as { html: string }).html);
       else if (typeof child === "number") el.append(String(child));
       else el.append(child as string | HTMLElement);
     }

@@ -40,9 +40,9 @@ const getTypeSVG = (layer: L.Layer): string => {
 };
 
 const findLayer = (map: L.Map, id: string): L.Layer | null => {
-  return (
-    (map._layers && map._layers[id]) || Reflect.get(window, id) || null
-  ) as L.Layer | null;
+  return ((map._layers && map._layers[id]) ||
+    Reflect.get(window, id) ||
+    null) as L.Layer | null;
 };
 
 const traverse = (

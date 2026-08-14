@@ -65,7 +65,12 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
     map.isFullscreen = false;
   } else {
     if (isEnabled) {
-      (Reflect.get(map.getContainer(), nativeAPI!.requestFullscreen) as () => Promise<void>)()
+      (
+        Reflect.get(
+          map.getContainer(),
+          nativeAPI!.requestFullscreen,
+        ) as () => Promise<void>
+      )()
         .then(() => {
           map.isFullscreen = true;
         })
@@ -86,7 +91,11 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
 // ══════════════════════════════════════════════════════════════════════════════
 // bindFullscreenEvents  —  wire up fullscreenchange + unload listeners
 // ══════════════════════════════════════════════════════════════════════════════
-const bindFullscreenEvents = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
+const bindFullscreenEvents = (
+  map: L.Map,
+  fsBtn: HTMLElement,
+  container: HTMLElement,
+) => {
   const handleFSChange = () => {
     map.isFullscreen = !!getFullscreenEl();
     updateUI(map, fsBtn, container);

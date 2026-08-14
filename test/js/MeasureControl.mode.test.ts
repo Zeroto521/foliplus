@@ -356,7 +356,10 @@ describe("DistanceMode — click stops propagation to data layers", () => {
     )?.[1];
     expect(clickHandler).toBeDefined();
 
-    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} as { _stopped?: boolean } };
+    const leafletEvent = {
+      latlng: { lat: 30, lng: 120 },
+      originalEvent: {} as { _stopped?: boolean },
+    };
     clickHandler(leafletEvent);
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
@@ -376,7 +379,10 @@ describe("PolygonMode — click stops propagation to data layers", () => {
     )?.[1];
     expect(clickHandler).toBeDefined();
 
-    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} as { _stopped?: boolean } };
+    const leafletEvent = {
+      latlng: { lat: 30, lng: 120 },
+      originalEvent: {} as { _stopped?: boolean },
+    };
     clickHandler(leafletEvent);
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
@@ -410,7 +416,10 @@ describe("CircleMode — click stops propagation to data layers", () => {
     )?.[1];
     expect(clickHandler).toBeDefined();
 
-    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} as { _stopped?: boolean } };
+    const leafletEvent = {
+      latlng: { lat: 30, lng: 120 },
+      originalEvent: {} as { _stopped?: boolean },
+    };
     clickHandler(leafletEvent);
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);

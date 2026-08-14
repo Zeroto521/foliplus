@@ -74,9 +74,8 @@ const bindEvents = (ctrl: SearchControl) => {
       );
       if (items[ctrl.selectedSuggestionIdx])
         ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(
-            `.${CLASSES.SUGGESTION_TEXT}`,
-          )?.textContent ?? "";
+          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
+            ?.textContent ?? "";
       return;
     }
     if (event.key === "ArrowUp" && ctrl.suggestionsWrap) {
@@ -88,9 +87,8 @@ const bindEvents = (ctrl: SearchControl) => {
       );
       if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
         ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(
-            `.${CLASSES.SUGGESTION_TEXT}`,
-          )?.textContent ?? "";
+          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
+            ?.textContent ?? "";
       return;
     }
     if (event.key === "Enter") {

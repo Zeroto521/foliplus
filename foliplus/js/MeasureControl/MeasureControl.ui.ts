@@ -194,9 +194,7 @@ const attachCircleUI = (
       isLabelsVisible,
       undefined,
       xv => {
-        delMarker.setZIndexOffset(
-          xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET,
-        );
+        delMarker.setZIndexOffset(xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET);
         Util.toggleVisibility(
           [
             radiusLine?.getElement() as HTMLElement | null,
@@ -271,7 +269,10 @@ interface PolygonAttachOpts {
   area: number;
 }
 
-const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): (() => void) => {
+const attachPolygonUI = (
+  mgr: MeasureManager,
+  opts: PolygonAttachOpts,
+): (() => void) => {
   const {
     layers,
     finalPoly,

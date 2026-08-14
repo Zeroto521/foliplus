@@ -354,14 +354,20 @@ describe("createIconButton", () => {
 
 describe("stopEvent", () => {
   it("stops propagation and prevents default on a DOM event", () => {
-    const event = { stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as Event;
+    const event = {
+      stopPropagation: vi.fn(),
+      preventDefault: vi.fn(),
+    } as unknown as Event;
     stopEvent(event);
     expect(event.stopPropagation).toHaveBeenCalled();
     expect(event.preventDefault).toHaveBeenCalled();
   });
 
   it("unwraps Leaflet events via originalEvent", () => {
-    const original = { stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as Event;
+    const original = {
+      stopPropagation: vi.fn(),
+      preventDefault: vi.fn(),
+    } as unknown as Event;
     stopEvent({ originalEvent: original });
     expect(original.stopPropagation).toHaveBeenCalled();
     expect(original.preventDefault).toHaveBeenCalled();

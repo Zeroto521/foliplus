@@ -1,6 +1,6 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
 import { fromWgs84 } from "#common/coord.js";
-import { debounce, type Debounced } from "#common/debounce.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { createLocationMarker, dom } from "#common/dom.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
@@ -193,7 +193,11 @@ const positionSuggestions = (ctrl: SearchControlState) => {
   ctrl.suggestionsWrap.style.top = `${rect.bottom + window.scrollY}px`;
 };
 
-const renderSuggestions = (ctrl: SearchControlState, results: NominatimItem[], query: string) => {
+const renderSuggestions = (
+  ctrl: SearchControlState,
+  results: NominatimItem[],
+  query: string,
+) => {
   if (!results || results.length === 0) {
     removeSuggestions(ctrl);
     return;
