@@ -1,4 +1,5 @@
 import { BaseControl } from "#common/BaseControl.js";
+import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
@@ -33,7 +34,7 @@ class SearchControl extends BaseControl {
   declare modeBtn: HTMLElement;
   declare inp: HTMLInputElement;
   declare clearBtn: HTMLElement;
-  declare debouncedFetch: { cancel: () => void };
+  declare debouncedFetch: Debounced;
   declare cachedSuggestions: Record<string, NominatimItem[]>;
   declare cachedAddress: Record<string, AddressResult>;
   declare scrollTargets: HTMLElement[];
