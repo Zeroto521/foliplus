@@ -55,8 +55,8 @@ const bindPanelToggle = (opts: {
 }): void => {
   const btn = opts.container.querySelector(opts.toggleBtn) as HTMLElement | null;
   if (btn) {
-    L.DomEvent.on(btn, "click", (e: any) => {
-      L.DomEvent.stop(e);
+    L.DomEvent.on(btn, "click", (event: any) => {
+      L.DomEvent.stop(event);
       opts.container.classList.remove(CLASSES.COLLAPSED);
       opts.container.classList.add(CLASSES.EXPANDED);
       adjustPanelZIndex({ container: opts.container, expanded: true });
@@ -64,8 +64,8 @@ const bindPanelToggle = (opts: {
   }
   const hdr = opts.container.querySelector(opts.header) as HTMLElement | null;
   if (hdr) {
-    L.DomEvent.on(hdr, "click", (e: any) => {
-      L.DomEvent.stop(e);
+    L.DomEvent.on(hdr, "click", (event: any) => {
+      L.DomEvent.stop(event);
       opts.container.classList.remove(CLASSES.EXPANDED);
       opts.container.classList.add(CLASSES.COLLAPSED);
       adjustPanelZIndex({ container: opts.container, expanded: false });
@@ -84,8 +84,8 @@ const bindFoldToggle = (opts: {
   onExpand?: () => void;
   onCollapse?: () => void;
 }): void => {
-  L.DomEvent.on(opts.toggleBtn, "click", (e: any) => {
-    L.DomEvent.stop(e);
+  L.DomEvent.on(opts.toggleBtn, "click", (event: any) => {
+    L.DomEvent.stop(event);
     const expanding = opts.container.classList.contains(CLASSES.COLLAPSED);
     opts.container.classList.toggle(CLASSES.COLLAPSED);
     opts.container.classList.toggle(CLASSES.EXPANDED);
@@ -105,10 +105,10 @@ const bindOutsideCollapse = (opts: {
   skipCheck?: () => boolean;
 }): (() => void) => {
   const skipCheck = opts.skipCheck || (() => false);
-  const handler = (e: MouseEvent) => {
+  const handler = (event: MouseEvent) => {
     if (skipCheck()) return;
     if (
-      !opts.container.contains(e.target as Node) &&
+      !opts.container.contains(event.target as Node) &&
       opts.container.classList.contains(CLASSES.EXPANDED)
     ) {
       opts.container.classList.remove(CLASSES.EXPANDED);
@@ -191,9 +191,9 @@ const bindMapSync = (opts: {
   const handlers: Array<[string, any]> = [];
   const add = (events: string[] | undefined, fn: (() => void) | undefined) => {
     if (!events || !fn) return;
-    events.forEach(ev => {
-      opts.map.on(ev, fn);
-      handlers.push([ev, fn]);
+    events.forEach(event => {
+      opts.map.on(event, fn);
+      handlers.push([event, fn]);
     });
   };
   add(opts.hideEvents, opts.onHide);
@@ -208,7 +208,7 @@ const bindMapSync = (opts: {
   }
 
   return () => {
-    handlers.forEach(([ev, fn]) => opts.map.off(ev, fn));
+    handlers.forEach(([event, fn]) => opts.map.off(event, fn));
     onMove?.cancel();
   };
 };

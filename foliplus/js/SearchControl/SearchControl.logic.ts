@@ -172,7 +172,7 @@ const renderSuggestions = (ctrl: any, results: any[], query: string) => {
     ctrl.suggestionsWrap = dom.el("div", {
       class: CLASSES.SUGGESTIONS,
       parent: document.body,
-      onclick: (e: MouseEvent) => e.stopPropagation(),
+      onclick: (event: MouseEvent) => event.stopPropagation(),
     });
   }
 
@@ -189,9 +189,9 @@ const renderSuggestions = (ctrl: any, results: any[], query: string) => {
         class: CLASSES.SUGGESTION_ITEM,
         "data-index": String(idx),
         parent: ctrl.suggestionsWrap,
-        onmousedown: (e: MouseEvent) => {
-          e.stopPropagation();
-          e.preventDefault();
+        onmousedown: (event: MouseEvent) => {
+          event.stopPropagation();
+          event.preventDefault();
           removeSuggestions(ctrl);
           ctrl.cachedAddress[displayName] = { item, displayName };
           renderAddressResult(ctrl, { item, displayName });

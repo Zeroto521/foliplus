@@ -193,12 +193,12 @@ class ExportManager {
     });
   }
 
-  onMouseDown(e: MouseEvent) {
+  onMouseDown(event: MouseEvent) {
     const st = this.cropState;
     if (!st || st.locked) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.target as HTMLElement;
+    event.preventDefault();
+    event.stopPropagation();
+    const target = event.target as HTMLElement;
     if (target.classList.contains(CONST.CLASSES.HANDLE))
       this.dragState.dragType = target.dataset.pos ?? null;
     else if (
@@ -215,22 +215,22 @@ class ExportManager {
     st.box.classList.add(CONST.CLASSES.DRAGGING);
     // Track the last mouse position for incremental deltas (avoids
     // sudden jumps from cumulative errors or stale startRect).
-    this.dragState.lastX = e.clientX;
-    this.dragState.lastY = e.clientY;
+    this.dragState.lastX = event.clientX;
+    this.dragState.lastY = event.clientY;
     this.dragState.startRect = Object.assign({}, st.rect);
     document.addEventListener("mousemove", this.onMouseMove);
     document.addEventListener("mouseup", this.onMouseUp);
   }
 
-  onMouseMove(e: MouseEvent) {
+  onMouseMove(event: MouseEvent) {
     if (!this.dragState.dragging) return;
     // Incremental delta from the last mouse position. Applying this to the
     // *current* rect (not the startRect) avoids sudden jumps from cumulative
     // error and keeps the box glued to the cursor.
-    const dx = e.clientX - this.dragState.lastX;
-    const dy = e.clientY - this.dragState.lastY;
-    this.dragState.lastX = e.clientX;
-    this.dragState.lastY = e.clientY;
+    const dx = event.clientX - this.dragState.lastX;
+    const dy = event.clientY - this.dragState.lastY;
+    this.dragState.lastX = event.clientX;
+    this.dragState.lastY = event.clientY;
     const mapRect = this.mapContainer.getBoundingClientRect();
     const st = this.cropState;
     if (!st) return;
@@ -314,18 +314,18 @@ class ExportManager {
     this.pushUndoState();
   }
 
-  onKeyDown(e: KeyboardEvent) {
-    if (e.key === "Escape") {
+  onKeyDown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
       if (this.cropState?.locked) this.unlockCropBox();
       else this.removeCropBox();
-    } else if (e.key === "Enter") {
+    } else if (event.key === "Enter") {
       if (this.cropState && !this.cropState.locked) this.lockCropBox();
       else if (this.cropState?.locked) this.doExport();
-    } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z") {
-      e.preventDefault();
+    } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "z") {
+      event.preventDefault();
       this.redoCropBox();
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
-      e.preventDefault();
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
       this.undoCropBox();
     }
   }

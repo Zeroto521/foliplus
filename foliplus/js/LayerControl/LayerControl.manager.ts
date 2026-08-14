@@ -330,7 +330,7 @@ class LayerManager {
   lastAttribution: string | null;
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
-  onLayerAdd: (e: L.LeafletEvent) => void;
+  onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
@@ -364,13 +364,13 @@ class LayerManager {
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
-    this.onLayerAdd = e => {
-      if (this.isDestroyed || e.layer === this.map || e.layer instanceof L.Renderer)
+    this.onLayerAdd = event => {
+      if (this.isDestroyed || event.layer === this.map || event.layer instanceof L.Renderer)
         return;
 
       if (
-        !(e.layer instanceof L.Path || e.layer instanceof L.Marker) &&
-        !e.layer.options?.paneName
+        !(event.layer instanceof L.Path || event.layer instanceof L.Marker) &&
+        !event.layer.options?.paneName
       )
         return;
 

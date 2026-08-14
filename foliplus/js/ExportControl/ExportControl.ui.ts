@@ -26,8 +26,8 @@ const renderToolbarActions = (mgr: any, { confirm, cancel }: any) => {
     title: confirm.title,
     svg: confirm.svg,
     parent: actions,
-    onclick: e => {
-      e.stopPropagation();
+    onclick: event => {
+      event.stopPropagation();
       confirm.onclick(mgr);
     },
   });
@@ -36,8 +36,8 @@ const renderToolbarActions = (mgr: any, { confirm, cancel }: any) => {
     title: cancel.title,
     svg: cancel.svg,
     parent: actions,
-    onclick: e => {
-      e.stopPropagation();
+    onclick: event => {
+      event.stopPropagation();
       cancel.onclick(mgr);
     },
   });

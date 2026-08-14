@@ -18,7 +18,7 @@ interface AttachOpts {
   points: L.LatLng[];
 }
 
-const attachDistanceUI = (mgr: any, opts: AttachOpts): ((e: L.LeafletMouseEvent) => void) => {
+const attachDistanceUI = (mgr: any, opts: AttachOpts): ((event: L.LeafletMouseEvent) => void) => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } = opts;
   let isLabelsVisible = true;
   let isXVisible = false;
@@ -32,8 +32,8 @@ const attachDistanceUI = (mgr: any, opts: AttachOpts): ((e: L.LeafletMouseEvent)
     Util.applyToggle(undefined, isXVisible, segLabels, isLabelsVisible);
   };
 
-  const handleItemClick = (e: L.LeafletMouseEvent) => {
-    stopEvent(e);
+  const handleItemClick = (event: L.LeafletMouseEvent) => {
+    stopEvent(event);
     Util.suppressHide(mgr);
     toggleUI();
   };
@@ -101,10 +101,10 @@ const attachDistanceUI = (mgr: any, opts: AttachOpts): ((e: L.LeafletMouseEvent)
           const lastDel = nodeDelIcons[1];
           if (lastDel) {
             lastDel.off("click");
-            lastDel.on("click", (e: L.LeafletMouseEvent) => {
-              const t = (e.originalEvent as MouseEvent)?.target as HTMLElement | null;
+            lastDel.on("click", (event: L.LeafletMouseEvent) => {
+              const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                stopEvent(e);
+                stopEvent(event);
                 deleteMeas();
               }
             });
@@ -130,10 +130,10 @@ const attachDistanceUI = (mgr: any, opts: AttachOpts): ((e: L.LeafletMouseEvent)
         if (onUpdate) onUpdate(points);
       });
 
-    delMarker.on("click", (e: L.LeafletMouseEvent) => {
-      const t = (e.originalEvent as MouseEvent)?.target as HTMLElement | null;
+    delMarker.on("click", (event: L.LeafletMouseEvent) => {
+      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-      handleItemClick(e);
+      handleItemClick(event);
     });
   });
 
@@ -206,10 +206,10 @@ const attachCircleUI = (mgr: any, opts: CircleAttachOpts): { onMapClickActive: (
   };
 
   const attachInteraction = (layer: L.Layer) => {
-    layer.on("click", (e: L.LeafletMouseEvent) => {
-      const t = (e.originalEvent as MouseEvent)?.target as HTMLElement | null;
+    layer.on("click", (event: L.LeafletMouseEvent) => {
+      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-      stopEvent(e);
+      stopEvent(event);
       toggleCircleToggle();
     });
   };
@@ -345,8 +345,8 @@ const attachPolygonUI = (mgr: any, opts: PolygonAttachOpts): (() => void) => {
     }
   };
 
-  const handleItemClick = (e: L.LeafletMouseEvent) => {
-    stopEvent(e);
+  const handleItemClick = (event: L.LeafletMouseEvent) => {
+    stopEvent(event);
     Util.suppressHide(mgr);
     toggleUI();
   };
@@ -403,12 +403,12 @@ const attachPolygonUI = (mgr: any, opts: PolygonAttachOpts): (() => void) => {
         if (points.length === 3) {
           nodeDelIcons.forEach(d => {
             d.off("click");
-            d.on("click", (ev: L.LeafletMouseEvent) => {
-              const t = (ev.originalEvent as MouseEvent)?.target as HTMLElement | null;
+            d.on("click", (event: L.LeafletMouseEvent) => {
+              const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
               if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-                stopEvent(ev);
+                stopEvent(event);
                 deleteMeas();
-              } else handleItemClick(ev);
+              } else handleItemClick(event);
             });
             const iconEl = d.getElement();
             if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
@@ -444,10 +444,10 @@ const attachPolygonUI = (mgr: any, opts: PolygonAttachOpts): (() => void) => {
         }
       });
 
-    delMarker.on("click", (e: L.LeafletMouseEvent) => {
-      const t = (e.originalEvent as MouseEvent)?.target as HTMLElement | null;
+    delMarker.on("click", (event: L.LeafletMouseEvent) => {
+      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
       if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) return;
-      handleItemClick(e);
+      handleItemClick(event);
     });
   });
 

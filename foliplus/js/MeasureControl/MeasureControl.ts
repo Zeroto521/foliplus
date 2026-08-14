@@ -85,8 +85,8 @@ class MeasureControl extends BaseControl {
     });
 
     this.m.toolBtns.forEach((btn: any) => {
-      btn.onclick = (e: MouseEvent) => {
-        e.stopPropagation();
+      btn.onclick = (event: MouseEvent) => {
+        event.stopPropagation();
         this.m.setMode(btn.dataset.mode);
       };
     });

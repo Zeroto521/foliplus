@@ -22,14 +22,14 @@ class LayerUI {
   dragIdx: number | null;
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
-  declare onChange: ((e: Event) => void) | null;
-  declare onInput: ((e: Event) => void) | null;
-  declare onClick: ((e: Event) => void) | null;
-  declare onDragStart: ((e: DragEvent) => void) | null;
-  declare onDragOver: ((e: DragEvent) => void) | null;
-  declare onDragLeave: ((e: DragEvent) => void) | null;
-  declare onDragEnd: ((e: DragEvent) => void) | null;
-  declare onDrop: ((e: DragEvent) => void) | null;
+  declare onChange: ((event: Event) => void) | null;
+  declare onInput: ((event: Event) => void) | null;
+  declare onClick: ((event: Event) => void) | null;
+  declare onDragStart: ((event: DragEvent) => void) | null;
+  declare onDragOver: ((event: DragEvent) => void) | null;
+  declare onDragLeave: ((event: DragEvent) => void) | null;
+  declare onDragEnd: ((event: DragEvent) => void) | null;
+  declare onDrop: ((event: DragEvent) => void) | null;
 
   constructor(manager: any) {
     this.manager = manager;
@@ -338,8 +338,8 @@ class LayerUI {
     const container = this.m.uiContainer;
     if (!container) return;
 
-    this.onChange = e => {
-      const cb = (e.target as HTMLElement).closest(
+    this.onChange = event => {
+      const cb = (event.target as HTMLElement).closest(
         '[data-role="toggle-all"]',
       ) as HTMLInputElement | null;
       if (cb) {
@@ -348,21 +348,21 @@ class LayerUI {
         this.toggleAll(row.dataset.group ?? "", cb.checked);
         return;
       }
-      this.handleChange(e);
+      this.handleChange(event);
     };
-    this.onInput = e => this.handleInput(e);
-    this.onClick = e => {
-      if ((e.target as HTMLElement).closest(CONST.SEL.COLOR_ITEM)) {
+    this.onInput = event => this.handleInput(event);
+    this.onClick = event => {
+      if ((event.target as HTMLElement).closest(CONST.SEL.COLOR_ITEM)) {
         this.deselectAllBaseMaps(-1);
         this.showColorLayer(this.currentColor);
         this.syncToggleAll(CONST.GROUP.BASE);
         this.m.enforceOrder();
         return;
       }
-      const row = (e.target as HTMLElement).closest(
+      const row = (event.target as HTMLElement).closest(
         CONST.SEL.TOGGLE_ALL,
       ) as HTMLElement | null;
-      if (!row || (e.target as HTMLElement).closest('[data-role="toggle-all"]')) return;
+      if (!row || (event.target as HTMLElement).closest('[data-role="toggle-all"]')) return;
       const group = row.dataset.group ?? "";
       if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
       else this.foldedGroups.add(group);
@@ -371,11 +371,11 @@ class LayerUI {
       this.saveFoldState();
     };
 
-    this.onDragStart = e => this.handleDragStart(e);
-    this.onDragOver = e => this.handleDragOver(e);
-    this.onDragLeave = e => this.handleDragLeave(e);
-    this.onDrop = e => this.handleDrop(e);
-  this.onDragEnd = () => this.handleDragEnd();
+    this.onDragStart = event => this.handleDragStart(event);
+    this.onDragOver = event => this.handleDragOver(event);
+    this.onDragLeave = event => this.handleDragLeave(event);
+    this.onDrop = event => this.handleDrop(event);
+    this.onDragEnd = () => this.handleDragEnd();
 
     container.addEventListener("change", this.onChange);
     container.addEventListener("input", this.onInput);
@@ -471,8 +471,8 @@ class LayerUI {
     return layerInfo.visible;
   }
 
-  handleChange(e: Event) {
-    const target = e.target as HTMLInputElement;
+  handleChange(event: Event) {
+    const target = event.target as HTMLInputElement;
     if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
       this.deselectAllBaseMaps(-1);
       this.showColorLayer(target.value);
@@ -508,19 +508,19 @@ class LayerUI {
     this.m.enforceOrder();
   }
 
-  handleInput(e: Event) {
-    if ((e.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT))
-      this.showColorLayer((e.target as HTMLInputElement).value);
+  handleInput(event: Event) {
+    if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT))
+      this.showColorLayer((event.target as HTMLInputElement).value);
   }
 
-  handleDragStart(e: DragEvent) {
-    const item = (e.target as HTMLElement).closest(
+  handleDragStart(event: DragEvent) {
+    const item = (event.target as HTMLElement).closest(
       CONST.SEL.LAYER_ITEM,
     ) as HTMLElement | null;
     if (!item) return;
     this.dragIdx = parseInt(item.dataset.index ?? "", 10);
     item.classList.add(CONST.CLASSES.DRAGGING);
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
   }
 
   showReorderBlockedHint() {
@@ -534,10 +534,10 @@ class LayerUI {
     );
   }
 
-  handleDragOver(e: DragEvent) {
+  handleDragOver(event: DragEvent) {
     if (this.dragIdx === null) return;
-    e.preventDefault();
-    const item = (e.target as HTMLElement).closest(
+    event.preventDefault();
+    const item = (event.target as HTMLElement).closest(
       CONST.SEL.LAYER_ITEM,
     ) as HTMLElement | null;
     if (!item || item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
@@ -553,19 +553,19 @@ class LayerUI {
     this.lastDragOverItem = item;
 
     if (!this.m.canReorderBetween(this.dragIdx, targetIdx)) {
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
       this.showReorderBlockedHint();
       return;
     }
-    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
 
     if (targetIdx < this.dragIdx) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
     else if (targetIdx > this.dragIdx)
       item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
   }
 
-  handleDragLeave(e: DragEvent) {
-    const item = (e.target as HTMLElement).closest(
+  handleDragLeave(event: DragEvent) {
+    const item = (event.target as HTMLElement).closest(
       CONST.SEL.LAYER_ITEM,
     ) as HTMLElement | null;
     if (item)
@@ -575,9 +575,9 @@ class LayerUI {
       );
   }
 
-  handleDrop(e: DragEvent) {
-    e.preventDefault();
-    const target = (e.target as HTMLElement).closest(
+  handleDrop(event: DragEvent) {
+    event.preventDefault();
+    const target = (event.target as HTMLElement).closest(
       CONST.SEL.LAYER_ITEM,
     ) as HTMLElement | null;
     if (this.dragIdx === null) return;

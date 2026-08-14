@@ -31,8 +31,8 @@ class LocateControl extends BaseControl {
       ariaLabel: _(`${CONF.name}.title`),
       svg: LOCATE,
       parent: container,
-      onclick: e => {
-        L.DomEvent.stopPropagation(e);
+      onclick: event => {
+        L.DomEvent.stopPropagation(event);
         locateMe(this);
       },
     });

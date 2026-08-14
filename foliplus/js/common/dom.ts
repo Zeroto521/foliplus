@@ -55,7 +55,16 @@ const PIN: {
 };
 const POPUP_MAX_WIDTH = 300;
 
-type ElementAttrs = Record<string, any>;
+/** Attribute value: primitives, style object, event handler, or parent element. */
+type AttrVal =
+  | string
+  | number
+  | boolean
+  | null
+  | ((e: Event) => void)
+  | HTMLElement
+  | Record<string, string>;
+type ElementAttrs = Record<string, AttrVal | undefined>;
 type Child = HTMLElement | string | number | { html: string } | null | undefined;
 
 const dom = {
@@ -83,16 +92,27 @@ const dom = {
     if (attrs) {
       for (const [key, val] of Object.entries(attrs)) {
         if (val == null) continue;
-        if (key === "class") el.className = val;
+        if (key === "class") el.className = String(val);
         else if (key === "style") {
-          if (typeof val === "object") Object.assign(el.style, val);
-          else el.style.cssText = val;
-        } else if (key === "parent") val.appendChild(el);
-        else if (key === "innerHTML") el.innerHTML = val;
-        else if (BOOL_PROPS.has(key)) (el as any)[key] = val === "" || val === true;
-        else if (PROPS.has(key)) (el as any)[key] = val;
-        else if (EVENTS.has(key)) (el as any)[key] = val;
-        else el.setAttribute(key, String(val));
+          if (typeof val === "object" && val !== null && !("appendChild" in val)) {
+            const styleObj: Record<string, string> = val as Record<string, string>;
+            Object.assign(el.style, styleObj);
+          } else {
+            el.style.cssText = String(val);
+          }
+        } else if (key === "parent") (val as HTMLElement).appendChild(el);
+        else if (key === "innerHTML") el.innerHTML = String(val);
+        else if (BOOL_PROPS.has(key)) {
+          const prop = key as keyof HTMLElement;
+          (el[prop] as unknown) = val === "" || val === true;
+        } else if (PROPS.has(key)) {
+          const prop = key as keyof HTMLElement;
+          (el[prop] as unknown) = val;
+        } else if (EVENTS.has(key)) {
+          const handler = val as (e: Event) => void;
+          const prop = ("on" + key.slice(2)) as keyof HTMLElement;
+          (el[prop] as unknown) = handler;
+        } else el.setAttribute(key, String(val));
       }
     }
     for (const child of children) {
@@ -103,8 +123,10 @@ const dom = {
         (child as { html: string }).html
       ) {
         el.insertAdjacentHTML("beforeend", (child as { html: string }).html);
+      } else if (typeof child === "number") {
+        el.append(String(child));
       } else {
-        el.append(child as any);
+        el.append(child as string | HTMLElement);
       }
     }
     return el;
@@ -122,7 +144,7 @@ const createIconButton = (opts: {
   ariaLabel?: string;
   svg: string;
   parent?: HTMLElement;
-  onclick?: (e: Event) => void;
+  onclick?: (event: Event) => void;
   data?: Record<string, unknown>;
 }): HTMLButtonElement => {
   const attrs: ElementAttrs = {
@@ -142,8 +164,8 @@ const createIconButton = (opts: {
  * Stop event propagation and prevent default.
  * Handles both DOM events and Leaflet's wrapped events (e.originalEvent).
  */
-const stopEvent = (e: any): void => {
-  const d = e.originalEvent || e;
+const stopEvent = (event: any): void => {
+  const d = event.originalEvent || event;
   d?.stopPropagation?.();
   d?.preventDefault?.();
 };

@@ -23,9 +23,9 @@ map.eachLayer((layer: any) => {
     }
   }
 });
-map.on("layeradd", (e: any) => {
-  if (e.layer instanceof L.GridLayer && !(e.layer.options as any).crossOrigin) {
-    (e.layer.options as any).crossOrigin = "anonymous";
+map.on("layeradd", (event: any) => {
+  if (event.layer instanceof L.GridLayer && !(event.layer.options as any).crossOrigin) {
+    (event.layer.options as any).crossOrigin = "anonymous";
   }
 });
 

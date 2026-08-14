@@ -124,8 +124,8 @@ class SearchControl extends BaseControl {
     this.suggestSeq = 0;
 
     this.setMode(this.mode);
-    this.modeBtn.onclick = (e: MouseEvent) => {
-      e.stopPropagation();
+    this.modeBtn.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
       this.setMode(this.mode === MODE.COORD ? MODE.ADDR : MODE.COORD);
     };
   }

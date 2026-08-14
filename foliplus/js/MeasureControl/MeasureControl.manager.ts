@@ -27,12 +27,12 @@ class MeasureManager {
   modeInstance: any;
   isSuppressHideDel: boolean;
   toolBtns: HTMLElement[];
-  finalizedClickHandlers: Array<(e: L.LeafletMouseEvent) => void>;
+  finalizedClickHandlers: Array<(event: L.LeafletMouseEvent) => void>;
   measurements: MeasureData[];
   measurementIdCounter: number;
   ctrl: HTMLElement | null;
-  onMapClick!: (e: L.LeafletMouseEvent) => void;
-  onKeyDown!: (e: KeyboardEvent) => void;
+  onMapClick!: (event: L.LeafletMouseEvent) => void;
+  onKeyDown!: (event: KeyboardEvent) => void;
   onUnload!: () => void;
 
   constructor(mapInstance: L.Map) {
@@ -87,16 +87,16 @@ class MeasureManager {
 
   /** Bind global map click, keydown, and unload events. */
   bindGlobalEvents() {
-    this.onMapClick = (e: L.LeafletMouseEvent) => {
+    this.onMapClick = (event: L.LeafletMouseEvent) => {
       if (this.isSuppressHideDel) return;
-      const t = (e.originalEvent as MouseEvent)?.target as HTMLElement | null;
+      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       Util.hideDelIcons();
     };
     this.map.on("click", this.onMapClick);
 
-    this.onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && this.currentMode) this.clearActiveMode();
+    this.onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && this.currentMode) this.clearActiveMode();
     };
     document.addEventListener("keydown", this.onKeyDown);
 

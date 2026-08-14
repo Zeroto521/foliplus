@@ -32,7 +32,7 @@ export interface HeatmapControlUI {
   borderColorInput: HTMLInputElement;
   borderWeightInput: HTMLInputElement;
   labelChk: HTMLInputElement;
-  closeSchemeDropdown: (e: MouseEvent) => void;
+  closeSchemeDropdown: (event: MouseEvent) => void;
   toggleSchemeDropdown: () => void;
 }
 
@@ -225,23 +225,23 @@ const buildStyleSection = (ctrl: HeatmapControlUI) => {
   ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
   updateSchemeBar(ctrl);
 
-  ctrl.schemeBar.onclick = e => {
-    e.stopPropagation();
+  ctrl.schemeBar.onclick = event => {
+    event.stopPropagation();
     toggleSchemeDropdown(ctrl);
   };
-  ctrl.schemeBar.onkeydown = (e: KeyboardEvent) => {
-    if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(e.key)) {
-      e.preventDefault();
+  ctrl.schemeBar.onkeydown = (event: KeyboardEvent) => {
+    if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      event.preventDefault();
       toggleSchemeDropdown(ctrl);
     }
   };
 
   // Close scheme dropdown when clicking outside
-  ctrl.closeSchemeDropdown = (e: MouseEvent) => {
+  ctrl.closeSchemeDropdown = (event: MouseEvent) => {
     if (
       ctrl.schemeDropdown &&
-      !ctrl.schemeBar.contains(e.target as Node) &&
-      !ctrl.schemeDropdown.contains(e.target as Node)
+      !ctrl.schemeBar.contains(event.target as Node) &&
+      !ctrl.schemeDropdown.contains(event.target as Node)
     ) {
       ctrl.schemeDropdown.remove();
       ctrl.schemeDropdown = null;
@@ -540,8 +540,8 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     renderColorBar(ctrl, itemBar, name, ctrl.m.numClasses);
     item.title = name;
 
-    item.onclick = (ev: MouseEvent) => {
-      ev.stopPropagation();
+    item.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
       selectScheme(ctrl, name);
     };
   });
@@ -552,22 +552,22 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     else items[0].focus();
   }
 
-  ctrl.schemeDropdown.onkeydown = (e: KeyboardEvent) => {
+  ctrl.schemeDropdown.onkeydown = (event: KeyboardEvent) => {
     const activeIdx = Array.from(items).indexOf(document.activeElement as HTMLElement);
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
       items[(activeIdx + 1) % items.length].focus();
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
       items[(activeIdx - 1 + items.length) % items.length].focus();
-    } else if (e.key === "Enter") {
-      e.preventDefault();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
       const active = document.activeElement;
       if (active?.classList.contains(CONST.CLASSES.SCHEME_DROPDOWN_ITEM)) {
         const idx = Array.from(items).indexOf(active as HTMLElement);
         selectScheme(ctrl, (CONF.schemes ?? [])[idx]);
       }
-    } else if (e.key === "Escape") {
+    } else if (event.key === "Escape") {
       ctrl.schemeDropdown?.remove();
       ctrl.schemeDropdown = null;
       ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);

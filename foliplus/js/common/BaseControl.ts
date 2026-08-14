@@ -5,8 +5,8 @@
 //   - destroy()    — override to release resources on removal
 //
 // Listener helpers (tracked, auto-unbound on remove):
-//   - this.listenDOM(el, ev, fn)  — L.DomEvent.on + tracked
-//   - this.listenMap(ev, fn)      — this._map.on + tracked
+//   - this.listenDOM(el, event, fn)  — L.DomEvent.on + tracked
+//   - this.listenMap(event, fn)      — this._map.on + tracked
 //
 // Notes:
 //   - `map` is NOT a free variable here (common modules are imported, not
@@ -20,7 +20,7 @@ const alreadyBound = (list: readonly unknown[][], item: readonly unknown[]): boo
   list.some(it => it[0] === item[0] && it[1] === item[1]);
 
 class BaseControl extends L.Control {
-  events: Array<[HTMLElement, string, (e: Event) => void]>;
+  events: Array<[HTMLElement, string, (event: Event) => void]>;
   mapListeners: Array<[string, L.LeafletEventHandlerFn]>;
   _map!: L.Map;
   init?(): void;
@@ -45,9 +45,9 @@ class BaseControl extends L.Control {
   onRemove(): void {
     this.destroy();
     // Auto-unbind tracked listeners — always runs, cannot be skipped by subclasses.
-    this.events.forEach(([el, ev, fn]) => L.DomEvent.off(el, ev, fn));
+    this.events.forEach(([el, event, fn]) => L.DomEvent.off(el, event, fn));
     this.events = [];
-    this.mapListeners.forEach(([ev, fn]) => this._map.off(ev as any, fn));
+    this.mapListeners.forEach(([event, fn]) => this._map.off(event as any, fn));
     this.mapListeners = [];
   }
 
@@ -55,18 +55,18 @@ class BaseControl extends L.Control {
   destroy(): void {}
 
   /** Track a L.DomEvent listener for auto-cleanup. */
-  listenDOM(el: HTMLElement, ev: string, fn: (e: Event) => void): void {
-    const item: [HTMLElement, string, (e: Event) => void] = [el, ev, fn];
+  listenDOM(el: HTMLElement, event: string, fn: (event: Event) => void): void {
+    const item: [HTMLElement, string, (event: Event) => void] = [el, event, fn];
     if (alreadyBound(this.events, item)) return;
-    L.DomEvent.on(el, ev, fn);
+    L.DomEvent.on(el, event, fn);
     this.events.push(item);
   }
 
   /** Track a map event listener for auto-cleanup. */
-  listenMap(ev: string, fn: L.LeafletEventHandlerFn): void {
-    const item: [string, L.LeafletEventHandlerFn] = [ev, fn];
+  listenMap(event: string, fn: L.LeafletEventHandlerFn): void {
+    const item: [string, L.LeafletEventHandlerFn] = [event, fn];
     if (alreadyBound(this.mapListeners, item)) return;
-    this._map.on(ev, fn);
+    this._map.on(event, fn);
     this.mapListeners.push(item);
   }
 }

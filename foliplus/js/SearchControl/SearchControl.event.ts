@@ -49,8 +49,8 @@ const bindEvents = (ctrl: any) => {
     }
   });
 
-  ctrl.inp.addEventListener("keydown", (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
+  ctrl.inp.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
       if (ctrl.suggestionsWrap) {
         removeSuggestions(ctrl);
         return;
@@ -61,8 +61,8 @@ const bindEvents = (ctrl: any) => {
       foliplus.hideHint(CONF.name);
       return;
     }
-    if (e.key === "ArrowDown" && ctrl.suggestionsWrap) {
-      e.preventDefault();
+    if (event.key === "ArrowDown" && ctrl.suggestionsWrap) {
+      event.preventDefault();
       const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
       ctrl.selectedSuggestionIdx = Math.min(
         ctrl.selectedSuggestionIdx + 1,
@@ -77,8 +77,8 @@ const bindEvents = (ctrl: any) => {
         ).textContent;
       return;
     }
-    if (e.key === "ArrowUp" && ctrl.suggestionsWrap) {
-      e.preventDefault();
+    if (event.key === "ArrowUp" && ctrl.suggestionsWrap) {
+      event.preventDefault();
       const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
       ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
       items.forEach((el: Element, i: number) =>
@@ -90,7 +90,7 @@ const bindEvents = (ctrl: any) => {
         ).textContent;
       return;
     }
-    if (e.key === "Enter") {
+    if (event.key === "Enter") {
       const raw = ctrl.inp.value.trim();
       removeSuggestions(ctrl);
       if (!raw) return;

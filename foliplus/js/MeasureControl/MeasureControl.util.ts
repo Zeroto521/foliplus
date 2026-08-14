@@ -121,10 +121,10 @@ const toggleDelIcon = (marker: L.Layer, show: boolean, retries = 0) => {
 
 /** Attach a click handler to a delete icon marker via Leaflet event (survives DOM rebuild). */
 const attachDelClick = (delMarker: L.Layer, callback: () => void) => {
-  delMarker.on("click", (ev: L.LeafletMouseEvent) => {
-    const t = (ev.originalEvent as MouseEvent)?.target as HTMLElement | null;
+  delMarker.on("click", (event: L.LeafletMouseEvent) => {
+    const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
     if (t?.classList?.contains(CONST.DEL_ICON.CLASS)) {
-      stopEvent(ev);
+      stopEvent(event);
       callback();
     }
   });
