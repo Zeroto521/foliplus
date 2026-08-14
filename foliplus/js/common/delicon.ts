@@ -9,7 +9,9 @@ const DEL_ICON_CLASS = "foliplus-del-icon";
 const DEL_ICON_CHAR = "\u2715";
 /** CSS selector matching the delete icon span. */
 const DEL_ICON_SELECTOR = `[data-${DEL_ICON_ROLE}]`;
-/** Default icon anchor: floats the ✕ at the marker's bottom tip. */
+/** Icon anchor for a location pin (MeasureControl marker / LocateControl pin):
+ *  floats the ✕ at the pin's bottom tip. Line/area/circle nodes use the
+ *  default [0, 0] anchor (icon top-left at the anchor point). */
 const DEL_ICON_MARKER_ANCHOR: [number, number] = [0, 24];
 /** Z-index offset so the ✕ always renders above the marker it floats on. */
 const DEL_ICON_Z_OFFSET = 11000; // above the pin (PIN.Z_OFFSET = 10000)
@@ -26,7 +28,9 @@ const makeDelIcon = (
 ): L.Marker => {
   const {
     className,
-    iconAnchor = DEL_ICON_MARKER_ANCHOR,
+    // Default anchor [0, 0]: icon top-left sits on the anchor point, used by
+    // line/area/circle nodes. Pins opt in to [0, 24] via DEL_ICON_MARKER_ANCHOR.
+    iconAnchor = [0, 0],
     zIndexOffset = DEL_ICON_Z_OFFSET,
     title,
   } = opts;
@@ -71,6 +75,7 @@ const hideDelIcons = () => {
 
 export {
   DEL_ICON_CHAR,
+  DEL_ICON_MARKER_ANCHOR,
   DEL_ICON_SELECTOR,
   DEL_ICON_Z_OFFSET,
   attachDelClick,

@@ -1,4 +1,5 @@
 import {
+  DEL_ICON_MARKER_ANCHOR,
   attachDelClick,
   hideDelIcons,
   makeDelIcon,
@@ -158,6 +159,7 @@ class MarkerMode extends MeasureMode {
     const delMarker = manager.layers.addLayer(
       makeDelIcon(L.latLng(data.lat!, data.lng!), {
         title: _(`${CONF.name}.del_tooltip`),
+        iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
       }),
     );
 
@@ -239,7 +241,10 @@ class MarkerMode extends MeasureMode {
     );
 
     const delMarker = this.layers.addLayer(
-      makeDelIcon(event.latlng, { title: _(`${CONF.name}.del_tooltip`) }),
+      makeDelIcon(event.latlng, {
+        title: _(`${CONF.name}.del_tooltip`),
+        iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
+      }),
     );
 
     // Bind delete + popup events BEFORE async geocode so the X works even
