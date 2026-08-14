@@ -718,12 +718,14 @@ class TestLayerControlBrowser:
                 f"Expected 'Deselect all', got '{initial}'"
             )
 
-            # Uncheck one layer → title should become "Select all"
+            # Uncheck one layer → title should become "Deselect all" (indeterminate)
             page.evaluate(_js("LayerControl/click_first_layer_checkbox"))
             page.wait_for_timeout(300)
 
             after = page.evaluate(_js("LayerControl/read_toggle_all_title"))
-            assert after and "Select" in after, f"Expected 'Select all', got '{after}'"
+            assert after and "Deselect" in after, (
+                f"Expected 'Deselect all', got '{after}'"
+            )
         finally:
             page.close()
 
@@ -1308,8 +1310,8 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
-    def test_toggle_all_click_indeterminate_selects_all(self, browser, tmp_path):
-        """Clicking indeterminate toggle-all selects all layers."""
+    def test_toggle_all_click_indeterminate_deselects_all(self, browser, tmp_path):
+        """Clicking indeterminate toggle-all deselects all layers."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
@@ -1341,21 +1343,21 @@ class TestLayerControlBrowser:
             state = page.evaluate(_js("LayerControl/read_toggle_all_indeterminate"))
             assert state is True, "Expected toggle-all indeterminate before click"
 
-            # Click toggle-all (indeterminate → checked will select all)
+            # Click toggle-all (indeterminate → deselect all)
             page.evaluate(_js("LayerControl/click_toggle_all"))
             page.wait_for_timeout(300)
 
-            # Verify all layers are now checked
+            # Verify all layers are now unchecked
             result = page.evaluate(_js("LayerControl/read_overlay_checked"))
-            assert all(result), f"Expected all layers checked, got {result}"
+            assert not any(result), f"Expected all layers unchecked, got {result}"
 
-            # Verify toggle-all is now checked (not indeterminate)
+            # Verify toggle-all is now unchecked (not indeterminate)
             final = page.evaluate(_js("LayerControl/read_toggle_all_state"))
-            assert final["checked"] is True, (
-                "Expected toggle-all checked after select all"
+            assert final["checked"] is False, (
+                "Expected toggle-all unchecked after deselect all"
             )
             assert final["indeterminate"] is False, (
-                "Expected toggle-all NOT indeterminate after select all"
+                "Expected toggle-all NOT indeterminate after deselect all"
             )
         finally:
             page.close()
