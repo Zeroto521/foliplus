@@ -168,7 +168,7 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     const layer = {
       getElement: () => path,
-      options: {},
+      options: {} as Record<string, unknown>,
       eachLayer: undefined,
     };
     Object.setPrototypeOf(layer, new window.L.Path());

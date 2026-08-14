@@ -31,13 +31,13 @@ describe("dom.el", () => {
   });
 
   it("sets boolean properties", () => {
-    const el = dom.el("input", { disabled: "", checked: true });
+    const el = dom.el("input", { disabled: "", checked: true }) as HTMLInputElement;
     expect(el.disabled).toBe(true);
     expect(el.checked).toBe(true);
   });
 
   it("sets value property", () => {
-    const el = dom.el("input", { value: "test" });
+    const el = dom.el("input", { value: "test" }) as HTMLInputElement;
     expect(el.value).toBe("test");
   });
 
@@ -354,14 +354,14 @@ describe("createIconButton", () => {
 
 describe("stopEvent", () => {
   it("stops propagation and prevents default on a DOM event", () => {
-    const event = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+    const event = { stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as Event;
     stopEvent(event);
     expect(event.stopPropagation).toHaveBeenCalled();
     expect(event.preventDefault).toHaveBeenCalled();
   });
 
   it("unwraps Leaflet events via originalEvent", () => {
-    const original = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+    const original = { stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as Event;
     stopEvent({ originalEvent: original });
     expect(original.stopPropagation).toHaveBeenCalled();
     expect(original.preventDefault).toHaveBeenCalled();

@@ -287,7 +287,7 @@ describe("createPanelControl", () => {
 
 describe("bindMapSync", () => {
   function makeMap() {
-    const handlers = {};
+    const handlers = {} as Record<string, (...args: unknown[]) => unknown>;
     return {
       on: vi.fn((event, fn) => {
         handlers[event] = fn;
@@ -339,7 +339,7 @@ describe("bindMapSync", () => {
 
   it("skips binding when events/fn missing", () => {
     const map = makeMap();
-    const opts = { map, hideEvents: ["zoom"] };
+    const opts = { map, hideEvents: ["zoom"] } as any;
     const cleanup = bindMapSync(opts);
     expect(opts.onHide).toBeUndefined();
     expect(map.on).not.toHaveBeenCalled();

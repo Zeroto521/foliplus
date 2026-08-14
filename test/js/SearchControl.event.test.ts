@@ -4,7 +4,7 @@ import {
 } from "#foliplus/SearchControl/SearchControl.event.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-function makeCtrl() {
+function makeCtrl(): any {
   const ctrlDiv = document.createElement("div");
   ctrlDiv.className = "foliplus-search collapsed";
   const toggleBtn = document.createElement("button");
@@ -121,7 +121,7 @@ describe("bindEvents", () => {
   it("fetches suggestions on focus in ADDR mode", () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ json: () => Promise.resolve([]) }),
-    );
+    ) as unknown as typeof fetch;
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
     ctrl.inp.value = "abcdef";

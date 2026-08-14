@@ -11,6 +11,8 @@ import { vi } from "vitest";
 // environment lacks a working localStorage so storage tests run identically
 // locally and in CI.
 class MockStorage {
+  private _store: Record<string, string>;
+
   constructor() {
     this._store = {};
   }
@@ -62,7 +64,7 @@ window.L = {
     disableClickPropagation: vi.fn(),
     disableScrollPropagation: vi.fn(),
   },
-  Control: class {},
+  Control: class { },
   latLng: (lat, lng) => ({ lat, lng }),
   marker: vi.fn(() => ({
     bindPopup: vi.fn(),
@@ -71,10 +73,10 @@ window.L = {
     getPopup: () => null,
   })),
   divIcon: vi.fn(() => ({})),
-  Path: class {},
-  Polygon: class {},
-  Polyline: class {},
-  CircleMarker: class {},
+  Path: class { },
+  Polygon: class { },
+  Polyline: class { },
+  CircleMarker: class { },
 };
 
 // L.Path.prototype.bringToFront is captured at module import time by

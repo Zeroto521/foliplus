@@ -167,7 +167,7 @@ describe("animateDashSweep", () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     };
-    Util.animateDashSweep(path);
+    Util.animateDashSweep(path as any);
     expect(path.style.setProperty).toHaveBeenCalledWith("--sweep-length", "120");
     expect(path.classList.add).toHaveBeenCalledWith("foliplus-measure-dash-sweep");
 
@@ -180,7 +180,7 @@ describe("animateDashSweep", () => {
 
   it("does nothing for zero-length paths", () => {
     const path = { getTotalLength: () => 0 };
-    expect(() => Util.animateDashSweep(path)).not.toThrow();
+    expect(() => Util.animateDashSweep(path as any)).not.toThrow();
   });
 });
 
@@ -201,7 +201,7 @@ describe("recalculateSegments", () => {
 describe("formatSegmentLabel", () => {
   it("returns only distance when show_bearing is off", () => {
     window.CONF = { ...window.CONF, show_bearing: false };
-    expect(Util.formatSegmentLabel({}, {}, 500)).toBe("500 m");
+    expect(Util.formatSegmentLabel({} as any, {} as any, 500)).toBe("500 m");
   });
 
   it("includes bearing when show_bearing is on", () => {
@@ -248,7 +248,7 @@ describe("buildPopup", () => {
 
 describe("stopEvent", () => {
   it("prevents default and stops propagation", () => {
-    const event = { preventDefault: vi.fn(), stopPropagation: vi.fn() };
+    const event = { preventDefault: vi.fn(), stopPropagation: vi.fn() } as unknown as Event;
     stopEvent(event);
     expect(event.preventDefault).toHaveBeenCalled();
     expect(event.stopPropagation).toHaveBeenCalled();

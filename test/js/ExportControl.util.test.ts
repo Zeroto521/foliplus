@@ -57,14 +57,14 @@ describe("loadImageBitmap", () => {
     // AbortSignal.timeout may be undefined in jsdom; provide a stub.
     globalThis.AbortSignal = Object.assign(globalThis.AbortSignal || {}, {
       timeout: () => ({}),
-    });
+    }) as unknown as typeof AbortSignal;
     window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
   });
 
   it("returns null when fetch response is not ok", async () => {
     const { loadImageBitmap } =
       await import("#foliplus/ExportControl/ExportControl.util.js");
-    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: false }));
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: false })) as unknown as typeof fetch;
     const result = await loadImageBitmap("https://example.com/tile.png");
     expect(result).toBeNull();
   });
@@ -75,8 +75,10 @@ describe("loadImageBitmap", () => {
     const fakeBitmap = { close: vi.fn() };
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob()) }),
-    );
-    globalThis.createImageBitmap = vi.fn(() => Promise.resolve(fakeBitmap));
+    ) as unknown as typeof fetch;
+    globalThis.createImageBitmap = vi.fn(() =>
+      Promise.resolve(fakeBitmap),
+    ) as unknown as typeof createImageBitmap;
     const first = await loadImageBitmap("https://example.com/a.png");
     const second = await loadImageBitmap("https://example.com/a.png");
     expect(first).toBe(fakeBitmap);
@@ -99,7 +101,7 @@ describe("loadImage", () => {
       set onload(fn) {
         onloadHandler = fn;
       }
-    };
+    } as unknown as typeof Image;
     const result = loadImage("data:image/png;base64,AAAA");
     await expect(result).resolves.toBeDefined();
     globalThis.Image = origImage;

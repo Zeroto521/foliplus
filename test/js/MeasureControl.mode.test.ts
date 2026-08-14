@@ -56,7 +56,7 @@ beforeEach(() => {
   };
 });
 
-function makeManagerMock() {
+function makeManagerMock(): any {
   return {
     map: {
       on: vi.fn(),
@@ -222,7 +222,7 @@ describe("DistanceMode — marker click stops map propagation", () => {
 
     // Simulate Leaflet's propagation: marker handler runs first. It must set
     // event.originalEvent._stopped so the map click handler is not invoked.
-    const leafletEvent = { latlng: pt2, originalEvent: {} };
+    const leafletEvent = { latlng: pt2, originalEvent: {} as { _stopped?: boolean } };
     markerClickHandler(leafletEvent);
 
     // The marker handler must stop propagation (Leaflet sets _stopped on the
@@ -260,7 +260,7 @@ describe("PolygonMode — marker click stops map propagation", () => {
     )?.[1];
     expect(markerClickHandler).toBeDefined();
 
-    const leafletEvent = { latlng: pt2, originalEvent: {} };
+    const leafletEvent = { latlng: pt2, originalEvent: {} as { _stopped?: boolean } };
     markerClickHandler(leafletEvent);
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
@@ -356,7 +356,7 @@ describe("DistanceMode — click stops propagation to data layers", () => {
     )?.[1];
     expect(clickHandler).toBeDefined();
 
-    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} };
+    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} as { _stopped?: boolean } };
     clickHandler(leafletEvent);
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
@@ -376,7 +376,7 @@ describe("PolygonMode — click stops propagation to data layers", () => {
     )?.[1];
     expect(clickHandler).toBeDefined();
 
-    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} };
+    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} as { _stopped?: boolean } };
     clickHandler(leafletEvent);
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
@@ -410,7 +410,7 @@ describe("CircleMode — click stops propagation to data layers", () => {
     )?.[1];
     expect(clickHandler).toBeDefined();
 
-    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} };
+    const leafletEvent = { latlng: { lat: 30, lng: 120 }, originalEvent: {} as { _stopped?: boolean } };
     clickHandler(leafletEvent);
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
