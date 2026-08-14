@@ -4,12 +4,7 @@ import { createPanelControl } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./logic.js";
-import {
-  buildDataSection,
-  buildStyleSection,
-  initScan,
-  setupObserver,
-} from "./ui.js";
+import { buildDataSection, buildStyleSection, initScan, setupObserver } from "./ui.js";
 
 const { _ } = createControlEnv(CONF, SVGs.HEXAGON);
 requireLayerAPI(CONF.name, _);

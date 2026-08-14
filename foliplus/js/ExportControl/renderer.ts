@@ -1,12 +1,7 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
-import {
-  ensureFont,
-  isVisible,
-  loadImage,
-  loadImageBitmap,
-} from "./util.js";
+import { ensureFont, isVisible, loadImage, loadImageBitmap } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;

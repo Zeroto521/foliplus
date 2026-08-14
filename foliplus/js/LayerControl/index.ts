@@ -4,11 +4,7 @@ import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { bindPanelToggle } from "#common/panel.js";
 import * as SVGs from "./icon.js";
-import {
-  LayerManager,
-  patchBringToFront,
-  unpatchBringToFront,
-} from "./manager.js";
+import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
 import { LayerUI } from "./ui.js";
 
 const { _ } = createControlEnv(CONF, SVGs.LAYERS);

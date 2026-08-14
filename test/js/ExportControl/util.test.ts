@@ -62,8 +62,7 @@ describe("loadImageBitmap", () => {
   });
 
   it("returns null when fetch response is not ok", async () => {
-    const { loadImageBitmap } =
-      await import("#foliplus/ExportControl/util.js");
+    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: false }),
     ) as unknown as typeof fetch;
@@ -72,8 +71,7 @@ describe("loadImageBitmap", () => {
   });
 
   it("loads and caches an ImageBitmap", async () => {
-    const { loadImageBitmap } =
-      await import("#foliplus/ExportControl/util.js");
+    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
     const fakeBitmap = { close: vi.fn() };
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob()) }),

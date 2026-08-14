@@ -15,11 +15,7 @@ import {
 } from "#common/mapEvent.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
-import {
-  attachCircleUI,
-  attachDistanceUI,
-  attachPolygonUI,
-} from "./ui.js";
+import { attachCircleUI, attachDistanceUI, attachPolygonUI } from "./ui.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).

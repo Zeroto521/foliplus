@@ -19,7 +19,8 @@ class ScaleControl extends BaseControl {
     // ==================== Zoom Label ====================
     if (CONF.show_zoom) {
       const zoomLabel = dom.el("span", {
-        class: "foliplus-scale-zoom-label", parent: ctrl
+        class: "foliplus-scale-zoom-label",
+        parent: ctrl,
       });
       const updateZoom = () => {
         zoomLabel.textContent = _(`${CONF.name}.zoom_label`).replace(

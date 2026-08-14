@@ -3,10 +3,7 @@ import {
   isEnabled,
   nativeAPI,
 } from "#foliplus/FullscreenControl/api.js";
-import {
-  CLASSES,
-  containerId,
-} from "#foliplus/FullscreenControl/const.js";
+import { CLASSES, containerId } from "#foliplus/FullscreenControl/const.js";
 import { describe, expect, it } from "vitest";
 
 describe("const.js", () => {

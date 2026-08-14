@@ -1,7 +1,4 @@
-import {
-  bindEvents,
-  initFromUrl,
-} from "#foliplus/SearchControl/event.js";
+import { bindEvents, initFromUrl } from "#foliplus/SearchControl/event.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function makeCtrl(): any {
