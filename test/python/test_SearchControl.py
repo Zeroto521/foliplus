@@ -261,8 +261,7 @@ class TestSearchControlBrowser:
                 f"({z['dataPane']})"
             )
             assert z["popupPane"] > z["markerPane"], (
-                f"popup({z['popupPane']}) should stay above markers "
-                f"({z['markerPane']})"
+                f"popup({z['popupPane']}) should stay above markers ({z['markerPane']})"
             )
             assert not errors, f"JS errors: {errors}"
         finally:
