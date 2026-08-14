@@ -394,7 +394,7 @@ class LayerManager {
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
 
-    foliplus.LayerAPI = this as unknown as LayerAPI;
+    foliplus.LayerAPI = this as LayerAPI;
   }
 
   loadSavedOrder() {
@@ -655,7 +655,7 @@ class LayerManager {
         layer.options.pane = paneName;
         if (layer instanceof L.Path) {
           const { renderer } = this.panes.ensurePane(opts.graphPane!);
-          layer.options.renderer = renderer;
+          layer.options.renderer = renderer ?? undefined;
         } else if (paneName) this.panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
         this.panes.reset();
@@ -678,11 +678,12 @@ class LayerManager {
       return origRemoveLayer(layer);
     };
 
-    (mainLayer as any).clearLayers = () => {
+    mainLayer.clearLayers = () => {
       if (graphLayer) graphLayer.clearLayers();
       if (labelLayer) labelLayer.clearLayers();
       if (this.map.hasLayer(mainLayer)) this.map.removeLayer(mainLayer);
       unregister();
+      return mainLayer;
     };
 
     const addLayer = (layer: LabelAwareLayer, isLabel?: boolean) => {
@@ -696,7 +697,7 @@ class LayerManager {
       });
     };
     const clearLayers = () => {
-      (mainLayer as any).clearLayers();
+      mainLayer.clearLayers();
     };
 
     return {
@@ -804,7 +805,7 @@ class LayerManager {
     this.map.on("resize", onResize);
 
     const hooks = { before: [] as Array<() => void>, after: [] as Array<() => void> };
-    (canvas as any).hooks = hooks;
+    (canvas as CanvasWithHooks).hooks = hooks;
 
     return {
       canvas,

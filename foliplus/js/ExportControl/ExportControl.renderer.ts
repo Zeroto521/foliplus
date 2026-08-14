@@ -203,8 +203,7 @@ class ExportRenderer {
   /** Render a standalone canvas element (e.g. HeatmapControl) with lifecycle hooks. */
   async renderCanvasElement(rc: RenderCtx, ce: HTMLCanvasElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    const hooks = (ce as any).hooks as
-      { before: Array<() => void>; after: Array<() => void> } | undefined;
+    const hooks = (ce as CanvasWithHooks).hooks;
     if (hooks) hooks.before.forEach(fn => fn());
     try {
       const r = ce.getBoundingClientRect();
@@ -362,8 +361,7 @@ class ExportRenderer {
   async renderPaneCanvas(rc: RenderCtx, pane: HTMLElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
     for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
-      const hooks = (ce as any).hooks as
-        { before: Array<() => void>; after: Array<() => void> } | undefined;
+      const hooks = (ce as CanvasWithHooks).hooks;
       if (hooks) hooks.before.forEach(fn => fn());
       try {
         const r = ce.getBoundingClientRect();

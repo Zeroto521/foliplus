@@ -140,6 +140,10 @@ declare module "leaflet" {
   interface GridLayer {
     _url: string;
   }
+  interface SVG {
+    /** Get the renderer's container element. */
+    getContainer(): HTMLElement | null;
+  }
   interface CRS {
     /** Geodesic destination (leaflet-geodesy plugin, CDN). */
     destination?: (
@@ -171,6 +175,7 @@ declare global {
     type Layer = Leaflet.Layer;
     type LayerGroup = Leaflet.LayerGroup;
     type Renderer = Leaflet.Renderer;
+    type SVG = Leaflet.SVG;
     type LeafletEvent = Leaflet.LeafletEvent;
     type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
     type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
@@ -246,6 +251,11 @@ declare global {
     bringToFront: () => void;
     setZIndex: (z: number) => void;
     setVisible: (v: boolean) => void;
+    hooks?: { before: Array<() => void>; after: Array<() => void> };
+  }
+
+  /** A canvas element extended with lifecycle hooks (used by ExportControl capture). */
+  interface CanvasWithHooks extends HTMLCanvasElement {
     hooks?: { before: Array<() => void>; after: Array<() => void> };
   }
 
