@@ -6,6 +6,8 @@ import folium
 import pytest
 from conftest import _js, make_browser_page, render
 
+from foliplus import ExportControl
+
 
 class TestExportControlPython:
     """Python-side property tests."""

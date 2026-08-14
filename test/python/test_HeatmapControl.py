@@ -8,6 +8,7 @@ from pathlib import Path
 import folium
 import pytest
 from conftest import (
+    _js,
     assert_config_value,
     assert_locale,
     make_browser_page,

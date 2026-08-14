@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 # Reads test/js/browser/<Component>/<name>.js for page.evaluate().
 def _js(path: str) -> str:
     """Read a browser-test JS snippet, e.g. ``_js("LayerControl/read_layer_items")``."""
-    return (Path(__file__).resolve().parent / f"js/browser/{path}.js").read_text(
+    return (Path(__file__).resolve().parent.parent / f"js/browser/{path}.js").read_text(
         encoding="utf-8"
     )
 
