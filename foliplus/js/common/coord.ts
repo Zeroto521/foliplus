@@ -11,7 +11,7 @@ type CrsType = "BD09" | "GCJ02" | "WGS84";
 /** Check if any tile layer in the map has a URL matching one of the patterns. */
 function hasTileUrlMatching(map: L.Map | null, patterns: string[]): boolean {
   try {
-    const layers = (map as any)?._layers;
+    const layers = map?._layers as Record<string, L.TileLayer> | undefined;
     if (!layers) return false;
     for (const id in layers) {
       const url = layers[id]?._url;
@@ -28,7 +28,7 @@ function hasCrsCode(map: L.Map | null, codePattern: string): boolean {
   try {
     const crs = map?.options?.crs;
     if (!crs) return false;
-    const code = (crs as any).code || "";
+    const code = crs.code || "";
     return code.toLowerCase().includes(codePattern.toLowerCase());
   } catch (_) {
     return false;
@@ -41,7 +41,7 @@ function hasCrsCode(map: L.Map | null, codePattern: string): boolean {
  */
 const isBaiduCRS = (map: L.Map | null): boolean => {
   try {
-    const LCRS = L.CRS as { Baidu?: unknown };
+    const LCRS = L.CRS as { Baidu?: L.CRS };
     if (LCRS && LCRS.Baidu && map?.options.crs === LCRS.Baidu) return true;
   } catch (_) {
     // L.CRS plugin may be unavailable (jsdom).
