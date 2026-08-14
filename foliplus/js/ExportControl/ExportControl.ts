@@ -14,18 +14,23 @@ requireLayerAPI(CONF.name, _);
 // toBlob() will return null (blank image).
 //
 // We also intercept future layer additions to set crossOrigin.
-map.eachLayer((layer: any) => {
-  if (layer instanceof L.GridLayer && !(layer.options as any).crossOrigin) {
-    (layer.options as any).crossOrigin = "anonymous";
-    if (map.hasLayer(layer)) {
-      map.removeLayer(layer);
-      map.addLayer(layer);
+map.eachLayer((layer: L.Layer) => {
+  if (layer instanceof L.GridLayer) {
+    const opts = layer.options as L.TileLayerOptions;
+    if (!opts.crossOrigin) {
+      opts.crossOrigin = "anonymous";
+      if (map.hasLayer(layer)) {
+        map.removeLayer(layer);
+        map.addLayer(layer);
+      }
     }
   }
 });
-map.on("layeradd", (event: any) => {
-  if (event.layer instanceof L.GridLayer && !(event.layer.options as any).crossOrigin) {
-    (event.layer.options as any).crossOrigin = "anonymous";
+map.on("layeradd", (event: L.LeafletEvent) => {
+  const layer = (event as L.LayerEvent).layer;
+  if (layer instanceof L.GridLayer) {
+    const opts = layer.options as L.TileLayerOptions;
+    if (!opts.crossOrigin) opts.crossOrigin = "anonymous";
   }
 });
 

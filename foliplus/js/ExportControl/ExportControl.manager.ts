@@ -20,7 +20,7 @@ const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** A screen-space rectangle. */
-interface Rect {
+export interface Rect {
   left: number;
   top: number;
   width: number;
@@ -83,6 +83,7 @@ class ExportManager {
   dragState: DragState;
   undoStack: Rect[];
   redoStack: Rect[];
+  declare mapMoveCleanup: (() => void) | null;
 
   // Mounted UI helpers (assigned in constructor).
   declare showCropBox: () => void;
@@ -472,9 +473,10 @@ class ExportManager {
     vpH: number,
   ) {
     const savedStyles: Record<string, string> = {};
-    const style = this.mapContainer.style as unknown as Record<string, string>;
-    ["width", "height", "minHeight", "maxHeight", "overflow"].forEach(p => {
-      savedStyles[p] = style[p];
+    const style = this.mapContainer.style;
+    const styleProps = ["width", "height", "min-height", "max-height", "overflow"];
+    styleProps.forEach(p => {
+      savedStyles[p] = style.getPropertyValue(p);
     });
     const savedCenter = this.map.getCenter();
     const savedZoom = this.map.getZoom();
@@ -496,8 +498,7 @@ class ExportManager {
     const restore = () => {
       this.map.options.zoomAnimation = savedAnim;
       Object.keys(savedStyles).forEach(p => {
-        (this.mapContainer.style as unknown as Record<string, string>)[p] =
-          savedStyles[p];
+        this.mapContainer.style.setProperty(p, savedStyles[p]);
       });
       this.map.invalidateSize(false);
       this.map.setView(savedCenter, savedZoom, { animate: false });

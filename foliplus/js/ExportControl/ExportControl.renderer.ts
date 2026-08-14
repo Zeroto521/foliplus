@@ -61,8 +61,9 @@ class ExportRenderer {
     scaleVal: number,
   ): TileDesc[] {
     const crs = this.map.options.crs || L.CRS.EPSG3857;
-    const tileSize = (tileLayer.options as any).tileSize || 256;
-    const subdomains = (tileLayer.options as any).subdomains || "abc";
+    const opts = tileLayer.options as L.TileLayerOptions;
+    const tileSize = typeof opts.tileSize === "number" ? opts.tileSize : 256;
+    const subdomains = opts.subdomains || "abc";
     const urlTemplate = tileLayer._url || "";
 
     // Get bounds in EPSG:3857
@@ -76,7 +77,7 @@ class ExportRenderer {
     const maxTy = Math.ceil(se.y / tileSize) - 1;
 
     const tiles: TileDesc[] = [];
-    const maxTile = (crs as any).infinite ? Infinity : Math.pow(2, zoom);
+    const maxTile = crs.infinite ? Infinity : Math.pow(2, zoom);
 
     for (let tx = minTx; tx <= maxTx; tx++) {
       for (let ty = minTy; ty <= maxTy; ty++) {
@@ -327,7 +328,7 @@ class ExportRenderer {
           if (!v || v === "none") continue;
           if (p === "fill" && v === "rgb(0, 0, 0)") continue;
           if (p === "stroke" && v === "none") continue;
-          inline.style[p as any] = v;
+          inline.style.setProperty(p, v);
         }
       }
 

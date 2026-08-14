@@ -8,18 +8,30 @@ import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./ExportControl.const.js";
 import * as SVGs from "./ExportControl.icon.js";
+import type { ExportManager, Rect } from "./ExportControl.manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
-/** Render confirm/cancel action buttons into the crop toolbar.
- *  Shared by showCropBox / lockCropBox / unlockCropBox.
- *  @param {Object} mgr - ExportManager instance.
- *  @param {Object} opts - { confirm: {title, svg, onclick}, cancel: {title, svg, onclick} } */
-const renderToolbarActions = (mgr: any, { confirm, cancel }: any) => {
+/** Toolbar action button config. */
+interface ToolbarButton {
+  title: string;
+  svg: string;
+  onclick: (mgr: ExportManager) => void;
+}
+
+/**
+ * Render confirm/cancel action buttons into the crop toolbar.
+ * Shared by showCropBox / lockCropBox / unlockCropBox.
+ */
+const renderToolbarActions = (
+  mgr: ExportManager,
+  { confirm, cancel }: { confirm: ToolbarButton; cancel: ToolbarButton },
+) => {
   const actions = mgr.cropState?.actions || mgr.exportToolBar;
+  if (!actions) return;
   actions.innerHTML = "";
   createIconButton({
     class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
@@ -44,7 +56,7 @@ const renderToolbarActions = (mgr: any, { confirm, cancel }: any) => {
 };
 
 /** Update crop box element position/size. */
-const updateBoxStyle = (mgr: any, el: HTMLElement, r: any) => {
+const updateBoxStyle = (mgr: ExportManager, el: HTMLElement, r: Rect) => {
   el.style.left = `${r.left}px`;
   el.style.top = `${r.top}px`;
   el.style.width = `${r.width}px`;
@@ -53,7 +65,7 @@ const updateBoxStyle = (mgr: any, el: HTMLElement, r: any) => {
 
 /** Show a global hint (e.g. exporting status). */
 const showGlobalHint = (
-  mgr: any,
+  mgr: ExportManager,
   text: string,
   duration = HINT_DURATION.PERSIST,
   withLoadingIcon = false,
@@ -63,7 +75,7 @@ const showGlobalHint = (
 };
 
 /** Show a hint with crop box size info. */
-const showHintWithInfo = (mgr: any, r: any, instruction?: string) => {
+const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => {
   mgr.checkPixelLimit(r);
   foliplus.showHint(
     CONF.name,
@@ -88,7 +100,7 @@ const showHintWithInfo = (mgr: any, r: any, instruction?: string) => {
 };
 
 /** Build the crop box DOM and attach events. */
-const showCropBox = (mgr: any) => {
+const showCropBox = (mgr: ExportManager) => {
   if (mgr.cropState) return;
   const mapRect = mgr.mapContainer.getBoundingClientRect();
   let box;
@@ -167,15 +179,15 @@ const showCropBox = (mgr: any) => {
       onclick: () => mgr.removeCropBox(),
     },
   });
-  mgr.exportCtrl.classList.remove(CONST.CLASSES.COLLAPSED);
-  mgr.exportCtrl.classList.add(CONST.CLASSES.EXPANDED);
+  mgr.exportCtrl?.classList.remove(CONST.CLASSES.COLLAPSED);
+  mgr.exportCtrl?.classList.add(CONST.CLASSES.EXPANDED);
 
   mgr.cropState = {
     overlay,
     box: cropBox,
     rect: box,
     locked: false,
-    actions: mgr.exportToolBar,
+    actions: mgr.exportToolBar!,
   };
   updateBoxStyle(mgr, cropBox, box);
   mgr.pushUndoState();
@@ -185,7 +197,7 @@ const showCropBox = (mgr: any) => {
 };
 
 /** Update toolbar for locked state (export button). */
-const lockCropBox = (mgr: any, skipHint = false) => {
+const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   if (!mgr.cropState || mgr.cropState.locked) return;
   mgr.cropState.locked = true;
   mgr.cropState.box.classList.add("locked");
@@ -222,7 +234,7 @@ const lockCropBox = (mgr: any, skipHint = false) => {
 };
 
 /** Update toolbar for unlocked state (confirm button). */
-const unlockCropBox = (mgr: any) => {
+const unlockCropBox = (mgr: ExportManager) => {
   if (!mgr.cropState || !mgr.cropState.locked) return;
   mgr.cropState.locked = false;
   mgr.cropState.box.classList.remove("locked");
@@ -244,7 +256,7 @@ const unlockCropBox = (mgr: any) => {
 };
 
 /** Remove crop box DOM and restore UI state. */
-const removeCropBox = (mgr: any) => {
+const removeCropBox = (mgr: ExportManager) => {
   if (!mgr.cropState) return;
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);

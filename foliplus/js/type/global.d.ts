@@ -177,6 +177,7 @@ declare global {
     type Renderer = Leaflet.Renderer;
     type SVG = Leaflet.SVG;
     type LeafletEvent = Leaflet.LeafletEvent;
+    type LayerEvent = Leaflet.LayerEvent;
     type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
     type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
     type PointExpression = Leaflet.PointExpression;
