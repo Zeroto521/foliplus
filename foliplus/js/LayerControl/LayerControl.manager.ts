@@ -1,4 +1,4 @@
-import { debounce, type Debounced } from "#common/debounce.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
@@ -23,8 +23,7 @@ const patchBringToFront = () => {
   if (isBringToFrontPatched) return;
   isBringToFrontPatched = true;
   L.Path.prototype.bringToFront = function () {
-    if (this._path && this._path.parentNode)
-      origBringToFront.call(this);
+    if (this._path && this._path.parentNode) origBringToFront.call(this);
     return this;
   };
 };
@@ -88,7 +87,11 @@ class LayerRegistry {
    *   the map/window globals when `opts.layer` is absent.
    * @returns {Object} A complete layerInfo object.
    */
-  createLayerInfo(opts: RegisterLayerOpts, existingLi?: LayerInfo, map?: L.Map): LayerInfo {
+  createLayerInfo(
+    opts: RegisterLayerOpts,
+    existingLi?: LayerInfo,
+    map?: L.Map,
+  ): LayerInfo {
     return {
       name: opts.name ?? existingLi?.name ?? opts.id,
       id: opts.id,
@@ -365,7 +368,11 @@ class LayerManager {
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
     this.onLayerAdd = event => {
-      if (this.isDestroyed || event.layer === this.map || event.layer instanceof L.Renderer)
+      if (
+        this.isDestroyed ||
+        event.layer === this.map ||
+        event.layer instanceof L.Renderer
+      )
         return;
 
       if (
@@ -401,7 +408,9 @@ class LayerManager {
         layerMap.delete(id);
       }
     }
-    this.layerRegistry.replace(ordered.concat([...layerMap.values()].filter((v): v is LayerInfo => v != null)));
+    this.layerRegistry.replace(
+      ordered.concat([...layerMap.values()].filter((v): v is LayerInfo => v != null)),
+    );
   }
 
   saveOrder() {
@@ -436,7 +445,9 @@ class LayerManager {
    * @param {string} type - "point" | "line" | "polygon" | "base"
    * @returns {Array<{id: string, name: string, layer: Object}>}
    */
-  getLayersByType(type: string): Array<{ id: string; name: string; layer: L.Layer | null }> {
+  getLayersByType(
+    type: string,
+  ): Array<{ id: string; name: string; layer: L.Layer | null }> {
     return this.layers
       .filter(l => this.getLayerType(l.id) === type)
       .map(l => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
@@ -446,7 +457,10 @@ class LayerManager {
     const li =
       typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
     if (li?.layer) return li.layer;
-    return Util.findLayer(this.map, typeof idOrInfo === "string" ? idOrInfo : li?.id ?? "");
+    return Util.findLayer(
+      this.map,
+      typeof idOrInfo === "string" ? idOrInfo : (li?.id ?? ""),
+    );
   }
 
   forEachLeaf(id: string, fn: (layer: L.Layer) => void) {
@@ -459,8 +473,11 @@ class LayerManager {
    * @param {string} id - Layer ID.
    * @returns {Array<{lat: number, lng: number, marker: L.Marker|L.CircleMarker}>}
    */
-  extractPoints(id: string): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
-    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> = [];
+  extractPoints(
+    id: string,
+  ): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
+    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> =
+      [];
     const seen = new Set();
     this.forEachLeaf(id, (l: L.Layer) => {
       if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
@@ -574,9 +591,15 @@ class LayerManager {
 
   clearAllLayers(layer: L.Layer | null) {
     if (!layer) return;
-    if ("clearLayers" in layer && typeof (layer as L.LayerGroup).clearLayers === "function")
+    if (
+      "clearLayers" in layer &&
+      typeof (layer as L.LayerGroup).clearLayers === "function"
+    )
       (layer as L.LayerGroup).clearLayers();
-    else if ("eachLayer" in layer && typeof (layer as L.LayerGroup).eachLayer === "function")
+    else if (
+      "eachLayer" in layer &&
+      typeof (layer as L.LayerGroup).eachLayer === "function"
+    )
       (layer as L.LayerGroup).eachLayer(c => this.clearAllLayers(c));
   }
 
@@ -585,7 +608,9 @@ class LayerManager {
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
       : null;
-    const labelLayer = opts.labelPane ? L.layerGroup([], { pane: opts.labelPane }) : null;
+    const labelLayer = opts.labelPane
+      ? L.layerGroup([], { pane: opts.labelPane })
+      : null;
     if (graphLayer) mainLayer.addLayer(graphLayer);
     if (labelLayer) mainLayer.addLayer(labelLayer);
 
@@ -846,7 +871,19 @@ class LayerManager {
     }
   }
 
-  applyLayerZIndex({ li, layer, z, isTile, layersToMove }: { li: any; layer: any; z: number; isTile: boolean; layersToMove: any[] }) {
+  applyLayerZIndex({
+    li,
+    layer,
+    z,
+    isTile,
+    layersToMove,
+  }: {
+    li: any;
+    layer: any;
+    z: number;
+    isTile: boolean;
+    layersToMove: any[];
+  }) {
     const paneName = li.paneName;
     if (paneName) {
       const ep = this.panes.ensurePane(paneName, !isTile);

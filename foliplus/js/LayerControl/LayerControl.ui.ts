@@ -362,7 +362,8 @@ class LayerUI {
       const row = (event.target as HTMLElement).closest(
         CONST.SEL.TOGGLE_ALL,
       ) as HTMLElement | null;
-      if (!row || (event.target as HTMLElement).closest('[data-role="toggle-all"]')) return;
+      if (!row || (event.target as HTMLElement).closest('[data-role="toggle-all"]'))
+        return;
       const group = row.dataset.group ?? "";
       if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
       else this.foldedGroups.add(group);
@@ -653,9 +654,7 @@ class LayerUI {
     inputs.forEach((input: HTMLInputElement, j: number) => {
       if (this.m.layers[j]?.isBase) {
         input.checked = false;
-        input
-          .closest(CONST.SEL.LAYER_ITEM)
-          ?.classList.remove(CONST.CLASSES.ACTIVE);
+        input.closest(CONST.SEL.LAYER_ITEM)?.classList.remove(CONST.CLASSES.ACTIVE);
       }
     });
 
