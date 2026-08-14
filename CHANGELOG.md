@@ -17,13 +17,14 @@
 - `Frontend language`: migrate all JavaScript source files to TypeScript (`*.js` → `*.ts`). Added `vitest` for JS unit tests. ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#130](https://github.com/Zeroto521/foliplus/pull/130))
 - `Test boundary refactoring`: establish clear PY ↔ JS bridge boundary rule — PY tests validate config serialization, locale injection, CDN dependencies, and CSS tokens only; JS tests (vitest) cover all internal component logic; browser tests (Playwright) cover real DOM interaction. ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#131](https://github.com/Zeroto521/foliplus/pull/131))
 - `BaseControl`: extract `_export_fields` and `_extra_config` protocol for clean PY→JS config injection. Rework the **lifecycle management** in the shared JS `BaseControl`: a `L.Control` base class with `init()`/`buildDOM()`/`destroy()` hooks and final `onAdd()`/`onRemove()`. `onRemove` auto-unbinds all tracked DOM/map listeners before calling the subclass `destroy()` hook, eliminating listener leaks across controls. ([#122](https://github.com/Zeroto521/foliplus/pull/122))
-- `CSS build`: migrate all component stylesheets to CSS Nesting source syntax, compiled to fully-flat selectors via `postcss-nesting`. ([#124](https://github.com/Zeroto521/foliplus/pull/124))
+- `CSS build`: migrate all component stylesheets to CSS Nesting source syntax, compiled to fully-flat selectors via `postcss-nesting` ([#124](https://github.com/Zeroto521/foliplus/pull/124))
 
 ### Fixed
 
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
+- `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
 
 ## [v0.3.0] (2026-08-02)
 
