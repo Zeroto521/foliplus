@@ -183,6 +183,20 @@ describe("LayerRegistry", () => {
       }).toThrow();
     });
 
+    it("blocks index assignment via the set trap", () => {
+      // Index assignment bypasses the MUTATING_METHODS list — the set trap is
+      // the backstop that must throw.
+      expect(() => {
+        registry.layers[0] = { id: "x" };
+      }).toThrow();
+    });
+
+    it("blocks property deletion via the deleteProperty trap", () => {
+      expect(() => {
+        delete registry.layers[0];
+      }).toThrow();
+    });
+
     it("view reflects the latest items after an internal mutation", () => {
       registry.prepend(
         registry.createLayerInfo({ id: "new1", name: "New", isBase: false }),

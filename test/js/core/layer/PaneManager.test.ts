@@ -212,6 +212,25 @@ describe("PaneManager", () => {
     expect(path.parentNode).toBe(container);
   });
 
+  it("migrateLayers recurses through LayerGroup subtrees", () => {
+    const paneEl = document.createElement("div");
+    const container = document.createElement("div");
+    const childPath = document.createElement("path");
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const child = { getElement: () => childPath, options: {} };
+    Object.setPrototypeOf(child, new window.L.Path());
+    const parent = {
+      eachLayer: (cb: (c: unknown) => void) => cb(child),
+      options: {},
+    };
+    const renderer = { _container: container };
+    pm.migrateLayers([{ layer: parent, paneName: "measure_graph", renderer }]);
+    expect(child.options.pane).toBe("measure_graph");
+    expect(child.options.paneSet).toBe(true);
+    expect(childPath.parentNode).toBe(container);
+  });
+
   it("migrateLayers moves marker icons into the pane", () => {
     const paneEl = document.createElement("div");
     const icon = document.createElement("img");

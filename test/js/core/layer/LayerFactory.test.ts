@@ -167,6 +167,15 @@ describe("LayerFactory", () => {
       expect(invalidateType).toHaveBeenCalledWith("test");
     });
 
+    it("removeLayer falls through to origRemoveLayer when not in a sub-layer", () => {
+      const api = factory.createLayers({ id: "test", name: "Test" }); // no graph/label pane
+      const layer = new window.L.Path();
+      api.addLayer(layer); // goes to mainLayer directly
+      expect(api.mainLayer.getLayers().length).toBe(1);
+      api.removeLayer(layer);
+      expect(api.mainLayer.getLayers().length).toBe(0);
+    });
+
     it("clearLayers unregisters when empty", () => {
       const unreg = vi.fn(() => true);
       const f = new LayerFactory({
