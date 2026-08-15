@@ -1,9 +1,9 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { dom } from "#common/dom.js";
-import { HINT_DURATION } from "#core/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import { HeatmapManager } from "./logic.js";
 import { panelContentHTML } from "./template.js";
@@ -44,15 +44,33 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.extraBody = panelContent.querySelector("[data-hm-extra-body]") as HTMLElement;
   ctrl.aggSelect = panelContent.querySelector("[data-hm-agg]") as HTMLSelectElement;
   ctrl.fieldWrap = panelContent.querySelector("[data-hm-field]") as HTMLElement;
-  ctrl.fieldSelect = panelContent.querySelector("[data-hm-field-select]") as HTMLSelectElement;
-  ctrl.methodSelect = panelContent.querySelector("[data-hm-method]") as HTMLSelectElement;
-  ctrl.classSelect = panelContent.querySelector("[data-hm-class-count]") as HTMLSelectElement;
-  ctrl.schemeControlWrap = panelContent.querySelector("[data-hm-scheme-ctrl]") as HTMLElement;
-  ctrl.schemeBar = ctrl.schemeControlWrap.querySelector(".foliplus-heatmap-scheme-bar") as HTMLElement;
-  ctrl.schemeBarInner = ctrl.schemeControlWrap.querySelector(".foliplus-heatmap-scheme-bar-inner") as HTMLElement;
-  ctrl.schemeSelectHidden = panelContent.querySelector("[data-hm-scheme-hidden]") as HTMLSelectElement;
-  ctrl.borderColorInput = panelContent.querySelector("[data-hm-border-color]") as HTMLInputElement;
-  ctrl.borderWeightInput = panelContent.querySelector("[data-hm-border-weight]") as HTMLInputElement;
+  ctrl.fieldSelect = panelContent.querySelector(
+    "[data-hm-field-select]",
+  ) as HTMLSelectElement;
+  ctrl.methodSelect = panelContent.querySelector(
+    "[data-hm-method]",
+  ) as HTMLSelectElement;
+  ctrl.classSelect = panelContent.querySelector(
+    "[data-hm-class-count]",
+  ) as HTMLSelectElement;
+  ctrl.schemeControlWrap = panelContent.querySelector(
+    "[data-hm-scheme-ctrl]",
+  ) as HTMLElement;
+  ctrl.schemeBar = ctrl.schemeControlWrap.querySelector(
+    ".foliplus-heatmap-scheme-bar",
+  ) as HTMLElement;
+  ctrl.schemeBarInner = ctrl.schemeControlWrap.querySelector(
+    ".foliplus-heatmap-scheme-bar-inner",
+  ) as HTMLElement;
+  ctrl.schemeSelectHidden = panelContent.querySelector(
+    "[data-hm-scheme-hidden]",
+  ) as HTMLSelectElement;
+  ctrl.borderColorInput = panelContent.querySelector(
+    "[data-hm-border-color]",
+  ) as HTMLInputElement;
+  ctrl.borderWeightInput = panelContent.querySelector(
+    "[data-hm-border-weight]",
+  ) as HTMLInputElement;
   ctrl.labelChk = panelContent.querySelector("[data-hm-label-chk]") as HTMLInputElement;
 
   // Set initial values from manager defaults
@@ -156,7 +174,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       document.addEventListener("click", ctrl.closeSchemeDropdown);
   };
 
-  const clearBtn = panelContent.querySelector("[data-hm-btn-clear]") as HTMLButtonElement;
+  const clearBtn = panelContent.querySelector(
+    "[data-hm-btn-clear]",
+  ) as HTMLButtonElement;
   clearBtn.onclick = () => {
     resetAll(ctrl);
     syncSelect(ctrl, ctrl.layerSelect, "");
@@ -175,7 +195,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
   };
 
-  const confirmBtn = panelContent.querySelector("[data-hm-btn-confirm]") as HTMLButtonElement;
+  const confirmBtn = panelContent.querySelector(
+    "[data-hm-btn-confirm]",
+  ) as HTMLButtonElement;
   confirmBtn.onclick = () => {
     ctrl.m.renderHexagons();
     ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
@@ -437,9 +459,4 @@ const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string
   el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
 };
 
-export {
-  bindControls,
-  initScan,
-  rebuildLayerDropdown,
-  setupObserver,
-};
+export { bindControls, initScan, rebuildLayerDropdown, setupObserver };
