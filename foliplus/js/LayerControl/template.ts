@@ -5,7 +5,7 @@ import * as Icons from "#common/icon.js";
 import * as SVGs from "./icon.js";
 
 /** Build the panel HTML string. */
-const panelHTML = (_: (key: string) => string): string => /* html */`
+const panelHTML = (_: (key: string) => string): string => /* html */ `
   <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed" id="${CONF.name}_ctrl">
     <button class="foliplus-toggle-btn" title="${_(`${CONF.name}.toggle_title`)}" aria-label="${_(`${CONF.name}.toggle_title`)}">
       ${SVGs.LAYERS}
