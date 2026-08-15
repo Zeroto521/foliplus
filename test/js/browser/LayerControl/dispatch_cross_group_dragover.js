@@ -6,8 +6,11 @@
   );
   const base = document.querySelector('.foliplus-layer-item[data-layer-type="base"]');
   if (!overlay || !base) return false;
-  api.ui.dragIdx = parseInt(overlay.dataset.index, 10);
-  const ev = new Event("dragover", { bubbles: true, cancelable: true });
-  base.dispatchEvent(ev);
+  // Dragstart on the overlay arms the UI drag state (sets its dragIdx)
+  overlay.dispatchEvent(
+    new DragEvent("dragstart", { bubbles: true, cancelable: true }),
+  );
+  // Dragover onto the base group item triggers the blocked-reorder hint
+  base.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true }));
   return true;
 };

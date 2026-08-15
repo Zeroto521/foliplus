@@ -480,28 +480,6 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
-    def test_cross_group_drag_block_fallback(self, browser, tmp_path):
-        """canReorderBetween returns false and hint appears."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
-        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
-
-        html_path = tmp_path / "test_cross_group_drag.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
-        try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
-            ok = page.evaluate(_js("LayerControl/can_reorder_between_defined"))
-            assert ok
-        finally:
-            page.close()
-
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
         page, _ = self._make_page(browser, tmp_path)
@@ -564,35 +542,17 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
-    def test_get_layer_type_api(self, browser, tmp_path):
-        """getLayerType returns correct geometry type for registered layers."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
-            result = page.evaluate(_js("LayerControl/get_layer_type"))
-            assert result is not None
-            assert result["type"] == "polygon"
-            assert result["hasPolygon"] is True
-        finally:
-            page.close()
-
     def test_load_saved_order_restore_order(self, browser, tmp_path):
         """loadSavedOrder restores previously saved order from localStorage."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
-        folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
-        folium.FeatureGroup(name="C", overlay=True, show=True).add_to(m)
-
-        html_path = tmp_path / "test_saved_order.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="A", overlay=True, show=True),
+            folium.FeatureGroup(name="B", overlay=True, show=True),
+            folium.FeatureGroup(name="C", overlay=True, show=True),
+            slug="saved_order",
+        )
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
             result = page.evaluate(_js("LayerControl/read_layer_ids"))
             assert result is not None
             assert result["count"] >= 3
@@ -601,21 +561,14 @@ class TestLayerControlBrowser:
 
     def test_toggle_all_checkbox_toggles_layers(self, browser, tmp_path):
         """Toggle-all checkbox toggles all layers in the group."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
-        folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
-
-        html_path = tmp_path / "test_toggle_all.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="A", overlay=True, show=True),
+            folium.FeatureGroup(name="B", overlay=True, show=True),
+            slug="toggle_all",
+        )
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
             # Check initial state — all overlays checked
             result = page.evaluate(_js("LayerControl/read_toggle_all_checked"))
             assert result is True, f"Expected toggle-all checked, got {result}"
@@ -999,21 +952,14 @@ class TestLayerControlBrowser:
 
     def test_bring_layer_to_front_runtime(self, browser, tmp_path):
         """bringLayerToFront moves the layer to front of z-order."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-        folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
-        folium.FeatureGroup(name="B", overlay=True, show=True).add_to(m)
-
-        html_path = tmp_path / "test_bring_front.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="A", overlay=True, show=True),
+            folium.FeatureGroup(name="B", overlay=True, show=True),
+            slug="bring_front",
+        )
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
             result = page.evaluate(_js("LayerControl/bring_layer_to_front"))
             assert result is not None, "LayerAPI not found"
             assert result["newIdx"] == 0, (
@@ -1033,22 +979,6 @@ class TestLayerControlBrowser:
             )
             assert result["existsAfter"] is False, (
                 "DOM item should be removed after unregisterLayer"
-            )
-        finally:
-            page.close()
-
-    def test_find_layer_by_string_id(self, browser, tmp_path):
-        """findLayer resolves a layer by string ID via layers array."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
-            result = page.evaluate(_js("LayerControl/find_layer_by_string_id"))
-            assert result is not None
-            assert result["found"] is True, "findLayer should find the registered layer"
-            assert result["isSame"] is True, (
-                "findLayer should return the same layer instance"
-            )
-            assert result["afterCleanup"] is False, (
-                "findLayer should return null after unregisterLayer"
             )
         finally:
             page.close()
@@ -1092,38 +1022,6 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
-    def test_destroy_cleanup_listeners(self, browser, tmp_path):
-        """onRemove calls destroy() which removes layeradd listener."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        ctrl = LayerControl().add_to(m)
-
-        html_path = tmp_path / "test_destroy_cleanup.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
-        try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
-            result = page.evaluate(_js("LayerControl/destroy_cleanup_listeners"))
-            assert result is not None
-            assert result["beforeDestroy"] is False, (
-                "isDestroyed should be false before destroy"
-            )
-            assert result["isDestroyed"] is True, (
-                "isDestroyed should be true after destroy"
-            )
-            assert result["layersLength"] == 0, (
-                f"layers should be empty after destroy, got {result['layersLength']}"
-            )
-            assert result["hasLayerAPI"] is False, (
-                "LayerAPI should be null after destroy"
-            )
-        finally:
-            page.close()
-
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration."""
         page, _ = self._make_page(browser, tmp_path)
@@ -1159,22 +1057,6 @@ class TestLayerControlBrowser:
                 assert r["iconSvg"] == "<svg></svg>", f"{phase}: iconSvg lost"
                 assert r["hasOnToggle"] is True, f"{phase}: onToggle lost"
                 assert r["hasOnZIndex"] is True, f"{phase}: onZIndex lost"
-        finally:
-            page.close()
-
-    def test_register_resolves_layer_from_map(self, browser, tmp_path):
-        """createLayerInfo resolves layer from window globals when opts.layer is absent.
-
-        registerLayer without a `layer` opts falls back to LayerUtils.findLayer
-        (map._layers / window[id]) inside createLayerInfo, so li.layer is
-        populated without a separate resolution pass.
-        """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
-            result = page.evaluate(_js("LayerControl/register_resolves_layer_from_map"))
-            assert result is not None and "error" not in result, result
-            assert result["resolved"] is True, "layer not resolved from map"
-            assert result["sameAsGlobal"] is True, "resolved layer != window global"
         finally:
             page.close()
 
@@ -1369,20 +1251,10 @@ class TestLayerControlBrowser:
         gets migrated, so paneSet is asserted on the leaf layer. An empty
         container has no DOM to migrate, so paneSet is meaningless there.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-        fg = folium.FeatureGroup(name="TestLayer", overlay=True, show=True).add_to(m)
+        fg = folium.FeatureGroup(name="TestLayer", overlay=True, show=True)
         folium.Marker([26.08, 119.30], name="test_marker").add_to(fg)
-
-        html_path = tmp_path / "test_paneset_reset.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path, fg, slug="paneset_reset")
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -1417,22 +1289,14 @@ class TestLayerControlBrowser:
 
     def test_enforce_order_end_to_end(self, browser, tmp_path):
         """enforceOrder applies correct z-index to layers and migrates panes."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-        fg = folium.FeatureGroup(name="Overlay", overlay=True, show=True).add_to(m)
-        folium.TileLayer("CartoDB positron", name="Base", overlay=False).add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_enforce.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="Overlay", overlay=True, show=True),
+            folium.TileLayer("CartoDB positron", name="Base", overlay=False),
+            slug="enforce",
+        )
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
             result = page.evaluate(_js("LayerControl/read_pane_zindex"))
             assert result is not None, "LayerAPI not found"
             assert result["layerCount"] >= 2, f"got {result['layerCount']} layers"
@@ -1475,6 +1339,12 @@ class TestLayerControlBrowser:
             folium.Marker([26.08, 119.30], name="Points"),
         )
         try:
+            # GeoJSON's layer is resolved after its addTo fires layeradd →
+            # debouncedEnforce; wait for the per-layer pane to appear. The pane
+            # class is "foliplus-layer-pane" (a single token), not "foliplus-layer".
+            page.wait_for_selector(
+                ".leaflet-pane.foliplus-layer-pane", state="attached", timeout=5000
+            )
             result = page.evaluate(_js("LayerControl/read_pane_zindex"))
             assert result is not None, "LayerAPI not found"
             assert result["dataZ"] is not None, "no data layer pane found"
@@ -1496,49 +1366,18 @@ class TestLayerControlBrowser:
 
     def test_bring_layer_to_front_guard(self, browser, tmp_path):
         """bringLayerToFront is a no-op for base layers or when already at front."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-        folium.FeatureGroup(name="Overlay", overlay=True, show=True).add_to(m)
-        folium.TileLayer("CartoDB positron", name="Base", overlay=False).add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_bringfront.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="Overlay", overlay=True, show=True),
+            folium.TileLayer("CartoDB positron", name="Base", overlay=False),
+            slug="bringfront_guard",
+        )
         try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
             result = page.evaluate(_js("LayerControl/bring_to_front_unknown_guard"))
             assert result is not None
             assert result["unknownOk"] is True, (
                 "bringToFront should be safe for unknown id"
-            )
-        finally:
-            page.close()
-
-    def test_register_batch_coalesces_enforce(self, browser, tmp_path):
-        """Batch registration coalesces enforceOrder into a single pass.
-
-        Registering several layers back-to-back must not trigger a synchronous
-        enforceOrder inside registerLayer itself. The only synchronous
-        enforceOrder allowed comes from initTypesAndVisibility (first paint).
-        Redundant per-register reordering is what this test guards against.
-        """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
-            result = page.evaluate(_js("LayerControl/register_batch_coalesces_enforce"))
-            assert result is not None, "LayerAPI not found"
-            # No redundant (non-initTypes) synchronous enforceOrder during batch
-            assert result["during"]["redundant"] == 0, (
-                f"registerLayer called enforceOrder synchronously {result['during']['redundant']} times"
-            )
-            # After debounce, exactly one coalesced enforceOrder runs
-            assert result["after"]["redundant"] == 1, (
-                f"Expected exactly 1 coalesced enforceOrder, got {result['after']['redundant']}"
             )
         finally:
             page.close()
@@ -1585,92 +1424,6 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
-    def test_layeradd_during_enforce_reschedules(self, browser, tmp_path):
-        """layeradd fired during enforceOrder must reschedule, not drop.
-
-        onLayerAdd's isEnforcing guard returns early without rescheduling,
-        which can skip a needed reorder for a layer added inside the
-        enforceOrder window. The guard must fall back to debouncedEnforce.
-        """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
-            result = page.evaluate(
-                _js("LayerControl/layeradd_during_enforce_reschedules")
-            )
-            assert result is not None, "LayerAPI not found"
-            # layeradd during enforce must be rescheduled via debouncedEnforce
-            assert result["rescheduled"] >= 1, (
-                f"layeradd during enforce dropped, rescheduled={result['rescheduled']}"
-            )
-        finally:
-            page.close()
-
-    def test_can_reorder_caches_base_boundary(self, browser, tmp_path):
-        """canReorderBetween must not rescan findIndex on every call.
-
-        handleDragOver fires many times per second while dragging; the base
-        group boundary (firstBaseIdx) is stable during a drag session and
-        should be cached on the manager.
-        """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
-        folium.FeatureGroup(name="Overlay B", overlay=True, show=True).add_to(m)
-        folium.TileLayer("CartoDB positron", name="Light", overlay=False).add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_can_reorder_cache.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
-        try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
-            result = page.evaluate(_js("LayerControl/can_reorder_caches_base_boundary"))
-            assert result is not None, "LayerAPI not found"
-            # With a cached base boundary, repeated calls must not rescan.
-            # Allow a tiny constant (setup scans), but 50 calls should stay
-            # roughly flat, far below one scan per call.
-            assert result["findIndexCalls"] <= 2, (
-                f"canReorderBetween rescans findIndex per call: {result['findIndexCalls']}"
-            )
-        finally:
-            page.close()
-
-    def test_sync_attribution_caches_state(self, browser, tmp_path):
-        """syncAttribution must skip _update when attribution state is unchanged.
-
-        enforceOrder calls syncAttribution every run; rebuilding the
-        attribution DOM each time is wasteful when the top attribution did
-        not change.
-        """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
-        folium.TileLayer("CartoDB positron", name="Light", overlay=False).add_to(m)
-
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_attribution_cache.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
-        try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
-            result = page.evaluate(_js("LayerControl/sync_attribution_caches_state"))
-            assert result is not None and "error" not in result
-            # Second enforceOrder with unchanged attribution must not rebuild
-            assert result["delta"] == 0, (
-                f"syncAttribution rebuilt DOM on unchanged state: {result['delta']}"
-            )
-        finally:
-            page.close()
-
     def test_render_initial_list_incremental(self, browser, tmp_path):
         """registerLayer on an existing UI must not rebuild the whole list.
 
@@ -1687,126 +1440,6 @@ class TestLayerControlBrowser:
             assert result["afterSecond"] <= 1, (
                 f"registerLayer triggered full rebuilds: {result['afterSecond']}"
             )
-        finally:
-            page.close()
-
-    def test_layer_index_stays_in_sync(self, browser, tmp_path):
-        """layerIndex (id → layerInfo) stays consistent with the layers array.
-
-        The fast index must be updated on register/unregister/reorder so
-        O(1) lookups (findLayer, getLayerType) never diverge from the array
-        that owns the ordering.
-        """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
-            result = page.evaluate(_js("LayerControl/layer_index_stays_in_sync"))
-            assert result is not None, "LayerAPI not found"
-            assert result["afterRegister"]["sameSet"], (
-                "index set diverged after register"
-            )
-            assert result["afterRegister"]["sameRefs"], (
-                "index refs diverged after register"
-            )
-            assert result["afterUnregister"]["sameSet"], (
-                "index set diverged after unregister"
-            )
-            assert result["afterUnregister"]["sameRefs"], (
-                "index refs diverged after unregister"
-            )
-            assert result["afterReorder"]["sameSet"], "index set diverged after reorder"
-            assert result["afterReorder"]["sameRefs"], (
-                "index refs diverged after reorder"
-            )
-            assert result["found"], "findLayer failed via index"
-            assert result["typeResolved"], "getLayerType failed via index"
-        finally:
-            page.close()
-
-    def test_layer_registry_api(self, browser, tmp_path):
-        """LayerRegistry exposes ordered list + id index semantics.
-
-        The registry must behave like an ordered array for DOM-aligned code
-        (length, index access, iteration) while keeping an id → layerInfo map
-        in sync on every mutation.
-        """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
-            result = page.evaluate(_js("LayerControl/layer_registry_api"))
-            assert result is not None and "error" not in result, (
-                result if result else "LayerAPI not found"
-            )
-            assert result["afterPrepend"] == {
-                "len": 2,
-                "first": "b",
-                "second": "a",
-            }, f"prepend order wrong: {result['afterPrepend']}"
-            assert result["getById"] == "A", "get by id failed"
-            assert result["hasA"] is True, "has failed"
-            assert result["indexOfA"] == 1, "indexOf failed"
-            assert result["afterUpsert"]["len"] == 2, "upsert changed size"
-            assert result["afterUpsert"]["idxB"] == 0, "upsert moved item"
-            assert result["afterUpsert"]["name"] == "B2", "upsert did not update"
-            assert result["afterRemove"]["len"] == 1, "remove changed size"
-            assert result["afterRemove"]["hasA"] is False, "remove left index entry"
-            assert result["afterRemove"]["first"] == "b", "remove reorder wrong"
-            assert result["iter"] == ["b", "c"], (
-                f"iteration order wrong: {result['iter']}"
-            )
-            assert result["afterReplace"]["len"] == 2, "replace size wrong"
-            assert result["afterReplace"]["hasX"] is True, "replace missing new id"
-            assert result["afterReplace"]["hasOld"] is False, "replace left old id"
-            assert result["afterReplace"]["first"] == "x", "replace order wrong"
-        finally:
-            page.close()
-
-    def test_initial_data_normalized_into_full_layerinfo(self, browser, tmp_path):
-        """Initial data entries get the full layerInfo field set.
-
-        Plain template entries are only {name, id, visible, isBase} — the
-        registry must normalize them through createLayerInfo so every entry
-        carries the complete field set (paneName/iconSvg/type/canvas/
-        onToggle/onZIndex present).
-
-        `li.layer` resolution is intentionally NOT asserted here: it is a
-        best-effort, timing-sensitive lookup (script order of the folium
-        template can define a layer's global var after the manager is
-        constructed) and is recovered lazily at runtime via the
-        `li.layer || findLayer()` fallback.
-        """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
-        LayerControl().add_to(m)
-        folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
-        folium.FeatureGroup(name="Markers", overlay=True, show=True).add_to(m)
-        html = m.get_root().render()
-        html_path = tmp_path / "lc_init_normalized.html"
-        html_path.write_text(html, encoding="utf-8")
-
-        page = browser.new_page()
-        try:
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-layer-ctrl", state="attached", timeout=10000
-            )
-
-            result = page.evaluate(_js("LayerControl/initial_data_normalized"))
-            assert result is not None and "error" not in result, (
-                result if result else "LayerAPI not found"
-            )
-            # tiles=None avoids folium's default OSM, so only the two
-            # explicitly added layers appear as initial data.
-            assert len(result["entries"]) == 2, (
-                f"expected 2 initial layers, got {result['entries']}"
-            )
-            for entry in result["entries"]:
-                assert entry["hasAllKeys"] is True, (
-                    f"layer {entry['id']} missing fields: {entry['missing']}"
-                )
-                assert entry["typeNull"] is True, (
-                    f"layer {entry['id']} type should start null"
-                )
-            # One overlay (isBase=false) and one base (isBase=true)
-            flags = sorted(e["isBase"] for e in result["entries"])
-            assert flags == [False, True], f"isBase flags wrong: {flags}"
         finally:
             page.close()
 

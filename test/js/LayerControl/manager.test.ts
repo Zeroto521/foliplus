@@ -1,6 +1,8 @@
-import * as CONST from "#foliplus/LayerControl/const.js";
+import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
 describe("LayerManager", () => {
   let manager, map;
@@ -11,10 +13,18 @@ describe("LayerManager", () => {
     class TileLayer {
       options = { attribution: "© OpenStreetMap" };
     }
-    class Renderer {}
-    class Path {}
-    class Marker {}
-    class CircleMarker {}
+    class Renderer { }
+    class Path {
+      options = {};
+    }
+    class Polygon {
+      options = {};
+    }
+    class Polyline {
+      options = {};
+    }
+    class Marker { }
+    class CircleMarker { }
     const stamp = (() => {
       let id = 0;
       return vi.fn(() => ++id);
@@ -23,6 +33,8 @@ describe("LayerManager", () => {
     window.L.TileLayer = TileLayer;
     window.L.Renderer = Renderer;
     window.L.Path = Path;
+    window.L.Polygon = Polygon;
+    window.L.Polyline = Polyline;
     window.L.Marker = Marker;
     window.L.CircleMarker = CircleMarker;
     window.L.stamp = stamp;
@@ -40,6 +52,7 @@ describe("LayerManager", () => {
       hasLayer: vi.fn(() => false),
       addLayer: vi.fn(),
       removeLayer: vi.fn(),
+      getContainer: vi.fn(() => map._container),
       getPane: vi.fn(() => {
         const p = makePane();
         p.style.zIndex = "0";
@@ -73,13 +86,13 @@ describe("LayerManager", () => {
 
   it("computeZIndex returns expected values", () => {
     // 2 layers, index 0, layer count = 2
-    // z = CONST.Z_INDEX.BASE + (2 - 0) * 10 = 600 + 20 = 620
-    const base = CONST.Z_INDEX.BASE;
-    const step = CONST.Z_INDEX.STEP;
+    // z = Z_INDEX.BASE + (2 - 0) * 10 = 600 + 20 = 620
+    const base = Z_INDEX.BASE;
+    const step = Z_INDEX.STEP;
     expect(manager.computeZIndex(0, false)).toBe(base + 2 * step);
     expect(manager.computeZIndex(1, false)).toBe(base + 1 * step);
     // Tile layers use TILE_BASE
-    expect(manager.computeZIndex(0, true)).toBe(CONST.Z_INDEX.TILE_BASE + 2 * step);
+    expect(manager.computeZIndex(0, true)).toBe(Z_INDEX.TILE_BASE + 2 * step);
   });
 
   it("getLayerType returns null for unknown id", () => {
@@ -125,5 +138,135 @@ describe("LayerManager", () => {
     const parent = { eachLayer: vi.fn(cb => cb(child)) };
     manager.clearAllLayers(parent);
     expect(child.clearLayers).toHaveBeenCalled();
+  });
+
+  // ── getLayerType geometry inference ──
+
+  it("getLayerType infers polygon from a Polygon layer", () => {
+    manager.registerLayer({
+      id: "poly",
+      name: "Poly",
+      layer: new window.L.Polygon(),
+    });
+    expect(manager.getLayerType("poly")).toBe(GEOM_TYPE.POLYGON);
+  });
+
+  it("getLayerType returns custom for iconSvg layers", () => {
+    manager.registerLayer({ id: "icon", name: "Icon", iconSvg: "<svg/>" });
+    expect(manager.getLayerType("icon")).toBe(GEOM_TYPE.CUSTOM);
+  });
+
+  it("getLayerType caches the resolved type on the layer info", () => {
+    manager.registerLayer({
+      id: "poly2",
+      name: "Poly",
+      layer: new window.L.Polygon(),
+    });
+    expect(manager.getLayerType("poly2")).toBe(GEOM_TYPE.POLYGON);
+    expect(manager.getLayerType("poly2")).toBe(GEOM_TYPE.POLYGON);
+    expect(manager.layerRegistry.get("poly2").type).toBe(GEOM_TYPE.POLYGON);
+  });
+
+  // ── findLayer ──
+
+  it("findLayer resolves a layer by string id", () => {
+    const layer = new window.L.TileLayer();
+    manager.registerLayer({ id: "x", name: "X", layer });
+    expect(manager.findLayer("x")).toBe(layer);
+  });
+
+  it("findLayer returns null after unregisterLayer", () => {
+    manager.registerLayer({ id: "x", name: "X", layer: new window.L.TileLayer() });
+    manager.unregisterLayer("x");
+    expect(manager.findLayer("x")).toBeNull();
+  });
+
+  it("registerLayer resolves layer from map when opts.layer is absent", () => {
+    const layer = new window.L.TileLayer();
+    map._layers["resolved"] = layer;
+    manager.registerLayer({ id: "resolved", name: "R" });
+    expect(manager.findLayer("resolved")).toBe(layer);
+  });
+
+  // ── destroy lifecycle ──
+
+  it("destroy nulls map.foliplus.LayerAPI", () => {
+    expect(map.foliplus.LayerAPI).not.toBeNull();
+    manager.destroy();
+    expect(map.foliplus.LayerAPI).toBeNull();
+  });
+
+  // ── syncAttribution caching ──
+
+  it("syncAttribution skips _update when attribution is unchanged", () => {
+    const update = map.attributionControl._update;
+    manager.syncAttribution();
+    const afterFirst = update.mock.calls.length;
+    manager.syncAttribution();
+    expect(update.mock.calls.length).toBe(afterFirst);
+  });
+
+  // ── batch registration coalescing ──
+
+  it("registerLayer does not run enforceOrder synchronously", () => {
+    const spy = vi.spyOn(manager, "enforceOrder");
+    manager.registerLayer({ id: "a", name: "A", layer: new window.L.TileLayer() });
+    manager.registerLayer({ id: "b", name: "B", layer: new window.L.TileLayer() });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("batch registration coalesces into a single debounced enforceOrder", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(manager, "enforceOrder");
+    manager.registerLayer({ id: "a", name: "A", layer: new window.L.TileLayer() });
+    manager.registerLayer({ id: "b", name: "B", layer: new window.L.TileLayer() });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    expect(spy).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  // ── layeradd re-entry during enforceOrder ──
+
+  it("layeradd during enforceOrder reschedules via debouncedEnforce", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(manager, "enforceOrder");
+    manager.isEnforcing = true;
+    manager.onLayerAdd({ layer: new window.L.Path() });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    expect(spy).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("onLayerAdd responds to container layers (GeoJSON/FeatureGroup) too", () => {
+    // Container layers (L.GeoJSON / FeatureGroup) previously fell through the
+    // Path/Marker filter, so their addTo never re-ran enforceOrder. With the
+    // filter removed, any layer-level add must coalesce into one enforce.
+    vi.useFakeTimers();
+    const spy = vi.spyOn(manager, "enforceOrder");
+    manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
+    manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    expect(spy).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  // ── initial data normalization ──
+
+  it("normalizes initial data into the full layerInfo field set", () => {
+    const m2 = new LayerManager(map, [
+      { id: "a", name: "A", visible: true, isBase: false },
+    ]);
+    const li = m2.layers[0];
+    expect(li).toMatchObject({ id: "a", name: "A", visible: true, isBase: false });
+    for (const key of [
+      "paneName",
+      "iconSvg",
+      "type",
+      "canvas",
+      "onToggle",
+      "onZIndex",
+    ]) {
+      expect(key in li).toBe(true);
+    }
   });
 });
