@@ -11,39 +11,47 @@
 import { existsSync, readFileSync } from "fs";
 import { dirname, resolve } from "path";
 
+const DECL_RE =
+  /export\s+(?:const|let|var|function|class|async\s+function)\s+([A-Za-z_$][\w$]*)/g;
+const NAMED_RE = /export\s*\{([^}]+)\}/g;
+const STAR_RE = /export\s*\*\s*from\s*["']([^"']+)["']/g;
+const RE_EXPORT_RE = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
+
+/** Parse a comma-separated export list, returning local names (before `as`). */
+const exportNames = list =>
+  list
+    .split(",")
+    .map(part => part.trim().split(/\s+as\s+/)[0].trim())
+    .filter(n => n && !n.startsWith("type"));
+
+// Memoized per resolved source path — the same module is imported by many
+// components, so avoid re-reading/re-parsing it on every bundle.
+const exportCache = new Map();
+
 const collectExports = (filePath, seen = new Set(), depth = 0) => {
   // Source modules are TypeScript (.ts) — the import specifier uses .js
   // (ESM convention), so resolve .ts when the .js path does not exist.
   const srcPath = existsSync(filePath) ? filePath : filePath.replace(/\.js$/, ".ts");
   if (depth > 6 || seen.has(srcPath) || !existsSync(srcPath)) return [];
+  if (exportCache.has(srcPath)) return exportCache.get(srcPath);
   seen.add(srcPath);
   const src = readFileSync(srcPath, "utf-8");
   const names = new Set();
-  const declRe = /export\s+(?:const|let|var|function|class|async\s+function)\s+([A-Za-z_$][\w$]*)/g;
   let m;
-  while ((m = declRe.exec(src))) names.add(m[1]);
-  const namedRe = /export\s*\{([^}]+)\}/g;
-  while ((m = namedRe.exec(src))) {
-    for (const part of m[1].split(",")) {
-      const n = part.trim().split(/\s+as\s+/)[0].trim();
-      if (n && !n.startsWith("type")) names.add(n);
-    }
-  }
-  const starRe = /export\s*\*\s*from\s*["']([^"']+)["']/g;
-  while ((m = starRe.exec(src))) {
+  while ((m = DECL_RE.exec(src))) names.add(m[1]);
+  while ((m = NAMED_RE.exec(src))) exportNames(m[1]).forEach(n => names.add(n));
+  while ((m = STAR_RE.exec(src))) {
     const sub = resolve(dirname(srcPath), m[1]);
     for (const n of collectExports(sub, seen, depth + 1)) names.add(n);
   }
-  const reExportRe = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
-  while ((m = reExportRe.exec(src))) {
+  while ((m = RE_EXPORT_RE.exec(src))) {
     const sub = resolve(dirname(srcPath), m[2]);
-    for (const part of m[1].split(",")) {
-      const n = part.trim().split(/\s+as\s+/)[0].trim();
-      if (n && !n.startsWith("type")) names.add(n);
-    }
+    exportNames(m[1]).forEach(n => names.add(n));
     for (const n of collectExports(sub, seen, depth + 1)) names.add(n);
   }
-  return [...names];
+  const result = [...names];
+  exportCache.set(srcPath, result);
+  return result;
 };
 
 /** Map an import specifier to its global namespace path on window.foliplus. */
@@ -66,7 +74,7 @@ const globalNamespacePlugin = sourceRoot => ({
       path: args.path,
       namespace: "foliplus-shared",
     }));
-    build.onLoad({ filter: /.*/, namespace: "foliplus-shared" }, async args => {
+    build.onLoad({ filter: /.*/, namespace: "foliplus-shared" }, args => {
       const spec = args.path;
       const rel = spec
         .replace(/^#core\//, "core/")

@@ -38,6 +38,10 @@ import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 // `foliplus.showHint` etc. in unminified bundles.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
+// The shared-runtime directory is bundled as foliplus-common.min.js and
+// must NOT be externalized (it bundles the shared modules).
+const SHARED_ENTRY = "runtime";
+
 const CFG = {
   src: {
     js: resolve(ROOT, "foliplus/js"),
@@ -122,10 +126,10 @@ const artifact = (entryPoints, outfile, name) => ({
   outfile,
   ...esbuildCfg,
   // P5: shared modules (#core/#common/#foliplus/BaseControl) are externalized
-  // in component bundles and read from the global namespace; the runtime entry
+  // in component bundles and read from the global namespace; the shared entry
   // itself bundles them (no externalization).
   plugins:
-    name === "runtime"
+    name === SHARED_ENTRY
       ? esbuildCfg.plugins
       : [...esbuildCfg.plugins, globalNamespacePlugin(CFG.tmp.js)],
   banner: {
@@ -134,14 +138,23 @@ const artifact = (entryPoints, outfile, name) => ({
   },
 });
 
-/** Recursively apply source transforms (SVGO + HTML minify) to every JS/TS file. */
-const processJsFiles = dir => {
+/** Recursively apply source transforms (SVGO + HTML minify) to every JS/TS file.
+ *  Runs file transforms in parallel for faster builds. */
+const processJsFiles = async dir => {
+  const jobs = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = resolve(dir, entry.name);
-    if (entry.isDirectory()) processJsFiles(full);
-    else if (entry.name.endsWith(".js") || entry.name.endsWith(".ts"))
-      writeFileSync(full, transformSource(readFileSync(full, "utf-8")), "utf-8");
+    if (entry.isDirectory()) {
+      jobs.push(processJsFiles(full));
+    } else if (entry.name.endsWith(".js") || entry.name.endsWith(".ts")) {
+      jobs.push(
+        Promise.resolve().then(() => {
+          writeFileSync(full, transformSource(readFileSync(full, "utf-8")), "utf-8");
+        }),
+      );
+    }
   }
+  await Promise.all(jobs);
 };
 
 /** Return the first path that exists, else null. */
@@ -153,7 +166,7 @@ const findComponents = () => {
   const components = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    if (entry.name === "shared" || entry.name === "core") continue; // shared, not a control component
+    if (entry.name === "core") continue; // core is a shared subdomain, not a control component
     const name = entry.name;
     const jsFile = resolveEntry([
       resolve(CFG.tmp.js, name, "index.ts"),
@@ -173,9 +186,9 @@ const out = name => resolve(CFG.out.dist, name);
 const buildEntries = components => {
   const entries = [];
   for (const { name, js, css } of components) {
-    // "runtime" is the shared JS (hint/geocode global state); expose it as
-    // "common" so the filename foliplus-common.min.js pairs with the CSS.
-    const outName = name === "runtime" ? "common" : name;
+    // The shared entry is exposed as "common" so the filename
+    // foliplus-common.min.js pairs with the CSS.
+    const outName = name === SHARED_ENTRY ? "common" : name;
     entries.push(artifact([js], out(`foliplus-${outName}.min.js`), name));
     if (css) entries.push(artifact([css], out(`foliplus-${outName}.min.css`), name));
   }
@@ -238,7 +251,7 @@ async function main() {
 
   // ── Step 2: Source transforms ─────────────────────────────────
   // SVG compression + HTML template minification (in-place on .build/ copy).
-  processJsFiles(CFG.tmp.js);
+  await processJsFiles(CFG.tmp.js);
 
   // ── Step 2.5: Generate shared registry ────────────────────────
   // Auto-registers every common/core module on window.foliplus (P5).

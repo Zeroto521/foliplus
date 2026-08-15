@@ -5,19 +5,12 @@
 // Pure helpers (NOMINATIM, nominatimUrl, formatAddress) live in
 // common/geocode.js and are statically imported by components.
 import { toWgs84 } from "#common/coord.js";
+import { Cache } from "#common/cache.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
 const GEO_CACHE_MAX = 500;
-const geoCache = new Map<string, string>();
-const geoCacheGet = (key: string) => geoCache.get(key);
-const geoCacheSet = (key: string, val: string) => {
-  geoCache.set(key, val);
-  if (geoCache.size > GEO_CACHE_MAX) {
-    const oldest = geoCache.keys().next().value;
-    if (oldest !== undefined) geoCache.delete(oldest);
-  }
-};
+const geoCache = new Cache<string, string>(GEO_CACHE_MAX);
 let geoPromise: Promise<unknown> = Promise.resolve();
 let geoLastReq = 0;
 
@@ -47,7 +40,7 @@ const reverseGeocode = (
   code = "en",
 ): Promise<string> => {
   const key = `reverse:${lng},${lat}`;
-  const cached = geoCacheGet(key);
+  const cached = geoCache.get(key);
   if (cached) return Promise.resolve(cached);
 
   const wgs = toWgs84(map, parseFloat(String(lng)), parseFloat(String(lat)));
@@ -64,7 +57,7 @@ const reverseGeocode = (
       .then(r => r.json())
       .then(data => {
         const addr = formatAddress(data.display_name, map, code) || notFound;
-        geoCacheSet(key, addr);
+        geoCache.set(key, addr);
         return addr;
       })
       .catch(() => fail),
@@ -85,7 +78,7 @@ const geocode = (
   code = "en",
 ): Promise<GeocodeResult | null> => {
   const key = `forward:${address}`;
-  const cached = geoCacheGet(key);
+  const cached = geoCache.get(key);
   if (cached) {
     const [lat, lng, ...name] = cached.split("\u0001");
     if (name.length) return Promise.resolve({ lat: +lat, lng: +lng, display_name: name.join("\u0001") });
@@ -108,7 +101,7 @@ const geocode = (
           lng: parseFloat(first.lon),
           display_name: first.display_name,
         };
-        geoCacheSet(
+        geoCache.set(
           key,
           `${result.lat}\u0001${result.lng}\u0001${result.display_name}`,
         );
