@@ -136,8 +136,8 @@ class LayerRegistry {
     return this.byId.has(id);
   }
 
-  indexOf(li: LayerInfo) {
-    return this.items.indexOf(li);
+  indexOf(layerInfo: LayerInfo) {
+    return this.items.indexOf(layerInfo);
   }
 
   /** Iterate in order (keeps `for...of` and spread working). */
@@ -176,24 +176,24 @@ class LayerRegistry {
   }
 
   remove(id: string): LayerInfo | null {
-    const li = this.byId.get(id);
-    if (!li) return null;
-    const idx = this.items.indexOf(li);
+    const layerInfo = this.byId.get(id);
+    if (!layerInfo) return null;
+    const idx = this.items.indexOf(layerInfo);
     if (idx !== -1) this.items.splice(idx, 1);
     this.byId.delete(id);
     this.refreshFirstBaseIdx();
-    return li;
+    return layerInfo;
   }
 
   /** Move an existing layer to index 0 (bring to front). */
   moveToFront(id: string): LayerInfo | null {
-    const li = this.byId.get(id);
-    if (!li) return null;
-    const idx = this.items.indexOf(li);
-    if (idx <= 0) return li;
+    const layerInfo = this.byId.get(id);
+    if (!layerInfo) return null;
+    const idx = this.items.indexOf(layerInfo);
+    if (idx <= 0) return layerInfo;
     this.items.splice(idx, 1);
-    this.items.unshift(li);
-    return li;
+    this.items.unshift(layerInfo);
+    return layerInfo;
   }
 
   /** Swap order of two positions (drag-and-drop). */
@@ -219,9 +219,9 @@ class LayerRegistry {
   normalizeGroups() {
     const overlays = [];
     const bases = [];
-    for (const li of this.items) {
-      if (li && li.isBase) bases.push(li);
-      else overlays.push(li);
+    for (const layerInfo of this.items) {
+      if (layerInfo && layerInfo.isBase) bases.push(layerInfo);
+      else overlays.push(layerInfo);
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
     this.byId = new Map(this.items.map(l => [l.id, l]));

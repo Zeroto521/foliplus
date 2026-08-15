@@ -63,8 +63,8 @@ class LayerUI {
     this.bindEvents();
 
     while (this.m.pendingRegistrations.length) {
-      const li = this.m.pendingRegistrations.shift();
-      if (li) this.insertLayerItem(li, { reindex: false });
+      const layerInfo = this.m.pendingRegistrations.shift();
+      if (layerInfo) this.insertLayerItem(layerInfo, { reindex: false });
     }
     this.reindexItems();
 
@@ -88,21 +88,21 @@ class LayerUI {
     let hasOverlays = false;
 
     for (let i = 0; i < this.m.layers.length; i++) {
-      const li = this.m.layers[i];
-      if (!li.isBase && !hasOverlays) {
+      const layerInfo = this.m.layers[i];
+      if (!layerInfo.isBase && !hasOverlays) {
         hasOverlays = true;
         frag.appendChild(
           this.renderToggleAllRow(CONST.GROUP.OVERLAY, `${CONF.name}.data_layer_label`),
         );
       }
-      if (li.isBase && !hasBaseMaps) {
+      if (layerInfo.isBase && !hasBaseMaps) {
         hasBaseMaps = true;
         frag.appendChild(
           this.renderToggleAllRow(CONST.GROUP.BASE, `${CONF.name}.base_map_label`),
         );
       }
-      const group = li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
-      const item = this.renderLayerItem(li, i);
+      const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
+      const item = this.renderLayerItem(layerInfo, i);
       if (this.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
       frag.appendChild(item);
     }
@@ -167,11 +167,11 @@ class LayerUI {
     item.dataset.index = String(idx);
     const label = item.querySelector("label");
     if (label) label.textContent = layerInfo.name;
-    const cb = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
-    if (cb) {
-      cb.dataset.index = String(idx);
-      cb.setAttribute("aria-label", escapeHTML(layerInfo.name));
-      cb.title = escapeHTML(layerInfo.name);
+    const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    if (checkbox) {
+      checkbox.dataset.index = String(idx);
+      checkbox.setAttribute("aria-label", escapeHTML(layerInfo.name));
+      checkbox.title = escapeHTML(layerInfo.name);
     }
   }
 
@@ -208,8 +208,8 @@ class LayerUI {
     );
   }
 
-  renderLayerItem(li: LayerInfo, idx: number) {
-    const en = escapeHTML(li.name);
+  renderLayerItem(layerInfo: LayerInfo, idx: number) {
+    const en = escapeHTML(layerInfo.name);
     const children: (HTMLElement | { html: string })[] = [
       dom.el(
         "span",
@@ -229,9 +229,9 @@ class LayerUI {
       ),
       dom.el("label", null, en),
     ];
-    if (li.iconSvg)
+    if (layerInfo.iconSvg)
       children.push({
-        html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${li.iconSvg}</div>`,
+        html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${layerInfo.iconSvg}</div>`,
       });
     else children.push(dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }));
     return dom.el(
@@ -240,8 +240,8 @@ class LayerUI {
         class: CONST.CLASSES.LAYER_ITEM,
         draggable: "true",
         [CONST.DATA.INDEX]: String(idx),
-        [CONST.DATA.LAYER_ID]: li.id,
-        "data-layer-type": li.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+        [CONST.DATA.LAYER_ID]: layerInfo.id,
+        "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
       },
       ...children,
     );
@@ -350,10 +350,10 @@ class LayerUI {
     ) as NodeListOf<HTMLElement>;
     for (let i = 0; i < items.length; i++) {
       items[i].dataset.index = String(i);
-      const cb = items[i].querySelector(
+      const checkbox = items[i].querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement | null;
-      if (cb) cb.dataset.index = String(i);
+      if (checkbox) checkbox.dataset.index = String(i);
     }
   }
 
@@ -362,14 +362,14 @@ class LayerUI {
     if (!container) return;
 
     this.onChange = event => {
-      const cb = (event.target as HTMLElement).closest(
+      const checkbox = (event.target as HTMLElement).closest(
         '[data-role="toggle-all"]',
       ) as HTMLInputElement | null;
-      if (cb) {
-        const row = cb.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
+      if (checkbox) {
+        const row = checkbox.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
         if (!row) return;
         // Derive the target state from the actual layer selection rather than
-        // cb.checked — the browser resets indeterminate before the change
+        // checkbox.checked — the browser resets indeterminate before the change
         // event fires, making it impossible to detect the pre-click state.
         const group = row.dataset.group ?? "";
         const items = this.getLayerItems(group);
@@ -447,17 +447,17 @@ class LayerUI {
   toggleAll(group: string, newState: boolean) {
     const items = this.getLayerItems(group);
     items.forEach((item: Element) => {
-      const cb = item.querySelector(
+      const checkbox = item.querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement | null;
-      if (!cb) return;
-      const idx = parseInt(cb.dataset.index ?? "", 10);
+      if (!checkbox) return;
+      const idx = parseInt(checkbox.dataset.index ?? "", 10);
       if (isNaN(idx) || idx < 0 || idx >= this.m.layers.length) return;
       const layerInfo = this.m.layers[idx];
       const layer = this.m.findLayer(layerInfo);
 
-      cb.checked = newState;
-      cb.title = _(`${CONF.name}.${newState ? "deselect_tooltip" : "select_tooltip"}`);
+      checkbox.checked = newState;
+      checkbox.title = _(`${CONF.name}.${newState ? "deselect_tooltip" : "select_tooltip"}`);
       if (newState) item.classList.add(CONST.CLASSES.ACTIVE);
       else item.classList.remove(CONST.CLASSES.ACTIVE);
 
@@ -487,10 +487,10 @@ class LayerUI {
     if (!allCb) return;
     const items = this.getLayerItems(group);
     const checkedCount = Array.from(items).filter((item: Element) => {
-      const cb = item.querySelector(
+      const checkbox = item.querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement | null;
-      return cb && cb.checked;
+      return checkbox && checkbox.checked;
     }).length;
     const allChecked = items.length > 0 && checkedCount === items.length;
     const noneChecked = checkedCount === 0;

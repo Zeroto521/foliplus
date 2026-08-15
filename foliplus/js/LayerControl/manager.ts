@@ -121,7 +121,7 @@ class LayerManager implements LayerAPI {
 
     // Respond to layer-level adds. The initial enforceOrder runs before the
     // folium layer scripts, so registered layers may not be resolvable yet
-    // (li.layer === null → skipped). When those layers are later added to the
+    // (layerInfo.layer === null → skipped). When those layers are later added to the
     // map (GeoJSON/FeatureGroup containers included), a layeradd fires and
     // debouncedEnforce re-runs enforceOrder — by then the window globals exist
     // and every managed layer gets its pane/z-index. isEnforcing guards
@@ -165,23 +165,23 @@ class LayerManager implements LayerAPI {
     return this.factory.createCanvas(opts);
   }
 
-  /** True while any registered layer is unresolved (li.layer === null).
+  /** True while any registered layer is unresolved (layerInfo.layer === null).
    *  During the initial folium script phase any layeradd may make a registered
    *  layer resolvable, so unrelated adds must keep triggering enforceOrder. */
   private hasUnresolvedLayers(): boolean {
-    for (const li of this.layers) {
-      if (!li.layer) return true;
+    for (const layerInfo of this.layers) {
+      if (!layerInfo.layer) return true;
     }
     return false;
   }
 
   /** Whether a just-added layer belongs to a registered layer's tree. */
   private isManagedLayer(layer: L.Layer): boolean {
-    for (const li of this.layers) {
-      if (li.layer === layer) return true;
-      if (li.layer) {
+    for (const layerInfo of this.layers) {
+      if (layerInfo.layer === layer) return true;
+      if (layerInfo.layer) {
         let found = false;
-        forEachLayer(li.layer, c => {
+        forEachLayer(layerInfo.layer, c => {
           if (c === layer) found = true;
         });
         if (found) return true;
@@ -217,21 +217,21 @@ class LayerManager implements LayerAPI {
    * @returns {string|null} "point" | "line" | "polygon" | "base" | null
    */
   getLayerType(id: string): string | null {
-    const li = this.layerRegistry.get(id);
-    if (!li) return null;
-    if (li.type) return li.type;
-    if (li.isBase) return CONST.GROUP.BASE;
-    if (li.iconSvg) return GEOM_TYPE.CUSTOM;
-    const layer = this.findLayer(li);
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return null;
+    if (layerInfo.type) return layerInfo.type;
+    if (layerInfo.isBase) return CONST.GROUP.BASE;
+    if (layerInfo.iconSvg) return GEOM_TYPE.CUSTOM;
+    const layer = this.findLayer(layerInfo);
     if (!layer) return null;
-    li.type = getGeometryType(layer);
-    return li.type;
+    layerInfo.type = getGeometryType(layer);
+    return layerInfo.type;
   }
 
   /** Drop a registered layer's cached geometry type (re-inferred on next get). */
   invalidateType(id: string): void {
-    const li = this.layerRegistry.get(id);
-    if (li) li.type = null;
+    const layerInfo = this.layerRegistry.get(id);
+    if (layerInfo) layerInfo.type = null;
   }
 
   /** Re-infer and return a layer's geometry type. */
@@ -252,12 +252,12 @@ class LayerManager implements LayerAPI {
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
-    const li =
+    const layerInfo =
       typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
-    if (li?.layer) return li.layer;
+    if (layerInfo?.layer) return layerInfo.layer;
     return findLayer(
       this.map,
-      typeof idOrInfo === "string" ? idOrInfo : (li?.id ?? ""),
+      typeof idOrInfo === "string" ? idOrInfo : (layerInfo?.id ?? ""),
     );
   }
 
@@ -430,8 +430,8 @@ class LayerManager implements LayerAPI {
       // child-pane lists. Structure changes (register/unregister/addLayer)
       // invalidate specific entries via panes.reset(stamp).
       for (let i = 0; i < this.layers.length; i++) {
-        const li = this.layers[i];
-        const layer = this.findLayer(li);
+        const layerInfo = this.layers[i];
+        const layer = this.findLayer(layerInfo);
         const hasLayer = layer && this.map.hasLayer(layer);
         // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer()).
         // TileLayer has public setZIndex; other GridLayers keep options.zIndex.
@@ -439,10 +439,10 @@ class LayerManager implements LayerAPI {
         const isTile = layer instanceof L.TileLayer;
         const z = this.computeZIndex(i, isGrid);
 
-        if (li.onZIndex) li.onZIndex(z);
+        if (layerInfo.onZIndex) layerInfo.onZIndex(z);
         if (!hasLayer) continue;
 
-        this.applyLayerZIndex({ li, layer, z, isGrid, isTile, layersToMove });
+        this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
       }
 
       // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
@@ -451,12 +451,12 @@ class LayerManager implements LayerAPI {
       // still above every data pane — otherwise markerPane would hide under
       // overlays. These offsets are relative to Z_INDEX.STEP (10).
       const topZ = this.computeZIndex(0, false) + Z_INDEX.STEP;
-      const pp = this.map.getPane("popupPane");
-      if (pp) pp.style.zIndex = String(topZ + 1);
-      const tp = this.map.getPane("tooltipPane");
-      if (tp) tp.style.zIndex = String(topZ);
-      const mp = this.map.getPane("markerPane");
-      if (mp) mp.style.zIndex = String(topZ - 1);
+      const popupPaneEl = this.map.getPane("popupPane");
+      if (popupPaneEl) popupPaneEl.style.zIndex = String(topZ + 1);
+      const tooltipPaneEl = this.map.getPane("tooltipPane");
+      if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
+      const markerPaneEl = this.map.getPane("markerPane");
+      if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
 
       this.panes.migrateLayers(layersToMove);
       this.syncAttribution();
@@ -466,14 +466,14 @@ class LayerManager implements LayerAPI {
   }
 
   applyLayerZIndex({
-    li,
+    layerInfo,
     layer,
     z,
     isGrid,
     isTile,
     layersToMove,
   }: {
-    li: LayerInfo;
+    layerInfo: LayerInfo;
     layer: L.Layer;
     z: number;
     isGrid: boolean;
@@ -484,12 +484,12 @@ class LayerManager implements LayerAPI {
       renderer: L.SVG | null;
     }>;
   }) {
-    const paneName = li.paneName;
+    const paneName = layerInfo.paneName;
     if (paneName) {
-      const ep = this.panes.ensurePane(paneName, !isTile);
-      ep.pane.style.zIndex = String(z);
+      const paneEntry = this.panes.ensurePane(paneName, !isTile);
+      paneEntry.pane.style.zIndex = String(z);
       if (layer.options.pane !== paneName || !layer.options.paneSet)
-        layersToMove.push({ layer, paneName, renderer: ep.renderer });
+        layersToMove.push({ layer, paneName, renderer: paneEntry.renderer });
       this.panes.bumpLabelPanes(layer, z);
       return;
     }
@@ -510,8 +510,8 @@ class LayerManager implements LayerAPI {
     if (childPanes.length > 0) {
       childPanes.forEach((cp: string) => {
         const needRenderer = !isTile && !this.panes.labelPanes.has(cp);
-        const ep = this.panes.ensurePane(cp, needRenderer);
-        ep.pane.style.zIndex = String(z);
+        const paneEntry = this.panes.ensurePane(cp, needRenderer);
+        paneEntry.pane.style.zIndex = String(z);
       });
       this.panes.bumpLabelPanes(layer, z);
       layer.options.paneSet = true;
@@ -520,10 +520,10 @@ class LayerManager implements LayerAPI {
 
     const fbName = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
     this.panes.fallbackPaneMap.set(L.stamp(layer), fbName);
-    const ep = this.panes.ensurePane(fbName, !isTile);
-    ep.pane.style.zIndex = String(z);
+    const paneEntry = this.panes.ensurePane(fbName, !isTile);
+    paneEntry.pane.style.zIndex = String(z);
     if (layer.options.pane !== fbName || !layer.options.paneSet)
-      layersToMove.push({ layer, paneName: fbName, renderer: ep.renderer });
+      layersToMove.push({ layer, paneName: fbName, renderer: paneEntry.renderer });
   }
 
   syncAttribution() {
@@ -538,9 +538,9 @@ class LayerManager implements LayerAPI {
       i !== -1 && i < this.layers.length;
       i++
     ) {
-      const li = this.layers[i];
-      if (!li.isBase) continue;
-      const layer = this.findLayer(li);
+      const layerInfo = this.layers[i];
+      if (!layerInfo.isBase) continue;
+      const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
       if (this.map.hasLayer(layer)) {
         topAttr = layer.options.attribution;
