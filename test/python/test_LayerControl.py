@@ -6,8 +6,16 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import _js, assert_locale, make_browser_page, read_css, render, render_control, use_page, use_raw_page
-
+from conftest import (
+    _js,
+    assert_locale,
+    make_browser_page,
+    read_css,
+    render,
+    render_control,
+    use_page,
+    use_raw_page,
+)
 
 from foliplus import LayerControl
 
@@ -1340,5 +1348,3 @@ class TestLayerControlBrowser:
             assert result["spliceThrew"] is True, "splice should throw"
             assert result["assignThrew"] is True, "index assign should throw"
             assert result["shiftThrew"] is True, "shift should throw"
-
-

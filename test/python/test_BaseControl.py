@@ -11,7 +11,7 @@ import json
 
 import folium
 import pytest
-from conftest import render_control, assert_config_block, render
+from conftest import assert_config_block, render, render_control
 
 
 class TestBaseControlPython:

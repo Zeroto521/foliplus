@@ -49,7 +49,7 @@ describe("LayerManager", () => {
     map = {
       on: vi.fn(),
       off: vi.fn(),
-    invalidateSize: vi.fn(),
+      invalidateSize: vi.fn(),
       hasLayer: vi.fn(() => false),
       addLayer: vi.fn(),
       removeLayer: vi.fn(),
@@ -289,11 +289,15 @@ describe("LayerManager", () => {
   // ── createCanvas id validation ──
 
   it("createCanvas throws when id is missing", () => {
-    expect(() => manager.factory.createCanvas({} as any)).toThrow("createCanvas requires an id");
+    expect(() => manager.factory.createCanvas({} as any)).toThrow(
+      "createCanvas requires an id",
+    );
   });
 
   it("createCanvas throws when id is empty", () => {
-    expect(() => manager.factory.createCanvas({ id: "" } as any)).toThrow("createCanvas requires an id");
+    expect(() => manager.factory.createCanvas({ id: "" } as any)).toThrow(
+      "createCanvas requires an id",
+    );
   });
 
   // ── bringLayerToFront ──
@@ -311,8 +315,6 @@ describe("LayerManager", () => {
     manager.bringLayerToFront("nonexistent");
     expect(spy).not.toHaveBeenCalled();
   });
-
-
 
   // ── traverse / extractPoints ──
 

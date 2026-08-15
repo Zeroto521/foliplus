@@ -137,6 +137,8 @@ def _prefetch_cdn_cache() -> None:
             _cdn_cached("https://" + fragment)
         except Exception:
             continue
+
+
 _css_cache: dict[str, str] = {}
 
 
