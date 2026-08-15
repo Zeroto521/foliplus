@@ -48,15 +48,15 @@ def _build_shared_header() -> str:
     bundled in), and the common locale tables (shared by all components).
     Built once and cached at module level.
     """
-    common = (dist_dir / "foliplus-common.min.css").read_text(encoding="utf-8")
-    runtime = (dist_dir / "foliplus-common.min.js").read_text(encoding="utf-8")
+    css = (dist_dir / "foliplus-common.min.css").read_text(encoding="utf-8")
+    js = (dist_dir / "foliplus-common.min.js").read_text(encoding="utf-8")
 
     return (
         "<style>\n"
-        f"{common}\n"
+        f"{css}\n"
         "</style>\n"
         "<script>\n"
-        f"{runtime}\n"
+        f"{js}\n"
         "window.foliplus = window.foliplus || {};\n"
         f"window.foliplus._TABLES = {dumps(_load_tables('common.*.json'), ensure_ascii=False)};\n"
         "</script>"

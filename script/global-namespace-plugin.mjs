@@ -89,4 +89,4 @@ const globalNamespacePlugin = sourceRoot => ({
   },
 });
 
-export { globalNamespacePlugin };
+export { collectExports, globalNamespacePlugin, sharedGlobalNamespace };
