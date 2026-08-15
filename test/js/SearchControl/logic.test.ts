@@ -1,4 +1,3 @@
-import { Cache } from "#foliplus/common/cache.js";
 import {
   attachSearchDelIcon,
   buildSearchUrl,
@@ -9,6 +8,7 @@ import {
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/logic.js";
+import { Cache } from "#foliplus/common/cache.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Module-level code captured window.foliplus and window.map from setup.js.

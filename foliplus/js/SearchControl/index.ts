@@ -1,5 +1,5 @@
-import type { Debounced } from "#common/debounce.js";
 import { Cache } from "#common/cache.js";
+import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
