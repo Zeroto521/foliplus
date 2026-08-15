@@ -11,8 +11,11 @@ exclude .gitattributes
 exclude .gitignore
 exclude .pre-commit-config.yaml
 exclude .prettierrc
+exclude .prettierrc.cjs
 exclude .readthedocs.yaml
 exclude setup.cfg
+exclude tsconfig.json
+exclude vitest.config.mjs
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .pytest_cache
