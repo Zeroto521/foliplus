@@ -2,10 +2,10 @@
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
+import { ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import * as CONST from "./const.js";
-import { ensureEvents } from "#core/event/index.js";
 import { ExportRenderer } from "./renderer.js";
 import {
   lockCropBox,
