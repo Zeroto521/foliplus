@@ -190,10 +190,15 @@ describe("LayerManager", () => {
 
   // ── destroy lifecycle ──
 
-  it("destroy nulls map.foliplus.LayerAPI", () => {
-    expect(map.foliplus.LayerAPI).not.toBeNull();
+  it("destroy reverts to lightweight LayerAPI", () => {
+    expect(map.foliplus.LayerAPI).toBeDefined();
+    expect(map.foliplus.LayerAPI.layers.length).toBe(2);
     manager.destroy();
-    expect(map.foliplus.LayerAPI).toBeNull();
+    // After destroy, LayerAPI is still valid (lightweight default) but
+    // layers is empty and registerLayer is a no-op.
+    expect(map.foliplus.LayerAPI).toBeDefined();
+    expect(map.foliplus.LayerAPI.layers).toEqual([]);
+    expect(map.foliplus.LayerAPI.registerLayer({ id: "x" })).toBeNull();
   });
 
   // ── syncAttribution caching ──

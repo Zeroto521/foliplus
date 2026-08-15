@@ -8,7 +8,6 @@ import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
 
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** A point marker carrying an optional numeric value (foliplus data contract). */
@@ -58,7 +57,7 @@ interface LabelStyle {
 interface PointLayerInfo {
   id: string;
   name: string;
-  layer: L.Layer;
+  layer: L.Layer | null;
   count: number;
 }
 

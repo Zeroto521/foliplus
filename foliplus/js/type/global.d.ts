@@ -270,8 +270,8 @@ declare global {
 
   /** Per-map foliplus API namespace, attached as `map.foliplus`. */
   interface MapFoliplus {
-    /** LayerControl public API, null until LayerControl is added. */
-    LayerAPI: LayerAPI | null;
+    /** LayerControl public API (always available; lightweight until LayerControl upgrades it). */
+    LayerAPI: LayerAPI;
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`. */
@@ -307,7 +307,7 @@ declare global {
     getLayerPanes: (layer: L.Layer) => string[];
     getLayersByType: (
       type: string,
-    ) => Array<{ id: string; name: string; layer: L.Layer }>;
+    ) => Array<{ id: string; name: string; layer: L.Layer | null }>;
   }
 
   const map: Leaflet.Map;

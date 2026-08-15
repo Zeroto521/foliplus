@@ -1,4 +1,5 @@
 import { type Debounced, debounce } from "#common/debounce.js";
+import { ensureLayerAPI } from "#common/guard.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import {
@@ -151,10 +152,10 @@ class LayerManager {
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
 
-    if (!this.map.foliplus) this.map.foliplus = { LayerAPI: null };
-    // Expose only the LayerAPI contract (interface methods) — not the whole
-    // manager — so the runtime surface stays minimal and internals stay hidden.
-    this.map.foliplus.LayerAPI = {
+    // Ensure the lightweight LayerAPI exists (consumers always have a valid
+    // LayerAPI even without LayerControl), then upgrade to the full version.
+    ensureLayerAPI(this.map);
+    this.map.foliplus!.LayerAPI = {
       layers: this.layerRegistry.layers,
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
@@ -164,7 +165,7 @@ class LayerManager {
       extractPoints: this.extractPoints,
       getLayerPanes: this.getLayerPanes,
       getLayersByType: this.getLayersByType,
-    } as LayerAPI;
+    };
   }
 
   loadSavedOrder() {
@@ -534,7 +535,10 @@ class LayerManager {
     this.layerRegistry.clear();
     this.pendingRegistrations = [];
     this.panes.destroy();
-    if (this.map.foliplus) this.map.foliplus.LayerAPI = null;
+    // Revert to the lightweight LayerAPI (no registry, no panel).
+    // ensureLayerAPI guarantees a valid object, so consumers can always
+    // call `map.foliplus.LayerAPI.xxx` without null checks.
+    ensureLayerAPI(this.map);
   }
 }
 
