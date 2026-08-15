@@ -2,7 +2,6 @@
 // Static HTML is built via innerHTML; dynamic/conditional rendering uses dom.el.
 //
 // Key elements use `data-hm-*` attributes so ui.ts can find them via querySelector.
-
 import * as CONST from "./const.js";
 
 /** Build the panel-content HTML string (data section + style section). */

@@ -120,7 +120,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.classSelect.onchange = () => {
     ctrl.m.numClasses = Math.min(
       CONST.CLASS_COUNT.MAX,
-      Math.max(CONST.CLASS_COUNT.MIN, parseInt(ctrl.classSelect.value, 10) || CONST.CLASS_COUNT.DEFAULT),
+      Math.max(
+        CONST.CLASS_COUNT.MIN,
+        parseInt(ctrl.classSelect.value, 10) || CONST.CLASS_COUNT.DEFAULT,
+      ),
     );
     updateSchemeBar(ctrl);
     if (ctrl.schemeDropdown) refreshSchemeDropdownItems(ctrl);
@@ -195,11 +198,17 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     resetAll(ctrl);
     syncSelect(ctrl, ctrl.layerSelect, "");
     syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
-    syncSelect(ctrl, ctrl.classSelect, String(CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT));
+    syncSelect(
+      ctrl,
+      ctrl.classSelect,
+      String(CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
+    );
     syncSelect(ctrl, ctrl.methodSelect, CONF.method ?? CONST.METHOD.JENKS);
     ctrl.schemeSelectHidden.value = CONF.color_scheme ?? "Reds";
     ctrl.labelChk.checked = CONF.label_show ?? false;
-    ctrl.borderWeightInput.value = String(CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT);
+    ctrl.borderWeightInput.value = String(
+      CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
+    );
     ctrl.borderColorInput.value = CONF.border_color ?? CONST.GRAY;
     updateSchemeBar(ctrl);
     updateFieldSelector(ctrl);
