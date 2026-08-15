@@ -2,6 +2,7 @@
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
+import { ensureEvents, MODE_CHANGE } from "#core/event/index.js";
 import * as Storage from "#common/storage.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
@@ -25,6 +26,7 @@ class MeasureManager {
   map: L.Map;
   layers: CreateLayersAPI;
   currentMode: string | null;
+  savedMode: string | null;
   modeInstance: MeasureMode | null;
   isSuppressHideDel: boolean;
   toolBtns: HTMLElement[];
@@ -46,8 +48,21 @@ class MeasureManager {
       iconSvg: SVGs.RULER,
     });
     this.currentMode = null;
+    this.savedMode = null;
     this.modeInstance = null;
     this.isSuppressHideDel = false;
+    // When ExportControl starts exporting, save current mode and clear;
+    // restore when it finishes.
+    ensureEvents(this.map).on(MODE_CHANGE, (payload: unknown) => {
+      const { component, mode } = payload as { component: string; mode: string | null };
+      if (component === "ExportControl" && mode === "exporting") {
+        this.savedMode = this.currentMode;
+        if (this.currentMode) this.clearActiveMode();
+      } else if (component === "ExportControl" && mode === null && this.savedMode) {
+        this.setMode(this.savedMode);
+        this.savedMode = null;
+      }
+    });
     this.toolBtns = [];
     this.finalizedClickHandlers = [];
     this.measurements = [];
