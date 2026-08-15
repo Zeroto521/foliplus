@@ -337,7 +337,8 @@ class LayerManager implements LayerAPI {
       this.ui.syncToggleAll(
         layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
       );
-      this.enforceOrder();
+      // Defer z-order enforcement so batch registration coalesces into one pass.
+      this.debouncedEnforce();
     }
     this.saveOrder();
     return this.uiContainer.querySelector(
