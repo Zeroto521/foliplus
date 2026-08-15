@@ -3,8 +3,8 @@
 // register/unregister callbacks via dependency injection.
 import { dom } from "#common/dom.js";
 import { throttleRaf } from "#common/throttle.js";
-import { PaneManager } from "./PaneManager.js";
 import type { RegisterLayerOpts } from "./LayerRegistry.js";
+import { PaneManager } from "./PaneManager.js";
 
 /** Options for createLayers. */
 interface CreateLayersOpts {
@@ -48,8 +48,7 @@ class LayerFactory {
   }
 
   createLayers(opts: CreateLayersOpts): CreateLayersAPI {
-    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } =
-      this.deps;
+    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
     const mainLayer = L.layerGroup();
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
@@ -159,18 +158,12 @@ class LayerFactory {
   }
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
-    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } =
-      this.deps;
+    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
     if (!opts?.id)
-      throw new Error(
-        "[foliplus] LayerFactory: createCanvas requires an id",
-      );
+      throw new Error("[foliplus] LayerFactory: createCanvas requires an id");
 
     const mapPane = map.getPanes().mapPane as HTMLElement;
-    if (!mapPane)
-      throw new Error(
-        "[foliplus] LayerFactory: mapPane not available",
-      );
+    if (!mapPane) throw new Error("[foliplus] LayerFactory: mapPane not available");
 
     const canvas = dom.el("canvas", {
       class: "foliplus-heatmap-canvas",
