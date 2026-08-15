@@ -4,6 +4,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
+import { LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
@@ -94,6 +95,7 @@ class HeatmapManager {
   renderAll: boolean;
   declare mapCleanup: () => void;
   declare onLayerChange: Debounced;
+  declare removeLayerChangeListener: () => void;
   declare onZoomEnd: Debounced;
 
   constructor(mapInstance: L.Map) {
@@ -176,7 +178,13 @@ class HeatmapManager {
         rebuildLayerDropdown(this.ui as HeatmapControlUI);
       }
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
-    this.map.on("layeradd layerremove", this.onLayerChange);
+    // Subscribe to the semantic registry-change event instead of raw Leaflet
+    // layeradd/layerremove — LayerManager emits LAYER_CHANGE on
+    // register/unregister/reorder, so unrelated map activity is filtered out
+    // and callback-only registrations (no map.addLayer) are covered too.
+    this.removeLayerChangeListener = ensureEvents(this.map).on(LAYER_CHANGE, () =>
+      this.onLayerChange(),
+    );
   }
 
   /** Redraw the heatmap canvas from cached features. */

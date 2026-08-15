@@ -1,6 +1,7 @@
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
+import { LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -344,6 +345,7 @@ class LayerManager implements LayerAPI {
       this.debouncedEnforce();
     }
     this.saveOrder();
+    ensureEvents(this.map).emit(LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
     );
@@ -362,6 +364,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
+    ensureEvents(this.map).emit(LAYER_CHANGE);
     if (this.uiContainer && this.ui) {
       this.ui.renderInitialList();
       this.ui.initTypesAndVisibility();
@@ -396,6 +399,7 @@ class LayerManager implements LayerAPI {
         if (this.ui) this.ui.reindexItems();
       }
     }
+    ensureEvents(this.map).emit(LAYER_CHANGE);
     return true;
   }
 

@@ -696,9 +696,11 @@ class TestHeatmapControlBrowser:
             page.evaluate(
                 "window.__heatmapCtrl.manager.cachedAgg = { key: 'old', data: 'data' }"
             )
-            # Fire a layer change event via the manager's map reference
+            # Emit the semantic LayerControl registry-change event on the EventBus
+            # (replaces the old raw map.fire('layeradd') — the manager now
+            # subscribes to LAYER_CHANGE on the per-map EventBus).
             page.evaluate(
-                "window.__heatmapCtrl.manager.map.fire('layeradd', { layer: {} })"
+                "window.__heatmapCtrl.manager.map.foliplus.events.emit('foliplus:layerchange')"
             )
             page.wait_for_timeout(1000)
             cached = page.evaluate("window.__heatmapCtrl.manager.cachedAgg")
