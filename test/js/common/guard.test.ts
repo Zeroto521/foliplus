@@ -29,7 +29,9 @@ describe("requireLayerAPI", () => {
       HINT_DURATION: { PERSIST: 0 },
     });
     vi.stubGlobal("map", {});
-    expect(() => requireLayerAPI("Test", _, window.map)).toThrow("Test.no_layercontrol");
+    expect(() => requireLayerAPI("Test", _, window.map)).toThrow(
+      "Test.no_layercontrol",
+    );
     expect(mockShowHint).toHaveBeenCalledWith("Test", "Test.no_layercontrol", 0);
   });
 

@@ -235,7 +235,6 @@ def assert_config_block(ctrl, expected: dict[str, Any]) -> None:
         )
 
 
-
 def _inject_window_map(html: str) -> str:
     """Expose the Leaflet map instance as ``window.map`` for browser snippets.
 

@@ -1,5 +1,5 @@
-import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -13,7 +13,7 @@ describe("LayerManager", () => {
     class TileLayer {
       options = { attribution: "© OpenStreetMap" };
     }
-    class Renderer { }
+    class Renderer {}
     class Path {
       options = {};
     }
@@ -23,8 +23,8 @@ describe("LayerManager", () => {
     class Polyline {
       options = {};
     }
-    class Marker { }
-    class CircleMarker { }
+    class Marker {}
+    class CircleMarker {}
     const stamp = (() => {
       let id = 0;
       return vi.fn(() => ++id);

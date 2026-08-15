@@ -6,10 +6,10 @@ import { throttleRaf } from "#common/throttle.js";
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
-  Z_INDEX,
   LayerRegistry,
-  type RegisterLayerOpts,
   PaneManager,
+  type RegisterLayerOpts,
+  Z_INDEX,
   findLayer,
   forEachLeaf,
   getGeometryType,
