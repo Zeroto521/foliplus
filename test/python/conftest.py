@@ -139,6 +139,20 @@ def _prefetch_cdn_cache() -> None:
             continue
 
 
+_css_cache: dict[str, str] = {}
+
+
+def read_css(path: str) -> str:
+    """Read a CSS file, caching the result in memory.
+
+    Many tests read the same CSS file (LayerControl.css, common.css) for
+    design-token assertions.  The cache avoids repeated disk I/O.
+    """
+    if path not in _css_cache:
+        _css_cache[path] = Path(path).read_text(encoding="utf-8")
+    return _css_cache[path]
+
+
 def _install_cdn_route(page) -> None:
     """Intercept CDN + tile requests so browser tests run offline.
 
