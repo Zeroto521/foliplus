@@ -1,4 +1,5 @@
 import type { Debounced } from "#common/debounce.js";
+import { Cache } from "#common/cache.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
@@ -24,7 +25,7 @@ export class SearchControl extends BaseControl {
   declare inp: HTMLInputElement;
   declare clearBtn: HTMLElement;
   declare debouncedFetch: Debounced;
-  declare cachedSuggestions: Record<string, NominatimItem[]>;
+  declare cachedSuggestions: Cache<string, NominatimItem[]>;
   declare cachedAddress: Record<string, AddressResult>;
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
@@ -54,7 +55,7 @@ export class SearchControl extends BaseControl {
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();
-    this.cachedSuggestions = {};
+    this.cachedSuggestions.clear();
     this.cachedAddress = {};
     this.scrollTargets.forEach(t =>
       t.removeEventListener("scroll", this.repositionHandler, true),
@@ -110,7 +111,7 @@ export class SearchControl extends BaseControl {
     this.selectedSuggestionIdx = -1;
     this.lastSuggestFetch = 0;
     this.suggestionsThrottleTimer = null;
-    this.cachedSuggestions = {};
+    this.cachedSuggestions = new Cache<string, NominatimItem[]>(50);
     this.cachedAddress = {};
     this.suggestAbortController = null;
     this.suggestSeq = 0;

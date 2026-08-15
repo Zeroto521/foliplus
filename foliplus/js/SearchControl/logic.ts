@@ -1,4 +1,5 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
+import { Cache } from "#common/cache.js";
 import { fromWgs84 } from "#common/coord.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
@@ -23,7 +24,7 @@ interface SearchControlState {
   mode: string;
   modeBtn: HTMLElement;
   cachedAddress: Record<string, AddressResult>;
-  cachedSuggestions: Record<string, NominatimItem[]>;
+  cachedSuggestions: Cache<string, NominatimItem[]>;
   suggestionsWrap: HTMLElement | null;
   selectedSuggestionIdx: number;
   lastSuggestFetch: number;
@@ -250,7 +251,7 @@ const renderSuggestions = (
     return;
   }
 
-  ctrl.cachedSuggestions[query] = results;
+  ctrl.cachedSuggestions.set(query, results);
 
   if (!ctrl.suggestionsWrap) {
     ctrl.suggestionsWrap = dom.el("div", {
@@ -296,8 +297,9 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     removeSuggestions(ctrl);
     return;
   }
-  if (ctrl.cachedSuggestions[query]) {
-    renderSuggestions(ctrl, ctrl.cachedSuggestions[query], query);
+  const cached = ctrl.cachedSuggestions.get(query);
+  if (cached) {
+    renderSuggestions(ctrl, cached, query);
     return;
   }
 

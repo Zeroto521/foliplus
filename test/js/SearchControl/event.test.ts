@@ -1,3 +1,4 @@
+import { Cache } from "#foliplus/common/cache.js";
 import { bindEvents, initFromUrl } from "#foliplus/SearchControl/event.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,7 +26,7 @@ function makeCtrl(): any {
     suggestionsThrottleTimer: null,
     selectedSuggestionIdx: -1,
     cachedAddress: {},
-    cachedSuggestions: {},
+    cachedSuggestions: new Cache<string, object>(50),
   };
 }
 

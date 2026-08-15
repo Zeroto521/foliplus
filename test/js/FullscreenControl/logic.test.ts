@@ -45,6 +45,7 @@ const makeMapMock = container => ({
   getContainer: () => container,
   isFullscreen: false,
   invalidateSize: vi.fn(),
+  foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
   on: vi.fn(),
   off: vi.fn(),
 });
@@ -65,6 +66,7 @@ describe("updateUI", () => {
     mapMock = {
       getContainer: () => container,
       isFullscreen: false,
+      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
     };
   });
 
@@ -72,7 +74,7 @@ describe("updateUI", () => {
     updateUI(mapMock, fsBtn, container);
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
     expect(fsBtn.title).toContain("title");
-    expect(window.foliplus.showHint).toHaveBeenCalled();
+    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
   });
 
   it("sets MINIMIZE icon + title when fullscreen", () => {
@@ -80,7 +82,7 @@ describe("updateUI", () => {
     updateUI(mapMock, fsBtn, container);
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
     expect(fsBtn.title).toContain("title_cancel");
-    expect(window.foliplus.showHint).toHaveBeenCalled();
+    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
   });
 
   it("skips hide_others when CONF.hide_others is not set", () => {
@@ -133,7 +135,7 @@ describe("toggleFullscreen — pseudo path", () => {
   it("calls updateUI after toggle (icon changes to MINIMIZE)", () => {
     toggleFullscreen(mapMock, fsBtn, container);
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
-    expect(window.foliplus.showHint).toHaveBeenCalled();
+    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
   });
 });
 

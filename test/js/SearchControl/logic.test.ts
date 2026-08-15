@@ -1,3 +1,4 @@
+import { Cache } from "#foliplus/common/cache.js";
 import {
   attachSearchDelIcon,
   buildSearchUrl,
@@ -233,9 +234,11 @@ describe("fetchSuggestions", () => {
 
   it("renders cached suggestions without fetching", () => {
     globalThis.fetch = vi.fn();
+    const cache = new Cache<string, object>(50);
+    cache.set("abc", [{ display_name: "Cached" }]);
     const ctrl: any = {
       mode: "addr",
-      cachedSuggestions: { abc: [{ display_name: "A" }] },
+      cachedSuggestions: cache,
       suggestionsWrap: null,
       suggestionsThrottleTimer: null,
       selectedSuggestionIdx: -1,
@@ -256,9 +259,11 @@ describe("fetchSuggestions", () => {
       window.CONF = { ...window.CONF, locale_code: "zh" };
       const ctrl: any = {
         mode: "addr",
-        cachedSuggestions: {
-          abc: [{ display_name: "Rue de Rivoli, 75001, Paris, France" }],
-        },
+        cachedSuggestions: (() => {
+          const c = new Cache<string, object>(50);
+          c.set("abc", [{ display_name: "Rue de Rivoli, 75001, Paris, France" }]);
+          return c;
+        })(),
         suggestionsWrap: null,
         suggestionsThrottleTimer: null,
         selectedSuggestionIdx: -1,
@@ -281,7 +286,7 @@ describe("fetchSuggestions", () => {
     ) as unknown as typeof fetch;
     const ctrl: any = {
       mode: "addr",
-      cachedSuggestions: {},
+      cachedSuggestions: new Cache<string, object>(50),
       suggestionsWrap: null,
       suggestionsThrottleTimer: null,
       selectedSuggestionIdx: -1,
@@ -297,7 +302,7 @@ describe("fetchSuggestions", () => {
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
     expect(globalThis.fetch).toHaveBeenCalled();
-    expect(ctrl.cachedSuggestions["abc"]).toHaveLength(1);
+    expect(ctrl.cachedSuggestions.get("abc")).toHaveLength(1);
     expect(ctrl.suggestionsWrap).not.toBeNull();
   });
 });
