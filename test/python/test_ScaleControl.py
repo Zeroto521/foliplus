@@ -10,6 +10,7 @@ from conftest import (
     assert_locale,
     make_browser_page,
     render_control,
+    use_page,
 )
 
 from foliplus import ScaleControl
@@ -119,82 +120,75 @@ class TestScaleControlBrowser:
 
     def test_scale_visible(self, browser, tmp_path):
         """Scale wrap is visible in the DOM."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             visible = page.evaluate(
                 "document.querySelector('.foliplus-scale-wrap') !== null"
             )
             assert visible
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_zoom_label_visible(self, browser, tmp_path):
         """Zoom label is visible when show_zoom=True."""
-        page, errors = self._make_page(browser, tmp_path, show_zoom=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (
+            page,
+            errors,
+        ):
             has_label = page.evaluate(
                 "document.querySelector('.foliplus-scale-zoom-label') !== null"
             )
             assert has_label
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_zoom_label_hidden_when_disabled(self, browser, tmp_path):
         """Zoom label is absent when show_zoom=False."""
-        page, errors = self._make_page(browser, tmp_path, show_zoom=False)
-        try:
+        with use_page(self._make_page, browser, tmp_path, show_zoom=False) as (
+            page,
+            errors,
+        ):
             has_label = page.evaluate(
                 "document.querySelector('.foliplus-scale-zoom-label') !== null"
             )
             assert not has_label
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_scale_leaflet_class(self, browser, tmp_path):
         """Scale has leaflet-control-scale-line class in DOM."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             has_class = page.evaluate(
                 "document.querySelector('.leaflet-control-scale-line') !== null"
             )
             assert has_class
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_scale_shows_metric_text(self, browser, tmp_path):
         """Scale line displays metric units (km/m)."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             scale_text = page.evaluate(
                 "document.querySelector('.leaflet-control-scale-line')?.textContent"
             )
             assert scale_text
             assert any(u in scale_text for u in ["km", "m"])
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_scale_shows_imperial_text(self, browser, tmp_path):
         """Scale line displays imperial units (mi/ft)."""
-        page, errors = self._make_page(browser, tmp_path, unit="imperial")
-        try:
+        with use_page(self._make_page, browser, tmp_path, unit="imperial") as (
+            page,
+            errors,
+        ):
             scale_text = page.evaluate(
                 "document.querySelector('.leaflet-control-scale-line')?.textContent"
             )
             assert scale_text
             assert any(u in scale_text for u in ["mi", "ft"])
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_zoom_label_text(self, browser, tmp_path):
         """Zoom label shows 'Zoom Level: N' format."""
-        page, errors = self._make_page(browser, tmp_path, show_zoom=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (
+            page,
+            errors,
+        ):
             label_text = page.evaluate(
                 "document.querySelector('.foliplus-scale-zoom-label')?.textContent"
             )
@@ -202,36 +196,30 @@ class TestScaleControlBrowser:
             assert "Zoom Level" in label_text or "地图级别" in label_text
             assert any(c.isdigit() for c in label_text)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_no_console_errors(self, browser, tmp_path):
         """Scale control produces no JS console errors."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             assert not errors, f"JS console errors: {errors}"
-        finally:
-            page.close()
 
     # ── Visual alignment with attribution ──────────────────────────────────
 
     def test_height_matches_attribution(self, browser, tmp_path):
         """Scale wrap height equals attribution height."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             heights = page.evaluate(_js("ScaleControl/read_heights"))
             assert heights is not None, "scale-wrap or attribution not found"
             assert heights["scale"] == heights["attr"], (
                 f"height mismatch: scale={heights['scale']}px attr={heights['attr']}px"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_font_matches_attribution(self, browser, tmp_path):
         """Scale line and zoom label font matches attribution font."""
-        page, errors = self._make_page(browser, tmp_path, show_zoom=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (
+            page,
+            errors,
+        ):
             fonts = page.evaluate(_js("ScaleControl/read_fonts"))
             assert fonts is not None, "elements not found"
             attr = fonts["attr"]
@@ -255,13 +243,13 @@ class TestScaleControlBrowser:
                 assert zl["size"] == attr["size"]
                 assert zl["weight"] == attr["weight"]
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_line_height_matches_attribution(self, browser, tmp_path):
         """Scale wrap and zoom label line-height matches attribution."""
-        page, errors = self._make_page(browser, tmp_path, show_zoom=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (
+            page,
+            errors,
+        ):
             lh = page.evaluate(_js("ScaleControl/read_line_heights"))
             assert lh is not None, "elements not found"
             assert lh["wrap"] == lh["attr"], (
@@ -272,13 +260,10 @@ class TestScaleControlBrowser:
                     f"zoom-label line-height mismatch: {lh['zoomLabel']} vs {lh['attr']}"
                 )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_scale_line_has_bottom_border(self, browser, tmp_path):
         """Scale line has a visible bottom border (horizontal line)."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             border = page.evaluate(_js("ScaleControl/read_border"))
             assert border is not None, "scale-line not found"
             assert float(border["bottomWidth"].replace("px", "")) > 0, (
@@ -286,5 +271,3 @@ class TestScaleControlBrowser:
             )
             assert border["bottomStyle"] != "none", "bottom border style is 'none'"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()

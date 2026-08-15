@@ -13,6 +13,8 @@ from conftest import (
     assert_locale,
     make_browser_page,
     render_control,
+    use_page,
+    use_raw_page,
 )
 
 from foliplus import HeatmapControl
@@ -416,10 +418,9 @@ class TestHeatmapControlBrowser:
 
     def test_auto_select_single_layer(self, browser, tmp_path):
         """Single point layer is auto-selected on panel expand."""
-        page, errors = self._make_page(
-            browser, tmp_path, expose_ctrl=True, num_layers=1
-        )
-        try:
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
+        ) as (page, errors):
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
@@ -437,15 +438,12 @@ class TestHeatmapControlBrowser:
                 "Extra body should be visible after auto-select"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_auto_select_skipped_for_multiple_layers(self, browser, tmp_path):
         """Multiple point layers: auto-select does NOT trigger."""
-        page, errors = self._make_page(
-            browser, tmp_path, expose_ctrl=True, num_layers=3
-        )
-        try:
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=3
+        ) as (page, errors):
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
@@ -465,14 +463,13 @@ class TestHeatmapControlBrowser:
                 "Extra body should stay hidden without auto-select"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_panel_interaction(self, browser, tmp_path):
         """Open heatmap panel, verify layer dropdown populates."""
-        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
-
-        try:
+        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
@@ -494,13 +491,13 @@ class TestHeatmapControlBrowser:
             )
 
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_default_values_initialized(self, browser, tmp_path):
         """Constructor initialises all user-configurable defaults."""
-        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             vals = page.evaluate(_js("HeatmapControl/read_defaults"))
             assert vals["numClasses"] == 6, (
                 f"numClasses expected 6 got {vals['numClasses']}"
@@ -516,13 +513,13 @@ class TestHeatmapControlBrowser:
             assert vals["currentScheme"] == "Reds"
             assert vals["currentAgg"] == "count"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_label_toggle_updates_state(self, browser, tmp_path):
         """Toggling the label checkbox updates manager.currentLabelShow."""
-        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
@@ -540,13 +537,13 @@ class TestHeatmapControlBrowser:
             assert before is True, f"expected True, got {before}"
             assert after is False, f"expected False, got {after}"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_layer_selection_triggers_render(self, browser, tmp_path):
         """Selecting a layer calls renderHexagons (cachedFeatures should be set)."""
-        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
@@ -573,13 +570,13 @@ class TestHeatmapControlBrowser:
             assert has_cached, "cachedFeatures should be set after layer selection"
             assert canvas_visible, "Canvas should be visible after layer selection"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_clear_all_removes_content(self, browser, tmp_path):
         """clearHeatmapCanvas() clears cached data and hides the overlay."""
-        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             # Render some content first
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
@@ -608,13 +605,13 @@ class TestHeatmapControlBrowser:
             assert cached_gone, "cachedFeatures should be null after clear"
             assert canvas_gone, "Canvas should be hidden after clear"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_clear_button_works(self, browser, tmp_path):
         """Pressing the clear button resets all controls and clears layers."""
-        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
@@ -636,13 +633,13 @@ class TestHeatmapControlBrowser:
             assert mgr["borderWeight"] == 1.5
             assert mgr["currentMethod"] == "jenks"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_render_all_flag_integration(self, browser, tmp_path):
         """renderAll is toggled via hooks before/after export (full-content capture)."""
-        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
@@ -673,13 +670,13 @@ class TestHeatmapControlBrowser:
             render_all = page.evaluate("window.__heatmapCtrl.manager.renderAll")
             assert render_all is True, "renderAll should be True after before hook"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_cached_agg_invalidation_on_layer_change(self, browser, tmp_path):
         """cachedAgg is nulled when the layer changes (via onLayerChange)."""
-        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
@@ -699,13 +696,13 @@ class TestHeatmapControlBrowser:
             cached = page.evaluate("window.__heatmapCtrl.manager.cachedAgg")
             assert cached is None, "cachedAgg should be nulled after layer change"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_clear_heatmap_canvas_resets_caches(self, browser, tmp_path):
         """clearHeatmapCanvas resets all aggregation caches (but not autoFieldKey)."""
-        page, errors = self._make_page(browser, tmp_path, expose_ctrl=True)
-        try:
+        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate("window.__heatmapCtrl.manager.cachedFeatures = { f: 1 }")
             page.evaluate(
                 "window.__heatmapCtrl.manager.cachedAgg = { key: 'k', data: 'd' }"
@@ -716,8 +713,6 @@ class TestHeatmapControlBrowser:
             assert features is None, "cachedFeatures should be nulled"
             assert agg is None, "cachedAgg should be nulled"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
 
 class TestHeatmapAutoFieldBrowser:
@@ -736,8 +731,8 @@ class TestHeatmapAutoFieldBrowser:
     ):
         """Render a map with one point FeatureGroup plus HeatmapControl.
 
-        Returns a (page, errors) tuple.  The caller is responsible for
-        ``page.close()``.
+        Returns a ``(page, errors)`` tuple.  Callers use :func:`use_page`
+        to ensure the page is closed on exit.
         """
         from foliplus import LayerControl
 
@@ -834,9 +829,10 @@ class TestHeatmapAutoFieldBrowser:
                 "geometry": {"type": "Point", "coordinates": [119.31, 26.09]},
             },
         ]
-        page, errors = self._build_page(tmp_path, browser, features, agg="sum")
-
-        try:
+        with use_page(self._build_page, tmp_path, browser, features, agg="sum") as (
+            page,
+            errors,
+        ):
             # Select the first layer (there's only one)
             options = page.evaluate(
                 "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).map(o => o.value)"
@@ -885,8 +881,6 @@ class TestHeatmapAutoFieldBrowser:
             )
 
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_auto_field_single_field(self, browser, tmp_path):
         """Single-field layer uses that field directly as autoFieldKey."""
@@ -902,9 +896,10 @@ class TestHeatmapAutoFieldBrowser:
                 "geometry": {"type": "Point", "coordinates": [119.31, 26.09]},
             },
         ]
-        page, errors = self._build_page(tmp_path, browser, features, agg="avg")
-
-        try:
+        with use_page(self._build_page, tmp_path, browser, features, agg="avg") as (
+            page,
+            errors,
+        ):
             options = page.evaluate(
                 "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).map(o => o.value)"
             )
@@ -943,5 +938,3 @@ class TestHeatmapAutoFieldBrowser:
             )
 
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()

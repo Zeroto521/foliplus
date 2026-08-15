@@ -8,7 +8,14 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import _js, assert_config_value, make_browser_page, render, render_control
+from conftest import (
+    _js,
+    assert_config_value,
+    make_browser_page,
+    render,
+    render_control,
+    use_page,
+)
 
 from foliplus import MeasureControl
 
@@ -182,20 +189,16 @@ class TestMeasureControlBrowser:
 
     def test_tool_buttons_render(self, browser, tmp_path):
         """Tool buttons are present in the DOM."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             btns = page.evaluate(
                 "document.querySelectorAll('.foliplus-measure-ctrl .foliplus-tool-btn').length"
             )
             assert btns >= 3
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_distance_labels_show_bearing(self, browser, tmp_path):
         """Distance labels include bearing (e.g. '42° | 1.5 km') by default."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
             labels = page.evaluate(_js("MeasureControl/read_labels"))
@@ -203,13 +206,13 @@ class TestMeasureControlBrowser:
                 f"expected a bearing label '° |', got {labels!r}"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_distance_labels_no_bearing_when_disabled(self, browser, tmp_path):
         """show_bearing=False omits the bearing from distance labels."""
-        page, errors = self._make_page(browser, tmp_path, show_bearing=False)
-        try:
+        with use_page(self._make_page, browser, tmp_path, show_bearing=False) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
             labels = page.evaluate(_js("MeasureControl/read_labels"))
@@ -217,13 +220,10 @@ class TestMeasureControlBrowser:
                 f"no bearing expected when disabled, got {labels!r}"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_register_on_first_click(self, browser, tmp_path):
         """Layer is registered immediately on tool select, visible on map."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate("document.querySelector('[data-mode=distance]').click()")
             page.wait_for_timeout(500)
             # Tool selected — registered immediately (needed to show hidden layer)
@@ -242,25 +242,19 @@ class TestMeasureControlBrowser:
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, "Layer should be registered after completing measurement"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_add_graph_adds_content(self, browser, tmp_path):
         """mainLayer.addLayer() auto-registers the layer."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/add_polyline_to_main_layer"))
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, "addLayer should auto-register"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_clear_all_empties_layers(self, browser, tmp_path):
         """destroy() empties content and unregisters."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/add_layers"))
             page.wait_for_timeout(500)
             page.evaluate("window.__measureManager.layers.clearLayers()")
@@ -268,25 +262,19 @@ class TestMeasureControlBrowser:
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert not registered, "destroy should unregister the layer"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_remove_graph_removes_single_item(self, browser, tmp_path):
         """mainLayer.removeLayer removes a single layer without affecting others."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/remove_single_layer"))
             page.wait_for_timeout(500)
             registered = page.evaluate("window.__test")
             assert registered, "layer should remain registered after removing one item"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_destroy_cleans_up_listeners(self, browser, tmp_path):
         """destroy() removes all map listeners (no leak after cleanup)."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # First, create a circle to trigger onMapClickActive listener
             page.evaluate(_js("MeasureControl/draw_circle"))
             page.wait_for_timeout(500)
@@ -295,13 +283,10 @@ class TestMeasureControlBrowser:
             page.wait_for_timeout(200)
             # Verify no errors
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_marker_del_icon_removes_marker(self, browser, tmp_path):
         """Clicking the delete X in marker mode removes the marker pin."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/place_marker"))
             page.wait_for_timeout(500)
             # Remove the layer via API directly (testing the delete logic)
@@ -311,13 +296,10 @@ class TestMeasureControlBrowser:
             hasDelMkr = page.evaluate(_js("MeasureControl/has_delete_marker"))
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_distance_del_icon_removes_measurement(self, browser, tmp_path):
         """Clicking the delete X in distance mode removes the entire measurement."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
             # Fire the delMkr click with a mock originalEvent targeting the X icon
@@ -326,13 +308,10 @@ class TestMeasureControlBrowser:
             hasDelMkr = page.evaluate(_js("MeasureControl/has_delete_marker"))
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_circle_del_icon_removes_circle(self, browser, tmp_path):
         """Clicking the delete X in circle mode removes the entire circle."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/draw_circle"))
             page.wait_for_timeout(500)
             # Fire the delMkr click with a mock originalEvent targeting the X icon
@@ -341,8 +320,6 @@ class TestMeasureControlBrowser:
             hasDelMkr = page.evaluate(_js("MeasureControl/has_delete_marker"))
             assert not hasDelMkr, "delMkr should be removed after clicking delete"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_circle_preview_node_follows_mouse(self, browser, tmp_path):
         """Regression: the circle preview node must follow the mouse while drawing.
@@ -350,8 +327,7 @@ class TestMeasureControlBrowser:
         Previously the node was only positioned at creation and stayed pinned
         at that spot on the map during the preview.
         """
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             state = page.evaluate(
                 _js("MeasureControl/draw_circle_preview_follows_mouse")
             )
@@ -360,15 +336,12 @@ class TestMeasureControlBrowser:
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
             assert moved, "circle preview node did not follow the mouse"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     # ── Persistence (browser) ──────────────────────────────────────
 
     def test_save_measurements_stores_to_localStorage(self, browser, tmp_path):
         """saveMeasurements() writes measurements to localStorage."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/save_marker_measurement"))
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             assert data is not None, "localStorage should contain saved measurements"
@@ -377,20 +350,15 @@ class TestMeasureControlBrowser:
             assert len(parsed) == 1
             assert parsed[0]["type"] == "marker"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_clear_all_clears_measurements_and_storage(self, browser, tmp_path):
         """clearAll() empties measurements array and persists to localStorage."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/save_then_clear_measurements"))
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "clearAll should empty localStorage"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_map_unload_keeps_measurements(self, browser, tmp_path):
         """Regression: map unload must NOT wipe persisted measurements.
@@ -399,20 +367,16 @@ class TestMeasureControlBrowser:
         localStorage — a data-loss risk on page refresh. It must only clear
         transient UI state and keep the persisted measurements.
         """
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/save_then_unload"))
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
             assert len(parsed) == 1, "unload should keep persisted measurements"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_delete_marker_removes_from_storage(self, browser, tmp_path):
         """Deleting a marker removes it from measurements and persists."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/place_marker"))
             # Poll for measurement to appear (async reverse geocode may take time)
             page.wait_for_timeout(500)
@@ -430,13 +394,10 @@ class TestMeasureControlBrowser:
             parsed = json.loads(data) if data else []
             assert len(parsed) == 0, "localStorage should be empty after deleting all"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_restore_marker_from_storage(self, browser, tmp_path):
         """restoreMarker restores a marker measurement from localStorage without ReferenceError."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Pre-populate localStorage with a marker measurement
             page.evaluate(_js("MeasureControl/seed_marker_storage"))
             # Reload the page to trigger restoreMeasurements in constructor
@@ -449,13 +410,10 @@ class TestMeasureControlBrowser:
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, "Layer should be registered after restoring marker"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_restore_distance_from_storage(self, browser, tmp_path):
         """restoreDistance restores a distance measurement from localStorage without ReferenceError."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/seed_distance_storage"))
             page.reload()
             page.wait_for_timeout(2000)
@@ -464,13 +422,10 @@ class TestMeasureControlBrowser:
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, "Layer should be registered after restoring distance"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_restore_circle_from_storage(self, browser, tmp_path):
         """restoreCircle restores a circle measurement from localStorage without ReferenceError."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/seed_circle_storage"))
             page.reload()
             page.wait_for_timeout(2000)
@@ -479,8 +434,6 @@ class TestMeasureControlBrowser:
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, "Layer should be registered after restoring circle"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     # ── MeasureUtils edge-case tests ──
 
@@ -506,8 +459,7 @@ class TestMeasureControlBrowser:
 
     def test_marker_survives_reload_with_blocked_geocode(self, browser, tmp_path):
         """Regression: marker placed while geocode is blocked still survives reload."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Block geocoding entirely — reverseGeocode never resolves
             page.route(
                 "**/nominatim.openstreetmap.org/**",
@@ -529,13 +481,10 @@ class TestMeasureControlBrowser:
             pins = page.evaluate("document.querySelectorAll('.foliplus-pin').length")
             assert pins >= 1, "marker pin should be visible after reload"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_restore_marker_address_backfilled(self, browser, tmp_path):
         """Regression: marker restored with address:null resolves and persists address."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/seed_marker_nulladdr_storage"))
             page.reload()
             page.wait_for_timeout(3000)
@@ -549,8 +498,6 @@ class TestMeasureControlBrowser:
                 "address should be persisted after restore"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_restored_marker_popup_shows_resolved_address(self, browser, tmp_path):
         """Regression: restored marker popup shows the resolved address even when
@@ -560,8 +507,7 @@ class TestMeasureControlBrowser:
         restored marker whose address resolves while the popup is closed would
         otherwise show the loading placeholder on first open.
         """
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Intercept Nominatim so geocode resolves deterministically with a
             # known address. The marker is restored with address:null; geocode
             # completes while the popup is closed.
@@ -589,8 +535,6 @@ class TestMeasureControlBrowser:
                 f"popup should show resolved address, got {popup_text!r}"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_clear_all_unbinds_circle_listeners(self, browser, tmp_path):
         """Regression: clearAll unbinds all finalized-circle map click handlers.
@@ -598,8 +542,7 @@ class TestMeasureControlBrowser:
         Each completed circle binds an onMapClickActive handler to the map.
         clearAll() must unbind them all (not just the last one) to avoid leaks.
         """
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             baseline = page.evaluate("window.__map._events['click']?.length || 0")
             # Draw 2 circles — each binds an onMapClickActive handler
             for _ in range(2):
@@ -618,15 +561,12 @@ class TestMeasureControlBrowser:
                 f"expected {baseline} click handlers after clearAll, got {after_clear}"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     # ── Browser tests for gaps ──
 
     def test_escape_cancels_mode(self, browser, tmp_path):
         """Pressing Escape while drawing cancels the mode."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/start_distance"))
             page.wait_for_timeout(300)
             # Press Escape
@@ -635,13 +575,10 @@ class TestMeasureControlBrowser:
             mode = page.evaluate("window.__measureManager.currentMode")
             assert mode is None, f"expected mode to be None after Escape, got {mode}"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_clear_button_empties_everything(self, browser, tmp_path):
         """Clicking the CLEAR tool button removes all measurements and layers."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Add some content
             page.evaluate(_js("MeasureControl/add_layers_and_measurements"))
             page.wait_for_timeout(200)
@@ -655,13 +592,10 @@ class TestMeasureControlBrowser:
             meas = page.evaluate("window.__measureManager.measurements.length")
             assert meas == 0, f"expected 0 measurements, got {meas}"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_same_tool_toggle_clears_mode(self, browser, tmp_path):
         """Clicking the same tool button twice clears the mode."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/click_distance_button"))
             page.wait_for_timeout(200)
             mode1 = page.evaluate("window.__measureManager.currentMode")
@@ -672,13 +606,10 @@ class TestMeasureControlBrowser:
             mode2 = page.evaluate("window.__measureManager.currentMode")
             assert mode2 is None, f"expected mode cleared, got {mode2}"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_distance_cancel_single_click(self, browser, tmp_path):
         """Single click then right-click cancels distance without saving."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/start_distance"))
             page.wait_for_timeout(300)
             # Right-click to finish (cancel) with < 2 points
@@ -690,13 +621,10 @@ class TestMeasureControlBrowser:
             meas = page.evaluate("window.__measureManager.measurements.length")
             assert meas == 0, f"expected 0 measurements, got {meas}"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_distance_preview_layers_removed_after_finish(self, browser, tmp_path):
         """After finishing distance, previewLine and poly are removed from map."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
             # The map should have the final polyline but not the preview layers
@@ -704,15 +632,12 @@ class TestMeasureControlBrowser:
             meas = page.evaluate("window.__measureManager.measurements.length")
             assert meas == 1, f"expected 1 measurement, got {meas}"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     # ── Polygon Area Mode ─────────────────────────────────────────
 
     def test_polygon_draw_and_delete(self, browser, tmp_path):
         """Draw a polygon with 3 points, verify it renders, then delete via clearAll."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/draw_polygon"))
             page.wait_for_timeout(500)
             count = page.evaluate("window.__measureManager.measurements.length")
@@ -726,13 +651,10 @@ class TestMeasureControlBrowser:
             count = page.evaluate("window.__measureManager.measurements.length")
             assert count == 0, f"expected 0 measurements after delete, got {count}"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
             page.wait_for_timeout(500)
             count = page.evaluate("window.__measureManager.measurements.length")
@@ -741,13 +663,10 @@ class TestMeasureControlBrowser:
             page.evaluate(_js("MeasureControl/toggle_polygon_delete"))
             page.wait_for_timeout(300)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_restore_polygon_from_storage(self, browser, tmp_path):
         """restorePolygon restores a polygon measurement from localStorage."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/seed_polygon_storage"))
             page.reload()
             page.wait_for_timeout(2000)
@@ -758,13 +677,10 @@ class TestMeasureControlBrowser:
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, "Layer should be registered after restoring polygon"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_load_measurements_corrupted_json(self, browser, tmp_path):
         """Corrupted localStorage JSON falls back to an empty array (no crash)."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Write corrupted JSON
             page.evaluate(
                 "localStorage.setItem(window.__measureStorageKey, '{not valid json')"
@@ -774,20 +690,15 @@ class TestMeasureControlBrowser:
             count = page.evaluate("window.__measureManager.measurements.length")
             assert count == 0, f"expected 0 measurements, got {count}"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_clear_all_collapses_panel(self, browser, tmp_path):
         """clearAll collapses the expanded panel when a measurement exists."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Add a measurement
             page.evaluate(_js("MeasureControl/add_layer_and_clear_all"))
             page.wait_for_timeout(300)
             # clearAll should be safe — no crash, panel collapse via ctrl
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_del_icon_offset_consistent_across_modes(self, browser, tmp_path):
         """Delete icons (✕) sit at the same offset from their anchor across all modes.
@@ -796,8 +707,7 @@ class TestMeasureControlBrowser:
         `makeDelIcon(anchor)` + shared CSS offset, so the ✕ must be the same
         distance & direction from its anchor in every measurement type.
         """
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Build distance, circle, and polygon measurements in one evaluate so
             # no state is lost between calls.
             offsets = page.evaluate(_js("MeasureControl/read_del_icon_offsets"))
@@ -816,5 +726,3 @@ class TestMeasureControlBrowser:
                 assert abs(off["dy"] - ref["dy"]) <= 2, (
                     f"{name}: dy {off['dy']} != ref {ref['dy']}"
                 )
-        finally:
-            page.close()

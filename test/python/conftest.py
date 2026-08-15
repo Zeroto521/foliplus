@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import urllib.request
 from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -276,6 +277,49 @@ def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
     )
     page.goto(f"file://{html_path}", wait_until="domcontentloaded")
     return page, errors
+
+
+@contextmanager
+def use_page(make_fn: Callable[..., tuple], *args: Any, **kwargs: Any):
+    """Build a Playwright page via *make_fn*, yield ``(page, errors)``, close on exit.
+
+    Replaces the ubiquitous boilerplate::
+
+        page, errors = self._make_page(browser, tmp_path)
+        try:
+            # ... assertions ...
+        finally:
+            page.close()
+
+    with::
+
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            # ... assertions ...
+
+    *make_fn* must return a ``(page, errors)`` tuple (see :func:`make_browser_page`).
+    """
+    page, errors = make_fn(*args, **kwargs)
+    try:
+        yield page, errors
+    finally:
+        page.close()
+
+
+@contextmanager
+def use_raw_page(new_page_fn: Callable[[], Any], *args: Any, **kwargs: Any):
+    """Create a raw Playwright page via *new_page_fn*, yield it, close on exit.
+
+    For tests that need only a page (no error collection)::
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(...)
+            # ... assertions ...
+    """
+    page = new_page_fn(*args, **kwargs)
+    try:
+        yield page
+    finally:
+        page.close()
 
 
 # ── Fixtures ──

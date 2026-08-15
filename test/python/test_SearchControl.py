@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import _js, assert_locale, make_browser_page, render_control
+from conftest import _js, assert_locale, make_browser_page, render_control, use_page
 
 from foliplus import SearchControl
 
@@ -113,8 +113,10 @@ class TestSearchControlBrowser:
     def test_initial_mode_addr(self, browser, tmp_path):
         """Verify that mode='addr' renders the address-search UI
         (globe icon, address placeholder) on first open."""
-        page, errors = self._make_page(browser, tmp_path, mode="addr")
-        try:
+        with use_page(self._make_page, browser, tmp_path, mode="addr") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Verify the mode button shows the globe icon (address mode)
@@ -130,13 +132,9 @@ class TestSearchControlBrowser:
                 f"Expected address placeholder, got: {placeholder}"
             )
 
-        finally:
-            page.close()
-
     def test_initial_mode_coord_default(self, browser, tmp_path):
         """Verify default mode='coord' shows coordinate placeholder."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             self._expand(page)
 
             # Verify the placeholder is for coordinate search
@@ -146,13 +144,13 @@ class TestSearchControlBrowser:
                 kw in placeholder.lower()
                 for kw in ("lat", "lng", "coord", "坐标", "latitude", "longitude")
             ), f"Expected coordinate placeholder, got: {placeholder}"
-        finally:
-            page.close()
 
     def test_mode_switch_icon(self, browser, tmp_path):
         """Toggling mode switches icon between LOCATE (coord) and GLOBE (addr)."""
-        page, errors = self._make_page(browser, tmp_path, mode="coord")
-        try:
+        with use_page(self._make_page, browser, tmp_path, mode="coord") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Click mode switch button
@@ -171,13 +169,10 @@ class TestSearchControlBrowser:
             assert "address" in placeholder.lower() or "地址" in placeholder, (
                 f"Expected address placeholder after switch, got: {placeholder}"
             )
-        finally:
-            page.close()
 
     def test_clear_button_clears_input(self, browser, tmp_path):
         """Clear button resets input value and hides hint."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             self._expand(page)
 
             # Type something in the input
@@ -188,13 +183,10 @@ class TestSearchControlBrowser:
 
             cleared = page.evaluate("document.querySelector('input').value")
             assert cleared == "", f"Expected empty input after clear, got: '{cleared}'"
-        finally:
-            page.close()
 
     def test_del_icon_removes_pin_and_clears_input(self, browser, tmp_path):
         """Floating ✕ appears with the popup and removes the pin + clears input."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Coordinate search → pin placed, but ✕ is hidden by default.
             page.evaluate(_js("SearchControl/trigger_coord_search"))
             page.wait_for_timeout(500)
@@ -217,8 +209,6 @@ class TestSearchControlBrowser:
             assert cleared["delIconCount"] == 0, "✕ should be removed after click"
             assert cleared["popupCount"] == 0, "popup should be closed after click"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_search_pin_above_data_layers(self, browser, tmp_path):
         """Regression: search pin must render above LayerControl data layers.
@@ -251,8 +241,10 @@ class TestSearchControlBrowser:
             name="Municipal Boundaries",
         ).add_to(m)
         html = m.get_root().render()
-        page, errors = make_browser_page(browser, tmp_path, html, "search")
-        try:
+        with use_page(make_browser_page, browser, tmp_path, html, "search") as (
+            page,
+            errors,
+        ):
             page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             z = page.evaluate(_js("SearchControl/read_pane_zindex"))
             assert z["dataPane"] is not None, "data layer pane not found"
@@ -264,13 +256,10 @@ class TestSearchControlBrowser:
                 f"popup({z['popupPane']}) should stay above markers ({z['markerPane']})"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_escape_collapses_control(self, browser, tmp_path):
         """Escape key collapses the control when no suggestions are shown."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             self._expand(page)
 
             # Press Escape
@@ -282,13 +271,13 @@ class TestSearchControlBrowser:
                 "document.querySelector('.foliplus-search').classList.contains('collapsed')"
             )
             assert ctrl_has_collapsed, "Expected control to be collapsed after Escape"
-        finally:
-            page.close()
 
     def test_autocomplete_body_mount(self, browser, tmp_path):
         """Suggestions dropdown is mounted on document.body, not inside toolBar."""
-        page, errors = self._make_page(browser, tmp_path, mode="addr")
-        try:
+        with use_page(self._make_page, browser, tmp_path, mode="addr") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Fire input event in address mode to trigger debounced fetch
@@ -306,26 +295,26 @@ class TestSearchControlBrowser:
             # the key test is that they're NOT in toolBar
             if on_body:
                 assert not in_toolbar, "Suggestions must not be inside toolBar"
-        finally:
-            page.close()
 
     def test_keyboard_suggestion_navigation_structure(self, browser, tmp_path):
         """ArrowDown/ArrowUp/Enter keyboard navigation structure exists in address mode."""
-        page, errors = self._make_page(browser, tmp_path, mode="addr")
-        try:
+        with use_page(self._make_page, browser, tmp_path, mode="addr") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Verify keyboard navigation: ArrowDown/ArrowUp/Enter
             # These should NOT throw errors even without suggestions visible
             no_errors = page.evaluate(_js("SearchControl/fire_keyboard_nav"))
             assert no_errors, "Keyboard navigation should not throw errors"
-        finally:
-            page.close()
 
     def test_input_switches_placeholder(self, browser, tmp_path):
         """Input event restores the placeholder for the current mode."""
-        page, errors = self._make_page(browser, tmp_path, mode="addr")
-        try:
+        with use_page(self._make_page, browser, tmp_path, mode="addr") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Fire input event to trigger placeholder restoration
@@ -337,5 +326,3 @@ class TestSearchControlBrowser:
             assert placeholder and len(placeholder) > 0, (
                 f"Placeholder should not be empty, got: '{placeholder}'"
             )
-        finally:
-            page.close()
