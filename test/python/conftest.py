@@ -306,16 +306,16 @@ def use_page(make_fn: callable[..., tuple], *args: Any, **kwargs: Any):
 
 
 @contextmanager
-def use_raw_page(browser, *args: Any, **kwargs: Any):
-    """Create a raw Playwright page, yield it, and close on exit.
+def use_raw_page(new_page_fn: Callable[[], Any], *args: Any, **kwargs: Any):
+    """Create a raw Playwright page via *new_page_fn*, yield it, close on exit.
 
     For tests that need only a page (no error collection)::
 
-        with use_raw_page(browser) as page:
+        with use_raw_page(browser.new_page) as page:
             page.goto(...)
             # ... assertions ...
     """
-    page = browser.new_page(*args, **kwargs)
+    page = new_page_fn(*args, **kwargs)
     try:
         yield page
     finally:
