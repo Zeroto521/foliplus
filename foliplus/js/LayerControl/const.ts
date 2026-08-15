@@ -2,12 +2,6 @@
 export const INIT_DELAY_MS = 300;
 export const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
-/** Z-index values. */
-export const Z_INDEX = { BASE: 600, TILE_BASE: 200, STEP: 10 };
-
-/** Recursion depth limits. */
-export const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
-
 /** Drag hint cooldown. */
 export const DRAG = { HINT_COOLDOWN_MS: 800 };
 
@@ -19,12 +13,6 @@ export const STORAGE = {
 
 /** Color map layer. */
 export const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
-
-/** Renderer key prefix. */
-export const RENDERER_KEY = "foliplus_renderer_";
-
-/** Fallback pane prefix. */
-export const FALLBACK_PANE_PREFIX = "foliplus_pane_";
 
 /** CSS class names. */
 export const CLASSES = {
@@ -60,12 +48,11 @@ export const SEL = {
 /** Group names. */
 export const GROUP = { OVERLAY: "overlay", BASE: "base" };
 
-/** Geometry type names. */
-export const GEOM_TYPE = {
-  POINT: "point",
-  LINE: "line",
-  POLYGON: "polygon",
-  EMPTY: "empty",
-  UNKNOWN: "unknown",
-  CUSTOM: "custom",
-};
+// Re-export shared core constants (z-index, panes, geometry types).
+export {
+  FALLBACK_PANE_PREFIX,
+  GEOM_TYPE,
+  RECURSION,
+  RENDERER_KEY,
+  Z_INDEX,
+} from "#core/layer/const.js";

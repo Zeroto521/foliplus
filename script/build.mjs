@@ -86,7 +86,10 @@ const esbuildCfg = {
   sourcemap: false,
   allowOverwrite: true,
   keepNames: CFG.dev,
-  alias: { "#common": CFG.tmp.js + "/common" },
+  alias: {
+    "#common": CFG.tmp.js + "/common",
+    "#core": CFG.tmp.js + "/core",
+  },
   plugins: [postcssPlugin],
 };
 
@@ -111,7 +114,7 @@ const findComponents = () => {
   const components = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    if (entry.name === "shared") continue; // not a control component
+    if (entry.name === "shared" || entry.name === "core") continue; // shared, not a control component
     const name = entry.name;
     const jsFile = resolveEntry([
       resolve(CFG.tmp.js, name, "index.ts"),

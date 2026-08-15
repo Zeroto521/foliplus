@@ -1,9 +1,14 @@
-import { createTranslator } from "#common/locale.js";
+// core/PaneManager — physical pane hosting + z-index landing.
+// Responsibility: "who orders" is LayerRegistry; "where content lands and
+// carries the z-number" is PaneManager. No CONF dependency.
+//
+// Method layering (tests follow the boundary):
+//   ── Pure computation (JS unit tests, no Leaflet) ──
+//     isDefaultPane / discoverChildPanes / getLayerPanes
+//   ── Leaflet DOM integration (browser tests) ──
+//     ensurePane / bumpLabelPanes / migrateLayers / reset / destroy
 import * as CONST from "./const.js";
-import * as Util from "./util.js";
-
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+import { forEachLayer } from "./util.js";
 
 /** Marker with protected Leaflet internals (shadow element). */
 type MarkerWithShadow = L.Marker & { _shadow?: HTMLElement };
@@ -13,29 +18,6 @@ interface PaneRendererMap {
   [key: string]: L.SVG | undefined;
 }
 
-// ==================== Pane Manager: PaneManager ====================
-// Responsibility split — "who orders, who hosts":
-//
-//   Layer (LayerRegistry) decides ORDER + VISIBILITY:
-//     - list order → computeZIndex() derives each layer's z-index number
-//     - visibility → map.hasLayer(layer) / addLayer-removeLayer
-//     - declares its main pane via layerInfo.paneName
-//
-//   Pane (PaneManager) HOSTS content and carries that number:
-//     - a layer's content may span several panes (graphPane + labelPane),
-//       discovered from the layer tree (discoverChildPanes, cached)
-//     - enforceOrder writes the layer's z-index onto every pane the
-//       layer's content lives in (applyLayerZIndex)
-//     - intra-layer order: label panes are bumped above paths
-//       (bumpLabelPanes → z + 1)
-//
-//   LayerManager ORCHESTRATES: reads layer order → computes z → hands
-//   it to PaneManager to land on the panes.
-//
-// Purely map-scoped and independent of the layer registry/UI, so the
-// z-order primitives are reusable across controls. The mechanism
-// *selection* (applyLayerZIndex) stays on the Manager because it
-// depends on the layer registry and z-index computation.
 class PaneManager {
   map: L.Map;
   defaultPanes: Set<string>;
@@ -57,11 +39,11 @@ class PaneManager {
     this.fallbackPaneMap = new Map();
   }
 
-  /**
-   * Ensure a custom pane exists on the map.
-   * @param {string} paneName - Pane name.
-   * @param {boolean} [needRenderer=true] - Whether to create an SVG renderer.
-   */
+  // ── Leaflet DOM integration ────────────────────────────────────
+
+  /** Ensure a custom pane exists on the map.
+   *  @param {string} paneName - Pane name.
+   *  @param {boolean} [needRenderer=true] - Whether to create an SVG renderer. */
   ensurePane(
     paneName: string,
     needRenderer = true,
@@ -83,38 +65,6 @@ class PaneManager {
       }
     }
     return { pane, renderer };
-  }
-
-  /** Find all custom panes used by a container's tree. */
-  discoverChildPanes(layer: L.Layer, depth = 0): string[] {
-    if (depth > CONST.RECURSION.PANE_DEPTH) return [];
-    const key = L.stamp(layer);
-    if (this.paneCache.has(key)) return this.paneCache.get(key) as string[];
-    const panes = new Set<string>();
-    Util.forEachLayer(
-      layer,
-      (l: L.Layer) => {
-        const p = l.options.pane;
-        if (p && !this.isDefaultPane(p)) panes.add(p);
-      },
-      depth,
-    );
-    const result = Array.from(panes);
-    this.paneCache.set(key, result);
-    return result;
-  }
-
-  isDefaultPane(pane: string): boolean {
-    return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
-  }
-
-  /** Find all panes a layer's content lives in, including fallback panes. */
-  getLayerPanes(layer: L.Layer): string[] {
-    const panes = this.discoverChildPanes(layer);
-    if (panes.length > 0) return panes;
-    const fbName = this.fallbackPaneMap.get(L.stamp(layer));
-    if (fbName) return [fbName];
-    return ["overlayPane", "markerPane"];
   }
 
   /** Bump label panes for a layer so labels render above paths. */
@@ -202,6 +152,40 @@ class PaneManager {
     this.paneCache.clear();
     this.fallbackPaneMap.clear();
     this.labelPanes.clear();
+  }
+
+  // ── Pure computation (JS unit-testable, no Leaflet) ────────────
+
+  /** Find all custom panes used by a container's tree. */
+  discoverChildPanes(layer: L.Layer, depth = 0): string[] {
+    if (depth > CONST.RECURSION.PANE_DEPTH) return [];
+    const key = L.stamp(layer);
+    if (this.paneCache.has(key)) return this.paneCache.get(key) as string[];
+    const panes = new Set<string>();
+    forEachLayer(
+      layer,
+      (l: L.Layer) => {
+        const p = l.options.pane;
+        if (p && !this.isDefaultPane(p)) panes.add(p);
+      },
+      depth,
+    );
+    const result = Array.from(panes);
+    this.paneCache.set(key, result);
+    return result;
+  }
+
+  isDefaultPane(pane: string): boolean {
+    return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
+  }
+
+  /** Find all panes a layer's content lives in, including fallback panes. */
+  getLayerPanes(layer: L.Layer): string[] {
+    const panes = this.discoverChildPanes(layer);
+    if (panes.length > 0) return panes;
+    const fbName = this.fallbackPaneMap.get(L.stamp(layer));
+    if (fbName) return [fbName];
+    return ["overlayPane", "markerPane"];
   }
 }
 
