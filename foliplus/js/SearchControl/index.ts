@@ -5,7 +5,7 @@ import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { ensureHint } from "#core/hint.js";
-import { ensureModes } from "#core/mode/index.js";
+import { ensureModes } from "#core/mode.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { CLASSES, MODE } from "./const.js";
 import { bindEvents, initFromUrl } from "./event.js";

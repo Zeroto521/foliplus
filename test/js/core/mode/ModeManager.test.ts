@@ -1,4 +1,4 @@
-import { ModeManager, ensureModes } from "#foliplus/core/mode/index.js";
+import { ModeManager, ensureModes } from "#foliplus/core/mode.js";
 import { describe, expect, it, vi } from "vitest";
 
 describe("ModeManager", () => {

@@ -21,7 +21,7 @@ import type {
   LayerAPI as CoreLayerAPI,
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/type.js";
-import type { ModeManager as CoreModeManager } from "#core/mode/ModeManager.js";
+import type { ModeManager as CoreModeManager } from "#core/mode.js";
 import type * as ChromaJs from "chroma-js";
 import type * as GeoJSON from "geojson";
 import type * as Leaflet from "leaflet";
