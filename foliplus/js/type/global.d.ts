@@ -21,6 +21,7 @@ import type {
   LayerAPI as CoreLayerAPI,
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/type.js";
+import type { ModeManager as CoreModeManager } from "#core/mode/ModeManager.js";
 import type * as ChromaJs from "chroma-js";
 import type * as GeoJSON from "geojson";
 import type * as Leaflet from "leaflet";
@@ -258,6 +259,8 @@ declare global {
     registerHintIcon: (key: string, iconSvg: string) => void;
     /** Per-map cross-component event bus. */
     events: CoreEventBus;
+    /** Per-map cross-component active-mode registry. */
+    modes: CoreModeManager;
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.
@@ -267,6 +270,9 @@ declare global {
 
   /** Per-map cross-component event bus (`map.foliplus.events`). */
   type EventBus = CoreEventBus;
+
+  /** Per-map active-mode registry (`map.foliplus.modes`). */
+  type ModeManager = CoreModeManager;
 
   const map: Leaflet.Map;
   const foliplus: Foliplus;
@@ -294,4 +300,5 @@ declare module "leaflet" {
   }
 }
 
-export {};
+export { };
+
