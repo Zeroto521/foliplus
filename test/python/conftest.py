@@ -96,9 +96,10 @@ def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
             # against concurrent xdist workers reading a half-written file.
             fd, tmp_path = tempfile.mkstemp(dir=_CDN_CACHE_DIR, suffix=".part")
             try:
-                with urllib.request.urlopen(
-                    url, timeout=_CDN_DOWNLOAD_TIMEOUT
-                ) as resp, os.fdopen(fd, "wb") as out:
+                with (
+                    urllib.request.urlopen(url, timeout=_CDN_DOWNLOAD_TIMEOUT) as resp,
+                    os.fdopen(fd, "wb") as out,
+                ):
                     out.write(resp.read())
                 os.replace(tmp_path, cache_path)
             except Exception:
@@ -135,9 +136,10 @@ def _prefetch_cdn_cache() -> None:
         if cache_path.exists():
             continue
         try:
-            _cdn_cached('https://' + fragment)
+            _cdn_cached("https://" + fragment)
         except Exception:
             continue
+
 
 def _install_cdn_route(page) -> None:
     """Intercept CDN + tile requests so browser tests run offline.
