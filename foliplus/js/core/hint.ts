@@ -18,13 +18,19 @@ interface HintEntry {
 // instance copies it so icons registered at load time are available per-map.
 const hintIconRegistry: Record<string, string> = {};
 
-/** Register an SVG icon for a hint type (module-level, shared by all managers). */
+/** Register an SVG icon for a hint type and sync it into every active manager.
+ *  Icons may be registered AFTER a manager was created (a later control's
+ *  createControlEnv), so all live managers must be re-seeded. */
 const registerHintIcon = (key: string, iconSvg: string) => {
   hintIconRegistry[key] = iconSvg;
+  for (const mgr of activeManagers) mgr.syncIcons();
 };
 
 // Per-map instance storage (WeakMap so destroyed maps are GC'd).
 const instances = new WeakMap<L.Map, HintManager>();
+
+// All live managers — iterated by registerHintIcon to propagate new icons.
+const activeManagers = new Set<HintManager>();
 
 class HintManager {
   hintIcons: Record<string, string>;
@@ -33,6 +39,7 @@ class HintManager {
   constructor() {
     this.hintIcons = { ...hintIconRegistry };
     this.hintMap = new Map();
+    activeManagers.add(this);
   }
 
   /** (Re)seed icons from the shared registry (called at registerHintIcon time). */
@@ -129,6 +136,7 @@ class HintManager {
       if (entry.element) entry.element.remove();
     }
     this.hintMap.clear();
+    activeManagers.delete(this);
   }
 }
 
@@ -143,8 +151,7 @@ const ensureHint = (map: L.Map): HintManager => {
   map.foliplus!.showHint = mgr.showHint.bind(mgr);
   map.foliplus!.hideHint = mgr.hideHint.bind(mgr);
   map.foliplus!.registerHintIcon = (key: string, svg: string) => {
-    registerHintIcon(key, svg);
-    mgr.syncIcons();
+    registerHintIcon(key, svg); // syncs every active manager
   };
   return mgr;
 };

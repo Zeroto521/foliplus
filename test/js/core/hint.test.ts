@@ -101,4 +101,54 @@ describe("ensureHint", () => {
     a.hideHint("key");
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
   });
+
+  it("syncs icons registered AFTER an existing manager was created (regression)", () => {
+    // A later control's createControlEnv registers its icon after ensureHint
+    // already created the manager — the new icon must appear.
+    const map = {} as any;
+    ensureHint(map); // manager created BEFORE the icon is registered
+    registerHintIcon("late_icon", "<svg></svg>");
+    map.foliplus.showHint("late_icon", "text", 0);
+    const icon = document.querySelector(".foliplus-hint-icon");
+    expect(icon).not.toBeNull();
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("text");
+  });
+
+  it("syncs icons to a manager created before registration, via syncIcons", () => {
+    const mgr = new HintManager();
+    registerHintIcon("probe", "<svg></svg>");
+    // syncIcons was called by registerHintIcon for active managers
+    expect(mgr.hintIcons["probe"]).toBe("<svg></svg>");
+  });
+
+  it("shows the icon for EVERY component regardless of load order", () => {
+    // Simulate the real page: another control created the per-map manager
+    // first, then each control's createControlEnv registers its icon later.
+    // Historically LocateControl / MeasureControl / ExportControl hints were
+    // missing icons in this order (registerHintIcon only updated the module
+    // registry, never re-seeding the already-created manager).
+    const map = {} as any;
+    ensureHint(map); // manager created BEFORE the components below register
+    const components = [
+      "ExportControl",
+      "FullscreenControl",
+      "HeatmapControl",
+      "LayerControl",
+      "LocateControl",
+      "MeasureControl",
+      "SearchControl",
+    ];
+    for (const name of components) {
+      registerHintIcon(name, '<svg data-name="' + name + '"></svg>');
+      // Clear any previously shown hint so only the current one exists.
+      document.body.innerHTML = "";
+      map.foliplus.showHint(name, name + " msg", 0);
+      const icon = document.querySelector(".foliplus-hint-icon");
+      expect(icon, name + " hint should have an icon").not.toBeNull();
+      expect(
+        icon!.querySelector("svg")!.getAttribute("data-name"),
+        name + " icon should match",
+      ).toBe(name);
+    }
+  });
 });
