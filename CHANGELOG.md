@@ -9,8 +9,8 @@
 - `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
-- `EventBus`: introduce a per-map `EventBus` with semantic event constants for decoupled cross-component communication, replacing direct Leaflet map-event wiring. LayerManager emits `LAYER_CHANGE` after register/unregister/reorder; HeatmapControl subscribes instead of raw `map.on("layeradd layerremove")`. ([#148](https://github.com/Zeroto521/foliplus/pull/148))
-- `ModeManager`: per-map registry for cross-component active-mode tracking. `ensureModes(map)` attaches to `map.foliplus.modes`. MeasureControl and SearchControl publish their mode changes; other components can query via `getMode()` or subscribe via `MODE_CHANGE` event. ([#150](https://github.com/Zeroto521/foliplus/pull/150))
+- `EventBus`: per-map publish/subscribe for cross-component communication; LayerManager emits `LAYER_CHANGE`, HeatmapControl subscribes ([#148](https://github.com/Zeroto521/foliplus/pull/148))
+- `ModeManager`: per-map mode registry; MeasureControl and SearchControl publish mode changes, others query via `getMode()` or subscribe via `MODE_CHANGE` ([#150](https://github.com/Zeroto521/foliplus/pull/150))
 
 ### Changed
 
@@ -31,7 +31,7 @@
 
 ### Fixed
 
-- `hint icon`: fix missing hint icons for components loaded after the first `ensureHint(map)` call — `registerHintIcon` now syncs all active HintManager instances, making icons load-order independent ([#149](https://github.com/Zeroto521/foliplus/pull/149))
+- `hint icon`: fix missing icons for hints of components loaded after the first `ensureHint(map)` call ([#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
