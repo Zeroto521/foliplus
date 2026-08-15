@@ -16,7 +16,7 @@
   .leaflet-control-scale-line {
     border: var(--border-thin) solid transparent;
     border-bottom: var(--space-xs) solid var(--text-primary);
-    border-left:  var(--space-xs) solid var(--text-primary);
+    border-left: var(--space-xs) solid var(--text-primary);
     border-right: var(--space-xs) solid var(--text-primary);
     text-align: center;
     background: transparent;
