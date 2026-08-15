@@ -246,7 +246,13 @@ declare global {
     /** LayerControl public API (always available; lightweight until LayerControl upgrades it). */
     LayerAPI: LayerAPI;
     /** Per-map toast system (HintManager). */
-    showHint: (key: string, text: string, duration: number, append?: boolean, subkey?: string) => void;
+    showHint: (
+      key: string,
+      text: string,
+      duration: number,
+      append?: boolean,
+      subkey?: string,
+    ) => void;
     hideHint: (key: string, subkey?: string) => void;
     registerHintIcon: (key: string, iconSvg: string) => void;
   }

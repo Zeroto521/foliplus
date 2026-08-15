@@ -7,9 +7,9 @@ import {
   toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
-import { HINT_DURATION } from "#core/hint.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
+import { HINT_DURATION } from "#core/hint.js";
 
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
@@ -91,7 +91,11 @@ const locateMe = (ctrl: LocateCtrl) => {
     },
     () => {
       map.foliplus!.hideHint(CONF.name);
-      map.foliplus!.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
+      map.foliplus!.showHint(
+        CONF.name,
+        _(`${CONF.name}.geo_error`),
+        HINT_DURATION.LONG,
+      );
     },
   );
 };

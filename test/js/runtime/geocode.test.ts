@@ -31,9 +31,7 @@ describe("reverseGeocode", () => {
 
   it("distinguishes coordinates by key (different coords → separate entries)", async () => {
     (globalThis.fetch as any).mockImplementation((url: string) =>
-      Promise.resolve(
-        jsonResponse({ display_name: url.includes("40.1") ? "A" : "B" }),
-      ),
+      Promise.resolve(jsonResponse({ display_name: url.includes("40.1") ? "A" : "B" })),
     );
     await reverseGeocode(mockMap, 120.1, 40.1, "en");
     await reverseGeocode(mockMap, 120.2, 40.2, "en");
@@ -50,9 +48,7 @@ describe("reverseGeocode", () => {
 describe("geocode (forward)", () => {
   it("resolves an address to coordinates and caches it", async () => {
     (globalThis.fetch as any).mockResolvedValue(
-      jsonResponse([
-        { lat: "26.08", lon: "119.3", display_name: "Fuzhou" },
-      ]),
+      jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
     );
     const r1 = await geocode(mockMap, "UniqueCity A1", "en");
     expect(r1).toEqual({ lat: 26.08, lng: 119.3, display_name: "Fuzhou" });

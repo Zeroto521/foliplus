@@ -4,8 +4,8 @@
 // global once per map (Nominatim rate limit is global, not per-map).
 // Pure helpers (NOMINATIM, nominatimUrl, formatAddress) live in
 // common/geocode.js and are statically imported by components.
-import { toWgs84 } from "#common/coord.js";
 import { Cache } from "#common/cache.js";
+import { toWgs84 } from "#common/coord.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
@@ -83,14 +83,15 @@ const geocode = (
   const cached = geoCache.get(key);
   if (cached) {
     const [lat, lng, ...name] = cached.split("\u0001");
-    if (name.length) return Promise.resolve({ lat: +lat, lng: +lng, display_name: name.join("\u0001") });
+    if (name.length)
+      return Promise.resolve({
+        lat: +lat,
+        lng: +lng,
+        display_name: name.join("\u0001"),
+      });
   }
 
-  const url = nominatimUrl(
-    "/search",
-    { q: address, limit: 1, format: "jsonv2" },
-    code,
-  );
+  const url = nominatimUrl("/search", { q: address, limit: 1, format: "jsonv2" }, code);
 
   return throttled(() =>
     fetch(url)

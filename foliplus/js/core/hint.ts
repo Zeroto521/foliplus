@@ -69,7 +69,11 @@ class HintManager {
       const cs = window.getComputedStyle(hintTarget);
       if (cs.position === "static") hintTarget.style.position = "relative";
     }
-    const storeKey = subkey ? `${key}|${subkey}` : append ? `${key}-${Date.now()}` : key;
+    const storeKey = subkey
+      ? `${key}|${subkey}`
+      : append
+        ? `${key}-${Date.now()}`
+        : key;
     this.hintMap.set(storeKey, { element: el, timer: null });
 
     this.repositionHints();

@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import foliplus
 import pytest
+
+import foliplus
 
 COMPONENTS = (
     "ExportControl",

@@ -6,13 +6,13 @@ import {
   toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, stopEvent } from "#common/dom.js";
-import { HINT_DURATION } from "#core/hint.js";
 import { createTranslator } from "#common/locale.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
   unbindMapEvents,
 } from "#common/mapEvent.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { attachCircleUI, attachDistanceUI, attachPolygonUI } from "./ui.js";

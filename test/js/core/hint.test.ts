@@ -1,4 +1,9 @@
-import { HINT_DURATION, HintManager, ensureHint, registerHintIcon } from "#core/hint.js";
+import {
+  HINT_DURATION,
+  HintManager,
+  ensureHint,
+  registerHintIcon,
+} from "#core/hint.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {

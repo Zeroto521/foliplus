@@ -1,4 +1,3 @@
-import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
@@ -8,6 +7,7 @@ import {
   createFoldControl,
 } from "#common/panel.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
+import { BaseControl } from "#foliplus/BaseControl.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";

@@ -1,10 +1,10 @@
 // core/layer/api — LayerAPI facade management.
 // ensureLayerAPI creates a lightweight stub when no LayerControl exists;
 // requireLayerAPI throws when LayerControl is required (Export/Heatmap).
+import { ensureHint } from "#core/hint.js";
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
 import type { LayerAPI, LayerInfo } from "./type.js";
-import { ensureHint } from "#core/hint.js";
 
 /**
  * Ensure that `map.foliplus.LayerAPI` is available, creating a lightweight

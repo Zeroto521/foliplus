@@ -8,7 +8,7 @@ describe("requireRuntime", () => {
   });
 
   it("throws when foliplus is missing", () => {
-    vi.stubGlobal('foliplus', undefined);
+    vi.stubGlobal("foliplus", undefined);
     expect(() => requireRuntime("Test")).toThrow("foliplus runtime not found");
   });
 

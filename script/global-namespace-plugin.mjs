@@ -21,7 +21,12 @@ const RE_EXPORT_RE = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
 const exportNames = list =>
   list
     .split(",")
-    .map(part => part.trim().split(/\s+as\s+/)[0].trim())
+    .map(part =>
+      part
+        .trim()
+        .split(/\s+as\s+/)[0]
+        .trim(),
+    )
     .filter(n => n && !n.startsWith("type"));
 
 // Memoized per resolved source path — the same module is imported by many

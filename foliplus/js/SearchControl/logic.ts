@@ -10,8 +10,8 @@ import {
 import { createLocationMarker, dom } from "#common/dom.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
-import { HINT_DURATION } from "#core/hint.js";
 import * as Icons from "#common/icon.js";
+import { HINT_DURATION } from "#core/hint.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./const.js";
 import type { AddressResult, NominatimItem } from "./type.js";
 
@@ -89,7 +89,11 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
     .map(Number);
 
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(
+      CONF.name,
+      _(`${CONF.name}.coord_error`),
+      HINT_DURATION.LONG,
+    );
     ctrl.inp.value = "";
     return;
   }
@@ -97,7 +101,11 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   const lng = parts[0];
   const lat = parts[1];
   if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(
+      CONF.name,
+      _(`${CONF.name}.coord_error`),
+      HINT_DURATION.LONG,
+    );
     ctrl.inp.value = "";
     return;
   }
@@ -165,7 +173,11 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       if (err.name === "AbortError") return;
       console.error(`[${CONF.name}] Address lookup failed, check network`);
       map.foliplus!.hideHint(CONF.name);
-      map.foliplus!.showHint(CONF.name, _(`${CONF.name}.addr_error`), HINT_DURATION.LONG);
+      map.foliplus!.showHint(
+        CONF.name,
+        _(`${CONF.name}.addr_error`),
+        HINT_DURATION.LONG,
+      );
     });
 };
 

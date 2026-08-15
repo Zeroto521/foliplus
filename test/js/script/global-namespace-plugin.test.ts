@@ -1,11 +1,11 @@
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { afterAll, describe, expect, it } from "vitest";
 import {
   collectExports,
   sharedGlobalNamespace,
 } from "../../../script/global-namespace-plugin.mjs";
-import { mkdtempSync, writeFileSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
-import { afterAll, describe, expect, it } from "vitest";
 
 describe("sharedGlobalNamespace", () => {
   it("maps #core/layer/* to foliplus.core.layer", () => {
@@ -37,7 +37,10 @@ describe("collectExports", () => {
 
   it("collects named declarations", () => {
     const f = join(dir, "a.ts");
-    writeFileSync(f, "export const foo = 1;\nexport function bar() {}\nexport class Baz {}\n");
+    writeFileSync(
+      f,
+      "export const foo = 1;\nexport function bar() {}\nexport class Baz {}\n",
+    );
     expect(collectExports(f)).toEqual(["foo", "bar", "Baz"]);
   });
 
