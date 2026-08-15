@@ -11,7 +11,6 @@ import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import { HINT_DURATION } from "#core/hint.js";
 
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Minimal ctrl interface for locate logic. */

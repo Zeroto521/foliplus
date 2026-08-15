@@ -7,7 +7,6 @@ import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -36,7 +35,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
     for (const btn of selfBtns) btn.classList.toggle(CLASSES.HIDDEN, isFull);
   }
 
-  foliplus?.showHint?.(
+  map.foliplus!.showHint?.(
     CONF.name,
     isFull ? _(`${CONF.name}.enter`) : _(`${CONF.name}.exit`),
     HINT_DURATION.MEDIUM,

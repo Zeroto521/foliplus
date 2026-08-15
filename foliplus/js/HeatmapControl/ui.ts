@@ -7,7 +7,6 @@ import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import { HeatmapManager } from "./logic.js";
 
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */

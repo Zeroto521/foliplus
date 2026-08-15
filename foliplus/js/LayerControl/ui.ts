@@ -10,7 +10,6 @@ import type { LayerManager } from "./manager.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 const mapContainer = map.getContainer();
 

@@ -11,8 +11,6 @@ import * as SVGs from "./icon.js";
 import type { ExportManager, Rect } from "./manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Toolbar action button config. */
