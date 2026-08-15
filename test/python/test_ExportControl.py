@@ -189,22 +189,18 @@ class TestExportControlBrowser:
 
     def test_toggle_button_present(self, browser, tmp_path):
         """Export toggle button is rendered and clickable."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             btn = page.wait_for_selector(
                 ".foliplus-export-ctrl .foliplus-toggle-btn",
                 state="attached",
                 timeout=10000,
             )
             assert btn is not None, "Export toggle button not found"
-        finally:
-            page.close()
 
     def test_crop_box_appears_on_click(self, browser, tmp_path):
         """Clicking toggle button shows the crop box."""
 
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             btn = page.locator(".foliplus-export-ctrl .foliplus-toggle-btn")
             btn.click()
             page.wait_for_selector(
@@ -215,14 +211,11 @@ class TestExportControlBrowser:
             assert page.locator(".foliplus-export-box").is_visible()
             assert page.locator(".foliplus-export-overlay").is_visible()
             assert page.locator(".foliplus-export-handle").count() == 8
-        finally:
-            page.close()
 
     def test_escape_closes_crop_box(self, browser, tmp_path):
         """Pressing Escape with unlocked crop box removes it."""
 
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box",
@@ -239,14 +232,11 @@ class TestExportControlBrowser:
                 state="hidden",
                 timeout=5000,
             )
-        finally:
-            page.close()
 
     def test_enter_locks_crop_box(self, browser, tmp_path):
         """Pressing Enter locks the crop box (dashed > solid border)."""
 
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box",
@@ -261,14 +251,11 @@ class TestExportControlBrowser:
                 timeout=5000,
             )
             assert page.locator(".foliplus-export-box.locked").is_visible()
-        finally:
-            page.close()
 
     def test_export_mode_class(self, browser, tmp_path):
         """foliplus-export-mode class is added to body and map container."""
 
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box",
@@ -283,13 +270,10 @@ class TestExportControlBrowser:
             # Check on map container
             has_map_mode = page.evaluate(_js("ExportControl/read_export_mode_class"))
             assert has_map_mode, "map container should have foliplus-export-mode"
-        finally:
-            page.close()
 
     def test_lock_unlock_cycle(self, browser, tmp_path):
         """Lock then unlock crop box transitions correctly."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -308,27 +292,23 @@ class TestExportControlBrowser:
                 ".foliplus-export-box:not(.locked)", state="attached", timeout=5000
             )
             assert page.locator(".foliplus-export-box").is_visible()
-        finally:
-            page.close()
 
     def test_no_console_errors_on_open(self, browser, tmp_path):
         """Opening export control should not produce JS errors."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
             page.wait_for_timeout(500)
             assert len(errors) == 0, f"JS errors on open: {errors}"
-        finally:
-            page.close()
 
     def test_export_vector_and_marker_content(self, browser, tmp_path):
         """Export with vector polygon + Marker layers produces non-blank canvas."""
 
         # Add a polygon (vector layer)
-        page, _ = self._make_page(
+        with use_page(
+            self._make_page,
             browser,
             tmp_path,
             folium.GeoJson(
@@ -366,8 +346,7 @@ class TestExportControlBrowser:
                 show=True,
             ),
             slug="export_vector",
-        )
-        try:
+        ) as (page, _):
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
 
@@ -407,13 +386,10 @@ class TestExportControlBrowser:
             assert len(overlay_layers) > 0, (
                 f"No visible overlay layers. api={api_layers} errors={errors}"
             )
-        finally:
-            page.close()
 
     def test_crop_box_drag_resize(self, browser, tmp_path):
         """Dragging a crop box handle resizes the box."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -446,13 +422,10 @@ class TestExportControlBrowser:
             assert after["h"] > initial["h"], (
                 f"Expected height increased, was {initial['h']} now {after['h']}"
             )
-        finally:
-            page.close()
 
     def test_crop_box_drag_move(self, browser, tmp_path):
         """Dragging the crop box center moves the box."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -488,8 +461,6 @@ class TestExportControlBrowser:
             assert after["l"] != initial["l"] or after["t"] != initial["t"], (
                 f"Position should change on move, was ({initial['l']},{initial['t']}) now ({after['l']},{after['t']})"
             )
-        finally:
-            page.close()
 
     def test_scale_attr_dim_below_mask(self, browser, tmp_path):
         """Scale/attribution stay below the dim mask (z-index stacking).
@@ -510,8 +481,7 @@ class TestExportControlBrowser:
         html_path = tmp_path / "export_scale_attr_mask.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-export-ctrl", state="attached", timeout=10000
@@ -538,13 +508,10 @@ class TestExportControlBrowser:
             assert info["boxZ"] > info["attrZ"], (
                 f"Mask z={info['boxZ']} must be above attr z={info['attrZ']}"
             )
-        finally:
-            page.close()
 
     def test_saved_bounds_restore(self, browser, tmp_path):
         """Saved bounds in localStorage restore the crop box on toggle."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             # Pre-set localStorage with saved bounds using the exact storage key.
             # Extract the map name from the first script tag that defines L.map.
             map_name = page.evaluate(_js("ExportControl/read_map_name"))
@@ -569,15 +536,12 @@ class TestExportControlBrowser:
 
             # Verify the export button (download) is shown after lock
             assert page.locator(".foliplus-tool-bar .confirm").is_visible()
-        finally:
-            page.close()
 
     def test_export_with_heatmap_canvas(self, browser, tmp_path):
         """Export with a canvas layer (simulated) produces no errors."""
         from foliplus import LayerControl
 
-        page, _ = self._make_page(browser, tmp_path, slug="export_heatmap")
-        try:
+        with use_page(self._make_page, browser, tmp_path, slug="export_heatmap") as (page, _):
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
 
@@ -607,13 +571,10 @@ class TestExportControlBrowser:
             # Cleanup canvas layer
             page.evaluate(_js("ExportControl/remove_test_canvas"))
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
-        finally:
-            page.close()
 
     def test_undo_redo_keyboard(self, browser, tmp_path):
         """Ctrl+Z/Ctrl+Shift+Z handlers are registered on document."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -647,13 +608,10 @@ class TestExportControlBrowser:
             assert "redoCropBox" in html, "redoCropBox handler not found in page"
             assert "ctrlKey" in html, "ctrlKey check not found in page"
             assert "shiftKey" in html, "shiftKey check not found in page"
-        finally:
-            page.close()
 
     def test_locked_box_follows_zoom(self, browser, tmp_path):
         """Locked crop box follows the map after zoom."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -675,5 +633,3 @@ class TestExportControlBrowser:
             assert after_zoom["w"] > 0 and after_zoom["h"] > 0, (
                 f"Box disappeared after zoom, size={after_zoom}"
             )
-        finally:
-            page.close()

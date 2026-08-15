@@ -95,41 +95,31 @@ class TestLocateControlBrowser:
 
     def test_button_present(self, browser, tmp_path):
         """The locate button is rendered by default."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             has_btn = page.evaluate(
                 "document.querySelector('.foliplus-locate-btn') !== null"
             )
             assert has_btn, "Locate button not found"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_click_triggers_geolocation(self, browser, tmp_path):
         """Clicking the button calls navigator.geolocation.getCurrentPosition."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             called = page.evaluate(_js("LocateControl/click"))
             assert called, "geolocation.getCurrentPosition was not invoked on click"
             page.wait_for_selector(".foliplus-pin", state="attached", timeout=5000)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_geolocation_unsupported_shows_hint(self, browser, tmp_path):
         """Missing navigator.geolocation shows an error hint, no JS errors."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("LocateControl/geolocation_unsupported"))
             page.wait_for_timeout(300)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_click_places_marker(self, browser, tmp_path):
         """Clicking with geolocation success places a location marker."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("LocateControl/click_success"))
             page.wait_for_selector(".foliplus-pin", state="attached", timeout=5000)
             # The marker's popup should show the located coordinates.
@@ -138,5 +128,3 @@ class TestLocateControlBrowser:
                 f"Expected located coords in popup, got: {popup!r}"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()

@@ -404,8 +404,7 @@ class TestLayerControlBrowser:
         """Dragging overlay toward base group should show blocked hint."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         base = folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False)
-        page, errors = self._make_page(browser, tmp_path, overlay, base)
-        try:
+        with use_page(self._make_page, browser, tmp_path, overlay, base) as (page, errors):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -428,13 +427,10 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-hint-LayerControl")?.textContent || ""'
             )
             assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
-        finally:
-            page.close()
 
     def test_create_managed_layers_api(self, browser, tmp_path):
         """layers() returns expected convenience methods."""
-        page, errors = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             api = page.evaluate(_js("LayerControl/create_layers_api"))
             assert api is not None, "LayerAPI not found"
             assert api["hasClearLayers"], "clearLayers missing"
@@ -443,58 +439,43 @@ class TestLayerControlBrowser:
             assert api["hasRegistered"], "registered missing"
             assert api["hasMainLayer"], "mainLayer missing"
             assert api["hasBringToFront"], "bringToFront missing"
-        finally:
-            page.close()
 
     def test_add_graph_sets_pane(self, browser, tmp_path):
         """addGraph sets pane on the layer and calls register."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/add_graph_sets_pane"))
             assert result is not None
             assert result["pane"] == "__pane_test_graph__", f"got {result['pane']}"
             assert result["hasRenderer"] is True, "renderer not set"
             assert result["registered"] is True, "not registered after addLayer"
-        finally:
-            page.close()
 
     def test_clear_all_unregisters(self, browser, tmp_path):
         """clearAll clears content and unregisters the layer."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/clear_all_unregisters"))
             assert result is not None
             assert result["beforeRegistered"] is True
             assert result["afterRegistered"] is False
-        finally:
-            page.close()
 
     def test_add_label_sets_pane(self, browser, tmp_path):
         """addLabel sets pane on the marker."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/add_label_sets_pane"))
             assert result is not None
             assert result["pane"] == "__test_label_pane__", f"got {result['pane']}"
             assert result["registered"] is True
-        finally:
-            page.close()
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/unregister_layer_flow"))
             assert result is not None
             assert result["before"] is True
             assert result["after"] is False
-        finally:
-            page.close()
 
     def test_create_canvas_basic_api(self, browser, tmp_path):
         """createCanvas returns canvas API object with expected methods."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             api = page.evaluate(_js("LayerControl/create_canvas_api"))
             assert api is not None
             assert api["hasCanvas"]
@@ -506,74 +487,59 @@ class TestLayerControlBrowser:
             assert api["hasSetVisible"]
             assert api["hasGetSize"]
             assert api["canvasTag"] == "CANVAS"
-        finally:
-            page.close()
 
     def test_canvas_register_unregister(self, browser, tmp_path):
         """Canvas register() creates a layer item; unregister() removes it."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/canvas_register_unregister_dom"))
             assert result is not None
             assert result["hasItem"], "Canvas layer item should exist after register"
             assert not result["hasItemAfter"], (
                 "Canvas layer item should be removed after unregister"
             )
-        finally:
-            page.close()
 
     def test_migrate_layers_marker_pane(self, browser, tmp_path):
         """migrateLayers moves Markers to per-layer panes."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/migrate_marker_pane"))
             assert result is not None
             assert result["pane"] == "__test_marker_pane_graph__"
-        finally:
-            page.close()
 
     def test_migrate_layers_path_pane(self, browser, tmp_path):
         """migrateLayers moves Path layers to the target pane."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/migrate_path_pane"))
             assert result is not None
             assert result["pane"] == "__test_path_pane_graph__"
-        finally:
-            page.close()
 
     def test_load_saved_order_restore_order(self, browser, tmp_path):
         """loadSavedOrder restores previously saved order from localStorage."""
-        page, _ = self._make_page(
+        with use_page(
+            self._make_page,
             browser,
             tmp_path,
             folium.FeatureGroup(name="A", overlay=True, show=True),
             folium.FeatureGroup(name="B", overlay=True, show=True),
             folium.FeatureGroup(name="C", overlay=True, show=True),
             slug="saved_order",
-        )
-        try:
+        ) as (page, _):
             result = page.evaluate(_js("LayerControl/read_layer_ids"))
             assert result is not None
             assert result["count"] >= 3
-        finally:
-            page.close()
 
     def test_toggle_all_checkbox_toggles_layers(self, browser, tmp_path):
         """Toggle-all checkbox toggles all layers in the group."""
-        page, _ = self._make_page(
+        with use_page(
+            self._make_page,
             browser,
             tmp_path,
             folium.FeatureGroup(name="A", overlay=True, show=True),
             folium.FeatureGroup(name="B", overlay=True, show=True),
             slug="toggle_all",
-        )
-        try:
+        ) as (page, _):
             # Check initial state — all overlays checked
             result = page.evaluate(_js("LayerControl/read_toggle_all_checked"))
             assert result is True, f"Expected toggle-all checked, got {result}"
-        finally:
-            page.close()
 
     # ── title / tooltip browser tests ──
 
@@ -586,8 +552,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_layer_title.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -608,8 +573,6 @@ class TestLayerControlBrowser:
             assert title and "MyPoints" not in title, (
                 f"Expected type title, got '{title}'"
             )
-        finally:
-            page.close()
 
     def test_checkbox_title_shows_select_deselect(self, browser, tmp_path):
         """Checkbox title shows Select/Deselect, not the layer name."""
@@ -620,8 +583,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_cb_title.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -638,8 +600,6 @@ class TestLayerControlBrowser:
             assert title and "MyPoints" not in title, (
                 f"Expected select/deselect title, got '{title}'"
             )
-        finally:
-            page.close()
 
     def test_toggle_all_checkbox_title_changes_with_state(self, browser, tmp_path):
         """Toggle-all checkbox title updates when state changes."""
@@ -651,8 +611,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_toggle_all_title.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -679,8 +638,6 @@ class TestLayerControlBrowser:
             assert after and "Deselect" in after, (
                 f"Expected 'Deselect all', got '{after}'"
             )
-        finally:
-            page.close()
 
     def test_toggle_all_row_title_shows_fold_unfold(self, browser, tmp_path):
         """Toggle-all row title shows fold/unfold tooltip."""
@@ -691,8 +648,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_fold_row_title.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -720,13 +676,10 @@ class TestLayerControlBrowser:
             assert folded and "Expand" in folded, (
                 f"Expected 'Expand layers', got '{folded}'"
             )
-        finally:
-            page.close()
 
     def test_color_layer_item_title(self, browser, tmp_path):
         """Color layer item title shows the color map label."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -737,23 +690,17 @@ class TestLayerControlBrowser:
 
             title = page.evaluate(_js("LayerControl/read_color_layer_title"))
             assert title, f"Expected non-empty title, got '{title}'"
-        finally:
-            page.close()
 
     def test_register_reentry_after_hide(self, browser, tmp_path):
         """registerLayer can be re-called after a layer is hidden by checkbox."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/register_reentry_after_hide"))
             assert result is not None
             assert result["found"] is True
-        finally:
-            page.close()
 
     def test_register_readds_hidden_layer(self, browser, tmp_path):
         """register() re-adds mainLayer to map when layer was unchecked."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/register_readds_hidden_layer"))
             assert result is not None
             assert result["wasRegistered"] is True, "Layer should be registered"
@@ -766,8 +713,6 @@ class TestLayerControlBrowser:
             assert result["checkboxChecked"] is True, (
                 "Checkbox should be checked after re-activation"
             )
-        finally:
-            page.close()
 
     def test_fold_toggle_hides_overlay_items(self, browser, tmp_path):
         """Clicking the overlay fold-toggle-btn hides overlay layer items."""
@@ -782,8 +727,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_fold_overlay.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -810,8 +754,6 @@ class TestLayerControlBrowser:
             assert all(d != "none" for d in base_result), (
                 f"Expected base items visible, got {base_result}"
             )
-        finally:
-            page.close()
 
     def test_fold_toggle_hides_base_items(self, browser, tmp_path):
         """Clicking the base fold-toggle-btn hides base layer items."""
@@ -828,8 +770,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_fold_base.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -858,8 +799,6 @@ class TestLayerControlBrowser:
             assert all(d != "none" for d in overlay_result), (
                 f"Expected overlay items visible, got {overlay_result}"
             )
-        finally:
-            page.close()
 
     def test_fold_toggle_toggle_unfold(self, browser, tmp_path):
         """Clicking the fold button again unfolds (shows) the items."""
@@ -871,8 +810,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_fold_unfold.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -903,8 +841,6 @@ class TestLayerControlBrowser:
             assert all(d != "none" for d in unfolded), (
                 f"Expected visible after unfold, got {unfolded}"
             )
-        finally:
-            page.close()
 
     def test_fold_preserves_dom_index(self, browser, tmp_path):
         """Folded items remain in the DOM for index alignment."""
@@ -917,8 +853,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_fold_dom_index.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -947,31 +882,26 @@ class TestLayerControlBrowser:
             assert after == before, (
                 f"Expected {before} items after fold, got {after} — DOM items should not be removed"
             )
-        finally:
-            page.close()
 
     def test_bring_layer_to_front_runtime(self, browser, tmp_path):
         """bringLayerToFront moves the layer to front of z-order."""
-        page, _ = self._make_page(
+        with use_page(
+            self._make_page,
             browser,
             tmp_path,
             folium.FeatureGroup(name="A", overlay=True, show=True),
             folium.FeatureGroup(name="B", overlay=True, show=True),
             slug="bring_front",
-        )
-        try:
+        ) as (page, _):
             result = page.evaluate(_js("LayerControl/bring_layer_to_front"))
             assert result is not None, "LayerAPI not found"
             assert result["newIdx"] == 0, (
                 f"Expected layer B at index 0 after bringToFront, got {result['newIdx']} (was {result['initialIdx']})"
             )
-        finally:
-            page.close()
 
     def test_unregister_layer_removes_dom(self, browser, tmp_path):
         """unregisterLayer removes the DOM item from the panel."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/unregister_layer_removes_dom"))
             assert result is not None
             assert result["existsBefore"] is True, (
@@ -980,8 +910,6 @@ class TestLayerControlBrowser:
             assert result["existsAfter"] is False, (
                 "DOM item should be removed after unregisterLayer"
             )
-        finally:
-            page.close()
 
     def test_color_layer_hides_tiles(self, browser, tmp_path):
         """Clicking color layer hides tilePane and removes base maps."""
@@ -994,8 +922,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_color_tiles.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -1019,13 +946,10 @@ class TestLayerControlBrowser:
             )
             assert result["colorBg"] is True, "map container should have active class"
             # Tiles may still be in DOM but not visible; check className
-        finally:
-            page.close()
 
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(
                 _js("LayerControl/register_preserves_visible_on_reentry")
             )
@@ -1034,8 +958,6 @@ class TestLayerControlBrowser:
             assert result["newVisible"] is True, (
                 "registerLayer after unregisterLayer resets visible to true"
             )
-        finally:
-            page.close()
 
     def test_register_re_register_preserves_fields(self, browser, tmp_path):
         """A partial re-register never drops previously registered fields.
@@ -1044,8 +966,7 @@ class TestLayerControlBrowser:
         (layer/paneName/iconSvg/onToggle/onZIndex/name/isBase) fall back to
         the existing layerInfo instead of being reset to defaults.
         """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/re_register_preserves_fields"))
             assert result is not None and "error" not in result, result
             for phase in ("before", "after"):
@@ -1057,13 +978,10 @@ class TestLayerControlBrowser:
                 assert r["iconSvg"] == "<svg></svg>", f"{phase}: iconSvg lost"
                 assert r["hasOnToggle"] is True, f"{phase}: onToggle lost"
                 assert r["hasOnZIndex"] is True, f"{phase}: onZIndex lost"
-        finally:
-            page.close()
 
     def test_extract_points_api(self, browser, tmp_path):
         """extractPoints returns geo points from registered layers."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/extract_points"))
             assert result is not None
             assert result["count"] == 2, f"Expected 2 points, got {result['count']}"
@@ -1071,8 +989,6 @@ class TestLayerControlBrowser:
             assert abs(result["lng0"] - 119.30) < 0.001
             assert abs(result["lat1"] - 26.09) < 0.001
             assert abs(result["lng1"] - 119.31) < 0.001
-        finally:
-            page.close()
 
     def test_fold_svg_switches_on_toggle(self, browser, tmp_path):
         """Fold button uses a single SVG rotated 180° by CSS (not swapped) on toggle."""
@@ -1083,8 +999,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_fold_svg.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -1112,13 +1027,10 @@ class TestLayerControlBrowser:
             # Row must carry the folded class so CSS rotation kicks in
             is_folded = page.evaluate(_js("LayerControl/read_fold_row_class"))
             assert is_folded, "Expected foliplus-layer-folded class on row after fold"
-        finally:
-            page.close()
 
     def test_color_layer_pointer_cursor(self, browser, tmp_path):
         """Color layer item shows pointer cursor on hover."""
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -1127,8 +1039,6 @@ class TestLayerControlBrowser:
             )
             cursor = page.evaluate(_js("LayerControl/read_color_layer_cursor"))
             assert cursor == "pointer", f"Expected pointer cursor, got {cursor}"
-        finally:
-            page.close()
 
     # ── Indeterminate checkbox browser tests ──
 
@@ -1143,8 +1053,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_indeterminate.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -1189,8 +1098,6 @@ class TestLayerControlBrowser:
             assert none["indeterminate"] is False, (
                 "Expected toggle-all NOT indeterminate when no layers checked"
             )
-        finally:
-            page.close()
 
     def test_toggle_all_click_indeterminate_deselects_all(self, browser, tmp_path):
         """Clicking indeterminate toggle-all deselects all layers."""
@@ -1203,8 +1110,7 @@ class TestLayerControlBrowser:
         html_path = tmp_path / "test_indeterminate_click.html"
         html_path.write_text(m.get_root().render(), encoding="utf-8")
 
-        page = browser.new_page()
-        try:
+        with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -1241,8 +1147,6 @@ class TestLayerControlBrowser:
             assert final["indeterminate"] is False, (
                 "Expected toggle-all NOT indeterminate after deselect all"
             )
-        finally:
-            page.close()
 
     def test_paneset_reset_after_hide_show(self, browser, tmp_path):
         """Hiding and re-showing a layer resets paneSet so enforceOrder re-moves paths.
@@ -1253,8 +1157,7 @@ class TestLayerControlBrowser:
         """
         fg = folium.FeatureGroup(name="TestLayer", overlay=True, show=True)
         folium.Marker([26.08, 119.30], name="test_marker").add_to(fg)
-        page, _ = self._make_page(browser, tmp_path, fg, slug="paneset_reset")
-        try:
+        with use_page(self._make_page, browser, tmp_path, fg, slug="paneset_reset") as (page, _):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -1284,19 +1187,17 @@ class TestLayerControlBrowser:
             assert paneset is True, (
                 f"Expected paneSet=true on leaf after re-show, got {paneset}"
             )
-        finally:
-            page.close()
 
     def test_enforce_order_end_to_end(self, browser, tmp_path):
         """enforceOrder applies correct z-index to layers and migrates panes."""
-        page, _ = self._make_page(
+        with use_page(
+            self._make_page,
             browser,
             tmp_path,
             folium.FeatureGroup(name="Overlay", overlay=True, show=True),
             folium.TileLayer("CartoDB positron", name="Base", overlay=False),
             slug="enforce",
-        )
-        try:
+        ) as (page, _):
             result = page.evaluate(_js("LayerControl/read_pane_zindex"))
             assert result is not None, "LayerAPI not found"
             assert result["layerCount"] >= 2, f"got {result['layerCount']} layers"
@@ -1305,8 +1206,6 @@ class TestLayerControlBrowser:
                 "overlay pane should have z-index"
             )
             assert result["markerZ"], "marker pane should have z-index"
-        finally:
-            page.close()
 
     def test_pane_zindex_hierarchy(self, browser, tmp_path):
         """LayerControl keeps data < marker < tooltip < popup z-index ordering.
@@ -1314,7 +1213,8 @@ class TestLayerControlBrowser:
         Regression: markers (search/locate pins, ✕, data markers) must render
         above LayerControl-managed data layers, while tooltip/popup stay on top.
         """
-        page, errors = self._make_page(
+        with use_page(
+            self._make_page,
             browser,
             tmp_path,
             folium.GeoJson(
@@ -1337,8 +1237,7 @@ class TestLayerControlBrowser:
                 name="Polygons",
             ),
             folium.Marker([26.08, 119.30], name="Points"),
-        )
-        try:
+        ) as (page, errors):
             # GeoJSON's layer is resolved after its addTo fires layeradd →
             # debouncedEnforce; wait for the per-layer pane to appear. The pane
             # class is "foliplus-layer-pane" (a single token), not "foliplus-layer".
@@ -1361,26 +1260,22 @@ class TestLayerControlBrowser:
                 f"({result['tooltipZ']})"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_bring_layer_to_front_guard(self, browser, tmp_path):
         """bringLayerToFront is a no-op for base layers or when already at front."""
-        page, _ = self._make_page(
+        with use_page(
+            self._make_page,
             browser,
             tmp_path,
             folium.FeatureGroup(name="Overlay", overlay=True, show=True),
             folium.TileLayer("CartoDB positron", name="Base", overlay=False),
             slug="bringfront_guard",
-        )
-        try:
+        ) as (page, _):
             result = page.evaluate(_js("LayerControl/bring_to_front_unknown_guard"))
             assert result is not None
             assert result["unknownOk"] is True, (
                 "bringToFront should be safe for unknown id"
             )
-        finally:
-            page.close()
 
     def test_migrate_container_keeps_clean_options(self, browser, tmp_path):
         """Container layers are not re-migrated to fallback panes.
@@ -1390,8 +1285,7 @@ class TestLayerControlBrowser:
         (paneName), and must NOT be overwritten with a fallback
         `foliplus_pane_*` name during migration.
         """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/migrate_container_clean_options"))
             assert result is not None
             assert result["leafPane"] == "__clean_graph__", (
@@ -1403,8 +1297,6 @@ class TestLayerControlBrowser:
             )
             # Leaf path must be rendered
             assert result["leafHasPath"] is True, "Leaf path not rendered"
-        finally:
-            page.close()
 
     def test_register_idempotent_keeps_order(self, browser, tmp_path):
         """Re-registering an existing layer must not reorder the list.
@@ -1414,15 +1306,12 @@ class TestLayerControlBrowser:
         instead of splice+unshift, which would silently destroy the user's
         drag order and persist the accidental order via saveOrder.
         """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/register_idempotent_keeps_order"))
             assert result is not None, "LayerAPI not found"
             assert not result["moved"], (
                 f"Re-register reordered layers: {result['orderBefore']} -> {result['orderAfter']}"
             )
-        finally:
-            page.close()
 
     def test_render_initial_list_incremental(self, browser, tmp_path):
         """registerLayer on an existing UI must not rebuild the whole list.
@@ -1431,8 +1320,7 @@ class TestLayerControlBrowser:
         which is O(n) per registration (O(n^2) for n registrations). A
         registered layer should insert a single DOM item instead.
         """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/render_initial_list_incremental"))
             assert result is not None, "LayerAPI not found"
             # After the initial attachUI render (1 call), dynamic registrations
@@ -1440,8 +1328,6 @@ class TestLayerControlBrowser:
             assert result["afterSecond"] <= 1, (
                 f"registerLayer triggered full rebuilds: {result['afterSecond']}"
             )
-        finally:
-            page.close()
 
     def test_layers_view_is_readonly(self, browser, tmp_path):
         """api.layers is a read-only view — direct mutation is blocked.
@@ -1449,8 +1335,7 @@ class TestLayerControlBrowser:
         External callers must go through LayerAPI (registerLayer/unregisterLayer
         etc.) so the registry index can never be bypassed or drift from the list.
         """
-        page, _ = self._make_page(browser, tmp_path)
-        try:
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/layers_view_readonly"))
             assert result is not None, "LayerAPI not found"
             assert result["length"] > 0, "read length failed"
@@ -1460,8 +1345,6 @@ class TestLayerControlBrowser:
             assert result["spliceThrew"] is True, "splice should throw"
             assert result["assignThrew"] is True, "index assign should throw"
             assert result["shiftThrew"] is True, "shift should throw"
-        finally:
-            page.close()
 
 
 class TestLayerControlEdgeCases:
