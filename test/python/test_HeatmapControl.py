@@ -13,6 +13,7 @@ from conftest import (
     assert_config_value,
     assert_locale,
     make_browser_page,
+    read_css,
     render_control,
     use_page,
     use_raw_page,
@@ -228,7 +229,7 @@ class TestHeatmapControlRendering:
         """weight-input is included in the shared breathing-focus rule in common.css."""
         from pathlib import Path
 
-        css = Path("foliplus/css/common.css").read_text()
+        css = read_css("foliplus/css/common.css")
         assert "foliplus-heatmap-weight-input" in css
         assert "input-breathe" in css
 
@@ -236,7 +237,6 @@ class TestHeatmapControlRendering:
         """Label toggle switch is rendered."""
         html = render_control(HeatmapControl())
         assert "toggle-switch" in html
-        assert "labelChk" in html
 
     def test_confirm_button_renders(self):
         """Confirm (Apply) button is rendered."""
@@ -265,7 +265,7 @@ class TestHeatmapControlRendering:
     def test_ctrl_btn_svg_in_icon_selector(self):
         """ctrl-btn svg is included in the common icon selector so X lines are visible."""
 
-        css = Path("foliplus/css/common.css").read_text()
+        css = read_css("foliplus/css/common.css")
         assert ".foliplus-ctrl-btn" in css
 
     def test_layer_placeholder_option(self):

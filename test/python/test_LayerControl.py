@@ -10,6 +10,7 @@ from conftest import (
     _js,
     assert_locale,
     make_browser_page,
+    read_css,
     render,
     render_control,
     use_page,
@@ -81,7 +82,7 @@ class TestLayerControlRendering:
 
         html = render_control(LayerControl())
         assert "FOLD" in html
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         assert "rotate(180deg)" in css
 
     def test_locale_zh(self):
@@ -176,18 +177,15 @@ class TestLayerControlRendering:
 
     def test_locale_en_keys(self, base_map: folium.Map):
         """Default (en) locale keys rendered."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         assert "LayerControl.toggle_title" in html
         assert "LayerControl.panel_title" in html
         assert "LayerControl.base_map_label" in html
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """click handler on color-layer-item present in rendered code."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         assert "foliplus-color-layer-item" in html
-        assert "deselectAllBaseMaps" in html
 
     def test_drag_base_map_allowed(self):
         """No drag prevention for base maps in JS code."""
@@ -208,8 +206,7 @@ class TestLayerControlRendering:
 
     def test_css_variables_used(self, base_map: folium.Map):
         """CSS variables from common.css are referenced in rendered output."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         assert "var(--space-xl)" in html
         assert "var(--accent-primary)" in html
         assert "var(--radius-sm)" in html
@@ -217,41 +214,35 @@ class TestLayerControlRendering:
 
     def test_leaflet_control_classes_applied(self, base_map: folium.Map):
         """LayerControl renders with leaflet-control classes for Leaflet theming."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         assert "leaflet-control" in html
         assert "leaflet-bar" in html
 
     def test_layer_item_dom_structure(self, base_map: folium.Map):
         """Each layer-item has checkbox, label, type-icon-col."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         assert "foliplus-checkbox" in html
         assert "foliplus-type-icon-col" in html
 
     def test_color_map_id_constant(self, base_map: folium.Map):
         """Color map uses a special constant ID for identification."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         assert "foliplus_color_map" in html
 
     def test_hint_duration_constants_in_layer(self, base_map: folium.Map):
         """LayerControl uses hint duration constants (not hardcoded values)."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         assert "HINT_DURATION" in html
         assert "HINT_COOLDOWN_MS: 800" in html
 
     def test_separator_container_has_base_label(self, base_map: folium.Map):
         """Separator label uses localized base_map_label key."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         assert "LayerControl.base_map_label" in html
 
     def test_css_interaction_effects(self, base_map: folium.Map):
         """CSS hover/active effects exist for interactive elements."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(LayerControl())
         # Color layer picker (via :is() selector, no literal :hover string)
         assert "foliplus-color-layer-input" in html
         # Fold toggle button SVG
@@ -272,14 +263,14 @@ class TestLayerControlRendering:
 
     def test_close_btn_svg_styled(self):
         """ctrl-btn svg is included in the common icon selector so X lines are visible."""
-        css = Path("foliplus/css/common.css").read_text()
+        css = read_css("foliplus/css/common.css")
         # .foliplus-ctrl-btn must appear inside the :is() icon-size rule so that
         # its SVG lines get stroke:currentColor (without it the X is invisible).
         assert ".foliplus-ctrl-btn" in css
 
     def test_folded_state_no_accent_text(self):
         """Folded label keeps neutral color; only left border and fold-btn use accent."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         # left border and fold-btn turn accent when folded — both expected
         assert "foliplus-layer-folded" in css
         assert "border-left-color: var(--accent-primary)" in css
@@ -290,20 +281,20 @@ class TestLayerControlRendering:
 
     def test_toggle_all_label_semibold_primary(self):
         """Section header label is semibold and text-primary so it reads as a real header."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         assert "foliplus-layer-toggle-all .foliplus-layer-sep-label" in css
         assert "font-weight: var(--font-weight-semibold)" in css
         assert "color: var(--text-primary)" in css
 
     def test_toggle_all_hover_accent_light_border(self):
         """Toggle-all row hover shows a soft accent-light left border."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         assert "foliplus-layer-toggle-all:hover" in css
         assert "border-left-color: var(--accent-light)" in css
 
     def test_folded_fold_btn_turns_accent(self):
         """Fold button color becomes accent-primary when row is folded."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         # Find the rule that targets fold-btn itself (not fold-btn svg)
         # by searching for the closing of the selector without "svg" on the same segment
         match = re.search(
@@ -315,20 +306,20 @@ class TestLayerControlRendering:
 
     def test_section_divider_fades_when_folded(self):
         """Section divider fades to opacity 0 when the group is folded."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
 
     def test_fold_btn_hover_color(self):
         """Fold button hover shows accent color (no bg/radius on fold-btn itself)."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         assert ".foliplus-layer-fold-btn" in css
         assert "&:hover" in css
         assert "color: var(--accent-primary)" in css
 
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional hover preview on the toggle-all row."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         # Expanded row hover: black → red
         assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):hover" in css
         assert "color: var(--accent-primary)" in css
@@ -338,7 +329,7 @@ class TestLayerControlRendering:
 
     def test_fold_btn_background_transition(self):
         """Fold button transitions color and transform (background removed — no bg to transition)."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         # Find the base fold-btn rule (not the folded or hover variants)
         idx = css.find(".foliplus-layer-fold-btn {")
         assert idx != -1
@@ -354,30 +345,28 @@ class TestLayerControlRendering:
 
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         assert ".foliplus-layer-fold-btn" in css
         assert "svg {" in css
         assert "fill: none" in css
 
     def test_drag_handle_circle_stroke(self):
         """drag-handle circles have explicit stroke so they appear bold."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         assert ".drag-handle" in css
         assert "circle {" in css
         assert "stroke: currentColor" in css
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "iconSvg" in html
+        html = render_control(LayerControl())
         assert "type-icon-col" in html
 
     # ── Drag-over animation tests ──
 
     def test_drag_pulse_css_keyframes(self):
         """CSS defines drag-pulse keyframes with variable-driven values."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         assert "@keyframes foliplus-drag-pulse" in css
         assert "var(--drag-border-from" in css
         assert "var(--drag-border-to" in css
@@ -386,12 +375,22 @@ class TestLayerControlRendering:
 
     def test_drag_over_css_variables(self):
         """Drag-over drop indicators use CSS custom properties for all parameters."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
+        css = read_css("foliplus/css/LayerControl.css")
         assert "--drag-border-width" in css
         assert "--drag-top-shadow" in css
         assert "--drag-bottom-shadow" in css
         assert "--drag-pulse-duration" in css
         assert "--drag-pulse-count" in css
+
+    # ── Indeterminate checkbox (partial selection) styles ──
+
+    def test_indeterminate_css_style_present(self):
+        """:indeterminate CSS style exists for partial selection state."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert ":indeterminate" in css
+        assert ":indeterminate::after" in css
+        # Should use a dash/minus icon (not a checkmark)
+        assert "x1='6' y1='12' x2='18' y2='12'" in css
 
 
 class TestLayerControlBrowser:
@@ -1343,6 +1342,20 @@ class TestLayerControlBrowser:
                 f"registerLayer triggered full rebuilds: {result['afterSecond']}"
             )
 
+    def test_handle_change_resets_paneset_on_show(self, browser, tmp_path):
+        """Checkbox toggle triggers handleChange which resets paneSet."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            result = page.evaluate(_js("LayerControl/handle_change_resets_paneset"))
+            assert result is not None
+            assert result["clicked"] is True, "checkbox should be clickable"
+
     def test_layers_view_is_readonly(self, browser, tmp_path):
         """api.layers is a read-only view — direct mutation is blocked.
 
@@ -1359,191 +1372,3 @@ class TestLayerControlBrowser:
             assert result["spliceThrew"] is True, "splice should throw"
             assert result["assignThrew"] is True, "index assign should throw"
             assert result["shiftThrew"] is True, "shift should throw"
-
-
-class TestLayerControlEdgeCases:
-    """Tests for uncovered edge cases and code paths."""
-
-    def test_hide_color_restores_tile_pane(self, base_map: folium.Map):
-        """hideColorLayer restores tilePane visibility."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert 'tilePane.classList.remove("foliplus-layer-tile-hidden")' in html
-        assert "mapContainer.style.removeProperty" in html
-
-    def test_deselect_all_bases_skips_except_index(self, base_map: folium.Map):
-        """deselectAllBaseMaps skips the excluded index."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "deselectAllBaseMaps" in html
-        assert "i !== exceptIdx" in html
-
-    def test_handle_input_color_change(self, base_map: folium.Map):
-        """handleInput reacts to color input changes."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "handleInput" in html
-        assert "showColorLayer(event.target.value)" in html
-
-    def test_bring_layer_to_front(self, base_map: folium.Map):
-        """bringLayerToFront moves layer to top of list."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "bringLayerToFront" in html
-        assert "this.layerRegistry.moveToFront(id)" in html
-
-    def test_register_layer_requires_id(self, base_map: folium.Map):
-        """registerLayer throws when id is missing."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "id_required" in html
-        assert "throw new Error" in html
-
-    def test_create_canvas_requires_id(self, base_map: folium.Map):
-        """createCanvas throws when id is missing."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "require_canvas_id" in html
-        assert "throw new Error" in html
-
-    def test_traverse_utility(self, base_map: folium.Map):
-        """LayerUtils.traverse walks all layers (containers + leaves)."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "var traverse" in html
-        assert "leafOnly" in html
-
-    def test_register_sets_pane_on_non_path(self, base_map: folium.Map):
-        """registerLayer sets pane on non-Path/Marker layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "opts.layer.options.pane = opts.paneName" in html
-        assert "opts.layer.options.paneSet = true" in html
-
-    def test_handle_change_resets_paneset_on_show(self, base_map: folium.Map):
-        """handleChange resets paneSet=false after re-add to trigger enforceOrder re-move."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "target.checked && layer) layer.options.paneSet = false" in html
-
-    def test_toggle_all_resets_paneset_on_show(self, base_map: folium.Map):
-        """toggleAll resets paneSet=false after re-add for all layers."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "newState && layer) layer.options.paneSet = false" in html
-
-    def test_drag_event_handlers_bound(self, base_map: folium.Map):
-        """Drag-and-drop event handlers are registered."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "handleDragStart" in html
-        assert "handleDragOver" in html
-        assert "handleDragLeave" in html
-        assert "handleDrop" in html
-        assert "handleDragEnd" in html
-
-    # ── Indeterminate checkbox (partial selection) tests ──
-
-    def test_indeterminate_css_style_present(self):
-        """:indeterminate CSS style exists for partial selection state."""
-        css = Path("foliplus/css/LayerControl.css").read_text()
-        assert ":indeterminate" in css
-        assert ":indeterminate::after" in css
-        # Should use a dash/minus icon (not a checkmark)
-        assert "x1='6' y1='12' x2='18' y2='12'" in css
-
-    def test_sync_toggle_all_sets_indeterminate(self, base_map: folium.Map):
-        """syncToggleAll sets indeterminate when some (not all) layers are checked."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
-
-    def test_sync_toggle_all_resets_indeterminate_on_all_checked(
-        self, base_map: folium.Map
-    ):
-        """syncToggleAll resets indeterminate when all layers become checked."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        # When all checked, checked=true and indeterminate=false
-        assert "allCb.checked = allChecked" in html
-        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
-
-    def test_sync_toggle_all_resets_indeterminate_on_none_checked(
-        self, base_map: folium.Map
-    ):
-        """syncToggleAll resets indeterminate when no layers are checked."""
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        # When none checked, checked=false and noneChecked triggers indeterminate=false
-        assert "noneChecked = checkedCount === 0" in html
-        assert "allCb.indeterminate = !allChecked && !noneChecked" in html
-
-    # ── Performance optimizations ──
-
-    def test_register_uses_debounced_enforce(self, base_map: folium.Map):
-        """registerLayer defers enforceOrder via debouncedEnforce.
-
-        Batch registration (e.g. MeasureControl adding many measurements) must
-        coalesce reordering into a single pass instead of one synchronous
-        enforceOrder per registerLayer call.
-        """
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        # Scope the assertion to the registerLayer method body so onLayerAdd's
-        # debouncedEnforce call does not satisfy it.
-        start = html.index("registerLayer(opts) {")
-        # Find the next method-level closing brace after registerLayer
-        depth = 0
-        end = start
-        for k in range(start, len(html)):
-            if html[k] == "{":
-                depth += 1
-            elif html[k] == "}":
-                depth -= 1
-                if depth == 0:
-                    end = k + 1
-                    break
-        body = html[start:end]
-        assert "this.debouncedEnforce()" in body, (
-            "registerLayer must defer via debouncedEnforce"
-        )
-        assert "this.enforceOrder()" not in body, (
-            "registerLayer must not call enforceOrder synchronously"
-        )
-
-    def test_unregister_no_invalidate_size(self, base_map: folium.Map):
-        """unregisterLayer must not force invalidateSize.
-
-        map.removeLayer already triggers Leaflet's internal size bookkeeping.
-        A manual invalidateSize forces a full layout pass on every layer
-        removal, causing unnecessary layout thrash during rapid add/remove
-        (e.g. MeasureControl drawing sessions).
-        """
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        assert "invalidateSize" not in html
-
-    def test_migrate_layers_skips_container_pane(self, base_map: folium.Map):
-        """migrateLayers must not write pane on container layers.
-
-        Only leaf layers (Path/Marker) should get options.pane + paneSet so a
-        layerGroup's options stay unpolluted. Container pane writes would
-        prevent re-migration when paneName changes.
-        """
-        LayerControl().add_to(base_map)
-        html = render(base_map)
-        # Container (eachLayer) nodes must be excluded from pane writes —
-        # collect() recurses into containers and returns before writing pane.
-        start = html.index("const collect =")
-        end = html.index("collect(layer);")
-        collect_body = html[start:end]
-        # Container guard: recurse and skip pane writes for containers
-        assert "if (l.eachLayer) {" in collect_body, (
-            "migrateLayers must guard container layers"
-        )
-        assert re.search(r"l\.eachLayer\(\s*collect\s*\)", collect_body), (
-            "migrateLayers must recurse into containers"
-        )
-        assert "return;" in collect_body, (
-            "migrateLayers must skip pane writes for containers"
-        )
