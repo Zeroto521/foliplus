@@ -139,7 +139,7 @@ describe("ensureHint", () => {
       "SearchControl",
     ];
     for (const name of components) {
-      registerHintIcon(name, "<svg data-name=\"" + name + "\"></svg>");
+      registerHintIcon(name, '<svg data-name="' + name + '"></svg>');
       // Clear any previously shown hint so only the current one exists.
       document.body.innerHTML = "";
       map.foliplus.showHint(name, name + " msg", 0);
