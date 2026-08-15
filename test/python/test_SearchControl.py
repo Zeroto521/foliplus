@@ -113,7 +113,10 @@ class TestSearchControlBrowser:
     def test_initial_mode_addr(self, browser, tmp_path):
         """Verify that mode='addr' renders the address-search UI
         (globe icon, address placeholder) on first open."""
-        with use_page(self._make_page, browser, tmp_path, mode="addr") as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, mode="addr") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Verify the mode button shows the globe icon (address mode)
@@ -128,7 +131,6 @@ class TestSearchControlBrowser:
             assert "address" in placeholder.lower() or "地址" in placeholder, (
                 f"Expected address placeholder, got: {placeholder}"
             )
-
 
     def test_initial_mode_coord_default(self, browser, tmp_path):
         """Verify default mode='coord' shows coordinate placeholder."""
@@ -145,7 +147,10 @@ class TestSearchControlBrowser:
 
     def test_mode_switch_icon(self, browser, tmp_path):
         """Toggling mode switches icon between LOCATE (coord) and GLOBE (addr)."""
-        with use_page(self._make_page, browser, tmp_path, mode="coord") as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, mode="coord") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Click mode switch button
@@ -236,7 +241,10 @@ class TestSearchControlBrowser:
             name="Municipal Boundaries",
         ).add_to(m)
         html = m.get_root().render()
-        with use_page(make_browser_page, browser, tmp_path, html, "search") as (page, errors):
+        with use_page(make_browser_page, browser, tmp_path, html, "search") as (
+            page,
+            errors,
+        ):
             page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             z = page.evaluate(_js("SearchControl/read_pane_zindex"))
             assert z["dataPane"] is not None, "data layer pane not found"
@@ -266,7 +274,10 @@ class TestSearchControlBrowser:
 
     def test_autocomplete_body_mount(self, browser, tmp_path):
         """Suggestions dropdown is mounted on document.body, not inside toolBar."""
-        with use_page(self._make_page, browser, tmp_path, mode="addr") as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, mode="addr") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Fire input event in address mode to trigger debounced fetch
@@ -287,7 +298,10 @@ class TestSearchControlBrowser:
 
     def test_keyboard_suggestion_navigation_structure(self, browser, tmp_path):
         """ArrowDown/ArrowUp/Enter keyboard navigation structure exists in address mode."""
-        with use_page(self._make_page, browser, tmp_path, mode="addr") as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, mode="addr") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Verify keyboard navigation: ArrowDown/ArrowUp/Enter
@@ -297,7 +311,10 @@ class TestSearchControlBrowser:
 
     def test_input_switches_placeholder(self, browser, tmp_path):
         """Input event restores the placeholder for the current mode."""
-        with use_page(self._make_page, browser, tmp_path, mode="addr") as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, mode="addr") as (
+            page,
+            errors,
+        ):
             self._expand(page)
 
             # Fire input event to trigger placeholder restoration

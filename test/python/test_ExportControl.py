@@ -536,7 +536,10 @@ class TestExportControlBrowser:
         """Export with a canvas layer (simulated) produces no errors."""
         from foliplus import LayerControl
 
-        with use_page(self._make_page, browser, tmp_path, slug="export_heatmap") as (page, _):
+        with use_page(self._make_page, browser, tmp_path, slug="export_heatmap") as (
+            page,
+            _,
+        ):
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
 
