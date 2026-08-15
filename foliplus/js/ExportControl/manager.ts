@@ -4,6 +4,7 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
+import { ensureModes } from "#core/mode.js";
 import { ExportRenderer } from "./renderer.js";
 import {
   lockCropBox,
@@ -370,6 +371,7 @@ class ExportManager {
   doExport() {
     if (this.isExporting || !this.cropState) return;
     this.isExporting = true;
+    ensureModes(this.map).setMode(CONF.name, "exporting");
     const r = Object.assign({}, this.cropState.rect);
     const geoBounds = this.cropState.geoBounds;
     if (geoBounds) {
@@ -399,6 +401,7 @@ class ExportManager {
     // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
     if (this.pixelOverLimit) {
       this.isExporting = false;
+      ensureModes(this.map).setMode(CONF.name, null);
       this.removeExportOverlay();
       return;
     }
@@ -541,6 +544,7 @@ class ExportManager {
             false,
           );
           this.isExporting = false;
+          ensureModes(this.map).setMode(CONF.name, null);
           this.removeExportOverlay();
           return;
         }
@@ -560,6 +564,7 @@ class ExportManager {
           false,
         );
         this.isExporting = false;
+        ensureModes(this.map).setMode(CONF.name, null);
         this.removeExportOverlay();
       },
       mimeType,
@@ -570,6 +575,7 @@ class ExportManager {
   /** Handle render failure. */
   onRenderError(err: Error, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
+    ensureModes(this.map).setMode(CONF.name, null);
     this.removeExportOverlay();
     this.unlockMap();
     console.error(`[${CONF.name}] ${_(`${CONF.name}.err_render`)}:`, err);

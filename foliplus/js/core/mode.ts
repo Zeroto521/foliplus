@@ -9,6 +9,13 @@ interface ModeChangePayload {
   mode: string | null;
 }
 
+// Conflict matrix: when a component is in a non-null mode, which components
+// are blocked from performing their primary actions?
+const BLOCKED_BY: Record<string, string[]> = {
+  MeasureControl: ["SearchControl", "LocateControl"],
+  ExportControl: ["SearchControl", "LocateControl"],
+};
+
 class ModeManager {
   private modes = new Map<string, string | null>();
 
@@ -22,6 +29,16 @@ class ModeManager {
     if (this.modes.get(component) === mode) return;
     this.modes.set(component, mode);
     this.bus.emit(MODE_CHANGE, { component, mode } satisfies ModeChangePayload);
+  }
+
+  /** Check whether a component is blocked by any active mode. */
+  isBlocked(component: string): boolean {
+    for (const [otherComp, otherMode] of this.modes) {
+      if (otherMode === null) continue;
+      const blocked = BLOCKED_BY[otherComp];
+      if (blocked?.includes(component)) return true;
+    }
+    return false;
   }
 
   keys(): string[] {
