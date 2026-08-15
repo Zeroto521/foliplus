@@ -723,6 +723,24 @@ class TestHeatmapControlBrowser:
             assert agg is None, "cachedAgg should be nulled"
             assert not errors, f"JS errors: {errors}"
 
+    def test_works_without_layercontrol(self, browser, tmp_path):
+        """HeatmapControl initializes without LayerControl (degradation)."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        HeatmapControl().add_to(m)
+
+        html = m.get_root().render()
+        html = self._stub_html(html)
+        page, errors = make_browser_page(browser, tmp_path, html, "heatmap_no_layer")
+        page.wait_for_selector(
+            ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+        )
+        try:
+            ctrl = page.evaluate("document.querySelector('.foliplus-heatmap-ctrl')")
+            assert ctrl is not None, "HeatmapControl DOM should exist"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
 
 class TestHeatmapAutoFieldBrowser:
     """Browser tests verifying auto-field selection logic in the DOM.
