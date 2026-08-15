@@ -382,6 +382,16 @@ class TestLayerControlRendering:
         assert "--drag-pulse-duration" in css
         assert "--drag-pulse-count" in css
 
+    # ── Indeterminate checkbox (partial selection) styles ──
+
+    def test_indeterminate_css_style_present(self):
+        """:indeterminate CSS style exists for partial selection state."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert ":indeterminate" in css
+        assert ":indeterminate::after" in css
+        # Should use a dash/minus icon (not a checkmark)
+        assert "x1='6' y1='12' x2='18' y2='12'" in css
+
 
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
