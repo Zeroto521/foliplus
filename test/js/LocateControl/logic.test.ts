@@ -23,7 +23,6 @@ describe("locateMe", () => {
     ensureModes(window.map).setMode("MeasureControl", null);
   });
 
-
   const originalGeo = navigator.geolocation;
 
   afterEach(() => {

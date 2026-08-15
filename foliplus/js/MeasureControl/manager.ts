@@ -2,9 +2,9 @@
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
-import { ensureModes } from "#core/mode.js";
 import * as Storage from "#common/storage.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes } from "#core/mode.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {

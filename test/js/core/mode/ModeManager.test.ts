@@ -106,7 +106,13 @@ describe("ensureModes", () => {
 
 describe("isBlocked", () => {
   function makeBus() {
-    return { on: vi.fn(), off: vi.fn(), emit: vi.fn(), clear: vi.fn(), eventCount: 0 } as any;
+    return {
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      clear: vi.fn(),
+      eventCount: 0,
+    } as any;
   }
 
   it("returns false when no modes are active", () => {
