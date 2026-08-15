@@ -20,5 +20,6 @@
   "MeasureControl.no_layercontrol": "MeasureControl 组件依赖 LayerControl，请先添加 LayerControl 组件",
   "MeasureControl.del_tooltip": "删除",
   "MeasureControl.del_node": "删除此点",
-  "MeasureControl.del_all": "全部删除"
+  "MeasureControl.del_all": "全部删除",
+  "MeasureControl.export_paused": "导出中，量测已暂停"
 }

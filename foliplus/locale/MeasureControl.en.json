@@ -20,5 +20,6 @@
   "MeasureControl.no_layercontrol": "MeasureControl requires LayerControl, please add LayerControl to the map first",
   "MeasureControl.del_tooltip": "Delete",
   "MeasureControl.del_node": "Delete this point",
-  "MeasureControl.del_all": "Delete all"
+  "MeasureControl.del_all": "Delete all",
+  "MeasureControl.export_paused": "Export in progress, measurement paused"
 }
