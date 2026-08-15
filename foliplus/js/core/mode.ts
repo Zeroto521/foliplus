@@ -14,6 +14,7 @@ interface ModeChangePayload {
 const BLOCKED_BY: Record<string, string[]> = {
   MeasureControl: ["SearchControl", "LocateControl"],
   ExportControl: ["SearchControl", "LocateControl"],
+  FullscreenControl: ["MeasureControl"],
 };
 
 class ModeManager {

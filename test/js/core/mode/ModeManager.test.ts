@@ -103,3 +103,43 @@ describe("ensureModes", () => {
     expect(ensureModes(mapA)).not.toBe(ensureModes(mapB));
   });
 });
+
+describe("isBlocked", () => {
+  function makeBus() {
+    return { on: vi.fn(), off: vi.fn(), emit: vi.fn(), clear: vi.fn(), eventCount: 0 } as any;
+  }
+
+  it("returns false when no modes are active", () => {
+    const mm = new ModeManager(makeBus());
+    expect(mm.isBlocked("SearchControl")).toBe(false);
+    expect(mm.isBlocked("LocateControl")).toBe(false);
+  });
+
+  it("MeasureControl active blocks SearchControl and LocateControl", () => {
+    const mm = new ModeManager(makeBus());
+    mm.setMode("MeasureControl", "distance");
+    expect(mm.isBlocked("SearchControl")).toBe(true);
+    expect(mm.isBlocked("LocateControl")).toBe(true);
+  });
+
+  it("ExportControl exporting blocks SearchControl and LocateControl", () => {
+    const mm = new ModeManager(makeBus());
+    mm.setMode("ExportControl", "exporting");
+    expect(mm.isBlocked("SearchControl")).toBe(true);
+    expect(mm.isBlocked("LocateControl")).toBe(true);
+  });
+
+  it("does not block unrelated components", () => {
+    const mm = new ModeManager(makeBus());
+    mm.setMode("MeasureControl", "distance");
+    expect(mm.isBlocked("ExportControl")).toBe(false);
+    expect(mm.isBlocked("FullscreenControl")).toBe(false);
+  });
+
+  it("cleared mode no longer blocks", () => {
+    const mm = new ModeManager(makeBus());
+    mm.setMode("MeasureControl", "distance");
+    mm.setMode("MeasureControl", null);
+    expect(mm.isBlocked("SearchControl")).toBe(false);
+  });
+});
