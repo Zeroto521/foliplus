@@ -541,7 +541,8 @@ describe("LayerManager", () => {
   it("registerLayer ensures child panes via discoverChildPanes", () => {
     const childPaneLayer = {
       options: { pane: "custom_child" },
-      eachLayer: (cb: (l: unknown) => void) => cb({ options: { pane: "custom_child" } }),
+      eachLayer: (cb: (l: unknown) => void) =>
+        cb({ options: { pane: "custom_child" } }),
     } as any;
     manager.map.hasLayer.mockReturnValue(false);
     manager.registerLayer({ id: "cp", name: "Cp", layer: childPaneLayer });
