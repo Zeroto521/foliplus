@@ -20,6 +20,7 @@ import type {
   LayerAPI as CoreLayerAPI,
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/type.js";
+import type { EventBus as CoreEventBus } from "#core/event/EventBus.js";
 import type * as ChromaJs from "chroma-js";
 import type * as GeoJSON from "geojson";
 import type * as Leaflet from "leaflet";
@@ -255,12 +256,17 @@ declare global {
     ) => void;
     hideHint: (key: string, subkey?: string) => void;
     registerHintIcon: (key: string, iconSvg: string) => void;
+    /** Per-map cross-component event bus. */
+    events: CoreEventBus;
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.
    * Defined in core/layer/type.ts — implemented by both LayerManager (full)
    * and ensureLayerAPI's lightweight default. */
   type LayerAPI = CoreLayerAPI;
+
+  /** Per-map cross-component event bus (`map.foliplus.events`). */
+  type EventBus = CoreEventBus;
 
   const map: Leaflet.Map;
   const foliplus: Foliplus;
