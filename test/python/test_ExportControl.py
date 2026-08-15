@@ -326,57 +326,50 @@ class TestExportControlBrowser:
 
     def test_export_vector_and_marker_content(self, browser, tmp_path):
         """Export with vector polygon + Marker layers produces non-blank canvas."""
-        from foliplus import LayerControl
-
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
 
         # Add a polygon (vector layer)
-        folium.GeoJson(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "properties": {},
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [
-                                [
-                                    [119.28, 26.06],
-                                    [119.32, 26.06],
-                                    [119.32, 26.10],
-                                    [119.28, 26.10],
-                                    [119.28, 26.06],
-                                ]
-                            ],
-                        },
-                    }
-                ],
-            },
-            name="Test Polygon",
-            overlay=True,
-            show=True,
-        ).add_to(m)
-
-        # Add a Marker
-        folium.Marker(
-            [26.08, 119.30], popup="Center", name="Test Marker", overlay=True, show=True
-        ).add_to(m)
-
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-
-        html_path = tmp_path / "export_vector_content.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(
+            browser,
+            tmp_path,
+            folium.GeoJson(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [119.28, 26.06],
+                                        [119.32, 26.06],
+                                        [119.32, 26.10],
+                                        [119.28, 26.10],
+                                        [119.28, 26.06],
+                                    ]
+                                ],
+                            },
+                        }
+                    ],
+                },
+                name="Test Polygon",
+                overlay=True,
+                show=True,
+            ),
+            # Add a Marker
+            folium.Marker(
+                [26.08, 119.30],
+                popup="Center",
+                name="Test Marker",
+                overlay=True,
+                show=True,
+            ),
+            slug="export_vector",
+        )
         try:
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
 
             # Open export control
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
@@ -581,22 +574,12 @@ class TestExportControlBrowser:
 
     def test_export_with_heatmap_canvas(self, browser, tmp_path):
         """Export with a canvas layer (simulated) produces no errors."""
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         from foliplus import LayerControl
 
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html_path = tmp_path / "export_heatmap_canvas.html"
-        html_path.write_text(m.get_root().render(), encoding="utf-8")
-
-        page = browser.new_page()
+        page, _ = self._make_page(browser, tmp_path, slug="export_heatmap")
         try:
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
 
             # Create a canvas layer via LayerControl API
             page.evaluate(_js("ExportControl/create_test_canvas"))
