@@ -5,7 +5,6 @@ import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { ensureHint } from "#core/hint.js";
-import { ensureModes } from "#core/mode.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { CLASSES, MODE } from "./const.js";
 import { bindEvents, initFromUrl } from "./event.js";
@@ -127,7 +126,6 @@ export class SearchControl extends BaseControl {
   // ── Mode Switching ──
   setMode(newMode: string) {
     this.mode = newMode;
-    ensureModes(map).setMode(CONF.name, newMode);
     if (this.mode === MODE.COORD) {
       this.modeBtn.innerHTML = Icons.LOCATE;
       this.modeBtn.title = _(`${CONF.name}.mode_coord`);
