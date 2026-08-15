@@ -127,7 +127,7 @@ export class SearchControl extends BaseControl {
   // ── Mode Switching ──
   setMode(newMode: string) {
     this.mode = newMode;
-    ensureModes(map).setMode("SearchControl", newMode);
+    ensureModes(map).setMode(CONF.name, newMode);
     if (this.mode === MODE.COORD) {
       this.modeBtn.innerHTML = Icons.LOCATE;
       this.modeBtn.title = _(`${CONF.name}.mode_coord`);

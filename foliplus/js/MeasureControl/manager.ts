@@ -144,7 +144,7 @@ class MeasureManager {
 
     this.cleanMapEvents();
     this.currentMode = mode;
-    ensureModes(this.map).setMode("MeasureControl", mode);
+    ensureModes(this.map).setMode(CONF.name, mode);
 
     this.toolBtns.forEach(btn =>
       btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
