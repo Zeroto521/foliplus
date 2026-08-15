@@ -86,7 +86,11 @@ const loadImage = (src: string, crossOrigin?: string) =>
       i.onerror = null;
       // Revoke object URL to release the underlying blob
       if (src.startsWith("blob:")) {
-        try { URL.revokeObjectURL(src); } catch { /* ignore */ }
+        try {
+          URL.revokeObjectURL(src);
+        } catch {
+          /* ignore */
+        }
       }
       reject(new Error(_(`${CONF.name}.err_image_load`)));
     };
