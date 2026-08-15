@@ -108,10 +108,10 @@ class LayerRegistry {
   createReadonlyView() {
     return new Proxy(this.items, {
       set() {
-        throw new TypeError("[foliplus] LayerRegistry: list is read-only, mutate via Manager API");
+        throw new TypeError("[foliplus] LayerRegistry: layers is read-only, mutate via API");
       },
       deleteProperty() {
-        throw new TypeError("[foliplus] LayerRegistry: cannot delete items directly");
+        throw new TypeError("[foliplus] LayerRegistry: cannot delete layers directly");
       },
       get(target, prop, receiver) {
         if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
