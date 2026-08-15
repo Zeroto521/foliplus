@@ -395,7 +395,7 @@ const setupObserver = (ctrl: HeatmapControlUI) => {
 const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => {
   ctrl.m.scanMapLayers();
   sel.innerHTML = "";
-  const placeholder = dom.el(
+  dom.el(
     "option",
     {
       value: "",
