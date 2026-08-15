@@ -3,8 +3,8 @@ import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import { createTranslator } from "#common/locale.js";
-import { LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
 import { bindMapSync } from "#common/panel.js";
+import { LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
@@ -182,9 +182,8 @@ class HeatmapManager {
     // layeradd/layerremove — LayerManager emits LAYER_CHANGE on
     // register/unregister/reorder, so unrelated map activity is filtered out
     // and callback-only registrations (no map.addLayer) are covered too.
-    this.removeLayerChangeListener = ensureEvents(this.map).on(
-      LAYER_CHANGE,
-      () => this.onLayerChange(),
+    this.removeLayerChangeListener = ensureEvents(this.map).on(LAYER_CHANGE, () =>
+      this.onLayerChange(),
     );
   }
 

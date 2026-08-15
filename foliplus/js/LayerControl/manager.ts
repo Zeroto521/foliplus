@@ -1,8 +1,8 @@
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
-import { ensureLayerAPI } from "#core/layer/api.js";
 import { LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
+import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
