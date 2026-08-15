@@ -4,12 +4,12 @@
 // No DOM / CONF dependency.
 import { MODE_CHANGE, ensureEvents, type EventBus } from "#core/event/index.js";
 
-export interface ModeChangePayload {
+interface ModeChangePayload {
   component: string;
   mode: string | null;
 }
 
-export class ModeManager {
+class ModeManager {
   private modes = new Map<string, string | null>();
 
   constructor(private readonly bus: EventBus) {}
@@ -37,7 +37,7 @@ export class ModeManager {
 const instances = new WeakMap<L.Map, ModeManager>();
 
 /** Ensure `map.foliplus.modes` has a per-map ModeManager. Idempotent. */
-export const ensureModes = (map: L.Map): ModeManager => {
+const ensureModes = (map: L.Map): ModeManager => {
   const existing = instances.get(map);
   if (existing) return existing;
   const manager = new ModeManager(ensureEvents(map));
@@ -46,3 +46,6 @@ export const ensureModes = (map: L.Map): ModeManager => {
   map.foliplus!.modes = manager;
   return manager;
 };
+
+export type { ModeChangePayload };
+export { ModeManager, ensureModes };
