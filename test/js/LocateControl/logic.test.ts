@@ -31,7 +31,7 @@ describe("locateMe", () => {
     });
     const ctrl = { marker: null };
     locateMe(ctrl);
-    expect(foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "LocateControl",
       "LocateControl.geo_error",
       4000,
@@ -51,7 +51,7 @@ describe("locateMe", () => {
     const [success] = getCurrentPosition.mock.calls[0];
 
     success({ coords: { longitude: 119.3, latitude: 26.08 } });
-    expect(foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
     expect(map.flyTo).toHaveBeenCalledWith([26.08, 119.3], 16);
     expect(ctrl.marker).not.toBeNull();
   });
@@ -67,8 +67,8 @@ describe("locateMe", () => {
     locateMe(ctrl);
     const [, error] = getCurrentPosition.mock.calls[0];
     error({ code: 1, message: "Permission denied" });
-    expect(foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
-    expect(foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "LocateControl",
       "LocateControl.geo_error",
       4000,

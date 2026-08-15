@@ -59,7 +59,7 @@ describe("bindEvents", () => {
     bindEvents(ctrl);
     ctrl._handlers.keydown({ key: "Escape" });
     expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
-    expect(foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
   });
 
   it("navigates suggestions with ArrowDown", () => {

@@ -2,10 +2,10 @@
 // Throws a clear error when runtime is missing, stopping the component early
 // rather than letting it fail later at an obscure DOM access.
 import { createTranslator } from "./locale.js";
+import { registerHintIcon } from "#core/hint.js";
 
 export const requireRuntime = (componentName: string): void => {
-  const foliplus = window.foliplus || {};
-  if (!foliplus || typeof foliplus.showHint !== "function")
+  if (!window.foliplus)
     throw new Error(`[${componentName}] foliplus runtime not found, plugin disabled.`);
 };
 
@@ -19,10 +19,9 @@ export const requireRuntime = (componentName: string): void => {
 export const createControlEnv = (
   CONF: { name: string },
   icon?: string,
-): { _: (key: string) => string; foliplus: Foliplus } => {
+): { _: (key: string) => string } => {
   requireRuntime(CONF.name);
-  const foliplus = window.foliplus;
   const _ = createTranslator(CONF);
-  if (icon) foliplus.registerHintIcon(CONF.name, icon);
-  return { _, foliplus };
+  if (icon) registerHintIcon(CONF.name, icon);
+  return { _ };
 };

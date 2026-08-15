@@ -566,7 +566,7 @@ class LayerUI {
     const now = Date.now();
     if (now - this.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
     this.lastDragHintAt = now;
-    foliplus.showHint(
+    map.foliplus!.showHint(
       CONF.name,
       _(`${CONF.name}.reorder_group_only`),
       HINT_DURATION.SHORT,

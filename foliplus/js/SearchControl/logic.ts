@@ -15,7 +15,7 @@ import * as Icons from "#common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./const.js";
 import type { AddressResult, NominatimItem } from "./type.js";
 
-const { _, foliplus } = createControlEnv(CONF);
+const { _ } = createControlEnv(CONF);
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
 interface SearchControlState {
@@ -89,7 +89,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
     .map(Number);
 
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-    foliplus.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
     ctrl.inp.value = "";
     return;
   }
@@ -97,12 +97,12 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   const lng = parts[0];
   const lat = parts[1];
   if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-    foliplus.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
     ctrl.inp.value = "";
     return;
   }
 
-  foliplus.hideHint(CONF.name);
+  map.foliplus!.hideHint(CONF.name);
   map.flyTo([lat, lng], CONF.zoom || 16);
   ctrl.marker = createLocationMarker(
     map,
@@ -131,7 +131,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
     return;
   }
 
-  foliplus.showHint(
+  map.foliplus!.showHint(
     CONF.name,
     `${Icons.LOADING} ${_(`${CONF.name}.popup_loading`)}`,
     HINT_DURATION.PERSIST,
@@ -144,9 +144,9 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
   fetch(buildSearchUrl(ctrl, query, SEARCH.LIMIT), { signal })
     .then(r => r.json())
     .then(results => {
-      foliplus.hideHint(CONF.name);
+      map.foliplus!.hideHint(CONF.name);
       if (!results || results.length === 0) {
-        foliplus.showHint(
+        map.foliplus!.showHint(
           CONF.name,
           _(`${CONF.name}.addr_not_found`),
           HINT_DURATION.LONG,
@@ -164,8 +164,8 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
     .catch(err => {
       if (err.name === "AbortError") return;
       console.error(`[${CONF.name}] Address lookup failed, check network`);
-      foliplus.hideHint(CONF.name);
-      foliplus.showHint(CONF.name, _(`${CONF.name}.addr_error`), HINT_DURATION.LONG);
+      map.foliplus!.hideHint(CONF.name);
+      map.foliplus!.showHint(CONF.name, _(`${CONF.name}.addr_error`), HINT_DURATION.LONG);
     });
 };
 

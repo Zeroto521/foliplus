@@ -71,32 +71,32 @@ const showGlobalHint = (
   withLoadingIcon = false,
 ) => {
   const loading = withLoadingIcon ? Icons.LOADING + " " : "";
-  foliplus.showHint(CONF.name, loading + text, duration || HINT_DURATION.PERSIST);
+  map.foliplus!.showHint(CONF.name, loading + text, duration || HINT_DURATION.PERSIST);
 };
 
 /** Show a hint with crop box size info. */
 const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => {
   mgr.checkPixelLimit(r);
-  foliplus.showHint(
+  map.foliplus!.showHint(
     CONF.name,
     `${_(`${CONF.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
       `${_(`${CONF.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
     HINT_DURATION.PERSIST,
-    null,
+    undefined,
     "size",
   );
   if (mgr.pixelOverLimit) {
-    foliplus.showHint(
+    map.foliplus!.showHint(
       CONF.name,
       _(`${CONF.name}.err_too_large`).replace(
         "{limit}",
         formatNumber(CONF.max_pixels!),
       ),
       HINT_DURATION.PERSIST,
-      null,
+      undefined,
       "limit",
     );
-  } else foliplus.hideHint(CONF.name, "limit");
+  } else map.foliplus!.hideHint(CONF.name, "limit");
 };
 
 /** Build the crop box DOM and attach events. */
@@ -280,7 +280,7 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
   }
   mgr.cropState = null;
-  foliplus.hideHint(CONF.name);
+  map.foliplus!.hideHint(CONF.name);
 };
 
 export {

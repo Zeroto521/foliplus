@@ -611,7 +611,7 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
   if (ctrl.m.pointLayers.length === 0 && attempt > 0)
     setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
   else if (ctrl.m.pointLayers.length === 0)
-    foliplus.showHint(CONF.name, _(`${CONF.name}.no_layer`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.no_layer`), HINT_DURATION.LONG);
   else rebuildLayerDropdown(ctrl);
 };
 

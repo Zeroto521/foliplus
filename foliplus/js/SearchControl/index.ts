@@ -2,6 +2,7 @@ import { BaseControl } from "#common/BaseControl.js";
 import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
+import { ensureHint } from "#core/hint.js";
 import * as Icons from "#common/icon.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { CLASSES, MODE } from "./const.js";
@@ -10,7 +11,8 @@ import * as SVGs from "./icon.js";
 import { initDebouncedFetch, removeSuggestions } from "./logic.js";
 import type { AddressResult, NominatimItem } from "./type.js";
 
-const { _, foliplus } = createControlEnv(CONF, SVGs.SEARCH);
+const { _ } = createControlEnv(CONF, SVGs.SEARCH);
+ensureHint(map);
 
 // ==================== Control Definition ====================
 export class SearchControl extends BaseControl {
@@ -142,7 +144,7 @@ export class SearchControl extends BaseControl {
       this.delIcon = null;
     }
     if (this.suggestAbortController) this.suggestAbortController.abort();
-    foliplus.hideHint(CONF.name);
+    map.foliplus!.hideHint(CONF.name);
     removeSuggestions(this);
     this.inp.focus();
   }

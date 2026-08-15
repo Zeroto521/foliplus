@@ -10,8 +10,7 @@
  * into the shared header. The stateful modules (hint, geocode) live in
  * core/ and are imported via the #core alias.
  */
-import { reverseGeocode } from "#core/geocode.js";
-import { hideHint, registerHintIcon, showHint } from "#core/hint.js";
+import { geocode, reverseGeocode } from "./geocode.js";
 
 // Ensure the global namespace object exists.
 if (!window.foliplus || typeof window.foliplus !== "object")
@@ -26,13 +25,7 @@ if (!foliplus.isInitialized) {
   // Use Object.assign with window.foliplus so esbuild's minifier does not
   // rename the property assignments (the local alias "foliplus" gets
   // shortened to "i", breaking tests that assert on "foliplus.xxx").
-  Object.assign(window.foliplus, {
-    // ==================== Hint / Toast System ====================
-    registerHintIcon,
-    showHint,
-    hideHint,
-
-    // ==================== Reverse Geocoding ====================
-    reverseGeocode,
-  });
+  // Only expose geocode (global singleton with shared bidirectional cache).
+  // Hint is per-map and lives on `map.foliplus.showHint` (via ensureHint).
+  Object.assign(window.foliplus, { geocode, reverseGeocode });
 }

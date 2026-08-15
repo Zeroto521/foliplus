@@ -96,7 +96,7 @@ describe("searchCoord", () => {
   it("shows hint and clears input for invalid coordinates", () => {
     const ctrl: any = { inp: { value: "" }, marker: null };
     searchCoord(ctrl, "abc");
-    expect(foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
       "SearchControl.coord_error",
       4000,
@@ -107,7 +107,7 @@ describe("searchCoord", () => {
   it("shows hint for out-of-range values", () => {
     const ctrl: any = { inp: { value: "" }, marker: null };
     searchCoord(ctrl, "200,100");
-    expect(foliplus.showHint).toHaveBeenCalled();
+    expect(window.map.foliplus.showHint).toHaveBeenCalled();
     expect(ctrl.inp.value).toBe("");
   });
 
@@ -143,7 +143,7 @@ describe("searchAddress", () => {
     searchAddress(ctrl, "nowhere");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(foliplus.showHint).toHaveBeenLastCalledWith(
+    expect(window.map.foliplus.showHint).toHaveBeenLastCalledWith(
       "SearchControl",
       "SearchControl.addr_not_found",
       4000,
@@ -167,7 +167,7 @@ describe("searchAddress", () => {
     searchAddress(ctrl, "X");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
     expect(map.flyTo).toHaveBeenCalled();
     expect(ctrl.cachedAddress["X"]).toBeDefined();
     expect(ctrl.marker).not.toBeNull();

@@ -27,6 +27,8 @@ function makeManager() {
 
   // Mock LayerAPI.createLayers (per-map: map.foliplus.LayerAPI)
   window.map.foliplus = {
+    showHint: vi.fn(),
+    hideHint: vi.fn(),
     LayerAPI: {
       createLayers: vi.fn(() => ({
         register: vi.fn(),
@@ -98,7 +100,7 @@ describe("MeasureManager — mode switching", () => {
     manager.currentMode = CONST.MODE.DISTANCE;
     manager.clearActiveMode();
     expect(manager.currentMode).toBeNull();
-    expect(window.foliplus.hideHint).toHaveBeenCalled();
+    expect(window.map.foliplus.hideHint).toHaveBeenCalled();
   });
 
   it("clearAll clears layers and measurements", () => {
@@ -188,7 +190,7 @@ describe("MeasureManager — cleanMapEvents", () => {
     manager.cleanMapEvents();
     expect(mode.cleanup).toHaveBeenCalled();
     expect(manager.modeInstance).toBeNull();
-    expect(window.foliplus.hideHint).toHaveBeenCalledWith(CONF.name);
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith(CONF.name);
   });
 
   it("cleanMapEvents is safe when no modeInstance", () => {

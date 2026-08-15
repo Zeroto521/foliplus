@@ -990,7 +990,7 @@ class CircleMode extends PreviewMode {
           }),
         );
         state = 1;
-        foliplus.showHint(
+        map.foliplus!.showHint(
           CONF.name,
           _(`${CONF.name}.hint_circle_radius`),
           HINT_DURATION.PERSIST,
@@ -1178,7 +1178,7 @@ class CircleMode extends PreviewMode {
     this._cleanup = () => {
       unbindMapEvents(this.map, circleEvents);
       resetPreviews();
-      foliplus.hideHint(CONF.name);
+      map.foliplus!.hideHint(CONF.name);
     };
   }
 }

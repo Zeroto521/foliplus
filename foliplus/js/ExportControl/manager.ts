@@ -189,7 +189,7 @@ class ExportManager {
         se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
       };
       this.lockCropBox(true);
-      foliplus.showHint(
+      map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_restore`),
         HINT_DURATION.MEDIUM,
