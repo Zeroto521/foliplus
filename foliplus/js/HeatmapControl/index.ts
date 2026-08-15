@@ -73,7 +73,7 @@ class HeatmapControl extends BaseControl {
     }
     if (this.m.onLayerChange) {
       this.m.onLayerChange.cancel();
-      this.m.map.off("layeradd layerremove", this.m.onLayerChange);
+      if (this.m.removeLayerChangeListener) this.m.removeLayerChangeListener();
     }
 
     // Disconnect MutationObserver

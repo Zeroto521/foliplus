@@ -31,9 +31,7 @@ export class EventBus {
     const set = this.listeners.get(event);
     if (!set) return;
     // Copy before iterating so handlers may subscribe/unsubscribe during emit.
-    for (const handler of [...set]) {
-      handler(...payload);
-    }
+    for (const handler of [...set]) handler(...payload);
   }
 
   /** Remove all listeners for every event. */
