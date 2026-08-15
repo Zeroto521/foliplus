@@ -176,7 +176,7 @@ describe("panelContentHTML", () => {
 
   it("extra body has hidden class by default", () => {
     const html = panelContentHTML(_);
-    expect(html).toContain('data-hm-extra-body>');
+    expect(html).toContain("data-hm-extra-body>");
     // The class should include "hidden"
     expect(html).toMatch(/foliplus-heatmap-extra-body\s+hidden/);
   });
