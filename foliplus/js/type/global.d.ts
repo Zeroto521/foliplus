@@ -14,15 +14,15 @@
  * Third-party libraries with no available @types (turf v7, gcoord,
  * simple-statistics) have their used subset described inline.
  */
-import type * as ChromaJs from "chroma-js";
-import type * as GeoJSON from "geojson";
-import type * as Leaflet from "leaflet";
 import type {
   CreateCanvasAPI as CoreCreateCanvasAPI,
   CreateLayersAPI as CoreCreateLayersAPI,
   LayerAPI as CoreLayerAPI,
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/types.js";
+import type * as ChromaJs from "chroma-js";
+import type * as GeoJSON from "geojson";
+import type * as Leaflet from "leaflet";
 
 // ── Runtime helpers ────────────────────────────────────────────
 

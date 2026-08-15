@@ -85,7 +85,10 @@ class LayerFactory {
           layer.options.renderer = renderer ?? undefined;
         } else if (paneName) panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
-        panes.reset();
+        // The mainLayer subtree changed and the added layer's options.pane was
+        // set above — invalidate both discovery-cache entries (targeted).
+        panes.reset(L.stamp(mainLayer));
+        panes.reset(L.stamp(layer));
         return result;
       }
       return origAddLayer(layer);
@@ -94,12 +97,14 @@ class LayerFactory {
     mainLayer.removeLayer = (layer: LabelAwareLayer) => {
       if (graphLayer && graphLayer.hasLayer(layer)) {
         const result = graphLayer.removeLayer(layer);
-        panes.reset();
+        panes.reset(L.stamp(mainLayer));
+        panes.reset(L.stamp(layer));
         return result;
       }
       if (labelLayer && labelLayer.hasLayer(layer)) {
         const result = labelLayer.removeLayer(layer);
-        panes.reset();
+        panes.reset(L.stamp(mainLayer));
+        panes.reset(L.stamp(layer));
         return result;
       }
       return origRemoveLayer(layer);

@@ -3,16 +3,16 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
-  FALLBACK_PANE_PREFIX,
-  GEOM_TYPE,
-  LayerFactory,
-  LayerRegistry,
-  PaneManager,
   type CreateCanvasAPI,
   type CreateCanvasOpts,
   type CreateLayersAPI,
   type CreateLayersOpts,
+  FALLBACK_PANE_PREFIX,
+  GEOM_TYPE,
   type LayerAPI,
+  LayerFactory,
+  LayerRegistry,
+  PaneManager,
   type RegisterLayerOpts,
   Z_INDEX,
   findLayer,
@@ -30,11 +30,13 @@ const _ = createTranslator(CONF);
 // layer migration (enforceOrder briefly removes layers from the map, and a
 // concurrent mousemove event may call bringToFront on a detached _path).
 const origBringToFront = L.Path.prototype.bringToFront;
-let isBringToFrontPatched = false;
+// Reference count: multiple LayerControl instances (multi-map pages) may patch
+// the prototype; only the last unpatch restores the original implementation.
+let bringToFrontPatchRefs = 0;
 
 const patchBringToFront = () => {
-  if (isBringToFrontPatched) return;
-  isBringToFrontPatched = true;
+  bringToFrontPatchRefs++;
+  if (bringToFrontPatchRefs > 1) return;
   L.Path.prototype.bringToFront = function () {
     if (this._path && this._path.parentNode) origBringToFront.call(this);
     return this;
@@ -42,8 +44,9 @@ const patchBringToFront = () => {
 };
 
 const unpatchBringToFront = () => {
-  if (!isBringToFrontPatched) return;
-  isBringToFrontPatched = false;
+  if (bringToFrontPatchRefs <= 0) return;
+  bringToFrontPatchRefs--;
+  if (bringToFrontPatchRefs > 0) return;
   L.Path.prototype.bringToFront = origBringToFront;
 };
 
@@ -61,6 +64,7 @@ class LayerManager implements LayerAPI {
   lastAttribution: string | null;
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
+  debouncedSaveOrder: Debounced;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
@@ -101,6 +105,17 @@ class LayerManager implements LayerAPI {
       if (this.isDestroyed || !this.map || !this.map.getContainer()) return;
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
+
+    // Persist layer order lazily — drag/drop and batch registration call
+    // saveOrder frequently; coalesce the localStorage writes.
+    this.debouncedSaveOrder = debounce(() => {
+      if (this.isDestroyed) return;
+      Storage.save(
+        CONST.STORAGE.ORDER_KEY,
+        this.layers.map(l => l.id),
+        CONF.name,
+      );
+    }, CONST.SAVE_ORDER_DEBOUNCE_MS);
 
     // Respond to every layer-level add. The initial enforceOrder runs before
     // the folium layer scripts, so registered layers may not be resolvable
@@ -163,11 +178,7 @@ class LayerManager implements LayerAPI {
   }
 
   saveOrder() {
-    Storage.save(
-      CONST.STORAGE.ORDER_KEY,
-      this.layers.map(l => l.id),
-      CONF.name,
-    );
+    this.debouncedSaveOrder();
   }
 
   // ==================== Public API Methods ====================
@@ -256,8 +267,9 @@ class LayerManager implements LayerAPI {
     if (opts.layer) {
       for (const cp of this.panes.discoverChildPanes(opts.layer))
         this.panes.ensurePane(cp, !this.panes.labelPanes.has(cp));
+      // options.pane is updated below — invalidate only this layer's cache.
+      this.panes.reset(L.stamp(opts.layer));
     }
-    this.panes.reset();
     if (opts.layer) this.panes.fallbackPaneMap.delete(L.stamp(opts.layer));
     if (
       opts.paneName &&
@@ -320,7 +332,7 @@ class LayerManager implements LayerAPI {
       if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
       this.clearAllLayers(layer);
     }
-    this.panes.reset();
+    if (layer) this.panes.reset(L.stamp(layer));
     if (layer) this.panes.fallbackPaneMap.delete(L.stamp(layer));
 
     if (this.uiContainer) {
@@ -363,8 +375,11 @@ class LayerManager implements LayerAPI {
         paneName: string | null;
         renderer: L.SVG | null;
       }> = [];
-      this.panes.reset();
 
+      // Note: pane discovery cache is NOT cleared here — enforceOrder does not
+      // change layer-tree structure, so registered layers keep their cached
+      // child-pane lists. Structure changes (register/unregister/addLayer)
+      // invalidate specific entries via panes.reset(stamp).
       for (let i = 0; i < this.layers.length; i++) {
         const li = this.layers[i];
         const layer = this.findLayer(li);
@@ -489,6 +504,7 @@ class LayerManager implements LayerAPI {
     this.isDestroyed = true;
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
+    if (this.debouncedSaveOrder) this.debouncedSaveOrder.cancel();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;

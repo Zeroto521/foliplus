@@ -1,3 +1,4 @@
+import * as Storage from "#common/storage.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -256,6 +257,19 @@ describe("LayerManager", () => {
   });
 
   // ── initial data normalization ──
+
+  it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(Storage, "save");
+    manager.saveOrder();
+    manager.saveOrder();
+    manager.saveOrder();
+    expect(spy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(100);
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+    vi.useRealTimers();
+  });
 
   it("normalizes initial data into the full layerInfo field set", () => {
     const m2 = new LayerManager(map, [
