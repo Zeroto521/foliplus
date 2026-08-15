@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import _js, make_browser_page, render, use_page, use_raw_page
+from conftest import _js, make_browser_page, render_control, use_page, use_raw_page
 
 from foliplus import ExportControl
 
@@ -103,29 +103,28 @@ class TestExportControlPython:
 
 
 class TestExportControlRendering:
-    def test_default_params(self, base_map: folium.Map):
-        ExportControl().add_to(base_map)
-        html = render(base_map)
+    def test_default_params(self):
+        html = render_control(ExportControl())
         assert "foliplus-export-ctrl" in html
         assert "ctrl-fold" in html
 
-    def test_custom_params_rendering(self, base_map: folium.Map):
-        ExportControl(
-            filename="custom",
-            format="jpeg",
-            quality=0.8,
-            scale=1.5,
-            background="#000000",
-            timeout=5000,
-        ).add_to(base_map)
-        html = render(base_map)
+    def test_custom_params_rendering(self):
+        html = render_control(
+            ExportControl(
+                filename="custom",
+                format="jpeg",
+                quality=0.8,
+                scale=1.5,
+                background="#000000",
+                timeout=5000,
+            )
+        )
         assert "custom" in html
         assert "jpeg" in html
 
-    def test_css_loaded(self, base_map: folium.Map):
+    def test_css_loaded(self):
         """ExportControl CSS classes are present."""
-        ExportControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(ExportControl())
         assert "foliplus-export-overlay" in html
         assert "foliplus-export-box" in html
         assert "foliplus-export-handle" in html
@@ -134,23 +133,20 @@ class TestExportControlRendering:
         assert "foliplus-export-preview" in html
         assert "foliplus-hidden" in html
 
-    def test_css_z_index_pattern(self, base_map: folium.Map):
+    def test_css_z_index_pattern(self):
         """CSS uses --z-export-base variable with calc()."""
-        ExportControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(ExportControl())
         assert "z-export-base" in html
         assert "calc(" in html
 
-    def test_locale_zh(self, base_map: folium.Map):
-        ExportControl(locale="zh").add_to(base_map)
-        html = render(base_map)
+    def test_locale_zh(self):
+        html = render_control(ExportControl(locale="zh"))
         assert "导出" in html
         assert "ExportControl.btn_title" in html
 
-    def test_del_icon_exclusion(self, base_map: folium.Map):
+    def test_del_icon_exclusion(self):
         """del-icon elements are excluded via data-foliplus-export attribute."""
-        ExportControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(ExportControl())
         assert 'data-foliplus-export="exclude"' in html
 
     def test_export_control_py_file(self):
@@ -163,10 +159,9 @@ class TestExportControlRendering:
         assert hasattr(ctrl, "position")
         assert hasattr(ctrl, "_template")
 
-    def test_css_loaded(self, base_map: folium.Map):
-        """ExportControl CSS classes are present."""
-        ExportControl().add_to(base_map)
-        html = render(base_map)
+    def test_css_preview_present(self):
+        """ExportControl preview CSS classes are present."""
+        html = render_control(ExportControl())
         assert "foliplus-export-ctrl" in html
         assert "foliplus-export-preview" in html
 
