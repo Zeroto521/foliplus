@@ -1,4 +1,4 @@
-import { HINT_DURATION } from "#common/hint.js";
+import { HINT_DURATION } from "#core/hint.js";
 import { describe, expect, it } from "vitest";
 
 describe("HINT_DURATION", () => {

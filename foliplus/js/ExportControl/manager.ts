@@ -1,6 +1,6 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { dom } from "#common/dom.js";
-import { HINT_DURATION } from "#common/hint.js";
+import { HINT_DURATION } from "#core/hint.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";

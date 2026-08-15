@@ -2,7 +2,7 @@
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
-import { HINT_DURATION } from "#common/hint.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";

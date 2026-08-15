@@ -6,7 +6,7 @@ import {
   toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, stopEvent } from "#common/dom.js";
-import { HINT_DURATION } from "#common/hint.js";
+import { HINT_DURATION } from "#core/hint.js";
 import { createTranslator } from "#common/locale.js";
 import {
   type MapEventHandlers,

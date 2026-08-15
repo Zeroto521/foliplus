@@ -2,10 +2,12 @@
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
 import { dom } from "#common/dom.js";
-import { HINT_DURATION } from "#common/hint.js";
 
 const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
 const CLASS = "foliplus-hint";
+
+/** Hint duration constants (shared by components and the toast system). */
+const HINT_DURATION = { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 };
 
 interface HintEntry {
   element: HTMLElement;

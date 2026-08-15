@@ -1,5 +1,5 @@
 import { dom, escapeHTML } from "#common/dom.js";
-import { HINT_DURATION } from "#common/hint.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";

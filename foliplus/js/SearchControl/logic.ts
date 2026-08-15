@@ -10,7 +10,7 @@ import {
 import { createLocationMarker, dom } from "#common/dom.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
-import { HINT_DURATION } from "#common/hint.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as Icons from "#common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./const.js";
 import type { AddressResult, NominatimItem } from "./type.js";

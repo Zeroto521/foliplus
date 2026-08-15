@@ -9,8 +9,10 @@ import { Cache } from "#common/cache.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
+// Entries expire after 24h so Nominatim result changes are not served stale.
 const GEO_CACHE_MAX = 500;
-const geoCache = new Cache<string, string>(GEO_CACHE_MAX);
+const GEO_TTL_MS = 24 * 60 * 60 * 1000;
+const geoCache = new Cache<string, string>(GEO_CACHE_MAX, GEO_TTL_MS);
 let geoPromise: Promise<unknown> = Promise.resolve();
 let geoLastReq = 0;
 
