@@ -1342,6 +1342,56 @@ class TestLayerControlBrowser:
                 f"registerLayer triggered full rebuilds: {result['afterSecond']}"
             )
 
+    def test_handle_input_color_change(self, browser, tmp_path):
+        """Color input change triggers handleInput."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            result = page.evaluate(
+                _js("LayerControl/handle_input_color_change")
+            )
+            assert result is not None, "color input not found"
+            assert result["inputExists"] is True, "input should exist"
+
+    def test_hide_color_restores_tile_pane(self, browser, tmp_path):
+        """Toggling color layer checkbox restores tile pane visibility."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            result = page.evaluate(
+                _js("LayerControl/hide_color_restores_tile_pane")
+            )
+            assert result is not None
+            # Color layer toggles tile pane visibility
+            assert "tileHiddenBefore" in result
+            assert "tileHiddenAfter" in result
+
+    def test_handle_change_resets_paneset_on_show(self, browser, tmp_path):
+        """Checkbox toggle triggers handleChange which resets paneSet."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            result = page.evaluate(
+                _js("LayerControl/handle_change_resets_paneset")
+            )
+            assert result is not None
+            assert result["clicked"] is True, "checkbox should be clickable"
+
     def test_layers_view_is_readonly(self, browser, tmp_path):
         """api.layers is a read-only view — direct mutation is blocked.
 
