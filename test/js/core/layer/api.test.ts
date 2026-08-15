@@ -21,8 +21,8 @@ describe("ensureLayerAPI", () => {
       DomUtil: { getPosition: vi.fn(() => ({ x: 0, y: 0 })) },
       stamp: vi.fn(() => 1),
       svg: vi.fn(() => ({ addTo: vi.fn() })),
-      Path: class { },
-      Marker: class { },
+      Path: class {},
+      Marker: class {},
     });
     map = {
       foliplus: null as any,
@@ -159,5 +159,4 @@ describe("requireLayerAPI", () => {
     const map = { foliplus: { LayerAPI: api } };
     expect(requireLayerAPI("Test", _, map as any)).toBe(api);
   });
-
 });
