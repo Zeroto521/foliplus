@@ -58,6 +58,14 @@ class MeasureManager {
         this.clearActiveMode();
       }
     });
+    // When any component starts exporting, auto-clear active measurement mode
+    // so the export rendering is not disrupted by measurement interactions.
+    ensureEvents(this.map).on("before:export", () => {
+      if (this.currentMode) {
+        this.clearActiveMode();
+        map.foliplus?.showHint?.(CONF.name, "Export in progress, measurement paused", HINT_DURATION.SHORT);
+      }
+    });
     this.toolBtns = [];
     this.finalizedClickHandlers = [];
     this.measurements = [];
