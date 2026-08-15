@@ -42,7 +42,7 @@ const ensureModes = (map: L.Map): ModeManager => {
   if (existing) return existing;
   const manager = new ModeManager(ensureEvents(map));
   instances.set(map, manager);
-  if (!map.foliplus) (map.foliplus as any) = { LayerAPI: null as any };
+  if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
   map.foliplus!.modes = manager;
   return manager;
 };

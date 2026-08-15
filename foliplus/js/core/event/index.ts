@@ -11,7 +11,7 @@ export const ensureEvents = (map: L.Map): EventBus => {
   if (existing) return existing;
   const bus = new EventBus();
   instances.set(map, bus);
-  if (!map.foliplus) (map.foliplus as any) = { LayerAPI: null as any };
+  if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
   map.foliplus!.events = bus;
   return bus;
 };
