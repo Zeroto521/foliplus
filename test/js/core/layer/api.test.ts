@@ -143,15 +143,14 @@ describe("requireLayerAPI", () => {
   const _ = (s: string) => s;
 
   it("throws when LayerAPI is missing", () => {
-    vi.stubGlobal("foliplus", { showHint: mockShowHint });
-    vi.stubGlobal("map", {} as any);
-    expect(() => requireLayerAPI("Test", _, {} as any)).toThrow("Test.no_layercontrol");
+    const map = { foliplus: { showHint: mockShowHint } } as any;
+    expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
     expect(mockShowHint).toHaveBeenCalled();
   });
 
   it("throws when LayerAPI is missing even without showHint", () => {
-    vi.stubGlobal("foliplus", {});
-    expect(() => requireLayerAPI("Test", _, {} as any)).toThrow("Test.no_layercontrol");
+    const map = { foliplus: {} } as any;
+    expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
   });
 
   it("uses map.foliplus.LayerAPI when present", () => {

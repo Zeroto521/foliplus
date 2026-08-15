@@ -1,8 +1,8 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { dom } from "#common/dom.js";
-import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import { ExportRenderer } from "./renderer.js";
 import {
@@ -16,7 +16,6 @@ import {
 } from "./ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** A screen-space rectangle. */
@@ -189,7 +188,7 @@ class ExportManager {
         se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
       };
       this.lockCropBox(true);
-      foliplus.showHint(
+      map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_restore`),
         HINT_DURATION.MEDIUM,

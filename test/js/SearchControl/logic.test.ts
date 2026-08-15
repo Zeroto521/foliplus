@@ -8,6 +8,7 @@ import {
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/logic.js";
+import { Cache } from "#foliplus/common/cache.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
@@ -96,7 +97,7 @@ describe("searchCoord", () => {
   it("shows hint and clears input for invalid coordinates", () => {
     const ctrl: any = { inp: { value: "" }, marker: null };
     searchCoord(ctrl, "abc");
-    expect(foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
       "SearchControl.coord_error",
       4000,
@@ -107,7 +108,7 @@ describe("searchCoord", () => {
   it("shows hint for out-of-range values", () => {
     const ctrl: any = { inp: { value: "" }, marker: null };
     searchCoord(ctrl, "200,100");
-    expect(foliplus.showHint).toHaveBeenCalled();
+    expect(window.map.foliplus.showHint).toHaveBeenCalled();
     expect(ctrl.inp.value).toBe("");
   });
 
@@ -143,7 +144,7 @@ describe("searchAddress", () => {
     searchAddress(ctrl, "nowhere");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(foliplus.showHint).toHaveBeenLastCalledWith(
+    expect(window.map.foliplus.showHint).toHaveBeenLastCalledWith(
       "SearchControl",
       "SearchControl.addr_not_found",
       4000,
@@ -167,7 +168,7 @@ describe("searchAddress", () => {
     searchAddress(ctrl, "X");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
     expect(map.flyTo).toHaveBeenCalled();
     expect(ctrl.cachedAddress["X"]).toBeDefined();
     expect(ctrl.marker).not.toBeNull();
@@ -233,9 +234,11 @@ describe("fetchSuggestions", () => {
 
   it("renders cached suggestions without fetching", () => {
     globalThis.fetch = vi.fn();
+    const cache = new Cache<string, object>(50);
+    cache.set("abc", [{ display_name: "Cached" }]);
     const ctrl: any = {
       mode: "addr",
-      cachedSuggestions: { abc: [{ display_name: "A" }] },
+      cachedSuggestions: cache,
       suggestionsWrap: null,
       suggestionsThrottleTimer: null,
       selectedSuggestionIdx: -1,
@@ -256,9 +259,11 @@ describe("fetchSuggestions", () => {
       window.CONF = { ...window.CONF, locale_code: "zh" };
       const ctrl: any = {
         mode: "addr",
-        cachedSuggestions: {
-          abc: [{ display_name: "Rue de Rivoli, 75001, Paris, France" }],
-        },
+        cachedSuggestions: (() => {
+          const c = new Cache<string, object>(50);
+          c.set("abc", [{ display_name: "Rue de Rivoli, 75001, Paris, France" }]);
+          return c;
+        })(),
         suggestionsWrap: null,
         suggestionsThrottleTimer: null,
         selectedSuggestionIdx: -1,
@@ -281,7 +286,7 @@ describe("fetchSuggestions", () => {
     ) as unknown as typeof fetch;
     const ctrl: any = {
       mode: "addr",
-      cachedSuggestions: {},
+      cachedSuggestions: new Cache<string, object>(50),
       suggestionsWrap: null,
       suggestionsThrottleTimer: null,
       selectedSuggestionIdx: -1,
@@ -297,7 +302,7 @@ describe("fetchSuggestions", () => {
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
     expect(globalThis.fetch).toHaveBeenCalled();
-    expect(ctrl.cachedSuggestions["abc"]).toHaveLength(1);
+    expect(ctrl.cachedSuggestions.get("abc")).toHaveLength(1);
     expect(ctrl.suggestionsWrap).not.toBeNull();
   });
 });

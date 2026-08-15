@@ -7,11 +7,10 @@ import {
   toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
-import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
+import { HINT_DURATION } from "#core/hint.js";
 
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Minimal ctrl interface for locate logic. */
@@ -34,7 +33,7 @@ const removeMarker = (ctrl: LocateCtrl) => {
 
 /** Fly to a coordinate and place a reverse-geocoded location marker. */
 const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: string) => {
-  foliplus.hideHint(CONF.name);
+  map.foliplus!.hideHint(CONF.name);
   map.flyTo([lat, lng], CONF.zoom || 15);
   removeMarker(ctrl);
   ctrl.marker = createLocationMarker(
@@ -71,17 +70,17 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 const locateMe = (ctrl: LocateCtrl) => {
   const geo = navigator.geolocation;
   if (!geo) {
-    foliplus.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
     return;
   }
-  foliplus.showHint(
+  map.foliplus!.showHint(
     CONF.name,
     `${Icons.LOADING} ${_(`${CONF.name}.locating`)}`,
     HINT_DURATION.PERSIST,
   );
   geo.getCurrentPosition(
     pos => {
-      foliplus.hideHint(CONF.name);
+      map.foliplus!.hideHint(CONF.name);
       let lng = pos.coords.longitude;
       let lat = pos.coords.latitude;
       const converted = fromWgs84(map, lng, lat);
@@ -90,8 +89,12 @@ const locateMe = (ctrl: LocateCtrl) => {
       placeMarker(ctrl, lng, lat, `${CONF.name}.popup_title_geo`);
     },
     () => {
-      foliplus.hideHint(CONF.name);
-      foliplus.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
+      map.foliplus!.hideHint(CONF.name);
+      map.foliplus!.showHint(
+        CONF.name,
+        _(`${CONF.name}.geo_error`),
+        HINT_DURATION.LONG,
+      );
     },
   );
 };

@@ -11,7 +11,7 @@ import {
 } from "./logic.js";
 import type { SearchControl } from "./type.js";
 
-const { _, foliplus } = createControlEnv(CONF);
+const { _ } = createControlEnv(CONF);
 
 /**
  * Bind all DOM events for the SearchControl.
@@ -22,7 +22,7 @@ const bindEvents = (ctrl: SearchControl) => {
     toggleBtn: ctrl.toggleBtn,
     onExpand: () => ctrl.inp.focus(),
     onCollapse: () => {
-      foliplus.hideHint(CONF.name);
+      map.foliplus!.hideHint(CONF.name);
       removeSuggestions(ctrl);
     },
   });
@@ -62,7 +62,7 @@ const bindEvents = (ctrl: SearchControl) => {
       ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
       ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
       adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-      foliplus.hideHint(CONF.name);
+      map.foliplus!.hideHint(CONF.name);
       return;
     }
     if (event.key === "ArrowDown" && ctrl.suggestionsWrap) {

@@ -20,6 +20,7 @@ Usage
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cache
 from json import dumps, loads
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ _LOCALE_DIR = Path(__file__).parent
 # ===========================================================================
 # Locale table loading
 # ===========================================================================
+@cache
 def _load_tables(pattern: str) -> dict[str, dict[str, str]]:
     """Load locale tables matching a glob pattern.
 

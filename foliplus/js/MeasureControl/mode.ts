@@ -6,13 +6,13 @@ import {
   toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, stopEvent } from "#common/dom.js";
-import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
   unbindMapEvents,
 } from "#common/mapEvent.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { attachCircleUI, attachDistanceUI, attachPolygonUI } from "./ui.js";
@@ -990,7 +990,7 @@ class CircleMode extends PreviewMode {
           }),
         );
         state = 1;
-        foliplus.showHint(
+        map.foliplus!.showHint(
           CONF.name,
           _(`${CONF.name}.hint_circle_radius`),
           HINT_DURATION.PERSIST,
@@ -1178,7 +1178,7 @@ class CircleMode extends PreviewMode {
     this._cleanup = () => {
       unbindMapEvents(this.map, circleEvents);
       resetPreviews();
-      foliplus.hideHint(CONF.name);
+      map.foliplus!.hideHint(CONF.name);
     };
   }
 }

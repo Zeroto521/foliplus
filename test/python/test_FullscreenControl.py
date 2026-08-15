@@ -315,12 +315,12 @@ class TestFullscreenControlBrowser:
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
-            # Wrap showHint to count calls.
+            # Wrap showHint to count calls (per-map hint on map.foliplus).
             page.evaluate(
                 """() => {
                     window.__hintCount = 0;
-                    const orig = foliplus.showHint;
-                    foliplus.showHint = function (...args) {
+                    const orig = map.foliplus.showHint;
+                    map.foliplus.showHint = function (...args) {
                         window.__hintCount++;
                         return orig.apply(this, args);
                     };

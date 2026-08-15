@@ -1,4 +1,5 @@
 import { bindEvents, initFromUrl } from "#foliplus/SearchControl/event.js";
+import { Cache } from "#foliplus/common/cache.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function makeCtrl(): any {
@@ -25,7 +26,7 @@ function makeCtrl(): any {
     suggestionsThrottleTimer: null,
     selectedSuggestionIdx: -1,
     cachedAddress: {},
-    cachedSuggestions: {},
+    cachedSuggestions: new Cache<string, object>(50),
   };
 }
 
@@ -59,7 +60,7 @@ describe("bindEvents", () => {
     bindEvents(ctrl);
     ctrl._handlers.keydown({ key: "Escape" });
     expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
-    expect(foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
   });
 
   it("navigates suggestions with ArrowDown", () => {

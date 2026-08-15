@@ -1,13 +1,12 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { dom } from "#common/dom.js";
-import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import { HeatmapManager } from "./logic.js";
 
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
@@ -611,7 +610,7 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
   if (ctrl.m.pointLayers.length === 0 && attempt > 0)
     setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
   else if (ctrl.m.pointLayers.length === 0)
-    foliplus.showHint(CONF.name, _(`${CONF.name}.no_layer`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.no_layer`), HINT_DURATION.LONG);
   else rebuildLayerDropdown(ctrl);
 };
 

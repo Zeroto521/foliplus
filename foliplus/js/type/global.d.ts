@@ -162,6 +162,11 @@ declare global {
       lat: number,
       code?: string,
     ) => Promise<string>;
+    geocode: (
+      map: Leaflet.Map,
+      address: string,
+      code?: string,
+    ) => Promise<{ lat: number; lng: number; display_name: string } | null>;
     _TABLES: Record<string, Record<string, string>>;
   }
 
@@ -240,6 +245,16 @@ declare global {
   interface MapFoliplus {
     /** LayerControl public API (always available; lightweight until LayerControl upgrades it). */
     LayerAPI: LayerAPI;
+    /** Per-map toast system (HintManager). */
+    showHint: (
+      key: string,
+      text: string,
+      duration: number,
+      append?: boolean,
+      subkey?: string,
+    ) => void;
+    hideHint: (key: string, subkey?: string) => void;
+    registerHintIcon: (key: string, iconSvg: string) => void;
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.

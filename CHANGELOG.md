@@ -21,6 +21,11 @@
 - `CSS build`: migrate all component stylesheets to CSS Nesting source syntax, compiled to fully-flat selectors via `postcss-nesting` ([#124](https://github.com/Zeroto521/foliplus/pull/124))
 - `LayerControl`: extract layer core into `core/layer/` ([#138](https://github.com/Zeroto521/foliplus/pull/138), [#139](https://github.com/Zeroto521/foliplus/pull/139), [#140](https://github.com/Zeroto521/foliplus/pull/140), [#141](https://github.com/Zeroto521/foliplus/pull/141), [#143](https://github.com/Zeroto521/foliplus/pull/143), [#144](https://github.com/Zeroto521/foliplus/pull/144))
   - **Why**: `LayerAPI` used to require `LayerControl`; now the core lives in DOM-free `core/layer/` and `ensureLayerAPI` guarantees a usable API even without the `LayerControl`.
+- `Build artifacts`: prefix built assets with `foliplus-` and inject a version banner ([#147](https://github.com/Zeroto521/foliplus/pull/147))
+- `Shared bundle`: `foliplus-common.min.js` aggregates all shared code once — core/layer, common helpers, BaseControl, hint, geocode — cutting total JS ~43% (193KB→110KB) ([#147](https://github.com/Zeroto521/foliplus/pull/147))
+- `hint`: made per-map — `window.foliplus.showHint` removed; each map gets its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147))
+- `geocode`: add forward geocoding alongside reverse; bidirectional FIFO cache with 24h TTL ([#147](https://github.com/Zeroto521/foliplus/pull/147))
+- `Cache`: generic `Cache<K,V>` (FIFO + optional TTL) for bounded caching ([#147](https://github.com/Zeroto521/foliplus/pull/147))
 
 ### Fixed
 

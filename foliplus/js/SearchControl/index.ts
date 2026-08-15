@@ -1,16 +1,19 @@
-import { BaseControl } from "#common/BaseControl.js";
+import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
+import { ensureHint } from "#core/hint.js";
+import { BaseControl } from "#foliplus/BaseControl.js";
 import { CLASSES, MODE } from "./const.js";
 import { bindEvents, initFromUrl } from "./event.js";
 import * as SVGs from "./icon.js";
 import { initDebouncedFetch, removeSuggestions } from "./logic.js";
 import type { AddressResult, NominatimItem } from "./type.js";
 
-const { _, foliplus } = createControlEnv(CONF, SVGs.SEARCH);
+const { _ } = createControlEnv(CONF, SVGs.SEARCH);
+ensureHint(map);
 
 // ==================== Control Definition ====================
 export class SearchControl extends BaseControl {
@@ -22,7 +25,7 @@ export class SearchControl extends BaseControl {
   declare inp: HTMLInputElement;
   declare clearBtn: HTMLElement;
   declare debouncedFetch: Debounced;
-  declare cachedSuggestions: Record<string, NominatimItem[]>;
+  declare cachedSuggestions: Cache<string, NominatimItem[]>;
   declare cachedAddress: Record<string, AddressResult>;
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
@@ -52,7 +55,7 @@ export class SearchControl extends BaseControl {
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();
-    this.cachedSuggestions = {};
+    this.cachedSuggestions.clear();
     this.cachedAddress = {};
     this.scrollTargets.forEach(t =>
       t.removeEventListener("scroll", this.repositionHandler, true),
@@ -108,7 +111,7 @@ export class SearchControl extends BaseControl {
     this.selectedSuggestionIdx = -1;
     this.lastSuggestFetch = 0;
     this.suggestionsThrottleTimer = null;
-    this.cachedSuggestions = {};
+    this.cachedSuggestions = new Cache<string, NominatimItem[]>(50);
     this.cachedAddress = {};
     this.suggestAbortController = null;
     this.suggestSeq = 0;
@@ -142,7 +145,7 @@ export class SearchControl extends BaseControl {
       this.delIcon = null;
     }
     if (this.suggestAbortController) this.suggestAbortController.abort();
-    foliplus.hideHint(CONF.name);
+    map.foliplus!.hideHint(CONF.name);
     removeSuggestions(this);
     this.inp.focus();
   }

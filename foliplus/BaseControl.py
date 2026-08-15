@@ -48,15 +48,15 @@ def _build_shared_header() -> str:
     bundled in), and the common locale tables (shared by all components).
     Built once and cached at module level.
     """
-    common = (dist_dir / "common.min.css").read_text(encoding="utf-8")
-    runtime = (dist_dir / "runtime.min.js").read_text(encoding="utf-8")
+    css = (dist_dir / "foliplus-common.min.css").read_text(encoding="utf-8")
+    js = (dist_dir / "foliplus-common.min.js").read_text(encoding="utf-8")
 
     return (
         "<style>\n"
-        f"{common}\n"
+        f"{css}\n"
         "</style>\n"
         "<script>\n"
-        f"{runtime}\n"
+        f"{js}\n"
         "window.foliplus = window.foliplus || {};\n"
         f"window.foliplus._TABLES = {dumps(_load_tables('common.*.json'), ensure_ascii=False)};\n"
         "</script>"
@@ -78,6 +78,35 @@ def _load_asset(artifact: Path) -> str:
     """
 
     return artifact.read_text(encoding="utf-8") if artifact.is_file() else ""
+
+
+@cache
+def _build_component_template(name: str) -> Template:
+    """Read a component's JS/CSS and compile its Jinja template once (cached).
+
+    The template is identical for every instance of a component (only the
+    render-time CONF / map name differ, both resolved at render time), so it
+    is built a single time per component name instead of on every render.
+    """
+    js = _load_asset(dist_dir.joinpath(f"foliplus-{name}.min.js"))
+    css = _load_asset(dist_dir.joinpath(f"foliplus-{name}.min.css"))
+
+    return Template(
+        dedent(f"""\
+        {{% macro html(this, kwargs) %}}
+        <style>
+        {css}
+        </style>
+        {{% endmacro %}}
+
+        {{% macro script(this, kwargs) %}}
+        (() => {{
+        const map = {{{{ this._parent.get_name() }}}};
+        const CONF = {{{{ this._config_block | safe }}}};
+        {js}
+        }})();
+        {{% endmacro %}}""")
+    )
 
 
 class BaseControl(JSCSSMixin, MacroElement):
@@ -147,7 +176,8 @@ class BaseControl(JSCSSMixin, MacroElement):
         config = dict(self._build_config())
         config["locale_tables"] = _load_tables(f"{self._name}.*.json")
         config["locale_code"] = self._locale.code if self._locale else ""
-        return dumps(config) if config else "{}"
+        # config always contains at least name/position — never empty.
+        return dumps(config)
 
     def _extra_config(self) -> dict:
         """Return render-time config injected into the JS ``CONF`` object.
@@ -211,22 +241,4 @@ class BaseControl(JSCSSMixin, MacroElement):
         Template
             A Jinja2 ``Template`` instance ready for folium rendering.
         """
-        js = _load_asset(dist_dir.joinpath(f"{self._name}.min.js"))
-        css = _load_asset(dist_dir.joinpath(f"{self._name}.min.css"))
-
-        return Template(
-            dedent(f"""\
-            {{% macro html(this, kwargs) %}}
-            <style>
-            {css}
-            </style>
-            {{% endmacro %}}
-
-            {{% macro script(this, kwargs) %}}
-            (() => {{
-            const map = {{{{ this._parent.get_name() }}}};
-            const CONF = {{{{ this._config_block | safe }}}};
-            {js}
-            }})();
-            {{% endmacro %}}""")
-        )
+        return _build_component_template(self._name)

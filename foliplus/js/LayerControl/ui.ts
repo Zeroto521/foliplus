@@ -1,8 +1,8 @@
 import { dom, escapeHTML } from "#common/dom.js";
-import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
+import { HINT_DURATION } from "#core/hint.js";
 import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
@@ -10,7 +10,6 @@ import type { LayerManager } from "./manager.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 const mapContainer = map.getContainer();
 
@@ -566,7 +565,7 @@ class LayerUI {
     const now = Date.now();
     if (now - this.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
     this.lastDragHintAt = now;
-    foliplus.showHint(
+    map.foliplus!.showHint(
       CONF.name,
       _(`${CONF.name}.reorder_group_only`),
       HINT_DURATION.SHORT,

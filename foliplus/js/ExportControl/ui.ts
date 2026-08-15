@@ -2,17 +2,15 @@
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
-import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import type { ExportManager, Rect } from "./manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 /** Toolbar action button config. */
@@ -71,32 +69,32 @@ const showGlobalHint = (
   withLoadingIcon = false,
 ) => {
   const loading = withLoadingIcon ? Icons.LOADING + " " : "";
-  foliplus.showHint(CONF.name, loading + text, duration || HINT_DURATION.PERSIST);
+  map.foliplus!.showHint(CONF.name, loading + text, duration || HINT_DURATION.PERSIST);
 };
 
 /** Show a hint with crop box size info. */
 const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => {
   mgr.checkPixelLimit(r);
-  foliplus.showHint(
+  map.foliplus!.showHint(
     CONF.name,
     `${_(`${CONF.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
       `${_(`${CONF.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
     HINT_DURATION.PERSIST,
-    null,
+    undefined,
     "size",
   );
   if (mgr.pixelOverLimit) {
-    foliplus.showHint(
+    map.foliplus!.showHint(
       CONF.name,
       _(`${CONF.name}.err_too_large`).replace(
         "{limit}",
         formatNumber(CONF.max_pixels!),
       ),
       HINT_DURATION.PERSIST,
-      null,
+      undefined,
       "limit",
     );
-  } else foliplus.hideHint(CONF.name, "limit");
+  } else map.foliplus!.hideHint(CONF.name, "limit");
 };
 
 /** Build the crop box DOM and attach events. */
@@ -280,7 +278,7 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
   }
   mgr.cropState = null;
-  foliplus.hideHint(CONF.name);
+  map.foliplus!.hideHint(CONF.name);
 };
 
 export {

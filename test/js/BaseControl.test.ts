@@ -1,4 +1,4 @@
-import { BaseControl } from "#common/BaseControl.js";
+import { BaseControl } from "#foliplus/BaseControl.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("BaseControl", () => {

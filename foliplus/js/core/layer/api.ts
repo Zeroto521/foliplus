@@ -1,6 +1,7 @@
 // core/layer/api — LayerAPI facade management.
 // ensureLayerAPI creates a lightweight stub when no LayerControl exists;
 // requireLayerAPI throws when LayerControl is required (Export/Heatmap).
+import { ensureHint } from "#core/hint.js";
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
 import type { LayerAPI, LayerInfo } from "./type.js";
@@ -21,8 +22,9 @@ import type { LayerAPI, LayerInfo } from "./type.js";
  * @returns The LayerAPI instance (always a valid object).
  */
 export const ensureLayerAPI = (map: L.Map): LayerAPI => {
-  if (!map.foliplus) map.foliplus = { LayerAPI: null as unknown as LayerAPI };
-  if (map.foliplus.LayerAPI) return map.foliplus.LayerAPI;
+  // Ensure per-map hint system (creates map.foliplus if needed, idempotent).
+  ensureHint(map);
+  if (map.foliplus!.LayerAPI) return map.foliplus!.LayerAPI;
 
   // Lightweight LayerAPI — no LayerControl, no registry, no panel.
   // createLayers/createCanvas are fully functional; query methods are no-ops.
@@ -39,7 +41,7 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
     invalidateType: () => {}, // no registry in the lightweight API
   });
 
-  map.foliplus.LayerAPI = {
+  map.foliplus!.LayerAPI = {
     layers: Object.freeze([]) as unknown as LayerInfo[],
     registerLayer: () => null,
     unregisterLayer: () => false,
@@ -50,7 +52,7 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
     getLayerPanes: () => [],
     getLayersByType: () => [],
   } satisfies LayerAPI;
-  return map.foliplus.LayerAPI;
+  return map.foliplus!.LayerAPI;
 };
 
 /**
@@ -70,8 +72,7 @@ export const requireLayerAPI = (
 ): LayerAPI => {
   if (!map.foliplus?.LayerAPI) {
     const msg = _(`${componentName}.no_layercontrol`);
-    const foliplus = window.foliplus || {};
-    if (foliplus.showHint) foliplus.showHint(componentName, msg, 0); // PERSIST
+    if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
     throw new Error(`[${componentName}] ${msg}`);
   }
   return map.foliplus.LayerAPI;

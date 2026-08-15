@@ -1,9 +1,9 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
 import { hideDelIcons } from "#common/delicon.js";
-import { HINT_DURATION } from "#common/hint.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
@@ -151,7 +151,7 @@ class MeasureManager {
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
 
     if (mode === CONST.MODE.MARKER) {
-      foliplus.showHint(
+      map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_marker`),
         HINT_DURATION.PERSIST,
@@ -159,7 +159,7 @@ class MeasureManager {
       this.modeInstance = new MarkerMode(this);
       this.modeInstance.start();
     } else if (mode === CONST.MODE.DISTANCE) {
-      foliplus.showHint(
+      map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_dist_start`),
         HINT_DURATION.PERSIST,
@@ -167,7 +167,7 @@ class MeasureManager {
       this.modeInstance = new DistanceMode(this);
       this.modeInstance.start();
     } else if (mode === CONST.MODE.POLYGON) {
-      foliplus.showHint(
+      map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_polygon`),
         HINT_DURATION.PERSIST,
@@ -175,7 +175,7 @@ class MeasureManager {
       this.modeInstance = new PolygonMode(this);
       this.modeInstance.start();
     } else if (mode === CONST.MODE.CIRCLE) {
-      foliplus.showHint(
+      map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_circle_start`),
         HINT_DURATION.PERSIST,
@@ -189,7 +189,7 @@ class MeasureManager {
   clearActiveMode() {
     this.currentMode = null;
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
-    foliplus.hideHint(CONF.name);
+    map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
     // Unregister the measure layer if it has no content left (interrupted
@@ -233,7 +233,7 @@ class MeasureManager {
       this.modeInstance.cleanup();
       this.modeInstance = null;
     }
-    foliplus.hideHint(CONF.name);
+    map.foliplus!.hideHint(CONF.name);
   }
 }
 

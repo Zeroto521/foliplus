@@ -93,6 +93,10 @@ window.CONF = {
   mode: "coord",
 };
 window.map = {
+  foliplus: {
+    showHint: vi.fn(),
+    hideHint: vi.fn(),
+  },
   flyTo: vi.fn(),
   addLayer: vi.fn(),
   getCenter: () => ({ lng: 119.3, lat: 26.08 }),
