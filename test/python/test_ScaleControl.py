@@ -129,7 +129,10 @@ class TestScaleControlBrowser:
 
     def test_zoom_label_visible(self, browser, tmp_path):
         """Zoom label is visible when show_zoom=True."""
-        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (
+            page,
+            errors,
+        ):
             has_label = page.evaluate(
                 "document.querySelector('.foliplus-scale-zoom-label') !== null"
             )
@@ -138,7 +141,10 @@ class TestScaleControlBrowser:
 
     def test_zoom_label_hidden_when_disabled(self, browser, tmp_path):
         """Zoom label is absent when show_zoom=False."""
-        with use_page(self._make_page, browser, tmp_path, show_zoom=False) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, show_zoom=False) as (
+            page,
+            errors,
+        ):
             has_label = page.evaluate(
                 "document.querySelector('.foliplus-scale-zoom-label') !== null"
             )
@@ -166,7 +172,10 @@ class TestScaleControlBrowser:
 
     def test_scale_shows_imperial_text(self, browser, tmp_path):
         """Scale line displays imperial units (mi/ft)."""
-        with use_page(self._make_page, browser, tmp_path, unit="imperial") as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, unit="imperial") as (
+            page,
+            errors,
+        ):
             scale_text = page.evaluate(
                 "document.querySelector('.leaflet-control-scale-line')?.textContent"
             )
@@ -176,7 +185,10 @@ class TestScaleControlBrowser:
 
     def test_zoom_label_text(self, browser, tmp_path):
         """Zoom label shows 'Zoom Level: N' format."""
-        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (
+            page,
+            errors,
+        ):
             label_text = page.evaluate(
                 "document.querySelector('.foliplus-scale-zoom-label')?.textContent"
             )
@@ -204,7 +216,10 @@ class TestScaleControlBrowser:
 
     def test_font_matches_attribution(self, browser, tmp_path):
         """Scale line and zoom label font matches attribution font."""
-        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (
+            page,
+            errors,
+        ):
             fonts = page.evaluate(_js("ScaleControl/read_fonts"))
             assert fonts is not None, "elements not found"
             attr = fonts["attr"]
@@ -231,7 +246,10 @@ class TestScaleControlBrowser:
 
     def test_line_height_matches_attribution(self, browser, tmp_path):
         """Scale wrap and zoom label line-height matches attribution."""
-        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (
+            page,
+            errors,
+        ):
             lh = page.evaluate(_js("ScaleControl/read_line_heights"))
             assert lh is not None, "elements not found"
             assert lh["wrap"] == lh["attr"], (

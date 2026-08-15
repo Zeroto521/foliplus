@@ -8,7 +8,14 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import _js, assert_config_value, make_browser_page, render, render_control, use_page, use_page
+from conftest import (
+    _js,
+    assert_config_value,
+    make_browser_page,
+    render,
+    render_control,
+    use_page,
+)
 
 from foliplus import MeasureControl
 
@@ -202,7 +209,10 @@ class TestMeasureControlBrowser:
 
     def test_distance_labels_no_bearing_when_disabled(self, browser, tmp_path):
         """show_bearing=False omits the bearing from distance labels."""
-        with use_page(self._make_page, browser, tmp_path, show_bearing=False) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, show_bearing=False) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
             labels = page.evaluate(_js("MeasureControl/read_labels"))

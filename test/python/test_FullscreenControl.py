@@ -154,7 +154,10 @@ class TestFullscreenControlBrowser:
 
     def test_hide_self(self, browser, tmp_path):
         """hide_self=true hides fullscreen button when fullscreen."""
-        with use_page(self._make_page, browser, tmp_path, hide_self=True) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, hide_self=True) as (
+            page,
+            errors,
+        ):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
@@ -220,7 +223,9 @@ class TestFullscreenControlBrowser:
 
     def test_zoom_hidden_in_fullscreen(self, browser, tmp_path):
         """hide_self=true: zoom +/- are hidden while in fullscreen."""
-        with use_page(self._make_page, browser, tmp_path, hide_self=True, hide_others=False) as (page, errors):
+        with use_page(
+            self._make_page, browser, tmp_path, hide_self=True, hide_others=False
+        ) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
@@ -233,7 +238,9 @@ class TestFullscreenControlBrowser:
     def test_zoom_visible_with_hide_self_false(self, browser, tmp_path):
         """hide_self=false: zoom +/- stay visible while in fullscreen,
         together with the fullscreen button."""
-        with use_page(self._make_page, browser, tmp_path, hide_self=False, hide_others=False) as (page, errors):
+        with use_page(
+            self._make_page, browser, tmp_path, hide_self=False, hide_others=False
+        ) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
@@ -245,7 +252,9 @@ class TestFullscreenControlBrowser:
 
     def test_zoom_visible_after_exit_fullscreen(self, browser, tmp_path):
         """hide_self=true: zoom +/- are visible again after exit."""
-        with use_page(self._make_page, browser, tmp_path, hide_self=True, hide_others=False) as (page, errors):
+        with use_page(
+            self._make_page, browser, tmp_path, hide_self=True, hide_others=False
+        ) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
@@ -262,7 +271,9 @@ class TestFullscreenControlBrowser:
         `.foliplus-hidden` uses `display: none !important` so it
         wins over inline `display` set by third-party Leaflet plugins.
         """
-        with use_page(self._make_page, browser, tmp_path, hide_self=False, hide_others=True) as (page, errors):
+        with use_page(
+            self._make_page, browser, tmp_path, hide_self=False, hide_others=True
+        ) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
@@ -298,7 +309,9 @@ class TestFullscreenControlBrowser:
         requestFullscreen/exitFullscreen `.then()` callbacks must not call
         updateUI again (which would double-fire the hint).
         """
-        with use_page(self._make_page, browser, tmp_path, hide_self=True, hide_others=False) as (page, errors):
+        with use_page(
+            self._make_page, browser, tmp_path, hide_self=True, hide_others=False
+        ) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )

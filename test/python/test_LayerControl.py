@@ -6,7 +6,15 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import _js, assert_locale, make_browser_page, render, render_control, use_page, use_raw_page, use_page, use_raw_page
+from conftest import (
+    _js,
+    assert_locale,
+    make_browser_page,
+    render,
+    render_control,
+    use_page,
+    use_raw_page,
+)
 
 from foliplus import LayerControl
 
@@ -404,7 +412,10 @@ class TestLayerControlBrowser:
         """Dragging overlay toward base group should show blocked hint."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         base = folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False)
-        with use_page(self._make_page, browser, tmp_path, overlay, base) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, overlay, base) as (
+            page,
+            errors,
+        ):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -1157,7 +1168,10 @@ class TestLayerControlBrowser:
         """
         fg = folium.FeatureGroup(name="TestLayer", overlay=True, show=True)
         folium.Marker([26.08, 119.30], name="test_marker").add_to(fg)
-        with use_page(self._make_page, browser, tmp_path, fg, slug="paneset_reset") as (page, _):
+        with use_page(self._make_page, browser, tmp_path, fg, slug="paneset_reset") as (
+            page,
+            _,
+        ):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )

@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import re
 import urllib.request
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import folium
 import pytest
