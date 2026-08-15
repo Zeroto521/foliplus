@@ -47,7 +47,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 };
 
 /** Map an import specifier to its global namespace path on window.foliplus. */
-const sharedGlobalNs = spec => {
+const sharedGlobalNamespace = spec => {
   if (spec === "#foliplus/BaseControl.js") return "foliplus.BaseControl";
   if (spec === "#core/hint.js") return "foliplus.hint";
   // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
@@ -74,7 +74,7 @@ const sharedExternalPlugin = (sourceRoot, { skip = [] } = {}) => ({
         .replace(/^#foliplus\//, "");
       const sourcePath = resolve(sourceRoot, rel);
       const exports = collectExports(sourcePath);
-      const ns = sharedGlobalNs(spec);
+      const ns = sharedGlobalNamespace(spec);
       const lines = exports.map(n => `export const ${n} = globalThis.${ns}["${n}"];`);
       return { contents: lines.join("\n"), loader: "js" };
     });
