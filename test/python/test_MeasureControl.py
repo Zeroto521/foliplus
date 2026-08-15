@@ -726,6 +726,7 @@ class TestMeasureControlBrowser:
                 assert abs(off["dy"] - ref["dy"]) <= 2, (
                     f"{name}: dy {off['dy']} != ref {ref['dy']}"
                 )
+
     def test_works_without_layercontrol(self, browser, tmp_path):
         """MeasureControl initializes without LayerControl (degradation)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
