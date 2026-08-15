@@ -64,7 +64,7 @@ class LayerManager implements LayerAPI {
   lastAttribution: string | null;
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
-  debouncedSaveOrder: Debounced;
+  debouncedSaveOrder: Debounced | undefined; // lazy-init in saveOrder()
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
@@ -105,17 +105,6 @@ class LayerManager implements LayerAPI {
       if (this.isDestroyed || !this.map || !this.map.getContainer()) return;
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
-
-    // Persist layer order lazily — drag/drop and batch registration call
-    // saveOrder frequently; coalesce the localStorage writes.
-    this.debouncedSaveOrder = debounce(() => {
-      if (this.isDestroyed) return;
-      Storage.save(
-        CONST.STORAGE.ORDER_KEY,
-        this.layers.map(l => l.id),
-        CONF.name,
-      );
-    }, CONST.SAVE_ORDER_DEBOUNCE_MS);
 
     // Respond to layer-level adds. The initial enforceOrder runs before the
     // folium layer scripts, so registered layers may not be resolvable yet
@@ -208,7 +197,20 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
   }
 
+  /** Persist layer order, coalescing rapid calls (drag/drop, batch
+   *  registration) into one localStorage write. The debounced writer is
+   *  created lazily on first use. */
   saveOrder() {
+    if (!this.debouncedSaveOrder) {
+      this.debouncedSaveOrder = debounce(() => {
+        if (this.isDestroyed) return;
+        Storage.save(
+          CONST.STORAGE.ORDER_KEY,
+          this.layers.map(l => l.id),
+          CONF.name,
+        );
+      }, CONST.SAVE_ORDER_DEBOUNCE_MS);
+    }
     this.debouncedSaveOrder();
   }
 
