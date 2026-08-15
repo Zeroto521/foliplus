@@ -1,4 +1,4 @@
-import { requireRuntime, createControlEnv } from "#common/guard.js";
+import { createControlEnv, requireRuntime } from "#common/guard.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockShowHint = vi.fn();

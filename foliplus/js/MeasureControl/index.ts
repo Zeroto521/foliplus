@@ -1,13 +1,13 @@
 import { BaseControl } from "#common/BaseControl.js";
 import { createIconButton } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
-import { requireLayerAPI } from "#core/layer/index.js";
 import * as Icons from "#common/icon.js";
 import {
   bindFoldToggle,
   bindOutsideCollapse,
   createFoldControl,
 } from "#common/panel.js";
+import { requireLayerAPI } from "#core/layer/index.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";

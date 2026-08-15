@@ -1,7 +1,7 @@
 import { type Debounced, debounce } from "#common/debounce.js";
-import { ensureLayerAPI } from "#core/layer/api.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
+import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
@@ -139,8 +139,8 @@ class LayerManager {
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
-      createLayers: (opts) => this.factory.createLayers(opts),
-      createCanvas: (opts) => this.factory.createCanvas(opts),
+      createLayers: opts => this.factory.createLayers(opts),
+      createCanvas: opts => this.factory.createCanvas(opts),
       extractPoints: this.extractPoints,
       getLayerPanes: this.getLayerPanes,
       getLayersByType: this.getLayersByType,

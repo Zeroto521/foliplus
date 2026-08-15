@@ -29,7 +29,7 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
   const factory = new LayerFactory({
     map,
     panes,
-    registerLayer: (opts) => {
+    registerLayer: opts => {
       if (opts.layer && !map.hasLayer(opts.layer)) map.addLayer(opts.layer);
       return null;
     },
@@ -42,8 +42,8 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
     registerLayer: () => null,
     unregisterLayer: () => false,
     bringLayerToFront: () => {},
-    createLayers: (opts) => factory.createLayers(opts),
-    createCanvas: (opts) => factory.createCanvas(opts),
+    createLayers: opts => factory.createLayers(opts),
+    createCanvas: opts => factory.createCanvas(opts),
     extractPoints: () => [],
     getLayerPanes: () => [],
     getLayersByType: () => [],
@@ -69,8 +69,7 @@ export const requireLayerAPI = (
   if (!map.foliplus?.LayerAPI) {
     const msg = _(`${componentName}.no_layercontrol`);
     const foliplus = window.foliplus || {};
-    if (foliplus.showHint)
-      foliplus.showHint(componentName, msg, 0); // PERSIST
+    if (foliplus.showHint) foliplus.showHint(componentName, msg, 0); // PERSIST
     throw new Error(`[${componentName}] ${msg}`);
   }
   return map.foliplus.LayerAPI;
