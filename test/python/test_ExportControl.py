@@ -570,16 +570,14 @@ class TestExportControlBrowser:
             page.evaluate(_js("ExportControl/remove_test_canvas"))
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
 
-    def test_undo_redo_keyboard(self, browser, tmp_path):
-        """Ctrl+Z/Ctrl+Shift+Z handlers are registered on document."""
+    def test_crop_box_drag_resize(self, browser, tmp_path):
+        """Drag bottom-right handle to resize the crop box."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
 
-            # Verify onKeyDown is wired to document keydown by checking
-            # that the handler changes the undoStack after a resize drag.
             initial = page.evaluate(_js("ExportControl/read_box_rect"))
 
             # Drag bottom-right handle to enlarge
@@ -597,11 +595,6 @@ class TestExportControlBrowser:
 
             after_resize = page.evaluate(_js("ExportControl/read_box_rect"))
             assert after_resize["w"] > initial["w"], "Resize should enlarge width"
-
-            # Verify that the handler strings exist in the rendered JS
-            # (the event handler code is Jinja2-embedded; this confirms
-            # the keyboard shortcut code was compiled into the page).
-            html = page.content()
 
     def test_locked_box_follows_zoom(self, browser, tmp_path):
         """Locked crop box follows the map after zoom."""
