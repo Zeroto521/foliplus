@@ -172,6 +172,8 @@ declare global {
       code?: string,
     ) => Promise<{ lat: number; lng: number; display_name: string } | null>;
     _TABLES: Record<string, Record<string, string>>;
+    /** Shared core modules (layer, event, mode). Set by _shared-registry + runtime. */
+    core: Record<string, unknown>;
   }
 
   const L: typeof Leaflet;
