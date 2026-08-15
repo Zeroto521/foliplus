@@ -291,7 +291,13 @@ class LayerManager implements LayerAPI {
     if (this.ui) {
       if (existingIdx === -1) this.ui.insertLayerItem(layerInfo);
       else this.ui.updateLayerItem(layerInfo, existingIdx);
-      this.ui.initTypesAndVisibility();
+      // Incremental: initialize only the new/updated row instead of re-scanning
+      // every row (initTypesAndVisibility is a full pass used on attach/fold).
+      this.ui.initLayerItem(layerInfo);
+      this.ui.syncToggleAll(
+        layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+      );
+      this.enforceOrder();
     }
     this.saveOrder();
     return this.uiContainer.querySelector(
@@ -384,13 +390,16 @@ class LayerManager implements LayerAPI {
         const li = this.layers[i];
         const layer = this.findLayer(li);
         const hasLayer = layer && this.map.hasLayer(layer);
+        // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer()).
+        // TileLayer has public setZIndex; other GridLayers keep options.zIndex.
+        const isGrid = layer instanceof L.GridLayer;
         const isTile = layer instanceof L.TileLayer;
-        const z = this.computeZIndex(i, isTile);
+        const z = this.computeZIndex(i, isGrid);
 
         if (li.onZIndex) li.onZIndex(z);
         if (!hasLayer) continue;
 
-        this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
+        this.applyLayerZIndex({ li, layer, z, isGrid, isTile, layersToMove });
       }
 
       const topZ = this.computeZIndex(0, false) + Z_INDEX.STEP;
@@ -415,12 +424,14 @@ class LayerManager implements LayerAPI {
     li,
     layer,
     z,
+    isGrid,
     isTile,
     layersToMove,
   }: {
     li: LayerInfo;
     layer: L.Layer;
     z: number;
+    isGrid: boolean;
     isTile: boolean;
     layersToMove: Array<{
       layer: L.Layer;
@@ -440,6 +451,13 @@ class LayerManager implements LayerAPI {
 
     if (isTile) {
       (layer as L.TileLayer).setZIndex(z);
+      return;
+    }
+
+    if (isGrid) {
+      // GridLayer subclass without TileLayer.setZIndex (e.g. L.gridLayer()):
+      // Leaflet renders it in tilePane and applies options.zIndex on update.
+      (layer.options as L.GridLayerOptions).zIndex = z;
       return;
     }
 
@@ -468,12 +486,21 @@ class LayerManager implements LayerAPI {
     if (!attrCtrl) return;
 
     let topAttr = "";
-    for (let i = 0; i < this.layers.length; i++) {
+    // Bases live at the tail of the list; the first visible base tile is the
+    // topmost (highest z) one — scan from the first base and stop early.
+    for (
+      let i = this.layerRegistry.firstBaseIdx;
+      i !== -1 && i < this.layers.length;
+      i++
+    ) {
       const li = this.layers[i];
       if (!li.isBase) continue;
       const layer = this.findLayer(li);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
-      if (!topAttr && this.map.hasLayer(layer)) topAttr = layer.options.attribution;
+      if (this.map.hasLayer(layer)) {
+        topAttr = layer.options.attribution;
+        break;
+      }
     }
 
     // Unchanged top-most attribution: nothing to rebuild.

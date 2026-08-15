@@ -272,59 +272,70 @@ class LayerUI {
     );
   }
 
-  initTypesAndVisibility() {
+  /** Initialize one layer row's checkbox + type icon (incremental path).
+   *  @returns {boolean} true when the row is a visible base layer. */
+  initLayerItem(layerInfo: LayerInfo): boolean {
+    const idx = this.m.layerRegistry.indexOf(layerInfo);
+    if (idx === -1) return false;
     const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
     ) as NodeListOf<HTMLInputElement>;
     const typeCols = this.uiContainer.querySelectorAll(
       `.${CONST.CLASSES.TYPE_ICON_COL}`,
     );
+    const input = inputs[idx];
+    const typeCol = typeCols[idx];
+    const layer = this.m.findLayer(layerInfo);
+    let baseVisible = false;
+
+    if (input) {
+      const hasLayer = layer != null;
+      const isCallbackOnly = !hasLayer && layerInfo.onToggle;
+      if (isCallbackOnly) input.checked = layerInfo.visible !== false;
+      else input.checked = hasLayer && this.m.map.hasLayer(layer);
+      this.syncVisibility(layerInfo, layer, input.checked);
+
+      input.title = _(
+        `${CONF.name}.${input.checked ? "deselect_tooltip" : "select_tooltip"}`,
+      );
+
+      const item = input.closest(CONST.SEL.LAYER_ITEM);
+      if (item) {
+        if (input.checked) item.classList.add(CONST.CLASSES.ACTIVE);
+        else item.classList.remove(CONST.CLASSES.ACTIVE);
+      }
+    }
+
+    if (typeCol) {
+      let typeKey: string;
+      if (layerInfo.isBase) {
+        typeCol.innerHTML = Icons.GLOBE;
+        typeKey = `${CONF.name}.type_base`;
+        layerInfo.type = CONST.GROUP.BASE;
+        if (input?.checked) baseVisible = true;
+      } else if (layerInfo.iconSvg) {
+        typeCol.innerHTML = layerInfo.iconSvg;
+        typeKey = `${CONF.name}.type_custom`;
+        layerInfo.type = GEOM_TYPE.CUSTOM;
+      } else if (layer) {
+        const gtype = getGeometryType(layer);
+        typeCol.innerHTML = Util.getTypeSVG(layer);
+        typeKey = `${CONF.name}.type_${gtype}`;
+        layerInfo.type = gtype;
+      } else typeKey = `${CONF.name}.type_unknown`;
+
+      const item = input?.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | undefined;
+      if (item) item.title = _(typeKey);
+    }
+
+    return baseVisible;
+  }
+
+  /** Full re-scan of every row (used on attach/fold-toggle). */
+  initTypesAndVisibility() {
     let anyBaseVisible = false;
-
     for (let i = 0; i < this.m.layers.length; i++) {
-      const layerInfo = this.m.layers[i];
-      const layer = this.m.findLayer(layerInfo);
-
-      if (inputs[i]) {
-        const hasLayer = layer != null;
-        const isCallbackOnly = !hasLayer && layerInfo.onToggle;
-        if (isCallbackOnly) inputs[i].checked = layerInfo.visible !== false;
-        else inputs[i].checked = hasLayer && this.m.map.hasLayer(layer);
-        this.syncVisibility(layerInfo, layer, inputs[i].checked);
-
-        inputs[i].title = _(
-          `${CONF.name}.${inputs[i].checked ? "deselect_tooltip" : "select_tooltip"}`,
-        );
-
-        const item = inputs[i].closest(CONST.SEL.LAYER_ITEM);
-        if (item) {
-          if (inputs[i].checked) item.classList.add(CONST.CLASSES.ACTIVE);
-          else item.classList.remove(CONST.CLASSES.ACTIVE);
-        }
-      }
-
-      if (typeCols[i]) {
-        let typeKey: string;
-        if (layerInfo.isBase) {
-          typeCols[i].innerHTML = Icons.GLOBE;
-          typeKey = `${CONF.name}.type_base`;
-          layerInfo.type = CONST.GROUP.BASE;
-          if (inputs[i]?.checked) anyBaseVisible = true;
-        } else if (layerInfo.iconSvg) {
-          typeCols[i].innerHTML = layerInfo.iconSvg;
-          typeKey = `${CONF.name}.type_custom`;
-          layerInfo.type = GEOM_TYPE.CUSTOM;
-        } else if (layer) {
-          const gtype = getGeometryType(layer);
-          typeCols[i].innerHTML = Util.getTypeSVG(layer);
-          typeKey = `${CONF.name}.type_${gtype}`;
-          layerInfo.type = gtype;
-        } else typeKey = `${CONF.name}.type_unknown`;
-
-        const item = inputs[i]?.closest(CONST.SEL.LAYER_ITEM) as
-          HTMLElement | undefined;
-        if (item) item.title = _(typeKey);
-      }
+      if (this.initLayerItem(this.m.layers[i])) anyBaseVisible = true;
     }
 
     if (!anyBaseVisible) this.showColorLayer(this.currentColor);

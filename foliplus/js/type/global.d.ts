@@ -200,6 +200,7 @@ declare global {
     type LeafletMouseEventHandlerFn = Leaflet.LeafletMouseEventHandlerFn;
     type LeafletKeyboardEvent = Leaflet.LeafletKeyboardEvent;
     type GridLayer = Leaflet.GridLayer;
+    type GridLayerOptions = Leaflet.GridLayerOptions;
     type TileLayer = Leaflet.TileLayer;
     type TileLayerOptions = Leaflet.TileLayerOptions;
     type ImageOverlay = Leaflet.ImageOverlay;

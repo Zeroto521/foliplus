@@ -5,15 +5,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
+class TileLayer {
+  options = { attribution: "© OpenStreetMap" };
+  setZIndex = vi.fn();
+}
+
+class GridLayer {
+  options = {};
+}
+
 describe("LayerManager", () => {
   let manager, map;
 
   beforeEach(() => {
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
-    class TileLayer {
-      options = { attribution: "© OpenStreetMap" };
-    }
     class Renderer {}
     class Path {
       options = {};
@@ -32,6 +38,7 @@ describe("LayerManager", () => {
     })();
 
     window.L.TileLayer = TileLayer;
+    window.L.GridLayer = GridLayer;
     window.L.Renderer = Renderer;
     window.L.Path = Path;
     window.L.Polygon = Polygon;
@@ -83,6 +90,15 @@ describe("LayerManager", () => {
 
   it("constructor creates registry from data", () => {
     expect(manager.layerRegistry.size).toBe(2);
+  });
+
+  it("non-TileLayer GridLayer gets options.zIndex and no fallback pane", () => {
+    const grid = new GridLayer();
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, isBase: true });
+    manager.enforceOrder();
+    expect(grid.options.zIndex).toBeDefined();
+    expect(String(grid.options.pane)).not.toMatch(/^foliplus_pane_/);
   });
 
   it("computeZIndex returns expected values", () => {
@@ -182,6 +198,26 @@ describe("LayerManager", () => {
     expect(manager.findLayer("x")).toBeNull();
   });
 
+  it("registerLayer uses incremental item init instead of full re-scan", () => {
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.uiContainer = document.createElement("div");
+    manager.ui = {
+      insertLayerItem: vi.fn(),
+      updateLayerItem: vi.fn(),
+      initTypesAndVisibility: vi.fn(),
+      initLayerItem: vi.fn(),
+      syncToggleAll: vi.fn(),
+    } as any;
+    manager.registerLayer({
+      id: "new1",
+      name: "New",
+      layer: { options: {} },
+    } as any);
+    expect(manager.ui.initLayerItem).toHaveBeenCalled();
+    expect(manager.ui.initTypesAndVisibility).not.toHaveBeenCalled();
+    expect(manager.ui.syncToggleAll).toHaveBeenCalled();
+  });
+
   it("registerLayer resolves layer from map when opts.layer is absent", () => {
     const layer = new window.L.TileLayer();
     map._layers["resolved"] = layer;
@@ -257,6 +293,25 @@ describe("LayerManager", () => {
   });
 
   // ── initial data normalization ──
+
+  it("syncAttribution picks the topmost visible base tile and stops early", () => {
+    const tile1 = new TileLayer(); // attribution: © OpenStreetMap (default)
+    const tile2 = new TileLayer();
+    manager.map.hasLayer.mockImplementation(l => l === tile1);
+    // Re-register base1 with the test instance; base2 registers ahead of it
+    // (insertAt firstBaseIdx) but is invisible, so base1 is the topmost
+    // visible tile whose attribution wins.
+    manager.registerLayer({ id: "base1", name: "Base1", layer: tile1, isBase: true });
+    manager.registerLayer({ id: "base2", name: "Base2", layer: tile2, isBase: true });
+    manager.enforceOrder();
+    expect(manager.lastAttribution).toBe("© OpenStreetMap");
+  });
+
+  it("syncAttribution returns empty when no base tile is visible", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.enforceOrder();
+    expect(manager.lastAttribution).toBe("");
+  });
 
   it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
     vi.useFakeTimers();
