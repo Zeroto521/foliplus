@@ -5,8 +5,8 @@
  * Pipeline:
  *   1. Mirror ``foliplus/js/`` → ``foliplus/.build/``
  *   2. SVGO-compress SVG strings + minify HTML template literals (via ``script/compress.mjs``)
- *   3. esbuild-bundle each component → ``dist/{Name}.min.js`` + ``.min.css``
- *   4. Merge ``common.css`` + ``panel.css`` → ``dist/common.min.css``
+ *   3. esbuild-bundle each component → ``dist/foliplus-{Name}.min.js`` + ``.min.css``
+ *   4. Merge ``common.css`` + ``panel.css`` → ``dist/foliplus-common.min.css``
  *
  * Usage:
  *   node script/build.mjs              # build all (minified)
@@ -164,8 +164,8 @@ const out = name => resolve(CFG.out.dist, name);
 const buildEntries = components => {
   const entries = [];
   for (const { name, js, css } of components) {
-    entries.push(artifact([js], out(`${name}.min.js`), name));
-    if (css) entries.push(artifact([css], out(`${name}.min.css`), name));
+    entries.push(artifact([js], out(`foliplus-${name}.min.js`), name));
+    if (css) entries.push(artifact([css], out(`foliplus-${name}.min.css`), name));
   }
 
   // Merge common.css + panel.css into a single artifact
@@ -177,7 +177,7 @@ const buildEntries = components => {
     mkdirSync(CFG.tmp.css, { recursive: true });
     const tmpCss = resolve(CFG.tmp.css, CFG.mergedCssName);
     writeFileSync(tmpCss, css, "utf-8");
-    entries.push(artifact([tmpCss], out("common.min.css"), "common"));
+    entries.push(artifact([tmpCss], out("foliplus-common.min.css"), "common"));
   }
   return entries;
 };

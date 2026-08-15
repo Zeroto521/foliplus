@@ -48,8 +48,8 @@ def _build_shared_header() -> str:
     bundled in), and the common locale tables (shared by all components).
     Built once and cached at module level.
     """
-    common = (dist_dir / "common.min.css").read_text(encoding="utf-8")
-    runtime = (dist_dir / "runtime.min.js").read_text(encoding="utf-8")
+    common = (dist_dir / "foliplus-common.min.css").read_text(encoding="utf-8")
+    runtime = (dist_dir / "foliplus-runtime.min.js").read_text(encoding="utf-8")
 
     return (
         "<style>\n"
@@ -211,8 +211,8 @@ class BaseControl(JSCSSMixin, MacroElement):
         Template
             A Jinja2 ``Template`` instance ready for folium rendering.
         """
-        js = _load_asset(dist_dir.joinpath(f"{self._name}.min.js"))
-        css = _load_asset(dist_dir.joinpath(f"{self._name}.min.css"))
+        js = _load_asset(dist_dir.joinpath(f"foliplus-{self._name}.min.js"))
+        css = _load_asset(dist_dir.joinpath(f"foliplus-{self._name}.min.css"))
 
         return Template(
             dedent(f"""\
