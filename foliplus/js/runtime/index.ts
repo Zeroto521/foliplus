@@ -5,12 +5,13 @@
  * Pure helpers (coord, dom, panel, util) live in common/ and are statically
  * imported by each component's own bundle.
  *
- * This is the ES module entry point. esbuild bundles it (along with all
- * `runtime/*.js` submodules) into `dist/runtime.min.js`, which BaseControl
- * injects once per map into the shared header.
+ * This is the ES module entry point. esbuild bundles it into
+ * `dist/foliplus-common.min.js`, which BaseControl injects once per map
+ * into the shared header. The stateful modules (hint, geocode) live in
+ * core/ and are imported via the #core alias.
  */
-import { reverseGeocode } from "./geocode.js";
-import { hideHint, registerHintIcon, showHint } from "./hint.js";
+import { reverseGeocode } from "#core/geocode.js";
+import { hideHint, registerHintIcon, showHint } from "#core/hint.js";
 
 // Ensure the global namespace object exists.
 if (!window.foliplus || typeof window.foliplus !== "object")
