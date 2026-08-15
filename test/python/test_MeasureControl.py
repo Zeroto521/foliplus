@@ -12,6 +12,7 @@ from conftest import (
     _js,
     assert_config_value,
     make_browser_page,
+    read_css,
     render,
     render_control,
     use_page,
@@ -63,7 +64,6 @@ class TestMeasureControlRendering:
     def test_custom_position(self):
         html = render_control(MeasureControl(position="topleft"))
         assert "topleft" in html
-        assert "topleft" in html
 
     def test_contains_gcoord_dependency(self):
         html = render_control(MeasureControl())
@@ -103,7 +103,7 @@ class TestMeasureControlRendering:
     def test_dash_sweep_drop_shadow(self):
         """Dash sweep line has drop-shadow filter for glow effect."""
 
-        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        css = read_css("foliplus/css/MeasureControl.css")
         assert "drop-shadow" in css
         assert "dash-sweep" in css
 
@@ -116,7 +116,7 @@ class TestMeasureControlRendering:
     def test_ripple_css_variables(self):
         """Ripple animation uses CSS custom properties for all parameters."""
 
-        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        css = read_css("foliplus/css/MeasureControl.css")
         assert "--ripple-duration" in css
         assert "--ripple-opacity-start" in css
         assert "--ripple-stroke-start" in css
@@ -126,7 +126,7 @@ class TestMeasureControlRendering:
     def test_dash_sweep_css_variables(self):
         """Dash sweep animation uses CSS custom properties for all parameters."""
 
-        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        css = read_css("foliplus/css/MeasureControl.css")
         assert "--sweep-length" in css
         assert "--sweep-duration" in css
 
@@ -138,7 +138,7 @@ class TestMeasureControlRendering:
         duplicating the translate values. This keeps centering and animation
         decoupled.
         """
-        css = pathlib.Path("foliplus/css/MeasureControl.css").read_text()
+        css = read_css("foliplus/css/MeasureControl.css")
         assert "foliplus-measure-label-in-radius" in css
         # Centering transform is defined once as a variable on the class
         assert "--label-center: translate(-50%, -50%)" in css

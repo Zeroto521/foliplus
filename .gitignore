@@ -61,8 +61,9 @@ venv.bak/
 .playwright-mcp
 
 # Node / npm
-/node_modules/
+.npmrc
 package-lock.json
+/node_modules/
 
 # IDE & OS
 .idea
