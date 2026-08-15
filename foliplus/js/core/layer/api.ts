@@ -1,6 +1,6 @@
-// core/layer/api — lightweight LayerAPI factory (no LayerControl dependency).
-// Creates a minimal LayerAPI stub with createLayers/createCanvas via LayerFactory
-// and no-op query methods. LayerManager upgrades this to the full version.
+// core/layer/api — LayerAPI facade management.
+// ensureLayerAPI creates a lightweight stub when no LayerControl exists;
+// requireLayerAPI throws when LayerControl is required (Export/Heatmap).
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
 
@@ -48,5 +48,30 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
     getLayerPanes: () => [],
     getLayersByType: () => [],
   };
+  return map.foliplus.LayerAPI;
+};
+
+/**
+ * Guard that the LayerControl (map.foliplus.LayerAPI) is available.
+ * Shows a persistent hint and throws when the required API is missing.
+ * Used by components that depend on LayerControl (Export, Heatmap).
+ *
+ * @param componentName - CONF.name, used as hint key and error prefix.
+ * @param _ - Translator function (from createTranslator).
+ * @param map - Leaflet map instance (per-map LayerAPI namespace).
+ * @returns The LayerAPI instance (throws if missing).
+ */
+export const requireLayerAPI = (
+  componentName: string,
+  _: (key: string) => string,
+  map: L.Map,
+): LayerAPI => {
+  if (!map.foliplus?.LayerAPI) {
+    const msg = _(`${componentName}.no_layercontrol`);
+    const foliplus = window.foliplus || {};
+    if (foliplus.showHint)
+      foliplus.showHint(componentName, msg, 0); // PERSIST
+    throw new Error(`[${componentName}] ${msg}`);
+  }
   return map.foliplus.LayerAPI;
 };

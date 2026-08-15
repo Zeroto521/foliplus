@@ -1,6 +1,7 @@
 import { BaseControl } from "#common/BaseControl.js";
 import { createIconButton } from "#common/dom.js";
-import { createControlEnv, requireLayerAPI } from "#common/guard.js";
+import { createControlEnv } from "#common/guard.js";
+import { requireLayerAPI } from "#core/layer/index.js";
 import * as Icons from "#common/icon.js";
 import {
   bindFoldToggle,

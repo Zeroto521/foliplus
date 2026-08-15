@@ -16,4 +16,4 @@ export {
 export { LayerRegistry, type RegisterLayerOpts } from "./LayerRegistry.js";
 export { PaneManager } from "./PaneManager.js";
 export { findLayer, forEachLayer, forEachLeaf, getGeometryType } from "./util.js";
-export { ensureLayerAPI } from "./api.js";
+export { ensureLayerAPI, requireLayerAPI } from "./api.js";
