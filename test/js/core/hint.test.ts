@@ -101,4 +101,23 @@ describe("ensureHint", () => {
     a.hideHint("key");
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
   });
+
+  it("syncs icons registered AFTER an existing manager was created (regression)", () => {
+    // A later control's createControlEnv registers its icon after ensureHint
+    // already created the manager — the new icon must appear.
+    const map = {} as any;
+    ensureHint(map); // manager created BEFORE the icon is registered
+    registerHintIcon("late_icon", "<svg></svg>");
+    map.foliplus.showHint("late_icon", "text", 0);
+    const icon = document.querySelector(".foliplus-hint-icon");
+    expect(icon).not.toBeNull();
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("text");
+  });
+
+  it("syncs icons to a manager created before registration, via syncIcons", () => {
+    const mgr = new HintManager();
+    registerHintIcon("probe", "<svg></svg>");
+    // syncIcons was called by registerHintIcon for active managers
+    expect(mgr.hintIcons["probe"]).toBe("<svg></svg>");
+  });
 });
