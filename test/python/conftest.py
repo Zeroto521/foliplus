@@ -280,7 +280,7 @@ def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
 
 
 @contextmanager
-def use_page(make_fn: callable[..., tuple], *args: Any, **kwargs: Any):
+def use_page(make_fn: Callable[..., tuple], *args: Any, **kwargs: Any):
     """Build a Playwright page via *make_fn*, yield ``(page, errors)``, close on exit.
 
     Replaces the ubiquitous boilerplate::
