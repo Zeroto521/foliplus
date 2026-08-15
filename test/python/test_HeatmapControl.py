@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import folium
@@ -364,8 +365,6 @@ class TestHeatmapControlBrowser:
         so match the generic ``<expr>.addTo(map);`` call added last (the
         HeatmapControl mounts after LayerControl) instead of a fixed name.
         """
-        import re
-
         matches = list(re.finditer(r"([a-zA-Z0-9_$]+)\.addTo\(map\);", html))
         if matches:
             m = matches[-1]  # last addTo = HeatmapControl

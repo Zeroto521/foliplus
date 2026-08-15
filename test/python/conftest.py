@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import os
 import re
+import tempfile
+import urllib.error
 import urllib.request
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -83,8 +85,6 @@ def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
     stalling browser navigation.  Returns ``(None, None)`` for URLs outside
     the cache map so the request can be forwarded to the network as-is.
     """
-    import tempfile
-
     for fragment, (fname, mime) in _CDN_CACHE.items():
         if fragment not in url:
             continue
@@ -128,8 +128,6 @@ def _prefetch_cdn_cache() -> None:
     (the per-request handler falls back to a 404 for uncached assets),
     which keeps the browser session usable even without network access.
     """
-    import urllib.error
-
     _CDN_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     for fragment, (fname, _mime) in _CDN_CACHE.items():
         cache_path = _CDN_CACHE_DIR / fname
