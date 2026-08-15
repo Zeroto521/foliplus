@@ -1,6 +1,7 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
+import { ensureModes } from "#core/mode/index.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
 import { HINT_DURATION } from "#core/hint.js";
@@ -143,6 +144,7 @@ class MeasureManager {
 
     this.cleanMapEvents();
     this.currentMode = mode;
+    ensureModes(this.map).setMode("MeasureControl", mode);
 
     this.toolBtns.forEach(btn =>
       btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
@@ -188,6 +190,7 @@ class MeasureManager {
   /** Deactivate current mode, clean up events, and hide hints. */
   clearActiveMode() {
     this.currentMode = null;
+    ensureModes(this.map).setMode("MeasureControl", null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
     map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
