@@ -27,11 +27,21 @@ describe("LayerFactory", () => {
     window.L.layerGroup = vi.fn(() => {
       const layers: any[] = [];
       const grp = {
-        addLayer: vi.fn((l: any) => { layers.push(l); return grp; }),
-        removeLayer: vi.fn((l: any) => { const i = layers.indexOf(l); if (i !== -1) layers.splice(i, 1); return grp; }),
+        addLayer: vi.fn((l: any) => {
+          layers.push(l);
+          return grp;
+        }),
+        removeLayer: vi.fn((l: any) => {
+          const i = layers.indexOf(l);
+          if (i !== -1) layers.splice(i, 1);
+          return grp;
+        }),
         hasLayer: vi.fn((l: any) => layers.includes(l)),
         getLayers: vi.fn(() => layers),
-        clearLayers: vi.fn(() => { layers.length = 0; return grp; }),
+        clearLayers: vi.fn(() => {
+          layers.length = 0;
+          return grp;
+        }),
         eachLayer: vi.fn((cb: any) => layers.forEach(cb)),
         options: {},
       };
@@ -100,7 +110,11 @@ describe("LayerFactory", () => {
     });
 
     it("registers via dependency when addLayer triggers", () => {
-      const api = factory.createLayers({ id: "test", name: "Test", graphPane: "graph1" });
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+      });
       api.addLayer(new window.L.Path());
       expect(registerLayer).toHaveBeenCalled();
     });
@@ -112,7 +126,12 @@ describe("LayerFactory", () => {
     });
 
     it("routes isLabel layers to labelPane", () => {
-      const api = factory.createLayers({ id: "test", name: "Test", graphPane: "graph1", labelPane: "label1" });
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        labelPane: "label1",
+      });
       const labelLayer = new window.L.Marker();
       labelLayer.isLabel = true;
       api.addLayer(labelLayer);
@@ -143,7 +162,13 @@ describe("LayerFactory", () => {
 
     it("register() always calls registerLayer (not idempotent at callback level)", () => {
       const reg = vi.fn(() => null);
-      const f = new LayerFactory({ map: { ...map, hasLayer: vi.fn(() => false) }, panes: new PaneManager(map), registerLayer: reg, unregisterLayer: vi.fn(), bringLayerToFront: vi.fn() });
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => false) },
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+      });
       const api = f.createLayers({ id: "test", name: "Test", graphPane: "graph1" });
       api.addLayer(new window.L.Path());
       api.register(); // second call — register() always calls registerLayer
@@ -157,7 +182,11 @@ describe("LayerFactory", () => {
     });
 
     it("registered() tracks state", () => {
-      const api = factory.createLayers({ id: "test", name: "Test", graphPane: "graph1" });
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+      });
       expect(api.registered()).toBe(false);
       api.addLayer(new window.L.Path());
       expect(api.registered()).toBe(true);
@@ -165,7 +194,13 @@ describe("LayerFactory", () => {
 
     it("addLayer with L.Path triggers ensurePane for the graphPane", () => {
       const ensureSpy = vi.spyOn(PaneManager.prototype, "ensurePane");
-      const f = new LayerFactory({ map, panes: new PaneManager(map), registerLayer: vi.fn(), unregisterLayer: vi.fn(), bringLayerToFront: vi.fn() });
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: vi.fn(),
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+      });
       const api = f.createLayers({ id: "test", name: "Test", graphPane: "graph1" });
       api.addLayer(new window.L.Path());
       expect(ensureSpy).toHaveBeenCalled();
@@ -192,7 +227,9 @@ describe("LayerFactory", () => {
     });
 
     it("throws when id is missing", () => {
-      expect(() => factory.createCanvas({} as any)).toThrow("createCanvas requires an id");
+      expect(() => factory.createCanvas({} as any)).toThrow(
+        "createCanvas requires an id",
+      );
     });
 
     it("bringToFront delegates to the injected callback", () => {
@@ -204,7 +241,9 @@ describe("LayerFactory", () => {
     it("register calls registerLayer with correct opts", () => {
       const api = factory.createCanvas({ id: "canvas_test", name: "My Canvas" });
       api.register();
-      expect(registerLayer).toHaveBeenCalledWith(expect.objectContaining({ id: "canvas_test", name: "My Canvas" }));
+      expect(registerLayer).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "canvas_test", name: "My Canvas" }),
+      );
     });
 
     it("register adds className when provided", () => {
@@ -214,7 +253,13 @@ describe("LayerFactory", () => {
 
     it("register is idempotent", () => {
       const reg = vi.fn(() => null);
-      const f = new LayerFactory({ map, panes: new PaneManager(map), registerLayer: reg, unregisterLayer: vi.fn(), bringLayerToFront: vi.fn() });
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+      });
       const api = f.createCanvas({ id: "canvas_test" });
       api.register();
       api.register();
@@ -223,7 +268,13 @@ describe("LayerFactory", () => {
 
     it("unregister clears canvas and calls unregisterLayer", () => {
       const unreg = vi.fn(() => true);
-      const f = new LayerFactory({ map, panes: new PaneManager(map), registerLayer: vi.fn(), unregisterLayer: unreg, bringLayerToFront: vi.fn() });
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: vi.fn(),
+        unregisterLayer: unreg,
+        bringLayerToFront: vi.fn(),
+      });
       const api = f.createCanvas({ id: "canvas_test" });
       api.register();
       api.unregister();
