@@ -5,7 +5,7 @@
   const labelChk = ctrl.labelChk;
   if (labelChk) {
     labelChk.checked = !labelChk.checked;
-    labelChk.dispatchEvent(new Event('change', { bubbles: true }));
+    labelChk.dispatchEvent(new Event("change", { bubbles: true }));
   }
   const after = ctrl.manager.currentLabelShow;
   return { labelChkExists: !!labelChk, before, after };

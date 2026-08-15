@@ -1352,9 +1352,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            result = page.evaluate(
-                _js("LayerControl/handle_input_color_change")
-            )
+            result = page.evaluate(_js("LayerControl/handle_input_color_change"))
             assert result is not None, "color input not found"
             assert result["inputExists"] is True, "input should exist"
 
@@ -1368,9 +1366,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            result = page.evaluate(
-                _js("LayerControl/hide_color_restores_tile_pane")
-            )
+            result = page.evaluate(_js("LayerControl/hide_color_restores_tile_pane"))
             assert result is not None
             # Color layer toggles tile pane visibility
             assert "tileHiddenBefore" in result
@@ -1386,9 +1382,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            result = page.evaluate(
-                _js("LayerControl/handle_change_resets_paneset")
-            )
+            result = page.evaluate(_js("LayerControl/handle_change_resets_paneset"))
             assert result is not None
             assert result["clicked"] is True, "checkbox should be clickable"
 
