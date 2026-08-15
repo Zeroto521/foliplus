@@ -239,10 +239,6 @@ declare global {
   /** Return type of `LayerAPI.createCanvas`. */
   type CreateCanvasAPI = CoreCreateCanvasAPI;
 
-  /** A canvas element extended with lifecycle hooks (used by ExportControl capture). */
-  interface CanvasWithHooks extends HTMLCanvasElement {
-    hooks?: { before: Array<() => void>; after: Array<() => void> };
-  }
 
   /** Return type of `LayerAPI.createLayers`. */
   type CreateLayersAPI = CoreCreateLayersAPI;
