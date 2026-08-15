@@ -4,7 +4,7 @@
 // the per-map EventBus whenever a mode changes. Components opt in by calling
 // setMode(component, mode); others can read getMode(component) or subscribe.
 // No DOM / CONF dependency.
-import { MODE_CHANGE, type EventBus } from "../event/index.js";
+import { type EventBus, MODE_CHANGE } from "../event/index.js";
 
 export interface ModeChangePayload {
   component: string;

@@ -300,5 +300,4 @@ declare module "leaflet" {
   }
 }
 
-export { };
-
+export {};

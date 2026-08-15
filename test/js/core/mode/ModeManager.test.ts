@@ -3,20 +3,38 @@ import { describe, expect, it, vi } from "vitest";
 
 describe("ModeManager", () => {
   it("setMode/getMode round-trips", () => {
-    const bus = { on: vi.fn(), off: vi.fn(), emit: vi.fn(), clear: vi.fn(), eventCount: 0 } as any;
+    const bus = {
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      clear: vi.fn(),
+      eventCount: 0,
+    } as any;
     const mm = new ModeManager(bus);
     mm.setMode("MeasureControl", "distance");
     expect(mm.getMode("MeasureControl")).toBe("distance");
   });
 
   it("returns null for unknown components", () => {
-    const bus = { on: vi.fn(), off: vi.fn(), emit: vi.fn(), clear: vi.fn(), eventCount: 0 } as any;
+    const bus = {
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      clear: vi.fn(),
+      eventCount: 0,
+    } as any;
     const mm = new ModeManager(bus);
     expect(mm.getMode("Nope")).toBeNull();
   });
 
   it("setMode emits MODE_CHANGE when mode changes", () => {
-    const bus = { on: vi.fn(), off: vi.fn(), emit: vi.fn(), clear: vi.fn(), eventCount: 0 } as any;
+    const bus = {
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      clear: vi.fn(),
+      eventCount: 0,
+    } as any;
     const mm = new ModeManager(bus);
     mm.setMode("SearchControl", "addr");
     expect(bus.emit).toHaveBeenCalledWith("foliplus:modechange", {
@@ -26,7 +44,13 @@ describe("ModeManager", () => {
   });
 
   it("setMode does NOT emit when mode is unchanged (idempotent)", () => {
-    const bus = { on: vi.fn(), off: vi.fn(), emit: vi.fn(), clear: vi.fn(), eventCount: 0 } as any;
+    const bus = {
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      clear: vi.fn(),
+      eventCount: 0,
+    } as any;
     const mm = new ModeManager(bus);
     mm.setMode("X", "a");
     bus.emit.mockClear();
@@ -35,7 +59,13 @@ describe("ModeManager", () => {
   });
 
   it("keys returns all registered components", () => {
-    const bus = { on: vi.fn(), off: vi.fn(), emit: vi.fn(), clear: vi.fn(), eventCount: 0 } as any;
+    const bus = {
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      clear: vi.fn(),
+      eventCount: 0,
+    } as any;
     const mm = new ModeManager(bus);
     mm.setMode("A", "a");
     mm.setMode("B", "b");
@@ -43,7 +73,13 @@ describe("ModeManager", () => {
   });
 
   it("clear resets all modes", () => {
-    const bus = { on: vi.fn(), off: vi.fn(), emit: vi.fn(), clear: vi.fn(), eventCount: 0 } as any;
+    const bus = {
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      clear: vi.fn(),
+      eventCount: 0,
+    } as any;
     const mm = new ModeManager(bus);
     mm.setMode("A", "a");
     mm.clear();

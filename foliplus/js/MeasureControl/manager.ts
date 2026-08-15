@@ -1,10 +1,10 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
-import { ensureModes } from "#core/mode/index.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes } from "#core/mode/index.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
