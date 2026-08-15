@@ -1,6 +1,6 @@
 // core/LayerRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONF dependency. The LayerManager orchestrates mutations.
-import type { LayerInfo, RegisterLayerOpts } from "./types.js";
+import type { LayerInfo, RegisterLayerOpts } from "./type.js";
 import { findLayer } from "./util.js";
 
 // Mutating methods blocked on the read-only view.

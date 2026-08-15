@@ -19,7 +19,7 @@ import type {
   CreateLayersAPI as CoreCreateLayersAPI,
   LayerAPI as CoreLayerAPI,
   LayerInfo as CoreLayerInfo,
-} from "#core/layer/types.js";
+} from "#core/layer/type.js";
 import type * as ChromaJs from "chroma-js";
 import type * as GeoJSON from "geojson";
 import type * as Leaflet from "leaflet";
@@ -245,7 +245,7 @@ declare global {
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.
-   * Defined in core/layer/types.ts — implemented by both LayerManager (full)
+   * Defined in core/layer/type.ts — implemented by both LayerManager (full)
    * and ensureLayerAPI's lightweight default. */
   type LayerAPI = CoreLayerAPI;
 

@@ -4,14 +4,14 @@
 import { dom } from "#common/dom.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
-import type { RegisterLayerOpts } from "./types.js";
+import type { RegisterLayerOpts } from "./type.js";
 import type {
   CreateCanvasAPI,
   CreateCanvasOpts,
   CreateLayersAPI,
   CreateLayersOpts,
   LabelAwareLayer,
-} from "./types.js";
+} from "./type.js";
 
 /** Dependency injection contract for LayerFactory. */
 interface LayerFactoryDeps {
@@ -280,4 +280,4 @@ class LayerFactory {
 }
 
 export { LayerFactory };
-export type { CreateCanvasOpts, CreateLayersOpts } from "./types.js";
+export type { CreateCanvasOpts, CreateLayersOpts } from "./type.js";

@@ -1,4 +1,4 @@
-// core/layer/types — shared layer-management type contracts.
+// core/layer/type — shared layer-management type contracts.
 // Pure types, no DOM / CONF dependency. LayerRegistry, LayerFactory, and the
 // LayerAPI facade all implement these; global.d.ts re-exports them so other
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same

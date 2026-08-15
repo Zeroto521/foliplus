@@ -22,4 +22,4 @@ export type {
   LayerAPI,
   LayerInfo,
   RegisterLayerOpts,
-} from "./types.js";
+} from "./type.js";

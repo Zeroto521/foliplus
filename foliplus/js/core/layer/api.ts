@@ -3,7 +3,7 @@
 // requireLayerAPI throws when LayerControl is required (Export/Heatmap).
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
-import type { LayerAPI, LayerInfo } from "./types.js";
+import type { LayerAPI, LayerInfo } from "./type.js";
 
 /**
  * Ensure that `map.foliplus.LayerAPI` is available, creating a lightweight
