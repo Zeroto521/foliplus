@@ -48,11 +48,3 @@ export const SEL = {
 /** Group names. */
 export const GROUP = { OVERLAY: "overlay", BASE: "base" };
 
-// Re-export shared core constants (z-index, panes, geometry types).
-export {
-  FALLBACK_PANE_PREFIX,
-  GEOM_TYPE,
-  RECURSION,
-  RENDERER_KEY,
-  Z_INDEX,
-} from "#core/layer/const.js";

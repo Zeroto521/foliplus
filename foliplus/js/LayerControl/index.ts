@@ -29,9 +29,7 @@ class LayerControl extends BaseControl {
 
   buildDOM() {
     patchBringToFront();
-    const container = dom.el("div", {
-      class: "leaflet-bar leaflet-control",
-    });
+    const container = dom.el("div", { class: "leaflet-bar leaflet-control" });
 
     container.innerHTML = `
         <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed"

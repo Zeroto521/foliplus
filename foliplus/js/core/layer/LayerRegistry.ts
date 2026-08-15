@@ -108,16 +108,16 @@ class LayerRegistry {
   createReadonlyView() {
     return new Proxy(this.items, {
       set() {
-        throw new TypeError("LayerRegistry: list is read-only, mutate via Manager API");
+        throw new TypeError("[foliplus] LayerRegistry: list is read-only, mutate via Manager API");
       },
       deleteProperty() {
-        throw new TypeError("LayerRegistry: cannot delete items directly");
+        throw new TypeError("[foliplus] LayerRegistry: cannot delete items directly");
       },
       get(target, prop, receiver) {
         if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
           return () => {
             throw new TypeError(
-              `LayerRegistry: read-only method "${String(prop)}" is blocked`,
+              `[foliplus] LayerRegistry: read-only method "${String(prop)}" is blocked`,
             );
           };
         }

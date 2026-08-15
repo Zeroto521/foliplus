@@ -1,4 +1,5 @@
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { GEOM_TYPE, RECURSION, Z_INDEX } from "#foliplus/core/layer/const.js";
 import { describe, expect, it } from "vitest";
 
 describe("INIT_DELAY_MS", () => {
@@ -9,14 +10,14 @@ describe("INIT_DELAY_MS", () => {
 
 describe("Z_INDEX", () => {
   it("defines z-index values", () => {
-    expect(CONST.Z_INDEX.BASE).toBe(600);
-    expect(CONST.Z_INDEX.STEP).toBe(10);
+    expect(Z_INDEX.BASE).toBe(600);
+    expect(Z_INDEX.STEP).toBe(10);
   });
 });
 
 describe("RECURSION", () => {
   it("defines recursion depth limits", () => {
-    expect(CONST.RECURSION.LAYER_DEPTH).toBe(10);
+    expect(RECURSION.LAYER_DEPTH).toBe(10);
   });
 });
 
@@ -37,11 +38,11 @@ describe("CLASSES", () => {
 
 describe("GEOM_TYPE", () => {
   it("defines geometry type names", () => {
-    expect(CONST.GEOM_TYPE.POINT).toBe("point");
-    expect(CONST.GEOM_TYPE.LINE).toBe("line");
-    expect(CONST.GEOM_TYPE.POLYGON).toBe("polygon");
-    expect(CONST.GEOM_TYPE.EMPTY).toBe("empty");
-    expect(CONST.GEOM_TYPE.UNKNOWN).toBe("unknown");
+    expect(GEOM_TYPE.POINT).toBe("point");
+    expect(GEOM_TYPE.LINE).toBe("line");
+    expect(GEOM_TYPE.POLYGON).toBe("polygon");
+    expect(GEOM_TYPE.EMPTY).toBe("empty");
+    expect(GEOM_TYPE.UNKNOWN).toBe("unknown");
   });
 });
 

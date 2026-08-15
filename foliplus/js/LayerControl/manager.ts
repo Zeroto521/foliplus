@@ -3,14 +3,14 @@ import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { throttleRaf } from "#common/throttle.js";
+import { FALLBACK_PANE_PREFIX, GEOM_TYPE, Z_INDEX } from "#core/layer/const.js";
 import { LayerRegistry, type RegisterLayerOpts } from "#core/layer/LayerRegistry.js";
 import { PaneManager } from "#core/layer/PaneManager.js";
+import { findLayer, forEachLeaf, getGeometryType } from "#core/layer/util.js";
 import * as CONST from "./const.js";
 import { LayerUI } from "./ui.js";
-import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 
 // ==================== BringToFront Guard (monkey-patch) ====================
@@ -86,6 +86,7 @@ class LayerManager {
     // Bind method context
     this.registerLayer = this.registerLayer.bind(this);
     this.unregisterLayer = this.unregisterLayer.bind(this);
+    this.bringLayerToFront = this.bringLayerToFront.bind(this);
     this.getLayerType = this.getLayerType.bind(this);
     this.getLayersByType = this.getLayersByType.bind(this);
     this.findLayer = this.findLayer.bind(this);
@@ -107,17 +108,18 @@ class LayerManager {
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
+    // Respond to every layer-level add. The initial enforceOrder runs before
+    // the folium layer scripts, so registered layers may not be resolvable
+    // yet (li.layer === null → skipped). When those layers are later added to
+    // the map (GeoJSON/FeatureGroup containers included), a layeradd fires and
+    // debouncedEnforce re-runs enforceOrder — by then the window globals exist
+    // and every managed layer gets its pane/z-index. isEnforcing guards
+    // re-entrancy; debounce coalesces a batch of adds into one pass.
     this.onLayerAdd = event => {
       if (
         this.isDestroyed ||
         event.layer === this.map ||
         event.layer instanceof L.Renderer
-      )
-        return;
-
-      if (
-        !(event.layer instanceof L.Path || event.layer instanceof L.Marker) &&
-        !event.layer.options?.paneName
       )
         return;
 
@@ -139,6 +141,9 @@ class LayerManager {
     // manager — so the runtime surface stays minimal and internals stay hidden.
     this.map.foliplus.LayerAPI = {
       layers: this.layerRegistry.list,
+      registerLayer: this.registerLayer,
+      unregisterLayer: this.unregisterLayer,
+      bringLayerToFront: this.bringLayerToFront,
       createLayers: this.createLayers,
       createCanvas: this.createCanvas,
       extractPoints: this.extractPoints,
@@ -183,10 +188,10 @@ class LayerManager {
     if (!li) return null;
     if (li.type) return li.type;
     if (li.isBase) return CONST.GROUP.BASE;
-    if (li.iconSvg) return CONST.GEOM_TYPE.CUSTOM;
+    if (li.iconSvg) return GEOM_TYPE.CUSTOM;
     const layer = this.findLayer(li);
     if (!layer) return null;
-    li.type = Util.getGeometryType(layer);
+    li.type = getGeometryType(layer);
     return li.type;
   }
 
@@ -205,7 +210,7 @@ class LayerManager {
     const li =
       typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
     if (li?.layer) return li.layer;
-    return Util.findLayer(
+    return findLayer(
       this.map,
       typeof idOrInfo === "string" ? idOrInfo : (li?.id ?? ""),
     );
@@ -213,7 +218,7 @@ class LayerManager {
 
   forEachLeaf(id: string, fn: (layer: L.Layer) => void) {
     const layer = this.findLayer(id);
-    if (layer) Util.forEachLeaf(layer, fn);
+    if (layer) forEachLeaf(layer, fn);
   }
 
   /**
@@ -582,8 +587,8 @@ class LayerManager {
   }
 
   computeZIndex(i: number, isTile: boolean): number {
-    const zBase = isTile ? CONST.Z_INDEX.TILE_BASE : CONST.Z_INDEX.BASE;
-    return zBase + (this.layers.length - i) * CONST.Z_INDEX.STEP;
+    const zBase = isTile ? Z_INDEX.TILE_BASE : Z_INDEX.BASE;
+    return zBase + (this.layers.length - i) * Z_INDEX.STEP;
   }
 
   enforceOrder() {
@@ -610,7 +615,7 @@ class LayerManager {
         this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
       }
 
-      const topZ = this.computeZIndex(0, false) + CONST.Z_INDEX.STEP;
+      const topZ = this.computeZIndex(0, false) + Z_INDEX.STEP;
       const pp = this.map.getPane("popupPane");
       if (pp) pp.style.zIndex = String(topZ + 1);
       const tp = this.map.getPane("tooltipPane");
@@ -672,7 +677,7 @@ class LayerManager {
       return;
     }
 
-    const fbName = `${CONST.FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
+    const fbName = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
     this.panes.fallbackPaneMap.set(L.stamp(layer), fbName);
     const ep = this.panes.ensurePane(fbName, !isTile);
     ep.pane.style.zIndex = String(z);
