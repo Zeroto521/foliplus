@@ -1,11 +1,10 @@
 import { type Debounced, debounce } from "#common/debounce.js";
-import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
-import { throttleRaf } from "#common/throttle.js";
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
+  LayerFactory,
   LayerRegistry,
   PaneManager,
   type RegisterLayerOpts,
@@ -77,6 +76,7 @@ class LayerManager {
   isEnforcing: boolean;
   isDestroyed: boolean;
   panes: PaneManager;
+  factory: LayerFactory;
   lastAttribution: string | null;
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
@@ -106,6 +106,14 @@ class LayerManager {
 
     this.panes = new PaneManager(mapInstance);
     this.getLayerPanes = this.panes.getLayerPanes.bind(this.panes);
+
+    this.factory = new LayerFactory({
+      map: this.map,
+      panes: this.panes,
+      registerLayer: this.registerLayer,
+      unregisterLayer: this.unregisterLayer,
+      bringLayerToFront: this.bringLayerToFront,
+    });
 
     this.lastAttribution = null;
     this.ui = null;
@@ -363,112 +371,7 @@ class LayerManager {
   }
 
   createLayers(opts: CreateLayersOpts): CreateLayersAPI {
-    const mainLayer = L.layerGroup();
-    const graphLayer = opts.graphPane
-      ? L.layerGroup([], { pane: opts.graphPane })
-      : null;
-    const labelLayer = opts.labelPane
-      ? L.layerGroup([], { pane: opts.labelPane })
-      : null;
-    if (graphLayer) mainLayer.addLayer(graphLayer);
-    if (labelLayer) mainLayer.addLayer(labelLayer);
-
-    let registered = false;
-
-    const layerOpts = {
-      name: opts.name,
-      id: opts.id,
-      isBase: false,
-      layer: mainLayer,
-      paneName: opts.graphPane || null,
-      iconSvg: opts.iconSvg || null,
-    };
-    const register = () => {
-      if (!registered) {
-        registered = true;
-        if (opts.labelPane) this.panes.labelPanes.add(opts.labelPane);
-      }
-      this.registerLayer(layerOpts);
-    };
-
-    const unregister = () => {
-      if (!registered) return;
-      const hasContent =
-        (graphLayer && graphLayer.getLayers().length > 0) ||
-        (labelLayer && labelLayer.getLayers().length > 0);
-      if (!hasContent) {
-        registered = false;
-        this.unregisterLayer(opts.id);
-      }
-    };
-
-    const origAddLayer = mainLayer.addLayer.bind(mainLayer);
-    const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
-
-    mainLayer.addLayer = (layer: LabelAwareLayer) => {
-      const isLabel = layer.isLabel;
-      const target = isLabel ? labelLayer : graphLayer;
-      if (target) {
-        if (!this.map.hasLayer(mainLayer)) register();
-        const paneName = isLabel ? opts.labelPane : opts.graphPane;
-        layer.options.pane = paneName;
-        if (layer instanceof L.Path) {
-          const { renderer } = this.panes.ensurePane(opts.graphPane!);
-          layer.options.renderer = renderer ?? undefined;
-        } else if (paneName) this.panes.ensurePane(paneName, false);
-        const result = target.addLayer(layer);
-        this.panes.reset();
-        return result;
-      }
-      return origAddLayer(layer);
-    };
-
-    mainLayer.removeLayer = (layer: LabelAwareLayer) => {
-      if (graphLayer && graphLayer.hasLayer(layer)) {
-        const result = graphLayer.removeLayer(layer);
-        this.panes.reset();
-        return result;
-      }
-      if (labelLayer && labelLayer.hasLayer(layer)) {
-        const result = labelLayer.removeLayer(layer);
-        this.panes.reset();
-        return result;
-      }
-      return origRemoveLayer(layer);
-    };
-
-    mainLayer.clearLayers = () => {
-      if (graphLayer) graphLayer.clearLayers();
-      if (labelLayer) labelLayer.clearLayers();
-      if (this.map.hasLayer(mainLayer)) this.map.removeLayer(mainLayer);
-      unregister();
-      return mainLayer;
-    };
-
-    const addLayer = (layer: LabelAwareLayer, isLabel?: boolean) => {
-      if (isLabel) layer.isLabel = true;
-      mainLayer.addLayer(layer);
-      return layer;
-    };
-    const removeLayer = (...items: Array<L.Layer | null | undefined>) => {
-      items.forEach(l => {
-        if (l != null) mainLayer.removeLayer(l);
-      });
-    };
-    const clearLayers = () => {
-      mainLayer.clearLayers();
-    };
-
-    return {
-      mainLayer,
-      addLayer,
-      removeLayer,
-      clearLayers,
-      register,
-      unregister,
-      registered: () => registered,
-      bringToFront: () => this.bringLayerToFront(opts.id),
-    };
+    return this.factory.createLayers(opts);
   }
 
   /**
@@ -477,120 +380,7 @@ class LayerManager {
    * @returns {createCanvasAPI}
    */
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
-    if (!opts?.id)
-      throw new Error(`[${CONF.name}] ${_(`${CONF.name}.require_canvas_id`)}`);
-
-    const mapPane = this.map.getPanes().mapPane as HTMLElement;
-    if (!mapPane)
-      throw new Error(`[${CONF.name}] ${_(`${CONF.name}.mapPane_not_available`)}`);
-
-    const canvas = dom.el("canvas", {
-      class: "foliplus-heatmap-canvas",
-      parent: mapPane,
-    }) as HTMLCanvasElement;
-    if (opts.className) canvas.classList.add(opts.className);
-
-    const ctx = canvas.getContext("2d");
-
-    const resize = () => {
-      const container = this.map.getContainer();
-      const dpr = window.devicePixelRatio || 1;
-      const w = container.clientWidth;
-      const h = container.clientHeight;
-      if (canvas.width !== w * dpr) canvas.width = w * dpr;
-      if (canvas.height !== h * dpr) canvas.height = h * dpr;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-    };
-
-    const updatePosition = () => {
-      const pos = L.DomUtil.getPosition(mapPane);
-      canvas.style.left = `${-pos.x}px`;
-      canvas.style.top = `${-pos.y}px`;
-    };
-
-    const getSize = () => {
-      const container = this.map.getContainer();
-      return { width: container.clientWidth, height: container.clientHeight };
-    };
-
-    resize();
-    updatePosition();
-
-    let registered = false;
-
-    const onToggle =
-      opts.onToggle ||
-      ((visible: boolean) => {
-        canvas.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
-      });
-
-    const onZIndex =
-      opts.onZIndex ||
-      ((z: number) => {
-        canvas.style.zIndex = String(z);
-      });
-
-    const unregister = () => {
-      if (!registered) return;
-      registered = false;
-      ctx!.setTransform(1, 0, 0, 1, 0, 0);
-      ctx!.clearRect(0, 0, canvas.width, canvas.height);
-      canvas.classList.add(CONST.CLASSES.HIDDEN);
-      this.unregisterLayer(opts.id);
-    };
-
-    const layerOpts = {
-      id: opts.id,
-      name: opts.name || opts.id,
-      iconSvg: opts.iconSvg || null,
-      canvas,
-      onToggle,
-      onZIndex,
-    };
-    const register = () => {
-      if (registered) return;
-      registered = true;
-      resize();
-      updatePosition();
-      canvas.classList.remove(CONST.CLASSES.HIDDEN);
-      this.registerLayer(layerOpts);
-    };
-
-    const onMove = throttleRaf(() => updatePosition());
-    this.map.on("move", onMove);
-
-    const onResize = () => resize();
-    this.map.on("resize", onResize);
-
-    const hooks = { before: [] as Array<() => void>, after: [] as Array<() => void> };
-    (canvas as CanvasWithHooks).hooks = hooks;
-
-    return {
-      canvas,
-      ctx,
-      resize,
-      getSize,
-      updatePosition,
-      register,
-      unregister,
-      registered: () => registered,
-      destroy: () => {
-        this.map.off("move", onMove);
-        this.map.off("resize", onResize);
-        onMove.cancel();
-        unregister();
-        canvas.remove();
-      },
-      bringToFront: () => this.bringLayerToFront(opts.id),
-      setZIndex: (z: number) => {
-        canvas.style.zIndex = String(z);
-      },
-      setVisible: (v: boolean) => {
-        canvas.classList.toggle(CONST.CLASSES.HIDDEN, !v);
-      },
-      hooks,
-    };
+    return this.factory.createCanvas(opts);
   }
 
   computeZIndex(i: number, isTile: boolean): number {
