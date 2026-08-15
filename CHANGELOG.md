@@ -10,7 +10,6 @@
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
 - `EventBus`: introduce a `EventBus` with semantic event constants for decoupled cross-component communication, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148))
-- `ModeManager`: per-map registry for cross-component active-mode tracking. `ensureModes(map)` attaches to `map.foliplus.modes`. MeasureControl and SearchControl publish their mode changes; other components can query via `getMode()` or subscribe via `MODE_CHANGE` event. ([#150](https://github.com/Zeroto521/foliplus/pull/150))
 
 ### Changed
 
