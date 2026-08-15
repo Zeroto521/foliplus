@@ -358,13 +358,22 @@ class TestHeatmapControlBrowser:
 
     @staticmethod
     def _expose_ctrl(html: str) -> str:
-        marker = "heatmapCtrl.addTo(map);"
-        idx = html.find(marker)
-        if idx > 0:
+        """Expose the HeatmapControl instance as ``window.__heatmapCtrl``.
+
+        The control variable is minified (e.g. ``de``) in production builds,
+        so match the generic ``<expr>.addTo(map);`` call added last (the
+        HeatmapControl mounts after LayerControl) instead of a fixed name.
+        """
+        import re
+
+        matches = list(re.finditer(r"([a-zA-Z0-9_$]+)\.addTo\(map\);", html))
+        if matches:
+            m = matches[-1]  # last addTo = HeatmapControl
+            var_name = m.group(1)
             html = (
-                html[: idx + len(marker)]
-                + "window.__heatmapCtrl = heatmapCtrl;"
-                + html[idx + len(marker) :]
+                html[: m.start()]
+                + f"window.__heatmapCtrl = {var_name};"
+                + html[m.start() :]
             )
         return html
 
@@ -748,10 +757,7 @@ class TestHeatmapAutoFieldBrowser:
 
         html = m.get_root().render()
         # Expose heatmapCtrl for test assertions
-        html = html.replace(
-            "heatmapCtrl.addTo(map);",
-            "window.__heatmapCtrl = heatmapCtrl; heatmapCtrl.addTo(map);",
-        )
+        html = TestHeatmapControlBrowser._expose_ctrl(html)
 
         html_path = tmp_path / "test_heatmap_autofield.html"
         html_path.write_text(html, encoding="utf-8")

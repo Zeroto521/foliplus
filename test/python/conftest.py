@@ -12,6 +12,7 @@ Guidelines
 
 from __future__ import annotations
 
+import os
 import re
 import urllib.request
 from collections.abc import Generator
@@ -43,6 +44,7 @@ def _js(path: str) -> str:
 # `Page.goto` timeouts.  We intercept those requests and serve them from a
 # local cache (downloaded once to /tmp) so tests are network-independent.
 _CDN_CACHE_DIR = Path("/tmp/foliplus-cdn-cache")
+_CDN_DOWNLOAD_TIMEOUT = 15  # seconds; fail fast on slow networks
 
 # CDN URL fragment -> (cache filename, mime type)
 _CDN_CACHE: dict[str, tuple[str, str]] = {
@@ -76,20 +78,34 @@ _CDN_CACHE: dict[str, tuple[str, str]] = {
 def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
     """Return (bytes, mime) served from a local cache for a CDN url.
 
-    Downloads once into ``_CDN_CACHE_DIR`` on first use.  Returns
-    ``(None, None)`` for URLs outside the cache map so the request can be
-    forwarded to the network as-is.
+    Downloads once into ``_CDN_CACHE_DIR`` on first use, with a bounded
+    timeout and atomic write so slow/flaky networks fail fast instead of
+    stalling browser navigation.  Returns ``(None, None)`` for URLs outside
+    the cache map so the request can be forwarded to the network as-is.
     """
+    import tempfile
+
     for fragment, (fname, mime) in _CDN_CACHE.items():
         if fragment not in url:
             continue
 
         _CDN_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        if not (cache_path := _CDN_CACHE_DIR / fname).exists():
+        cache_path = _CDN_CACHE_DIR / fname
+        if not cache_path.exists():
+            # Atomic download: write to a temp file, then rename.  Guards
+            # against concurrent xdist workers reading a half-written file.
+            fd, tmp_path = tempfile.mkstemp(dir=_CDN_CACHE_DIR, suffix=".part")
             try:
-                urllib.request.urlretrieve(url, cache_path)
+                with urllib.request.urlopen(
+                    url, timeout=_CDN_DOWNLOAD_TIMEOUT
+                ) as resp, os.fdopen(fd, "wb") as out:
+                    out.write(resp.read())
+                os.replace(tmp_path, cache_path)
             except Exception:
-                # Download failed; let the request hit the network.
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
                 return None, None
         try:
             return cache_path.read_bytes(), mime
@@ -97,6 +113,31 @@ def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
             return None, None
     return None, None
 
+
+def _is_cdn_url(url: str) -> bool:
+    """True if *url* matches a known CDN asset (fragment substring match)."""
+    return any(fragment in url for fragment in _CDN_CACHE)
+
+
+def _prefetch_cdn_cache() -> None:
+    """Pre-download every CDN asset into the local cache.
+
+    Called once at browser-session setup so that the first test does not
+    pay the download cost inside a ``page.goto``.  Failures are ignored
+    (the per-request handler falls back to a 404 for uncached assets),
+    which keeps the browser session usable even without network access.
+    """
+    import urllib.error
+
+    _CDN_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    for fragment, (fname, _mime) in _CDN_CACHE.items():
+        cache_path = _CDN_CACHE_DIR / fname
+        if cache_path.exists():
+            continue
+        try:
+            _cdn_cached('https://' + fragment)
+        except Exception:
+            continue
 
 def _install_cdn_route(page) -> None:
     """Intercept CDN + tile requests so browser tests run offline.
@@ -113,9 +154,18 @@ def _install_cdn_route(page) -> None:
             route.fulfill(status=404, body=b"")
             return
 
+        if not _is_cdn_url(url):
+            # Non-CDN request (page document, tiles, foliplus assets):
+            # let it through so the page can load.
+            route.continue_()
+            return
+
         data, mime = _cdn_cached(url)
         if data is None:
-            route.continue_()
+            # Known CDN asset whose download failed: answer 404 instead of
+            # hitting the network.  Keeps browser tests offline and immune
+            # to slow/flaky CDN downloads mid-run.
+            route.fulfill(status=404, body=b"")
             return
         route.fulfill(status=200, body=data, content_type=mime)
 
@@ -364,6 +414,10 @@ def browser() -> Generator[Browser, None, None]:
     """
     pytest.importorskip("playwright")
     from playwright.sync_api import sync_playwright
+
+    # Warm the CDN cache before any page loads so slow downloads can't stall
+    # navigation during the run (main source of flaky browser tests on CI).
+    _prefetch_cdn_cache()
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
