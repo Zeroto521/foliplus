@@ -200,21 +200,6 @@ declare global {
     type CRS = Leaflet.CRS;
   }
 
-  /** Options accepted by `LayerAPI.registerLayer`. */
-  interface RegisterLayerOpts {
-    id: string;
-    name?: string | null;
-    layer?: L.Layer | null;
-    isBase?: boolean;
-    paneName?: string | null;
-    iconSvg?: string | null;
-    visible?: boolean;
-    canvas?: HTMLCanvasElement | null;
-    onToggle?: ((visible: boolean) => void) | null;
-    onZIndex?: ((z: number) => void) | null;
-    [key: string]: unknown;
-  }
-
   /** A layer entry in the LayerControl ordered registry (read-only view). */
   interface LayerInfo {
     id: string;
@@ -294,7 +279,9 @@ declare global {
     /** Ordered array of layers (read-only view of LayerRegistry). */
     layers: LayerInfo[];
     /** Register a layer; returns its row element (or null on failure). */
-    registerLayer: (opts: RegisterLayerOpts) => HTMLElement | null;
+    registerLayer: (
+      opts: import("#core/layer/LayerRegistry.js").RegisterLayerOpts,
+    ) => HTMLElement | null;
     /** Unregister and remove a layer; returns true if removed. */
     unregisterLayer: (id: string) => boolean;
     /** Bring a registered overlay layer to the front. */

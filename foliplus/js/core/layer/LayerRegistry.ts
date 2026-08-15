@@ -40,7 +40,7 @@ interface RegisterLayerOpts {
  *   `createLayerInfo` / `upsert` / `prepend` / `insertAt` / `remove`
  *   `moveToFront` / `reorder` / `replace` / `clear` / `normalizeGroups`
  *   `canReorderBetween` / `refreshFirstBaseIdx`
- *   `items` / `byId` / `view` / `list`
+ *   `items` / `byId` / `view` / `layers`
  *
  * External callers must use the Manager API for mutations:
  *   `api.registerLayer({...})`   — insert/update
@@ -126,8 +126,8 @@ class LayerRegistry {
     });
   }
 
-  /** The ordered list array (read-only view; mutate via methods). */
-  get list() {
+  /** The ordered layers array (read-only view; mutate via methods). */
+  get layers() {
     return this.view;
   }
 

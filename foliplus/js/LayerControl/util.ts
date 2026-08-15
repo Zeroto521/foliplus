@@ -1,8 +1,7 @@
 /** Utility functions for LayerControl (UI-specific).
  *  Layer traversal/detection logic lives in core/layer; this module only
  *  keeps UI concerns (SVG icons). */
-import { GEOM_TYPE } from "#core/layer/const.js";
-import { getGeometryType } from "#core/layer/util.js";
+import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import * as SVGs from "./icon.js";
 
 /** Geometry-type SVG icon (UI concern; type detection lives in core/layer). */

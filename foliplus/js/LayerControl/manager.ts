@@ -3,10 +3,17 @@ import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { throttleRaf } from "#common/throttle.js";
-import { FALLBACK_PANE_PREFIX, GEOM_TYPE, Z_INDEX } from "#core/layer/const.js";
-import { LayerRegistry, type RegisterLayerOpts } from "#core/layer/LayerRegistry.js";
-import { PaneManager } from "#core/layer/PaneManager.js";
-import { findLayer, forEachLeaf, getGeometryType } from "#core/layer/util.js";
+import {
+  FALLBACK_PANE_PREFIX,
+  GEOM_TYPE,
+  Z_INDEX,
+  LayerRegistry,
+  type RegisterLayerOpts,
+  PaneManager,
+  findLayer,
+  forEachLeaf,
+  getGeometryType,
+} from "#core/layer/index.js";
 import * as CONST from "./const.js";
 import { LayerUI } from "./ui.js";
 
@@ -79,7 +86,7 @@ class LayerManager {
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
     this.layerRegistry = new LayerRegistry(data, this.map);
-    this.layers = this.layerRegistry.list;
+    this.layers = this.layerRegistry.layers;
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
@@ -140,7 +147,7 @@ class LayerManager {
     // Expose only the LayerAPI contract (interface methods) — not the whole
     // manager — so the runtime surface stays minimal and internals stay hidden.
     this.map.foliplus.LayerAPI = {
-      layers: this.layerRegistry.list,
+      layers: this.layerRegistry.layers,
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
