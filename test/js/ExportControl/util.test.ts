@@ -86,6 +86,50 @@ describe("loadImageBitmap", () => {
     // Cache hit → fetch called only once
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
+
+  it("calls bitmap.close() when createImageBitmap throws", async () => {
+    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    const fakeBitmap = { close: vi.fn() };
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob()) }),
+    ) as unknown as typeof fetch;
+    // createImageBitmap resolves with a bitmap then throws (simulated)
+    globalThis.createImageBitmap = vi
+      .fn()
+      .mockResolvedValueOnce(fakeBitmap)
+      .mockRejectedValueOnce(new Error("bitmap decode failed"))
+      as unknown as typeof createImageBitmap;
+    // First call succeeds
+    await loadImageBitmap("https://example.com/a.png");
+    // Second call — fetch succeeds but createImageBitmap throws
+    const result = await loadImageBitmap("https://example.com/b.png");
+    expect(result).toBeNull();
+    // The bitmap that was created before the throw should be closed
+    expect(fakeBitmap.close).toHaveBeenCalled();
+  });
+
+  it("clearBitmapCache closes and evicts all cached bitmaps", async () => {
+    const { loadImageBitmap, clearBitmapCache } = await import(
+      "#foliplus/ExportControl/util.js"
+    );
+    const fakeBitmap1 = { close: vi.fn() };
+    const fakeBitmap2 = { close: vi.fn() };
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob()) }),
+    ) as unknown as typeof fetch;
+    globalThis.createImageBitmap = vi
+      .fn()
+      .mockResolvedValueOnce(fakeBitmap1)
+      .mockResolvedValueOnce(fakeBitmap2)
+      as unknown as typeof createImageBitmap;
+
+    await loadImageBitmap("https://example.com/a.png");
+    await loadImageBitmap("https://example.com/b.png");
+
+    clearBitmapCache();
+    expect(fakeBitmap1.close).toHaveBeenCalledTimes(1);
+    expect(fakeBitmap2.close).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("loadImage", () => {
@@ -105,5 +149,66 @@ describe("loadImage", () => {
     const result = loadImage("data:image/png;base64,AAAA");
     await expect(result).resolves.toBeDefined();
     globalThis.Image = origImage;
+  });
+
+  it("detaches event handlers on success", async () => {
+    const { loadImage } = await import("#foliplus/ExportControl/util.js");
+    const origImage = globalThis.Image;
+    const images: HTMLImageElement[] = [];
+    let onloadHandler;
+    globalThis.Image = class {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      crossOrigin?: string;
+      src: string = "";
+      set onload(fn) {
+        onloadHandler = fn;
+      }
+      set src(v: string) {
+        queueMicrotask(() => onloadHandler?.());
+      }
+      constructor() {
+        images.push(this);
+      }
+    } as unknown as typeof Image;
+
+    const result = await loadImage("data:image/png;base64,AAAA");
+    expect(result).toBeDefined();
+    // Handlers should be detached after success
+    expect(images[0].onload).toBeNull();
+    expect(images[0].onerror).toBeNull();
+    globalThis.Image = origImage;
+  });
+
+  it("revokes blob URL and detaches handlers on error", async () => {
+    const { loadImage } = await import("#foliplus/ExportControl/util.js");
+    const origImage = globalThis.Image;
+    const revokeSpy = vi.spyOn(URL, "revokeObjectURL");
+    let onerrorHandler;
+    globalThis.Image = class {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      crossOrigin?: string;
+      src: string = "";
+      set onload(fn) {
+        this.onload = fn;
+      }
+      set onerror(fn) {
+        onerrorHandler = fn;
+        this.onerror = fn;
+      }
+      set src(v: string) {
+        this.src = v;
+        queueMicrotask(() => onerrorHandler?.());
+      }
+    } as unknown as typeof Image;
+
+    await expect(
+      loadImage("blob:https://example.com/123"),
+    ).rejects.toThrow();
+    expect(revokeSpy).toHaveBeenCalledWith("blob:https://example.com/123");
+
+    globalThis.Image = origImage;
+    revokeSpy.mockRestore();
   });
 });

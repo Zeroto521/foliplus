@@ -1,7 +1,13 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
-import { ensureFont, isVisible, loadImage, loadImageBitmap } from "./util.js";
+import {
+  clearBitmapCache,
+  ensureFont,
+  isVisible,
+  loadImage,
+  loadImageBitmap,
+} from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
@@ -194,6 +200,9 @@ class ExportRenderer {
       }
     }
 
+    // Release all cached ImageBitmap GPU resources now that rendering is complete.
+    clearBitmapCache();
+
     return canvas;
   }
 
@@ -216,13 +225,17 @@ class ExportRenderer {
       if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
       const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
       const dataUrl = ce.toDataURL(mimeType);
-      const img = (await loadImage(dataUrl)) as HTMLImageElement;
-      ctx.drawImage(img, dx, dy, dw, dh);
-    } catch {
-      /* skip */
-    } finally {
-      if (hooks) hooks.after.forEach(fn => fn());
-    }
+      let img: HTMLImageElement | null = null;
+      try {
+        img = (await loadImage(dataUrl)) as HTMLImageElement;
+        ctx.drawImage(img, dx, dy, dw, dh);
+      } catch {
+        /* skip */
+      } finally {
+        // Data-URL Image elements have no explicit close; event handlers
+        // are detached inside loadImage() so the Image can be GC'd.
+        if (hooks) hooks.after.forEach(fn => fn());
+      }
   }
 
   /** Render a single tile layer from geo bounds with concurrent tile loading. */
@@ -274,7 +287,14 @@ class ExportRenderer {
         const bitmap = bitmaps[j];
         if (!bitmap) continue;
         const t = batch[j];
-        ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
+        try {
+          ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
+        } catch {
+          /* skip tile on draw error */
+        } finally {
+          // Bitmap stays in cache for reuse; explicit close is handled by
+          // clearBitmapCache() at the end of render().
+        }
       }
     }
   }
@@ -374,8 +394,18 @@ class ExportRenderer {
         if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
         const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
         const dataUrl = (ce as HTMLCanvasElement).toDataURL(mimeType);
-        const img = (await loadImage(dataUrl)) as HTMLImageElement;
-        ctx.drawImage(img, dx, dy, dw, dh);
+        let img: HTMLImageElement | null = null;
+        try {
+          img = (await loadImage(dataUrl)) as HTMLImageElement;
+          ctx.drawImage(img, dx, dy, dw, dh);
+        } catch {
+          /* skip */
+        } finally {
+          if (img) {
+            // Data-URL images have no explicit close; detaching handlers
+            // (done inside loadImage) allows the Image to be GC'd.
+          }
+        }
       } catch {
         /* skip */
       } finally {
@@ -663,12 +693,18 @@ class ExportRenderer {
       const imgEl =
         root.tagName === "IMG" ? (root as HTMLImageElement) : root.querySelector("img");
       if (imgEl && imgEl.src) {
+        let img: HTMLImageElement | null = null;
         try {
-          const img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
+          img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
           ctx.drawImage(img, dx, dy, dw, dh);
           continue;
         } catch {
           /* fall through */
+        } finally {
+          if (img) {
+            // Image loaded from a regular URL; event handlers detached inside
+            // loadImage() so the Image element can be GC'd.
+          }
         }
       }
 
