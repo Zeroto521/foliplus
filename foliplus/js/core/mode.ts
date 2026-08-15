@@ -2,7 +2,7 @@
 // Tracks the active mode of each participating component and emits
 // MODE_CHANGE on the per-map EventBus whenever a mode changes.
 // No DOM / CONF dependency.
-import { MODE_CHANGE, ensureEvents, type EventBus } from "#core/event/index.js";
+import { type EventBus, MODE_CHANGE, ensureEvents } from "#core/event/index.js";
 
 interface ModeChangePayload {
   component: string;
