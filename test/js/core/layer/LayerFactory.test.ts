@@ -3,7 +3,12 @@ import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("LayerFactory", () => {
-  let factory, map, panes, registerLayer, unregisterLayer, bringLayerToFront,
+  let factory,
+    map,
+    panes,
+    registerLayer,
+    unregisterLayer,
+    bringLayerToFront,
     invalidateType;
 
   beforeEach(() => {

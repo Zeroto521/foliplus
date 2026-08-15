@@ -170,11 +170,7 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     pm.labelPanes.add("keep_label");
     pm.labelPanes.add("drop_label");
-    pm.sweepLabelPanes([
-      { labelPane: "keep_label" },
-      { labelPane: null },
-      {},
-    ]);
+    pm.sweepLabelPanes([{ labelPane: "keep_label" }, { labelPane: null }, {}]);
     expect(pm.labelPanes.has("keep_label")).toBe(true);
     expect(pm.labelPanes.has("drop_label")).toBe(false);
   });

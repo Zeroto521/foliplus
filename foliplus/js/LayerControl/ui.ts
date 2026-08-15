@@ -167,7 +167,9 @@ class LayerUI {
     item.dataset.index = String(idx);
     const label = item.querySelector("label");
     if (label) label.textContent = layerInfo.name;
-    const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    const checkbox = item.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement | null;
     if (checkbox) {
       checkbox.dataset.index = String(idx);
       checkbox.setAttribute("aria-label", escapeHTML(layerInfo.name));
@@ -457,7 +459,9 @@ class LayerUI {
       const layer = this.m.findLayer(layerInfo);
 
       checkbox.checked = newState;
-      checkbox.title = _(`${CONF.name}.${newState ? "deselect_tooltip" : "select_tooltip"}`);
+      checkbox.title = _(
+        `${CONF.name}.${newState ? "deselect_tooltip" : "select_tooltip"}`,
+      );
       if (newState) item.classList.add(CONST.CLASSES.ACTIVE);
       else item.classList.remove(CONST.CLASSES.ACTIVE);
 

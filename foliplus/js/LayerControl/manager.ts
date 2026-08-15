@@ -334,9 +334,7 @@ class LayerManager implements LayerAPI {
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).
       this.ui.initLayerItem(layerInfo);
-      this.ui.syncToggleAll(
-        layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
-      );
+      this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
     }
