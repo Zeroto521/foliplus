@@ -1,6 +1,7 @@
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
+import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
@@ -41,25 +42,6 @@ const unpatchBringToFront = () => {
   L.Path.prototype.bringToFront = origBringToFront;
 };
 
-/** Options for createLayers. */
-interface CreateLayersOpts {
-  id: string;
-  name?: string;
-  graphPane?: string;
-  labelPane?: string;
-  iconSvg?: string;
-}
-
-/** Options for createCanvas. */
-interface CreateCanvasOpts {
-  id: string;
-  name?: string;
-  className?: string;
-  iconSvg?: string;
-  onToggle?: (visible: boolean) => void;
-  onZIndex?: (z: number) => void;
-}
-
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
@@ -99,8 +81,6 @@ class LayerManager {
     this.findLayer = this.findLayer.bind(this);
     this.forEachLeaf = this.forEachLeaf.bind(this);
     this.extractPoints = this.extractPoints.bind(this);
-    this.createLayers = this.createLayers.bind(this);
-    this.createCanvas = this.createCanvas.bind(this);
     this.isEnforcing = false;
     this.isDestroyed = false;
 
@@ -151,20 +131,20 @@ class LayerManager {
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
 
-    if (!this.map.foliplus) this.map.foliplus = { LayerAPI: null };
-    // Expose only the LayerAPI contract (interface methods) — not the whole
-    // manager — so the runtime surface stays minimal and internals stay hidden.
-    this.map.foliplus.LayerAPI = {
+    // Ensure the lightweight LayerAPI exists (consumers always have a valid
+    // LayerAPI even without LayerControl), then upgrade to the full version.
+    ensureLayerAPI(this.map);
+    this.map.foliplus!.LayerAPI = {
       layers: this.layerRegistry.layers,
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
-      createLayers: this.createLayers,
-      createCanvas: this.createCanvas,
+      createLayers: opts => this.factory.createLayers(opts),
+      createCanvas: opts => this.factory.createCanvas(opts),
       extractPoints: this.extractPoints,
       getLayerPanes: this.getLayerPanes,
       getLayersByType: this.getLayersByType,
-    } as LayerAPI;
+    };
   }
 
   loadSavedOrder() {
@@ -370,19 +350,6 @@ class LayerManager {
       (layer as L.LayerGroup).eachLayer(c => this.clearAllLayers(c));
   }
 
-  createLayers(opts: CreateLayersOpts): CreateLayersAPI {
-    return this.factory.createLayers(opts);
-  }
-
-  /**
-   * Create a managed canvas element that tracks map pan/zoom.
-   * @param {Object} opts
-   * @returns {createCanvasAPI}
-   */
-  createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
-    return this.factory.createCanvas(opts);
-  }
-
   computeZIndex(i: number, isTile: boolean): number {
     const zBase = isTile ? Z_INDEX.TILE_BASE : Z_INDEX.BASE;
     return zBase + (this.layers.length - i) * Z_INDEX.STEP;
@@ -534,7 +501,10 @@ class LayerManager {
     this.layerRegistry.clear();
     this.pendingRegistrations = [];
     this.panes.destroy();
-    if (this.map.foliplus) this.map.foliplus.LayerAPI = null;
+    // Revert to the lightweight LayerAPI (no registry, no panel).
+    // ensureLayerAPI guarantees a valid object, so consumers can always
+    // call `map.foliplus.LayerAPI.xxx` without null checks.
+    ensureLayerAPI(this.map);
   }
 }
 
