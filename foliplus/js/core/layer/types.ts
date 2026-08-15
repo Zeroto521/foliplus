@@ -11,6 +11,7 @@ export interface RegisterLayerOpts {
   layer?: L.Layer | null;
   isBase?: boolean;
   paneName?: string | null;
+  labelPane?: string | null;
   iconSvg?: string | null;
   visible?: boolean;
   canvas?: HTMLCanvasElement | null;
@@ -27,6 +28,7 @@ export interface LayerInfo {
   visible: boolean;
   isBase: boolean;
   paneName: string | null;
+  labelPane?: string | null;
   iconSvg: string | null;
   type: string | null;
   canvas?: HTMLCanvasElement | null;

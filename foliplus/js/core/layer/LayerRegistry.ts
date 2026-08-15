@@ -67,6 +67,7 @@ class LayerRegistry {
       visible: opts.visible ?? existingLi?.visible ?? true,
       isBase: opts.isBase ?? existingLi?.isBase ?? false,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
+      labelPane: opts.labelPane ?? existingLi?.labelPane ?? null,
       iconSvg: opts.iconSvg ?? existingLi?.iconSvg ?? null,
       type: null,
       layer:

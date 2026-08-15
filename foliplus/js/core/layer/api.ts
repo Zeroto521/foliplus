@@ -36,6 +36,7 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
     },
     unregisterLayer: () => true,
     bringLayerToFront: () => {},
+    invalidateType: () => {}, // no registry in the lightweight API
   });
 
   map.foliplus.LayerAPI = {

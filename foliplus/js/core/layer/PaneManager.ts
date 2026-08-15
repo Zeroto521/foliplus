@@ -161,6 +161,18 @@ class PaneManager {
     this.paneCache.clear();
   }
 
+  /** Drop label-pane entries no longer referenced by any registered layer.
+   *  Called after unregisterLayer so labelPanes does not grow unboundedly. */
+  sweepLabelPanes(layers: Array<{ labelPane?: string | null }>) {
+    const used = new Set<string>();
+    for (const li of layers) {
+      if (li.labelPane) used.add(li.labelPane);
+    }
+    for (const pane of this.labelPanes) {
+      if (!used.has(pane)) this.labelPanes.delete(pane);
+    }
+  }
+
   /** Release all pane state. Called by LayerManager.destroy(). */
   destroy() {
     this.paneCache.clear();

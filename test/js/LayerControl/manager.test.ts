@@ -40,6 +40,14 @@ describe("LayerManager", () => {
     window.L.TileLayer = TileLayer;
     window.L.GridLayer = GridLayer;
     window.L.Renderer = Renderer;
+    window.L.layerGroup = vi.fn(() => ({
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      hasLayer: vi.fn(() => false),
+      getLayers: vi.fn(() => []),
+      clearLayers: vi.fn(),
+      options: {},
+    }));
     window.L.Path = Path;
     window.L.Polygon = Polygon;
     window.L.Polyline = Polyline;
@@ -140,6 +148,19 @@ describe("LayerManager", () => {
     expect(manager.unregisterLayer("nonexistent")).toBe(false);
   });
 
+  it("unregisterLayer sweeps label panes no longer referenced", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    const api = manager.createLayers({
+      id: "g1",
+      name: "Group",
+      labelPane: "g1_label",
+    });
+    api.register();
+    expect(manager.panes.labelPanes.has("g1_label")).toBe(true);
+    expect(manager.unregisterLayer("g1")).toBe(true);
+    expect(manager.panes.labelPanes.has("g1_label")).toBe(false);
+  });
+
   it("unregisterLayer returns true when layer is found and removed", () => {
     manager.registerLayer({ id: "test_layer", name: "Test" });
     const result = manager.unregisterLayer("test_layer");
@@ -171,6 +192,14 @@ describe("LayerManager", () => {
   it("getLayerType returns custom for iconSvg layers", () => {
     manager.registerLayer({ id: "icon", name: "Icon", iconSvg: "<svg/>" });
     expect(manager.getLayerType("icon")).toBe(GEOM_TYPE.CUSTOM);
+  });
+
+  it("invalidateType clears the cached type; refreshType re-infers", () => {
+    // overlay1 has no layer — getLayerType returns null without caching a type.
+    manager.layerRegistry.get("overlay1")!.type = GEOM_TYPE.POINT;
+    manager.invalidateType("overlay1");
+    expect(manager.layerRegistry.get("overlay1")!.type).toBeNull();
+    expect(manager.refreshType("overlay1")).toBeNull(); // no layer resolvable
   });
 
   it("getLayerType caches the resolved type on the layer info", () => {
@@ -281,14 +310,38 @@ describe("LayerManager", () => {
 
   it("onLayerAdd responds to container layers (GeoJSON/FeatureGroup) too", () => {
     // Container layers (L.GeoJSON / FeatureGroup) previously fell through the
-    // Path/Marker filter, so their addTo never re-ran enforceOrder. With the
-    // filter removed, any layer-level add must coalesce into one enforce.
+    // Path/Marker filter, so their addTo never re-ran enforceOrder. Any
+    // registered container's add must coalesce into one enforce.
     vi.useFakeTimers();
     const spy = vi.spyOn(manager, "enforceOrder");
-    manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
-    manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
+    const container = { options: {}, eachLayer: vi.fn() };
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({ id: "fg", name: "FG", layer: container });
+    manager.onLayerAdd({ layer: container });
+    manager.onLayerAdd({ layer: container });
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
     expect(spy).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("onLayerAdd ignores unrelated layers once all registered layers are resolved", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(manager, "enforceOrder");
+    // Resolve every registered layer so the managed-layer filter is active.
+    manager.registerLayer({ id: "overlay1", name: "Points", layer: { options: {} } });
+    manager.registerLayer({
+      id: "base1",
+      name: "OSM",
+      layer: new TileLayer(),
+      isBase: true,
+    });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    spy.mockClear();
+    // An unrelated layeradd (e.g. ExportControl crossOrigin re-add) must NOT
+    // trigger a full enforceOrder pass.
+    manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    expect(spy).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 

@@ -3,7 +3,8 @@ import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("LayerFactory", () => {
-  let factory, map, panes, registerLayer, unregisterLayer, bringLayerToFront;
+  let factory, map, panes, registerLayer, unregisterLayer, bringLayerToFront,
+    invalidateType;
 
   beforeEach(() => {
     class TileLayer {
@@ -84,6 +85,7 @@ describe("LayerFactory", () => {
     registerLayer = vi.fn(() => null);
     unregisterLayer = vi.fn(() => true);
     bringLayerToFront = vi.fn();
+    invalidateType = vi.fn();
 
     factory = new LayerFactory({
       map,
@@ -91,6 +93,7 @@ describe("LayerFactory", () => {
       registerLayer,
       unregisterLayer,
       bringLayerToFront,
+      invalidateType,
     });
   });
 
@@ -145,6 +148,20 @@ describe("LayerFactory", () => {
       expect(layer.options.pane).toBeUndefined();
     });
 
+    it("invalidates the cached type when graph content changes", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+      });
+      const layer = new window.L.Path();
+      api.addLayer(layer);
+      expect(invalidateType).toHaveBeenCalledWith("test");
+      invalidateType.mockClear();
+      api.removeLayer(layer);
+      expect(invalidateType).toHaveBeenCalledWith("test");
+    });
+
     it("clearLayers unregisters when empty", () => {
       const unreg = vi.fn(() => true);
       const f = new LayerFactory({
@@ -153,6 +170,7 @@ describe("LayerFactory", () => {
         registerLayer: vi.fn(() => null),
         unregisterLayer: unreg,
         bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
       });
       const api = f.createLayers({ id: "test", name: "Test" });
       api.register();
@@ -168,6 +186,7 @@ describe("LayerFactory", () => {
         registerLayer: reg,
         unregisterLayer: vi.fn(),
         bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
       });
       const api = f.createLayers({ id: "test", name: "Test", graphPane: "graph1" });
       api.addLayer(new window.L.Path());
@@ -200,6 +219,7 @@ describe("LayerFactory", () => {
         registerLayer: vi.fn(),
         unregisterLayer: vi.fn(),
         bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
       });
       const api = f.createLayers({ id: "test", name: "Test", graphPane: "graph1" });
       api.addLayer(new window.L.Path());
@@ -259,6 +279,7 @@ describe("LayerFactory", () => {
         registerLayer: reg,
         unregisterLayer: vi.fn(),
         bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
       });
       const api = f.createCanvas({ id: "canvas_test" });
       api.register();
@@ -274,6 +295,7 @@ describe("LayerFactory", () => {
         registerLayer: vi.fn(),
         unregisterLayer: unreg,
         bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
       });
       const api = f.createCanvas({ id: "canvas_test" });
       api.register();
@@ -335,6 +357,7 @@ describe("LayerFactory", () => {
         registerLayer: reg,
         unregisterLayer: vi.fn(),
         bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
       });
       const api = f.createCanvas({ id: "test", onToggle });
       api.register();
@@ -350,6 +373,7 @@ describe("LayerFactory", () => {
         registerLayer: reg,
         unregisterLayer: vi.fn(),
         bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
       });
       const api = f.createCanvas({ id: "test", onZIndex });
       api.register();
@@ -396,6 +420,7 @@ describe("LayerFactory", () => {
         registerLayer: reg,
         unregisterLayer: vi.fn(),
         bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
       });
       const api = f.createLayers({
         id: "test",
@@ -415,6 +440,7 @@ describe("LayerFactory", () => {
         registerLayer: vi.fn(),
         unregisterLayer: vi.fn(),
         bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
       });
       expect(() => f.createCanvas({ id: "test" })).toThrow("mapPane not available");
     });

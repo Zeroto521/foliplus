@@ -16,6 +16,7 @@ import {
   type RegisterLayerOpts,
   Z_INDEX,
   findLayer,
+  forEachLayer,
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
@@ -96,6 +97,7 @@ class LayerManager implements LayerAPI {
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
+      invalidateType: id => this.invalidateType(id),
     });
 
     this.lastAttribution = null;
@@ -117,13 +119,17 @@ class LayerManager implements LayerAPI {
       );
     }, CONST.SAVE_ORDER_DEBOUNCE_MS);
 
-    // Respond to every layer-level add. The initial enforceOrder runs before
-    // the folium layer scripts, so registered layers may not be resolvable
-    // yet (li.layer === null → skipped). When those layers are later added to
-    // the map (GeoJSON/FeatureGroup containers included), a layeradd fires and
+    // Respond to layer-level adds. The initial enforceOrder runs before the
+    // folium layer scripts, so registered layers may not be resolvable yet
+    // (li.layer === null → skipped). When those layers are later added to the
+    // map (GeoJSON/FeatureGroup containers included), a layeradd fires and
     // debouncedEnforce re-runs enforceOrder — by then the window globals exist
     // and every managed layer gets its pane/z-index. isEnforcing guards
     // re-entrancy; debounce coalesces a batch of adds into one pass.
+    //
+    // Once every registered layer is resolved, unrelated layeradds (e.g.
+    // ExportControl's crossOrigin re-adds or user-added layers) must NOT
+    // trigger a full enforceOrder — only layers belonging to the registry do.
     this.onLayerAdd = event => {
       if (
         this.isDestroyed ||
@@ -132,12 +138,10 @@ class LayerManager implements LayerAPI {
       )
         return;
 
-      if (this.isEnforcing) {
-        this.debouncedEnforce();
-        return;
+      if (this.hasUnresolvedLayers() || this.isManagedLayer(event.layer)) {
+        if (this.isEnforcing) this.debouncedEnforce();
+        else this.debouncedEnforce();
       }
-
-      this.debouncedEnforce();
     };
     this.map.on("layeradd", this.onLayerAdd);
 
@@ -161,6 +165,31 @@ class LayerManager implements LayerAPI {
     return this.factory.createCanvas(opts);
   }
 
+  /** True while any registered layer is unresolved (li.layer === null).
+   *  During the initial folium script phase any layeradd may make a registered
+   *  layer resolvable, so unrelated adds must keep triggering enforceOrder. */
+  private hasUnresolvedLayers(): boolean {
+    for (const li of this.layers) {
+      if (!li.layer) return true;
+    }
+    return false;
+  }
+
+  /** Whether a just-added layer belongs to a registered layer's tree. */
+  private isManagedLayer(layer: L.Layer): boolean {
+    for (const li of this.layers) {
+      if (li.layer === layer) return true;
+      if (li.layer) {
+        let found = false;
+        forEachLayer(li.layer, c => {
+          if (c === layer) found = true;
+        });
+        if (found) return true;
+      }
+    }
+    return false;
+  }
+
   loadSavedOrder() {
     const data = Storage.load<string[]>(CONST.STORAGE.ORDER_KEY, CONF.name);
     if (!data || !Array.isArray(data)) return;
@@ -172,9 +201,8 @@ class LayerManager implements LayerAPI {
         layerMap.delete(id);
       }
     }
-    this.layerRegistry.replace(
-      ordered.concat([...layerMap.values()].filter((v): v is LayerInfo => v != null)),
-    );
+    // byId values are always LayerInfo — no nulls to filter.
+    this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
   }
 
   saveOrder() {
@@ -198,6 +226,18 @@ class LayerManager implements LayerAPI {
     if (!layer) return null;
     li.type = getGeometryType(layer);
     return li.type;
+  }
+
+  /** Drop a registered layer's cached geometry type (re-inferred on next get). */
+  invalidateType(id: string): void {
+    const li = this.layerRegistry.get(id);
+    if (li) li.type = null;
+  }
+
+  /** Re-infer and return a layer's geometry type. */
+  refreshType(id: string): string | null {
+    this.invalidateType(id);
+    return this.getLayerType(id);
   }
 
   /**
@@ -340,6 +380,8 @@ class LayerManager implements LayerAPI {
     }
     if (layer) this.panes.reset(L.stamp(layer));
     if (layer) this.panes.fallbackPaneMap.delete(L.stamp(layer));
+    // Drop label-pane entries that are no longer referenced by any layer.
+    this.panes.sweepLabelPanes(this.layers);
 
     if (this.uiContainer) {
       const target = this.uiContainer.querySelector(
@@ -402,14 +444,16 @@ class LayerManager implements LayerAPI {
         this.applyLayerZIndex({ li, layer, z, isGrid, isTile, layersToMove });
       }
 
+      // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
+      // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
+      // markers (search/locate pins, ✕, data markers) one step below topZ but
+      // still above every data pane — otherwise markerPane would hide under
+      // overlays. These offsets are relative to Z_INDEX.STEP (10).
       const topZ = this.computeZIndex(0, false) + Z_INDEX.STEP;
       const pp = this.map.getPane("popupPane");
       if (pp) pp.style.zIndex = String(topZ + 1);
       const tp = this.map.getPane("tooltipPane");
       if (tp) tp.style.zIndex = String(topZ);
-      // Keep markers (search/locate pins, ✕, data markers) above data layers
-      // but below popup/tooltip. Data panes start at BASE (== markerPane 600),
-      // so without this the whole markerPane would be hidden under overlays.
       const mp = this.map.getPane("markerPane");
       if (mp) mp.style.zIndex = String(topZ - 1);
 

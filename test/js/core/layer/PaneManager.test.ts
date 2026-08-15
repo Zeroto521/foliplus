@@ -165,6 +165,20 @@ describe("PaneManager", () => {
     expect(pm.discoverChildPanes(layer)).toEqual(["other_pane"]);
   });
 
+  it("sweepLabelPanes drops entries no longer referenced", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    pm.labelPanes.add("keep_label");
+    pm.labelPanes.add("drop_label");
+    pm.sweepLabelPanes([
+      { labelPane: "keep_label" },
+      { labelPane: null },
+      {},
+    ]);
+    expect(pm.labelPanes.has("keep_label")).toBe(true);
+    expect(pm.labelPanes.has("drop_label")).toBe(false);
+  });
+
   it("destroy clears all pane state", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);

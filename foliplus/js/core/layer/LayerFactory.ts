@@ -20,6 +20,8 @@ interface LayerFactoryDeps {
   registerLayer: (opts: RegisterLayerOpts) => HTMLElement | null;
   unregisterLayer: (id: string) => boolean;
   bringLayerToFront: (id: string) => void;
+  /** Drop a registered layer's cached geometry type when its content changes. */
+  invalidateType: (id: string) => void;
 }
 
 class LayerFactory {
@@ -30,7 +32,14 @@ class LayerFactory {
   }
 
   createLayers(opts: CreateLayersOpts): CreateLayersAPI {
-    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
+    const {
+      map,
+      panes,
+      registerLayer,
+      unregisterLayer,
+      bringLayerToFront,
+      invalidateType,
+    } = this.deps;
     const mainLayer = L.layerGroup();
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
@@ -49,6 +58,7 @@ class LayerFactory {
       isBase: false,
       layer: mainLayer,
       paneName: opts.graphPane || null,
+      labelPane: opts.labelPane || null,
       iconSvg: opts.iconSvg || null,
     };
     const register = () => {
@@ -89,6 +99,7 @@ class LayerFactory {
         // set above — invalidate both discovery-cache entries (targeted).
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
+        invalidateType(opts.id);
         return result;
       }
       return origAddLayer(layer);
@@ -99,12 +110,14 @@ class LayerFactory {
         const result = graphLayer.removeLayer(layer);
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
+        invalidateType(opts.id);
         return result;
       }
       if (labelLayer && labelLayer.hasLayer(layer)) {
         const result = labelLayer.removeLayer(layer);
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
+        invalidateType(opts.id);
         return result;
       }
       return origRemoveLayer(layer);
