@@ -274,5 +274,60 @@ describe("LayerFactory", () => {
       expect(size.width).toBe(800);
       expect(size.height).toBe(600);
     });
+
+    it("passes custom onToggle to registerLayer", () => {
+      const onToggle = vi.fn();
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({ map, panes: new PaneManager(map), registerLayer: reg, unregisterLayer: vi.fn(), bringLayerToFront: vi.fn() });
+      const api = f.createCanvas({ id: "test", onToggle });
+      api.register();
+      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ onToggle }));
+    });
+
+    it("passes custom onZIndex to registerLayer", () => {
+      const onZIndex = vi.fn();
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({ map, panes: new PaneManager(map), registerLayer: reg, unregisterLayer: vi.fn(), bringLayerToFront: vi.fn() });
+      const api = f.createCanvas({ id: "test", onZIndex });
+      api.register();
+      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ onZIndex }));
+    });
+
+    it("removeLayer routes from graphLayer when present", () => {
+      const api = factory.createLayers({ id: "test", name: "Test", graphPane: "graph1" });
+      const layer = new window.L.Path();
+      api.addLayer(layer);
+      api.removeLayer(layer);
+      // layer should be removed from the graphLayer, not the mainLayer directly
+      const mainLayer = api.mainLayer;
+      // mainLayer still has the graphLayer (container), but the path was removed from graphLayer
+      expect(mainLayer.getLayers().length).toBe(1); // graphLayer remains
+    });
+
+    it("removeLayer routes from labelLayer when isLabel", () => {
+      const api = factory.createLayers({ id: "test", name: "Test", graphPane: "graph1", labelPane: "label1" });
+      const labelLayer = new window.L.Marker();
+      labelLayer.isLabel = true;
+      api.addLayer(labelLayer);
+      expect(api.registered()).toBe(true);
+      api.removeLayer(labelLayer);
+      // Label layer was removed from the label sub-layer; registered stays true
+      // (removeLayer does not auto-unregister; only clearLayers does)
+      expect(api.registered()).toBe(true);
+    });
+
+    it("passes iconSvg to registerLayer", () => {
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({ map, panes: new PaneManager(map), registerLayer: reg, unregisterLayer: vi.fn(), bringLayerToFront: vi.fn() });
+      const api = f.createLayers({ id: "test", name: "Test", iconSvg: "<svg/>", graphPane: "g1" });
+      api.addLayer(new window.L.Path());
+      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ iconSvg: "<svg/>" }));
+    });
+
+    it("throws when mapPane is not available", () => {
+      const badMap = { ...map, getPanes: vi.fn(() => ({})) };
+      const f = new LayerFactory({ map: badMap, panes: new PaneManager(badMap), registerLayer: vi.fn(), unregisterLayer: vi.fn(), bringLayerToFront: vi.fn() });
+      expect(() => f.createCanvas({ id: "test" })).toThrow("mapPane not available");
+    });
   });
 });

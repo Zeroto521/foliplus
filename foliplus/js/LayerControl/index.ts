@@ -1,10 +1,10 @@
 import { BaseControl } from "#common/BaseControl.js";
 import { dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
-import * as Icons from "#common/icon.js";
 import { bindPanelToggle } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
+import { panelHTML } from "./template.js";
 import { LayerUI } from "./ui.js";
 
 const { _ } = createControlEnv(CONF, SVGs.LAYERS);
@@ -30,29 +30,7 @@ class LayerControl extends BaseControl {
   buildDOM() {
     patchBringToFront();
     const container = dom.el("div", { class: "leaflet-bar leaflet-control" });
-
-    container.innerHTML = `
-        <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed"
-             id="${CONF.name}_ctrl">
-          <button class="foliplus-toggle-btn" title="${_(`${CONF.name}.toggle_title`)}"
-                  aria-label="${_(`${CONF.name}.toggle_title`)}">
-            ${SVGs.LAYERS}
-          </button>
-          <div class="foliplus-layer-panel" role="dialog" aria-label="${_(`${CONF.name}.panel_title`)}">
-            <div class="foliplus-panel-header" title="${_(`${CONF.name}.close_title`)}">
-              <span class="foliplus-header-title">
-                <span class="foliplus-header-icon">${SVGs.LAYERS}</span>
-                ${_(`${CONF.name}.panel_title`)}
-              </span>
-              <button class="foliplus-ctrl-btn foliplus-close-btn" title="${_(`${CONF.name}.close_title`)}"
-                      aria-label="${_(`${CONF.name}.close_title`)}">
-                ${Icons.CLOSE}
-              </button>
-            </div>
-            <div class="foliplus-panel-content"></div>
-          </div>
-        </div>
-      `;
+    container.innerHTML = panelHTML(_);
 
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
