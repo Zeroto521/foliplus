@@ -1,7 +1,5 @@
-import { createControlEnv, requireRuntime } from "#common/guard.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mockShowHint = vi.fn();
+import { requireRuntime } from "#common/guard.js";
+import { describe, expect, it, vi } from "vitest";
 
 describe("requireRuntime", () => {
   it("throws when foliplus is missing", () => {
