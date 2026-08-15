@@ -54,7 +54,11 @@ class MeasureManager {
     ensureEvents(this.map).on("before:export", () => {
       if (this.currentMode) {
         this.clearActiveMode();
-        map.foliplus?.showHint?.(CONF.name, _(`${CONF.name}.export_paused`), HINT_DURATION.SHORT);
+        map.foliplus?.showHint?.(
+          CONF.name,
+          _(`${CONF.name}.export_paused`),
+          HINT_DURATION.SHORT,
+        );
       }
     });
     this.toolBtns = [];
