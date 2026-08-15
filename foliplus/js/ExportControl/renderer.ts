@@ -211,32 +211,34 @@ class ExportRenderer {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
     const hooks = (ce as CanvasWithHooks).hooks;
     if (hooks) hooks.before.forEach(fn => fn());
+    const r = ce.getBoundingClientRect();
+    const l = r.left - contRect.left;
+    const t = r.top - contRect.top;
+    const w = r.width;
+    const h = r.height;
+    if (w < 1 || h < 1) {
+      if (hooks) hooks.after.forEach(fn => fn());
+      return;
+    }
+    const dx = (l - rect.left) * scale;
+    const dy = (t - rect.top) * scale;
+    const dw = w * scale;
+    const dh = h * scale;
+    if (!isVisible(dx, dy, dw, dh, cw, ch)) {
+      if (hooks) hooks.after.forEach(fn => fn());
+      return;
+    }
+    const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
+    const dataUrl = ce.toDataURL(mimeType);
+    let img: HTMLImageElement | null = null;
     try {
-      const r = ce.getBoundingClientRect();
-      const l = r.left - contRect.left;
-      const t = r.top - contRect.top;
-      const w = r.width;
-      const h = r.height;
-      if (w < 1 || h < 1) return;
-      const dx = (l - rect.left) * scale;
-      const dy = (t - rect.top) * scale;
-      const dw = w * scale;
-      const dh = h * scale;
-      if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
-      const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
-      const dataUrl = ce.toDataURL(mimeType);
-      let img: HTMLImageElement | null = null;
-      try {
-        img = (await loadImage(dataUrl)) as HTMLImageElement;
-        ctx.drawImage(img, dx, dy, dw, dh);
-      } catch {
-        /* skip */
-      } finally {
-        // Data-URL Image elements have no explicit close; event handlers
-        // are detached inside loadImage() so the Image can be GC'd.
-        if (hooks) hooks.after.forEach(fn => fn());
-      }
-  }
+      img = (await loadImage(dataUrl)) as HTMLImageElement;
+      ctx.drawImage(img, dx, dy, dw, dh);
+    } catch {
+      /* skip */
+    } finally {
+      if (hooks) hooks.after.forEach(fn => fn());
+    }
 
   /** Render a single tile layer from geo bounds with concurrent tile loading. */
   async renderTileLayer(
