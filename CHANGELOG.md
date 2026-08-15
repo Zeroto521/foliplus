@@ -9,6 +9,7 @@
 - `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
+- `EventBus`: introduce a `EventBus` with semantic event constants for decoupled cross-component communication, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148))
 
 ### Changed
 
