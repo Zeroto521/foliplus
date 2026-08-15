@@ -3,7 +3,7 @@
 // register/unregister callbacks via dependency injection.
 import { dom } from "#common/dom.js";
 import { throttleRaf } from "#common/throttle.js";
-import type { RegisterLayerOpts } from "./LayerRegistry.js";
+import type { RegisterLayerOpts } from "./types.js";
 import { PaneManager } from "./PaneManager.js";
 import type {
   CreateCanvasAPI,

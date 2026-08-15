@@ -259,4 +259,3 @@ class LayerRegistry {
 }
 
 export { LayerRegistry };
-export type { RegisterLayerOpts } from "./types.js";
