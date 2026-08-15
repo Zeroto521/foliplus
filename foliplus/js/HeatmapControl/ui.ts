@@ -39,45 +39,57 @@ export interface HeatmapControlUI {
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   panelContent.innerHTML = panelContentHTML(_);
 
-  // Query key elements from the template
-  ctrl.layerSelect = panelContent.querySelector("[data-hm-layer]") as HTMLSelectElement;
-  ctrl.extraBody = panelContent.querySelector("[data-hm-extra-body]") as HTMLElement;
-  ctrl.aggSelect = panelContent.querySelector("[data-hm-agg]") as HTMLSelectElement;
-  ctrl.fieldWrap = panelContent.querySelector("[data-hm-field]") as HTMLElement;
+  // Query key elements from the template using HM_DATA_ATTR constants
+  ctrl.layerSelect = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.LAYER}]`,
+  ) as HTMLSelectElement;
+  ctrl.extraBody = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.EXTRA_BODY}]`,
+  ) as HTMLElement;
+  ctrl.aggSelect = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.AGG}]`,
+  ) as HTMLSelectElement;
+  ctrl.fieldWrap = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.FIELD}]`,
+  ) as HTMLElement;
   ctrl.fieldSelect = panelContent.querySelector(
-    "[data-hm-field-select]",
+    `[${CONST.HM_DATA_ATTR.FIELD_SELECT}]`,
   ) as HTMLSelectElement;
   ctrl.methodSelect = panelContent.querySelector(
-    "[data-hm-method]",
+    `[${CONST.HM_DATA_ATTR.METHOD}]`,
   ) as HTMLSelectElement;
   ctrl.classSelect = panelContent.querySelector(
-    "[data-hm-class-count]",
+    `[${CONST.HM_DATA_ATTR.CLASS_COUNT}]`,
   ) as HTMLSelectElement;
   ctrl.schemeControlWrap = panelContent.querySelector(
-    "[data-hm-scheme-ctrl]",
+    `[${CONST.HM_DATA_ATTR.SCHEME_CTRL}]`,
   ) as HTMLElement;
   ctrl.schemeBar = ctrl.schemeControlWrap.querySelector(
-    ".foliplus-heatmap-scheme-bar",
+    CONST.SEL.SCHEME_BAR,
   ) as HTMLElement;
   ctrl.schemeBarInner = ctrl.schemeControlWrap.querySelector(
-    ".foliplus-heatmap-scheme-bar-inner",
+    CONST.SEL.SCHEME_BAR_INNER,
   ) as HTMLElement;
   ctrl.schemeSelectHidden = panelContent.querySelector(
-    "[data-hm-scheme-hidden]",
+    `[${CONST.HM_DATA_ATTR.SCHEME_HIDDEN}]`,
   ) as HTMLSelectElement;
   ctrl.borderColorInput = panelContent.querySelector(
-    "[data-hm-border-color]",
+    `[${CONST.HM_DATA_ATTR.BORDER_COLOR}]`,
   ) as HTMLInputElement;
   ctrl.borderWeightInput = panelContent.querySelector(
-    "[data-hm-border-weight]",
+    `[${CONST.HM_DATA_ATTR.BORDER_WEIGHT}]`,
   ) as HTMLInputElement;
-  ctrl.labelChk = panelContent.querySelector("[data-hm-label-chk]") as HTMLInputElement;
+  ctrl.labelChk = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.LABEL_CHK}]`,
+  ) as HTMLInputElement;
 
   // Set initial values from manager defaults
   ctrl.borderColorInput.value = ctrl.m.borderColor;
   ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
   ctrl.labelChk.checked = ctrl.m.currentLabelShow;
-  ctrl.classSelect.value = String(Math.min(9, Math.max(2, ctrl.m.numClasses)));
+  ctrl.classSelect.value = String(
+    Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses)),
+  );
   ctrl.methodSelect.value = ctrl.m.currentMethod;
   ctrl.aggSelect.value = ctrl.m.currentAgg;
 
@@ -107,8 +119,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   ctrl.classSelect.onchange = () => {
     ctrl.m.numClasses = Math.min(
-      9,
-      Math.max(2, parseInt(ctrl.classSelect.value, 10) || 6),
+      CONST.CLASS_COUNT.MAX,
+      Math.max(CONST.CLASS_COUNT.MIN, parseInt(ctrl.classSelect.value, 10) || CONST.CLASS_COUNT.DEFAULT),
     );
     updateSchemeBar(ctrl);
     if (ctrl.schemeDropdown) refreshSchemeDropdownItems(ctrl);
@@ -139,14 +151,16 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   ctrl.borderWeightInput.oninput = () => {
     const v = parseFloat(ctrl.borderWeightInput.value);
-    if (!isNaN(v) && v >= 0 && v <= 10) {
+    if (!isNaN(v) && v >= CONST.BORDER.WEIGHT_MIN && v <= CONST.BORDER.WEIGHT_MAX) {
       ctrl.m.borderWeight = v;
       ctrl.m.renderHexagons();
     }
   };
   ctrl.borderWeightInput.onchange = () => {
     const v = parseFloat(ctrl.borderWeightInput.value);
-    ctrl.m.borderWeight = isNaN(v) ? 1 : Math.min(10, Math.max(0, v));
+    ctrl.m.borderWeight = isNaN(v)
+      ? CONST.BORDER.WEIGHT_DEFAULT
+      : Math.min(CONST.BORDER.WEIGHT_MAX, Math.max(CONST.BORDER.WEIGHT_MIN, v));
     ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
     ctrl.m.renderHexagons();
   };
@@ -175,18 +189,18 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
 
   const clearBtn = panelContent.querySelector(
-    "[data-hm-btn-clear]",
+    `[${CONST.HM_DATA_ATTR.BTN_CLEAR}]`,
   ) as HTMLButtonElement;
   clearBtn.onclick = () => {
     resetAll(ctrl);
     syncSelect(ctrl, ctrl.layerSelect, "");
     syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
-    syncSelect(ctrl, ctrl.classSelect, String(CONF.n_classes ?? 6));
-    syncSelect(ctrl, ctrl.methodSelect, CONF.method ?? "jenks");
+    syncSelect(ctrl, ctrl.classSelect, String(CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT));
+    syncSelect(ctrl, ctrl.methodSelect, CONF.method ?? CONST.METHOD.JENKS);
     ctrl.schemeSelectHidden.value = CONF.color_scheme ?? "Reds";
     ctrl.labelChk.checked = CONF.label_show ?? false;
-    ctrl.borderWeightInput.value = String(CONF.border_weight ?? 0);
-    ctrl.borderColorInput.value = CONF.border_color ?? "#999";
+    ctrl.borderWeightInput.value = String(CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT);
+    ctrl.borderColorInput.value = CONF.border_color ?? CONST.GRAY;
     updateSchemeBar(ctrl);
     updateFieldSelector(ctrl);
     ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
@@ -196,7 +210,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
 
   const confirmBtn = panelContent.querySelector(
-    "[data-hm-btn-confirm]",
+    `[${CONST.HM_DATA_ATTR.BTN_CONFIRM}]`,
   ) as HTMLButtonElement;
   confirmBtn.onclick = () => {
     ctrl.m.renderHexagons();
@@ -445,12 +459,12 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.fieldAuto = true;
   ctrl.m.currentAgg = CONST.AGG.COUNT;
   ctrl.m.currentField = CONF.field ?? "";
-  ctrl.m.numClasses = CONF.n_classes ?? 6;
-  ctrl.m.currentMethod = CONF.method ?? "jenks";
+  ctrl.m.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+  ctrl.m.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
   ctrl.m.currentScheme = CONF.color_scheme ?? "Reds";
   ctrl.m.currentLabelShow = CONF.label_show ?? false;
-  ctrl.m.borderWeight = CONF.border_weight ?? 0;
-  ctrl.m.borderColor = CONF.border_color ?? "#999";
+  ctrl.m.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
+  ctrl.m.borderColor = CONF.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();
 };
 
