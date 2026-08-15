@@ -148,7 +148,7 @@ class ExportRenderer {
     // Each layer may contain Tile, SVG, Canvas, and/or Marker elements, so we
     // render all passes per-layer to preserve cross-technology z-order.
     // Uses api.layers (read-only view of LayerRegistry's ordered array).
-    const api = foliplus.LayerAPI;
+    const api = map.foliplus!.LayerAPI;
     const layers = api?.layers;
     if (layers) {
       for (let i = layers.length - 1; i >= 0; i--) {
@@ -385,7 +385,7 @@ class ExportRenderer {
 
   /** Collect markers belonging to a specific layer's panes. */
   collectLayerMarkers(layer: L.Layer): HTMLElement[] {
-    const panes = foliplus.LayerAPI!.getLayerPanes(layer);
+    const panes = map.foliplus!.LayerAPI!.getLayerPanes(layer);
     const roots: HTMLElement[] = [];
     const seen = new Set<HTMLElement>();
     for (const paneName of panes) {

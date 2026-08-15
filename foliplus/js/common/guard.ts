@@ -14,19 +14,21 @@ export const requireRuntime = (componentName: string): void => {
 };
 
 /**
- * Guard that the LayerControl (foliplus.LayerAPI) is available.
+ * Guard that the LayerControl (map.foliplus.LayerAPI) is available.
  * Shows a persistent hint and throws when the required API is missing.
  * Used by components that depend on LayerControl (Export, Heatmap, Measure).
  *
  * @param componentName - CONF.name, used as hint key and error prefix.
  * @param _ - Translator function (from createTranslator).
+ * @param map - Leaflet map instance (per-map LayerAPI namespace).
  */
 export const requireLayerAPI = (
   componentName: string,
   _: (key: string) => string,
+  map: L.Map,
 ): void => {
   const foliplus = window.foliplus || {};
-  if (!foliplus || !foliplus.LayerAPI) {
+  if (!foliplus || !map.foliplus?.LayerAPI) {
     const msg = _(`${componentName}.no_layercontrol`);
     foliplus.showHint(componentName, msg, HINT_DURATION.PERSIST);
     throw new Error(`[${componentName}] ${msg}`);

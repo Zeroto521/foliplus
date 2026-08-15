@@ -12,7 +12,7 @@ import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
 
 const { _ } = createControlEnv(CONF, SVGs.RULER);
-requireLayerAPI(CONF.name, _);
+requireLayerAPI(CONF.name, _, map);
 
 const measureManager = new MeasureManager(map);
 

@@ -134,7 +134,17 @@ class LayerManager {
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
 
-    foliplus.LayerAPI = this as LayerAPI;
+    if (!this.map.foliplus) this.map.foliplus = { LayerAPI: null };
+    // Expose only the LayerAPI contract (interface methods) — not the whole
+    // manager — so the runtime surface stays minimal and internals stay hidden.
+    this.map.foliplus.LayerAPI = {
+      layers: this.layerRegistry.list,
+      createLayers: this.createLayers,
+      createCanvas: this.createCanvas,
+      extractPoints: this.extractPoints,
+      getLayerPanes: this.getLayerPanes,
+      getLayersByType: this.getLayersByType,
+    } as LayerAPI;
   }
 
   loadSavedOrder() {
@@ -722,7 +732,7 @@ class LayerManager {
     this.layerRegistry.clear();
     this.pendingRegistrations = [];
     this.panes.destroy();
-    if (foliplus.LayerAPI === this) foliplus.LayerAPI = null;
+    if (this.map.foliplus) this.map.foliplus.LayerAPI = null;
   }
 }
 
