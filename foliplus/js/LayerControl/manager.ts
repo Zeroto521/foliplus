@@ -1,5 +1,5 @@
 import { type Debounced, debounce } from "#common/debounce.js";
-import { ensureLayerAPI } from "#common/guard.js";
+import { ensureLayerAPI } from "#core/layer/api.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import {
@@ -42,25 +42,6 @@ const unpatchBringToFront = () => {
   L.Path.prototype.bringToFront = origBringToFront;
 };
 
-/** Options for createLayers. */
-interface CreateLayersOpts {
-  id: string;
-  name?: string;
-  graphPane?: string;
-  labelPane?: string;
-  iconSvg?: string;
-}
-
-/** Options for createCanvas. */
-interface CreateCanvasOpts {
-  id: string;
-  name?: string;
-  className?: string;
-  iconSvg?: string;
-  onToggle?: (visible: boolean) => void;
-  onZIndex?: (z: number) => void;
-}
-
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
@@ -100,8 +81,6 @@ class LayerManager {
     this.findLayer = this.findLayer.bind(this);
     this.forEachLeaf = this.forEachLeaf.bind(this);
     this.extractPoints = this.extractPoints.bind(this);
-    this.createLayers = this.createLayers.bind(this);
-    this.createCanvas = this.createCanvas.bind(this);
     this.isEnforcing = false;
     this.isDestroyed = false;
 
@@ -160,8 +139,8 @@ class LayerManager {
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
-      createLayers: this.createLayers,
-      createCanvas: this.createCanvas,
+      createLayers: (opts) => this.factory.createLayers(opts),
+      createCanvas: (opts) => this.factory.createCanvas(opts),
       extractPoints: this.extractPoints,
       getLayerPanes: this.getLayerPanes,
       getLayersByType: this.getLayersByType,
@@ -369,19 +348,6 @@ class LayerManager {
       typeof (layer as L.LayerGroup).eachLayer === "function"
     )
       (layer as L.LayerGroup).eachLayer(c => this.clearAllLayers(c));
-  }
-
-  createLayers(opts: CreateLayersOpts): CreateLayersAPI {
-    return this.factory.createLayers(opts);
-  }
-
-  /**
-   * Create a managed canvas element that tracks map pan/zoom.
-   * @param {Object} opts
-   * @returns {createCanvasAPI}
-   */
-  createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
-    return this.factory.createCanvas(opts);
   }
 
   computeZIndex(i: number, isTile: boolean): number {
