@@ -30,7 +30,7 @@ import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath } from "url";
 import { transformSource } from "./compress.mjs";
-import { sharedExternalPlugin } from "./shared-external.mjs";
+import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 
 // ── Config ──────────────────────────────────────────────────────
 // Central path/flag config. `dev` toggles minification & identifier
@@ -127,7 +127,7 @@ const artifact = (entryPoints, outfile, name) => ({
   plugins:
     name === "runtime"
       ? esbuildCfg.plugins
-      : [...esbuildCfg.plugins, sharedExternalPlugin(CFG.tmp.js)],
+      : [...esbuildCfg.plugins, globalNamespacePlugin(CFG.tmp.js)],
   banner: {
     js: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
     css: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,

@@ -1,4 +1,4 @@
-// script/shared-external.mjs — esbuild plugin (P5).
+// script/global-namespace-plugin.mjs — esbuild plugin (P5).
 // Component bundles externalize #core/*, #common/* and #foliplus/BaseControl.js
 // imports to the global namespace exposed by foliplus-common.min.js
 // (window.foliplus.core / .common.<mod> / .BaseControl). The runtime entry
@@ -59,8 +59,8 @@ const sharedGlobalNamespace = spec => {
 };
 
 /** Create the plugin for a given source root (resolves #core/#common/#foliplus). */
-const sharedExternalPlugin = (sourceRoot, { skip = [] } = {}) => ({
-  name: "foliplus-shared-external",
+const globalNamespacePlugin = sourceRoot => ({
+  name: "foliplus-global-namespace",
   setup(build) {
     build.onResolve({ filter: /^#(core|common|foliplus)\// }, args => ({
       path: args.path,
@@ -81,4 +81,4 @@ const sharedExternalPlugin = (sourceRoot, { skip = [] } = {}) => ({
   },
 });
 
-export { sharedExternalPlugin };
+export { globalNamespacePlugin };
