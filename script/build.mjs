@@ -243,6 +243,7 @@ const generateSharedRegistry = () => {
 };
 
 async function main() {
+  console.time("build");
   // ── Step 1: Mirror source to .build/ ──────────────────────────
   // Process in a temp directory so the original source is untouched.
   rmSync(resolve(CFG.tmp.js, ".."), { recursive: true, force: true });
@@ -283,7 +284,7 @@ async function main() {
     console.log(`All ${entries.length} artifacts present.`);
   }
   if (failed) process.exit(1);
-  console.log("Done.");
+  console.timeEnd("build");
 }
 
 main().catch(e => {
