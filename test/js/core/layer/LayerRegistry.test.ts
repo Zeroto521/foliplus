@@ -164,13 +164,13 @@ describe("LayerRegistry", () => {
   describe("readonly view", () => {
     it("throws on mutation via list", () => {
       expect(() => {
-        registry.list.push({ id: "x" });
+        registry.layers.push({ id: "x" });
       }).toThrow();
     });
 
     it("blocks mutating methods on view", () => {
       expect(() => {
-        registry.list.splice(0, 1);
+        registry.layers.splice(0, 1);
       }).toThrow();
     });
   });

@@ -1,15 +1,15 @@
-import { dom } from "#common/dom.js";
+import { dom, escapeHTML } from "#common/dom.js";
 import { HINT_DURATION } from "#common/hint.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
+import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import type { LayerManager } from "./manager.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-
 const foliplus = window.foliplus;
 const _ = createTranslator(CONF);
 const mapContainer = map.getContainer();
@@ -170,8 +170,8 @@ class LayerUI {
     const cb = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
     if (cb) {
       cb.dataset.index = String(idx);
-      cb.setAttribute("aria-label", Util.escapeHTML(layerInfo.name));
-      cb.title = Util.escapeHTML(layerInfo.name);
+      cb.setAttribute("aria-label", escapeHTML(layerInfo.name));
+      cb.title = escapeHTML(layerInfo.name);
     }
   }
 
@@ -209,7 +209,7 @@ class LayerUI {
   }
 
   renderLayerItem(li: LayerInfo, idx: number) {
-    const en = Util.escapeHTML(li.name);
+    const en = escapeHTML(li.name);
     const children: (HTMLElement | { html: string })[] = [
       dom.el(
         "span",
@@ -313,9 +313,9 @@ class LayerUI {
         } else if (layerInfo.iconSvg) {
           typeCols[i].innerHTML = layerInfo.iconSvg;
           typeKey = `${CONF.name}.type_custom`;
-          layerInfo.type = CONST.GEOM_TYPE.CUSTOM;
+          layerInfo.type = GEOM_TYPE.CUSTOM;
         } else if (layer) {
-          const gtype = Util.getGeometryType(layer);
+          const gtype = getGeometryType(layer);
           typeCols[i].innerHTML = Util.getTypeSVG(layer);
           typeKey = `${CONF.name}.type_${gtype}`;
           layerInfo.type = gtype;

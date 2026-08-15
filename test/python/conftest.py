@@ -235,6 +235,22 @@ def assert_config_block(ctrl, expected: dict[str, Any]) -> None:
         )
 
 
+def _inject_window_map(html: str) -> str:
+    """Expose the Leaflet map instance as ``window.map`` for browser snippets.
+
+    Folium names the map variable ``map_<name>`` and renders its scripts after
+    ``</body>`` but before ``</html>``; snippets run in ``page.evaluate`` and
+    need a stable global to reach per-map APIs (e.g. ``map.foliplus.LayerAPI``).
+    """
+    match = re.search(r"var (map_[0-9a-f]+) = L\.map", html)
+    if match:
+        return html.replace(
+            "</html>",
+            f"<script>window.map = {match.group(1)};</script></html>",
+        )
+    return html
+
+
 def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
     """Write *html* to a temp file and return a Playwright page with console
     error collection.
@@ -246,7 +262,7 @@ def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
         (excluding resource-load failures).
     """
     html_path = tmp_path / f"{name}.html"
-    html_path.write_text(html, encoding="utf-8")
+    html_path.write_text(_inject_window_map(html), encoding="utf-8")
     page = browser.new_page()
     errors: list[str] = []
     page.on(

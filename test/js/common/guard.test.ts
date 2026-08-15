@@ -28,12 +28,16 @@ describe("requireLayerAPI", () => {
       showHint: mockShowHint,
       HINT_DURATION: { PERSIST: 0 },
     });
-    expect(() => requireLayerAPI("Test", _)).toThrow("Test.no_layercontrol");
+    vi.stubGlobal("map", {});
+    expect(() => requireLayerAPI("Test", _, window.map)).toThrow(
+      "Test.no_layercontrol",
+    );
     expect(mockShowHint).toHaveBeenCalledWith("Test", "Test.no_layercontrol", 0);
   });
 
   it("passes when LayerAPI is present", () => {
-    vi.stubGlobal("foliplus", { showHint: () => {}, LayerAPI: {} });
-    expect(() => requireLayerAPI("Test", _)).not.toThrow();
+    vi.stubGlobal("foliplus", { showHint: () => {} });
+    vi.stubGlobal("map", { foliplus: { LayerAPI: {} } });
+    expect(() => requireLayerAPI("Test", _, window.map)).not.toThrow();
   });
 });

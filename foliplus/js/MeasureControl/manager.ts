@@ -38,7 +38,7 @@ class MeasureManager {
 
   constructor(mapInstance: L.Map) {
     this.map = mapInstance;
-    this.layers = foliplus.LayerAPI!.createLayers({
+    this.layers = map.foliplus!.LayerAPI!.createLayers({
       id: CONST.ID,
       name: _(`${CONF.name}.tool_toggle`),
       graphPane: CONST.PANES.GRAPH,

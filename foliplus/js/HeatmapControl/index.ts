@@ -7,7 +7,7 @@ import { HeatmapManager } from "./logic.js";
 import { buildDataSection, buildStyleSection, initScan, setupObserver } from "./ui.js";
 
 const { _ } = createControlEnv(CONF, SVGs.HEXAGON);
-requireLayerAPI(CONF.name, _);
+requireLayerAPI(CONF.name, _, map);
 
 const heatmapManager = new HeatmapManager(map);
 

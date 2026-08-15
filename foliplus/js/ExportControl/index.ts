@@ -5,7 +5,7 @@ import * as SVGs from "./icon.js";
 import { ExportManager } from "./manager.js";
 
 const { _ } = createControlEnv(CONF, SVGs.CAMERA);
-requireLayerAPI(CONF.name, _);
+requireLayerAPI(CONF.name, _, map);
 
 // ==================== CORS Pre-setup ====================
 // Set crossOrigin on ALL existing TileLayers so tiles load with CORS

@@ -143,8 +143,6 @@ declare global {
   /** Runtime helpers injected by the foliplus Python wrapper. */
   interface Foliplus {
     isInitialized: boolean;
-    /** LayerControl public API, null until LayerControl is added. */
-    LayerAPI: LayerAPI | null;
     registerHintIcon: (name: string, icon: string) => void;
     showHint: (
       name: string,
@@ -270,10 +268,24 @@ declare global {
     bringToFront: () => void;
   }
 
-  /** LayerControl public API, exposed on `foliplus.LayerAPI`. */
+  /** Per-map foliplus API namespace, attached as `map.foliplus`. */
+  interface MapFoliplus {
+    /** LayerControl public API, null until LayerControl is added. */
+    LayerAPI: LayerAPI | null;
+  }
+
+  /** LayerControl public API, exposed on `map.foliplus.LayerAPI`. */
   interface LayerAPI {
     /** Ordered array of layers (read-only view of LayerRegistry). */
     layers: LayerInfo[];
+    /** Register a layer; returns its row element (or null on failure). */
+    registerLayer: (
+      opts: import("#core/layer/LayerRegistry.js").RegisterLayerOpts,
+    ) => HTMLElement | null;
+    /** Unregister and remove a layer; returns true if removed. */
+    unregisterLayer: (id: string) => boolean;
+    /** Bring a registered overlay layer to the front. */
+    bringLayerToFront: (id: string) => void;
     createCanvas: (opts: {
       id: string;
       name?: string;
@@ -315,6 +327,12 @@ declare global {
     CONFIG?: ComponentConfig;
     L: typeof Leaflet;
     map: Leaflet.Map;
+  }
+}
+
+declare module "leaflet" {
+  interface Map {
+    foliplus?: MapFoliplus;
   }
 }
 

@@ -44,18 +44,20 @@ function makeManager() {
     quantileSorted: vi.fn((sorted, q) => sorted[Math.floor(q * (sorted.length - 1))]),
   };
 
-  // Mock LayerAPI
-  window.foliplus.LayerAPI = {
-    getLayersByType: vi.fn(() => []),
-    extractPoints: vi.fn(() => []),
-    createCanvas: vi.fn(() => ({
-      register: vi.fn(),
-      unregister: vi.fn(),
-      setVisible: vi.fn(),
-      hooks: { before: [], after: [] },
-      canvas: null,
-      ctx: null,
-    })),
+  // Mock LayerAPI (per-map: map.foliplus.LayerAPI)
+  window.map.foliplus = {
+    LayerAPI: {
+      getLayersByType: vi.fn(() => []),
+      extractPoints: vi.fn(() => []),
+      createCanvas: vi.fn(() => ({
+        register: vi.fn(),
+        unregister: vi.fn(),
+        setVisible: vi.fn(),
+        hooks: { before: [], after: [] },
+        canvas: null,
+        ctx: null,
+      })),
+    },
   };
 
   const map = {
@@ -431,7 +433,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields gathers numeric properties once", () => {
     const m = makeManager();
-    window.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       { marker: { feature: { properties: { price: 1, name: "x" } } } },
       { marker: { feature: { properties: { price: 2 } } } },
     ]);
@@ -446,8 +448,8 @@ describe("scanMapLayers", () => {
   it("extracts point layers from LayerAPI", () => {
     const m = makeManager();
     const info = { id: "layer1", name: "Points", layer: {} };
-    window.foliplus.LayerAPI.getLayersByType = vi.fn(() => [info]);
-    window.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [info]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       { id: "p1", marker: { feature: { properties: { price: 1 } } } },
     ]);
     m.scanMapLayers();
@@ -457,21 +459,21 @@ describe("scanMapLayers", () => {
 
   it("deduplicates point layers by id", () => {
     const m = makeManager();
-    window.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
       { id: "dup", name: "A", layer: {} },
       { id: "dup", name: "B", layer: {} },
     ]);
-    window.foliplus.LayerAPI.extractPoints = vi.fn(() => [{ marker: {} }]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [{ marker: {} }]);
     m.scanMapLayers();
     expect(m.pointLayers).toHaveLength(1);
   });
 
   it("skips layers with no extractable points", () => {
     const m = makeManager();
-    window.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
       { id: "empty", name: "Empty", layer: {} },
     ]);
-    window.foliplus.LayerAPI.extractPoints = vi.fn(() => []);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => []);
     m.scanMapLayers();
     expect(m.pointLayers).toHaveLength(0);
   });
@@ -504,7 +506,7 @@ describe("getSelectedPoints", () => {
     m.selectedLayerId = "layer1";
     m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 2 }];
     m.currentAgg = CONST.AGG.COUNT;
-    window.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       { lat: 1, lng: 2, marker: {} },
       { lat: 3, lng: 4, marker: {} },
     ]);

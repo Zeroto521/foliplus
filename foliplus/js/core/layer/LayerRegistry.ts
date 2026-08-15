@@ -40,7 +40,7 @@ interface RegisterLayerOpts {
  *   `createLayerInfo` / `upsert` / `prepend` / `insertAt` / `remove`
  *   `moveToFront` / `reorder` / `replace` / `clear` / `normalizeGroups`
  *   `canReorderBetween` / `refreshFirstBaseIdx`
- *   `items` / `byId` / `view` / `list`
+ *   `items` / `byId` / `view` / `layers`
  *
  * External callers must use the Manager API for mutations:
  *   `api.registerLayer({...})`   — insert/update
@@ -108,16 +108,18 @@ class LayerRegistry {
   createReadonlyView() {
     return new Proxy(this.items, {
       set() {
-        throw new TypeError("LayerRegistry: list is read-only, mutate via Manager API");
+        throw new TypeError(
+          "[foliplus] LayerRegistry: layers is read-only, mutate via API",
+        );
       },
       deleteProperty() {
-        throw new TypeError("LayerRegistry: cannot delete items directly");
+        throw new TypeError("[foliplus] LayerRegistry: cannot delete layers directly");
       },
       get(target, prop, receiver) {
         if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
           return () => {
             throw new TypeError(
-              `LayerRegistry: read-only method "${String(prop)}" is blocked`,
+              `[foliplus] LayerRegistry: read-only method "${String(prop)}" is blocked`,
             );
           };
         }
@@ -126,8 +128,8 @@ class LayerRegistry {
     });
   }
 
-  /** The ordered list array (read-only view; mutate via methods). */
-  get list() {
+  /** The ordered layers array (read-only view; mutate via methods). */
+  get layers() {
     return this.view;
   }
 

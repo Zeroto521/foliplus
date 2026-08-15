@@ -118,7 +118,7 @@ class HeatmapManager {
     // Canvas lives in `.leaflet-map-pane` with position offset to cancel
     // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
     // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
-    this.overlay = foliplus.LayerAPI!.createCanvas({
+    this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: CONST.ID,
       name: _(`${CONF.name}.title`),
       iconSvg: SVGs.HEXAGON,
@@ -266,7 +266,7 @@ class HeatmapManager {
   // --- Data Extraction ---
   scanMapLayers() {
     this.pointLayers = [];
-    const pointLayersInfo = foliplus.LayerAPI!.getLayersByType("point");
+    const pointLayersInfo = map.foliplus!.LayerAPI!.getLayersByType("point");
     if (!pointLayersInfo.length) return;
 
     const seenIds: Record<string, boolean> = {};
@@ -274,7 +274,7 @@ class HeatmapManager {
       if (seenIds[info.id]) continue;
       seenIds[info.id] = true;
 
-      const pts = foliplus.LayerAPI!.extractPoints(info.id);
+      const pts = map.foliplus!.LayerAPI!.extractPoints(info.id);
       if (pts.length === 0) continue;
       this.pointLayers.push({
         id: info.id,
@@ -289,7 +289,7 @@ class HeatmapManager {
     const fields: string[] = [];
     const seen = new Set<string>();
     layers.forEach(info => {
-      foliplus.LayerAPI!.extractPoints(info.id).forEach(pt => {
+      map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(pt => {
         const m = pt.marker;
         if (m?.feature?.properties) {
           const props = m.feature.properties;
@@ -356,7 +356,7 @@ class HeatmapManager {
     const info = this.pointLayers.find(i => i.id === this.selectedLayerId);
     if (!info) return pts;
 
-    foliplus.LayerAPI!.extractPoints(info.id).forEach(p => {
+    map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(p => {
       pts.push({
         lat: p.lat,
         lng: p.lng,
