@@ -31,9 +31,13 @@ export interface LayerInfo {
   labelPane?: string | null;
   iconSvg: string | null;
   type: string | null;
+  /** Canvas element registered via createCanvas (e.g. HeatmapControl).
+   *  ExportControl renders these as standalone canvases with lifecycle hooks. */
   canvas?: HTMLCanvasElement | null;
   isLabel?: boolean;
+  /** Visibility callback fired by LayerControl toggle (e.g. heatmap show/hide). */
   onToggle?: ((visible: boolean) => void) | null;
+  /** z-index callback fired by enforceOrder (e.g. heatmap canvas ordering). */
   onZIndex?: ((z: number) => void) | null;
   [key: string]: unknown;
 }

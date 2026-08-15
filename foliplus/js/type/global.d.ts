@@ -76,6 +76,7 @@ declare module "leaflet" {
     _path: SVGElement;
   }
   interface TileLayer {
+    // Leaflet keeps the tile URL template in _url (no public accessor).
     _url: string;
   }
   interface AttributionControl {
@@ -83,9 +84,6 @@ declare module "leaflet" {
   }
   interface Renderer {
     _container: HTMLElement;
-  }
-  interface GridLayer {
-    _url: string;
   }
   interface SVG {
     /** Get the renderer's container element. */
