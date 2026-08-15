@@ -8,6 +8,11 @@ import {
   LayerFactory,
   LayerRegistry,
   PaneManager,
+  type CreateCanvasAPI,
+  type CreateCanvasOpts,
+  type CreateLayersAPI,
+  type CreateLayersOpts,
+  type LayerAPI,
   type RegisterLayerOpts,
   Z_INDEX,
   findLayer,
@@ -42,14 +47,8 @@ const unpatchBringToFront = () => {
   L.Path.prototype.bringToFront = origBringToFront;
 };
 
-/** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
-interface LabelAwareLayer extends L.Layer {
-  isLabel?: boolean;
-  options: L.LayerOptions & { renderer?: L.Renderer; pane?: string; paneSet?: boolean };
-}
-
 // ==================== Core Manager: LayerManager ====================
-class LayerManager {
+class LayerManager implements LayerAPI {
   map: L.Map;
   layerRegistry: LayerRegistry;
   layers: LayerInfo[];
@@ -133,18 +132,18 @@ class LayerManager {
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
+    // LayerManager itself implements LayerAPI, so it becomes the map's API.
     ensureLayerAPI(this.map);
-    this.map.foliplus!.LayerAPI = {
-      layers: this.layerRegistry.layers,
-      registerLayer: this.registerLayer,
-      unregisterLayer: this.unregisterLayer,
-      bringLayerToFront: this.bringLayerToFront,
-      createLayers: opts => this.factory.createLayers(opts),
-      createCanvas: opts => this.factory.createCanvas(opts),
-      extractPoints: this.extractPoints,
-      getLayerPanes: this.getLayerPanes,
-      getLayersByType: this.getLayersByType,
-    };
+    this.map.foliplus!.LayerAPI = this;
+  }
+
+  // LayerAPI contract: createLayers / createCanvas delegate to the factory.
+  createLayers(opts: CreateLayersOpts): CreateLayersAPI {
+    return this.factory.createLayers(opts);
+  }
+
+  createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
+    return this.factory.createCanvas(opts);
   }
 
   loadSavedOrder() {

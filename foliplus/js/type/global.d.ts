@@ -17,6 +17,12 @@
 import type * as ChromaJs from "chroma-js";
 import type * as GeoJSON from "geojson";
 import type * as Leaflet from "leaflet";
+import type {
+  CreateCanvasAPI as CoreCreateCanvasAPI,
+  CreateLayersAPI as CoreCreateLayersAPI,
+  LayerAPI as CoreLayerAPI,
+  LayerInfo as CoreLayerInfo,
+} from "#core/layer/types.js";
 
 // ── Runtime helpers ────────────────────────────────────────────
 
@@ -201,21 +207,7 @@ declare global {
   }
 
   /** A layer entry in the LayerControl ordered registry (read-only view). */
-  interface LayerInfo {
-    id: string;
-    name: string;
-    layer: L.Layer | null;
-    visible: boolean;
-    isBase: boolean;
-    paneName: string | null;
-    iconSvg: string | null;
-    type: string | null;
-    canvas?: HTMLCanvasElement | null;
-    isLabel?: boolean;
-    onToggle?: ((visible: boolean) => void) | null;
-    onZIndex?: ((z: number) => void) | null;
-    [key: string]: unknown;
-  }
+  type LayerInfo = CoreLayerInfo;
 
   /** A persisted MeasureControl measurement. */
   interface MeasureData {
@@ -235,21 +227,7 @@ declare global {
   }
 
   /** Return type of `LayerAPI.createCanvas`. */
-  interface CreateCanvasAPI {
-    canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D | null;
-    resize: () => void;
-    getSize: () => { width: number; height: number };
-    updatePosition: () => void;
-    register: () => void;
-    unregister: () => void;
-    registered: () => boolean;
-    destroy: () => void;
-    bringToFront: () => void;
-    setZIndex: (z: number) => void;
-    setVisible: (v: boolean) => void;
-    hooks?: { before: Array<() => void>; after: Array<() => void> };
-  }
+  type CreateCanvasAPI = CoreCreateCanvasAPI;
 
   /** A canvas element extended with lifecycle hooks (used by ExportControl capture). */
   interface CanvasWithHooks extends HTMLCanvasElement {
@@ -257,16 +235,7 @@ declare global {
   }
 
   /** Return type of `LayerAPI.createLayers`. */
-  interface CreateLayersAPI {
-    mainLayer: L.LayerGroup;
-    addLayer: (layer: L.Layer, isLabel?: boolean) => L.Layer;
-    removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
-    clearLayers: () => void;
-    register: () => void;
-    unregister: () => void;
-    registered: () => boolean;
-    bringToFront: () => void;
-  }
+  type CreateLayersAPI = CoreCreateLayersAPI;
 
   /** Per-map foliplus API namespace, attached as `map.foliplus`. */
   interface MapFoliplus {
@@ -274,41 +243,10 @@ declare global {
     LayerAPI: LayerAPI;
   }
 
-  /** LayerControl public API, exposed on `map.foliplus.LayerAPI`. */
-  interface LayerAPI {
-    /** Ordered array of layers (read-only view of LayerRegistry). */
-    layers: LayerInfo[];
-    /** Register a layer; returns its row element (or null on failure). */
-    registerLayer: (
-      opts: import("#core/layer/LayerRegistry.js").RegisterLayerOpts,
-    ) => HTMLElement | null;
-    /** Unregister and remove a layer; returns true if removed. */
-    unregisterLayer: (id: string) => boolean;
-    /** Bring a registered overlay layer to the front. */
-    bringLayerToFront: (id: string) => void;
-    createCanvas: (opts: {
-      id: string;
-      name?: string;
-      className?: string;
-      iconSvg?: string;
-      onToggle?: (visible: boolean) => void;
-      onZIndex?: (z: number) => void;
-    }) => CreateCanvasAPI;
-    createLayers: (opts: {
-      name: string;
-      id: string;
-      graphPane?: string;
-      labelPane?: string;
-      iconSvg?: string;
-    }) => CreateLayersAPI;
-    extractPoints: (
-      id: string,
-    ) => Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }>;
-    getLayerPanes: (layer: L.Layer) => string[];
-    getLayersByType: (
-      type: string,
-    ) => Array<{ id: string; name: string; layer: L.Layer | null }>;
-  }
+  /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.
+   * Defined in core/layer/types.ts — implemented by both LayerManager (full)
+   * and ensureLayerAPI's lightweight default. */
+  type LayerAPI = CoreLayerAPI;
 
   const map: Leaflet.Map;
   const foliplus: Foliplus;

@@ -8,12 +8,18 @@ export {
   RENDERER_KEY,
   Z_INDEX,
 } from "./const.js";
-export {
-  LayerFactory,
-  type CreateCanvasOpts,
-  type CreateLayersOpts,
-} from "./LayerFactory.js";
-export { LayerRegistry, type RegisterLayerOpts } from "./LayerRegistry.js";
+export { LayerFactory } from "./LayerFactory.js";
+export { LayerRegistry } from "./LayerRegistry.js";
 export { PaneManager } from "./PaneManager.js";
 export { findLayer, forEachLayer, forEachLeaf, getGeometryType } from "./util.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
+export type {
+  CreateCanvasAPI,
+  CreateCanvasOpts,
+  CreateLayersAPI,
+  CreateLayersOpts,
+  LabelAwareLayer,
+  LayerAPI,
+  LayerInfo,
+  RegisterLayerOpts,
+} from "./types.js";

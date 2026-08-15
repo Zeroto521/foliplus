@@ -5,31 +5,13 @@ import { dom } from "#common/dom.js";
 import { throttleRaf } from "#common/throttle.js";
 import type { RegisterLayerOpts } from "./LayerRegistry.js";
 import { PaneManager } from "./PaneManager.js";
-
-/** Options for createLayers. */
-interface CreateLayersOpts {
-  id: string;
-  name?: string;
-  graphPane?: string;
-  labelPane?: string;
-  iconSvg?: string;
-}
-
-/** Options for createCanvas. */
-interface CreateCanvasOpts {
-  id: string;
-  name?: string;
-  className?: string;
-  iconSvg?: string;
-  onToggle?: ((visible: boolean) => void) | null;
-  onZIndex?: ((z: number) => void) | null;
-}
-
-/** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
-interface LabelAwareLayer extends L.Layer {
-  isLabel?: boolean;
-  options: L.LayerOptions & { renderer?: L.Renderer; pane?: string; paneSet?: boolean };
-}
+import type {
+  CreateCanvasAPI,
+  CreateCanvasOpts,
+  CreateLayersAPI,
+  CreateLayersOpts,
+  LabelAwareLayer,
+} from "./types.js";
 
 /** Dependency injection contract for LayerFactory. */
 interface LayerFactoryDeps {
@@ -279,4 +261,5 @@ class LayerFactory {
   }
 }
 
-export { LayerFactory, type CreateLayersOpts, type CreateCanvasOpts };
+export { LayerFactory };
+export type { CreateCanvasOpts, CreateLayersOpts } from "./types.js";
