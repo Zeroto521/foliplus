@@ -139,7 +139,7 @@ class TestLayerControlRendering:
         html = render(m)
 
         # Base maps have the attribute; overlay items should be checked separately
-        assert 'data-layer-type": li.isBase ? GROUP.BASE : GROUP.OVERLAY' in html
+        assert 'data-layer-type": layerInfo.isBase ? GROUP.BASE : GROUP.OVERLAY' in html
 
     def test_drag_handle_present(self):
         """Drag handle SVG present for all layer items."""

@@ -3,6 +3,7 @@
 // requireLayerAPI throws when LayerControl is required (Export/Heatmap).
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
+import type { LayerAPI, LayerInfo } from "./type.js";
 
 /**
  * Ensure that `map.foliplus.LayerAPI` is available, creating a lightweight
@@ -20,7 +21,7 @@ import { PaneManager } from "./PaneManager.js";
  * @returns The LayerAPI instance (always a valid object).
  */
 export const ensureLayerAPI = (map: L.Map): LayerAPI => {
-  if (!map.foliplus) map.foliplus = { LayerAPI: null as any };
+  if (!map.foliplus) map.foliplus = { LayerAPI: null as unknown as LayerAPI };
   if (map.foliplus.LayerAPI) return map.foliplus.LayerAPI;
 
   // Lightweight LayerAPI — no LayerControl, no registry, no panel.
@@ -35,10 +36,11 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
     },
     unregisterLayer: () => true,
     bringLayerToFront: () => {},
+    invalidateType: () => {}, // no registry in the lightweight API
   });
 
   map.foliplus.LayerAPI = {
-    layers: Object.freeze([]) as any,
+    layers: Object.freeze([]) as unknown as LayerInfo[],
     registerLayer: () => null,
     unregisterLayer: () => false,
     bringLayerToFront: () => {},
@@ -47,7 +49,7 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
     extractPoints: () => [],
     getLayerPanes: () => [],
     getLayersByType: () => [],
-  };
+  } satisfies LayerAPI;
   return map.foliplus.LayerAPI;
 };
 

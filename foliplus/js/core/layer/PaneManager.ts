@@ -95,7 +95,15 @@ class PaneManager {
       if (!paneName) continue;
       const container = (renderer as (L.SVG & { _container?: HTMLElement }) | null)
         ?._container;
-      if (!container) continue;
+      if (!container) {
+        // No renderer container (e.g. tile layers with a paneName get
+        // needRenderer=false). DOM migration is impossible, but the layer must
+        // still be marked handled — otherwise applyLayerZIndex re-queues it on
+        // every enforceOrder pass (options.pane never matches paneName).
+        layer.options.pane = paneName;
+        layer.options.paneSet = true;
+        continue;
+      }
       const paneEl = this.map.getPane(paneName);
       if (!groups.has(container)) groups.set(container, []);
       const collect = (l: L.Layer): void => {
@@ -142,9 +150,24 @@ class PaneManager {
     }
   }
 
-  /** Invalidate the child-pane discovery cache. */
-  reset() {
+  /** Invalidate the child-pane discovery cache.
+   *  @param {number} [id] - Layer stamp to invalidate (single entry).
+   *    Omit to clear the whole cache (structure-wide change). */
+  reset(id?: number) {
+    if (id != null) {
+      this.paneCache.delete(id);
+      return;
+    }
     this.paneCache.clear();
+  }
+
+  /** Drop label-pane entries no longer referenced by any registered layer.
+   *  Called after unregisterLayer so labelPanes does not grow unboundedly. */
+  sweepLabelPanes(layers: ReadonlyArray<{ labelPane?: string | null }>) {
+    const used = new Set<string>();
+    for (const li of layers) if (li.labelPane) used.add(li.labelPane);
+    for (const pane of this.labelPanes)
+      if (!used.has(pane)) this.labelPanes.delete(pane);
   }
 
   /** Release all pane state. Called by LayerManager.destroy(). */

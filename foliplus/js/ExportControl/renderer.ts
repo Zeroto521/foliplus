@@ -50,7 +50,7 @@ class ExportRenderer {
 
   /** Calculate tile coordinates covering geo bounds at a given zoom. */
   calcTiles(
-    tileLayer: L.GridLayer & { _url?: string },
+    tileLayer: L.TileLayer,
     bounds: { nw: { lat: number; lng: number }; se: { lat: number; lng: number } },
     zoom: number,
     scaleVal: number,
@@ -59,6 +59,8 @@ class ExportRenderer {
     const opts = tileLayer.options as L.TileLayerOptions;
     const tileSize = typeof opts.tileSize === "number" ? opts.tileSize : 256;
     const subdomains = opts.subdomains || "abc";
+    // Leaflet stores the tile URL template in the private _url — there is no
+    // public accessor; the TileLayer augmentation declares it.
     const urlTemplate = tileLayer._url || "";
 
     // Get bounds in EPSG:3857
@@ -156,11 +158,11 @@ class ExportRenderer {
         if (!li.visible) continue;
 
         // Tile layers (e.g. basemaps) — render tiles via geo bounds.
-        // Only TileLayer subclasses have _url; other GridLayer types
-        // (e.g. L.ImageOverlay) are skipped here.
-        if (li.layer instanceof L.GridLayer && li.layer._url) {
+        // Only TileLayer subclasses carry the private _url template; other
+        // layer types (e.g. L.ImageOverlay) are skipped.
+        if (li.layer instanceof L.TileLayer && li.layer._url) {
           if (geoBounds && geoBounds.nw)
-            await this.renderTileLayer(rc, geoBounds, li.layer as L.GridLayer);
+            await this.renderTileLayer(rc, geoBounds, li.layer);
 
           continue;
         }
@@ -228,7 +230,7 @@ class ExportRenderer {
   async renderTileLayer(
     rc: RenderCtx,
     geoBounds: { nw: { lat: number; lng: number }; se: { lat: number; lng: number } },
-    tileLayer: L.GridLayer,
+    tileLayer: L.TileLayer,
   ) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
     const contW = contRect.width;

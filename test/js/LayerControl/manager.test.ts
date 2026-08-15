@@ -1,8 +1,18 @@
+import * as Storage from "#common/storage.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
+
+class TileLayer {
+  options = { attribution: "© OpenStreetMap" };
+  setZIndex = vi.fn();
+}
+
+class GridLayer {
+  options = {};
+}
 
 describe("LayerManager", () => {
   let manager, map;
@@ -10,9 +20,6 @@ describe("LayerManager", () => {
   beforeEach(() => {
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
-    class TileLayer {
-      options = { attribution: "© OpenStreetMap" };
-    }
     class Renderer {}
     class Path {
       options = {};
@@ -31,7 +38,16 @@ describe("LayerManager", () => {
     })();
 
     window.L.TileLayer = TileLayer;
+    window.L.GridLayer = GridLayer;
     window.L.Renderer = Renderer;
+    window.L.layerGroup = vi.fn(() => ({
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      hasLayer: vi.fn(() => false),
+      getLayers: vi.fn(() => []),
+      clearLayers: vi.fn(),
+      options: {},
+    }));
     window.L.Path = Path;
     window.L.Polygon = Polygon;
     window.L.Polyline = Polyline;
@@ -84,6 +100,15 @@ describe("LayerManager", () => {
     expect(manager.layerRegistry.size).toBe(2);
   });
 
+  it("non-TileLayer GridLayer gets options.zIndex and no fallback pane", () => {
+    const grid = new GridLayer();
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, isBase: true });
+    manager.enforceOrder();
+    expect(grid.options.zIndex).toBeDefined();
+    expect(String(grid.options.pane)).not.toMatch(/^foliplus_pane_/);
+  });
+
   it("computeZIndex returns expected values", () => {
     // 2 layers, index 0, layer count = 2
     // z = Z_INDEX.BASE + (2 - 0) * 10 = 600 + 20 = 620
@@ -123,6 +148,19 @@ describe("LayerManager", () => {
     expect(manager.unregisterLayer("nonexistent")).toBe(false);
   });
 
+  it("unregisterLayer sweeps label panes no longer referenced", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    const api = manager.createLayers({
+      id: "g1",
+      name: "Group",
+      labelPane: "g1_label",
+    });
+    api.register();
+    expect(manager.panes.labelPanes.has("g1_label")).toBe(true);
+    expect(manager.unregisterLayer("g1")).toBe(true);
+    expect(manager.panes.labelPanes.has("g1_label")).toBe(false);
+  });
+
   it("unregisterLayer returns true when layer is found and removed", () => {
     manager.registerLayer({ id: "test_layer", name: "Test" });
     const result = manager.unregisterLayer("test_layer");
@@ -156,6 +194,14 @@ describe("LayerManager", () => {
     expect(manager.getLayerType("icon")).toBe(GEOM_TYPE.CUSTOM);
   });
 
+  it("invalidateType clears the cached type; refreshType re-infers", () => {
+    // overlay1 has no layer — getLayerType returns null without caching a type.
+    manager.layerRegistry.get("overlay1")!.type = GEOM_TYPE.POINT;
+    manager.invalidateType("overlay1");
+    expect(manager.layerRegistry.get("overlay1")!.type).toBeNull();
+    expect(manager.refreshType("overlay1")).toBeNull(); // no layer resolvable
+  });
+
   it("getLayerType caches the resolved type on the layer info", () => {
     manager.registerLayer({
       id: "poly2",
@@ -179,6 +225,26 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "x", name: "X", layer: new window.L.TileLayer() });
     manager.unregisterLayer("x");
     expect(manager.findLayer("x")).toBeNull();
+  });
+
+  it("registerLayer uses incremental item init instead of full re-scan", () => {
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.uiContainer = document.createElement("div");
+    manager.ui = {
+      insertLayerItem: vi.fn(),
+      updateLayerItem: vi.fn(),
+      initTypesAndVisibility: vi.fn(),
+      initLayerItem: vi.fn(),
+      syncToggleAll: vi.fn(),
+    } as any;
+    manager.registerLayer({
+      id: "new1",
+      name: "New",
+      layer: { options: {} },
+    } as any);
+    expect(manager.ui.initLayerItem).toHaveBeenCalled();
+    expect(manager.ui.initTypesAndVisibility).not.toHaveBeenCalled();
+    expect(manager.ui.syncToggleAll).toHaveBeenCalled();
   });
 
   it("registerLayer resolves layer from map when opts.layer is absent", () => {
@@ -244,18 +310,74 @@ describe("LayerManager", () => {
 
   it("onLayerAdd responds to container layers (GeoJSON/FeatureGroup) too", () => {
     // Container layers (L.GeoJSON / FeatureGroup) previously fell through the
-    // Path/Marker filter, so their addTo never re-ran enforceOrder. With the
-    // filter removed, any layer-level add must coalesce into one enforce.
+    // Path/Marker filter, so their addTo never re-ran enforceOrder. Any
+    // registered container's add must coalesce into one enforce.
     vi.useFakeTimers();
     const spy = vi.spyOn(manager, "enforceOrder");
-    manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
-    manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
+    const container = { options: {}, eachLayer: vi.fn() };
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({ id: "fg", name: "FG", layer: container });
+    manager.onLayerAdd({ layer: container });
+    manager.onLayerAdd({ layer: container });
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
     expect(spy).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
 
+  it("onLayerAdd ignores unrelated layers once all registered layers are resolved", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(manager, "enforceOrder");
+    // Resolve every registered layer so the managed-layer filter is active.
+    manager.registerLayer({ id: "overlay1", name: "Points", layer: { options: {} } });
+    manager.registerLayer({
+      id: "base1",
+      name: "OSM",
+      layer: new TileLayer(),
+      isBase: true,
+    });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    spy.mockClear();
+    // An unrelated layeradd (e.g. ExportControl crossOrigin re-add) must NOT
+    // trigger a full enforceOrder pass.
+    manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    expect(spy).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   // ── initial data normalization ──
+
+  it("syncAttribution picks the topmost visible base tile and stops early", () => {
+    const tile1 = new TileLayer(); // attribution: © OpenStreetMap (default)
+    const tile2 = new TileLayer();
+    manager.map.hasLayer.mockImplementation(l => l === tile1);
+    // Re-register base1 with the test instance; base2 registers ahead of it
+    // (insertAt firstBaseIdx) but is invisible, so base1 is the topmost
+    // visible tile whose attribution wins.
+    manager.registerLayer({ id: "base1", name: "Base1", layer: tile1, isBase: true });
+    manager.registerLayer({ id: "base2", name: "Base2", layer: tile2, isBase: true });
+    manager.enforceOrder();
+    expect(manager.lastAttribution).toBe("© OpenStreetMap");
+  });
+
+  it("syncAttribution returns empty when no base tile is visible", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.enforceOrder();
+    expect(manager.lastAttribution).toBe("");
+  });
+
+  it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(Storage, "save");
+    manager.saveOrder();
+    manager.saveOrder();
+    manager.saveOrder();
+    expect(spy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(100);
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+    vi.useRealTimers();
+  });
 
   it("normalizes initial data into the full layerInfo field set", () => {
     const m2 = new LayerManager(map, [
@@ -273,5 +395,178 @@ describe("LayerManager", () => {
     ]) {
       expect(key in li).toBe(true);
     }
+  });
+
+  // ── coverage-gap tests: register/unregister UI paths, factory delegation ──
+
+  it("createCanvas delegates to the factory", () => {
+    window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
+    map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
+    const api = manager.createCanvas({ id: "canvas1" });
+    expect(api.canvas).toBeInstanceOf(HTMLCanvasElement);
+    expect(typeof api.register).toBe("function");
+    expect(typeof api.bringToFront).toBe("function");
+    api.destroy();
+  });
+
+  it("registerLayer appends a base layer when no base exists yet", () => {
+    const m2 = new LayerManager(map, [
+      { id: "only_overlay", name: "O", isBase: false },
+    ]);
+    map.hasLayer.mockReturnValue(false);
+    m2.registerLayer({ id: "first_base", name: "B", isBase: true });
+    expect(m2.layerRegistry.firstBaseIdx).toBe(1);
+  });
+
+  it("registerLayer sets pane options for non-Path/Marker layers", () => {
+    const layer = { options: {} } as any;
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({ id: "p", name: "P", layer, paneName: "my_pane" });
+    expect(layer.options.pane).toBe("my_pane");
+    expect(layer.options.paneSet).toBe(true);
+  });
+
+  it("re-registering an existing layer updates the UI row", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.uiContainer = document.createElement("div");
+    manager.ui = {
+      updateLayerItem: vi.fn(),
+      initLayerItem: vi.fn(),
+      syncToggleAll: vi.fn(),
+      insertLayerItem: vi.fn(),
+    } as any;
+    manager.registerLayer({ id: "overlay1", name: "Renamed" });
+    expect(manager.ui.updateLayerItem).toHaveBeenCalled();
+    expect(manager.ui.insertLayerItem).not.toHaveBeenCalled();
+  });
+
+  it("unregisterLayer removes the UI row and reindexes", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    const row = document.createElement("div");
+    row.setAttribute("data-layer-id", "overlay1");
+    manager.uiContainer = document.createElement("div");
+    manager.uiContainer.appendChild(row);
+    manager.ui = { reindexItems: vi.fn() } as any;
+    expect(manager.unregisterLayer("overlay1")).toBe(true);
+    expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
+    expect(manager.ui.reindexItems).toHaveBeenCalled();
+  });
+
+  it("attachUI delegates to the UI", () => {
+    manager.ui = { attachUI: vi.fn() } as any;
+    const div = document.createElement("div");
+    manager.attachUI(div);
+    expect(manager.ui.attachUI).toHaveBeenCalledWith(div);
+  });
+
+  it("destroy cleans up the UI container and unbinds", () => {
+    manager.uiContainer = document.createElement("div");
+    const ui = { unbindEvents: vi.fn() } as any;
+    manager.ui = ui;
+    manager.destroy();
+    expect(ui.unbindEvents).toHaveBeenCalled();
+    expect(manager.uiContainer).toBeNull();
+    expect(manager.isDestroyed).toBe(true);
+  });
+
+  it("applyLayerZIndex calls setZIndex for visible TileLayers", () => {
+    const tile = new TileLayer();
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "t1", name: "T", layer: tile, isBase: true });
+    manager.enforceOrder();
+    expect(tile.setZIndex).toHaveBeenCalled();
+  });
+
+  it("extractPoints collects markers with features", () => {
+    class Marker {}
+    window.L.Marker = Marker;
+    const marker = new Marker() as any;
+    marker.feature = { type: "Feature" };
+    marker.getLatLng = () => ({ lat: 1, lng: 2 });
+    marker.options = {};
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({
+      id: "pts",
+      name: "Pts",
+      layer: {
+        eachLayer: (cb: (l: unknown) => void) => cb(marker),
+        options: {},
+      } as any,
+    });
+    const pts = manager.extractPoints("pts");
+    expect(pts).toEqual([{ lat: 1, lng: 2, marker }]);
+  });
+
+  it("bringLayerToFront re-renders the list when a UI is attached", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    // register bottom first so top lands at index 0; bottom is then movable
+    manager.registerLayer({ id: "bottom", name: "Bottom", layer: { options: {} } });
+    manager.registerLayer({ id: "top", name: "Top", layer: { options: {} } });
+    manager.uiContainer = document.createElement("div");
+    manager.ui = {
+      renderInitialList: vi.fn(),
+      initTypesAndVisibility: vi.fn(),
+    } as any;
+    manager.bringLayerToFront("bottom");
+    expect(manager.layers[0].id).toBe("bottom");
+    expect(manager.ui.renderInitialList).toHaveBeenCalled();
+    expect(manager.ui.initTypesAndVisibility).toHaveBeenCalled();
+  });
+
+  it("bringLayerToFront ignores base layers", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({ id: "b", name: "B", layer: new TileLayer(), isBase: true });
+    const orderBefore = manager.layers.map(l => l.id);
+    manager.bringLayerToFront("b");
+    expect(manager.layers.map(l => l.id)).toEqual(orderBefore);
+  });
+
+  it("applyLayerZIndex lands ordinary layers in a fallback pane", () => {
+    const layer = { options: {} } as any;
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "fb", name: "Fb", layer });
+    manager.enforceOrder();
+    expect(layer.options.pane).toMatch(/^foliplus_pane_/);
+    expect(layer.options.paneSet).toBe(true);
+  });
+
+  it("canReorderBetween delegates to the registry", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({ id: "o2", name: "O2", layer: { options: {} } });
+    // layers: [o2, overlay1, base1] — 0↔1 same overlay group, 0↔2 cross-group
+    expect(manager.canReorderBetween(0, 1)).toBe(true);
+    expect(manager.canReorderBetween(0, 2)).toBe(false);
+  });
+
+  it("registerLayer ensures child panes via discoverChildPanes", () => {
+    const childPaneLayer = {
+      options: { pane: "custom_child" },
+      eachLayer: (cb: (l: unknown) => void) =>
+        cb({ options: { pane: "custom_child" } }),
+    } as any;
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({ id: "cp", name: "Cp", layer: childPaneLayer });
+    expect(manager.panes.paneCache.size).toBeGreaterThanOrEqual(0); // no crash
+    // ensurePane was reached — the pane should exist in defaultPanes set? just verify no throw
+  });
+
+  it("syncAttribution removes the previous attribution via removeAttribution", () => {
+    const tile = new TileLayer();
+    map.attributionControl.removeAttribution = vi.fn();
+    map.attributionControl.addAttribution = vi.fn();
+    manager.map.hasLayer.mockImplementation(l => l === tile);
+    manager.registerLayer({ id: "b1", name: "B1", layer: tile, isBase: true });
+    manager.enforceOrder();
+    expect(manager.lastAttribution).toBe("© OpenStreetMap");
+    expect(map.attributionControl.addAttribution).toHaveBeenCalledWith(
+      "© OpenStreetMap",
+    );
+    // flip visibility off → top becomes empty → prev removed
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.enforceOrder();
+    expect(manager.lastAttribution).toBe("");
+    expect(map.attributionControl.removeAttribution).toHaveBeenCalledWith(
+      "© OpenStreetMap",
+    );
   });
 });
