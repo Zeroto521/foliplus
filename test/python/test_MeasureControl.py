@@ -818,3 +818,28 @@ class TestMeasureControlBrowser:
                 )
         finally:
             page.close()
+
+    def test_works_without_layercontrol(self, browser, tmp_path):
+        """MeasureControl initializes without LayerControl (degradation)."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        MeasureControl().add_to(m)
+
+        html = m.get_root().render()
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
+            "",
+        )
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>',
+            '<script>window.turf = { distance: (a,b,o) => 0, bearing: (a,b) => 0, area: (p) => 0, point: (c) => ({ geometry: { coordinates: c, type: "Point" } }), polygon: (c) => ({ geometry: { coordinates: c, type: "Polygon" } }), midpoint: (a,b) => ({ geometry: { coordinates: [0,0], type: "Point" } }) };</script>',
+        )
+        page, errors = make_browser_page(browser, tmp_path, html, "measure_no_layer")
+        page.wait_for_selector(
+            ".foliplus-measure-ctrl", state="attached", timeout=10000
+        )
+        try:
+            ctrl = page.evaluate("document.querySelector('.foliplus-measure-ctrl')")
+            assert ctrl is not None, "MeasureControl DOM should exist"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
