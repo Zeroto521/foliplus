@@ -49,7 +49,7 @@ def _build_shared_header() -> str:
     Built once and cached at module level.
     """
     common = (dist_dir / "foliplus-common.min.css").read_text(encoding="utf-8")
-    runtime = (dist_dir / "foliplus-runtime.min.js").read_text(encoding="utf-8")
+    runtime = (dist_dir / "foliplus-common.min.js").read_text(encoding="utf-8")
 
     return (
         "<style>\n"

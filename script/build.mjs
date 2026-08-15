@@ -164,8 +164,11 @@ const out = name => resolve(CFG.out.dist, name);
 const buildEntries = components => {
   const entries = [];
   for (const { name, js, css } of components) {
-    entries.push(artifact([js], out(`foliplus-${name}.min.js`), name));
-    if (css) entries.push(artifact([css], out(`foliplus-${name}.min.css`), name));
+    // "runtime" is the shared JS (hint/geocode global state); expose it as
+    // "common" so the filename foliplus-common.min.js pairs with the CSS.
+    const outName = name === "runtime" ? "common" : name;
+    entries.push(artifact([js], out(`foliplus-${outName}.min.js`), name));
+    if (css) entries.push(artifact([css], out(`foliplus-${outName}.min.css`), name));
   }
 
   // Merge common.css + panel.css into a single artifact
