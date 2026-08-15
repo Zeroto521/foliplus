@@ -64,6 +64,8 @@ declare module "leaflet" {
   interface Map {
     _layers: Record<string, L.Layer>;
     isFullscreen?: boolean;
+    /** Per-map foliplus API namespace, set by ensureHint/ensureLayerAPI/ensureEvents/ensureModes. */
+    foliplus?: MapFoliplus;
   }
   interface Layer {
     _layers: Record<string, L.Layer>;
