@@ -1,7 +1,7 @@
 // SearchControl shared type definitions — decoupled from the entry module.
 // Sub-modules (event.ts, logic.ts) import these instead of the index entry
 // to avoid a type-level circular dependency (index → event → index).
-import type { BaseControl } from "#common/BaseControl.js";
+import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { Debounced } from "#common/debounce.js";
 
 /** Nominatim search result element. */

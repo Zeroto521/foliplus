@@ -1,4 +1,4 @@
-import { BaseControl } from "#common/BaseControl.js";
+import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import { ensureHint } from "#core/hint.js";

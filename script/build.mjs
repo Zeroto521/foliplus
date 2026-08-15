@@ -111,6 +111,7 @@ const esbuildCfg = {
   alias: {
     "#common": CFG.tmp.js + "/common",
     "#core": CFG.tmp.js + "/core",
+    "#foliplus": CFG.tmp.js,
   },
   plugins: [postcssPlugin],
 };
