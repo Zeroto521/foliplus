@@ -13,6 +13,8 @@ from conftest import (
     assert_locale,
     make_browser_page,
     render_control,
+    use_page,
+    use_raw_page,
 )
 
 from foliplus import HeatmapControl

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import _js, make_browser_page, render
+from conftest import _js, make_browser_page, render, use_page, use_raw_page
 
 from foliplus import ExportControl
 

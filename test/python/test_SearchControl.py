@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import _js, assert_locale, make_browser_page, render_control
+from conftest import _js, assert_locale, make_browser_page, render_control, use_page
 
 from foliplus import SearchControl
 

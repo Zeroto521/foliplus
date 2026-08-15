@@ -8,6 +8,7 @@ from conftest import (
     assert_locale,
     make_browser_page,
     render_control,
+    use_page,
 )
 
 from foliplus import FullscreenControl

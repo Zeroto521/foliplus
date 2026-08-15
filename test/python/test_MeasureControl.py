@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import _js, assert_config_value, make_browser_page, render, render_control
+from conftest import _js, assert_config_value, make_browser_page, render, render_control, use_page, use_page
 
 from foliplus import MeasureControl
 
