@@ -25,16 +25,18 @@ function makeManager() {
   // Mock createLocationMarker's geo helpers
   window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
 
-  // Mock LayerAPI.createLayers
-  window.foliplus.LayerAPI = {
-    createLayers: vi.fn(() => ({
-      register: vi.fn(),
-      unregister: vi.fn(),
-      clearLayers: vi.fn(),
-      addLayer: vi.fn(l => l),
-      removeLayer: vi.fn(),
-      mainLayer: { addLayer: vi.fn() },
-    })),
+  // Mock LayerAPI.createLayers (per-map: map.foliplus.LayerAPI)
+  window.map.foliplus = {
+    LayerAPI: {
+      createLayers: vi.fn(() => ({
+        register: vi.fn(),
+        unregister: vi.fn(),
+        clearLayers: vi.fn(),
+        addLayer: vi.fn(l => l),
+        removeLayer: vi.fn(),
+        mainLayer: { addLayer: vi.fn() },
+      })),
+    },
   };
 
   const container = document.createElement("div");

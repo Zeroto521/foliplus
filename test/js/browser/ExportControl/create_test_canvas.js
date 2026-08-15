@@ -1,6 +1,6 @@
 () => {
   // Create and register a test canvas layer via the LayerControl API.
-  const api = window.foliplus && window.foliplus.LayerAPI;
+  const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return;
   const cvs = api.createCanvas({
     id: "__test_export_canvas__",

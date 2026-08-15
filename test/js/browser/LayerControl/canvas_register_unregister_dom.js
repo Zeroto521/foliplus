@@ -1,5 +1,5 @@
 () => {
-  const api = window.foliplus && window.foliplus.LayerAPI;
+  const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const cvs = api.createCanvas({ id: "__test_canvas_reg__", name: "Canvas Test" });
   cvs.register();

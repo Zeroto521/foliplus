@@ -1,5 +1,5 @@
 () => {
-  const api = window.foliplus && window.foliplus.LayerAPI;
+  const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   // Simulate a layeradd arriving while enforceOrder is running.
   // onLayerAdd must fall back to debouncedEnforce instead of

@@ -1,5 +1,5 @@
 () => {
-  const api = window.foliplus && window.foliplus.LayerAPI;
+  const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   // Count synchronous enforceOrder calls NOT originating from
   // initTypesAndVisibility (i.e. redundant per-register calls)

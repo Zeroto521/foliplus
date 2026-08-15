@@ -1,5 +1,5 @@
 () => {
-  const api = window.foliplus && window.foliplus.LayerAPI;
+  const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const fg = L.featureGroup();
   api.registerLayer({ id: "__test_find_id__", layer: fg });

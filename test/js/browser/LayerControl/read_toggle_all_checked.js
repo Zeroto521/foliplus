@@ -1,5 +1,5 @@
 () => {
-  const api = window.foliplus && window.foliplus.LayerAPI;
+  const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const cb = document.querySelector(
     '.foliplus-layer-toggle-all[data-group="overlay"] [data-role="toggle-all"]',
