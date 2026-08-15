@@ -1,5 +1,6 @@
 // core/LayerRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONF dependency. The LayerManager orchestrates mutations.
+import type { LayerInfo, RegisterLayerOpts } from "./type.js";
 import { findLayer } from "./util.js";
 
 // Mutating methods blocked on the read-only view.
@@ -14,21 +15,6 @@ const MUTATING_METHODS = new Set([
   "fill",
   "copyWithin",
 ]);
-
-/** Options for registerLayer / createLayerInfo. */
-interface RegisterLayerOpts {
-  id: string;
-  name?: string | null;
-  layer?: L.Layer | null;
-  isBase?: boolean;
-  paneName?: string | null;
-  iconSvg?: string | null;
-  visible?: boolean;
-  canvas?: HTMLCanvasElement | null;
-  onToggle?: ((visible: boolean) => void) | null;
-  onZIndex?: ((z: number) => void) | null;
-  [key: string]: unknown;
-}
 
 /**
  * Ordered layer info list with O(1) id index.
@@ -81,6 +67,7 @@ class LayerRegistry {
       visible: opts.visible ?? existingLi?.visible ?? true,
       isBase: opts.isBase ?? existingLi?.isBase ?? false,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
+      labelPane: opts.labelPane ?? existingLi?.labelPane ?? null,
       iconSvg: opts.iconSvg ?? existingLi?.iconSvg ?? null,
       type: null,
       layer:
@@ -114,6 +101,13 @@ class LayerRegistry {
       },
       deleteProperty() {
         throw new TypeError("[foliplus] LayerRegistry: cannot delete layers directly");
+      },
+      defineProperty() {
+        // Without this trap, Object.defineProperty(view, '0', {...}) forwarded
+        // to the internal mutable array and bypassed the read-only guarantee.
+        throw new TypeError(
+          "[foliplus] LayerRegistry: cannot define properties on layers",
+        );
       },
       get(target, prop, receiver) {
         if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
@@ -149,8 +143,8 @@ class LayerRegistry {
     return this.byId.has(id);
   }
 
-  indexOf(li: LayerInfo) {
-    return this.items.indexOf(li);
+  indexOf(layerInfo: LayerInfo) {
+    return this.items.indexOf(layerInfo);
   }
 
   /** Iterate in order (keeps `for...of` and spread working). */
@@ -189,24 +183,24 @@ class LayerRegistry {
   }
 
   remove(id: string): LayerInfo | null {
-    const li = this.byId.get(id);
-    if (!li) return null;
-    const idx = this.items.indexOf(li);
+    const layerInfo = this.byId.get(id);
+    if (!layerInfo) return null;
+    const idx = this.items.indexOf(layerInfo);
     if (idx !== -1) this.items.splice(idx, 1);
     this.byId.delete(id);
     this.refreshFirstBaseIdx();
-    return li;
+    return layerInfo;
   }
 
   /** Move an existing layer to index 0 (bring to front). */
   moveToFront(id: string): LayerInfo | null {
-    const li = this.byId.get(id);
-    if (!li) return null;
-    const idx = this.items.indexOf(li);
-    if (idx <= 0) return li;
+    const layerInfo = this.byId.get(id);
+    if (!layerInfo) return null;
+    const idx = this.items.indexOf(layerInfo);
+    if (idx <= 0) return layerInfo;
     this.items.splice(idx, 1);
-    this.items.unshift(li);
-    return li;
+    this.items.unshift(layerInfo);
+    return layerInfo;
   }
 
   /** Swap order of two positions (drag-and-drop). */
@@ -232,9 +226,9 @@ class LayerRegistry {
   normalizeGroups() {
     const overlays = [];
     const bases = [];
-    for (const li of this.items) {
-      if (li && li.isBase) bases.push(li);
-      else overlays.push(li);
+    for (const layerInfo of this.items) {
+      if (layerInfo && layerInfo.isBase) bases.push(layerInfo);
+      else overlays.push(layerInfo);
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
     this.byId = new Map(this.items.map(l => [l.id, l]));
@@ -264,4 +258,4 @@ class LayerRegistry {
   }
 }
 
-export { LayerRegistry, type RegisterLayerOpts };
+export { LayerRegistry };

@@ -1,6 +1,7 @@
 /** Timing / delay constants. */
 export const INIT_DELAY_MS = 300;
 export const ENFORCE_ORDER_DEBOUNCE_MS = 50;
+export const SAVE_ORDER_DEBOUNCE_MS = 100;
 
 /** Drag hint cooldown. */
 export const DRAG = { HINT_COOLDOWN_MS: 800 };

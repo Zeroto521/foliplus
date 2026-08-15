@@ -3,33 +3,15 @@
 // register/unregister callbacks via dependency injection.
 import { dom } from "#common/dom.js";
 import { throttleRaf } from "#common/throttle.js";
-import type { RegisterLayerOpts } from "./LayerRegistry.js";
 import { PaneManager } from "./PaneManager.js";
-
-/** Options for createLayers. */
-interface CreateLayersOpts {
-  id: string;
-  name?: string;
-  graphPane?: string;
-  labelPane?: string;
-  iconSvg?: string;
-}
-
-/** Options for createCanvas. */
-interface CreateCanvasOpts {
-  id: string;
-  name?: string;
-  className?: string;
-  iconSvg?: string;
-  onToggle?: ((visible: boolean) => void) | null;
-  onZIndex?: ((z: number) => void) | null;
-}
-
-/** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
-interface LabelAwareLayer extends L.Layer {
-  isLabel?: boolean;
-  options: L.LayerOptions & { renderer?: L.Renderer; pane?: string; paneSet?: boolean };
-}
+import type { RegisterLayerOpts } from "./type.js";
+import type {
+  CreateCanvasAPI,
+  CreateCanvasOpts,
+  CreateLayersAPI,
+  CreateLayersOpts,
+  LabelAwareLayer,
+} from "./type.js";
 
 /** Dependency injection contract for LayerFactory. */
 interface LayerFactoryDeps {
@@ -38,6 +20,8 @@ interface LayerFactoryDeps {
   registerLayer: (opts: RegisterLayerOpts) => HTMLElement | null;
   unregisterLayer: (id: string) => boolean;
   bringLayerToFront: (id: string) => void;
+  /** Drop a registered layer's cached geometry type when its content changes. */
+  invalidateType: (id: string) => void;
 }
 
 class LayerFactory {
@@ -48,7 +32,14 @@ class LayerFactory {
   }
 
   createLayers(opts: CreateLayersOpts): CreateLayersAPI {
-    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
+    const {
+      map,
+      panes,
+      registerLayer,
+      unregisterLayer,
+      bringLayerToFront,
+      invalidateType,
+    } = this.deps;
     const mainLayer = L.layerGroup();
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
@@ -67,6 +58,7 @@ class LayerFactory {
       isBase: false,
       layer: mainLayer,
       paneName: opts.graphPane || null,
+      labelPane: opts.labelPane || null,
       iconSvg: opts.iconSvg || null,
     };
     const register = () => {
@@ -103,7 +95,11 @@ class LayerFactory {
           layer.options.renderer = renderer ?? undefined;
         } else if (paneName) panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
-        panes.reset();
+        // The mainLayer subtree changed and the added layer's options.pane was
+        // set above — invalidate both discovery-cache entries (targeted).
+        panes.reset(L.stamp(mainLayer));
+        panes.reset(L.stamp(layer));
+        invalidateType(opts.id);
         return result;
       }
       return origAddLayer(layer);
@@ -112,12 +108,16 @@ class LayerFactory {
     mainLayer.removeLayer = (layer: LabelAwareLayer) => {
       if (graphLayer && graphLayer.hasLayer(layer)) {
         const result = graphLayer.removeLayer(layer);
-        panes.reset();
+        panes.reset(L.stamp(mainLayer));
+        panes.reset(L.stamp(layer));
+        invalidateType(opts.id);
         return result;
       }
       if (labelLayer && labelLayer.hasLayer(layer)) {
         const result = labelLayer.removeLayer(layer);
-        panes.reset();
+        panes.reset(L.stamp(mainLayer));
+        panes.reset(L.stamp(layer));
+        invalidateType(opts.id);
         return result;
       }
       return origRemoveLayer(layer);
@@ -279,4 +279,5 @@ class LayerFactory {
   }
 }
 
-export { LayerFactory, type CreateLayersOpts, type CreateCanvasOpts };
+export { LayerFactory };
+export type { CreateCanvasOpts, CreateLayersOpts } from "./type.js";

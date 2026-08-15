@@ -142,6 +142,39 @@ describe("PaneManager", () => {
     expect(pm.paneCache.size).toBe(0);
   });
 
+  it("reset(id) invalidates only the matching cache entry", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    pm.paneCache.set(1, ["a"]);
+    pm.paneCache.set(2, ["b"]);
+    pm.reset(1);
+    expect(pm.paneCache.has(1)).toBe(false);
+    expect(pm.paneCache.get(2)).toEqual(["b"]);
+  });
+
+  it("discoverChildPanes reuses the cache until invalidated", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const layer = { options: { pane: "measure_graph" } };
+    expect(pm.discoverChildPanes(layer)).toEqual(["measure_graph"]);
+    // Second call must hit the cache — the options change is ignored until reset
+    layer.options.pane = "other_pane";
+    expect(pm.discoverChildPanes(layer)).toEqual(["measure_graph"]);
+    // After a targeted invalidation the new pane is observed
+    pm.reset(window.L.stamp(layer));
+    expect(pm.discoverChildPanes(layer)).toEqual(["other_pane"]);
+  });
+
+  it("sweepLabelPanes drops entries no longer referenced", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    pm.labelPanes.add("keep_label");
+    pm.labelPanes.add("drop_label");
+    pm.sweepLabelPanes([{ labelPane: "keep_label" }, { labelPane: null }, {}]);
+    expect(pm.labelPanes.has("keep_label")).toBe(true);
+    expect(pm.labelPanes.has("drop_label")).toBe(false);
+  });
+
   it("destroy clears all pane state", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
@@ -179,6 +212,25 @@ describe("PaneManager", () => {
     expect(path.parentNode).toBe(container);
   });
 
+  it("migrateLayers recurses through LayerGroup subtrees", () => {
+    const paneEl = document.createElement("div");
+    const container = document.createElement("div");
+    const childPath = document.createElement("path");
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const child = { getElement: () => childPath, options: {} };
+    Object.setPrototypeOf(child, new window.L.Path());
+    const parent = {
+      eachLayer: (cb: (c: unknown) => void) => cb(child),
+      options: {},
+    };
+    const renderer = { _container: container };
+    pm.migrateLayers([{ layer: parent, paneName: "measure_graph", renderer }]);
+    expect(child.options.pane).toBe("measure_graph");
+    expect(child.options.paneSet).toBe(true);
+    expect(childPath.parentNode).toBe(container);
+  });
+
   it("migrateLayers moves marker icons into the pane", () => {
     const paneEl = document.createElement("div");
     const icon = document.createElement("img");
@@ -206,5 +258,17 @@ describe("PaneManager", () => {
     expect(() =>
       pm.migrateLayers([{ layer, paneName: null, renderer: null }]),
     ).not.toThrow();
+  });
+
+  it("migrateLayers marks a layer handled even when the renderer container is missing", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const layer = { options: {} as Record<string, unknown>, eachLayer: undefined };
+    // A null renderer (e.g. tile layers with a paneName) previously skipped the
+    // whole layer without setting options.pane/paneSet, so the manager re-queued
+    // it on every enforceOrder pass. The options must still be marked handled.
+    pm.migrateLayers([{ layer, paneName: "measure_graph", renderer: null }]);
+    expect(layer.options.pane).toBe("measure_graph");
+    expect(layer.options.paneSet).toBe(true);
   });
 });

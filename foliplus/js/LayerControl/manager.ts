@@ -3,14 +3,20 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
+  type CreateCanvasAPI,
+  type CreateCanvasOpts,
+  type CreateLayersAPI,
+  type CreateLayersOpts,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
+  type LayerAPI,
   LayerFactory,
   LayerRegistry,
   PaneManager,
   type RegisterLayerOpts,
   Z_INDEX,
   findLayer,
+  forEachLayer,
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
@@ -25,11 +31,13 @@ const _ = createTranslator(CONF);
 // layer migration (enforceOrder briefly removes layers from the map, and a
 // concurrent mousemove event may call bringToFront on a detached _path).
 const origBringToFront = L.Path.prototype.bringToFront;
-let isBringToFrontPatched = false;
+// Reference count: multiple LayerControl instances (multi-map pages) may patch
+// the prototype; only the last unpatch restores the original implementation.
+let bringToFrontPatchRefs = 0;
 
 const patchBringToFront = () => {
-  if (isBringToFrontPatched) return;
-  isBringToFrontPatched = true;
+  bringToFrontPatchRefs++;
+  if (bringToFrontPatchRefs > 1) return;
   L.Path.prototype.bringToFront = function () {
     if (this._path && this._path.parentNode) origBringToFront.call(this);
     return this;
@@ -37,22 +45,16 @@ const patchBringToFront = () => {
 };
 
 const unpatchBringToFront = () => {
-  if (!isBringToFrontPatched) return;
-  isBringToFrontPatched = false;
+  if (bringToFrontPatchRefs <= 0) return;
+  bringToFrontPatchRefs--;
+  if (bringToFrontPatchRefs > 0) return;
   L.Path.prototype.bringToFront = origBringToFront;
 };
 
-/** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
-interface LabelAwareLayer extends L.Layer {
-  isLabel?: boolean;
-  options: L.LayerOptions & { renderer?: L.Renderer; pane?: string; paneSet?: boolean };
-}
-
 // ==================== Core Manager: LayerManager ====================
-class LayerManager {
+class LayerManager implements LayerAPI {
   map: L.Map;
   layerRegistry: LayerRegistry;
-  layers: LayerInfo[];
   pendingRegistrations: LayerInfo[];
   uiContainer: HTMLElement | null;
   isEnforcing: boolean;
@@ -62,13 +64,13 @@ class LayerManager {
   lastAttribution: string | null;
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
+  debouncedSaveOrder: Debounced | undefined; // lazy-init in saveOrder()
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
     this.layerRegistry = new LayerRegistry(data, this.map);
-    this.layers = this.layerRegistry.layers;
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
@@ -93,6 +95,7 @@ class LayerManager {
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
+      invalidateType: id => this.invalidateType(id),
     });
 
     this.lastAttribution = null;
@@ -103,13 +106,17 @@ class LayerManager {
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
-    // Respond to every layer-level add. The initial enforceOrder runs before
-    // the folium layer scripts, so registered layers may not be resolvable
-    // yet (li.layer === null → skipped). When those layers are later added to
-    // the map (GeoJSON/FeatureGroup containers included), a layeradd fires and
+    // Respond to layer-level adds. The initial enforceOrder runs before the
+    // folium layer scripts, so registered layers may not be resolvable yet
+    // (layerInfo.layer === null → skipped). When those layers are later added to the
+    // map (GeoJSON/FeatureGroup containers included), a layeradd fires and
     // debouncedEnforce re-runs enforceOrder — by then the window globals exist
     // and every managed layer gets its pane/z-index. isEnforcing guards
     // re-entrancy; debounce coalesces a batch of adds into one pass.
+    //
+    // Once every registered layer is resolved, unrelated layeradds (e.g.
+    // ExportControl's crossOrigin re-adds or user-added layers) must NOT
+    // trigger a full enforceOrder — only layers belonging to the registry do.
     this.onLayerAdd = event => {
       if (
         this.isDestroyed ||
@@ -118,12 +125,10 @@ class LayerManager {
       )
         return;
 
-      if (this.isEnforcing) {
-        this.debouncedEnforce();
-        return;
+      if (this.hasUnresolvedLayers() || this.isManagedLayer(event.layer)) {
+        if (this.isEnforcing) this.debouncedEnforce();
+        else this.debouncedEnforce();
       }
-
-      this.debouncedEnforce();
     };
     this.map.on("layeradd", this.onLayerAdd);
 
@@ -133,18 +138,48 @@ class LayerManager {
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
+    // LayerManager itself implements LayerAPI, so it becomes the map's API.
     ensureLayerAPI(this.map);
-    this.map.foliplus!.LayerAPI = {
-      layers: this.layerRegistry.layers,
-      registerLayer: this.registerLayer,
-      unregisterLayer: this.unregisterLayer,
-      bringLayerToFront: this.bringLayerToFront,
-      createLayers: opts => this.factory.createLayers(opts),
-      createCanvas: opts => this.factory.createCanvas(opts),
-      extractPoints: this.extractPoints,
-      getLayerPanes: this.getLayerPanes,
-      getLayersByType: this.getLayersByType,
-    };
+    this.map.foliplus!.LayerAPI = this;
+  }
+
+  /** Ordered layers (read-only view; always reflects the registry). */
+  get layers(): readonly LayerInfo[] {
+    return this.layerRegistry.layers;
+  }
+
+  // LayerAPI contract: createLayers / createCanvas delegate to the factory.
+  createLayers(opts: CreateLayersOpts): CreateLayersAPI {
+    return this.factory.createLayers(opts);
+  }
+
+  createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
+    return this.factory.createCanvas(opts);
+  }
+
+  /** True while any registered layer is unresolved (layerInfo.layer === null).
+   *  During the initial folium script phase any layeradd may make a registered
+   *  layer resolvable, so unrelated adds must keep triggering enforceOrder. */
+  private hasUnresolvedLayers(): boolean {
+    for (const layerInfo of this.layers) {
+      if (!layerInfo.layer) return true;
+    }
+    return false;
+  }
+
+  /** Whether a just-added layer belongs to a registered layer's tree. */
+  private isManagedLayer(layer: L.Layer): boolean {
+    for (const layerInfo of this.layers) {
+      if (layerInfo.layer === layer) return true;
+      if (layerInfo.layer) {
+        let found = false;
+        forEachLayer(layerInfo.layer, c => {
+          if (c === layer) found = true;
+        });
+        if (found) return true;
+      }
+    }
+    return false;
   }
 
   loadSavedOrder() {
@@ -158,17 +193,25 @@ class LayerManager {
         layerMap.delete(id);
       }
     }
-    this.layerRegistry.replace(
-      ordered.concat([...layerMap.values()].filter((v): v is LayerInfo => v != null)),
-    );
+    // byId values are always LayerInfo — no nulls to filter.
+    this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
   }
 
+  /** Persist layer order, coalescing rapid calls (drag/drop, batch
+   *  registration) into one localStorage write. The debounced writer is
+   *  created lazily on first use. */
   saveOrder() {
-    Storage.save(
-      CONST.STORAGE.ORDER_KEY,
-      this.layers.map(l => l.id),
-      CONF.name,
-    );
+    if (!this.debouncedSaveOrder) {
+      this.debouncedSaveOrder = debounce(() => {
+        if (this.isDestroyed) return;
+        Storage.save(
+          CONST.STORAGE.ORDER_KEY,
+          this.layers.map(l => l.id),
+          CONF.name,
+        );
+      }, CONST.SAVE_ORDER_DEBOUNCE_MS);
+    }
+    this.debouncedSaveOrder();
   }
 
   // ==================== Public API Methods ====================
@@ -179,15 +222,27 @@ class LayerManager {
    * @returns {string|null} "point" | "line" | "polygon" | "base" | null
    */
   getLayerType(id: string): string | null {
-    const li = this.layerRegistry.get(id);
-    if (!li) return null;
-    if (li.type) return li.type;
-    if (li.isBase) return CONST.GROUP.BASE;
-    if (li.iconSvg) return GEOM_TYPE.CUSTOM;
-    const layer = this.findLayer(li);
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return null;
+    if (layerInfo.type) return layerInfo.type;
+    if (layerInfo.isBase) return CONST.GROUP.BASE;
+    if (layerInfo.iconSvg) return GEOM_TYPE.CUSTOM;
+    const layer = this.findLayer(layerInfo);
     if (!layer) return null;
-    li.type = getGeometryType(layer);
-    return li.type;
+    layerInfo.type = getGeometryType(layer);
+    return layerInfo.type;
+  }
+
+  /** Drop a registered layer's cached geometry type (re-inferred on next get). */
+  invalidateType(id: string): void {
+    const layerInfo = this.layerRegistry.get(id);
+    if (layerInfo) layerInfo.type = null;
+  }
+
+  /** Re-infer and return a layer's geometry type. */
+  refreshType(id: string): string | null {
+    this.invalidateType(id);
+    return this.getLayerType(id);
   }
 
   /**
@@ -202,12 +257,12 @@ class LayerManager {
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
-    const li =
+    const layerInfo =
       typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
-    if (li?.layer) return li.layer;
+    if (layerInfo?.layer) return layerInfo.layer;
     return findLayer(
       this.map,
-      typeof idOrInfo === "string" ? idOrInfo : (li?.id ?? ""),
+      typeof idOrInfo === "string" ? idOrInfo : (layerInfo?.id ?? ""),
     );
   }
 
@@ -257,8 +312,9 @@ class LayerManager {
     if (opts.layer) {
       for (const cp of this.panes.discoverChildPanes(opts.layer))
         this.panes.ensurePane(cp, !this.panes.labelPanes.has(cp));
+      // options.pane is updated below — invalidate only this layer's cache.
+      this.panes.reset(L.stamp(opts.layer));
     }
-    this.panes.reset();
     if (opts.layer) this.panes.fallbackPaneMap.delete(L.stamp(opts.layer));
     if (
       opts.paneName &&
@@ -280,7 +336,12 @@ class LayerManager {
     if (this.ui) {
       if (existingIdx === -1) this.ui.insertLayerItem(layerInfo);
       else this.ui.updateLayerItem(layerInfo, existingIdx);
-      this.ui.initTypesAndVisibility();
+      // Incremental: initialize only the new/updated row instead of re-scanning
+      // every row (initTypesAndVisibility is a full pass used on attach/fold).
+      this.ui.initLayerItem(layerInfo);
+      this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+      // Defer z-order enforcement so batch registration coalesces into one pass.
+      this.debouncedEnforce();
     }
     this.saveOrder();
     return this.uiContainer.querySelector(
@@ -321,8 +382,10 @@ class LayerManager {
       if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
       this.clearAllLayers(layer);
     }
-    this.panes.reset();
+    if (layer) this.panes.reset(L.stamp(layer));
     if (layer) this.panes.fallbackPaneMap.delete(L.stamp(layer));
+    // Drop label-pane entries that are no longer referenced by any layer.
+    this.panes.sweepLabelPanes(this.layers);
 
     if (this.uiContainer) {
       const target = this.uiContainer.querySelector(
@@ -364,31 +427,39 @@ class LayerManager {
         paneName: string | null;
         renderer: L.SVG | null;
       }> = [];
-      this.panes.reset();
 
+      // Note: pane discovery cache is NOT cleared here — enforceOrder does not
+      // change layer-tree structure, so registered layers keep their cached
+      // child-pane lists. Structure changes (register/unregister/addLayer)
+      // invalidate specific entries via panes.reset(stamp).
       for (let i = 0; i < this.layers.length; i++) {
-        const li = this.layers[i];
-        const layer = this.findLayer(li);
+        const layerInfo = this.layers[i];
+        const layer = this.findLayer(layerInfo);
         const hasLayer = layer && this.map.hasLayer(layer);
+        // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer()).
+        // TileLayer has public setZIndex; other GridLayers keep options.zIndex.
+        const isGrid = layer instanceof L.GridLayer;
         const isTile = layer instanceof L.TileLayer;
-        const z = this.computeZIndex(i, isTile);
+        const z = this.computeZIndex(i, isGrid);
 
-        if (li.onZIndex) li.onZIndex(z);
+        if (layerInfo.onZIndex) layerInfo.onZIndex(z);
         if (!hasLayer) continue;
 
-        this.applyLayerZIndex({ li, layer, z, isTile, layersToMove });
+        this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
       }
 
+      // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
+      // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
+      // markers (search/locate pins, ✕, data markers) one step below topZ but
+      // still above every data pane — otherwise markerPane would hide under
+      // overlays. These offsets are relative to Z_INDEX.STEP (10).
       const topZ = this.computeZIndex(0, false) + Z_INDEX.STEP;
-      const pp = this.map.getPane("popupPane");
-      if (pp) pp.style.zIndex = String(topZ + 1);
-      const tp = this.map.getPane("tooltipPane");
-      if (tp) tp.style.zIndex = String(topZ);
-      // Keep markers (search/locate pins, ✕, data markers) above data layers
-      // but below popup/tooltip. Data panes start at BASE (== markerPane 600),
-      // so without this the whole markerPane would be hidden under overlays.
-      const mp = this.map.getPane("markerPane");
-      if (mp) mp.style.zIndex = String(topZ - 1);
+      const popupPaneEl = this.map.getPane("popupPane");
+      if (popupPaneEl) popupPaneEl.style.zIndex = String(topZ + 1);
+      const tooltipPaneEl = this.map.getPane("tooltipPane");
+      if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
+      const markerPaneEl = this.map.getPane("markerPane");
+      if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
 
       this.panes.migrateLayers(layersToMove);
       this.syncAttribution();
@@ -398,15 +469,17 @@ class LayerManager {
   }
 
   applyLayerZIndex({
-    li,
+    layerInfo,
     layer,
     z,
+    isGrid,
     isTile,
     layersToMove,
   }: {
-    li: LayerInfo;
+    layerInfo: LayerInfo;
     layer: L.Layer;
     z: number;
+    isGrid: boolean;
     isTile: boolean;
     layersToMove: Array<{
       layer: L.Layer;
@@ -414,12 +487,12 @@ class LayerManager {
       renderer: L.SVG | null;
     }>;
   }) {
-    const paneName = li.paneName;
+    const paneName = layerInfo.paneName;
     if (paneName) {
-      const ep = this.panes.ensurePane(paneName, !isTile);
-      ep.pane.style.zIndex = String(z);
+      const paneEntry = this.panes.ensurePane(paneName, !isTile);
+      paneEntry.pane.style.zIndex = String(z);
       if (layer.options.pane !== paneName || !layer.options.paneSet)
-        layersToMove.push({ layer, paneName, renderer: ep.renderer });
+        layersToMove.push({ layer, paneName, renderer: paneEntry.renderer });
       this.panes.bumpLabelPanes(layer, z);
       return;
     }
@@ -429,12 +502,19 @@ class LayerManager {
       return;
     }
 
+    if (isGrid) {
+      // GridLayer subclass without TileLayer.setZIndex (e.g. L.gridLayer()):
+      // Leaflet renders it in tilePane and applies options.zIndex on update.
+      (layer.options as L.GridLayerOptions).zIndex = z;
+      return;
+    }
+
     const childPanes = this.panes.discoverChildPanes(layer);
     if (childPanes.length > 0) {
       childPanes.forEach((cp: string) => {
         const needRenderer = !isTile && !this.panes.labelPanes.has(cp);
-        const ep = this.panes.ensurePane(cp, needRenderer);
-        ep.pane.style.zIndex = String(z);
+        const paneEntry = this.panes.ensurePane(cp, needRenderer);
+        paneEntry.pane.style.zIndex = String(z);
       });
       this.panes.bumpLabelPanes(layer, z);
       layer.options.paneSet = true;
@@ -443,10 +523,10 @@ class LayerManager {
 
     const fbName = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
     this.panes.fallbackPaneMap.set(L.stamp(layer), fbName);
-    const ep = this.panes.ensurePane(fbName, !isTile);
-    ep.pane.style.zIndex = String(z);
+    const paneEntry = this.panes.ensurePane(fbName, !isTile);
+    paneEntry.pane.style.zIndex = String(z);
     if (layer.options.pane !== fbName || !layer.options.paneSet)
-      layersToMove.push({ layer, paneName: fbName, renderer: ep.renderer });
+      layersToMove.push({ layer, paneName: fbName, renderer: paneEntry.renderer });
   }
 
   syncAttribution() {
@@ -454,12 +534,21 @@ class LayerManager {
     if (!attrCtrl) return;
 
     let topAttr = "";
-    for (let i = 0; i < this.layers.length; i++) {
-      const li = this.layers[i];
-      if (!li.isBase) continue;
-      const layer = this.findLayer(li);
+    // Bases live at the tail of the list; the first visible base tile is the
+    // topmost (highest z) one — scan from the first base and stop early.
+    for (
+      let i = this.layerRegistry.firstBaseIdx;
+      i !== -1 && i < this.layers.length;
+      i++
+    ) {
+      const layerInfo = this.layers[i];
+      if (!layerInfo.isBase) continue;
+      const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
-      if (!topAttr && this.map.hasLayer(layer)) topAttr = layer.options.attribution;
+      if (this.map.hasLayer(layer)) {
+        topAttr = layer.options.attribution;
+        break;
+      }
     }
 
     // Unchanged top-most attribution: nothing to rebuild.
@@ -490,6 +579,7 @@ class LayerManager {
     this.isDestroyed = true;
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
+    if (this.debouncedSaveOrder) this.debouncedSaveOrder.cancel();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;
