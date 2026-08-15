@@ -173,6 +173,23 @@ describe("LayerRegistry", () => {
         registry.layers.splice(0, 1);
       }).toThrow();
     });
+
+    it("blocks defineProperty mutation on the view", () => {
+      // Regression: the old Proxy without a defineProperty trap forwarded
+      // Object.defineProperty to the internal mutable array, bypassing the
+      // read-only guarantee. A frozen snapshot must throw instead.
+      expect(() => {
+        Object.defineProperty(registry.layers, "0", { value: { id: "x" } });
+      }).toThrow();
+    });
+
+    it("view reflects the latest items after an internal mutation", () => {
+      registry.prepend(
+        registry.createLayerInfo({ id: "new1", name: "New", isBase: false }),
+      );
+      expect(registry.layers[0].id).toBe("new1");
+      expect(registry.layers.length).toBe(4);
+    });
   });
 
   describe("replace", () => {

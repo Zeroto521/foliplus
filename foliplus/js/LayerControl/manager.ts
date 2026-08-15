@@ -55,7 +55,6 @@ const unpatchBringToFront = () => {
 class LayerManager implements LayerAPI {
   map: L.Map;
   layerRegistry: LayerRegistry;
-  layers: LayerInfo[];
   pendingRegistrations: LayerInfo[];
   uiContainer: HTMLElement | null;
   isEnforcing: boolean;
@@ -72,7 +71,6 @@ class LayerManager implements LayerAPI {
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
     this.layerRegistry = new LayerRegistry(data, this.map);
-    this.layers = this.layerRegistry.layers;
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
@@ -154,6 +152,11 @@ class LayerManager implements LayerAPI {
     // LayerManager itself implements LayerAPI, so it becomes the map's API.
     ensureLayerAPI(this.map);
     this.map.foliplus!.LayerAPI = this;
+  }
+
+  /** Ordered layers (read-only view; always reflects the registry). */
+  get layers(): readonly LayerInfo[] {
+    return this.layerRegistry.layers;
   }
 
   // LayerAPI contract: createLayers / createCanvas delegate to the factory.

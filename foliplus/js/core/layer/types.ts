@@ -104,8 +104,8 @@ export interface CreateLayersAPI {
  *     registry/query methods are no-ops returning empty results)
  */
 export interface LayerAPI {
-  /** Ordered array of layers (read-only view of the registry). */
-  layers: LayerInfo[];
+  /** Ordered array of layers (frozen read-only snapshot of the registry). */
+  layers: readonly LayerInfo[];
   /** Register a layer; returns its row element (or null on failure). */
   registerLayer: (opts: RegisterLayerOpts) => HTMLElement | null;
   /** Unregister and remove a layer; returns true if removed. */

@@ -163,7 +163,7 @@ class PaneManager {
 
   /** Drop label-pane entries no longer referenced by any registered layer.
    *  Called after unregisterLayer so labelPanes does not grow unboundedly. */
-  sweepLabelPanes(layers: Array<{ labelPane?: string | null }>) {
+  sweepLabelPanes(layers: ReadonlyArray<{ labelPane?: string | null }>) {
     const used = new Set<string>();
     for (const li of layers) {
       if (li.labelPane) used.add(li.labelPane);

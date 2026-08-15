@@ -102,6 +102,11 @@ class LayerRegistry {
       deleteProperty() {
         throw new TypeError("[foliplus] LayerRegistry: cannot delete layers directly");
       },
+      defineProperty() {
+        // Without this trap, Object.defineProperty(view, '0', {...}) forwarded
+        // to the internal mutable array and bypassed the read-only guarantee.
+        throw new TypeError("[foliplus] LayerRegistry: cannot define properties on layers");
+      },
       get(target, prop, receiver) {
         if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
           return () => {
