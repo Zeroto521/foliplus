@@ -49,6 +49,7 @@ describe("LayerManager", () => {
     map = {
       on: vi.fn(),
       off: vi.fn(),
+    invalidateSize: vi.fn(),
       hasLayer: vi.fn(() => false),
       addLayer: vi.fn(),
       removeLayer: vi.fn(),
@@ -273,5 +274,73 @@ describe("LayerManager", () => {
     ]) {
       expect(key in li).toBe(true);
     }
+  });
+
+  // ── registerLayer id validation ──
+
+  it("registerLayer throws when id is missing", () => {
+    expect(() => manager.registerLayer({} as any)).toThrow("id_required");
+  });
+
+  it("registerLayer throws when id is empty", () => {
+    expect(() => manager.registerLayer({ id: "" } as any)).toThrow("id_required");
+  });
+
+  // ── createCanvas id validation ──
+
+  it("createCanvas throws when id is missing", () => {
+    expect(() => manager.factory.createCanvas({} as any)).toThrow("createCanvas requires an id");
+  });
+
+  it("createCanvas throws when id is empty", () => {
+    expect(() => manager.factory.createCanvas({ id: "" } as any)).toThrow("createCanvas requires an id");
+  });
+
+  // ── bringLayerToFront ──
+
+  it("bringLayerToFront moves layer to front of z-order", () => {
+    const spy = vi.spyOn(manager, "enforceOrder");
+    manager.registerLayer({ id: "a", name: "A", layer: new window.L.TileLayer() });
+    manager.registerLayer({ id: "b", name: "B", layer: new window.L.TileLayer() });
+    manager.bringLayerToFront("a");
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("bringLayerToFront is a no-op for unknown id", () => {
+    const spy = vi.spyOn(manager, "enforceOrder");
+    manager.bringLayerToFront("nonexistent");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+
+
+  // ── traverse / extractPoints ──
+
+  it("extractPoints returns empty array for non-existent layer", () => {
+    expect(manager.extractPoints("nonexistent")).toEqual([]);
+  });
+
+  // ── migrateLayers container guard ──
+
+  it("migrateLayers skips container layers (those with eachLayer)", () => {
+    const container = { options: {}, eachLayer: vi.fn() };
+    const leaf = { options: { pane: "overlayPane" } };
+    manager.registerLayer({ id: "c", name: "C", layer: container });
+    manager.registerLayer({ id: "l", name: "L", layer: leaf });
+    expect(container.options.pane).toBeUndefined();
+  });
+
+  // ── unregisterLayer skips invalidateSize ──
+
+  it("unregisterLayer does not call invalidateSize", () => {
+    const spy = vi.spyOn(map, "invalidateSize");
+    manager.unregisterLayer("nonexistent");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  // ── getLayersByType ──
+
+  it("getLayersByType returns empty array for unknown type", () => {
+    expect(manager.getLayersByType("nonexistent")).toEqual([]);
   });
 });

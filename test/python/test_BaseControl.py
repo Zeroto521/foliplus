@@ -11,7 +11,7 @@ import json
 
 import folium
 import pytest
-from conftest import assert_config_block, render
+from conftest import render_control, assert_config_block, render
 
 
 class TestBaseControlPython:
@@ -56,8 +56,7 @@ class TestBaseControlPython:
     def test_config_block_includes_locale_tables(self, base_map: folium.Map):
         from foliplus import SearchControl
 
-        SearchControl(locale="en").add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl(locale="en"))
         assert '"locale_code": "en"' in html
         assert '"locale_tables"' in html
 
@@ -131,8 +130,7 @@ class TestBaseControlRendering:
     def test_includes_common_css(self, base_map: folium.Map):
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert "--ctrl-bg" in html
 
     # ── BaseControl Python API ──
@@ -163,8 +161,7 @@ class TestBaseControlRendering:
     def test_includes_runtime_js(self, base_map: folium.Map):
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         # Locale tables are bundled once per map into window.foliplus._TABLES
         assert '"locale.name": "English"' in html
         assert '"locale.name": "中文"' in html
@@ -173,8 +170,7 @@ class TestBaseControlRendering:
         """All locale tables are injected into HTML by BaseControl.py."""
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert '"locale.code":"en"' in html or '"locale.code": "en"' in html
         assert '"locale.code":"zh"' in html or '"locale.code": "zh"' in html
 
@@ -198,8 +194,7 @@ class TestBaseControlRendering:
         """--z-index-floating CSS custom property is defined in common.css."""
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert "--z-index-floating" in html
         assert "9990" in html
 
@@ -207,8 +202,7 @@ class TestBaseControlRendering:
         """ctrl-fold is a common pattern for expand/collapse panels."""
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert "ctrl-fold" in html
         assert "collapsed" in html
         assert "expanded" in html
@@ -217,8 +211,7 @@ class TestBaseControlRendering:
         """Shared panel scaffolding classes are present."""
         from foliplus import HeatmapControl
 
-        HeatmapControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(HeatmapControl())
         assert "foliplus-panel" in html
         assert "foliplus-panel-header" in html
         assert "foliplus-panel-content" in html
@@ -227,8 +220,7 @@ class TestBaseControlRendering:
         """common.css includes :focus-visible rule for all buttons."""
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert ":focus-visible" in html
         assert "foliplus-toggle-btn" in html
 
@@ -236,8 +228,7 @@ class TestBaseControlRendering:
         """common.css includes :disabled rule for all buttons."""
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert ":disabled" in html
         assert "pointer-events: none" in html
 
@@ -245,8 +236,7 @@ class TestBaseControlRendering:
         """common.css defines --panel-max-height."""
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert "--panel-max-height" in html
         assert "panel-max-height" in html
 
@@ -254,16 +244,14 @@ class TestBaseControlRendering:
         """Unified button hover rule includes border-radius."""
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert "border-radius: var(--radius-sm)" in html
 
     def test_collapsed_shadow_shared(self, base_map: folium.Map):
         """foliplus-ctrl-fold.collapsed uses --shadow-ctrl-strong (shared shadow for all collapsed controls)."""
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert "shadow-ctrl-strong" in html
         # The shadow rule is in common.css, not in component CSS
         assert "ctrl-fold.collapsed" in html
@@ -272,7 +260,6 @@ class TestBaseControlRendering:
         """foliplus-ctrl-fold.expanded uses --panel-shadow (shared shadow for all expanded controls)."""
         from foliplus import SearchControl
 
-        SearchControl().add_to(base_map)
-        html = render(base_map)
+        html = render_control(SearchControl())
         assert "panel-shadow" in html
         assert "ctrl-fold.expanded" in html
