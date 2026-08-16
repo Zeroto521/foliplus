@@ -135,12 +135,12 @@ class HeatmapManager {
       name: _(`${CONF.name}.title`),
       iconSvg: SVGs.HEXAGON,
     });
-    // Register lifecycle hooks for full-content capture (e.g. ExportControl).
-    this.overlay.hooks?.before.push(() => {
+    // Subscribe to export events for full-content capture (ExportControl).
+    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
       this.renderAll = true;
       this.redrawHeatmap();
     });
-    this.overlay.hooks?.after.push(() => {
+    ensureEvents(this.map).on(EVENTS.AFTER_EXPORT, () => {
       this.renderAll = false;
       this.redrawHeatmap();
     });

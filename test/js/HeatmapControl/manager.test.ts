@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
-import { HeatmapManager } from "#foliplus/HeatmapControl/logic.js";
+import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 
 /** Build a minimal HeatmapManager with all external deps stubbed out. */
 function makeManager() {
@@ -564,5 +565,25 @@ describe("renderHexagons", () => {
     const spy = vi.spyOn(m, "aggregateData");
     m.renderHexagons();
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("HeatmapManager — export event subscriptions", () => {
+  it("BEFORE_EXPORT sets renderAll and redraws", () => {
+    const m = makeManager();
+    m.renderAll = false;
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    ensureEvents(m.map).emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    expect(m.renderAll).toBe(true);
+    expect(redrawSpy).toHaveBeenCalled();
+  });
+
+  it("AFTER_EXPORT clears renderAll and redraws", () => {
+    const m = makeManager();
+    m.renderAll = true;
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    ensureEvents(m.map).emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    expect(m.renderAll).toBe(false);
+    expect(redrawSpy).toHaveBeenCalled();
   });
 });

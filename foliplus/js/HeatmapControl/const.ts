@@ -119,7 +119,7 @@ export const SEL = {
   FORM_LABEL: ".foliplus-heatmap-form-label",
 };
 
-export const HM_DATA_ATTR = {
+export const DATA_ATTR = {
   LAYER: "data-hm-layer",
   EXTRA_BODY: "data-hm-extra-body",
   AGG: "data-hm-agg",

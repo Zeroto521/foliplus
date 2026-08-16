@@ -206,28 +206,20 @@ class ExportRenderer {
     return canvas;
   }
 
-  /** Render a standalone canvas element (e.g. HeatmapControl) with lifecycle hooks. */
+  /** Render a standalone canvas element (e.g. HeatmapControl). */
   async renderCanvasElement(rc: RenderCtx, ce: HTMLCanvasElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    const hooks = (ce as CanvasWithHooks).hooks;
-    if (hooks) hooks.before.forEach(fn => fn());
     const r = ce.getBoundingClientRect();
     const l = r.left - contRect.left;
     const t = r.top - contRect.top;
     const w = r.width;
     const h = r.height;
-    if (w < 1 || h < 1) {
-      if (hooks) hooks.after.forEach(fn => fn());
-      return;
-    }
+    if (w < 1 || h < 1) return;
     const dx = (l - rect.left) * scale;
     const dy = (t - rect.top) * scale;
     const dw = w * scale;
     const dh = h * scale;
-    if (!isVisible(dx, dy, dw, dh, cw, ch)) {
-      if (hooks) hooks.after.forEach(fn => fn());
-      return;
-    }
+    if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
     const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
     const dataUrl = ce.toDataURL(mimeType);
     let img: HTMLImageElement | null = null;
@@ -236,8 +228,6 @@ class ExportRenderer {
       ctx.drawImage(img, dx, dy, dw, dh);
     } catch {
       /* skip */
-    } finally {
-      if (hooks) hooks.after.forEach(fn => fn());
     }
   }
 
@@ -381,8 +371,6 @@ class ExportRenderer {
   async renderPaneCanvas(rc: RenderCtx, pane: HTMLElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
     for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
-      const hooks = (ce as CanvasWithHooks).hooks;
-      if (hooks) hooks.before.forEach(fn => fn());
       try {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;
@@ -411,8 +399,6 @@ class ExportRenderer {
         }
       } catch {
         /* skip */
-      } finally {
-        if (hooks) hooks.after.forEach(fn => fn());
       }
     }
   }

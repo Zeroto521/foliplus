@@ -85,7 +85,6 @@ export interface CreateCanvasAPI {
   bringToFront: () => void;
   setZIndex: (z: number) => void;
   setVisible: (v: boolean) => void;
-  hooks?: { before: Array<() => void>; after: Array<() => void> };
 }
 
 /** Return type of `LayerAPI.createLayers`. */
