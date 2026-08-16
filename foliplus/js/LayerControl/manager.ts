@@ -609,7 +609,7 @@ class LayerManager implements LayerAPI {
     this.enforceOrder();
     this.saveOrder();
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
-    this.uiContainer && this.ui?.reindexAfterMove()
+    this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
 
@@ -631,7 +631,7 @@ class LayerManager implements LayerAPI {
     this.enforceOrder();
     this.saveOrder();
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
-    this.uiContainer && this.ui?.reindexAfterMove()
+    this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
 
