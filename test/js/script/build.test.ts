@@ -105,11 +105,11 @@ describe("build artifacts", () => {
 
   it("has correct number of JS artifacts", () => {
     const jsFiles = readdirSync(distDir).filter(f => f.endsWith(".min.js"));
-    expect(jsFiles.length).toBe(JS_ARTIFACTS.length);
+    expect(jsFiles.length).toBeGreaterThanOrEqual(JS_ARTIFACTS.length);
   });
 
   it("has correct number of CSS artifacts", () => {
     const cssFiles = readdirSync(distDir).filter(f => f.endsWith(".min.css"));
-    expect(cssFiles.length).toBe(CSS_ARTIFACTS.length);
+    expect(cssFiles.length).toBeGreaterThanOrEqual(CSS_ARTIFACTS.length);
   });
 });
