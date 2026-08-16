@@ -54,11 +54,42 @@ export class KeyboardManager {
   private map: L.Map;
   private shortcuts: ShortcutDef[] = [];
   private boundHandler: ((event: KeyboardEvent) => void) | null = null;
+  private observer: MutationObserver | null = null;
+  private trackedElements: Map<HTMLElement, Set<string>> = new Map();
 
   constructor(map: L.Map) {
     this.map = map;
-    // Auto-cleanup when the map is destroyed
     map.on("unload" as any, () => this.clear());
+  }
+
+  /** Start observing DOM for element/container removal to auto-cleanup. */
+  private ensureObserver(): void {
+    if (this.observer) return;
+    this.observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const removed of m.removedNodes) {
+          if (!(removed instanceof HTMLElement)) continue;
+          // Check if any tracked element is being removed
+          for (const [el, components] of this.trackedElements) {
+            if (!document.body.contains(el)) {
+              // Element was removed from DOM — unregister all its components
+              for (const c of components) this.unregister(c);
+              this.trackedElements.delete(el);
+            }
+          }
+        }
+      }
+    });
+    this.observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  /** Track an element for auto-cleanup when it's removed from the DOM. */
+  private trackElement(el: HTMLElement, component: string): void {
+    if (!this.trackedElements.has(el)) {
+      this.trackedElements.set(el, new Set());
+    }
+    this.trackedElements.get(el)!.add(component);
+    this.ensureObserver();
   }
 
   /**
@@ -92,6 +123,10 @@ export class KeyboardManager {
         };
         def.element.addEventListener("keydown", handler);
         (def as any)._elementHandler = handler;
+        this.trackElement(def.element, component);
+      }
+      if (def.container && !def.element) {
+        this.trackElement(def.container, component);
       }
       this.shortcuts.push(def);
     }
@@ -120,6 +155,8 @@ export class KeyboardManager {
       }
     }
     this.shortcuts = [];
+    this.trackedElements.clear();
+    if (this.observer) { this.observer.disconnect(); this.observer = null; }
     this.removeListener();
   }
 
