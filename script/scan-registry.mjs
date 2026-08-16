@@ -61,7 +61,7 @@ function scanImports(dir) {
           /import[\s]*\{([^}]+)\}[\s]*from[\s]*"(#(?:common|core|foliplus)\/[^"]+)"/g;
         let m;
         while ((m = namedRe.exec(src))) {
-          const spec = m[2].replace(/^#/, "").replace(/\.js$/, "");
+          const spec = m[2].replace(/^#/, "").replace(/\.js$/, "").replace(/\/index$/, "");
           const names = m[1]
             .split(",")
             .map(n => n.trim())
@@ -75,7 +75,7 @@ function scanImports(dir) {
         const starRe =
           /import[\s]+\*[\s]+as[\s]+(\w+)[\s]+from[\s]*"(#(?:common|core)\/[^"]+)"/g;
         while ((m = starRe.exec(src))) {
-          const spec = m[2].replace(/^#/, "").replace(/\.js$/, "");
+          const spec = m[2].replace(/^#/, "").replace(/\.js$/, "").replace(/\/index$/, "");
           if (!starImported.has(spec)) starImported.set(spec, new Set());
           starImported.get(spec).add(m[1]);
         }
@@ -184,7 +184,7 @@ function generateRegistry() {
       "import { " + baseNames.join(", ") + ' } from "#foliplus/BaseControl.js";',
     );
     lines.push("const BaseControlNS = { " + baseNames.join(", ") + " };");
-    lines.push("window.foliplus.BaseControl = BaseControlNS.BaseControl;");
+    lines.push("window.foliplus.BaseControl = BaseControlNS;");
   }
 
   writeFileSync(resolve(buildJs, "_shared-registry.ts"), lines.join("\n"), "utf-8");
