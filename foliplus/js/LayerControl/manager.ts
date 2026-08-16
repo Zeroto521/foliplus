@@ -138,7 +138,7 @@ class LayerManager implements LayerAPI {
 
     // Before any export, flush pending debounced enforceOrder so the
     // exported image matches the panel's layer order.
-    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => this.enforceOrderNow());
+    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
@@ -428,14 +428,9 @@ class LayerManager implements LayerAPI {
     return zBase + (this.layers.length - i) * Z_INDEX.STEP;
   }
 
-  /** Cancel any pending debounced enforceOrder and run it immediately. */
-  enforceOrderNow(): void {
-    this.debouncedEnforce?.cancel();
-    this.enforceOrder();
-  }
-
   enforceOrder() {
     if (this.isEnforcing) return;
+    this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
       const layersToMove: Array<{
