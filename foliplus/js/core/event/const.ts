@@ -45,7 +45,7 @@ export const EVENT_REGISTRY: Record<string, EventMeta> = {
   },
   [EVENTS.MODE_CHANGE]: {
     description:
-      "A component's active mode changed (measurement start/stop, search mode switch, fullscreen toggle)",
+      "A component's active mode changed (measurement start/stop, search mode switch)",
     publisher: "ModeManager",
     subscribers: [COMPONENTS.MeasureControl],
     payload: "{ component: string; mode: string | null }",
