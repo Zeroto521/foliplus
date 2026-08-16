@@ -46,7 +46,8 @@ def _js(path: str) -> str:
 # `Page.goto` timeouts.  We intercept those requests and serve them from a
 # local cache (downloaded once to /tmp) so tests are network-independent.
 _CDN_CACHE_DIR = Path("/tmp/foliplus-cdn-cache")
-_CDN_DOWNLOAD_TIMEOUT = 15  # seconds; fail fast on slow networks
+_CDN_DOWNLOAD_TIMEOUT = 30  # seconds
+_CDN_DOWNLOAD_RETRIES = 3  # retry attempts for flaky CI networks
 
 # CDN URL fragment -> (cache filename, mime type)
 _CDN_CACHE: dict[str, tuple[str, str]] = {
@@ -81,9 +82,9 @@ def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
     """Return (bytes, mime) served from a local cache for a CDN url.
 
     Downloads once into ``_CDN_CACHE_DIR`` on first use, with a bounded
-    timeout and atomic write so slow/flaky networks fail fast instead of
-    stalling browser navigation.  Returns ``(None, None)`` for URLs outside
-    the cache map so the request can be forwarded to the network as-is.
+    timeout, retry attempts for flaky CI networks, and atomic write.
+    Returns ``(None, None)`` for URLs outside the cache map so the
+    request can be forwarded to the network as-is.
     """
     for fragment, (fname, mime) in _CDN_CACHE.items():
         if fragment not in url:
@@ -91,9 +92,16 @@ def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
 
         _CDN_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cache_path = _CDN_CACHE_DIR / fname
-        if not cache_path.exists():
-            # Atomic download: write to a temp file, then rename.  Guards
-            # against concurrent xdist workers reading a half-written file.
+        if cache_path.exists():
+            try:
+                return cache_path.read_bytes(), mime
+            except OSError:
+                return None, None
+
+        # Atomic download with retries for flaky CI networks.
+        # Write to a temp file, then rename. Guards against concurrent
+        # xdist workers reading a half-written file.
+        for attempt in range(1, _CDN_DOWNLOAD_RETRIES + 1):
             fd, tmp_path = tempfile.mkstemp(dir=_CDN_CACHE_DIR, suffix=".part")
             try:
                 with (
@@ -102,12 +110,14 @@ def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
                 ):
                     out.write(resp.read())
                 os.replace(tmp_path, cache_path)
+                break
             except Exception:
                 try:
                     os.unlink(tmp_path)
                 except OSError:
                     pass
-                return None, None
+                if attempt == _CDN_DOWNLOAD_RETRIES:
+                    return None, None
         try:
             return cache_path.read_bytes(), mime
         except OSError:
