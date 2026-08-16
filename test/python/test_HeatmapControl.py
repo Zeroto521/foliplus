@@ -643,7 +643,7 @@ class TestHeatmapControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_render_all_flag_integration(self, browser, tmp_path):
-        """renderAll is toggled via hooks before/after export (full-content capture)."""
+        """renderAll is toggled via EventBus BEFORE_EXPORT / AFTER_EXPORT events."""
         with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
             page,
             errors,
@@ -655,28 +655,19 @@ class TestHeatmapControlBrowser:
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
 
-            # Select a layer so cachedFeatures is set
-            opts = page.evaluate(
-                "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
+            # BEFORE_EXPORT sets renderAll = true
+            page.evaluate(
+                "window.__heatmapCtrl.manager.map.foliplus.events.emit('foliplus:export:before', { component: 'ExportControl' })"
             )
-            if opts:
-                page.evaluate(_js("HeatmapControl/select_layer"), opts[0])
-                page.wait_for_timeout(2000)
-
-            # Export hooks should toggle renderAll
-            before_hooks = page.evaluate(
-                "window.__heatmapCtrl.manager.overlay.hooks.before.length"
-            )
-            after_hooks = page.evaluate(
-                "window.__heatmapCtrl.manager.overlay.hooks.after.length"
-            )
-            assert before_hooks >= 1, "should have at least one before hook"
-            assert after_hooks >= 1, "should have at least one after hook"
-
-            # Invoke the before hook
-            page.evaluate("window.__heatmapCtrl.manager.overlay.hooks.before[0]()")
             render_all = page.evaluate("window.__heatmapCtrl.manager.renderAll")
-            assert render_all is True, "renderAll should be True after before hook"
+            assert render_all is True, "renderAll should be True after BEFORE_EXPORT"
+
+            # AFTER_EXPORT resets renderAll = false
+            page.evaluate(
+                "window.__heatmapCtrl.manager.map.foliplus.events.emit('foliplus:export:after', { component: 'ExportControl' })"
+            )
+            render_all = page.evaluate("window.__heatmapCtrl.manager.renderAll")
+            assert render_all is False, "renderAll should be False after AFTER_EXPORT"
             assert not errors, f"JS errors: {errors}"
 
     def test_cached_agg_invalidation_on_layer_change(self, browser, tmp_path):
