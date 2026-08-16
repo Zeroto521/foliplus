@@ -227,16 +227,40 @@ const generateSharedRegistry = () => {
   // Used-export map: every export name actually imported by components.
   // Targeted imports let Tree Shaking drop unused code from shared modules.
   const usedExports = {
-    dom: ["buildPopupHtml", "createIconButton", "createLocationMarker", "dom", "escapeHTML", "stopEvent"],
+    dom: [
+      "buildPopupHtml",
+      "createIconButton",
+      "createLocationMarker",
+      "dom",
+      "escapeHTML",
+      "stopEvent",
+    ],
     guard: ["createControlEnv", "requireRuntime"],
-    panel: ["adjustPanelZIndex", "bindFoldToggle", "bindMapSync", "bindOutsideCollapse", "bindPanelToggle", "createFoldControl", "createPanelControl"],
+    panel: [
+      "adjustPanelZIndex",
+      "bindFoldToggle",
+      "bindMapSync",
+      "bindOutsideCollapse",
+      "bindPanelToggle",
+      "createFoldControl",
+      "createPanelControl",
+    ],
     locale: ["createTranslator"],
     format: ["formatNumber"],
     debounce: ["debounce"],
     cache: ["Cache"],
     coord: ["fromWgs84", "toWgs84"],
     geocode: ["NOMINATIM", "formatAddress", "nominatimUrl"],
-    delicon: ["DEL_ICON_CHAR", "DEL_ICON_MARKER_ANCHOR", "DEL_ICON_SELECTOR", "DEL_ICON_Z_OFFSET", "attachDelClick", "hideDelIcons", "makeDelIcon", "toggleDelIcon"],
+    delicon: [
+      "DEL_ICON_CHAR",
+      "DEL_ICON_MARKER_ANCHOR",
+      "DEL_ICON_SELECTOR",
+      "DEL_ICON_Z_OFFSET",
+      "attachDelClick",
+      "hideDelIcons",
+      "makeDelIcon",
+      "toggleDelIcon",
+    ],
     cssvar: ["cssVar"],
     icon: ["CLOSE", "GLOBE", "LOADING", "LOCATE", "PIN_ICON"],
     storage: ["load", "save"],
@@ -246,8 +270,30 @@ const generateSharedRegistry = () => {
     hint: ["ensureHint", "HINT_DURATION", "HintManager", "registerHintIcon"],
     component: ["COMPONENTS", "assertComponentName"],
     mode: ["ModeManager", "ensureModes"],
-    "core/event": ["AFTER_EXPORT", "BEFORE_EXPORT", "EventBus", "LAYER_CHANGE", "MODE_CHANGE", "ensureEvents"],
-    "core/layer": ["FALLBACK_PANE_PREFIX", "GEOM_TYPE", "LayerFactory", "LayerRegistry", "PaneManager", "RECURSION", "RENDERER_KEY", "Z_INDEX", "ensureLayerAPI", "findLayer", "forEachLayer", "forEachLeaf", "getGeometryType", "requireLayerAPI"],
+    "core/event": [
+      "AFTER_EXPORT",
+      "BEFORE_EXPORT",
+      "EventBus",
+      "LAYER_CHANGE",
+      "MODE_CHANGE",
+      "ensureEvents",
+    ],
+    "core/layer": [
+      "FALLBACK_PANE_PREFIX",
+      "GEOM_TYPE",
+      "LayerFactory",
+      "LayerRegistry",
+      "PaneManager",
+      "RECURSION",
+      "RENDERER_KEY",
+      "Z_INDEX",
+      "ensureLayerAPI",
+      "findLayer",
+      "forEachLayer",
+      "forEachLeaf",
+      "getGeometryType",
+      "requireLayerAPI",
+    ],
     "core/layer/api": ["ensureLayerAPI", "requireLayerAPI"],
     BaseControl: ["BaseControl"],
   };
@@ -279,8 +325,8 @@ const generateSharedRegistry = () => {
   }
 
   lines.push('import { BaseControl } from "#foliplus/BaseControl.js";');
-  lines.push('const BaseControlNS = { BaseControl };');
-  lines.push('window.foliplus.BaseControl = BaseControlNS.BaseControl;');
+  lines.push("const BaseControlNS = { BaseControl };");
+  lines.push("window.foliplus.BaseControl = BaseControlNS.BaseControl;");
 
   writeFileSync(resolve(CFG.tmp.js, "_shared-registry.ts"), lines.join("\n"), "utf-8");
 };
