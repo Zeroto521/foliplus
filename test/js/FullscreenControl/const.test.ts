@@ -1,5 +1,5 @@
-import { CLASSES, containerId } from "#foliplus/FullscreenControl/const.js";
 import { describe, expect, it } from "vitest";
+import { CLASSES, containerId } from "#foliplus/FullscreenControl/const.js";
 
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {

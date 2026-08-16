@@ -1,5 +1,6 @@
-import { locateMe } from "#foliplus/LocateControl/logic.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { locateMe } from "#foliplus/LocateControl/logic.js";
+import { ensureModes } from "#foliplus/core/mode.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -15,6 +16,13 @@ beforeEach(() => {
 });
 
 describe("locateMe", () => {
+  it("is blocked by MeasureControl active mode", () => {
+    ensureModes(window.map).setMode("MeasureControl", "distance");
+    const ctrl = {} as any;
+    locateMe(ctrl);
+    ensureModes(window.map).setMode("MeasureControl", null);
+  });
+
   const originalGeo = navigator.geolocation;
 
   afterEach(() => {

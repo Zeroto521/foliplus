@@ -1,10 +1,10 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   findLayer,
   forEachLayer,
   forEachLeaf,
   getGeometryType,
 } from "#foliplus/core/layer/util.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("core/layer util", () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
-import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { describe, expect, it } from "vitest";
+import * as CONST from "#foliplus/HeatmapControl/const.js";
 
 describe("TIMING", () => {
   it("has expected debounce values", () => {
@@ -56,5 +56,55 @@ describe("GRAY", () => {
 describe("ID", () => {
   it("is the canvas identifier", () => {
     expect(CONST.ID).toBe("foliplus_heatmap");
+  });
+});
+
+describe("METHOD", () => {
+  it("defines standard classification methods", () => {
+    expect(CONST.METHOD.JENKS).toBe("jenks");
+    expect(CONST.METHOD.QUANTILE).toBe("quantile");
+    expect(CONST.METHOD.EQUAL).toBe("equal");
+    expect(CONST.METHOD.HEADS).toBe("heads");
+  });
+});
+
+describe("CLASS_COUNT", () => {
+  it("defines valid range and default", () => {
+    expect(CONST.CLASS_COUNT.MIN).toBe(2);
+    expect(CONST.CLASS_COUNT.MAX).toBe(9);
+    expect(CONST.CLASS_COUNT.DEFAULT).toBe(6);
+  });
+});
+
+describe("BORDER", () => {
+  it("defines weight constraints", () => {
+    expect(CONST.BORDER.WEIGHT_MIN).toBe(0);
+    expect(CONST.BORDER.WEIGHT_MAX).toBe(10);
+    expect(CONST.BORDER.WEIGHT_STEP).toBe(0.5);
+    expect(CONST.BORDER.WEIGHT_DEFAULT).toBe(1);
+  });
+});
+
+describe("HM_DATA_ATTR", () => {
+  it("defines all data-hm-* attribute names", () => {
+    expect(CONST.HM_DATA_ATTR.LAYER).toBe("data-hm-layer");
+    expect(CONST.HM_DATA_ATTR.EXTRA_BODY).toBe("data-hm-extra-body");
+    expect(CONST.HM_DATA_ATTR.AGG).toBe("data-hm-agg");
+    expect(CONST.HM_DATA_ATTR.FIELD).toBe("data-hm-field");
+    expect(CONST.HM_DATA_ATTR.FIELD_SELECT).toBe("data-hm-field-select");
+    expect(CONST.HM_DATA_ATTR.METHOD).toBe("data-hm-method");
+    expect(CONST.HM_DATA_ATTR.CLASS_COUNT).toBe("data-hm-class-count");
+    expect(CONST.HM_DATA_ATTR.SCHEME_CTRL).toBe("data-hm-scheme-ctrl");
+    expect(CONST.HM_DATA_ATTR.SCHEME_HIDDEN).toBe("data-hm-scheme-hidden");
+    expect(CONST.HM_DATA_ATTR.BORDER_COLOR).toBe("data-hm-border-color");
+    expect(CONST.HM_DATA_ATTR.BORDER_WEIGHT).toBe("data-hm-border-weight");
+    expect(CONST.HM_DATA_ATTR.LABEL_CHK).toBe("data-hm-label-chk");
+    expect(CONST.HM_DATA_ATTR.BTN_CLEAR).toBe("data-hm-btn-clear");
+    expect(CONST.HM_DATA_ATTR.BTN_CONFIRM).toBe("data-hm-btn-confirm");
+  });
+
+  it("has 14 data-hm attribute keys", () => {
+    const keys = Object.keys(CONST.HM_DATA_ATTR);
+    expect(keys.length).toBe(14);
   });
 });

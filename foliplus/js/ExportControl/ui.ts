@@ -1,11 +1,12 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
+import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
-import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import type { ExportManager, Rect } from "./manager.js";
@@ -100,6 +101,9 @@ const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => 
 /** Build the crop box DOM and attach events. */
 const showCropBox = (mgr: ExportManager) => {
   if (mgr.cropState) return;
+  // Enter crop interaction: block measurement immediately (not just at
+  // download), so map interaction is not interrupted by measure clicks.
+  ensureModes(mgr.map).setMode(CONF.name, "selecting");
   const mapRect = mgr.mapContainer.getBoundingClientRect();
   let box;
 
@@ -278,6 +282,7 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
   }
   mgr.cropState = null;
+  ensureModes(mgr.map).setMode(CONF.name, null);
   map.foliplus!.hideHint(CONF.name);
 };
 

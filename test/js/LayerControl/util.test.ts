@@ -1,6 +1,6 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { getTypeSVG } from "#foliplus/LayerControl/util.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 class Polygon {}
 class Polyline {}

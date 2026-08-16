@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   attachSearchDelIcon,
   buildSearchUrl,
@@ -9,7 +10,7 @@ import {
   searchCoord,
 } from "#foliplus/SearchControl/logic.js";
 import { Cache } from "#foliplus/common/cache.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureModes } from "#foliplus/core/mode.js";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
 // Use vi.spyOn to track calls on those already-setup mocks.
@@ -250,6 +251,27 @@ describe("fetchSuggestions", () => {
     fetchSuggestions(ctrl, "abc");
     expect(globalThis.fetch).not.toHaveBeenCalled();
     expect(ctrl.suggestionsWrap).not.toBeNull();
+  });
+
+  it("is blocked by MeasureControl active mode", () => {
+    globalThis.fetch = vi.fn();
+    // Simulate MeasureControl being in active mode
+    ensureModes(window.map).setMode("MeasureControl", "distance");
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "Paris" },
+    };
+    fetchSuggestions(ctrl, "Paris");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(ctrl.suggestionsWrap).toBeNull();
+    ensureModes(window.map).setMode("MeasureControl", null);
   });
 
   it("formats suggestion display names with the active locale", () => {

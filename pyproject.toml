@@ -34,7 +34,8 @@ Source = "https://github.com/Zeroto521/foliplus"
 Issues = "https://github.com/Zeroto521/foliplus/issues"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "pytest-xdist", "build", "twine"]
+test = ["pytest", "pytest-cov", "pytest-xdist", "pytest-playwright", "codecov"]
+dev = ["foliplus[test]", "build", "twine"]
 
 [tool.setuptools_scm]
 write_to = "foliplus/_version.py"

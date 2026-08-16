@@ -1,9 +1,9 @@
+import { HINT_DURATION } from "#core/hint.js";
+import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import type { LayerManager } from "./manager.js";

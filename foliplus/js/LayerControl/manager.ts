@@ -1,7 +1,4 @@
-import { type Debounced, debounce } from "#common/debounce.js";
-import { createTranslator } from "#common/locale.js";
-import * as Storage from "#common/storage.js";
-import { LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
+import { BEFORE_EXPORT, LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -21,6 +18,9 @@ import {
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
+import { type Debounced, debounce } from "#common/debounce.js";
+import { createTranslator } from "#common/locale.js";
+import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { LayerUI } from "./ui.js";
 
@@ -136,6 +136,10 @@ class LayerManager implements LayerAPI {
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
+
+    // Before any export, flush pending debounced enforceOrder so the
+    // exported image matches the panel's layer order.
+    ensureEvents(this.map).on(BEFORE_EXPORT, () => this.enforceOrderNow());
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
@@ -420,6 +424,12 @@ class LayerManager implements LayerAPI {
   computeZIndex(i: number, isTile: boolean): number {
     const zBase = isTile ? Z_INDEX.TILE_BASE : Z_INDEX.BASE;
     return zBase + (this.layers.length - i) * Z_INDEX.STEP;
+  }
+
+  /** Cancel any pending debounced enforceOrder and run it immediately. */
+  enforceOrderNow(): void {
+    this.debouncedEnforce?.cancel();
+    this.enforceOrder();
   }
 
   enforceOrder() {

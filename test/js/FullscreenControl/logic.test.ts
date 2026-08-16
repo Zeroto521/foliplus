@@ -1,10 +1,10 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 import {
   bindFullscreenEvents,
   toggleFullscreen,
   updateUI,
 } from "#foliplus/FullscreenControl/logic.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mutable state controlled by each describe's beforeEach to switch between the
 // native API path (isEnabled=true) and the pseudo path (isEnabled=false).

@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import {
   CircleMode,
@@ -8,7 +9,6 @@ import {
   PolygonMode,
   PreviewMode,
 } from "#foliplus/MeasureControl/mode.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {
   vi.clearAllMocks();

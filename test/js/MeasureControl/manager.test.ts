@@ -1,7 +1,8 @@
-import * as Storage from "#common/storage.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
-import { describe, expect, it, vi } from "vitest";
+import * as Storage from "#common/storage.js";
 
 function makeManager() {
   window.CONF = {
@@ -22,6 +23,7 @@ function makeManager() {
   }));
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.divIcon = vi.fn(() => ({}));
+  window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
   // Mock createLocationMarker's geo helpers
   window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
 
@@ -196,5 +198,49 @@ describe("MeasureManager — cleanMapEvents", () => {
   it("cleanMapEvents is safe when no modeInstance", () => {
     const { manager } = makeManager();
     expect(() => manager.cleanMapEvents()).not.toThrow();
+  });
+
+  describe("MeasureManager — export auto-clear", () => {
+    it("MODE_CHANGE from ExportControl clears active mode and shows export_paused hint", () => {
+      const { manager } = makeManager();
+      manager.setMode("distance");
+      expect(manager.currentMode).toBe("distance");
+      const events = ensureEvents(manager.map);
+      window.map.foliplus.showHint.mockClear();
+      events.emit("foliplus:mode:change", {
+        component: "ExportControl",
+        mode: "selecting",
+      });
+      expect(manager.currentMode).toBeNull();
+      expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+        "MeasureControl",
+        expect.stringContaining("export_paused"),
+        expect.any(Number),
+      );
+    });
+
+    it("MODE_CHANGE from ExportControl does nothing when no mode is active", () => {
+      const { manager } = makeManager();
+      expect(manager.currentMode).toBeNull();
+      const events = ensureEvents(manager.map);
+      expect(() =>
+        events.emit("foliplus:mode:change", {
+          component: "ExportControl",
+          mode: "selecting",
+        }),
+      ).not.toThrow();
+      expect(manager.currentMode).toBeNull();
+    });
+
+    it("MODE_CHANGE from other components does not clear measurement", () => {
+      const { manager } = makeManager();
+      manager.setMode("distance");
+      const events = ensureEvents(manager.map);
+      events.emit("foliplus:mode:change", {
+        component: "FullscreenControl",
+        mode: "fullscreen",
+      });
+      expect(manager.currentMode).toBe("distance");
+    });
   });
 });

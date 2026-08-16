@@ -1,8 +1,8 @@
+import { describe, expect, it } from "vitest";
 import {
   patchBringToFront,
   unpatchBringToFront,
 } from "#foliplus/LayerControl/manager.js";
-import { describe, expect, it } from "vitest";
 
 // The L mock in test/js/setup.ts provides `L.Path.prototype.bringToFront` as a
 // vi.fn() BEFORE this module imports manager.js, so `origBringToFront` is stable

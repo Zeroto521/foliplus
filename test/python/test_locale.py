@@ -35,6 +35,8 @@ _JS_USED_KEYS = {
     "foliplus.close_label",
     # FullscreenControl
     "FullscreenControl.title",
+    "SearchControl.blocked",
+    "LocateControl.blocked",
     "FullscreenControl.title_cancel",
     "FullscreenControl.enter",
     "FullscreenControl.exit",
@@ -166,6 +168,7 @@ _JS_USED_KEYS = {
     "MeasureControl.del_tooltip",
     "MeasureControl.del_node",
     "MeasureControl.del_all",
+    "MeasureControl.export_paused",
     # ScaleControl
     "ScaleControl.zoom_label",
 }

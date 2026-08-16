@@ -1,5 +1,5 @@
-import { EventBus, ensureEvents } from "#foliplus/core/event/index.js";
 import { describe, expect, it, vi } from "vitest";
+import { EventBus, ensureEvents } from "#foliplus/core/event/index.js";
 
 describe("EventBus", () => {
   it("subscribes and receives emitted events", () => {

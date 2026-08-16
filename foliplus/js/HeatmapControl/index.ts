@@ -1,11 +1,11 @@
-import { createControlEnv } from "#common/guard.js";
-import { createPanelControl } from "#common/panel.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
+import { createControlEnv } from "#common/guard.js";
+import { createPanelControl } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./logic.js";
-import { buildDataSection, buildStyleSection, initScan, setupObserver } from "./ui.js";
+import { bindControls, initScan, setupObserver } from "./ui.js";
 
 const { _ } = createControlEnv(CONF, SVGs.HEXAGON);
 ensureLayerAPI(map);
@@ -58,8 +58,7 @@ class HeatmapControl extends BaseControl {
       closeTitle: _(`${CONF.name}.close_title`),
     });
     this.ctrl = ctrl;
-    buildDataSection(this, panelContent);
-    buildStyleSection(this);
+    bindControls(this, panelContent);
     setupObserver(this);
     return container;
   }
