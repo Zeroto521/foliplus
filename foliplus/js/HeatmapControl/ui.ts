@@ -5,14 +5,13 @@ import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
-import { HeatmapManager } from "./logic.js";
+import { HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
 const _ = createTranslator(CONF);
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 export interface HeatmapControlUI {
-  manager: HeatmapManager;
   m: HeatmapManager;
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
@@ -39,30 +38,30 @@ export interface HeatmapControlUI {
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   panelContent.innerHTML = panelContentHTML(_);
 
-  // Query key elements from the template using HM_DATA_ATTR constants
+  // Query key elements from the template using DATA_ATTR constants
   ctrl.layerSelect = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.LAYER}]`,
+    `[${CONST.DATA_ATTR.LAYER}]`,
   ) as HTMLSelectElement;
   ctrl.extraBody = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.EXTRA_BODY}]`,
+    `[${CONST.DATA_ATTR.EXTRA_BODY}]`,
   ) as HTMLElement;
   ctrl.aggSelect = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.AGG}]`,
+    `[${CONST.DATA_ATTR.AGG}]`,
   ) as HTMLSelectElement;
   ctrl.fieldWrap = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.FIELD}]`,
+    `[${CONST.DATA_ATTR.FIELD}]`,
   ) as HTMLElement;
   ctrl.fieldSelect = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.FIELD_SELECT}]`,
+    `[${CONST.DATA_ATTR.FIELD_SELECT}]`,
   ) as HTMLSelectElement;
   ctrl.methodSelect = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.METHOD}]`,
+    `[${CONST.DATA_ATTR.METHOD}]`,
   ) as HTMLSelectElement;
   ctrl.classSelect = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.CLASS_COUNT}]`,
+    `[${CONST.DATA_ATTR.CLASS_COUNT}]`,
   ) as HTMLSelectElement;
   ctrl.schemeControlWrap = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.SCHEME_CTRL}]`,
+    `[${CONST.DATA_ATTR.SCHEME_CTRL}]`,
   ) as HTMLElement;
   ctrl.schemeBar = ctrl.schemeControlWrap.querySelector(
     CONST.SEL.SCHEME_BAR,
@@ -71,16 +70,16 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     CONST.SEL.SCHEME_BAR_INNER,
   ) as HTMLElement;
   ctrl.schemeSelectHidden = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.SCHEME_HIDDEN}]`,
+    `[${CONST.DATA_ATTR.SCHEME_HIDDEN}]`,
   ) as HTMLSelectElement;
   ctrl.borderColorInput = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.BORDER_COLOR}]`,
+    `[${CONST.DATA_ATTR.BORDER_COLOR}]`,
   ) as HTMLInputElement;
   ctrl.borderWeightInput = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.BORDER_WEIGHT}]`,
+    `[${CONST.DATA_ATTR.BORDER_WEIGHT}]`,
   ) as HTMLInputElement;
   ctrl.labelChk = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.LABEL_CHK}]`,
+    `[${CONST.DATA_ATTR.LABEL_CHK}]`,
   ) as HTMLInputElement;
 
   // Set initial values from manager defaults
@@ -192,7 +191,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
 
   const clearBtn = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.BTN_CLEAR}]`,
+    `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
   ) as HTMLButtonElement;
   clearBtn.onclick = () => {
     resetAll(ctrl);
@@ -219,7 +218,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
 
   const confirmBtn = panelContent.querySelector(
-    `[${CONST.HM_DATA_ATTR.BTN_CONFIRM}]`,
+    `[${CONST.DATA_ATTR.BTN_CONFIRM}]`,
   ) as HTMLButtonElement;
   confirmBtn.onclick = () => {
     ctrl.m.renderHexagons();
