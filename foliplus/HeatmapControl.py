@@ -20,10 +20,23 @@ class HeatmapControl(BaseControl):
         counted. Annotation or label markers without ``.feature`` are skipped to avoid
         double-counting in hexbin aggregation.
 
+    Shortcuts
+    ---------
+
+    .. list-table::
+       :header-rows: 1
+
+       * - Key
+         - Action
+       * - ArrowLeft
+         - Select the previous color scheme
+       * - ArrowRight
+         - Select the next color scheme
+
     Parameters
     ----------
     position : str, default "topleft"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+        One of "topleft", "topright", "bottomleft", "bottomright".
 
     color_scheme : str, default "Reds"
         Default color scheme name. Supports chroma.js / ColorBrewer palettes: ``Blues``,
@@ -75,7 +88,7 @@ class HeatmapControl(BaseControl):
           (thousands separator)
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
     Examples

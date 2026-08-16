@@ -11,14 +11,14 @@ class LocateControl(BaseControl):
 
     Parameters
     ----------
-    position : str, default "bottomright"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+    position : str, default "topleft"
+        One of "topleft", "topright", "bottomleft", "bottomright"\.
 
     zoom : int, default 15
         Zoom level after locating. Typically 1-18.
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
     Examples
