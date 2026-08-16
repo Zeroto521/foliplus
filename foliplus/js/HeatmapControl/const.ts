@@ -51,6 +51,27 @@ export const AGG = {
   MAX: "max",
 };
 
+export const METHOD = {
+  DEFAULT: CONF.method ?? "jenks",
+  JENKS: "jenks",
+  QUANTILE: "quantile",
+  EQUAL: "equal",
+  HEADS: "heads",
+};
+
+export const CLASS_COUNT = {
+  MIN: 2,
+  MAX: 9,
+  DEFAULT: 6,
+};
+
+export const BORDER = {
+  WEIGHT_MIN: 0,
+  WEIGHT_MAX: 10,
+  WEIGHT_STEP: 0.5,
+  WEIGHT_DEFAULT: 1,
+};
+
 export const CLASSES = {
   FORM_ROW: "foliplus-heatmap-form-row",
   FORM_LABEL: "foliplus-heatmap-form-label",
@@ -74,7 +95,6 @@ export const CLASSES = {
   SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
   SCHEME_DROPDOWN: "foliplus-heatmap-scheme-dropdown",
   SCHEME_DROPDOWN_BAR: "foliplus-heatmap-scheme-dropdown-bar",
-  SCHEME_SELECT_HIDDEN: "hidden",
   BTN: "foliplus-heatmap-btn",
   BTN_ROW: "foliplus-heatmap-btn-row",
   BTN_CLEAR: "foliplus-heatmap-btn-clear",
@@ -94,6 +114,24 @@ export const SEL = {
   SCHEME_DROPDOWN_ITEM: ".foliplus-heatmap-scheme-dropdown-item",
   SCHEME_DROPDOWN_BAR: ".foliplus-heatmap-scheme-dropdown-bar",
   SCHEME_BAR: ".foliplus-heatmap-scheme-bar",
+  SCHEME_BAR_INNER: ".foliplus-heatmap-scheme-bar-inner",
   FORM_SELECT: ".foliplus-heatmap-form-select",
   FORM_LABEL: ".foliplus-heatmap-form-label",
+};
+
+export const HM_DATA_ATTR = {
+  LAYER: "data-hm-layer",
+  EXTRA_BODY: "data-hm-extra-body",
+  AGG: "data-hm-agg",
+  FIELD: "data-hm-field",
+  FIELD_SELECT: "data-hm-field-select",
+  METHOD: "data-hm-method",
+  CLASS_COUNT: "data-hm-class-count",
+  SCHEME_CTRL: "data-hm-scheme-ctrl",
+  SCHEME_HIDDEN: "data-hm-scheme-hidden",
+  BORDER_COLOR: "data-hm-border-color",
+  BORDER_WEIGHT: "data-hm-border-weight",
+  LABEL_CHK: "data-hm-label-chk",
+  BTN_CLEAR: "data-hm-btn-clear",
+  BTN_CONFIRM: "data-hm-btn-confirm",
 };

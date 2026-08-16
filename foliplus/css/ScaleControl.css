@@ -12,6 +12,7 @@
     padding: 0 var(--space-md);
     box-sizing: border-box;
   }
+
   .leaflet-control-scale-line {
     border: var(--border-thin) solid transparent;
     border-bottom: var(--space-xs) solid var(--text-primary);
