@@ -2,12 +2,20 @@
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
+import type { EventPayloadMap } from "./const.js";
+
 export type EventHandler = (...args: unknown[]) => void;
 
 export class EventBus {
   private listeners = new Map<string, Set<EventHandler>>();
 
-  /** Subscribe to an event; returns an unsubscribe function. */
+  /** Subscribe to a known event (typed payload). */
+  on<K extends keyof EventPayloadMap>(
+    event: K,
+    handler: (payload: EventPayloadMap[K]) => void,
+  ): () => void;
+  /** Subscribe to any event (generic fallback). */
+  on(event: string, handler: EventHandler): () => void;
   on(event: string, handler: EventHandler): () => void {
     let set = this.listeners.get(event);
     if (!set) {
@@ -18,7 +26,13 @@ export class EventBus {
     return () => this.off(event, handler);
   }
 
-  /** Remove a specific handler for an event. */
+  /** Remove a specific handler for a known event (typed payload). */
+  off<K extends keyof EventPayloadMap>(
+    event: K,
+    handler: (payload: EventPayloadMap[K]) => void,
+  ): void;
+  /** Remove a specific handler for any event (generic fallback). */
+  off(event: string, handler: EventHandler): void;
   off(event: string, handler: EventHandler): void {
     const set = this.listeners.get(event);
     if (!set) return;
@@ -26,7 +40,10 @@ export class EventBus {
     if (set.size === 0) this.listeners.delete(event);
   }
 
-  /** Emit an event to all subscribers (call order = subscription order). */
+  /** Emit a known event (typed payload). */
+  emit<K extends keyof EventPayloadMap>(event: K, payload: EventPayloadMap[K]): void;
+  /** Emit any event (generic fallback). */
+  emit(event: string, ...payload: unknown[]): void;
   emit(event: string, ...payload: unknown[]): void {
     const set = this.listeners.get(event);
     if (!set) return;
