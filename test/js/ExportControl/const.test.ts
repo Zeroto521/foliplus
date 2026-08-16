@@ -284,4 +284,41 @@ describe("TILE_CONCURRENCY", () => {
   it("is wired to resolveTileConcurrency", () => {
     expect(CONST.resolveTileConcurrency(undefined)).toBe(CONST.TILE_CONCURRENCY);
   });
+
+  describe("edge cases for number parsing", () => {
+    it("treats NaN as auto fallback", () => {
+      expect(CONST.resolveTileConcurrency(NaN)).toBe(6);
+    });
+
+    it("falls back for Infinity and NaN (non-finite numbers)", () => {
+      // Both are technically numbers but not sensible concurrency values.
+      expect(CONST.resolveTileConcurrency(Infinity)).toBe(6);
+      expect(CONST.resolveTileConcurrency(-Infinity)).toBe(6);
+    });
+
+    it("floors positive fractional to >=1", () => {
+      expect(CONST.resolveTileConcurrency(0.5)).toBe(1);
+      expect(CONST.resolveTileConcurrency(0.001)).toBe(1);
+      expect(CONST.resolveTileConcurrency(2.9)).toBe(2);
+    });
+
+    it("treats -0 as 1", () => {
+      expect(CONST.resolveTileConcurrency(-0)).toBe(1);
+    });
+  });
+
+  describe("detectConcurrency edge cases", () => {
+    afterEach(() => stubConnection("none"));
+
+    it("ignores string-typed downlink", () => {
+      // typeof "10" === "string" not "number", so it falls through to effectiveType.
+      stubConnection("standard", { effectiveType: "4g", downlink: "10" as any });
+      expect(CONST.detectConcurrency()).toBe(6);
+    });
+
+    it("handles downlink=Infinity as fast link", () => {
+      stubConnection("standard", { effectiveType: "4g", downlink: Infinity });
+      expect(CONST.detectConcurrency()).toBe(6);
+    });
+  });
 });

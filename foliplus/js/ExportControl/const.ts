@@ -138,7 +138,7 @@ export function detectConcurrency(): number {
  */
 export function resolveTileConcurrency(raw: unknown): number {
   if (raw === undefined || raw === "auto" || raw === true) return detectConcurrency();
-  if (typeof raw === "number") return Math.max(1, Math.floor(raw));
+  if (typeof raw === "number") return Number.isFinite(raw) ? Math.max(1, Math.floor(raw)) : detectConcurrency();
   if (typeof raw === "string") {
     const n = Number(raw);
     if (!Number.isNaN(n)) return Math.max(1, Math.floor(n));
