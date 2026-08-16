@@ -100,6 +100,8 @@ _JS_USED_KEYS = {
     "LayerControl.base_map_label",
     "LayerControl.color_map_label",
     "LayerControl.reorder_group_only",
+    "LayerControl.reorder_top",
+    "LayerControl.reorder_bottom",
     "LayerControl.type_base",
     "LayerControl.type_custom",
     "LayerControl.type_polygon",

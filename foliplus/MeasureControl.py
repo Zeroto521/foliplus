@@ -23,10 +23,23 @@ class MeasureControl(BaseControl):
     After drawing a line, polygon, circle, or placing a marker: click the object
     to toggle labels and × buttons; click empty map space to hide × buttons.
 
+    Shortcuts
+    ---------
+    Focus a layer row by clicking it, then use:
+
+    .. list-table::
+       :header-rows: 1
+
+       * - Key
+         - Action
+       * - Escape
+         - Exit measurement mode
+
+
     Parameters
     ----------
     position : str, default "bottomright"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+        One of "topleft", "topright", "bottomleft", "bottomright"\.
 
     show_bearing : bool, default True
         Whether to show the bearing (azimuth, 0°–360° clockwise from north) alongside
@@ -34,7 +47,7 @@ class MeasureControl(BaseControl):
         distance mode; area and circle modes always show plain distance.
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
     Notes
@@ -45,13 +58,6 @@ class MeasureControl(BaseControl):
     **Interaction.** Clicking an existing node during drawing does nothing (the marker
     stops the event from propagating to the map). This prevents duplicate points and
     overlapping labels.
-
-    **Keyboard shortcuts.**
-    While in measurement mode (after clicking the ruler icon):
-
-    * ``Esc`` — exit measurement mode
-    * ``Double-click`` / ``right-click`` — finish the current line or polygon
-      (after at least 2 points for distance, 3 points for area)
 
     Examples
     --------
