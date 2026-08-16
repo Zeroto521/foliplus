@@ -109,8 +109,8 @@ export function detectConcurrency(): number {
   const down = typeof conn.downlink === "number" ? conn.downlink : 0;
   if (down > 0) {
     if (down < 0.1) return 1;
-    if (down < 1)   return 2;
-    if (down < 5)   return 4;
+    if (down < 1) return 2;
+    if (down < 5) return 4;
     return DEFAULT_CONCURRENCY;
   }
 
