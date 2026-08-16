@@ -1,11 +1,12 @@
 // core layer-traversal utilities — pure functions, no DOM / CONF.
 import * as CONST from "./const.js";
+import type { LabelAwareLayer } from "./type.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {Object} map - Leaflet map.
  *  @param {string} id - Layer id.
  *  @returns {Object|null} Leaflet layer. */
-const findLayer = (map, id) => {
+const findLayer = (map: L.Map, id: string): L.Layer | null => {
   if (typeof window === "undefined") return null;
   return ((map._layers && map._layers[id]) ||
     Reflect.get(window, id) ||
@@ -13,7 +14,12 @@ const findLayer = (map, id) => {
 };
 
 /** Depth-limited walk over a layer tree, invoking fn per visited node. */
-const traverse = (layer, fn, depth = 0, leafOnly = false) => {
+const traverse = (
+  layer: L.Layer,
+  fn: (layer: L.Layer) => void,
+  depth = 0,
+  leafOnly = false,
+) => {
   if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
   const container = layer as L.LayerGroup;
   const isContainer = typeof container.eachLayer === "function";
@@ -28,19 +34,19 @@ const traverse = (layer, fn, depth = 0, leafOnly = false) => {
 };
 
 /** Iterate every leaf node (no intermediate containers) of a layer tree. */
-const forEachLeaf = (layer, fn, depth = 0) => {
+const forEachLeaf = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) => {
   traverse(layer, fn, depth, true);
 };
 
 /** Iterate every node (containers + leaves) of a layer tree. */
-const forEachLayer = (layer, fn, depth = 0) => {
+const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) => {
   traverse(layer, fn, depth, false);
 };
 
 /** Detect the geometry type of a layer tree.
  *  @param {Object} layer - Leaflet layer.
  *  @returns {string} Geometry type constant from GEOM_TYPE. */
-const getGeometryType = layer => {
+const getGeometryType = (layer: L.Layer): string => {
   const leaves: L.Layer[] = [];
   forEachLeaf(layer, l => leaves.push(l));
   if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY;
@@ -69,10 +75,10 @@ const getGeometryType = layer => {
  *  Excludes label layers and non-geometric nodes.
  *  @param {Object} layer - Leaflet layer (container or leaf).
  *  @returns {number} Number of geometric features. */
-const countFeatureGeometry = layer => {
+const countFeatureGeometry = (layer: L.Layer): number => {
   let count = 0;
-  forEachLeaf(layer, leaf => {
-    if (leaf.isLabel) return;
+  forEachLeaf(layer, (leaf: L.Layer) => {
+    if ((leaf as LabelAwareLayer).isLabel) return;
     if (leaf instanceof L.Polygon) count++;
     else if (leaf instanceof L.Polyline) count++;
     else if (leaf instanceof L.CircleMarker) count++;

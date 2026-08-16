@@ -176,7 +176,7 @@ class LayerManager implements LayerAPI {
       if (layerInfo.layer === layer) return true;
       if (layerInfo.layer) {
         let found = false;
-        forEachLayer(layerInfo.layer, c => {
+        forEachLayer(layerInfo.layer, (c: L.Layer) => {
           if (c === layer) found = true;
         });
         if (found) return true;
