@@ -109,7 +109,7 @@ describe("scanImports", () => {
     const result = scanImports(dir);
     expect(result["core/component"]).toContain("COMPONENTS");
     expect(result["core/hint"]).toContain("ensureHint");
-    expect(result["core/event/index"]).toContain("EventBus");
+    expect(result["core/event"]).toContain("EventBus");
   });
 
   it("scans BaseControl import", () => {
