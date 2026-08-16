@@ -127,9 +127,8 @@ describe("loadImageBitmap", () => {
   });
 
   it("clearBitmapCache closes all cached bitmaps", async () => {
-    const { loadImageBitmap, clearBitmapCache } = await import(
-      "#foliplus/ExportControl/util.js"
-    );
+    const { loadImageBitmap, clearBitmapCache } =
+      await import("#foliplus/ExportControl/util.js");
     const fakeBitmap1 = { close: vi.fn() };
     const fakeBitmap2 = { close: vi.fn() };
     globalThis.fetch = vi.fn(() =>
@@ -138,9 +137,7 @@ describe("loadImageBitmap", () => {
     globalThis.createImageBitmap = vi
       .fn()
       .mockResolvedValueOnce(fakeBitmap1)
-      .mockResolvedValueOnce(
-        fakeBitmap2,
-      ) as unknown as typeof createImageBitmap;
+      .mockResolvedValueOnce(fakeBitmap2) as unknown as typeof createImageBitmap;
 
     await loadImageBitmap("https://example.com/a.png");
     await loadImageBitmap("https://example.com/b.png");
@@ -247,9 +244,7 @@ describe("loadImage", () => {
       }
     } as unknown as typeof Image;
 
-    await expect(
-      loadImage("blob:https://example.com/123"),
-    ).rejects.toThrow();
+    await expect(loadImage("blob:https://example.com/123")).rejects.toThrow();
     expect(revokeSpy).toHaveBeenCalledWith("blob:https://example.com/123");
 
     globalThis.Image = origImage;
