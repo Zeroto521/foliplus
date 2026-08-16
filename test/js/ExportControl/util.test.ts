@@ -53,12 +53,15 @@ describe("ensureFont", () => {
 });
 
 describe("loadImageBitmap", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // AbortSignal.timeout may be undefined in jsdom; provide a stub.
     globalThis.AbortSignal = Object.assign(globalThis.AbortSignal || {}, {
       timeout: () => ({}),
     }) as unknown as typeof AbortSignal;
     window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
+    // The module-level bitmap cache persists between tests; start fresh.
+    const { clearBitmapCache } = await import("#foliplus/ExportControl/util.js");
+    clearBitmapCache();
   });
 
   it("returns null when fetch response is not ok", async () => {
@@ -87,28 +90,43 @@ describe("loadImageBitmap", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("calls bitmap.close() when createImageBitmap throws", async () => {
+  it("returns null when createImageBitmap rejects (nothing leaked to close)", async () => {
     const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
     const fakeBitmap = { close: vi.fn() };
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob()) }),
     ) as unknown as typeof fetch;
-    // createImageBitmap resolves with a bitmap then throws (simulated)
-    globalThis.createImageBitmap = vi
-      .fn()
-      .mockResolvedValueOnce(fakeBitmap)
-      .mockRejectedValueOnce(new Error("bitmap decode failed"))
-      as unknown as typeof createImageBitmap;
-    // First call succeeds
-    await loadImageBitmap("https://example.com/a.png");
-    // Second call — fetch succeeds but createImageBitmap throws
+    // Decode failure: nothing is created, so nothing should be closed.
+    globalThis.createImageBitmap = vi.fn(() =>
+      Promise.reject(new Error("bitmap decode failed")),
+    ) as unknown as typeof createImageBitmap;
     const result = await loadImageBitmap("https://example.com/b.png");
     expect(result).toBeNull();
-    // The bitmap that was created before the throw should be closed
-    expect(fakeBitmap.close).toHaveBeenCalled();
+    expect(fakeBitmap.close).not.toHaveBeenCalled();
   });
 
-  it("clearBitmapCache closes and evicts all cached bitmaps", async () => {
+  it("closes the evicted bitmap when the cache exceeds TILE_MAX", async () => {
+    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob()) }),
+    ) as unknown as typeof fetch;
+    const bitmaps: Array<{ close: ReturnType<typeof vi.fn> }> = [];
+    globalThis.createImageBitmap = vi.fn(() => {
+      const b = { close: vi.fn() };
+      bitmaps.push(b);
+      return Promise.resolve(b);
+    }) as unknown as typeof createImageBitmap;
+    // Fill the cache up to TILE_MAX (1000 entries).
+    for (let i = 0; i < 1000; i++) {
+      await loadImageBitmap(`https://example.com/t${i}.png`);
+    }
+    // The 1001st insert evicts and closes the oldest entry.
+    await loadImageBitmap("https://example.com/t1000.png");
+    expect(bitmaps[0].close).toHaveBeenCalledTimes(1);
+    expect(bitmaps[1].close).not.toHaveBeenCalled();
+  });
+
+  it("clearBitmapCache closes all cached bitmaps", async () => {
     const { loadImageBitmap, clearBitmapCache } = await import(
       "#foliplus/ExportControl/util.js"
     );
@@ -120,8 +138,9 @@ describe("loadImageBitmap", () => {
     globalThis.createImageBitmap = vi
       .fn()
       .mockResolvedValueOnce(fakeBitmap1)
-      .mockResolvedValueOnce(fakeBitmap2)
-      as unknown as typeof createImageBitmap;
+      .mockResolvedValueOnce(
+        fakeBitmap2,
+      ) as unknown as typeof createImageBitmap;
 
     await loadImageBitmap("https://example.com/a.png");
     await loadImageBitmap("https://example.com/b.png");
@@ -137,12 +156,12 @@ describe("loadImage", () => {
     const { loadImage } = await import("#foliplus/ExportControl/util.js");
     // jsdom Image does not fire onload for data URIs reliably; mock it.
     const origImage = globalThis.Image;
-    let onloadHandler;
+    let onloadHandler: (() => void) | null = null;
     globalThis.Image = class {
-      set src(v) {
+      set src(v: string) {
         queueMicrotask(() => onloadHandler?.());
       }
-      set onload(fn) {
+      set onload(fn: (() => void) | null) {
         onloadHandler = fn;
       }
     } as unknown as typeof Image;
@@ -155,20 +174,36 @@ describe("loadImage", () => {
     const { loadImage } = await import("#foliplus/ExportControl/util.js");
     const origImage = globalThis.Image;
     const images: HTMLImageElement[] = [];
-    let onloadHandler;
+    let onloadHandler: (() => void) | null = null;
+    // Accessor-based mock: fields would shadow the setters, so track state in
+    // a private backing field and expose getters for post-condition asserts.
     globalThis.Image = class {
-      onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
+      private _onload: (() => void) | null = null;
+      private _onerror: (() => void) | null = null;
+      private _src = "";
       crossOrigin?: string;
-      src: string = "";
-      set onload(fn) {
-        onloadHandler = fn;
-      }
-      set src(v: string) {
-        queueMicrotask(() => onloadHandler?.());
-      }
       constructor() {
         images.push(this);
+      }
+      get onload() {
+        return this._onload;
+      }
+      set onload(fn: (() => void) | null) {
+        this._onload = fn;
+        onloadHandler = fn;
+      }
+      get onerror() {
+        return this._onerror;
+      }
+      set onerror(fn: (() => void) | null) {
+        this._onerror = fn;
+      }
+      get src() {
+        return this._src;
+      }
+      set src(v: string) {
+        this._src = v;
+        queueMicrotask(() => onloadHandler?.());
       }
     } as unknown as typeof Image;
 
@@ -184,21 +219,30 @@ describe("loadImage", () => {
     const { loadImage } = await import("#foliplus/ExportControl/util.js");
     const origImage = globalThis.Image;
     const revokeSpy = vi.spyOn(URL, "revokeObjectURL");
-    let onerrorHandler;
+    let onerrorHandler: (() => void) | null = null;
     globalThis.Image = class {
-      onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
+      private _onload: (() => void) | null = null;
+      private _onerror: (() => void) | null = null;
+      private _src = "";
       crossOrigin?: string;
-      src: string = "";
-      set onload(fn) {
-        this.onload = fn;
+      get onload() {
+        return this._onload;
       }
-      set onerror(fn) {
+      set onload(fn: (() => void) | null) {
+        this._onload = fn;
+      }
+      get onerror() {
+        return this._onerror;
+      }
+      set onerror(fn: (() => void) | null) {
+        this._onerror = fn;
         onerrorHandler = fn;
-        this.onerror = fn;
+      }
+      get src() {
+        return this._src;
       }
       set src(v: string) {
-        this.src = v;
+        this._src = v;
         queueMicrotask(() => onerrorHandler?.());
       }
     } as unknown as typeof Image;

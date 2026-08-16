@@ -52,9 +52,11 @@ const loadImageBitmap = async (url: string) => {
     bitmapCache.set(url, bitmap);
     if (bitmapCache.size > CONST.CACHE.TILE_MAX) {
       const firstKey = bitmapCache.keys().next().value;
-      const evicted = bitmapCache.get(firstKey);
-      if (evicted) evicted.close();
-      bitmapCache.delete(firstKey);
+      if (firstKey !== undefined) {
+        const evicted = bitmapCache.get(firstKey);
+        if (evicted) evicted.close();
+        bitmapCache.delete(firstKey);
+      }
     }
     return bitmap;
   } catch {

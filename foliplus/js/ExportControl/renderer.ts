@@ -239,6 +239,7 @@ class ExportRenderer {
     } finally {
       if (hooks) hooks.after.forEach(fn => fn());
     }
+  }
 
   /** Render a single tile layer from geo bounds with concurrent tile loading. */
   async renderTileLayer(
