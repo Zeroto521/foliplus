@@ -553,7 +553,7 @@ class LayerUI {
     this.syncVisibility(layerInfo, layer, target.checked);
 
     this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
-    this.m.enforceOrder();
+    this.m.debouncedEnforce();
   }
 
   handleInput(event: Event) {
