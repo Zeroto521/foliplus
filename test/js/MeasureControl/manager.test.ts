@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MODE_CHANGE, LAYER_REMOVED, ensureEvents } from "#core/event/index.js";
+import { LAYER_REMOVED, MODE_CHANGE, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import * as Storage from "#common/storage.js";
@@ -205,51 +205,49 @@ describe("MeasureManager — cleanMapEvents", () => {
   });
 });
 
+describe("MeasureManager — export auto-clear", () => {
+  it("MODE_CHANGE from ExportControl clears active mode and shows export_paused hint", () => {
+    const { manager } = makeManager();
+    manager.setMode("distance");
+    expect(manager.currentMode).toBe("distance");
+    const events = ensureEvents(manager.map);
+    window.map.foliplus.showHint.mockClear();
+    events.emit("foliplus:mode:change", {
+      component: "ExportControl",
+      mode: "selecting",
+    });
+    expect(manager.currentMode).toBeNull();
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.stringContaining("export_paused"),
+      expect.any(Number),
+    );
+  });
 
-  describe("MeasureManager — export auto-clear", () => {
-    it("MODE_CHANGE from ExportControl clears active mode and shows export_paused hint", () => {
-      const { manager } = makeManager();
-      manager.setMode("distance");
-      expect(manager.currentMode).toBe("distance");
-      const events = ensureEvents(manager.map);
-      window.map.foliplus.showHint.mockClear();
+  it("MODE_CHANGE from ExportControl does nothing when no mode is active", () => {
+    const { manager } = makeManager();
+    expect(manager.currentMode).toBeNull();
+    const events = ensureEvents(manager.map);
+    expect(() =>
       events.emit("foliplus:mode:change", {
         component: "ExportControl",
         mode: "selecting",
-      });
-      expect(manager.currentMode).toBeNull();
-      expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
-        "MeasureControl",
-        expect.stringContaining("export_paused"),
-        expect.any(Number),
-      );
-    });
-
-    it("MODE_CHANGE from ExportControl does nothing when no mode is active", () => {
-      const { manager } = makeManager();
-      expect(manager.currentMode).toBeNull();
-      const events = ensureEvents(manager.map);
-      expect(() =>
-        events.emit("foliplus:mode:change", {
-          component: "ExportControl",
-          mode: "selecting",
-        }),
-      ).not.toThrow();
-      expect(manager.currentMode).toBeNull();
-    });
-
-    it("MODE_CHANGE from other components does not clear measurement", () => {
-      const { manager } = makeManager();
-      manager.setMode("distance");
-      const events = ensureEvents(manager.map);
-      events.emit("foliplus:mode:change", {
-        component: "FullscreenControl",
-        mode: "fullscreen",
-      });
-      expect(manager.currentMode).toBe("distance");
-    });
+      }),
+    ).not.toThrow();
+    expect(manager.currentMode).toBeNull();
   });
 
+  it("MODE_CHANGE from other components does not clear measurement", () => {
+    const { manager } = makeManager();
+    manager.setMode("distance");
+    const events = ensureEvents(manager.map);
+    events.emit("foliplus:mode:change", {
+      component: "FullscreenControl",
+      mode: "fullscreen",
+    });
+    expect(manager.currentMode).toBe("distance");
+  });
+});
 
 // ==================== Layer lifecycle cleanup ====================
 describe("MeasureManager — LAYER_REMOVED auto-cleanup", () => {
@@ -339,5 +337,4 @@ describe("MeasureManager — LAYER_REMOVED auto-cleanup", () => {
     expect(clearSpy).not.toHaveBeenCalled();
     expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
   });
-
 });

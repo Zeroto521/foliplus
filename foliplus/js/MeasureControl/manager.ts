@@ -1,6 +1,11 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
 import { COMPONENTS } from "#core/component.js";
-import { MODE_CHANGE, LAYER_REMOVED, ensureEvents, type EventHandler } from "#core/event/index.js";
+import {
+  type EventHandler,
+  LAYER_REMOVED,
+  MODE_CHANGE,
+  ensureEvents,
+} from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
