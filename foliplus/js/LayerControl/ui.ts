@@ -22,6 +22,7 @@ class LayerUI {
   dragIdx: number | null;
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
+  activeIdx: number | null;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
@@ -30,6 +31,7 @@ class LayerUI {
   declare onDragLeave: ((event: DragEvent) => void) | null;
   declare onDragEnd: ((event: DragEvent) => void) | null;
   declare onDrop: ((event: DragEvent) => void) | null;
+  declare onKeyDown: ((event: KeyboardEvent) => void) | null;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
@@ -39,6 +41,7 @@ class LayerUI {
     this.dragIdx = null;
     this.lastDragHintAt = 0;
     this.lastDragOverItem = null;
+    this.activeIdx = null;
   }
 
   /** Alias for convenience */
@@ -184,6 +187,7 @@ class LayerUI {
         class:
           `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
           (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
+        tabindex: "0",
         "data-group": group,
         title: _(`${CONF.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
       },
@@ -240,6 +244,7 @@ class LayerUI {
       {
         class: CONST.CLASSES.LAYER_ITEM,
         draggable: "true",
+        tabindex: "0",
         [CONST.DATA.INDEX]: String(idx),
         [CONST.DATA.LAYER_ID]: layerInfo.id,
         "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
@@ -412,6 +417,7 @@ class LayerUI {
     this.onDragLeave = event => this.handleDragLeave(event);
     this.onDrop = event => this.handleDrop(event);
     this.onDragEnd = () => this.handleDragEnd();
+    this.onKeyDown = event => this.handleKeyDown(event);
 
     container.addEventListener("change", this.onChange);
     container.addEventListener("input", this.onInput);
@@ -421,6 +427,7 @@ class LayerUI {
     container.addEventListener("dragleave", this.onDragLeave);
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
+    container.addEventListener("keydown", this.onKeyDown);
   }
 
   unbindEvents() {
@@ -434,9 +441,12 @@ class LayerUI {
     if (this.onDragLeave) container.removeEventListener("dragleave", this.onDragLeave);
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
+    if (this.onKeyDown) container.removeEventListener("keydown", this.onKeyDown);
+    this.clearActiveItem();
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
+    this.onKeyDown = null;
   }
 
   getLayerItems(group: string): NodeListOf<Element> {
@@ -476,7 +486,7 @@ class LayerUI {
     } else if (group === CONST.GROUP.BASE && newState) this.hideColorLayer();
 
     this.syncToggleAll(group);
-    this.m.enforceOrder();
+    this.m.debouncedEnforce();
   }
 
   syncToggleAll(group: string) {
@@ -543,12 +553,173 @@ class LayerUI {
     this.syncVisibility(layerInfo, layer, target.checked);
 
     this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
-    this.m.enforceOrder();
+    this.m.debouncedEnforce();
   }
 
   handleInput(event: Event) {
     if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT))
       this.showColorLayer((event.target as HTMLInputElement).value);
+  }
+
+  /** Get all navigable layer items (excludes color item and toggle-all rows). */
+  getNavigableItems(): HTMLElement[] {
+    return Array.from(
+      this.uiContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+    )
+      .map(
+        cb =>
+          (cb.closest(CONST.SEL.LAYER_ITEM) ??
+            cb.closest(CONST.SEL.TOGGLE_ALL)) as HTMLElement | null,
+      )
+      .filter(
+        (el): el is HTMLElement =>
+          el !== null && !el.classList.contains(CONST.CLASSES.COLOR_ITEM),
+      );
+  }
+
+  /** Get the currently focused layer item element. */
+  getActiveLayerItem(): HTMLElement | null {
+    if (this.activeIdx === null) return null;
+    return this.getNavigableItems()[this.activeIdx] ?? null;
+  }
+
+  /** Set the active item index and apply focus styling. */
+  setActiveItem(idx: number): void {
+    this.clearActiveItem();
+    if (idx < 0 || idx >= this.getNavigableItems().length) {
+      this.activeIdx = null;
+      return;
+    }
+    this.activeIdx = idx;
+    const item = this.getNavigableItems()[idx];
+    if (item) {
+      item.classList.add(CONST.CLASSES.FOCUSED);
+      item.focus();
+    }
+  }
+
+  /** Remove focus styling from the currently active item. */
+  blurActiveItem(): void {
+    const item = this.getActiveLayerItem();
+    if (item) item.classList.remove(CONST.CLASSES.FOCUSED);
+  }
+
+  /** Clear the active item state. */
+  clearActiveItem(): void {
+    this.blurActiveItem();
+    this.activeIdx = null;
+  }
+
+  /** Reindex all layer items after a move, preserving the active focus position. */
+  reindexAfterMove(): void {
+    this.renderInitialList();
+    this.initTypesAndVisibility();
+    if (this.activeIdx !== null) {
+      const items = this.getNavigableItems();
+      if (this.activeIdx < items.length) {
+        items[this.activeIdx].classList.add(CONST.CLASSES.FOCUSED);
+        items[this.activeIdx].focus();
+      }
+    }
+  }
+
+  /**
+   * Keyboard event handler for layer navigation and interaction.
+   * Only responds when focus is within the layer panel.
+   *
+   * Supported shortcuts:
+   *   ArrowUp / ArrowDown - Navigate between layer items
+   *   ArrowLeft / ArrowRight / Space / Enter - Toggle visibility of focused layer
+   *   Ctrl+ArrowUp / Ctrl+ArrowDown - Move focused layer up/down in z-order
+   *   Escape - Clear focus
+   */
+  handleKeyDown(event: KeyboardEvent): void {
+    if (!this.uiContainer.contains(document.activeElement)) return;
+
+    const items = this.getNavigableItems();
+    if (items.length === 0) return;
+
+    if (this.activeIdx === null) {
+      const focused = document.activeElement;
+      if (focused) {
+        const item =
+          focused.closest(CONST.SEL.LAYER_ITEM) ??
+          focused.closest(CONST.SEL.TOGGLE_ALL);
+        if (item) {
+          this.activeIdx = items.indexOf(item as HTMLElement);
+          if (this.activeIdx === -1) return;
+        } else return;
+      } else return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      const item = items[this.activeIdx];
+      if (!item) return;
+      const id = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        const moved = this.m.moveLayerUp(id);
+        if (!moved) {
+          map.foliplus!.showHint(
+            CONF.name,
+            _(CONF.name + ".reorder_top"),
+            HINT_DURATION.SHORT,
+          );
+        }
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        const moved = this.m.moveLayerDown(id);
+        if (!moved) {
+          map.foliplus!.showHint(
+            CONF.name,
+            _(CONF.name + ".reorder_bottom"),
+            HINT_DURATION.SHORT,
+          );
+        }
+      }
+      const newItems = this.getNavigableItems();
+      this.activeIdx = newItems.findIndex(
+        el => el.getAttribute(CONST.DATA.LAYER_ID) === id,
+      );
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowUp":
+        event.preventDefault();
+        if (this.activeIdx > 0) {
+          this.setActiveItem(this.activeIdx - 1);
+        }
+        break;
+      case "ArrowDown":
+        event.preventDefault();
+        if (this.activeIdx < items.length - 1) {
+          this.setActiveItem(this.activeIdx + 1);
+        }
+        break;
+      case "ArrowLeft":
+      case "ArrowRight":
+      case " ":
+      case "Enter":
+        event.preventDefault();
+        this.toggleFocusedLayer();
+        break;
+      case "Escape":
+        this.clearActiveItem();
+        break;
+    }
+  }
+
+  /** Toggle visibility of the currently focused layer. */
+  private toggleFocusedLayer(): void {
+    const item = this.getActiveLayerItem();
+    if (!item) return;
+    const checkbox = item.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement | null;
+    if (!checkbox) return;
+    checkbox.checked = !checkbox.checked;
+    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   handleDragStart(event: DragEvent) {
