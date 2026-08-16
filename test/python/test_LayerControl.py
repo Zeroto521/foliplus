@@ -1529,9 +1529,7 @@ class TestLayerControlBrowser:
             )
             result = page.evaluate(_js("LayerControl/keydown_escape_clears_focus"))
             assert result is not None, "keydown_escape_clears_focus failed"
-            assert result["beforeEscape"] is True, (
-                "ArrowDown should first set focus"
-            )
+            assert result["beforeEscape"] is True, "ArrowDown should first set focus"
             assert result["focusCleared"] is True, (
                 f"Escape should clear focus, got {result}"
             )
