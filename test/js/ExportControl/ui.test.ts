@@ -1,7 +1,7 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
 import { removeCropBox, showCropBox } from "#foliplus/ExportControl/ui.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Minimal map mock satisfying ExportManager constructor + ui fn requirements.
 function makeMapMock() {

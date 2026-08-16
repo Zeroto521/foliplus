@@ -700,7 +700,7 @@ class TestHeatmapControlBrowser:
             # (replaces the old raw map.fire('layeradd') — the manager now
             # subscribes to LAYER_CHANGE on the per-map EventBus).
             page.evaluate(
-                "window.__heatmapCtrl.manager.map.foliplus.events.emit('foliplus:layerchange')"
+                "window.__heatmapCtrl.manager.map.foliplus.events.emit('foliplus:layer:change')"
             )
             page.wait_for_timeout(1000)
             cached = page.evaluate("window.__heatmapCtrl.manager.cachedAgg")

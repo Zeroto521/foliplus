@@ -1,8 +1,8 @@
-import * as Storage from "#common/storage.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as Storage from "#common/storage.js";
 
 // Minimal map mock satisfying ExportManager constructor requirements.
 function makeMapMock() {
@@ -366,7 +366,7 @@ describe("ExportManager — export events", () => {
     const events = ensureEvents(manager.map);
     vi.spyOn(events, "emit");
     manager.doExport();
-    expect(events.emit).toHaveBeenCalledWith("before:export", {
+    expect(events.emit).toHaveBeenCalledWith("foliplus:export:before", {
       component: "ExportControl",
     });
   });
@@ -383,7 +383,7 @@ describe("ExportManager — export events", () => {
     manager.onRenderSuccess(document.createElement("canvas"), hideEls);
     await new Promise(r => setTimeout(r, 0));
     HTMLCanvasElement.prototype.toBlob = origToBlob;
-    expect(events.emit).toHaveBeenCalledWith("after:export", {
+    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
       component: "ExportControl",
     });
   });
@@ -393,7 +393,7 @@ describe("ExportManager — export events", () => {
     vi.spyOn(events, "emit");
     const hideEls = document.querySelectorAll("div");
     manager.onRenderError(new Error("render fail"), hideEls);
-    expect(events.emit).toHaveBeenCalledWith("after:export", {
+    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
       component: "ExportControl",
     });
   });
@@ -403,7 +403,7 @@ describe("ExportManager — export events", () => {
     vi.spyOn(events, "emit");
     manager.pixelOverLimit = true;
     manager.doExport();
-    expect(events.emit).toHaveBeenCalledWith("after:export", {
+    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
       component: "ExportControl",
     });
   });
