@@ -65,7 +65,7 @@ export class KeyboardManager {
   /** Start observing DOM for element/container removal to auto-cleanup. */
   private ensureObserver(): void {
     if (this.observer) return;
-    this.observer = new MutationObserver((mutations) => {
+    this.observer = new MutationObserver(mutations => {
       for (const m of mutations) {
         for (const removed of m.removedNodes) {
           if (!(removed instanceof HTMLElement)) continue;
@@ -156,7 +156,10 @@ export class KeyboardManager {
     }
     this.shortcuts = [];
     this.trackedElements.clear();
-    if (this.observer) { this.observer.disconnect(); this.observer = null; }
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
     this.removeListener();
   }
 
