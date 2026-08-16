@@ -263,10 +263,8 @@ describe("renderHistory", () => {
     expect(ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-header")).not.toBeNull();
     // Clear all button present
     expect(ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-clear")).not.toBeNull();
-    // History items present — they reuse suggestion-item classes with a history modifier
-    const items = ctrl.suggestionsWrap.querySelectorAll(
-      ".foliplus-search-suggestion-item.foliplus-search-history-item",
-    );
+    // History items present — they now use the exact same suggestion-item class as suggestions
+    const items = ctrl.suggestionsWrap.querySelectorAll(".foliplus-search-suggestion-item");
     expect(items).toHaveLength(2);
     // Each history item has the same layout as a suggestion item (icon + text)
     expect(items[0].querySelector(".foliplus-search-suggestion-icon")).not.toBeNull();
@@ -291,7 +289,7 @@ describe("renderHistory", () => {
       { query: "Paris", type: "addr", label: "Paris, France", lat: 48.8, lng: 2.3, ts: 1000 },
     ]);
     renderHistory(ctrl);
-    const item = ctrl.suggestionsWrap.querySelector(".foliplus-search-history-item")!;
+    const item = ctrl.suggestionsWrap.querySelector(".foliplus-search-suggestion-item")!;
     // Simulate clicking the history item
     const clickEvent = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
     // The onmousedown handler is registered on the item; we need to trigger it
@@ -328,7 +326,7 @@ describe("renderHistory", () => {
     renderHistory(ctrl);
     // Get the delete button for the first entry (query="A")
     const firstItem = ctrl.suggestionsWrap.querySelector(
-      ".foliplus-search-history-item",
+      ".foliplus-search-suggestion-item",
     )!;
     const delBtn = firstItem.querySelector(".foliplus-search-history-item-del")!;
     delBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));

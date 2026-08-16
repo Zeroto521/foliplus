@@ -391,13 +391,12 @@ const renderHistory = (ctrl: SearchControlState) => {
   );
 
   entries.forEach((entry: SearchHistoryEntry, idx: number) => {
-    // Reuse suggestion-item layout; add HISTORY_ITEM modifier to enable the
-    // history-specific ✕ button hover behaviour.
-    const itemClass = `${CLASSES.SUGGESTION_ITEM} ${CLASSES.HISTORY_ITEM}`;
+    // History entries reuse the same suggestion-item classes as address
+    // suggestions, plus a history-specific ✕ delete button inside.
     const item = dom.el(
       "div",
       {
-        class: itemClass,
+        class: CLASSES.SUGGESTION_ITEM,
         "data-index": String(idx),
         onmousedown: (event: Event) => {
           event.stopPropagation();

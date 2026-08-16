@@ -20,8 +20,6 @@ export const CLASSES = {
   HISTORY_GROUP_HEADER: "foliplus-search-history-group-header",
   HISTORY_GROUP_TITLE: "foliplus-search-history-group-title",
   HISTORY_GROUP_CLEAR: "foliplus-search-history-group-clear",
-  /** Modifier class on a suggestion item used as a history entry (triggers ✕ hover). */
-  HISTORY_ITEM: "foliplus-search-history-item",
   /** Delete button inside a history entry suggestion item. */
   HISTORY_ITEM_DEL: "foliplus-search-history-item-del",
 };

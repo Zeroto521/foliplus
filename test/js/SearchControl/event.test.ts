@@ -169,7 +169,7 @@ describe("bindEvents", () => {
     header.className = "foliplus-search-history-group-header";
     header.innerHTML = '<span class="foliplus-search-history-group-title">Search History</span>';
     const item = document.createElement("div");
-    item.className = "foliplus-search-suggestion-item foliplus-search-history-item";
+    item.className = "foliplus-search-suggestion-item";
     item.innerHTML = '<span class="foliplus-search-suggestion-icon">📍</span><span class="foliplus-search-suggestion-text">Paris, France</span>';
     ctrl.suggestionsWrap.append(header, item);
     bindEvents(ctrl);

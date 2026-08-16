@@ -154,7 +154,7 @@
     background: var(--accent-light);
   }
 
-  .foliplus-search-history-item:hover & {
+  .foliplus-search-history-group-header ~ .foliplus-search-suggestion-item:hover & {
     opacity: 1;
   }
 }
