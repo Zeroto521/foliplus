@@ -44,7 +44,7 @@ class MeasureControl(BaseControl):
         the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to
         distance mode; area and circle modes always show plain distance.
 
-        locale : str or LocaleConfig, optional
+    locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 

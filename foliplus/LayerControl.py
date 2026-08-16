@@ -44,7 +44,7 @@ class LayerControl(BaseControl):
     position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright"\.
 
-        locale : str or LocaleConfig, optional
+    locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 

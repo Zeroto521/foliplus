@@ -24,7 +24,7 @@ class FullscreenControl(BaseControl):
     hide_others : bool, default True
         Whether to hide other map controls after entering fullscreen.
 
-        locale : str or LocaleConfig, optional
+    locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 

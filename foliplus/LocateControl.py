@@ -17,7 +17,7 @@ class LocateControl(BaseControl):
     zoom : int, default 15
         Zoom level after locating. Typically 1-18.
 
-        locale : str or LocaleConfig, optional
+    locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
