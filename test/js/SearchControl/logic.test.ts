@@ -551,8 +551,12 @@ describe("renderSuggestions — click records to history", () => {
     };
     fetchSuggestions(ctrl, "abc");
     expect(ctrl.suggestionsWrap).not.toBeNull();
-    const item = ctrl.suggestionsWrap.querySelector(".foliplus-search-suggestion-item")!;
-    item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    const item = ctrl.suggestionsWrap.querySelector(
+      ".foliplus-search-suggestion-item",
+    )!;
+    item.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+    );
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].type).toBe("addr");
     expect(ctrl.searchHistory[0].query).toBe("abc"); // original input, not formatted displayName
@@ -573,13 +577,22 @@ describe("fetchSuggestions — empty input renders history", () => {
       },
       inp: { value: "" },
       searchHistory: [
-        { query: "Paris", type: "addr", label: "Paris, France", lat: 48.8, lng: 2.3, ts: 1000 },
+        {
+          query: "Paris",
+          type: "addr",
+          label: "Paris, France",
+          lat: 48.8,
+          lng: 2.3,
+          ts: 1000,
+        },
       ],
     };
     fetchSuggestions(ctrl, "");
     expect(ctrl.suggestionsWrap).not.toBeNull();
     expect(ctrl.suggestionsWrap.innerHTML).toContain("Paris, France");
-    expect(ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-header")).not.toBeNull();
+    expect(
+      ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-header"),
+    ).not.toBeNull();
   });
 
   it("removes suggestions when input is empty and history is empty", () => {
@@ -604,9 +617,7 @@ describe("fetchSuggestions — empty input renders history", () => {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
       inp: { value: "" },
-      searchHistory: [
-        { query: "A", type: "addr", label: "A", lat: 0, lng: 0, ts: 1 },
-      ],
+      searchHistory: [{ query: "A", type: "addr", label: "A", lat: 0, lng: 0, ts: 1 }],
     };
     fetchSuggestions(ctrl, "");
     expect(ctrl.suggestionsWrap).not.toBeNull();
@@ -636,6 +647,8 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
     };
     fetchSuggestions(ctrl, "abc");
     expect(ctrl.suggestionsWrap.innerHTML).toContain("Result");
-    expect(ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-header")).toBeNull();
+    expect(
+      ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-header"),
+    ).toBeNull();
   });
 });
