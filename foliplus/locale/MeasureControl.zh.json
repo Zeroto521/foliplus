@@ -1,7 +1,7 @@
 {
   "locale.name": "中文",
   "locale.code": "zh",
-  "MeasureControl.tool_toggle": "量算工具",
+  "MeasureControl.tool_toggle": "测量工具",
   "MeasureControl.tool_marker": "定位",
   "MeasureControl.tool_distance": "测距",
   "MeasureControl.tool_polygon": "面积",
@@ -21,5 +21,5 @@
   "MeasureControl.del_tooltip": "删除",
   "MeasureControl.del_node": "删除此点",
   "MeasureControl.del_all": "全部删除",
-  "MeasureControl.export_paused": "导出中，量测已暂停"
+  "MeasureControl.export_paused": "导出中，测量已暂停"
 }
