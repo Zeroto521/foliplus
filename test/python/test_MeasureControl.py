@@ -76,7 +76,7 @@ class TestMeasureControlRendering:
 
     def test_locale_zh(self):
         html = render_control(MeasureControl(locale="zh"))
-        assert "量算工具" in html
+        assert "测量工具" in html
         assert "tool_toggle" in html
 
     def test_css_icon_size_variable(self):

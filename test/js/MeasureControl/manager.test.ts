@@ -2,7 +2,8 @@ import * as Storage from "#common/storage.js";
 import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
-import { describe, expect, it, vi } from "vitest";
+import { ensureEvents } from "#core/event/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 function makeManager() {
   window.CONF = {
@@ -23,6 +24,7 @@ function makeManager() {
   }));
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.divIcon = vi.fn(() => ({}));
+  window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
   // Mock createLocationMarker's geo helpers
   window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
 
@@ -198,4 +200,25 @@ describe("MeasureManager — cleanMapEvents", () => {
     const { manager } = makeManager();
     expect(() => manager.cleanMapEvents()).not.toThrow();
   });
+
+describe("MeasureManager — export auto-clear", () => {
+  it("before:export clears active mode", () => {
+    const { manager } = makeManager();
+    manager.setMode("distance");
+    expect(manager.currentMode).toBe("distance");
+    const events = ensureEvents(manager.map);
+    events.emit("before:export", { component: "ExportControl" });
+    expect(manager.currentMode).toBeNull();
+  });
+
+  it("before:export does nothing when no mode is active", () => {
+    const { manager } = makeManager();
+    expect(manager.currentMode).toBeNull();
+    const events = ensureEvents(manager.map);
+    expect(() =>
+      events.emit("before:export", { component: "ExportControl" }),
+    ).not.toThrow();
+    expect(manager.currentMode).toBeNull();
+  });
+});
 });
