@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LAYER_REMOVED } from "#core/event/index.js";
 import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
 
@@ -166,6 +167,28 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "test_layer", name: "Test" });
     const result = manager.unregisterLayer("test_layer");
     expect(result).toBe(true);
+  });
+
+  it("unregisterLayer emits LAYER_REMOVED event with the layer id", () => {
+    manager.registerLayer({ id: "test_layer", name: "Test" });
+    const bus = map.foliplus!.events;
+    const handler = vi.fn();
+    bus.on(LAYER_REMOVED, handler);
+
+    manager.unregisterLayer("test_layer");
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith({ id: "test_layer" });
+  });
+
+  it("unregisterLayer does NOT emit LAYER_REMOVED for unknown id", () => {
+    const bus = map.foliplus!.events;
+    const handler = vi.fn();
+    bus.on(LAYER_REMOVED, handler);
+
+    manager.unregisterLayer("nonexistent");
+
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it("clearAllLayers is safe for null", () => {

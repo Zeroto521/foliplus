@@ -22,6 +22,7 @@ export {
   EVENT_REGISTRY,
   EVENTS,
   LAYER_CHANGE,
+  LAYER_REMOVED,
   MODE_CHANGE,
 } from "./const.js";
 export type { EventMeta, EventPayloadMap } from "./const.js";

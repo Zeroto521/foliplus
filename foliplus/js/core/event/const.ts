@@ -7,7 +7,9 @@ import { COMPONENTS } from "#core/component.js";
 export const EVENTS = {
   /** Layer registry changed (registered / unregistered / reordered / toggled). */
   LAYER_CHANGE: "foliplus:layer:change",
-  /** A component's active mode changed (measurement start/stop, search mode switch, fullscreen toggle). */
+  /** A layer was removed from the registry by an external caller (e.g. panel delete). */
+  LAYER_REMOVED: "foliplus:layer:removed",
+  /** A component's active mode changed (measurement start/stop, search mode switch). */
   MODE_CHANGE: "foliplus:mode:change",
   /** Export process started (crop locked / download initiated). */
   BEFORE_EXPORT: "foliplus:export:before",
@@ -16,12 +18,14 @@ export const EVENTS = {
 } as const;
 
 // Named re-exports for concise use in components.
-export const { LAYER_CHANGE, MODE_CHANGE, BEFORE_EXPORT, AFTER_EXPORT } = EVENTS;
+export const { LAYER_CHANGE, LAYER_REMOVED, MODE_CHANGE, BEFORE_EXPORT, AFTER_EXPORT } =
+  EVENTS;
 
 // ── Type-safe payload map ──
 
 export interface EventPayloadMap {
   [EVENTS.LAYER_CHANGE]: undefined;
+  [EVENTS.LAYER_REMOVED]: { id: string };
   [EVENTS.MODE_CHANGE]: { component: string; mode: string | null };
   [EVENTS.BEFORE_EXPORT]: { component: string };
   [EVENTS.AFTER_EXPORT]: { component: string };
@@ -42,6 +46,13 @@ export const EVENT_REGISTRY: Record<string, EventMeta> = {
     publisher: COMPONENTS.LayerManager,
     subscribers: [COMPONENTS.HeatmapControl],
     payload: "undefined",
+  },
+  [EVENTS.LAYER_REMOVED]: {
+    description:
+      "A layer was removed from the registry by an external caller (e.g. panel delete)",
+    publisher: COMPONENTS.LayerManager,
+    subscribers: [COMPONENTS.MeasureControl],
+    payload: "{ id: string }",
   },
   [EVENTS.MODE_CHANGE]: {
     description:

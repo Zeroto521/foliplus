@@ -108,3 +108,19 @@ describe("HM_DATA_ATTR", () => {
     expect(keys.length).toBe(14);
   });
 });
+
+describe("generateId", () => {
+  it("returns the default ID when no namespace is provided", () => {
+    expect(CONST.generateId()).toBe("foliplus_heatmap");
+    expect(CONST.generateId(undefined)).toBe("foliplus_heatmap");
+  });
+
+  it("returns a namespaced ID when namespace is provided", () => {
+    expect(CONST.generateId("map2")).toBe("foliplus_heatmap_map2");
+    expect(CONST.generateId("custom")).toBe("foliplus_heatmap_custom");
+  });
+
+  it("uses ID constant as prefix for namespaced IDs", () => {
+    expect(CONST.generateId("ns")).toBe(`${CONST.ID}_ns`);
+  });
+});

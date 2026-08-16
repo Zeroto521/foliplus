@@ -1,6 +1,6 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
 import { COMPONENTS } from "#core/component.js";
-import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
+import { MODE_CHANGE, LAYER_REMOVED, ensureEvents, type EventHandler } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
@@ -35,14 +35,25 @@ class MeasureManager {
   measurements: MeasureData[];
   measurementIdCounter: number;
   ctrl: HTMLElement | null;
+  /** The layer id used to register this manager's measure layer. */
+  layerId: string;
+  /** Event bus unsubscribe for LAYER_REMOVED. */
+  offLayerRemoved!: () => void;
   onMapClick!: (event: L.LeafletMouseEvent) => void;
   onKeyDown!: (event: KeyboardEvent) => void;
   onUnload!: () => void;
 
-  constructor(mapInstance: L.Map) {
+  /**
+   * @param mapInstance - Leaflet map instance.
+   * @param opts - Optional configuration.
+   * @param opts.id - Optional namespace for the layer ID. When provided,
+   *   the layer is registered as "{ID}_{id}" to support multi-instance maps.
+   */
+  constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.layerId = CONST.generateId(opts?.id);
     this.layers = map.foliplus!.LayerAPI!.createLayers({
-      id: CONST.ID,
+      id: this.layerId,
       name: _(`${CONF.name}.tool_toggle`),
       graphPane: CONST.PANES.GRAPH,
       labelPane: CONST.PANES.LABEL,
@@ -71,6 +82,7 @@ class MeasureManager {
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
+    this.bindLayerRemoved();
   }
 
   // ── Persistence ──
@@ -235,6 +247,9 @@ class MeasureManager {
 
   /** Full cleanup including global events. Called on control removal. */
   destroy() {
+    // Unsubscribe from LAYER_REMOVED first to prevent reacting to removals
+    // triggered by our own clearAll() during destroy.
+    if (this.offLayerRemoved) this.offLayerRemoved();
     // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
     this.map.off("unload", this.onUnload);
     this.clearAll();
@@ -242,6 +257,22 @@ class MeasureManager {
     document.removeEventListener("keydown", this.onKeyDown);
     this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
     this.finalizedClickHandlers = [];
+  }
+
+  /**
+   * Subscribe to LAYER_REMOVED so we can detect when the LayerControl panel
+   * (or any external caller) deletes our measure layer. When that happens,
+   * our active mode must be cleared — otherwise currentMode, hint, and the
+   * "measuring" CSS class would remain stuck in an inconsistent state.
+   */
+  bindLayerRemoved() {
+    this.offLayerRemoved = ensureEvents(this.map).on(LAYER_REMOVED, ((payload: {
+      id?: string;
+    }) => {
+      if (payload?.id === this.layerId) {
+        this.clearActiveMode();
+      }
+    }) as EventHandler);
   }
 
   /** Clean up current mode instance and hide hints. */

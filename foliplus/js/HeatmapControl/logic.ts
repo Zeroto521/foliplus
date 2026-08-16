@@ -98,8 +98,18 @@ class HeatmapManager {
   declare removeLayerChangeListener: () => void;
   declare onZoomEnd: Debounced;
 
-  constructor(mapInstance: L.Map) {
+  /** The layer id used to register this manager's heatmap canvas. */
+  layerId: string;
+
+  /**
+   * @param mapInstance - Leaflet map instance.
+   * @param opts - Optional configuration.
+   * @param opts.id - Optional namespace for the layer ID. When provided,
+   *   the canvas is registered as "{ID}_{id}" to support multi-instance maps.
+   */
+  constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.layerId = CONST.generateId(opts?.id);
 
     // State management
     this.selectedLayerId = null;
@@ -120,7 +130,7 @@ class HeatmapManager {
     // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
     // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
-      id: CONST.ID,
+      id: this.layerId,
       name: _(`${CONF.name}.title`),
       iconSvg: SVGs.HEXAGON,
     });

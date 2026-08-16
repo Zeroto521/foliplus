@@ -58,3 +58,19 @@ describe("FORMAT", () => {
     expect(CONST.FORMAT.KM_DECIMALS).toBe(1);
   });
 });
+
+describe("generateId", () => {
+  it("returns the default ID when no namespace is provided", () => {
+    expect(CONST.generateId()).toBe("foliplus_measure");
+    expect(CONST.generateId(undefined)).toBe("foliplus_measure");
+  });
+
+  it("returns a namespaced ID when namespace is provided", () => {
+    expect(CONST.generateId("map2")).toBe("foliplus_measure_map2");
+    expect(CONST.generateId("custom")).toBe("foliplus_measure_custom");
+  });
+
+  it("uses ID constant as prefix for namespaced IDs", () => {
+    expect(CONST.generateId("ns")).toBe(`${CONST.ID}_ns`);
+  });
+});

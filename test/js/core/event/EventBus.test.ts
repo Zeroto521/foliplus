@@ -70,6 +70,22 @@ describe("EventBus", () => {
   });
 });
 
+describe("event constants", () => {
+  it("all constants are distinct non-empty strings", () => {
+    expect(typeof LAYER_CHANGE).toBe("string");
+    expect(typeof LAYER_REMOVED).toBe("string");
+    expect(typeof MODE_CHANGE).toBe("string");
+    expect([LAYER_CHANGE, LAYER_REMOVED, MODE_CHANGE]).toEqual(
+      expect.arrayContaining([
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+      ])
+    );
+    expect(new Set([LAYER_CHANGE, LAYER_REMOVED, MODE_CHANGE])).toHaveLength(3);
+  });
+});
+
 describe("ensureEvents", () => {
   it("attaches an EventBus to map.foliplus.events and is idempotent", () => {
     const map = {} as any;

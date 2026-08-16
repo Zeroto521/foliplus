@@ -1,4 +1,7 @@
-import { BEFORE_EXPORT, LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
+import { type Debounced, debounce } from "#common/debounce.js";
+import { createTranslator } from "#common/locale.js";
+import * as Storage from "#common/storage.js";
+import { BEFORE_EXPORT, LAYER_CHANGE, LAYER_REMOVED, ensureEvents } from "#core/event/index.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -404,6 +407,9 @@ class LayerManager implements LayerAPI {
       }
     }
     ensureEvents(this.map).emit(LAYER_CHANGE);
+    // Emit LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
+    // their layer is deleted from the panel and sync their internal state.
+    ensureEvents(this.map).emit(LAYER_REMOVED, { id });
     return true;
   }
 

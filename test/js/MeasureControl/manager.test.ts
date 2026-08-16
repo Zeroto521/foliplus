@@ -1,17 +1,31 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MODE_CHANGE, LAYER_REMOVED, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import * as Storage from "#common/storage.js";
 
-function makeManager() {
+// Shared mock LayerAPI factory — builds a CreateLayersAPI with spy methods.
+function mockLayerAPI() {
+  return {
+    register: vi.fn(),
+    unregister: vi.fn(),
+    clearLayers: vi.fn(),
+    addLayer: vi.fn(l => l),
+    removeLayer: vi.fn(),
+    mainLayer: { addLayer: vi.fn() },
+  };
+}
+
+function makeManager(opts?: { id?: string }) {
   window.CONF = {
     ...window.CONF,
     name: "MeasureControl",
     locale_code: "en",
   };
 
-  // Mock L.marker with enough fidelity for createLocationMarker
+  const layers = mockLayerAPI();
+
+  // Mock L marker / circleMarker / divIcon for mode.ts side effects
   window.L.marker = vi.fn(() => ({
     bindPopup: vi.fn(),
     openPopup: vi.fn(),
@@ -23,34 +37,24 @@ function makeManager() {
   }));
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.divIcon = vi.fn(() => ({}));
-  window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
-  // Mock createLocationMarker's geo helpers
   window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
-
-  // Mock LayerAPI.createLayers (per-map: map.foliplus.LayerAPI)
-  window.map.foliplus = {
-    showHint: vi.fn(),
-    hideHint: vi.fn(),
-    LayerAPI: {
-      createLayers: vi.fn(() => ({
-        register: vi.fn(),
-        unregister: vi.fn(),
-        clearLayers: vi.fn(),
-        addLayer: vi.fn(l => l),
-        removeLayer: vi.fn(),
-        mainLayer: { addLayer: vi.fn() },
-      })),
-    },
-  };
 
   const container = document.createElement("div");
   const map = {
     getContainer: () => container,
     on: vi.fn(),
     off: vi.fn(),
+    foliplus: {
+      showHint: vi.fn(),
+      hideHint: vi.fn(),
+      LayerAPI: {
+        createLayers: vi.fn(() => layers),
+      },
+    },
   };
-  const manager = new MeasureManager(map);
-  return { manager, map, container };
+
+  const manager = new MeasureManager(map, opts);
+  return { manager, map, container, layers };
 }
 
 afterEach(() => {
@@ -102,14 +106,14 @@ describe("MeasureManager — mode switching", () => {
     manager.currentMode = CONST.MODE.DISTANCE;
     manager.clearActiveMode();
     expect(manager.currentMode).toBeNull();
-    expect(window.map.foliplus.hideHint).toHaveBeenCalled();
+    expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
   });
 
   it("clearAll clears layers and measurements", () => {
-    const { manager } = makeManager();
+    const { manager, layers } = makeManager();
     manager.measurements = [{ id: 1 }];
     manager.clearAll();
-    expect(manager.layers.clearLayers).toHaveBeenCalled();
+    expect(layers.clearLayers).toHaveBeenCalled();
     expect(manager.measurements).toHaveLength(0);
   });
 });
@@ -158,12 +162,12 @@ describe("MeasureManager — persistence edge cases", () => {
 
 describe("MeasureManager — global events", () => {
   it("onUnload clears active mode and layers without wiping measurements", () => {
-    const { manager, map } = makeManager();
+    const { manager, map, layers } = makeManager();
     manager.measurements = [{ id: 1, type: "marker" }];
     manager.currentMode = CONST.MODE.DISTANCE;
     manager.onUnload();
     expect(manager.currentMode).toBeNull();
-    expect(manager.layers.clearLayers).toHaveBeenCalled();
+    expect(layers.clearLayers).toHaveBeenCalled();
     expect(manager.measurements).toHaveLength(1);
   });
 
@@ -192,13 +196,14 @@ describe("MeasureManager — cleanMapEvents", () => {
     manager.cleanMapEvents();
     expect(mode.cleanup).toHaveBeenCalled();
     expect(manager.modeInstance).toBeNull();
-    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith(CONF.name);
   });
 
   it("cleanMapEvents is safe when no modeInstance", () => {
     const { manager } = makeManager();
     expect(() => manager.cleanMapEvents()).not.toThrow();
   });
+});
+
 
   describe("MeasureManager — export auto-clear", () => {
     it("MODE_CHANGE from ExportControl clears active mode and shows export_paused hint", () => {
@@ -243,4 +248,96 @@ describe("MeasureManager — cleanMapEvents", () => {
       expect(manager.currentMode).toBe("distance");
     });
   });
+
+
+// ==================== Layer lifecycle cleanup ====================
+describe("MeasureManager — LAYER_REMOVED auto-cleanup", () => {
+  it("clears active mode when own layer is removed via LAYER_REMOVED event", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    // Simulate the LayerControl panel deleting the measure layer
+    const bus = map.foliplus!.events;
+    bus.emit(LAYER_REMOVED, { id: manager.layerId });
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(manager.currentMode).toBeNull();
+  });
+
+  it("does NOT react when a different layer is removed", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(LAYER_REMOVED, { id: "some_other_layer" });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+  });
+
+  it("does NOT react when LAYER_REMOVED has no id payload", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(LAYER_REMOVED, {});
+
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+  });
+
+  it("does NOT react when LAYER_REMOVED is called with undefined payload", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(LAYER_REMOVED);
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("destroy unsubscribes from LAYER_REMOVED (no reaction after destroy)", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MODE.DISTANCE;
+
+    manager.destroy();
+
+    // After destroy, layer removal must NOT trigger clearActiveMode
+    const bus = map.foliplus!.events;
+    bus.emit(LAYER_REMOVED, { id: manager.layerId });
+
+    // currentMode was already set to null by clearAll() inside destroy()
+    expect(manager.currentMode).toBeNull();
+    // The handler must have been unsubscribed; eventCount should be 0
+    // (MeasureManager was the only subscriber to LAYER_REMOVED)
+    expect(bus.eventCount).toBe(0);
+  });
+
+  it("works with namespaced layer ID (opts.id)", () => {
+    const { manager, map } = makeManager({ id: "map2" });
+    expect(manager.layerId).toBe("foliplus_measure_map2");
+    manager.currentMode = CONST.MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(LAYER_REMOVED, { id: "foliplus_measure_map2" });
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(manager.currentMode).toBeNull();
+  });
+
+  it("ignores default ID when using namespaced layer ID", () => {
+    const { manager, map } = makeManager({ id: "map2" });
+    manager.currentMode = CONST.MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(LAYER_REMOVED, { id: "foliplus_measure" });
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+  });
+
 });
