@@ -11,7 +11,9 @@
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
 - `EventBus`: decouple cross-component communication via typed semantic events, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148), [#153](https://github.com/Zeroto521/foliplus/pull/153), [#159](https://github.com/Zeroto521/foliplus/pull/159))
 - `ModeManager`: prevent conflicting component actions (e.g. measurement during export) via mode tracking and mutual-exclusion blocking ([#150](https://github.com/Zeroto521/foliplus/pull/150), [#159](https://github.com/Zeroto521/foliplus/pull/159))
-- `LayerControl` / `MeasureControl`: deleting the measure layer from the LayerControl panel now auto-clears the active measurement mode; added `LAYER_REMOVED` event and `generateId(namespace?)` helper ([#155](https://github.com/Zeroto521/foliplus/pull/155))
+- `EventBus`: add ordered event log (`eventLog`) capturing the last 100 emitted events for debugging; `LAYER_REMOVED` event emitted by `LayerManager` on layer unregister ([#155](https://github.com/Zeroto521/foliplus/pull/155))
+- `MeasureControl` / `HeatmapControl`: layer ID generated via shared `generateId(prefix, namespace?)` helper in `core/component.ts`; `FullscreenControl` `containerId` reuses it ([#155](https://github.com/Zeroto521/foliplus/pull/155))
+- `LayerControl` / `MeasureControl`: deleting the measure layer from the LayerControl panel now auto-clears the active measurement mode via `LAYER_REMOVED` ([#155](https://github.com/Zeroto521/foliplus/pull/155))
 
 ### Changed
 
