@@ -28,7 +28,7 @@ import { basename, dirname, resolve } from "path";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath } from "url";
-import { parseArgs } from "./args.mjs";
+import { parseArgs, help } from "./args.mjs";
 import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 
@@ -42,11 +42,15 @@ const ROOT = resolve(__dirname, "..");
 // must NOT be externalized (it bundles the shared modules).
 const SHARED_ENTRY = "runtime";
 
-const CFG = parseArgs(process.argv.slice(2), {
-  root:  { type: "string", default: "." },
-  dev:   { type: "bool" },
-  check: { type: "bool" },
-});
+const BUILD_SPEC = {
+  root:  { type: "string", default: ".", desc: "Project root directory" },
+  dev:   { type: "bool",   desc: "Unminified, keepNames" },
+  check: { type: "bool",   desc: "Verify all artifacts exist" },
+};
+const _raw = parseArgs(process.argv.slice(2), BUILD_SPEC);
+if (_raw.help) { console.log(help(BUILD_SPEC)); process.exit(0); }
+if (_raw.errors.length) { console.error(_raw.errors.join("\n")); console.error(help(BUILD_SPEC)); process.exit(1); }
+const CFG = _raw;
 CFG.root = resolve(CFG.root);
 const ROOT_RESOLVED = CFG.root;
 

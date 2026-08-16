@@ -20,14 +20,18 @@ import {
 } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
-import { parseArgs } from "./args.mjs";
+import { parseArgs, help } from "./args.mjs";
 
 const __dirname = resolve(fileURLToPath(import.meta.url), "..");
 
-const opts = parseArgs(process.argv.slice(2), {
-  root:   { type: "string", default: resolve(__dirname, "..") },
-  silent: { type: "bool" },
-});
+const SCAN_SPEC = {
+  root:   { type: "string", default: resolve(__dirname, ".."), desc: "Project root directory" },
+  silent: { type: "bool",   desc: "Suppress output messages" },
+};
+const _raw = parseArgs(process.argv.slice(2), SCAN_SPEC);
+if (_raw.help) { console.log(help(SCAN_SPEC)); process.exit(0); }
+if (_raw.errors.length) { console.error(_raw.errors.join("\n")); console.error(help(SCAN_SPEC)); process.exit(1); }
+const opts = _raw;
 
 const ROOT = resolve(opts.root);
 const srcDir = resolve(ROOT, "foliplus/js");
