@@ -69,6 +69,50 @@ const loadImage = (src: string, crossOrigin?: string) =>
     i.src = src;
   });
 
+type LatLngPoint = { lat: number; lng: number };
+
+/**
+ * Compute a six-line World File (`.pgw` / `.tfw`) for a raster image whose
+ * pixel grid maps onto a geographic bounding box.
+ *
+ * World File format (per ESRI spec):
+ *   Line 1: pixel size in x (east-west, can be negative)
+ *   Line 2: row rotation term (usually 0)
+ *   Line 3: column rotation term (usually 0)
+ *   Line 4: pixel size in y (north-south, usually negative — image y is top-down)
+ *   Line 5: x coordinate of the CENTER of the top-left pixel
+ *   Line 6: y coordinate of the CENTER of the top-left pixel
+ *
+ * Coordinates are expressed in the same units as `nw` / `se` (typically
+ * WGS84 degrees from `map.getBounds()`, but also works for projected CRS
+ * like EPSG:3857 meters — consumers infer the CRS from an accompanying
+ * `.prj` file or default to WGS84).
+ */
+export function generateWorldFile(
+  nw: LatLngPoint,
+  se: LatLngPoint,
+  width: number,
+  height: number,
+): string {
+  const pixelWidth = (se.lng - nw.lng) / width;
+  const pixelHeight = (se.lat - nw.lat) / height;
+
+  // Center of the top-left pixel (image (0,0) sits on the NW corner of the
+  // bounding box; pixel center is half a pixel offset from the corner).
+  const ulx = nw.lng + pixelWidth / 2;
+  const uly = nw.lat + pixelHeight / 2;
+
+  return [
+    pixelWidth.toPrecision(12),
+    "0",
+    "0",
+    pixelHeight.toPrecision(12),
+    ulx.toPrecision(15),
+    uly.toPrecision(15),
+    "",
+  ].join("\n");
+}
+
 /** Wait for a font spec to be ready for canvas text rendering. */
 const ensureFont = async (fontSpec: string) => {
   try {

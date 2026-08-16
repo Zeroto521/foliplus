@@ -15,6 +15,8 @@
 
 ### Changed
 
+- `ExportControl`: exports now automatically include a companion World File (`.pgw`) that makes the PNG georeferenced — drag both files into QGIS / ArcGIS to position the image on the map with no extra setup. The `.pgw` is derived from the crop area's geo bounds and the rendered canvas pixel dimensions; it is a zero-cost text file, no third-party dependencies
+
 - `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 - `LayerControl`: rework internal architecture into `LayerRegistry` (ordered layer list, read-only `api.layers`) + `PaneManager` (pane lifecycle: creation, discovery cache, fallback mapping, DOM migration) + `LayerUI` (fold/drag/color state), orchestrated by a slim `LayerManager` ([#117](https://github.com/Zeroto521/foliplus/pull/117), [#119](https://github.com/Zeroto521/foliplus/pull/119), [#120](https://github.com/Zeroto521/foliplus/pull/120), [#121](https://github.com/Zeroto521/foliplus/pull/121))
 - `Project architecture`: migrate from single Jinja-embedded JavaScript IIFE to modular TypeScript with ES module structure. Each component now has its own `*.ts` source file, bundled via esbuild into a single IIFE for distribution ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#125](https://github.com/Zeroto521/foliplus/pull/125), [#136](https://github.com/Zeroto521/foliplus/pull/136), [#137](https://github.com/Zeroto521/foliplus/pull/137))

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { ensureFont, isVisible } from "#foliplus/ExportControl/util.js";
+import {
+  ensureFont,
+  generateWorldFile,
+  isVisible,
+} from "#foliplus/ExportControl/util.js";
 
 describe("isVisible", () => {
   it("returns true for a rectangle fully inside the viewport", () => {
@@ -211,5 +215,75 @@ describe("loadImage", () => {
 
     globalThis.Image = origImage;
     revokeSpy.mockRestore();
+  });
+});
+
+describe("generateWorldFile", () => {
+  it("produces a six-line file with trailing newline", () => {
+    const out = generateWorldFile(
+      { lat: 40.0, lng: -74.0 },
+      { lat: 39.9, lng: -73.9 },
+      1000,
+      800,
+    );
+    const lines = out.split("\n");
+    // Six data lines plus a final empty entry from the trailing "\n".
+    expect(lines.length).toBe(7);
+    expect(lines[0]).toMatch(/^-?\d/);
+    expect(lines[1]).toBe("0");
+    expect(lines[2]).toBe("0");
+    expect(lines[3]).toMatch(/^-?\d/);
+    expect(lines[5]).toMatch(/^-?\d/);
+    expect(lines[6]).toBe(""); // trailing newline
+  });
+
+  it("computes pixel widths correctly for a rectangular extent", () => {
+    const out = generateWorldFile(
+      { lat: 41.0, lng: -75.0 },
+      { lat: 40.0, lng: -74.0 },
+      1000,
+      500,
+    );
+    const lines = out.split("\n").slice(0, 6);
+    const pixelWidth = parseFloat(lines[0]);
+    const pixelHeight = parseFloat(lines[3]);
+    // lng range = 1.0 deg over 1000 px → 0.001 deg/px
+    expect(pixelWidth).toBeCloseTo(0.001, 9);
+    // lat range = -1.0 deg over 500 px → -0.002 deg/px
+    expect(pixelHeight).toBeCloseTo(-0.002, 9);
+    // ulx = -75.0 + 0.001/2 = -74.9995
+    const ulx = parseFloat(lines[4]);
+    expect(ulx).toBeCloseTo(-74.9995, 9);
+    // uly = 41.0 + (-0.002)/2 = 40.999
+    const uly = parseFloat(lines[5]);
+    expect(uly).toBeCloseTo(40.999, 9);
+  });
+
+  it("handles inverted (negative) x-extent", () => {
+    // nw.lng > se.lng (east is on the left)
+    const out = generateWorldFile(
+      { lat: 41.0, lng: -73.0 },
+      { lat: 40.0, lng: -75.0 },
+      1000,
+      500,
+    );
+    const lines = out.split("\n").slice(0, 6);
+    const pixelWidth = parseFloat(lines[0]);
+    expect(pixelWidth).toBeLessThan(0);
+  });
+
+  it("returns zero for degenerate (zero-width or zero-height) inputs", () => {
+    // Zero width → division by zero for pixelWidth; should not throw.
+    const out = generateWorldFile(
+      { lat: 41.0, lng: -74.0 },
+      { lat: 40.0, lng: -74.0 },
+      0,
+      100,
+    );
+    const lines = out.split("\n").slice(0, 6);
+    // pixelWidth = 0/0 = NaN; NaN.toPrecision() returns 'NaN'
+    expect(lines[0]).toBe("NaN") || expect(lines[0]).toBe("Infinity");
+    // pixelHeight should be finite and negative
+    expect(!isNaN(parseFloat(lines[3]))).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { ExportRenderer } from "./renderer.js";
+import { generateWorldFile } from "./util.js";
 import {
   lockCropBox,
   removeCropBox,
@@ -521,7 +522,7 @@ class ExportManager {
     });
   }
 
-  /** Handle successful render: show preview and trigger download. */
+  /** Handle successful render: show preview and trigger downloads. */
   onRenderSuccess(canvas: HTMLCanvasElement, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
@@ -538,6 +539,10 @@ class ExportManager {
       prevImg.removeEventListener("click", dismissPreview);
       prevImg.remove();
     }, HINT_DURATION.SHORT);
+    // Trigger World File (`.pgw`) download immediately — it is pure
+    // computation from the canvas pixel dimensions and the geo bounds
+    // saved in cropState, so it does not depend on the toBlob() callback.
+    this.downloadWorldFile(canvas);
     canvas.toBlob(
       blob => {
         if (!blob) {
@@ -575,6 +580,42 @@ class ExportManager {
       mimeType,
       CONF.quality,
     );
+  }
+
+  /**
+   * Build and trigger a download for the companion World File (`.pgw`)
+   * that makes the exported raster georeferenced.  Uses the geo bounds
+   * stored in cropState (captured when the crop box was locked) and the
+   * actual bitmap dimensions of the rendered canvas.
+   *
+   * A zero-cost no-op when there is no geo bounds data.
+   */
+  downloadWorldFile(canvas: HTMLCanvasElement) {
+    const geoBounds = this.cropState?.geoBounds;
+    if (!geoBounds?.nw || !geoBounds?.se) return;
+    if (canvas.width <= 0 || canvas.height <= 0) return;
+
+    const content = generateWorldFile(
+      geoBounds.nw,
+      geoBounds.se,
+      canvas.width,
+      canvas.height,
+    );
+    if (!content) return;
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    // Use `.pgw` for PNG exports, `.tfw` for other formats — both are
+    // understood by QGIS / ArcGIS; `.pgw` is the most universally
+    // recognized name.
+    link.download = `${CONF.filename}.pgw`;
+    link.href = url;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
   }
 
   /** Handle render failure. */
