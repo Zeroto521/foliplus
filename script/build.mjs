@@ -149,7 +149,8 @@ const esbuildCfg = {
   format: "iife",
   minify: !CFG.dev,
   // Tree Shaking: drop unused exports from shared modules.
-  // Only effective with targeted imports (see generateSharedRegistry below).
+  // Disabled for shared entry (it produces the shared code); enabled
+  // for component bundles (they consume it via externalization).
   treeShaking: true,
   // Sourcemaps are only useful when debugging the minified bundle in a browser.
   // Since foliplus bundles are embedded in Python-generated HTML and shipped
@@ -169,6 +170,9 @@ const artifact = (entryPoints, outfile, name) => ({
   entryPoints,
   outfile,
   ...esbuildCfg,
+  // Tree Shaking: disabled for shared entry (produces shared code),
+  // enabled for component bundles (drop unused shared exports).
+  treeShaking: name === SHARED_ENTRY ? false : true,
   // P5: shared modules (#core/#common/#foliplus/BaseControl) are externalized
   // in component bundles and read from the global namespace; the shared entry
   // itself bundles them (no externalization).

@@ -46,6 +46,12 @@ export function parseArgs(argv, spec) {
   while (i < argv.length) {
     const token = argv[i];
 
+    // -h is always --help (checked before short-flag lookup)
+    if (token === "-h") {
+      result.help = true;
+      return result;
+    }
+
     // Short flags: -d -> --dev (resolved via spec)
     if (token.startsWith("-") && !token.startsWith("--") && token.length === 2) {
       const short = token.slice(1);
