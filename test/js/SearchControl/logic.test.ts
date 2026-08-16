@@ -133,10 +133,27 @@ describe("searchAddress", () => {
     delete globalThis.fetch;
   });
 
-  it("shows hint and clears input when no results", async () => {
-    globalThis.fetch = vi.fn(() =>
-      Promise.resolve({ json: () => Promise.resolve([]) }),
-    ) as unknown as typeof fetch;
+  it("delegates to foliplus.geocode (single global cache)", async () => {
+    const mockResult = {
+      lat: 30.2,
+      lng: 120.5,
+      display_name: "X, Y",
+    };
+    (window.foliplus.geocode as any).mockResolvedValue(mockResult);
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "X" },
+      marker: null,
+    };
+    searchAddress(ctrl, "X");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(window.foliplus.geocode).toHaveBeenCalledWith(map, "X", "en");
+  });
+
+  it("shows hint and clears input when geocode returns null", async () => {
+    (window.foliplus.geocode as any).mockResolvedValue(null);
     const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
@@ -153,13 +170,13 @@ describe("searchAddress", () => {
     expect(ctrl.inp.value).toBe("");
   });
 
-  it("flies to and marks the first result", async () => {
-    globalThis.fetch = vi.fn(() =>
-      Promise.resolve({
-        json: () =>
-          Promise.resolve([{ lat: "30.2", lon: "120.5", display_name: "X, Y" }]),
-      }),
-    ) as unknown as typeof fetch;
+  it("flies to and marks the geocode result", async () => {
+    const mockResult = {
+      lat: 30.2,
+      lng: 120.5,
+      display_name: "X, Y",
+    };
+    (window.foliplus.geocode as any).mockResolvedValue(mockResult);
     const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
@@ -170,24 +187,8 @@ describe("searchAddress", () => {
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
-    expect(map.flyTo).toHaveBeenCalled();
-    expect(ctrl.cachedAddress["X"]).toBeDefined();
+    expect(map.flyTo).toHaveBeenCalledWith([30.2, 120.5], expect.any(Number));
     expect(ctrl.marker).not.toBeNull();
-  });
-
-  it("serves cached results without fetching", () => {
-    globalThis.fetch = vi.fn();
-    const ctrl: any = {
-      cachedAddress: {
-        X: { item: { lat: "30", lon: "120" }, displayName: "X" },
-      },
-      addrAbortController: null,
-      inp: { value: "X" },
-      marker: null,
-    };
-    searchAddress(ctrl, "X");
-    expect(globalThis.fetch).not.toHaveBeenCalled();
-    expect(map.flyTo).toHaveBeenCalled();
   });
 });
 

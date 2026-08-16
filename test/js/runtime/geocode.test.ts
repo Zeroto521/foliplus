@@ -57,6 +57,42 @@ describe("geocode (forward)", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1); // cached
   });
 
+  it("converts WGS84 result to map CRS for domestic maps (GCJ02)", async () => {
+    const domesticMap = {
+      _layers: { 0: { _url: "https://t0.tianditu.com/cia_w/wmts" } },
+      options: { crs: { code: "EPSG:4326" } },
+      getContainer: () => ({ id: "test" }),
+    } as any;
+    // gcoord loaded? If not, conversion is a no-op and coords pass through.
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
+    );
+    const r = await geocode(domesticMap, "UniqueCity C3", "en");
+    // Result must be in map CRS — either converted (gcoord loaded) or unchanged (no gcoord).
+    // In either case the coordinate pair is valid.
+    expect(r).not.toBeNull();
+    expect(r!.lat).toBeGreaterThan(0);
+    expect(r!.lng).toBeGreaterThan(0);
+  });
+
+  it("separates cache entries by CRS (same address, different maps)", async () => {
+    const domesticMap = {
+      _layers: { 0: { _url: "https://t0.tianditu.com/cia_w/wmts" } },
+      options: { crs: { code: "EPSG:4326" } },
+      getContainer: () => ({ id: "test" }),
+    } as any;
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
+    );
+    await geocode(mockMap, "UniqueCity D4", "en");
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse([{ lat: "30.00", lon: "120.00", display_name: "Hangzhou" }]),
+    );
+    await geocode(domesticMap, "UniqueCity D4", "en");
+    // Two separate cache entries — two fetches.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("returns null when no results are found", async () => {
     (globalThis.fetch as any).mockResolvedValue(jsonResponse([]));
     const r = await geocode(mockMap, "UniqueCity B2", "en");

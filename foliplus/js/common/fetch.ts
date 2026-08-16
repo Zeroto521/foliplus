@@ -16,7 +16,7 @@ const DEFAULT_TIMEOUT_MS = 10_000;
  * strip `Cache-Control` headers).
  *
  * NOTE: The application layer still owns the source of truth for fresh data
- * (the 24h TTL `Cache<K,V>` in `runtime/geocode.js` and `cachedAddress` /
+ * (the 24h TTL `Cache<K,V>` in `runtime/index.js` and `cachedAddress` /
  * `cachedSuggestions` in `SearchControl`). The browser cache only reduces
  * redundant network traffic.
  */
