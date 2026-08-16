@@ -196,4 +196,6 @@ function generateRegistry() {
   }
 }
 
+export { scanImports, generateRegistry };
+
 generateRegistry();

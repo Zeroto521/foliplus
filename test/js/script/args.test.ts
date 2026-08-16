@@ -1,0 +1,143 @@
+import { describe, expect, it } from "vitest";
+import { parseArgs, help } from "../../../script/args.mjs";
+
+const SPEC = {
+  dev: { type: "bool", short: "d" },
+  check: { type: "bool" },
+  root: { type: "string", default: "." },
+  names: { type: "array" },
+};
+
+describe("parseArgs", () => {
+  describe("boolean flags", () => {
+    it("sets flag to true", () => {
+      expect(parseArgs(["--dev"], SPEC)).toMatchObject({ dev: true });
+    });
+
+    it("keeps flag false when not present", () => {
+      expect(parseArgs([], SPEC)).toMatchObject({ dev: false });
+    });
+
+    it("rejects value on boolean flag", () => {
+      const r = parseArgs(["--dev=yes"], SPEC);
+      expect(r.errors).toContain("--dev is a boolean flag, does not take a value");
+    });
+  });
+
+  describe("string values", () => {
+    it("parses --root=path", () => {
+      const r = parseArgs(["--root=/foo"], SPEC);
+      expect(r.root).toBe("/foo");
+    });
+
+    it("parses --root path", () => {
+      const r = parseArgs(["--root", "/bar"], SPEC);
+      expect(r.root).toBe("/bar");
+    });
+
+    it("reports missing value", () => {
+      const r = parseArgs(["--root"], SPEC);
+      expect(r.errors).toContain("--root requires a value");
+    });
+
+    it("uses default value when absent", () => {
+      expect(parseArgs([], SPEC).root).toBe(".");
+    });
+  });
+
+  describe("array flags", () => {
+    it("collects repeated values", () => {
+      const r = parseArgs(["--names=alice", "--names=bob"], SPEC);
+      expect(r.names).toEqual(["alice", "bob"]);
+    });
+
+    it("collects positional values", () => {
+      const r = parseArgs(["--names", "alice", "--names", "bob"], SPEC);
+      expect(r.names).toEqual(["alice", "bob"]);
+    });
+
+    it("starts empty", () => {
+      expect(parseArgs([], SPEC).names).toEqual([]);
+    });
+  });
+
+  describe("short flags", () => {
+    it("maps -d to --dev", () => {
+      expect(parseArgs(["-d"], SPEC).dev).toBe(true);
+    });
+
+    it("reports unknown short flag", () => {
+      const r = parseArgs(["-x"], SPEC);
+      expect(r.errors).toContain("Unknown short flag: -x");
+    });
+  });
+
+  describe("--help", () => {
+    it("returns help=true for --help", () => {
+      expect(parseArgs(["--help"], SPEC).help).toBe(true);
+    });
+
+    it("returns help=true for -h", () => {
+      expect(parseArgs(["-h"], SPEC).help).toBe(true);
+    });
+
+    it("stops parsing after --help", () => {
+      expect(parseArgs(["--help", "--dev"], SPEC).help).toBe(true);
+    });
+  });
+
+  describe("unknown flags", () => {
+    it("reports unknown flag", () => {
+      const r = parseArgs(["--unknown"], SPEC);
+      expect(r.errors).toContain("Unknown flag: --unknown");
+    });
+
+    it("reports unknown positional argument", () => {
+      const r = parseArgs(["positional"], SPEC);
+      expect(r.errors).toContain("Unknown argument: positional");
+    });
+  });
+
+  describe("empty input", () => {
+    it("returns all defaults with no errors", () => {
+      const r = parseArgs([], SPEC);
+      expect(r.errors).toEqual([]);
+      expect(r.help).toBe(false);
+      expect(r.dev).toBe(false);
+      expect(r.check).toBe(false);
+      expect(r.root).toBe(".");
+      expect(r.names).toEqual([]);
+    });
+  });
+});
+
+describe("help", () => {
+  it("renders usage header", () => {
+    expect(help(SPEC)).toContain("Usage:");
+  });
+
+  it("includes all flags", () => {
+    const output = help(SPEC);
+    expect(output).toContain("--dev");
+    expect(output).toContain("--check");
+    expect(output).toContain("--root");
+    expect(output).toContain("--names");
+  });
+
+  it("shows short flag alias", () => {
+    expect(help(SPEC)).toContain("-d, --dev");
+  });
+
+  it("shows type hint for string", () => {
+    expect(help(SPEC)).toContain("<path>");
+  });
+
+  it("shows [repeated] for array", () => {
+    expect(help(SPEC)).toContain("[repeated]");
+  });
+
+  it("includes descriptions", () => {
+    const spec2 = { verbose: { type: "bool", desc: "Verbose output" } };
+    expect(help(spec2)).toContain("# Verbose output");
+  });
+});
