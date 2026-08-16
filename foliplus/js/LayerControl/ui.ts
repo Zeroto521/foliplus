@@ -368,15 +368,65 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
 
-    ensureKeyboard(this.m.map).register("LayerControl", [
-      { key: "ArrowUp", handler: () => this.handleKeyDown({ key: "ArrowUp", preventDefault: () => {} } as KeyboardEvent) },
-      { key: "ArrowDown", handler: () => this.handleKeyDown({ key: "ArrowDown", preventDefault: () => {} } as KeyboardEvent) },
-      { key: "ArrowLeft", handler: () => this.handleKeyDown({ key: "ArrowLeft", preventDefault: () => {} } as KeyboardEvent) },
-      { key: "ArrowRight", handler: () => this.handleKeyDown({ key: "ArrowRight", preventDefault: () => {} } as KeyboardEvent) },
-      { key: " ", handler: () => this.handleKeyDown({ key: " ", preventDefault: () => {} } as KeyboardEvent) },
-      { key: "Enter", handler: () => this.handleKeyDown({ key: "Enter", preventDefault: () => {} } as KeyboardEvent) },
-      { key: "Escape", handler: () => this.handleKeyDown({ key: "Escape", preventDefault: () => {} } as KeyboardEvent) },
-    ], container);
+    ensureKeyboard(this.m.map).register(
+      "LayerControl",
+      [
+        {
+          key: "ArrowUp",
+          handler: () =>
+            this.handleKeyDown({
+              key: "ArrowUp",
+              preventDefault: () => {},
+            } as KeyboardEvent),
+        },
+        {
+          key: "ArrowDown",
+          handler: () =>
+            this.handleKeyDown({
+              key: "ArrowDown",
+              preventDefault: () => {},
+            } as KeyboardEvent),
+        },
+        {
+          key: "ArrowLeft",
+          handler: () =>
+            this.handleKeyDown({
+              key: "ArrowLeft",
+              preventDefault: () => {},
+            } as KeyboardEvent),
+        },
+        {
+          key: "ArrowRight",
+          handler: () =>
+            this.handleKeyDown({
+              key: "ArrowRight",
+              preventDefault: () => {},
+            } as KeyboardEvent),
+        },
+        {
+          key: " ",
+          handler: () =>
+            this.handleKeyDown({ key: " ", preventDefault: () => {} } as KeyboardEvent),
+        },
+        {
+          key: "Enter",
+          handler: () =>
+            this.handleKeyDown({
+              key: "Enter",
+              preventDefault: () => {},
+            } as KeyboardEvent),
+        },
+        {
+          key: "Escape",
+          handler: () =>
+            this.handleKeyDown({
+              key: "Escape",
+              preventDefault: () => {},
+            } as KeyboardEvent),
+        },
+      ],
+      container,
+    );
 
     this.onChange = event => {
       const checkbox = (event.target as HTMLElement).closest(
@@ -438,7 +488,7 @@ class LayerUI {
     container.addEventListener("dragleave", this.onDragLeave);
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
-      }
+  }
 
   unbindEvents() {
     const container = this.uiContainer;

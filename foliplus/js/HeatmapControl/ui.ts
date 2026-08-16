@@ -134,19 +134,33 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     event.stopPropagation();
     toggleSchemeDropdown(ctrl);
   };
-    ensureKeyboard(map).register("HeatmapControl", [
-    { key: "ArrowLeft", element: ctrl.schemeBar, handler: () => {
-      const c = ctrl as any;
-      const idx = c.availableSchemes.indexOf(c.scheme);
-      if (idx > 0) { c.scheme = c.availableSchemes[idx - 1]; c.updateScheme(); }
-    }},
-    { key: "ArrowRight", element: ctrl.schemeBar, handler: () => {
-      const c = ctrl as any;
-      const idx = c.availableSchemes.indexOf(c.scheme);
-      if (idx < c.availableSchemes.length - 1) { c.scheme = c.availableSchemes[idx + 1]; c.updateScheme(); }
-    }},
+  ensureKeyboard(map).register("HeatmapControl", [
+    {
+      key: "ArrowLeft",
+      element: ctrl.schemeBar,
+      handler: () => {
+        const c = ctrl as any;
+        const idx = c.availableSchemes.indexOf(c.scheme);
+        if (idx > 0) {
+          c.scheme = c.availableSchemes[idx - 1];
+          c.updateScheme();
+        }
+      },
+    },
+    {
+      key: "ArrowRight",
+      element: ctrl.schemeBar,
+      handler: () => {
+        const c = ctrl as any;
+        const idx = c.availableSchemes.indexOf(c.scheme);
+        if (idx < c.availableSchemes.length - 1) {
+          c.scheme = c.availableSchemes[idx + 1];
+          c.updateScheme();
+        }
+      },
+    },
   ]);
-ctrl.schemeBar.onkeydown = (event: KeyboardEvent) => {
+  ctrl.schemeBar.onkeydown = (event: KeyboardEvent) => {
     if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) {
       event.preventDefault();
       toggleSchemeDropdown(ctrl);
@@ -428,14 +442,18 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     else items[0].focus();
   }
 
-    ensureKeyboard(map).register("HeatmapControl", [
-    { key: "ArrowDown", element: ctrl.schemeDropdown, handler: () => {
-      const c = ctrl as any;
-      c.isDropdownOpen = true;
-      c.updateScheme();
-    }},
+  ensureKeyboard(map).register("HeatmapControl", [
+    {
+      key: "ArrowDown",
+      element: ctrl.schemeDropdown,
+      handler: () => {
+        const c = ctrl as any;
+        c.isDropdownOpen = true;
+        c.updateScheme();
+      },
+    },
   ]);
-ctrl.schemeDropdown.onkeydown = (event: KeyboardEvent) => {
+  ctrl.schemeDropdown.onkeydown = (event: KeyboardEvent) => {
     const activeIdx = Array.from(items).indexOf(document.activeElement as HTMLElement);
     if (event.key === "ArrowDown") {
       event.preventDefault();
