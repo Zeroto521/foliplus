@@ -351,8 +351,8 @@ describe("LayerManager", () => {
     `;
     manager.uiContainer = container;
     manager.ui = { reindexAfterMove: vi.fn() } as any;
-    // 需要 ui 实例来测试 getNavigableItems，但 manager 没有直接暴露
-    // 这里验证浏 dom 结构
+    // verify DOM structure includes toggle-all rows and layer items
+    // (getNavigableItems is tested via browser tests)
     const items = container.querySelectorAll(
       ".foliplus-layer-item:not(.foliplus-color-layer-item), .foliplus-layer-toggle-all",
     );
