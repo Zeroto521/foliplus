@@ -127,7 +127,7 @@ class MeasureManager {
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && this.currentMode) this.clearActiveMode();
     };
-    ensureKeyboard(this.map).register("MeasureControl", [
+    const cleanup = ensureKeyboard(this.map).register("MeasureControl", [
       {
         key: "Escape",
         handler: () => this.onKeyDown({ key: "Escape" } as KeyboardEvent),

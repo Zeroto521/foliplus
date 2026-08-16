@@ -57,6 +57,8 @@ export class KeyboardManager {
 
   constructor(map: L.Map) {
     this.map = map;
+    // Auto-cleanup when the map is destroyed
+    map.on("unload" as any, () => this.clear());
   }
 
   /**
@@ -64,11 +66,11 @@ export class KeyboardManager {
    * @param component - Component name
    * @param defs - Shortcut definitions
    * @param container - Optional default container applied to all shortcuts that don't specify their own container
+   * @returns A cleanup function that unregisters the component when called
    */
-  register(component: string, defs: ShortcutDef[], container?: HTMLElement): void {
+  register(component: string, defs: ShortcutDef[], container?: HTMLElement): () => void {
     for (const d of defs) {
       const def = { ...d, component };
-      // Apply default container if not specified on the shortcut itself
       if (container && !def.container && !def.element) {
         def.container = container;
       }
@@ -90,6 +92,8 @@ export class KeyboardManager {
       this.shortcuts.push(def);
     }
     this.ensureListener();
+    // Return cleanup function
+    return () => this.unregister(component);
   }
 
   /** Unregister all shortcuts for a component. */

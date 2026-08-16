@@ -321,7 +321,7 @@ class ExportManager {
   }
 
   registerShortcuts(): void {
-    ensureKeyboard(this.map).register("ExportControl", [
+    const cleanup = ensureKeyboard(this.map).register("ExportControl", [
       {
         key: "Escape",
         handler: () => this.onKeyDown({ key: "Escape" } as KeyboardEvent),
