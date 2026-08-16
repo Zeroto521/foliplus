@@ -233,7 +233,9 @@
 }
 
 /* ── Unified Component Button Reset ──
-  Base reset for all foliplus buttons. */
+   Base reset + hover/active/focus-visible/disabled states for all foliplus buttons.
+   Component-specific buttons (e.g. HeatmapControl btn-clear) override color
+   in their own CSS to keep their text white. */
 :is(
   .foliplus-toggle-btn,
   .foliplus-tool-btn,
@@ -254,63 +256,40 @@
     background-color var(--transition-fast),
     transform var(--transition-fast);
   will-change: transform;
-}
-/* ── Unified Button Hover ──
-  All buttons share the same hover background, text color, and scale.
-  Component-specific buttons (e.g. HeatmapControl btn-clear) override
-  color in their own CSS to keep their text white. */
-:is(
-  .foliplus-toggle-btn,
-  .foliplus-tool-btn,
-  .foliplus-search-mode-btn,
-  .foliplus-ctrl-btn
-):hover {
-  background-color: var(--accent-light);
-  color: var(--accent-primary);
-  border-radius: var(--radius-sm);
-  transform: scale(var(--scale-hover));
-}
 
-/* All buttons: press scale uses inherited transition (--transition-fast, 0.15s)
-  MUST come AFTER :hover so it wins on same specificity (0,2,0).
-  Click/press also gets the same background/color feedback as hover
-  so there's a tangible press-down feel. */
-:is(
-  .foliplus-toggle-btn,
-  .foliplus-tool-btn,
-  .foliplus-search-mode-btn,
-  .foliplus-ctrl-btn
-):active {
-  transform: scale(var(--scale-press));
-}
+  /* ── Hover ── */
+  &:hover {
+    background-color: var(--accent-light);
+    color: var(--accent-primary);
+    border-radius: var(--radius-sm);
+    transform: scale(var(--scale-hover));
+  }
 
-/* ── All buttons: keyboard focus indicator ──
-  Shows a red outline ring when focused via keyboard (Tab).
-  Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
-:is(
-  .foliplus-toggle-btn,
-  .foliplus-tool-btn,
-  .foliplus-search-mode-btn,
-  .foliplus-ctrl-btn
-):focus-visible {
-  outline: var(--border-thick) solid var(--accent-primary);
-  outline-offset: var(--border-thin);
-  border-radius: var(--radius-sm);
-}
+  /* ── Active ──
+     MUST come AFTER :hover so it wins on same specificity (0,2,0).
+     Click/press gets the same background/color feedback as hover
+     so there's a tangible press-down feel. */
+  &:active {
+    transform: scale(var(--scale-press));
+  }
 
-/* ── All buttons: disabled state ──
-  Grayed out, no hover/active feedback, no pointer events. */
-:is(
-  .foliplus-toggle-btn,
-  .foliplus-tool-btn,
-  .foliplus-search-mode-btn,
-  .foliplus-ctrl-btn
-):disabled {
-  opacity: var(--alpha-30);
-  pointer-events: none;
-  transform: none;
-}
+  /* ── Focus-visible ──
+     Red outline ring on keyboard focus (Tab).
+     Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
+  &:focus-visible {
+    outline: var(--border-thick) solid var(--accent-primary);
+    outline-offset: var(--border-thin);
+    border-radius: var(--radius-sm);
+  }
 
+  /* ── Disabled ──
+     Grayed out, no hover/active feedback, no pointer events. */
+  &:disabled {
+    opacity: var(--alpha-30);
+    pointer-events: none;
+    transform: none;
+  }
+}
 /* ── Button hover/active SVG scale ──
   SVG-level parallax for buttons that also have button-level scale.
   toggle-btn added via expanded context for fold controls. */
