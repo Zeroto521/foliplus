@@ -38,7 +38,7 @@ jobs:
       - run: npm install
       - run: npm run typecheck
       - run: playwright install chromium
-      - run: pip install -e .
+      - run: pip install -e ".[test]"
 
       - run: make info
       - run: make test
