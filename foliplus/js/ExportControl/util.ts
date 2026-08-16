@@ -1,3 +1,4 @@
+import { Cache } from "#common/cache.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
@@ -14,27 +15,30 @@ const isVisible = (
   ch: number,
 ) => !(dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch);
 
-/** Bitmap cache (LRU, capped at 500 entries).  Shared by tile
- *  bitmap loading and sprite (background-image) loading so that
- *  identical URLs are fetched and decoded only once. */
-const bitmapCache = new Map<string, ImageBitmap>();
-
-/** Release all cached ImageBitmap resources.  Call this when the
- *  rendering session is over or memory pressure requires cleanup. */
-const clearBitmapCache = () => {
-  for (const bitmap of bitmapCache.values()) {
+/** Bitmap cache shared by tile loading and sprite (background-image) loading so
+ *  identical URLs are fetched and decoded only once.  Bounded by TILE_MAX with
+ *  FIFO eviction; evicted or cleared bitmaps are closed to release GPU memory. */
+const bitmapCache = new Cache<string, ImageBitmap>(
+  CONST.CACHE.TILE_MAX,
+  0,
+  bitmap => {
     try {
       bitmap.close();
     } catch {
       /* already closed */
     }
-  }
+  },
+);
+
+/** Release all cached ImageBitmap resources.  Call this when the
+ *  rendering session is over or memory pressure requires cleanup. */
+const clearBitmapCache = () => {
   bitmapCache.clear();
 };
 
 /** Fetch a remote image as an ImageBitmap (CORS mode), cached in memory.
- *  Uses try/finally to guarantee bitmap.close() on any error path.
- *  Reuses blob from browser's HTTP cache when possible. */
+ *  A bitmap created on the failure path is closed before returning; capacity
+ *  eviction and full clear are handled by the cache's eviction hook. */
 const loadImageBitmap = async (url: string) => {
   const cached = bitmapCache.get(url);
   if (cached) return cached;
@@ -50,14 +54,6 @@ const loadImageBitmap = async (url: string) => {
     const blob = await resp.blob();
     bitmap = await createImageBitmap(blob);
     bitmapCache.set(url, bitmap);
-    if (bitmapCache.size > CONST.CACHE.TILE_MAX) {
-      const firstKey = bitmapCache.keys().next().value;
-      if (firstKey !== undefined) {
-        const evicted = bitmapCache.get(firstKey);
-        if (evicted) evicted.close();
-        bitmapCache.delete(firstKey);
-      }
-    }
     return bitmap;
   } catch {
     if (bitmap) {
@@ -86,7 +82,6 @@ const loadImage = (src: string, crossOrigin?: string) =>
     i.onerror = () => {
       i.onload = null;
       i.onerror = null;
-      // Revoke object URL to release the underlying blob
       if (src.startsWith("blob:")) {
         try {
           URL.revokeObjectURL(src);
