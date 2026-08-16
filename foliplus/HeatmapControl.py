@@ -7,8 +7,6 @@ from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
-
-
 METHOD = Literal["jenks", "quantile", "equal", "heads"]
 AGG = Literal["count", "sum", "avg", "min", "max"]
 
@@ -148,7 +146,7 @@ class HeatmapControl(BaseControl):
         label_color: str = "#fff",
         label_format: str = "auto",
         locale: str | LocaleConfig | None = None,
-       ):
+    ):
         if method not in get_args(METHOD):
             raise ValueError(
                 f"method must be one of {get_args(METHOD)}, got {method!r}"
