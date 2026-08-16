@@ -3,6 +3,7 @@ import { COMPONENTS, generateId } from "#core/component.js";
 import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
+import { ensureKeyboard } from "#core/keyboard.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -126,7 +127,9 @@ class MeasureManager {
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && this.currentMode) this.clearActiveMode();
     };
-    document.addEventListener("keydown", this.onKeyDown);
+    ensureKeyboard(this.map).register("MeasureControl", [
+      { key: "Escape", handler: () => this.onKeyDown({ key: "Escape" } as KeyboardEvent), container: this.map.getContainer() },
+    ]);
 
     // On map unload (page refresh/close), clear transient UI state but KEEP
     // persisted measurements. clearAll() would wipe localStorage, losing all
@@ -254,7 +257,7 @@ class MeasureManager {
     this.map.off("unload", this.onUnload);
     this.clearAll();
     this.map.off("click", this.onMapClick);
-    document.removeEventListener("keydown", this.onKeyDown);
+    
     this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
     this.finalizedClickHandlers = [];
   }

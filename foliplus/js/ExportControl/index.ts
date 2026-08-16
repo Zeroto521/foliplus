@@ -3,6 +3,7 @@ import { BaseControl } from "#foliplus/BaseControl.js";
 import { createControlEnv } from "#common/guard.js";
 import { createFoldControl } from "#common/panel.js";
 import * as SVGs from "./icon.js";
+import { ensureKeyboard } from "#core/keyboard.js";
 import { ExportManager } from "./manager.js";
 
 const { _ } = createControlEnv(CONF, SVGs.CAMERA);
@@ -68,7 +69,7 @@ class ExportControl extends BaseControl {
   }
   destroy() {
     if (this.m.cropState) this.m.removeCropBox();
-    document.removeEventListener("keydown", this.m.onKeyDown);
+    ensureKeyboard(this.m.map).unregister("ExportControl");
   }
 }
 

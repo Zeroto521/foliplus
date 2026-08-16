@@ -176,7 +176,7 @@ describe("MeasureManager — global events", () => {
     const { manager } = makeManager();
     const spy = vi.spyOn(manager, "clearActiveMode");
     manager.currentMode = CONST.MODE.DISTANCE;
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
     expect(spy).toHaveBeenCalled();
   });
 

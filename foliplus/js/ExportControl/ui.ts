@@ -1,6 +1,7 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureKeyboard } from "#core/keyboard.js";
 import { ensureModes } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
@@ -195,7 +196,7 @@ const showCropBox = (mgr: ExportManager) => {
   mgr.pushUndoState();
   showHintWithInfo(mgr, box, _(`${CONF.name}.hint_unlocked`));
   cropBox.addEventListener("mousedown", mgr.onMouseDown);
-  document.addEventListener("keydown", mgr.onKeyDown);
+  mgr.registerShortcuts();
 };
 
 /** Update toolbar for locked state (export button). */
@@ -263,7 +264,7 @@ const removeCropBox = (mgr: ExportManager) => {
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);
   document.body.classList.remove(CONST.CLASSES.MODE);
-  document.removeEventListener("keydown", mgr.onKeyDown);
+  mgr.registerShortcuts();
   document.removeEventListener("mousemove", mgr.onMouseMove);
   document.removeEventListener("mouseup", mgr.onMouseUp);
   mgr.dragState.dragging = false;

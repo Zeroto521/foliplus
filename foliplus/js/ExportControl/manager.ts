@@ -1,5 +1,6 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { ensureKeyboard } from "#core/keyboard.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { dom } from "#common/dom.js";
@@ -130,7 +131,6 @@ class ExportManager {
     this.onMouseDown = this.onMouseDown.bind(this);
     this.onMouseMove = this.onMouseMove.bind(this);
     this.onMouseUp = this.onMouseUp.bind(this);
-    this.onKeyDown = this.onKeyDown.bind(this);
     this.onMapChange = this.onMapChange.bind(this);
 
     // Mount UI functions directly on this instance
@@ -318,6 +318,15 @@ class ExportManager {
     if (this.cropState?.box)
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
     this.pushUndoState();
+  }
+
+  registerShortcuts(): void {
+    ensureKeyboard(this.map).register("ExportControl", [
+      { key: "Escape", handler: () => this.onKeyDown({ key: "Escape" } as KeyboardEvent), container: this.map.getContainer() },
+      { key: "Enter", handler: () => this.onKeyDown({ key: "Enter" } as KeyboardEvent), container: this.map.getContainer() },
+      { key: "z", ctrl: true, handler: () => this.onKeyDown({ key: "z", ctrlKey: true } as KeyboardEvent), container: this.map.getContainer() },
+      { key: "z", ctrl: true, shift: true, handler: () => this.onKeyDown({ key: "z", ctrlKey: true, shiftKey: true } as KeyboardEvent), container: this.map.getContainer() },
+    ]);
   }
 
   onKeyDown(event: KeyboardEvent) {
