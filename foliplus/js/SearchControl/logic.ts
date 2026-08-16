@@ -51,10 +51,7 @@ const saveHistory = (entries: SearchHistoryEntry[]): void => {
   Storage.save(HISTORY.STORAGE_KEY, entries, CONF.name);
 };
 
-const addHistoryEntry = (
-  ctrl: SearchControlState,
-  entry: SearchHistoryEntry,
-): void => {
+const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): void => {
   const { query } = entry;
   const filtered = ctrl.searchHistory.filter(e => e.query !== query);
   const updated = [entry, ...filtered].slice(0, HISTORY.MAX_ENTRIES);
@@ -62,10 +59,7 @@ const addHistoryEntry = (
   saveHistory(updated);
 };
 
-const deleteHistoryEntry = (
-  ctrl: SearchControlState,
-  query: string,
-): void => {
+const deleteHistoryEntry = (ctrl: SearchControlState, query: string): void => {
   const updated = ctrl.searchHistory.filter(e => e.query !== query);
   ctrl.searchHistory = updated;
   saveHistory(updated);
@@ -132,7 +126,11 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
     .map(Number);
 
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(
+      CONF.name,
+      _(`${CONF.name}.coord_error`),
+      HINT_DURATION.LONG,
+    );
     ctrl.inp.value = "";
     return;
   }
@@ -140,7 +138,11 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   const lng = parts[0];
   const lat = parts[1];
   if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.coord_error`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(
+      CONF.name,
+      _(`${CONF.name}.coord_error`),
+      HINT_DURATION.LONG,
+    );
     ctrl.inp.value = "";
     return;
   }
@@ -174,11 +176,22 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
   if (ctrl.cachedAddress[query]) {
     renderAddressResult(ctrl, ctrl.cachedAddress[query]);
     const r = ctrl.cachedAddress[query];
-    recordHistorySearch(ctrl, query, "addr", r.displayName, parseFloat(r.item.lat), parseFloat(r.item.lon));
+    recordHistorySearch(
+      ctrl,
+      query,
+      "addr",
+      r.displayName,
+      parseFloat(r.item.lat),
+      parseFloat(r.item.lon),
+    );
     return;
   }
 
-  map.foliplus!.showHint(CONF.name, `${Icons.LOADING} ${_(`${CONF.name}.popup_loading`)}`, HINT_DURATION.PERSIST);
+  map.foliplus!.showHint(
+    CONF.name,
+    `${Icons.LOADING} ${_(`${CONF.name}.popup_loading`)}`,
+    HINT_DURATION.PERSIST,
+  );
 
   if (ctrl.addrAbortController) ctrl.addrAbortController.abort();
   ctrl.addrAbortController = new AbortController();
@@ -189,22 +202,38 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
     .then(results => {
       map.foliplus!.hideHint(CONF.name);
       if (!results || results.length === 0) {
-        map.foliplus!.showHint(CONF.name, _(`${CONF.name}.addr_not_found`), HINT_DURATION.LONG);
+        map.foliplus!.showHint(
+          CONF.name,
+          _(`${CONF.name}.addr_not_found`),
+          HINT_DURATION.LONG,
+        );
         ctrl.inp.value = "";
         return;
       }
 
       const item = results[0];
-      const displayName = formatAddress(item.display_name, map, CONF.locale_code) || query;
+      const displayName =
+        formatAddress(item.display_name, map, CONF.locale_code) || query;
       ctrl.cachedAddress[query] = { item, displayName };
       renderAddressResult(ctrl, { item, displayName });
-      recordHistorySearch(ctrl, query, "addr", displayName, parseFloat(item.lat), parseFloat(item.lon));
+      recordHistorySearch(
+        ctrl,
+        query,
+        "addr",
+        displayName,
+        parseFloat(item.lat),
+        parseFloat(item.lon),
+      );
     })
     .catch(err => {
       if (err.name === "AbortError") return;
       console.error(`[${CONF.name}] Address lookup failed, check network`);
       map.foliplus!.hideHint(CONF.name);
-      map.foliplus!.showHint(CONF.name, _(`${CONF.name}.addr_error`), HINT_DURATION.LONG);
+      map.foliplus!.showHint(
+        CONF.name,
+        _(`${CONF.name}.addr_error`),
+        HINT_DURATION.LONG,
+      );
     });
 };
 
@@ -217,7 +246,10 @@ const renderAddressResult = (ctrl: SearchControlState, result: AddressResult) =>
   lng = converted[0];
   lat = converted[1];
 
-  const zoom = Math.min(ZOOM.MAX, Math.max(ZOOM.MIN, ZOOM.BASE - Math.floor(displayName.length / ZOOM.DIVISOR)));
+  const zoom = Math.min(
+    ZOOM.MAX,
+    Math.max(ZOOM.MIN, ZOOM.BASE - Math.floor(displayName.length / ZOOM.DIVISOR)),
+  );
   map.flyTo([lat, lng], zoom);
   ctrl.marker = createLocationMarker(
     map,
@@ -284,7 +316,8 @@ const renderSuggestions = (
   positionSuggestions(ctrl);
 
   results.forEach((item: NominatimItem, idx: number) => {
-    const displayName = formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
+    const displayName =
+      formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
     dom.el(
       "div",
       {
@@ -297,7 +330,14 @@ const renderSuggestions = (
           removeSuggestions(ctrl);
           ctrl.cachedAddress[displayName] = { item, displayName };
           renderAddressResult(ctrl, { item, displayName });
-          recordHistorySearch(ctrl, displayName, "addr", displayName, parseFloat(item.lat), parseFloat(item.lon));
+          recordHistorySearch(
+            ctrl,
+            displayName,
+            "addr",
+            displayName,
+            parseFloat(item.lat),
+            parseFloat(item.lon),
+          );
         },
       },
       dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: Icons.LOCATE }),
@@ -373,7 +413,9 @@ const renderHistory = (ctrl: SearchControlState) => {
             lng,
             lat,
             entry.label,
-            entry.type === "coord" ? _(`${CONF.name}.popup_title_coord`) : _(`${CONF.name}.popup_title_addr`),
+            entry.type === "coord"
+              ? _(`${CONF.name}.popup_title_coord`)
+              : _(`${CONF.name}.popup_title_addr`),
             _(`${CONF.name}.popup_loading`),
             _(`${CONF.name}.popup_loc_label`),
             _(`${CONF.name}.popup_addr_label`),
