@@ -7,9 +7,26 @@ import {
 const jsonResponse = (data: unknown) =>
   ({ json: () => Promise.resolve(data) }) as Response;
 
+/**
+ * A mock fetch that stays pending until the composed signal aborts it.
+ * Used by timeout-abort and caller-signal-abort tests so the abort fires
+ * before any synchronous resolution.
+ */
+const pendingFetch = vi.fn((_input: RequestInfo | URL, opts: RequestInit) => {
+  return new Promise<Response>((resolve, reject) => {
+    if (opts.signal?.aborted) {
+      reject(new DOMException("aborted", "AbortError"));
+      return;
+    }
+    opts.signal?.addEventListener("abort", () => {
+      reject(new DOMException("aborted", "AbortError"));
+    });
+    void resolve;
+  });
+});
+
 beforeEach(() => {
   vi.restoreAllMocks();
-  // Ensure fetch is mocked so the wrapper's composed AbortSignal rejects it.
   globalThis.fetch = vi.fn();
 });
 
@@ -45,7 +62,7 @@ describe("fetchWithTimeout", () => {
     const call = (globalThis.fetch as any).mock.calls[0];
     const headers = (call[1] as any).headers;
     expect(headers["Cache-Control"]).toBe("max-age=86400");
-    expect(headers["Expires"]).toBeString();
+    expect(typeof headers["Expires"]).toBe("string");
     expect(headers["Expires"]).toMatch(/GMT$/);
   });
 
@@ -63,32 +80,17 @@ describe("fetchWithTimeout", () => {
 
   it("aborts the request when the timeout elapses", async () => {
     vi.useFakeTimers();
-    (globalThis.fetch as any).mockImplementation(
-      (_input: RequestInfo | URL, opts: RequestInit) => {
-        const controller = new AbortController();
-        if (opts.signal) {
-          opts.signal.addEventListener("abort", () => {
-            controller.abort();
-          }, { once: true });
-        }
-        return new Promise<Response>((resolve, reject) => {
-          controller.signal.addEventListener(
-            "abort",
-            () => reject(new DOMException("aborted", "AbortError")),
-            { once: true },
-          );
-          resolve(jsonResponse({}));
-        });
-      },
-    );
+    (globalThis.fetch as any).mockImplementation(pendingFetch);
 
     const promise = fetchWithTimeout("https://example.com/api", {
       timeoutMs: 50,
     });
+    // Advance fake timers past the 50ms timeout so onTimeout fires.
+    vi.advanceTimersByTime(51);
+    vi.runOnlyPendingTimers();
+
     await expect(promise).rejects.toMatchObject({ name: "AbortError" });
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-
-    vi.advanceTimersByTime(51);
   });
 
   it("cancels the timeout when the request resolves in time", async () => {
@@ -104,24 +106,7 @@ describe("fetchWithTimeout", () => {
 
   it("aborts via a caller-supplied AbortSignal", async () => {
     vi.useFakeTimers();
-    (globalThis.fetch as any).mockImplementation(
-      (_input: RequestInfo | URL, opts: RequestInit) => {
-        const controller = new AbortController();
-        if (opts.signal) {
-          opts.signal.addEventListener("abort", () => controller.abort(), {
-            once: true,
-          });
-        }
-        return new Promise<Response>((resolve, reject) => {
-          controller.signal.addEventListener(
-            "abort",
-            () => reject(new DOMException("aborted", "AbortError")),
-            { once: true },
-          );
-          resolve(jsonResponse({}));
-        });
-      },
-    );
+    (globalThis.fetch as any).mockImplementation(pendingFetch);
 
     const ac = new AbortController();
     const promise = fetchWithTimeout("https://example.com/api", {
@@ -134,14 +119,7 @@ describe("fetchWithTimeout", () => {
 
   it("aborts via a pre-aborted caller signal", async () => {
     vi.useFakeTimers();
-    (globalThis.fetch as any).mockImplementation(
-      (_input: RequestInfo | URL, opts: RequestInit) => {
-        if (opts.signal?.aborted) {
-          return Promise.reject(new DOMException("aborted", "AbortError"));
-        }
-        return Promise.resolve(jsonResponse({}));
-      },
-    );
+    (globalThis.fetch as any).mockImplementation(pendingFetch);
 
     const ac = new AbortController();
     ac.abort();

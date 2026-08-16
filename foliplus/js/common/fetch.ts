@@ -71,6 +71,10 @@ const composeSignal = (
   parentSignal: AbortSignal | undefined,
   timeoutMs: number,
 ): AbortSignal => {
+  // If the parent signal is already aborted, pass it through directly
+  // so fetch sees the abort immediately (event listeners cannot fire retroactively).
+  if (parentSignal?.aborted) return parentSignal;
+
   const controller = new AbortController();
 
   const onTimeout = () => {
