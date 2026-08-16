@@ -5,11 +5,15 @@
  * Usage:
  *   node script/scan-registry.mjs [--root <path>] [--silent]
  *
- * Reads <root>/foliplus/js/, scans component .ts files for
- * `import { ... } from "#shared/..."` patterns, resolves `import * as`
+ * Reads <root>/foliplus/js/ (source), scans component .ts files for
+ * import { ... } from "#shared/..." patterns, resolves import * as
  * to property access, and writes <root>/foliplus/.build/js/_shared-registry.ts.
+ *
+ * Reads common/core from the source tree directly (not .build/) — the
+ * transforms (SVG/HTML) do not affect import/export statements.
  */
 import {
+  mkdirSync,
   readFileSync,
   readdirSync,
   writeFileSync,
@@ -25,14 +29,15 @@ const opts = parseArgs(process.argv.slice(2), {
   silent: { type: "bool" },
 });
 
-const ROOT = opts.root;
+const ROOT = resolve(opts.root);
 const srcDir = resolve(ROOT, "foliplus/js");
 const buildJs = resolve(ROOT, "foliplus/.build/js");
+mkdirSync(buildJs, { recursive: true });
 
 function scanImports(dir) {
   const imported = new Map();
   const starImported = new Map();
-  const allSrc = new Map(); // path -> source (single-pass cache)
+  const allSrc = new Map();
 
   function walk(d) {
     for (const entry of readdirSync(d, { withFileTypes: true })) {
@@ -70,7 +75,6 @@ function scanImports(dir) {
 
   walk(dir);
 
-  // Resolve * as imports to property access (single-pass over all source)
   for (const [spec, aliases] of starImported) {
     if (!imported.has(spec)) imported.set(spec, new Set());
     for (const alias of aliases) {
@@ -95,8 +99,8 @@ function scanImports(dir) {
 }
 
 function generateRegistry() {
-  const commonDir = resolve(buildJs, "common");
-  const coreDir = resolve(buildJs, "core");
+  const commonDir = resolve(srcDir, "common");
+  const coreDir = resolve(srcDir, "core");
   const commonModules = readdirSync(commonDir)
     .filter(f => f.endsWith(".ts") && f !== "index.ts")
     .map(f => f.replace(/\.ts$/, ""))
