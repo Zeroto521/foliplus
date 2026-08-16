@@ -1,3 +1,4 @@
+import { Cache } from "#common/cache.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
@@ -14,41 +15,78 @@ const isVisible = (
   ch: number,
 ) => !(dx + dw < 0 || dy + dh < 0 || dx > cw || dy > ch);
 
-/** Bitmap cache (LRU, capped at 500 entries).  Shared by tile
- *  bitmap loading and sprite (background-image) loading so that
- *  identical URLs are fetched and decoded only once. */
-const bitmapCache = new Map();
+/** Bitmap cache shared by tile loading and sprite (background-image) loading so
+ *  identical URLs are fetched and decoded only once.  Bounded by TILE_MAX with
+ *  FIFO eviction; evicted or cleared bitmaps are closed to release GPU memory. */
+const bitmapCache = new Cache<string, ImageBitmap>(CONST.CACHE.TILE_MAX, 0, bitmap => {
+  try {
+    bitmap.close();
+  } catch {
+    /* already closed */
+  }
+});
+
+/** Release all cached ImageBitmap resources.  Call this when the
+ *  rendering session is over or memory pressure requires cleanup. */
+const clearBitmapCache = () => {
+  bitmapCache.clear();
+};
 
 /** Fetch a remote image as an ImageBitmap (CORS mode), cached in memory.
- *  Reuses blob from browser's HTTP cache when possible. */
+ *  A bitmap created on the failure path is closed before returning; capacity
+ *  eviction and full clear are handled by the cache's eviction hook. */
 const loadImageBitmap = async (url: string) => {
   const cached = bitmapCache.get(url);
   if (cached) return cached;
-  const resp = await fetch(url, {
-    mode: "cors",
-    cache: "force-cache",
-    signal: AbortSignal.timeout(CONST.TIMING.TIMEOUT as number),
-  });
-  if (!resp.ok) return null;
-  const blob = await resp.blob();
-  const bitmap = await createImageBitmap(blob);
-  bitmapCache.set(url, bitmap);
-  if (bitmapCache.size > CONST.CACHE.TILE_MAX) {
-    const firstKey = bitmapCache.keys().next().value;
-    const evicted = bitmapCache.get(firstKey);
-    if (evicted) evicted.close();
-    bitmapCache.delete(firstKey);
+
+  let bitmap: ImageBitmap | null = null;
+  try {
+    const resp = await fetch(url, {
+      mode: "cors",
+      cache: "force-cache",
+      signal: AbortSignal.timeout(CONST.TIMING.TIMEOUT as number),
+    });
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    bitmap = await createImageBitmap(blob);
+    bitmapCache.set(url, bitmap);
+    return bitmap;
+  } catch {
+    if (bitmap) {
+      try {
+        bitmap.close();
+      } catch {
+        /* already closed */
+      }
+    }
+    return null;
   }
-  return bitmap;
 };
 
-/** Load an HTMLImageElement from a URL (or data URI). */
+/** Load an HTMLImageElement from a URL (or data URI).  Detaches
+ *  event handlers on both success and error so the Image can be GC'd.
+ *  If `src` is an object URL, revokes it on error to free the blob. */
 const loadImage = (src: string, crossOrigin?: string) =>
-  new Promise((resolve, reject) => {
+  new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
     if (crossOrigin) i.crossOrigin = crossOrigin;
-    i.onload = () => resolve(i);
-    i.onerror = () => reject(new Error(_(`${CONF.name}.err_image_load`)));
+    i.onload = () => {
+      i.onload = null;
+      i.onerror = null;
+      resolve(i);
+    };
+    i.onerror = () => {
+      i.onload = null;
+      i.onerror = null;
+      if (src.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(src);
+        } catch {
+          /* ignore */
+        }
+      }
+      reject(new Error(_(`${CONF.name}.err_image_load`)));
+    };
     i.src = src;
   });
 
@@ -68,4 +106,4 @@ const ensureFont = async (fontSpec: string) => {
   }
 };
 
-export { isVisible, loadImageBitmap, loadImage, ensureFont };
+export { isVisible, loadImageBitmap, loadImage, ensureFont, clearBitmapCache };
