@@ -568,9 +568,8 @@ class LayerUI {
     )
       .map(
         cb =>
-          (cb.closest(CONST.SEL.LAYER_ITEM) ?? cb.closest(CONST.SEL.TOGGLE_ALL)) as
-            | HTMLElement
-            | null,
+          (cb.closest(CONST.SEL.LAYER_ITEM) ??
+            cb.closest(CONST.SEL.TOGGLE_ALL)) as HTMLElement | null,
       )
       .filter(
         (el): el is HTMLElement =>
