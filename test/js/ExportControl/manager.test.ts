@@ -408,3 +408,146 @@ describe("ExportManager — export events", () => {
     });
   });
 });
+
+describe("ExportManager — World File export", () => {
+  let manager;
+  let worldFileContent: string | null;
+  let downloadFilename: string | null;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    window.CONF = {
+      ...window.CONF,
+      name: "ExportControl",
+      filename: "test-map",
+      timeout: 7500,
+    };
+    worldFileContent = null;
+    downloadFilename = null;
+    // Capture the Blob content and download filename without global pollution.
+    const origBlob = globalThis.Blob;
+    globalThis.Blob = function (contents: unknown[], opts?: unknown) {
+      const first = contents[0];
+      if (typeof first === "string" && !first.startsWith("<")) {
+        // Looks like a .pgw file: all numeric lines
+        const lines = first.split(String.fromCharCode(10));
+        if (lines.length === 7 && lines[1] === "0" && lines[2] === "0") {
+          worldFileContent = first;
+        }
+      }
+      return new origBlob(contents, opts);
+    } as unknown as typeof Blob;
+    const origAppendChild = document.body.appendChild;
+    const origRemoveChild = document.body.removeChild;
+    document.body.appendChild = function (child: Node) {
+      const result = origAppendChild.call(document.body, child);
+      const el = child as HTMLElement;
+      if (el.tagName === "A" && el.download && el.download.endsWith(".pgw")) {
+        downloadFilename = el.download;
+      }
+      return result;
+    };
+    document.body.removeChild = function (child: Node) {
+      return origRemoveChild.call(document.body, child);
+    };
+  });
+
+  it("is a no-op when cropState is null", () => {
+    manager.cropState = null;
+    manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+    expect(worldFileContent).toBeNull();
+    expect(downloadFilename).toBeNull();
+  });
+
+  it("is a no-op when geoBounds is null", () => {
+    manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+    expect(worldFileContent).toBeNull();
+    expect(downloadFilename).toBeNull();
+  });
+
+  it("is a no-op when canvas has zero width or height", () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    manager.downloadWorldFile({ width: 0, height: 500 } as any);
+    expect(worldFileContent).toBeNull();
+    manager.downloadWorldFile({ width: 1000, height: 0 } as any);
+    expect(worldFileContent).toBeNull();
+  });
+
+  it("generates correct World File content for a known extent", () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+
+    expect(worldFileContent).not.toBeNull();
+    const content = worldFileContent!;
+    const lines = content.split(String.fromCharCode(10));
+    expect(lines.length).toBe(7); // 6 data lines + trailing empty
+    expect(lines[1]).toBe("0");
+    expect(lines[2]).toBe("0");
+
+    const pixelWidth = parseFloat(lines[0]);
+    expect(pixelWidth).toBeCloseTo(0.001, 9);
+
+    const pixelHeight = parseFloat(lines[3]);
+    expect(pixelHeight).toBeCloseTo(-0.002, 9);
+
+    const ulx = parseFloat(lines[4]);
+    expect(ulx).toBeCloseTo(-74.9995, 9);
+
+    const uly = parseFloat(lines[5]);
+    expect(uly).toBeCloseTo(40.999, 9);
+  });
+
+  it("creates a download link with the correct filename", () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+
+    expect(downloadFilename).toBe("test-map.pgw");
+  });
+
+  it("uses actual canvas pixel dimensions, not CSS display size", () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+
+    const lines = worldFileContent!.split(String.fromCharCode(10));
+    const pixelWidth = parseFloat(lines[0]);
+    // Actual 1000px width → 1.0/1000 = 0.001, not CSS 500px → 1.0/500 = 0.002
+    expect(pixelWidth).toBeCloseTo(0.001, 9);
+    expect(parseFloat(lines[3])).toBeCloseTo(-0.002, 9);
+  });
+
+  it("is wired into onRenderSuccess", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    const canvas = document.createElement("canvas");
+    Object.defineProperty(canvas, "width", { value: 1000 });
+    Object.defineProperty(canvas, "height", { value: 500 });
+    // Stub toBlob to fire immediately (jsdom doesn't implement it).
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
+      cb(new Blob(["image"], { type: "image/png" }));
+    };
+    try {
+      manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
+      // downloadWorldFile is called synchronously BEFORE toBlob.
+      expect(worldFileContent).not.toBeNull();
+      expect(downloadFilename).toBe("test-map.pgw");
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+    }
+  });
+});
