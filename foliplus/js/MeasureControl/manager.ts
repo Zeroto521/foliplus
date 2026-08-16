@@ -1,10 +1,12 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
+import { COMPONENTS } from "#core/component.js";
+import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
-import { ensureEvents } from "#core/event/index.js";
-import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
@@ -49,10 +51,10 @@ class MeasureManager {
     this.currentMode = null;
     this.modeInstance = null;
     this.isSuppressHideDel = false;
-    // When any component starts exporting, auto-clear active measurement mode
-    // so the export rendering is not disrupted by measurement interactions.
-    ensureEvents(this.map).on("before:export", () => {
-      if (this.currentMode) {
+    // When ExportControl enters crop interaction or export, interrupt the
+    // active measurement so map clicks are not captured while exporting.
+    ensureEvents(this.map).on(MODE_CHANGE, ({ component, mode }) => {
+      if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
         map.foliplus?.showHint?.(
           CONF.name,
@@ -156,6 +158,7 @@ class MeasureManager {
 
     this.cleanMapEvents();
     this.currentMode = mode;
+    ensureModes(this.map).setMode(CONF.name, mode);
 
     this.toolBtns.forEach(btn =>
       btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
@@ -201,6 +204,7 @@ class MeasureManager {
   /** Deactivate current mode, clean up events, and hide hints. */
   clearActiveMode() {
     this.currentMode = null;
+    ensureModes(this.map).setMode(CONF.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
     map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
