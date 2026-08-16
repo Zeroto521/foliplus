@@ -1,6 +1,6 @@
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
@@ -257,7 +257,11 @@ class LayerUI {
         [CONST.DATA.LAYER_ID]: layerInfo.id,
         "data-layer-type": type,
       },
-      dom.el("span", { title: _(`${CONF.name}.drag_tooltip`) }, { html: SVGs.DRAG_HANDLE }),
+      dom.el(
+        "span",
+        { title: _(`${CONF.name}.drag_tooltip`) },
+        { html: SVGs.DRAG_HANDLE },
+      ),
       dom.el(
         "div",
         { class: CONST.CLASSES.CHECKBOX },
@@ -369,7 +373,11 @@ class LayerUI {
         if (countCol) {
           const count = this.mgmt.getFeatureCount(layerInfo.id);
           if (count !== null && count !== undefined) {
-            countCol.textContent = formatNumber(count, "auto", CONF.locale_code ?? "en");
+            countCol.textContent = formatNumber(
+              count,
+              "auto",
+              CONF.locale_code ?? "en",
+            );
           } else {
             countCol.textContent = "";
           }
@@ -509,9 +517,10 @@ class LayerUI {
       countCol.textContent = "";
     }
     if (item && typeLabel) {
-      item.title = count !== null
-        ? `${formatNumber(count, "auto", CONF.locale_code ?? "en")} ${typeLabel}`
-        : typeLabel;
+      item.title =
+        count !== null
+          ? `${formatNumber(count, "auto", CONF.locale_code ?? "en")} ${typeLabel}`
+          : typeLabel;
     }
   }
 

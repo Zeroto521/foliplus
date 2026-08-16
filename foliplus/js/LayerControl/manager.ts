@@ -13,11 +13,11 @@ import {
   PaneManager,
   type RegisterLayerOpts,
   Z_INDEX,
+  countFeatureGeometry,
   findLayer,
   forEachLayer,
   forEachLeaf,
   getGeometryType,
-  countFeatureGeometry,
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createTranslator } from "#common/locale.js";
@@ -289,8 +289,10 @@ class LayerManager implements LayerAPI {
 
   /** Whether a layer is a feature container (LayerGroup-like) we can walk. */
   private isFeatureContainer(layer: L.Layer): boolean {
-    return typeof (layer as L.LayerGroup).eachLayer === "function" ||
-      !!(layer as L.LayerGroup)._layers;
+    return (
+      typeof (layer as L.LayerGroup).eachLayer === "function" ||
+      !!(layer as L.LayerGroup)._layers
+    );
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {

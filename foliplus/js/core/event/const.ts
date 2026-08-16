@@ -73,8 +73,7 @@ export const EVENT_REGISTRY: Record<string, EventMeta> = {
     payload: "{ component: string }",
   },
   [EVENTS.LAYER_ITEM_COUNT_CHANGE]: {
-    description:
-      "A layer's feature count changed (data update / feature add/remove)",
+    description: "A layer's feature count changed (data update / feature add/remove)",
     publisher: "LayerManager",
     subscribers: [COMPONENTS.LayerControl],
     payload: "{ id: string }",

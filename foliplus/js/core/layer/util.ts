@@ -13,12 +13,7 @@ const findLayer = (map, id) => {
 };
 
 /** Depth-limited walk over a layer tree, invoking fn per visited node. */
-const traverse = (
-  layer,
-  fn,
-  depth = 0,
-  leafOnly = false,
-) => {
+const traverse = (layer, fn, depth = 0, leafOnly = false) => {
   if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
   const container = layer as L.LayerGroup;
   const isContainer = typeof container.eachLayer === "function";
@@ -45,7 +40,7 @@ const forEachLayer = (layer, fn, depth = 0) => {
 /** Detect the geometry type of a layer tree.
  *  @param {Object} layer - Leaflet layer.
  *  @returns {string} Geometry type constant from GEOM_TYPE. */
-const getGeometryType = (layer) => {
+const getGeometryType = layer => {
   const leaves: L.Layer[] = [];
   forEachLeaf(layer, l => leaves.push(l));
   if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY;
@@ -74,9 +69,9 @@ const getGeometryType = (layer) => {
  *  Excludes label layers and non-geometric nodes.
  *  @param {Object} layer - Leaflet layer (container or leaf).
  *  @returns {number} Number of geometric features. */
-const countFeatureGeometry = (layer) => {
+const countFeatureGeometry = layer => {
   let count = 0;
-  forEachLeaf(layer, (leaf) => {
+  forEachLeaf(layer, leaf => {
     if (leaf.isLabel) return;
     if (leaf instanceof L.Polygon) count++;
     else if (leaf instanceof L.Polyline) count++;

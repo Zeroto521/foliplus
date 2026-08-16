@@ -39,7 +39,12 @@ export const CLASSES = {
 };
 
 /** Data attribute names. */
-export const DATA = { INDEX: "data-index", LAYER_ID: "data-layer-id", COUNT: "data-item-count", TITLE: "data-item-title" };
+export const DATA = {
+  INDEX: "data-index",
+  LAYER_ID: "data-layer-id",
+  COUNT: "data-item-count",
+  TITLE: "data-item-title",
+};
 
 /** DOM selectors. */
 export const SEL = {

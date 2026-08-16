@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  countFeatureGeometry,
   findLayer,
   forEachLayer,
   forEachLeaf,
   getGeometryType,
-  countFeatureGeometry,
 } from "#foliplus/core/layer/util.js";
 
 describe("core/layer util", () => {
@@ -159,7 +159,12 @@ describe("core/layer util", () => {
       marker.feature = {};
       const label = new window.L.Polygon();
       (label as unknown as { isLabel: boolean }).isLabel = true;
-      const group = wrap(new window.L.Polygon(), new window.L.Polyline(), marker, label);
+      const group = wrap(
+        new window.L.Polygon(),
+        new window.L.Polyline(),
+        marker,
+        label,
+      );
       expect(countFeatureGeometry(group as never)).toBe(3);
     });
 
