@@ -126,9 +126,7 @@ class LayerManager implements LayerAPI {
       )
         return;
 
-      if (this.hasUnresolvedLayers()) {
-        if (!this.isEnforcing) this.debouncedEnforce();
-      }
+      if (this.hasUnresolvedLayers() && !this.isEnforcing) this.debouncedEnforce();
     };
     this.map.on("layeradd", this.onLayerAdd);
 

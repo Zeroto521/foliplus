@@ -1356,6 +1356,29 @@ class TestLayerControlBrowser:
             assert result is not None
             assert result["clicked"] is True, "checkbox should be clickable"
 
+
+    def test_toggle_performance(self, browser, tmp_path):
+        """Layer toggle and toggle-all operations complete within 100ms."""
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(300)
+            results = page.evaluate(_js("LayerControl/performance_toggle"))
+            assert results is not None, "performance_toggle failed"
+            for r in results:
+                assert r["ms"] < 100, (
+                    f"{r['op']} took {r['ms']}ms (threshold: 100ms)"
+                )
+
     def test_layers_view_is_readonly(self, browser, tmp_path):
         """api.layers is a read-only view — direct mutation is blocked.
 
