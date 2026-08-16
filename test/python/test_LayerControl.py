@@ -1356,7 +1356,6 @@ class TestLayerControlBrowser:
             assert result is not None
             assert result["clicked"] is True, "checkbox should be clickable"
 
-
     def test_toggle_performance(self, browser, tmp_path):
         """Layer toggle and toggle-all operations complete within 100ms."""
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -1375,9 +1374,7 @@ class TestLayerControlBrowser:
             results = page.evaluate(_js("LayerControl/performance_toggle"))
             assert results is not None, "performance_toggle failed"
             for r in results:
-                assert r["ms"] < 100, (
-                    f"{r['op']} took {r['ms']}ms (threshold: 100ms)"
-                )
+                assert r["ms"] < 100, f"{r['op']} took {r['ms']}ms (threshold: 100ms)"
 
     def test_layers_view_is_readonly(self, browser, tmp_path):
         """api.layers is a read-only view — direct mutation is blocked.
