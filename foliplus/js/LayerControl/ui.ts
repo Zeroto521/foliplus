@@ -565,7 +565,7 @@ class LayerUI {
     return Array.from(
       this.uiContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
     )
-      .map((cb) => cb.closest(CONST.SEL.LAYER_ITEM) as HTMLElement)
+      .map(cb => cb.closest(CONST.SEL.LAYER_ITEM) as HTMLElement)
       .filter(
         (el): el is HTMLElement =>
           el !== null && !el.classList.contains(CONST.CLASSES.COLOR_ITEM),
