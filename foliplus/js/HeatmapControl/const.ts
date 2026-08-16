@@ -43,7 +43,8 @@ export const H3 = {
 export const ID = "foliplus_heatmap";
 
 /** Generate a namespaced layer ID for multi-instance support. */
-export const generateId = (namespace?: string): string => (namespace ? `${ID}_${namespace}` : ID);
+export const generateId = (namespace?: string): string =>
+  namespace ? `${ID}_${namespace}` : ID;
 
 export const AGG = {
   DEFAULT: CONF.agg,

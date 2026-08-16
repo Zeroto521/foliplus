@@ -48,7 +48,8 @@ export const ID = "foliplus_measure";
 export const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
 
 /** Generate a namespaced layer ID for multi-instance support. */
-export const generateId = (namespace?: string): string => (namespace ? `${ID}_${namespace}` : ID);
+export const generateId = (namespace?: string): string =>
+  namespace ? `${ID}_${namespace}` : ID;
 
 /** CSS class names. */
 export const CLASSES = {

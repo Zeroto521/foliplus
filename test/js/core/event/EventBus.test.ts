@@ -80,7 +80,7 @@ describe("event constants", () => {
         expect.any(String),
         expect.any(String),
         expect.any(String),
-      ])
+      ]),
     );
     expect(new Set([LAYER_CHANGE, LAYER_REMOVED, MODE_CHANGE])).toHaveLength(3);
   });
