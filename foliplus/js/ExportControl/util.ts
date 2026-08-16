@@ -125,4 +125,11 @@ const generateWorldFile = (
   return [pxW, 0, 0, pxH, nw.lng, se.lat].join("\n") + "\n";
 };
 
-export { isVisible, loadImageBitmap, loadImage, ensureFont, clearBitmapCache, generateWorldFile };
+export {
+  isVisible,
+  loadImageBitmap,
+  loadImage,
+  ensureFont,
+  clearBitmapCache,
+  generateWorldFile,
+};
