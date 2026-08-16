@@ -1,6 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { locateMe } from "#foliplus/LocateControl/logic.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {
   vi.clearAllMocks();

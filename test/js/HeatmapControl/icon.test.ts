@@ -1,5 +1,5 @@
-import * as SVGs from "#foliplus/HeatmapControl/icon.js";
 import { describe, expect, it } from "vitest";
+import * as SVGs from "#foliplus/HeatmapControl/icon.js";
 
 describe("HEXAGON", () => {
   it("is an SVG string", () => {

@@ -1,8 +1,7 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-import { createTranslator } from "#common/locale.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes } from "#core/mode.js";
+import { createTranslator } from "#common/locale.js";
 import { getFullscreenEl, isEnabled, nativeAPI } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
@@ -15,7 +14,6 @@ const _ = createTranslator(CONF);
 // ══════════════════════════════════════════════════════════════════════════════
 const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   const isFull = !!getFullscreenEl() || map.isFullscreen;
-  ensureModes(map).setMode(CONF.name, isFull ? "fullscreen" : null);
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? _(`${CONF.name}.title_cancel`) : _(`${CONF.name}.title`);
 

@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEL_ICON_CHAR,
   DEL_ICON_MARKER_ANCHOR,
@@ -8,7 +9,6 @@ import {
   makeDelIcon,
   toggleDelIcon,
 } from "#common/delicon.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {
   vi.clearAllMocks();

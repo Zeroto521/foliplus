@@ -1,10 +1,10 @@
 // ExportControl manager — crop box state machine, export orchestration.
+import { AFTER_EXPORT, BEFORE_EXPORT, ensureEvents } from "#core/event/index.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes } from "#core/mode.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
-import { ensureEvents } from "#core/event/index.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes } from "#core/mode.js";
 import * as CONST from "./const.js";
 import { ExportRenderer } from "./renderer.js";
 import {
@@ -373,7 +373,7 @@ class ExportManager {
     if (this.isExporting || !this.cropState) return;
     this.isExporting = true;
     ensureModes(this.map).setMode(CONF.name, "exporting");
-    ensureEvents(this.map).emit("before:export", { component: CONF.name });
+    ensureEvents(this.map).emit(BEFORE_EXPORT, { component: CONF.name });
     const r = Object.assign({}, this.cropState.rect);
     const geoBounds = this.cropState.geoBounds;
     if (geoBounds) {
@@ -404,7 +404,7 @@ class ExportManager {
     if (this.pixelOverLimit) {
       this.isExporting = false;
       ensureModes(this.map).setMode(CONF.name, null);
-      ensureEvents(this.map).emit("after:export", { component: CONF.name });
+      ensureEvents(this.map).emit(AFTER_EXPORT, { component: CONF.name });
       this.removeExportOverlay();
       return;
     }
@@ -548,7 +548,7 @@ class ExportManager {
           );
           this.isExporting = false;
           ensureModes(this.map).setMode(CONF.name, null);
-          ensureEvents(this.map).emit("after:export", { component: CONF.name });
+          ensureEvents(this.map).emit(AFTER_EXPORT, { component: CONF.name });
           this.removeExportOverlay();
           return;
         }
@@ -569,7 +569,7 @@ class ExportManager {
         );
         this.isExporting = false;
         ensureModes(this.map).setMode(CONF.name, null);
-        ensureEvents(this.map).emit("after:export", { component: CONF.name });
+        ensureEvents(this.map).emit(AFTER_EXPORT, { component: CONF.name });
         this.removeExportOverlay();
       },
       mimeType,
@@ -581,7 +581,7 @@ class ExportManager {
   onRenderError(err: Error, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     ensureModes(this.map).setMode(CONF.name, null);
-    ensureEvents(this.map).emit("after:export", { component: CONF.name });
+    ensureEvents(this.map).emit(AFTER_EXPORT, { component: CONF.name });
     this.removeExportOverlay();
     this.unlockMap();
     console.error(`[${CONF.name}] ${_(`${CONF.name}.err_render`)}:`, err);

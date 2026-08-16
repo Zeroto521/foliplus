@@ -246,6 +246,11 @@ class TestSearchControlBrowser:
             errors,
         ):
             page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            # Wait for LayerControl enforceOrder to create data panes (debounced).
+            page.wait_for_function(
+                "() => !!document.querySelector('.leaflet-pane[class*=foliplus-layer]')",
+                timeout=10000,
+            )
             z = page.evaluate(_js("SearchControl/read_pane_zindex"))
             assert z["dataPane"] is not None, "data layer pane not found"
             assert z["markerPane"] > z["dataPane"], (

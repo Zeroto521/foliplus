@@ -1,5 +1,5 @@
-import { panelContentHTML } from "#foliplus/HeatmapControl/template.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { panelContentHTML } from "#foliplus/HeatmapControl/template.js";
 
 describe("panelContentHTML", () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
-import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { describe, expect, it } from "vitest";
+import * as CONST from "#foliplus/HeatmapControl/const.js";
 
 describe("TIMING", () => {
   it("has expected debounce values", () => {
