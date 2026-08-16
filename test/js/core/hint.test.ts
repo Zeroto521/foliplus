@@ -1,10 +1,10 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   HINT_DURATION,
   HintManager,
   ensureHint,
   registerHintIcon,
 } from "#core/hint.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {
   document.body.innerHTML = "";

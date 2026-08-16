@@ -1,6 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bindEvents, initFromUrl } from "#foliplus/SearchControl/event.js";
 import { Cache } from "#foliplus/common/cache.js";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function makeCtrl(): any {
   const ctrlDiv = document.createElement("div");

@@ -1,12 +1,12 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
+import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes } from "#core/mode.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import type { ExportManager, Rect } from "./manager.js";

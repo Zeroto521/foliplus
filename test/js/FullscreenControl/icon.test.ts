@@ -1,5 +1,5 @@
-import * as SVGs from "#foliplus/FullscreenControl/icon.js";
 import { describe, expect, it } from "vitest";
+import * as SVGs from "#foliplus/FullscreenControl/icon.js";
 
 describe("MAXIMIZE", () => {
   it("is an SVG string", () => {
