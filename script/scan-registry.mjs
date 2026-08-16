@@ -61,7 +61,10 @@ function scanImports(dir) {
           /import[\s]*\{([^}]+)\}[\s]*from[\s]*"(#(?:common|core|foliplus)\/[^"]+)"/g;
         let m;
         while ((m = namedRe.exec(src))) {
-          const spec = m[2].replace(/^#/, "").replace(/\.js$/, "").replace(/\/index$/, "");
+          const spec = m[2]
+            .replace(/^#/, "")
+            .replace(/\.js$/, "")
+            .replace(/\/index$/, "");
           const names = m[1]
             .split(",")
             .map(n => n.trim())
@@ -75,7 +78,10 @@ function scanImports(dir) {
         const starRe =
           /import[\s]+\*[\s]+as[\s]+(\w+)[\s]+from[\s]*"(#(?:common|core)\/[^"]+)"/g;
         while ((m = starRe.exec(src))) {
-          const spec = m[2].replace(/^#/, "").replace(/\.js$/, "").replace(/\/index$/, "");
+          const spec = m[2]
+            .replace(/^#/, "")
+            .replace(/\.js$/, "")
+            .replace(/\/index$/, "");
           if (!starImported.has(spec)) starImported.set(spec, new Set());
           starImported.get(spec).add(m[1]);
         }
