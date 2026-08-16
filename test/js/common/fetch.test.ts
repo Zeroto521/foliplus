@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  fetchWithTimeout,
-  GEODECODE_TIMEOUT_MS,
-} from "#common/fetch.js";
+import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
 
 const jsonResponse = (data: unknown) =>
   ({ json: () => Promise.resolve(data) }) as Response;
@@ -41,9 +38,7 @@ describe("fetchWithTimeout", () => {
   });
 
   it("passes through success responses and applies cache: force-cache", async () => {
-    (globalThis.fetch as any).mockResolvedValue(
-      jsonResponse({ ok: true }),
-    );
+    (globalThis.fetch as any).mockResolvedValue(jsonResponse({ ok: true }));
     await fetchWithTimeout("https://example.com/api");
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
@@ -72,8 +67,7 @@ describe("fetchWithTimeout", () => {
       headers: { Authorization: "Bearer token" },
     });
 
-    const headers = ((globalThis.fetch as any).mock.calls[0][1] as any)
-      .headers;
+    const headers = ((globalThis.fetch as any).mock.calls[0][1] as any).headers;
     expect(headers["Cache-Control"]).toBe("max-age=86400");
     expect(headers["Authorization"]).toBe("Bearer token");
   });
