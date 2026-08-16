@@ -120,7 +120,9 @@
   border: var(--border-thin) solid var(--input-border);
   border-radius: var(--radius-xs);
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
   line-height: 1;
 
   &:hover {
@@ -142,7 +144,10 @@
   opacity: 0;
   cursor: pointer;
   border-radius: var(--radius-xs);
-  transition: color var(--transition-fast), opacity var(--transition-fast), background var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    opacity var(--transition-fast),
+    background var(--transition-fast);
 
   &:hover {
     color: var(--accent-primary);
