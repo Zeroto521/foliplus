@@ -14,6 +14,7 @@
  * (see script/shared-external.mjs), so shared code is included exactly once
  * instead of being inlined into every component.
  */
+import * as componentCore from "#core/component.js";
 import * as hintCore from "#core/hint.js";
 import * as modeCore from "#core/mode.js";
 import * as BaseControl from "#foliplus/BaseControl.js";
@@ -44,8 +45,9 @@ if (!foliplus.isInitialized) {
     hint: hintCore,
   });
 
-  // Mode module — registered manually (single file, not a subdirectory
-  // scanned by generateSharedRegistry). Exposed as foliplus.core.mode.
+  // Core module — single file, manually registered.
   if (!foliplus.core) foliplus.core = {};
+  foliplus.core.component = componentCore;
+  // Mode module — single file, manually registered.
   foliplus.core.mode = modeCore;
 }

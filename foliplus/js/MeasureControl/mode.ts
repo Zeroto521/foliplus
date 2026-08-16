@@ -1,3 +1,4 @@
+import { HINT_DURATION } from "#core/hint.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
   attachDelClick,
@@ -12,7 +13,6 @@ import {
   bindMapEvents,
   unbindMapEvents,
 } from "#common/mapEvent.js";
-import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { attachCircleUI, attachDistanceUI, attachPolygonUI } from "./ui.js";

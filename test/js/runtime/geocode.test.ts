@@ -1,5 +1,5 @@
-import { geocode, reverseGeocode } from "#foliplus/runtime/geocode.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { geocode, reverseGeocode } from "#foliplus/runtime/geocode.js";
 
 // A minimal WGS84 map — toWgs84 passes coordinates through unchanged.
 const mockMap = {

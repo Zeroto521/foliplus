@@ -1,11 +1,12 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
+import { COMPONENTS } from "#core/component.js";
+import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
-import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes } from "#core/mode.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
@@ -52,10 +53,14 @@ class MeasureManager {
     this.isSuppressHideDel = false;
     // When ExportControl enters crop interaction or export, interrupt the
     // active measurement so map clicks are not captured while exporting.
-    ensureEvents(this.map).on(MODE_CHANGE, (payload: unknown) => {
-      const { component, mode } = payload as { component: string; mode: string | null };
-      if (component === "ExportControl" && mode !== null && this.currentMode) {
+    ensureEvents(this.map).on(MODE_CHANGE, ({ component, mode }) => {
+      if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
+        map.foliplus?.showHint?.(
+          CONF.name,
+          _(`${CONF.name}.export_paused`),
+          HINT_DURATION.SHORT,
+        );
       }
     });
     this.toolBtns = [];

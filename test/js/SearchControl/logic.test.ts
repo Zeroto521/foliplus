@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   attachSearchDelIcon,
   buildSearchUrl,
@@ -10,7 +11,6 @@ import {
 } from "#foliplus/SearchControl/logic.js";
 import { Cache } from "#foliplus/common/cache.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
 // Use vi.spyOn to track calls on those already-setup mocks.

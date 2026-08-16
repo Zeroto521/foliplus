@@ -1,5 +1,5 @@
-import { ModeManager, ensureModes } from "#foliplus/core/mode.js";
 import { describe, expect, it, vi } from "vitest";
+import { ModeManager, ensureModes } from "#foliplus/core/mode.js";
 
 describe("ModeManager", () => {
   it("setMode/getMode round-trips", () => {
@@ -37,7 +37,7 @@ describe("ModeManager", () => {
     } as any;
     const mm = new ModeManager(bus);
     mm.setMode("SearchControl", "addr");
-    expect(bus.emit).toHaveBeenCalledWith("foliplus:modechange", {
+    expect(bus.emit).toHaveBeenCalledWith("foliplus:mode:change", {
       component: "SearchControl",
       mode: "addr",
     });

@@ -1,9 +1,9 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
+import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
-import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import { HeatmapManager } from "./logic.js";
 import { panelContentHTML } from "./template.js";

@@ -1,7 +1,8 @@
-import * as Storage from "#common/storage.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as Storage from "#common/storage.js";
 
 // Minimal map mock satisfying ExportManager constructor requirements.
 function makeMapMock() {
@@ -15,6 +16,12 @@ function makeMapMock() {
       getWest: () => -180,
     }),
     latLngToContainerPoint: vi.fn(({ lat, lng }) => ({ x: lng, y: lat })),
+    dragging: { disable: vi.fn(), enable: vi.fn() },
+    scrollWheelZoom: { disable: vi.fn(), enable: vi.fn() },
+    doubleClickZoom: { disable: vi.fn(), enable: vi.fn() },
+    boxZoom: { disable: vi.fn(), enable: vi.fn() },
+    keyboard: { disable: vi.fn(), enable: vi.fn() },
+    touchZoom: { disable: vi.fn(), enable: vi.fn() },
     on: vi.fn(),
     off: vi.fn(),
   };
@@ -343,5 +350,61 @@ describe("ExportManager — mouse drag", () => {
     manager.onMouseUp();
     expect(manager.dragState.dragging).toBe(false);
     expect(manager.undoStack).toHaveLength(1);
+  });
+});
+
+describe("ExportManager — export events", () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    manager.pixelOverLimit = false;
+  });
+
+  it("doExport emits before:export event", () => {
+    const events = ensureEvents(manager.map);
+    vi.spyOn(events, "emit");
+    manager.doExport();
+    expect(events.emit).toHaveBeenCalledWith("foliplus:export:before", {
+      component: "ExportControl",
+    });
+  });
+
+  it("onRenderSuccess emits after:export event", async () => {
+    const events = ensureEvents(manager.map);
+    vi.spyOn(events, "emit");
+    // toBlob is not implemented in jsdom — mock it to fire immediately.
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
+      cb(new Blob(["fake"]));
+    };
+    const hideEls = document.querySelectorAll("div");
+    manager.onRenderSuccess(document.createElement("canvas"), hideEls);
+    await new Promise(r => setTimeout(r, 0));
+    HTMLCanvasElement.prototype.toBlob = origToBlob;
+    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
+      component: "ExportControl",
+    });
+  });
+
+  it("onRenderError emits after:export event", () => {
+    const events = ensureEvents(manager.map);
+    vi.spyOn(events, "emit");
+    const hideEls = document.querySelectorAll("div");
+    manager.onRenderError(new Error("render fail"), hideEls);
+    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
+      component: "ExportControl",
+    });
+  });
+
+  it("pixel over limit emits after:export event", () => {
+    const events = ensureEvents(manager.map);
+    vi.spyOn(events, "emit");
+    manager.pixelOverLimit = true;
+    manager.doExport();
+    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
+      component: "ExportControl",
+    });
   });
 });

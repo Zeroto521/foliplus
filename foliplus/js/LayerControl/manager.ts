@@ -1,7 +1,4 @@
-import { type Debounced, debounce } from "#common/debounce.js";
-import { createTranslator } from "#common/locale.js";
-import * as Storage from "#common/storage.js";
-import { LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
+import { BEFORE_EXPORT, LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -21,6 +18,9 @@ import {
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
+import { type Debounced, debounce } from "#common/debounce.js";
+import { createTranslator } from "#common/locale.js";
+import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { LayerUI } from "./ui.js";
 
@@ -139,7 +139,7 @@ class LayerManager implements LayerAPI {
 
     // Before any export, flush pending debounced enforceOrder so the
     // exported image matches the panel's layer order.
-    ensureEvents(this.map).on("before:export", () => this.enforceOrderNow());
+    ensureEvents(this.map).on(BEFORE_EXPORT, () => this.enforceOrderNow());
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.

@@ -1,5 +1,5 @@
-import { ensureLayerAPI, requireLayerAPI } from "#foliplus/core/layer/api.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureLayerAPI, requireLayerAPI } from "#foliplus/core/layer/api.js";
 
 const mockShowHint = vi.fn();
 

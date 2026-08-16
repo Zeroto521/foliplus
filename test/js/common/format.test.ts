@@ -1,7 +1,7 @@
+import { describe, expect, it } from "vitest";
 import { cssVar } from "#common/cssvar.js";
 import { debounce } from "#common/debounce.js";
 import { formatNumber } from "#common/format.js";
-import { describe, expect, it } from "vitest";
 
 describe("formatNumber", () => {
   it("formats small numbers as-is (auto style)", () => {

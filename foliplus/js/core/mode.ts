@@ -2,6 +2,7 @@
 // Tracks the active mode of each participating component and emits
 // MODE_CHANGE on the per-map EventBus whenever a mode changes.
 // No DOM / CONF dependency.
+import { COMPONENTS, assertComponentName } from "#core/component.js";
 import { type EventBus, MODE_CHANGE, ensureEvents } from "#core/event/index.js";
 
 interface ModeChangePayload {
@@ -12,9 +13,8 @@ interface ModeChangePayload {
 // Conflict matrix: when a component is in a non-null mode, which components
 // are blocked from performing their primary actions?
 const BLOCKED_BY: Record<string, string[]> = {
-  MeasureControl: ["SearchControl", "LocateControl"],
-  ExportControl: ["SearchControl", "LocateControl"],
-  FullscreenControl: ["MeasureControl"],
+  [COMPONENTS.MeasureControl]: [COMPONENTS.SearchControl, COMPONENTS.LocateControl],
+  [COMPONENTS.ExportControl]: [COMPONENTS.SearchControl, COMPONENTS.LocateControl],
 };
 
 class ModeManager {
@@ -27,6 +27,7 @@ class ModeManager {
   }
 
   setMode(component: string, mode: string | null): void {
+    assertComponentName(component);
     if (this.modes.get(component) === mode) return;
     this.modes.set(component, mode);
     this.bus.emit(MODE_CHANGE, { component, mode } satisfies ModeChangePayload);

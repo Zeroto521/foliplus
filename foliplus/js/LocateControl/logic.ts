@@ -1,4 +1,5 @@
 // LocateControl locate logic — locate me via the browser geolocation API.
+import { HINT_DURATION } from "#core/hint.js";
 import { fromWgs84 } from "#common/coord.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
@@ -9,7 +10,6 @@ import {
 import { createLocationMarker } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
-import { HINT_DURATION } from "#core/hint.js";
 
 const _ = createTranslator(CONF);
 
@@ -68,7 +68,10 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 
 /** Locate me via the browser geolocation API. */
 const locateMe = (ctrl: LocateCtrl) => {
-  if (map.foliplus?.modes?.isBlocked("LocateControl")) return;
+  if (map.foliplus?.modes?.isBlocked(CONF.name)) {
+    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.blocked`), HINT_DURATION.SHORT);
+    return;
+  }
   const geo = navigator.geolocation;
   if (!geo) {
     map.foliplus!.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
