@@ -6,6 +6,7 @@ import { adjustPanelZIndex } from "#common/panel.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "./const.js";
 import { HeatmapManager } from "./logic.js";
+import { panelContentHTML } from "./template.js";
 
 const _ = createTranslator(CONF);
 
@@ -35,194 +36,99 @@ export interface HeatmapControlUI {
   toggleSchemeDropdown: () => void;
 }
 
-/** Create a form-row with label + control-wrap. */
-const createFormRow = (
-  ctrl: HeatmapControlUI,
-  parent: HTMLElement,
-  labelKey: string,
-  rowClass: string = CONST.CLASSES.FORM_ROW,
-): { row: HTMLElement; wrap: HTMLElement } => {
-  const row = dom.el("div", { class: rowClass, parent });
-  dom.el("label", { class: CONST.CLASSES.FORM_LABEL, parent: row }, _(labelKey));
-  const wrap = dom.el("div", { class: CONST.CLASSES.FORM_CONTROL, parent: row });
-  return { row, wrap };
-};
+const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
+  panelContent.innerHTML = panelContentHTML(_);
 
-/** Build the data section: layer select, aggregation method, field selector. */
-const buildDataSection = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
-  const configBody = dom.el("div", {
-    class: CONST.CLASSES.CONFIG_BODY,
-    parent: panelContent,
-  });
-  dom.el("div", {
-    class: CONST.CLASSES.SECTION_HEADING,
-    parent: configBody,
-    innerHTML: _(`${CONF.name}.section_data`),
-  });
+  // Query key elements from the template using HM_DATA_ATTR constants
+  ctrl.layerSelect = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.LAYER}]`,
+  ) as HTMLSelectElement;
+  ctrl.extraBody = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.EXTRA_BODY}]`,
+  ) as HTMLElement;
+  ctrl.aggSelect = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.AGG}]`,
+  ) as HTMLSelectElement;
+  ctrl.fieldWrap = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.FIELD}]`,
+  ) as HTMLElement;
+  ctrl.fieldSelect = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.FIELD_SELECT}]`,
+  ) as HTMLSelectElement;
+  ctrl.methodSelect = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.METHOD}]`,
+  ) as HTMLSelectElement;
+  ctrl.classSelect = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.CLASS_COUNT}]`,
+  ) as HTMLSelectElement;
+  ctrl.schemeControlWrap = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.SCHEME_CTRL}]`,
+  ) as HTMLElement;
+  ctrl.schemeBar = ctrl.schemeControlWrap.querySelector(
+    CONST.SEL.SCHEME_BAR,
+  ) as HTMLElement;
+  ctrl.schemeBarInner = ctrl.schemeControlWrap.querySelector(
+    CONST.SEL.SCHEME_BAR_INNER,
+  ) as HTMLElement;
+  ctrl.schemeSelectHidden = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.SCHEME_HIDDEN}]`,
+  ) as HTMLSelectElement;
+  ctrl.borderColorInput = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.BORDER_COLOR}]`,
+  ) as HTMLInputElement;
+  ctrl.borderWeightInput = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.BORDER_WEIGHT}]`,
+  ) as HTMLInputElement;
+  ctrl.labelChk = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.LABEL_CHK}]`,
+  ) as HTMLInputElement;
 
-  const { wrap: layerSelectWrap } = createFormRow(
-    ctrl,
-    configBody,
-    `${CONF.name}.layer`,
+  // Set initial values from manager defaults
+  ctrl.borderColorInput.value = ctrl.m.borderColor;
+  ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
+  ctrl.labelChk.checked = ctrl.m.currentLabelShow;
+  ctrl.classSelect.value = String(
+    Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses)),
   );
-  ctrl.layerSelect = dom.el("select", {
-    class: CONST.CLASSES.FORM_SELECT,
-    parent: layerSelectWrap,
-  }) as HTMLSelectElement;
+  ctrl.methodSelect.value = ctrl.m.currentMethod;
+  ctrl.aggSelect.value = ctrl.m.currentAgg;
 
-  ctrl.extraBody = dom.el("div", {
-    class: `${CONST.CLASSES.EXTRA_BODY} ${CONST.CLASSES.HIDDEN}`,
-    parent: configBody,
-  });
-
-  // Aggregation method
-  const { wrap: aggControlWrap } = createFormRow(
-    ctrl,
-    ctrl.extraBody,
-    `${CONF.name}.agg_method`,
-  );
-  ctrl.aggSelect = dom.el("select", {
-    class: CONST.CLASSES.FORM_SELECT,
-    parent: aggControlWrap,
-    innerHTML: `
-        <option value="${CONST.AGG.COUNT}">${_(`${CONF.name}.agg_count`)}</option>
-        <option value="${CONST.AGG.SUM}">${_(`${CONF.name}.agg_sum`)}</option>
-        <option value="${CONST.AGG.AVG}">${_(`${CONF.name}.agg_avg`)}</option>
-        <option value="${CONST.AGG.MIN}">${_(`${CONF.name}.agg_min`)}</option>
-        <option value="${CONST.AGG.MAX}">${_(`${CONF.name}.agg_max`)}</option>`,
-    value: ctrl.m.currentAgg,
-    onchange: () => {
-      ctrl.m.currentAgg = ctrl.aggSelect.value;
-      updateFieldSelector(ctrl);
-      ctrl.m.renderHexagons();
-    },
-  }) as HTMLSelectElement;
-
-  ctrl.fieldWrap = dom.el("div", {
-    class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.FIELD} ${CONST.CLASSES.HIDDEN}`,
-    parent: ctrl.extraBody,
-  });
-  dom.el("label", {
-    class: CONST.CLASSES.FORM_LABEL,
-    parent: ctrl.fieldWrap,
-    innerHTML: _(`${CONF.name}.field`),
-  });
-  const fieldControlWrap = dom.el("div", {
-    class: CONST.CLASSES.FORM_CONTROL,
-    parent: ctrl.fieldWrap,
-  });
-  ctrl.fieldSelect = dom.el("select", {
-    class: CONST.CLASSES.FORM_SELECT,
-    parent: fieldControlWrap,
-    onchange: () => {
-      ctrl.m.currentField = ctrl.fieldSelect.value;
-      ctrl.m.fieldAuto = false;
-      syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
-      ctrl.m.renderHexagons();
-    },
-  }) as HTMLSelectElement;
-
-  // Initialize layer dropdown LAST after all select refs are created
-  buildLayerListItems(ctrl, ctrl.layerSelect);
-};
-
-/** Build the style section: classification, color scheme, border, label toggle, action buttons. */
-const buildStyleSection = (ctrl: HeatmapControlUI) => {
-  dom.el("div", {
-    class: CONST.CLASSES.SECTION_HEADING,
-    parent: ctrl.extraBody,
-    innerHTML: _(`${CONF.name}.section_style`),
-  });
-  const styleSection = dom.el("div", {
-    class: CONST.CLASSES.SECTION_BLOCK,
-    parent: ctrl.extraBody,
-  });
-
-  // Classification method / classes
-  const classRow = dom.el("div", {
-    class: CONST.CLASSES.FORM_ROW,
-    parent: styleSection,
-  });
-  dom.el("label", {
-    class: CONST.CLASSES.FORM_LABEL,
-    parent: classRow,
-    innerHTML: _(`${CONF.name}.class_method`),
-  });
-  const classControlWrap = dom.el("div", {
-    class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
-    parent: classRow,
-  });
-  ctrl.methodSelect = dom.el("select", {
-    class: CONST.CLASSES.FORM_SELECT,
-    parent: classControlWrap,
-    innerHTML: `
-        <option value="jenks">${_(`${CONF.name}.jenks`)}</option>
-        <option value="quantile">${_(`${CONF.name}.quantile`)}</option>
-        <option value="equal">${_(`${CONF.name}.equal`)}</option>
-        <option value="heads">${_(`${CONF.name}.heads`)}</option>`,
-    value: ctrl.m.currentMethod,
-    onchange: () => {
-      ctrl.m.currentMethod = ctrl.methodSelect.value;
-      ctrl.m.renderHexagons();
-    },
-  }) as HTMLSelectElement;
-
-  ctrl.classSelect = dom.el("select", {
-    class: `${CONST.CLASSES.FORM_SELECT} ${CONST.CLASSES.CLASS_COUNT_SELECT}`,
-    parent: classControlWrap,
-    onchange: () => {
-      ctrl.m.numClasses = Math.min(
-        9,
-        Math.max(2, parseInt(ctrl.classSelect.value, 10) || 6),
-      );
-      updateSchemeBar(ctrl);
-      if (ctrl.schemeDropdown) refreshSchemeDropdownItems(ctrl);
-      ctrl.m.renderHexagons();
-    },
-  }) as HTMLSelectElement;
-  for (let ci = 2; ci <= 9; ci++)
-    dom.el("option", { value: ci, parent: ctrl.classSelect }, String(ci));
-  ctrl.classSelect.value = String(Math.min(9, Math.max(2, ctrl.m.numClasses)));
-
-  // Color scheme
-  const schemeRow = dom.el("div", {
-    class: CONST.CLASSES.FORM_ROW,
-    parent: styleSection,
-  });
-  dom.el("label", {
-    class: CONST.CLASSES.FORM_LABEL,
-    parent: schemeRow,
-    innerHTML: _(`${CONF.name}.scheme`),
-  });
-  ctrl.schemeControlWrap = dom.el("div", {
-    class: CONST.CLASSES.FORM_CONTROL,
-    parent: schemeRow,
-  });
-  ctrl.schemeBar = dom.el("div", {
-    class: CONST.CLASSES.SCHEME_BAR,
-    tabindex: 0,
-    role: "combobox",
-    "aria-label": _(`${CONF.name}.scheme`),
-    parent: ctrl.schemeControlWrap,
-  });
-  ctrl.schemeBarInner = dom.el("div", {
-    class: CONST.CLASSES.SCHEME_BAR_INNER,
-    parent: ctrl.schemeBar,
-  });
-  ctrl.schemeSelectHidden = dom.el("select", {
-    class: CONST.CLASSES.SCHEME_SELECT_HIDDEN,
-    parent: ctrl.schemeControlWrap,
-    onchange: () => {
-      ctrl.m.currentScheme = ctrl.schemeSelectHidden.value;
-      updateSchemeBar(ctrl);
-      ctrl.m.renderHexagons();
-    },
-  }) as HTMLSelectElement;
+  // Populate scheme options and set current value
   (CONF.schemes ?? []).forEach(name => {
     dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
   });
   ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
-  updateSchemeBar(ctrl);
+
+  ctrl.aggSelect.onchange = () => {
+    ctrl.m.currentAgg = ctrl.aggSelect.value;
+    updateFieldSelector(ctrl);
+    ctrl.m.renderHexagons();
+  };
+
+  ctrl.fieldSelect.onchange = () => {
+    ctrl.m.currentField = ctrl.fieldSelect.value;
+    ctrl.m.fieldAuto = false;
+    syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
+    ctrl.m.renderHexagons();
+  };
+
+  ctrl.methodSelect.onchange = () => {
+    ctrl.m.currentMethod = ctrl.methodSelect.value;
+    ctrl.m.renderHexagons();
+  };
+
+  ctrl.classSelect.onchange = () => {
+    ctrl.m.numClasses = Math.min(
+      CONST.CLASS_COUNT.MAX,
+      Math.max(
+        CONST.CLASS_COUNT.MIN,
+        parseInt(ctrl.classSelect.value, 10) || CONST.CLASS_COUNT.DEFAULT,
+      ),
+    );
+    updateSchemeBar(ctrl);
+    if (ctrl.schemeDropdown) refreshSchemeDropdownItems(ctrl);
+    ctrl.m.renderHexagons();
+  };
 
   ctrl.schemeBar.onclick = event => {
     event.stopPropagation();
@@ -235,7 +141,38 @@ const buildStyleSection = (ctrl: HeatmapControlUI) => {
     }
   };
 
-  // Close scheme dropdown when clicking outside
+  ctrl.schemeSelectHidden.onchange = () => {
+    ctrl.m.currentScheme = ctrl.schemeSelectHidden.value;
+    updateSchemeBar(ctrl);
+    ctrl.m.renderHexagons();
+  };
+
+  ctrl.borderColorInput.oninput = () => {
+    ctrl.m.borderColor = ctrl.borderColorInput.value;
+    ctrl.m.renderHexagons();
+  };
+
+  ctrl.borderWeightInput.oninput = () => {
+    const v = parseFloat(ctrl.borderWeightInput.value);
+    if (!isNaN(v) && v >= CONST.BORDER.WEIGHT_MIN && v <= CONST.BORDER.WEIGHT_MAX) {
+      ctrl.m.borderWeight = v;
+      ctrl.m.renderHexagons();
+    }
+  };
+  ctrl.borderWeightInput.onchange = () => {
+    const v = parseFloat(ctrl.borderWeightInput.value);
+    ctrl.m.borderWeight = isNaN(v)
+      ? CONST.BORDER.WEIGHT_DEFAULT
+      : Math.min(CONST.BORDER.WEIGHT_MAX, Math.max(CONST.BORDER.WEIGHT_MIN, v));
+    ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
+    ctrl.m.renderHexagons();
+  };
+
+  ctrl.labelChk.onchange = () => {
+    ctrl.m.currentLabelShow = ctrl.labelChk.checked;
+    ctrl.m.renderHexagons();
+  };
+
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
     if (
       ctrl.schemeDropdown &&
@@ -248,137 +185,52 @@ const buildStyleSection = (ctrl: HeatmapControlUI) => {
       document.removeEventListener("click", ctrl.closeSchemeDropdown);
     }
   };
-  const origToggle = () => toggleSchemeDropdown(ctrl);
   ctrl.toggleSchemeDropdown = () => {
-    origToggle();
+    toggleSchemeDropdown(ctrl);
     if (ctrl.schemeDropdown)
       document.addEventListener("click", ctrl.closeSchemeDropdown);
   };
 
-  // Border settings
-  const borderRow = dom.el("div", {
-    class: CONST.CLASSES.FORM_ROW,
-    parent: styleSection,
-  });
-  dom.el("label", {
-    class: CONST.CLASSES.FORM_LABEL,
-    parent: borderRow,
-    innerHTML: _(`${CONF.name}.border`),
-  });
-  const borderControlWrap = dom.el("div", {
-    class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,
-    parent: borderRow,
-  });
-  ctrl.borderColorInput = dom.el("input", {
-    class: CONST.CLASSES.BORDER_COLOR_INPUT,
-    type: "color",
-    parent: borderControlWrap,
-    value: ctrl.m.borderColor,
-    oninput: () => {
-      ctrl.m.borderColor = ctrl.borderColorInput.value;
-      ctrl.m.renderHexagons();
-    },
-  }) as HTMLInputElement;
-  ctrl.borderWeightInput = dom.el("input", {
-    class: CONST.CLASSES.BORDER_WEIGHT_INPUT,
-    type: "number",
-    min: 0,
-    max: 10,
-    step: 0.5,
-    parent: borderControlWrap,
-    value: ctrl.m.borderWeight,
-    oninput: () => {
-      const v = parseFloat(ctrl.borderWeightInput.value);
-      if (!isNaN(v) && v >= 0 && v <= 10) {
-        ctrl.m.borderWeight = v;
-        ctrl.m.renderHexagons();
-      }
-    },
-    onchange: () => {
-      const v = parseFloat(ctrl.borderWeightInput.value);
-      ctrl.m.borderWeight = isNaN(v) ? 1 : Math.min(10, Math.max(0, v));
-      ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
-      ctrl.m.renderHexagons();
-    },
-  }) as HTMLInputElement;
+  const clearBtn = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.BTN_CLEAR}]`,
+  ) as HTMLButtonElement;
+  clearBtn.onclick = () => {
+    resetAll(ctrl);
+    syncSelect(ctrl, ctrl.layerSelect, "");
+    syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
+    syncSelect(
+      ctrl,
+      ctrl.classSelect,
+      String(CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
+    );
+    syncSelect(ctrl, ctrl.methodSelect, CONF.method ?? CONST.METHOD.JENKS);
+    ctrl.schemeSelectHidden.value = CONF.color_scheme ?? "Reds";
+    ctrl.labelChk.checked = CONF.label_show ?? false;
+    ctrl.borderWeightInput.value = String(
+      CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
+    );
+    ctrl.borderColorInput.value = CONF.border_color ?? CONST.GRAY;
+    updateSchemeBar(ctrl);
+    updateFieldSelector(ctrl);
+    ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
+    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+    adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+  };
 
-  // Label toggle
-  const labelRow = dom.el("div", {
-    class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.SECTION_BLOCK_LAST}`,
-    parent: styleSection,
-  });
-  dom.el("label", {
-    class: CONST.CLASSES.FORM_LABEL,
-    parent: labelRow,
-    innerHTML: _(`${CONF.name}.label`),
-  });
-  const labelControlWrap = dom.el("div", {
-    class: CONST.CLASSES.FORM_CONTROL,
-    parent: labelRow,
-  });
-  const labelToggle = dom.el("label", {
-    class: CONST.CLASSES.TOGGLE_SWITCH,
-    parent: labelControlWrap,
-  });
-  ctrl.labelChk = dom.el("input", {
-    type: "checkbox",
-    parent: labelToggle,
-    checked: ctrl.m.currentLabelShow,
-    onchange: () => {
-      ctrl.m.currentLabelShow = ctrl.labelChk.checked;
-      ctrl.m.renderHexagons();
-    },
-  }) as HTMLInputElement;
-  dom.el("span", {
-    class: CONST.CLASSES.TOGGLE_SLIDER,
-    parent: labelToggle,
-  });
-  dom.el("hr", {
-    class: CONST.CLASSES.SECTION_DIVIDER,
-    parent: ctrl.extraBody,
-  });
+  const confirmBtn = panelContent.querySelector(
+    `[${CONST.HM_DATA_ATTR.BTN_CONFIRM}]`,
+  ) as HTMLButtonElement;
+  confirmBtn.onclick = () => {
+    ctrl.m.renderHexagons();
+    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+    adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+  };
 
-  // Bottom action buttons
-  const btnRow = dom.el("div", {
-    class: CONST.CLASSES.BTN_ROW,
-    parent: ctrl.extraBody,
-  });
-  dom.el("button", {
-    class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CLEAR}`,
-    parent: btnRow,
-    innerHTML: _(`${CONF.name}.clear`),
-    onclick: () => {
-      resetAll(ctrl);
-      syncSelect(ctrl, ctrl.layerSelect, "");
-      syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
-      syncSelect(ctrl, ctrl.classSelect, String(CONF.n_classes ?? 6));
-      syncSelect(ctrl, ctrl.methodSelect, CONF.method ?? "jenks");
-      ctrl.schemeSelectHidden.value = CONF.color_scheme ?? "Reds";
-      ctrl.labelChk.checked = CONF.label_show ?? false;
-      ctrl.borderWeightInput.value = String(CONF.border_weight ?? 0);
-      ctrl.borderColorInput.value = CONF.border_color ?? "#999";
-      updateSchemeBar(ctrl);
-      updateFieldSelector(ctrl);
-      ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
-      ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-      ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-    },
-  });
-  dom.el("button", {
-    class: `${CONST.CLASSES.BTN} ${CONST.CLASSES.BTN_CONFIRM}`,
-    parent: btnRow,
-    innerHTML: _(`${CONF.name}.confirm`),
-    onclick: () => {
-      ctrl.m.renderHexagons();
-      ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-      ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-    },
-  });
+  updateSchemeBar(ctrl);
 };
 
-/** Set up MutationObserver to refresh layer dropdown on panel expand. */
 const setupObserver = (ctrl: HeatmapControlUI) => {
   ctrl.observer = new MutationObserver(() => {
     if (ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED) && !ctrl.expandHookDone) {
@@ -410,8 +262,6 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     dom.el("option", { value: info.id, parent: sel }, info.name);
   });
 
-  // Auto-select when only one point layer exists — skip the
-  // "Please select a point layer" step entirely.
   if (ctrl.m.pointLayers.length === 1 && !ctrl.m.selectedLayerId) {
     ctrl.m.selectedLayerId = ctrl.m.pointLayers[0].id;
     if (ctrl.extraBody) ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
@@ -434,7 +284,6 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
-  // Toggle extra body visibility based on current selection.
   if (ctrl.extraBody)
     ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
 };
@@ -483,7 +332,6 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
 };
 
-/** Render color blocks into a container. */
 const renderColorBar = (
   ctrl: HeatmapControlUI,
   container: HTMLElement,
@@ -620,12 +468,12 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.fieldAuto = true;
   ctrl.m.currentAgg = CONST.AGG.COUNT;
   ctrl.m.currentField = CONF.field ?? "";
-  ctrl.m.numClasses = CONF.n_classes ?? 6;
-  ctrl.m.currentMethod = CONF.method ?? "jenks";
+  ctrl.m.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+  ctrl.m.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
   ctrl.m.currentScheme = CONF.color_scheme ?? "Reds";
   ctrl.m.currentLabelShow = CONF.label_show ?? false;
-  ctrl.m.borderWeight = CONF.border_weight ?? 0;
-  ctrl.m.borderColor = CONF.border_color ?? "#999";
+  ctrl.m.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
+  ctrl.m.borderColor = CONF.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();
 };
 
@@ -634,10 +482,4 @@ const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string
   el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
 };
 
-export {
-  buildDataSection,
-  buildStyleSection,
-  initScan,
-  rebuildLayerDropdown,
-  setupObserver,
-};
+export { bindControls, initScan, rebuildLayerDropdown, setupObserver };

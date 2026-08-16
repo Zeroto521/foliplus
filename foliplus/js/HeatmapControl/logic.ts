@@ -104,15 +104,15 @@ class HeatmapManager {
     // State management
     this.selectedLayerId = null;
     this.pointLayers = [];
-    this.currentAgg = CONF.agg ?? "count";
+    this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
     this.currentField = CONF.field ?? "";
     this.currentScheme = CONF.color_scheme ?? "Reds";
-    this.currentMethod = CONF.method ?? "jenks";
+    this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
     this.autoFieldKey = null;
     this.fieldAuto = true;
-    this.numClasses = CONF.n_classes ?? 6;
-    this.borderWeight = CONF.border_weight ?? 0;
-    this.borderColor = CONF.border_color ?? "#999";
+    this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
+    this.borderColor = CONF.border_color ?? CONST.GRAY;
     this.currentLabelShow = CONF.label_show ?? false;
     this.valueFallbackWarned = false;
     // Create a managed canvas via LayerControl API.
@@ -398,7 +398,7 @@ class HeatmapManager {
     const lo = sorted[0];
     const hi = sorted[n - 1];
 
-    if (method === "jenks") {
+    if (method === CONST.METHOD.JENKS) {
       try {
         const clusters = ss.ckmeans(data, nClasses);
         const breaks: number[] = [clusters[0][0]];
@@ -408,12 +408,12 @@ class HeatmapManager {
         /* fall through */
       }
       return [lo, hi];
-    } else if (method === "quantile") {
+    } else if (method === CONST.METHOD.QUANTILE) {
       const b: number[] = [lo];
       for (let i = 1; i < nClasses; i++)
         b.push(ss.quantileSorted(sorted, i / nClasses));
       return b.concat(hi);
-    } else if (method === "heads") {
+    } else if (method === CONST.METHOD.HEADS) {
       const b: number[] = [lo];
       for (let i = 1; i < nClasses; i++)
         b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);

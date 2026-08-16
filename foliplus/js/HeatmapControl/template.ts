@@ -1,0 +1,110 @@
+// HeatmapControl DOM template — isolated from logic for maintainability.
+// Static HTML is built via innerHTML; dynamic/conditional rendering uses dom.el.
+//
+// Key elements use `data-hm-*` attributes so ui.ts can find them via querySelector.
+import * as CONST from "./const.js";
+
+/** Build the panel-content HTML string (data section + style section). */
+const panelContentHTML = (_: (key: string) => string): string => /* html */ `
+<div class="foliplus-heatmap-config-body">
+  <div class="foliplus-heatmap-section-heading">
+    ${_(`${CONF.name}.section_data`)}
+  </div>
+
+  <div class="foliplus-heatmap-form-row">
+    <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.layer`)}</label>
+    <div class="foliplus-heatmap-form-control">
+      <select class="foliplus-heatmap-form-select" ${CONST.HM_DATA_ATTR.LAYER}></select>
+    </div>
+  </div>
+
+  <div class="foliplus-heatmap-extra-body hidden" ${CONST.HM_DATA_ATTR.EXTRA_BODY}>
+
+    <div class="foliplus-heatmap-form-row">
+      <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.agg_method`)}</label>
+      <div class="foliplus-heatmap-form-control">
+        <select class="foliplus-heatmap-form-select" ${CONST.HM_DATA_ATTR.AGG}>
+          <option value="${CONST.AGG.COUNT}">${_(`${CONF.name}.agg_count`)}</option>
+          <option value="${CONST.AGG.SUM}">${_(`${CONF.name}.agg_sum`)}</option>
+          <option value="${CONST.AGG.AVG}">${_(`${CONF.name}.agg_avg`)}</option>
+          <option value="${CONST.AGG.MIN}">${_(`${CONF.name}.agg_min`)}</option>
+          <option value="${CONST.AGG.MAX}">${_(`${CONF.name}.agg_max`)}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="foliplus-heatmap-form-row foliplus-heatmap-field hidden" ${CONST.HM_DATA_ATTR.FIELD}>
+      <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.field`)}</label>
+      <div class="foliplus-heatmap-form-control">
+        <select class="foliplus-heatmap-form-select" ${CONST.HM_DATA_ATTR.FIELD_SELECT}></select>
+      </div>
+    </div>
+
+    <div class="foliplus-heatmap-section-heading">
+      ${_(`${CONF.name}.section_style`)}
+    </div>
+
+    <div class="foliplus-heatmap-section-block">
+      <div class="foliplus-heatmap-form-row">
+        <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.class_method`)}</label>
+        <div class="foliplus-heatmap-form-control foliplus-heatmap-form-inline">
+          <select class="foliplus-heatmap-form-select" ${CONST.HM_DATA_ATTR.METHOD}>
+            <option value="${CONST.METHOD.JENKS}">${_(`${CONF.name}.jenks`)}</option>
+            <option value="${CONST.METHOD.QUANTILE}">${_(`${CONF.name}.quantile`)}</option>
+            <option value="${CONST.METHOD.EQUAL}">${_(`${CONF.name}.equal`)}</option>
+            <option value="${CONST.METHOD.HEADS}">${_(`${CONF.name}.heads`)}</option>
+          </select>
+          <select class="foliplus-heatmap-form-select foliplus-heatmap-class-select" ${CONST.HM_DATA_ATTR.CLASS_COUNT}>
+            <option value="${CONST.CLASS_COUNT.MIN}">${CONST.CLASS_COUNT.MIN}</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="${CONST.CLASS_COUNT.MAX}">${CONST.CLASS_COUNT.MAX}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="foliplus-heatmap-form-row">
+        <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.scheme`)}</label>
+        <div class="foliplus-heatmap-form-control" ${CONST.HM_DATA_ATTR.SCHEME_CTRL}>
+          <div class="foliplus-heatmap-scheme-bar" tabindex="0" role="combobox">
+            <div class="foliplus-heatmap-scheme-bar-inner"></div>
+          </div>
+          <select class="hidden" ${CONST.HM_DATA_ATTR.SCHEME_HIDDEN}></select>
+        </div>
+      </div>
+
+      <div class="foliplus-heatmap-form-row">
+        <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.border`)}</label>
+        <div class="foliplus-heatmap-form-control foliplus-heatmap-form-inline">
+          <input class="foliplus-heatmap-color-input" type="color" ${CONST.HM_DATA_ATTR.BORDER_COLOR}>
+          <input class="foliplus-heatmap-weight-input" type="number" min="${CONST.BORDER.WEIGHT_MIN}" max="${CONST.BORDER.WEIGHT_MAX}" step="${CONST.BORDER.WEIGHT_STEP}" ${CONST.HM_DATA_ATTR.BORDER_WEIGHT}>
+        </div>
+      </div>
+
+      <div class="foliplus-heatmap-form-row foliplus-heatmap-section-block-last">
+        <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.label`)}</label>
+        <div class="foliplus-heatmap-form-control">
+          <label class="foliplus-heatmap-toggle-switch">
+            <input type="checkbox" ${CONST.HM_DATA_ATTR.LABEL_CHK}>
+            <span class="foliplus-heatmap-toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+
+    <hr class="foliplus-section-divider">
+
+    <div class="foliplus-heatmap-btn-row">
+      <button class="foliplus-heatmap-btn foliplus-heatmap-btn-clear" ${CONST.HM_DATA_ATTR.BTN_CLEAR}>${_(`${CONF.name}.clear`)}</button>
+      <button class="foliplus-heatmap-btn foliplus-heatmap-btn-confirm" ${CONST.HM_DATA_ATTR.BTN_CONFIRM}>${_(`${CONF.name}.confirm`)}</button>
+    </div>
+
+  </div>
+</div>`;
+
+export { panelContentHTML };
