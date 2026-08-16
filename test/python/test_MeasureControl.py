@@ -45,6 +45,28 @@ class TestMeasureControlPython:
     def test_custom_show_bearing(self):
         assert MeasureControl(show_bearing=False).show_bearing is False
 
+    def test_default_export_format(self):
+        assert MeasureControl().export_format == "geojson"
+
+    def test_custom_export_format_csv(self):
+        assert MeasureControl(export_format="csv").export_format == "csv"
+
+    def test_custom_export_format_kml(self):
+        assert MeasureControl(export_format="kml").export_format == "kml"
+
+    def test_export_format_in_export_fields(self):
+        assert "export_format" in MeasureControl._export_fields
+
+    def test_export_format_combined_with_other_params(self):
+        mc = MeasureControl(
+            position="topleft",
+            show_bearing=False,
+            export_format="kml",
+        )
+        assert mc.position == "topleft"
+        assert mc.show_bearing is False
+        assert mc.export_format == "kml"
+
 
 class TestMeasureControlRendering:
     def test_default_params(self):
@@ -91,6 +113,29 @@ class TestMeasureControlRendering:
         """Tool buttons use the tool-btn class."""
         html = render_control(MeasureControl())
         assert "tool-btn" in html
+
+    # ── export_format rendering ──
+
+    def test_export_format_default_geojson(self):
+        """export_format defaults to 'geojson' in rendered HTML."""
+        html = render_control(MeasureControl())
+        assert_config_value(html, "export_format", "geojson")
+
+    def test_export_format_csv(self):
+        """export_format='csv' renders the correct value in CONF."""
+        html = render_control(MeasureControl(export_format="csv"))
+        assert_config_value(html, "export_format", "csv")
+
+    def test_export_format_kml(self):
+        """export_format='kml' renders the correct value in CONF."""
+        html = render_control(MeasureControl(export_format="kml"))
+        assert_config_value(html, "export_format", "kml")
+
+    def test_export_locale_zh(self):
+        """zh locale renders export translation."""
+        html = render_control(MeasureControl(locale="zh"))
+        assert "tool_export" in html
+        assert "导出" in html
 
     # ── Finish animation tests ──
 
@@ -188,12 +233,29 @@ class TestMeasureControlBrowser:
         return page, errors
 
     def test_tool_buttons_render(self, browser, tmp_path):
-        """Tool buttons are present in the DOM."""
+        """Tool buttons are present in the DOM, including the export button."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             btns = page.evaluate(
                 "document.querySelectorAll('.foliplus-measure-ctrl .foliplus-tool-btn').length"
             )
-            assert btns >= 3
+            # 5 original buttons (marker/distance/polygon/circle/clear) + 1 export
+            assert btns >= 6
+            assert not errors, f"JS errors: {errors}"
+
+    def test_export_button_present(self, browser, tmp_path):
+        """Export button is rendered with the correct data-mode attribute."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            mode = page.evaluate(
+                "document.querySelector('[data-mode=export]')?.dataset?.mode"
+            )
+            assert mode == "export", f"Expected export button with data-mode=export, got {mode!r}"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_export_no_data_hint_when_empty(self, browser, tmp_path):
+        """Clicking export button with no measurements shows a hint, not an error."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate("document.querySelector('[data-mode=export]').click()")
+            page.wait_for_timeout(500)
             assert not errors, f"JS errors: {errors}"
 
     def test_distance_labels_show_bearing(self, browser, tmp_path):
