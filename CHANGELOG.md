@@ -4,7 +4,11 @@
 
 ### Added
 
+<<<<<<< HEAD
 - `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170))
+=======
+- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos; companion World File (`.pgw`) auto-generated alongside exports for georeferenced analysis in QGIS/ArcGIS ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#171](https://github.com/Zeroto521/foliplus/pull/171))
+>>>>>>> 55dd16a (changelog(ExportControl): consolidate World File entry under Added section)
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
@@ -14,8 +18,6 @@
 - `LayerControl`: keyboard shortcuts for layer panel — `ArrowUp`/`ArrowDown`/`ArrowLeft`/`ArrowRight`/`Space`/`Enter`/`Escape` and `Ctrl+ArrowUp`/`Ctrl+ArrowDown` for reorder. Added `moveLayerUp(id)` and `moveLayerDown(id)` to `LayerAPI` ([#156](https://github.com/Zeroto521/foliplus/pull/156))
 
 ### Changed
-
-- `ExportControl`: exports now automatically include a companion World File (`.pgw`) that makes the PNG georeferenced — drag both files into QGIS / ArcGIS to position the image on the map with no extra setup. The `.pgw` is derived from the crop area's geo bounds and the rendered canvas pixel dimensions; it is a zero-cost text file, no third-party dependencies
 
 - `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 - `LayerControl`: rework internal architecture into `LayerRegistry` (ordered layer list, read-only `api.layers`) + `PaneManager` (pane lifecycle: creation, discovery cache, fallback mapping, DOM migration) + `LayerUI` (fold/drag/color state), orchestrated by a slim `LayerManager` ([#117](https://github.com/Zeroto521/foliplus/pull/117), [#119](https://github.com/Zeroto521/foliplus/pull/119), [#120](https://github.com/Zeroto521/foliplus/pull/120), [#121](https://github.com/Zeroto521/foliplus/pull/121))
