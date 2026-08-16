@@ -59,12 +59,20 @@ export class KeyboardManager {
     this.map = map;
   }
 
-  /** Register one or more shortcuts for a component. */
-  register(component: string, defs: ShortcutDef[]): void {
+  /**
+   * Register one or more shortcuts for a component.
+   * @param component - Component name
+   * @param defs - Shortcut definitions
+   * @param container - Optional default container applied to all shortcuts that don't specify their own container
+   */
+  register(component: string, defs: ShortcutDef[], container?: HTMLElement): void {
     for (const d of defs) {
       const def = { ...d, component };
+      // Apply default container if not specified on the shortcut itself
+      if (container && !def.container && !def.element) {
+        def.container = container;
+      }
       if (def.element) {
-        // Element-level: bind directly to the element
         const handler = (event: Event) => {
           const ke = event as KeyboardEvent;
           if (def.key !== ke.key) return;
@@ -77,7 +85,6 @@ export class KeyboardManager {
           def.handler();
         };
         def.element.addEventListener("keydown", handler);
-        // Store handler for cleanup
         (def as any)._elementHandler = handler;
       }
       this.shortcuts.push(def);
