@@ -86,26 +86,26 @@ describe("BORDER", () => {
   });
 });
 
-describe("HM_DATA_ATTR", () => {
+describe("DATA_ATTR", () => {
   it("defines all data-hm-* attribute names", () => {
-    expect(CONST.HM_DATA_ATTR.LAYER).toBe("data-hm-layer");
-    expect(CONST.HM_DATA_ATTR.EXTRA_BODY).toBe("data-hm-extra-body");
-    expect(CONST.HM_DATA_ATTR.AGG).toBe("data-hm-agg");
-    expect(CONST.HM_DATA_ATTR.FIELD).toBe("data-hm-field");
-    expect(CONST.HM_DATA_ATTR.FIELD_SELECT).toBe("data-hm-field-select");
-    expect(CONST.HM_DATA_ATTR.METHOD).toBe("data-hm-method");
-    expect(CONST.HM_DATA_ATTR.CLASS_COUNT).toBe("data-hm-class-count");
-    expect(CONST.HM_DATA_ATTR.SCHEME_CTRL).toBe("data-hm-scheme-ctrl");
-    expect(CONST.HM_DATA_ATTR.SCHEME_HIDDEN).toBe("data-hm-scheme-hidden");
-    expect(CONST.HM_DATA_ATTR.BORDER_COLOR).toBe("data-hm-border-color");
-    expect(CONST.HM_DATA_ATTR.BORDER_WEIGHT).toBe("data-hm-border-weight");
-    expect(CONST.HM_DATA_ATTR.LABEL_CHK).toBe("data-hm-label-chk");
-    expect(CONST.HM_DATA_ATTR.BTN_CLEAR).toBe("data-hm-btn-clear");
-    expect(CONST.HM_DATA_ATTR.BTN_CONFIRM).toBe("data-hm-btn-confirm");
+    expect(CONST.DATA_ATTR.LAYER).toBe("data-hm-layer");
+    expect(CONST.DATA_ATTR.EXTRA_BODY).toBe("data-hm-extra-body");
+    expect(CONST.DATA_ATTR.AGG).toBe("data-hm-agg");
+    expect(CONST.DATA_ATTR.FIELD).toBe("data-hm-field");
+    expect(CONST.DATA_ATTR.FIELD_SELECT).toBe("data-hm-field-select");
+    expect(CONST.DATA_ATTR.METHOD).toBe("data-hm-method");
+    expect(CONST.DATA_ATTR.CLASS_COUNT).toBe("data-hm-class-count");
+    expect(CONST.DATA_ATTR.SCHEME_CTRL).toBe("data-hm-scheme-ctrl");
+    expect(CONST.DATA_ATTR.SCHEME_HIDDEN).toBe("data-hm-scheme-hidden");
+    expect(CONST.DATA_ATTR.BORDER_COLOR).toBe("data-hm-border-color");
+    expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-hm-border-weight");
+    expect(CONST.DATA_ATTR.LABEL_CHK).toBe("data-hm-label-chk");
+    expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-hm-btn-clear");
+    expect(CONST.DATA_ATTR.BTN_CONFIRM).toBe("data-hm-btn-confirm");
   });
 
   it("has 14 data-hm attribute keys", () => {
-    const keys = Object.keys(CONST.HM_DATA_ATTR);
+    const keys = Object.keys(CONST.DATA_ATTR);
     expect(keys.length).toBe(14);
   });
 });
