@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
+import { describe, expect, it } from "vitest";
 
 const __dirname = resolve(fileURLToPath(import.meta.url), "../../../..");
 const distDir = resolve(__dirname, "foliplus/dist");
@@ -59,17 +59,26 @@ describe("build artifacts", () => {
   });
 
   it("component JS externalizes BaseControl", () => {
-    const content = readFileSync(resolve(distDir, "foliplus-ScaleControl.min.js"), "utf-8");
+    const content = readFileSync(
+      resolve(distDir, "foliplus-ScaleControl.min.js"),
+      "utf-8",
+    );
     expect(content).toContain("foliplus.BaseControl");
   });
 
   it("component JS externalizes common modules", () => {
-    const content = readFileSync(resolve(distDir, "foliplus-ExportControl.min.js"), "utf-8");
+    const content = readFileSync(
+      resolve(distDir, "foliplus-ExportControl.min.js"),
+      "utf-8",
+    );
     expect(content).toContain("foliplus.common");
   });
 
   it("component JS does NOT bundle common modules", () => {
-    const content = readFileSync(resolve(distDir, "foliplus-ScaleControl.min.js"), "utf-8");
+    const content = readFileSync(
+      resolve(distDir, "foliplus-ScaleControl.min.js"),
+      "utf-8",
+    );
     expect(content).not.toContain("class BaseControl");
   });
 

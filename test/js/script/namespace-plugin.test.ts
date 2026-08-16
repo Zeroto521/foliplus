@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { collectExports, sharedGlobalNamespace } from "../../../script/global-namespace-plugin.mjs";
+import {
+  collectExports,
+  sharedGlobalNamespace,
+} from "../../../script/global-namespace-plugin.mjs";
 
 describe("sharedGlobalNamespace", () => {
   it("maps BaseControl to foliplus.BaseControl", () => {
-    expect(sharedGlobalNamespace("#foliplus/BaseControl.js")).toBe("foliplus.BaseControl");
+    expect(sharedGlobalNamespace("#foliplus/BaseControl.js")).toBe(
+      "foliplus.BaseControl",
+    );
   });
 
   it("maps hint.js to foliplus.hint", () => {
@@ -151,6 +156,10 @@ function createTempFile(name, content) {
   fs.writeFileSync(filePath, content, "utf-8");
   return {
     path: filePath,
-    cleanup: () => { try { fs.unlinkSync(filePath); } catch {} },
+    cleanup: () => {
+      try {
+        fs.unlinkSync(filePath);
+      } catch {}
+    },
   };
 }

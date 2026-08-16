@@ -1,7 +1,7 @@
-import { describe, expect, it, afterEach } from "vitest";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
-import { join, resolve } from "path";
 import { tmpdir } from "os";
+import { join, resolve } from "path";
+import { afterEach, describe, expect, it } from "vitest";
 import { scanImports } from "../../../script/scan-registry.mjs";
 
 const FS = require("fs");
@@ -12,7 +12,9 @@ let tmpDir: string;
 
 afterEach(() => {
   if (tmpDir) {
-    try { FS.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try {
+      FS.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
   }
 });
 
