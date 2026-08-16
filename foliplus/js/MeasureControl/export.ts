@@ -153,9 +153,7 @@ function circlePoints(
  * Convert measurements array to a complete GeoJSON FeatureCollection.
  */
 export function toGeoJSON(measurements: MeasureData[]): string {
-  const features = measurements
-    .filter(m => m.type)
-    .map(m => toGeoFeature(m));
+  const features = measurements.filter(m => m.type).map(m => toGeoFeature(m));
 
   return JSON.stringify(
     {
@@ -271,7 +269,10 @@ function getCoordinatesForType(data: MeasureData): string[] {
   if (data.type === CONST.MODE.MARKER && data.lat != null && data.lng != null) {
     return [`[${data.lng},${data.lat}]`];
   }
-  if ((data.type === CONST.MODE.DISTANCE || data.type === CONST.MODE.POLYGON) && data.points) {
+  if (
+    (data.type === CONST.MODE.DISTANCE || data.type === CONST.MODE.POLYGON) &&
+    data.points
+  ) {
     return data.points.map(p => `[${p.lng},${p.lat}]`);
   }
   if (data.type === CONST.MODE.CIRCLE && data.center) {
@@ -324,12 +325,7 @@ export function toKML(measurements: MeasureData[]): string {
 
       case CONST.MODE.CIRCLE: {
         if (data.center && data.target && data.radius && data.radius > 0) {
-          const pts = circlePoints(
-            data.center.lng,
-            data.center.lat,
-            data.radius,
-            64,
-          );
+          const pts = circlePoints(data.center.lng, data.center.lat, data.radius, 64);
           const coords = pts.map(p => kmlCoord(p)).join(" ");
           geometry = `<Polygon><tessellate>1</tessellate><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon>`;
         }

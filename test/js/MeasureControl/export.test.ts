@@ -303,4 +303,3 @@ describe("Export.toKML", () => {
     expect(kml).toContain("5000 m");
   });
 });
-

@@ -248,7 +248,9 @@ class TestMeasureControlBrowser:
             mode = page.evaluate(
                 "document.querySelector('[data-mode=export]')?.dataset?.mode"
             )
-            assert mode == "export", f"Expected export button with data-mode=export, got {mode!r}"
+            assert mode == "export", (
+                f"Expected export button with data-mode=export, got {mode!r}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_export_no_data_hint_when_empty(self, browser, tmp_path):

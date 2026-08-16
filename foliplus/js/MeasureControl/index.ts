@@ -9,9 +9,9 @@ import {
   createFoldControl,
 } from "#common/panel.js";
 import * as CONST from "./const.js";
+import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
-import * as Export from "./export.js";
 
 const { _ } = createControlEnv(CONF, SVGs.RULER);
 ensureLayerAPI(map);
@@ -88,11 +88,7 @@ class MeasureControl extends BaseControl {
       event.stopPropagation();
       const measurements = this.m.measurements;
       if (!measurements || measurements.length === 0) {
-        map.foliplus?.showHint?.(
-          CONF.name,
-          _(`${CONF.name}.export_no_data`),
-          2000,
-        );
+        map.foliplus?.showHint?.(CONF.name, _(`${CONF.name}.export_no_data`), 2000);
         return;
       }
       const format = Export.getDefaultFormat();
