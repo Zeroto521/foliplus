@@ -48,16 +48,6 @@ class LayerControl(BaseControl):
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
-    Notes
-    -----
-    Layer identification relies on map._layers and the window global variable at
-    runtime. The initial layer list is collected during rendering by traversing the
-    parent map's children.
-
-    Layer reordering via keyboard (Ctrl+Up / Ctrl+Down) respects the same group
-    boundaries as drag-and-drop: overlay layers stay in the overlay group, base
-    layers stay in the base group. Reaching the top or bottom of a group shows
-    a brief hint.
 
     Examples
     --------
