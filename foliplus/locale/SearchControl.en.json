@@ -15,5 +15,8 @@
   "SearchControl.clear_title": "Clear",
   "SearchControl.mode_coord": "Coordinate Search",
   "SearchControl.mode_addr": "Address Search",
-  "SearchControl.blocked": "Search is temporarily unavailable"
+  "SearchControl.blocked": "Search is temporarily unavailable",
+  "SearchControl.history_title": "Search History",
+  "SearchControl.history_clear_all": "Clear All",
+  "SearchControl.history_delete": "Delete this entry"
 }

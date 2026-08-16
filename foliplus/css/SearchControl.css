@@ -92,3 +92,64 @@
   word-break: break-word;
   overflow-wrap: break-word;
 }
+
+/* ── Search History Panel ── */
+.foliplus-search-history-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: var(--border-thin) solid var(--input-border);
+  background: var(--panel-bg);
+}
+.foliplus-search-history-group-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.foliplus-search-history-group-clear {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  background: transparent;
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  line-height: 1;
+
+  &:hover {
+    color: var(--accent-primary);
+    background: var(--accent-light);
+    border-color: var(--accent-primary);
+  }
+}
+
+.foliplus-search-history-item-del {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctrl-size-xs);
+  height: var(--ctrl-size-xs);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition: color var(--transition-fast), opacity var(--transition-fast), background var(--transition-fast);
+
+  &:hover {
+    color: var(--accent-primary);
+    background: var(--accent-light);
+  }
+
+  .foliplus-search-history-item:hover & {
+    opacity: 1;
+  }
+}

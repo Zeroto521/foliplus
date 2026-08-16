@@ -19,6 +19,22 @@ export interface AddressResult {
   displayName: string;
 }
 
+/** A single entry in the user's search history, persisted to localStorage. */
+export interface SearchHistoryEntry {
+  /** The raw query text the user typed (coord "121.47,31.23" or addr keyword). */
+  query: string;
+  /** Search type: "coord" for coordinate, "addr" for address keyword. */
+  type: "coord" | "addr";
+  /** Human-readable label displayed in the history list (formatted address or coord). */
+  label: string;
+  /** Result latitude (WGS84). */
+  lat: number;
+  /** Result longitude (WGS84). */
+  lng: number;
+  /** Timestamp when this search was completed. */
+  ts: number;
+}
+
 /** Public shape of the SearchControl instance, shared across sub-modules. */
 export interface SearchControl extends BaseControl {
   container: HTMLElement;
@@ -31,6 +47,7 @@ export interface SearchControl extends BaseControl {
   debouncedFetch: Debounced;
   cachedSuggestions: Cache<string, NominatimItem[]>;
   cachedAddress: Record<string, AddressResult>;
+  searchHistory: SearchHistoryEntry[];
   scrollTargets: Array<Element | Window>;
   repositionHandler: () => void;
   addrAbortController: AbortController | null;

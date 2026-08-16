@@ -1,7 +1,7 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
-import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./const.js";
+import { CLASSES, MODE, PARAM } from "./const.js";
 import {
   fetchSuggestions,
   positionSuggestions,
@@ -12,6 +12,15 @@ import {
 import type { SearchControl } from "./type.js";
 
 const { _ } = createControlEnv(CONF);
+
+/**
+ * Read the text label from any item in the suggestions/history panel.
+ * Both suggestion items and history items (which reuse suggestion classes)
+ * expose their label via the same `.SUGGESTION_TEXT` span.
+ */
+const getItemText = (item: Element): string | null => {
+  return item.querySelector(`.${CLASSES.SUGGESTION_TEXT}`)?.textContent ?? null;
+};
 
 /**
  * Bind all DOM events for the SearchControl.
@@ -76,9 +85,7 @@ const bindEvents = (ctrl: SearchControl) => {
         el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
       );
       if (items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
-            ?.textContent ?? "";
+        ctrl.inp.value = getItemText(items[ctrl.selectedSuggestionIdx]) ?? "";
       return;
     }
     if (event.key === "ArrowUp" && ctrl.suggestionsWrap) {
@@ -89,9 +96,7 @@ const bindEvents = (ctrl: SearchControl) => {
         el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
       );
       if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
-            ?.textContent ?? "";
+        ctrl.inp.value = getItemText(items[ctrl.selectedSuggestionIdx]) ?? "";
       return;
     }
     if (event.key === "Enter") {
@@ -107,7 +112,8 @@ const bindEvents = (ctrl: SearchControl) => {
   ctrl.inp.addEventListener("focus", () => {
     if (ctrl.mode === MODE.ADDR) {
       const val = ctrl.inp.value.trim();
-      if (val.length >= AUTOCOMPLETE.MIN_CHARS) fetchSuggestions(ctrl, val);
+      // Empty input → show search history; non-empty → fetch suggestions
+      fetchSuggestions(ctrl, val);
     }
   });
 

@@ -15,5 +15,8 @@
   "SearchControl.clear_title": "清除",
   "SearchControl.mode_coord": "坐标搜索",
   "SearchControl.mode_addr": "地址搜索",
-  "SearchControl.blocked": "搜索暂不可用"
+  "SearchControl.blocked": "搜索暂不可用",
+  "SearchControl.history_title": "搜索历史",
+  "SearchControl.history_clear_all": "全部清除",
+  "SearchControl.history_delete": "删除该条记录"
 }

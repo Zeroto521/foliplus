@@ -27,6 +27,7 @@ function makeCtrl(): any {
     selectedSuggestionIdx: -1,
     cachedAddress: {},
     cachedSuggestions: new Cache<string, object>(50),
+    searchHistory: [],
   };
 }
 

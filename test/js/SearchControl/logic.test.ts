@@ -96,7 +96,7 @@ describe("searchCoord", () => {
   });
 
   it("shows hint and clears input for invalid coordinates", () => {
-    const ctrl: any = { inp: { value: "" }, marker: null };
+    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "abc");
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
@@ -107,7 +107,7 @@ describe("searchCoord", () => {
   });
 
   it("shows hint for out-of-range values", () => {
-    const ctrl: any = { inp: { value: "" }, marker: null };
+    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "200,100");
     expect(window.map.foliplus.showHint).toHaveBeenCalled();
     expect(ctrl.inp.value).toBe("");
@@ -117,9 +117,11 @@ describe("searchCoord", () => {
     const ctrl: any = {
       inp: { value: "121.47,31.23" },
       marker: null,
+      searchHistory: [],
     };
     searchCoord(ctrl, "121.47,31.23");
     expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 16);
+    expect(ctrl.searchHistory).toHaveLength(1);
   });
 });
 
@@ -165,6 +167,7 @@ describe("searchAddress", () => {
       addrAbortController: null,
       inp: { value: "X" },
       marker: null,
+      searchHistory: [],
     };
     searchAddress(ctrl, "X");
     await new Promise(r => setTimeout(r, 0));
@@ -184,6 +187,7 @@ describe("searchAddress", () => {
       addrAbortController: null,
       inp: { value: "X" },
       marker: null,
+      searchHistory: [],
     };
     searchAddress(ctrl, "X");
     expect(globalThis.fetch).not.toHaveBeenCalled();
