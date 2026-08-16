@@ -7,6 +7,8 @@ from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
+
+
 METHOD = Literal["jenks", "quantile", "equal", "heads"]
 AGG = Literal["count", "sum", "avg", "min", "max"]
 
@@ -55,37 +57,35 @@ class HeatmapControl(BaseControl):
         List of available color scheme names. Can include custom hex values like
         ``["#f00", "#0f0", "#00f"]``.
 
-    style : dict, optional
-        Grid style overrides. Supported keys:
+    field : str, default "auto"
+        Property name to aggregate on. ``"auto"`` counts features per hexagon
+        (auto-detected from the first numeric property); any other string
+        aggregates that numeric property.
 
-        - ``field`` (optional)
-          property name to aggregate on. ``null`` / ``"auto"`` counts features per
-          hexagon; any other string aggregates that numeric property.
+    border_weight : float, default 1.5
+        Hexagon border width in canvas units.
 
-        - ``border_weight`` (float, default 1.5)
-          border width
+    border_color : str, default "#333333"
+        Hexagon border color.
 
-        - ``border_color`` (str, default "#333333")
-          border color
+    fill_opacity : float, default 0.7
+        Hexagon fill opacity.
 
-        - ``fill_opacity`` (float, default 0.7)
-          fill opacity
+    border_opacity : float, default 0.9
+        Hexagon border opacity.
 
-        - ``border_opacity`` (float, default 0.9)
-          border opacity
+    label_show : bool, default True
+        Whether to show the aggregated value as a label at each hex center.
 
-        - ``label_show`` (bool, default True)
-          show aggregated value at hex center
+    label_size : int, default 11
+        Label font size (px).
 
-        - ``label_size`` (int, default 11)
-          label font size
+    label_color : str, default "#fff"
+        Label text color.
 
-        - ``label_color`` (str, default "#fff")
-          label color
-
-        - ``label_format`` (str, default "auto")
-          number format: ``"auto"`` (10K/1K suffix), ``"int"``, ``"comma"``
-          (thousands separator)
+    label_format : str, default "auto"
+        Number format for labels: ``"auto"`` (10K/1K suffix), ``"int"``,
+        or ``"comma"`` (thousands separator).
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
@@ -97,6 +97,7 @@ class HeatmapControl(BaseControl):
     >>> from foliplus import HeatmapControl
     >>> m = folium.Map()
     >>> HeatmapControl().add_to(m)
+    >>> HeatmapControl(field="value", border_weight=2.0, label_show=False).add_to(m)
     """
 
     default_js = [
@@ -111,9 +112,6 @@ class HeatmapControl(BaseControl):
         ),
     ]
 
-    # The style dict is unpacked into flat instance attributes at init time so that
-    # each sub-field is individually serializable via _export_fields. This avoids
-    # passing a nested dict that the JS side would have to re-parse.
     _export_fields = (
         "field",
         "color_scheme",
@@ -140,9 +138,17 @@ class HeatmapControl(BaseControl):
         n_classes: int = 6,
         agg: AGG = "count",
         schemes: list[str] | None = None,
-        style: dict | None = None,
+        field: str = "auto",
+        border_weight: float = 1.5,
+        border_color: str = "#333333",
+        fill_opacity: float = 0.7,
+        border_opacity: float = 0.9,
+        label_show: bool = True,
+        label_size: int = 11,
+        label_color: str = "#fff",
+        label_format: str = "auto",
         locale: str | LocaleConfig | None = None,
-    ):
+       ):
         if method not in get_args(METHOD):
             raise ValueError(
                 f"method must be one of {get_args(METHOD)}, got {method!r}"
@@ -155,17 +161,7 @@ class HeatmapControl(BaseControl):
             raise ValueError(f"agg must be one of {get_args(AGG)}, got {agg!r}")
 
         super().__init__(position=position, locale=locale)
-        style = {
-            "border_weight": 1.5,
-            "border_color": "#333333",
-            "fill_opacity": 0.7,
-            "border_opacity": 0.9,
-            "label_show": True,
-            "label_size": 11,
-            "label_color": "#fff",
-            "label_format": "auto",
-        } | (style or {})
-        self.field = style.get("field", "auto")
+        self.field = field
         self.color_scheme = color_scheme
         self.method = method
         self.n_classes = n_classes
@@ -179,12 +175,12 @@ class HeatmapControl(BaseControl):
             "YlOrRd",
             "Viridis",
         ]
-        self.border_weight = style["border_weight"]
-        self.border_color = style["border_color"]
-        self.fill_opacity = style["fill_opacity"]
-        self.border_opacity = style["border_opacity"]
-        self.label_show = style["label_show"]
-        self.label_size = style["label_size"]
-        self.label_color = style["label_color"]
-        self.label_format = style["label_format"]
+        self.border_weight = border_weight
+        self.border_color = border_color
+        self.fill_opacity = fill_opacity
+        self.border_opacity = border_opacity
+        self.label_show = label_show
+        self.label_size = label_size
+        self.label_color = label_color
+        self.label_format = label_format
         self._template = self._get_template()
