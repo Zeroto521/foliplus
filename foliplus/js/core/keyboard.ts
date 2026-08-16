@@ -19,8 +19,12 @@ export interface ShortcutDef {
   /** Higher priority wins when multiple shortcuts match the same key.
    *  Default 0. Negative values are allowed for fallback handlers. */
   priority?: number;
-  /** If set, the shortcut only fires when the container (or a child) has focus */
+  /** If set, the shortcut only fires when the container (or a child) has focus.
+   *  Uses document-level listener with focus check. */
   container?: HTMLElement;
+  /** If set, binds keydown directly to this element instead of the document.
+   *  Only fires when this element has focus (native behavior). */
+  element?: HTMLElement;
   /** Component name for debugging */
   component?: string;
 }
@@ -58,19 +62,48 @@ export class KeyboardManager {
   /** Register one or more shortcuts for a component. */
   register(component: string, defs: ShortcutDef[]): void {
     for (const d of defs) {
-      this.shortcuts.push({ ...d, component });
+      const def = { ...d, component };
+      if (def.element) {
+        // Element-level: bind directly to the element
+        const handler = (event: Event) => {
+          const ke = event as KeyboardEvent;
+          if (def.key !== ke.key) return;
+          if (def.ctrl && !ke.ctrlKey && !ke.metaKey) return;
+          if (def.meta && !ke.metaKey) return;
+          if (def.shift && !ke.shiftKey) return;
+          if (def.alt && !ke.altKey) return;
+          ke.preventDefault();
+          ke.stopPropagation();
+          def.handler();
+        };
+        def.element.addEventListener("keydown", handler);
+        // Store handler for cleanup
+        (def as any)._elementHandler = handler;
+      }
+      this.shortcuts.push(def);
     }
     this.ensureListener();
   }
 
   /** Unregister all shortcuts for a component. */
   unregister(component: string): void {
+    const removed = this.shortcuts.filter(s => s.component === component);
+    for (const s of removed) {
+      if (s.element && (s as any)._elementHandler) {
+        s.element.removeEventListener("keydown", (s as any)._elementHandler);
+      }
+    }
     this.shortcuts = this.shortcuts.filter(s => s.component !== component);
     if (this.shortcuts.length === 0) this.removeListener();
   }
 
   /** Clear all shortcuts. */
   clear(): void {
+    for (const s of this.shortcuts) {
+      if (s.element && (s as any)._elementHandler) {
+        s.element.removeEventListener("keydown", (s as any)._elementHandler);
+      }
+    }
     this.shortcuts = [];
     this.removeListener();
   }
