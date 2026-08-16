@@ -142,7 +142,14 @@ describe("bindEvents", () => {
     ctrl.mode = "addr";
     ctrl.inp.value = "";
     ctrl.searchHistory = [
-      { query: "Paris", type: "addr", label: "Paris, France", lat: 48.8, lng: 2.3, ts: 1000 },
+      {
+        query: "Paris",
+        type: "addr",
+        label: "Paris, France",
+        lat: 48.8,
+        lng: 2.3,
+        ts: 1000,
+      },
     ];
     bindEvents(ctrl);
     ctrl._handlers.focus();
@@ -167,10 +174,12 @@ describe("bindEvents", () => {
     // History panel: group header (non-text item) + history entry
     const header = document.createElement("div");
     header.className = "foliplus-search-history-group-header";
-    header.innerHTML = '<span class="foliplus-search-history-group-title">Search History</span>';
+    header.innerHTML =
+      '<span class="foliplus-search-history-group-title">Search History</span>';
     const item = document.createElement("div");
     item.className = "foliplus-search-suggestion-item";
-    item.innerHTML = '<span class="foliplus-search-suggestion-icon">📍</span><span class="foliplus-search-suggestion-text">Paris, France</span>';
+    item.innerHTML =
+      '<span class="foliplus-search-suggestion-icon">📍</span><span class="foliplus-search-suggestion-text">Paris, France</span>';
     ctrl.suggestionsWrap.append(header, item);
     bindEvents(ctrl);
 
