@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildPopupHtml,
   createIconButton,
@@ -6,7 +7,6 @@ import {
   escapeHTML,
   stopEvent,
 } from "#common/dom.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("dom.el", () => {
   it("creates a basic element with tag", () => {

@@ -1,6 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/logic.js";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** Build a minimal HeatmapManager with all external deps stubbed out. */
 function makeManager() {

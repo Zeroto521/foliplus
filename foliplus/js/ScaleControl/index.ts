@@ -1,6 +1,6 @@
+import { BaseControl } from "#foliplus/BaseControl.js";
 import { dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
-import { BaseControl } from "#foliplus/BaseControl.js";
 
 // ==================== Runtime Guard ====================
 const { _ } = createControlEnv(CONF);

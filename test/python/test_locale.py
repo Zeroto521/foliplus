@@ -35,6 +35,8 @@ _JS_USED_KEYS = {
     "foliplus.close_label",
     # FullscreenControl
     "FullscreenControl.title",
+    "SearchControl.blocked",
+    "LocateControl.blocked",
     "FullscreenControl.title_cancel",
     "FullscreenControl.enter",
     "FullscreenControl.exit",

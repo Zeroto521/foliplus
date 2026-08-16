@@ -1,5 +1,5 @@
-import { panelHTML } from "#foliplus/LayerControl/template.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { panelHTML } from "#foliplus/LayerControl/template.js";
 
 describe("panelHTML", () => {
   beforeEach(() => {

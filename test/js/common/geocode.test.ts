@@ -1,5 +1,5 @@
-import { formatAddress, nominatimUrl } from "#common/geocode.js";
 import { describe, expect, it, vi } from "vitest";
+import { formatAddress, nominatimUrl } from "#common/geocode.js";
 
 describe("nominatimUrl", () => {
   it("builds a search URL with default params", () => {

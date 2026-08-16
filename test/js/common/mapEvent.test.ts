@@ -1,5 +1,5 @@
-import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 
 describe("mapEvents", () => {
   let map;

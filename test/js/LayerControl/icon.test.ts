@@ -1,5 +1,5 @@
-import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { describe, expect, it } from "vitest";
+import * as SVGs from "#foliplus/LayerControl/icon.js";
 
 describe("LAYERS", () => {
   it("is an SVG string", () => {

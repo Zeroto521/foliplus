@@ -1,6 +1,6 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("LayerFactory", () => {
   let factory,
