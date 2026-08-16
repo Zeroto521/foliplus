@@ -14,5 +14,6 @@
   "SearchControl.btn_title": "Map Search",
   "SearchControl.clear_title": "Clear",
   "SearchControl.mode_coord": "Coordinate Search",
-  "SearchControl.mode_addr": "Address Search"
+  "SearchControl.mode_addr": "Address Search",
+  "SearchControl.blocked": "Search is temporarily unavailable"
 }

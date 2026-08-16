@@ -1,4 +1,5 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
+import { HINT_DURATION } from "#core/hint.js";
 import { Cache } from "#common/cache.js";
 import { fromWgs84 } from "#common/coord.js";
 import { type Debounced, debounce } from "#common/debounce.js";
@@ -12,7 +13,6 @@ import { createLocationMarker, dom } from "#common/dom.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
-import { HINT_DURATION } from "#core/hint.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./const.js";
 import type { AddressResult, NominatimItem } from "./type.js";
 
@@ -83,7 +83,10 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
  * @param {string} raw - User input (e.g. "121.47,31.23")
  */
 const searchCoord = (ctrl: SearchControlState, raw: string) => {
-  if (map.foliplus?.modes?.isBlocked("SearchControl")) return;
+  if (map.foliplus?.modes?.isBlocked(CONF.name)) {
+    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.blocked`), HINT_DURATION.SHORT);
+    return;
+  }
   const parts = raw
     .replace(/\uff0c/g, ",")
     .replace(/\s+/g, "")
@@ -136,7 +139,10 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
  * @param {string} query - Address query string
  */
 const searchAddress = (ctrl: SearchControlState, query: string) => {
-  if (map.foliplus?.modes?.isBlocked("SearchControl")) return;
+  if (map.foliplus?.modes?.isBlocked(CONF.name)) {
+    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.blocked`), HINT_DURATION.SHORT);
+    return;
+  }
   if (ctrl.cachedAddress[query]) {
     renderAddressResult(ctrl, ctrl.cachedAddress[query]);
     return;
@@ -291,7 +297,10 @@ const renderSuggestions = (
 };
 
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
-  if (map.foliplus?.modes?.isBlocked("SearchControl")) return;
+  if (map.foliplus?.modes?.isBlocked(CONF.name)) {
+    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.blocked`), HINT_DURATION.SHORT);
+    return;
+  }
   if (ctrl.mode !== MODE.ADDR) {
     removeSuggestions(ctrl);
     return;
