@@ -1,9 +1,9 @@
 // core/mode — cross-component active-mode registry (per-map).
 // Tracks the active mode of each participating component and emits
-// MODE_CHANGE on the per-map EventBus whenever a mode changes.
+// EVENTS.MODE_CHANGE on the per-map EventBus whenever a mode changes.
 // No DOM / CONF dependency.
 import { COMPONENTS, assertComponentName } from "#core/component.js";
-import { type EventBus, MODE_CHANGE, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 
 interface ModeChangePayload {
   component: string;
@@ -30,7 +30,7 @@ class ModeManager {
     assertComponentName(component);
     if (this.modes.get(component) === mode) return;
     this.modes.set(component, mode);
-    this.bus.emit(MODE_CHANGE, { component, mode } satisfies ModeChangePayload);
+    this.bus.emit(EVENTS.MODE_CHANGE, { component, mode } satisfies ModeChangePayload);
   }
 
   /** Check whether a component is blocked by any active mode. */

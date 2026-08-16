@@ -9,6 +9,11 @@ export type EventHandler = (...args: unknown[]) => void;
 export class EventBus {
   private listeners = new Map<string, Set<EventHandler>>();
 
+  /** Number of events with at least one listener (diagnostics/tests). */
+  get eventCount(): number {
+    return this.listeners.size;
+  }
+
   /** Subscribe to a known event (typed payload). */
   on<K extends keyof EventPayloadMap>(
     event: K,
@@ -54,10 +59,5 @@ export class EventBus {
   /** Remove all listeners for every event. */
   clear(): void {
     this.listeners.clear();
-  }
-
-  /** Number of events with at least one listener (diagnostics/tests). */
-  get eventCount(): number {
-    return this.listeners.size;
   }
 }
