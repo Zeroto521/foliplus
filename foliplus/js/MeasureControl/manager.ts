@@ -2,6 +2,7 @@
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
+import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
 import * as Storage from "#common/storage.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
@@ -49,6 +50,14 @@ class MeasureManager {
     this.currentMode = null;
     this.modeInstance = null;
     this.isSuppressHideDel = false;
+    // When ExportControl enters crop interaction or export, interrupt the
+    // active measurement so map clicks are not captured while exporting.
+    ensureEvents(this.map).on(MODE_CHANGE, (payload: unknown) => {
+      const { component, mode } = payload as { component: string; mode: string | null };
+      if (component === "ExportControl" && mode !== null && this.currentMode) {
+        this.clearActiveMode();
+      }
+    });
     this.toolBtns = [];
     this.finalizedClickHandlers = [];
     this.measurements = [];
