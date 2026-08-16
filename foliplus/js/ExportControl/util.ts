@@ -18,17 +18,13 @@ const isVisible = (
 /** Bitmap cache shared by tile loading and sprite (background-image) loading so
  *  identical URLs are fetched and decoded only once.  Bounded by TILE_MAX with
  *  FIFO eviction; evicted or cleared bitmaps are closed to release GPU memory. */
-const bitmapCache = new Cache<string, ImageBitmap>(
-  CONST.CACHE.TILE_MAX,
-  0,
-  bitmap => {
-    try {
-      bitmap.close();
-    } catch {
-      /* already closed */
-    }
-  },
-);
+const bitmapCache = new Cache<string, ImageBitmap>(CONST.CACHE.TILE_MAX, 0, bitmap => {
+  try {
+    bitmap.close();
+  } catch {
+    /* already closed */
+  }
+});
 
 /** Release all cached ImageBitmap resources.  Call this when the
  *  rendering session is over or memory pressure requires cleanup. */
