@@ -21,13 +21,17 @@ class SearchControl(BaseControl):
     ---------
     Focus a layer row by clicking it, then use:
 
-    ============ =============================================
-    Key          Action
-    ============ =============================================
-    Escape       Close the search panel or dismiss suggestions
-    ArrowDown    Move to the next suggestion
-    ArrowUp      Move to the previous suggestion
-    ============ =============================================
+    .. list-table::
+       :header-rows: 1
+
+       * - Key
+         - Action
+       * - Escape
+         - Close the search panel or dismiss suggestions
+       * - ArrowDown
+         - Move to the next suggestion
+       * - ArrowUp
+         - Move to the previous suggestion
 
     Parameters
     ----------

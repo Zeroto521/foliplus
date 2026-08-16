@@ -23,12 +23,15 @@ class HeatmapControl(BaseControl):
     Shortcuts
     ---------
 
-    ============ =============================================
-    Key          Action
-    ============ =============================================
-    ArrowLeft    Select the previous color scheme
-    ArrowRight   Select the next color scheme
-    ============ =============================================
+    .. list-table::
+       :header-rows: 1
+
+       * - Key
+         - Action
+       * - ArrowLeft
+         - Select the previous color scheme
+       * - ArrowRight
+         - Select the next color scheme
 
     Parameters
     ----------

@@ -27,11 +27,13 @@ class MeasureControl(BaseControl):
     ---------
     Focus a layer row by clicking it, then use:
 
-    ========== =============================================
-    Key        Action
-    ========== =============================================
-    Escape     Exit measurement mode
-    ========== =============================================
+    .. list-table::
+       :header-rows: 1
+
+       * - Key
+         - Action
+       * - Escape
+         - Exit measurement mode
 
 
     Parameters

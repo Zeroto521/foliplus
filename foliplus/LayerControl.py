@@ -22,19 +22,29 @@ class LayerControl(BaseControl):
     ---------
     Focus a layer row by clicking it, then use:
 
-    ============ ======================
-    Key          Action
-    ============ ======================
-    ArrowUp      Move focus to previous layer
-    ArrowDown    Move focus to next layer
-    ArrowLeft    Toggle visibility of focused layer (deselect)
-    ArrowRight   Toggle visibility of focused layer (select)
-    Space        Toggle visibility of focused layer
-    Enter        Toggle visibility of focused layer
-    Ctrl+Up      Move focused layer one position up
-    Ctrl+Down    Move focused layer one position down
-    Escape       Clear focus
-    ============ ======================
+    .. list-table::
+       :header-rows: 1
+
+       * - Key
+         - Action
+       * - ArrowUp
+         - Move focus to previous layer
+       * - ArrowDown
+         - Move focus to next layer
+       * - ArrowLeft
+         - Toggle visibility of focused layer (deselect)
+       * - ArrowRight
+         - Toggle visibility of focused layer (select)
+       * - Space
+         - Toggle visibility of focused layer
+       * - Enter
+         - Toggle visibility of focused layer
+       * - Ctrl+Up
+         - Move focused layer one position up
+       * - Ctrl+Down
+         - Move focused layer one position down
+       * - Escape
+         - Clear focus
 
     On macOS, Cmd acts as the modifier key instead of Ctrl.
 

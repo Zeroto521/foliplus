@@ -16,14 +16,19 @@ class ExportControl(BaseControl):
     ---------
     Focus a layer row by clicking it, then use:
 
-    ========================= =============================================
-    Key                       Action
-    ========================= =============================================
-    Enter                     Lock the current crop area, then begin export
-    Escape                    Unlock or dismiss the crop box
-    Ctrl+Z / Cmd+Z            Undo the last crop adjustment
-    Ctrl+Shift+Z / Cmd+Shift+Z  Redo the last crop adjustment
-    ========================= =============================================
+    .. list-table::
+       :header-rows: 1
+
+       * - Key
+         - Action
+       * - Enter
+         - Lock the current crop area, then begin export
+       * - Escape
+         - Unlock or dismiss the crop box
+       * - Ctrl+Z / Cmd+Z
+         - Undo the last crop adjustment
+       * - Ctrl+Shift+Z / Cmd+Shift+Z
+         - Redo the last crop adjustment
 
 
     Parameters
