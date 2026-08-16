@@ -7,6 +7,8 @@
   "LayerControl.base_map_label": "基础底图",
   "LayerControl.color_map_label": "纯色底图",
   "LayerControl.reorder_group_only": "图层只能在同一分组内排序",
+  "LayerControl.reorder_top": "图层已在最上方",
+  "LayerControl.reorder_bottom": "图层已在最下方",
   "LayerControl.type_base": "基础底图",
   "LayerControl.type_custom": "自定义图层",
   "LayerControl.type_polygon": "面图层",

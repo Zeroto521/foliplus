@@ -7,6 +7,8 @@
   "LayerControl.base_map_label": "Base Maps",
   "LayerControl.color_map_label": "Solid Color",
   "LayerControl.reorder_group_only": "Layer reordering is only allowed within the same group",
+  "LayerControl.reorder_top": "Layer is already at the top",
+  "LayerControl.reorder_bottom": "Layer is already at the bottom",
   "LayerControl.type_base": "Base Map",
   "LayerControl.type_custom": "Custom Layer",
   "LayerControl.type_polygon": "Polygon Layer",

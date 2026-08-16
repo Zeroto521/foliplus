@@ -12,26 +12,52 @@ from .locale import LocaleConfig
 class LayerControl(BaseControl):
     """Drag-and-drop layer ordering with geometry icons, color picker, and panes.
 
-    - 📐 Geometry-type icons for quick layer identification.
-    - 🔀 Drag-and-drop reordering, synced to Leaflet render order.
-    - ✅ Multi-select checkboxes with z-index stacking.
-    - 🎨 Color picker to replace base maps with a solid background color.
-    - 📂 Collapsible panel consistent with other foliplus controls.
+    - Geometry-type icons for quick layer identification.
+    - Drag-and-drop reordering, synced to Leaflet render order.
+    - Multi-select checkboxes with z-index stacking.
+    - Color picker to replace base maps with a solid background color.
+    - Keyboard navigation for layer panel (see Shortcuts below).
+    - Collapsible panel consistent with other foliplus controls.
+
+    Shortcuts
+    ---------
+    Focus a layer row by clicking it, then use:
+
+    ============ ======================
+    Key          Action
+    ============ ======================
+    ArrowUp      Move focus to previous layer
+    ArrowDown    Move focus to next layer
+    ArrowLeft    Toggle visibility of focused layer (deselect)
+    ArrowRight   Toggle visibility of focused layer (select)
+    Space        Toggle visibility of focused layer
+    Enter        Toggle visibility of focused layer
+    Ctrl+Up      Move focused layer one position up
+    Ctrl+Down    Move focused layer one position down
+    Escape       Clear focus
+    ============ ======================
+
+    On macOS, Cmd acts as the modifier key instead of Ctrl.
 
     Parameters
     ----------
     position : str, default "topleft"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+        One of "topleft", "topright", "bottomleft", "bottomright".
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
     Notes
     -----
-    Layer identification relies on ``map._layers`` and the ``window`` global variable at
+    Layer identification relies on map._layers and the window global variable at
     runtime. The initial layer list is collected during rendering by traversing the
     parent map's children.
+
+    Layer reordering via keyboard (Ctrl+Up / Ctrl+Down) respects the same group
+    boundaries as drag-and-drop: overlay layers stay in the overlay group, base
+    layers stay in the base group. Reaching the top or bottom of a group shows
+    a brief hint.
 
     Examples
     --------

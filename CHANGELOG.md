@@ -10,7 +10,7 @@
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
 - `EventBus`: introduce a per-map `EventBus` with semantic event constants for decoupled cross-component communication, replacing direct Leaflet map-event wiring. LayerManager emits `LAYER_CHANGE` after register/unregister/reorder; HeatmapControl subscribes instead of raw `map.on("layeradd layerremove")`. ([#148](https://github.com/Zeroto521/foliplus/pull/148))
-- `ModeManager`: per-map registry for cross-component active-mode tracking. `ensureModes(map)` attaches to `map.foliplus.modes`. MeasureControl and SearchControl publish their mode changes; other components can query via `getMode()` or subscribe via `MODE_CHANGE` event. ([#150](https://github.com/Zeroto521/foliplus/pull/150))
+- `LayerControl`: keyboard navigation for layer panel — `ArrowUp`/`ArrowDown` move focus, `Space`/`Enter` toggle layer visibility, `Ctrl+ArrowUp`/`Ctrl+ArrowDown` reorder layers one position, `Escape` clears focus. Added `moveLayerUp(id)` and `moveLayerDown(id)` to `LayerAPI` for programmatic reordering.
 
 ### Changed
 
