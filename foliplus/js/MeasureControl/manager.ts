@@ -179,7 +179,7 @@ class MeasureManager {
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
 
     if (mode === CONST.MODE.MARKER) {
-      map.foliplus!.showHint(
+      this.map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_marker`),
         HINT_DURATION.PERSIST,
@@ -187,7 +187,7 @@ class MeasureManager {
       this.modeInstance = new MarkerMode(this);
       this.modeInstance.start();
     } else if (mode === CONST.MODE.DISTANCE) {
-      map.foliplus!.showHint(
+      this.map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_dist_start`),
         HINT_DURATION.PERSIST,
@@ -195,7 +195,7 @@ class MeasureManager {
       this.modeInstance = new DistanceMode(this);
       this.modeInstance.start();
     } else if (mode === CONST.MODE.POLYGON) {
-      map.foliplus!.showHint(
+      this.map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_polygon`),
         HINT_DURATION.PERSIST,
@@ -203,7 +203,7 @@ class MeasureManager {
       this.modeInstance = new PolygonMode(this);
       this.modeInstance.start();
     } else if (mode === CONST.MODE.CIRCLE) {
-      map.foliplus!.showHint(
+      this.map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_circle_start`),
         HINT_DURATION.PERSIST,
@@ -218,7 +218,7 @@ class MeasureManager {
     this.currentMode = null;
     ensureModes(this.map).setMode(CONF.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
-    map.foliplus!.hideHint(CONF.name);
+    this.map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
     // Unregister the measure layer if it has no content left (interrupted
@@ -281,7 +281,7 @@ class MeasureManager {
       this.modeInstance.cleanup();
       this.modeInstance = null;
     }
-    map.foliplus!.hideHint(CONF.name);
+    this.map.foliplus!.hideHint(CONF.name);
   }
 }
 
