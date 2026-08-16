@@ -11,7 +11,8 @@
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
 - `EventBus`: decouple cross-component communication via typed semantic events, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148), [#153](https://github.com/Zeroto521/foliplus/pull/153), [#155](https://github.com/Zeroto521/foliplus/pull/155), [#159](https://github.com/Zeroto521/foliplus/pull/159), [#161](https://github.com/Zeroto521/foliplus/pull/161))
 - `ModeManager`: prevent conflicting component actions (e.g. measurement during export) via mode tracking and mutual-exclusion blocking ([#150](https://github.com/Zeroto521/foliplus/pull/150), [#159](https://github.com/Zeroto521/foliplus/pull/159))
-- `LayerControl`: keyboard navigation for layer panel — `ArrowUp`/`ArrowDown` move focus, `Space`/`Enter` toggle layer visibility, `Ctrl+ArrowUp`/`Ctrl+ArrowDown` reorder layers one position, `Escape` clears focus. Added `moveLayerUp(id)` and `moveLayerDown(id)` to `LayerAPI` for programmatic reordering ([#156](https://github.com/Zeroto521/foliplus/pull/156))
+- `LayerControl`: keyboard navigation for layer panel — `ArrowUp`/`ArrowDown` move focus between layer items and toggle-all header rows, `ArrowLeft`/`ArrowRight`/`Space`/`Enter` toggle visibility, `Ctrl+ArrowUp`/`Ctrl+ArrowDown` reorder layers one position, `Escape` clears focus. Added `moveLayerUp(id)` and `moveLayerDown(id)` to `LayerAPI` for programmatic reordering ([#156](https://github.com/Zeroto521/foliplus/pull/156))
+- `LayerControl`/`MeasureControl`/`ExportControl`/`SearchControl`/`HeatmapControl`: unified keyboard shortcut documentation with consistent `Shortcuts` section format and `position`/`locale` parameter docs across all components ([#156](https://github.com/Zeroto521/foliplus/pull/156))
 
 ### Changed
 
