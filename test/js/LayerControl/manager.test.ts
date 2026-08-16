@@ -332,7 +332,6 @@ describe("LayerManager", () => {
     vi.useRealTimers();
   });
 
-
   it("getNavigableItems returns layer items and toggle-all rows", () => {
     // 模拟 uiContainer 和 ui
     const container = document.createElement("div");
@@ -355,7 +354,7 @@ describe("LayerManager", () => {
     // 需要 ui 实例来测试 getNavigableItems，但 manager 没有直接暴露
     // 这里验证浏 dom 结构
     const items = container.querySelectorAll(
-      '.foliplus-layer-item:not(.foliplus-color-layer-item), .foliplus-layer-toggle-all',
+      ".foliplus-layer-item:not(.foliplus-color-layer-item), .foliplus-layer-toggle-all",
     );
     expect(items.length).toBe(3);
     expect(items[0].classList.contains("foliplus-layer-toggle-all")).toBe(true);

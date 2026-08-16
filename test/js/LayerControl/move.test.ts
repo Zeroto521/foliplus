@@ -253,7 +253,6 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     expect(enforceSpy).toHaveBeenCalled();
   });
 
-
   it("moveLayerDown returns false when layer is already at bottom of base group", () => {
     manager = new LayerManager(map, [
       { id: "a", name: "A", isBase: false },
@@ -278,7 +277,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     expect(manager.moveLayerUp("base1")).toBe(false);
   });
 
-    it("moveLayerDown calls enforceOrder", () => {
+  it("moveLayerDown calls enforceOrder", () => {
     manager = new LayerManager(map, [
       { id: "a", name: "A", isBase: false },
       { id: "b", name: "B", isBase: false },
