@@ -209,21 +209,26 @@ class ExportRenderer {
   /** Render a standalone canvas element (e.g. HeatmapControl). */
   async renderCanvasElement(rc: RenderCtx, ce: HTMLCanvasElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
+    const r = ce.getBoundingClientRect();
+    const l = r.left - contRect.left;
+    const t = r.top - contRect.top;
+    const w = r.width;
+    const h = r.height;
+    if (w < 1 || h < 1) {
+      return;
+    }
+    const dx = (l - rect.left) * scale;
+    const dy = (t - rect.top) * scale;
+    const dw = w * scale;
+    const dh = h * scale;
+    if (!isVisible(dx, dy, dw, dh, cw, ch)) {
+      return;
+    }
+    const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
+    const dataUrl = ce.toDataURL(mimeType);
+    let img: HTMLImageElement | null = null;
     try {
-      const r = ce.getBoundingClientRect();
-      const l = r.left - contRect.left;
-      const t = r.top - contRect.top;
-      const w = r.width;
-      const h = r.height;
-      if (w < 1 || h < 1) return;
-      const dx = (l - rect.left) * scale;
-      const dy = (t - rect.top) * scale;
-      const dw = w * scale;
-      const dh = h * scale;
-      if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
-      const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
-      const dataUrl = ce.toDataURL(mimeType);
-      const img = (await loadImage(dataUrl)) as HTMLImageElement;
+      img = (await loadImage(dataUrl)) as HTMLImageElement;
       ctx.drawImage(img, dx, dy, dw, dh);
     } catch {
       /* skip */
@@ -279,7 +284,14 @@ class ExportRenderer {
         const bitmap = bitmaps[j];
         if (!bitmap) continue;
         const t = batch[j];
-        ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
+        try {
+          ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
+        } catch {
+          /* skip tile on draw error */
+        } finally {
+          // Bitmap stays in cache for reuse; explicit close is handled by
+          // clearBitmapCache() at the end of render().
+        }
       }
     }
   }
@@ -377,8 +389,18 @@ class ExportRenderer {
         if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
         const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
         const dataUrl = (ce as HTMLCanvasElement).toDataURL(mimeType);
-        const img = (await loadImage(dataUrl)) as HTMLImageElement;
-        ctx.drawImage(img, dx, dy, dw, dh);
+        let img: HTMLImageElement | null = null;
+        try {
+          img = (await loadImage(dataUrl)) as HTMLImageElement;
+          ctx.drawImage(img, dx, dy, dw, dh);
+        } catch {
+          /* skip */
+        } finally {
+          if (img) {
+            // Data-URL images have no explicit close; detaching handlers
+            // (done inside loadImage) allows the Image to be GC'd.
+          }
+        }
       } catch {
         /* skip */
       }
@@ -664,12 +686,18 @@ class ExportRenderer {
       const imgEl =
         root.tagName === "IMG" ? (root as HTMLImageElement) : root.querySelector("img");
       if (imgEl && imgEl.src) {
+        let img: HTMLImageElement | null = null;
         try {
-          const img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
+          img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
           ctx.drawImage(img, dx, dy, dw, dh);
           continue;
         } catch {
           /* fall through */
+        } finally {
+          if (img) {
+            // Image loaded from a regular URL; event handlers detached inside
+            // loadImage() so the Image element can be GC'd.
+          }
         }
       }
 
