@@ -486,7 +486,7 @@ class LayerUI {
     } else if (group === CONST.GROUP.BASE && newState) this.hideColorLayer();
 
     this.syncToggleAll(group);
-    this.m.enforceOrder();
+    this.m.debouncedEnforce();
   }
 
   syncToggleAll(group: string) {
