@@ -12,25 +12,31 @@
  * Reads common/core from the source tree directly (not .build/) — the
  * transforms (SVG/HTML) do not affect import/export statements.
  */
-import {
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from "fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
-import { parseArgs, help } from "./args.mjs";
+import { help, parseArgs } from "./args.mjs";
 
 const __dirname = resolve(fileURLToPath(import.meta.url), "..");
 
 const SCAN_SPEC = {
-  root:   { type: "string", default: resolve(__dirname, ".."), desc: "Project root directory" },
-  silent: { type: "bool",   desc: "Suppress output messages" },
+  root: {
+    type: "string",
+    default: resolve(__dirname, ".."),
+    desc: "Project root directory",
+  },
+  silent: { type: "bool", desc: "Suppress output messages" },
 };
 const _raw = parseArgs(process.argv.slice(2), SCAN_SPEC);
-if (_raw.help) { console.log(help(SCAN_SPEC)); process.exit(0); }
-if (_raw.errors.length) { console.error(_raw.errors.join("\n")); console.error(help(SCAN_SPEC)); process.exit(1); }
+if (_raw.help) {
+  console.log(help(SCAN_SPEC));
+  process.exit(0);
+}
+if (_raw.errors.length) {
+  console.error(_raw.errors.join("\n"));
+  console.error(help(SCAN_SPEC));
+  process.exit(1);
+}
 const opts = _raw;
 
 const ROOT = resolve(opts.root);
@@ -119,7 +125,9 @@ function generateRegistry() {
     .sort();
 
   const componentDirs = readdirSync(srcDir, { withFileTypes: true })
-    .filter(e => e.isDirectory() && !["core", "common", "type", "runtime"].includes(e.name))
+    .filter(
+      e => e.isDirectory() && !["core", "common", "type", "runtime"].includes(e.name),
+    )
     .map(e => resolve(srcDir, e.name));
 
   const usedExports = {};
@@ -146,31 +154,35 @@ function generateRegistry() {
     const names = usedExports["core/" + sub] || [];
     if (names.length === 0) continue;
     const alias = "core" + sub;
-    lines.push("import { " + names.join(", ") + " } from \"#core/" + sub + "/index.js\";");
+    lines.push(
+      "import { " + names.join(", ") + ' } from "#core/' + sub + '/index.js";',
+    );
     lines.push("const " + alias + " = { " + names.join(", ") + " };");
-    lines.push('window.foliplus.core["' + sub + '"] = ' + alias + ';');
+    lines.push('window.foliplus.core["' + sub + '"] = ' + alias + ";");
   }
 
   for (const name of coreSingleFiles) {
     const names = usedExports["core/" + name] || [];
     if (names.length === 0) continue;
     const alias = "core" + name;
-    lines.push("import { " + names.join(", ") + " } from \"#core/" + name + ".js\";");
+    lines.push("import { " + names.join(", ") + ' } from "#core/' + name + '.js";');
     lines.push("const " + alias + " = { " + names.join(", ") + " };");
-    lines.push('window.foliplus.core["' + name + '"] = ' + alias + ';');
+    lines.push('window.foliplus.core["' + name + '"] = ' + alias + ";");
   }
 
   for (const name of commonModules) {
     const names = usedExports["common/" + name] || [];
     if (names.length === 0) continue;
-    lines.push("import { " + names.join(", ") + " } from \"#common/" + name + ".js\";");
+    lines.push("import { " + names.join(", ") + ' } from "#common/' + name + '.js";');
     lines.push("const " + name + "NS = { " + names.join(", ") + " };");
-    lines.push('window.foliplus.common["' + name + '"] = ' + name + 'NS;');
+    lines.push('window.foliplus.common["' + name + '"] = ' + name + "NS;");
   }
 
   const baseNames = usedExports["foliplus/BaseControl"] || ["BaseControl"];
   if (baseNames.length > 0) {
-    lines.push("import { " + baseNames.join(", ") + " } from \"#foliplus/BaseControl.js\";");
+    lines.push(
+      "import { " + baseNames.join(", ") + ' } from "#foliplus/BaseControl.js";',
+    );
     lines.push("const BaseControlNS = { " + baseNames.join(", ") + " };");
     lines.push("window.foliplus.BaseControl = BaseControlNS.BaseControl;");
   }
@@ -178,7 +190,9 @@ function generateRegistry() {
   writeFileSync(resolve(buildJs, "_shared-registry.ts"), lines.join("\n"), "utf-8");
 
   if (!opts.silent) {
-    console.log(`_shared-registry.ts written (${lines.length} lines, ${Object.keys(usedExports).length} specs)`);
+    console.log(
+      `_shared-registry.ts written (${lines.length} lines, ${Object.keys(usedExports).length} specs)`,
+    );
   }
 }
 
