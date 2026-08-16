@@ -7,6 +7,6 @@
   "LocateControl.popup_loc_label": "📌 定位：",
   "LocateControl.popup_addr_label": "📌 地址：",
   "LocateControl.popup_loading": "查询中…",
-  "LocateControl.title": "定位",
+  "LocateControl.title": "我的位置",
   "LocateControl.blocked": "定位暂不可用"
 }

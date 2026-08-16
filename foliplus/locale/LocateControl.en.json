@@ -7,6 +7,6 @@
   "LocateControl.popup_loc_label": "📌 Location: ",
   "LocateControl.popup_addr_label": "📌 Address: ",
   "LocateControl.popup_loading": "Searching…",
-  "LocateControl.title": "Locate",
+  "LocateControl.title": "My Location",
   "LocateControl.blocked": "Location is temporarily unavailable"
 }

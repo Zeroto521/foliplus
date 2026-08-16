@@ -15,5 +15,5 @@
   "SearchControl.clear_title": "清除",
   "SearchControl.mode_coord": "坐标搜索",
   "SearchControl.mode_addr": "地址搜索",
-  "SearchControl.blocked": "搜索暂时不可用"
+  "SearchControl.blocked": "搜索暂不可用"
 }
