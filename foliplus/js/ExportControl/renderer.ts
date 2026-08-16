@@ -214,16 +214,12 @@ class ExportRenderer {
     const t = r.top - contRect.top;
     const w = r.width;
     const h = r.height;
-    if (w < 1 || h < 1) {
-      return;
-    }
+    if (w < 1 || h < 1) return;
     const dx = (l - rect.left) * scale;
     const dy = (t - rect.top) * scale;
     const dw = w * scale;
     const dh = h * scale;
-    if (!isVisible(dx, dy, dw, dh, cw, ch)) {
-      return;
-    }
+    if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
     const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
     const dataUrl = ce.toDataURL(mimeType);
     let img: HTMLImageElement | null = null;
