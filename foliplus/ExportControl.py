@@ -28,7 +28,7 @@ class ExportControl(BaseControl):
 
     Parameters
     ----------
-        position : str, default "bottomright"
+    position : str, default "bottomright"
         One of "topleft", "topright", "bottomleft", "bottomright"\.
         ``"bottomright"``.
 

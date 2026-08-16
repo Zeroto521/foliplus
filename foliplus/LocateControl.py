@@ -11,7 +11,7 @@ class LocateControl(BaseControl):
 
     Parameters
     ----------
-        position : str, default "topleft"
+    position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright"\.
 
     zoom : int, default 15

@@ -14,7 +14,7 @@ class FullscreenControl(BaseControl):
 
     Parameters
     ----------
-        position : str, default "bottomright"
+    position : str, default "bottomright"
         One of "topleft", "topright", "bottomleft", "bottomright"\.
 
     hide_self : bool, default True

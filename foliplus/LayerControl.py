@@ -41,7 +41,7 @@ class LayerControl(BaseControl):
 
     Parameters
     ----------
-        position : str, default "topleft"
+    position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright"\.
 
         locale : str or LocaleConfig, optional
