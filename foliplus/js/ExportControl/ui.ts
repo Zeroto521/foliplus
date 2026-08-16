@@ -107,12 +107,12 @@ const showCropBox = (mgr: ExportManager) => {
   const mapRect = mgr.mapContainer.getBoundingClientRect();
   let box;
 
-  if (mgr.savedBounds) {
+  if (mgr.savedGeoBounds) {
     const nw = mgr.map.latLngToContainerPoint(
-      L.latLng(mgr.savedBounds.nw.lat, mgr.savedBounds.nw.lng),
+      L.latLng(mgr.savedGeoBounds.nw.lat, mgr.savedGeoBounds.nw.lng),
     );
     const se = mgr.map.latLngToContainerPoint(
-      L.latLng(mgr.savedBounds.se.lat, mgr.savedBounds.se.lng),
+      L.latLng(mgr.savedGeoBounds.se.lat, mgr.savedGeoBounds.se.lng),
     );
     box = {
       left: Math.min(nw.x, se.x),
@@ -120,18 +120,18 @@ const showCropBox = (mgr: ExportManager) => {
       width: Math.max(1, Math.abs(se.x - nw.x)),
       height: Math.max(1, Math.abs(se.y - nw.y)),
     };
-  } else if (mgr.lastScreenRect) {
+  } else if (mgr.lastCropRect) {
     box = {
       left: Math.max(
         0,
-        Math.min(mgr.lastScreenRect.left, mapRect.width - CONST.CROP.MIN_SIZE),
+        Math.min(mgr.lastCropRect.left, mapRect.width - CONST.CROP.MIN_SIZE),
       ),
       top: Math.max(
         0,
-        Math.min(mgr.lastScreenRect.top, mapRect.height - CONST.CROP.MIN_SIZE),
+        Math.min(mgr.lastCropRect.top, mapRect.height - CONST.CROP.MIN_SIZE),
       ),
-      width: mgr.lastScreenRect.width,
-      height: mgr.lastScreenRect.height,
+      width: mgr.lastCropRect.width,
+      height: mgr.lastCropRect.height,
     };
     box.width = Math.max(
       CONST.CROP.MIN_SIZE,
@@ -181,8 +181,8 @@ const showCropBox = (mgr: ExportManager) => {
       onclick: () => mgr.removeCropBox(),
     },
   });
-  mgr.exportCtrl?.classList.remove(CONST.CLASSES.COLLAPSED);
-  mgr.exportCtrl?.classList.add(CONST.CLASSES.EXPANDED);
+  mgr.exportButton?.classList.remove(CONST.CLASSES.COLLAPSED);
+  mgr.exportButton?.classList.add(CONST.CLASSES.EXPANDED);
 
   mgr.cropState = {
     overlay,
@@ -192,7 +192,7 @@ const showCropBox = (mgr: ExportManager) => {
     actions: mgr.exportToolBar!,
   };
   updateBoxStyle(mgr, cropBox, box);
-  mgr.pushUndoState();
+  mgr.pushUndo();
   showHintWithInfo(mgr, box, _(`${CONF.name}.hint_unlocked`));
   cropBox.addEventListener("mousedown", mgr.onMouseDown);
   document.addEventListener("keydown", mgr.onKeyDown);
@@ -204,11 +204,11 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   mgr.cropState.locked = true;
   mgr.cropState.box.classList.add("locked");
   const r = mgr.cropState.rect;
-  mgr.cropState.savedGeoBounds = {
+  mgr.savedGeoBounds = {
     nw: mgr.map.containerPointToLatLng(L.point(r.left, r.top)),
     se: mgr.map.containerPointToLatLng(L.point(r.left + r.width, r.top + r.height)),
   };
-  mgr.cropState.geoBounds = mgr.cropState.savedGeoBounds;
+  mgr.cropState.geoBounds = mgr.savedGeoBounds;
   renderToolbarActions(mgr, {
     confirm: {
       title: _(`${CONF.name}.btn_export`),
@@ -260,7 +260,7 @@ const unlockCropBox = (mgr: ExportManager) => {
 /** Remove crop box DOM and restore UI state. */
 const removeCropBox = (mgr: ExportManager) => {
   if (!mgr.cropState) return;
-  mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
+  mgr.lastCropRect = Object.assign({}, mgr.cropState.rect);
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);
   document.body.classList.remove(CONST.CLASSES.MODE);
   document.removeEventListener("keydown", mgr.onKeyDown);
@@ -277,9 +277,9 @@ const removeCropBox = (mgr: ExportManager) => {
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
   if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";
-  if (mgr.exportCtrl) {
-    mgr.exportCtrl.classList.remove(CONST.CLASSES.EXPANDED);
-    mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
+  if (mgr.exportButton) {
+    mgr.exportButton.classList.remove(CONST.CLASSES.EXPANDED);
+    mgr.exportButton.classList.add(CONST.CLASSES.COLLAPSED);
   }
   mgr.cropState = null;
   ensureModes(mgr.map).setMode(CONF.name, null);

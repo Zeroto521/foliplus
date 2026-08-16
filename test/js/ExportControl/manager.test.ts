@@ -55,10 +55,10 @@ describe("ExportManager — undo/redo", () => {
     manager = makeManager();
   });
 
-  it("pushUndoState records rect and clears redo", () => {
+  it("pushUndo records rect and clears redo", () => {
     setCropState(manager);
     manager.redoStack = [{ left: 0, top: 0, width: 50, height: 50 }];
-    manager.pushUndoState();
+    manager.pushUndo();
     expect(manager.undoStack).toHaveLength(1);
     expect(manager.undoStack[0]).toEqual({
       left: 10,
@@ -69,8 +69,8 @@ describe("ExportManager — undo/redo", () => {
     expect(manager.redoStack).toHaveLength(0);
   });
 
-  it("pushUndoState is a no-op when cropState is null", () => {
-    manager.pushUndoState();
+  it("pushUndo is a no-op when cropState is null", () => {
+    manager.pushUndo();
     expect(manager.undoStack).toHaveLength(0);
   });
 
@@ -216,31 +216,31 @@ describe("ExportManager — pixel limit & storage", () => {
       se: { lat: -10, lng: -10 },
     });
     manager.loadSavedBounds();
-    expect(manager.savedBounds).toBeDefined();
-    expect(manager.savedBounds.nw.lat).toBe(10);
+    expect(manager.savedGeoBounds).toBeDefined();
+    expect(manager.savedGeoBounds.nw.lat).toBe(10);
     loadSpy.mockRestore();
   });
 
   it("loadSavedBounds ignores invalid lat/lng", () => {
-    manager.savedBounds = null;
+    manager.savedGeoBounds = null;
     const loadSpy = vi.spyOn(Storage, "load").mockReturnValue({
       nw: { lat: 999, lng: 10 },
       se: { lat: -10, lng: -10 },
     });
     manager.loadSavedBounds();
-    expect(manager.savedBounds).toBeNull();
+    expect(manager.savedGeoBounds).toBeNull();
     loadSpy.mockRestore();
   });
 
   it("loadSavedBounds ignores bounds with no overlap with map", () => {
-    manager.savedBounds = null;
+    manager.savedGeoBounds = null;
     // nw.lat > map north (90) → no overlap
     const loadSpy = vi.spyOn(Storage, "load").mockReturnValue({
       nw: { lat: 95, lng: 170 },
       se: { lat: 85, lng: 175 },
     });
     manager.loadSavedBounds();
-    expect(manager.savedBounds).toBeNull();
+    expect(manager.savedGeoBounds).toBeNull();
     loadSpy.mockRestore();
   });
 });
