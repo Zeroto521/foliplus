@@ -19,8 +19,8 @@ class SearchControl(BaseControl):
 
     Parameters
     ----------
-    position : str, default "topleft"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+        position : str, default "topleft"
+        One of "topleft", "topright", "bottomleft", "bottomright"\.
 
     mode : Literal["coord", "addr"], default "coord"
         Default search mode on first open. ``"coord"`` for coordinate search, ``"addr"``
@@ -29,8 +29,8 @@ class SearchControl(BaseControl):
     zoom : int, default 15
         Zoom level after coordinate search. Typically 1-18.
 
-    locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        locale : str or LocaleConfig, optional
+        Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
     Notes

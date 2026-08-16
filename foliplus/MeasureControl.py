@@ -25,16 +25,16 @@ class MeasureControl(BaseControl):
 
     Parameters
     ----------
-    position : str, default "bottomright"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+        position : str, default "bottomright"
+        One of "topleft", "topright", "bottomleft", "bottomright"\.
 
     show_bearing : bool, default True
         Whether to show the bearing (azimuth, 0°–360° clockwise from north) alongside
         the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to
         distance mode; area and circle modes always show plain distance.
 
-    locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        locale : str or LocaleConfig, optional
+        Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
     Notes

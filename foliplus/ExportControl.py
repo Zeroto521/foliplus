@@ -14,8 +14,8 @@ class ExportControl(BaseControl):
 
     Parameters
     ----------
-    position : str, default "bottomright"
-        Button position. One of ``"topleft"``, ``"topright"``, ``"bottomleft"``,
+        position : str, default "bottomright"
+        One of "topleft", "topright", "bottomleft", "bottomright"\.
         ``"bottomright"``.
 
     filename : str, default "map"
@@ -48,8 +48,8 @@ class ExportControl(BaseControl):
     timeout : int, default 7500
         Maximum time (ms) to wait for map tiles to finish loading before capture.
 
-    locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        locale : str or LocaleConfig, optional
+        Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
     Notes
