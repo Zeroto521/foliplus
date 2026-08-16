@@ -1,4 +1,5 @@
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureKeyboard } from "#core/keyboard.js";
 import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
@@ -367,6 +368,16 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
 
+    ensureKeyboard(this.m.map).register("LayerControl", [
+      { key: "ArrowUp", handler: () => this.handleKeyDown({ key: "ArrowUp", preventDefault: () => {} } as KeyboardEvent) },
+      { key: "ArrowDown", handler: () => this.handleKeyDown({ key: "ArrowDown", preventDefault: () => {} } as KeyboardEvent) },
+      { key: "ArrowLeft", handler: () => this.handleKeyDown({ key: "ArrowLeft", preventDefault: () => {} } as KeyboardEvent) },
+      { key: "ArrowRight", handler: () => this.handleKeyDown({ key: "ArrowRight", preventDefault: () => {} } as KeyboardEvent) },
+      { key: " ", handler: () => this.handleKeyDown({ key: " ", preventDefault: () => {} } as KeyboardEvent) },
+      { key: "Enter", handler: () => this.handleKeyDown({ key: "Enter", preventDefault: () => {} } as KeyboardEvent) },
+      { key: "Escape", handler: () => this.handleKeyDown({ key: "Escape", preventDefault: () => {} } as KeyboardEvent) },
+    ], container);
+
     this.onChange = event => {
       const checkbox = (event.target as HTMLElement).closest(
         '[data-role="toggle-all"]',
@@ -427,8 +438,7 @@ class LayerUI {
     container.addEventListener("dragleave", this.onDragLeave);
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
-    container.addEventListener("keydown", this.onKeyDown);
-  }
+      }
 
   unbindEvents() {
     const container = this.uiContainer;
@@ -441,8 +451,8 @@ class LayerUI {
     if (this.onDragLeave) container.removeEventListener("dragleave", this.onDragLeave);
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
-    if (this.onKeyDown) container.removeEventListener("keydown", this.onKeyDown);
     this.clearActiveItem();
+    ensureKeyboard(this.m.map).unregister("LayerControl");
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;

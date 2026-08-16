@@ -1,6 +1,7 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureKeyboard } from "#core/keyboard.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -133,7 +134,19 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     event.stopPropagation();
     toggleSchemeDropdown(ctrl);
   };
-  ctrl.schemeBar.onkeydown = (event: KeyboardEvent) => {
+    ensureKeyboard(map).register("HeatmapControl", [
+    { key: "ArrowLeft", element: ctrl.schemeBar, handler: () => {
+      const c = ctrl as any;
+      const idx = c.availableSchemes.indexOf(c.scheme);
+      if (idx > 0) { c.scheme = c.availableSchemes[idx - 1]; c.updateScheme(); }
+    }},
+    { key: "ArrowRight", element: ctrl.schemeBar, handler: () => {
+      const c = ctrl as any;
+      const idx = c.availableSchemes.indexOf(c.scheme);
+      if (idx < c.availableSchemes.length - 1) { c.scheme = c.availableSchemes[idx + 1]; c.updateScheme(); }
+    }},
+  ]);
+ctrl.schemeBar.onkeydown = (event: KeyboardEvent) => {
     if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) {
       event.preventDefault();
       toggleSchemeDropdown(ctrl);
@@ -415,7 +428,14 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     else items[0].focus();
   }
 
-  ctrl.schemeDropdown.onkeydown = (event: KeyboardEvent) => {
+    ensureKeyboard(map).register("HeatmapControl", [
+    { key: "ArrowDown", element: ctrl.schemeDropdown, handler: () => {
+      const c = ctrl as any;
+      c.isDropdownOpen = true;
+      c.updateScheme();
+    }},
+  ]);
+ctrl.schemeDropdown.onkeydown = (event: KeyboardEvent) => {
     const activeIdx = Array.from(items).indexOf(document.activeElement as HTMLElement);
     if (event.key === "ArrowDown") {
       event.preventDefault();
