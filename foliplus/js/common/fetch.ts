@@ -86,10 +86,10 @@ const composeSignal = (
 
   const cleanup = () => {
     clearTimeout(timeoutHandle);
-    parentSignal?.removeEventListener("abort", onParentAbort, { once: true });
+    parentSignal?.removeEventListener("abort", onParentAbort);
   };
 
-  parentSignal?.addEventListener("abort", onParentAbort, { once: true });
+  parentSignal?.addEventListener("abort", onParentAbort);
 
   return controller.signal;
 };
