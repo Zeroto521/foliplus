@@ -36,6 +36,7 @@
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
 - `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
+- `ExportControl`: evict and close cached `ImageBitmap` resources to prevent GPU memory leaks; reusable `Cache<K,V>` eviction hook ([#154](https://github.com/Zeroto521/foliplus/pull/154))
 
 ## [v0.3.0] (2026-08-02)
 
