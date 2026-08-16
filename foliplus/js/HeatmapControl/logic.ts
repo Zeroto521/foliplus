@@ -136,11 +136,11 @@ class HeatmapManager {
       iconSvg: SVGs.HEXAGON,
     });
     // Subscribe to export events for full-content capture (ExportControl).
-    ensureEvents(map).on("before:export", () => {
+    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
       this.renderAll = true;
       this.redrawHeatmap();
     });
-    ensureEvents(map).on("after:export", () => {
+    ensureEvents(this.map).on(EVENTS.AFTER_EXPORT, () => {
       this.renderAll = false;
       this.redrawHeatmap();
     });
