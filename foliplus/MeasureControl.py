@@ -9,49 +9,35 @@ from .locale import LocaleConfig
 class MeasureControl(BaseControl):
     """Distance measurement, area measurement, circle drawing, and GPS marker with geocoding.
 
-    - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
-      address. Click the popup or the × on the marker to delete it.
-    - 📏 **Distance**: click to draw a polyline. Segment and total distances update
-      in real-time. Double-click / right-click / click the last node to finish.
-    - 🔲 **Area**: click to draw a polygon. The enclosed area and each side's
-      length are labelled. Double-click / right-click / click the first or last
-      node to finish.
-    - ⭕ **Circle**: first click sets the center; move the mouse to set the radius;
-      second click confirms.
-    - 🗑️ **Clear**: remove all measurement layers at once.
-
-    After drawing a line, polygon, circle, or placing a marker: click the object
-    to toggle labels and × buttons; click empty map space to hide × buttons.
+    - Locate: click to place a marker showing coordinates and reverse-geocoded address.
+    - Distance: click to draw a polyline. Double-click / right-click to finish.
+    - Area: click to draw a polygon. Double-click / right-click to finish.
+    - Circle: first click center, second click radius.
+    - Clear: remove all measurement layers at once.
 
     Parameters
     ----------
     position : str, default "bottomright"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+        One of "topleft", "topright", "bottomleft", "bottomright".
 
     show_bearing : bool, default True
-        Whether to show the bearing (azimuth, 0°–360° clockwise from north) alongside
-        the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to
-        distance mode; area and circle modes always show plain distance.
+        Whether to show the bearing (azimuth, 0-360 clockwise from north).
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
-        Defaults to auto-detection, falling back to English.
+        Language code ("en", "zh") or a LocaleConfig instance.
 
     Notes
     -----
-    **Persistence.** Measurements survive page reloads — they are saved to
-    ``localStorage`` (keyed by map container id) and restored automatically.
+    Persistence. Measurements survive page reloads via localStorage.
 
-    **Interaction.** Clicking an existing node during drawing does nothing (the marker
-    stops the event from propagating to the map). This prevents duplicate points and
-    overlapping labels.
-
-    **Keyboard shortcuts.**
+    Keyboard shortcuts.
     While in measurement mode (after clicking the ruler icon):
 
-    * ``Esc`` — exit measurement mode
-    * ``Double-click`` / ``right-click`` — finish the current line or polygon
-      (after at least 2 points for distance, 3 points for area)
+    ========== =============================================
+    Key        Action
+    ========== =============================================
+    Escape     Exit measurement mode
+    ========== =============================================
 
     Examples
     --------

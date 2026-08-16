@@ -187,6 +187,7 @@ class LayerUI {
         class:
           `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
           (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
+        tabindex: "0",
         "data-group": group,
         title: _(`${CONF.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
       },
@@ -565,7 +566,12 @@ class LayerUI {
     return Array.from(
       this.uiContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
     )
-      .map(cb => cb.closest(CONST.SEL.LAYER_ITEM) as HTMLElement)
+      .map(
+        cb =>
+          (cb.closest(CONST.SEL.LAYER_ITEM) ?? cb.closest(CONST.SEL.TOGGLE_ALL)) as
+            | HTMLElement
+            | null,
+      )
       .filter(
         (el): el is HTMLElement =>
           el !== null && !el.classList.contains(CONST.CLASSES.COLOR_ITEM),
