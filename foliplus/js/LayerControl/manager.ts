@@ -21,9 +21,6 @@ import {
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
-import { type Debounced, debounce } from "#common/debounce.js";
-import { createTranslator } from "#common/locale.js";
-import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { LayerUI } from "./ui.js";
 

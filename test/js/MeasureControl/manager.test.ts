@@ -37,6 +37,7 @@ function makeManager(opts?: { id?: string }) {
   }));
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.divIcon = vi.fn(() => ({}));
+  window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
   window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
 
   const container = document.createElement("div");
@@ -304,17 +305,16 @@ describe("MeasureManager — LAYER_REMOVED auto-cleanup", () => {
     const { manager, map } = makeManager();
     manager.currentMode = CONST.MODE.DISTANCE;
 
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
     manager.destroy();
+    // destroy() itself calls clearActiveMode() via clearAll(); reset the spy
+    // so we can assert the LAYER_REMOVED handler no longer fires.
+    clearSpy.mockClear();
 
-    // After destroy, layer removal must NOT trigger clearActiveMode
     const bus = map.foliplus!.events;
     bus.emit(LAYER_REMOVED, { id: manager.layerId });
 
-    // currentMode was already set to null by clearAll() inside destroy()
-    expect(manager.currentMode).toBeNull();
-    // The handler must have been unsubscribed; eventCount should be 0
-    // (MeasureManager was the only subscriber to LAYER_REMOVED)
-    expect(bus.eventCount).toBe(0);
+    expect(clearSpy).not.toHaveBeenCalled();
   });
 
   it("works with namespaced layer ID (opts.id)", () => {
