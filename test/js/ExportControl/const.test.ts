@@ -65,14 +65,11 @@ describe("CACHE", () => {
 
 // ===========================================================================
 // Helper: stub navigator.connection for the detectConcurrency tests.
-// Supports standard, moz- and webkit- prefixed APIs so we cover all three.
+// Supports standard, moz- and webkit- prefixed APIs.
 // ===========================================================================
 type ConnStub = { effectiveType?: string; downlink?: number };
 
-function stubConnection(
-  kind: "standard" | "moz" | "webkit" | "none",
-  stub: ConnStub = {},
-) {
+function stubConnection(kind: "standard" | "moz" | "webkit" | "none", stub: ConnStub = {}) {
   for (const key of ["connection", "mozConnection", "webkitConnection"] as const) {
     try {
       delete (navigator as any)[key];
@@ -81,12 +78,11 @@ function stubConnection(
     }
   }
   if (kind === "none") return;
-  const target =
-    kind === "moz"
-      ? "mozConnection"
-      : kind === "webkit"
-        ? "webkitConnection"
-        : "connection";
+  const target = kind === "moz"
+    ? "mozConnection"
+    : kind === "webkit"
+    ? "webkitConnection"
+    : "connection";
   Object.defineProperty(navigator, target, {
     configurable: true,
     get: () => ({ effectiveType: "4g", downlink: 10, ...stub }),
@@ -133,10 +129,8 @@ describe("detectConcurrency", () => {
   it("scales across downlink buckets", () => {
     stubConnection("standard", { effectiveType: "4g", downlink: 0.5 });
     expect(CONST.detectConcurrency()).toBe(2);
-
     stubConnection("standard", { effectiveType: "4g", downlink: 2 });
     expect(CONST.detectConcurrency()).toBe(4);
-
     stubConnection("standard", { effectiveType: "4g", downlink: 100 });
     expect(CONST.detectConcurrency()).toBe(6);
   });
@@ -151,8 +145,8 @@ describe("detectConcurrency", () => {
     expect(CONST.detectConcurrency()).toBe(2);
   });
 
-  it("ignores non-numeric downlink", () => {
-    stubConnection("standard", { effectiveType: "4g", downlink: "fast" as any });
+  it("ignores string-typed downlink", () => {
+    stubConnection("standard", { effectiveType: "4g", downlink: "10" as any });
     expect(CONST.detectConcurrency()).toBe(6);
   });
 
@@ -161,8 +155,13 @@ describe("detectConcurrency", () => {
     expect(CONST.detectConcurrency()).toBe(4);
   });
 
-  it("falls back to default when effectiveType is missing AND downlink is 0", () => {
+  it("falls back to default when effectiveType missing and downlink is 0", () => {
     stubConnection("standard", { downlink: 0 });
+    expect(CONST.detectConcurrency()).toBe(6);
+  });
+
+  it("handles downlink=Infinity as fast link", () => {
+    stubConnection("standard", { effectiveType: "4g", downlink: Infinity });
     expect(CONST.detectConcurrency()).toBe(6);
   });
 
@@ -183,89 +182,8 @@ describe("detectConcurrency", () => {
 });
 
 // ===========================================================================
-// resolveTileConcurrency — pure parser for CONF.tile_concurrency.  Exercises
-// every CONF-driven branch directly without re-importing the module.
-// ===========================================================================
-describe("resolveTileConcurrency", () => {
-  afterEach(() => stubConnection("none"));
-
-  describe("auto / fallback branches", () => {
-    it.each([
-      [undefined, 6],
-      [null, 6],
-      ["auto", 6],
-      [true, 6],
-      ["nope", 6],
-      [{}, 6],
-      [[], 6],
-    ])("falls back to detectConcurrency for %s", (raw, expected) => {
-      expect(CONST.resolveTileConcurrency(raw as any)).toBe(expected);
-    });
-  });
-
-  describe("numeric inputs", () => {
-    it.each([
-      [1, 1],
-      [6, 6],
-      [10, 10],
-      [0, 1],
-      [-1, 1],
-      [-100, 1],
-      [3.7, 3],
-      [3.1, 3],
-      [128, 128],
-    ])("returns %p for number input %s", (raw, expected) => {
-      expect(CONST.resolveTileConcurrency(raw as any)).toBe(expected);
-    });
-  });
-
-  describe("numeric string inputs", () => {
-    it.each([
-      ["1", 1],
-      ["6", 6],
-      ["0", 1],
-      ["-2", 1],
-      ["128", 128],
-    ])("returns %p for numeric string '%s'", (raw, expected) => {
-      expect(CONST.resolveTileConcurrency(raw)).toBe(expected);
-    });
-
-    it.each(["foo", "auto", "6abc"])(
-      "falls back to detectConcurrency for non-numeric string '%s'",
-      raw => {
-        expect(CONST.resolveTileConcurrency(raw)).toBe(6);
-      },
-    );
-  });
-
-  describe("downlink-aware auto detection", () => {
-    it("detects slow 4g link when CONF.tile_concurrency is 'auto'", () => {
-      stubConnection("standard", { effectiveType: "4g", downlink: 0.5 });
-      expect(CONST.resolveTileConcurrency("auto")).toBe(2);
-    });
-
-    it("detects fast 4g link when CONF.tile_concurrency is true", () => {
-      stubConnection("standard", { effectiveType: "4g", downlink: 100 });
-      expect(CONST.resolveTileConcurrency(true)).toBe(6);
-    });
-
-    it("detects 2g link when CONF.tile_concurrency is undefined", () => {
-      stubConnection("standard", { effectiveType: "2g", downlink: 0 });
-      expect(CONST.resolveTileConcurrency(undefined)).toBe(2);
-    });
-
-    it("combines numeric CONF override with auto fallback path", () => {
-      stubConnection("standard", { effectiveType: "4g", downlink: 0.5 });
-      // Even though auto would pick 2, an explicit number wins.
-      expect(CONST.resolveTileConcurrency(8)).toBe(8);
-      expect(CONST.resolveTileConcurrency("auto")).toBe(2);
-    });
-  });
-});
-
-// ===========================================================================
-// TILE_CONCURRENCY — evaluated once at module load.  vitest.config.mjs
-// defines CONF as {}, so CONF.tile_concurrency is undefined → default branch.
+// TILE_CONCURRENCY — evaluated once at module load.  In vitest CONF is {}
+// so TILE_CONCURRENCY = detectConcurrency() with no network API → 6.
 // ===========================================================================
 describe("TILE_CONCURRENCY", () => {
   it("is a positive integer", () => {
@@ -277,48 +195,11 @@ describe("TILE_CONCURRENCY", () => {
     expect(CONST.TILE_CONCURRENCY).toBeLessThanOrEqual(64);
   });
 
-  it("defaults to 6 when CONF.tile_concurrency is absent", () => {
+  it("defaults to 6 when no network API is present", () => {
     expect(CONST.TILE_CONCURRENCY).toBe(6);
   });
 
-  it("is wired to resolveTileConcurrency", () => {
-    expect(CONST.resolveTileConcurrency(undefined)).toBe(CONST.TILE_CONCURRENCY);
-  });
-
-  describe("edge cases for number parsing", () => {
-    it("treats NaN as auto fallback", () => {
-      expect(CONST.resolveTileConcurrency(NaN)).toBe(6);
-    });
-
-    it("falls back for Infinity and NaN (non-finite numbers)", () => {
-      // Both are technically numbers but not sensible concurrency values.
-      expect(CONST.resolveTileConcurrency(Infinity)).toBe(6);
-      expect(CONST.resolveTileConcurrency(-Infinity)).toBe(6);
-    });
-
-    it("floors positive fractional to >=1", () => {
-      expect(CONST.resolveTileConcurrency(0.5)).toBe(1);
-      expect(CONST.resolveTileConcurrency(0.001)).toBe(1);
-      expect(CONST.resolveTileConcurrency(2.9)).toBe(2);
-    });
-
-    it("treats -0 as 1", () => {
-      expect(CONST.resolveTileConcurrency(-0)).toBe(1);
-    });
-  });
-
-  describe("detectConcurrency edge cases", () => {
-    afterEach(() => stubConnection("none"));
-
-    it("ignores string-typed downlink", () => {
-      // typeof "10" === "string" not "number", so it falls through to effectiveType.
-      stubConnection("standard", { effectiveType: "4g", downlink: "10" as any });
-      expect(CONST.detectConcurrency()).toBe(6);
-    });
-
-    it("handles downlink=Infinity as fast link", () => {
-      stubConnection("standard", { effectiveType: "4g", downlink: Infinity });
-      expect(CONST.detectConcurrency()).toBe(6);
-    });
+  it("is wired to detectConcurrency", () => {
+    expect(CONST.detectConcurrency()).toBe(CONST.TILE_CONCURRENCY);
   });
 });
