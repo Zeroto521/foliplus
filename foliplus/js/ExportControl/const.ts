@@ -102,7 +102,8 @@ const DEFAULT_CONN_CONCURRENCY: Record<string, number> = {
  * Safari work.  Standard `navigator.connection` wins when present.
  */
 export function detectConcurrency(): number {
-  const conn = (navigator as any).connection ||
+  const conn =
+    (navigator as any).connection ||
     (navigator as any).mozConnection ||
     (navigator as any).webkitConnection;
   if (!conn) return DEFAULT_CONCURRENCY;
@@ -124,7 +125,7 @@ export function detectConcurrency(): number {
 
 /**
  * Resolve an arbitrary CONF.tile_concurrency value to a concrete number.
-*
+ *
  * Recognised inputs:
  *   - a positive number        → fixed concurrency (legacy behaviour)
  *   - 0 or negative            → clamped to 1 (never zero, which would stall export)
