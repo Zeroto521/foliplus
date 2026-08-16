@@ -9,7 +9,7 @@
 - `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#158](https://github.com/Zeroto521/foliplus/pull/158))
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
-- `EventBus`: decouple cross-component communication via typed semantic events, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148), [#153](https://github.com/Zeroto521/foliplus/pull/153), [#159](https://github.com/Zeroto521/foliplus/pull/159))
+- `EventBus`: decouple cross-component communication via typed semantic events, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148), [#153](https://github.com/Zeroto521/foliplus/pull/153), [#155](https://github.com/Zeroto521/foliplus/pull/155), [#159](https://github.com/Zeroto521/foliplus/pull/159))
 - `ModeManager`: prevent conflicting component actions (e.g. measurement during export) via mode tracking and mutual-exclusion blocking ([#150](https://github.com/Zeroto521/foliplus/pull/150), [#159](https://github.com/Zeroto521/foliplus/pull/159))
 - `LayerControl`: keyboard navigation for layer panel — `ArrowUp`/`ArrowDown` move focus, `Space`/`Enter` toggle layer visibility, `Ctrl+ArrowUp`/`Ctrl+ArrowDown` reorder layers one position, `Escape` clears focus. Added `moveLayerUp(id)` and `moveLayerDown(id)` to `LayerAPI` for programmatic reordering ([#156](https://github.com/Zeroto521/foliplus/pull/156))
 
@@ -28,7 +28,7 @@
 - `Shared bundle`: `foliplus-common.min.js` aggregates all shared code once — core/layer, common helpers, BaseControl, hint, geocode — cutting total JS ~43% (193KB→110KB) ([#147](https://github.com/Zeroto521/foliplus/pull/147))
 - `hint`: made per-map — `window.foliplus.showHint` removed; each map gets its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `geocode`: add forward geocoding alongside reverse; bidirectional FIFO cache with 24h TTL ([#147](https://github.com/Zeroto521/foliplus/pull/147))
-- `Cache`: generic `Cache<K,V>` (FIFO + optional TTL) for bounded caching ([#147](https://github.com/Zeroto521/foliplus/pull/147))
+- `Cache`: generic `Cache<K,V>` (FIFO + optional TTL) for bounded caching; optional `onEvict` callback to release resources (e.g. GPU `ImageBitmap`s) on removal ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#154](https://github.com/Zeroto521/foliplus/pull/154))
 
 ### Fixed
 
@@ -37,6 +37,7 @@
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
 - `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
+- `ExportControl`: evict and close cached `ImageBitmap` resources to prevent GPU memory leaks; reusable `Cache<K,V>` eviction hook ([#154](https://github.com/Zeroto521/foliplus/pull/154))
 
 ## [v0.3.0] (2026-08-02)
 

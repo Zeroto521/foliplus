@@ -28,7 +28,7 @@ describe("Cache", () => {
     c.set("a", 1);
     c.set("b", 2);
     c.set("c", 3);
-    c.set("d", 4); // evicts "a"
+    c.set("d", 4);
     expect(c.size).toBe(3);
     expect(c.get("a")).toBeUndefined();
     expect(c.get("b")).toBe(2);
@@ -57,7 +57,6 @@ describe("Cache", () => {
     const c = new Cache<string, number>(5, 1000);
     c.set("a", 1);
     expect(c.get("a")).toBe(1);
-    // advance time past the TTL
     vi.setSystemTime(Date.now() + 1001);
     expect(c.get("a")).toBeUndefined();
     expect(c.has("a")).toBe(false);
@@ -76,9 +75,9 @@ describe("Cache", () => {
     const c = new Cache<string, number>(5, 1000);
     c.set("a", 1);
     vi.setSystemTime(Date.now() + 800);
-    c.set("a", 2); // refresh ts
+    c.set("a", 2);
     vi.setSystemTime(Date.now() + 800);
-    expect(c.get("a")).toBe(2); // still fresh (800ms after refresh)
+    expect(c.get("a")).toBe(2);
   });
 
   it("works without a TTL (ttlMs default 0 — no expiry)", () => {
@@ -86,5 +85,54 @@ describe("Cache", () => {
     c.set("a", 1);
     vi.setSystemTime(Date.now() + 10_000_000);
     expect(c.get("a")).toBe(1);
+  });
+
+  it("calls onEvict when evicting the oldest entry on overflow", () => {
+    const evicted: number[] = [];
+    const c = new Cache<string, number>(3, 0, v => evicted.push(v));
+    c.set("a", 1);
+    c.set("b", 2);
+    c.set("c", 3);
+    c.set("d", 4);
+    expect(evicted).toEqual([1]);
+    expect(c.size).toBe(3);
+  });
+
+  it("calls onEvict when replacing an existing key", () => {
+    const evicted: number[] = [];
+    const c = new Cache<string, number>(10, 0, v => evicted.push(v));
+    c.set("a", 1);
+    c.set("a", 2);
+    expect(c.get("a")).toBe(2);
+    expect(c.size).toBe(1);
+    expect(evicted).toEqual([1]);
+  });
+
+  it("calls onEvict when an entry expires via TTL", () => {
+    const evicted: number[] = [];
+    const c = new Cache<string, number>(5, 1000, v => evicted.push(v));
+    c.set("a", 1);
+    vi.setSystemTime(Date.now() + 1001);
+    expect(c.get("a")).toBeUndefined();
+    expect(evicted).toEqual([1]);
+  });
+
+  it("calls onEvict once per entry on clear", () => {
+    const evicted: number[] = [];
+    const c = new Cache<string, number>(10, 0, v => evicted.push(v));
+    c.set("a", 1);
+    c.set("b", 2);
+    c.set("c", 3);
+    c.clear();
+    expect(evicted).toEqual([1, 2, 3]);
+    expect(c.size).toBe(0);
+  });
+
+  it("does not call onEvict for a normal hit (ttlMs 0)", () => {
+    const evicted: number[] = [];
+    const c = new Cache<string, number>(5, 0, v => evicted.push(v));
+    c.set("a", 1);
+    c.get("a");
+    expect(evicted).toEqual([]);
   });
 });
