@@ -11,6 +11,7 @@ import {
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
+import { fetchWithTimeout } from "#common/fetch.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./const.js";
@@ -158,7 +159,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
   ctrl.addrAbortController = new AbortController();
   const signal = ctrl.addrAbortController.signal;
 
-  fetch(buildSearchUrl(ctrl, query, SEARCH.LIMIT), { signal })
+  fetchWithTimeout(buildSearchUrl(ctrl, query, SEARCH.LIMIT), { signal })
     .then(r => r.json())
     .then(results => {
       map.foliplus!.hideHint(CONF.name);
@@ -330,7 +331,7 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   ctrl.suggestSeq += 1;
   const reqSeq = ctrl.suggestSeq;
 
-  fetch(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
+  fetchWithTimeout(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
     signal: ctrl.suggestAbortController.signal,
   })
     .then(r => r.json())
