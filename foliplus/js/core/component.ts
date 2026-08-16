@@ -16,6 +16,11 @@ export const COMPONENTS = {
 
 export type ComponentName = (typeof COMPONENTS)[keyof typeof COMPONENTS];
 
+/** Generate a namespaced ID for multi-instance support.
+ *  e.g. generateId("foliplus_measure", "a") → "foliplus_measure_a". */
+export const generateId = (prefix: string, namespace?: string): string =>
+  namespace ? `${prefix}_${namespace}` : prefix;
+
 /** Runtime assertion that a CONF.name matches a known component.
  *  Call early in component initialisation (constructor / onAdd). */
 export function assertComponentName(name: string): void {

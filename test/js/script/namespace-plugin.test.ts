@@ -97,8 +97,8 @@ describe("collectExports", () => {
       export { B } from "./b.js";
     `.trim();
 
-    const aFile = createTempFile("a.test.ts", "export const A = 1;");
-    const bFile = createTempFile("b.test.ts", "export const B = 2;");
+    const aModule = createTempFile("a.test.ts", "export const A = 1;");
+    const bModule = createTempFile("b.test.ts", "export const B = 2;");
 
     const barrelFile = createTempFile("barrel.test.ts", barrel);
     try {
@@ -106,8 +106,8 @@ describe("collectExports", () => {
       expect(exports).toContain("A");
       expect(exports).toContain("B");
     } finally {
-      aFile.cleanup();
-      bFile.cleanup();
+      aModule.cleanup();
+      bModule.cleanup();
       barrelFile.cleanup();
     }
   });
