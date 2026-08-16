@@ -21,8 +21,6 @@ import * as Util from "./util.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
-
-
 /** Circle-mode preview layers (center, radius circle, radius line, edge node, distance label). */
 interface CirclePreviews {
   center: L.Marker | null;

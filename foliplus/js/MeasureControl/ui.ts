@@ -231,8 +231,6 @@ const attachCircleUI = (
   };
   mgr.map.on("click", onMapClickActive);
 
-  
-
   return { onMapClickActive };
 };
 
