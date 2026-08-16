@@ -2,7 +2,6 @@
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 import {
-  clearBitmapCache,
   ensureFont,
   isVisible,
   loadImage,
@@ -200,9 +199,6 @@ class ExportRenderer {
       }
     }
 
-    // Release all cached ImageBitmap GPU resources now that rendering is complete.
-    clearBitmapCache();
-
     return canvas;
   }
 
@@ -285,8 +281,12 @@ class ExportRenderer {
         } catch {
           /* skip tile on draw error */
         } finally {
-          // Bitmap stays in cache for reuse; explicit close is handled by
-          // clearBitmapCache() at the end of render().
+          // Bitmap is drawn once and never needed again; close to free GPU memory.
+          try {
+            bitmap.close();
+          } catch {
+            /* already closed */
+          }
         }
       }
     }
@@ -446,20 +446,21 @@ class ExportRenderer {
       }
     }
 
-    // Load unique sprites via shared bitmap cache
-    const spriteMap = new Map<string, ImageBitmap | null>();
+    // Load unique sprites (once per URL) directly into a local map
+    const spriteUrls = new Set<string>();
     for (const el of drawableEls) {
       const cs = window.getComputedStyle(el);
       const bg = cs.backgroundImage;
       if (!bg || bg === "none") continue;
       const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-      if (m && !m[1].startsWith("data:") && !spriteMap.has(m[1])) {
-        spriteMap.set(m[1], null);
-      }
+      if (m && !m[1].startsWith("data:")) spriteUrls.add(m[1]);
     }
-    // Wait for all in-flight loads to settle
+    const spriteMap = new Map<string, ImageBitmap>();
     await Promise.all(
-      [...spriteMap.keys()].map(url => loadImageBitmap(url).catch(() => null)),
+      [...spriteUrls].map(async url => {
+        const bitmap = await loadImageBitmap(url);
+        if (bitmap) spriteMap.set(url, bitmap);
+      }),
     );
 
     // Draw sprites
@@ -508,6 +509,14 @@ class ExportRenderer {
         ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
       } catch {
         /* skip */
+      }
+    }
+    // All sprites have been drawn; release their bitmaps to free GPU memory.
+    for (const bitmap of spriteMap.values()) {
+      try {
+        bitmap.close();
+      } catch {
+        /* already closed */
       }
     }
     return markerRoots;
