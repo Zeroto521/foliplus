@@ -68,7 +68,11 @@ export class KeyboardManager {
    * @param container - Optional default container applied to all shortcuts that don't specify their own container
    * @returns A cleanup function that unregisters the component when called
    */
-  register(component: string, defs: ShortcutDef[], container?: HTMLElement): () => void {
+  register(
+    component: string,
+    defs: ShortcutDef[],
+    container?: HTMLElement,
+  ): () => void {
     for (const d of defs) {
       const def = { ...d, component };
       if (container && !def.container && !def.element) {
