@@ -642,7 +642,9 @@ class LayerUI {
     if (this.activeIdx === null) {
       const focused = document.activeElement;
       if (focused) {
-        const item = focused.closest(CONST.SEL.LAYER_ITEM);
+        const item =
+          focused.closest(CONST.SEL.LAYER_ITEM) ??
+          focused.closest(CONST.SEL.TOGGLE_ALL);
         if (item) {
           this.activeIdx = items.indexOf(item as HTMLElement);
           if (this.activeIdx === -1) return;
