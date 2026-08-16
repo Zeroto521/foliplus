@@ -7,9 +7,7 @@
   if (!panel) return null;
   // 目标: registry 中 index 0 的层（先取 id 字符串，避免 view 动态变化）
   const targetId = layers[0].id;
-  const item = panel.querySelector(
-    `[data-layer-id="${CSS.escape(targetId)}"]`,
-  );
+  const item = panel.querySelector(`[data-layer-id="${CSS.escape(targetId)}"]`);
   if (!item) return null;
   item.focus();
   item.dispatchEvent(
