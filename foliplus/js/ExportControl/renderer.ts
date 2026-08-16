@@ -43,6 +43,31 @@ interface TileDesc {
 // render() orchestrates the passes in painter's-algorithm order:
 //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome →
 //   6. text labels → 7. remaining (img, inline SVG, bg-color)
+// Load items with a bounded in-flight count (preserves array order on resolve).
+async function pooledEach<T, R>(
+  items: T[],
+  maxConcurrency: number,
+  fn: (item: T, index: number) => Promise<R | null> | R | null,
+): Promise<Array<R | null>> {
+  if (items.length === 0) return [];
+  const cap = Math.max(1, maxConcurrency);
+  const results = new Array<R | null>(items.length);
+  let next = 0;
+  const enqueue = async (): Promise<void> => {
+    const idx = next++;
+    if (idx >= items.length) return;
+    try {
+      const value = await fn(items[idx], idx);
+      results[idx] = value ?? null;
+    } catch (err) {
+      console.warn(err);
+      results[idx] = null;
+    }
+    await enqueue();
+  };
+  await Promise.all(Array.from({ length: cap }, enqueue));
+  return results;
+}
 class ExportRenderer {
   map: L.Map;
   container: HTMLElement;
@@ -456,11 +481,14 @@ class ExportRenderer {
       if (m && !m[1].startsWith("data:")) spriteUrls.add(m[1]);
     }
     const spriteMap = new Map<string, ImageBitmap>();
-    await Promise.all(
-      [...spriteUrls].map(async url => {
+    await pooledEach<string, ImageBitmap>(
+      [...spriteUrls],
+      CONST.TILE_CONCURRENCY,
+      async url => {
         const bitmap = await loadImageBitmap(url);
         if (bitmap) spriteMap.set(url, bitmap);
-      }),
+        return null;
+      },
     );
 
     // Draw sprites
