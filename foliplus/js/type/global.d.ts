@@ -239,7 +239,6 @@ declare global {
   /** Return type of `LayerAPI.createCanvas`. */
   type CreateCanvasAPI = CoreCreateCanvasAPI;
 
-
   /** Return type of `LayerAPI.createLayers`. */
   type CreateLayersAPI = CoreCreateLayersAPI;
 
