@@ -332,7 +332,7 @@ const renderSuggestions = (
           renderAddressResult(ctrl, { item, displayName });
           recordHistorySearch(
             ctrl,
-            displayName,
+            query,
             "addr",
             displayName,
             parseFloat(item.lat),

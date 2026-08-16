@@ -555,6 +555,8 @@ describe("renderSuggestions — click records to history", () => {
     item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].type).toBe("addr");
+    expect(ctrl.searchHistory[0].query).toBe("abc"); // original input, not formatted displayName
+    expect(ctrl.searchHistory[0].label).toContain("X"); // formatted display name
     expect(ctrl.inp.value).toBe("abc");
   });
 });
