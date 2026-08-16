@@ -23,6 +23,17 @@ class MeasureControl(BaseControl):
     After drawing a line, polygon, circle, or placing a marker: click the object
     to toggle labels and × buttons; click empty map space to hide × buttons.
 
+    Shortcuts
+    ---------
+    Focus a layer row by clicking it, then use:
+
+    ========== =============================================
+    Key        Action
+    ========== =============================================
+    Escape     Exit measurement mode
+    ========== =============================================
+
+
     Parameters
     ----------
         position : str, default "bottomright"
@@ -45,15 +56,6 @@ class MeasureControl(BaseControl):
     **Interaction.** Clicking an existing node during drawing does nothing (the marker
     stops the event from propagating to the map). This prevents duplicate points and
     overlapping labels.
-
-    **Keyboard shortcuts.**
-    While in measurement mode (after clicking the ruler icon):
-
-    ========== =============================================
-    Key        Action
-    ========== =============================================
-    Escape     Exit measurement mode
-    ========== =============================================
 
     Examples
     --------

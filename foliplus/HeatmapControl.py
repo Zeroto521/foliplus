@@ -20,6 +20,9 @@ class HeatmapControl(BaseControl):
         counted. Annotation or label markers without ``.feature`` are skipped to avoid
         double-counting in hexbin aggregation.
 
+    Shortcuts
+
+
     Parameters
     ----------
         position : str, default "topleft"
@@ -77,11 +80,6 @@ class HeatmapControl(BaseControl):
         locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
-
-    Notes
-    -----
-    **Keyboard shortcuts.**
-    When the color scheme bar or dropdown is focused:
 
     ============ =============================================
     Key          Action

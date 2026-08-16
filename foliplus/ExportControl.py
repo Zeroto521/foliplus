@@ -12,6 +12,20 @@ FORMAT = Literal["png", "jpeg", "webp"]
 class ExportControl(BaseControl):
     """Capture a specific area of the map and export it as an image.
 
+    Shortcuts
+    ---------
+    Focus a layer row by clicking it, then use:
+
+    ================== =============================================
+    Key                Action
+    ================== =============================================
+    Enter              Lock the current crop area, then begin export
+    Escape             Unlock or dismiss the crop box
+    Ctrl+Z / Cmd+Z     Undo the last crop adjustment
+    Ctrl+Shift+Z / Cmd+Shift+Z  Redo the last crop adjustment
+    ================== =============================================
+
+
     Parameters
     ----------
         position : str, default "bottomright"
@@ -63,18 +77,6 @@ class ExportControl(BaseControl):
     **Text labels.**  Elements that should be rendered as text labels (with background
     fill and centered text) can be marked with  ``data-foliplus-export="label"``.
     ``MeasureControl``'s distance labels use this attribute.
-
-    **Keyboard shortcuts.**
-    While the crop box is visible:
-
-    ================== =============================================
-    Key                Action
-    ================== =============================================
-    Enter              Lock the current crop area, then begin export
-    Escape             Unlock or dismiss the crop box
-    Ctrl+Z / Cmd+Z     Undo the last crop adjustment
-    Ctrl+Shift+Z / Cmd+Shift+Z  Redo the last crop adjustment
-    ================== =============================================
 
     **Image format.**  The download filename is ``{filename}.{format}``. For example,
     ``filename="map"`` with ``format="jpeg"`` produces ``map.jpeg``. JPEG and WebP use

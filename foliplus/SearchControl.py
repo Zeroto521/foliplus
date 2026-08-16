@@ -17,26 +17,9 @@ class SearchControl(BaseControl):
       and place a marker.
     - 🌐 **Address search**: enter a keyword and geocode via Nominatim.
 
-    Parameters
-    ----------
-        position : str, default "topleft"
-        One of "topleft", "topright", "bottomleft", "bottomright"\.
-
-    mode : Literal["coord", "addr"], default "coord"
-        Default search mode on first open. ``"coord"`` for coordinate search, ``"addr"``
-        for address (Nominatim) search.
-
-    zoom : int, default 15
-        Zoom level after coordinate search. Typically 1-18.
-
-        locale : str or LocaleConfig, optional
-        Language code ("en", "zh") or a LocaleConfig instance.
-        Defaults to auto-detection, falling back to English.
-
-    Notes
-    -----
-    **Keyboard shortcuts.**
-    While the search input is focused:
+    Shortcuts
+    ---------
+    Focus a layer row by clicking it, then use:
 
     ============ =============================================
     Key          Action
@@ -45,6 +28,21 @@ class SearchControl(BaseControl):
     ArrowDown    Move to the next suggestion
     ArrowUp      Move to the previous suggestion
     ============ =============================================
+
+    Parameters
+    ----------
+    position : str, default "topleft"
+        One of "topleft", "topright", "bottomleft", "bottomright".
+
+    mode : Literal["coord", "addr"], default "coord"
+        Default search mode on first open.
+
+    zoom : int, default 15
+        Zoom level after coordinate search.
+
+    locale : str or LocaleConfig, optional
+        Language code ("en", "zh") or a LocaleConfig instance.
+        Defaults to auto-detection, falling back to English.
 
     Examples
     --------
