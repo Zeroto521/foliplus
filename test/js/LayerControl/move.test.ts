@@ -1,5 +1,5 @@
-import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { LayerManager } from "#foliplus/LayerControl/manager.js";
 
 describe("LayerManager moveLayerUp / moveLayerDown", () => {
   let manager, map;
