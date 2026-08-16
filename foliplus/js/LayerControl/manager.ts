@@ -137,6 +137,10 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
 
+    // Before any export, flush pending debounced enforceOrder so the
+    // exported image matches the panel's layer order.
+    ensureEvents(this.map).on("before:export", () => this.enforceOrderNow());
+
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
     // LayerManager itself implements LayerAPI, so it becomes the map's API.
@@ -420,6 +424,12 @@ class LayerManager implements LayerAPI {
   computeZIndex(i: number, isTile: boolean): number {
     const zBase = isTile ? Z_INDEX.TILE_BASE : Z_INDEX.BASE;
     return zBase + (this.layers.length - i) * Z_INDEX.STEP;
+  }
+
+  /** Cancel any pending debounced enforceOrder and run it immediately. */
+  enforceOrderNow(): void {
+    this.debouncedEnforce?.cancel();
+    this.enforceOrder();
   }
 
   enforceOrder() {

@@ -68,6 +68,7 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 
 /** Locate me via the browser geolocation API. */
 const locateMe = (ctrl: LocateCtrl) => {
+  if (map.foliplus?.modes?.isBlocked("LocateControl")) return;
   const geo = navigator.geolocation;
   if (!geo) {
     map.foliplus!.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);

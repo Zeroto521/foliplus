@@ -147,7 +147,7 @@ const ensureHint = (map: L.Map): HintManager => {
   const mgr = new HintManager();
   instances.set(map, mgr);
   // Ensure map.foliplus exists so components can call map.foliplus!.showHint
-  if (!map.foliplus) (map.foliplus as any) = { LayerAPI: null as any };
+  if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
   map.foliplus!.showHint = mgr.showHint.bind(mgr);
   map.foliplus!.hideHint = mgr.hideHint.bind(mgr);
   map.foliplus!.registerHintIcon = (key: string, svg: string) => {
