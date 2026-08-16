@@ -73,9 +73,6 @@ export const CLASSES = {
   MEASURING: "foliplus-measuring",
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
-  // Export UI classes
-  EXPORT_DROPDOWN: "foliplus-measure-export-dropdown",
-  EXPORT_FORMAT_SELECT: "foliplus-measure-export-format",
 };
 
 /** Toggle constants. */

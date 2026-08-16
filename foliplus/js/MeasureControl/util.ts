@@ -50,7 +50,7 @@ const suppressHide = (manager: { isSuppressHideDel: boolean }) => {
 };
 
 /** Calculate next toggle state for X icons and labels. */
-const calcToggle = (
+const nextToggleState = (
   curX: boolean,
   curLabels: boolean,
   showX: boolean | undefined,
@@ -65,7 +65,7 @@ const calcToggle = (
 };
 
 /** Apply toggle visibility state to del icon, labels, and optional extra label. */
-const applyToggle = (
+const applyVisibilityToggle = (
   delMarker: L.Layer | undefined,
   isXVisible: boolean,
   labels: L.Layer[],
@@ -218,13 +218,13 @@ const calcMidpoint = (
 
 export {
   animateDashSweep,
-  applyToggle,
+  applyVisibilityToggle,
   area,
   buildPopup,
   calcArea,
   calcCentroid,
   calcMidpoint,
-  calcToggle,
+  nextToggleState,
   centroid,
   distance,
   formatArea,

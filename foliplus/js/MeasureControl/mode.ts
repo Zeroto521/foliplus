@@ -21,8 +21,7 @@ import * as Util from "./util.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
-/** Persisted measurement payload type. */
-type Mode = { type: string };
+
 
 /** Circle-mode preview layers (center, radius circle, radius line, edge node, distance label). */
 interface CirclePreviews {
@@ -412,12 +411,12 @@ class DistanceMode extends PreviewMode {
           this.m.saveMeasurements();
         },
         onUpdate: () => {
-          const m = this.m.measurements.find(x => x.id === distId);
-          if (!m) return;
+          const measurement = this.m.measurements.find(x => x.id === distId);
+          if (!measurement) return;
           const { segments, totalDistance } = Util.recalculateSegments(points);
-          m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-          m.segments = segments;
-          m.totalDistance = totalDistance;
+          measurement.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
+          measurement.segments = segments;
+          measurement.totalDistance = totalDistance;
           this.m.saveMeasurements();
         },
       });
@@ -729,8 +728,8 @@ class PolygonMode extends PreviewMode {
           this.m.saveMeasurements();
         },
         onUpdate: () => {
-          const m = this.m.measurements.find(x => x.id === polyId);
-          if (!m) return;
+          const measurement = this.m.measurements.find(x => x.id === polyId);
+          if (!measurement) return;
           const { segments } = Util.recalculateSegments(points);
           // Add closing segment
           const n = points.length;
@@ -739,9 +738,9 @@ class PolygonMode extends PreviewMode {
             lat: points[0].lat,
             distance: Util.distance(points[n - 1], points[0]),
           });
-          m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-          m.segments = segments;
-          m.area = Util.area(points);
+          measurement.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
+          measurement.segments = segments;
+          measurement.area = Util.area(points);
           this.m.saveMeasurements();
         },
       });
@@ -962,7 +961,7 @@ class CircleMode extends PreviewMode {
       previews.label = null;
     };
 
-    const onMapClick = (event: L.LeafletMouseEvent) => {
+    const onCircleClick = (event: L.LeafletMouseEvent) => {
       if (
         isFinalizing ||
         this.m.currentMode !== this.type ||
@@ -1013,7 +1012,7 @@ class CircleMode extends PreviewMode {
       }
     };
 
-    const onMouseMove = (event: L.LeafletMouseEvent) => {
+    const onCircleMove = (event: L.LeafletMouseEvent) => {
       if (state !== 1 || !center || this.m.currentMode !== this.type) return;
       const r = Util.distance(center!, event.latlng);
 
@@ -1066,7 +1065,7 @@ class CircleMode extends PreviewMode {
       }
     };
 
-    const onContext = (event: L.LeafletMouseEvent) => {
+    const onCircleContext = (event: L.LeafletMouseEvent) => {
       stopEvent(event);
       this.m.clearActiveMode();
     };
@@ -1096,11 +1095,11 @@ class CircleMode extends PreviewMode {
       );
       const rippleEl = (ripple as L.Circle).getElement() as SVGElement | null;
       if (rippleEl) {
-        const onEnd = () => {
-          rippleEl.removeEventListener("animationend", onEnd);
+        const onRippleEnd = () => {
+          rippleEl.removeEventListener("animationend", onRippleEnd);
           this.layers.removeLayer(ripple);
         };
-        rippleEl.addEventListener("animationend", onEnd);
+        rippleEl.addEventListener("animationend", onRippleEnd);
       }
 
       const radiusLine = this.layers.addLayer(
@@ -1168,10 +1167,10 @@ class CircleMode extends PreviewMode {
     };
 
     const circleEvents = [
-      ["preclick", onMapClick],
-      ["click", onMapClick],
-      ["mousemove", onMouseMove],
-      ["contextmenu", onContext],
+      ["preclick", onCircleClick],
+      ["click", onCircleClick],
+      ["mousemove", onCircleMove],
+      ["contextmenu", onCircleContext],
     ] as MapEventHandlers;
     bindMapEvents(this.map, circleEvents);
 
