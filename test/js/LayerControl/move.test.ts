@@ -8,9 +8,15 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
-    class Path { options = {}; }
-    class Polygon { options = {}; }
-    class Polyline { options = {}; }
+    class Path {
+      options = {};
+    }
+    class Polygon {
+      options = {};
+    }
+    class Polyline {
+      options = {};
+    }
     class Marker {}
     class CircleMarker {}
     const stamp = (() => {
@@ -96,9 +102,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("returns false for unknown layer id", () => {
-    manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-    ]);
+    manager = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
     expect(manager.moveLayerUp("unknown")).toBe(false);
   });
 
@@ -196,9 +200,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("returns false when only one layer exists", () => {
-    manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-    ]);
+    manager = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
     expect(manager.moveLayerUp("a")).toBe(false);
     expect(manager.moveLayerDown("a")).toBe(false);
   });
