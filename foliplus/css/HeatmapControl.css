@@ -279,10 +279,7 @@
   .foliplus-heatmap-toggle-slider {
     position: absolute;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: var(--toggle-off-bg);
     border-radius: 10px;
     transition: background-color var(--transition-fast);
@@ -302,6 +299,8 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
     }
   }
+  /* hover + checked states: flat selectors (avoid nested & on combinator RHS,
+     which postcss-nesting edition 2021 compiles to an incorrect :is() form) */
   .foliplus-heatmap-toggle-switch:hover .foliplus-heatmap-toggle-slider {
     background-color: var(--neutral-500);
 
@@ -311,16 +310,15 @@
   }
   .foliplus-heatmap-toggle-switch input:checked + .foliplus-heatmap-toggle-slider {
     background-color: var(--accent-primary);
+
+    &::before {
+      transform: translateX(var(--size-20)) scale(1.15);
+    }
   }
   .foliplus-heatmap-toggle-switch:hover
     input:checked
     + .foliplus-heatmap-toggle-slider {
     background-color: var(--btn-primary-hover);
-  }
-  .foliplus-heatmap-toggle-switch
-    input:checked
-    + .foliplus-heatmap-toggle-slider::before {
-    transform: translateX(var(--size-20)) scale(1.15);
   }
 
   /* ── Bottom Buttons ── */
