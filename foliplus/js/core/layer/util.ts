@@ -6,6 +6,7 @@ import * as CONST from "./const.js";
  *  @param {string} id - Layer id.
  *  @returns {Object|null} Leaflet layer. */
 const findLayer = (map: L.Map, id: string): L.Layer | null => {
+  if (typeof window === "undefined") return null;
   return ((map._layers && map._layers[id]) ||
     Reflect.get(window, id) ||
     null) as L.Layer | null;
