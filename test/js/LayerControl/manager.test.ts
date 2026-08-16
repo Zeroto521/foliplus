@@ -322,13 +322,13 @@ describe("LayerManager", () => {
 
   // ── layeradd re-entry during enforceOrder ──
 
-  it("layeradd during enforceOrder reschedules via debouncedEnforce", () => {
+  it("layeradd during enforceOrder does NOT reschedule debouncedEnforce (prevents freeze loop)", () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(manager, "enforceOrder");
     manager.isEnforcing = true;
     manager.onLayerAdd({ layer: new window.L.Path() });
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 
