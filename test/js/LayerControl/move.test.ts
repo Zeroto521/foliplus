@@ -253,7 +253,32 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     expect(enforceSpy).toHaveBeenCalled();
   });
 
-  it("moveLayerDown calls enforceOrder", () => {
+
+  it("moveLayerDown returns false when layer is already at bottom of base group", () => {
+    manager = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false },
+      { id: "base1", name: "Base1", isBase: true },
+    ]);
+    expect(manager.moveLayerDown("base1")).toBe(false);
+  });
+
+  it("moveLayerUp returns false when layer is the only overlay", () => {
+    manager = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false },
+      { id: "base1", name: "Base1", isBase: true },
+    ]);
+    expect(manager.moveLayerUp("a")).toBe(false);
+  });
+
+  it("moveLayerUp returns false when layer is the only base map", () => {
+    manager = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false },
+      { id: "base1", name: "Base1", isBase: true },
+    ]);
+    expect(manager.moveLayerUp("base1")).toBe(false);
+  });
+
+    it("moveLayerDown calls enforceOrder", () => {
     manager = new LayerManager(map, [
       { id: "a", name: "A", isBase: false },
       { id: "b", name: "B", isBase: false },
