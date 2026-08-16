@@ -1372,3 +1372,166 @@ class TestLayerControlBrowser:
             assert result["spliceThrew"] is True, "splice should throw"
             assert result["assignThrew"] is True, "index assign should throw"
             assert result["shiftThrew"] is True, "shift should throw"
+
+    def test_keydown_up_moves_focus(self, browser, tmp_path):
+        """ArrowUp moves keyboard focus to the previous layer row."""
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/keydown_up_moves_focus"))
+            assert result is not None, "keydown_up_moves_focus failed"
+            assert result["focusedElement"] == result["expectedElement"], (
+                f"ArrowUp should focus previous item, got {result}"
+            )
+
+    def test_keydown_down_moves_focus(self, browser, tmp_path):
+        """ArrowDown moves keyboard focus to the next layer row."""
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/keydown_down_moves_focus"))
+            assert result is not None, "keydown_down_moves_focus failed"
+            assert result["focusedElement"] == result["expectedElement"], (
+                f"ArrowDown should focus next item, got {result}"
+            )
+
+    def test_keydown_space_toggles_visibility(self, browser, tmp_path):
+        """Space toggles the focused layer's checkbox."""
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/keydown_space_toggles_visibility"))
+            assert result is not None, "keydown_space_toggles_visibility failed"
+            assert result["toggled"] is True, (
+                f"Space should toggle visibility, got {result}"
+            )
+
+    def test_keydown_enter_toggles_visibility(self, browser, tmp_path):
+        """Enter toggles the focused layer's checkbox."""
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/keydown_enter_toggles_visibility"))
+            assert result is not None, "keydown_enter_toggles_visibility failed"
+            assert result["toggled"] is True, (
+                f"Enter should toggle visibility, got {result}"
+            )
+
+    def test_keydown_left_toggles_visibility(self, browser, tmp_path):
+        """ArrowLeft toggles the focused layer's checkbox."""
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/keydown_left_toggles_visibility"))
+            assert result is not None, "keydown_left_toggles_visibility failed"
+            assert result["toggled"] is True, (
+                f"ArrowLeft should toggle visibility, got {result}"
+            )
+
+    def test_keydown_right_toggles_visibility(self, browser, tmp_path):
+        """ArrowRight toggles the focused layer's checkbox."""
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/keydown_right_toggles_visibility"))
+            assert result is not None, "keydown_right_toggles_visibility failed"
+            assert result["toggled"] is True, (
+                f"ArrowRight should toggle visibility, got {result}"
+            )
+
+    def test_keydown_ctrl_up_moves_layer(self, browser, tmp_path):
+        """Ctrl+ArrowUp moves the focused layer one position up."""
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/keydown_ctrl_up_moves_layer"))
+            assert result is not None, "keydown_ctrl_up_moves_layer failed"
+            assert result["moved"] is True, (
+                f"Ctrl+ArrowUp should move layer up, got {result}"
+            )
+
+    def test_keydown_ctrl_down_moves_layer(self, browser, tmp_path):
+        """Ctrl+ArrowDown moves the focused layer one position down."""
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/keydown_ctrl_down_moves_layer"))
+            assert result is not None, "keydown_ctrl_down_moves_layer failed"
+            assert result["moved"] is True, (
+                f"Ctrl+ArrowDown should move layer down, got {result}"
+            )
+
+    def test_keydown_escape_clears_focus(self, browser, tmp_path):
+        """Escape clears the keyboard-active focus state."""
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/keydown_escape_clears_focus"))
+            assert result is not None, "keydown_escape_clears_focus failed"
+            assert result["beforeEscape"] is True, (
+                "ArrowDown should first set focus"
+            )
+            assert result["focusCleared"] is True, (
+                f"Escape should clear focus, got {result}"
+            )
