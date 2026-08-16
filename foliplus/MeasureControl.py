@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from ._cdn import GCOORD, TURF
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
+
+EXPORT_FORMAT = Literal["geojson", "csv", "kml"]
 
 
 class MeasureControl(BaseControl):
@@ -46,6 +50,11 @@ class MeasureControl(BaseControl):
         the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to
         distance mode; area and circle modes always show plain distance.
 
+    export_format : str, default "geojson"
+        Default export format for measurements. One of ``"geojson"``, ``"csv"``,
+        or ``"kml"``. The user can switch formats at runtime; this value sets
+        the initial selection in the export dropdown.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -54,6 +63,15 @@ class MeasureControl(BaseControl):
     -----
     **Persistence.** Measurements survive page reloads — they are saved to
     ``localStorage`` (keyed by map container id) and restored automatically.
+
+    **Export formats.** Measurements can be exported to three formats:
+
+    * **GeoJSON** (default) — full geometry with coordinates, distances, areas,
+      and radii as properties. Compatible with Leaflet, QGIS, ArcGIS, and
+      any GIS software.
+    * **CSV** — tabular summary with per-segment distances and per-feature areas.
+      Suitable for Excel/Numbers analysis.
+    * **KML** — for Google Earth import. Geometry with placemark names.
 
     **Interaction.** Clicking an existing node during drawing does nothing (the marker
     stops the event from propagating to the map). This prevents duplicate points and
@@ -67,7 +85,7 @@ class MeasureControl(BaseControl):
     >>> MeasureControl().add_to(m)
     """
 
-    _export_fields = ("show_bearing",)
+    _export_fields = ("show_bearing", "export_format")
 
     default_js = [
         (
@@ -85,8 +103,10 @@ class MeasureControl(BaseControl):
         *,
         position: Position = "bottomright",
         show_bearing: bool = True,
+        export_format: EXPORT_FORMAT = "geojson",
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
+        self.export_format = export_format
         self._template = self._get_template()

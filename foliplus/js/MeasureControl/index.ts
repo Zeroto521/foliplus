@@ -11,6 +11,7 @@ import {
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
+import * as Export from "./export.js";
 
 const { _ } = createControlEnv(CONF, SVGs.RULER);
 ensureLayerAPI(map);
@@ -74,6 +75,30 @@ class MeasureControl extends BaseControl {
         data: { mode },
       });
     });
+
+    // Build the export button (click → export with configured default format)
+    const exportBtn = createIconButton({
+      class: "foliplus-tool-btn foliplus-measure-export-btn",
+      title: _(`${CONF.name}.tool_export`),
+      svg: Icons.DOWNLOAD,
+      parent: toolBar,
+      data: { mode: CONST.MODE.EXPORT },
+    });
+    exportBtn.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      const measurements = this.m.measurements;
+      if (!measurements || measurements.length === 0) {
+        map.foliplus?.showHint?.(
+          CONF.name,
+          _(`${CONF.name}.export_no_data`),
+          2000,
+        );
+        return;
+      }
+      const format = Export.getDefaultFormat();
+      Export.exportMeasurements(measurements, format);
+    };
+
     this.m.ctrl = ctrl;
     this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
 

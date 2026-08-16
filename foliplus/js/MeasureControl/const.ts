@@ -47,6 +47,14 @@ export const Z_INDEX = { OFFSET: DEL_ICON_Z_OFFSET };
 export const ID = "foliplus_measure";
 export const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
 
+/** Export formats. */
+export const EXPORT_FORMAT = {
+  GEOJSON: "geojson",
+  CSV: "csv",
+  KML: "kml",
+} as const;
+export type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
+
 /** CSS class names. */
 export const CLASSES = {
   // Three path states shared by lines, circles, and polygons.
@@ -65,6 +73,9 @@ export const CLASSES = {
   MEASURING: "foliplus-measuring",
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
+  // Export UI classes
+  EXPORT_DROPDOWN: "foliplus-measure-export-dropdown",
+  EXPORT_FORMAT_SELECT: "foliplus-measure-export-format",
 };
 
 /** Toggle constants. */
@@ -90,4 +101,5 @@ export const MODE = {
   POLYGON: "polygon",
   CIRCLE: "circle",
   CLEAR: "clear",
+  EXPORT: "export",
 };
