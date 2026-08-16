@@ -1,4 +1,5 @@
 import * as Storage from "#common/storage.js";
+import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import { describe, expect, it, vi } from "vitest";

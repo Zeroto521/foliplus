@@ -4,3 +4,4 @@
 export * from "./layer/index.js";
 export { registerHintIcon } from "./hint.js";
 export * from "./event/index.js";
+export * from "./mode.js";

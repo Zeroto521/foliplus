@@ -6,11 +6,11 @@
 
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154))
+- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#158](https://github.com/Zeroto521/foliplus/pull/158))
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
-- `EventBus`: introduce a per-map `EventBus` with semantic event constants for decoupled cross-component communication, replacing direct Leaflet map-event wiring. LayerManager emits `LAYER_CHANGE` after register/unregister/reorder; HeatmapControl subscribes instead of raw `map.on("layeradd layerremove")`. ([#148](https://github.com/Zeroto521/foliplus/pull/148))
-- `ModeManager`: per-map registry for cross-component active-mode tracking. `ensureModes(map)` attaches to `map.foliplus.modes`. MeasureControl and SearchControl publish their mode changes; other components can query via `getMode()` or subscribe via `MODE_CHANGE` event. ([#150](https://github.com/Zeroto521/foliplus/pull/150))
+- `EventBus`: introduce a `EventBus` with semantic event constants for decoupled cross-component communication, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148))
+- `ModeManager`: `MeasureControl` and `SearchControl` publish mode changes, others query via `getMode()` or subscribe via `MODE_CHANGE` ([#150](https://github.com/Zeroto521/foliplus/pull/150))
 
 ### Changed
 

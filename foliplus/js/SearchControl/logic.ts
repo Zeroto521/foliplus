@@ -83,6 +83,7 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
  * @param {string} raw - User input (e.g. "121.47,31.23")
  */
 const searchCoord = (ctrl: SearchControlState, raw: string) => {
+  if (map.foliplus?.modes?.isBlocked("SearchControl")) return;
   const parts = raw
     .replace(/\uff0c/g, ",")
     .replace(/\s+/g, "")
@@ -135,6 +136,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
  * @param {string} query - Address query string
  */
 const searchAddress = (ctrl: SearchControlState, query: string) => {
+  if (map.foliplus?.modes?.isBlocked("SearchControl")) return;
   if (ctrl.cachedAddress[query]) {
     renderAddressResult(ctrl, ctrl.cachedAddress[query]);
     return;
@@ -289,6 +291,7 @@ const renderSuggestions = (
 };
 
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
+  if (map.foliplus?.modes?.isBlocked("SearchControl")) return;
   if (ctrl.mode !== MODE.ADDR) {
     removeSuggestions(ctrl);
     return;
