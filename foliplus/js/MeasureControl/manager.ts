@@ -2,8 +2,8 @@
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
-import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
 import * as Storage from "#common/storage.js";
+import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import * as CONST from "./const.js";
