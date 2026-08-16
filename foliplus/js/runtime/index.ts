@@ -14,7 +14,7 @@
  * (see script/shared-external.mjs), so shared code is included exactly once
  * instead of being inlined into every component.
  */
-import { COMPONENTS, assertComponentName } from "#core/component.js";
+import { COMPONENTS, assertComponentName, generateId } from "#core/component.js";
 import {
   HINT_DURATION,
   HintManager,
@@ -44,13 +44,15 @@ if (!foliplus.isInitialized) {
     // Global geocoding (shared bidirectional cache + throttle).
     geocode,
     reverseGeocode,
+    // BaseControl base class (shared by all components).
+    BaseControl: { BaseControl },
     // Hint module (per-map HintManager factory + shared icon registry).
     hint: { ensureHint, HINT_DURATION, HintManager, registerHintIcon },
   });
 
   // Core module — single file, manually registered.
   if (!foliplus.core) foliplus.core = {};
-  foliplus.core.component = { COMPONENTS, assertComponentName };
+  foliplus.core.component = { COMPONENTS, assertComponentName, generateId };
   // Mode module — single file, manually registered.
   foliplus.core.mode = { ensureModes, ModeManager };
 }
