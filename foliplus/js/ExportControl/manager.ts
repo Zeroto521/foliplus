@@ -110,6 +110,7 @@ class ExportManager {
     this.exportOverlay = null;
     this.isExporting = false;
     this.pixelOverLimit = false;
+    this.lastCropRect = null;
     this.savedGeoBounds = null;
     this.loadSavedBounds();
 
@@ -200,8 +201,14 @@ class ExportManager {
     event.preventDefault();
     event.stopPropagation();
     const target = event.target as HTMLElement;
-    if (target.classList.contains(CONST.CLASSES.HANDLE))
-      this.dragState.dragType = target.dataset.pos ?? null;
+    if (target.classList.contains(CONST.CLASSES.HANDLE)) {
+      const pos = target.dataset.pos;
+      if (pos === "tl" || pos === "tr" || pos === "bl" || pos === "br" ||
+          pos === "t" || pos === "b" || pos === "l" || pos === "r")
+        this.dragState.dragType = pos;
+      else
+        this.dragState.dragType = null;
+    }
     else if (
       target.classList.contains(CONST.CLASSES.CENTER) ||
       target.classList.contains(CONST.CLASSES.BOX)
