@@ -237,8 +237,6 @@ class LayerUI {
    *  @returns {HTMLElement} The row element. */
   renderLayerItem(layerInfo: LayerInfo, idx: number) {
     const en = escapeHTML(layerInfo.name);
-    const isBase = layerInfo.isBase;
-    const type = isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
 
     const countEl = dom.el("span", {
       class: CONST.CLASSES.COUNT_COL,
@@ -255,7 +253,7 @@ class LayerUI {
         tabindex: "0",
         [CONST.DATA.INDEX]: String(idx),
         [CONST.DATA.LAYER_ID]: layerInfo.id,
-        "data-layer-type": type,
+        "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
       },
       dom.el(
         "span",
