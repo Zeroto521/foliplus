@@ -16,15 +16,18 @@ class HeatmapControl(BaseControl):
 
     .. note::
 
-        Only markers with a .feature property (GeoJSON / df.explore) are counted.
+        Only markers with a ``.feature`` property (GeoJSON / ``df.explore``) are
+        counted. Annotation or label markers without ``.feature`` are skipped to avoid
+        double-counting in hexbin aggregation.
 
     Parameters
     ----------
     position : str, default "topleft"
-        One of "topleft", "topright", "bottomleft", "bottomright".
+        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
 
     color_scheme : str, default "Reds"
-        Default color scheme name. Supports chroma.js / ColorBrewer palettes.
+        Default color scheme name. Supports chroma.js / ColorBrewer palettes: ``Blues``,
+        ``Greens``, ``Reds``, ``Oranges``, ``Purples``, ``YlOrRd``, ``Viridis``.
 
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method.
@@ -36,17 +39,48 @@ class HeatmapControl(BaseControl):
         Default aggregation method.
 
     schemes : list[str], optional
-        List of available color scheme names.
+        List of available color scheme names. Can include custom hex values like
+        ``["#f00", "#0f0", "#00f"]``.
 
     style : dict, optional
-        Grid style overrides. See full documentation for available keys.
+        Grid style overrides. Supported keys:
+
+        - ``field`` (optional)
+          property name to aggregate on. ``null`` / ``"auto"`` counts features per
+          hexagon; any other string aggregates that numeric property.
+
+        - ``border_weight`` (float, default 1.5)
+          border width
+
+        - ``border_color`` (str, default "#333333")
+          border color
+
+        - ``fill_opacity`` (float, default 0.7)
+          fill opacity
+
+        - ``border_opacity`` (float, default 0.9)
+          border opacity
+
+        - ``label_show`` (bool, default True)
+          show aggregated value at hex center
+
+        - ``label_size`` (int, default 11)
+          label font size
+
+        - ``label_color`` (str, default "#fff")
+          label color
+
+        - ``label_format`` (str, default "auto")
+          number format: ``"auto"`` (10K/1K suffix), ``"int"``, ``"comma"``
+          (thousands separator)
 
     locale : str or LocaleConfig, optional
-        Language code ("en", "zh") or a LocaleConfig instance.
+        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Defaults to auto-detection, falling back to English.
 
     Notes
     -----
-    Keyboard shortcuts.
+    **Keyboard shortcuts.**
     When the color scheme bar or dropdown is focused:
 
     ============ =============================================
