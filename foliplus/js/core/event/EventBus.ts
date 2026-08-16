@@ -6,25 +6,12 @@ import type { EventPayloadMap } from "./const.js";
 
 export type EventHandler = (...args: unknown[]) => void;
 
-const MAX_LOG = 100;
-
 export class EventBus {
   private listeners = new Map<string, Set<EventHandler>>();
-  private log: string[] = [];
 
   /** Number of events with at least one listener (diagnostics/tests). */
   get eventCount(): number {
     return this.listeners.size;
-  }
-
-  /** Ordered history of emitted events (last MAX_LOG entries), for debugging. */
-  get eventLog(): readonly string[] {
-    return this.log;
-  }
-
-  private record(event: string): void {
-    if (this.log.length >= MAX_LOG) this.log.shift();
-    this.log.push(event);
   }
 
   /** Subscribe to a known event (typed payload). */
@@ -63,7 +50,6 @@ export class EventBus {
   /** Emit any event (generic fallback). */
   emit(event: string, ...payload: unknown[]): void;
   emit(event: string, ...payload: unknown[]): void {
-    this.record(event);
     const set = this.listeners.get(event);
     if (!set) return;
     // Copy before iterating so handlers may subscribe/unsubscribe during emit.
