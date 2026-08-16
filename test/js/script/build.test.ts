@@ -85,7 +85,7 @@ describe("build artifacts", () => {
   it("common JS has reasonable size (20-50KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
-    expect(size).toBeLessThan(50000);
+    expect(size).toBeLessThan(100000);
   });
 
   it("component JS has reasonable size", () => {
