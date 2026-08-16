@@ -3,15 +3,4 @@ channels:
   - conda-forge
 dependencies:
   - python>=3.10
-  # required
-  - folium
-  # test (Python)
-  - pytest
-  - pytest-cov
-  - pytest-xdist
-  - codecov
-  # test (JS browser)
-  - playwright
   - pip
-  - pip:
-      - pytest-playwright
