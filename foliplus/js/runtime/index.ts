@@ -44,8 +44,6 @@ if (!foliplus.isInitialized) {
     // Global geocoding (shared bidirectional cache + throttle).
     geocode,
     reverseGeocode,
-    // BaseControl base class (shared by all components).
-    BaseControl,
     // Hint module (per-map HintManager factory + shared icon registry).
     hint: { ensureHint, HINT_DURATION, HintManager, registerHintIcon },
   });

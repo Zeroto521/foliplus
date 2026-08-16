@@ -245,12 +245,6 @@ class LayerFactory {
     const onResize = () => resize();
     map.on("resize", onResize);
 
-    const hooks = {
-      before: [] as Array<() => void>,
-      after: [] as Array<() => void>,
-    };
-    (canvas as CanvasWithHooks).hooks = hooks;
-
     return {
       canvas,
       ctx,
@@ -274,7 +268,6 @@ class LayerFactory {
       setVisible: (v: boolean) => {
         canvas.classList.toggle(HIDDEN, !v);
       },
-      hooks,
     };
   }
 }

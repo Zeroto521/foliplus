@@ -1,5 +1,6 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
-import { LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
+import { generateId } from "#core/component.js";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
@@ -98,8 +99,18 @@ class HeatmapManager {
   declare removeLayerChangeListener: () => void;
   declare onZoomEnd: Debounced;
 
-  constructor(mapInstance: L.Map) {
+  /** The layer id used to register this manager's heatmap canvas. */
+  layerId: string;
+
+  /**
+   * @param mapInstance - Leaflet map instance.
+   * @param opts - Optional configuration.
+   * @param opts.id - Optional namespace for the layer ID. When provided,
+   *   the canvas is registered as "{ID}_{id}" to support multi-instance maps.
+   */
+  constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.layerId = generateId(CONST.ID, opts?.id);
 
     // State management
     this.selectedLayerId = null;
@@ -120,16 +131,16 @@ class HeatmapManager {
     // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
     // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
-      id: CONST.ID,
+      id: this.layerId,
       name: _(`${CONF.name}.title`),
       iconSvg: SVGs.HEXAGON,
     });
-    // Register lifecycle hooks for full-content capture (e.g. ExportControl).
-    this.overlay.hooks?.before.push(() => {
+    // Subscribe to export events for full-content capture (ExportControl).
+    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
       this.renderAll = true;
       this.redrawHeatmap();
     });
-    this.overlay.hooks?.after.push(() => {
+    ensureEvents(this.map).on(EVENTS.AFTER_EXPORT, () => {
       this.renderAll = false;
       this.redrawHeatmap();
     });
@@ -179,11 +190,12 @@ class HeatmapManager {
       }
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
-    // layeradd/layerremove — LayerManager emits LAYER_CHANGE on
+    // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
     // register/unregister/reorder, so unrelated map activity is filtered out
     // and callback-only registrations (no map.addLayer) are covered too.
-    this.removeLayerChangeListener = ensureEvents(this.map).on(LAYER_CHANGE, () =>
-      this.onLayerChange(),
+    this.removeLayerChangeListener = ensureEvents(this.map).on(
+      EVENTS.LAYER_CHANGE,
+      () => this.onLayerChange(),
     );
   }
 

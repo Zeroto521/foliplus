@@ -1,6 +1,6 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
-import { COMPONENTS } from "#core/component.js";
-import { MODE_CHANGE, ensureEvents } from "#core/event/index.js";
+import { COMPONENTS, generateId } from "#core/component.js";
+import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
@@ -35,14 +35,25 @@ class MeasureManager {
   measurements: MeasureData[];
   measurementIdCounter: number;
   ctrl: HTMLElement | null;
+  /** The layer id used to register this manager's measure layer. */
+  layerId: string;
+  /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
+  offLayerRemoved!: () => void;
   onMapClick!: (event: L.LeafletMouseEvent) => void;
   onKeyDown!: (event: KeyboardEvent) => void;
   onUnload!: () => void;
 
-  constructor(mapInstance: L.Map) {
+  /**
+   * @param mapInstance - Leaflet map instance.
+   * @param opts - Optional configuration.
+   * @param opts.id - Optional namespace for the layer ID. When provided,
+   *   the layer is registered as "{ID}_{id}" to support multi-instance maps.
+   */
+  constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
-    this.layers = map.foliplus!.LayerAPI!.createLayers({
-      id: CONST.ID,
+    this.layerId = generateId(CONST.ID, opts?.id);
+    this.layers = this.map.foliplus!.LayerAPI!.createLayers({
+      id: this.layerId,
       name: _(`${CONF.name}.tool_toggle`),
       graphPane: CONST.PANES.GRAPH,
       labelPane: CONST.PANES.LABEL,
@@ -53,7 +64,7 @@ class MeasureManager {
     this.isSuppressHideDel = false;
     // When ExportControl enters crop interaction or export, interrupt the
     // active measurement so map clicks are not captured while exporting.
-    ensureEvents(this.map).on(MODE_CHANGE, ({ component, mode }) => {
+    ensureEvents(this.map).on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
         map.foliplus?.showHint?.(
@@ -71,6 +82,7 @@ class MeasureManager {
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
+    this.bindLayerRemoved();
   }
 
   // ── Persistence ──
@@ -167,7 +179,7 @@ class MeasureManager {
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
 
     if (mode === CONST.MODE.MARKER) {
-      map.foliplus!.showHint(
+      this.map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_marker`),
         HINT_DURATION.PERSIST,
@@ -175,7 +187,7 @@ class MeasureManager {
       this.modeInstance = new MarkerMode(this);
       this.modeInstance.start();
     } else if (mode === CONST.MODE.DISTANCE) {
-      map.foliplus!.showHint(
+      this.map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_dist_start`),
         HINT_DURATION.PERSIST,
@@ -183,7 +195,7 @@ class MeasureManager {
       this.modeInstance = new DistanceMode(this);
       this.modeInstance.start();
     } else if (mode === CONST.MODE.POLYGON) {
-      map.foliplus!.showHint(
+      this.map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_polygon`),
         HINT_DURATION.PERSIST,
@@ -191,7 +203,7 @@ class MeasureManager {
       this.modeInstance = new PolygonMode(this);
       this.modeInstance.start();
     } else if (mode === CONST.MODE.CIRCLE) {
-      map.foliplus!.showHint(
+      this.map.foliplus!.showHint(
         CONF.name,
         _(`${CONF.name}.hint_circle_start`),
         HINT_DURATION.PERSIST,
@@ -206,7 +218,7 @@ class MeasureManager {
     this.currentMode = null;
     ensureModes(this.map).setMode(CONF.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
-    map.foliplus!.hideHint(CONF.name);
+    this.map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
     // Unregister the measure layer if it has no content left (interrupted
@@ -235,6 +247,9 @@ class MeasureManager {
 
   /** Full cleanup including global events. Called on control removal. */
   destroy() {
+    // Unsubscribe from EVENTS.LAYER_REMOVED first to prevent reacting to removals
+    // triggered by our own clearAll() during destroy.
+    if (this.offLayerRemoved) this.offLayerRemoved();
     // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
     this.map.off("unload", this.onUnload);
     this.clearAll();
@@ -244,13 +259,29 @@ class MeasureManager {
     this.finalizedClickHandlers = [];
   }
 
+  /**
+   * Subscribe to EVENTS.LAYER_REMOVED so we can detect when the LayerControl panel
+   * (or any external caller) deletes our measure layer. When that happens,
+   * our active mode must be cleared — otherwise currentMode, hint, and the
+   * "measuring" CSS class would remain stuck in an inconsistent state.
+   */
+  bindLayerRemoved() {
+    this.offLayerRemoved = ensureEvents(this.map).on(EVENTS.LAYER_REMOVED, ((payload: {
+      id?: string;
+    }) => {
+      if (payload?.id === this.layerId) {
+        this.clearActiveMode();
+      }
+    }) as EventHandler);
+  }
+
   /** Clean up current mode instance and hide hints. */
   cleanMapEvents() {
     if (this.modeInstance) {
       this.modeInstance.cleanup();
       this.modeInstance = null;
     }
-    map.foliplus!.hideHint(CONF.name);
+    this.map.foliplus!.hideHint(CONF.name);
   }
 }
 
