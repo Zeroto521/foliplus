@@ -22,7 +22,7 @@ const DEFAULT_TIMEOUT_MS = 10_000;
  */
 const HTTP_CACHE_HEADERS: Record<string, string> = {
   "Cache-Control": "max-age=86400",
-  "Expires": new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString(),
+  Expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString(),
 };
 
 interface FetchOptions extends RequestInit {
@@ -67,7 +67,10 @@ const fetchWithTimeout = (
  * Uses `AbortSignal.any` when available, otherwise falls back to an
  * AbortController + setTimeout that fires on either abort.
  */
-const composeSignal = (parentSignal: AbortSignal | undefined, timeoutMs: number): AbortSignal => {
+const composeSignal = (
+  parentSignal: AbortSignal | undefined,
+  timeoutMs: number,
+): AbortSignal => {
   const controller = new AbortController();
 
   const onTimeout = () => {

@@ -5,9 +5,9 @@
 // Pure helpers (NOMINATIM, nominatimUrl, formatAddress) live in
 // common/geocode.js and are statically imported by components.
 import { Cache } from "#common/cache.js";
-import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { toWgs84 } from "#common/coord.js";
-import { fetchWithTimeout, GEODECODE_TIMEOUT_MS } from "#common/fetch.js";
+import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
+import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
 // Entries expire after 24h so Nominatim result changes are not served stale.

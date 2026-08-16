@@ -10,8 +10,8 @@ import {
   toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
-import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { fetchWithTimeout } from "#common/fetch.js";
+import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./const.js";
