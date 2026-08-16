@@ -5,6 +5,7 @@ prune doc
 prune test
 prune foliplus/css
 prune foliplus/js
+prune foliplus.egg-info
 exclude Makefile
 exclude .editorconfig
 exclude .gitattributes
