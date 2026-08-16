@@ -208,10 +208,11 @@ const buildEntries = components => {
   return entries;
 };
 
-/** Generate .build/js/_shared-registry.ts — registers every shared module on
- *  window.foliplus (core → foliplus.core, each common module → foliplus.common.<name>).
- *  Scans the mirrored sources so new core/common modules are picked up
- *  automatically (no manual wiring in runtime/index.ts). */
+/** Generate .build/js/_shared-registry.ts — auto-scans component imports
+ *  for used exports from shared modules. When a component adds or removes an
+ *  import, the change is automatically reflected at the next build.
+ *  Uses targeted named imports (not import * as) so Tree Shaking can drop
+ *  unused code. */
 const generateSharedRegistry = () => {
   const commonDir = resolve(CFG.tmp.js, "common");
   const coreDir = resolve(CFG.tmp.js, "core");
@@ -223,85 +224,92 @@ const generateSharedRegistry = () => {
     .filter(d => d.isDirectory())
     .map(d => d.name)
     .sort();
+  const coreSingleFiles = readdirSync(coreDir, { withFileTypes: true })
+    .filter(f => f.isFile() && f.name.endsWith(".ts") && f.name !== "index.ts")
+    .map(f => f.name.replace(/\.ts$/, ""))
+    .sort();
 
-  // Used-export map: every export name actually imported by components.
-  // Targeted imports let Tree Shaking drop unused code from shared modules.
-  const usedExports = {
-    dom: [
-      "buildPopupHtml",
-      "createIconButton",
-      "createLocationMarker",
-      "dom",
-      "escapeHTML",
-      "stopEvent",
-    ],
-    guard: ["createControlEnv", "requireRuntime"],
-    panel: [
-      "adjustPanelZIndex",
-      "bindFoldToggle",
-      "bindMapSync",
-      "bindOutsideCollapse",
-      "bindPanelToggle",
-      "createFoldControl",
-      "createPanelControl",
-    ],
-    locale: ["createTranslator"],
-    format: ["formatNumber"],
-    debounce: ["debounce"],
-    cache: ["Cache"],
-    coord: ["fromWgs84", "toWgs84"],
-    geocode: ["NOMINATIM", "formatAddress", "nominatimUrl"],
-    delicon: [
-      "DEL_ICON_CHAR",
-      "DEL_ICON_MARKER_ANCHOR",
-      "DEL_ICON_SELECTOR",
-      "DEL_ICON_Z_OFFSET",
-      "attachDelClick",
-      "hideDelIcons",
-      "makeDelIcon",
-      "toggleDelIcon",
-    ],
-    cssvar: ["cssVar"],
-    icon: ["CLOSE", "GLOBE", "LOADING", "LOCATE", "PIN_ICON"],
-    storage: ["load", "save"],
-    throttle: ["throttleRaf"],
-    geo: ["area", "bearing", "centroid", "distance", "midpoint"],
-    mapEvent: ["bindMapEvents", "unbindMapEvents"],
-    hint: ["ensureHint", "HINT_DURATION", "HintManager", "registerHintIcon"],
-    component: ["COMPONENTS", "assertComponentName"],
-    mode: ["ModeManager", "ensureModes"],
-    "core/event": [
-      "AFTER_EXPORT",
-      "BEFORE_EXPORT",
-      "EventBus",
-      "LAYER_CHANGE",
-      "MODE_CHANGE",
-      "ensureEvents",
-    ],
-    "core/layer": [
-      "FALLBACK_PANE_PREFIX",
-      "GEOM_TYPE",
-      "LayerFactory",
-      "LayerRegistry",
-      "PaneManager",
-      "RECURSION",
-      "RENDERER_KEY",
-      "Z_INDEX",
-      "ensureLayerAPI",
-      "findLayer",
-      "forEachLayer",
-      "forEachLeaf",
-      "getGeometryType",
-      "requireLayerAPI",
-    ],
-    "core/layer/api": ["ensureLayerAPI", "requireLayerAPI"],
-    BaseControl: ["BaseControl"],
-  };
+  // ── Auto-scan component imports ────────────────────────────────
+  // Walk component .ts files (excluding shared dirs that would circularly
+  // import themselves) and collect every VALUE export imported from
+  // #common/*, #core/*, #foliplus/*. Type-only imports are excluded.
+  // Also resolves * as imports to property access on the namespace.
+  const srcDir = resolve(CFG.tmp.js);
+  const imported = new Map(); // spec → Set of value names
+  const starImported = new Map(); // spec → Set of namespace aliases
+
+  function scanImports(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) scanImports(full);
+      else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
+        const src = readFileSync(full, "utf-8");
+        const namedRe =
+          /import[\s]*\{([^}]+)\}[\s]*from[\s]*"(#(?:common|core|foliplus)\/[^"]+)"/g;
+        let m;
+        while ((m = namedRe.exec(src))) {
+          const spec = m[2].replace(/^#/, "").replace(/\.js$/, "");
+          const names = m[1]
+            .split(",")
+            .map(n => n.trim())
+            // Skip type-only imports (e.g. "type Debounced")
+            .filter(n => !n.startsWith("type"))
+            .map(n => n.replace(/[\s]+as[\s]+.*/g, ""))
+            .filter(Boolean);
+          if (!imported.has(spec)) imported.set(spec, new Set());
+          names.forEach(n => imported.get(spec).add(n));
+        }
+        const starRe =
+          /import[\s]+\*[\s]+as[\s]+(\w+)[\s]+from[\s]*"(#(?:common|core)\/[^"]+)"/g;
+        while ((m = starRe.exec(src))) {
+          const spec = m[2].replace(/^#/, "").replace(/\.js$/, "");
+          if (!starImported.has(spec)) starImported.set(spec, new Set());
+          starImported.get(spec).add(m[1]);
+        }
+      }
+    }
+  }
+
+  const componentDirs = readdirSync(srcDir, { withFileTypes: true })
+    .filter(e => e.isDirectory() && !["core", "common", "type", "runtime"].includes(e.name))
+    .map(e => resolve(srcDir, e.name));
+  for (const dir of componentDirs) scanImports(dir);
+
+  // ── Resolve * as imports to property access ────────────────────
+  // For each * as alias, scan for alias.PropertyName and alias.methodName
+  // accesses to determine which exports are actually used at runtime.
+  for (const [spec, aliases] of starImported) {
+    if (!imported.has(spec)) imported.set(spec, new Set());
+    for (const alias of aliases) {
+      for (const dir of componentDirs) {
+        const files = readdirSync(dir, { withFileTypes: true })
+          .filter(e => e.isFile() && e.name.endsWith(".ts"))
+          .map(e => resolve(dir, e.name));
+        for (const file of files) {
+          const src = readFileSync(file, "utf-8");
+          // Only SCREAMING_NAMES: Icons.CLOSE, Storage.load, Storage.save
+          const upperRe = new RegExp(alias + "[.]" + "([A-Z][A-Z0-9_]*)", "g");
+          let pm;
+          while ((pm = upperRe.exec(src))) imported.get(spec).add(pm[1]);
+          // Known Storage methods (lowercase): Storage.load, Storage.save
+          if (alias === "Storage") {
+            const stdRe = new RegExp(alias + "[.]" + "(load|save)", "g");
+            let sm;
+            while ((sm = stdRe.exec(src))) imported.get(spec).add(sm[1]);
+          }
+        }
+      }
+    }
+  }
+
+  const usedExports = {};
+  for (const [spec, names] of imported) {
+    usedExports[spec] = [...names].sort();
+  }
 
   const lines = [
     "// AUTO-GENERATED by script/build.mjs — do not edit.",
-    "// Uses targeted named imports (not import * as) so Tree Shaking can drop",
-    "// unused code from shared modules.",
+    "// Scans component imports for targeted named imports (Tree Shaking).",
     "window.foliplus = window.foliplus || {};",
     "window.foliplus.core = {};",
     "window.foliplus.common = {};",
@@ -311,22 +319,34 @@ const generateSharedRegistry = () => {
     const names = usedExports["core/" + sub] || [];
     if (names.length === 0) continue;
     const alias = "core" + sub;
-    lines.push(`import { ${names.join(", ")} } from "#core/${sub}/index.js";`);
-    lines.push(`const ${alias} = { ${names.join(", ")} };`);
-    lines.push(`window.foliplus.core["${sub}"] = ${alias};`);
+    lines.push("import { " + names.join(", ") + " } from \"#core/" + sub + "/index.js\";");
+    lines.push("const " + alias + " = { " + names.join(", ") + " };");
+    lines.push('window.foliplus.core["' + sub + '"] = ' + alias + ';');
+  }
+
+  for (const name of coreSingleFiles) {
+    const names = usedExports["core/" + name] || [];
+    if (names.length === 0) continue;
+    const alias = "core" + name;
+    lines.push("import { " + names.join(", ") + " } from \"#core/" + name + ".js\";");
+    lines.push("const " + alias + " = { " + names.join(", ") + " };");
+    lines.push('window.foliplus.core["' + name + '"] = ' + alias + ';');
   }
 
   for (const name of commonModules) {
-    const names = usedExports[name] || [];
+    const names = usedExports["common/" + name] || [];
     if (names.length === 0) continue;
-    lines.push(`import { ${names.join(", ")} } from "#common/${name}.js";`);
-    lines.push(`const ${name}NS = { ${names.join(", ")} };`);
-    lines.push(`window.foliplus.common["${name}"] = ${name}NS;`);
+    lines.push("import { " + names.join(", ") + " } from \"#common/" + name + ".js\";");
+    lines.push("const " + name + "NS = { " + names.join(", ") + " };");
+    lines.push('window.foliplus.common["' + name + '"] = ' + name + 'NS;');
   }
 
-  lines.push('import { BaseControl } from "#foliplus/BaseControl.js";');
-  lines.push("const BaseControlNS = { BaseControl };");
-  lines.push("window.foliplus.BaseControl = BaseControlNS.BaseControl;");
+  const baseNames = usedExports["foliplus/BaseControl"] || ["BaseControl"];
+  if (baseNames.length > 0) {
+    lines.push("import { " + baseNames.join(", ") + " } from \"#foliplus/BaseControl.js\";");
+    lines.push("const BaseControlNS = { " + baseNames.join(", ") + " };");
+    lines.push("window.foliplus.BaseControl = BaseControlNS.BaseControl;");
+  }
 
   writeFileSync(resolve(CFG.tmp.js, "_shared-registry.ts"), lines.join("\n"), "utf-8");
 };
