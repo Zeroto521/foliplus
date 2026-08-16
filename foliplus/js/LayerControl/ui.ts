@@ -562,8 +562,10 @@ class LayerUI {
 
   /** Get all navigable layer items (excludes color item and toggle-all rows). */
   getNavigableItems(): HTMLElement[] {
-    return Array.from(this.uiContainer.querySelectorAll('input[type="checkbox"]'))
-      .map((cb: HTMLInputElement) => cb.closest(CONST.SEL.LAYER_ITEM) as HTMLElement)
+    return Array.from(
+      this.uiContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+    )
+      .map((cb) => cb.closest(CONST.SEL.LAYER_ITEM) as HTMLElement)
       .filter(
         (el): el is HTMLElement =>
           el !== null && !el.classList.contains(CONST.CLASSES.COLOR_ITEM),
