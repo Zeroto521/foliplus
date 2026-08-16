@@ -281,6 +281,41 @@
       margin: 0;
       font-weight: var(--font-weight-normal);
     }
+
+    /* ── Feature count column ──
+       Position: immediately before the type-icon column.  Right-aligned so
+       digits align across rows; fixed-width slot keeps the icon column stable.
+       Dimmed by default, brightens on hover/active to match other row content. */
+    .foliplus-layer-count {
+      flex-shrink: 0;
+      display: inline-block;
+      min-width: calc(var(--icon-size-md) - var(--space-sm));
+      padding: 0 var(--space-xs);
+      margin-left: var(--space-sm);
+      margin-right: 0;
+      font-variant-numeric: tabular-nums;
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+      text-align: right;
+      line-height: 1;
+      align-self: center;
+      transition: color var(--transition-fast);
+    }
+    .foliplus-layer-item:hover .foliplus-layer-count,
+    .foliplus-layer-item.active .foliplus-layer-count {
+      color: var(--text-primary);
+    }
+
+    /* Existing label selector kept for backward compatibility. */
+    label {
+      cursor: inherit;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+      font-weight: var(--font-weight-normal);
+    }
   }
   /* ── Color layer item overrides: pointer cursor (not draggable) ── */
   .foliplus-color-layer-item {

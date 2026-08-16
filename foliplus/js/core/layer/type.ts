@@ -17,6 +17,9 @@ export interface RegisterLayerOpts {
   canvas?: HTMLCanvasElement | null;
   onToggle?: ((visible: boolean) => void) | null;
   onZIndex?: ((z: number) => void) | null;
+  /** Third-party feature count provider (Canvas layers require this; FeatureGroup
+   *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
+  featureCountProvider?: (() => number) | null;
   [key: string]: unknown;
 }
 
@@ -39,6 +42,8 @@ export interface LayerInfo {
   onToggle?: ((visible: boolean) => void) | null;
   /** z-index callback fired by enforceOrder (e.g. heatmap canvas ordering). */
   onZIndex?: ((z: number) => void) | null;
+  /** Third-party feature count provider. Null means 'don't render count'. */
+  featureCountProvider?: (() => number) | null;
   [key: string]: unknown;
 }
 
@@ -124,4 +129,7 @@ export interface LayerAPI {
   getLayersByType: (
     type: string,
   ) => Array<{ id: string; name: string; layer: L.Layer | null }>;
+  /** Return the number of geometric features in a registered layer.
+   *  Null when the layer cannot be counted (e.g. Canvas without provider). */
+  getFeatureCount?: (id: string) => number | null;
 }

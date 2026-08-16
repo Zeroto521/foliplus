@@ -23,6 +23,7 @@ export const CLASSES = {
   GROUP_FOLDED: "foliplus-layer-group-folded",
   COLOR_INPUT: "foliplus-color-layer-input",
   COLOR_ITEM: "foliplus-color-layer-item",
+  LAYER_LABEL: "foliplus-layer-label",
   HIDDEN: "hidden",
   FOCUSED: "foliplus-layer-focused",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
@@ -31,13 +32,14 @@ export const CLASSES = {
   FOLD_BTN: "foliplus-layer-fold-btn",
   FOLDED: "foliplus-layer-folded",
   TYPE_ICON_COL: "foliplus-type-icon-col",
+  COUNT_COL: "foliplus-layer-count",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEP_LABEL: "foliplus-layer-sep-label",
 };
 
 /** Data attribute names. */
-export const DATA = { INDEX: "data-index", LAYER_ID: "data-layer-id" };
+export const DATA = { INDEX: "data-index", LAYER_ID: "data-layer-id", COUNT: "data-item-count", TITLE: "data-item-title" };
 
 /** DOM selectors. */
 export const SEL = {
@@ -45,6 +47,7 @@ export const SEL = {
   COLOR_ITEM: ".foliplus-color-layer-item",
   COLOR_INPUT: ".foliplus-color-layer-input",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
+  COUNT_COL: ".foliplus-layer-count",
 };
 
 /** Group names. */

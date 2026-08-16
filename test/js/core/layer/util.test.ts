@@ -4,6 +4,7 @@ import {
   forEachLayer,
   forEachLeaf,
   getGeometryType,
+  countFeatureGeometry,
 } from "#foliplus/core/layer/util.js";
 
 describe("core/layer util", () => {
@@ -110,6 +111,61 @@ describe("core/layer util", () => {
     it("returns unknown for mixed geometry", () => {
       const group = wrap(new window.L.Polygon(), new window.L.Polyline());
       expect(getGeometryType(group as never)).toBe("unknown");
+    });
+  });
+
+  describe("countFeatureGeometry", () => {
+    const wrap = (...leaves: L.Layer[]) => ({
+      eachLayer: (fn: (l: L.Layer) => void) => leaves.forEach(fn),
+    });
+
+    it("counts Polygon leaves", () => {
+      const group = wrap(new window.L.Polygon(), new window.L.Polygon());
+      expect(countFeatureGeometry(group as never)).toBe(2);
+    });
+
+    it("counts Polyline leaves", () => {
+      const group = wrap(new window.L.Polyline());
+      expect(countFeatureGeometry(group as never)).toBe(1);
+    });
+
+    it("counts CircleMarker leaves as points", () => {
+      const group = wrap(new window.L.CircleMarker());
+      expect(countFeatureGeometry(group as never)).toBe(1);
+    });
+
+    it("counts Markers with feature as points", () => {
+      const marker = new window.L.Marker();
+      marker.feature = {};
+      const group = wrap(marker);
+      expect(countFeatureGeometry(group as never)).toBe(1);
+    });
+
+    it("ignores Markers without feature", () => {
+      const marker = new window.L.Marker();
+      const group = wrap(marker);
+      expect(countFeatureGeometry(group as never)).toBe(0);
+    });
+
+    it("excludes label layers", () => {
+      const polygon = new window.L.Polygon();
+      (polygon as unknown as { isLabel: boolean }).isLabel = true;
+      const group = wrap(polygon);
+      expect(countFeatureGeometry(group as never)).toBe(0);
+    });
+
+    it("handles a mixed container", () => {
+      const marker = new window.L.Marker();
+      marker.feature = {};
+      const label = new window.L.Polygon();
+      (label as unknown as { isLabel: boolean }).isLabel = true;
+      const group = wrap(new window.L.Polygon(), new window.L.Polyline(), marker, label);
+      expect(countFeatureGeometry(group as never)).toBe(3);
+    });
+
+    it("returns 0 for an empty container", () => {
+      const emptyGroup = { eachLayer: () => {} };
+      expect(countFeatureGeometry(emptyGroup as never)).toBe(0);
     });
   });
 });

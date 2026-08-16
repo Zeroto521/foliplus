@@ -17,6 +17,7 @@ import {
   forEachLayer,
   forEachLeaf,
   getGeometryType,
+  countFeatureGeometry,
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createTranslator } from "#common/locale.js";
@@ -256,6 +257,40 @@ class LayerManager implements LayerAPI {
     return this.layers
       .filter(l => this.getLayerType(l.id) === type)
       .map(l => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
+  }
+
+  /** Return the number of geometric features in a registered layer.
+   *  Third-party provider wins (Canvas layers need this). Fallback uses forEachLeaf.
+   *  Returns null when the layer cannot be meaningfully counted (Canvas without
+   *  provider, base tile layers, or unknown non-container layers).
+   *  @param {string} id - Layer id.
+   *  @returns {number|null} Feature count, or null when count is unavailable. */
+  getFeatureCount(id: string): number | null {
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return null;
+    if (layerInfo.isBase) return null;
+    // 1. Third-party provider (Canvas layers must supply this).
+    const provider = layerInfo.featureCountProvider;
+    if (typeof provider === "function") {
+      try {
+        const v = provider();
+        if (typeof v === "number") return v;
+      } catch {}
+    }
+    // 2. Fallback via forEachLeaf — only valid for feature containers.
+    const layer = this.findLayer(layerInfo);
+    if (!layer) return null;
+    if (this.isFeatureContainer(layer)) {
+      return countFeatureGeometry(layer);
+    }
+    // 3. Canvas or unknown non-container → no meaningful count.
+    return null;
+  }
+
+  /** Whether a layer is a feature container (LayerGroup-like) we can walk. */
+  private isFeatureContainer(layer: L.Layer): boolean {
+    return typeof (layer as L.LayerGroup).eachLayer === "function" ||
+      !!(layer as L.LayerGroup)._layers;
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
