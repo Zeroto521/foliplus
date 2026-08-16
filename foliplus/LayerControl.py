@@ -16,7 +16,7 @@ class LayerControl(BaseControl):
     - 🔀 Drag-and-drop reordering, synced to Leaflet render order.
     - ✅ Multi-select checkboxes with z-index stacking.
     - 🎨 Color picker to replace base maps with a solid background color.
-    - ⌨️  Keyboard navigation for layer panel (see Shortcuts below).
+    - ⌨️ Keyboard navigation for layer panel (see Shortcuts below).
     - 📂 Collapsible panel consistent with other foliplus controls.
 
     Shortcuts
