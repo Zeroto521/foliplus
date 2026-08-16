@@ -28,7 +28,7 @@ import { basename, dirname, resolve } from "path";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath } from "url";
-import { parseArgs, help } from "./args.mjs";
+import { help, parseArgs } from "./args.mjs";
 import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 
@@ -43,13 +43,20 @@ const ROOT = resolve(__dirname, "..");
 const SHARED_ENTRY = "runtime";
 
 const BUILD_SPEC = {
-  root:  { type: "string", default: ".", desc: "Project root directory" },
-  dev:   { type: "bool",   desc: "Unminified, keepNames" },
-  check: { type: "bool",   desc: "Verify all artifacts exist" },
+  root: { type: "string", default: ".", desc: "Project root directory" },
+  dev: { type: "bool", desc: "Unminified, keepNames" },
+  check: { type: "bool", desc: "Verify all artifacts exist" },
 };
 const _raw = parseArgs(process.argv.slice(2), BUILD_SPEC);
-if (_raw.help) { console.log(help(BUILD_SPEC)); process.exit(0); }
-if (_raw.errors.length) { console.error(_raw.errors.join("\n")); console.error(help(BUILD_SPEC)); process.exit(1); }
+if (_raw.help) {
+  console.log(help(BUILD_SPEC));
+  process.exit(0);
+}
+if (_raw.errors.length) {
+  console.error(_raw.errors.join("\n"));
+  console.error(help(BUILD_SPEC));
+  process.exit(1);
+}
 const CFG = _raw;
 CFG.root = resolve(CFG.root);
 const ROOT_RESOLVED = CFG.root;
@@ -73,11 +80,17 @@ const resolveVersion = () => {
     ["-c", "import foliplus; print(foliplus.__version__)"],
     { encoding: "utf-8" },
   );
-  if (py.status === 0 && py.stdout.trim()) { versionCache = py.stdout.trim(); return versionCache; }
+  if (py.status === 0 && py.stdout.trim()) {
+    versionCache = py.stdout.trim();
+    return versionCache;
+  }
   const git = spawnSync("git", ["describe", "--tags", "--always", "--dirty"], {
     encoding: "utf-8",
   });
-  if (git.status === 0 && git.stdout.trim()) { versionCache = git.stdout.trim(); return versionCache; }
+  if (git.status === 0 && git.stdout.trim()) {
+    versionCache = git.stdout.trim();
+    return versionCache;
+  }
   versionCache = "unknown";
   return versionCache;
 };
@@ -173,8 +186,6 @@ const artifact = (entryPoints, outfile, name) => ({
   },
 });
 
-
-
 /** Return the first path that exists, else null. */
 const resolveEntry = candidates => candidates.find(existsSync) ?? null;
 
@@ -228,11 +239,11 @@ const buildEntries = components => {
 /** Generate .build/js/_shared-registry.ts via external script.
  *  Auto-scans component imports for used exports (see scan-registry.mjs). */
 const generateSharedRegistry = () => {
-  const genResult = spawnSync(process.execPath, [
-    resolve(__dirname, "scan-registry.mjs"),
-    "--root", ROOT_RESOLVED,
-    "--silent",
-  ], { stdio: "pipe", encoding: "utf-8" });
+  const genResult = spawnSync(
+    process.execPath,
+    [resolve(__dirname, "scan-registry.mjs"), "--root", ROOT_RESOLVED, "--silent"],
+    { stdio: "pipe", encoding: "utf-8" },
+  );
   if (genResult.error) throw genResult.error;
   if (genResult.stderr) console.error(genResult.stderr);
   if (genResult.status !== 0) process.exit(genResult.status);
