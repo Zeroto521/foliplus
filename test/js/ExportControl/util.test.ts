@@ -68,6 +68,34 @@ describe("loadImageBitmap", () => {
     expect(result).toBeNull();
   });
 
+  it("returns null when fetch rejects (network error)", async () => {
+    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    globalThis.fetch = vi.fn(() =>
+      Promise.reject(new TypeError("network error")),
+    ) as unknown as typeof fetch;
+    const result = await loadImageBitmap("https://example.com/tile.png");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when blob() rejects", async () => {
+    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ ok: true, blob: () => Promise.reject(new Error("blob err")) }),
+    ) as unknown as typeof fetch;
+    const result = await loadImageBitmap("https://example.com/tile.png");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when createImageBitmap rejects (decode failure)", async () => {
+    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    globalThis.fetch = makeFetchOk();
+    globalThis.createImageBitmap = vi.fn(() =>
+      Promise.reject(new Error("decode failed")),
+    ) as unknown as typeof createImageBitmap;
+    const result = await loadImageBitmap("https://example.com/b.png");
+    expect(result).toBeNull();
+  });
+
   it("loads a fresh ImageBitmap each call (no caching)", async () => {
     const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
     globalThis.fetch = makeFetchOk();
@@ -81,39 +109,8 @@ describe("loadImageBitmap", () => {
     const second = await loadImageBitmap("https://example.com/a.png");
     expect(first).toBe(bitmap1);
     expect(second).toBe(bitmap2);
-    // No cache: each call fetches and decodes fresh
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     expect(globalThis.createImageBitmap).toHaveBeenCalledTimes(2);
-  });
-
-  it("closes the bitmap when createImageBitmap rejects", async () => {
-    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
-    const fakeBitmap = { close: vi.fn() };
-    globalThis.fetch = makeFetchOk();
-    // First call succeeds (produces a real bitmap, never used — simulates a
-    // decode that happens to succeed), second call decodes a bitmap then
-    // the fetch/decode chain of that same call fails.  We test the failure
-    // close by having createImageBitmap resolve then the outer try/catch of
-    // a different path.  Simpler: decode resolves, but we simulate the "bitmap
-    // exists, something after fails" by making fetch throw after producing.
-    let resolveDecode: (b: { close: ReturnType<typeof vi.fn> }) => void;
-    globalThis.createImageBitmap = vi.fn(
-      () =>
-        new Promise(resolve => {
-          resolveDecode = resolve;
-        }),
-    ) as unknown as typeof createImageBitmap;
-    globalThis.fetch = makeFetchOk();
-
-    // Simulate decode that resolves a bitmap, then we trigger the outer catch
-    // is not directly testable here; instead assert the normal failure path:
-    // reject before any bitmap exists → nothing to close.
-    globalThis.createImageBitmap = vi.fn(() =>
-      Promise.reject(new Error("decode failed")),
-    ) as unknown as typeof createImageBitmap;
-    const result = await loadImageBitmap("https://example.com/b.png");
-    expect(result).toBeNull();
-    expect(fakeBitmap.close).not.toHaveBeenCalled();
   });
 });
 
