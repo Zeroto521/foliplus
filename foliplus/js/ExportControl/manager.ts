@@ -7,7 +7,6 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { ExportRenderer } from "./renderer.js";
-import { generateWorldFile } from "./util.js";
 import {
   lockCropBox,
   removeCropBox,
@@ -17,6 +16,7 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
+import { generateWorldFile } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
