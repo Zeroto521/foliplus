@@ -1,5 +1,5 @@
 .PHONY : help
-.PHONY: lint html info
+.PHONY: lint html info env
 .PHONY: dist build-js build-js-dev build-python
 .PHONY: test test-browser test-python test-js
 .PHONY: clean clean-build clean-pyc clean-cov clean-html
@@ -9,6 +9,7 @@ help:
 	@echo "'lint'         - run pre-commit hooks"
 	@echo "'html'         - build HTML docs in doc/_build/html"
 	@echo "'info'         - show environment info"
+	@echo "'env'          - bootstrap per-worktree .venv with uv"
 	@echo "'dist'         - build-js + build-python (full release)"
 	@echo "'build-js'     - minify JS/CSS with esbuild to foliplus/dist/"
 	@echo "'build-js-dev' - build JS/CSS without minification (for tests)"
@@ -83,3 +84,10 @@ info:
 	@python -c "import folium; print(f'folium: {folium.__version__}')"
 	@python -c "import folium, os, re; folium_dir = os.path.dirname(folium.__file__); fp = os.path.join(folium_dir, 'folium.py'); c = open(fp).read(); m = re.search(r'leaflet@([\d.]+)', c); print(f'Leaflet: {m.group(1)}' if m else 'Leaflet: unknown')"
 	@python -c "from foliplus._cdn import H3,CHROMA,GCOORD,SS; print(f'CDN: h3={H3} ss={SS} chroma={CHROMA} gcoord={GCOORD}')"
+
+env:
+	@command -v uv >/dev/null 2>&1 || { echo "uv not found: https://docs.astral.sh/uv/getting-started/installation"; exit 1; }
+	uv venv -p 3.13
+	uv pip install -e ".[dev]"
+	@echo "Done. Then: source .venv/bin/activate"
+	@echo "For browser tests also run: playwright install chromium"
