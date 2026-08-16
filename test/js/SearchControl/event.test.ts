@@ -136,6 +136,78 @@ describe("bindEvents", () => {
     ctrl._handlers.focus();
     expect(globalThis.fetch).toHaveBeenCalled();
   });
+
+  it("renders search history on focus when input is empty", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.inp.value = "";
+    ctrl.searchHistory = [
+      { query: "Paris", type: "addr", label: "Paris, France", lat: 48.8, lng: 2.3, ts: 1000 },
+    ];
+    bindEvents(ctrl);
+    ctrl._handlers.focus();
+    expect(ctrl.suggestionsWrap).not.toBeNull();
+    expect(ctrl.suggestionsWrap.innerHTML).toContain("Paris, France");
+  });
+
+  it("does nothing on focus when input is empty and no history exists", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.inp.value = "";
+    ctrl.searchHistory = [];
+    bindEvents(ctrl);
+    ctrl._handlers.focus();
+    expect(ctrl.suggestionsWrap).toBeNull();
+  });
+
+  it("navigates across history items (group header + entries) with ArrowDown", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.suggestionsWrap = document.createElement("div");
+    // History panel: group header (non-text item) + history entry
+    const header = document.createElement("div");
+    header.className = "foliplus-search-history-group-header";
+    header.innerHTML = '<span class="foliplus-search-history-group-title">Search History</span>';
+    const item = document.createElement("div");
+    item.className = "foliplus-search-suggestion-item foliplus-search-history-item";
+    item.innerHTML = '<span class="foliplus-search-suggestion-icon">📍</span><span class="foliplus-search-suggestion-text">Paris, France</span>';
+    ctrl.suggestionsWrap.append(header, item);
+    bindEvents(ctrl);
+
+    // First ArrowDown: moves to group header (no text → inp stays "")
+    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
+    expect(ctrl.selectedSuggestionIdx).toBe(0);
+    expect(ctrl.inp.value).toBe("");
+
+    // Second ArrowDown: moves to history entry
+    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
+    expect(ctrl.selectedSuggestionIdx).toBe(1);
+    expect(ctrl.inp.value).toBe("Paris, France");
+  });
+
+  it("keyboard navigation wraps at panel boundaries", () => {
+    const ctrl = makeCtrl();
+    ctrl.suggestionsWrap = document.createElement("div");
+    const mk = text => {
+      const el = document.createElement("div");
+      el.innerHTML = `<span class="foliplus-search-suggestion-text">${text}</span>`;
+      return el;
+    };
+    ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
+    bindEvents(ctrl);
+
+    // Start at index -1, go up → stays at -1
+    ctrl._handlers.keydown({ key: "ArrowUp", preventDefault: vi.fn() });
+    expect(ctrl.selectedSuggestionIdx).toBe(-1);
+    expect(ctrl.inp.value).toBe("");
+
+    // Go down past the last item → clamps
+    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
+    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
+    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
+    expect(ctrl.selectedSuggestionIdx).toBe(1); // clamped to last item
+    expect(ctrl.inp.value).toBe("Two");
+  });
 });
 
 describe("initFromUrl", () => {

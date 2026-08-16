@@ -433,3 +433,207 @@ describe("attachSearchDelIcon", () => {
     expect(ctrl.delIcon).not.toBe(first);
   });
 });
+
+// ── Search history integration tests ──────────────────────────────
+
+describe("searchCoord — history recording", () => {
+  it("records a coord search entry after successful search", () => {
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].query).toBe("121.47,31.23");
+    expect(ctrl.searchHistory[0].type).toBe("coord");
+    expect(ctrl.searchHistory[0].label).toBe("121.4700, 31.2300");
+    expect(ctrl.searchHistory[0].lat).toBe(31.23);
+    expect(ctrl.searchHistory[0].lng).toBe(121.47);
+    expect(ctrl.searchHistory[0].ts).toBeGreaterThan(0);
+  });
+
+  it("does not record history for invalid coordinates", () => {
+    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    searchCoord(ctrl, "abc");
+    expect(ctrl.searchHistory).toEqual([]);
+  });
+});
+
+describe("searchAddress — history recording", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete globalThis.fetch;
+  });
+
+  it("records a network address search entry after success", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve([{ lat: "48.8", lon: "2.3", display_name: "Paris, France" }]),
+      }),
+    ) as unknown as typeof fetch;
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "Paris" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchAddress(ctrl, "Paris");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].query).toBe("Paris");
+    expect(ctrl.searchHistory[0].type).toBe("addr");
+    expect(ctrl.searchHistory[0].lat).toBe(48.8);
+    expect(ctrl.searchHistory[0].lng).toBe(2.3);
+  });
+
+  it("records a cached address search entry", () => {
+    const ctrl: any = {
+      cachedAddress: {
+        X: { item: { lat: "30", lon: "120" }, displayName: "City X" },
+      },
+      addrAbortController: null,
+      inp: { value: "X" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchAddress(ctrl, "X");
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].query).toBe("X");
+    expect(ctrl.searchHistory[0].label).toBe("City X");
+  });
+
+  it("does not record history when no results are found", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ json: () => Promise.resolve([]) }),
+    ) as unknown as typeof fetch;
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "abc" },
+      searchHistory: [],
+    };
+    searchAddress(ctrl, "nowhere");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toEqual([]);
+  });
+});
+
+describe("renderSuggestions — click records to history", () => {
+  afterEach(() => {
+    delete globalThis.fetch;
+  });
+
+  it("records a suggestion click in history", () => {
+    const cache = new Cache<string, object>(50);
+    cache.set("abc", [{ display_name: "X, Y" }]);
+    const ctrl: any = {
+      mode: "addr",
+      cachedAddress: {},
+      cachedSuggestions: cache,
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      marker: null,
+      searchHistory: [],
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    expect(ctrl.suggestionsWrap).not.toBeNull();
+    const item = ctrl.suggestionsWrap.querySelector(".foliplus-search-suggestion-item")!;
+    item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].type).toBe("addr");
+    expect(ctrl.inp.value).toBe("abc");
+  });
+});
+
+describe("fetchSuggestions — empty input renders history", () => {
+  it("renders search history when input is empty and history exists", () => {
+    const ctrl: any = {
+      mode: "addr",
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "" },
+      searchHistory: [
+        { query: "Paris", type: "addr", label: "Paris, France", lat: 48.8, lng: 2.3, ts: 1000 },
+      ],
+    };
+    fetchSuggestions(ctrl, "");
+    expect(ctrl.suggestionsWrap).not.toBeNull();
+    expect(ctrl.suggestionsWrap.innerHTML).toContain("Paris, France");
+    expect(ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-header")).not.toBeNull();
+  });
+
+  it("removes suggestions when input is empty and history is empty", () => {
+    const ctrl: any = {
+      mode: "addr",
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      searchHistory: [],
+    };
+    fetchSuggestions(ctrl, "");
+    expect(ctrl.suggestionsWrap).toBeNull();
+  });
+
+  it("removes history panel when switching to coord mode", () => {
+    const ctrl: any = {
+      mode: "addr",
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "" },
+      searchHistory: [
+        { query: "A", type: "addr", label: "A", lat: 0, lng: 0, ts: 1 },
+      ],
+    };
+    fetchSuggestions(ctrl, "");
+    expect(ctrl.suggestionsWrap).not.toBeNull();
+    ctrl.mode = "coord";
+    fetchSuggestions(ctrl, "");
+    expect(ctrl.suggestionsWrap).toBeNull();
+  });
+});
+
+describe("fetchSuggestions — history does not interfere with suggestions", () => {
+  it("shows suggestions instead of history when input has text", () => {
+    const cache = new Cache<string, object>(50);
+    cache.set("abc", [{ display_name: "Result" }]);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: cache,
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+      searchHistory: [
+        { query: "Old", type: "addr", label: "Old", lat: 0, lng: 0, ts: 1 },
+      ],
+    };
+    fetchSuggestions(ctrl, "abc");
+    expect(ctrl.suggestionsWrap.innerHTML).toContain("Result");
+    expect(ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-header")).toBeNull();
+  });
+});
