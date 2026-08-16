@@ -17,7 +17,6 @@ class LayerControl(BaseControl):
     - ✅ Multi-select checkboxes with z-index stacking.
     - 🎨 Color picker to replace base maps with a solid background color.
     - ⌨️ Keyboard navigation for layer panel (see Shortcuts below).
-    - 📂 Collapsible panel consistent with other foliplus controls.
 
     Shortcuts
     ---------
