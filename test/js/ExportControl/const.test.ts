@@ -69,7 +69,10 @@ describe("CACHE", () => {
 // ===========================================================================
 type ConnStub = { effectiveType?: string; downlink?: number };
 
-function stubConnection(kind: "standard" | "moz" | "webkit" | "none", stub: ConnStub = {}) {
+function stubConnection(
+  kind: "standard" | "moz" | "webkit" | "none",
+  stub: ConnStub = {},
+) {
   for (const key of ["connection", "mozConnection", "webkitConnection"] as const) {
     try {
       delete (navigator as any)[key];
@@ -78,11 +81,12 @@ function stubConnection(kind: "standard" | "moz" | "webkit" | "none", stub: Conn
     }
   }
   if (kind === "none") return;
-  const target = kind === "moz"
-    ? "mozConnection"
-    : kind === "webkit"
-    ? "webkitConnection"
-    : "connection";
+  const target =
+    kind === "moz"
+      ? "mozConnection"
+      : kind === "webkit"
+        ? "webkitConnection"
+        : "connection";
   Object.defineProperty(navigator, target, {
     configurable: true,
     get: () => ({ effectiveType: "4g", downlink: 10, ...stub }),
