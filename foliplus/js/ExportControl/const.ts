@@ -49,6 +49,16 @@ export const SEL = {
   CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
   CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
   LABEL: "[data-foliplus-export='label']",
+  /**
+   * Opt-out attribute for export.  Set this attribute on any element
+   * that should NOT appear in the exported image.
+   *
+   * Usage:  `<div data-foliplus-export="exclude">...</div>`
+   *
+   * Components that add elements to a layer pane can use this to
+   * exclude internal UI (delete buttons, resize handles, etc.)
+   * from the export canvas without needing to update ExportControl.
+   */
   SKIP_EXPORT: '[data-foliplus-export="exclude"]',
 };
 
