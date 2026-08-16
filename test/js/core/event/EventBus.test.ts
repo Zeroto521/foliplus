@@ -1,11 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  EventBus,
-  LAYER_CHANGE,
-  LAYER_REMOVED,
-  MODE_CHANGE,
-  ensureEvents,
-} from "#foliplus/core/event/index.js";
+import { EVENTS, EventBus, ensureEvents } from "#foliplus/core/event/index.js";
 
 describe("EventBus", () => {
   it("subscribes and receives emitted events", () => {
@@ -78,17 +72,19 @@ describe("EventBus", () => {
 
 describe("event constants", () => {
   it("all constants are distinct non-empty strings", () => {
-    expect(typeof LAYER_CHANGE).toBe("string");
-    expect(typeof LAYER_REMOVED).toBe("string");
-    expect(typeof MODE_CHANGE).toBe("string");
-    expect([LAYER_CHANGE, LAYER_REMOVED, MODE_CHANGE]).toEqual(
+    expect(typeof EVENTS.LAYER_CHANGE).toBe("string");
+    expect(typeof EVENTS.LAYER_REMOVED).toBe("string");
+    expect(typeof EVENTS.MODE_CHANGE).toBe("string");
+    expect([EVENTS.LAYER_CHANGE, EVENTS.LAYER_REMOVED, EVENTS.MODE_CHANGE]).toEqual(
       expect.arrayContaining([
         expect.any(String),
         expect.any(String),
         expect.any(String),
       ]),
     );
-    expect(new Set([LAYER_CHANGE, LAYER_REMOVED, MODE_CHANGE])).toHaveLength(3);
+    expect(
+      new Set([EVENTS.LAYER_CHANGE, EVENTS.LAYER_REMOVED, EVENTS.MODE_CHANGE]),
+    ).toHaveLength(3);
   });
 });
 

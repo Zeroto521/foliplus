@@ -1,11 +1,6 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
-import { COMPONENTS } from "#core/component.js";
-import {
-  type EventHandler,
-  LAYER_REMOVED,
-  MODE_CHANGE,
-  ensureEvents,
-} from "#core/event/index.js";
+import { COMPONENTS, generateId } from "#core/component.js";
+import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
@@ -42,7 +37,7 @@ class MeasureManager {
   ctrl: HTMLElement | null;
   /** The layer id used to register this manager's measure layer. */
   layerId: string;
-  /** Event bus unsubscribe for LAYER_REMOVED. */
+  /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
   offLayerRemoved!: () => void;
   onMapClick!: (event: L.LeafletMouseEvent) => void;
   onKeyDown!: (event: KeyboardEvent) => void;
@@ -56,7 +51,7 @@ class MeasureManager {
    */
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
-    this.layerId = CONST.generateId(opts?.id);
+    this.layerId = generateId(CONST.ID, opts?.id);
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
       name: _(`${CONF.name}.tool_toggle`),
@@ -69,7 +64,7 @@ class MeasureManager {
     this.isSuppressHideDel = false;
     // When ExportControl enters crop interaction or export, interrupt the
     // active measurement so map clicks are not captured while exporting.
-    ensureEvents(this.map).on(MODE_CHANGE, ({ component, mode }) => {
+    ensureEvents(this.map).on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
         map.foliplus?.showHint?.(
@@ -252,7 +247,7 @@ class MeasureManager {
 
   /** Full cleanup including global events. Called on control removal. */
   destroy() {
-    // Unsubscribe from LAYER_REMOVED first to prevent reacting to removals
+    // Unsubscribe from EVENTS.LAYER_REMOVED first to prevent reacting to removals
     // triggered by our own clearAll() during destroy.
     if (this.offLayerRemoved) this.offLayerRemoved();
     // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
@@ -265,13 +260,13 @@ class MeasureManager {
   }
 
   /**
-   * Subscribe to LAYER_REMOVED so we can detect when the LayerControl panel
+   * Subscribe to EVENTS.LAYER_REMOVED so we can detect when the LayerControl panel
    * (or any external caller) deletes our measure layer. When that happens,
    * our active mode must be cleared — otherwise currentMode, hint, and the
    * "measuring" CSS class would remain stuck in an inconsistent state.
    */
   bindLayerRemoved() {
-    this.offLayerRemoved = ensureEvents(this.map).on(LAYER_REMOVED, ((payload: {
+    this.offLayerRemoved = ensureEvents(this.map).on(EVENTS.LAYER_REMOVED, ((payload: {
       id?: string;
     }) => {
       if (payload?.id === this.layerId) {

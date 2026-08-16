@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { generateId } from "#core/component.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 
 describe("TIMING", () => {
@@ -111,16 +112,16 @@ describe("HM_DATA_ATTR", () => {
 
 describe("generateId", () => {
   it("returns the default ID when no namespace is provided", () => {
-    expect(CONST.generateId()).toBe("foliplus_heatmap");
-    expect(CONST.generateId(undefined)).toBe("foliplus_heatmap");
+    expect(generateId(CONST.ID)).toBe("foliplus_heatmap");
+    expect(generateId(CONST.ID, undefined)).toBe("foliplus_heatmap");
   });
 
   it("returns a namespaced ID when namespace is provided", () => {
-    expect(CONST.generateId("map2")).toBe("foliplus_heatmap_map2");
-    expect(CONST.generateId("custom")).toBe("foliplus_heatmap_custom");
+    expect(generateId(CONST.ID, "map2")).toBe("foliplus_heatmap_map2");
+    expect(generateId(CONST.ID, "custom")).toBe("foliplus_heatmap_custom");
   });
 
   it("uses ID constant as prefix for namespaced IDs", () => {
-    expect(CONST.generateId("ns")).toBe(`${CONST.ID}_ns`);
+    expect(generateId(CONST.ID, "ns")).toBe(`${CONST.ID}_ns`);
   });
 });

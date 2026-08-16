@@ -47,10 +47,6 @@ export const Z_INDEX = { OFFSET: DEL_ICON_Z_OFFSET };
 export const ID = "foliplus_measure";
 export const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
 
-/** Generate a namespaced layer ID for multi-instance support. */
-export const generateId = (namespace?: string): string =>
-  namespace ? `${ID}_${namespace}` : ID;
-
 /** CSS class names. */
 export const CLASSES = {
   // Three path states shared by lines, circles, and polygons.

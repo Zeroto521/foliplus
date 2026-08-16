@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { generateId } from "#core/component.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { DEL_ICON_CHAR } from "#common/delicon.js";
 
@@ -61,16 +62,16 @@ describe("FORMAT", () => {
 
 describe("generateId", () => {
   it("returns the default ID when no namespace is provided", () => {
-    expect(CONST.generateId()).toBe("foliplus_measure");
-    expect(CONST.generateId(undefined)).toBe("foliplus_measure");
+    expect(generateId(CONST.ID)).toBe("foliplus_measure");
+    expect(generateId(CONST.ID, undefined)).toBe("foliplus_measure");
   });
 
   it("returns a namespaced ID when namespace is provided", () => {
-    expect(CONST.generateId("map2")).toBe("foliplus_measure_map2");
-    expect(CONST.generateId("custom")).toBe("foliplus_measure_custom");
+    expect(generateId(CONST.ID, "map2")).toBe("foliplus_measure_map2");
+    expect(generateId(CONST.ID, "custom")).toBe("foliplus_measure_custom");
   });
 
   it("uses ID constant as prefix for namespaced IDs", () => {
-    expect(CONST.generateId("ns")).toBe(`${CONST.ID}_ns`);
+    expect(generateId(CONST.ID, "ns")).toBe(`${CONST.ID}_ns`);
   });
 });

@@ -1,5 +1,6 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
-import { LAYER_CHANGE, ensureEvents } from "#core/event/index.js";
+import { generateId } from "#core/component.js";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
@@ -109,7 +110,7 @@ class HeatmapManager {
    */
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
-    this.layerId = CONST.generateId(opts?.id);
+    this.layerId = generateId(CONST.ID, opts?.id);
 
     // State management
     this.selectedLayerId = null;
@@ -189,11 +190,12 @@ class HeatmapManager {
       }
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
-    // layeradd/layerremove — LayerManager emits LAYER_CHANGE on
+    // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
     // register/unregister/reorder, so unrelated map activity is filtered out
     // and callback-only registrations (no map.addLayer) are covered too.
-    this.removeLayerChangeListener = ensureEvents(this.map).on(LAYER_CHANGE, () =>
-      this.onLayerChange(),
+    this.removeLayerChangeListener = ensureEvents(this.map).on(
+      EVENTS.LAYER_CHANGE,
+      () => this.onLayerChange(),
     );
   }
 

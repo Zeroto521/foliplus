@@ -17,10 +17,6 @@ export const EVENTS = {
   AFTER_EXPORT: "foliplus:export:after",
 } as const;
 
-// Named re-exports for concise use in components.
-export const { LAYER_CHANGE, LAYER_REMOVED, MODE_CHANGE, BEFORE_EXPORT, AFTER_EXPORT } =
-  EVENTS;
-
 // ── Type-safe payload map ──
 
 export interface EventPayloadMap {

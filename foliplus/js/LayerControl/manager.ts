@@ -1,9 +1,4 @@
-import {
-  BEFORE_EXPORT,
-  LAYER_CHANGE,
-  LAYER_REMOVED,
-  ensureEvents,
-} from "#core/event/index.js";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -144,7 +139,7 @@ class LayerManager implements LayerAPI {
 
     // Before any export, flush pending debounced enforceOrder so the
     // exported image matches the panel's layer order.
-    ensureEvents(this.map).on(BEFORE_EXPORT, () => this.enforceOrderNow());
+    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => this.enforceOrderNow());
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
@@ -354,7 +349,7 @@ class LayerManager implements LayerAPI {
       this.debouncedEnforce();
     }
     this.saveOrder();
-    ensureEvents(this.map).emit(LAYER_CHANGE);
+    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
     );
@@ -373,7 +368,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(LAYER_CHANGE);
+    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     if (this.uiContainer && this.ui) {
       this.ui.renderInitialList();
       this.ui.initTypesAndVisibility();
@@ -408,10 +403,10 @@ class LayerManager implements LayerAPI {
         if (this.ui) this.ui.reindexItems();
       }
     }
-    ensureEvents(this.map).emit(LAYER_CHANGE);
-    // Emit LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
+    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
-    ensureEvents(this.map).emit(LAYER_REMOVED, { id });
+    ensureEvents(this.map).emit(EVENTS.LAYER_REMOVED, { id });
     return true;
   }
 
