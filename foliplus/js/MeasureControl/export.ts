@@ -4,7 +4,7 @@ import * as CONST from "./const.js";
 import { MODE_MAP } from "./mode/index.js";
 
 // CONF is a free variable from the IIFE template wrapper.
-declare const CONF: { name: string; export_format: ExportFormat };
+declare const CONF: { name: string; filename: string; export_format: ExportFormat };
 
 /** GeoJSON feature property shared across all geometry types. */
 interface MeasureProperties {
@@ -317,7 +317,8 @@ export function exportMeasurements(
   let content: string;
   const ext = formatToExtension(format);
   const mimeType = formatToMimeType(format);
-  const filename = `measurements_${new Date().toISOString().slice(0, 10)}.${ext}`;
+  const base = CONF?.filename || "measurements";
+  const filename = `${base}_${new Date().toISOString().slice(0, 10)}.${ext}`;
 
   switch (format) {
     case CONST.EXPORT_FORMAT.GEOJSON:
