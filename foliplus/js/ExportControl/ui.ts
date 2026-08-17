@@ -212,7 +212,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   renderToolbarActions(mgr, {
     confirm: {
       title: _(`${CONF.name}.btn_export`),
-      svg: SVGs.DOWNLOAD,
+      svg: Icons.DOWNLOAD,
       onclick: () => mgr.doExport(),
     },
     cancel: {
