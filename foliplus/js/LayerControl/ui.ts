@@ -1,5 +1,5 @@
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureKeyboard } from "#core/keyboard.js";
+import { registerInteractions } from "./interaction.js";
 import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
@@ -24,6 +24,7 @@ class LayerUI {
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
   activeIdx: number | null;
+  private _interactionCleanup?: () => void;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
@@ -368,65 +369,7 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
 
-    ensureKeyboard(this.m.map).register(
-      CONF.name,
-      [
-        {
-          key: "ArrowUp",
-          handler: () =>
-            this.handleKeyDown({
-              key: "ArrowUp",
-              preventDefault: () => {},
-            } as KeyboardEvent),
-        },
-        {
-          key: "ArrowDown",
-          handler: () =>
-            this.handleKeyDown({
-              key: "ArrowDown",
-              preventDefault: () => {},
-            } as KeyboardEvent),
-        },
-        {
-          key: "ArrowLeft",
-          handler: () =>
-            this.handleKeyDown({
-              key: "ArrowLeft",
-              preventDefault: () => {},
-            } as KeyboardEvent),
-        },
-        {
-          key: "ArrowRight",
-          handler: () =>
-            this.handleKeyDown({
-              key: "ArrowRight",
-              preventDefault: () => {},
-            } as KeyboardEvent),
-        },
-        {
-          key: " ",
-          handler: () =>
-            this.handleKeyDown({ key: " ", preventDefault: () => {} } as KeyboardEvent),
-        },
-        {
-          key: "Enter",
-          handler: () =>
-            this.handleKeyDown({
-              key: "Enter",
-              preventDefault: () => {},
-            } as KeyboardEvent),
-        },
-        {
-          key: "Escape",
-          handler: () =>
-            this.handleKeyDown({
-              key: "Escape",
-              preventDefault: () => {},
-            } as KeyboardEvent),
-        },
-      ],
-      container,
-    );
+    
 
     this.onChange = event => {
       const checkbox = (event.target as HTMLElement).closest(
@@ -502,7 +445,7 @@ class LayerUI {
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
     this.clearActiveItem();
-    ensureKeyboard(this.m.map).unregister(CONF.name);
+    this._interactionCleanup?.();
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;

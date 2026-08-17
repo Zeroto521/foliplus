@@ -1,4 +1,3 @@
-import { ensureKeyboard } from "#core/keyboard.js";
 import { requireLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createControlEnv } from "#common/guard.js";
@@ -69,7 +68,7 @@ class ExportControl extends BaseControl {
   }
   destroy() {
     if (this.m.cropState) this.m.removeCropBox();
-    ensureKeyboard(this.m.map).unregister(CONF.name);
+    this.m._interactionCleanup?.();
   }
 }
 

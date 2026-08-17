@@ -7,7 +7,7 @@ import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { CLASSES, MODE } from "./const.js";
-import { bindEvents, initFromUrl } from "./event.js";
+import { bindEvents, initFromUrl } from "./interaction.js";
 import * as SVGs from "./icon.js";
 import { initDebouncedFetch, removeSuggestions } from "./logic.js";
 import type { AddressResult, NominatimItem } from "./type.js";

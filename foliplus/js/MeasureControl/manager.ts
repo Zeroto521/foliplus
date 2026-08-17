@@ -2,8 +2,8 @@
 import { COMPONENTS, generateId } from "#core/component.js";
 import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureKeyboard } from "#core/keyboard.js";
 import { ensureModes } from "#core/mode.js";
+import { registerInteractions } from "./interaction.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -27,6 +27,7 @@ const _ = createTranslator(CONF);
 /** Central manager for all measurements. */
 class MeasureManager {
   map: L.Map;
+  private _interactionCleanup?: () => void;
   layers: CreateLayersAPI;
   currentMode: string | null;
   modeInstance: MeasureMode | null;
@@ -127,13 +128,7 @@ class MeasureManager {
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && this.currentMode) this.clearActiveMode();
     };
-    const cleanup = ensureKeyboard(this.map).register(CONF.name, [
-      {
-        key: "Escape",
-        handler: () => this.onKeyDown({ key: "Escape" } as KeyboardEvent),
-        container: this.map.getContainer(),
-      },
-    ]);
+    const cleanup = 
 
     // On map unload (page refresh/close), clear transient UI state but KEEP
     // persisted measurements. clearAll() would wipe localStorage, losing all

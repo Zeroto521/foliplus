@@ -1,7 +1,7 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureKeyboard } from "#core/keyboard.js";
+import { registerCropMouseDown } from "./interaction.js";
 import { ensureModes } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
@@ -195,9 +195,7 @@ const showCropBox = (mgr: ExportManager) => {
   updateBoxStyle(mgr, cropBox, box);
   mgr.pushUndoState();
   showHintWithInfo(mgr, box, _(`${CONF.name}.hint_unlocked`));
-  ensureKeyboard(mgr.map).register(CONF.name, [
-    { event: "mousedown", element: cropBox, handler: (e: Event) => mgr.onMouseDown(e as MouseEvent) },
-  ]);
+  mgr._cropMousedownCleanup = registerCropMouseDown(mgr, cropBox);
   mgr.registerShortcuts();
 };
 
@@ -267,7 +265,7 @@ const removeCropBox = (mgr: ExportManager) => {
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);
   document.body.classList.remove(CONST.CLASSES.MODE);
   mgr.registerShortcuts();
-  ensureKeyboard(mgr.map).unregister(CONF.name + "-drag");
+  mgr._dragCleanup?.();
   mgr.dragState.dragging = false;
   mgr.dragState.dragType = null;
   if (mgr.mapMoveCleanup) {
@@ -275,7 +273,8 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup = null;
   }
   if (mgr.cropState.box)
-    ensureKeyboard(mgr.map).unregister(CONF.name);
+    mgr._cropMousedownCleanup?.();
+  mgr._interactionCleanup?.();
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
   if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";

@@ -1,7 +1,7 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { registerInteractions, registerDrag } from "./interaction.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureKeyboard } from "#core/keyboard.js";
 import { ensureModes } from "#core/mode.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
@@ -73,7 +73,9 @@ interface SavedBounds {
 
 class ExportManager {
   map: L.Map;
-  private _dragCleanup?: () => void;
+  _dragCleanup?: () => void;
+  _interactionCleanup?: () => void;
+  _cropMousedownCleanup?: () => void;
   mapContainer: HTMLElement;
   cropState: CropState | null;
   exportCtrl: HTMLElement | null;
@@ -222,10 +224,7 @@ class ExportManager {
     this.dragState.lastX = event.clientX;
     this.dragState.lastY = event.clientY;
     this.dragState.startRect = Object.assign({}, st.rect);
-    this._dragCleanup = ensureKeyboard(this.map).register(CONF.name + "-drag", [
-      { event: "mousemove", handler: (e: Event) => this.onMouseMove(e as MouseEvent) },
-      { event: "mouseup", handler: () => { this.onMouseUp(); this._dragCleanup?.(); } },
-    ]);
+    this._dragCleanup = registerDrag(this);
   }
 
   onMouseMove(event: MouseEvent) {
@@ -320,32 +319,7 @@ class ExportManager {
   }
 
   registerShortcuts(): void {
-    const cleanup = ensureKeyboard(this.map).register(CONF.name, [
-      {
-        key: "Escape",
-        handler: () => this.onKeyDown({ key: "Escape" } as KeyboardEvent),
-        container: this.map.getContainer(),
-      },
-      {
-        key: "Enter",
-        handler: () => this.onKeyDown({ key: "Enter" } as KeyboardEvent),
-        container: this.map.getContainer(),
-      },
-      {
-        key: "z",
-        ctrl: true,
-        handler: () => this.onKeyDown({ key: "z", ctrlKey: true } as KeyboardEvent),
-        container: this.map.getContainer(),
-      },
-      {
-        key: "z",
-        ctrl: true,
-        shift: true,
-        handler: () =>
-          this.onKeyDown({ key: "z", ctrlKey: true, shiftKey: true } as KeyboardEvent),
-        container: this.map.getContainer(),
-      },
-    ]);
+    const cleanup = registerInteractions(this)
   }
 
   onKeyDown(event: KeyboardEvent) {

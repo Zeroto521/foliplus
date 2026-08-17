@@ -260,8 +260,8 @@ declare global {
     events: CoreEventBus;
     /** Per-map cross-component active-mode registry. */
     modes: CoreModeManager;
-    /** Per-map keyboard shortcut manager. */
-    keyboard: KeyboardManager;
+    /** Per-map interaction shortcut manager. */
+    keyboard: InteractionManager;
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.

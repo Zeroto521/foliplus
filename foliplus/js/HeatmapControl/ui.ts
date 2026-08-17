@@ -1,7 +1,8 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureKeyboard } from "#core/keyboard.js";
+import { registerSchemeBarEvents, registerDropdownEvents } from "./interaction.js";
+import { ensureInteraction } from "#core/interaction.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";

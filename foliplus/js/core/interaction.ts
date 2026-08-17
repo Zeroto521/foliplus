@@ -3,7 +3,7 @@
 // registered shortcuts by priority, avoiding duplicate listeners across
 // components and resolving key conflicts.
 
-export interface ShortcutDef {
+export interface InteractionDef {
   /** Event type: "keydown" (default), "mousedown", "mousemove", "mouseup", etc. */
   event?: string;
   /** Key to match (event.key), only for keydown. If omitted, matches any key. */
@@ -27,18 +27,20 @@ export interface ShortcutDef {
   /** If set, binds keydown directly to this element instead of the document.
    *  Only fires when this element has focus (native behavior). */
   element?: HTMLElement;
+  /** If true, the listener is automatically removed after the first trigger. */
+  once?: boolean;
   /** Component name for debugging */
   component?: string;
 }
 
 // Per-map instance storage
-const instances = new WeakMap<L.Map, KeyboardManager>();
+const instances = new WeakMap<L.Map, InteractionManager>();
 
-/** Ensure map.foliplus.keyboard has a per-map KeyboardManager. Idempotent. */
-export const ensureKeyboard = (map: L.Map): KeyboardManager => {
+/** Ensure map.foliplus.keyboard has a per-map InteractionManager. Idempotent. */
+export const ensureInteraction = (map: L.Map): InteractionManager => {
   const existing = instances.get(map);
   if (existing) return existing;
-  const km = new KeyboardManager(map);
+  const km = new InteractionManager(map);
   instances.set(map, km);
   if (!map.foliplus) (map as any).foliplus = {};
   map.foliplus!.keyboard = km;
@@ -52,9 +54,9 @@ export const ensureKeyboard = (map: L.Map): KeyboardManager => {
  * registered shortcuts by priority. Components register/unregister their
  * shortcuts on mount/unmount.
  */
-export class KeyboardManager {
+export class InteractionManager {
   private map: L.Map;
-  private shortcuts: ShortcutDef[] = [];
+  private shortcuts: InteractionDef[] = [];
   private docListeners: Map<string, (event: Event) => void> = new Map();
   private observer: MutationObserver | null = null;
   private trackedElements: Map<HTMLElement, Set<string>> = new Map();
@@ -103,7 +105,7 @@ export class KeyboardManager {
    */
   register(
     component: string,
-    defs: ShortcutDef[],
+    defs: InteractionDef[],
     container?: HTMLElement,
   ): () => void {
     for (const d of defs) {
@@ -127,7 +129,7 @@ export class KeyboardManager {
           event.stopPropagation();
           def.handler(event);
         };
-        def.element.addEventListener(eventType, handler);
+        def.element.addEventListener(eventType, handler, def.once ? { once: true } : undefined);
         (def as any)._elementHandler = handler;
         this.trackElement(def.element, component);
       }

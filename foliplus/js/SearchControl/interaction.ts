@@ -1,5 +1,5 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
-import { ensureKeyboard } from "#core/keyboard.js";
+import { ensureInteraction } from "#core/interaction.js";
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./const.js";
@@ -54,7 +54,7 @@ const bindEvents = (ctrl: SearchControl) => {
     }
   });
 
-  ensureKeyboard(map).register(CONF.name, [
+  ensureInteraction(map).register(CONF.name, [
     {
       key: "Escape",
       element: ctrl.inp,
