@@ -261,7 +261,7 @@ declare global {
     /** Per-map cross-component active-mode registry. */
     modes: CoreModeManager;
     /** Per-map interaction shortcut manager. */
-    keyboard: InteractionManager;
+    interaction: InteractionManager;
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.

@@ -36,19 +36,19 @@ export interface InteractionDef {
 // Per-map instance storage
 const instances = new WeakMap<L.Map, InteractionManager>();
 
-/** Ensure map.foliplus.keyboard has a per-map InteractionManager. Idempotent. */
+/** Ensure map.foliplus.interaction has a per-map InteractionManager. Idempotent. */
 export const ensureInteraction = (map: L.Map): InteractionManager => {
   const existing = instances.get(map);
   if (existing) return existing;
   const km = new InteractionManager(map);
   instances.set(map, km);
   if (!map.foliplus) (map as any).foliplus = {};
-  map.foliplus!.keyboard = km;
+  map.foliplus!.interaction = km;
   return km;
 };
 
 /**
- * Per-map keyboard shortcut manager.
+ * Per-map interaction manager.
  *
  * Attaches a single `document`-level keydown listener and dispatches to
  * registered shortcuts by priority. Components register/unregister their
