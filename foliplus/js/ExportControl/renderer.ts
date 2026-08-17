@@ -486,60 +486,63 @@ class ExportRenderer {
       },
     );
 
-    // Draw sprites
-    for (const el of drawableEls) {
-      const r = el.getBoundingClientRect();
-      const l = r.left - contRect.left;
-      const t = r.top - contRect.top;
-      const w = r.width;
-      const h = r.height;
-      if (w < 1 || h < 1) continue;
-      const dx = (l - rect.left) * scale;
-      const dy = (t - rect.top) * scale;
-      const dw = w * scale;
-      const dh = h * scale;
-      if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-      const cs = window.getComputedStyle(el);
-      const bg = cs.backgroundImage;
-      if (!bg || bg === "none") continue;
-      const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-      if (!m) continue;
-      const sprite = spriteMap.get(m[1]);
-      if (!sprite) continue;
-      const bgs = cs.backgroundSize || "auto";
-      const bgsParts = bgs.trim().split(/\s+/);
-      let cssBgW: number, cssBgH: number;
-      if (bgs === "auto" || bgs === "auto auto") {
-        cssBgW = sprite.width / (window.devicePixelRatio || 1);
-        cssBgH = sprite.height / (window.devicePixelRatio || 1);
-      } else if (bgs.includes("%")) {
-        cssBgW = (w * (parseFloat(bgsParts[0]) || 100)) / 100;
-        cssBgH = (h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100)) / 100;
-      } else {
-        cssBgW = parseFloat(bgsParts[0]) || sprite.width;
-        cssBgH = parseFloat(bgsParts[1] || bgsParts[0]) || sprite.height;
+    // Draw sprites; release their bitmaps even if drawing throws.
+    try {
+      for (const el of drawableEls) {
+        const r = el.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width;
+        const h = r.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale;
+        const dh = h * scale;
+        if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
+        const cs = window.getComputedStyle(el);
+        const bg = cs.backgroundImage;
+        if (!bg || bg === "none") continue;
+        const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
+        if (!m) continue;
+        const sprite = spriteMap.get(m[1]);
+        if (!sprite) continue;
+        const bgs = cs.backgroundSize || "auto";
+        const bgsParts = bgs.trim().split(/\s+/);
+        let cssBgW: number, cssBgH: number;
+        if (bgs === "auto" || bgs === "auto auto") {
+          cssBgW = sprite.width / (window.devicePixelRatio || 1);
+          cssBgH = sprite.height / (window.devicePixelRatio || 1);
+        } else if (bgs.includes("%")) {
+          cssBgW = (w * (parseFloat(bgsParts[0]) || 100)) / 100;
+          cssBgH = (h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100)) / 100;
+        } else {
+          cssBgW = parseFloat(bgsParts[0]) || sprite.width;
+          cssBgH = parseFloat(bgsParts[1] || bgsParts[0]) || sprite.height;
+        }
+        const ratioX = sprite.width / cssBgW;
+        const ratioY = sprite.height / cssBgH;
+        const bp = cs.backgroundPosition || "0 0";
+        const bpParts = bp.trim().split(/\s+/);
+        const sx = Math.abs(parseFloat(bpParts[0]) || 0) * ratioX;
+        const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
+        const sw = w * ratioX;
+        const sh = h * ratioY;
+        if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
+        try {
+          ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
+        } catch {
+          /* skip */
+        }
       }
-      const ratioX = sprite.width / cssBgW;
-      const ratioY = sprite.height / cssBgH;
-      const bp = cs.backgroundPosition || "0 0";
-      const bpParts = bp.trim().split(/\s+/);
-      const sx = Math.abs(parseFloat(bpParts[0]) || 0) * ratioX;
-      const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
-      const sw = w * ratioX;
-      const sh = h * ratioY;
-      if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
-      try {
-        ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-      } catch {
-        /* skip */
-      }
-    }
-    // All sprites have been drawn; release their bitmaps to free GPU memory.
-    for (const bitmap of spriteMap.values()) {
-      try {
-        bitmap.close();
-      } catch {
-        /* already closed */
+    } finally {
+      // All sprites have been drawn (or aborted); release their bitmaps.
+      for (const bitmap of spriteMap.values()) {
+        try {
+          bitmap.close();
+        } catch {
+          /* already closed */
+        }
       }
     }
     return markerRoots;
