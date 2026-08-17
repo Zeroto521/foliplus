@@ -62,7 +62,9 @@ describe("bindEvents", () => {
     const ctrl = makeCtrl();
     ctrl.ctrl.classList.add("expanded");
     bindEvents(ctrl);
-    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
   });
@@ -77,7 +79,9 @@ describe("bindEvents", () => {
     };
     ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
-    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
     expect(ctrl.selectedSuggestionIdx).toBe(0);
     expect(ctrl.inp.value).toBe("One");
   });
@@ -86,7 +90,9 @@ describe("bindEvents", () => {
     const ctrl = makeCtrl();
     ctrl.inp.value = "121.47,31.23";
     bindEvents(ctrl);
-    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
     expect(map.flyTo).toHaveBeenCalled();
   });
 
