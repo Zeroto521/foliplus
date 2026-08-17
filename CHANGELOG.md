@@ -29,7 +29,7 @@
 - `hint`: made per-map — `window.foliplus.showHint` removed; each map gets its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `geocode`: add forward geocoding alongside reverse; bidirectional FIFO cache with 24h TTL ([#147](https://github.com/Zeroto521/foliplus/pull/147))
 - `Cache`: generic `Cache<K,V>` (FIFO + optional TTL) for bounded caching; optional `onEvict` callback to release resources (e.g. GPU `ImageBitmap`s) on removal ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#154](https://github.com/Zeroto521/foliplus/pull/154))
-- `Build pipeline`: enable esbuild Tree Shaking via auto-scanned import detection; eliminate `.build/` source mirror (transforms at bundle time). `foliplus-common.min.js` -35% (32KB→21KB), build time -15%. Standalone CLI arg parser + registry generator. 77 new vitest tests (716→785). ([#162](https://github.com/Zeroto521/foliplus/pull/162))
+- `Build pipeline`: enable esbuild Tree Shaking via auto-scanned import detection; eliminate `.build/` source mirror (transforms at bundle time). `foliplus-common.min.js` tree-shaking disabled on shared entry (esbuild cannot trace `window.foliplus.X = {X}`); component bundles tree-shaken for correctness (~0.2% size reduction). Standalone CLI arg parser + registry generator. 77 new vitest tests (716→785). ([#162](https://github.com/Zeroto521/foliplus/pull/162))
 
 ### Fixed
 

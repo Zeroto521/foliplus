@@ -2,15 +2,19 @@
 /**
  * Generate _shared-registry.ts by scanning component imports.
  *
+ * Scans component .ts files for imports from #core/*, #common/*, and
+ * #foliplus/BaseControl.js — both targeted named imports and import * as
+ * (resolved via property-access patterns).  Output registers only the
+ * exports used by components on window.foliplus.core / .common / BaseControl,
+ * enabling esbuild to tree-shake unused exports from component bundles.
+ *
+ * NOTE: core/{component,hint,mode} are SKIPPED — registered manually in
+ * runtime/index.ts (see SKIPPED_CORE_FILES in the source).
+ *
  * Usage:
  *   node script/scan-registry.mjs [--root <path>] [--silent]
  *
- * Reads <root>/foliplus/js/ (source), scans component .ts files for
- * import { ... } from "#shared/..." patterns, resolves import * as
- * to property access, and writes <root>/foliplus/.build/js/_shared-registry.ts.
- *
- * Reads common/core from the source tree directly (not .build/) — the
- * transforms (SVG/HTML) do not affect import/export statements.
+ * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { resolve } from "path";
