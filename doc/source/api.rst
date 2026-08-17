@@ -8,6 +8,7 @@ API
    :toctree: api
    :recursive:
 
+   BaseControl
    ExportControl
    FullscreenControl
    HeatmapControl
