@@ -36,25 +36,24 @@ describe("LayerControl interaction", () => {
     cleanup();
   });
 
-  it("ArrowDown dispatches to handleKeyDown when container has focus", () => {
-    const ui = makeUI();
-    const cleanup = registerInteractions(ui);
-    document.body.appendChild(ui.uiContainer);
-    const item = ui.uiContainer.querySelector(".foliplus-layer-item") as HTMLElement;
-    item.focus();
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-    expect(ui.handleKeyDown).toHaveBeenCalled();
-    cleanup();
-  });
+  function testKey(key: string, name: string) {
+    it(`${name} dispatches to handleKeyDown when container has focus`, () => {
+      const ui = makeUI();
+      const cleanup = registerInteractions(ui);
+      document.body.appendChild(ui.uiContainer);
+      const item = ui.uiContainer.querySelector(".foliplus-layer-item") as HTMLElement;
+      item.focus();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+      expect(ui.handleKeyDown).toHaveBeenCalled();
+      cleanup();
+    });
+  }
 
-  it("Escape dispatches to handleKeyDown", () => {
-    const ui = makeUI();
-    const cleanup = registerInteractions(ui);
-    document.body.appendChild(ui.uiContainer);
-    const item = ui.uiContainer.querySelector(".foliplus-layer-item") as HTMLElement;
-    item.focus();
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    expect(ui.handleKeyDown).toHaveBeenCalled();
-    cleanup();
-  });
+  testKey("ArrowUp", "ArrowUp");
+  testKey("ArrowDown", "ArrowDown");
+  testKey("ArrowLeft", "ArrowLeft");
+  testKey("ArrowRight", "ArrowRight");
+  testKey(" ", "Space");
+  testKey("Enter", "Enter");
+  testKey("Escape", "Escape");
 });

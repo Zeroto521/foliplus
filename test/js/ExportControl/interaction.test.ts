@@ -69,6 +69,40 @@ describe("ExportControl interaction", () => {
     cleanup();
   });
 
+  it("Enter handler calls onKeyDown", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    container.focus();
+    container.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(mgr.onKeyDown).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("Ctrl+Shift+Z handler calls onKeyDown", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    container.focus();
+    container.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, shiftKey: true, bubbles: true }));
+    expect(mgr.onKeyDown).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("registerDrag mousemove and mouseup handlers work", () => {
+    const mgr = makeMgr();
+    const cleanup = registerDrag(mgr);
+    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    expect(mgr.onMouseMove).toHaveBeenCalled();
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    expect(mgr.onMouseUp).toHaveBeenCalled();
+    cleanup();
+  });
+
   it("registerCropMouseDown mousedown handler calls onMouseDown", () => {
     const mgr = makeMgr();
     const el = document.createElement("div");
