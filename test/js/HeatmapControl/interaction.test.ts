@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { registerSchemeBarEvents, registerDropdownEvents } from "#foliplus/HeatmapControl/interaction.js";
+import {
+  registerDropdownEvents,
+  registerSchemeBarEvents,
+} from "#foliplus/HeatmapControl/interaction.js";
 
 function makeCtrl(): any {
   const map: any = {
@@ -9,45 +12,65 @@ function makeCtrl(): any {
   };
   const schemeBar = document.createElement("div");
   const schemeDropdown = document.createElement("div");
-  return { map, schemeBar, schemeDropdown,
+  return {
+    map,
+    schemeBar,
+    schemeDropdown,
     availableSchemes: ["thermal", "rainbow", "grayscale"],
-    scheme: "thermal", updateScheme: vi.fn(),
-    toggleDropdown: vi.fn(), selectScheme: vi.fn(),
+    scheme: "thermal",
+    updateScheme: vi.fn(),
+    toggleDropdown: vi.fn(),
+    selectScheme: vi.fn(),
   };
 }
 
 describe("HeatmapControl interaction", () => {
-  afterEach(() => { document.body.innerHTML = ""; });
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
 
   it("registerSchemeBarEvents returns cleanup", () => {
-    const ctrl = makeCtrl(); const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
-    expect(typeof cleanup).toBe("function"); cleanup();
+    const ctrl = makeCtrl();
+    const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
+    expect(typeof cleanup).toBe("function");
+    cleanup();
   });
 
   it("ArrowLeft from middle goes to prev", () => {
-    const ctrl = makeCtrl(); ctrl.scheme = "rainbow";
+    const ctrl = makeCtrl();
+    ctrl.scheme = "rainbow";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
-    ctrl.schemeBar.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
-    expect(ctrl.updateScheme).toHaveBeenCalled(); expect(ctrl.scheme).toBe("thermal");
+    ctrl.schemeBar.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+    );
+    expect(ctrl.updateScheme).toHaveBeenCalled();
+    expect(ctrl.scheme).toBe("thermal");
     cleanup();
   });
 
   it("ArrowLeft at first does nothing", () => {
-    const ctrl = makeCtrl(); ctrl.scheme = "thermal";
+    const ctrl = makeCtrl();
+    ctrl.scheme = "thermal";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
-    ctrl.schemeBar.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    ctrl.schemeBar.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+    );
     expect(ctrl.updateScheme).not.toHaveBeenCalled();
     cleanup();
   });
 
   it("ArrowRight from middle goes to next", () => {
-    const ctrl = makeCtrl(); ctrl.scheme = "rainbow";
+    const ctrl = makeCtrl();
+    ctrl.scheme = "rainbow";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
-    ctrl.schemeBar.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
-    expect(ctrl.updateScheme).toHaveBeenCalled(); expect(ctrl.scheme).toBe("grayscale");
+    ctrl.schemeBar.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    expect(ctrl.updateScheme).toHaveBeenCalled();
+    expect(ctrl.scheme).toBe("grayscale");
     cleanup();
   });
 
@@ -56,7 +79,9 @@ describe("HeatmapControl interaction", () => {
       const ctrl = makeCtrl();
       const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
       document.body.appendChild(ctrl.schemeBar);
-      ctrl.schemeBar.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+      ctrl.schemeBar.dispatchEvent(
+        new KeyboardEvent("keydown", { key, bubbles: true }),
+      );
       expect(ctrl.toggleDropdown).toHaveBeenCalled();
       cleanup();
     }
@@ -66,35 +91,45 @@ describe("HeatmapControl interaction", () => {
     const ctrl = makeCtrl();
     const items = [document.createElement("div"), document.createElement("div")];
     const cleanup = registerDropdownEvents(ctrl.map, ctrl, items);
-    expect(typeof cleanup).toBe("function"); cleanup();
+    expect(typeof cleanup).toBe("function");
+    cleanup();
   });
 
   it("ArrowDown in dropdown focuses next item", () => {
-    const ctrl = makeCtrl(); ctrl.schemeDropdown = document.createElement("div");
+    const ctrl = makeCtrl();
+    ctrl.schemeDropdown = document.createElement("div");
     const items = [document.createElement("div"), document.createElement("div")];
-    items[0].setAttribute("tabindex", "-1"); items[1].setAttribute("tabindex", "-1");
+    items[0].setAttribute("tabindex", "-1");
+    items[1].setAttribute("tabindex", "-1");
     document.body.append(ctrl.schemeDropdown, items[0], items[1]);
     const cleanup = registerDropdownEvents(ctrl.map, ctrl, items);
     items[0].focus();
-    ctrl.schemeDropdown.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    ctrl.schemeDropdown.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
     expect(document.activeElement).toBe(items[1]);
     cleanup();
   });
 
   it("ArrowUp in dropdown focuses prev item", () => {
-    const ctrl = makeCtrl(); ctrl.schemeDropdown = document.createElement("div");
+    const ctrl = makeCtrl();
+    ctrl.schemeDropdown = document.createElement("div");
     const items = [document.createElement("div"), document.createElement("div")];
-    items[0].setAttribute("tabindex", "-1"); items[1].setAttribute("tabindex", "-1");
+    items[0].setAttribute("tabindex", "-1");
+    items[1].setAttribute("tabindex", "-1");
     document.body.append(ctrl.schemeDropdown, items[0], items[1]);
     const cleanup = registerDropdownEvents(ctrl.map, ctrl, items);
     items[0].focus();
-    ctrl.schemeDropdown.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    ctrl.schemeDropdown.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
     expect(document.activeElement).toBe(items[1]);
     cleanup();
   });
 
   it("Enter in dropdown selects item with correct class", () => {
-    const ctrl = makeCtrl(); ctrl.schemeDropdown = document.createElement("div");
+    const ctrl = makeCtrl();
+    ctrl.schemeDropdown = document.createElement("div");
     const items = [document.createElement("div"), document.createElement("div")];
     items[0].classList.add("foliplus-scheme-dropdown-item");
     items[0].setAttribute("tabindex", "-1");
@@ -102,18 +137,23 @@ describe("HeatmapControl interaction", () => {
     document.body.append(ctrl.schemeDropdown, items[0], items[1]);
     const cleanup = registerDropdownEvents(ctrl.map, ctrl, items);
     items[0].focus();
-    ctrl.schemeDropdown.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    ctrl.schemeDropdown.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
     expect(ctrl.selectScheme).toHaveBeenCalled();
     cleanup();
   });
 
   it("Escape in dropdown removes dropdown and focuses schemeBar", () => {
-    const ctrl = makeCtrl(); ctrl.schemeDropdown = document.createElement("div");
+    const ctrl = makeCtrl();
+    ctrl.schemeDropdown = document.createElement("div");
     ctrl.schemeBar.setAttribute("tabindex", "-1");
     document.body.append(ctrl.schemeDropdown, ctrl.schemeBar);
     const items = [document.createElement("div")];
     const cleanup = registerDropdownEvents(ctrl.map, ctrl, items);
-    ctrl.schemeDropdown.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    ctrl.schemeDropdown.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(ctrl.schemeDropdown).toBeNull();
     cleanup();
   });

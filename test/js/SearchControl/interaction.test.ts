@@ -97,11 +97,15 @@ describe("bindEvents", () => {
     ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
     // First ArrowUp when idx is -1 → stays -1 (no active)
-    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
     expect(ctrl.selectedSuggestionIdx).toBe(-1);
     // Set to 1 via internal state, then ArrowUp → 0
     ctrl.selectedSuggestionIdx = 1;
-    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
     expect(ctrl.selectedSuggestionIdx).toBe(0);
   });
 
@@ -109,9 +113,12 @@ describe("bindEvents", () => {
     const ctrl = makeCtrl();
     ctrl.ctrl.classList.add("expanded");
     ctrl.suggestionsWrap = document.createElement("div");
-    ctrl.suggestionsWrap.innerHTML = '<div class="foliplus-search-suggestion">One</div>';
+    ctrl.suggestionsWrap.innerHTML =
+      '<div class="foliplus-search-suggestion">One</div>';
     bindEvents(ctrl);
-    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(ctrl.suggestionsWrap).toBeNull();
   });
 

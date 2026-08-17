@@ -4,6 +4,6 @@ import type { MeasureManager } from "./manager.js";
 
 export const registerInteractions = (mgr: MeasureManager): (() => void) => {
   return ensureInteraction(mgr.map).register(CONF.name, [
-    { key: "Escape", handler: (e) => mgr.onKeyDown(e as KeyboardEvent) },
+    { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
   ]);
 };

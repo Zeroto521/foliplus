@@ -27,7 +27,9 @@ describe("MeasureControl interaction", () => {
     const mgr = makeMgr();
     const handler = registerInteractions(mgr);
     // Simulate Escape keydown via document
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(mgr.onKeyDown).toHaveBeenCalled();
     handler();
   });

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { registerInteractions, registerDrag, registerCropMouseDown } from "#foliplus/ExportControl/interaction.js";
+import {
+  registerCropMouseDown,
+  registerDrag,
+  registerInteractions,
+} from "#foliplus/ExportControl/interaction.js";
 
 function makeMgr(): any {
   const container = document.createElement("div");
@@ -37,7 +41,9 @@ describe("ExportControl interaction", () => {
     container.setAttribute("tabindex", "-1");
     document.body.appendChild(container);
     container.focus();
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(mgr.onKeyDown).toHaveBeenCalled();
     cleanup();
   });
@@ -49,7 +55,9 @@ describe("ExportControl interaction", () => {
     container.setAttribute("tabindex", "-1");
     document.body.appendChild(container);
     container.focus();
-    container.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }));
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
     expect(mgr.onKeyDown).toHaveBeenCalled();
     cleanup();
   });
@@ -76,7 +84,9 @@ describe("ExportControl interaction", () => {
     container.setAttribute("tabindex", "-1");
     document.body.appendChild(container);
     container.focus();
-    container.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
     expect(mgr.onKeyDown).toHaveBeenCalled();
     cleanup();
   });
@@ -88,7 +98,14 @@ describe("ExportControl interaction", () => {
     container.setAttribute("tabindex", "-1");
     document.body.appendChild(container);
     container.focus();
-    container.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, shiftKey: true, bubbles: true }));
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "z",
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+      }),
+    );
     expect(mgr.onKeyDown).toHaveBeenCalled();
     cleanup();
   });
