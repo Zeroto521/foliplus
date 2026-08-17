@@ -68,25 +68,25 @@ export function initMocks() {
         ],
       },
     })),
-  wkt: {
-    toWKT: feature => {
-      const geom = feature.geometry;
-      if (!geom) return "";
-      if (geom.type === "Point") {
-        const [lng, lat] = geom.coordinates;
-        return "POINT(" + lng + " " + lat + ")";
-      }
-      if (geom.type === "LineString") {
-        const pts = geom.coordinates.join(", ");
-        return "LINESTRING(" + pts + ")";
-      }
-      if (geom.type === "Polygon") {
-        const ring = geom.coordinates[0].join(", ");
-        return "POLYGON((" + ring + "))";
-      }
-      return "";
+    wkt: {
+      toWKT: feature => {
+        const geom = feature.geometry;
+        if (!geom) return "";
+        if (geom.type === "Point") {
+          const [lng, lat] = geom.coordinates;
+          return "POINT(" + lng + " " + lat + ")";
+        }
+        if (geom.type === "LineString") {
+          const pts = geom.coordinates.join(", ");
+          return "LINESTRING(" + pts + ")";
+        }
+        if (geom.type === "Polygon") {
+          const ring = geom.coordinates[0].join(", ");
+          return "POLYGON((" + ring + "))";
+        }
+        return "";
+      },
     },
-  },
   };
 }
 
