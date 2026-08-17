@@ -369,7 +369,7 @@ class LayerUI {
     if (!container) return;
 
     ensureKeyboard(this.m.map).register(
-      "LayerControl",
+      CONF.name,
       [
         {
           key: "ArrowUp",
