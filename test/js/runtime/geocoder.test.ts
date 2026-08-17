@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { geocode, reverseGeocode } from "#foliplus/runtime/geocoder.js";
+import {
+  cacheSuggestion,
+  geocode,
+  reverseGeocode,
+} from "#foliplus/runtime/geocoder.js";
 
 // A minimal WGS84 map — toWgs84 passes coordinates through unchanged.
 const mockMap = {
@@ -107,5 +111,28 @@ describe("geocode (forward)", () => {
     (globalThis.fetch as any).mockResolvedValue(jsonResponse([]));
     const r = await geocode(mockMap, "UniqueCity B2", "en");
     expect(r).toBeNull();
+  });
+});
+
+describe("cacheSuggestion", () => {
+  it("pre-populates geoCache for both forward and reverse lookups", async () => {
+    cacheSuggestion(mockMap, "CachTest", 22.5, 114.1, "Shenzhen,China");
+    const r = await geocode(mockMap, "CachTest", "en");
+    expect(r).toEqual({ lat: 22.5, lng: 114.1, display_name: "Shenzhen,China" });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("geocode after cacheSuggestion hits cache (no fetch)", async () => {
+    cacheSuggestion(mockMap, "SugHit", 22.5, 114.1, "Shenzhen,China");
+    const r = await geocode(mockMap, "SugHit", "en");
+    expect(r).toEqual({ lat: 22.5, lng: 114.1, display_name: "Shenzhen,China" });
+    expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit — no API call
+  });
+
+  it("reverseGeocode after cacheSuggestion hits cache (no fetch)", async () => {
+    cacheSuggestion(mockMap, "SugRev", 22.5, 114.1, "Shenzhen,China");
+    const addr = await reverseGeocode(mockMap, 114.1, 22.5, "en");
+    expect(addr).toBe("Shenzhen,China");
+    expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit
   });
 });

@@ -162,8 +162,8 @@ declare global {
     hideHint: (name: string, id?: string) => void;
     reverseGeocode: (
       map: Leaflet.Map,
-      lng: number,
-      lat: number,
+      lng: number | string,
+      lat: number | string,
       code?: string,
     ) => Promise<string>;
     geocode: (
