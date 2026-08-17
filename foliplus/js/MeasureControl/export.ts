@@ -1,4 +1,4 @@
-// MeasureControl export module — convert measurements to GeoJSON, CSV, and KML.
+// MeasureControl export module — convert measurements to GeoJSON and CSV.
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
 import { MODE_MAP } from "./mode/index.js";
@@ -167,84 +167,7 @@ function featureToWKT(feature: GeoJSON.Feature): string {
   return turf.wkt.toWKT(feature).replace("\n", "");
 }
 
-/** Convert a GeoJSON geometry to a KML XML element string. */
-function geometryToKML(geometry: GeoJSON.Geometry): string {
-  if (!geometry) {
-    return "";
-  }
 
-  if (geometry.type === "Point") {
-    const [lng, lat] = geometry.coordinates;
-    return `<Point><coordinates>${lng},${lat}</coordinates></Point>`;
-  }
-
-  if (geometry.type === "LineString") {
-    const pts = (geometry.coordinates as [number, number][]).join(" ");
-    return (
-      `<LineString><tessellate>1</tessellate>` +
-      `<coordinates>${pts}</coordinates></LineString>`
-    );
-  }
-
-  if (geometry.type === "Polygon") {
-    const ring = (geometry.coordinates[0] as [number, number][]).join(" ");
-    return (
-      `<Polygon><tessellate>1</tessellate><outerBoundaryIs>` +
-      `<LinearRing><coordinates>${ring}</coordinates></LinearRing>` +
-      `</outerBoundaryIs></Polygon>`
-    );
-  }
-
-  return "";
-}
-
-/**
- * Convert measurements array to KML string.
- *
- * Uses each Mode's toGeoFeature() to get the geometry, then converts
- * it to KML XML via geometryToKML(). Geometry shapes live in one place.
- */
-export function toKML(measurements: MeasureData[]): string {
-  const placemarks: string[] = [];
-
-  for (const data of measurements) {
-    if (!data.type) continue;
-
-    const name = getNameForType(data);
-
-    const Feature = MODE_MAP[data.type as keyof typeof MODE_MAP];
-    const feature = Feature?.toGeoFeature(data);
-    const geometry = feature ? geometryToKML(feature.geometry) : "";
-
-    const description: string[] = [];
-    if (data.totalDistance) {
-      description.push(`Total distance: ${data.totalDistance} m`);
-    }
-    if (data.area) {
-      description.push(`Area: ${data.area} m²`);
-    }
-    if (data.radius) {
-      description.push(`Radius: ${data.radius} m`);
-    }
-    if (data.address) {
-      description.push(`Address: ${data.address}`);
-    }
-    const descText = description.join("\n");
-
-    placemarks.push(`    <Placemark>
-      <name>${name}</name>${descText ? `<description>${escXml(descText)}</description>` : ""}
-      ${geometry}
-    </Placemark>`);
-  }
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>Measurements</name>
-${placemarks.join("\n")}
-  </Document>
-</kml>`;
-}
 
 /**
  * Escape special XML characters.
@@ -267,8 +190,6 @@ function formatToExtension(format: ExportFormat): string {
       return "geojson";
     case CONST.EXPORT_FORMAT.CSV:
       return "csv";
-    case CONST.EXPORT_FORMAT.KML:
-      return "kml";
     default:
       return "geojson";
   }
@@ -283,8 +204,6 @@ function formatToMimeType(format: ExportFormat): string {
       return "application/geo+json";
     case CONST.EXPORT_FORMAT.CSV:
       return "text/csv";
-    case CONST.EXPORT_FORMAT.KML:
-      return "application/vnd.google-earth.kml+xml";
     default:
       return "application/geo+json";
   }
@@ -314,9 +233,6 @@ export function exportMeasurements(
     case CONST.EXPORT_FORMAT.CSV:
       content = toCSV(measurements);
       break;
-    case CONST.EXPORT_FORMAT.KML:
-      content = toKML(measurements);
-      break;
     default:
       content = toGeoJSON(measurements);
   }
@@ -339,8 +255,7 @@ export function getDefaultFormat(): ExportFormat {
   const fmt = CONF?.export_format;
   if (
     fmt === CONST.EXPORT_FORMAT.GEOJSON ||
-    fmt === CONST.EXPORT_FORMAT.CSV ||
-    fmt === CONST.EXPORT_FORMAT.KML
+    fmt === CONST.EXPORT_FORMAT.CSV
   ) {
     return fmt;
   }

@@ -60,9 +60,6 @@ describe("Export.EXPORT_FORMAT constants", () => {
   it("defines CSV format", () => {
     expect(CONST.EXPORT_FORMAT.CSV).toBe("csv");
   });
-  it("defines KML format", () => {
-    expect(CONST.EXPORT_FORMAT.KML).toBe("kml");
-  });
 });
 
 describe("Export.getDefaultFormat", () => {
@@ -87,12 +84,7 @@ describe("Export.getDefaultFormat", () => {
     (window as any).CONF = prev;
   });
 
-  it("returns kml from CONF", () => {
-    const prev = window.CONF;
-    (window as any).CONF = { name: "MeasureControl", export_format: "kml" };
-    expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.KML);
-    (window as any).CONF = prev;
-  });
+
 
   it("returns geojson fallback for unknown format", () => {
     const prev = window.CONF;
@@ -246,77 +238,4 @@ describe("Export.toCSV", () => {
     const wkt = cols[cols.length - 1];
     expect(wkt).toContain("POINT(119.30 26.08)");
   });
-});
-
-describe("Export.toKML", () => {
-  it("produces valid KML with placemarks", () => {
-    const kml = Export.toKML([markerData, distanceData]);
-    expect(kml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
-    expect(kml).toContain("<kml xmlns="http://www.opengis.net/kml/2.2">");
-    expect(kml).toContain("<Document>");
-    expect(kml).toContain("</Document>");
-    expect(kml).toContain("<Placemark>");
-  });
-
-  it("marker produces Point placemark", () => {
-    const kml = Export.toKML([markerData]);
-    expect(kml).toContain("<Point>");
-    expect(kml).toContain("<coordinates>119.30 26.08</coordinates>");
-  });
-
-  it("distance produces LineString placemark", () => {
-    const kml = Export.toKML([distanceData]);
-    expect(kml).toContain("<LineString>");
-    expect(kml).toContain("<coordinates>");
-    expect(kml).toContain("119.30 26.08");
-    expect(kml).toContain("119.31 26.09");
-    expect(kml).toContain("119.32 26.10");
-  });
-
-  it("polygon produces closed Polygon placemark", () => {
-    const kml = Export.toKML([polygonData]);
-    expect(kml).toContain("<Polygon>");
-    expect(kml).toContain("<LinearRing>");
-    const ring = kml.match(/<coordinates>(.*?)<\/coordinates>/g);
-    expect(ring).not.toBeNull();
-    const coords = ring[0]
-      .replace("<coordinates>", "")
-      .replace("</coordinates>", "")
-      .split(" ");
-    expect(coords.length).toBe(5); // 4 points + closing
-    expect(coords[0]).toBe(coords[4]); // closed
-  });
-
-  it("circle produces Polygon placemark with 64 points", () => {
-    const kml = Export.toKML([circleData]);
-    expect(kml).toContain("<Polygon>");
-    const ring = kml.match(/<coordinates>(.*?)<\/coordinates>/g);
-    expect(ring).not.toBeNull();
-    const coords = ring[0]
-      .replace("<coordinates>", "")
-      .replace("</coordinates>", "")
-      .split(" ");
-    expect(coords.length).toBe(65); // 64 + 1 closed
-  });
-
-  it("KML name uses measurement type", () => {
-    const kml = Export.toKML([markerData]);
-    expect(kml).toContain("<name>Taiwan</name>");
-
-    const kml2 = Export.toKML([distanceData]);
-    expect(kml2).toContain("<name>Distance Measurement</name>");
-
-    const kml3 = Export.toKML([polygonData]);
-    expect(kml3).toContain("<name>Area Measurement</name>");
-
-    const kml4 = Export.toKML([circleData]);
-    expect(kml4).toContain("<name>Circle</name>");
-  });
-
-  it("KML includes distance/area/radius in description", () => {
-    const kml = Export.toKML([distanceData, polygonData, circleData]);
-    expect(kml).toContain("3700 m");
-    expect(kml).toContain("3300000");
-    expect(kml).toContain("5000 m");
-  });
-});
+}););

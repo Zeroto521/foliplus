@@ -7,7 +7,7 @@ from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
-ExportFormat = Literal["geojson", "csv", "kml"]
+ExportFormat = Literal["geojson", "csv"]
 
 
 class MeasureControl(BaseControl):
@@ -54,10 +54,10 @@ class MeasureControl(BaseControl):
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension
         is appended automatically: measurements.geojson, measurements.csv, or
-        measurements.kml.
+        measurements.csv.
 
     export_format : str, default "geojson"
-        Default export format. One of "geojson", "csv", or "kml". The user can
+        Default export format. One of "geojson" or "csv". The user can
         change this at runtime via the export dropdown.
 
     locale : str or LocaleConfig, optional

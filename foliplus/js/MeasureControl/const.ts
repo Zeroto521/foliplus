@@ -87,7 +87,6 @@ export const STORAGE = { KEY: `foliplus_measure_${map.getContainer().id}` };
 export const EXPORT_FORMAT = {
   GEOJSON: "geojson",
   CSV: "csv",
-  KML: "kml",
 } as const;
 
 export type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
