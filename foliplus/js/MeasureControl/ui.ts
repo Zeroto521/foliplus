@@ -227,7 +227,7 @@ const attachCircleUI = (
 
   const onMapClickActive = () => {
     if (mgr.isSuppressHideDel || isDeleted) return;
-    if (isXVisible) togglePolygonUI(false, CONST.TOGGLE.RESET);
+    if (isXVisible) toggleCircleUI(false, CONST.TOGGLE.RESET);
   };
   mgr.map.on("click", onMapClickActive);
 

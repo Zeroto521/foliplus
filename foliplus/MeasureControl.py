@@ -53,12 +53,10 @@ class MeasureControl(BaseControl):
 
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension
-        is appended automatically: measurements.geojson, measurements.csv, or
-        measurements.csv.
+        is appended automatically: measurements.geojson or measurements.csv.
 
     export_format : str, default "geojson"
-        Default export format. One of "geojson" or "csv". The user can
-        change this at runtime via the export dropdown.
+        Default export format. One of "geojson" or "csv".
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.

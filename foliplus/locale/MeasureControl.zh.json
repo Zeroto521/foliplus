@@ -7,11 +7,7 @@
   "MeasureControl.tool_polygon": "面积",
   "MeasureControl.tool_circle": "画圆",
   "MeasureControl.tool_clear": "清空",
-  "MeasureControl.tool_export": "导出",
-  "MeasureControl.export_no_data": "暂无测量数据可导出",
-  "MeasureControl.export_format_geojson": "GeoJSON",
-  "MeasureControl.export_format_csv": "CSV",
-  "MeasureControl.export_format_kml": "KML",
+  "MeasureControl.tool_export": "导出测量数据",
   "MeasureControl.hint_marker": "点击地图放置定位标记",
   "MeasureControl.hint_dist_start": "点击地图开始测量距离，双击 / 右键 / 点击末点结束",
   "MeasureControl.hint_polygon": "点击地图开始测量面积，双击 / 右键 / 点击起点或末点结束",
@@ -26,5 +22,6 @@
   "MeasureControl.del_tooltip": "删除",
   "MeasureControl.del_node": "删除此点",
   "MeasureControl.del_all": "全部删除",
-  "MeasureControl.export_paused": "导出中，测量已暂停"
+  "MeasureControl.export_paused": "导出中，测量已暂停",
+  "MeasureControl.export_no_data": "没有可导出的测量数据"
 }

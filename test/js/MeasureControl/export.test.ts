@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { MeasureData } from "#type/global.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as Export from "#foliplus/MeasureControl/export.js";
 
@@ -238,4 +237,4 @@ describe("Export.toCSV", () => {
     const wkt = cols[cols.length - 1];
     expect(wkt).toContain("POINT(119.30 26.08)");
   });
-}););
+});

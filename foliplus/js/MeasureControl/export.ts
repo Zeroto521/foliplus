@@ -6,13 +6,6 @@ import { MODE_MAP } from "./mode/index.js";
 // CONF is a free variable from the IIFE template wrapper.
 declare const CONF: { name: string; filename: string; export_format: ExportFormat };
 
-/** GeoJSON feature property shared across all geometry types. */
-interface MeasureProperties {
-  id?: string;
-  type: string;
-  name?: string;
-}
-
 /**
  * Convert a single measurement to a GeoJSON feature.
  */
@@ -167,17 +160,6 @@ function featureToWKT(feature: GeoJSON.Feature): string {
   return turf.wkt.toWKT(feature).replace("\n", "");
 }
 
-/**
- * Escape special XML characters.
- */
-function escXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
 
 /**
  * Map export format to filename extension.

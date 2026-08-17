@@ -82,7 +82,7 @@ class MeasureControl extends BaseControl {
       title: _(`${CONF.name}.tool_export`),
       svg: Icons.DOWNLOAD,
       parent: toolBar,
-      data: { mode: CONST.MODE.EXPORT },
+      data: {},
     });
     exportBtn.onclick = (event: MouseEvent) => {
       event.stopPropagation();
