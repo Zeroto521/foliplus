@@ -9,8 +9,12 @@ function makeCtrl(): any {
   const clearBtn = document.createElement("button");
   const inp = document.createElement("input");
   const handlers = {};
+  const originalAdd = inp.addEventListener.bind(inp);
   inp.addEventListener = vi.fn((event, fn) => {
-    handlers[event] = fn;
+    // keydown: let KeyboardManager bind normally (real listener)
+    // other events (input, focus, blur): capture for direct test calls
+    if (event !== "keydown") handlers[event] = fn;
+    originalAdd(event, fn);
   });
   return {
     ctrl: ctrlDiv,
@@ -58,7 +62,7 @@ describe("bindEvents", () => {
     const ctrl = makeCtrl();
     ctrl.ctrl.classList.add("expanded");
     bindEvents(ctrl);
-    ctrl._handlers.keydown({ key: "Escape" });
+    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
   });
@@ -73,8 +77,7 @@ describe("bindEvents", () => {
     };
     ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
-    const event = { key: "ArrowDown", preventDefault: vi.fn() };
-    ctrl._handlers.keydown(event);
+    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(ctrl.selectedSuggestionIdx).toBe(0);
     expect(ctrl.inp.value).toBe("One");
   });
@@ -83,7 +86,7 @@ describe("bindEvents", () => {
     const ctrl = makeCtrl();
     ctrl.inp.value = "121.47,31.23";
     bindEvents(ctrl);
-    ctrl._handlers.keydown({ key: "Enter" });
+    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(map.flyTo).toHaveBeenCalled();
   });
 
