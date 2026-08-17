@@ -1,11 +1,10 @@
-"""
-Sphinx configuration for foliplus documentation.
-"""
+"""Sphinx configuration for foliplus documentation."""
 
 from __future__ import annotations
 
 import inspect
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -53,55 +52,75 @@ napoleon_numpy_docstring = False
 
 
 # ── Linkcode ──────────────────────────────────────────────────────────
-# based on pandas/doc/source/conf.py
-# ── Generalized linkcode ──────────────────────────────────────────────
-# Maps known external packages to their GitHub repos and package-root
-# names. Entries not in this map fall back to the default project.
+# Each entry maps a package name (as it appears in the filesystem path)
+# to its GitHub repo, package-root name, and git ref. The ref may be
+# a static string or a callable that returns one (for the default
+# project, which needs dynamic version→SHA resolution on RTD).
 _LINKCODE_REPOS = {
+    "foliplus": {
+        "repo": github_url,
+        "root": project,
+        "ref": lambda: _resolve_git_ref(version),
+    },
     "folium": {
         "repo": "https://github.com/python-visualization/folium",
         "root": "folium",
-        "branch": "main",
+        "ref": "main",
     },
     "branca": {
         "repo": "https://github.com/python-visualization/branca",
         "root": "branca",
-        "branch": "main",
+        "ref": "main",
     },
 }
+
+
+def _resolve_git_ref(ver: str) -> str:
+    """Extract the git ref from a PEP-440 version string.
+
+    ReadTheDocs builds use local versions that embed the current commit
+    SHA:  0.3.2.dev62+gf116f81a8.d20260817
+    The "+g<sha>" part is git-describe output; the actual commit hash is
+    everything after the "g". Use that as the GitHub blob ref instead
+    of the whole version string, which is not a valid git ref.
+    """
+    if _readthedocs_version == "latest":
+        return "main"
+    m = re.search(r"\+g([0-9a-f]+)", ver)
+    if m:
+        return m.group(1)
+    return f"v{ver}"
 
 
 def _resolve_source_url(source_path: Path, lineno: int, source_len: int) -> str | None:
     """Generate a GitHub source URL for any installed Python package.
 
-    Looks up _LINKCODE_REPOS for the first matching package name in the
-    file path, then builds the URL from the repo config and the relative
-    path from the package root. Falls back to the default project
-    (foliplus) when no external package matches.
+    Uses importlib to locate each known package's installed root directory,
+    then checks if the source file falls within it. This avoids false
+    matches from coincidental directory names in parent paths.
     """
-    resolved = source_path.resolve()
-    parts = list(resolved.parts)
+    import importlib
 
-    # Try external packages first
+    resolved = source_path.resolve()
+
     for pkg_name, cfg in _LINKCODE_REPOS.items():
         try:
-            idx = parts.index(pkg_name)
+            pkg = importlib.import_module(pkg_name)
+        except ImportError:
+            continue
+        try:
+            pkg_root = Path(pkg.__file__).resolve().parent
+        except AttributeError:
+            continue
+        try:
+            rel_path = str(resolved.relative_to(pkg_root)).replace(os.sep, "/")
         except ValueError:
             continue
-        rel_path = str(Path(*parts[idx + 1 :])).replace(os.sep, "/")
+        ref = cfg["ref"]() if callable(cfg["ref"]) else cfg["ref"]
         linespec = f"#L{lineno}-L{lineno + source_len - 1}" if lineno else ""
-        return f"{cfg['repo']}/blob/{cfg['branch']}/{cfg['root']}/{rel_path}{linespec}"
+        return f"{cfg['repo']}/blob/{ref}/{cfg['root']}/{rel_path}{linespec}"
 
-    # Fall back to the default project (foliplus)
-    foliplus_root = Path(foliplus.__file__).resolve().parent
-    try:
-        rel_path = str(resolved.relative_to(foliplus_root)).replace(os.sep, "/")
-    except ValueError:
-        return None
-
-    ref = _resolve_git_ref(version)
-    linespec = f"#L{lineno}-L{lineno + source_len - 1}" if lineno else ""
-    return f"{github_url}/blob/{ref}/{project}/{rel_path}{linespec}"
+    return None
 
 
 def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
@@ -129,7 +148,6 @@ def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
         fn = inspect.getsourcefile(inspect.unwrap(obj))
     except TypeError:
         return None
-
     if fn is None:
         return None
 
@@ -141,30 +159,13 @@ def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
     return _resolve_source_url(Path(fn), lineno, len(source_lines))
 
 
-# ── Git ref resolver ─────────────────────────────────────────────────
-# ReadTheDocs builds use PEP-440 local versions that embed the current
-# commit SHA:  0.3.2.dev62+gf116f81a8.d20260817
-# The "+g<sha>" part is git-describe output; the actual commit hash is
-# everything after the "g". Use that as the GitHub blob ref instead of
-# the whole version string, which is not a valid git ref.
-def _resolve_git_ref(ver: str) -> str:
-    """Extract the git ref from a PEP-440 version string."""
-    import re
-
-    if _readthedocs_version == "latest":
-        return "main"
-    m = re.search(r"\+g([0-9a-f]+)", ver)
-    if m:
-        return m.group(1)  # commit SHA
-    return f"v{ver}"  # clean tag like 0.3.2
-
-
 # ── Intersphinx ───────────────────────────────────────────────────────
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "branca": ("https://python-visualization.github.io/branca/", None),
     "folium": ("https://python-visualization.github.io/folium/latest/", None),
 }
+
 
 # ── Missing reference resolver ────────────────────────────────────────
 # folium's objects.inv omits JSCSSMixin (an internal mixin), so
@@ -174,13 +175,7 @@ _MISSING_REF_MAP: dict[str, str] = {}
 
 
 def _build_missing_ref_map() -> None:
-    """Populate _MISSING_REF_MAP from the installed folium source.
-
-    Reuses _resolve_source_url so the URL format is consistent with
-    linkcode_resolve and automatically tracks the installed version.
-    """
-    import inspect
-
+    """Populate _MISSING_REF_MAP from the installed folium source."""
     from folium.elements import JSCSSMixin
 
     fn = inspect.getsourcefile(inspect.unwrap(JSCSSMixin))
@@ -205,11 +200,16 @@ def _resolve_missing_reference(app, env, node, contnode):
     so Sphinx renders it as plain text. Link it to folium's GitHub source.
     """
     target = node.get("reftarget", "")
+    # Exact match first, then dotted-path suffix match
     url = _MISSING_REF_MAP.get(target)
     if url is None:
-        # Try matching by substring (handles "folium.elements.JSCSSMixin")
+        # Handle fully-qualified targets like "folium.elements.JSCSSMixin"
         for key, url_val in _MISSING_REF_MAP.items():
-            if key in target:
+            if (
+                target == key
+                or target.endswith(":" + key)
+                or target.endswith("." + key)
+            ):
                 url = url_val
                 break
     if url is not None:
@@ -231,7 +231,7 @@ def setup(app):
 
 
 # ── MyST-NB (Jupyter Notebook) ───────────────────────────────────────
-nb_execution_mode = "cache"  # auto-execute and cache results
+nb_execution_mode = "cache"
 nb_execution_timeout = 60
 nb_mime_priority_overrides = [
     ("html", "text/html", 10),
@@ -246,7 +246,7 @@ html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static", "data"]
 html_css_files = ["custom.css"]
 html_js_files = [("icon.js", {"defer": "defer"})]
-html_show_sourcelink = False  # sidebar "sourcelink" already provides this
+html_show_sourcelink = False
 html_show_sphinx = False
 
 # ── Options for PyData theme ──────────────────────────────────────────
