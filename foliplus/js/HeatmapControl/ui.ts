@@ -134,7 +134,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     event.stopPropagation();
     toggleSchemeDropdown(ctrl);
   };
-  ensureKeyboard(map).register("HeatmapControl", [
+  ensureKeyboard(map).register(CONF.name, [
     {
       key: "ArrowLeft",
       element: ctrl.schemeBar,
