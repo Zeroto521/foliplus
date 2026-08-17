@@ -29,7 +29,6 @@
 - `hint`: made per-map — `window.foliplus.showHint` removed; each map gets its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `geocode`: add forward geocoding alongside reverse; bidirectional FIFO cache with 24h TTL ([#147](https://github.com/Zeroto521/foliplus/pull/147))
 - `Cache`: generic `Cache<K,V>` (FIFO + optional TTL) for bounded caching; optional `onEvict` callback to release resources (e.g. GPU `ImageBitmap`s) on removal ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#154](https://github.com/Zeroto521/foliplus/pull/154))
-- `ExportControl`: render draws each tile/sprite `ImageBitmap` once then closes it immediately — peak live bitmaps are bounded by download concurrency (not a 1000-entry cache), cutting worst-case GPU memory ~250MB→~3MB; also fixes sprites never being drawn in exported images ([#170](https://github.com/Zeroto521/foliplus/pull/170))
 
 ### Fixed
 
@@ -38,7 +37,7 @@
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
 - `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
-- `ExportControl`: evict and close cached `ImageBitmap` resources to prevent GPU memory leaks; reusable `Cache<K,V>` eviction hook ([#154](https://github.com/Zeroto521/foliplus/pull/154))
+- `ExportControl`: evict and close cached `ImageBitmap` resources to prevent GPU memory leaks; reusable `Cache<K,V>` eviction hook ([#154](https://github.com/Zeroto521/foliplus/pull/154), [#170](https://github.com/Zeroto521/foliplus/pull/170))
 
 ## [v0.3.0] (2026-08-02)
 
