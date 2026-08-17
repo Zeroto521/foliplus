@@ -2,7 +2,6 @@
 // All internal refs use direct function calls instead of `this.`.
 import { HINT_DURATION } from "#core/hint.js";
 import { registerSchemeBarEvents, registerDropdownEvents } from "./interaction.js";
-import { registerSchemeBarEvents, registerDropdownEvents } from "./interaction.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -18,6 +17,9 @@ export interface HeatmapControlUI {
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
+  schemeBarCleanup?: () => void;
+  dropdownCleanup?: () => void;
+  toggleDropdown?: () => void;
   observer: MutationObserver | null;
   layerSelect: HTMLSelectElement;
   extraBody: HTMLElement;
@@ -413,7 +415,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     else items[0].focus();
   }
 
-  ctrl.dropdownCleanup = registerDropdownEvents(map, ctrl, items);
+  ctrl.dropdownCleanup = registerDropdownEvents(map, ctrl, Array.from(items));
 };
 
 const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
