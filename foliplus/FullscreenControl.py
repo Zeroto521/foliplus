@@ -15,7 +15,7 @@ class FullscreenControl(BaseControl):
     Parameters
     ----------
     position : str, default "bottomright"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+        One of "topleft", "topright", "bottomleft", "bottomright"\.
 
     hide_self : bool, default True
         Whether to hide the fullscreen button itself after entering fullscreen.
@@ -25,7 +25,7 @@ class FullscreenControl(BaseControl):
         Whether to hide other map controls after entering fullscreen.
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
     Examples

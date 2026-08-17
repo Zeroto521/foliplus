@@ -63,7 +63,7 @@ export const SEL = {
 };
 
 /** Cache limits. */
-export const CACHE = { UNDO_MAX: 20, TILE_MAX: 1000 };
+export const CACHE = { UNDO_MAX: 20 };
 
 // ============================================================================
 // Auto-detected tile download concurrency.

@@ -126,10 +126,7 @@ class LayerManager implements LayerAPI {
       )
         return;
 
-      if (this.hasUnresolvedLayers() || this.isManagedLayer(event.layer)) {
-        if (this.isEnforcing) this.debouncedEnforce();
-        else this.debouncedEnforce();
-      }
+      if (this.hasUnresolvedLayers() && !this.isEnforcing) this.debouncedEnforce();
     };
     this.map.on("layeradd", this.onLayerAdd);
 
@@ -139,7 +136,7 @@ class LayerManager implements LayerAPI {
 
     // Before any export, flush pending debounced enforceOrder so the
     // exported image matches the panel's layer order.
-    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => this.enforceOrderNow());
+    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
@@ -429,14 +426,9 @@ class LayerManager implements LayerAPI {
     return zBase + (this.layers.length - i) * Z_INDEX.STEP;
   }
 
-  /** Cancel any pending debounced enforceOrder and run it immediately. */
-  enforceOrderNow(): void {
-    this.debouncedEnforce?.cancel();
-    this.enforceOrder();
-  }
-
   enforceOrder() {
     if (this.isEnforcing) return;
+    this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
       const layersToMove: Array<{
@@ -590,6 +582,50 @@ class LayerManager implements LayerAPI {
 
   canReorderBetween(fromIdx: number, toIdx: number): boolean {
     return this.layerRegistry.canReorderBetween(fromIdx, toIdx);
+  }
+
+  /**
+   * Move a registered layer one position up in z-order (toward index 0).
+   * Respects group boundaries (overlay to base never crosses).
+   * @param {string} id - Layer ID previously passed to registerLayer().
+   * @returns {boolean} true if the layer was moved, false if already at top,
+   *   at the base boundary, or unknown.
+   */
+  moveLayerUp(id: string): boolean {
+    const item = this.layerRegistry.get(id);
+    if (!item) return false;
+    const idx = this.layerRegistry.indexOf(item);
+    if (idx <= 0) return false;
+    if (!this.canReorderBetween(idx, idx - 1)) return false;
+
+    this.layerRegistry.reorder(idx, idx - 1);
+    this.enforceOrder();
+    this.saveOrder();
+    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.uiContainer && this.ui?.reindexAfterMove();
+    return true;
+  }
+
+  /**
+   * Move a registered layer one position down in z-order (away from index 0).
+   * Respects group boundaries (overlay to base never crosses).
+   * @param {string} id - Layer ID previously passed to registerLayer().
+   * @returns {boolean} true if the layer was moved, false if already at bottom
+   *   of its group or unknown.
+   */
+  moveLayerDown(id: string): boolean {
+    const item = this.layerRegistry.get(id);
+    if (!item) return false;
+    const idx = this.layerRegistry.indexOf(item);
+    if (idx < 0 || idx >= this.layers.length - 1) return false;
+    if (!this.canReorderBetween(idx, idx + 1)) return false;
+
+    this.layerRegistry.reorder(idx, idx + 1);
+    this.enforceOrder();
+    this.saveOrder();
+    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.uiContainer && this.ui?.reindexAfterMove();
+    return true;
   }
 
   destroy() {

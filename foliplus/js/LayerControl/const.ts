@@ -24,6 +24,7 @@ export const CLASSES = {
   COLOR_INPUT: "foliplus-color-layer-input",
   COLOR_ITEM: "foliplus-color-layer-item",
   HIDDEN: "hidden",
+  FOCUSED: "foliplus-layer-focused",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
   DRAGGING: "foliplus-layer-dragging",

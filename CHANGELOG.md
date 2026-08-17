@@ -6,20 +6,21 @@
 
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#158](https://github.com/Zeroto521/foliplus/pull/158))
+- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170))
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
 - `EventBus`: decouple cross-component communication via typed semantic events, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148), [#153](https://github.com/Zeroto521/foliplus/pull/153), [#155](https://github.com/Zeroto521/foliplus/pull/155), [#159](https://github.com/Zeroto521/foliplus/pull/159), [#161](https://github.com/Zeroto521/foliplus/pull/161))
 - `ModeManager`: prevent conflicting component actions (e.g. measurement during export) via mode tracking and mutual-exclusion blocking ([#150](https://github.com/Zeroto521/foliplus/pull/150), [#159](https://github.com/Zeroto521/foliplus/pull/159))
+- `LayerControl`: keyboard shortcuts for layer panel — `ArrowUp`/`ArrowDown`/`ArrowLeft`/`ArrowRight`/`Space`/`Enter`/`Escape` and `Ctrl+ArrowUp`/`Ctrl+ArrowDown` for reorder. Added `moveLayerUp(id)` and `moveLayerDown(id)` to `LayerAPI` ([#156](https://github.com/Zeroto521/foliplus/pull/156))
 
 ### Changed
 
 - `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 - `LayerControl`: rework internal architecture into `LayerRegistry` (ordered layer list, read-only `api.layers`) + `PaneManager` (pane lifecycle: creation, discovery cache, fallback mapping, DOM migration) + `LayerUI` (fold/drag/color state), orchestrated by a slim `LayerManager` ([#117](https://github.com/Zeroto521/foliplus/pull/117), [#119](https://github.com/Zeroto521/foliplus/pull/119), [#120](https://github.com/Zeroto521/foliplus/pull/120), [#121](https://github.com/Zeroto521/foliplus/pull/121))
-- `Project architecture`: migrate from single Jinja-embedded JavaScript IIFE to modular TypeScript with ES module structure. Each component now has its own `*.ts` source file, bundled via esbuild into a single IIFE for distribution. ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#125](https://github.com/Zeroto521/foliplus/pull/125), [#136](https://github.com/Zeroto521/foliplus/pull/136), [#137](https://github.com/Zeroto521/foliplus/pull/137))
-- `Frontend language`: migrate all JavaScript source files to TypeScript (`*.js` → `*.ts`). Added `vitest` for JS unit tests. ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#130](https://github.com/Zeroto521/foliplus/pull/130))
-- `Test boundary refactoring`: establish clear PY ↔ JS bridge boundary rule — PY tests validate config serialization, locale injection, CDN dependencies, and CSS tokens only; JS tests (vitest) cover all internal component logic; browser tests (Playwright) cover real DOM interaction. ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#131](https://github.com/Zeroto521/foliplus/pull/131))
-- `BaseControl`: extract `_export_fields` and `_extra_config` protocol for clean PY→JS config injection. Rework the **lifecycle management** in the shared JS `BaseControl`: a `L.Control` base class with `init()`/`buildDOM()`/`destroy()` hooks and final `onAdd()`/`onRemove()`. `onRemove` auto-unbinds all tracked DOM/map listeners before calling the subclass `destroy()` hook, eliminating listener leaks across controls. ([#122](https://github.com/Zeroto521/foliplus/pull/122))
+- `Project architecture`: migrate from single Jinja-embedded JavaScript IIFE to modular TypeScript with ES module structure. Each component now has its own `*.ts` source file, bundled via esbuild into a single IIFE for distribution ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#125](https://github.com/Zeroto521/foliplus/pull/125), [#136](https://github.com/Zeroto521/foliplus/pull/136), [#137](https://github.com/Zeroto521/foliplus/pull/137))
+- `Frontend language`: migrate all JavaScript source files to TypeScript (`*.js` → `*.ts`). Added `vitest` for JS unit tests ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#130](https://github.com/Zeroto521/foliplus/pull/130))
+- `Test boundary refactoring`: establish clear PY ↔ JS bridge boundary rule — PY tests validate config serialization, locale injection, CDN dependencies, and CSS tokens only; JS tests (vitest) cover all internal component logic; browser tests (Playwright) cover real DOM interaction ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#131](https://github.com/Zeroto521/foliplus/pull/131))
+- `BaseControl`: extract `_export_fields` and `_extra_config` protocol for clean PY→JS config injection. Rework the **lifecycle management** in the shared JS `BaseControl`: a `L.Control` base class with `init()`/`buildDOM()`/`destroy()` hooks and final `onAdd()`/`onRemove()`. `onRemove` auto-unbinds all tracked DOM/map listeners before calling the subclass `destroy()` hook, eliminating listener leaks across controls ([#122](https://github.com/Zeroto521/foliplus/pull/122))
 - `CSS build`: migrate all component stylesheets to CSS Nesting source syntax, compiled to fully-flat selectors via `postcss-nesting` ([#124](https://github.com/Zeroto521/foliplus/pull/124), [#151](https://github.com/Zeroto521/foliplus/pull/151))
 - `LayerControl`: extract layer core into `core/layer/` ([#138](https://github.com/Zeroto521/foliplus/pull/138), [#139](https://github.com/Zeroto521/foliplus/pull/139), [#140](https://github.com/Zeroto521/foliplus/pull/140), [#141](https://github.com/Zeroto521/foliplus/pull/141), [#143](https://github.com/Zeroto521/foliplus/pull/143), [#144](https://github.com/Zeroto521/foliplus/pull/144))
   - **Why**: `LayerAPI` used to require `LayerControl`; now the core lives in DOM-free `core/layer/` and `ensureLayerAPI` guarantees a usable API even without the `LayerControl`.
@@ -36,7 +37,6 @@
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
 - `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
-- `ExportControl`: evict and close cached `ImageBitmap` resources to prevent GPU memory leaks; reusable `Cache<K,V>` eviction hook ([#154](https://github.com/Zeroto521/foliplus/pull/154))
 
 ## [v0.3.0] (2026-08-02)
 
@@ -86,7 +86,7 @@
 
 ### Changed
 
-- Locale system overhaul: locale resolution is now fully browser-based (`navigator.language`). Removed Python-side `detect_language()`. `resolve_locale()` now validates inputs with `ValueError`/`TypeError`. ([#6](https://github.com/Zeroto521/foliplus/pull/6), [#11](https://github.com/Zeroto521/foliplus/pull/11))
+- Locale system overhaul: locale resolution is now fully browser-based (`navigator.language`). Removed Python-side `detect_language()`. `resolve_locale()` now validates inputs with `ValueError`/`TypeError` ([#6](https://github.com/Zeroto521/foliplus/pull/6), [#11](https://github.com/Zeroto521/foliplus/pull/11))
 
 ### Fixed
 
