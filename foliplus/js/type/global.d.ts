@@ -36,7 +36,11 @@ type Turf = {
   bearing: (a: GeoJSON.Feature, b: GeoJSON.Feature) => number;
   midpoint: (a: GeoJSON.Feature, b: GeoJSON.Feature) => GeoJSON.Feature;
   area: (polygon: GeoJSON.Feature) => number;
-  circle: (coord: [number, number], radius: number, options?: { steps?: number; units?: "kilometers" }) => GeoJSON.Feature<GeoJSON.Polygon>;
+  circle: (
+    coord: [number, number],
+    radius: number,
+    options?: { steps?: number; units?: "kilometers" },
+  ) => GeoJSON.Feature<GeoJSON.Polygon>;
   point: (coords: number[]) => GeoJSON.Feature;
   polygon: (rings: number[][][]) => GeoJSON.Feature;
 };
