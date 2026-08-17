@@ -9,6 +9,7 @@ from .locale import LocaleConfig
 
 METHOD = Literal["jenks", "quantile", "equal", "heads"]
 AGG = Literal["count", "sum", "avg", "min", "max"]
+LABEL_FORMAT = Literal["auto", "int", "comma"]
 
 
 class HeatmapControl(BaseControl):
@@ -55,10 +56,10 @@ class HeatmapControl(BaseControl):
         List of available color scheme names. Can include custom hex values like
         ``["#f00", "#0f0", "#00f"]``.
 
-    field : str, default "auto"
-        Property name to aggregate on. ``"auto"`` counts features per hexagon
-        (auto-detected from the first numeric property); any other string
-        aggregates that numeric property.
+    field : str or None, default None
+        Property name to aggregate on. ``None`` counts features per hexagon
+        (auto-detected from the first numeric property); a string aggregates
+        that numeric property.
 
     border_weight : float, default 1.5
         Hexagon border width in canvas units.
@@ -81,7 +82,7 @@ class HeatmapControl(BaseControl):
     label_color : str, default "#fff"
         Label text color.
 
-    label_format : str, default "auto"
+    label_format : Literal["auto", "int", "comma"], default "auto"
         Number format for labels: ``"auto"`` (10K/1K suffix), ``"int"``,
         or ``"comma"`` (thousands separator).
 
@@ -136,7 +137,7 @@ class HeatmapControl(BaseControl):
         n_classes: int = 6,
         agg: AGG = "count",
         schemes: list[str] | None = None,
-        field: str = "auto",
+        field: str | None = None,
         border_weight: float = 1.5,
         border_color: str = "#333333",
         fill_opacity: float = 0.7,
@@ -144,7 +145,7 @@ class HeatmapControl(BaseControl):
         label_show: bool = True,
         label_size: int = 11,
         label_color: str = "#fff",
-        label_format: str = "auto",
+        label_format: LABEL_FORMAT = "auto",
         locale: str | LocaleConfig | None = None,
     ):
         if method not in get_args(METHOD):
@@ -157,9 +158,13 @@ class HeatmapControl(BaseControl):
             )
         if agg not in get_args(AGG):
             raise ValueError(f"agg must be one of {get_args(AGG)}, got {agg!r}")
+        if label_format not in get_args(LABEL_FORMAT):
+            raise ValueError(
+                f"label_format must be one of {get_args(LABEL_FORMAT)}, got {label_format!r}"
+            )
 
         super().__init__(position=position, locale=locale)
-        self.field = field
+        self.field = field if field is not None else "auto"
         self.color_scheme = color_scheme
         self.method = method
         self.n_classes = n_classes
