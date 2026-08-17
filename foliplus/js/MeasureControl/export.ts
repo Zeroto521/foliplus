@@ -44,7 +44,7 @@ interface CsvRow {
   area: string;
   radius: string;
   address: string;
-  coordinates: string;
+  wkt: string;
 }
 
 /**
@@ -72,7 +72,7 @@ export function toCSV(measurements: MeasureData[]): string {
     "area",
     "radius",
     "address",
-    "coordinates",
+    "wkt",
   ];
   const rows: string[] = [headers.join(",")];
 
@@ -80,7 +80,7 @@ export function toCSV(measurements: MeasureData[]): string {
     if (!data.type) continue;
 
     const name = getNameForType(data);
-    const coords = getCoordinatesForType(data);
+    const wkt = toWKT(data);
     const lat = getLat(data);
     const lng = getLng(data);
 
@@ -94,7 +94,7 @@ export function toCSV(measurements: MeasureData[]): string {
       area: data.area !== undefined ? String(data.area) : "",
       radius: data.radius !== undefined ? String(data.radius) : "",
       address: data.address || "",
-      coordinates: coords.join(";"),
+      wkt,
     };
 
     rows.push(headers.map(h => csvEscape(row[h as keyof CsvRow] || "")).join(","));
@@ -132,32 +132,30 @@ function getLng(data: MeasureData): number | null {
 }
 
 function toWKT(data: MeasureData): string {
-  if (data.type === CONST.MODE.MARKER && data.lat != null && data.lng != null) {
-    return `POINT(${data.lng} ${data.lat})`;
+  const Feature = MODE_MAP[data.type as keyof typeof MODE_MAP];
+  if (!Feature) return "";
+  return featureToWKT(Feature.toGeoFeature(data));
+}
+
+/** Convert a GeoJSON Feature to a WKT string. */
+function featureToWKT(feature: GeoJSON.Feature): string {
+  if (!feature.geometry) return "";
+
+  if (feature.geometry.type === "Point") {
+    const [lng, lat] = feature.geometry.coordinates;
+    return `POINT(${lng} ${lat})`;
   }
-  if (data.type === CONST.MODE.DISTANCE && data.points) {
-    const pts = data.points.map(p => `${p.lng} ${p.lat}`).join(", ");
+
+  if (feature.geometry.type === "LineString") {
+    const pts = (feature.geometry.coordinates as [number, number][]).join(", ");
     return `LINESTRING(${pts})`;
   }
-  if (data.type === CONST.MODE.POLYGON && data.points && data.points.length > 2) {
-    const ring = [...data.points, data.points[0]];
-    const pts = ring.map(p => `${p.lng} ${p.lat}`).join(", ");
-    return `POLYGON((${pts}))`;
-  }
-  if (
-    data.type === CONST.MODE.CIRCLE &&
-    data.center &&
-    data.radius &&
-    data.radius > 0
-  ) {
-    const r = data.radius / 1000;
-    const circle = turf.circle([data.center.lng, data.center.lat], r, {
-      steps: 64,
-      units: "kilometers",
-    });
-    const ring = (circle.geometry.coordinates[0] as [number, number][]).join(", ");
+
+  if (feature.geometry.type === "Polygon") {
+    const ring = (feature.geometry.coordinates[0] as [number, number][]).join(", ");
     return `POLYGON((${ring}))`;
   }
+
   return "";
 }
 
