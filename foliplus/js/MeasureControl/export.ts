@@ -160,7 +160,6 @@ function featureToWKT(feature: GeoJSON.Feature): string {
   return turf.wkt.toWKT(feature).replace("\n", "");
 }
 
-
 /**
  * Map export format to filename extension.
  */

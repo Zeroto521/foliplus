@@ -7,7 +7,7 @@ import * as Export from "#foliplus/MeasureControl/export.js";
 const markerData: MeasureData = {
   id: "foliplus_measure_marker_1000_1",
   type: CONST.MODE.MARKER,
-  lng: 119.30,
+  lng: 119.3,
   lat: 26.08,
   address: "Taiwan",
 };
@@ -16,13 +16,13 @@ const distanceData: MeasureData = {
   id: "foliplus_measure_distance_1000_2",
   type: CONST.MODE.DISTANCE,
   points: [
-    { lng: 119.30, lat: 26.08 },
+    { lng: 119.3, lat: 26.08 },
     { lng: 119.31, lat: 26.09 },
-    { lng: 119.32, lat: 26.10 },
+    { lng: 119.32, lat: 26.1 },
   ],
   segments: [
     { lng: 119.31, lat: 26.09, distance: 1500 },
-    { lng: 119.32, lat: 26.10, distance: 2200 },
+    { lng: 119.32, lat: 26.1, distance: 2200 },
   ],
   totalDistance: 3700,
 };
@@ -31,15 +31,15 @@ const polygonData: MeasureData = {
   id: "foliplus_measure_polygon_1000_3",
   type: CONST.MODE.POLYGON,
   points: [
-    { lng: 119.30, lat: 26.08 },
+    { lng: 119.3, lat: 26.08 },
     { lng: 119.32, lat: 26.08 },
-    { lng: 119.32, lat: 26.10 },
-    { lng: 119.30, lat: 26.10 },
+    { lng: 119.32, lat: 26.1 },
+    { lng: 119.3, lat: 26.1 },
   ],
   segments: [
     { lng: 119.32, lat: 26.08, distance: 1500 },
-    { lng: 119.32, lat: 26.10, distance: 2200 },
-    { lng: 119.30, lat: 26.10, distance: 1500 },
+    { lng: 119.32, lat: 26.1, distance: 2200 },
+    { lng: 119.3, lat: 26.1, distance: 1500 },
   ],
   area: 3300000,
 };
@@ -47,7 +47,7 @@ const polygonData: MeasureData = {
 const circleData: MeasureData = {
   id: "foliplus_measure_circle_1000_4",
   type: CONST.MODE.CIRCLE,
-  center: { lng: 119.30, lat: 26.08 },
+  center: { lng: 119.3, lat: 26.08 },
   target: { lng: 119.31, lat: 26.08 },
   radius: 5000,
 };
@@ -83,8 +83,6 @@ describe("Export.getDefaultFormat", () => {
     (window as any).CONF = prev;
   });
 
-
-
   it("returns geojson fallback for unknown format", () => {
     const prev = window.CONF;
     (window as any).CONF = { name: "MeasureControl", export_format: "unknown" };
@@ -100,7 +98,7 @@ describe("Export.toGeoJSON", () => {
     expect(data.type).toBe("FeatureCollection");
     expect(data.features.length).toBe(1);
     expect(data.features[0].geometry.type).toBe("Point");
-    expect(data.features[0].geometry.coordinates).toEqual([119.30, 26.08]);
+    expect(data.features[0].geometry.coordinates).toEqual([119.3, 26.08]);
     expect(data.features[0].properties.type).toBe("marker");
     expect(data.features[0].properties.name).toBe("Taiwan");
   });
@@ -111,9 +109,9 @@ describe("Export.toGeoJSON", () => {
     expect(data.features.length).toBe(1);
     expect(data.features[0].geometry.type).toBe("LineString");
     expect(data.features[0].geometry.coordinates).toEqual([
-      [119.30, 26.08],
+      [119.3, 26.08],
       [119.31, 26.09],
-      [119.32, 26.10],
+      [119.32, 26.1],
     ]);
     expect(data.features[0].properties.totalDistance).toBe(3700);
     expect(data.features[0].properties.segments.length).toBe(2);
