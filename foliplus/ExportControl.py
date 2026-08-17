@@ -34,7 +34,7 @@ class ExportControl(BaseControl):
     Parameters
     ----------
     position : str, default "bottomright"
-        One of "topleft", "topright", "bottomleft", "bottomright"\.
+        One of "topleft", "topright", "bottomleft", "bottomright".
         ``"bottomright"``.
 
     filename : str, default "map"
