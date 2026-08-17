@@ -1,4 +1,3 @@
-import type { MeasureData } from "#type/global.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
   attachDelClick,

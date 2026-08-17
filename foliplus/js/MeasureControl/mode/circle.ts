@@ -1,4 +1,3 @@
-import type { MeasureData } from "#type/global.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { makeDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
@@ -14,18 +13,6 @@ import * as Util from "./../util.js";
 import { PreviewMode } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
-// turf is a global provided by the page (Leaflet + turf via CDN).
-declare const turf: {
-  circle: (
-    coord: [number, number],
-    radius: number,
-    options: {
-      steps?: number;
-      units?: "kilometers";
-    },
-  ) => GeoJSON.Feature<GeoJSON.Polygon>;
-};
-
 interface CirclePreviews {
   center: L.Marker | null;
   circle: L.Circle | null;

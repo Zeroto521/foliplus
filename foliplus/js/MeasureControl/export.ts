@@ -1,5 +1,4 @@
 // MeasureControl export module — convert measurements to GeoJSON, CSV, and KML.
-import type { MeasureData } from "#type/global.js";
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
 import { MODE_MAP } from "./mode/index.js";

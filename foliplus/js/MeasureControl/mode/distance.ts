@@ -1,4 +1,3 @@
-import type { MeasureData } from "#type/global.js";
 import { stopEvent } from "#common/dom.js";
 import {
   type MapEventHandlers,

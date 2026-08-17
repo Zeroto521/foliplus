@@ -1,4 +1,3 @@
-import type { MeasureData } from "#type/global.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./../const.js";
 import type { MeasureManager } from "./../manager.js";
