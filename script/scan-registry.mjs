@@ -114,9 +114,11 @@ function scanImports(dir) {
   return usedExports;
 }
 
-function generateRegistry() {
-  const commonDir = resolve(srcDir, "common");
-  const coreDir = resolve(srcDir, "core");
+function generateRegistry(srcDirParam = srcDir, buildJsParam = buildJs) {
+  const sourceDir = srcDirParam;
+  const buildDir = buildJsParam;
+  const commonDir = resolve(sourceDir, "common");
+  const coreDir = resolve(sourceDir, "core");
   const commonModules = readdirSync(commonDir)
     .filter(f => f.endsWith(".ts") && f !== "index.ts")
     .map(f => f.replace(/\.ts$/, ""))
@@ -130,11 +132,11 @@ function generateRegistry() {
     .map(f => f.name.replace(/\.ts$/, ""))
     .sort();
 
-  const componentDirs = readdirSync(srcDir, { withFileTypes: true })
+  const componentDirs = readdirSync(sourceDir, { withFileTypes: true })
     .filter(
       e => e.isDirectory() && !["core", "common", "type", "runtime"].includes(e.name),
     )
-    .map(e => resolve(srcDir, e.name));
+    .map(e => resolve(sourceDir, e.name));
 
   const usedExports = {};
   for (const dir of componentDirs) {
@@ -196,7 +198,7 @@ function generateRegistry() {
     lines.push("window.foliplus.BaseControl = BaseControlNS;");
   }
 
-  writeFileSync(resolve(buildJs, "_shared-registry.ts"), lines.join("\n"), "utf-8");
+  writeFileSync(resolve(buildDir, "_shared-registry.ts"), lines.join("\n"), "utf-8");
 
   if (!opts.silent) {
     console.log(
@@ -205,6 +207,6 @@ function generateRegistry() {
   }
 }
 
-export { scanImports };
+export { generateRegistry, scanImports };
 
 generateRegistry();

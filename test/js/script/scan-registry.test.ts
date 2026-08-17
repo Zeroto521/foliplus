@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { scanImports } from "../../../script/scan-registry.mjs";
+import { generateRegistry, scanImports } from "../../../script/scan-registry.mjs";
 
 const FS = require("fs");
 const PATH = require("path");
@@ -142,5 +142,100 @@ describe("scanImports", () => {
     });
     const result = scanImports(dir);
     expect(result["common/dom"]).toEqual(["dom"]);
+  });
+});
+
+describe("generateRegistry", () => {
+  /** Build a fake foliplus/js tree and return (jsDir, outputDir). */
+  function buildFakeTree(files: Record<string, string>): [string, string] {
+    tmpDir = PATH.join(OS.tmpdir(), "scan-registry-gen-" + Date.now());
+    const jsDir = PATH.join(tmpDir, "js");
+    mkdirSync(jsDir, { recursive: true });
+    for (const [relative, content] of Object.entries(files)) {
+      const filePath = PATH.join(jsDir, relative);
+      mkdirSync(PATH.dirname(filePath), { recursive: true });
+      writeFileSync(filePath, content, "utf-8");
+    }
+    return [jsDir, tmpDir];
+  }
+
+  function readRegistry(buildDir: string): string {
+    return readFileSync(PATH.join(buildDir, "_shared-registry.ts"), "utf-8");
+  }
+
+  it("generates registry with shared modules", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/event/index.ts": `export const EventBus = {};`,
+      "runtime/index.ts": `import { dom } from "#common/dom.js";`,
+      "MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+      "MyComponent/util.ts": `import { EventBus } from "#core/event/index.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.core["event"]');
+    expect(output).toContain("#core/event/index.js");
+    expect(output).toContain("window.foliplus.common");
+  });
+
+  it("skips core files registered in runtime/index.ts", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/component.ts": `export const COMPONENTS = {};`,
+      "core/hint.ts": `export const ensureHint = () => {};`,
+      "core/mode.ts": `export const ModeManager = {};`,
+      "runtime/index.ts": `import { dom } from "#common/dom.js";`,
+      "MyComponent/index.ts": `
+        import { COMPONENTS } from "#core/component.js";
+        import { ensureHint } from "#core/hint.js";
+        import { ModeManager } from "#core/mode.js";
+        import { dom } from "#common/dom.js";
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    // component/hint/mode are registered manually in runtime/index.ts → skipped.
+    expect(output).not.toContain("core/component");
+    expect(output).not.toContain("core/hint");
+    expect(output).not.toContain("core/mode");
+  });
+
+  it("keeps core subdirectories (event) in registry", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/event/index.ts": `export const EventBus = {};`,
+      "core/component.ts": `export const COMPONENTS = {};`,
+      "runtime/index.ts": ``,
+      "MyComponent/index.ts": `import { EventBus } from "#core/event/index.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain("core/event");
+    expect(output).not.toContain("core/component");
+  });
+
+  it("registers BaseControl", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "MyComponent/index.ts": `import { BaseControl } from "#foliplus/BaseControl.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain("window.foliplus.BaseControl");
+    expect(output).toContain("#foliplus/BaseControl.js");
+  });
+
+  it("writes valid output for empty component set", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain("// AUTO-GENERATED");
+    expect(output).toContain("window.foliplus = window.foliplus || {};");
   });
 });
