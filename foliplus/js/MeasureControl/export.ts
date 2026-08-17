@@ -167,8 +167,6 @@ function featureToWKT(feature: GeoJSON.Feature): string {
   return turf.wkt.toWKT(feature).replace("\n", "");
 }
 
-
-
 /**
  * Escape special XML characters.
  */
@@ -253,10 +251,7 @@ export function exportMeasurements(
  */
 export function getDefaultFormat(): ExportFormat {
   const fmt = CONF?.export_format;
-  if (
-    fmt === CONST.EXPORT_FORMAT.GEOJSON ||
-    fmt === CONST.EXPORT_FORMAT.CSV
-  ) {
+  if (fmt === CONST.EXPORT_FORMAT.GEOJSON || fmt === CONST.EXPORT_FORMAT.CSV) {
     return fmt;
   }
   return CONST.EXPORT_FORMAT.GEOJSON;
