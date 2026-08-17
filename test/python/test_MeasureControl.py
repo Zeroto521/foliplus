@@ -51,8 +51,6 @@ class TestMeasureControlPython:
     def test_custom_export_format_csv(self):
         assert MeasureControl(export_format="csv").export_format == "csv"
 
-
-
     def test_export_format_in_export_fields(self):
         assert "export_format" in MeasureControl._export_fields
 
@@ -124,8 +122,6 @@ class TestMeasureControlRendering:
         """export_format='csv' renders the correct value in CONF."""
         html = render_control(MeasureControl(export_format="csv"))
         assert_config_value(html, "export_format", "csv")
-
-
 
     def test_export_locale_zh(self):
         """zh locale renders export translation."""
@@ -252,7 +248,9 @@ class TestMeasureControlBrowser:
     def test_export_no_data_hint_when_empty(self, browser, tmp_path):
         """Clicking export button with no measurements shows a hint, not an error."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            page.evaluate("document.querySelector('.foliplus-measure-export-btn')?.click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-measure-export-btn')?.click()"
+            )
             page.wait_for_timeout(500)
             assert not errors, f"JS errors: {errors}"
 

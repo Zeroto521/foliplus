@@ -138,10 +138,7 @@ describe("bindDelIconToPopup", () => {
     const openHandler = marker.on.mock.calls[0][1];
     const closeHandler = marker.on.mock.calls[1][1];
 
-    const toggleSpy = vi.spyOn(
-      require("#common/delicon.js"),
-      "toggleDelIcon",
-    );
+    const toggleSpy = vi.spyOn(require("#common/delicon.js"), "toggleDelIcon");
     openHandler();
     expect(toggleSpy).toHaveBeenCalledWith(delIcon, true);
     closeHandler();

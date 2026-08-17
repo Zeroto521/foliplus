@@ -81,7 +81,9 @@ export function initMocks() {
           return "LINESTRING(" + pts + ")";
         }
         if (geom.type === "Polygon") {
-          const ring = geom.coordinates[0].map(([lng, lat]) => lng + " " + lat).join(", ");
+          const ring = geom.coordinates[0]
+            .map(([lng, lat]) => lng + " " + lat)
+            .join(", ");
           return "POLYGON((" + ring + "))";
         }
         return "";

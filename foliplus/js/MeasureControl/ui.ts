@@ -64,10 +64,7 @@ function setupMapClickActive(
  * Re-order layers so they render in the correct z-order.
  * Removes and re-adds each collection in sequence.
  */
-function resortLayers(
-  layers: CreateLayersAPI,
-  ...collections: L.Layer[][]
-): void {
+function resortLayers(layers: CreateLayersAPI, ...collections: L.Layer[][]): void {
   collections.forEach(c => c.forEach(l => layers.removeLayer(l)));
   collections.forEach(c => c.forEach(l => layers.addLayer(l)));
 }
@@ -490,4 +487,3 @@ const attachPolygonUI = (
 
 export { attachCircleUI, attachDistanceUI, attachPolygonUI };
 export { createToggleUI, setupMapClickActive, resortLayers };
-

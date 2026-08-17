@@ -240,22 +240,22 @@ describe("Export.toCSV", () => {
 describe("Export.getBasePoint", () => {
   it("returns lat/lng from a marker measurement", () => {
     const point = Export.getBasePoint(markerData);
-    expect(point).toEqual({ lat: 26.08, lng: 119.30 });
+    expect(point).toEqual({ lat: 26.08, lng: 119.3 });
   });
 
   it("returns the first point from a distance measurement", () => {
     const point = Export.getBasePoint(distanceData);
-    expect(point).toEqual({ lat: 26.08, lng: 119.30 });
+    expect(point).toEqual({ lat: 26.08, lng: 119.3 });
   });
 
   it("returns the first point from a polygon measurement", () => {
     const point = Export.getBasePoint(polygonData);
-    expect(point).toEqual({ lat: 26.08, lng: 119.30 });
+    expect(point).toEqual({ lat: 26.08, lng: 119.3 });
   });
 
   it("returns the center from a circle measurement", () => {
     const point = Export.getBasePoint(circleData);
-    expect(point).toEqual({ lat: 26.08, lng: 119.30 });
+    expect(point).toEqual({ lat: 26.08, lng: 119.3 });
   });
 
   it("returns null when the type is unknown", () => {

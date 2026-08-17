@@ -127,7 +127,7 @@ const makeLabelDivIcon = (
 ): L.DivIcon => {
   return L.divIcon({
     className: "",
-    html: html: `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}" 
+    html: html: `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}"
 
 data-foliplus-export="label">${html}</div>`,
     iconSize: CONST.LABEL.SIZE as [number, number],

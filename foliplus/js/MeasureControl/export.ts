@@ -116,9 +116,7 @@ function getNameForType(data: MeasureData): string {
  * Get the first coordinate point from any measurement type.
  * This avoids repeating the type-switch logic in getLat and getLng.
  */
-function getBasePoint(
-  data: MeasureData,
-): { lat: number; lng: number } | null {
+function getBasePoint(data: MeasureData): { lat: number; lng: number } | null {
   if (data.type === CONST.MODE.MARKER) {
     return data.lat !== undefined && data.lng !== undefined
       ? { lat: data.lat, lng: data.lng }

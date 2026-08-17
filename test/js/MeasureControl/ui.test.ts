@@ -159,7 +159,7 @@ describe("resortLayers", () => {
     removeLayer: vi.fn(),
   });
 
-  const makeLayer = (id: string) => ({ _id: id, on: vi.fn() } as L.Layer);
+  const makeLayer = (id: string) => ({ _id: id, on: vi.fn() }) as L.Layer;
 
   it("removes then re-adds all layers in each collection", () => {
     const layers = makeLayers();
