@@ -32,11 +32,19 @@ describe("CircleMode — toGeoFeature", () => {
   it("returns a Polygon from turf.circle", () => {
     const mockCircle = {
       geometry: {
-        coordinates: [[
-          [121, 31], [121.001, 31], [121.002, 31],
-          [121.001, 31.001], [121, 31.002], [120.999, 31.001],
-          [120.998, 31], [120.999, 31], [121, 31],
-        ]],
+        coordinates: [
+          [
+            [121, 31],
+            [121.001, 31],
+            [121.002, 31],
+            [121.001, 31.001],
+            [121, 31.002],
+            [120.999, 31.001],
+            [120.998, 31],
+            [120.999, 31],
+            [121, 31],
+          ],
+        ],
       },
     };
     globalThis.turf.circle = vi.fn(() => mockCircle);
@@ -49,11 +57,10 @@ describe("CircleMode — toGeoFeature", () => {
       radius: 5000,
     });
 
-    expect(globalThis.turf.circle).toHaveBeenCalledWith(
-      [121, 31],
-      5,
-      { steps: 64, units: "kilometers" },
-    );
+    expect(globalThis.turf.circle).toHaveBeenCalledWith([121, 31], 5, {
+      steps: 64,
+      units: "kilometers",
+    });
     expect(feature.type).toBe("Feature");
     expect(feature.properties.type).toBe("circle");
     expect(feature.properties.radius).toBe(5000);

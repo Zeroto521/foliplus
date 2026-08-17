@@ -3,8 +3,8 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import {
   CircleMode,
   DistanceMode,
-  MarkerMode,
   MODE_MAP,
+  MarkerMode,
   PolygonMode,
 } from "#foliplus/MeasureControl/mode/index.js";
 

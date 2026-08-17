@@ -1,6 +1,5 @@
 // Shared Leaflet + turf mock setup for MeasureControl mode tests.
 // Each test file imports initMocks and calls it inside beforeEach.
-
 import { vi } from "vitest";
 
 export function initMocks() {
@@ -56,8 +55,14 @@ export function initMocks() {
       geometry: {
         coordinates: [
           [
-            [121.0, 31.0], [121.001, 31.0], [121.002, 31.0], [121.001, 31.001],
-            [121.0, 31.002], [120.999, 31.001], [120.998, 31.0], [120.999, 31.0],
+            [121.0, 31.0],
+            [121.001, 31.0],
+            [121.002, 31.0],
+            [121.001, 31.001],
+            [121.0, 31.002],
+            [120.999, 31.001],
+            [120.998, 31.0],
+            [120.999, 31.0],
             [121.0, 31.0],
           ],
         ],

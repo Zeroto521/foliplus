@@ -148,6 +148,8 @@ describe("PolygonMode — toGeoFeature", () => {
     expect(feature.properties.area).toBe(50000);
     expect(feature.geometry.type).toBe("Polygon");
     expect(feature.geometry.coordinates[0]).toHaveLength(5);
-    expect(feature.geometry.coordinates[0][0]).toEqual(feature.geometry.coordinates[0][4]);
+    expect(feature.geometry.coordinates[0][0]).toEqual(
+      feature.geometry.coordinates[0][4],
+    );
   });
 });
