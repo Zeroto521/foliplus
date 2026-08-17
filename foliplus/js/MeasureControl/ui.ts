@@ -9,6 +9,69 @@ import * as Util from "./util.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
+/**
+ * Mutable toggle state shared between createToggleUI and setupMapClickActive.
+ */
+interface MeasureToggleState {
+  isXVisible: boolean;
+  isLabelsVisible: boolean;
+}
+
+/**
+ * Create a toggle function that manages X/label visibility state via the
+ * state machine, then delegates rendering to a callback. This eliminates
+ * the repeated let + state-machine boilerplate in each attach*UI function.
+ */
+function createToggleUI(
+  state: MeasureToggleState,
+  render: (state: MeasureToggleState) => void,
+): (showX?: boolean, toggleLabels?: boolean | string) => void {
+  return (showX?: boolean, toggleLabels?: boolean | string) => {
+    const s = Util.nextToggleState(
+      state.isXVisible,
+      state.isLabelsVisible,
+      showX,
+      toggleLabels,
+    );
+    state.isXVisible = s.isXVisible;
+    state.isLabelsVisible = s.isLabelsVisible;
+    render(state);
+  };
+}
+
+/**
+ * Wire a map-click handler that hides the X icon when the user clicks empty
+ * map space, respecting suppress-hide and optional extra guards (e.g. isDeleted).
+ */
+function setupMapClickActive(
+  mgr: MeasureManager,
+  state: MeasureToggleState,
+  toggleUI: (showX?: boolean, toggleLabels?: boolean | string) => void,
+  extraGuard?: () => boolean,
+): () => void {
+  const onMapClickActive = () => {
+    if (mgr.isSuppressHideDel) return;
+    if (extraGuard?.()) return;
+    if (state.isXVisible) {
+      toggleUI(false, CONST.TOGGLE.RESET);
+    }
+  };
+  mgr.map.on("click", onMapClickActive);
+  return onMapClickActive;
+}
+
+/**
+ * Re-order layers so they render in the correct z-order.
+ * Removes and re-adds each collection in sequence.
+ */
+function resortLayers(
+  layers: CreateLayersAPI,
+  ...collections: L.Layer[][]
+): void {
+  collections.forEach(c => c.forEach(l => layers.removeLayer(l)));
+  collections.forEach(c => c.forEach(l => layers.addLayer(l)));
+}
+
 /** Options for attachDistanceUI. */
 interface AttachOpts {
   layers: CreateLayersAPI;
@@ -26,34 +89,31 @@ const attachDistanceUI = (
 ): ((event: L.LeafletMouseEvent) => void) => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
     opts;
-  let isLabelsVisible = true;
-  let isXVisible = false;
+  const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
   const nodeDelIcons: L.Marker[] = [];
 
-  const toggleDistanceUI = (showX?: boolean, toggleLabels?: boolean | string) => {
-    const s = Util.nextToggleState(isXVisible, isLabelsVisible, showX, toggleLabels);
-    isXVisible = s.isXVisible;
-    isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach(m => toggleDelIcon(m, isXVisible));
-    Util.applyVisibilityToggle(undefined, isXVisible, segLabels, isLabelsVisible);
-  };
+  const toggleUI = createToggleUI(state, () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, state.isXVisible));
+    Util.applyVisibilityToggle(
+      undefined,
+      state.isXVisible,
+      segLabels,
+      state.isLabelsVisible,
+    );
+  });
 
   const handleItemClick = (event: L.LeafletMouseEvent) => {
     stopEvent(event);
     Util.suppressHide(mgr);
-    toggleDistanceUI();
+    toggleUI();
   };
 
   finalPoly.on("click", handleItemClick);
   nodeMarkers.forEach(m => m.on("click", handleItemClick));
   segLabels.forEach(l => l.on("click", handleItemClick));
-  toggleDistanceUI(false, CONST.TOGGLE.RESET);
+  toggleUI(false, CONST.TOGGLE.RESET);
 
-  const onMapClickActive = () => {
-    if (mgr.isSuppressHideDel) return;
-    if (isXVisible) toggleDistanceUI(false, CONST.TOGGLE.RESET);
-  };
-  mgr.map.on("click", onMapClickActive);
+  const onMapClickActive = setupMapClickActive(mgr, state, toggleUI);
 
   const deleteMeasurement = () => {
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
@@ -139,12 +199,7 @@ const attachDistanceUI = (
   });
 
   // Re-sort to ensure correct ordering
-  nodeMarkers.forEach(m => layers.removeLayer(m));
-  nodeDelIcons.forEach(m => layers.removeLayer(m));
-  segLabels.forEach(l => layers.removeLayer(l));
-  nodeMarkers.forEach(m => layers.addLayer(m));
-  nodeDelIcons.forEach(m => layers.addLayer(m));
-  segLabels.forEach(l => layers.addLayer(l));
+  resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
 
   return onMapClickActive;
 };
@@ -175,19 +230,15 @@ const attachCircleUI = (
     radiusLabel,
     onDelete,
   } = opts;
-  let isLabelsVisible = true;
-  let isXVisible = false;
+  const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
   let isDeleted = false;
 
-  const toggleCircleUI = (showX?: boolean, toggleLabels?: boolean | string) => {
-    const s = Util.nextToggleState(isXVisible, isLabelsVisible, showX, toggleLabels);
-    isXVisible = s.isXVisible;
-    isLabelsVisible = s.isLabelsVisible;
+  const toggleUI = createToggleUI(state, () => {
     Util.applyVisibilityToggle(
       delMarker,
-      isXVisible,
+      state.isXVisible,
       radiusLabel ? [radiusLabel] : [],
-      isLabelsVisible,
+      state.isLabelsVisible,
       undefined,
       xv => {
         delMarker.setZIndexOffset(xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET);
@@ -196,17 +247,17 @@ const attachCircleUI = (
             radiusLine?.getElement() as HTMLElement | null,
             radiusNode?.getElement() as HTMLElement | null,
           ],
-          isLabelsVisible,
+          state.isLabelsVisible,
         );
       },
     );
-  };
-  toggleCircleUI(false, CONST.TOGGLE.RESET);
+  });
+  toggleUI(false, CONST.TOGGLE.RESET);
 
   const toggleCircleToggle = () => {
     if (isDeleted) return;
     Util.suppressHide(mgr);
-    toggleCircleUI();
+    toggleUI();
   };
 
   const attachInteraction = (layer: L.Layer) => {
@@ -225,11 +276,7 @@ const attachCircleUI = (
   if (centerFinal) attachInteraction(centerFinal);
   if (radiusLabel) attachInteraction(radiusLabel);
 
-  const onMapClickActive = () => {
-    if (mgr.isSuppressHideDel || isDeleted) return;
-    if (isXVisible) toggleCircleUI(false, CONST.TOGGLE.RESET);
-  };
-  mgr.map.on("click", onMapClickActive);
+  const onMapClickActive = setupMapClickActive(mgr, state, toggleUI, () => isDeleted);
 
   return { onMapClickActive };
 };
@@ -260,8 +307,7 @@ const attachPolygonUI = (
     points,
     area: initArea,
   } = opts;
-  let isLabelsVisible = true;
-  let isXVisible = false;
+  const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
   const nodeDelIcons: L.Marker[] = [];
   let centroidLabel: L.Marker | null = null;
   let centroidDot: L.Marker | null = null;
@@ -317,26 +363,28 @@ const attachPolygonUI = (
     layers.unregister();
   };
 
-  const togglePolygonUI = (showX?: boolean, toggleLabels?: boolean | string) => {
-    const s = Util.nextToggleState(isXVisible, isLabelsVisible, showX, toggleLabels);
-    isXVisible = s.isXVisible;
-    isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach(m => toggleDelIcon(m, isXVisible));
-    if (centroidDel) toggleDelIcon(centroidDel, isXVisible);
-    Util.applyVisibilityToggle(undefined, isXVisible, segLabels, isLabelsVisible);
+  const toggleUI = createToggleUI(state, () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, state.isXVisible));
+    if (centroidDel) toggleDelIcon(centroidDel, state.isXVisible);
+    Util.applyVisibilityToggle(
+      undefined,
+      state.isXVisible,
+      segLabels,
+      state.isLabelsVisible,
+    );
     if (centroidLabel) {
       const el = centroidLabel.getElement();
       if (el) {
         const label = el.querySelector(CONST.SEL.LABEL);
-        if (label) label.classList.toggle(CONST.CLASSES.HIDDEN, !isLabelsVisible);
+        if (label) label.classList.toggle(CONST.CLASSES.HIDDEN, !state.isLabelsVisible);
       }
     }
-  };
+  });
 
   const handleItemClick = (event: L.LeafletMouseEvent) => {
     stopEvent(event);
     Util.suppressHide(mgr);
-    togglePolygonUI();
+    toggleUI();
   };
 
   finalPoly.on("click", handleItemClick);
@@ -347,13 +395,9 @@ const attachPolygonUI = (
   centroidDot!.on("click", handleItemClick);
   centroidDel!.on("click", handleItemClick);
 
-  togglePolygonUI(false, CONST.TOGGLE.RESET);
+  toggleUI(false, CONST.TOGGLE.RESET);
 
-  const onMapClickActive = () => {
-    if (mgr.isSuppressHideDel) return;
-    if (isXVisible) togglePolygonUI(false, CONST.TOGGLE.RESET);
-  };
-  mgr.map.on("click", onMapClickActive);
+  const onMapClickActive = setupMapClickActive(mgr, state, toggleUI);
 
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
@@ -424,7 +468,7 @@ const attachPolygonUI = (
           label.on("click", handleItemClick);
         }
 
-        rebuildCentroid(isXVisible, area);
+        rebuildCentroid(state.isXVisible, area);
 
         if (onUpdate) {
           opts.area = area;
@@ -439,12 +483,7 @@ const attachPolygonUI = (
     });
   });
 
-  nodeMarkers.forEach(m => layers.removeLayer(m));
-  nodeDelIcons.forEach(m => layers.removeLayer(m));
-  segLabels.forEach(l => layers.removeLayer(l));
-  nodeMarkers.forEach(m => layers.addLayer(m));
-  nodeDelIcons.forEach(m => layers.addLayer(m));
-  segLabels.forEach(l => layers.addLayer(l));
+  resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
 
   return onMapClickActive;
 };
