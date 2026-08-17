@@ -18,7 +18,9 @@ interface MeasureProperties {
  * Convert a single measurement to a GeoJSON feature.
  */
 export function toGeoJSON(measurements: MeasureData[]): string {
-  const features = measurements.filter(m => m.type).map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]!.toGeoFeature(m));
+  const features = measurements
+    .filter(m => m.type)
+    .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]!.toGeoFeature(m));
 
   return JSON.stringify(
     {

@@ -9,17 +9,21 @@ import {
 } from "#common/mapEvent.js";
 import * as CONST from "./../const.js";
 import type { MeasureManager } from "./../manager.js";
-import { PreviewMode } from "./base.js";
 import { attachCircleUI } from "./../ui.js";
 import * as Util from "./../util.js";
+import { PreviewMode } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 // turf is a global provided by the page (Leaflet + turf via CDN).
 declare const turf: {
-  circle: (coord: [number, number], radius: number, options: {
-    steps?: number;
-    units?: "kilometers";
-  }) => GeoJSON.Feature<GeoJSON.Polygon>;
+  circle: (
+    coord: [number, number],
+    radius: number,
+    options: {
+      steps?: number;
+      units?: "kilometers";
+    },
+  ) => GeoJSON.Feature<GeoJSON.Polygon>;
 };
 
 interface CirclePreviews {
@@ -29,7 +33,6 @@ interface CirclePreviews {
   node: L.CircleMarker | null;
   label: L.Marker | null;
 }
-
 
 // ==================== Circle Mode ====================
 /** Circle radius measurement mode. Click center, then click edge. */
@@ -347,7 +350,8 @@ class CircleMode extends PreviewMode {
     };
   }
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
-    const c = data.center, r = data.radius || 0;
+    const c = data.center,
+      r = data.radius || 0;
     if (!c || r <= 0) {
       return {
         type: "Feature",
@@ -355,11 +359,10 @@ class CircleMode extends PreviewMode {
         geometry: { type: "Point", coordinates: [c?.lng || 0, c?.lat || 0] },
       };
     }
-    const circle = turf.circle(
-      [c.lng, c.lat],
-      r / 1000,
-      { steps: 64, units: "kilometers" },
-    );
+    const circle = turf.circle([c.lng, c.lat], r / 1000, {
+      steps: 64,
+      units: "kilometers",
+    });
     const coords = circle.geometry.coordinates[0];
     return {
       type: "Feature",

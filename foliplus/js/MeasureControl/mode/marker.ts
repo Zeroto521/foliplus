@@ -9,8 +9,8 @@ import {
 import { createLocationMarker } from "#common/dom.js";
 import * as CONST from "./../const.js";
 import type { MeasureManager } from "./../manager.js";
-import { MeasureMode } from "./base.js";
 import * as Util from "./../util.js";
+import { MeasureMode } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 
