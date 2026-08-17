@@ -11,6 +11,7 @@
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
 - `EventBus`: decouple cross-component communication via typed semantic events, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148), [#153](https://github.com/Zeroto521/foliplus/pull/153), [#155](https://github.com/Zeroto521/foliplus/pull/155), [#159](https://github.com/Zeroto521/foliplus/pull/159), [#161](https://github.com/Zeroto521/foliplus/pull/161))
 - `ModeManager`: prevent conflicting component actions (e.g. measurement during export) via mode tracking and mutual-exclusion blocking ([#150](https://github.com/Zeroto521/foliplus/pull/150), [#159](https://github.com/Zeroto521/foliplus/pull/159))
+- `InteractionManager`: per-map centralized event manager (`core/interaction.ts`) — replaces per-component `document.addEventListener` for keyboard and mouse events. Supports document-level, container-scoped, and element-level bindings with auto-cleanup on DOM removal and map unload. Each component now has a dedicated `interaction.ts` for event registration ([#165](https://github.com/Zeroto521/foliplus/pull/165))
 - `LayerControl`: keyboard shortcuts for layer panel — `ArrowUp`/`ArrowDown`/`ArrowLeft`/`ArrowRight`/`Space`/`Enter`/`Escape` and `Ctrl+ArrowUp`/`Ctrl+ArrowDown` for reorder. Added `moveLayerUp(id)` and `moveLayerDown(id)` to `LayerAPI` ([#156](https://github.com/Zeroto521/foliplus/pull/156))
 
 ### Changed
