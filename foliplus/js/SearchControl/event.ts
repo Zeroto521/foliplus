@@ -1,6 +1,6 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
-import { createControlEnv } from "#common/guard.js";
 import { ensureKeyboard } from "#core/keyboard.js";
+import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./const.js";
 import {
