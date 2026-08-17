@@ -1,4 +1,4 @@
-// core/keyboard — per-map keyboard shortcut manager.
+// core/interaction — per-map user interaction manager (keyboard + mouse + touch).
 // Provides a central document-level keydown listener that dispatches to
 // registered shortcuts by priority, avoiding duplicate listeners across
 // components and resolving key conflicts.
