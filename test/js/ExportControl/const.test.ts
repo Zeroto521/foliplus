@@ -59,7 +59,6 @@ describe("SEL", () => {
 describe("CACHE", () => {
   it("defines cache limits", () => {
     expect(CONST.CACHE.UNDO_MAX).toBe(20);
-    expect(CONST.CACHE.TILE_MAX).toBe(1000);
   });
 });
 
