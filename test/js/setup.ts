@@ -106,3 +106,50 @@ window.map = {
   off: vi.fn(),
   removeLayer: vi.fn(),
 };
+
+
+// Mock turf (needed by MeasureControl export: turf.wkt.toWKT, turf.circle, etc.)
+globalThis.turf = {
+  point: coords => ({
+    type: "Feature",
+    properties: {},
+    geometry: { type: "Point", coordinates: coords },
+  }),
+  distance: () => 100,
+  bearing: () => 45,
+  midpoint: () => ({ geometry: { coordinates: [0, 0] } }),
+  area: () => 1000,
+  polygon: () => ({ type: "Feature", geometry: { type: "Polygon" } }),
+  circle: () => ({
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0], [1, 0], [2, 0], [2, 1], [1, 2], [0, 2],
+          [-1, 1], [-1, 0], [0, 0],
+        ],
+      ],
+    },
+  }),
+  wkt: {
+    toWKT: feature => {
+      const geom = feature.geometry;
+      if (!geom) return "";
+      if (geom.type === "Point") {
+        const [lng, lat] = geom.coordinates;
+        return "POINT(" + lng + " " + lat + ")";
+      }
+      if (geom.type === "LineString") {
+        const pts = geom.coordinates.join(", ");
+        return "LINESTRING(" + pts + ")";
+      }
+      if (geom.type === "Polygon") {
+        const ring = geom.coordinates[0].join(", ");
+        return "POLYGON((" + ring + "))";
+      }
+      return "";
+    },
+  },
+};
