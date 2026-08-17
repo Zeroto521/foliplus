@@ -144,7 +144,12 @@ function toWKT(data: MeasureData): string {
     const pts = ring.map(p => `${p.lng} ${p.lat}`).join(", ");
     return `POLYGON((${pts}))`;
   }
-  if (data.type === CONST.MODE.CIRCLE && data.center && data.radius && data.radius > 0) {
+  if (
+    data.type === CONST.MODE.CIRCLE &&
+    data.center &&
+    data.radius &&
+    data.radius > 0
+  ) {
     const r = data.radius / 1000;
     const circle = turf.circle([data.center.lng, data.center.lat], r, {
       steps: 64,
