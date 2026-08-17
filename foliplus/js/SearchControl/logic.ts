@@ -319,6 +319,17 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     .then(results => {
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
+      // Cache first result so searchAddress can serve it from geoCache
+      const first = Array.isArray(results) ? results[0] : null;
+      if (first) {
+        window.foliplus.cacheSuggestion(
+          map,
+          query,
+          parseFloat(first.lat),
+          parseFloat(first.lon),
+          formatAddress(first.display_name, map, CONF.locale_code) || query,
+        );
+      }
       renderSuggestions(ctrl, results, query);
     })
     .catch(err => {

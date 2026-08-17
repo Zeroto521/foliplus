@@ -148,10 +148,27 @@ const geocode = (
           key,
           result.lat + "\u0001" + result.lng + "\u0001" + result.display_name,
         );
+        // Safe: (lng, lat) is unique - no collision risk
+        geoCache.set("reverse:" + lng + "," + lat, first.display_name);
         return result;
       })
       .catch(() => null),
   );
+};
+
+/** Cache a suggestion result so searchAddress can serve it from geoCache. */
+const cacheSuggestion = (
+  map: L.Map,
+  address: string,
+  lat: number,
+  lng: number,
+  displayName: string,
+) => {
+  const crs = getMapCrsType(map);
+  const key = "forward:" + address + ":" + crs;
+  geoCache.set(key, lat + "\u0001" + lng + "\u0001" + displayName);
+  // Also populate the reverse entry for the same safety
+  geoCache.set("reverse:" + lng + "," + lat, displayName);
 };
 
 // -- Global namespace bootstrap --
@@ -169,6 +186,7 @@ if (!foliplus.isInitialized) {
     // Global geocoding (shared bidirectional cache + throttle).
     geocode,
     reverseGeocode,
+    cacheSuggestion,
     // BaseControl base class (shared by all components).
     BaseControl: { BaseControl },
     // Hint module (per-map HintManager factory + shared icon registry).

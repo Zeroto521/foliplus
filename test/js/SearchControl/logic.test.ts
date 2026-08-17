@@ -305,7 +305,7 @@ describe("fetchSuggestions", () => {
 
   it("fetches and renders results", async () => {
     globalThis.fetch = vi.fn(() =>
-      Promise.resolve({ json: () => Promise.resolve([{ display_name: "A, Place" }]) }),
+      Promise.resolve({ json: () => Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "A, Place" }]) }),
     ) as unknown as typeof fetch;
     const ctrl: any = {
       mode: "addr",
@@ -327,6 +327,14 @@ describe("fetchSuggestions", () => {
     expect(globalThis.fetch).toHaveBeenCalled();
     expect(ctrl.cachedSuggestions.get("abc")).toHaveLength(1);
     expect(ctrl.suggestionsWrap).not.toBeNull();
+    // First suggestion is written into global geocode cache
+    expect(window.foliplus.cacheSuggestion).toHaveBeenCalledWith(
+      map,
+      "abc",
+      30.0,
+      120.0,
+      expect.any(String),
+    );
   });
 });
 

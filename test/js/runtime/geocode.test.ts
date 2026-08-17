@@ -93,6 +93,16 @@ describe("geocode (forward)", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("populates reverse cache entry for geocode result", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
+    );
+    await geocode(mockMap, "UniqueCity E5", "en");
+    // reverseGeocode for same coords should hit cache
+    const addr = await reverseGeocode(mockMap, 119.3, 26.08, "en");
+    expect(addr).toBe("Fuzhou");
+  });
+
   it("returns null when no results are found", async () => {
     (globalThis.fetch as any).mockResolvedValue(jsonResponse([]));
     const r = await geocode(mockMap, "UniqueCity B2", "en");

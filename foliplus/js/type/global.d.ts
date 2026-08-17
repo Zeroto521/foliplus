@@ -171,6 +171,13 @@ declare global {
       address: string,
       code?: string,
     ) => Promise<{ lat: number; lng: number; display_name: string } | null>;
+    cacheSuggestion: (
+      map: Leaflet.Map,
+      address: string,
+      lat: number,
+      lng: number,
+      displayName: string,
+    ) => void;
     _TABLES: Record<string, Record<string, string>>;
     /** Shared core modules (layer, event, mode). Set by _shared-registry + runtime. */
     core: Record<string, unknown>;
