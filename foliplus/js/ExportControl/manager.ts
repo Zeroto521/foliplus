@@ -73,6 +73,7 @@ interface SavedBounds {
 
 class ExportManager {
   map: L.Map;
+  private _dragCleanup?: () => void;
   mapContainer: HTMLElement;
   cropState: CropState | null;
   exportCtrl: HTMLElement | null;
@@ -128,10 +129,7 @@ class ExportManager {
     this.undoStack = [];
     this.redoStack = [];
 
-    this.onMouseDown = this.onMouseDown.bind(this);
-    this.onMouseMove = this.onMouseMove.bind(this);
-    this.onMouseUp = this.onMouseUp.bind(this);
-    this.onMapChange = this.onMapChange.bind(this);
+                this.onMapChange = this.onMapChange.bind(this);
 
     // Mount UI functions directly on this instance
     this.showCropBox = () => showCropBox(this);
@@ -224,8 +222,10 @@ class ExportManager {
     this.dragState.lastX = event.clientX;
     this.dragState.lastY = event.clientY;
     this.dragState.startRect = Object.assign({}, st.rect);
-    document.addEventListener("mousemove", this.onMouseMove);
-    document.addEventListener("mouseup", this.onMouseUp);
+    this._dragCleanup = ensureKeyboard(this.map).register(CONF.name + "-drag", [
+      { event: "mousemove", handler: (e: Event) => this.onMouseMove(e as MouseEvent) },
+      { event: "mouseup", handler: () => { this.onMouseUp(); this._dragCleanup?.(); } },
+    ]);
   }
 
   onMouseMove(event: MouseEvent) {
@@ -311,8 +311,7 @@ class ExportManager {
   onMouseUp() {
     this.dragState.dragging = false;
     this.dragState.dragType = null;
-    document.removeEventListener("mousemove", this.onMouseMove);
-    document.removeEventListener("mouseup", this.onMouseUp);
+    // mousemove/mouseup 自动由 _dragCleanup 清理
     // Re-enable transition so the box animates smoothly to its final position
     // on the next non-drag style update (e.g. after unlock).
     if (this.cropState?.box)

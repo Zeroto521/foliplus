@@ -4,8 +4,10 @@
 // components and resolving key conflicts.
 
 export interface ShortcutDef {
-  /** Key to match (event.key), e.g. "Escape", "ArrowUp", "z" */
-  key: string;
+  /** Event type: "keydown" (default), "mousedown", "mousemove", "mouseup", etc. */
+  event?: string;
+  /** Key to match (event.key), only for keydown. If omitted, matches any key. */
+  key?: string;
   /** Require Ctrl (or Cmd on macOS) */
   ctrl?: boolean;
   /** Require Shift */
@@ -15,7 +17,7 @@ export interface ShortcutDef {
   /** Require Meta (Cmd on macOS) */
   meta?: boolean;
   /** Handler called when the shortcut matches */
-  handler: () => void;
+  handler: (event: Event) => void;
   /** Higher priority wins when multiple shortcuts match the same key.
    *  Default 0. Negative values are allowed for fallback handlers. */
   priority?: number;
@@ -53,7 +55,7 @@ export const ensureKeyboard = (map: L.Map): KeyboardManager => {
 export class KeyboardManager {
   private map: L.Map;
   private shortcuts: ShortcutDef[] = [];
-  private boundHandler: ((event: KeyboardEvent) => void) | null = null;
+  private docListeners: Map<string, (event: Event) => void> = new Map();
   private observer: MutationObserver | null = null;
   private trackedElements: Map<HTMLElement, Set<string>> = new Map();
 
@@ -110,18 +112,22 @@ export class KeyboardManager {
         def.container = container;
       }
       if (def.element) {
+        const eventType = def.event ?? "keydown";
         const handler = (event: Event) => {
-          const ke = event as KeyboardEvent;
-          if (def.key !== ke.key) return;
-          if (def.ctrl && !ke.ctrlKey && !ke.metaKey) return;
-          if (def.meta && !ke.metaKey) return;
-          if (def.shift && !ke.shiftKey) return;
-          if (def.alt && !ke.altKey) return;
-          ke.preventDefault();
-          ke.stopPropagation();
-          def.handler();
+          // Key matching only for keydown events
+          if (eventType === "keydown" && def.key) {
+            const ke = event as KeyboardEvent;
+            if (def.key !== ke.key) return;
+            if (def.ctrl && !ke.ctrlKey && !ke.metaKey) return;
+            if (def.meta && !ke.metaKey) return;
+            if (def.shift && !ke.shiftKey) return;
+            if (def.alt && !ke.altKey) return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          def.handler(event);
         };
-        def.element.addEventListener("keydown", handler);
+        def.element.addEventListener(eventType, handler);
         (def as any)._elementHandler = handler;
         this.trackElement(def.element, component);
       }
@@ -164,27 +170,47 @@ export class KeyboardManager {
   }
 
   private ensureListener(): void {
-    if (this.boundHandler) return;
-    this.boundHandler = (event: KeyboardEvent) => this.handleKeyDown(event);
-    document.addEventListener("keydown", this.boundHandler);
+    // Collect all event types that need document-level listening
+    const eventTypes = new Set<string>();
+    for (const s of this.shortcuts) {
+      if (!s.element) {
+        eventTypes.add(s.event ?? "keydown");
+      }
+    }
+    for (const type of eventTypes) {
+      if (this.docListeners.has(type)) continue;
+      const handler = (event: Event) => this.handleEvent(event);
+      document.addEventListener(type, handler);
+      this.docListeners.set(type, handler);
+    }
   }
 
   private removeListener(): void {
-    if (!this.boundHandler) return;
-    document.removeEventListener("keydown", this.boundHandler);
-    this.boundHandler = null;
+    for (const [type, handler] of this.docListeners) {
+      document.removeEventListener(type, handler);
+    }
+    this.docListeners.clear();
   }
 
-  private handleKeyDown(event: KeyboardEvent): void {
-    // Find matching shortcuts sorted by priority (descending)
+  private handleEvent(event: Event): void {
+    const eventType = event.type;
+    const ke = event as KeyboardEvent;
     const matches = this.shortcuts
       .filter(s => {
-        if (s.key !== event.key) return false;
-        if (s.ctrl && !event.ctrlKey && !event.metaKey) return false;
-        if (s.meta && !event.metaKey) return false;
-        if (s.shift && !event.shiftKey) return false;
-        if (s.alt && !event.altKey) return false;
-        // If container is specified, only respond when focus is inside it
+        // Only match document-level shortcuts (no element binding)
+        if (s.element) return false;
+        // Match event type
+        const sType = s.event ?? "keydown";
+        if (sType !== eventType) return false;
+        // Key matching only for keydown
+        if (sType === "keydown" && s.key) {
+          if (s.key !== ke.key) return false;
+          if (s.ctrl && !ke.ctrlKey && !ke.metaKey) return false;
+          if (s.meta && !ke.metaKey) return false;
+          if (s.shift && !ke.shiftKey) return false;
+          if (s.alt && !ke.altKey) return false;
+        }
+        // Container focus check
         if (s.container && !s.container.contains(document.activeElement)) return false;
         return true;
       })
@@ -195,7 +221,7 @@ export class KeyboardManager {
     const best = matches[0];
     event.preventDefault();
     event.stopPropagation();
-    best.handler();
+    best.handler(event);
   }
 
   destroy(): void {
