@@ -86,6 +86,46 @@ describe("bindEvents", () => {
     expect(ctrl.inp.value).toBe("One");
   });
 
+  it("navigates suggestions with ArrowUp", () => {
+    const ctrl = makeCtrl();
+    ctrl.suggestionsWrap = document.createElement("div");
+    const mk = text => {
+      const el = document.createElement("div");
+      el.innerHTML = `<span class="foliplus-search-suggestion-text">${text}</span>`;
+      return el;
+    };
+    ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
+    bindEvents(ctrl);
+    // First ArrowUp when idx is -1 → stays -1 (no active)
+    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    expect(ctrl.selectedSuggestionIdx).toBe(-1);
+    // Set to 1 via internal state, then ArrowUp → 0
+    ctrl.selectedSuggestionIdx = 1;
+    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    expect(ctrl.selectedSuggestionIdx).toBe(0);
+  });
+
+  it("Escape with open suggestions removes suggestions", () => {
+    const ctrl = makeCtrl();
+    ctrl.ctrl.classList.add("expanded");
+    ctrl.suggestionsWrap = document.createElement("div");
+    ctrl.suggestionsWrap.innerHTML = '<div class="foliplus-search-suggestion">One</div>';
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(ctrl.suggestionsWrap).toBeNull();
+  });
+
+  it("collapses and hides hint on Escape", () => {
+    const ctrl = makeCtrl();
+    ctrl.ctrl.classList.add("expanded");
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+  });
+
   it("searches on Enter", () => {
     const ctrl = makeCtrl();
     ctrl.inp.value = "121.47,31.23";
@@ -161,5 +201,15 @@ describe("initFromUrl", () => {
     initFromUrl(ctrl);
     expect(ctrl.setMode).toHaveBeenCalledWith("coord");
     expect(map.flyTo).toHaveBeenCalled();
+  });
+
+  it("searches by address from URL params", () => {
+    window.history.replaceState(null, "", "?q=hello");
+    const ctrl = makeCtrl();
+    ctrl.setMode = vi.fn();
+    ctrl.inp.value = "";
+    initFromUrl(ctrl);
+    expect(ctrl.setMode).toHaveBeenCalledWith("addr");
+    expect(ctrl.inp.value).toBe("hello");
   });
 });
