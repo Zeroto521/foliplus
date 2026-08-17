@@ -154,9 +154,7 @@ def _prefetch_cdn_cache() -> None:
             continue
         try:
             # Single fast attempt; the per-request handler retries if needed.
-            _cdn_cached(
-                "https://" + fragment, retries=1, timeout=_CDN_PREFETCH_TIMEOUT
-            )
+            _cdn_cached("https://" + fragment, retries=1, timeout=_CDN_PREFETCH_TIMEOUT)
         except Exception:
             continue
 
