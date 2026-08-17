@@ -69,7 +69,7 @@ class ExportControl extends BaseControl {
   }
   destroy() {
     if (this.m.cropState) this.m.removeCropBox();
-    ensureKeyboard(this.m.map).unregister("ExportControl");
+    ensureKeyboard(this.m.map).unregister(CONF.name);
   }
 }
 

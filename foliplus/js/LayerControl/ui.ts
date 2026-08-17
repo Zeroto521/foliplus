@@ -502,7 +502,7 @@ class LayerUI {
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
     this.clearActiveItem();
-    ensureKeyboard(this.m.map).unregister("LayerControl");
+    ensureKeyboard(this.m.map).unregister(CONF.name);
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
