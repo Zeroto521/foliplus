@@ -441,3 +441,230 @@ describe("attachSearchDelIcon", () => {
     expect(ctrl.delIcon).not.toBe(first);
   });
 });
+
+describe("searchCoord edge cases", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("converts fullwidth comma to halfwidth", () => {
+    const ctrl: any = { inp: { value: "" }, marker: null };
+    searchCoord(ctrl, "121\uff0c31");
+    expect(map.flyTo).toHaveBeenCalledWith([31, 121], 16);
+  });
+
+  it("uses CONF.zoom when set", () => {
+    const original = window.CONF.zoom;
+    try {
+      window.CONF = { ...window.CONF, zoom: 14 };
+      const ctrl: any = { inp: { value: "121.47,31.23" }, marker: null };
+      searchCoord(ctrl, "121.47,31.23");
+      expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 14);
+    } finally {
+      window.CONF = { ...window.CONF, zoom: original };
+    }
+  });
+
+  it("is blocked when MeasureControl is active", () => {
+    ensureModes(window.map).setMode("MeasureControl", "distance");
+    const ctrl: any = { inp: { value: "121.47,31.23" }, marker: null };
+    searchCoord(ctrl, "121.47,31.23");
+    expect(map.flyTo).not.toHaveBeenCalled();
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "SearchControl",
+      "SearchControl.blocked",
+      expect.any(Number),
+    );
+    ensureModes(window.map).setMode("MeasureControl", null);
+  });
+});
+
+describe("searchAddress error paths", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete globalThis.fetch;
+  });
+
+  it("shows addr_error hint on geocode rejection", async () => {
+    (window.foliplus.geocode as any).mockRejectedValue(new Error("fail"));
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "X" },
+    };
+    searchAddress(ctrl, "X");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "SearchControl",
+      "SearchControl.addr_error",
+      4000,
+    );
+  });
+
+  it("is blocked when MeasureControl is active", async () => {
+    ensureModes(window.map).setMode("MeasureControl", "distance");
+    (window.foliplus.geocode as any).mockResolvedValue({
+      lat: 30, lng: 120, display_name: "X",
+    });
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "X" },
+    };
+    searchAddress(ctrl, "X");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(window.foliplus.geocode).not.toHaveBeenCalled();
+    ensureModes(window.map).setMode("MeasureControl", null);
+  });
+});
+
+describe("fetchSuggestions: throttle and abort", () => {
+  beforeEach(() => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "A" }]),
+      }),
+    ) as unknown as typeof fetch;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    delete globalThis.fetch;
+  });
+
+  it("throttles rapid requests and retries after delay", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    // Rapid second call — throttled
+    fetchSuggestions(ctrl, "abc");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTime(1000);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("aborts previous request when new query arrives", () => {
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    // First call fires fetch and sets up abort controller
+    fetchSuggestions(ctrl, "abc");
+    const prev = ctrl.suggestAbortController;
+    expect(prev).toBeInstanceOf(AbortController);
+    // Manually set lastSuggestFetch in the past to bypass throttle
+    ctrl.lastSuggestFetch = Date.now() - 2000;
+    // Second call — past throttle window, so it should abort previous
+    fetchSuggestions(ctrl, "def");
+    expect(prev.signal.aborted).toBe(true);
+  });
+
+  it("ignores stale response when query changed", () => {
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    ctrl.suggestSeq += 1;
+    ctrl.inp.value = "xyz";
+    expect(ctrl.suggestionsWrap).toBeNull();
+  });
+});
+
+describe("fetchSuggestions: render behavior", () => {
+  it("renders suggestions with data-index attributes", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve([
+            { lat: "30.0", lon: "120.0", display_name: "First" },
+            { lat: "31.0", lon: "121.0", display_name: "Second" },
+          ]),
+      }),
+    ) as unknown as typeof fetch;
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.suggestionsWrap.querySelectorAll("[data-index='0']")).toHaveLength(1);
+    expect(ctrl.suggestionsWrap.querySelectorAll("[data-index='1']")).toHaveLength(1);
+  });
+
+  it("clears suggestionsWrap when results are empty", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ json: () => Promise.resolve([]) }),
+    ) as unknown as typeof fetch;
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      suggestionsWrap: el,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.suggestionsWrap).toBeNull();
+  });
+});
