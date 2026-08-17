@@ -160,12 +160,12 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       },
     },
   ]);
-  ctrl.schemeBar.onkeydown = (event: KeyboardEvent) => {
-    if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) {
-      event.preventDefault();
-      toggleSchemeDropdown(ctrl);
-    }
-  };
+  ensureKeyboard(map).register(CONF.name, [
+    { key: "Enter", element: ctrl.schemeBar, handler: () => { toggleSchemeDropdown(ctrl); } },
+    { key: " ", element: ctrl.schemeBar, handler: () => { toggleSchemeDropdown(ctrl); } },
+    { key: "ArrowUp", element: ctrl.schemeBar, handler: () => { toggleSchemeDropdown(ctrl); } },
+    { key: "ArrowDown", element: ctrl.schemeBar, handler: () => { toggleSchemeDropdown(ctrl); } },
+  ]);
 
   ctrl.schemeSelectHidden.onchange = () => {
     ctrl.m.currentScheme = ctrl.schemeSelectHidden.value;
@@ -442,39 +442,29 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     else items[0].focus();
   }
 
-  ensureKeyboard(map).register("HeatmapControl", [
-    {
-      key: "ArrowDown",
-      element: ctrl.schemeDropdown,
-      handler: () => {
-        const c = ctrl as any;
-        c.isDropdownOpen = true;
-        c.updateScheme();
-      },
-    },
-  ]);
-  ctrl.schemeDropdown.onkeydown = (event: KeyboardEvent) => {
-    const activeIdx = Array.from(items).indexOf(document.activeElement as HTMLElement);
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
+  ensureKeyboard(map).register(CONF.name, [
+    { key: "ArrowDown", element: ctrl.schemeDropdown, handler: () => {
+      const activeIdx = Array.from(items).indexOf(document.activeElement as HTMLElement);
       items[(activeIdx + 1) % items.length].focus();
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
+    }},
+    { key: "ArrowUp", element: ctrl.schemeDropdown, handler: () => {
+      const activeIdx = Array.from(items).indexOf(document.activeElement as HTMLElement);
       items[(activeIdx - 1 + items.length) % items.length].focus();
-    } else if (event.key === "Enter") {
-      event.preventDefault();
+    }},
+    { key: "Enter", element: ctrl.schemeDropdown, handler: () => {
       const active = document.activeElement;
       if (active?.classList.contains(CONST.CLASSES.SCHEME_DROPDOWN_ITEM)) {
         const idx = Array.from(items).indexOf(active as HTMLElement);
         selectScheme(ctrl, (CONF.schemes ?? [])[idx]);
       }
-    } else if (event.key === "Escape") {
+    }},
+    { key: "Escape", element: ctrl.schemeDropdown, handler: () => {
       ctrl.schemeDropdown?.remove();
       ctrl.schemeDropdown = null;
       ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
       ctrl.schemeBar.focus();
-    }
-  };
+    }},
+  ]);
 };
 
 const selectScheme = (ctrl: HeatmapControlUI, name: string) => {

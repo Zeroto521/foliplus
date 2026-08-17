@@ -53,8 +53,8 @@ const bindEvents = (ctrl: SearchControl) => {
     }
   });
 
-  ctrl.inp.addEventListener("keydown", (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
+  ensureKeyboard(map).register(CONF.name, [
+    { key: "Escape", element: ctrl.inp, handler: () => {
       if (ctrl.suggestionsWrap) {
         removeSuggestions(ctrl);
         return;
@@ -63,10 +63,9 @@ const bindEvents = (ctrl: SearchControl) => {
       ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
       adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
       map.foliplus!.hideHint(CONF.name);
-      return;
-    }
-    if (event.key === "ArrowDown" && ctrl.suggestionsWrap) {
-      event.preventDefault();
+    }},
+    { key: "ArrowDown", element: ctrl.inp, handler: () => {
+      if (!ctrl.suggestionsWrap) return;
       const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
       ctrl.selectedSuggestionIdx = Math.min(
         ctrl.selectedSuggestionIdx + 1,
@@ -79,10 +78,9 @@ const bindEvents = (ctrl: SearchControl) => {
         ctrl.inp.value =
           items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
             ?.textContent ?? "";
-      return;
-    }
-    if (event.key === "ArrowUp" && ctrl.suggestionsWrap) {
-      event.preventDefault();
+    }},
+    { key: "ArrowUp", element: ctrl.inp, handler: () => {
+      if (!ctrl.suggestionsWrap) return;
       const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
       ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
       items.forEach((el: Element, i: number) =>
@@ -92,15 +90,14 @@ const bindEvents = (ctrl: SearchControl) => {
         ctrl.inp.value =
           items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
             ?.textContent ?? "";
-      return;
-    }
-    if (event.key === "Enter") {
+    }},
+    { key: "Enter", element: ctrl.inp, handler: () => {
       const raw = ctrl.inp.value.trim();
       removeSuggestions(ctrl);
       if (!raw) return;
       ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
-    }
-  });
+    }},
+  ]);
 
   ctrl.inp.addEventListener("blur", () => setTimeout(() => removeSuggestions(ctrl), 0));
 
