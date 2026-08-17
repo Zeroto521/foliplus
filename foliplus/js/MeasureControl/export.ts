@@ -183,53 +183,42 @@ function featureToWKT(feature: GeoJSON.Feature): string {
   return "";
 }
 
-/**
- * KML coordinate format: lng,lat[,alt]
- */
-function kmlCoord(pt: { lng: number; lat: number }): string {
-  return `${pt.lng} ${pt.lat}`;
-}
+/** Convert a GeoJSON geometry to a KML XML element string. */
+function geometryToKML(geometry: GeoJSON.Geometry): string {
+  if (!geometry) {
+    return "";
+  }
 
-/** Build a KML LineString element. */
-function kmlLine(coords: string): string {
-  return (
-    `<LineString><tessellate>1</tessellate>` +
-    `<coordinates>${coords}</coordinates></LineString>`
-  );
-}
+  if (geometry.type === "Point") {
+    const [lng, lat] = geometry.coordinates;
+    return `<Point><coordinates>${lng},${lat}</coordinates></Point>`;
+  }
 
-/** Build a KML Polygon element with a single outer ring. */
-function kmlPolygon(coords: string): string {
-  return (
-    `<Polygon><tessellate>1</tessellate><outerBoundaryIs>` +
-    `<LinearRing><coordinates>${coords}</coordinates></LinearRing>` +
-    `</outerBoundaryIs></Polygon>`
-  );
-}
+  if (geometry.type === "LineString") {
+    const pts = (geometry.coordinates as [number, number][]).join(" ");
+    return (
+      `<LineString><tessellate>1</tessellate>` +
+      `<coordinates>${pts}</coordinates></LineString>`
+    );
+  }
 
-/**
- * Generate circle boundary points using turf for geodesic accuracy.
- * @param lng - Center longitude.
- * @param lat - Center latitude.
- * @param radius - Radius in meters.
- * @param steps - Number of boundary segments (higher = smoother circle).
- */
-function circlePoints(
-  lng: number,
-  lat: number,
-  radius: number,
-  steps: number,
-): { lng: number; lat: number }[] {
-  const r = radius / 1000;
-  const circle = turf.circle([lng, lat], r, { steps, units: "kilometers" });
-  return (circle.geometry.coordinates[0] as [number, number][]).map(([lng, lat]) => ({
-    lng,
-    lat,
-  }));
+  if (geometry.type === "Polygon") {
+    const ring = (geometry.coordinates[0] as [number, number][]).join(" ");
+    return (
+      `<Polygon><tessellate>1</tessellate><outerBoundaryIs>` +
+      `<LinearRing><coordinates>${ring}</coordinates></LinearRing>` +
+      `</outerBoundaryIs></Polygon>`
+    );
+  }
+
+  return "";
 }
 
 /**
  * Convert measurements array to KML string.
+ *
+ * Uses each Mode's toGeoFeature() to get the geometry, then converts
+ * it to KML XML via geometryToKML(). Geometry shapes live in one place.
  */
 export function toKML(measurements: MeasureData[]): string {
   const placemarks: string[] = [];
@@ -272,6 +261,9 @@ export function toKML(measurements: MeasureData[]): string {
         break;
       }
     }
+    const Feature = MODE_MAP[data.type as keyof typeof MODE_MAP];
+    const feature = Feature?.toGeoFeature(data);
+    const geometry = feature ? geometryToKML(feature.geometry) : "";
 
     const description: string[] = [];
     if (data.totalDistance) {
