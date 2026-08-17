@@ -54,6 +54,12 @@ class MeasureMode {
   static restore(manager: MeasureManager, data: MeasureData): void {
     console.warn(`[${CONF.name}] restore not implemented for ${this.TYPE}`);
   }
+
+  /** Convert a persisted measurement to a GeoJSON Feature.
+   *  Subclasses override this to return their specific geometry type. */
+  static toGeoFeature(_data: MeasureData): GeoJSON.Feature {
+    throw new Error(`[${CONF.name}] toGeoFeature not implemented for ${this.TYPE}`);
+  }
 }
 
 // ==================== Preview Mode Base Class ====================
