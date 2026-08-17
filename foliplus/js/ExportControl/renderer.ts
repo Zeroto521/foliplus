@@ -1,13 +1,7 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
-import {
-  clearBitmapCache,
-  ensureFont,
-  isVisible,
-  loadImage,
-  loadImageBitmap,
-} from "./util.js";
+import { ensureFont, isVisible, loadImage, loadImageBitmap } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
@@ -44,6 +38,31 @@ interface TileDesc {
 // render() orchestrates the passes in painter's-algorithm order:
 //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome →
 //   6. text labels → 7. remaining (img, inline SVG, bg-color)
+// Load items with a bounded in-flight count (preserves array order on resolve).
+async function pooledEach<T, R>(
+  items: T[],
+  maxConcurrency: number,
+  fn: (item: T, index: number) => Promise<R | null> | R | null,
+): Promise<Array<R | null>> {
+  if (items.length === 0) return [];
+  const cap = Math.max(1, maxConcurrency);
+  const results = new Array<R | null>(items.length);
+  let next = 0;
+  const enqueue = async (): Promise<void> => {
+    const idx = next++;
+    if (idx >= items.length) return;
+    try {
+      const value = await fn(items[idx], idx);
+      results[idx] = value ?? null;
+    } catch (err) {
+      console.warn(err);
+      results[idx] = null;
+    }
+    await enqueue();
+  };
+  await Promise.all(Array.from({ length: cap }, enqueue));
+  return results;
+}
 class ExportRenderer {
   map: L.Map;
   container: HTMLElement;
@@ -200,9 +219,6 @@ class ExportRenderer {
       }
     }
 
-    // Release all cached ImageBitmap GPU resources now that rendering is complete.
-    clearBitmapCache();
-
     return canvas;
   }
 
@@ -285,8 +301,12 @@ class ExportRenderer {
         } catch {
           /* skip tile on draw error */
         } finally {
-          // Bitmap stays in cache for reuse; explicit close is handled by
-          // clearBitmapCache() at the end of render().
+          // Bitmap is drawn once and never needed again; close to free GPU memory.
+          try {
+            bitmap.close();
+          } catch {
+            /* already closed */
+          }
         }
       }
     }
@@ -446,68 +466,83 @@ class ExportRenderer {
       }
     }
 
-    // Load unique sprites via shared bitmap cache
-    const spriteMap = new Map<string, ImageBitmap | null>();
+    // Load unique sprites (once per URL) directly into a local map
+    const spriteUrls = new Set<string>();
     for (const el of drawableEls) {
       const cs = window.getComputedStyle(el);
       const bg = cs.backgroundImage;
       if (!bg || bg === "none") continue;
       const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-      if (m && !m[1].startsWith("data:") && !spriteMap.has(m[1])) {
-        spriteMap.set(m[1], null);
-      }
+      if (m && !m[1].startsWith("data:")) spriteUrls.add(m[1]);
     }
-    // Wait for all in-flight loads to settle
-    await Promise.all(
-      [...spriteMap.keys()].map(url => loadImageBitmap(url).catch(() => null)),
+    const spriteMap = new Map<string, ImageBitmap>();
+    await pooledEach<string, ImageBitmap>(
+      [...spriteUrls],
+      CONST.TILE_CONCURRENCY,
+      async url => {
+        const bitmap = await loadImageBitmap(url);
+        if (bitmap) spriteMap.set(url, bitmap);
+        return null;
+      },
     );
 
-    // Draw sprites
-    for (const el of drawableEls) {
-      const r = el.getBoundingClientRect();
-      const l = r.left - contRect.left;
-      const t = r.top - contRect.top;
-      const w = r.width;
-      const h = r.height;
-      if (w < 1 || h < 1) continue;
-      const dx = (l - rect.left) * scale;
-      const dy = (t - rect.top) * scale;
-      const dw = w * scale;
-      const dh = h * scale;
-      if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-      const cs = window.getComputedStyle(el);
-      const bg = cs.backgroundImage;
-      if (!bg || bg === "none") continue;
-      const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-      if (!m) continue;
-      const sprite = spriteMap.get(m[1]);
-      if (!sprite) continue;
-      const bgs = cs.backgroundSize || "auto";
-      const bgsParts = bgs.trim().split(/\s+/);
-      let cssBgW: number, cssBgH: number;
-      if (bgs === "auto" || bgs === "auto auto") {
-        cssBgW = sprite.width / (window.devicePixelRatio || 1);
-        cssBgH = sprite.height / (window.devicePixelRatio || 1);
-      } else if (bgs.includes("%")) {
-        cssBgW = (w * (parseFloat(bgsParts[0]) || 100)) / 100;
-        cssBgH = (h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100)) / 100;
-      } else {
-        cssBgW = parseFloat(bgsParts[0]) || sprite.width;
-        cssBgH = parseFloat(bgsParts[1] || bgsParts[0]) || sprite.height;
+    // Draw sprites; release their bitmaps even if drawing throws.
+    try {
+      for (const el of drawableEls) {
+        const r = el.getBoundingClientRect();
+        const l = r.left - contRect.left;
+        const t = r.top - contRect.top;
+        const w = r.width;
+        const h = r.height;
+        if (w < 1 || h < 1) continue;
+        const dx = (l - rect.left) * scale;
+        const dy = (t - rect.top) * scale;
+        const dw = w * scale;
+        const dh = h * scale;
+        if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
+        const cs = window.getComputedStyle(el);
+        const bg = cs.backgroundImage;
+        if (!bg || bg === "none") continue;
+        const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
+        if (!m) continue;
+        const sprite = spriteMap.get(m[1]);
+        if (!sprite) continue;
+        const bgs = cs.backgroundSize || "auto";
+        const bgsParts = bgs.trim().split(/\s+/);
+        let cssBgW: number, cssBgH: number;
+        if (bgs === "auto" || bgs === "auto auto") {
+          cssBgW = sprite.width / (window.devicePixelRatio || 1);
+          cssBgH = sprite.height / (window.devicePixelRatio || 1);
+        } else if (bgs.includes("%")) {
+          cssBgW = (w * (parseFloat(bgsParts[0]) || 100)) / 100;
+          cssBgH = (h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100)) / 100;
+        } else {
+          cssBgW = parseFloat(bgsParts[0]) || sprite.width;
+          cssBgH = parseFloat(bgsParts[1] || bgsParts[0]) || sprite.height;
+        }
+        const ratioX = sprite.width / cssBgW;
+        const ratioY = sprite.height / cssBgH;
+        const bp = cs.backgroundPosition || "0 0";
+        const bpParts = bp.trim().split(/\s+/);
+        const sx = Math.abs(parseFloat(bpParts[0]) || 0) * ratioX;
+        const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
+        const sw = w * ratioX;
+        const sh = h * ratioY;
+        if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
+        try {
+          ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
+        } catch {
+          /* skip */
+        }
       }
-      const ratioX = sprite.width / cssBgW;
-      const ratioY = sprite.height / cssBgH;
-      const bp = cs.backgroundPosition || "0 0";
-      const bpParts = bp.trim().split(/\s+/);
-      const sx = Math.abs(parseFloat(bpParts[0]) || 0) * ratioX;
-      const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
-      const sw = w * ratioX;
-      const sh = h * ratioY;
-      if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
-      try {
-        ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-      } catch {
-        /* skip */
+    } finally {
+      // All sprites have been drawn (or aborted); release their bitmaps.
+      for (const bitmap of spriteMap.values()) {
+        try {
+          bitmap.close();
+        } catch {
+          /* already closed */
+        }
       }
     }
     return markerRoots;

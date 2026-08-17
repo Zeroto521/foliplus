@@ -1,0 +1,216 @@
+#!/usr/bin/env node
+/**
+ * Generate _shared-registry.ts by scanning component imports.
+ *
+ * Scans component .ts files for imports from #core/*, #common/*, and
+ * #foliplus/BaseControl.js — both targeted named imports and import * as
+ * (resolved via property-access patterns).  Output registers only the
+ * exports used by components on window.foliplus.core / .common / BaseControl,
+ * enabling esbuild to tree-shake unused exports from component bundles.
+ *
+ * NOTE: core/{component,hint,mode} are SKIPPED — registered manually in
+ * runtime/index.ts (see SKIPPED_CORE_FILES in the source).
+ *
+ * Usage:
+ *   node script/scan-registry.mjs [--root <path>] [--silent]
+ *
+ * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
+ */
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import { resolve } from "path";
+import { fileURLToPath } from "url";
+import { help, parseArgs } from "./args.mjs";
+
+const __dirname = resolve(fileURLToPath(import.meta.url), "..");
+
+const SCAN_SPEC = {
+  root: {
+    type: "string",
+    default: resolve(__dirname, ".."),
+    desc: "Project root directory",
+  },
+  silent: { type: "bool", desc: "Suppress output messages" },
+};
+const _raw = parseArgs(process.argv.slice(2), SCAN_SPEC);
+if (_raw.help) {
+  console.log(help(SCAN_SPEC));
+  process.exit(0);
+}
+if (_raw.errors.length) {
+  console.error(_raw.errors.join("\n"));
+  console.error(help(SCAN_SPEC));
+  process.exit(1);
+}
+const opts = _raw;
+
+const ROOT = resolve(opts.root);
+const srcDir = resolve(ROOT, "foliplus/js");
+const buildJs = resolve(ROOT, "foliplus/.build/js");
+mkdirSync(buildJs, { recursive: true });
+
+function scanImports(dir) {
+  const imported = new Map();
+  const starImported = new Map();
+  const allSrc = new Map();
+
+  function walk(d) {
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      const full = resolve(d, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
+        const src = readFileSync(full, "utf-8");
+        allSrc.set(full, src);
+
+        const namedRe =
+          /import[\s]*\{([^}]+)\}[\s]*from[\s]*"(#(?:common|core|foliplus)\/[^"]+)"/g;
+        let m;
+        while ((m = namedRe.exec(src))) {
+          const spec = m[2]
+            .replace(/^#/, "")
+            .replace(/\.js$/, "")
+            .replace(/\/index$/, "");
+          const names = m[1]
+            .split(",")
+            .map(n => n.trim())
+            .filter(n => !n.startsWith("type"))
+            .map(n => n.replace(/[\s]+as[\s]+.*/g, ""))
+            .filter(Boolean);
+          if (!imported.has(spec)) imported.set(spec, new Set());
+          names.forEach(n => imported.get(spec).add(n));
+        }
+
+        const starRe =
+          /import[\s]+\*[\s]+as[\s]+(\w+)[\s]+from[\s]*"(#(?:common|core)\/[^"]+)"/g;
+        while ((m = starRe.exec(src))) {
+          const spec = m[2]
+            .replace(/^#/, "")
+            .replace(/\.js$/, "")
+            .replace(/\/index$/, "");
+          if (!starImported.has(spec)) starImported.set(spec, new Set());
+          starImported.get(spec).add(m[1]);
+        }
+      }
+    }
+  }
+
+  walk(dir);
+
+  for (const [spec, aliases] of starImported) {
+    if (!imported.has(spec)) imported.set(spec, new Set());
+    for (const alias of aliases) {
+      for (const src of allSrc.values()) {
+        const upperRe = new RegExp(alias + "[.]" + "([A-Z][A-Z0-9_]*)", "g");
+        let pm;
+        while ((pm = upperRe.exec(src))) imported.get(spec).add(pm[1]);
+        if (alias === "Storage") {
+          const stdRe = new RegExp(alias + "[.]" + "(load|save)", "g");
+          let sm;
+          while ((sm = stdRe.exec(src))) imported.get(spec).add(sm[1]);
+        }
+      }
+    }
+  }
+
+  const usedExports = {};
+  for (const [spec, names] of imported) {
+    usedExports[spec] = [...names].sort();
+  }
+  return usedExports;
+}
+
+function generateRegistry(srcDirParam = srcDir, buildJsParam = buildJs) {
+  const sourceDir = srcDirParam;
+  const buildDir = buildJsParam;
+  const commonDir = resolve(sourceDir, "common");
+  const coreDir = resolve(sourceDir, "core");
+  const commonModules = readdirSync(commonDir)
+    .filter(f => f.endsWith(".ts") && f !== "index.ts")
+    .map(f => f.replace(/\.ts$/, ""))
+    .sort();
+  const coreSubs = readdirSync(coreDir, { withFileTypes: true })
+    .filter(d => d.isDirectory())
+    .map(d => d.name)
+    .sort();
+  const coreSingleFiles = readdirSync(coreDir, { withFileTypes: true })
+    .filter(f => f.isFile() && f.name.endsWith(".ts") && f.name !== "index.ts")
+    .map(f => f.name.replace(/\.ts$/, ""))
+    .sort();
+
+  const componentDirs = readdirSync(sourceDir, { withFileTypes: true })
+    .filter(
+      e => e.isDirectory() && !["core", "common", "type", "runtime"].includes(e.name),
+    )
+    .map(e => resolve(sourceDir, e.name));
+
+  const usedExports = {};
+  for (const dir of componentDirs) {
+    const scanned = scanImports(dir);
+    for (const [spec, names] of Object.entries(scanned)) {
+      if (!usedExports[spec]) usedExports[spec] = [];
+      usedExports[spec].push(...names);
+    }
+  }
+  for (const spec of Object.keys(usedExports)) {
+    usedExports[spec] = [...new Set(usedExports[spec])].sort();
+  }
+
+  const lines = [
+    "// AUTO-GENERATED by script/scan-registry.mjs — do not edit.",
+    "// Scans component imports for targeted named imports (Tree Shaking).",
+    "window.foliplus = window.foliplus || {};",
+    "window.foliplus.core = {};",
+    "window.foliplus.common = {};",
+  ];
+
+  for (const sub of coreSubs) {
+    const names = usedExports["core/" + sub] || [];
+    if (names.length === 0) continue;
+    const alias = "core" + sub;
+    lines.push(
+      "import { " + names.join(", ") + ' } from "#core/' + sub + '/index.js";',
+    );
+    lines.push("const " + alias + " = { " + names.join(", ") + " };");
+    lines.push('window.foliplus.core["' + sub + '"] = ' + alias + ";");
+  }
+
+  // Skip core/{component,hint,mode} — registered in runtime/index.ts.
+  const SKIPPED_CORE_FILES = new Set(["component", "hint", "mode"]);
+  for (const name of coreSingleFiles) {
+    if (SKIPPED_CORE_FILES.has(name)) continue;
+    const names = usedExports["core/" + name] || [];
+    if (names.length === 0) continue;
+    const alias = "core" + name;
+    lines.push("import { " + names.join(", ") + ' } from "#core/' + name + '.js";');
+    lines.push("const " + alias + " = { " + names.join(", ") + " };");
+    lines.push('window.foliplus.core["' + name + '"] = ' + alias + ";");
+  }
+
+  for (const name of commonModules) {
+    const names = usedExports["common/" + name] || [];
+    if (names.length === 0) continue;
+    lines.push("import { " + names.join(", ") + ' } from "#common/' + name + '.js";');
+    lines.push("const " + name + "NS = { " + names.join(", ") + " };");
+    lines.push('window.foliplus.common["' + name + '"] = ' + name + "NS;");
+  }
+
+  const baseNames = usedExports["foliplus/BaseControl"] || ["BaseControl"];
+  if (baseNames.length > 0) {
+    lines.push(
+      "import { " + baseNames.join(", ") + ' } from "#foliplus/BaseControl.js";',
+    );
+    lines.push("const BaseControlNS = { " + baseNames.join(", ") + " };");
+    lines.push("window.foliplus.BaseControl = BaseControlNS;");
+  }
+
+  writeFileSync(resolve(buildDir, "_shared-registry.ts"), lines.join("\n"), "utf-8");
+
+  if (!opts.silent) {
+    console.log(
+      `_shared-registry.ts written (${lines.length} lines, ${Object.keys(usedExports).length} specs)`,
+    );
+  }
+}
+
+export { generateRegistry, scanImports };
+
+generateRegistry();
