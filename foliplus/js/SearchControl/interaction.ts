@@ -17,7 +17,7 @@ const { _ } = createControlEnv(CONF);
 /**
  * Bind all DOM events for the SearchControl.
  */
-const bindEvents = (ctrl: SearchControl) => {
+export export const bindEvents = (ctrl: SearchControl) => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
@@ -139,7 +139,7 @@ const bindEvents = (ctrl: SearchControl) => {
 /**
  * Parse URL parameters to initialize search state.
  */
-const initFromUrl = (ctrl: SearchControl) => {
+export export const initFromUrl = (ctrl: SearchControl) => {
   try {
     const params = new URLSearchParams(window.location.search);
     const q = params.get(PARAM.Q);
@@ -173,4 +173,3 @@ const initFromUrl = (ctrl: SearchControl) => {
   }
 };
 
-export { bindEvents, initFromUrl };

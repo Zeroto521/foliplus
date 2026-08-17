@@ -310,7 +310,7 @@ class ExportManager {
   onMouseUp() {
     this.dragState.dragging = false;
     this.dragState.dragType = null;
-    // mousemove/mouseup 自动由 dragCleanup 清理
+    // mousemove/mouseup auto-cleaned by dragCleanup
     // Re-enable transition so the box animates smoothly to its final position
     // on the next non-drag style update (e.g. after unlock).
     if (this.cropState?.box)

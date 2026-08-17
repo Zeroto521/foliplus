@@ -1,9 +1,8 @@
-// LayerControl interaction — keyboard navigation + DOM events.
+// LayerControl interaction — keyboard navigation.
 import { ensureInteraction } from "#core/interaction.js";
 import type { LayerUI } from "./ui.js";
 
-/** Register all LayerControl interactions. Returns cleanup function. */
-export function registerInteractions(ui: LayerUI): () => void {
+export const registerInteractions = (ui: LayerUI): (() => void) => {
   const container = ui.uiContainer;
   return ensureInteraction(ui.m.map).register(CONF.name, [
     { key: "ArrowUp", container, handler: () => ui.handleKeyDown({ key: "ArrowUp", preventDefault: () => {} } as KeyboardEvent) },
@@ -14,4 +13,4 @@ export function registerInteractions(ui: LayerUI): () => void {
     { key: "Enter", container, handler: () => ui.handleKeyDown({ key: "Enter", preventDefault: () => {} } as KeyboardEvent) },
     { key: "Escape", container, handler: () => ui.handleKeyDown({ key: "Escape", preventDefault: () => {} } as KeyboardEvent) },
   ]);
-}
+};

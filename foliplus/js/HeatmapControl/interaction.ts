@@ -1,8 +1,7 @@
 // HeatmapControl interaction — scheme bar/dropdown keyboard events.
 import { ensureInteraction } from "#core/interaction.js";
 
-/** Register schemeBar ArrowLeft/ArrowRight and Enter/Space/ArrowUp/ArrowDown. */
-export function registerSchemeBarEvents(map: L.Map, ctrl: any): () => void {
+export const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
   return ensureInteraction(map).register(CONF.name, [
     { key: "ArrowLeft", element: ctrl.schemeBar, handler: () => {
       const idx = ctrl.availableSchemes.indexOf(ctrl.scheme);
@@ -17,10 +16,9 @@ export function registerSchemeBarEvents(map: L.Map, ctrl: any): () => void {
     { key: "ArrowUp", element: ctrl.schemeBar, handler: () => { ctrl.toggleDropdown?.(); }},
     { key: "ArrowDown", element: ctrl.schemeBar, handler: () => { ctrl.toggleDropdown?.(); }},
   ]);
-}
+};
 
-/** Register schemeDropdown navigation. */
-export function registerDropdownEvents(map: L.Map, ctrl: any, items: HTMLElement[]): () => void {
+export const registerDropdownEvents = (map: L.Map, ctrl: any, items: HTMLElement[]): (() => void) => {
   return ensureInteraction(map).register(CONF.name + "-dropdown", [
     { key: "ArrowDown", element: ctrl.schemeDropdown, handler: () => {
       const activeIdx = items.indexOf(document.activeElement as HTMLElement);
@@ -44,4 +42,4 @@ export function registerDropdownEvents(map: L.Map, ctrl: any, items: HTMLElement
       ctrl.schemeBar?.focus();
     }},
   ]);
-}
+};
