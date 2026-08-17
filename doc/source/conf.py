@@ -34,7 +34,7 @@ extensions = [
 ]
 
 source_suffix = {".rst": "restructuredtext", ".md": "myst-nb", ".ipynb": "myst-nb"}
-templates_path = []
+templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 
 language = "en"
@@ -45,6 +45,7 @@ autodoc_default_options = {
     "member-order": "bysource",
     "undoc-members": True,
     "show-inheritance": True,
+    "inherited-members": True,
 }
 autosummary_generate = True
 napoleon_google_docstring = True
@@ -80,8 +81,12 @@ def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
     if not fn:
         return None
 
-    # to fix these doc doesn't exist in foliplus
-    if project not in fn:
+    # Only generate linkcode for files within the foliplus package.
+    # Skip inherited members from folium/branca (they get intersphinx
+    # links instead of source links).
+    try:
+        Path(fn).relative_to(Path(foliplus.__file__).parent)
+    except ValueError:
         return None
 
     try:
@@ -100,6 +105,7 @@ def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
 # ── Intersphinx ───────────────────────────────────────────────────────
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
+    "branca": ("https://python-visualization.github.io/branca/", None),
     "folium": ("https://python-visualization.github.io/folium/latest/", None),
 }
 
