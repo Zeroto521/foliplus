@@ -1,4 +1,4 @@
-import * as CONST from "./../const.js";
+import * as CONST from "../const.js";
 import { MeasureMode, PreviewMode } from "./base.js";
 import { CircleMode } from "./circle.js";
 import { DistanceMode } from "./distance.js";

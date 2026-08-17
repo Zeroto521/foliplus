@@ -4,10 +4,10 @@ import {
   bindMapEvents,
   unbindMapEvents,
 } from "#common/mapEvent.js";
-import * as CONST from "./../const.js";
-import type { MeasureManager } from "./../manager.js";
-import { attachPolygonUI } from "./../ui.js";
-import * as Util from "./../util.js";
+import * as CONST from "../const.js";
+import type { MeasureManager } from "../manager.js";
+import { attachPolygonUI } from "../ui.js";
+import * as Util from "../util.js";
 import { PreviewMode } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
