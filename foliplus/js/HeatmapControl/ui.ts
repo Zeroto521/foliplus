@@ -2,7 +2,6 @@
 // All internal refs use direct function calls instead of `this.`.
 import { HINT_DURATION } from "#core/hint.js";
 import { registerSchemeBarEvents, registerDropdownEvents } from "./interaction.js";
-import { ensureInteraction } from "#core/interaction.js";
 import { registerSchemeBarEvents, registerDropdownEvents } from "./interaction.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
@@ -415,20 +414,6 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
   }
 
   ctrl.dropdownCleanup = registerDropdownEvents(map, ctrl, items);
-        }
-      },
-    },
-    {
-      key: "Escape",
-      element: ctrl.schemeDropdown,
-      handler: () => {
-        ctrl.schemeDropdown?.remove();
-        ctrl.schemeDropdown = null;
-        ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
-        ctrl.schemeBar.focus();
-      },
-    },
-  ]);
 };
 
 const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
