@@ -1,4 +1,5 @@
 import { HINT_DURATION } from "#core/hint.js";
+import { createTranslator } from "#common/locale.js";
 import { makeDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import {
@@ -13,6 +14,8 @@ import * as Util from "../util.js";
 import { PreviewMode } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
+const _ = createTranslator(CONF);
+
 interface CirclePreviews {
   center: L.Marker | null;
   circle: L.Circle | null;

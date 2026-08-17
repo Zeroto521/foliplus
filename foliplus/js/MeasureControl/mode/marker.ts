@@ -6,12 +6,14 @@ import {
   toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
+import { createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
 import { MeasureMode } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
+const _ = createTranslator(CONF);
 
 // ==================== Marker Mode ====================
 /** Marker placement mode. Places a geocoded marker on click. */

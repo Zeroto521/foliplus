@@ -51,7 +51,7 @@ const attachDistanceUI = (
 
   const onMapClickActive = () => {
     if (mgr.isSuppressHideDel) return;
-    if (isXVisible) toggleCircleUI(false, CONST.TOGGLE.RESET);
+    if (isXVisible) toggleDistanceUI(false, CONST.TOGGLE.RESET);
   };
   mgr.map.on("click", onMapClickActive);
 
@@ -201,7 +201,7 @@ const attachCircleUI = (
       },
     );
   };
-  togglePolygonUI(false, CONST.TOGGLE.RESET);
+  toggleCircleUI(false, CONST.TOGGLE.RESET);
 
   const toggleCircleToggle = () => {
     if (isDeleted) return;
@@ -347,11 +347,11 @@ const attachPolygonUI = (
   centroidDot!.on("click", handleItemClick);
   centroidDel!.on("click", handleItemClick);
 
-  toggleCircleUI(false, CONST.TOGGLE.RESET);
+  togglePolygonUI(false, CONST.TOGGLE.RESET);
 
   const onMapClickActive = () => {
     if (mgr.isSuppressHideDel) return;
-    if (isXVisible) toggleCircleUI(false, CONST.TOGGLE.RESET);
+    if (isXVisible) togglePolygonUI(false, CONST.TOGGLE.RESET);
   };
   mgr.map.on("click", onMapClickActive);
 

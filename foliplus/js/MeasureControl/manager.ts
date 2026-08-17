@@ -162,6 +162,7 @@ class MeasureManager {
       this.clearActiveMode();
       return;
     }
+    if (!mode) return;
 
     // Re-register the measure layer so it's visible and on top when the user
     // activates a measurement tool, even if the layer was previously

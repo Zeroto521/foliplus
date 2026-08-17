@@ -155,6 +155,21 @@ function kmlCoord(pt: { lng: number; lat: number }): string {
 }
 
 /**
+ * Generate circle boundary points using turf for geodesic accuracy.
+ * @param lng - Center longitude.
+ * @param lat - Center latitude.
+ * @param radius - Radius in meters.
+ * @param steps - Number of boundary segments (higher = smoother circle).
+ */
+function circlePoints(lng: number, lat: number, radius: number, steps: number): { lng: number; lat: number }[] {
+  const r = radius / 1000;
+  const circle = turf.circle([lng, lat], r, { steps, units: "kilometers" });
+  return (circle.geometry.coordinates[0] as [number, number][]).map(
+    ([lng, lat]) => ({ lng, lat }),
+  );
+}
+
+/**
  * Convert measurements array to KML string.
  */
 export function toKML(measurements: MeasureData[]): string {
