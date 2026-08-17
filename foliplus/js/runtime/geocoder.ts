@@ -42,7 +42,7 @@ const reverseGeocode = (
   lat: number | string,
   code = "en",
 ): Promise<string> => {
-  const key = "reverse:" + lng + "," + lat;
+  const key = `reverse:${lng},${lat}`;
   const cached = geoCache.get(key);
   if (cached) return Promise.resolve(cached);
 
@@ -83,7 +83,7 @@ const geocode = (
   // CRS-aware key so the same address on different maps (e.g. GCJ02 vs
   // WGS84) do not share a stale cached result.
   const crs = getMapCrsType(map);
-  const key = "forward:" + address + ":" + crs;
+  const key = `forward:${address}:${crs}`;
   const cached = geoCache.get(key);
   if (cached) {
     const [lat, lng, ...name] = cached.split("\u0001");
@@ -114,10 +114,10 @@ const geocode = (
         };
         geoCache.set(
           key,
-          result.lat + "\u0001" + result.lng + "\u0001" + result.display_name,
+          `${result.lat}\u0001${result.lng}\u0001${result.display_name}`,
         );
         // Safe: (lng, lat) is unique - no collision risk
-        geoCache.set("reverse:" + lng + "," + lat, first.display_name);
+        geoCache.set(`reverse:${lng},${lat}`, first.display_name);
         return result;
       })
       .catch(() => null),
@@ -133,10 +133,10 @@ const cacheSuggestion = (
   displayName: string,
 ) => {
   const crs = getMapCrsType(map);
-  const key = "forward:" + address + ":" + crs;
-  geoCache.set(key, lat + "\u0001" + lng + "\u0001" + displayName);
+  const key = `forward:${address}:${crs}`;
+  geoCache.set(key, `${lat}\u0001${lng}\u0001${displayName}`);
   // Also populate the reverse entry for the same safety
-  geoCache.set("reverse:" + lng + "," + lat, displayName);
+  geoCache.set(`reverse:${lng},${lat}`, displayName);
 };
 
 export { geocode, reverseGeocode, cacheSuggestion, type GeocodeResult };
