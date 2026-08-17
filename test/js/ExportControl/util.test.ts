@@ -286,4 +286,130 @@ describe("generateWorldFile", () => {
     // pixelHeight should be finite and negative
     expect(!isNaN(parseFloat(lines[3]))).toBe(true);
   });
+
+  it("handles EPSG:3857 meter coordinates with large values", () => {
+    // Typical Web Mercator bounds for a city view (meters, not degrees).
+    // These large values verify toPrecision doesn't lose precision.
+    const out = generateWorldFile(
+      { lat: 5260000, lng: 297000 },
+      { lat: 5250000, lng: 298500 },
+      2000,
+      1500,
+    );
+    const lines = out.split("\n").slice(0, 6);
+    const pixelWidth = parseFloat(lines[0]);
+    expect(pixelWidth).toBeCloseTo(0.75, 7);
+    const pixelHeight = parseFloat(lines[3]);
+    expect(pixelHeight).toBeCloseTo(-6.666667, 6);
+    const ulx = parseFloat(lines[4]);
+    expect(ulx).toBeGreaterThan(297000);
+    expect(ulx).toBeLessThan(298500);
+    const uly = parseFloat(lines[5]);
+    expect(uly).toBeGreaterThan(5250000);
+    expect(uly).toBeLessThan(5260000);
+  });
+
+  it("supports round-trip reconstruction of bounds from pixel sizes", () => {
+    const nw = { lat: 35.68, lng: 139.76 };
+    const se = { lat: 35.65, lng: 139.82 };
+    const out = generateWorldFile(nw, se, 2000, 1500);
+    const lines = out.split("\n").slice(0, 6);
+
+    const pixelWidth = parseFloat(lines[0]);
+    const pixelHeight = parseFloat(lines[3]);
+    const ulx = parseFloat(lines[4]);
+    const uly = parseFloat(lines[5]);
+
+    // Reconstruct NW corner from ulx/uly (top-left pixel center minus half pixel)
+    const reconstructedNwLng = ulx - pixelWidth / 2;
+    const reconstructedNwLat = uly - pixelHeight / 2;
+    expect(reconstructedNwLng).toBeCloseTo(nw.lng, 10);
+    expect(reconstructedNwLat).toBeCloseTo(nw.lat, 10);
+
+    // Reconstruct SE corner from pixel sizes × dimensions
+    const reconstructedSeLng = reconstructedNwLng + pixelWidth * 2000;
+    const reconstructedSeLat = reconstructedNwLat + pixelHeight * 1500;
+    expect(reconstructedSeLng).toBeCloseTo(se.lng, 10);
+    expect(reconstructedSeLat).toBeCloseTo(se.lat, 10);
+  });
+
+  it("produces deterministic output for identical inputs", () => {
+    const out1 = generateWorldFile(
+      { lat: 40.0, lng: -74.0 },
+      { lat: 39.9, lng: -73.9 },
+      1000,
+      800,
+    );
+    const out2 = generateWorldFile(
+      { lat: 40.0, lng: -74.0 },
+      { lat: 39.9, lng: -73.9 },
+      1000,
+      800,
+    );
+    expect(out1).toBe(out2);
+  });
+
+  it("handles extreme thin vertical strip (narrow width, tall height)", () => {
+    // Width 100px covers 1° of longitude → pixelWidth = 0.01°/px
+    // Height 10000px covers 0.01° of latitude → pixelHeight = -0.000001°/px
+    const out = generateWorldFile(
+      { lat: 50.0, lng: 0.0 },
+      { lat: 49.99, lng: 1.0 },
+      100,
+      10000,
+    );
+    const lines = out.split("\n").slice(0, 6);
+    const pixelWidth = parseFloat(lines[0]);
+    const pixelHeight = parseFloat(lines[3]);
+    expect(pixelWidth).toBeGreaterThan(0);
+    expect(pixelHeight).toBeLessThan(0);
+    // Per-pixel extent in longitude >> latitude (thin strip)
+    expect(Math.abs(pixelWidth)).toBeGreaterThan(Math.abs(pixelHeight));
+  });
+
+  it("handles extreme wide horizontal strip (wide width, short height)", () => {
+    // Width 10000px covers 0.01° of longitude → pixelWidth = 0.000001°/px
+    // Height 100px covers 1° of latitude → pixelHeight = -0.01°/px
+    const out = generateWorldFile(
+      { lat: 50.0, lng: 0.0 },
+      { lat: 49.0, lng: 0.01 },
+      10000,
+      100,
+    );
+    const lines = out.split("\n").slice(0, 6);
+    const pixelWidth = parseFloat(lines[0]);
+    const pixelHeight = parseFloat(lines[3]);
+    // Per-pixel extent in latitude >> longitude (wide strip)
+    expect(Math.abs(pixelHeight)).toBeGreaterThan(Math.abs(pixelWidth));
+  });
+
+  it("verifies World File spec compliance — rotation terms are zero", () => {
+    const out = generateWorldFile(
+      { lat: 41.0, lng: -75.0 },
+      { lat: 40.0, lng: -74.0 },
+      1000,
+      500,
+    );
+    const lines = out.split("\n").slice(0, 6);
+    expect(lines[1]).toBe("0");
+    expect(lines[2]).toBe("0");
+    expect(parseFloat(lines[5])).toBeGreaterThan(0);
+  });
+
+  it("verifies pixel center offset is exactly half a pixel", () => {
+    const out = generateWorldFile(
+      { lat: 41.0, lng: -75.0 },
+      { lat: 40.0, lng: -74.0 },
+      1000,
+      500,
+    );
+    const lines = out.split("\n").slice(0, 6);
+    const pixelWidth = parseFloat(lines[0]);
+    const pixelHeight = parseFloat(lines[3]);
+    const ulx = parseFloat(lines[4]);
+    const uly = parseFloat(lines[5]);
+
+    expect(ulx).toBeCloseTo(-75.0 + pixelWidth / 2, 12);
+    expect(uly).toBeCloseTo(41.0 + pixelHeight / 2, 12);
+  });
 });

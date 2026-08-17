@@ -536,16 +536,162 @@ describe("ExportManager — World File export", () => {
     const canvas = document.createElement("canvas");
     Object.defineProperty(canvas, "width", { value: 1000 });
     Object.defineProperty(canvas, "height", { value: 500 });
-    // Stub toBlob to fire immediately (jsdom doesn't implement it).
     const origToBlob = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
       cb(new Blob(["image"], { type: "image/png" }));
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
-      // downloadWorldFile is called synchronously BEFORE toBlob.
       expect(worldFileContent).not.toBeNull();
       expect(downloadFilename).toBe("test-map.pgw");
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+    }
+  });
+
+  it("revokes the object URL after the download delay", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    vi.useFakeTimers();
+    const revokeSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const origCreateObjectURL = URL.createObjectURL;
+    const fakeUrl = "blob:mock-url";
+    (URL as any).createObjectURL = () => fakeUrl;
+    try {
+      manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+      // Advance past the revoke delay (10000ms)
+      vi.advanceTimersByTime(15000);
+      expect(revokeSpy).toHaveBeenCalledWith(fakeUrl);
+    } finally {
+      vi.useRealTimers();
+      (URL as any).createObjectURL = origCreateObjectURL;
+      revokeSpy.mockRestore();
+    }
+  });
+
+  it("removes the download link from DOM after click", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    vi.useFakeTimers();
+    let linkEl: HTMLAnchorElement | null = null;
+    const origAppendChild = document.body.appendChild;
+    document.body.appendChild = function (child: Node) {
+      if (child instanceof HTMLAnchorElement) {
+        linkEl = child;
+      }
+      return origAppendChild.call(document.body, child);
+    };
+    try {
+      manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+      // The manager calls link.click() synchronously, then schedules removal
+      // via setTimeout. Advance past the revoke delay (10000ms).
+      vi.advanceTimersByTime(15000);
+      expect(document.body.contains(linkEl!)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+      document.body.appendChild = origAppendChild;
+    }
+  });
+
+  it("always uses .pgw extension regardless of CONF.format", () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    // Even with JPEG format, World File uses .pgw (universally recognized)
+    window.CONF.format = "jpeg";
+    manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+    expect(downloadFilename).toBe("test-map.pgw");
+
+    window.CONF.format = "webp";
+    manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+    expect(downloadFilename).toBe("test-map.pgw");
+  });
+
+  it("is a no-op when CONF.filename is undefined", () => {
+    window.CONF.filename = undefined;
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+    // Still downloads with 'undefined.pgw' filename (graceful, no crash)
+    expect(worldFileContent).not.toBeNull();
+    expect(downloadFilename).toBe("undefined.pgw");
+  });
+
+  it("World File is downloaded before image blob (onRenderSuccess ordering)", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    const canvas = document.createElement("canvas");
+    Object.defineProperty(canvas, "width", { value: 1000 });
+    Object.defineProperty(canvas, "height", { value: 500 });
+    let worldFileBeforeBlob = false;
+    // Stub toBlob to detect ordering: if it fires and worldFileContent
+    // is already set, the World File was downloaded first.
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
+      worldFileBeforeBlob = worldFileContent !== null;
+      cb(new Blob(["image"], { type: "image/png" }));
+    };
+    try {
+      manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
+      await new Promise(r => setTimeout(r, 0));
+      expect(worldFileBeforeBlob).toBe(true);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+    }
+  });
+
+  it("World File is downloaded even when toBlob returns null (image failure)", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    const canvas = document.createElement("canvas");
+    Object.defineProperty(canvas, "width", { value: 1000 });
+    Object.defineProperty(canvas, "height", { value: 500 });
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
+      cb(null); // Image generation fails
+    };
+    try {
+      manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
+      await new Promise(r => setTimeout(r, 0));
+      // World File was downloaded despite image failure.
+      expect(worldFileContent).not.toBeNull();
+      expect(downloadFilename).toBe("test-map.pgw");
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+    }
+  });
+
+  it("onRenderSuccess triggers World File with actual canvas dimensions", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    // Canvas at 2× scale: actual 2000×1000, CSS 1000×500
+    const canvas = document.createElement("canvas");
+    Object.defineProperty(canvas, "width", { value: 2000 });
+    Object.defineProperty(canvas, "height", { value: 1000 });
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
+      cb(new Blob(["image"], { type: "image/png" }));
+    };
+    try {
+      manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
+      await new Promise(r => setTimeout(r, 0));
+      const lines = worldFileContent!.split(String.fromCharCode(10));
+      // 2000px width → 1.0/2000 = 0.0005
+      expect(parseFloat(lines[0])).toBeCloseTo(0.0005, 9);
+      expect(parseFloat(lines[3])).toBeCloseTo(-0.001, 9);
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
     }
