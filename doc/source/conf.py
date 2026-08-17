@@ -162,6 +162,7 @@ def _build_missing_ref_map() -> None:
     linkcode_resolve and automatically tracks the installed version.
     """
     import inspect
+
     from folium.elements import JSCSSMixin
 
     fn = inspect.getsourcefile(inspect.unwrap(JSCSSMixin))
