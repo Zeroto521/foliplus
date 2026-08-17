@@ -77,11 +77,11 @@ export function initMocks() {
           return "POINT(" + lng + " " + lat + ")";
         }
         if (geom.type === "LineString") {
-          const pts = geom.coordinates.join(", ");
+          const pts = geom.coordinates.map(([lng, lat]) => lng + " " + lat).join(", ");
           return "LINESTRING(" + pts + ")";
         }
         if (geom.type === "Polygon") {
-          const ring = geom.coordinates[0].join(", ");
+          const ring = geom.coordinates[0].map(([lng, lat]) => lng + " " + lat).join(", ");
           return "POLYGON((" + ring + "))";
         }
         return "";

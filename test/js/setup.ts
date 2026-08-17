@@ -107,6 +107,7 @@ window.map = {
   removeLayer: vi.fn(),
 };
 
+
 // Mock turf (needed by MeasureControl export: turf.wkt.toWKT, turf.circle, etc.)
 globalThis.turf = {
   point: coords => ({
@@ -126,15 +127,8 @@ globalThis.turf = {
       type: "Polygon",
       coordinates: [
         [
-          [0, 0],
-          [1, 0],
-          [2, 0],
-          [2, 1],
-          [1, 2],
-          [0, 2],
-          [-1, 1],
-          [-1, 0],
-          [0, 0],
+          [0, 0], [1, 0], [2, 0], [2, 1], [1, 2], [0, 2],
+          [-1, 1], [-1, 0], [0, 0],
         ],
       ],
     },
@@ -148,11 +142,15 @@ globalThis.turf = {
         return "POINT(" + lng + " " + lat + ")";
       }
       if (geom.type === "LineString") {
-        const pts = geom.coordinates.join(", ");
+        const pts = geom.coordinates
+          .map(([lng, lat]) => lng + " " + lat)
+          .join(", ");
         return "LINESTRING(" + pts + ")";
       }
       if (geom.type === "Polygon") {
-        const ring = geom.coordinates[0].join(", ");
+        const ring = geom.coordinates[0]
+          .map(([lng, lat]) => lng + " " + lat)
+          .join(", ");
         return "POLYGON((" + ring + "))";
       }
       return "";
