@@ -17,7 +17,7 @@ const { _ } = createControlEnv(CONF);
 /**
  * Bind all DOM events for the SearchControl.
  */
-export export const bindEvents = (ctrl: SearchControl) => {
+export const bindEvents = (ctrl: SearchControl) => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
