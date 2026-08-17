@@ -46,7 +46,10 @@ export class EventBus {
   }
 
   /** Emit a known event (typed payload). */
-  emit<K extends keyof EventPayloadMap>(event: K, payload: EventPayloadMap[K]): void;
+  emit<K extends keyof EventPayloadMap>(
+    event: K,
+    ...payload: EventPayloadMap[K] extends undefined ? [] : [EventPayloadMap[K]]
+  ): void;
   /** Emit any event (generic fallback). */
   emit(event: string, ...payload: unknown[]): void;
   emit(event: string, ...payload: unknown[]): void {
