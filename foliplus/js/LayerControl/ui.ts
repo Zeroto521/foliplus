@@ -420,6 +420,7 @@ class LayerUI {
     this.onDrop = event => this.handleDrop(event);
     this.onDragEnd = () => this.handleDragEnd();
     this.onKeyDown = event => this.handleKeyDown(event);
+    this.interactionCleanup = registerInteractions(this);
 
     container.addEventListener("change", this.onChange);
     container.addEventListener("input", this.onInput);
@@ -448,6 +449,7 @@ class LayerUI {
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
     this.onKeyDown = null;
+    this.interactionCleanup?.();
   }
 
   getLayerItems(group: string): NodeListOf<Element> {
