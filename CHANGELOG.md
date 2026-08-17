@@ -29,6 +29,7 @@
 - `hint`: made per-map — `window.foliplus.showHint` removed; each map gets its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `geocode`: add forward geocoding alongside reverse; bidirectional FIFO cache with 24h TTL ([#147](https://github.com/Zeroto521/foliplus/pull/147))
 - `Cache`: generic `Cache<K,V>` (FIFO + optional TTL) for bounded caching; optional `onEvict` callback to release resources (e.g. GPU `ImageBitmap`s) on removal ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#154](https://github.com/Zeroto521/foliplus/pull/154))
+- `ExportControl`: render draws each tile/sprite `ImageBitmap` once then closes it immediately — peak live bitmaps are bounded by download concurrency (not a 1000-entry cache), cutting worst-case GPU memory ~250MB→~3MB; also fixes sprites never being drawn in exported images ([#170](https://github.com/Zeroto521/foliplus/pull/170))
 
 ### Fixed
 
