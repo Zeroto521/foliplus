@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTOCOMPLETE } from "#foliplus/SearchControl/const.js";
 import {
   attachSearchDelIcon,
   buildSearchUrl,
@@ -9,7 +10,6 @@ import {
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/logic.js";
-import { AUTOCOMPLETE } from "#foliplus/SearchControl/const.js";
 import { Cache } from "#foliplus/common/cache.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 
@@ -576,7 +576,9 @@ describe("searchAddress error paths", () => {
   it("is blocked when MeasureControl is active", async () => {
     ensureModes(window.map).setMode("MeasureControl", "distance");
     (window.foliplus.geocode as any).mockResolvedValue({
-      lat: 30, lng: 120, display_name: "X",
+      lat: 30,
+      lng: 120,
+      display_name: "X",
     });
     const ctrl: any = {
       cachedAddress: {},
@@ -595,8 +597,7 @@ describe("fetchSuggestions: throttle and abort", () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({
-        json: () =>
-          Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "A" }]),
+        json: () => Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "A" }]),
       }),
     ) as unknown as typeof fetch;
   });
@@ -714,11 +715,13 @@ describe("fetchSuggestions: render behavior", () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({
         json: () =>
-          Promise.resolve([{
-            lat: "30.0",
-            lon: "120.0",
-            display_name: "A, Place",
-          }]),
+          Promise.resolve([
+            {
+              lat: "30.0",
+              lon: "120.0",
+              display_name: "A, Place",
+            },
+          ]),
       }),
     ) as unknown as typeof fetch;
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -808,11 +811,13 @@ describe("fetchSuggestions: render behavior", () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({
         json: () =>
-          Promise.resolve([{
-            lat: "30.0",
-            lon: "120.0",
-            display_name: "A, Place",
-          }]),
+          Promise.resolve([
+            {
+              lat: "30.0",
+              lon: "120.0",
+              display_name: "A, Place",
+            },
+          ]),
       }),
     ) as unknown as typeof fetch;
     const ctrl: any = {
