@@ -139,7 +139,7 @@ export const bindEvents = (ctrl: SearchControl) => {
 /**
  * Parse URL parameters to initialize search state.
  */
-export export const initFromUrl = (ctrl: SearchControl) => {
+export const initFromUrl = (ctrl: SearchControl) => {
   try {
     const params = new URLSearchParams(window.location.search);
     const q = params.get(PARAM.Q);
