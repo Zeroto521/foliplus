@@ -164,7 +164,7 @@ class HeatmapControl(BaseControl):
             )
 
         super().__init__(position=position, locale=locale)
-        self.field = field if field is not None else "auto"
+        self.field = field
         self.color_scheme = color_scheme
         self.method = method
         self.n_classes = n_classes

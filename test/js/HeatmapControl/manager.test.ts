@@ -12,7 +12,7 @@ function makeManager() {
     method: "jenks",
     n_classes: 6,
     agg: "count",
-    field: "auto",
+    field: null,
     fill_opacity: 0.7,
     border_color: "#333333",
     border_weight: 1.5,
