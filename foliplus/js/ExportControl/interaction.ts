@@ -3,29 +3,12 @@ import { ensureInteraction } from "#core/interaction.js";
 import type { ExportManager } from "./manager.js";
 
 export const registerInteractions = (mgr: ExportManager): (() => void) => {
-  return ensureInteraction(mgr.map).register(
-    CONF.name,
-    [
-      {
-        key: "Escape",
-        handler: () => mgr.onKeyDown({ key: "Escape" } as KeyboardEvent),
-      },
-      { key: "Enter", handler: () => mgr.onKeyDown({ key: "Enter" } as KeyboardEvent) },
-      {
-        key: "z",
-        ctrl: true,
-        handler: () => mgr.onKeyDown({ key: "z", ctrlKey: true } as KeyboardEvent),
-      },
-      {
-        key: "z",
-        ctrl: true,
-        shift: true,
-        handler: () =>
-          mgr.onKeyDown({ key: "z", ctrlKey: true, shiftKey: true } as KeyboardEvent),
-      },
-    ],
-    mgr.map.getContainer(),
-  );
+  return ensureInteraction(mgr.map).register(CONF.name, [
+    { key: "Escape", handler: (e) => mgr.onKeyDown(e as KeyboardEvent) },
+    { key: "Enter", handler: (e) => mgr.onKeyDown(e as KeyboardEvent) },
+    { key: "z", ctrl: true, handler: (e) => mgr.onKeyDown(e as KeyboardEvent) },
+    { key: "z", ctrl: true, shift: true, handler: (e) => mgr.onKeyDown(e as KeyboardEvent) },
+  ], mgr.map.getContainer());
 };
 
 export const registerDrag = (mgr: ExportManager): (() => void) => {
