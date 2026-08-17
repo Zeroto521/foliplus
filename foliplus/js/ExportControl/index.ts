@@ -68,7 +68,7 @@ class ExportControl extends BaseControl {
   }
   destroy() {
     if (this.m.cropState) this.m.removeCropBox();
-    this.m._interactionCleanup?.();
+    this.m.interactionCleanup?.();
   }
 }
 

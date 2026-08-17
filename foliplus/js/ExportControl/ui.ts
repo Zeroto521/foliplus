@@ -195,7 +195,7 @@ const showCropBox = (mgr: ExportManager) => {
   updateBoxStyle(mgr, cropBox, box);
   mgr.pushUndoState();
   showHintWithInfo(mgr, box, _(`${CONF.name}.hint_unlocked`));
-  mgr._cropMousedownCleanup = registerCropMouseDown(mgr, cropBox);
+  mgr.cropMousedownCleanup = registerCropMouseDown(mgr, cropBox);
   mgr.registerShortcuts();
 };
 
@@ -265,7 +265,7 @@ const removeCropBox = (mgr: ExportManager) => {
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);
   document.body.classList.remove(CONST.CLASSES.MODE);
   mgr.registerShortcuts();
-  mgr._dragCleanup?.();
+  mgr.dragCleanup?.();
   mgr.dragState.dragging = false;
   mgr.dragState.dragType = null;
   if (mgr.mapMoveCleanup) {
@@ -273,8 +273,8 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup = null;
   }
   if (mgr.cropState.box)
-    mgr._cropMousedownCleanup?.();
-  mgr._interactionCleanup?.();
+    mgr.cropMousedownCleanup?.();
+  mgr.interactionCleanup?.();
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
   if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";

@@ -73,9 +73,9 @@ interface SavedBounds {
 
 class ExportManager {
   map: L.Map;
-  _dragCleanup?: () => void;
-  _interactionCleanup?: () => void;
-  _cropMousedownCleanup?: () => void;
+  dragCleanup?: () => void;
+  interactionCleanup?: () => void;
+  cropMousedownCleanup?: () => void;
   mapContainer: HTMLElement;
   cropState: CropState | null;
   exportCtrl: HTMLElement | null;
@@ -224,7 +224,7 @@ class ExportManager {
     this.dragState.lastX = event.clientX;
     this.dragState.lastY = event.clientY;
     this.dragState.startRect = Object.assign({}, st.rect);
-    this._dragCleanup = registerDrag(this);
+    this.dragCleanup = registerDrag(this);
   }
 
   onMouseMove(event: MouseEvent) {
@@ -310,7 +310,7 @@ class ExportManager {
   onMouseUp() {
     this.dragState.dragging = false;
     this.dragState.dragType = null;
-    // mousemove/mouseup 自动由 _dragCleanup 清理
+    // mousemove/mouseup 自动由 dragCleanup 清理
     // Re-enable transition so the box animates smoothly to its final position
     // on the next non-drag style update (e.g. after unlock).
     if (this.cropState?.box)

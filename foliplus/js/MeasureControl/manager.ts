@@ -27,7 +27,7 @@ const _ = createTranslator(CONF);
 /** Central manager for all measurements. */
 class MeasureManager {
   map: L.Map;
-  private _interactionCleanup?: () => void;
+  private interactionCleanup?: () => void;
   layers: CreateLayersAPI;
   currentMode: string | null;
   modeInstance: MeasureMode | null;

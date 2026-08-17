@@ -12,10 +12,10 @@ export function registerSchemeBarEvents(map: L.Map, ctrl: any): () => void {
       const idx = ctrl.availableSchemes.indexOf(ctrl.scheme);
       if (idx < ctrl.availableSchemes.length - 1) { ctrl.scheme = ctrl.availableSchemes[idx + 1]; ctrl.updateScheme(); }
     }},
-    { key: "Enter", element: ctrl.schemeBar, handler: () => { ctrl._toggleDropdown?.(); }},
-    { key: " ", element: ctrl.schemeBar, handler: () => { ctrl._toggleDropdown?.(); }},
-    { key: "ArrowUp", element: ctrl.schemeBar, handler: () => { ctrl._toggleDropdown?.(); }},
-    { key: "ArrowDown", element: ctrl.schemeBar, handler: () => { ctrl._toggleDropdown?.(); }},
+    { key: "Enter", element: ctrl.schemeBar, handler: () => { ctrl.toggleDropdown?.(); }},
+    { key: " ", element: ctrl.schemeBar, handler: () => { ctrl.toggleDropdown?.(); }},
+    { key: "ArrowUp", element: ctrl.schemeBar, handler: () => { ctrl.toggleDropdown?.(); }},
+    { key: "ArrowDown", element: ctrl.schemeBar, handler: () => { ctrl.toggleDropdown?.(); }},
   ]);
 }
 
@@ -34,7 +34,7 @@ export function registerDropdownEvents(map: L.Map, ctrl: any, items: HTMLElement
       const active = document.activeElement;
       if (active?.classList.contains("foliplus-scheme-dropdown-item")) {
         const idx = items.indexOf(active as HTMLElement);
-        ctrl._selectScheme?.(idx);
+        ctrl.selectScheme?.(idx);
       }
     }},
     { key: "Escape", element: ctrl.schemeDropdown, handler: () => {
