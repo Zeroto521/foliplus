@@ -25,6 +25,10 @@ function makeUI(): any {
 }
 
 describe("LayerControl interaction", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
   it("registerInteractions returns cleanup function", () => {
     const ui = makeUI();
     const cleanup = registerInteractions(ui);
@@ -41,6 +45,16 @@ describe("LayerControl interaction", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(ui.handleKeyDown).toHaveBeenCalled();
     cleanup();
-    document.body.removeChild(ui.uiContainer);
+  });
+
+  it("Escape dispatches to handleKeyDown", () => {
+    const ui = makeUI();
+    const cleanup = registerInteractions(ui);
+    document.body.appendChild(ui.uiContainer);
+    const item = ui.uiContainer.querySelector(".foliplus-layer-item") as HTMLElement;
+    item.focus();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(ui.handleKeyDown).toHaveBeenCalled();
+    cleanup();
   });
 });

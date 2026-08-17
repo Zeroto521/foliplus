@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { registerInteractions, registerDrag, registerCropMouseDown } from "#foliplus/ExportControl/interaction.js";
 
 function makeMgr(): any {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
   const map: any = {
     foliplus: {},
-    getContainer: vi.fn(() => document.createElement("div")),
+    getContainer: vi.fn(() => container),
     on: vi.fn(),
   };
   return {
@@ -17,10 +19,37 @@ function makeMgr(): any {
 }
 
 describe("ExportControl interaction", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
   it("registerInteractions returns cleanup", () => {
     const mgr = makeMgr();
     const cleanup = registerInteractions(mgr);
     expect(typeof cleanup).toBe("function");
+    cleanup();
+  });
+
+  it("Escape handler calls onKeyDown", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    container.focus();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(mgr.onKeyDown).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("Ctrl+Z handler calls onKeyDown", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    document.body.appendChild(container);
+    container.focus();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }));
+    expect(mgr.onKeyDown).toHaveBeenCalled();
     cleanup();
   });
 
@@ -36,6 +65,16 @@ describe("ExportControl interaction", () => {
     const el = document.createElement("div");
     const cleanup = registerCropMouseDown(mgr, el);
     expect(typeof cleanup).toBe("function");
+    cleanup();
+  });
+
+  it("registerCropMouseDown mousedown handler calls onMouseDown", () => {
+    const mgr = makeMgr();
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const cleanup = registerCropMouseDown(mgr, el);
+    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(mgr.onMouseDown).toHaveBeenCalled();
     cleanup();
   });
 });
