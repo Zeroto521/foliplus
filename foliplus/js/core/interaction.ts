@@ -129,7 +129,11 @@ export class InteractionManager {
           event.stopPropagation();
           def.handler(event);
         };
-        def.element.addEventListener(eventType, handler, def.once ? { once: true } : undefined);
+        def.element.addEventListener(
+          eventType,
+          handler,
+          def.once ? { once: true } : undefined,
+        );
         (def as any).elementHandler = handler;
         this.trackElement(def.element, component);
       }

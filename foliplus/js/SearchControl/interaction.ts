@@ -172,4 +172,3 @@ export const initFromUrl = (ctrl: SearchControl) => {
     // Silently ignore URL parsing errors
   }
 };
-

@@ -3,13 +3,13 @@ import { COMPONENTS, generateId } from "#core/component.js";
 import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
-import { registerInteractions } from "./interaction.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
+import { registerInteractions } from "./interaction.js";
 import {
   CircleMode,
   DistanceMode,
@@ -128,17 +128,16 @@ class MeasureManager {
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && this.currentMode) this.clearActiveMode();
     };
-    const cleanup = 
-
-    // On map unload (page refresh/close), clear transient UI state but KEEP
-    // persisted measurements. clearAll() would wipe localStorage, losing all
-    // saved data on every reload.
-    this.onUnload = () => {
-      this.clearActiveMode();
-      this.layers.clearLayers();
-      this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
-      this.finalizedClickHandlers = [];
-    };
+    const cleanup =
+      // On map unload (page refresh/close), clear transient UI state but KEEP
+      // persisted measurements. clearAll() would wipe localStorage, losing all
+      // saved data on every reload.
+      (this.onUnload = () => {
+        this.clearActiveMode();
+        this.layers.clearLayers();
+        this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
+        this.finalizedClickHandlers = [];
+      });
     this.map.on("unload", this.onUnload);
   }
 

@@ -27,9 +27,7 @@ describe("InteractionManager", () => {
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
-    ensureInteraction(map).register("Test", [
-      { key: "Enter", element: el, handler },
-    ]);
+    ensureInteraction(map).register("Test", [{ key: "Enter", element: el, handler }]);
     el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(handler).toHaveBeenCalledTimes(1);
     ensureInteraction(map).unregister("Test");
@@ -40,9 +38,7 @@ describe("InteractionManager", () => {
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
-    ensureInteraction(map).register("Test", [
-      { key: "Escape", element: el, handler },
-    ]);
+    ensureInteraction(map).register("Test", [{ key: "Escape", element: el, handler }]);
     el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(handler).not.toHaveBeenCalled();
     ensureInteraction(map).unregister("Test");
@@ -67,9 +63,7 @@ describe("InteractionManager", () => {
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
-    ensureInteraction(map).register("Test", [
-      { key: "Escape", element: el, handler },
-    ]);
+    ensureInteraction(map).register("Test", [{ key: "Escape", element: el, handler }]);
     ensureInteraction(map).unregister("Test");
     el.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(handler).not.toHaveBeenCalled();
@@ -96,15 +90,17 @@ describe("InteractionManager", () => {
     const inner = document.createElement("input");
     container.appendChild(inner);
     const handler = vi.fn();
-    ensureInteraction(map).register("Test", [
-      { key: "Escape", container, handler },
-    ]);
+    ensureInteraction(map).register("Test", [{ key: "Escape", container, handler }]);
     // Without focus in container — should not fire
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(handler).not.toHaveBeenCalled();
     // With focus in container — should fire
     inner.focus();
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(handler).toHaveBeenCalledTimes(1);
     ensureInteraction(map).unregister("Test");
     document.body.removeChild(container);

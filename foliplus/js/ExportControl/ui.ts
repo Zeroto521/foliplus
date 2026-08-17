@@ -1,7 +1,6 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { HINT_DURATION } from "#core/hint.js";
-import { registerCropMouseDown } from "./interaction.js";
 import { ensureModes } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
@@ -10,6 +9,7 @@ import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
+import { registerCropMouseDown } from "./interaction.js";
 import type { ExportManager, Rect } from "./manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -272,8 +272,7 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
   }
-  if (mgr.cropState.box)
-    mgr.cropMousedownCleanup?.();
+  if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
   mgr.interactionCleanup?.();
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();

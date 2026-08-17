@@ -1,5 +1,4 @@
 import { HINT_DURATION } from "#core/hint.js";
-import { registerInteractions } from "./interaction.js";
 import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
@@ -7,6 +6,7 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
+import { registerInteractions } from "./interaction.js";
 import type { LayerManager } from "./manager.js";
 import * as Util from "./util.js";
 
@@ -368,8 +368,6 @@ class LayerUI {
   bindEvents() {
     const container = this.uiContainer;
     if (!container) return;
-
-    
 
     this.onChange = event => {
       const checkbox = (event.target as HTMLElement).closest(

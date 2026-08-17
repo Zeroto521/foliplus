@@ -1,12 +1,12 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { registerInteractions, registerDrag } from "./interaction.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+import { registerDrag, registerInteractions } from "./interaction.js";
 import { ExportRenderer } from "./renderer.js";
 import {
   lockCropBox,
@@ -131,7 +131,7 @@ class ExportManager {
     this.undoStack = [];
     this.redoStack = [];
 
-                this.onMapChange = this.onMapChange.bind(this);
+    this.onMapChange = this.onMapChange.bind(this);
 
     // Mount UI functions directly on this instance
     this.showCropBox = () => showCropBox(this);
@@ -319,7 +319,7 @@ class ExportManager {
   }
 
   registerShortcuts(): void {
-    const cleanup = registerInteractions(this)
+    const cleanup = registerInteractions(this);
   }
 
   onKeyDown(event: KeyboardEvent) {
