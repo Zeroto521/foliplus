@@ -6,6 +6,7 @@
 // common/geocode.js and are statically imported by components.
 import { Cache } from "#common/cache.js";
 import { toWgs84 } from "#common/coord.js";
+import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
@@ -55,7 +56,7 @@ const reverseGeocode = (
   const fail = localeFallback(code, "foliplus.geo_fail", "Lookup failed");
 
   return throttled(() =>
-    fetch(url)
+    fetchWithTimeout(url, { timeoutMs: GEODECODE_TIMEOUT_MS })
       .then(r => r.json())
       .then(data => {
         const addr = formatAddress(data.display_name, map, code) || notFound;
@@ -94,7 +95,7 @@ const geocode = (
   const url = nominatimUrl("/search", { q: address, limit: 1, format: "jsonv2" }, code);
 
   return throttled(() =>
-    fetch(url)
+    fetchWithTimeout(url, { timeoutMs: GEODECODE_TIMEOUT_MS })
       .then(r => r.json())
       .then((data: Array<{ lat: string; lon: string; display_name: string }>) => {
         const first = Array.isArray(data) ? data[0] : null;
