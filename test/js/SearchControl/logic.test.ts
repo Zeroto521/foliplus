@@ -9,6 +9,7 @@ import {
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/logic.js";
+import { AUTOCOMPLETE } from "#foliplus/SearchControl/const.js";
 import { Cache } from "#foliplus/common/cache.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 
@@ -53,6 +54,41 @@ describe("initDebouncedFetch", () => {
     expect(ctrl.debouncedFetch).toBeDefined();
     expect(typeof ctrl.debouncedFetch).toBe("function");
     expect(ctrl.debouncedFetch.cancel).toBeDefined();
+  });
+
+  it("debounced callback fires fetchSuggestions when invoked", async () => {
+    try {
+      vi.useFakeTimers();
+      globalThis.fetch = vi.fn(() =>
+        Promise.resolve({
+          json: () =>
+            Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "A" }]),
+        }),
+      ) as unknown as typeof fetch;
+      const ctrl: any = {
+        mode: "addr",
+        inp: { value: "search" },
+        debouncedFetch: null,
+        cachedSuggestions: new Cache<string, object>(50),
+        suggestionsWrap: null,
+        suggestionsThrottleTimer: null,
+        selectedSuggestionIdx: -1,
+        lastSuggestFetch: 0,
+        suggestSeq: 0,
+        suggestAbortController: null,
+        ctrl: {
+          getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+        },
+      };
+      initDebouncedFetch(ctrl);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      ctrl.debouncedFetch();
+      await vi.advanceTimersByTime(AUTOCOMPLETE.DEBOUNCE_MS + 100);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+      delete globalThis.fetch;
+    }
   });
 });
 
@@ -208,6 +244,37 @@ describe("positionSuggestions", () => {
     positionSuggestions(ctrl);
     expect(ctrl.suggestionsWrap.style.left).toBe("10px");
     expect(ctrl.suggestionsWrap.style.top).toBe("100px");
+  });
+
+  it("clips suggestions wrap to the right edge when it would overflow", () => {
+    const originalWidth = window.innerWidth;
+    try {
+      // Narrow viewport so left + rect.width exceeds innerWidth
+      Object.defineProperty(window, "innerWidth", {
+        value: 300,
+        configurable: true,
+      });
+      const ctrl: any = {
+        suggestionsWrap: { style: {} },
+        ctrl: {
+          getBoundingClientRect: () => ({
+            left: 250,
+            top: 20,
+            bottom: 100,
+            width: 200,
+          }),
+        },
+      };
+      positionSuggestions(ctrl);
+      // Would normally be left=250, but clipped to 300-200=100
+      expect(ctrl.suggestionsWrap.style.left).toBe("100px");
+      expect(ctrl.suggestionsWrap.style.top).toBe("100px");
+    } finally {
+      Object.defineProperty(window, "innerWidth", {
+        value: originalWidth,
+        configurable: true,
+      });
+    }
   });
 });
 
@@ -643,6 +710,75 @@ describe("fetchSuggestions: render behavior", () => {
     expect(ctrl.suggestionsWrap.querySelectorAll("[data-index='1']")).toHaveLength(1);
   });
 
+  it("onmousedown on suggestion item triggers searchAddress", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve([{
+            lat: "30.0",
+            lon: "120.0",
+            display_name: "A, Place",
+          }]),
+      }),
+    ) as unknown as typeof fetch;
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    (window.foliplus.geocode as any).mockResolvedValue(null);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+      marker: null,
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 0));
+    const item = ctrl.suggestionsWrap.querySelector("[data-index='0']");
+    expect(item).not.toBeNull();
+    // Simulate mousedown on suggestion item
+    const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+    (item as HTMLElement).onmousedown!(evt);
+    expect(evt.stopPropagation).toHaveBeenCalled();
+    expect(evt.preventDefault).toHaveBeenCalled();
+    // ctrl.marker set by renderAddressResult
+    expect(ctrl.marker).not.toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it("catches non-abort fetch errors and clears suggestions", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.reject(new TypeError("Network error")),
+    ) as unknown as typeof fetch;
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      suggestionsWrap: el,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 0));
+    // Network error (not AbortError) → removes suggestions
+    expect(ctrl.suggestionsWrap).toBeNull();
+    vi.restoreAllMocks();
+  });
+
   it("clears suggestionsWrap when results are empty", async () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ json: () => Promise.resolve([]) }),
@@ -666,5 +802,40 @@ describe("fetchSuggestions: render behavior", () => {
     fetchSuggestions(ctrl, "abc");
     await new Promise(r => setTimeout(r, 0));
     expect(ctrl.suggestionsWrap).toBeNull();
+  });
+
+  it("stops click events on suggestions wrap from bubbling", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve([{
+            lat: "30.0",
+            lon: "120.0",
+            display_name: "A, Place",
+          }]),
+      }),
+    ) as unknown as typeof fetch;
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      suggestionsWrap: null,
+      suggestionsThrottleTimer: null,
+      selectedSuggestionIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.suggestionsWrap).not.toBeNull();
+    // Verify the onclick handler stops propagation
+    const evt = new MouseEvent("click", { bubbles: true });
+    const stopSpy = vi.spyOn(evt, "stopPropagation");
+    ctrl.suggestionsWrap.dispatchEvent(evt);
+    expect(stopSpy).toHaveBeenCalled();
   });
 });
