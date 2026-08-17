@@ -3,6 +3,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { registerSchemeBarEvents, registerDropdownEvents } from "./interaction.js";
 import { ensureInteraction } from "#core/interaction.js";
+import { registerSchemeBarEvents, registerDropdownEvents } from "./interaction.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -135,62 +136,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     event.stopPropagation();
     toggleSchemeDropdown(ctrl);
   };
-  ensureInteraction(map).register(CONF.name, [
-    {
-      key: "ArrowLeft",
-      element: ctrl.schemeBar,
-      handler: () => {
-        const c = ctrl as any;
-        const idx = c.availableSchemes.indexOf(c.scheme);
-        if (idx > 0) {
-          c.scheme = c.availableSchemes[idx - 1];
-          c.updateScheme();
-        }
-      },
-    },
-    {
-      key: "ArrowRight",
-      element: ctrl.schemeBar,
-      handler: () => {
-        const c = ctrl as any;
-        const idx = c.availableSchemes.indexOf(c.scheme);
-        if (idx < c.availableSchemes.length - 1) {
-          c.scheme = c.availableSchemes[idx + 1];
-          c.updateScheme();
-        }
-      },
-    },
-  ]);
-  ensureInteraction(map).register(CONF.name, [
-    {
-      key: "Enter",
-      element: ctrl.schemeBar,
-      handler: () => {
-        toggleSchemeDropdown(ctrl);
-      },
-    },
-    {
-      key: " ",
-      element: ctrl.schemeBar,
-      handler: () => {
-        toggleSchemeDropdown(ctrl);
-      },
-    },
-    {
-      key: "ArrowUp",
-      element: ctrl.schemeBar,
-      handler: () => {
-        toggleSchemeDropdown(ctrl);
-      },
-    },
-    {
-      key: "ArrowDown",
-      element: ctrl.schemeBar,
-      handler: () => {
-        toggleSchemeDropdown(ctrl);
-      },
-    },
-  ]);
+  ctrl.schemeBarCleanup = registerSchemeBarEvents(map, ctrl);
+  ctrl.toggleDropdown = () => toggleSchemeDropdown(ctrl);
 
   ctrl.schemeSelectHidden.onchange = () => {
     ctrl.m.currentScheme = ctrl.schemeSelectHidden.value;
@@ -467,35 +414,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     else items[0].focus();
   }
 
-  ensureInteraction(map).register(CONF.name, [
-    {
-      key: "ArrowDown",
-      element: ctrl.schemeDropdown,
-      handler: () => {
-        const activeIdx = Array.from(items).indexOf(
-          document.activeElement as HTMLElement,
-        );
-        items[(activeIdx + 1) % items.length].focus();
-      },
-    },
-    {
-      key: "ArrowUp",
-      element: ctrl.schemeDropdown,
-      handler: () => {
-        const activeIdx = Array.from(items).indexOf(
-          document.activeElement as HTMLElement,
-        );
-        items[(activeIdx - 1 + items.length) % items.length].focus();
-      },
-    },
-    {
-      key: "Enter",
-      element: ctrl.schemeDropdown,
-      handler: () => {
-        const active = document.activeElement;
-        if (active?.classList.contains(CONST.CLASSES.SCHEME_DROPDOWN_ITEM)) {
-          const idx = Array.from(items).indexOf(active as HTMLElement);
-          selectScheme(ctrl, (CONF.schemes ?? [])[idx]);
+  ctrl.dropdownCleanup = registerDropdownEvents(map, ctrl, items);
         }
       },
     },
