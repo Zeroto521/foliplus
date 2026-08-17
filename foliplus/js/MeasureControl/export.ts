@@ -131,20 +131,29 @@ function getLng(data: MeasureData): number | null {
   return null;
 }
 
-function getCoordinatesForType(data: MeasureData): string[] {
+function toWKT(data: MeasureData): string {
   if (data.type === CONST.MODE.MARKER && data.lat != null && data.lng != null) {
-    return [`[${data.lng},${data.lat}]`];
+    return `POINT(${data.lng} ${data.lat})`;
   }
-  if (
-    (data.type === CONST.MODE.DISTANCE || data.type === CONST.MODE.POLYGON) &&
-    data.points
-  ) {
-    return data.points.map(p => `[${p.lng},${p.lat}]`);
+  if (data.type === CONST.MODE.DISTANCE && data.points) {
+    const pts = data.points.map(p => `${p.lng} ${p.lat}`).join(", ");
+    return `LINESTRING(${pts})`;
   }
-  if (data.type === CONST.MODE.CIRCLE && data.center) {
-    return [`[${data.center.lng},${data.center.lat}]`];
+  if (data.type === CONST.MODE.POLYGON && data.points && data.points.length > 2) {
+    const ring = [...data.points, data.points[0]];
+    const pts = ring.map(p => `${p.lng} ${p.lat}`).join(", ");
+    return `POLYGON((${pts}))`;
   }
-  return [];
+  if (data.type === CONST.MODE.CIRCLE && data.center && data.radius && data.radius > 0) {
+    const r = data.radius / 1000;
+    const circle = turf.circle([data.center.lng, data.center.lat], r, {
+      steps: 64,
+      units: "kilometers",
+    });
+    const ring = (circle.geometry.coordinates[0] as [number, number][]).join(", ");
+    return `POLYGON((${ring}))`;
+  }
+  return "";
 }
 
 /**

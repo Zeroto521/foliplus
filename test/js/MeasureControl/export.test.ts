@@ -186,7 +186,7 @@ describe("Export.toCSV", () => {
     expect(header).toContain("area");
     expect(header).toContain("radius");
     expect(header).toContain("address");
-    expect(header).toContain("coordinates");
+    expect(header).toContain("wkt");
   });
 
   it("marker row includes address", () => {
@@ -219,15 +219,32 @@ describe("Export.toCSV", () => {
     expect(circleRow).toContain("5000");
   });
 
-  it("coordinates column contains semicolon-separated point lists", () => {
+  it("wkt column contains WKT geometry", () => {
     const csv = Export.toCSV([distanceData]);
     const lines = csv.split("\n");
     const distRow = lines[1];
-    // coordinates column is last
+    // wkt column is last
     const cols = distRow.split(",");
-    const coords = cols[cols.length - 1];
-    expect(coords).toContain(";");
-    expect(coords).toContain("119.30,26.08");
+    const wkt = cols[cols.length - 1];
+    expect(wkt).toContain("LINESTRING(119.30 26.08");
+  });
+
+  it("wkt polygon is a closed ring", () => {
+    const csv = Export.toCSV([polygonData]);
+    const lines = csv.split("\n");
+    const polyRow = lines[1];
+    const cols = polyRow.split(",");
+    const wkt = cols[cols.length - 1];
+    expect(wkt).toContain("POLYGON((");
+  });
+
+  it("wkt marker is a POINT", () => {
+    const csv = Export.toCSV([markerData]);
+    const lines = csv.split("\n");
+    const markerRow = lines[1];
+    const cols = markerRow.split(",");
+    const wkt = cols[cols.length - 1];
+    expect(wkt).toContain("POINT(119.30 26.08)");
   });
 });
 
