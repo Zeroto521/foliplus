@@ -52,7 +52,11 @@ interface CsvRow {
  */
 function csvEscape(value: string | number): string {
   const s = String(value ?? "");
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+  if (
+    s.includes(",") ||
+    s.includes('"') ||
+    s.includes("\n")
+  ) {
     return '"' + s.replace(/"/g, '""') + '"';
   }
   return s;
@@ -104,42 +108,82 @@ export function toCSV(measurements: MeasureData[]): string {
 }
 
 function getNameForType(data: MeasureData): string {
-  if (data.type === CONST.MODE.MARKER) return data.address || "Location Marker";
-  if (data.type === CONST.MODE.DISTANCE) return "Distance Measurement";
-  if (data.type === CONST.MODE.POLYGON) return "Area Measurement";
-  if (data.type === CONST.MODE.CIRCLE) return "Circle";
+  if (data.type === CONST.MODE.MARKER) {
+    return data.address || "Location Marker";
+  }
+  if (data.type === CONST.MODE.DISTANCE) {
+    return "Distance Measurement";
+  }
+  if (data.type === CONST.MODE.POLYGON) {
+    return "Area Measurement";
+  }
+  if (data.type === CONST.MODE.CIRCLE) {
+    return "Circle";
+  }
   return data.type;
 }
 
 function getLat(data: MeasureData): number | null {
-  if (data.type === CONST.MODE.MARKER) return data.lat ?? null;
-  if (data.type === CONST.MODE.DISTANCE && data.points && data.points.length > 0)
+  if (data.type === CONST.MODE.MARKER) {
+    return data.lat ?? null;
+  }
+  if (
+    data.type === CONST.MODE.DISTANCE &&
+    data.points &&
+    data.points.length > 0
+  ) {
     return data.points[0].lat;
-  if (data.type === CONST.MODE.POLYGON && data.points && data.points.length > 0)
+  }
+  if (
+    data.type === CONST.MODE.POLYGON &&
+    data.points &&
+    data.points.length > 0
+  ) {
     return data.points[0].lat;
-  if (data.type === CONST.MODE.CIRCLE) return data.center?.lat ?? null;
+  }
+  if (data.type === CONST.MODE.CIRCLE) {
+    return data.center?.lat ?? null;
+  }
   return null;
 }
 
 function getLng(data: MeasureData): number | null {
-  if (data.type === CONST.MODE.MARKER) return data.lng ?? null;
-  if (data.type === CONST.MODE.DISTANCE && data.points && data.points.length > 0)
+  if (data.type === CONST.MODE.MARKER) {
+    return data.lng ?? null;
+  }
+  if (
+    data.type === CONST.MODE.DISTANCE &&
+    data.points &&
+    data.points.length > 0
+  ) {
     return data.points[0].lng;
-  if (data.type === CONST.MODE.POLYGON && data.points && data.points.length > 0)
+  }
+  if (
+    data.type === CONST.MODE.POLYGON &&
+    data.points &&
+    data.points.length > 0
+  ) {
     return data.points[0].lng;
-  if (data.type === CONST.MODE.CIRCLE) return data.center?.lng ?? null;
+  }
+  if (data.type === CONST.MODE.CIRCLE) {
+    return data.center?.lng ?? null;
+  }
   return null;
 }
 
 function toWKT(data: MeasureData): string {
   const Feature = MODE_MAP[data.type as keyof typeof MODE_MAP];
-  if (!Feature) return "";
+  if (!Feature) {
+    return "";
+  }
   return featureToWKT(Feature.toGeoFeature(data));
 }
 
 /** Convert a GeoJSON Feature to a WKT string. */
 function featureToWKT(feature: GeoJSON.Feature): string {
-  if (!feature.geometry) return "";
+  if (!feature.geometry) {
+    return "";
+  }
 
   if (feature.geometry.type === "Point") {
     const [lng, lat] = feature.geometry.coordinates;
@@ -164,6 +208,23 @@ function featureToWKT(feature: GeoJSON.Feature): string {
  */
 function kmlCoord(pt: { lng: number; lat: number }): string {
   return `${pt.lng} ${pt.lat}`;
+}
+
+/** Build a KML LineString element. */
+function kmlLine(coords: string): string {
+  return (
+    `<LineString><tessellate>1</tessellate>` +
+    `<coordinates>${coords}</coordinates></LineString>`
+  );
+}
+
+/** Build a KML Polygon element with a single outer ring. */
+function kmlPolygon(coords: string): string {
+  return (
+    `<Polygon><tessellate>1</tessellate><outerBoundaryIs>` +
+    `<LinearRing><coordinates>${coords}</coordinates></LinearRing>` +
+    `</outerBoundaryIs></Polygon>`
+  );
 }
 
 /**
@@ -209,7 +270,7 @@ export function toKML(measurements: MeasureData[]): string {
       case CONST.MODE.DISTANCE:
         if (data.points && data.points.length > 0) {
           const coords = data.points.map(p => kmlCoord(p)).join(" ");
-          geometry = `<LineString><tessellate>1</tessellate><coordinates>${coords}</coordinates></LineString>`;
+          geometry = kmlLine(coords);
         }
         break;
 
@@ -217,26 +278,39 @@ export function toKML(measurements: MeasureData[]): string {
         if (data.points && data.points.length > 2) {
           const pts = [...data.points, data.points[0]];
           const coords = pts.map(p => kmlCoord(p)).join(" ");
-          geometry = `<Polygon><tessellate>1</tessellate><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon>`;
+          geometry = kmlPolygon(coords);
         }
         break;
       }
 
       case CONST.MODE.CIRCLE: {
-        if (data.center && data.target && data.radius && data.radius > 0) {
+        if (
+          data.center &&
+          data.target &&
+          data.radius &&
+          data.radius > 0
+        ) {
           const pts = circlePoints(data.center.lng, data.center.lat, data.radius, 64);
           const coords = pts.map(p => kmlCoord(p)).join(" ");
-          geometry = `<Polygon><tessellate>1</tessellate><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon>`;
+          geometry = kmlPolygon(coords);
         }
         break;
       }
     }
 
     const description: string[] = [];
-    if (data.totalDistance) description.push(`Total distance: ${data.totalDistance} m`);
-    if (data.area) description.push(`Area: ${data.area} m²`);
-    if (data.radius) description.push(`Radius: ${data.radius} m`);
-    if (data.address) description.push(`Address: ${data.address}`);
+    if (data.totalDistance) {
+      description.push(`Total distance: ${data.totalDistance} m`);
+    }
+    if (data.area) {
+      description.push(`Area: ${data.area} m²`);
+    }
+    if (data.radius) {
+      description.push(`Radius: ${data.radius} m`);
+    }
+    if (data.address) {
+      description.push(`Address: ${data.address}`);
+    }
     const descText = description.join("\n");
 
     placemarks.push(`    <Placemark>
@@ -298,10 +372,6 @@ function formatToMimeType(format: ExportFormat): string {
   }
 }
 
-/**
- * Generate the CSV header line as the first row.
- */
-const CSV_HEADERS: string[] = [];
 
 /**
  * Convert and download measurements.
