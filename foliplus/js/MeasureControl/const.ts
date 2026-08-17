@@ -90,7 +90,7 @@ export const EXPORT_FORMAT = {
   KML: "kml",
 } as const;
 
-export type ExportFormat = typeof EXPORT_FORMAT[keyof typeof EXPORT_FORMAT];
+export type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
 
 /** Mode names. */
 export const MODE = {
