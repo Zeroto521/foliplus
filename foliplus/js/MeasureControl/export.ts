@@ -52,11 +52,7 @@ interface CsvRow {
  */
 function csvEscape(value: string | number): string {
   const s = String(value ?? "");
-  if (
-    s.includes(",") ||
-    s.includes('"') ||
-    s.includes("\n")
-  ) {
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
     return '"' + s.replace(/"/g, '""') + '"';
   }
   return s;
@@ -127,18 +123,10 @@ function getLat(data: MeasureData): number | null {
   if (data.type === CONST.MODE.MARKER) {
     return data.lat ?? null;
   }
-  if (
-    data.type === CONST.MODE.DISTANCE &&
-    data.points &&
-    data.points.length > 0
-  ) {
+  if (data.type === CONST.MODE.DISTANCE && data.points && data.points.length > 0) {
     return data.points[0].lat;
   }
-  if (
-    data.type === CONST.MODE.POLYGON &&
-    data.points &&
-    data.points.length > 0
-  ) {
+  if (data.type === CONST.MODE.POLYGON && data.points && data.points.length > 0) {
     return data.points[0].lat;
   }
   if (data.type === CONST.MODE.CIRCLE) {
@@ -151,18 +139,10 @@ function getLng(data: MeasureData): number | null {
   if (data.type === CONST.MODE.MARKER) {
     return data.lng ?? null;
   }
-  if (
-    data.type === CONST.MODE.DISTANCE &&
-    data.points &&
-    data.points.length > 0
-  ) {
+  if (data.type === CONST.MODE.DISTANCE && data.points && data.points.length > 0) {
     return data.points[0].lng;
   }
-  if (
-    data.type === CONST.MODE.POLYGON &&
-    data.points &&
-    data.points.length > 0
-  ) {
+  if (data.type === CONST.MODE.POLYGON && data.points && data.points.length > 0) {
     return data.points[0].lng;
   }
   if (data.type === CONST.MODE.CIRCLE) {
@@ -284,12 +264,7 @@ export function toKML(measurements: MeasureData[]): string {
       }
 
       case CONST.MODE.CIRCLE: {
-        if (
-          data.center &&
-          data.target &&
-          data.radius &&
-          data.radius > 0
-        ) {
+        if (data.center && data.target && data.radius && data.radius > 0) {
           const pts = circlePoints(data.center.lng, data.center.lat, data.radius, 64);
           const coords = pts.map(p => kmlCoord(p)).join(" ");
           geometry = kmlPolygon(coords);
@@ -371,7 +346,6 @@ function formatToMimeType(format: ExportFormat): string {
       return "application/geo+json";
   }
 }
-
 
 /**
  * Convert and download measurements.
