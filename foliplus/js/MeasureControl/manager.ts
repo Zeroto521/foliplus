@@ -16,7 +16,7 @@ import {
   MarkerMode,
   MeasureMode,
   PolygonMode,
-} from "./mode.js";
+} from "./mode/index.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;

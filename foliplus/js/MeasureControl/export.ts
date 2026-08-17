@@ -2,6 +2,7 @@
 import type { MeasureData } from "#type/global.js";
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
+import { MODE_MAP } from "./mode/index.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 declare const CONF: { name: string; export_format: ExportFormat };
@@ -16,144 +17,8 @@ interface MeasureProperties {
 /**
  * Convert a single measurement to a GeoJSON feature.
  */
-function toGeoFeature(data: MeasureData): GeoJSON.Feature {
-  const base: MeasureProperties = {
-    type: data.type,
-    id: data.id,
-  };
-
-  switch (data.type) {
-    case CONST.MODE.MARKER:
-      base.name = data.address || "Location Marker";
-      return {
-        type: "Feature",
-        properties: base,
-        geometry: {
-          type: "Point",
-          coordinates: [data.lng || 0, data.lat || 0],
-        },
-      };
-
-    case CONST.MODE.DISTANCE: {
-      base.name = "Distance Measurement";
-      const coords = (data.points || []).map(p => [p.lng, p.lat]);
-      return {
-        type: "Feature",
-        properties: {
-          ...base,
-          totalDistance: data.totalDistance || 0,
-          segments: (data.segments || []).map(s => ({
-            start: [s.lng, s.lat],
-            distance: s.distance,
-          })),
-        },
-        geometry: {
-          type: "LineString",
-          coordinates: coords,
-        },
-      };
-    }
-
-    case CONST.MODE.POLYGON: {
-      base.name = "Area Measurement";
-      const coords = (data.points || []).map(p => [p.lng, p.lat]);
-      // GeoJSON requires closed rings (first === last)
-      if (coords.length > 1) coords.push(coords[0]);
-      return {
-        type: "Feature",
-        properties: {
-          ...base,
-          area: data.area || 0,
-          segments: (data.segments || []).map(s => ({
-            start: [s.lng, s.lat],
-            distance: s.distance,
-          })),
-        },
-        geometry: {
-          type: "Polygon",
-          coordinates: [coords],
-        },
-      };
-    }
-
-    case CONST.MODE.CIRCLE: {
-      base.name = "Circle";
-      // Approximate circle as a polygon with 64 vertices
-      const center = data.center;
-      const target = data.target;
-      const r = data.radius || 0;
-      if (center && target && r > 0) {
-        const points = circlePoints(center.lng, center.lat, r, 64);
-        const coords = points.map(p => [p.lng, p.lat]);
-        coords.push(coords[0]); // close
-        return {
-          type: "Feature",
-          properties: {
-            ...base,
-            radius: r,
-          },
-          geometry: {
-            type: "Polygon",
-            coordinates: [coords],
-          },
-        };
-      }
-      // Fallback to center point
-      return {
-        type: "Feature",
-        properties: {
-          ...base,
-          radius: r,
-        },
-        geometry: {
-          type: "Point",
-          coordinates: [center?.lng || 0, center?.lat || 0],
-        },
-      };
-    }
-
-    default:
-      return {
-        type: "Feature",
-        properties: base,
-        geometry: {
-          type: "Point",
-          coordinates: [data.lng || 0, data.lat || 0],
-        },
-      };
-  }
-}
-
-/**
- * Approximate a circle on a sphere as N polygon points.
- * Uses simple equirectangular approximation; sufficient for small circles.
- * For large accuracy needs, turf.js circle would be better.
- */
-function circlePoints(
-  lon: number,
-  lat: number,
-  radiusMeters: number,
-  n: number,
-): Array<{ lng: number; lat: number }> {
-  const R = 6371000; // Earth radius in meters
-  const dlat = radiusMeters / R;
-  const dlng = radiusMeters / (R * Math.cos((lat * Math.PI) / 180));
-  const points: Array<{ lng: number; lat: number }> = [];
-  for (let i = 0; i < n; i++) {
-    const theta = (2 * Math.PI * i) / n;
-    points.push({
-      lng: lon + dlng * Math.cos(theta),
-      lat: lat + dlat * Math.sin(theta),
-    });
-  }
-  return points;
-}
-
-/**
- * Convert measurements array to a complete GeoJSON FeatureCollection.
- */
 export function toGeoJSON(measurements: MeasureData[]): string {
-  const features = measurements.filter(m => m.type).map(m => toGeoFeature(m));
+  const features = measurements.filter(m => m.type).map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]!.toGeoFeature(m));
 
   return JSON.stringify(
     {
