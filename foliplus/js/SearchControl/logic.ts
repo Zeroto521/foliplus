@@ -146,27 +146,30 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
     HINT_DURATION.PERSIST,
   );
 
-  window.foliplus.geocode(map, query, CONF.locale_code).then(result => {
-    map.foliplus!.hideHint(CONF.name);
-    if (!result) {
+  window.foliplus
+    .geocode(map, query, CONF.locale_code)
+    .then(result => {
+      map.foliplus!.hideHint(CONF.name);
+      if (!result) {
+        map.foliplus!.showHint(
+          CONF.name,
+          _(`${CONF.name}.addr_not_found`),
+          HINT_DURATION.LONG,
+        );
+        ctrl.inp.value = "";
+        return;
+      }
+      // result is already in map CRS — skip fromWgs84 in renderAddressResult.
+      renderAddressResult(ctrl, result, true);
+    })
+    .catch(() => {
+      map.foliplus!.hideHint(CONF.name);
       map.foliplus!.showHint(
         CONF.name,
-        _(`${CONF.name}.addr_not_found`),
+        _(`${CONF.name}.addr_error`),
         HINT_DURATION.LONG,
       );
-      ctrl.inp.value = "";
-      return;
-    }
-    // result is already in map CRS — skip fromWgs84 in renderAddressResult.
-    renderAddressResult(ctrl, result, true);
-  }).catch(() => {
-    map.foliplus!.hideHint(CONF.name);
-    map.foliplus!.showHint(
-      CONF.name,
-      _(`${CONF.name}.addr_error`),
-      HINT_DURATION.LONG,
-    );
-  });
+    });
 };
 
 const renderAddressResult = (
@@ -177,9 +180,11 @@ const renderAddressResult = (
   const displayName =
     "display_name" in result
       ? result.display_name
-      : (result as AddressResult).displayName ?? "";
-  let lng = "lng" in result ? result.lng : parseFloat((result as AddressResult).item.lon);
-  let lat = "lat" in result ? result.lat : parseFloat((result as AddressResult).item.lat);
+      : ((result as AddressResult).displayName ?? "");
+  let lng =
+    "lng" in result ? result.lng : parseFloat((result as AddressResult).item.lon);
+  let lat =
+    "lat" in result ? result.lat : parseFloat((result as AddressResult).item.lat);
 
   if (!alreadyConverted) {
     const item = (result as AddressResult).item;

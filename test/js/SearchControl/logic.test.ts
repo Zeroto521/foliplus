@@ -305,7 +305,10 @@ describe("fetchSuggestions", () => {
 
   it("fetches and renders results", async () => {
     globalThis.fetch = vi.fn(() =>
-      Promise.resolve({ json: () => Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "A, Place" }]) }),
+      Promise.resolve({
+        json: () =>
+          Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "A, Place" }]),
+      }),
     ) as unknown as typeof fetch;
     const ctrl: any = {
       mode: "addr",
