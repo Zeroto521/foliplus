@@ -238,3 +238,5 @@ export function getDefaultFormat(): ExportFormat {
   }
   return CONST.EXPORT_FORMAT.GEOJSON;
 }
+
+export { getBasePoint };
