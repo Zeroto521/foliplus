@@ -46,8 +46,11 @@ def _js(path: str) -> str:
 # `Page.goto` timeouts.  We intercept those requests and serve them from a
 # local cache (downloaded once to /tmp) so tests are network-independent.
 _CDN_CACHE_DIR = Path("/tmp/foliplus-cdn-cache")
+# Fast single-attempt prefetch during session setup — the per-request
+# handler below retains the full retry budget for flaky CI networks.
+_CDN_PREFETCH_TIMEOUT = 10  # seconds
 _CDN_DOWNLOAD_TIMEOUT = 30  # seconds
-_CDN_DOWNLOAD_RETRIES = 3  # retry attempts for flaky CI networks
+_CDN_DOWNLOAD_RETRIES = 3  # retry attempts
 
 # CDN URL fragment -> (cache filename, mime type)
 _CDN_CACHE: dict[str, tuple[str, str]] = {
@@ -78,13 +81,16 @@ _CDN_CACHE: dict[str, tuple[str, str]] = {
 }
 
 
-def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
+def _cdn_cached(
+    url: str, retries: int | None = None, timeout: float | None = None
+) -> tuple[bytes | None, str | None]:
     """Return (bytes, mime) served from a local cache for a CDN url.
 
     Downloads once into ``_CDN_CACHE_DIR`` on first use, with a bounded
     timeout, retry attempts for flaky CI networks, and atomic write.
-    Returns ``(None, None)`` for URLs outside the cache map so the
-    request can be forwarded to the network as-is.
+    ``retries``/``timeout`` override the defaults (used by prefetch for a
+    single fast attempt).  Returns ``(None, None)`` for URLs outside the
+    cache map so the request can be forwarded to the network as-is.
     """
     for fragment, (fname, mime) in _CDN_CACHE.items():
         if fragment not in url:
@@ -101,11 +107,13 @@ def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
         # Atomic download with retries for flaky CI networks.
         # Write to a temp file, then rename. Guards against concurrent
         # xdist workers reading a half-written file.
-        for attempt in range(1, _CDN_DOWNLOAD_RETRIES + 1):
+        attempt_count = retries if retries is not None else _CDN_DOWNLOAD_RETRIES
+        per_attempt_timeout = timeout if timeout is not None else _CDN_DOWNLOAD_TIMEOUT
+        for attempt in range(1, attempt_count + 1):
             fd, tmp_path = tempfile.mkstemp(dir=_CDN_CACHE_DIR, suffix=".part")
             try:
                 with (
-                    urllib.request.urlopen(url, timeout=_CDN_DOWNLOAD_TIMEOUT) as resp,
+                    urllib.request.urlopen(url, timeout=per_attempt_timeout) as resp,
                     os.fdopen(fd, "wb") as out,
                 ):
                     out.write(resp.read())
@@ -116,7 +124,7 @@ def _cdn_cached(url: str) -> tuple[bytes | None, str | None]:
                     os.unlink(tmp_path)
                 except OSError:
                     pass
-                if attempt == _CDN_DOWNLOAD_RETRIES:
+                if attempt == attempt_count:
                     return None, None
         try:
             return cache_path.read_bytes(), mime
@@ -134,9 +142,10 @@ def _prefetch_cdn_cache() -> None:
     """Pre-download every CDN asset into the local cache.
 
     Called once at browser-session setup so that the first test does not
-    pay the download cost inside a ``page.goto``.  Failures are ignored
-    (the per-request handler falls back to a 404 for uncached assets),
-    which keeps the browser session usable even without network access.
+    pay the download cost inside a ``page.goto``.  Uses a single fast
+    attempt (``_CDN_PREFETCH_TIMEOUT``); failures are ignored — the
+    per-request handler retries with the full retry budget, so this only
+    warms the cache for healthy networks instead of stalling setup.
     """
     _CDN_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     for fragment, (fname, _mime) in _CDN_CACHE.items():
@@ -144,7 +153,10 @@ def _prefetch_cdn_cache() -> None:
         if cache_path.exists():
             continue
         try:
-            _cdn_cached("https://" + fragment)
+            # Single fast attempt; the per-request handler retries if needed.
+            _cdn_cached(
+                "https://" + fragment, retries=1, timeout=_CDN_PREFETCH_TIMEOUT
+            )
         except Exception:
             continue
 

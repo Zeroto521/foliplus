@@ -167,7 +167,10 @@ function generateRegistry() {
     lines.push('window.foliplus.core["' + sub + '"] = ' + alias + ";");
   }
 
+  // Skip core/{component,hint,mode} — registered in runtime/index.ts.
+  const SKIPPED_CORE_FILES = new Set(["component", "hint", "mode"]);
   for (const name of coreSingleFiles) {
+    if (SKIPPED_CORE_FILES.has(name)) continue;
     const names = usedExports["core/" + name] || [];
     if (names.length === 0) continue;
     const alias = "core" + name;

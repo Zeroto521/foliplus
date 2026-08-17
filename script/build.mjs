@@ -250,8 +250,6 @@ const generateSharedRegistry = () => {
 };
 async function main() {
   console.time("build");
-  // ── Step 1: Mirror source to .build/ ──────────────────────────
-  // Process in a temp directory so the original source is untouched.
   // ── Step 1: Create output dirs (no source mirror needed)
   // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
   mkdirSync(buildJs, { recursive: true });
