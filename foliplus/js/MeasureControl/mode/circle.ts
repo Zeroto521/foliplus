@@ -1,7 +1,7 @@
 import { HINT_DURATION } from "#core/hint.js";
-import { createTranslator } from "#common/locale.js";
 import { makeDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
+import { createTranslator } from "#common/locale.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
