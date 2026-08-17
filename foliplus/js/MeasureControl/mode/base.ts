@@ -63,7 +63,10 @@ class MeasureMode {
 }
 
 // ==================== Preview Mode Base Class ====================
-/** Base class for modes with preview layers (distance, polygon, circle). Tracks and cleans up preview artifacts. */
+/**
+ * Base class for modes with preview layers (distance, polygon, circle).
+ * Tracks and cleans up preview artifacts.
+ */
 class PreviewMode extends MeasureMode {
   previewLayers: L.Layer[];
   isFinished: boolean;
