@@ -161,10 +161,34 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     },
   ]);
   ensureKeyboard(map).register(CONF.name, [
-    { key: "Enter", element: ctrl.schemeBar, handler: () => { toggleSchemeDropdown(ctrl); } },
-    { key: " ", element: ctrl.schemeBar, handler: () => { toggleSchemeDropdown(ctrl); } },
-    { key: "ArrowUp", element: ctrl.schemeBar, handler: () => { toggleSchemeDropdown(ctrl); } },
-    { key: "ArrowDown", element: ctrl.schemeBar, handler: () => { toggleSchemeDropdown(ctrl); } },
+    {
+      key: "Enter",
+      element: ctrl.schemeBar,
+      handler: () => {
+        toggleSchemeDropdown(ctrl);
+      },
+    },
+    {
+      key: " ",
+      element: ctrl.schemeBar,
+      handler: () => {
+        toggleSchemeDropdown(ctrl);
+      },
+    },
+    {
+      key: "ArrowUp",
+      element: ctrl.schemeBar,
+      handler: () => {
+        toggleSchemeDropdown(ctrl);
+      },
+    },
+    {
+      key: "ArrowDown",
+      element: ctrl.schemeBar,
+      handler: () => {
+        toggleSchemeDropdown(ctrl);
+      },
+    },
   ]);
 
   ctrl.schemeSelectHidden.onchange = () => {
@@ -443,27 +467,47 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
   }
 
   ensureKeyboard(map).register(CONF.name, [
-    { key: "ArrowDown", element: ctrl.schemeDropdown, handler: () => {
-      const activeIdx = Array.from(items).indexOf(document.activeElement as HTMLElement);
-      items[(activeIdx + 1) % items.length].focus();
-    }},
-    { key: "ArrowUp", element: ctrl.schemeDropdown, handler: () => {
-      const activeIdx = Array.from(items).indexOf(document.activeElement as HTMLElement);
-      items[(activeIdx - 1 + items.length) % items.length].focus();
-    }},
-    { key: "Enter", element: ctrl.schemeDropdown, handler: () => {
-      const active = document.activeElement;
-      if (active?.classList.contains(CONST.CLASSES.SCHEME_DROPDOWN_ITEM)) {
-        const idx = Array.from(items).indexOf(active as HTMLElement);
-        selectScheme(ctrl, (CONF.schemes ?? [])[idx]);
-      }
-    }},
-    { key: "Escape", element: ctrl.schemeDropdown, handler: () => {
-      ctrl.schemeDropdown?.remove();
-      ctrl.schemeDropdown = null;
-      ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
-      ctrl.schemeBar.focus();
-    }},
+    {
+      key: "ArrowDown",
+      element: ctrl.schemeDropdown,
+      handler: () => {
+        const activeIdx = Array.from(items).indexOf(
+          document.activeElement as HTMLElement,
+        );
+        items[(activeIdx + 1) % items.length].focus();
+      },
+    },
+    {
+      key: "ArrowUp",
+      element: ctrl.schemeDropdown,
+      handler: () => {
+        const activeIdx = Array.from(items).indexOf(
+          document.activeElement as HTMLElement,
+        );
+        items[(activeIdx - 1 + items.length) % items.length].focus();
+      },
+    },
+    {
+      key: "Enter",
+      element: ctrl.schemeDropdown,
+      handler: () => {
+        const active = document.activeElement;
+        if (active?.classList.contains(CONST.CLASSES.SCHEME_DROPDOWN_ITEM)) {
+          const idx = Array.from(items).indexOf(active as HTMLElement);
+          selectScheme(ctrl, (CONF.schemes ?? [])[idx]);
+        }
+      },
+    },
+    {
+      key: "Escape",
+      element: ctrl.schemeDropdown,
+      handler: () => {
+        ctrl.schemeDropdown?.remove();
+        ctrl.schemeDropdown = null;
+        ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
+        ctrl.schemeBar.focus();
+      },
+    },
   ]);
 };
 

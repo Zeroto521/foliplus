@@ -54,49 +54,67 @@ const bindEvents = (ctrl: SearchControl) => {
   });
 
   ensureKeyboard(map).register(CONF.name, [
-    { key: "Escape", element: ctrl.inp, handler: () => {
-      if (ctrl.suggestionsWrap) {
+    {
+      key: "Escape",
+      element: ctrl.inp,
+      handler: () => {
+        if (ctrl.suggestionsWrap) {
+          removeSuggestions(ctrl);
+          return;
+        }
+        ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
+        ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
+        adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+        map.foliplus!.hideHint(CONF.name);
+      },
+    },
+    {
+      key: "ArrowDown",
+      element: ctrl.inp,
+      handler: () => {
+        if (!ctrl.suggestionsWrap) return;
+        const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
+        ctrl.selectedSuggestionIdx = Math.min(
+          ctrl.selectedSuggestionIdx + 1,
+          items.length - 1,
+        );
+        items.forEach((el: Element, i: number) =>
+          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
+        );
+        if (items[ctrl.selectedSuggestionIdx])
+          ctrl.inp.value =
+            items[ctrl.selectedSuggestionIdx].querySelector(
+              `.${CLASSES.SUGGESTION_TEXT}`,
+            )?.textContent ?? "";
+      },
+    },
+    {
+      key: "ArrowUp",
+      element: ctrl.inp,
+      handler: () => {
+        if (!ctrl.suggestionsWrap) return;
+        const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
+        ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
+        items.forEach((el: Element, i: number) =>
+          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
+        );
+        if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
+          ctrl.inp.value =
+            items[ctrl.selectedSuggestionIdx].querySelector(
+              `.${CLASSES.SUGGESTION_TEXT}`,
+            )?.textContent ?? "";
+      },
+    },
+    {
+      key: "Enter",
+      element: ctrl.inp,
+      handler: () => {
+        const raw = ctrl.inp.value.trim();
         removeSuggestions(ctrl);
-        return;
-      }
-      ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
-      ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-      map.foliplus!.hideHint(CONF.name);
-    }},
-    { key: "ArrowDown", element: ctrl.inp, handler: () => {
-      if (!ctrl.suggestionsWrap) return;
-      const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
-      ctrl.selectedSuggestionIdx = Math.min(
-        ctrl.selectedSuggestionIdx + 1,
-        items.length - 1,
-      );
-      items.forEach((el: Element, i: number) =>
-        el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
-      );
-      if (items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
-            ?.textContent ?? "";
-    }},
-    { key: "ArrowUp", element: ctrl.inp, handler: () => {
-      if (!ctrl.suggestionsWrap) return;
-      const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
-      ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
-      items.forEach((el: Element, i: number) =>
-        el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
-      );
-      if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
-            ?.textContent ?? "";
-    }},
-    { key: "Enter", element: ctrl.inp, handler: () => {
-      const raw = ctrl.inp.value.trim();
-      removeSuggestions(ctrl);
-      if (!raw) return;
-      ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
-    }},
+        if (!raw) return;
+        ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
+      },
+    },
   ]);
 
   ctrl.inp.addEventListener("blur", () => setTimeout(() => removeSuggestions(ctrl), 0));
