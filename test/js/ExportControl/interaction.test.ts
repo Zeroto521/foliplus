@@ -46,9 +46,10 @@ describe("ExportControl interaction", () => {
     const mgr = makeMgr();
     const cleanup = registerInteractions(mgr);
     const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
     document.body.appendChild(container);
     container.focus();
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }));
+    container.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }));
     expect(mgr.onKeyDown).toHaveBeenCalled();
     cleanup();
   });
