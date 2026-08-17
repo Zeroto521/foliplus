@@ -194,6 +194,77 @@ class MeasureManager {
     this.modeInstance?.start();
     this.map.foliplus!.hideHint(CONF.name);
   }
+
+  /** Deactivate current mode, clean up events, and hide hints. */
+  clearActiveMode() {
+    this.currentMode = null;
+    ensureModes(this.map).setMode(CONF.name, null);
+    this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
+    this.map.foliplus!.hideHint(CONF.name);
+    this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
+    this.cleanMapEvents();
+    // Unregister the measure layer if it has no content left (interrupted
+    // preview with no persisted measurements). Safe: unregister() is a no-op
+    // when there are still completed measurements in the layer.
+    this.layers.unregister();
+  }
+
+  /** Clear all measurements, layers, and persisted data. */
+  clearAll() {
+    this.layers.clearLayers();
+    this.measurements = [];
+    this.saveMeasurements();
+    this.clearActiveMode();
+    // Unbind all finalized-circle map click handlers; clearLayers removed
+    // their targets so they would otherwise dangle until destroy().
+    this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
+    this.finalizedClickHandlers = [];
+    // Collapse the panel after clearing all measurements
+    if (this.ctrl) {
+      this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+      this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+      adjustPanelZIndex({ container: this.ctrl, expanded: false });
+    }
+  }
+
+  /** Full cleanup including global events. Called on control removal. */
+  destroy() {
+    // Unsubscribe from EVENTS.LAYER_REMOVED first to prevent reacting to removals
+    // triggered by our own clearAll() during destroy.
+    if (this.offLayerRemoved) this.offLayerRemoved();
+    // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
+    this.map.off("unload", this.onUnload);
+    this.clearAll();
+    this.map.off("click", this.onMapClick);
+    document.removeEventListener("keydown", this.onKeyDown);
+    this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
+    this.finalizedClickHandlers = [];
+  }
+
+  /**
+   * Subscribe to EVENTS.LAYER_REMOVED so we can detect when the LayerControl panel
+   * (or any external caller) deletes our measure layer. When that happens,
+   * our active mode must be cleared — otherwise currentMode, hint, and the
+   * "measuring" CSS class would remain stuck in an inconsistent state.
+   */
+  bindLayerRemoved() {
+    this.offLayerRemoved = ensureEvents(this.map).on(EVENTS.LAYER_REMOVED, ((payload: {
+      id?: string;
+    }) => {
+      if (payload?.id === this.layerId) {
+        this.clearActiveMode();
+      }
+    }) as EventHandler);
+  }
+
+  /** Clean up current mode instance and hide hints. */
+  cleanMapEvents() {
+    if (this.modeInstance) {
+      this.modeInstance.cleanup();
+      this.modeInstance = null;
+    }
+    this.map.foliplus!.hideHint(CONF.name);
+  }
 }
 
 export { MeasureManager };
