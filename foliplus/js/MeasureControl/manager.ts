@@ -128,6 +128,8 @@ class MeasureManager {
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && this.currentMode) this.clearActiveMode();
     };
+    this.interactionCleanup = registerInteractions(this);
+
     const cleanup =
       // On map unload (page refresh/close), clear transient UI state but KEEP
       // persisted measurements. clearAll() would wipe localStorage, losing all
