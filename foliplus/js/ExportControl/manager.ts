@@ -8,7 +8,6 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { ExportRenderer } from "./renderer.js";
-import { generateWorldFile } from "./util.js";
 import {
   lockCropBox,
   removeCropBox,
@@ -18,6 +17,7 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
+import { generateWorldFile } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
@@ -37,16 +37,7 @@ interface GeoBounds {
 }
 
 /** Handle positions for interactive crop box drag resizing. */
-type DragHandle =
-  | "tl"
-  | "tr"
-  | "bl"
-  | "br"
-  | "t"
-  | "b"
-  | "l"
-  | "r"
-  | "move";
+type DragHandle = "tl" | "tr" | "bl" | "br" | "t" | "b" | "l" | "r" | "move";
 
 /** Drag state for interactive crop box adjustment. */
 interface DragState {
@@ -203,13 +194,19 @@ class ExportManager {
     const target = event.target as HTMLElement;
     if (target.classList.contains(CONST.CLASSES.HANDLE)) {
       const pos = target.dataset.pos;
-      if (pos === "tl" || pos === "tr" || pos === "bl" || pos === "br" ||
-          pos === "t" || pos === "b" || pos === "l" || pos === "r")
+      if (
+        pos === "tl" ||
+        pos === "tr" ||
+        pos === "bl" ||
+        pos === "br" ||
+        pos === "t" ||
+        pos === "b" ||
+        pos === "l" ||
+        pos === "r"
+      )
         this.dragState.dragType = pos;
-      else
-        this.dragState.dragType = null;
-    }
-    else if (
+      else this.dragState.dragType = null;
+    } else if (
       target.classList.contains(CONST.CLASSES.CENTER) ||
       target.classList.contains(CONST.CLASSES.BOX)
     )
