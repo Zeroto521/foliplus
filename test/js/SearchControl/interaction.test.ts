@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bindEvents, initFromUrl } from "#foliplus/SearchControl/event.js";
+import { bindEvents, initFromUrl } from "#foliplus/SearchControl/interaction.js";
 import { Cache } from "#foliplus/common/cache.js";
 
 function makeCtrl(): any {
