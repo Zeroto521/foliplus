@@ -76,4 +76,3 @@ package-lock.json
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
-_shared-registry.js

@@ -36,7 +36,7 @@ import {
 // The file only exists inside .build/ (see generateSharedRegistry) - ts-ignore
 // keeps the source tree clean while esbuild resolves it at build time.
 // @ts-ignore
-import "../_shared-registry.js";
+import "./_shared-registry.js";
 
 // -- Global namespace bootstrap --
 // Ensure the global namespace object exists.
