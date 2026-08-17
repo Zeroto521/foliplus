@@ -99,9 +99,9 @@ def _resolve_source_url(source_path: Path, lineno: int, source_len: int) -> str 
     except ValueError:
         return None
 
-    branch = "main" if _readthedocs_version == "latest" else f"v{version}"
+    ref = _resolve_git_ref(version)
     linespec = f"#L{lineno}-L{lineno + source_len - 1}" if lineno else ""
-    return f"{github_url}/blob/{branch}/{project}/{rel_path}{linespec}"
+    return f"{github_url}/blob/{ref}/{project}/{rel_path}{linespec}"
 
 
 def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
@@ -139,6 +139,24 @@ def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
         return None
 
     return _resolve_source_url(Path(fn), lineno, len(source_lines))
+
+
+# ── Git ref resolver ─────────────────────────────────────────────────
+# ReadTheDocs builds use PEP-440 local versions that embed the current
+# commit SHA:  0.3.2.dev62+gf116f81a8.d20260817
+# The "+g<sha>" part is git-describe output; the actual commit hash is
+# everything after the "g". Use that as the GitHub blob ref instead of
+# the whole version string, which is not a valid git ref.
+def _resolve_git_ref(ver: str) -> str:
+    """Extract the git ref from a PEP-440 version string."""
+    import re
+
+    if _readthedocs_version == "latest":
+        return "main"
+    m = re.search(r"\+g([0-9a-f]+)", ver)
+    if m:
+        return m.group(1)  # commit SHA
+    return f"v{ver}"  # clean tag like 0.3.2
 
 
 # ── Intersphinx ───────────────────────────────────────────────────────
