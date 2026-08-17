@@ -112,36 +112,37 @@ function getNameForType(data: MeasureData): string {
   return data.type;
 }
 
-function getLat(data: MeasureData): number | null {
+/**
+ * Get the first coordinate point from any measurement type.
+ * This avoids repeating the type-switch logic in getLat and getLng.
+ */
+function getBasePoint(
+  data: MeasureData,
+): { lat: number; lng: number } | null {
   if (data.type === CONST.MODE.MARKER) {
-    return data.lat ?? null;
+    return data.lat !== undefined && data.lng !== undefined
+      ? { lat: data.lat, lng: data.lng }
+      : null;
   }
-  if (data.type === CONST.MODE.DISTANCE && data.points && data.points.length > 0) {
-    return data.points[0].lat;
-  }
-  if (data.type === CONST.MODE.POLYGON && data.points && data.points.length > 0) {
-    return data.points[0].lat;
+  if (
+    (data.type === CONST.MODE.DISTANCE || data.type === CONST.MODE.POLYGON) &&
+    data.points &&
+    data.points.length > 0
+  ) {
+    return data.points[0];
   }
   if (data.type === CONST.MODE.CIRCLE) {
-    return data.center?.lat ?? null;
+    return data.center ?? null;
   }
   return null;
 }
 
+function getLat(data: MeasureData): number | null {
+  return getBasePoint(data)?.lat ?? null;
+}
+
 function getLng(data: MeasureData): number | null {
-  if (data.type === CONST.MODE.MARKER) {
-    return data.lng ?? null;
-  }
-  if (data.type === CONST.MODE.DISTANCE && data.points && data.points.length > 0) {
-    return data.points[0].lng;
-  }
-  if (data.type === CONST.MODE.POLYGON && data.points && data.points.length > 0) {
-    return data.points[0].lng;
-  }
-  if (data.type === CONST.MODE.CIRCLE) {
-    return data.center?.lng ?? null;
-  }
-  return null;
+  return getBasePoint(data)?.lng ?? null;
 }
 
 function toWKT(data: MeasureData): string {
