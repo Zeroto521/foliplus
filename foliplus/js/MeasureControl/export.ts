@@ -159,28 +159,12 @@ function toWKT(data: MeasureData): string {
   return featureToWKT(Feature.toGeoFeature(data));
 }
 
-/** Convert a GeoJSON Feature to a WKT string. */
+/** Convert a GeoJSON Feature to a WKT string using turf.wkt. */
 function featureToWKT(feature: GeoJSON.Feature): string {
   if (!feature.geometry) {
     return "";
   }
-
-  if (feature.geometry.type === "Point") {
-    const [lng, lat] = feature.geometry.coordinates;
-    return `POINT(${lng} ${lat})`;
-  }
-
-  if (feature.geometry.type === "LineString") {
-    const pts = (feature.geometry.coordinates as [number, number][]).join(", ");
-    return `LINESTRING(${pts})`;
-  }
-
-  if (feature.geometry.type === "Polygon") {
-    const ring = (feature.geometry.coordinates[0] as [number, number][]).join(", ");
-    return `POLYGON((${ring}))`;
-  }
-
-  return "";
+  return turf.wkt.toWKT(feature).replace("\n", "");
 }
 
 /** Convert a GeoJSON geometry to a KML XML element string. */
@@ -227,40 +211,7 @@ export function toKML(measurements: MeasureData[]): string {
     if (!data.type) continue;
 
     const name = getNameForType(data);
-    let geometry: string = "";
 
-    switch (data.type) {
-      case CONST.MODE.MARKER:
-        if (data.lat != null && data.lng != null) {
-          geometry = `<Point><coordinates>${data.lng},${data.lat}</coordinates></Point>`;
-        }
-        break;
-
-      case CONST.MODE.DISTANCE:
-        if (data.points && data.points.length > 0) {
-          const coords = data.points.map(p => kmlCoord(p)).join(" ");
-          geometry = kmlLine(coords);
-        }
-        break;
-
-      case CONST.MODE.POLYGON: {
-        if (data.points && data.points.length > 2) {
-          const pts = [...data.points, data.points[0]];
-          const coords = pts.map(p => kmlCoord(p)).join(" ");
-          geometry = kmlPolygon(coords);
-        }
-        break;
-      }
-
-      case CONST.MODE.CIRCLE: {
-        if (data.center && data.target && data.radius && data.radius > 0) {
-          const pts = circlePoints(data.center.lng, data.center.lat, data.radius, 64);
-          const coords = pts.map(p => kmlCoord(p)).join(" ");
-          geometry = kmlPolygon(coords);
-        }
-        break;
-      }
-    }
     const Feature = MODE_MAP[data.type as keyof typeof MODE_MAP];
     const feature = Feature?.toGeoFeature(data);
     const geometry = feature ? geometryToKML(feature.geometry) : "";
