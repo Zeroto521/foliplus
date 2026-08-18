@@ -88,8 +88,11 @@ class MeasureControl extends BaseControl {
       const measurements = this.m.measurements;
       if (!measurements || measurements.length === 0) {
         const msg = _(`${CONF.name}.export_no_data`);
-        const shown = map.foliplus?.showHint?.(CONF.name, msg, 4000);
-        if (!shown) alert(msg);
+        try {
+          map.foliplus?.showHint?.(CONF.name, msg, 4000);
+        } catch (err) {
+          alert(msg);
+        }
         return;
       }
       try {
@@ -97,8 +100,7 @@ class MeasureControl extends BaseControl {
         Export.exportMeasurements(measurements, format);
       } catch (err) {
         const msg = (err as Error).message || "导出失败";
-        map.foliplus?.showHint?.(CONF.name, msg, 4000);
-        alert(msg);
+        try { map.foliplus?.showHint?.(CONF.name, msg, 4000); } catch { alert(msg); }
       }
     };
 
