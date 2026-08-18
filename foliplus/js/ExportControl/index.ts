@@ -1,10 +1,10 @@
+import { ensureInteraction } from "#core/interaction.js";
 import { requireLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createControlEnv } from "#common/guard.js";
 import { createFoldControl } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import { ExportManager } from "./manager.js";
-import { ensureInteraction } from "#core/interaction.js";
 
 const { _ } = createControlEnv(CONF, SVGs.CAMERA);
 requireLayerAPI(CONF.name, _, map);

@@ -10,11 +10,20 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
     { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
   ]);
   // Enter / Ctrl+Z / Ctrl+Shift+Z: require map container focus
-  return im.register(CONF.name, [
-    { key: "Enter", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
-    { key: "z", ctrl: true, handler: e => mgr.onKeyDown(e as KeyboardEvent) },
-    { key: "z", ctrl: true, shift: true, handler: e => mgr.onKeyDown(e as KeyboardEvent) },
-  ], container);
+  return im.register(
+    CONF.name,
+    [
+      { key: "Enter", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
+      { key: "z", ctrl: true, handler: e => mgr.onKeyDown(e as KeyboardEvent) },
+      {
+        key: "z",
+        ctrl: true,
+        shift: true,
+        handler: e => mgr.onKeyDown(e as KeyboardEvent),
+      },
+    ],
+    container,
+  );
 };
 
 const registerDrag = (mgr: ExportManager): (() => void) => {
