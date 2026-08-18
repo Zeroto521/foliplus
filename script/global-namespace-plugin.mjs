@@ -62,6 +62,9 @@ const sharedGlobalNamespace = spec => {
   if (spec === "#core/hint.js") return "foliplus.hint";
   if (spec === "#core/component.js") return "foliplus.core.component";
   if (spec === "#core/mode.js") return "foliplus.core.mode";
+  if (spec === "#core/interaction.js") return "foliplus.core.interaction";
+  // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
+  // future events/modes). Core-root single files (hint) are handled above.
   const coreSub = spec.match(/^#core\/([^/]+)\//);
   if (coreSub) return "foliplus.core." + coreSub[1];
   const mod = spec.replace(/^#common\//, "").replace(/\.js$/, "");

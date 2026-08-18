@@ -1,4 +1,5 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
+import { ensureInteraction } from "#core/interaction.js";
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./const.js";
@@ -16,7 +17,7 @@ const { _ } = createControlEnv(CONF);
 /**
  * Bind all DOM events for the SearchControl.
  */
-const bindEvents = (ctrl: SearchControl) => {
+const bindEvents = (ctrl: SearchControl): (() => void) => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
@@ -53,54 +54,69 @@ const bindEvents = (ctrl: SearchControl) => {
     }
   });
 
-  ctrl.inp.addEventListener("keydown", (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      if (ctrl.suggestionsWrap) {
+  ensureInteraction(map).register(CONF.name, [
+    {
+      key: "Escape",
+      element: ctrl.inp,
+      handler: () => {
+        if (ctrl.suggestionsWrap) {
+          removeSuggestions(ctrl);
+          return;
+        }
+        ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
+        ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
+        adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+        map.foliplus!.hideHint(CONF.name);
+      },
+    },
+    {
+      key: "ArrowDown",
+      element: ctrl.inp,
+      handler: () => {
+        if (!ctrl.suggestionsWrap) return;
+        const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
+        ctrl.selectedSuggestionIdx = Math.min(
+          ctrl.selectedSuggestionIdx + 1,
+          items.length - 1,
+        );
+        items.forEach((el: Element, i: number) =>
+          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
+        );
+        if (items[ctrl.selectedSuggestionIdx])
+          ctrl.inp.value =
+            items[ctrl.selectedSuggestionIdx].querySelector(
+              `.${CLASSES.SUGGESTION_TEXT}`,
+            )?.textContent ?? "";
+      },
+    },
+    {
+      key: "ArrowUp",
+      element: ctrl.inp,
+      handler: () => {
+        if (!ctrl.suggestionsWrap) return;
+        const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
+        ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
+        items.forEach((el: Element, i: number) =>
+          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
+        );
+        if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
+          ctrl.inp.value =
+            items[ctrl.selectedSuggestionIdx].querySelector(
+              `.${CLASSES.SUGGESTION_TEXT}`,
+            )?.textContent ?? "";
+      },
+    },
+    {
+      key: "Enter",
+      element: ctrl.inp,
+      handler: () => {
+        const raw = ctrl.inp.value.trim();
         removeSuggestions(ctrl);
-        return;
-      }
-      ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
-      ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-      map.foliplus!.hideHint(CONF.name);
-      return;
-    }
-    if (event.key === "ArrowDown" && ctrl.suggestionsWrap) {
-      event.preventDefault();
-      const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
-      ctrl.selectedSuggestionIdx = Math.min(
-        ctrl.selectedSuggestionIdx + 1,
-        items.length - 1,
-      );
-      items.forEach((el: Element, i: number) =>
-        el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
-      );
-      if (items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
-            ?.textContent ?? "";
-      return;
-    }
-    if (event.key === "ArrowUp" && ctrl.suggestionsWrap) {
-      event.preventDefault();
-      const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
-      ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
-      items.forEach((el: Element, i: number) =>
-        el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
-      );
-      if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
-        ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
-            ?.textContent ?? "";
-      return;
-    }
-    if (event.key === "Enter") {
-      const raw = ctrl.inp.value.trim();
-      removeSuggestions(ctrl);
-      if (!raw) return;
-      ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
-    }
-  });
+        if (!raw) return;
+        ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
+      },
+    },
+  ]);
 
   ctrl.inp.addEventListener("blur", () => setTimeout(() => removeSuggestions(ctrl), 0));
 
@@ -118,12 +134,14 @@ const bindEvents = (ctrl: SearchControl) => {
     t.addEventListener("scroll", ctrl.repositionHandler, true),
   );
   window.addEventListener("resize", ctrl.repositionHandler);
+
+  return () => ensureInteraction(map).unregister(CONF.name);
 };
 
 /**
  * Parse URL parameters to initialize search state.
  */
-const initFromUrl = (ctrl: SearchControl) => {
+const initFromUrl = (ctrl: SearchControl): void => {
   try {
     const params = new URLSearchParams(window.location.search);
     const q = params.get(PARAM.Q);
