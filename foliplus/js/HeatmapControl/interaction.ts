@@ -10,7 +10,7 @@ const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
   };
   return ensureInteraction(map).register(CONF.name, [
     {
-      key: "ArrowLeft",
+      key: "ArrowUp",
       element: ctrl.schemeBar,
       handler: () => {
         const idx = schemes.indexOf(ctrl.m.currentScheme);
@@ -20,7 +20,7 @@ const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
       },
     },
     {
-      key: "ArrowRight",
+      key: "ArrowDown",
       element: ctrl.schemeBar,
       handler: () => {
         const idx = schemes.indexOf(ctrl.m.currentScheme);
@@ -38,20 +38,6 @@ const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
     },
     {
       key: " ",
-      element: ctrl.schemeBar,
-      handler: () => {
-        ctrl.toggleDropdown?.();
-      },
-    },
-    {
-      key: "ArrowUp",
-      element: ctrl.schemeBar,
-      handler: () => {
-        ctrl.toggleDropdown?.();
-      },
-    },
-    {
-      key: "ArrowDown",
       element: ctrl.schemeBar,
       handler: () => {
         ctrl.toggleDropdown?.();

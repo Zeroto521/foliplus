@@ -29,11 +29,11 @@ class HeatmapControl(BaseControl):
 
        * - Key
          - Action
-       * - ArrowLeft
+       * - ArrowUp
          - Select the previous color scheme
-       * - ArrowRight
+       * - ArrowDown
          - Select the next color scheme
-       * - Enter / Space / ArrowUp / ArrowDown
+       * - Enter / Space
          - Open the scheme dropdown
        * - ArrowDown (dropdown)
          - Focus the next scheme option

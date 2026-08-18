@@ -43,38 +43,38 @@ describe("HeatmapControl interaction", () => {
     cleanup();
   });
 
-  it("ArrowLeft from middle goes to prev", () => {
+  it("ArrowUp from middle goes to prev", () => {
     const ctrl = makeCtrl();
     ctrl.m.currentScheme = "rainbow";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.updateScheme).toHaveBeenCalled();
     expect(ctrl.m.currentScheme).toBe("thermal");
     cleanup();
   });
 
-  it("ArrowLeft at first does nothing", () => {
+  it("ArrowUp at first does nothing", () => {
     const ctrl = makeCtrl();
     ctrl.m.currentScheme = "thermal";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.updateScheme).not.toHaveBeenCalled();
     cleanup();
   });
 
-  it("ArrowRight from middle goes to next", () => {
+  it("ArrowDown from middle goes to next", () => {
     const ctrl = makeCtrl();
     ctrl.m.currentScheme = "rainbow";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
     expect(ctrl.updateScheme).toHaveBeenCalled();
     expect(ctrl.m.currentScheme).toBe("grayscale");
