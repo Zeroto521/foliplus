@@ -44,13 +44,14 @@ export class SearchControl extends BaseControl {
     this.createDOM();
     this.initState();
     initDebouncedFetch(this);
-    bindEvents(this);
+    this._interactionCleanup = bindEvents(this);
     initFromUrl(this);
     bindOutsideCollapse({ container: this.ctrl });
     return this.container;
   }
 
   destroy() {
+    this._interactionCleanup?.();
     removeSuggestions(this);
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();

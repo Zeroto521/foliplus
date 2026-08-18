@@ -17,7 +17,7 @@ const { _ } = createControlEnv(CONF);
 /**
  * Bind all DOM events for the SearchControl.
  */
-const bindEvents = (ctrl: SearchControl): void => {
+const bindEvents = (ctrl: SearchControl): (() => void) => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
@@ -134,6 +134,8 @@ const bindEvents = (ctrl: SearchControl): void => {
     t.addEventListener("scroll", ctrl.repositionHandler, true),
   );
   window.addEventListener("resize", ctrl.repositionHandler);
+
+  return () => ensureInteraction(map).unregister(CONF.name);
 };
 
 /**
