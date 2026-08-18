@@ -71,12 +71,6 @@ class ExportControl(BaseControl):
     timeout : int, default 7500
         Maximum time (ms) to wait for map tiles to finish loading before capture.
 
-    export_world_file : bool, default False
-        If True, a companion World File (``.pngw`` / ``.jgw`` / ``.webpw``)
-        is downloaded alongside the exported image, enabling georeferenced
-        import into QGIS / ArcGIS. The World File contains the affine
-        transform mapping image pixels to geographic coordinates.
-        Requires the map to have geo bounds (e.g., via ``map.getBounds()``).
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
@@ -116,7 +110,6 @@ class ExportControl(BaseControl):
         "max_pixels",
         "background",
         "timeout",
-        "export_world_file",
     )
 
     def __init__(
@@ -130,7 +123,6 @@ class ExportControl(BaseControl):
         max_pixels: int | None = 10_240_000,
         background: str | None = None,
         timeout: int = 7500,
-        export_world_file: bool = False,
         locale: str | LocaleConfig | None = None,
     ):
         if format not in get_args(FORMAT):
@@ -146,5 +138,5 @@ class ExportControl(BaseControl):
         self.max_pixels = max_pixels
         self.background = background
         self.timeout = timeout
-        self.export_world_file = export_world_file
         self._template = self._get_template()
+

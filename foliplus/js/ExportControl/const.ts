@@ -24,18 +24,6 @@ export const MIME = {
   tif: "image/tiff",
 };
 
-/** World File extension per raster format (ESRI convention).
- *  ESRI rule: <basename>.<raster_ext><w> — e.g. image.pngw, image.jgw, image.tfw.
- *  .webpw is non-standard but is the closest fit for WebP.
- */
-export const WORLD_FILE_EXT = {
-  tif: "tif",
-  png: "pngw",
-  jpeg: "jgw",
-  webp: "webpw",
-  DEFAULT: "pngw",
-};
-
 /** CSS class names used during render. */
 export const CLASSES = {
   COLLAPSED: "collapsed",

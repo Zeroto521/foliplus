@@ -72,48 +72,42 @@ const loadImage = (src: string, crossOrigin?: string) =>
 type LatLngPoint = { lat: number; lng: number };
 
 /**
- * Compute a six-line World File (`.pgw` / `.tfw`) for a raster image whose
- * pixel grid maps onto a geographic bounding box.
+ * Compute a six-line World File ( / ) for a raster image.
  *
  * World File format (per ESRI spec):
- *   Line 1: pixel size in x (east-west, can be negative)
+ *   Line 1: pixel size in x
  *   Line 2: row rotation term (usually 0)
  *   Line 3: column rotation term (usually 0)
- *   Line 4: pixel size in y (north-south, usually negative — image y is top-down)
+ *   Line 4: pixel size in y (negative — image y is top-down)
  *   Line 5: x coordinate of the CENTER of the top-left pixel
  *   Line 6: y coordinate of the CENTER of the top-left pixel
  *
- * Coordinates are expressed in the same units as `nw` / `se` (typically
- * WGS84 degrees from `map.getBounds()`, but also works for projected CRS
- * like EPSG:3857 meters — consumers infer the CRS from an accompanying
- * `.prj` file or default to WGS84).
+ * Coordinates are expressed in the same units as  /  (typically
+ * WGS84 degrees, but also works for projected CRS like EPSG:3857 meters).
  */
 const generateWorldFile = (
-  nw: LatLngPoint,
-  se: LatLngPoint,
+  nw: { lat: number; lng: number },
+  se: { lat: number; lng: number },
   width: number,
   height: number,
 ): string => {
-  // ESRI World File spec requires valid numeric values; reject zero dims.
-  if (width <= 0 || height <= 0) return "";
+  if (width <= 0 || height <= 0) return '';
 
   const pixelWidth = (se.lng - nw.lng) / width;
   const pixelHeight = (se.lat - nw.lat) / height;
 
-  // Center of the top-left pixel (image (0,0) sits on the NW corner of the
-  // bounding box; pixel center is half a pixel offset from the corner).
   const ulx = nw.lng + pixelWidth / 2;
   const uly = nw.lat + pixelHeight / 2;
 
   return [
     pixelWidth.toPrecision(12),
-    "0",
-    "0",
+    '0',
+    '0',
     pixelHeight.toPrecision(12),
     ulx.toPrecision(15),
     uly.toPrecision(15),
-    "",
-  ].join("\n");
+    '',
+  ].join('\n');
 };
 
 /** Wait for a font spec to be ready for canvas text rendering. */
@@ -132,108 +126,5 @@ const ensureFont = async (fontSpec: string) => {
   }
 };
 
-/** Wait for a font spec to be ready for canvas text rendering. */
+export { isVisible, loadImageBitmap, loadImage, ensureFont, generateWorldFile };
 
-/**
- * Build a ZIP archive Blob containing multiple uncompressed entries.
- * Uses the uncompressed (store) method — the image is already compressed
- * by the canvas codec, and the World File is tiny.
- *
- * ZIP structure: Local File Header + data + ... + Central Directory + EOCD.
- */
-const createZipBlob = (entries: { name: string; data: Uint8Array }[]) => {
-  const encoder = new TextEncoder();
-  const parts: Uint8Array[] = [];
-  let offset = 0;
-  const cdOffsets: number[] = [];
-
-  for (const entry of entries) {
-    const nameBytes = encoder.encode(entry.name);
-    const crc32 = crc32Buf(entry.data);
-
-    const header = new Uint8Array(30);
-    const view = new DataView(header.buffer);
-    view.setUint32(0, 0x04034b50, true);
-    view.setUint16(4, 0x0014, true);
-    view.setUint16(8, 0, true);
-    view.setUint32(14, crc32, true);
-    view.setUint32(18, entry.data.length, true);
-    view.setUint32(22, entry.data.length, true);
-    view.setUint16(26, nameBytes.length, true);
-    view.setUint16(28, 0, true);
-
-    parts.push(header, nameBytes, entry.data);
-    cdOffsets.push(offset);
-    offset += 30 + nameBytes.length + entry.data.length;
-  }
-
-  let cdOffset = offset;
-  const cdParts: Uint8Array[] = [];
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const nameBytes = encoder.encode(entry.name);
-    const crc32 = crc32Buf(entry.data);
-
-    const header = new Uint8Array(46);
-    const view = new DataView(header.buffer);
-    view.setUint32(0, 0x02014b50, true);
-    view.setUint16(4, 0x0014, true);
-    view.setUint16(6, 0x0014, true);
-    view.setUint16(10, 0, true);
-    view.setUint32(14, crc32, true);
-    view.setUint32(18, entry.data.length, true);
-    view.setUint32(22, entry.data.length, true);
-    view.setUint16(26, nameBytes.length, true);
-    view.setUint16(32, 0, true);
-    view.setUint32(38, cdOffsets[i], true);
-
-    cdParts.push(header, nameBytes);
-  }
-
-  const eocd = new Uint8Array(22);
-  const eocdView = new DataView(eocd.buffer);
-  eocdView.setUint32(0, 0x06054b50, true);
-  eocdView.setUint16(8, entries.length, true);
-  eocdView.setUint16(10, entries.length, true);
-  eocdView.setUint32(
-    12,
-    cdParts.reduce((s, p) => s + p.length, 0),
-    true,
-  );
-  eocdView.setUint32(16, cdOffset, true);
-
-  return new Blob(parts.concat(cdParts, eocd) as BlobPart[], {
-    type: "application/zip",
-  });
-};
-
-/** CRC-32 checksum over a byte array (ISO 3309 / zlib). */
-const crc32Buf = (data: Uint8Array): number => {
-  const table = crc32Table;
-  let crc = 0xffffffff;
-  for (let i = 0; i < data.length; i++) {
-    crc = table[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
-  }
-  return crc ^ 0xffffffff;
-};
-
-const crc32Table = (() => {
-  const table = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) {
-      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    }
-    table[i] = c;
-  }
-  return table;
-})();
-
-export {
-  isVisible,
-  loadImageBitmap,
-  loadImage,
-  ensureFont,
-  generateWorldFile,
-  createZipBlob,
-};

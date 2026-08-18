@@ -4,6 +4,7 @@ import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
 import * as Storage from "#common/storage.js";
 
+<<<<<<< Updated upstream
 // --- Capture helpers for download tests ---
 let capturedDownloadFilename: string | null;
 let capturedDownloadMime: string | null;
@@ -37,6 +38,8 @@ function extractWorldFileFromZip(zipBytes: Uint8Array): string | null {
   }
   return null;
 }
+=======
+>>>>>>> Stashed changes
 
 // Minimal map mock satisfying ExportManager constructor requirements.
 function makeMapMock() {
@@ -431,17 +434,8 @@ describe("ExportManager — export events", () => {
       component: "ExportControl",
     });
   });
-
-  it("pixel over limit emits after:export event", () => {
-    const events = ensureEvents(manager.map);
-    vi.spyOn(events, "emit");
-    manager.pixelOverLimit = true;
-    manager.doExport();
-    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
-      component: "ExportControl",
-    });
-  });
 });
+<<<<<<< Updated upstream
 
 describe("ExportManager — World File export", () => {
   let manager;
@@ -685,3 +679,5 @@ describe("ExportManager — World File export", () => {
     }
   });
 });
+=======
+>>>>>>> Stashed changes

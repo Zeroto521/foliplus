@@ -18,7 +18,7 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
-import { createZipBlob, generateWorldFile } from "./util.js";
+import { generateWorldFile } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
@@ -561,8 +561,6 @@ class ExportManager {
         if (CONF.format === "geotiff") {
           // Export as a single GeoTIFF file with embedded georeferencing.
           await this.downloadGeoTiff(canvas, name);
-        } else if (CONF.export_world_file === true) {
-          await this.downloadWorldFileZip(blob, canvas, name);
         } else {
           const link = document.createElement("a");
           const url = URL.createObjectURL(blob);
@@ -590,25 +588,18 @@ class ExportManager {
   }
 
   /**
-   * Build and trigger a download for the companion World File (`.pgw`)
-   * that makes the exported raster georeferenced.  Uses the geo bounds
-   * stored in cropState (captured when the crop box was locked) and the
-   * actual bitmap dimensions of the rendered canvas.
-   *
-   * A zero-cost no-op when there is no geo bounds data.
-   */
-  /**
-   * Package the exported image and its companion World File into a single
-   * ZIP archive and trigger a download. Browsers block consecutive
-   * programmatic a.click() calls, so bundling both files into one ZIP
-   * is the only reliable delivery method for georeferenced raster output.
+   * Export a GeoTIFF file with embedded georeferencing.
+   * Canvas pixel data is written as an RGB GeoTIFF with ModelTiepoint
+   * and ModelPixelScale tags for WGS84 (EPSG:4326).
+   * Falls back to a plain image download if geo bounds are unavailable.
    */
   async downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
     const geoBounds = this.cropState?.geoBounds;
     if (!geoBounds?.nw || !geoBounds?.se) {
+      // No geo bounds — fall back to plain PNG download.
       const blob = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      link.download = `${name}.tif`;
+      link.download = `${name}.png`;
       link.href = blob;
       link.rel = "noopener";
       document.body.appendChild(link);
@@ -620,7 +611,13 @@ class ExportManager {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let imageData;
+    try {
+      imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    } catch {
+      // Canvas may be tainted by cross-origin images; skip GeoTIFF.
+      return;
+    }
     const rgba = imageData.data;
 
     const rgb = new Uint8Array(canvas.width * canvas.height * 3);
@@ -655,64 +652,6 @@ class ExportManager {
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
-  }
-
-  async downloadWorldFileZip(blob: Blob, canvas: HTMLCanvasElement, name: string) {
-    const worldFile = this.getWorldFileBlob(canvas);
-    if (!worldFile) {
-      // No geo bounds available — fall back to plain image download.
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.download = `${name}.${CONF.format}`;
-      link.href = url;
-      link.rel = "noopener";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
-      return;
-    }
-
-    const ext = CONF.format
-      ? CONST.WORLD_FILE_EXT[CONF.format as keyof typeof CONST.WORLD_FILE_EXT]
-      : CONST.WORLD_FILE_EXT.DEFAULT;
-    const imageBytes = await blob.arrayBuffer();
-    const worldBytes = await worldFile.arrayBuffer();
-
-    const zip = createZipBlob([
-      { name: `${name}.${CONF.format}`, data: new Uint8Array(imageBytes) },
-      { name: `${name}.${ext}`, data: new Uint8Array(worldBytes) },
-    ]);
-
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(zip);
-    link.download = `${name}.zip`;
-    link.href = url;
-    link.rel = "noopener";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
-  }
-
-  /**
-   * Build the companion World File Blob for the rendered canvas.
-   * Returns null if there are no geo bounds or invalid canvas dimensions.
-   */
-  getWorldFileBlob(canvas: HTMLCanvasElement) {
-    const geoBounds = this.cropState?.geoBounds;
-    if (!geoBounds?.nw || !geoBounds?.se) return null;
-    if (canvas.width <= 0 || canvas.height <= 0) return null;
-
-    const content = generateWorldFile(
-      geoBounds.nw,
-      geoBounds.se,
-      canvas.width,
-      canvas.height,
-    );
-    if (!content) return null;
-
-    return new Blob([content], { type: "text/plain" });
   }
 
   /** Handle render failure. */
