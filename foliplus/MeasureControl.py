@@ -25,7 +25,6 @@ class MeasureControl(BaseControl):
 
     Shortcuts
     ---------
-    Focus a layer row by clicking it, then use:
 
     .. list-table::
        :header-rows: 1
@@ -33,13 +32,13 @@ class MeasureControl(BaseControl):
        * - Key
          - Action
        * - Escape
-         - Exit measurement mode
+         - Exit the current measurement mode
 
 
     Parameters
     ----------
     position : str, default "bottomright"
-        One of "topleft", "topright", "bottomleft", "bottomright"\.
+        One of "topleft", "topright", "bottomleft", "bottomright".
 
     show_bearing : bool, default True
         Whether to show the bearing (azimuth, 0°–360° clockwise from north) alongside

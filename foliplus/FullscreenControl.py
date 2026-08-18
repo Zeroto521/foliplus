@@ -15,7 +15,7 @@ class FullscreenControl(BaseControl):
     Parameters
     ----------
     position : str, default "bottomright"
-        One of "topleft", "topright", "bottomleft", "bottomright"\.
+        One of "topleft", "topright", "bottomleft", "bottomright".
 
     hide_self : bool, default True
         Whether to hide the fullscreen button itself after entering fullscreen.

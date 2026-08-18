@@ -5,6 +5,7 @@ import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
+import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
@@ -16,6 +17,10 @@ export interface HeatmapControlUI {
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
+  schemeBarCleanup?: () => void;
+  dropdownCleanup?: () => void;
+  toggleDropdown?: () => void;
+  selectScheme?: (idx: number) => void;
   observer: MutationObserver | null;
   layerSelect: HTMLSelectElement;
   extraBody: HTMLElement;
@@ -133,11 +138,11 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     event.stopPropagation();
     toggleSchemeDropdown(ctrl);
   };
-  ctrl.schemeBar.onkeydown = (event: KeyboardEvent) => {
-    if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) {
-      event.preventDefault();
-      toggleSchemeDropdown(ctrl);
-    }
+  ctrl.schemeBarCleanup = registerSchemeBarEvents(map, ctrl);
+  ctrl.toggleDropdown = () => toggleSchemeDropdown(ctrl);
+  ctrl.selectScheme = (idx: number) => {
+    const name = (CONF.schemes ?? [])[idx];
+    if (name) selectScheme(ctrl, name);
   };
 
   ctrl.schemeSelectHidden.onchange = () => {
@@ -415,28 +420,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     else items[0].focus();
   }
 
-  ctrl.schemeDropdown.onkeydown = (event: KeyboardEvent) => {
-    const activeIdx = Array.from(items).indexOf(document.activeElement as HTMLElement);
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      items[(activeIdx + 1) % items.length].focus();
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      items[(activeIdx - 1 + items.length) % items.length].focus();
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      const active = document.activeElement;
-      if (active?.classList.contains(CONST.CLASSES.SCHEME_DROPDOWN_ITEM)) {
-        const idx = Array.from(items).indexOf(active as HTMLElement);
-        selectScheme(ctrl, (CONF.schemes ?? [])[idx]);
-      }
-    } else if (event.key === "Escape") {
-      ctrl.schemeDropdown?.remove();
-      ctrl.schemeDropdown = null;
-      ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
-      ctrl.schemeBar.focus();
-    }
-  };
+  ctrl.dropdownCleanup = registerDropdownEvents(map, ctrl, Array.from(items));
 };
 
 const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
