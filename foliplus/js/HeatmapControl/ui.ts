@@ -20,6 +20,7 @@ export interface HeatmapControlUI {
   schemeBarCleanup?: () => void;
   dropdownCleanup?: () => void;
   toggleDropdown?: () => void;
+  selectScheme?: (idx: number) => void;
   observer: MutationObserver | null;
   layerSelect: HTMLSelectElement;
   extraBody: HTMLElement;
@@ -429,6 +430,12 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
   }
   ctrl.m.renderHexagons();
   ctrl.schemeBar.focus();
+};
+
+// Wire up index-based selection for keyboard dropdown Enter handler.
+ctrl.selectScheme = (idx: number) => {
+  const name = (CONF.schemes ?? [])[idx];
+  if (name) selectScheme(ctrl, name);
 };
 
 const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
