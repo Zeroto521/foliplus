@@ -3,21 +3,18 @@ import { ensureInteraction } from "#core/interaction.js";
 import type { ExportManager } from "./manager.js";
 
 const registerInteractions = (mgr: ExportManager): (() => void) => {
-  return ensureInteraction(mgr.map).register(
-    CONF.name,
-    [
-      { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
-      { key: "Enter", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
-      { key: "z", ctrl: true, handler: e => mgr.onKeyDown(e as KeyboardEvent) },
-      {
-        key: "z",
-        ctrl: true,
-        shift: true,
-        handler: e => mgr.onKeyDown(e as KeyboardEvent),
-      },
-    ],
-    mgr.map.getContainer(),
-  );
+  const im = ensureInteraction(mgr.map);
+  const container = mgr.map.getContainer();
+  // Escape: global, no container restriction
+  im.register(CONF.name + "-escape", [
+    { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
+  ]);
+  // Enter / Ctrl+Z / Ctrl+Shift+Z: require map container focus
+  return im.register(CONF.name, [
+    { key: "Enter", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
+    { key: "z", ctrl: true, handler: e => mgr.onKeyDown(e as KeyboardEvent) },
+    { key: "z", ctrl: true, shift: true, handler: e => mgr.onKeyDown(e as KeyboardEvent) },
+  ], container);
 };
 
 const registerDrag = (mgr: ExportManager): (() => void) => {
