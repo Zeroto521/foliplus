@@ -5,10 +5,10 @@ import {
   DEL_ICON_SELECTOR,
   DEL_ICON_Z_OFFSET,
   attachDelClick,
+  bindDelIconToPopup,
   hideDelIcons,
   makeDelIcon,
   toggleDelIcon,
-  bindDelIconToPopup,
 } from "#common/delicon.js";
 
 beforeEach(() => {
