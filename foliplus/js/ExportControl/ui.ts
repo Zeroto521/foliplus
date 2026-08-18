@@ -272,8 +272,8 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
   }
-  if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
   mgr.interactionCleanup?.();
+  if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
   if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";
