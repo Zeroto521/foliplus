@@ -257,6 +257,7 @@ class MeasureManager {
     // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
     this.map.off("unload", this.onUnload);
     this.clearAll();
+    this.interactionCleanup?.();
     this.map.off("click", this.onMapClick);
 
     this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
