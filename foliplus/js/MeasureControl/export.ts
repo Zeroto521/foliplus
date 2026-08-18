@@ -22,7 +22,7 @@ const toGeoJSON = (measurements: MeasureData[]): string => {
     null,
     2,
   );
-}
+};
 
 /**
  * CSV row type for flattened measurement data.
@@ -49,7 +49,7 @@ const csvEscape = (value: string | number): string => {
     return '"' + s.replace(/"/g, '""') + '"';
   }
   return s;
-}
+};
 
 /**
  * Convert measurements array to CSV string.
@@ -94,7 +94,7 @@ const toCSV = (measurements: MeasureData[]): string => {
   }
 
   return rows.join("\n");
-}
+};
 
 const getNameForType = (data: MeasureData): string => {
   if (data.type === CONST.MODE.MARKER) {
@@ -110,7 +110,7 @@ const getNameForType = (data: MeasureData): string => {
     return "Circle";
   }
   return data.type;
-}
+};
 
 /**
  * Get the first coordinate point from any measurement type.
@@ -133,15 +133,15 @@ const getBasePoint = (data: MeasureData): { lat: number; lng: number } | null =>
     return data.center ?? null;
   }
   return null;
-}
+};
 
 const getLat = (data: MeasureData): number | null => {
   return getBasePoint(data)?.lat ?? null;
-}
+};
 
 const getLng = (data: MeasureData): number | null => {
   return getBasePoint(data)?.lng ?? null;
-}
+};
 
 const toWKT = (data: MeasureData): string => {
   const Feature = MODE_MAP[data.type as keyof typeof MODE_MAP];
@@ -149,7 +149,7 @@ const toWKT = (data: MeasureData): string => {
     return "";
   }
   return featureToWKT(Feature.toGeoFeature(data));
-}
+};
 
 /** Convert a GeoJSON Feature to a WKT string using turf.wkt. */
 const featureToWKT = (feature: GeoJSON.Feature): string => {
@@ -157,7 +157,7 @@ const featureToWKT = (feature: GeoJSON.Feature): string => {
     return "";
   }
   return turf.wkt.toWKT(feature).replace("\n", "");
-}
+};
 
 /**
  * Map export format to filename extension.
@@ -171,7 +171,7 @@ const formatToExtension = (format: ExportFormat): string => {
     default:
       return "geojson";
   }
-}
+};
 
 /**
  * Map export format to MIME type.
@@ -185,7 +185,7 @@ const formatToMimeType = (format: ExportFormat): string => {
     default:
       return "application/geo+json";
   }
-}
+};
 
 /**
  * Convert and download measurements.
@@ -224,7 +224,7 @@ const exportMeasurements = (
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
+};
 
 /**
  * Determine the default format from CONF.
@@ -235,12 +235,6 @@ const getDefaultFormat = (): ExportFormat => {
     return fmt;
   }
   return CONST.EXPORT_FORMAT.GEOJSON;
-}
-
-export {
-  toGeoJSON,
-  toCSV,
-  exportMeasurements,
-  getDefaultFormat,
-  getBasePoint,
 };
+
+export { toGeoJSON, toCSV, exportMeasurements, getDefaultFormat, getBasePoint };

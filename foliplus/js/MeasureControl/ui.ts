@@ -37,7 +37,7 @@ const createToggleUI = (
     state.isLabelsVisible = s.isLabelsVisible;
     render(state);
   };
-}
+};
 
 /**
  * Wire a map-click handler that hides the X icon when the user clicks empty
@@ -58,7 +58,7 @@ const setupMapClickActive = (
   };
   mgr.map.on("click", onMapClickActive);
   return onMapClickActive;
-}
+};
 
 /**
  * Re-order layers so they render in the correct z-order.
@@ -67,7 +67,7 @@ const setupMapClickActive = (
 const resortLayers = (layers: CreateLayersAPI, ...collections: L.Layer[][]): void => {
   collections.forEach(c => c.forEach(l => layers.removeLayer(l)));
   collections.forEach(c => c.forEach(l => layers.addLayer(l)));
-}
+};
 
 /** Options for attachDistanceUI. */
 interface AttachOpts {
