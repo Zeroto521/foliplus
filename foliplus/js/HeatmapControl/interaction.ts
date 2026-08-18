@@ -2,20 +2,15 @@
 import { ensureInteraction } from "#core/interaction.js";
 
 const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
-  const schemes = CONF.schemes ?? [];
-  const setScheme = (name: string) => {
-    ctrl.m.currentScheme = name;
-    ctrl.schemeSelectHidden.value = name;
-    ctrl.updateScheme();
-  };
   return ensureInteraction(map).register(CONF.name, [
     {
       key: "ArrowLeft",
       element: ctrl.schemeBar,
       handler: () => {
-        const idx = schemes.indexOf(ctrl.m.currentScheme);
+        const idx = ctrl.availableSchemes.indexOf(ctrl.scheme);
         if (idx > 0) {
-          setScheme(schemes[idx - 1]);
+          ctrl.scheme = ctrl.availableSchemes[idx - 1];
+          ctrl.updateScheme();
         }
       },
     },
@@ -23,9 +18,10 @@ const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
       key: "ArrowRight",
       element: ctrl.schemeBar,
       handler: () => {
-        const idx = schemes.indexOf(ctrl.m.currentScheme);
-        if (idx < schemes.length - 1) {
-          setScheme(schemes[idx + 1]);
+        const idx = ctrl.availableSchemes.indexOf(ctrl.scheme);
+        if (idx < ctrl.availableSchemes.length - 1) {
+          ctrl.scheme = ctrl.availableSchemes[idx + 1];
+          ctrl.updateScheme();
         }
       },
     },
@@ -87,7 +83,7 @@ const registerDropdownEvents = (
       element: ctrl.schemeDropdown,
       handler: () => {
         const active = document.activeElement;
-        if (active?.classList.contains("foliplus-heatmap-scheme-dropdown-item")) {
+        if (active?.classList.contains("foliplus-scheme-dropdown-item")) {
           const idx = items.indexOf(active as HTMLElement);
           ctrl.selectScheme?.(idx);
         }
