@@ -567,7 +567,11 @@ class ExportManager {
         // Conditionally trigger World File download (sidecar georeference file).
         // Only after the image is fully downloaded so the user always gets at
         // least the image; the World File is an optional companion.
-        if (CONF.export_world_file === true) this.downloadWorldFile(canvas);
+        // Delay via setTimeout to separate the second a.click() from the first —
+        // browsers block consecutive programmatic clicks in the same tick as
+        // "not user-initiated" (Chrome in particular rejects the second one).
+        if (CONF.export_world_file === true)
+          setTimeout(() => this.downloadWorldFile(canvas), 100);
         this.showGlobalHint(
           _(`${CONF.name}.status_success`),
           HINT_DURATION.LONG,

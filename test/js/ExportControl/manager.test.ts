@@ -549,7 +549,8 @@ describe("ExportManager — World File export", () => {
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
-      // export_world_file defaults to false, so no World File is downloaded.
+      // Wait past the 100ms delay to confirm no World File is triggered
+      await new Promise(r => setTimeout(r, 150));
       expect(worldFileContent).toBeNull();
       expect(downloadFilename).toBeNull();
     } finally {
@@ -572,6 +573,8 @@ describe("ExportManager — World File export", () => {
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
+      // World File download is delayed by 100ms (setTimeout to separate clicks)
+      await new Promise(r => setTimeout(r, 150));
       expect(worldFileContent).not.toBeNull();
       expect(downloadFilename).toBe("test-map.pngw");
     } finally {
@@ -666,7 +669,6 @@ describe("ExportManager — World File export", () => {
     Object.defineProperty(canvas, "width", { value: 1000 });
     Object.defineProperty(canvas, "height", { value: 500 });
     let imageDownloaded = false;
-    let worldFileAfterImage = false;
     const origToBlob = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
       imageDownloaded = true;
@@ -674,10 +676,9 @@ describe("ExportManager — World File export", () => {
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
-      await new Promise(r => setTimeout(r, 0));
-      // World File download happens inside the toBlob callback, after
-      // the image download link is created. Verify both happened.
       expect(imageDownloaded).toBe(true);
+      // World File download is delayed; await it
+      await new Promise(r => setTimeout(r, 150));
       expect(worldFileContent).not.toBeNull();
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
@@ -699,7 +700,8 @@ describe("ExportManager — World File export", () => {
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
-      await new Promise(r => setTimeout(r, 0));
+      // Wait past the 100ms delay to confirm no World File is triggered
+      await new Promise(r => setTimeout(r, 150));
       // Image failed, so World File is also NOT downloaded.
       expect(worldFileContent).toBeNull();
       expect(downloadFilename).toBeNull();
@@ -723,7 +725,7 @@ describe("ExportManager — World File export", () => {
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
-      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 150));
       const lines = worldFileContent!.split(String.fromCharCode(10));
       expect(parseFloat(lines[0])).toBeCloseTo(0.0005, 9);
       expect(parseFloat(lines[3])).toBeCloseTo(-0.001, 9);
@@ -756,8 +758,8 @@ describe("ExportManager — World File export", () => {
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
-      // The image download fires inside the toBlob callback, followed by
-      // the World File download. Both should be present.
+      // Image download fires immediately; World File is delayed by 100ms
+      await new Promise(r => setTimeout(r, 150));
       expect(downloaded).toHaveLength(2);
       expect(downloaded[0]).toBe("test-map.png");
       expect(downloaded[1]).toBe("test-map.pngw");
@@ -791,6 +793,8 @@ describe("ExportManager — World File export", () => {
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
+      // Wait past the 100ms delay to confirm only image is downloaded
+      await new Promise(r => setTimeout(r, 150));
       expect(downloaded).toHaveLength(1);
       expect(downloaded[0]).toBe("test-map.png");
     } finally {
