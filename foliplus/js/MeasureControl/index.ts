@@ -60,11 +60,6 @@ class MeasureControl extends BaseControl {
         title: _(`${CONF.name}.tool_circle`),
         svg: SVGs.CIRCLE,
       },
-      {
-        mode: CONST.MODE.CLEAR,
-        title: _(`${CONF.name}.tool_clear`),
-        svg: SVGs.TRASH,
-      },
     ];
     btnConfigs.forEach(({ mode, title, svg }) => {
       createIconButton({
@@ -76,7 +71,7 @@ class MeasureControl extends BaseControl {
       });
     });
 
-    // Build the export button (click → export with configured default format)
+    // Export button (between circle and clear)
     const exportBtn = createIconButton({
       class: "foliplus-tool-btn foliplus-measure-export-btn",
       title: _(`${CONF.name}.tool_export`),
@@ -94,6 +89,14 @@ class MeasureControl extends BaseControl {
       const format = Export.getDefaultFormat();
       Export.exportMeasurements(measurements, format);
     };
+
+    createIconButton({
+      class: "foliplus-tool-btn",
+      title: _(`${CONF.name}.tool_clear`),
+      svg: SVGs.TRASH,
+      parent: toolBar,
+      data: { mode: CONST.MODE.CLEAR },
+    });
 
     this.m.ctrl = ctrl;
     this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
