@@ -4,7 +4,6 @@ import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
 import * as Storage from "#common/storage.js";
 
-
 // Minimal map mock satisfying ExportManager constructor requirements.
 function makeMapMock() {
   const container = document.createElement("div");
@@ -399,4 +398,3 @@ describe("ExportManager — export events", () => {
     });
   });
 });
-
