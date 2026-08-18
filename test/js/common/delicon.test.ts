@@ -5,10 +5,10 @@ import {
   DEL_ICON_SELECTOR,
   DEL_ICON_Z_OFFSET,
   attachDelClick,
-  bindDelIconToPopup,
   hideDelIcons,
   makeDelIcon,
   toggleDelIcon,
+  bindDelIconToPopup,
 } from "#common/delicon.js";
 
 beforeEach(() => {
@@ -126,8 +126,7 @@ describe("hideDelIcons", () => {
 });
 
 describe("bindDelIconToPopup", () => {
-  it("binds handlers to popupopen/popupclose", () => {
-    const marker = { on: vi.fn() };
+  it("binds handlers to popupopen and popupclose", () => {
     const delIcon = { _id: "del" };
     const markerDom = document.createElement("div");
     const delSpan = document.createElement("span");
