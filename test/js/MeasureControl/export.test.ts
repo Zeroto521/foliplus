@@ -157,7 +157,6 @@ describe("Export.toGeoJSON", () => {
       "Polygon",
       "Polygon",
     ]);
-
   });
 
   it("includes crs with WGS 84 name", () => {
@@ -166,14 +165,14 @@ describe("Export.toGeoJSON", () => {
     expect(data.crs).toBeDefined();
     expect(data.crs.type).toBe("name");
     expect(data.crs.properties.name).toBe("urn:ogc:def:crs:OGC:1.3:CRS84");
-    });
+  });
 
   it("includes bbox for marker", () => {
     const json = Export.toGeoJSON([markerData]);
     const data = JSON.parse(json);
     expect(data.bbox).toBeDefined();
     expect(data.bbox).toEqual([119.3, 26.08, 119.3, 26.08]);
-    });
+  });
 
   it("includes bbox for distance (spans all points)", () => {
     const json = Export.toGeoJSON([distanceData]);
@@ -181,7 +180,7 @@ describe("Export.toGeoJSON", () => {
     expect(data.bbox).toBeDefined();
     expect(data.bbox[0]).toBe(119.3);
     expect(data.bbox[2]).toBe(119.32);
-    });
+  });
 
   it("includes bbox for polygon", () => {
     const json = Export.toGeoJSON([polygonData]);
@@ -191,7 +190,7 @@ describe("Export.toGeoJSON", () => {
     expect(data.bbox[1]).toBe(26.08);
     expect(data.bbox[2]).toBe(119.32);
     expect(data.bbox[3]).toBe(26.1);
-    });
+  });
 
   it("combines bbox across multiple features", () => {
     const json = Export.toGeoJSON([markerData, distanceData]);
@@ -199,7 +198,7 @@ describe("Export.toGeoJSON", () => {
     expect(data.bbox).toBeDefined();
     expect(data.bbox[0]).toBe(119.3);
     expect(data.bbox[2]).toBe(119.32);
-    });
+  });
 
   it("omits bbox when no valid features", () => {
     const json = Export.toGeoJSON([]);
