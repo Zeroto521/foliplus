@@ -742,10 +742,7 @@ describe("ExportManager — World File export", () => {
     const origAppendChild = document.body.appendChild;
     document.body.appendChild = function (child: Node) {
       const result = origAppendChild.call(document.body, child);
-      if (
-        child instanceof HTMLAnchorElement &&
-        child.download
-      ) {
+      if (child instanceof HTMLAnchorElement && child.download) {
         downloaded.push(child.download);
       }
       return result;
@@ -780,10 +777,7 @@ describe("ExportManager — World File export", () => {
     const origAppendChild = document.body.appendChild;
     document.body.appendChild = function (child: Node) {
       const result = origAppendChild.call(document.body, child);
-      if (
-        child instanceof HTMLAnchorElement &&
-        child.download
-      ) {
+      if (child instanceof HTMLAnchorElement && child.download) {
         downloaded.push(child.download);
       }
       return result;
