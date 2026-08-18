@@ -32,10 +32,7 @@ export const registerDrag = (mgr: ExportManager): (() => void) => {
   ]);
 };
 
-export const registerCropMouseDown = (
-  mgr: ExportManager,
-  element: HTMLElement,
-): (() => void) => {
+export const registerCropMouseDown = (mgr: ExportManager, element: HTMLElement): (() => void) => {
   return ensureInteraction(mgr.map).register(CONF.name, [
     {
       event: "mousedown",
