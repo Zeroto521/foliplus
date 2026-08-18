@@ -56,7 +56,11 @@ export const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => 
   ]);
 };
 
-export const registerDropdownEvents = (map: L.Map, ctrl: any, items: HTMLElement[]): (() => void) => {
+export const registerDropdownEvents = (
+  map: L.Map,
+  ctrl: any,
+  items: HTMLElement[],
+): (() => void) => {
   return ensureInteraction(map).register(CONF.name + "-dropdown", [
     {
       key: "ArrowDown",
