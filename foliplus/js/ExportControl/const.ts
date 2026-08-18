@@ -23,12 +23,15 @@ export const MIME = {
   webp: "image/webp",
 };
 
-/** World File extension per raster format (ESRI convention). */
+/** World File extension per raster format (ESRI convention).
+ *  ESRI rule: <basename>.<raster_ext><w> — e.g. image.pngw, image.jgw, image.tfw.
+ *  .webpw is non-standard but is the closest fit for WebP.
+ */
 export const WORLD_FILE_EXT = {
-  png: "pgw",
+  png: "pngw",
   jpeg: "jgw",
-  webp: "tfw", // No standard for WebP; .tfw is the most broadly accepted
-  DEFAULT: "pgw",
+  webp: "webpw",
+  DEFAULT: "pngw",
 };
 
 /** CSS class names used during render. */

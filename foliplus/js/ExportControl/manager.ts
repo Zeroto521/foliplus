@@ -539,10 +539,6 @@ class ExportManager {
       prevImg.removeEventListener("click", dismissPreview);
       prevImg.remove();
     }, HINT_DURATION.SHORT);
-    // Trigger World File (`.pgw`) download immediately — it is pure
-    // computation from the canvas pixel dimensions and the geo bounds
-    // saved in cropState, so it does not depend on the toBlob() callback.
-    this.downloadWorldFile(canvas);
     canvas.toBlob(
       blob => {
         if (!blob) {
@@ -568,6 +564,10 @@ class ExportManager {
         link.click();
         document.body.removeChild(link);
         setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+        // Conditionally trigger World File download (sidecar georeference file).
+        // Only after the image is fully downloaded so the user always gets at
+        // least the image; the World File is an optional companion.
+        if (CONF.export_world_file === true) this.downloadWorldFile(canvas);
         this.showGlobalHint(
           _(`${CONF.name}.status_success`),
           HINT_DURATION.LONG,

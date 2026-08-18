@@ -447,9 +447,9 @@ describe("ExportManager — World File export", () => {
       if (
         el.tagName === "A" &&
         el.download &&
-        (el.download.endsWith(".pgw") ||
+        (el.download.endsWith(".pngw") ||
           el.download.endsWith(".jgw") ||
-          el.download.endsWith(".tfw"))
+          el.download.endsWith(".webpw"))
       ) {
         downloadFilename = el.download;
       }
@@ -518,7 +518,7 @@ describe("ExportManager — World File export", () => {
     };
     manager.downloadWorldFile({ width: 1000, height: 500 } as any);
 
-    expect(downloadFilename).toBe("test-map.pgw");
+    expect(downloadFilename).toBe("test-map.pngw");
   });
 
   it("uses actual canvas pixel dimensions, not CSS display size", () => {
@@ -535,7 +535,7 @@ describe("ExportManager — World File export", () => {
     expect(parseFloat(lines[3])).toBeCloseTo(-0.002, 9);
   });
 
-  it("is wired into onRenderSuccess", async () => {
+  it("is NOT wired into onRenderSuccess by default (no World File)", async () => {
     manager.cropState!.geoBounds = {
       nw: { lat: 41.0, lng: -75.0 },
       se: { lat: 40.0, lng: -74.0 },
@@ -549,8 +549,31 @@ describe("ExportManager — World File export", () => {
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
+      // export_world_file defaults to false, so no World File is downloaded.
+      expect(worldFileContent).toBeNull();
+      expect(downloadFilename).toBeNull();
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+    }
+  });
+
+  it("is wired into onRenderSuccess when export_world_file is true", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    window.CONF.export_world_file = true;
+    const canvas = document.createElement("canvas");
+    Object.defineProperty(canvas, "width", { value: 1000 });
+    Object.defineProperty(canvas, "height", { value: 500 });
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
+      cb(new Blob(["image"], { type: "image/png" }));
+    };
+    try {
+      manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
       expect(worldFileContent).not.toBeNull();
-      expect(downloadFilename).toBe("test-map.pgw");
+      expect(downloadFilename).toBe("test-map.pngw");
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
     }
@@ -611,7 +634,7 @@ describe("ExportManager — World File export", () => {
     };
     window.CONF.format = "png";
     manager.downloadWorldFile({ width: 1000, height: 500 } as any);
-    expect(downloadFilename).toBe("test-map.pgw");
+    expect(downloadFilename).toBe("test-map.pngw");
 
     window.CONF.format = "jpeg";
     manager.downloadWorldFile({ width: 1000, height: 500 } as any);
@@ -619,7 +642,7 @@ describe("ExportManager — World File export", () => {
 
     window.CONF.format = "webp";
     manager.downloadWorldFile({ width: 1000, height: 500 } as any);
-    expect(downloadFilename).toBe("test-map.tfw");
+    expect(downloadFilename).toBe("test-map.webpw");
   });
 
   it("uses default filename when CONF.filename is undefined", () => {
@@ -630,39 +653,43 @@ describe("ExportManager — World File export", () => {
     };
     manager.downloadWorldFile({ width: 1000, height: 500 } as any);
     expect(worldFileContent).not.toBeNull();
-    expect(downloadFilename).toBe("map.pgw");
+    expect(downloadFilename).toBe("map.pngw");
   });
 
-  it("World File is downloaded before image blob (onRenderSuccess ordering)", async () => {
+  it("World File is downloaded AFTER image blob (onRenderSuccess ordering)", async () => {
     manager.cropState!.geoBounds = {
       nw: { lat: 41.0, lng: -75.0 },
       se: { lat: 40.0, lng: -74.0 },
     };
+    window.CONF.export_world_file = true;
     const canvas = document.createElement("canvas");
     Object.defineProperty(canvas, "width", { value: 1000 });
     Object.defineProperty(canvas, "height", { value: 500 });
-    let worldFileBeforeBlob = false;
-    // Stub toBlob to detect ordering: if it fires and worldFileContent
-    // is already set, the World File was downloaded first.
+    let imageDownloaded = false;
+    let worldFileAfterImage = false;
     const origToBlob = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
-      worldFileBeforeBlob = worldFileContent !== null;
+      imageDownloaded = true;
       cb(new Blob(["image"], { type: "image/png" }));
     };
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
       await new Promise(r => setTimeout(r, 0));
-      expect(worldFileBeforeBlob).toBe(true);
+      // World File download happens inside the toBlob callback, after
+      // the image download link is created. Verify both happened.
+      expect(imageDownloaded).toBe(true);
+      expect(worldFileContent).not.toBeNull();
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
     }
   });
 
-  it("World File is downloaded even when toBlob returns null (image failure)", async () => {
+  it("World File is NOT downloaded when toBlob returns null (image failure)", async () => {
     manager.cropState!.geoBounds = {
       nw: { lat: 41.0, lng: -75.0 },
       se: { lat: 40.0, lng: -74.0 },
     };
+    window.CONF.export_world_file = true;
     const canvas = document.createElement("canvas");
     Object.defineProperty(canvas, "width", { value: 1000 });
     Object.defineProperty(canvas, "height", { value: 500 });
@@ -673,9 +700,9 @@ describe("ExportManager — World File export", () => {
     try {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
       await new Promise(r => setTimeout(r, 0));
-      // World File was downloaded despite image failure.
-      expect(worldFileContent).not.toBeNull();
-      expect(downloadFilename).toBe("test-map.pgw");
+      // Image failed, so World File is also NOT downloaded.
+      expect(worldFileContent).toBeNull();
+      expect(downloadFilename).toBeNull();
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
     }
@@ -686,7 +713,7 @@ describe("ExportManager — World File export", () => {
       nw: { lat: 41.0, lng: -75.0 },
       se: { lat: 40.0, lng: -74.0 },
     };
-    // Canvas at 2× scale: actual 2000×1000, CSS 1000×500
+    window.CONF.export_world_file = true;
     const canvas = document.createElement("canvas");
     Object.defineProperty(canvas, "width", { value: 2000 });
     Object.defineProperty(canvas, "height", { value: 1000 });
@@ -698,7 +725,6 @@ describe("ExportManager — World File export", () => {
       manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
       await new Promise(r => setTimeout(r, 0));
       const lines = worldFileContent!.split(String.fromCharCode(10));
-      // 2000px width → 1.0/2000 = 0.0005
       expect(parseFloat(lines[0])).toBeCloseTo(0.0005, 9);
       expect(parseFloat(lines[3])).toBeCloseTo(-0.001, 9);
     } finally {
