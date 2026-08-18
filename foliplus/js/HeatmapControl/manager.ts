@@ -568,8 +568,8 @@ class HeatmapManager {
     this.cachedFeatures = null;
     this.cachedAgg = null;
     if (this.overlay) this.overlay.unregister();
-    this.ui?.schemeBarCleanup?.();
-    this.ui?.dropdownCleanup?.();
+    (this.ui as any)?.schemeBarCleanup?.();
+    (this.ui as any)?.dropdownCleanup?.();
   }
 }
 
