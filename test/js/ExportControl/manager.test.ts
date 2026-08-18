@@ -444,7 +444,13 @@ describe("ExportManager — World File export", () => {
     document.body.appendChild = function (child: Node) {
       const result = origAppendChild.call(document.body, child);
       const el = child as HTMLElement;
-      if (el.tagName === "A" && el.download && (el.download.endsWith(".pgw") || el.download.endsWith(".jgw") || el.download.endsWith(".tfw"))) {
+      if (
+        el.tagName === "A" &&
+        el.download &&
+        (el.download.endsWith(".pgw") ||
+          el.download.endsWith(".jgw") ||
+          el.download.endsWith(".tfw"))
+      ) {
         downloadFilename = el.download;
       }
       return result;

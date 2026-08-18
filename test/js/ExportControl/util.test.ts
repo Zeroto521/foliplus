@@ -273,18 +273,12 @@ describe("generateWorldFile", () => {
   });
 
   it("returns empty string for zero-width or zero-height inputs", () => {
-    expect(generateWorldFile(
-      { lat: 41.0, lng: -74.0 },
-      { lat: 40.0, lng: -74.0 },
-      0,
-      100,
-    )).toBe("");
-    expect(generateWorldFile(
-      { lat: 41.0, lng: -74.0 },
-      { lat: 40.0, lng: -74.0 },
-      100,
-      0,
-    )).toBe("");
+    expect(
+      generateWorldFile({ lat: 41.0, lng: -74.0 }, { lat: 40.0, lng: -74.0 }, 0, 100),
+    ).toBe("");
+    expect(
+      generateWorldFile({ lat: 41.0, lng: -74.0 }, { lat: 40.0, lng: -74.0 }, 100, 0),
+    ).toBe("");
   });
 
   it("handles EPSG:3857 meter coordinates with large values", () => {

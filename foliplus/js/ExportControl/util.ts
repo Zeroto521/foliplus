@@ -114,7 +114,7 @@ const generateWorldFile = (
     uly.toPrecision(15),
     "",
   ].join("\n");
-}
+};
 
 /** Wait for a font spec to be ready for canvas text rendering. */
 const ensureFont = async (fontSpec: string) => {
