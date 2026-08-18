@@ -436,7 +436,6 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
   ctrl.schemeBar.focus();
 };
 
-
 const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
   ctrl.m.scanMapLayers();
   if (ctrl.m.pointLayers.length === 0 && attempt > 0)
