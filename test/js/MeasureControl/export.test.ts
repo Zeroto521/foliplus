@@ -205,7 +205,6 @@ describe("Export.toGeoJSON", () => {
     const json = Export.toGeoJSON([]);
     const data = JSON.parse(json);
     expect(data.bbox).toBeUndefined();
-    });
   });
 });
 
