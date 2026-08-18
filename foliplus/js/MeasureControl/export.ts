@@ -193,7 +193,7 @@ const formatToMimeType = (format: ExportFormat): string => {
 const exportMeasurements = (
   measurements: MeasureData[],
   format: ExportFormat,
-): void {
+): void => {
   if (!measurements || measurements.length === 0) {
     return;
   }

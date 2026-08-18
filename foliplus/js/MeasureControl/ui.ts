@@ -25,7 +25,7 @@ interface MeasureToggleState {
 const createToggleUI = (
   state: MeasureToggleState,
   render: (state: MeasureToggleState) => void,
-): (showX?: boolean, toggleLabels?: boolean | string) => void {
+): ((showX?: boolean, toggleLabels?: boolean | string) => void) => {
   return (showX?: boolean, toggleLabels?: boolean | string) => {
     const s = Util.nextToggleState(
       state.isXVisible,
@@ -48,7 +48,7 @@ const setupMapClickActive = (
   state: MeasureToggleState,
   toggleUI: (showX?: boolean, toggleLabels?: boolean | string) => void,
   extraGuard?: () => boolean,
-): () => void {
+): (() => void) => {
   const onMapClickActive = () => {
     if (mgr.isSuppressHideDel) return;
     if (extraGuard?.()) return;
