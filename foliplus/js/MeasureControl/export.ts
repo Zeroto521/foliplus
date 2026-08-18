@@ -9,7 +9,7 @@ declare const CONF: { name: string; filename: string; export_format: ExportForma
 /**
  * Convert a single measurement to a GeoJSON feature.
  */
-export const toGeoJSON = (measurements: MeasureData[]): string => {
+const toGeoJSON = (measurements: MeasureData[]): string => {
   const features = measurements
     .filter(m => m.type)
     .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]!.toGeoFeature(m));
@@ -54,7 +54,7 @@ const csvEscape = (value: string | number): string => {
 /**
  * Convert measurements array to CSV string.
  */
-export const toCSV = (measurements: MeasureData[]): string => {
+const toCSV = (measurements: MeasureData[]): string => {
   const headers = [
     "id",
     "type",
@@ -190,7 +190,7 @@ const formatToMimeType = (format: ExportFormat): string => {
 /**
  * Convert and download measurements.
  */
-export const exportMeasurements = (
+const exportMeasurements = (
   measurements: MeasureData[],
   format: ExportFormat,
 ): void {
@@ -229,7 +229,7 @@ export const exportMeasurements = (
 /**
  * Determine the default format from CONF.
  */
-export const getDefaultFormat = (): ExportFormat => {
+const getDefaultFormat = (): ExportFormat => {
   const fmt = CONF?.export_format;
   if (fmt === CONST.EXPORT_FORMAT.GEOJSON || fmt === CONST.EXPORT_FORMAT.CSV) {
     return fmt;
@@ -237,4 +237,10 @@ export const getDefaultFormat = (): ExportFormat => {
   return CONST.EXPORT_FORMAT.GEOJSON;
 }
 
-export { getBasePoint };
+export {
+  toGeoJSON,
+  toCSV,
+  exportMeasurements,
+  getDefaultFormat,
+  getBasePoint,
+};
