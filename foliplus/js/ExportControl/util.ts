@@ -132,7 +132,6 @@ const ensureFont = async (fontSpec: string) => {
   }
 };
 
-
 /** Wait for a font spec to be ready for canvas text rendering. */
 
 /**
@@ -196,10 +195,16 @@ const createZipBlob = (entries: { name: string; data: Uint8Array }[]) => {
   eocdView.setUint32(0, 0x06054b50, true);
   eocdView.setUint16(8, entries.length, true);
   eocdView.setUint16(10, entries.length, true);
-  eocdView.setUint32(12, cdParts.reduce((s, p) => s + p.length, 0), true);
+  eocdView.setUint32(
+    12,
+    cdParts.reduce((s, p) => s + p.length, 0),
+    true,
+  );
   eocdView.setUint32(16, cdOffset, true);
 
-  return new Blob(parts.concat(cdParts, eocd) as BlobPart[], { type: "application/zip" });
+  return new Blob(parts.concat(cdParts, eocd) as BlobPart[], {
+    type: "application/zip",
+  });
 };
 
 /** CRC-32 checksum over a byte array (ISO 3309 / zlib). */
@@ -224,4 +229,11 @@ const crc32Table = (() => {
   return table;
 })();
 
-export { isVisible, loadImageBitmap, loadImage, ensureFont, generateWorldFile, createZipBlob };
+export {
+  isVisible,
+  loadImageBitmap,
+  loadImage,
+  ensureFont,
+  generateWorldFile,
+  createZipBlob,
+};

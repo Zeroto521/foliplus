@@ -1,4 +1,5 @@
 // ExportControl manager — crop box state machine, export orchestration.
+import { writeArrayBuffer } from "geotiff";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
@@ -17,8 +18,7 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
-import { generateWorldFile, createZipBlob } from "./util.js";
-import { writeArrayBuffer } from "geotiff";
+import { createZipBlob, generateWorldFile } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);

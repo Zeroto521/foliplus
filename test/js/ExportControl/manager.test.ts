@@ -38,7 +38,6 @@ function extractWorldFileFromZip(zipBytes: Uint8Array): string | null {
   return null;
 }
 
-
 // Minimal map mock satisfying ExportManager constructor requirements.
 function makeMapMock() {
   const container = document.createElement("div");
@@ -686,4 +685,3 @@ describe("ExportManager — World File export", () => {
     }
   });
 });
-
