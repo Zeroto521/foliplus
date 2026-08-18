@@ -301,14 +301,14 @@
   }
   /* hover + checked states: flat selectors (avoid nested & on combinator RHS,
      which postcss-nesting edition 2021 compiles to an incorrect :is() form) */
-  .foliplus-heatmap-toggle-switch:hover .foliplus-heatmap-toggle-slider {
+  .foliplus-heatmap-toggle-switch:hover > span.foliplus-heatmap-toggle-slider {
     background-color: var(--neutral-500);
 
     &::before {
       box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
     }
   }
-  .foliplus-heatmap-toggle-switch input:checked + .foliplus-heatmap-toggle-slider {
+  .foliplus-heatmap-toggle-switch input:checked + span.foliplus-heatmap-toggle-slider {
     background-color: var(--accent-primary);
 
     &::before {
@@ -317,7 +317,7 @@
   }
   .foliplus-heatmap-toggle-switch:hover
     input:checked
-    + .foliplus-heatmap-toggle-slider {
+    + span.foliplus-heatmap-toggle-slider {
     background-color: var(--btn-primary-hover);
   }
 
@@ -409,13 +409,13 @@
 
 /* Field selector: `.hidden` toggled by JS to hide the auto field block */
 .foliplus-heatmap-ctrl
-  :is(.foliplus-heatmap-extra-body, .foliplus-heatmap-field).hidden {
+  > :is(.foliplus-heatmap-extra-body, .foliplus-heatmap-field).hidden {
   display: none;
 }
 
 /* Placeholder select styling */
 :is(
-  .foliplus-heatmap-ctrl select.foliplus-heatmap-placeholder,
+  .foliplus-heatmap-ctrl > select.foliplus-heatmap-placeholder,
   .foliplus-heatmap-ctrl select option.foliplus-heatmap-placeholder-opt,
   .foliplus-heatmap-ctrl select option.foliplus-heatmap-placeholder-opt:disabled
 ) {

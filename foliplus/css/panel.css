@@ -2,6 +2,12 @@
   Shared Panel — Common styles for panel-based components
   LayerControl / HeatmapControl inherit this base;
   each component only overrides its differentiated parts.
+
+  Optimization: "单类 span 后代方法" — replace deep class-descendant chains
+  (e.g. .foliplus-panel .foliplus-panel-header .foliplus-header-icon) with
+  flatter selectors using direct-child (>) and element-type (span/div/button)
+  selectors. Browsers optimize type selectors via per-element indexes,
+  reducing matching cost and CSS specificity.
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Container ── */
@@ -13,14 +19,14 @@
   user-select: none;
 
   /* ── Panel Wrapper (visible when expanded) ── */
-  .foliplus-panel-wrap {
+  > div.foliplus-panel-wrap {
     display: none;
     flex-direction: column;
     width: 100%;
   }
 
   /* ── Panel Header ── */
-  .foliplus-panel-header {
+  > div.foliplus-panel-header {
     display: flex;
     align-items: center;
     height: var(--ctrl-size);
@@ -41,7 +47,7 @@
     &:hover {
       background: var(--panel-header-hover);
     }
-    .foliplus-header-icon {
+    > span.foliplus-header-icon {
       width: var(--icon-size-md);
       height: var(--icon-size-md);
       flex-shrink: 0;
@@ -50,7 +56,7 @@
       justify-content: center;
       margin-right: var(--space-sm);
     }
-    .foliplus-header-title {
+    > span.foliplus-header-title {
       display: flex;
       align-items: center;
       flex: 1;
@@ -62,7 +68,7 @@
   }
 
   /* ── Panel Content ── */
-  .foliplus-panel-content {
+  > div.foliplus-panel-content {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -78,17 +84,17 @@
     overflow: hidden;
 
     /* Hide toggle when expanded */
-    .foliplus-toggle-btn {
+    > button.foliplus-toggle-btn {
       display: none;
     }
 
     /* ── Accent color for expanded icon (all panel components) ── */
-    .foliplus-header-icon,
-    .foliplus-header-icon svg {
+    span.foliplus-header-icon,
+    span.foliplus-header-icon svg {
       color: var(--accent-primary);
     }
 
-    .foliplus-panel-wrap {
+    > div.foliplus-panel-wrap {
       display: flex;
       flex: 1;
       overflow: hidden;

@@ -64,8 +64,8 @@
     background: var(--accent-light);
     color: var(--accent-primary);
   }
-  &:hover .foliplus-search-suggestion-icon,
-  &.active .foliplus-search-suggestion-icon {
+  &:hover > span.foliplus-search-suggestion-icon,
+  &.active > span.foliplus-search-suggestion-icon {
     color: var(--accent-primary);
   }
 }

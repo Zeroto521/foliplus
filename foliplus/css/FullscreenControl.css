@@ -8,30 +8,31 @@
   No internal z-index layering needed — single container. ── */
 
 /* ── Button container ── */
+/* Optimization: > direct-child selectors reduce specificity */
 .foliplus-fullscreen-bar {
   display: flex;
   flex-direction: column;
 
   /* ── Top button gets top radius ── */
-  .foliplus-zoom-in {
+  > .foliplus-zoom-in {
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   }
 
   /* ── Middle button no radius ── */
-  .foliplus-zoom-out {
+  > .foliplus-zoom-out {
     border-radius: 0;
   }
 
   /* ── Bottom button gets bottom radius ── */
-  .foliplus-fullscreen-toggle {
+  > .foliplus-fullscreen-toggle {
     border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   }
 
   /* ── Divider between buttons ── */
-  .foliplus-tool-btn {
+  > .foliplus-tool-btn {
     border-bottom: var(--border-thin) solid var(--divider-color);
   }
-  .foliplus-fullscreen-toggle {
+  > .foliplus-fullscreen-toggle {
     border-bottom: none;
   }
 }
