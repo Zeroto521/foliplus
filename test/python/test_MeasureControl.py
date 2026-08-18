@@ -505,10 +505,12 @@ class TestMeasureControlBrowser:
         # reload mid-lookup does not lose the marker. Search for the
         # save-then-create pattern within a small window (not the global
         # first occurrence, which may be in a different mode's restore()).
-        save_pos = html.find("this.m.saveMeasurements();")
-        create_pos = html.find("createLocationMarker(", save_pos)
-        assert save_pos != -1, "saveMeasurements() should exist"
-        assert create_pos != -1, "createLocationMarker should exist after save"
+        create_pos = html.find("createLocationMarker(")
+        assert create_pos != -1, "createLocationMarker should exist"
+        # Search for saveMeasurements() within 200 chars BEFORE createLocationMarker
+        search_start = max(0, create_pos - 200)
+        save_pos = html.find("this.m.saveMeasurements();", search_start)
+        assert save_pos != -1, "saveMeasurements() should exist before createLocationMarker"
         gap = create_pos - save_pos
         assert gap < 200, (
             "measurement must be saved right before triggering geocode so a "
