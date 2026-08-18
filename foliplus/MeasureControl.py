@@ -25,7 +25,6 @@ class MeasureControl(BaseControl):
 
     Shortcuts
     ---------
-    Focus a layer row by clicking it, then use:
 
     .. list-table::
        :header-rows: 1
@@ -33,7 +32,7 @@ class MeasureControl(BaseControl):
        * - Key
          - Action
        * - Escape
-         - Exit measurement mode
+         - Exit the current measurement mode
 
 
     Parameters

@@ -19,7 +19,7 @@ class ExportControl(BaseControl):
     .. list-table::
        :header-rows: 1
 
-       * - Key
+       * - Key / Event
          - Action
        * - Enter
          - Lock the current crop area, then begin export
@@ -29,6 +29,10 @@ class ExportControl(BaseControl):
          - Undo the last crop adjustment
        * - Ctrl+Shift+Z / Cmd+Shift+Z
          - Redo the last crop adjustment
+       * - Mouse drag (crop box edge)
+         - Resize the crop box
+       * - Mouse drag (inside crop box)
+         - Move the crop box
 
 
     Parameters

@@ -33,6 +33,16 @@ class HeatmapControl(BaseControl):
          - Select the previous color scheme
        * - ArrowRight
          - Select the next color scheme
+       * - Enter / Space / ArrowUp / ArrowDown
+         - Open the scheme dropdown
+       * - ArrowDown (dropdown)
+         - Focus the next scheme option
+       * - ArrowUp (dropdown)
+         - Focus the previous scheme option
+       * - Enter (dropdown)
+         - Select the focused scheme option
+       * - Escape (dropdown)
+         - Close the dropdown without selecting
 
     Parameters
     ----------
