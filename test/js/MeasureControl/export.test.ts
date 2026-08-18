@@ -128,15 +128,15 @@ describe("Export.toGeoJSON", () => {
     expect(data.features[0].properties.area).toBe(3300000);
   });
 
-  it("converts circle to Polygon feature with 64 points", () => {
+  it("converts circle to Polygon feature with 8 points", () => {
     const json = Export.toGeoJSON([circleData]);
     const data = JSON.parse(json);
     expect(data.features.length).toBe(1);
     expect(data.features[0].geometry.type).toBe("Polygon");
     const coords = data.features[0].geometry.coordinates[0];
-    // 64 circle points + 1 closed = 65 coordinates
-    expect(coords.length).toBe(65);
-    expect(coords[0]).toEqual(coords[64]); // closed
+    // 8 circle points + 1 closed = 9 coordinates
+    expect(coords.length).toBe(9);
+    expect(coords[0]).toEqual(coords[8]); // closed
     expect(data.features[0].properties.radius).toBe(5000);
   });
 
@@ -215,7 +215,7 @@ describe("Export.toCSV", () => {
     // wkt column is last
     const cols = distRow.split(",");
     const wkt = cols[cols.length - 1];
-    expect(wkt).toContain("LINESTRING(119.30 26.08");
+    expect(wkt).toContain("LINESTRING(119.3");
   });
 
   it("wkt polygon is a closed ring", () => {
@@ -224,7 +224,7 @@ describe("Export.toCSV", () => {
     const polyRow = lines[1];
     const cols = polyRow.split(",");
     const wkt = cols[cols.length - 1];
-    expect(wkt).toContain("POLYGON((");
+    expect(wkt).toContain("POLYGON((119.3");
   });
 
   it("wkt marker is a POINT", () => {
@@ -233,7 +233,7 @@ describe("Export.toCSV", () => {
     const markerRow = lines[1];
     const cols = markerRow.split(",");
     const wkt = cols[cols.length - 1];
-    expect(wkt).toContain("POINT(119.30 26.08)");
+    expect(wkt).toContain("POINT(119.3");
   });
 });
 

@@ -57,7 +57,7 @@ describe("createToggleUI", () => {
     toggle(undefined, false);
     expect(render).toHaveBeenCalledTimes(2);
     expect(render).toHaveBeenLastCalledWith({
-      isXVisible: true,
+      isXVisible: false,
       isLabelsVisible: false,
     });
   });

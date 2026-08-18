@@ -294,6 +294,7 @@ class DistanceMode extends PreviewMode {
         type: "distance",
         name: "Distance Measurement",
         totalDistance: data.totalDistance || 0,
+        segments: data.segments || [],
       },
       geometry: {
         type: "LineString",

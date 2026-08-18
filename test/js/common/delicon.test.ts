@@ -126,9 +126,12 @@ describe("hideDelIcons", () => {
 });
 
 describe("bindDelIconToPopup", () => {
-  it("binds toggleDelIcon to popupopen/popupclose", () => {
+  it("binds handlers to popupopen/popupclose", () => {
     const marker = { on: vi.fn() };
     const delIcon = { _id: "del" };
+    const toggleSpy = vi.fn();
+
+    vi.mocked(toggleDelIcon).mockImplementation(toggleSpy);
 
     bindDelIconToPopup(marker, delIcon);
 
@@ -138,12 +141,10 @@ describe("bindDelIconToPopup", () => {
     const openHandler = marker.on.mock.calls[0][1];
     const closeHandler = marker.on.mock.calls[1][1];
 
-    const toggleSpy = vi.spyOn(require("#common/delicon.js"), "toggleDelIcon");
     openHandler();
     expect(toggleSpy).toHaveBeenCalledWith(delIcon, true);
     closeHandler();
     expect(toggleSpy).toHaveBeenCalledWith(delIcon, false);
-    toggleSpy.mockRestore();
   });
 
   it("does nothing when marker is null", () => {
