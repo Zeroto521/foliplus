@@ -9,7 +9,7 @@ declare const CONF: { name: string; filename: string; export_format: ExportForma
 /**
  * Convert a single measurement to a GeoJSON feature.
  */
-/** WGS 84 CRS descriptor — always correct for Leaflet LatLng coordinates. */
+/** WGS 84 CRS descriptor — fallback when map.options.crs is unavailable (e.g. tests). */
 const CRS_WGS84 = {
   type: "name" as const,
   properties: {
@@ -121,7 +121,8 @@ const toGeoJSON = (measurements: MeasureData[]): string => {
 
   const bbox = featuresBBox(features);
   if (bbox) collection.bbox = bbox;
-  collection.crs = CRS_WGS84;
+  const crs = map.options?.crs?.toDefinition?.();
+  if (crs) collection.crs = crs;
 
   return JSON.stringify(collection, null, 2);
 };
