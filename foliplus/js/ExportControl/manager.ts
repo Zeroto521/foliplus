@@ -609,7 +609,9 @@ class ExportManager {
     const link = document.createElement("a");
     // Use the World File extension matching the export format
     // (png→.pgw, jpeg→.jgw, webp→.tfw).
-    const ext = CONST.WORLD_FILE_EXT[CONF.format] || CONST.WORLD_FILE_EXT.DEFAULT;
+    const ext = CONF.format
+      ? CONST.WORLD_FILE_EXT[CONF.format as keyof typeof CONST.WORLD_FILE_EXT]
+      : CONST.WORLD_FILE_EXT.DEFAULT;
     const name = CONF.filename || "map";
     link.download = `${name}.${ext}`;
     link.href = url;
