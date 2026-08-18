@@ -10,6 +10,7 @@ import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { registerCropMouseDown } from "./interaction.js";
+import { ensureInteraction } from "#core/interaction.js";
 import type { ExportManager, Rect } from "./manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -272,6 +273,7 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
   }
+  ensureInteraction(mgr.map).unregister(CONF.name + "-escape");
   mgr.interactionCleanup?.();
   if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();

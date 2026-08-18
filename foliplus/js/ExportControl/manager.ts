@@ -75,6 +75,7 @@ class ExportManager {
   map: L.Map;
   dragCleanup?: () => void;
   interactionCleanup?: () => void;
+  _escapeCleanup?: () => void;
   cropMousedownCleanup?: () => void;
   mapContainer: HTMLElement;
   cropState: CropState | null;
