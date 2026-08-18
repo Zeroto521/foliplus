@@ -88,12 +88,12 @@ type LatLngPoint = { lat: number; lng: number };
  * like EPSG:3857 meters — consumers infer the CRS from an accompanying
  * `.prj` file or default to WGS84).
  */
-export function generateWorldFile(
+const generateWorldFile = (
   nw: LatLngPoint,
   se: LatLngPoint,
   width: number,
   height: number,
-): string {
+): string => {
   const pixelWidth = (se.lng - nw.lng) / width;
   const pixelHeight = (se.lat - nw.lat) / height;
 
@@ -129,4 +129,4 @@ const ensureFont = async (fontSpec: string) => {
   }
 };
 
-export { isVisible, loadImageBitmap, loadImage, ensureFont };
+export { isVisible, loadImageBitmap, loadImage, ensureFont, generateWorldFile };
