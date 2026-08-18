@@ -80,7 +80,9 @@ const geometryBBox = (
  * Compute the combined bounding box from an array of GeoJSON features.
  * Returns null when no features contain coordinates.
  */
-const featuresBBox = (features: GeoJSON.Feature[]): [number, number, number, number] | null => {
+const featuresBBox = (
+  features: GeoJSON.Feature[],
+): [number, number, number, number] | null => {
   let result: [number, number, number, number] | null = null;
 
   for (const f of features) {
