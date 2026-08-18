@@ -81,14 +81,25 @@ class MeasureControl extends BaseControl {
     });
     exportBtn.onclick = (event: MouseEvent) => {
       event.stopPropagation();
-      if (!this.m) return;
-      const measurements = this.m.measurements;
-      if (!measurements || measurements.length === 0) {
-        map.foliplus?.showHint?.(CONF.name, _(`${CONF.name}.export_no_data`), 2000);
+      if (!this.m) {
+        alert("测量功能不可用，请刷新页面重试。");
         return;
       }
-      const format = Export.getDefaultFormat();
-      Export.exportMeasurements(measurements, format);
+      const measurements = this.m.measurements;
+      if (!measurements || measurements.length === 0) {
+        const msg = _(`${CONF.name}.export_no_data`);
+        const shown = map.foliplus?.showHint?.(CONF.name, msg, 4000);
+        if (!shown) alert(msg);
+        return;
+      }
+      try {
+        const format = Export.getDefaultFormat();
+        Export.exportMeasurements(measurements, format);
+      } catch (err) {
+        const msg = (err as Error).message || "导出失败";
+        map.foliplus?.showHint?.(CONF.name, msg, 4000);
+        alert(msg);
+      }
     };
 
     createIconButton({
