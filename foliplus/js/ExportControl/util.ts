@@ -94,6 +94,9 @@ const generateWorldFile = (
   width: number,
   height: number,
 ): string => {
+  // ESRI World File spec requires valid numeric values; reject zero dims.
+  if (width <= 0 || height <= 0) return "";
+
   const pixelWidth = (se.lng - nw.lng) / width;
   const pixelHeight = (se.lat - nw.lat) / height;
 

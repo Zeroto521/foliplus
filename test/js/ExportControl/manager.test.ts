@@ -421,6 +421,7 @@ describe("ExportManager — World File export", () => {
       ...window.CONF,
       name: "ExportControl",
       filename: "test-map",
+      format: "png",
       timeout: 7500,
     };
     worldFileContent = null;
@@ -443,7 +444,7 @@ describe("ExportManager — World File export", () => {
     document.body.appendChild = function (child: Node) {
       const result = origAppendChild.call(document.body, child);
       const el = child as HTMLElement;
-      if (el.tagName === "A" && el.download && el.download.endsWith(".pgw")) {
+      if (el.tagName === "A" && el.download && (el.download.endsWith(".pgw") || el.download.endsWith(".jgw") || el.download.endsWith(".tfw"))) {
         downloadFilename = el.download;
       }
       return result;
@@ -597,31 +598,33 @@ describe("ExportManager — World File export", () => {
     }
   });
 
-  it("always uses .pgw extension regardless of CONF.format", () => {
+  it("uses format-appropriate World File extension", () => {
     manager.cropState!.geoBounds = {
       nw: { lat: 41.0, lng: -75.0 },
       se: { lat: 40.0, lng: -74.0 },
     };
-    // Even with JPEG format, World File uses .pgw (universally recognized)
-    window.CONF.format = "jpeg";
+    window.CONF.format = "png";
     manager.downloadWorldFile({ width: 1000, height: 500 } as any);
     expect(downloadFilename).toBe("test-map.pgw");
+
+    window.CONF.format = "jpeg";
+    manager.downloadWorldFile({ width: 1000, height: 500 } as any);
+    expect(downloadFilename).toBe("test-map.jgw");
 
     window.CONF.format = "webp";
     manager.downloadWorldFile({ width: 1000, height: 500 } as any);
-    expect(downloadFilename).toBe("test-map.pgw");
+    expect(downloadFilename).toBe("test-map.tfw");
   });
 
-  it("is a no-op when CONF.filename is undefined", () => {
+  it("uses default filename when CONF.filename is undefined", () => {
     window.CONF.filename = undefined;
     manager.cropState!.geoBounds = {
       nw: { lat: 41.0, lng: -75.0 },
       se: { lat: 40.0, lng: -74.0 },
     };
     manager.downloadWorldFile({ width: 1000, height: 500 } as any);
-    // Still downloads with 'undefined.pgw' filename (graceful, no crash)
     expect(worldFileContent).not.toBeNull();
-    expect(downloadFilename).toBe("undefined.pgw");
+    expect(downloadFilename).toBe("map.pgw");
   });
 
   it("World File is downloaded before image blob (onRenderSuccess ordering)", async () => {

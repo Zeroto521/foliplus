@@ -272,19 +272,19 @@ describe("generateWorldFile", () => {
     expect(pixelWidth).toBeLessThan(0);
   });
 
-  it("returns zero for degenerate (zero-width or zero-height) inputs", () => {
-    // Zero width → division by zero for pixelWidth; should not throw.
-    const out = generateWorldFile(
+  it("returns empty string for zero-width or zero-height inputs", () => {
+    expect(generateWorldFile(
       { lat: 41.0, lng: -74.0 },
       { lat: 40.0, lng: -74.0 },
       0,
       100,
-    );
-    const lines = out.split("\n").slice(0, 6);
-    // pixelWidth = 0/0 = NaN; NaN.toPrecision() returns 'NaN'
-    expect(lines[0]).toBe("NaN") || expect(lines[0]).toBe("Infinity");
-    // pixelHeight should be finite and negative
-    expect(!isNaN(parseFloat(lines[3]))).toBe(true);
+    )).toBe("");
+    expect(generateWorldFile(
+      { lat: 41.0, lng: -74.0 },
+      { lat: 40.0, lng: -74.0 },
+      100,
+      0,
+    )).toBe("");
   });
 
   it("handles EPSG:3857 meter coordinates with large values", () => {

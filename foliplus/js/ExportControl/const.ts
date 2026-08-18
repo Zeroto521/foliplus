@@ -23,6 +23,14 @@ export const MIME = {
   webp: "image/webp",
 };
 
+/** World File extension per raster format (ESRI convention). */
+export const WORLD_FILE_EXT = {
+  png: "pgw",
+  jpeg: "jgw",
+  webp: "tfw", // No standard for WebP; .tfw is the most broadly accepted
+  DEFAULT: "pgw",
+};
+
 /** CSS class names used during render. */
 export const CLASSES = {
   COLLAPSED: "collapsed",

@@ -560,7 +560,8 @@ class ExportManager {
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         // Append the format extension to the base filename.
-        link.download = `${CONF.filename}.${CONF.format}`;
+        const name = CONF.filename || "map";
+        link.download = `${name}.${CONF.format}`;
         link.href = url;
         link.rel = "noopener";
         document.body.appendChild(link);
@@ -606,10 +607,11 @@ class ExportManager {
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    // Use `.pgw` for PNG exports, `.tfw` for other formats — both are
-    // understood by QGIS / ArcGIS; `.pgw` is the most universally
-    // recognized name.
-    link.download = `${CONF.filename}.pgw`;
+    // Use the World File extension matching the export format
+    // (png→.pgw, jpeg→.jgw, webp→.tfw).
+    const ext = CONST.WORLD_FILE_EXT[CONF.format] || CONST.WORLD_FILE_EXT.DEFAULT;
+    const name = CONF.filename || "map";
+    link.download = `${name}.${ext}`;
     link.href = url;
     link.rel = "noopener";
     document.body.appendChild(link);
