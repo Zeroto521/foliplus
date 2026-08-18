@@ -121,7 +121,11 @@ const toGeoJSON = (measurements: MeasureData[]): string => {
 
   const bbox = featuresBBox(features);
   if (bbox) collection.bbox = bbox;
-  const leafletCrs = map.options?.crs as { toDefinition?: () => { type: "name"; properties: { name: string } } | undefined } | undefined;
+  const leafletCrs = map.options?.crs as
+    | {
+        toDefinition?: () => { type: "name"; properties: { name: string } } | undefined;
+      }
+    | undefined;
   collection.crs = leafletCrs?.toDefinition?.() || CRS_WGS84;
 
   return JSON.stringify(collection, null, 2);
