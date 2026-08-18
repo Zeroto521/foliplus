@@ -2,7 +2,7 @@
 import { ensureInteraction } from "#core/interaction.js";
 import type { LayerUI } from "./ui.js";
 
-export const registerInteractions = (ui: LayerUI): (() => void) => {
+const registerInteractions = (ui: LayerUI): (() => void) => {
   const container = ui.uiContainer;
   return ensureInteraction(ui.m.map).register(CONF.name, [
     { key: "ArrowUp", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
@@ -18,3 +18,5 @@ export const registerInteractions = (ui: LayerUI): (() => void) => {
     { key: "Escape", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
   ]);
 };
+
+export { registerInteractions };
