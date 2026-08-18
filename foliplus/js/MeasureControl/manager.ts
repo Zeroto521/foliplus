@@ -9,6 +9,7 @@ import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
+import { registerInteractions } from "./interaction.js";
 import {
   CircleMode,
   DistanceMode,
@@ -26,6 +27,7 @@ const _ = createTranslator(CONF);
 /** Central manager for all measurements. */
 class MeasureManager {
   map: L.Map;
+  private interactionCleanup?: () => void;
   layers: CreateLayersAPI;
   currentMode: string | null;
   modeInstance: MeasureMode | null;
@@ -126,17 +128,18 @@ class MeasureManager {
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && this.currentMode) this.clearActiveMode();
     };
-    document.addEventListener("keydown", this.onKeyDown);
+    this.interactionCleanup = registerInteractions(this);
 
-    // On map unload (page refresh/close), clear transient UI state but KEEP
-    // persisted measurements. clearAll() would wipe localStorage, losing all
-    // saved data on every reload.
-    this.onUnload = () => {
-      this.clearActiveMode();
-      this.layers.clearLayers();
-      this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
-      this.finalizedClickHandlers = [];
-    };
+    const cleanup =
+      // On map unload (page refresh/close), clear transient UI state but KEEP
+      // persisted measurements. clearAll() would wipe localStorage, losing all
+      // saved data on every reload.
+      (this.onUnload = () => {
+        this.clearActiveMode();
+        this.layers.clearLayers();
+        this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
+        this.finalizedClickHandlers = [];
+      });
     this.map.on("unload", this.onUnload);
   }
 
@@ -224,6 +227,7 @@ class MeasureManager {
     // Unregister the measure layer if it has no content left (interrupted
     // preview with no persisted measurements). Safe: unregister() is a no-op
     // when there are still completed measurements in the layer.
+    this.interactionCleanup?.();
     this.layers.unregister();
   }
 
@@ -253,8 +257,9 @@ class MeasureManager {
     // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
     this.map.off("unload", this.onUnload);
     this.clearAll();
+    this.interactionCleanup?.();
     this.map.off("click", this.onMapClick);
-    document.removeEventListener("keydown", this.onKeyDown);
+
     this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
     this.finalizedClickHandlers = [];
   }
