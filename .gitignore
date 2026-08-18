@@ -57,7 +57,7 @@ venv.bak/
 # Tooling
 .mypy_cache/
 .ruff_cache/
-.conda
+
 .playwright-mcp
 
 # Node / npm
@@ -76,3 +76,6 @@ package-lock.json
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
+
+# uv cache
+.uv-cache

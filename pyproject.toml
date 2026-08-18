@@ -35,6 +35,16 @@ Issues = "https://github.com/Zeroto521/foliplus/issues"
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov", "pytest-xdist", "pytest-playwright", "codecov"]
+docs = [
+  "foliplus[test]",
+  "sphinx",
+  "pydata-sphinx-theme",
+  "myst-nb",
+  "sphinx-copybutton",
+  "sphinx-design",
+  "geopandas",
+  "my-data-toolkit",
+]
 dev = ["foliplus[test]", "build", "twine"]
 
 [tool.setuptools_scm]
