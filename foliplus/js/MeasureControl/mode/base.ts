@@ -1,5 +1,4 @@
 import { createTranslator } from "#common/locale.js";
-import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
