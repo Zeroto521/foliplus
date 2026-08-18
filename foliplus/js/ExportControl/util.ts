@@ -91,7 +91,7 @@ const generateWorldFile = (
   width: number,
   height: number,
 ): string => {
-  if (width <= 0 || height <= 0) return '';
+  if (width <= 0 || height <= 0) return "";
 
   const pixelWidth = (se.lng - nw.lng) / width;
   const pixelHeight = (se.lat - nw.lat) / height;
@@ -101,13 +101,13 @@ const generateWorldFile = (
 
   return [
     pixelWidth.toPrecision(12),
-    '0',
-    '0',
+    "0",
+    "0",
     pixelHeight.toPrecision(12),
     ulx.toPrecision(15),
     uly.toPrecision(15),
-    '',
-  ].join('\n');
+    "",
+  ].join("\n");
 };
 
 /** Wait for a font spec to be ready for canvas text rendering. */
@@ -127,4 +127,3 @@ const ensureFont = async (fontSpec: string) => {
 };
 
 export { isVisible, loadImageBitmap, loadImage, ensureFont, generateWorldFile };
-

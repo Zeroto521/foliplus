@@ -139,4 +139,3 @@ class ExportControl(BaseControl):
         self.background = background
         self.timeout = timeout
         self._template = self._get_template()
-
