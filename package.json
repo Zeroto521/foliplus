@@ -38,10 +38,8 @@
     "postcss": "^8.5.26",
     "postcss-nesting": "^14.0.1",
     "prettier": "^3.9.5",
+    "svgo": "^4.0.2",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
-  },
-  "dependencies": {
-    "svgo": "^4.0.2"
   }
 }
