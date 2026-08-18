@@ -69,6 +69,7 @@ class ExportControl extends BaseControl {
   destroy() {
     if (this.m.cropState) this.m.removeCropBox();
     this.m.interactionCleanup?.();
+    ensureInteraction(this.m.map).unregister(CONF.name + "-escape");
   }
 }
 
