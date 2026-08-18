@@ -17,7 +17,7 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
-import { generateWorldFile } from "./util.js";
+import { generateWorldFile, createZipBlob } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
@@ -543,7 +543,7 @@ class ExportManager {
       prevImg.remove();
     }, HINT_DURATION.SHORT);
     canvas.toBlob(
-      blob => {
+      async blob => {
         if (!blob) {
           this.showGlobalHint(
             _(`${CONF.name}.status_fail`) + _(`${CONF.name}.err_gen_fail`),
@@ -556,25 +556,23 @@ class ExportManager {
           this.removeExportOverlay();
           return;
         }
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        // Append the format extension to the base filename.
         const name = CONF.filename || "map";
-        link.download = `${name}.${CONF.format}`;
-        link.href = url;
-        link.rel = "noopener";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
-        // Conditionally trigger World File download (sidecar georeference file).
-        // Only after the image is fully downloaded so the user always gets at
-        // least the image; the World File is an optional companion.
-        // Delay via setTimeout to separate the second a.click() from the first —
-        // browsers block consecutive programmatic clicks in the same tick as
-        // "not user-initiated" (Chrome in particular rejects the second one).
-        if (CONF.export_world_file === true)
-          setTimeout(() => this.downloadWorldFile(canvas), 100);
+        if (CONF.export_world_file === true) {
+          // Package image + World File into a single ZIP for reliable download.
+          // Browsers block consecutive programmatic a.click() calls, so a
+          // single ZIP download is the only reliable way to deliver both files.
+          await this.downloadWorldFileZip(blob, canvas, name);
+        } else {
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          link.download = `${name}.${CONF.format}`;
+          link.href = url;
+          link.rel = "noopener";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+        }
         this.showGlobalHint(
           _(`${CONF.name}.status_success`),
           HINT_DURATION.LONG,
@@ -598,10 +596,58 @@ class ExportManager {
    *
    * A zero-cost no-op when there is no geo bounds data.
    */
-  downloadWorldFile(canvas: HTMLCanvasElement) {
+  /**
+   * Package the exported image and its companion World File into a single
+   * ZIP archive and trigger a download. Browsers block consecutive
+   * programmatic a.click() calls, so bundling both files into one ZIP
+   * is the only reliable delivery method for georeferenced raster output.
+   */
+  async downloadWorldFileZip(blob: Blob, canvas: HTMLCanvasElement, name: string) {
+    const worldFile = this.getWorldFileBlob(canvas);
+    if (!worldFile) {
+      // No geo bounds available — fall back to plain image download.
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.download = `${name}.${CONF.format}`;
+      link.href = url;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+      return;
+    }
+
+    const ext = CONF.format
+      ? CONST.WORLD_FILE_EXT[CONF.format as keyof typeof CONST.WORLD_FILE_EXT]
+      : CONST.WORLD_FILE_EXT.DEFAULT;
+    const imageBytes = await blob.arrayBuffer();
+    const worldBytes = await worldFile.arrayBuffer();
+
+    const zip = createZipBlob([
+      { name: `${name}.${CONF.format}`, data: new Uint8Array(imageBytes) },
+      { name: `${name}.${ext}`, data: new Uint8Array(worldBytes) },
+    ]);
+
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(zip);
+    link.download = `${name}.zip`;
+    link.href = url;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+  }
+
+  /**
+   * Build the companion World File Blob for the rendered canvas.
+   * Returns null if there are no geo bounds or invalid canvas dimensions.
+   */
+  getWorldFileBlob(canvas: HTMLCanvasElement) {
     const geoBounds = this.cropState?.geoBounds;
-    if (!geoBounds?.nw || !geoBounds?.se) return;
-    if (canvas.width <= 0 || canvas.height <= 0) return;
+    if (!geoBounds?.nw || !geoBounds?.se) return null;
+    if (canvas.width <= 0 || canvas.height <= 0) return null;
 
     const content = generateWorldFile(
       geoBounds.nw,
@@ -609,24 +655,9 @@ class ExportManager {
       canvas.width,
       canvas.height,
     );
-    if (!content) return;
+    if (!content) return null;
 
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    // Use the World File extension matching the export format
-    // (png→.pgw, jpeg→.jgw, webp→.tfw).
-    const ext = CONF.format
-      ? CONST.WORLD_FILE_EXT[CONF.format as keyof typeof CONST.WORLD_FILE_EXT]
-      : CONST.WORLD_FILE_EXT.DEFAULT;
-    const name = CONF.filename || "map";
-    link.download = `${name}.${ext}`;
-    link.href = url;
-    link.rel = "noopener";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+    return new Blob([content], { type: "text/plain" });
   }
 
   /** Handle render failure. */
