@@ -147,7 +147,6 @@ describe("collectExports", () => {
   });
 });
 
-
 describe("collectExports with as alias", () => {
   it("returns the alias name for export { X as Y }", () => {
     // Both the declaration name AND the alias are valid exports
@@ -163,7 +162,8 @@ describe("collectExports with as alias", () => {
   });
 
   it("uses alias name when re-exporting from another module", () => {
-    const code = 'export { DEFAULT_TIMEOUT_MS as GEODECODE_TIMEOUT_MS } from "./other.js";';
+    const code =
+      'export { DEFAULT_TIMEOUT_MS as GEODECODE_TIMEOUT_MS } from "./other.js";';
     const tmpDir = createTempFile("alias2.test.ts", code);
     const fs = require("fs");
     const path = require("path");
@@ -177,7 +177,9 @@ describe("collectExports with as alias", () => {
       expect(exports).toContain("DEFAULT_TIMEOUT_MS");
     } finally {
       tmpDir.cleanup();
-      try { fs.unlinkSync(otherPath); } catch {}
+      try {
+        fs.unlinkSync(otherPath);
+      } catch {}
     }
   });
 });
@@ -291,7 +293,6 @@ describe("scanSharedImports", () => {
     }
   });
 });
-
 
 // Helper: create a temp .ts file and return { path, cleanup }
 const tmpDir = require("os").tmpdir();

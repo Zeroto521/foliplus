@@ -8,7 +8,7 @@
 // then generate shims ONLY for the actually-imported names. Unused exports
 // are never declared, so they cannot appear in the bundle.
 import { existsSync, readFileSync, readdirSync } from "fs";
-import { dirname, resolve, join } from "path";
+import { dirname, join, resolve } from "path";
 
 const DECL_RE =
   /export\s+(?:const|let|var|function|class|async\s+function)\s+([A-Za-z_$][\w$]*)/g;
@@ -177,8 +177,8 @@ const globalNamespacePlugin = sourceRoot => ({
 
       const shimName = ns.replace(/\./g, "_") + "_shim";
       const shimDecl = "var " + shimName + " = globalThis." + ns + ";";
-      const lines = namesToShim.map(n =>
-        'export const ' + n + ' = ' + shimName + '["' + n + '"];'
+      const lines = namesToShim.map(
+        n => "export const " + n + " = " + shimName + '["' + n + '"];',
       );
       lines.unshift(shimDecl);
       return { contents: lines.join("\n"), loader: "js" };
@@ -186,4 +186,10 @@ const globalNamespacePlugin = sourceRoot => ({
   },
 });
 
-export { collectExports, collectSources, globalNamespacePlugin, scanSharedImports, sharedGlobalNamespace };
+export {
+  collectExports,
+  collectSources,
+  globalNamespacePlugin,
+  scanSharedImports,
+  sharedGlobalNamespace,
+};
