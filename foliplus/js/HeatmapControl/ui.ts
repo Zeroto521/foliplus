@@ -140,6 +140,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
   ctrl.schemeBarCleanup = registerSchemeBarEvents(map, ctrl);
   ctrl.toggleDropdown = () => toggleSchemeDropdown(ctrl);
+  ctrl.selectScheme = (idx: number) => {
+    const name = (CONF.schemes ?? [])[idx];
+    if (name) selectScheme(ctrl, name);
+  };
 
   ctrl.schemeSelectHidden.onchange = () => {
     ctrl.m.currentScheme = ctrl.schemeSelectHidden.value;
