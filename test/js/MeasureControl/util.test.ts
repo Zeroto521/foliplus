@@ -11,7 +11,7 @@ beforeEach(() => {
   };
   globalThis.turf = {
     point: coords => ({ coords }),
-    polygon: vi.fn((rings) => ({ type: "Polygon", coordinates: rings })),
+    polygon: vi.fn(rings => ({ type: "Polygon", coordinates: rings })),
     area: vi.fn(() => 5000),
     midpoint: vi.fn(() => ({ geometry: { coordinates: [50, 50] } })),
     distance: vi.fn(() => 100),
