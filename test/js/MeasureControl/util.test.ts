@@ -217,3 +217,133 @@ describe("stopEvent", () => {
     expect(event.stopPropagation).toHaveBeenCalled();
   });
 });
+
+describe("calcArea", () => {
+  it("returns area for a valid polygon with 3+ points", () => {
+    const points = [
+      { lat: 0, lng: 0 },
+      { lat: 0, lng: 100 },
+      { lat: 100, lng: 0 },
+      { lat: 0, lng: 0 },
+    ];
+    const area = Util.calcArea(points as any);
+    expect(typeof area).toBe("number");
+    expect(area).toBeGreaterThan(0);
+  });
+
+  it("returns 0 for fewer than 3 points", () => {
+    expect(Util.calcArea([{ lat: 0, lng: 0 }] as any)).toBe(0);
+    expect(Util.calcArea([{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }] as any)).toBe(0);
+    expect(Util.calcArea([] as any)).toBe(0);
+  });
+});
+
+describe("calcCentroid", () => {
+  it("returns centroid with lng/lat for valid polygon", () => {
+    const points = [
+      { lat: 0, lng: 0 },
+      { lat: 0, lng: 100 },
+      { lat: 100, lng: 0 },
+      { lat: 0, lng: 0 },
+    ];
+    const c = Util.calcCentroid(points as any);
+    expect(c.lng).toBeDefined();
+    expect(c.lat).toBeDefined();
+  });
+
+  it("returns {lng:0, lat:0} for fewer than 3 points", () => {
+    expect(Util.calcCentroid([] as any)).toEqual({ lng: 0, lat: 0 });
+    expect(Util.calcCentroid([{ lat: 1, lng: 1 }] as any)).toEqual({ lng: 0, lat: 0 });
+  });
+});
+
+describe("calcMidpoint", () => {
+  it("returns midpoint between two points", () => {
+    const mid = Util.calcMidpoint({ lng: 0, lat: 0 }, { lng: 100, lat: 100 });
+    expect(mid.lng).toBe(50);
+    expect(mid.lat).toBe(50);
+  });
+});
+
+describe("formatDistance boundary", () => {
+  it("formats exactly 1000m as '1 km'", () => {
+    expect(Util.formatDistance(1000)).toBe("1 km");
+  });
+
+  it("formats 999m as '999 m'", () => {
+    expect(Util.formatDistance(999)).toBe("999 m");
+  });
+});
+
+describe("formatArea boundary", () => {
+  it("formats exactly 1e6 m² as '1.00 km²'", () => {
+    expect(Util.formatArea(1_000_000)).toBe("1.00 km²");
+  });
+
+  it("formats 999999 m² with locale thousands separator", () => {
+    expect(Util.formatArea(999_999)).toBe("999,999 m²");
+  });
+});
+
+describe("recalculateSegments edge cases", () => {
+  it("returns empty segments for single point", () => {
+    const result = Util.recalculateSegments([{ lat: 0, lng: 0 }] as any);
+    expect(result.segments).toHaveLength(0);
+    expect(result.totalDistance).toBe(0);
+  });
+
+  it("returns empty segments for empty array", () => {
+    const result = Util.recalculateSegments([] as any);
+    expect(result.segments).toHaveLength(0);
+    expect(result.totalDistance).toBe(0);
+  });
+
+  it("computes one segment for two points", () => {
+    const result = Util.recalculateSegments([
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+    ] as any);
+    expect(result.segments).toHaveLength(1);
+    expect(result.totalDistance).toBe(result.segments[0].distance);
+  });
+});
+
+describe("applyVisibilityToggle edge cases", () => {
+  it("handles null delMarker gracefully", () => {
+    expect(() =>
+      Util.applyVisibilityToggle(null, true, [], false, null, undefined),
+    ).not.toThrow();
+  });
+
+  it("applies visibility to extra label", () => {
+    const extraEl = document.createElement("span");
+    extraEl.classList.add("foliplus-measure-label");
+    const extraLabel = { getElement: () => ({ querySelector: () => extraEl }) };
+    const onToggle = vi.fn();
+    Util.applyVisibilityToggle(
+      undefined,
+      true,
+      [],
+      false,
+      extraLabel as any,
+      onToggle,
+    );
+    expect(extraEl.classList.contains("foliplus-measure-hidden")).toBe(true);
+    expect(onToggle).toHaveBeenCalledWith(true, false);
+  });
+});
+
+describe("toggleVisibility edge cases", () => {
+  it("handles empty array", () => {
+    expect(() => Util.toggleVisibility([], true)).not.toThrow();
+  });
+
+  it("toggles multiple elements", () => {
+    const el1 = document.createElement("div");
+    const el2 = document.createElement("div");
+    Util.toggleVisibility([el1, el2], false);
+    expect(el1.classList.contains("foliplus-measure-hidden")).toBe(true);
+    expect(el2.classList.contains("foliplus-measure-hidden")).toBe(true);
+  });
+});
+

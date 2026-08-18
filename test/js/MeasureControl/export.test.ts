@@ -363,6 +363,33 @@ describe("Export.exportMeasurements", () => {
     Export.exportMeasurements(null as any, "geojson");
     expect(createdUrls.length).toBe(0);
   });
+
+  it("handles multiple measurements in one download", () => {
+    Export.exportMeasurements([markerData, distanceData], "geojson");
+    expect(createdUrls.length).toBe(1);
+    expect(lastAnchor.click).toHaveBeenCalled();
+  });
+
+  it("creates geojson blob with correct MIME type", () => {
+    Export.exportMeasurements([markerData], "geojson");
+    const blobArg = URL.createObjectURL.mock.calls[0][0];
+    expect(blobArg.type).toBe("application/geo+json");
+  });
+
+  it("creates csv blob with correct MIME type", () => {
+    Export.exportMeasurements([markerData], "csv");
+    const blobArg = URL.createObjectURL.mock.calls[0][0];
+    expect(blobArg.type).toBe("text/csv");
+  });
+
+
+  it("uses default filename prefix when CONF.filename is undefined", () => {
+    const prev = window.CONF;
+    (window as any).CONF = { name: "MeasureControl" };
+    Export.exportMeasurements([markerData], "geojson");
+    expect(lastAnchor.download).toMatch(/^measurements_\d{4}-\d{2}-\d{2}\.geojson$/);
+    (window as any).CONF = prev;
+  });
 });
 
 describe("Export.csvEscape", () => {
@@ -454,3 +481,137 @@ describe("Export.toCSV edge cases", () => {
     expect(lines.length).toBe(2); // header + 1 valid row only
   });
 });
+
+describe("Export.toGeoJSON edge cases", () => {
+  it("filters out entries without a type", () => {
+    const json = Export.toGeoJSON([markerData, { id: "bad" } as MeasureData]);
+    const data = JSON.parse(json);
+    expect(data.features.length).toBe(1);
+    expect(data.features[0].geometry.type).toBe("Point");
+  });
+
+  it("produces valid JSON that round-trips", () => {
+    const json = Export.toGeoJSON([markerData]);
+    const parsed = JSON.parse(json);
+    const reSerialized = JSON.stringify(parsed);
+    expect(JSON.parse(reSerialized)).toEqual(parsed);
+  });
+});
+
+describe("Export.toCSV edge cases", () => {
+  it("handles marker with null lat/lng", () => {
+    const marker = {
+      id: "m1",
+      type: CONST.MODE.MARKER,
+      lat: undefined,
+      lng: undefined,
+    } as MeasureData;
+    const csv = Export.toCSV([marker]);
+    const lines = csv.split("\n");
+    expect(lines.length).toBe(2);
+    const row = lines[1].split(",");
+    // latitude and longitude should be empty strings
+    expect(row[3]).toBe("");
+    expect(row[4]).toBe("");
+  });
+
+  it("handles marker with address containing comma", () => {
+    const marker = {
+      id: "m1",
+      type: CONST.MODE.MARKER,
+      lat: 26.08,
+      lng: 119.3,
+      address: 'City, District',
+    } as MeasureData;
+    const csv = Export.toCSV([marker]);
+    // The address with comma should be quoted
+    expect(csv).toContain('"City, District"');
+  });
+
+  it("handles circle with null center", () => {
+    const circle = {
+      id: "c1",
+      type: CONST.MODE.CIRCLE,
+      center: null,
+    } as MeasureData;
+    const csv = Export.toCSV([circle]);
+    const lines = csv.split("\n");
+    expect(lines.length).toBe(2);
+    const row = lines[1].split(",");
+    expect(row[3]).toBe("");
+    expect(row[4]).toBe("");
+  });
+
+  it("handles distance with empty points", () => {
+    const dist = {
+      id: "d1",
+      type: CONST.MODE.DISTANCE,
+      points: [],
+    } as MeasureData;
+    const csv = Export.toCSV([dist]);
+    const lines = csv.split("\n");
+    expect(lines.length).toBe(2);
+  });
+
+});
+
+describe("Export.csvEscape edge cases", () => {
+  it("handles null and undefined values", () => {
+    expect(Export.csvEscape(null as any)).toBe("");
+    expect(Export.csvEscape(undefined as any)).toBe("");
+  });
+
+  it("handles numbers", () => {
+    expect(Export.csvEscape(0)).toBe("0");
+    expect(Export.csvEscape(-1)).toBe("-1");
+    expect(Export.csvEscape(3.14)).toBe("3.14");
+  });
+
+  it("handles string with all special chars", () => {
+    expect(Export.csvEscape('a,"b",\nc')).toBe('"a,""b"",\nc"');
+  });
+});
+
+describe("Export.getBasePoint more edge cases", () => {
+  it("returns null for distance with null points", () => {
+    const point = Export.getBasePoint({
+      type: CONST.MODE.DISTANCE,
+      points: null,
+    } as MeasureData);
+    expect(point).toBeNull();
+  });
+
+  it("returns null for polygon with null points", () => {
+    const point = Export.getBasePoint({
+      type: CONST.MODE.POLYGON,
+      points: null,
+    } as MeasureData);
+    expect(point).toBeNull();
+  });
+
+  it("returns null for circle with null center", () => {
+    const point = Export.getBasePoint({
+      type: CONST.MODE.CIRCLE,
+      center: null,
+    } as MeasureData);
+    expect(point).toBeNull();
+  });
+});
+
+
+describe("Export.getDefaultFormat more cases", () => {
+  it("returns geojson when CONF is undefined", () => {
+    const prev = window.CONF;
+    (window as any).CONF = undefined;
+    expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+    (window as any).CONF = prev;
+  });
+
+  it("returns geojson when CONF.export_format is null", () => {
+    const prev = window.CONF;
+    (window as any).CONF = { name: "MeasureControl", export_format: null };
+    expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+    (window as any).CONF = prev;
+  });
+});
+
