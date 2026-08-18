@@ -275,6 +275,8 @@ declare global {
     events: CoreEventBus;
     /** Per-map cross-component active-mode registry. */
     modes: CoreModeManager;
+    /** Per-map interaction shortcut manager. */
+    interaction: InteractionManager;
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.

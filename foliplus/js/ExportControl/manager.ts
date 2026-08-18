@@ -6,6 +6,7 @@ import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+import { registerDrag, registerInteractions } from "./interaction.js";
 import { ExportRenderer } from "./renderer.js";
 import {
   lockCropBox,
@@ -72,6 +73,10 @@ interface SavedBounds {
 
 class ExportManager {
   map: L.Map;
+  dragCleanup?: () => void;
+  interactionCleanup?: () => void;
+  escapeCleanup?: () => void;
+  cropMousedownCleanup?: () => void;
   mapContainer: HTMLElement;
   cropState: CropState | null;
   exportCtrl: HTMLElement | null;
@@ -127,10 +132,6 @@ class ExportManager {
     this.undoStack = [];
     this.redoStack = [];
 
-    this.onMouseDown = this.onMouseDown.bind(this);
-    this.onMouseMove = this.onMouseMove.bind(this);
-    this.onMouseUp = this.onMouseUp.bind(this);
-    this.onKeyDown = this.onKeyDown.bind(this);
     this.onMapChange = this.onMapChange.bind(this);
 
     // Mount UI functions directly on this instance
@@ -224,8 +225,7 @@ class ExportManager {
     this.dragState.lastX = event.clientX;
     this.dragState.lastY = event.clientY;
     this.dragState.startRect = Object.assign({}, st.rect);
-    document.addEventListener("mousemove", this.onMouseMove);
-    document.addEventListener("mouseup", this.onMouseUp);
+    this.dragCleanup = registerDrag(this);
   }
 
   onMouseMove(event: MouseEvent) {
@@ -311,13 +311,16 @@ class ExportManager {
   onMouseUp() {
     this.dragState.dragging = false;
     this.dragState.dragType = null;
-    document.removeEventListener("mousemove", this.onMouseMove);
-    document.removeEventListener("mouseup", this.onMouseUp);
+    // mousemove/mouseup auto-cleaned by dragCleanup
     // Re-enable transition so the box animates smoothly to its final position
     // on the next non-drag style update (e.g. after unlock).
     if (this.cropState?.box)
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
     this.pushUndoState();
+  }
+
+  registerShortcuts(): void {
+    const cleanup = registerInteractions(this);
   }
 
   onKeyDown(event: KeyboardEvent) {
