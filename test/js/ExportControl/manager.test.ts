@@ -731,4 +731,77 @@ describe("ExportManager — World File export", () => {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
     }
   });
+
+  it("downloads two files when export_world_file is true", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    window.CONF.export_world_file = true;
+    const downloaded: string[] = [];
+    const origAppendChild = document.body.appendChild;
+    document.body.appendChild = function (child: Node) {
+      const result = origAppendChild.call(document.body, child);
+      if (
+        child instanceof HTMLAnchorElement &&
+        child.download
+      ) {
+        downloaded.push(child.download);
+      }
+      return result;
+    };
+    const canvas = document.createElement("canvas");
+    Object.defineProperty(canvas, "width", { value: 1000 });
+    Object.defineProperty(canvas, "height", { value: 500 });
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
+      cb(new Blob(["image"], { type: "image/png" }));
+    };
+    try {
+      manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
+      // The image download fires inside the toBlob callback, followed by
+      // the World File download. Both should be present.
+      expect(downloaded).toHaveLength(2);
+      expect(downloaded[0]).toBe("test-map.png");
+      expect(downloaded[1]).toBe("test-map.pngw");
+    } finally {
+      document.body.appendChild = origAppendChild;
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+    }
+  });
+
+  it("downloads only one file when export_world_file is false", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    window.CONF.export_world_file = false;
+    const downloaded: string[] = [];
+    const origAppendChild = document.body.appendChild;
+    document.body.appendChild = function (child: Node) {
+      const result = origAppendChild.call(document.body, child);
+      if (
+        child instanceof HTMLAnchorElement &&
+        child.download
+      ) {
+        downloaded.push(child.download);
+      }
+      return result;
+    };
+    const canvas = document.createElement("canvas");
+    Object.defineProperty(canvas, "width", { value: 1000 });
+    Object.defineProperty(canvas, "height", { value: 500 });
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
+      cb(new Blob(["image"], { type: "image/png" }));
+    };
+    try {
+      manager.onRenderSuccess(canvas, document.querySelectorAll("div"));
+      expect(downloaded).toHaveLength(1);
+      expect(downloaded[0]).toBe("test-map.png");
+    } finally {
+      document.body.appendChild = origAppendChild;
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+    }
+  });
 });
