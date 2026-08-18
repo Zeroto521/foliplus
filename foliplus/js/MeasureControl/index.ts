@@ -79,6 +79,34 @@ class MeasureControl extends BaseControl {
       parent: toolBar,
       data: {},
     });
+
+    createIconButton({
+      class: "foliplus-tool-btn",
+      title: _(`${CONF.name}.tool_clear`),
+      svg: SVGs.TRASH,
+      parent: toolBar,
+      data: { mode: CONST.MODE.CLEAR },
+    });
+
+    this.m.ctrl = ctrl;
+    this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
+
+    bindFoldToggle({ container: ctrl, toggleBtn });
+
+    // Collapse when clicking outside, but NOT when a tool is active
+    bindOutsideCollapse({
+      container: ctrl,
+      skipCheck: () => this.m.currentMode !== null,
+    });
+
+    this.m.toolBtns.forEach((btn: HTMLElement) => {
+      btn.onclick = (event: MouseEvent) => {
+        event.stopPropagation();
+        this.m.setMode(btn.dataset.mode ?? null);
+      };
+    });
+
+    // Export button handler — set AFTER toolBtns.forEach (which overwrites all .foliplus-tool-btn onclick).
     exportBtn.onclick = (event: MouseEvent) => {
       event.stopPropagation();
       if (!this.m) {
@@ -107,32 +135,6 @@ class MeasureControl extends BaseControl {
         }
       }
     };
-
-    createIconButton({
-      class: "foliplus-tool-btn",
-      title: _(`${CONF.name}.tool_clear`),
-      svg: SVGs.TRASH,
-      parent: toolBar,
-      data: { mode: CONST.MODE.CLEAR },
-    });
-
-    this.m.ctrl = ctrl;
-    this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
-
-    bindFoldToggle({ container: ctrl, toggleBtn });
-
-    // Collapse when clicking outside, but NOT when a tool is active
-    bindOutsideCollapse({
-      container: ctrl,
-      skipCheck: () => this.m.currentMode !== null,
-    });
-
-    this.m.toolBtns.forEach((btn: HTMLElement) => {
-      btn.onclick = (event: MouseEvent) => {
-        event.stopPropagation();
-        this.m.setMode(btn.dataset.mode ?? null);
-      };
-    });
 
     return container;
   }
