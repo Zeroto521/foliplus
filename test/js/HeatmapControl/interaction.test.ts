@@ -12,12 +12,13 @@ function makeCtrl(): any {
   };
   const schemeBar = document.createElement("div");
   const schemeDropdown = document.createElement("div");
+  const schemeSelectHidden = document.createElement("select");
   return {
     map,
     schemeBar,
     schemeDropdown,
-    availableSchemes: ["thermal", "rainbow", "grayscale"],
-    scheme: "thermal",
+    schemeSelectHidden,
+    m: { currentScheme: "thermal" },
     updateScheme: vi.fn(),
     toggleDropdown: vi.fn(),
     selectScheme: vi.fn(),
@@ -25,8 +26,14 @@ function makeCtrl(): any {
 }
 
 describe("HeatmapControl interaction", () => {
+  beforeEach(() => {
+    // Set up scheme list for the interaction handlers
+    (window as any).CONF.schemes = ["thermal", "rainbow", "grayscale"];
+  });
+
   afterEach(() => {
     document.body.innerHTML = "";
+    delete (window as any).CONF.schemes;
   });
 
   it("registerSchemeBarEvents returns cleanup", () => {
@@ -51,7 +58,7 @@ describe("HeatmapControl interaction", () => {
 
   it("ArrowLeft at first does nothing", () => {
     const ctrl = makeCtrl();
-    ctrl.scheme = "thermal";
+    ctrl.m.currentScheme = "thermal";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
