@@ -331,12 +331,18 @@ class PolygonMode extends PreviewMode {
     ] as MapEventHandlers;
     bindMapEvents(this.map, polyEvents);
   }
+
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     const coords = data.points?.map(p => [p.lng, p.lat]) || [];
     if (coords.length > 1) coords.push(coords[0]);
     return {
       type: "Feature",
-      properties: { type: "polygon", name: "Area Measurement", area: data.area || 0 },
+      properties: {
+        type: "polygon",
+        name: "Area Measurement",
+        area: data.area || 0,
+        segments: data.segments || [],
+      },
       geometry: { type: "Polygon", coordinates: [coords] },
     };
   }

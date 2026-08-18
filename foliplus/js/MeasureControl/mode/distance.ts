@@ -287,6 +287,7 @@ class DistanceMode extends PreviewMode {
     ] as MapEventHandlers;
     bindMapEvents(this.map, distEvents);
   }
+
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     return {
       type: "Feature",

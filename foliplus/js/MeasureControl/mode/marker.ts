@@ -162,10 +162,11 @@ class MarkerMode extends MeasureMode {
       toggleDelIcon(delMarker, false);
     });
   }
+
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     return {
       type: "Feature",
-      properties: { type: "marker", name: data.address || "Location Marker" },
+      properties: { type: "marker", name: "Location Marker", address: data.address },
       geometry: { type: "Point", coordinates: [data.lng || 0, data.lat || 0] },
     };
   }

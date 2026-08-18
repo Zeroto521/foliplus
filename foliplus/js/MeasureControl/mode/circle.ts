@@ -203,10 +203,9 @@ class CircleMode extends PreviewMode {
           }),
         );
         previews.node.bringToFront();
-      } else {
         // Keep the radius node glued to the cursor while drawing.
-        previews.node.setLatLng(event.latlng);
-      }
+      } else previews.node.setLatLng(event.latlng);
+
       const mid = Util.midpoint(center, event.latlng);
       if (!previews.label) {
         const previewLabel = L.marker(mid, {
@@ -339,6 +338,7 @@ class CircleMode extends PreviewMode {
       map.foliplus!.hideHint(CONF.name);
     };
   }
+
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     const c = data.center,
       r = data.radius || 0;
@@ -353,11 +353,10 @@ class CircleMode extends PreviewMode {
       steps: 64,
       units: "kilometers",
     });
-    const coords = circle.geometry.coordinates[0];
     return {
       type: "Feature",
-      properties: { type: "circle", name: "Circle", radius: r },
-      geometry: { type: "Polygon", coordinates: [coords] },
+      properties: { type: "circle", name: "Circle Measurement", radius: r, center: c },
+      geometry: { type: "Polygon", coordinates: circle.geometry.coordinates },
     };
   }
 }
