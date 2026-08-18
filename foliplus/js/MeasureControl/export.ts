@@ -187,9 +187,7 @@ const formatToMimeType = (format: ExportFormat): string => {
   }
 };
 
-/**
- * Convert and download measurements.
- */
+/** Convert measurements to a Blob and trigger a file download. */
 const exportMeasurements = (
   measurements: MeasureData[],
   format: ExportFormat,
@@ -215,15 +213,12 @@ const exportMeasurements = (
       content = toGeoJSON(measurements);
   }
 
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 };
 
 /**
@@ -237,4 +232,4 @@ const getDefaultFormat = (): ExportFormat => {
   return CONST.EXPORT_FORMAT.GEOJSON;
 };
 
-export { toGeoJSON, toCSV, exportMeasurements, getDefaultFormat, getBasePoint };
+export { toGeoJSON, toCSV, exportMeasurements, getDefaultFormat, getBasePoint, formatToExtension, formatToMimeType };

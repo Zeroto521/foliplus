@@ -258,3 +258,110 @@ describe("Export.getBasePoint", () => {
     expect(point).toBeNull();
   });
 });
+
+describe("Export.formatToExtension", () => {
+  it("returns geojson extension for geojson format", () => {
+    expect(Export.formatToExtension("geojson")).toBe("geojson");
+  });
+
+  it("returns csv extension for csv format", () => {
+    expect(Export.formatToExtension("csv")).toBe("csv");
+  });
+
+  it("returns geojson extension for unknown format", () => {
+    expect(Export.formatToExtension("unknown" as never)).toBe("geojson");
+  });
+});
+
+describe("Export.formatToMimeType", () => {
+  it("returns application/geo+json for geojson format", () => {
+    expect(Export.formatToMimeType("geojson")).toBe("application/geo+json");
+  });
+
+  it("returns text/csv for csv format", () => {
+    expect(Export.formatToMimeType("csv")).toBe("text/csv");
+  });
+
+  it("returns application/geo+json for unknown format", () => {
+    expect(Export.formatToMimeType("unknown" as never)).toBe("application/geo+json");
+  });
+});
+
+describe("Export.exportMeasurements", () => {
+  let originalCreateObjectURL: typeof URL.createObjectURL;
+  let originalCreateElement: typeof document.createElement;
+  let originalAppendChild: typeof HTMLBodyElement.prototype.appendChild;
+  let createdUrls: string[] = [];
+  let lastAnchor: any = null;
+
+  beforeEach(() => {
+    createdUrls = [];
+    lastAnchor = null;
+
+    const prev = window.CONF;
+    (window as any).CONF = { name: "MeasureControl", filename: "test_data" };
+
+    originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn((blob: Blob) => {
+      const url = "blob:test-url";
+      createdUrls.push(url);
+      return url;
+    }) as any;
+
+    originalCreateElement = document.createElement;
+    document.createElement = vi.fn((tag: string) => {
+      if (tag === "a") {
+        const anchor = {
+          href: "",
+          download: "",
+          style: {},
+          click: vi.fn(),
+        };
+        lastAnchor = anchor;
+        return anchor as any;
+      }
+      return originalCreateElement(tag);
+    }) as any;
+
+    originalAppendChild = HTMLBodyElement.prototype.appendChild;
+    HTMLBodyElement.prototype.appendChild = vi.fn() as any;
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+    document.createElement = originalCreateElement;
+    HTMLBodyElement.prototype.appendChild = originalAppendChild;
+    (window as any).CONF = undefined;
+  });
+
+  it("creates a download with geojson format and correct filename", () => {
+    Export.exportMeasurements([markerData], "geojson");
+
+    expect(createdUrls.length).toBe(1);
+    expect(lastAnchor.href).toBe("blob:test-url");
+    expect(lastAnchor.download.startsWith("test_data_")).toBe(true);
+    expect(lastAnchor.download.endsWith(".geojson")).toBe(true);
+    expect(lastAnchor.click).toHaveBeenCalled();
+    expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+  });
+
+  it("creates a download with csv format and correct filename", () => {
+    Export.exportMeasurements([markerData], "csv");
+
+    expect(createdUrls.length).toBe(1);
+    expect(lastAnchor.download.endsWith(".csv")).toBe(true);
+    expect(lastAnchor.click).toHaveBeenCalled();
+    expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+  });
+
+  it("does nothing when measurements is empty", () => {
+    Export.exportMeasurements([], "geojson");
+    expect(createdUrls.length).toBe(0);
+  });
+
+  it("does nothing when measurements is null", () => {
+    Export.exportMeasurements(null as any, "geojson");
+    expect(createdUrls.length).toBe(0);
+  });
+});
+
