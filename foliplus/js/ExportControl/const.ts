@@ -21,6 +21,7 @@ export const MIME = {
   png: "image/png",
   jpeg: "image/jpeg",
   webp: "image/webp",
+  tif: "image/tiff",
 };
 
 /** World File extension per raster format (ESRI convention).
@@ -28,6 +29,7 @@ export const MIME = {
  *  .webpw is non-standard but is the closest fit for WebP.
  */
 export const WORLD_FILE_EXT = {
+  tif: "tif",
   png: "pngw",
   jpeg: "jgw",
   webp: "webpw",

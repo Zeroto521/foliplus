@@ -6,7 +6,7 @@ from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
-FORMAT = Literal["png", "jpeg", "webp"]
+FORMAT = Literal["png", "jpeg", "webp", "geotiff"]
 
 
 class ExportControl(BaseControl):

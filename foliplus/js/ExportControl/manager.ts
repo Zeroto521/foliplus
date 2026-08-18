@@ -18,6 +18,7 @@ import {
   updateBoxStyle,
 } from "./ui.js";
 import { generateWorldFile, createZipBlob } from "./util.js";
+import { writeArrayBuffer } from "geotiff";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
@@ -557,10 +558,10 @@ class ExportManager {
           return;
         }
         const name = CONF.filename || "map";
-        if (CONF.export_world_file === true) {
-          // Package image + World File into a single ZIP for reliable download.
-          // Browsers block consecutive programmatic a.click() calls, so a
-          // single ZIP download is the only reliable way to deliver both files.
+        if (CONF.format === "geotiff") {
+          // Export as a single GeoTIFF file with embedded georeferencing.
+          await this.downloadGeoTiff(canvas, name);
+        } else if (CONF.export_world_file === true) {
           await this.downloadWorldFileZip(blob, canvas, name);
         } else {
           const link = document.createElement("a");
@@ -602,6 +603,60 @@ class ExportManager {
    * programmatic a.click() calls, so bundling both files into one ZIP
    * is the only reliable delivery method for georeferenced raster output.
    */
+  async downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
+    const geoBounds = this.cropState?.geoBounds;
+    if (!geoBounds?.nw || !geoBounds?.se) {
+      const blob = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `${name}.tif`;
+      link.href = blob;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+    if (canvas.width <= 0 || canvas.height <= 0) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const rgba = imageData.data;
+
+    const rgb = new Uint8Array(canvas.width * canvas.height * 3);
+    for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+      rgb[j] = rgba[i];
+      rgb[j + 1] = rgba[i + 1];
+      rgb[j + 2] = rgba[i + 2];
+    }
+
+    const pixelWidth = (geoBounds.se.lng - geoBounds.nw.lng) / canvas.width;
+    const pixelHeight = (geoBounds.se.lat - geoBounds.nw.lat) / canvas.height;
+
+    const tiffBuffer = writeArrayBuffer(rgb, {
+      width: canvas.width,
+      height: canvas.height,
+      ModelTiepoint: [0, 0, 0, geoBounds.nw.lng, geoBounds.nw.lat, 0],
+      ModelPixelScale: [pixelWidth, pixelHeight, 0],
+      GeographicTypeGeoKey: 4326,
+      Compression: 1,
+      SamplesPerPixel: [3],
+      BitsPerSample: [8, 8, 8],
+      PhotometricInterpretation: 2,
+    });
+
+    const blob = new Blob([tiffBuffer], { type: "image/tiff" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = `${name}.tif`;
+    link.href = url;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+  }
+
   async downloadWorldFileZip(blob: Blob, canvas: HTMLCanvasElement, name: string) {
     const worldFile = this.getWorldFileBlob(canvas);
     if (!worldFile) {
