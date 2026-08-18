@@ -197,7 +197,6 @@ const showCropBox = (mgr: ExportManager) => {
   mgr.pushUndoState();
   showHintWithInfo(mgr, box, _(`${CONF.name}.hint_unlocked`));
   mgr.cropMousedownCleanup = registerCropMouseDown(mgr, cropBox);
-  mgr.registerShortcuts();
 };
 
 /** Update toolbar for locked state (export button). */
@@ -273,8 +272,6 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
   }
-  ensureInteraction(mgr.map).unregister(CONF.name + "-escape");
-  mgr.interactionCleanup?.();
   if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
