@@ -138,8 +138,9 @@ interface CsvRow {
   id: string;
   type: string;
   name: string;
-  latitude: string;
   longitude: string;
+  latitude: string;
+  center: string;
   totalDistance: string;
   area: string;
   radius: string;
@@ -166,8 +167,9 @@ const toCSV = (measurements: MeasureData[]): string => {
     "id",
     "type",
     "name",
-    "latitude",
     "longitude",
+    "latitude",
+    "center",
     "totalDistance",
     "area",
     "radius",
@@ -179,22 +181,21 @@ const toCSV = (measurements: MeasureData[]): string => {
   for (const data of measurements) {
     if (!data.type) continue;
 
-    const name = getNameForType(data);
-    const wkt = toWKT(data);
     const lat = getLat(data);
     const lng = getLng(data);
 
     const row: CsvRow = {
       id: data.id || "",
       type: data.type,
-      name,
-      latitude: lat !== null ? lat.toFixed(6) : "",
+      name: getNameForType(data),
       longitude: lng !== null ? lng.toFixed(6) : "",
+      latitude: lat !== null ? lat.toFixed(6) : "",
+      center: data.center ? `${data.center.lat.toFixed(6)},${data.center.lng.toFixed(6)}` : "",
       totalDistance: data.totalDistance !== undefined ? String(data.totalDistance) : "",
       area: data.area !== undefined ? String(data.area) : "",
       radius: data.radius !== undefined ? String(data.radius) : "",
       address: data.address || "",
-      wkt,
+      wkt: toWKT(data),
     };
 
     rows.push(headers.map(h => csvEscape(row[h as keyof CsvRow] || "")).join(","));
@@ -204,18 +205,10 @@ const toCSV = (measurements: MeasureData[]): string => {
 };
 
 const getNameForType = (data: MeasureData): string => {
-  if (data.type === CONST.MODE.MARKER) {
-    return data.address || "Location Marker";
-  }
-  if (data.type === CONST.MODE.DISTANCE) {
-    return "Distance Measurement";
-  }
-  if (data.type === CONST.MODE.POLYGON) {
-    return "Area Measurement";
-  }
-  if (data.type === CONST.MODE.CIRCLE) {
-    return "Circle";
-  }
+  if (data.type === CONST.MODE.MARKER) return "Location Marker";
+  if (data.type === CONST.MODE.DISTANCE) return "Distance Measurement";
+  if (data.type === CONST.MODE.POLYGON) return "Area Measurement";
+  if (data.type === CONST.MODE.CIRCLE) return "Circle";
   return data.type;
 };
 
@@ -224,21 +217,19 @@ const getNameForType = (data: MeasureData): string => {
  * This avoids repeating the type-switch logic in getLat and getLng.
  */
 const getBasePoint = (data: MeasureData): { lat: number; lng: number } | null => {
-  if (data.type === CONST.MODE.MARKER) {
+  if (data.type === CONST.MODE.MARKER)
     return data.lat !== undefined && data.lng !== undefined
       ? { lat: data.lat, lng: data.lng }
       : null;
-  }
+
   if (
     (data.type === CONST.MODE.DISTANCE || data.type === CONST.MODE.POLYGON) &&
     data.points &&
     data.points.length > 0
-  ) {
+  )
     return data.points[0];
-  }
-  if (data.type === CONST.MODE.CIRCLE) {
-    return data.center ?? null;
-  }
+
+  if (data.type === CONST.MODE.CIRCLE) return data.center ?? null;
   return null;
 };
 
@@ -260,9 +251,7 @@ const toWKT = (data: MeasureData): string => {
 
 /** Convert a GeoJSON Feature to a WKT string using turf.wkt. */
 const featureToWKT = (feature: GeoJSON.Feature): string => {
-  if (!feature.geometry) {
-    return "";
-  }
+  if (!feature.geometry) return "";
   return turf.wkt.toWKT(feature).replace("\n", "");
 };
 
@@ -299,9 +288,7 @@ const exportMeasurements = (
   measurements: MeasureData[],
   format: ExportFormat,
 ): void => {
-  if (!measurements || measurements.length === 0) {
-    return;
-  }
+  if (!measurements || measurements.length === 0) return;
 
   let content: string;
   const ext = formatToExtension(format);
@@ -333,9 +320,9 @@ const exportMeasurements = (
  */
 const getDefaultFormat = (): ExportFormat => {
   const fmt = CONF?.export_format;
-  if (fmt === CONST.EXPORT_FORMAT.GEOJSON || fmt === CONST.EXPORT_FORMAT.CSV) {
+  if (fmt === CONST.EXPORT_FORMAT.GEOJSON || fmt === CONST.EXPORT_FORMAT.CSV)
     return fmt;
-  }
+
   return CONST.EXPORT_FORMAT.GEOJSON;
 };
 
