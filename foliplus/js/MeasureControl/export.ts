@@ -190,7 +190,9 @@ const toCSV = (measurements: MeasureData[]): string => {
       name: getNameForType(data),
       longitude: lng !== null ? lng.toFixed(6) : "",
       latitude: lat !== null ? lat.toFixed(6) : "",
-      center: data.center ? `${data.center.lat.toFixed(6)},${data.center.lng.toFixed(6)}` : "",
+      center: data.center
+        ? `${data.center.lat.toFixed(6)},${data.center.lng.toFixed(6)}`
+        : "",
       totalDistance: data.totalDistance !== undefined ? String(data.totalDistance) : "",
       area: data.area !== undefined ? String(data.area) : "",
       radius: data.radius !== undefined ? String(data.radius) : "",
