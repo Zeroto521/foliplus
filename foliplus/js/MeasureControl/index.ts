@@ -100,7 +100,11 @@ class MeasureControl extends BaseControl {
         Export.exportMeasurements(measurements, format);
       } catch (err) {
         const msg = (err as Error).message || "导出失败";
-        try { map.foliplus?.showHint?.(CONF.name, msg, 4000); } catch { alert(msg); }
+        try {
+          map.foliplus?.showHint?.(CONF.name, msg, 4000);
+        } catch {
+          alert(msg);
+        }
       }
     };
 
