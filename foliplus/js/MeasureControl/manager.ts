@@ -11,12 +11,12 @@ import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { registerInteractions } from "./interaction.js";
 import {
-  MarkerMode,
-  DistanceMode,
-  PolygonMode,
   CircleMode,
-  MeasureMode,
+  DistanceMode,
   MODE_MAP,
+  MarkerMode,
+  MeasureMode,
+  PolygonMode,
 } from "./mode/index.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
