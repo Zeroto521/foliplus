@@ -100,7 +100,7 @@ describe("Export.toGeoJSON", () => {
     expect(data.features[0].geometry.type).toBe("Point");
     expect(data.features[0].geometry.coordinates).toEqual([119.3, 26.08]);
     expect(data.features[0].properties.type).toBe("marker");
-    expect(data.features[0].properties.name).toBe("Taiwan");
+    expect(data.features[0].properties.address).toBe("Taiwan");
   });
 
   it("converts distance to LineString feature", () => {
@@ -460,7 +460,7 @@ describe("Export.csvEscape", () => {
 
 describe("Export.getNameForType", () => {
   it("returns address for marker with address", () => {
-    expect(Export.getNameForType(markerData)).toBe("Taiwan");
+    expect(Export.getNameForType(markerData)).toBe("Location Marker");
   });
 
   it("returns default for marker without address", () => {

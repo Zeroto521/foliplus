@@ -19,7 +19,7 @@ describe("MarkerMode — toGeoFeature", () => {
     });
     expect(feature.type).toBe("Feature");
     expect(feature.properties.type).toBe("marker");
-    expect(feature.properties.name).toBe("Shanghai");
+    expect(feature.properties.address).toBe("Shanghai");
     expect(feature.geometry.type).toBe("Point");
     expect(feature.geometry.coordinates).toEqual([121.5, 31.2]);
   });
