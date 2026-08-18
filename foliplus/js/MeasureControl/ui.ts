@@ -485,5 +485,11 @@ const attachPolygonUI = (
   return onMapClickActive;
 };
 
-export { attachCircleUI, attachDistanceUI, attachPolygonUI };
-export { createToggleUI, setupMapClickActive, resortLayers };
+export {
+  attachCircleUI,
+  attachDistanceUI,
+  attachPolygonUI,
+  createToggleUI,
+  setupMapClickActive,
+  resortLayers,
+};
