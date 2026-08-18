@@ -2,7 +2,7 @@
 import { ensureInteraction } from "#core/interaction.js";
 import type { ExportManager } from "./manager.js";
 
-export const registerInteractions = (mgr: ExportManager): (() => void) => {
+const registerInteractions = (mgr: ExportManager): (() => void) => {
   return ensureInteraction(mgr.map).register(
     CONF.name,
     [
@@ -20,7 +20,7 @@ export const registerInteractions = (mgr: ExportManager): (() => void) => {
   );
 };
 
-export const registerDrag = (mgr: ExportManager): (() => void) => {
+const registerDrag = (mgr: ExportManager): (() => void) => {
   return ensureInteraction(mgr.map).register(CONF.name + "-drag", [
     { event: "mousemove", handler: (e: Event) => mgr.onMouseMove(e as MouseEvent) },
     {
@@ -32,7 +32,7 @@ export const registerDrag = (mgr: ExportManager): (() => void) => {
   ]);
 };
 
-export const registerCropMouseDown = (
+const registerCropMouseDown = (
   mgr: ExportManager,
   element: HTMLElement,
 ): (() => void) => {
@@ -44,3 +44,6 @@ export const registerCropMouseDown = (
     },
   ]);
 };
+
+
+export { registerInteractions, registerDrag, registerCropMouseDown };

@@ -1,7 +1,7 @@
 // HeatmapControl interaction — scheme bar/dropdown keyboard events.
 import { ensureInteraction } from "#core/interaction.js";
 
-export const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
+const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
   return ensureInteraction(map).register(CONF.name, [
     {
       key: "ArrowLeft",
@@ -56,7 +56,7 @@ export const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => 
   ]);
 };
 
-export const registerDropdownEvents = (
+const registerDropdownEvents = (
   map: L.Map,
   ctrl: any,
   items: HTMLElement[],
@@ -101,3 +101,6 @@ export const registerDropdownEvents = (
     },
   ]);
 };
+
+
+export { registerSchemeBarEvents, registerDropdownEvents };
