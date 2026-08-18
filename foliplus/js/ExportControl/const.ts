@@ -122,7 +122,7 @@ const DEFAULT_CONN_CONCURRENCY: Record<string, number> = {
  * Vendor-prefixed accessors (moz/webkit) are consulted so Firefox and older
  * Safari work.  Standard `navigator.connection` wins when present.
  */
-export function detectConcurrency(): number {
+export const detectConcurrency = (): number => {
   const conn =
     (navigator as any).connection ||
     (navigator as any).mozConnection ||
@@ -140,7 +140,7 @@ export function detectConcurrency(): number {
   if (typeof conn.effectiveType !== "string") return DEFAULT_CONCURRENCY;
   const et = conn.effectiveType.toLowerCase();
   return CONN_CONCURRENCY[et] ?? DEFAULT_CONN_CONCURRENCY[et] ?? DEFAULT_CONCURRENCY;
-}
+};
 
 /**
  * Maximum concurrent tile fetches during render.  Auto-detected at module
