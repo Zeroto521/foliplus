@@ -55,6 +55,8 @@ window.foliplus = {
   showHint: vi.fn(),
   hideHint: vi.fn(),
   registerHintIcon: vi.fn(),
+  geocode: vi.fn(),
+  cacheSuggestion: vi.fn(),
   HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
 };
 

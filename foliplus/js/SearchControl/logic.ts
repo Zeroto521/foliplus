@@ -15,7 +15,7 @@ import { fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
-import { AUTOCOMPLETE, CLASSES, MODE, SEARCH, ZOOM } from "./const.js";
+import { AUTOCOMPLETE, CLASSES, MODE, ZOOM } from "./const.js";
 import type { AddressResult, NominatimItem } from "./type.js";
 
 const { _ } = createControlEnv(CONF);
@@ -139,26 +139,18 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
  */
 const searchAddress = (ctrl: SearchControlState, query: string) => {
   if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
-  if (ctrl.cachedAddress[query]) {
-    renderAddressResult(ctrl, ctrl.cachedAddress[query]);
-    return;
-  }
-
+  // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
   map.foliplus!.showHint(
     CONF.name,
     `${Icons.LOADING} ${_(`${CONF.name}.popup_loading`)}`,
     HINT_DURATION.PERSIST,
   );
 
-  if (ctrl.addrAbortController) ctrl.addrAbortController.abort();
-  ctrl.addrAbortController = new AbortController();
-  const signal = ctrl.addrAbortController.signal;
-
-  fetchWithTimeout(buildSearchUrl(ctrl, query, SEARCH.LIMIT), { signal })
-    .then(r => r.json())
-    .then(results => {
+  window.foliplus
+    .geocode(map, query, CONF.locale_code)
+    .then(result => {
       map.foliplus!.hideHint(CONF.name);
-      if (!results || results.length === 0) {
+      if (!result) {
         map.foliplus!.showHint(
           CONF.name,
           _(`${CONF.name}.addr_not_found`),
@@ -167,16 +159,10 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
         ctrl.inp.value = "";
         return;
       }
-
-      const item = results[0];
-      const displayName =
-        formatAddress(item.display_name, map, CONF.locale_code) || query;
-      ctrl.cachedAddress[query] = { item, displayName };
-      renderAddressResult(ctrl, { item, displayName });
+      // result is already in map CRS — skip fromWgs84 in renderAddressResult.
+      renderAddressResult(ctrl, result, true);
     })
-    .catch(err => {
-      if (err.name === "AbortError") return;
-      console.error(`[${CONF.name}] Address lookup failed, check network`);
+    .catch(() => {
       map.foliplus!.hideHint(CONF.name);
       map.foliplus!.showHint(
         CONF.name,
@@ -186,19 +172,28 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
     });
 };
 
-/**
- * Render address result: fly to location and place marker.
- * @param {Object} ctrl - SearchControl instance
- * @param {Object} result - { item, displayName }
- */
-const renderAddressResult = (ctrl: SearchControlState, result: AddressResult) => {
-  const { item, displayName } = result;
-  let lat = parseFloat(item.lat);
-  let lng = parseFloat(item.lon);
+const renderAddressResult = (
+  ctrl: SearchControlState,
+  result: AddressResult | { lat: number; lng: number; display_name: string },
+  alreadyConverted = false,
+) => {
+  const displayName =
+    "display_name" in result
+      ? result.display_name
+      : ((result as AddressResult).displayName ?? "");
+  let lng =
+    "lng" in result ? result.lng : parseFloat((result as AddressResult).item.lon);
+  let lat =
+    "lat" in result ? result.lat : parseFloat((result as AddressResult).item.lat);
 
-  const converted = fromWgs84(map, lng, lat);
-  lng = converted[0];
-  lat = converted[1];
+  if (!alreadyConverted) {
+    const item = (result as AddressResult).item;
+    lng = parseFloat(item.lon);
+    lat = parseFloat(item.lat);
+    const converted = fromWgs84(map, lng, lat);
+    lng = converted[0];
+    lat = converted[1];
+  }
 
   const zoom = Math.min(
     ZOOM.MAX,
@@ -282,7 +277,6 @@ const renderSuggestions = (
           event.stopPropagation();
           event.preventDefault();
           removeSuggestions(ctrl);
-          ctrl.cachedAddress[displayName] = { item, displayName };
           renderAddressResult(ctrl, { item, displayName });
         },
       },
@@ -330,6 +324,17 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     .then(results => {
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
+      // Cache first result so searchAddress can serve it from geoCache
+      const first = Array.isArray(results) ? results[0] : null;
+      if (first) {
+        window.foliplus.cacheSuggestion(
+          map,
+          query,
+          parseFloat(first.lat),
+          parseFloat(first.lon),
+          formatAddress(first.display_name, map, CONF.locale_code) || query,
+        );
+      }
       renderSuggestions(ctrl, results, query);
     })
     .catch(err => {

@@ -1,11 +1,11 @@
 // Geocoding (stateful singleton) for the foliplus runtime.
-// Bidirectional global cache: address → coordinates (forward) and
-// coordinates → address (reverse). Shared cache + throttle queue must be
+// Bidirectional global cache: address -> coordinates (forward) and
+// coordinates -> address (reverse). Shared cache + throttle queue must be
 // global once per map (Nominatim rate limit is global, not per-map).
 // Pure helpers (NOMINATIM, nominatimUrl, formatAddress) live in
 // common/geocode.js and are statically imported by components.
 import { Cache } from "#common/cache.js";
-import { toWgs84 } from "#common/coord.js";
+import { fromWgs84, getMapCrsType, toWgs84 } from "#common/coord.js";
 import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 
@@ -80,7 +80,10 @@ const geocode = (
   address: string,
   code = "en",
 ): Promise<GeocodeResult | null> => {
-  const key = `forward:${address}`;
+  // CRS-aware key so the same address on different maps (e.g. GCJ02 vs
+  // WGS84) do not share a stale cached result.
+  const crs = getMapCrsType(map);
+  const key = `forward:${address}:${crs}`;
   const cached = geoCache.get(key);
   if (cached) {
     const [lat, lng, ...name] = cached.split("\u0001");
@@ -100,19 +103,40 @@ const geocode = (
       .then((data: Array<{ lat: string; lon: string; display_name: string }>) => {
         const first = Array.isArray(data) ? data[0] : null;
         if (!first) return null;
+        // Nominatim always returns WGS84 - convert to the map CRS so
+        // downstream code (SearchControl, etc.) always gets coordinates
+        // in the same CRS as map-displayed coordinates.
+        const [lng, lat] = fromWgs84(map, parseFloat(first.lon), parseFloat(first.lat));
         const result: GeocodeResult = {
-          lat: parseFloat(first.lat),
-          lng: parseFloat(first.lon),
+          lat,
+          lng,
           display_name: first.display_name,
         };
         geoCache.set(
           key,
           `${result.lat}\u0001${result.lng}\u0001${result.display_name}`,
         );
+        // Safe: (lng, lat) is unique - no collision risk
+        geoCache.set(`reverse:${lng},${lat}`, first.display_name);
         return result;
       })
       .catch(() => null),
   );
 };
 
-export { geocode, reverseGeocode, type GeocodeResult };
+/** Cache a suggestion result so searchAddress can serve it from geoCache. */
+const cacheSuggestion = (
+  map: L.Map,
+  address: string,
+  lat: number,
+  lng: number,
+  displayName: string,
+) => {
+  const crs = getMapCrsType(map);
+  const key = `forward:${address}:${crs}`;
+  geoCache.set(key, `${lat}\u0001${lng}\u0001${displayName}`);
+  // Also populate the reverse entry for the same safety
+  geoCache.set(`reverse:${lng},${lat}`, displayName);
+};
+
+export { geocode, reverseGeocode, cacheSuggestion, type GeocodeResult };
