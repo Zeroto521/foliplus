@@ -382,7 +382,6 @@ describe("Export.exportMeasurements", () => {
     expect(blobArg.type).toBe("text/csv");
   });
 
-
   it("uses default filename prefix when CONF.filename is undefined", () => {
     const prev = window.CONF;
     (window as any).CONF = { name: "MeasureControl" };
@@ -521,7 +520,7 @@ describe("Export.toCSV edge cases", () => {
       type: CONST.MODE.MARKER,
       lat: 26.08,
       lng: 119.3,
-      address: 'City, District',
+      address: "City, District",
     } as MeasureData;
     const csv = Export.toCSV([marker]);
     // The address with comma should be quoted
@@ -552,7 +551,6 @@ describe("Export.toCSV edge cases", () => {
     const lines = csv.split("\n");
     expect(lines.length).toBe(2);
   });
-
 });
 
 describe("Export.csvEscape edge cases", () => {
@@ -598,7 +596,6 @@ describe("Export.getBasePoint more edge cases", () => {
   });
 });
 
-
 describe("Export.getDefaultFormat more cases", () => {
   it("returns geojson when CONF is undefined", () => {
     const prev = window.CONF;
@@ -614,4 +611,3 @@ describe("Export.getDefaultFormat more cases", () => {
     (window as any).CONF = prev;
   });
 });
-

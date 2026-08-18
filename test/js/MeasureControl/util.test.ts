@@ -233,7 +233,12 @@ describe("calcArea", () => {
 
   it("returns 0 for fewer than 3 points", () => {
     expect(Util.calcArea([{ lat: 0, lng: 0 }] as any)).toBe(0);
-    expect(Util.calcArea([{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }] as any)).toBe(0);
+    expect(
+      Util.calcArea([
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+      ] as any),
+    ).toBe(0);
     expect(Util.calcArea([] as any)).toBe(0);
   });
 });
@@ -320,14 +325,7 @@ describe("applyVisibilityToggle edge cases", () => {
     extraEl.classList.add("foliplus-measure-label");
     const extraLabel = { getElement: () => ({ querySelector: () => extraEl }) };
     const onToggle = vi.fn();
-    Util.applyVisibilityToggle(
-      undefined,
-      true,
-      [],
-      false,
-      extraLabel as any,
-      onToggle,
-    );
+    Util.applyVisibilityToggle(undefined, true, [], false, extraLabel as any, onToggle);
     expect(extraEl.classList.contains("foliplus-measure-hidden")).toBe(true);
     expect(onToggle).toHaveBeenCalledWith(true, false);
   });
@@ -346,4 +344,3 @@ describe("toggleVisibility edge cases", () => {
     expect(el2.classList.contains("foliplus-measure-hidden")).toBe(true);
   });
 });
-
