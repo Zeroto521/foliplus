@@ -81,6 +81,7 @@ class MeasureControl extends BaseControl {
     });
     exportBtn.onclick = (event: MouseEvent) => {
       event.stopPropagation();
+      if (!this.m) return;
       const measurements = this.m.measurements;
       if (!measurements || measurements.length === 0) {
         map.foliplus?.showHint?.(CONF.name, _(`${CONF.name}.export_no_data`), 2000);

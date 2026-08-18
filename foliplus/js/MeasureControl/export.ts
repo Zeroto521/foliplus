@@ -235,6 +235,8 @@ const getDefaultFormat = (): ExportFormat => {
 export {
   toGeoJSON,
   toCSV,
+  csvEscape,
+  getNameForType,
   exportMeasurements,
   getDefaultFormat,
   getBasePoint,

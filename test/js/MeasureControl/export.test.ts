@@ -364,3 +364,96 @@ describe("Export.exportMeasurements", () => {
     expect(createdUrls.length).toBe(0);
   });
 });
+
+describe("Export.csvEscape", () => {
+  it("does not escape simple values", () => {
+    expect(Export.csvEscape("hello")).toBe("hello");
+    expect(Export.csvEscape(42)).toBe("42");
+    expect(Export.csvEscape("")).toBe("");
+  });
+
+  it("escapes values containing commas", () => {
+    expect(Export.csvEscape("a, b")).toBe('"a, b"');
+  });
+
+  it("escapes values containing double quotes", () => {
+    expect(Export.csvEscape('say "hi"')).toBe('"say ""hi"""');
+  });
+
+  it("escapes values containing newlines", () => {
+    expect(Export.csvEscape("line1\nline2")).toBe('"line1\nline2"');
+  });
+});
+
+describe("Export.getNameForType", () => {
+  it("returns address for marker with address", () => {
+    expect(Export.getNameForType(markerData)).toBe("Taiwan");
+  });
+
+  it("returns default for marker without address", () => {
+    const marker = { id: "1", type: CONST.MODE.MARKER, lat: 0, lng: 0 } as MeasureData;
+    expect(Export.getNameForType(marker)).toBe("Location Marker");
+  });
+
+  it("returns Distance Measurement for distance type", () => {
+    expect(Export.getNameForType(distanceData)).toBe("Distance Measurement");
+  });
+
+  it("returns Area Measurement for polygon type", () => {
+    expect(Export.getNameForType(polygonData)).toBe("Area Measurement");
+  });
+
+  it("returns Circle for circle type", () => {
+    expect(Export.getNameForType(circleData)).toBe("Circle");
+  });
+
+  it("returns type string for unknown type", () => {
+    expect(Export.getNameForType({ type: "unknown" } as MeasureData)).toBe("unknown");
+  });
+});
+
+describe("Export.getBasePoint edge cases", () => {
+  it("returns null for marker with null lat/lng", () => {
+    const point = Export.getBasePoint({
+      type: CONST.MODE.MARKER,
+      lat: undefined,
+      lng: undefined,
+    } as MeasureData);
+    expect(point).toBeNull();
+  });
+
+  it("returns null for distance with empty points array", () => {
+    const point = Export.getBasePoint({
+      type: CONST.MODE.DISTANCE,
+      points: [],
+    } as MeasureData);
+    expect(point).toBeNull();
+  });
+
+  it("returns null for polygon with empty points array", () => {
+    const point = Export.getBasePoint({
+      type: CONST.MODE.POLYGON,
+      points: [],
+    } as MeasureData);
+    expect(point).toBeNull();
+  });
+});
+
+describe("Export.toCSV edge cases", () => {
+  it("returns header only for empty array", () => {
+    const csv = Export.toCSV([]);
+    const lines = csv.split("\n");
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("id");
+    expect(lines[0]).toContain("type");
+  });
+
+  it("skips entries without type", () => {
+    const csv = Export.toCSV([markerData, { id: "bad" } as MeasureData]);
+    const lines = csv.split("\n");
+    expect(lines.length).toBe(2); // header + 1 valid row only
+  });
+});
+
+
+
