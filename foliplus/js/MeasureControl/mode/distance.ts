@@ -231,10 +231,16 @@ class DistanceMode extends PreviewMode {
       });
 
       if (points.length > 1) {
-        const seg = Util.distance(points[points.length - 2], points[points.length - 1]);
+        const seg = Util.distance(
+          points[points.length - 2],
+          points[points.length - 1],
+        );
         total += seg;
 
-        const mid = Util.midpoint(points[points.length - 2], points[points.length - 1]);
+        const mid = Util.midpoint(
+          points[points.length - 2],
+          points[points.length - 1],
+        );
 
         if (segLabels.length > 0 && points.length >= 3) {
           const prevLabel = segLabels[segLabels.length - 1];
