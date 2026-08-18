@@ -436,11 +436,6 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
   ctrl.schemeBar.focus();
 };
 
-// Wire up index-based selection for keyboard dropdown Enter handler.
-ctrl.selectScheme = (idx: number) => {
-  const name = (CONF.schemes ?? [])[idx];
-  if (name) selectScheme(ctrl, name);
-};
 
 const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
   ctrl.m.scanMapLayers();
