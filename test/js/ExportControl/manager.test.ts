@@ -399,7 +399,6 @@ describe("ExportManager — export events", () => {
   });
 });
 
-
 describe("ExportManager — download paths", () => {
   let manager;
 
@@ -477,7 +476,7 @@ describe("ExportManager — download paths", () => {
 
     const links: HTMLAnchorElement[] = [];
     const origCreate = document.createElement.bind(document);
-    vi.spyOn(document, "createElement").mockImplementation((tag) => {
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
       if (tag.toLowerCase() === "a") {
         const a = origCreate("a");
         links.push(a);
@@ -488,7 +487,7 @@ describe("ExportManager — download paths", () => {
     });
 
     try {
-      await manager.downloadGeoTiff(canvas, "test-map") as any;
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
       expect(links.length).toBe(1);
       expect(links[0].download).toBe("test-map.tif");
       expect(links[0].href).toBe("blob:");
@@ -508,7 +507,7 @@ describe("ExportManager — download paths", () => {
 
     const links: HTMLAnchorElement[] = [];
     const origCreate = document.createElement.bind(document);
-    vi.spyOn(document, "createElement").mockImplementation((tag) => {
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
       if (tag.toLowerCase() === "a") {
         const a = origCreate("a");
         links.push(a);
@@ -519,7 +518,7 @@ describe("ExportManager — download paths", () => {
     });
 
     try {
-      await manager.downloadGeoTiff(canvas, "test-map") as any;
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
       expect(links.length).toBe(1);
       expect(links[0].download).toBe("test-map.png");
       expect(links[0].href).toBe("data:image/png;base64,fake");
@@ -546,7 +545,7 @@ describe("ExportManager — download paths", () => {
     // by checking that no download link is created
     const links: HTMLAnchorElement[] = [];
     const origCreate = document.createElement.bind(document);
-    vi.spyOn(document, "createElement").mockImplementation((tag) => {
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
       if (tag.toLowerCase() === "a") {
         const a = origCreate("a");
         links.push(a);
@@ -557,7 +556,7 @@ describe("ExportManager — download paths", () => {
     });
 
     try {
-      await manager.downloadGeoTiff(canvas, "test-map") as any;
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
       // Zero-size canvas should return early — no download link created
       expect(links.length).toBe(0);
     } finally {
@@ -577,7 +576,7 @@ describe("ExportManager — download paths", () => {
 
     const links: HTMLAnchorElement[] = [];
     const origCreate = document.createElement.bind(document);
-    vi.spyOn(document, "createElement").mockImplementation((tag) => {
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
       if (tag.toLowerCase() === "a") {
         const a = origCreate("a");
         links.push(a);
@@ -588,7 +587,7 @@ describe("ExportManager — download paths", () => {
     });
 
     try {
-      await manager.downloadGeoTiff(canvas, "test-map") as any;
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
       expect(links.length).toBe(0);
     } finally {
       vi.restoreAllMocks();
@@ -612,7 +611,7 @@ describe("ExportManager — download paths", () => {
 
     const links: HTMLAnchorElement[] = [];
     const origCreate = document.createElement.bind(document);
-    vi.spyOn(document, "createElement").mockImplementation((tag) => {
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
       if (tag.toLowerCase() === "a") {
         const a = origCreate("a");
         links.push(a);
@@ -623,7 +622,7 @@ describe("ExportManager — download paths", () => {
     });
 
     try {
-      await manager.downloadGeoTiff(canvas, "test-map") as any;
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
       // getImageData threw, so no download link should be created
       expect(links.length).toBe(0);
     } finally {
@@ -631,7 +630,6 @@ describe("ExportManager — download paths", () => {
     }
   });
 
-  
   it("onRenderSuccess auto-dismisses preview after SHORT duration", async () => {
     vi.useFakeTimers();
     try {
@@ -640,14 +638,21 @@ describe("ExportManager — download paths", () => {
         cb(new Blob(["fake"]));
       };
       const origToDataUrl = HTMLCanvasElement.prototype.toDataURL;
-      HTMLCanvasElement.prototype.toDataURL = vi.fn().mockReturnValue("data:image/png,");
+      HTMLCanvasElement.prototype.toDataURL = vi
+        .fn()
+        .mockReturnValue("data:image/png,");
 
-      const img = document.createElement("img") as HTMLImageElement & { _removeCalled: boolean };
+      const img = document.createElement("img") as HTMLImageElement & {
+        _removeCalled: boolean;
+      };
       img._removeCalled = false;
       const origRemove = img.remove.bind(img);
-      img.remove = vi.fn(() => { img._removeCalled = true; origRemove(); });
+      img.remove = vi.fn(() => {
+        img._removeCalled = true;
+        origRemove();
+      });
       const origCreate = document.createElement.bind(document);
-      vi.spyOn(document, "createElement").mockImplementation((tag) => {
+      vi.spyOn(document, "createElement").mockImplementation(tag => {
         if (tag.toLowerCase() === "img") return img;
         if (tag.toLowerCase() === "a") {
           const a = origCreate("a");
