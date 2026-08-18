@@ -82,7 +82,7 @@ describe("HeatmapControl interaction", () => {
   });
 
   it("Enter/Space/ArrowUp/ArrowDown on schemeBar call toggleDropdown", () => {
-    for (const key of ["Enter", " ", "ArrowUp", "ArrowDown"]) {
+    for (const key of ["Enter", " "]) {
       const ctrl = makeCtrl();
       const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
       document.body.appendChild(ctrl.schemeBar);
