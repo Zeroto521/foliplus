@@ -22,7 +22,7 @@ interface MeasureToggleState {
  * state machine, then delegates rendering to a callback. This eliminates
  * the repeated let + state-machine boilerplate in each attach*UI function.
  */
-function createToggleUI(
+const createToggleUI = (
   state: MeasureToggleState,
   render: (state: MeasureToggleState) => void,
 ): (showX?: boolean, toggleLabels?: boolean | string) => void {
@@ -43,7 +43,7 @@ function createToggleUI(
  * Wire a map-click handler that hides the X icon when the user clicks empty
  * map space, respecting suppress-hide and optional extra guards (e.g. isDeleted).
  */
-function setupMapClickActive(
+const setupMapClickActive = (
   mgr: MeasureManager,
   state: MeasureToggleState,
   toggleUI: (showX?: boolean, toggleLabels?: boolean | string) => void,
@@ -64,7 +64,7 @@ function setupMapClickActive(
  * Re-order layers so they render in the correct z-order.
  * Removes and re-adds each collection in sequence.
  */
-function resortLayers(layers: CreateLayersAPI, ...collections: L.Layer[][]): void {
+const resortLayers = (layers: CreateLayersAPI, ...collections: L.Layer[][]): void => {
   collections.forEach(c => c.forEach(l => layers.removeLayer(l)));
   collections.forEach(c => c.forEach(l => layers.addLayer(l)));
 }

@@ -9,7 +9,7 @@ declare const CONF: { name: string; filename: string; export_format: ExportForma
 /**
  * Convert a single measurement to a GeoJSON feature.
  */
-export function toGeoJSON(measurements: MeasureData[]): string {
+export const toGeoJSON = (measurements: MeasureData[]): string => {
   const features = measurements
     .filter(m => m.type)
     .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]!.toGeoFeature(m));
@@ -43,7 +43,7 @@ interface CsvRow {
 /**
  * Escape a CSV field value.
  */
-function csvEscape(value: string | number): string {
+const csvEscape = (value: string | number): string => {
   const s = String(value ?? "");
   if (s.includes(",") || s.includes('"') || s.includes("\n")) {
     return '"' + s.replace(/"/g, '""') + '"';
@@ -54,7 +54,7 @@ function csvEscape(value: string | number): string {
 /**
  * Convert measurements array to CSV string.
  */
-export function toCSV(measurements: MeasureData[]): string {
+export const toCSV = (measurements: MeasureData[]): string => {
   const headers = [
     "id",
     "type",
@@ -96,7 +96,7 @@ export function toCSV(measurements: MeasureData[]): string {
   return rows.join("\n");
 }
 
-function getNameForType(data: MeasureData): string {
+const getNameForType = (data: MeasureData): string => {
   if (data.type === CONST.MODE.MARKER) {
     return data.address || "Location Marker";
   }
@@ -116,7 +116,7 @@ function getNameForType(data: MeasureData): string {
  * Get the first coordinate point from any measurement type.
  * This avoids repeating the type-switch logic in getLat and getLng.
  */
-function getBasePoint(data: MeasureData): { lat: number; lng: number } | null {
+const getBasePoint = (data: MeasureData): { lat: number; lng: number } | null => {
   if (data.type === CONST.MODE.MARKER) {
     return data.lat !== undefined && data.lng !== undefined
       ? { lat: data.lat, lng: data.lng }
@@ -135,15 +135,15 @@ function getBasePoint(data: MeasureData): { lat: number; lng: number } | null {
   return null;
 }
 
-function getLat(data: MeasureData): number | null {
+const getLat = (data: MeasureData): number | null => {
   return getBasePoint(data)?.lat ?? null;
 }
 
-function getLng(data: MeasureData): number | null {
+const getLng = (data: MeasureData): number | null => {
   return getBasePoint(data)?.lng ?? null;
 }
 
-function toWKT(data: MeasureData): string {
+const toWKT = (data: MeasureData): string => {
   const Feature = MODE_MAP[data.type as keyof typeof MODE_MAP];
   if (!Feature) {
     return "";
@@ -152,7 +152,7 @@ function toWKT(data: MeasureData): string {
 }
 
 /** Convert a GeoJSON Feature to a WKT string using turf.wkt. */
-function featureToWKT(feature: GeoJSON.Feature): string {
+const featureToWKT = (feature: GeoJSON.Feature): string => {
   if (!feature.geometry) {
     return "";
   }
@@ -162,7 +162,7 @@ function featureToWKT(feature: GeoJSON.Feature): string {
 /**
  * Map export format to filename extension.
  */
-function formatToExtension(format: ExportFormat): string {
+const formatToExtension = (format: ExportFormat): string => {
   switch (format) {
     case CONST.EXPORT_FORMAT.GEOJSON:
       return "geojson";
@@ -176,7 +176,7 @@ function formatToExtension(format: ExportFormat): string {
 /**
  * Map export format to MIME type.
  */
-function formatToMimeType(format: ExportFormat): string {
+const formatToMimeType = (format: ExportFormat): string => {
   switch (format) {
     case CONST.EXPORT_FORMAT.GEOJSON:
       return "application/geo+json";
@@ -190,7 +190,7 @@ function formatToMimeType(format: ExportFormat): string {
 /**
  * Convert and download measurements.
  */
-export function exportMeasurements(
+export const exportMeasurements = (
   measurements: MeasureData[],
   format: ExportFormat,
 ): void {
@@ -229,7 +229,7 @@ export function exportMeasurements(
 /**
  * Determine the default format from CONF.
  */
-export function getDefaultFormat(): ExportFormat {
+export const getDefaultFormat = (): ExportFormat => {
   const fmt = CONF?.export_format;
   if (fmt === CONST.EXPORT_FORMAT.GEOJSON || fmt === CONST.EXPORT_FORMAT.CSV) {
     return fmt;
