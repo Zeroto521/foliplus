@@ -364,4 +364,3 @@ describe("Export.exportMeasurements", () => {
     expect(createdUrls.length).toBe(0);
   });
 });
-

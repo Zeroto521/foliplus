@@ -232,4 +232,12 @@ const getDefaultFormat = (): ExportFormat => {
   return CONST.EXPORT_FORMAT.GEOJSON;
 };
 
-export { toGeoJSON, toCSV, exportMeasurements, getDefaultFormat, getBasePoint, formatToExtension, formatToMimeType };
+export {
+  toGeoJSON,
+  toCSV,
+  exportMeasurements,
+  getDefaultFormat,
+  getBasePoint,
+  formatToExtension,
+  formatToMimeType,
+};
