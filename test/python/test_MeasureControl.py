@@ -510,7 +510,9 @@ class TestMeasureControlBrowser:
         # Search for saveMeasurements() within 200 chars BEFORE createLocationMarker
         search_start = max(0, create_pos - 200)
         save_pos = html.find("this.m.saveMeasurements();", search_start)
-        assert save_pos != -1, "saveMeasurements() should exist before createLocationMarker"
+        assert save_pos != -1, (
+            "saveMeasurements() should exist before createLocationMarker"
+        )
         gap = create_pos - save_pos
         assert gap < 200, (
             "measurement must be saved right before triggering geocode so a "
