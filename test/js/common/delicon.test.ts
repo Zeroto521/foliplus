@@ -129,9 +129,11 @@ describe("bindDelIconToPopup", () => {
   it("binds handlers to popupopen/popupclose", () => {
     const marker = { on: vi.fn() };
     const delIcon = { _id: "del" };
-    const toggleSpy = vi.fn();
-
-    vi.mocked(toggleDelIcon).mockImplementation(toggleSpy);
+    const markerDom = document.createElement("div");
+    const delSpan = document.createElement("span");
+    delSpan.setAttribute("data-del-icon", "");
+    markerDom.appendChild(delSpan);
+    const marker = { on: vi.fn(), getElement: () => markerDom };
 
     bindDelIconToPopup(marker, delIcon);
 
@@ -142,9 +144,9 @@ describe("bindDelIconToPopup", () => {
     const closeHandler = marker.on.mock.calls[1][1];
 
     openHandler();
-    expect(toggleSpy).toHaveBeenCalledWith(delIcon, true);
+    expect(delSpan.classList.contains("visible")).toBe(true);
     closeHandler();
-    expect(toggleSpy).toHaveBeenCalledWith(delIcon, false);
+    expect(delSpan.classList.contains("visible")).toBe(false);
   });
 
   it("does nothing when marker is null", () => {

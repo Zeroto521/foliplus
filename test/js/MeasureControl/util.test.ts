@@ -40,23 +40,23 @@ describe("formatArea", () => {
   });
 });
 
-describe("calcToggle", () => {
+describe("nextToggleState", () => {
   it("defaults to toggling X when showX is undefined", () => {
-    expect(Util.calcToggle(false, true, undefined, undefined)).toEqual({
+    expect(Util.nextToggleState(false, true, undefined, undefined)).toEqual({
       isXVisible: true,
       isLabelsVisible: true,
     });
   });
 
   it("honors explicit showX and label toggles", () => {
-    expect(Util.calcToggle(true, true, false, false)).toEqual({
+    expect(Util.nextToggleState(true, true, false, false)).toEqual({
       isXVisible: false,
       isLabelsVisible: false,
     });
   });
 
   it("resets labels when toggleLbl is reset", () => {
-    expect(Util.calcToggle(true, false, undefined, "reset")).toEqual({
+    expect(Util.nextToggleState(true, false, undefined, "reset")).toEqual({
       isXVisible: false,
       isLabelsVisible: true,
     });
@@ -186,14 +186,14 @@ describe("suppressHide", () => {
   });
 });
 
-describe("applyToggle", () => {
+describe("applyVisibilityToggle", () => {
   it("toggles labels and calls onToggle", () => {
     const labelEl = document.createElement("span");
     labelEl.classList.add("foliplus-measure-label");
     const marker = { getElement: () => ({ querySelector: () => labelEl }) };
     const delMarker = { getElement: () => ({ querySelector: () => null }) };
     const onToggle = vi.fn();
-    Util.applyToggle(delMarker, true, [marker], false, null, onToggle);
+    Util.applyVisibilityToggle(delMarker, true, [marker], false, null, onToggle);
     expect(labelEl.classList.contains("foliplus-measure-hidden")).toBe(true);
     expect(onToggle).toHaveBeenCalledWith(true, false);
   });

@@ -212,28 +212,21 @@ describe("Export.toCSV", () => {
     const csv = Export.toCSV([distanceData]);
     const lines = csv.split("\n");
     const distRow = lines[1];
-    // wkt column is last
-    const cols = distRow.split(",");
-    const wkt = cols[cols.length - 1];
-    expect(wkt).toContain("LINESTRING(119.3");
+    expect(distRow).toContain("LINESTRING(119.3");
   });
 
   it("wkt polygon is a closed ring", () => {
     const csv = Export.toCSV([polygonData]);
     const lines = csv.split("\n");
     const polyRow = lines[1];
-    const cols = polyRow.split(",");
-    const wkt = cols[cols.length - 1];
-    expect(wkt).toContain("POLYGON((119.3");
+    expect(polyRow).toContain("POLYGON((119.3");
   });
 
   it("wkt marker is a POINT", () => {
     const csv = Export.toCSV([markerData]);
     const lines = csv.split("\n");
     const markerRow = lines[1];
-    const cols = markerRow.split(",");
-    const wkt = cols[cols.length - 1];
-    expect(wkt).toContain("POINT(119.3");
+    expect(markerRow).toContain("POINT(119.3");
   });
 });
 
