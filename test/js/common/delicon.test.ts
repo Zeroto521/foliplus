@@ -127,12 +127,12 @@ describe("hideDelIcons", () => {
 
 describe("bindDelIconToPopup", () => {
   it("binds handlers to popupopen and popupclose", () => {
-    const delIcon = { _id: "del" };
     const markerDom = document.createElement("div");
     const delSpan = document.createElement("span");
     delSpan.setAttribute("data-del-icon", "");
     markerDom.appendChild(delSpan);
-    const marker = { on: vi.fn(), getElement: () => markerDom };
+    const delIcon = { _id: "del", getElement: () => markerDom };
+    const marker = { on: vi.fn() };
 
     bindDelIconToPopup(marker, delIcon);
 
