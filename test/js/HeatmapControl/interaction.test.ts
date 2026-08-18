@@ -38,14 +38,14 @@ describe("HeatmapControl interaction", () => {
 
   it("ArrowLeft from middle goes to prev", () => {
     const ctrl = makeCtrl();
-    ctrl.scheme = "rainbow";
+    ctrl.m.currentScheme = "rainbow";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
     );
     expect(ctrl.updateScheme).toHaveBeenCalled();
-    expect(ctrl.scheme).toBe("thermal");
+    expect(ctrl.m.currentScheme).toBe("thermal");
     cleanup();
   });
 
@@ -63,14 +63,14 @@ describe("HeatmapControl interaction", () => {
 
   it("ArrowRight from middle goes to next", () => {
     const ctrl = makeCtrl();
-    ctrl.scheme = "rainbow";
+    ctrl.m.currentScheme = "rainbow";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
     );
     expect(ctrl.updateScheme).toHaveBeenCalled();
-    expect(ctrl.scheme).toBe("grayscale");
+    expect(ctrl.m.currentScheme).toBe("grayscale");
     cleanup();
   });
 
@@ -131,7 +131,7 @@ describe("HeatmapControl interaction", () => {
     const ctrl = makeCtrl();
     ctrl.schemeDropdown = document.createElement("div");
     const items = [document.createElement("div"), document.createElement("div")];
-    items[0].classList.add("foliplus-scheme-dropdown-item");
+    items[0].classList.add("foliplus-heatmap-scheme-dropdown-item");
     items[0].setAttribute("tabindex", "-1");
     items[1].setAttribute("tabindex", "-1");
     document.body.append(ctrl.schemeDropdown, items[0], items[1]);
