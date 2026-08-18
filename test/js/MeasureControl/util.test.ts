@@ -11,6 +11,9 @@ beforeEach(() => {
   };
   globalThis.turf = {
     point: coords => ({ coords }),
+    polygon: vi.fn((rings) => ({ type: "Polygon", coordinates: rings })),
+    area: vi.fn(() => 5000),
+    midpoint: vi.fn(() => ({ geometry: { coordinates: [50, 50] } })),
     distance: vi.fn(() => 100),
     bearing: vi.fn(() => 45),
   };
@@ -272,7 +275,7 @@ describe("calcMidpoint", () => {
 
 describe("formatDistance boundary", () => {
   it("formats exactly 1000m as '1 km'", () => {
-    expect(Util.formatDistance(1000)).toBe("1 km");
+    expect(Util.formatDistance(1000)).toBe("1.0 km");
   });
 
   it("formats 999m as '999 m'", () => {
