@@ -102,5 +102,4 @@ const registerDropdownEvents = (
   ]);
 };
 
-
 export { registerSchemeBarEvents, registerDropdownEvents };

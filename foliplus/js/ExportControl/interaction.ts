@@ -45,5 +45,4 @@ const registerCropMouseDown = (
   ]);
 };
 
-
 export { registerInteractions, registerDrag, registerCropMouseDown };
