@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from ._cdn import GCOORD, TURF, TURF_WKT
 from ._typing import Position
@@ -107,5 +107,10 @@ class MeasureControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
         self.filename = filename
+        if export_format not in get_args(ExportFormat):
+            raise ValueError(
+                f"export_format must be one of {get_args(ExportFormat)}, "
+                f"got {export_format!r}"
+            )
         self.export_format = export_format
         self._template = self._get_template()

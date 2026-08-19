@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import pytest
 import pathlib
 import re
 from pathlib import Path
@@ -63,6 +64,17 @@ class TestMeasureControlPython:
         assert mc.position == "topleft"
         assert mc.show_bearing is False
         assert mc.export_format == "csv"
+
+    def test_invalid_export_format_raises(self):
+        """Unsupported export_format raises ValueError."""
+        with pytest.raises(ValueError, match="export_format"):
+            MeasureControl(export_format="invalid")
+
+    def test_export_format_geojson_is_valid(self):
+        MeasureControl(export_format="geojson")
+
+    def test_export_format_csv_is_valid(self):
+        MeasureControl(export_format="csv")
 
 
 class TestMeasureControlRendering:
