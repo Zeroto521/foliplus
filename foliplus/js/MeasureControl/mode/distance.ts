@@ -288,6 +288,7 @@ class DistanceMode extends PreviewMode {
     bindMapEvents(this.map, distEvents);
   }
 
+  /** GeoJSON feature for a distance polyline — properties carry id, totalDistance and segments. */
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     return {
       type: CONST.GEOJSON.FEATURE,

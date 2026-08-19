@@ -165,6 +165,7 @@ class MarkerMode extends MeasureMode {
     });
   }
 
+  /** GeoJSON feature for a marker — properties carry id and address. */
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     return {
       type: CONST.GEOJSON.FEATURE,

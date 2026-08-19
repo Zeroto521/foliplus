@@ -20,6 +20,11 @@ const CRS_WGS84 = {
   },
 };
 
+/**
+ * Serialize measurements as a GeoJSON FeatureCollection string.
+ * Each feature carries the measurement id and type-specific fields in
+ * properties (see each mode's toGeoFeature).
+ */
 const toGeoJSON = (measurements: MeasureData[]): string => {
   const features = measurements
     .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]?.toGeoFeature(m))
@@ -125,6 +130,7 @@ const getNameForType = (data: MeasureData): string => {
   return translated === key ? ModeClass.NAME_LABEL || data.type : translated;
 };
 
+/** Convert a single measurement to a WKT string (empty when unknown type). */
 const toWKT = (data: MeasureData): string => {
   const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
   if (!ModeClass) return "";

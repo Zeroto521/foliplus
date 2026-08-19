@@ -108,6 +108,8 @@ class MeasureManager {
   }
 
   /** Generate a unique measurement ID. */
+  /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
+   * The id is persisted with the measurement and exported (CSV / GeoJSON). */
   nextMeasurementId(type: string): string {
     this.measurementIdCounter += 1;
     return `${CONST.ID}_${type}_${Date.now()}_${this.measurementIdCounter}`;

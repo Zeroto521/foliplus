@@ -15,17 +15,16 @@ class MeasureControl(BaseControl):
 
     - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
       address. Click the popup or the × on the marker to delete it.
-    - 📏 **Distance**: click to draw a polyline. Segment and total distances update
-      in real-time. Double-click / right-click / click the last node to finish.
-    - 🔲 **Area**: click to draw a polygon. The enclosed area and each side's
-      length are labelled. Double-click / right-click / click the first or last
-      node to finish.
+    - 📏 **Distance**: click to draw a polyline. Segment and total distances update in
+      real-time. Double-click / right-click / click the last node to finish.
+    - 🔲 **Area**: click to draw a polygon. The enclosed area and each side's length are
+      labelled. Double-click / right-click / click the first or last node to finish.
     - ⭕ **Circle**: first click sets the center; move the mouse to set the radius;
       second click confirms.
     - 🗑️ **Clear**: remove all measurement layers at once.
 
-    After drawing a line, polygon, circle, or placing a marker: click the object
-    to toggle labels and × buttons; click empty map space to hide × buttons.
+    After drawing a line, polygon, circle, or placing a marker: click the object to
+    toggle labels and × buttons; click empty map space to hide × buttons.
 
     Shortcuts
     ---------
@@ -46,13 +45,12 @@ class MeasureControl(BaseControl):
 
     show_bearing : bool, default True
         Whether to show the bearing (azimuth, 0°–360° clockwise from north) alongside
-        the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to
-        distance mode; area and circle modes always show plain distance.
-
+        the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to distance
+        mode; area and circle modes always show plain distance.
 
     filename : str, default "measurements"
-        Base filename for exported files (without extension). The format extension
-        is appended automatically: measurements.geojson or measurements.csv.
+        Base filename for exported files (without extension). The format extension is
+        appended automatically: measurements.geojson or measurements.csv.
 
     export_format : str, default "geojson"
         Default export format. One of "geojson" or "csv".
@@ -63,8 +61,18 @@ class MeasureControl(BaseControl):
 
     Notes
     -----
-    **Persistence.** Measurements survive page reloads — they are saved to
-    ``localStorage`` (keyed by map container id) and restored automatically.
+    **Export.** The toolbar's download button exports all current measurements as
+    ``{filename}.{export_format}`` (a browser download). GeoJSON output is a
+    ``FeatureCollection`` where each feature's ``properties`` carries the measurement
+    ``id``, type name, and type-specific fields (``address``, ``totalDistance``,
+    ``area``, ``radius``, ``center``); CSV output has one row per measurement with an
+    ``id`` column and a ``wkt`` column holding the Well-Known-Text geometry. CSV files
+    use a UTF-8 BOM so Excel opens them with correct encoding.
+
+    **Persistence.** Measurements survive page reloads — they are saved to ``localStorage``
+    (keyed by map container id) and restored automatically. Each persisted measurement
+    keeps a unique ``id`` assigned on creation; the polygon's centroid is also persisted
+    as ``center`` and included in exports.
 
     **Interaction.** Clicking an existing node during drawing does nothing (the marker
     stops the event from propagating to the map). This prevents duplicate points and
