@@ -2,6 +2,7 @@
 import { createTranslator } from "#common/locale.js";
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
+import type { MeasureManager } from "./manager.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 
 // CONF is a free variable from the IIFE template wrapper.
@@ -279,6 +280,28 @@ const exportMeasurements = (
 };
 
 /**
+ * Click handler for the export toolbar button — orchestrates the export flow.
+ * Kept in this module (alongside exportMeasurements) so index.ts stays thin.
+ * @param mgr - MeasureManager instance.
+ */
+const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
+  event.stopPropagation();
+  const measurements = mgr.measurements;
+  if (!measurements || measurements.length === 0) {
+    map.foliplus?.showHint?.(CONF.name, _(`${CONF.name}.export_no_data`), 4000);
+    return;
+  }
+  // Serialization + <a download> are pure local operations; failures here are
+  // developer errors, not user-facing conditions — log instead of alerting.
+  try {
+    const format = getDefaultFormat();
+    exportMeasurements(measurements, format);
+  } catch (err) {
+    console.warn(`[${CONF.name}] export failed:`, err);
+  }
+};
+
+/**
  * Determine the default format from CONF.
  */
 const getDefaultFormat = (): ExportFormat => {
@@ -298,4 +321,5 @@ export {
   getDefaultFormat,
   formatToExtension,
   formatToMimeType,
+  handleExportClick,
 };

@@ -76,13 +76,14 @@ class MeasureControl extends BaseControl {
       });
     });
 
-    // Export button (between circle and clear)
+    // Export button (between circle and clear) — no data-mode, so it stays out
+    // of toolBtns and keeps its own onclick (see export.ts handleExportClick).
     const exportBtn = createIconButton({
       class: "foliplus-tool-btn",
       title: _(`${CONF.name}.tool_export`),
       svg: Icons.DOWNLOAD,
       parent: toolBar,
-      data: {},
+      onclick: Export.handleExportClick(this.m),
     });
 
     this.m.ctrl = ctrl;
