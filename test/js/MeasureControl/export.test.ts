@@ -195,8 +195,7 @@ describe("Export.toCSV", () => {
     const header = lines[0].split(",");
     expect(header).toContain("type");
     expect(header).toContain("name");
-    expect(header).toContain("latitude");
-    expect(header).toContain("longitude");
+    expect(header).toContain("center");
     expect(header).toContain("totalDistance");
     expect(header).toContain("area");
     expect(header).toContain("radius");
@@ -209,8 +208,6 @@ describe("Export.toCSV", () => {
     const lines = csv.split("\n");
     const markerRow = lines[1];
     expect(markerRow).toContain("Taiwan");
-    expect(markerRow).toContain("26.080000");
-    expect(markerRow).toContain("119.300000");
   });
 
   it("distance row includes totalDistance", () => {
@@ -253,35 +250,6 @@ describe("Export.toCSV", () => {
     const lines = csv.split("\n");
     const markerRow = lines[1];
     expect(markerRow).toContain("POINT(119.3");
-  });
-});
-
-describe("Export.getBasePoint", () => {
-  it("returns lat/lng from a marker measurement", () => {
-    const point = Export.getBasePoint(markerData);
-    expect(point).toEqual({ lat: 26.08, lng: 119.3 });
-  });
-
-  it("returns the first point from a distance measurement", () => {
-    const point = Export.getBasePoint(distanceData);
-    expect(point).toEqual({ lat: 26.08, lng: 119.3 });
-  });
-
-  it("returns the first point from a polygon measurement", () => {
-    const point = Export.getBasePoint(polygonData);
-    expect(point).toEqual({ lat: 26.08, lng: 119.3 });
-  });
-
-  it("returns the center from a circle measurement", () => {
-    const point = Export.getBasePoint(circleData);
-    expect(point).toEqual({ lat: 26.08, lng: 119.3 });
-  });
-
-  it("returns null when the type is unknown", () => {
-    const point = Export.getBasePoint({
-      type: "unknown",
-    } as MeasureData);
-    expect(point).toBeNull();
   });
 });
 
@@ -471,33 +439,6 @@ describe("Export.getNameForType", () => {
   });
 });
 
-describe("Export.getBasePoint edge cases", () => {
-  it("returns null for marker with null lat/lng", () => {
-    const point = Export.getBasePoint({
-      type: CONST.MODE.MARKER,
-      lat: undefined,
-      lng: undefined,
-    } as MeasureData);
-    expect(point).toBeNull();
-  });
-
-  it("returns null for distance with empty points array", () => {
-    const point = Export.getBasePoint({
-      type: CONST.MODE.DISTANCE,
-      points: [],
-    } as MeasureData);
-    expect(point).toBeNull();
-  });
-
-  it("returns null for polygon with empty points array", () => {
-    const point = Export.getBasePoint({
-      type: CONST.MODE.POLYGON,
-      points: [],
-    } as MeasureData);
-    expect(point).toBeNull();
-  });
-});
-
 describe("Export.toCSV edge cases", () => {
   it("returns header only for empty array", () => {
     const csv = Export.toCSV([]);
@@ -541,9 +482,8 @@ describe("Export.toCSV edge cases", () => {
     const lines = csv.split("\n");
     expect(lines.length).toBe(2);
     const row = lines[1].split(",");
-    // latitude and longitude should be empty strings
-    expect(row[3]).toBe("");
-    expect(row[4]).toBe("");
+    // center should be an empty string when the marker has no center
+    expect(row[2]).toBe("");
   });
 
   it("handles marker with address containing comma", () => {
@@ -569,8 +509,8 @@ describe("Export.toCSV edge cases", () => {
     const lines = csv.split("\n");
     expect(lines.length).toBe(2);
     const row = lines[1].split(",");
-    expect(row[3]).toBe("");
-    expect(row[4]).toBe("");
+    // center column is empty for a null-center circle
+    expect(row[2]).toBe("");
   });
 
   it("handles distance with empty points", () => {
@@ -602,32 +542,6 @@ describe("Export.csvEscape edge cases", () => {
   });
 });
 
-describe("Export.getBasePoint more edge cases", () => {
-  it("returns null for distance with null points", () => {
-    const point = Export.getBasePoint({
-      type: CONST.MODE.DISTANCE,
-      points: null,
-    } as MeasureData);
-    expect(point).toBeNull();
-  });
-
-  it("returns null for polygon with null points", () => {
-    const point = Export.getBasePoint({
-      type: CONST.MODE.POLYGON,
-      points: null,
-    } as MeasureData);
-    expect(point).toBeNull();
-  });
-
-  it("returns null for circle with null center", () => {
-    const point = Export.getBasePoint({
-      type: CONST.MODE.CIRCLE,
-      center: null,
-    } as MeasureData);
-    expect(point).toBeNull();
-  });
-});
-
 describe("Export.getDefaultFormat more cases", () => {
   it("returns geojson when CONF is undefined", () => {
     const prev = window.CONF;
@@ -641,5 +555,73 @@ describe("Export.getDefaultFormat more cases", () => {
     (window as any).CONF = { name: "MeasureControl", export_format: null };
     expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.GEOJSON);
     (window as any).CONF = prev;
+  });
+});
+
+describe("Export.handleExportClick", () => {
+  let originalCreateObjectURL: typeof URL.createObjectURL;
+  let originalCreateElement: typeof document.createElement;
+  let originalAppendChild: typeof HTMLBodyElement.prototype.appendChild;
+  let lastAnchor: any;
+
+  const makeMgr = (measurements: MeasureData[] = [markerData]) => ({
+    measurements,
+    map: { foliplus: { showHint: vi.fn() } },
+  });
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    const prev = window.CONF;
+    (window as any).CONF = { name: "MeasureControl", filename: "meas" };
+
+    originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:test") as any;
+    originalCreateElement = document.createElement;
+    document.createElement = vi.fn((tag: string) => {
+      if (tag === "a") {
+        const anchor = { href: "", download: "", click: vi.fn(), appendChild: vi.fn() };
+        lastAnchor = anchor;
+        return anchor as any;
+      }
+      return originalCreateElement(tag);
+    }) as any;
+    originalAppendChild = HTMLBodyElement.prototype.appendChild;
+    HTMLBodyElement.prototype.appendChild = vi.fn() as any;
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+    document.createElement = originalCreateElement;
+    HTMLBodyElement.prototype.appendChild = originalAppendChild;
+    (window as any).CONF = undefined;
+  });
+
+  it("stops propagation", () => {
+    const mgr = makeMgr([markerData]);
+    const stopPropagation = vi.fn();
+    const handler = Export.handleExportClick(mgr as any);
+    handler({ stopPropagation } as any);
+    expect(stopPropagation).toHaveBeenCalled();
+  });
+
+  it("shows hint when no measurements", () => {
+    const mgr = makeMgr([]);
+    const handler = Export.handleExportClick(mgr as any);
+    handler({ stopPropagation: vi.fn() } as any);
+    expect(mgr.map.foliplus.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      "MeasureControl.export_no_data",
+      4000,
+    );
+  });
+
+  it("triggers a download when measurements exist", () => {
+    const mgr = makeMgr([markerData]);
+    const handler = Export.handleExportClick(mgr as any);
+    handler({ stopPropagation: vi.fn() } as any);
+    expect(mgr.map.foliplus.showHint).not.toHaveBeenCalled();
+    expect(lastAnchor).toBeDefined();
+    expect(lastAnchor.download).toBe("meas.geojson");
+    expect(lastAnchor.click).toHaveBeenCalled();
   });
 });
