@@ -20,9 +20,7 @@ class DistanceMode extends PreviewMode {
   static NAME_LABEL_KEY = `${CONF.name}.name_distance`;
 
   static restore(manager: MeasureManager, data: MeasureData) {
-    const points: L.LatLng[] = data.points!.map((p: { lng: number; lat: number }) =>
-      L.latLng(p.lat, p.lng),
-    );
+    const points = Util.pointsToLatLngs(data.points!);
     const finalPoly = manager.layers.addLayer(
       L.polyline(points, { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     ) as L.Polyline;

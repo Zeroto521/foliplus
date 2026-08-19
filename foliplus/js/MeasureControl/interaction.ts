@@ -13,7 +13,7 @@ const registerExportClick = (
   mgr: MeasureManager,
   element: HTMLElement,
 ): (() => void) => {
-  return ensureInteraction(mgr.map).register(CONF.name + "-export", [
+  return ensureInteraction(mgr.map).register(`${CONF.name}-export`, [
     { event: "click", element, handler: e => mgr.onExportClick(e) },
   ]);
 };
