@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-import pytest
 import pathlib
 import re
 from pathlib import Path
 
 import folium
+import pytest
 from conftest import (
     _js,
     assert_config_value,
