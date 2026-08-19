@@ -92,6 +92,7 @@ class TestMeasureControlRendering:
     def test_contains_turf_dependency(self):
         html = render_control(MeasureControl())
         assert "turf.min.js" in html
+        assert "turf-wkt.min.js" in html
 
     def test_locale_zh(self):
         html = render_control(MeasureControl(locale="zh"))

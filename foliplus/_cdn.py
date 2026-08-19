@@ -11,3 +11,4 @@ CHROMA = "2"
 
 GCOORD = "1"  # MeasureControl / LocateControl / SearchControl
 TURF = "7"  # MeasureControl
+TURF_WKT = "7"  # MeasureControl (optional — @turf/turf main bundle lacks wkt)
