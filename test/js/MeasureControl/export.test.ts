@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as Export from "#foliplus/MeasureControl/export.js";
 
@@ -620,7 +621,7 @@ describe("Export.handleExportClick", () => {
     expect(mgr.map.foliplus.showHint).toHaveBeenCalledWith(
       "MeasureControl",
       "MeasureControl.export_no_data",
-      4000,
+      HINT_DURATION.LONG,
     );
   });
 

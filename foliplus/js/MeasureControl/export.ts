@@ -1,4 +1,5 @@
 // MeasureControl export module — convert measurements to GeoJSON and CSV.
+import { HINT_DURATION } from "#core/hint.js";
 import { createTranslator } from "#common/locale.js";
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
@@ -7,7 +8,6 @@ import { MODE_MAP, MeasureMode } from "./mode/index.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 declare const CONF: { name: string; filename?: string; export_format?: ExportFormat };
-
 const _ = createTranslator(CONF);
 
 /**
@@ -194,14 +194,17 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   event.stopPropagation();
   const measurements = mgr.measurements;
   if (!measurements || measurements.length === 0) {
-    map.foliplus?.showHint?.(CONF.name, _(`${CONF.name}.export_no_data`), 4000);
+    map.foliplus?.showHint?.(
+      CONF.name,
+      _(`${CONF.name}.export_no_data`),
+      HINT_DURATION.LONG,
+    );
     return;
   }
   // Serialization + <a download> are pure local operations; failures here are
   // developer errors, not user-facing conditions — log instead of alerting.
   try {
-    const format = getDefaultFormat();
-    exportMeasurements(measurements, format);
+    exportMeasurements(measurements, getDefaultFormat());
   } catch (err) {
     console.warn(`[${CONF.name}] export failed:`, err);
   }
