@@ -169,6 +169,10 @@ _JS_USED_KEYS = {
     "MeasureControl.del_node",
     "MeasureControl.del_all",
     "MeasureControl.tool_export",
+    "MeasureControl.name_marker",
+    "MeasureControl.name_distance",
+    "MeasureControl.name_polygon",
+    "MeasureControl.name_circle",
     "MeasureControl.export_no_data",
     "MeasureControl.export_paused",
     # ScaleControl
