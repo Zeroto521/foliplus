@@ -340,12 +340,6 @@ class PolygonMode extends PreviewMode {
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     const coords = data.points?.map(p => [p.lng, p.lat]) || [];
     if (coords.length > 1) coords.push(coords[0]);
-    // Centroid — persisted on save; recompute for legacy/imported data.
-    let center = data.center;
-    if (!center && data.points && data.points.length >= 3) {
-      const centroid = Util.centroid(data.points);
-      center = { lng: centroid.lng, lat: centroid.lat };
-    }
     return {
       type: CONST.GEOJSON.FEATURE,
       properties: {
@@ -353,7 +347,9 @@ class PolygonMode extends PreviewMode {
         name: this.NAME_LABEL,
         area: data.area || 0,
         segments: data.segments || [],
-        center,
+        // Centroid persisted on finish; absent only for data created before
+        // center was introduced — intentionally not recomputed here.
+        center: data.center,
       },
       geometry: { type: CONST.GEOJSON.POLYGON, coordinates: [coords] },
     };

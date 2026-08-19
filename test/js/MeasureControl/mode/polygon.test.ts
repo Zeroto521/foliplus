@@ -130,6 +130,34 @@ describe("PolygonMode — label count equals n-1", () => {
   });
 });
 
+describe("PolygonMode — finish saves centroid", () => {
+  it("persists center when the polygon is finished", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([event]) => event === "click",
+    )?.[1];
+    // Draw 3 points
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 120 } });
+    // Double-click to finish
+    const dblHandler = manager.map.on.mock.calls.find(
+      ([event]) => event === "dblclick",
+    )?.[1];
+    dblHandler({ latlng: { lat: 32, lng: 120 } });
+
+    expect(manager.saveMeasurements).toHaveBeenCalled();
+    const saved = manager.measurements[0] as MeasureData;
+    expect(saved.center).toBeDefined();
+    expect(typeof saved.center!.lng).toBe("number");
+    expect(typeof saved.center!.lat).toBe("number");
+  });
+});
+
 describe("PolygonMode — toGeoFeature", () => {
   it("returns a Polygon with area in properties", () => {
     const feature = PolygonMode.toGeoFeature({
@@ -157,5 +185,30 @@ describe("PolygonMode — toGeoFeature", () => {
     const { PolygonMode } = await import("#foliplus/MeasureControl/mode/index.js");
     expect(PolygonMode.NAME_LABEL).toBe("Area Measurement");
     expect(PolygonMode.NAME_LABEL_KEY).toContain("name_polygon");
+  });
+
+  it("includes persisted center in properties", () => {
+    const feature = PolygonMode.toGeoFeature({
+      id: "p2",
+      type: "polygon",
+      points: [
+        { lng: 121, lat: 31 },
+        { lng: 122, lat: 31 },
+      ],
+      center: { lng: 121.5, lat: 31.5 },
+    });
+    expect(feature.properties.center).toEqual({ lng: 121.5, lat: 31.5 });
+  });
+
+  it("leaves center undefined for legacy data without it", () => {
+    const feature = PolygonMode.toGeoFeature({
+      id: "p3",
+      type: "polygon",
+      points: [
+        { lng: 121, lat: 31 },
+        { lng: 122, lat: 31 },
+      ],
+    });
+    expect(feature.properties.center).toBeUndefined();
   });
 });

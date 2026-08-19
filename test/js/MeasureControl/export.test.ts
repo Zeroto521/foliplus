@@ -231,6 +231,15 @@ describe("Export.toCSV", () => {
     expect(circleRow).toContain("5000");
   });
 
+  it("polygon row includes saved centroid in center column", () => {
+    const csv = Export.toCSV([
+      { ...polygonData, center: { lng: 119.315, lat: 26.085 } } as MeasureData,
+    ]);
+    const lines = csv.split("\n");
+    const polyRow = lines[1];
+    expect(polyRow).toContain("26.085000,119.315000");
+  });
+
   it("wkt column contains WKT geometry", () => {
     const csv = Export.toCSV([distanceData]);
     const lines = csv.split("\n");
