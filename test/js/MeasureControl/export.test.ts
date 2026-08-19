@@ -213,7 +213,6 @@ describe("Export.toCSV", () => {
     const lines = csv.split("\n");
     expect(lines.length).toBe(3); // header + 2 data rows
     const header = lines[0].split(",");
-    expect(header).toContain("id");
     expect(header).toContain("type");
     expect(header).toContain("name");
     expect(header).toContain("latitude");

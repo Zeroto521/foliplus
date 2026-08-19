@@ -1,10 +1,45 @@
 // MeasureControl export module — convert measurements to GeoJSON and CSV.
+import { createTranslator } from "#common/locale.js";
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
-import { MODE_MAP } from "./mode/index.js";
+import { MODE_MAP, MeasureMode } from "./mode/index.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 declare const CONF: { name: string; filename: string; export_format: ExportFormat };
+
+const _ = createTranslator(CONF);
+
+// Ensure turf.wkt is available — @turf/turf main bundle does NOT include the
+// @turf/turf-wkt plugin, so we inject an inline implementation.  If the user
+// loads the plugin separately, the real turf.wkt takes precedence.
+if (!turf.wkt) {
+  turf.wkt = {
+    toWKT: (feature: GeoJSON.Feature): string => {
+      const geom = feature.geometry;
+      if (!geom) return "";
+      switch (geom.type) {
+        case "Point": {
+          const [lng, lat] = geom.coordinates;
+          return "POINT(" + lng + " " + lat + ")";
+        }
+        case "LineString": {
+          const pts = geom.coordinates.map(([lng, lat]) => lng + " " + lat).join(", ");
+          return "LINESTRING(" + pts + ")";
+        }
+        case "Polygon": {
+          const rings = geom.coordinates
+            .map(
+              ring => "(" + ring.map(([lng, lat]) => lng + " " + lat).join(", ") + ")",
+            )
+            .join(", ");
+          return "POLYGON(" + rings + ")";
+        }
+        default:
+          return "";
+      }
+    },
+  };
+}
 
 /**
  * Convert a single measurement to a GeoJSON feature.
@@ -135,7 +170,6 @@ const toGeoJSON = (measurements: MeasureData[]): string => {
  * CSV row type for flattened measurement data.
  */
 interface CsvRow {
-  id: string;
   type: string;
   name: string;
   longitude: string;
@@ -164,7 +198,6 @@ const csvEscape = (value: string | number): string => {
  */
 const toCSV = (measurements: MeasureData[]): string => {
   const headers = [
-    "id",
     "type",
     "name",
     "longitude",
@@ -185,7 +218,6 @@ const toCSV = (measurements: MeasureData[]): string => {
     const lng = getLng(data);
 
     const row: CsvRow = {
-      id: data.id || "",
       type: data.type,
       name: getNameForType(data),
       longitude: lng !== null ? lng.toFixed(6) : "",
@@ -206,12 +238,19 @@ const toCSV = (measurements: MeasureData[]): string => {
   return rows.join("\n");
 };
 
+/**
+ * Get the human-readable measurement-type label for a CSV row.
+ * Uses the mode's i18n key when translated; falls back to the English
+ * NAME_LABEL default (e.g. in tests where no locale table is loaded).
+ */
 const getNameForType = (data: MeasureData): string => {
-  if (data.type === CONST.MODE.MARKER) return "Location Marker";
-  if (data.type === CONST.MODE.DISTANCE) return "Distance Measurement";
-  if (data.type === CONST.MODE.POLYGON) return "Area Measurement";
-  if (data.type === CONST.MODE.CIRCLE) return "Circle";
-  return data.type;
+  const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP] as
+    (typeof MeasureMode & { NAME_LABEL_KEY?: string; NAME_LABEL?: string }) | undefined;
+  if (!ModeClass) return data.type;
+  const key = ModeClass.NAME_LABEL_KEY;
+  if (!key) return data.type;
+  const translated = _(key);
+  return translated === key ? ModeClass.NAME_LABEL || data.type : translated;
 };
 
 /**
@@ -251,39 +290,29 @@ const toWKT = (data: MeasureData): string => {
   return featureToWKT(Feature.toGeoFeature(data));
 };
 
-/** Convert a GeoJSON Feature to a WKT string using turf.wkt. */
+/** Convert a GeoJSON Feature to a WKT string via turf.wkt. */
 const featureToWKT = (feature: GeoJSON.Feature): string => {
   if (!feature.geometry) return "";
-  return turf.wkt.toWKT(feature).replace("\n", "");
+  return turf.wkt!.toWKT(feature).replace("\n", "");
 };
 
 /**
- * Map export format to filename extension.
+ * Per-format file metadata — single source of truth for extension + MIME type.
  */
-const formatToExtension = (format: ExportFormat): string => {
-  switch (format) {
-    case CONST.EXPORT_FORMAT.GEOJSON:
-      return "geojson";
-    case CONST.EXPORT_FORMAT.CSV:
-      return "csv";
-    default:
-      return "geojson";
-  }
+const FORMAT_META: Record<ExportFormat, { ext: string; mime: string }> = {
+  [CONST.EXPORT_FORMAT.GEOJSON]: { ext: "geojson", mime: "application/geo+json" },
+  [CONST.EXPORT_FORMAT.CSV]: { ext: "csv", mime: "text/csv" },
 };
 
-/**
- * Map export format to MIME type.
- */
-const formatToMimeType = (format: ExportFormat): string => {
-  switch (format) {
-    case CONST.EXPORT_FORMAT.GEOJSON:
-      return "application/geo+json";
-    case CONST.EXPORT_FORMAT.CSV:
-      return "text/csv";
-    default:
-      return "application/geo+json";
-  }
-};
+const DEFAULT_FORMAT_META = FORMAT_META[CONST.EXPORT_FORMAT.GEOJSON];
+
+/** Map export format to filename extension. */
+const formatToExtension = (format: ExportFormat): string =>
+  FORMAT_META[format]?.ext ?? DEFAULT_FORMAT_META.ext;
+
+/** Map export format to MIME type. */
+const formatToMimeType = (format: ExportFormat): string =>
+  FORMAT_META[format]?.mime ?? DEFAULT_FORMAT_META.mime;
 
 /** Convert measurements to a Blob and trigger a file download. */
 const exportMeasurements = (
