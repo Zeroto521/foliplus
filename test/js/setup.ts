@@ -109,7 +109,8 @@ window.map = {
   removeLayer: vi.fn(),
 };
 
-// Mock turf (needed by MeasureControl export: turf.wkt.toWKT, turf.circle, etc.)
+// Mock turf (needed by MeasureControl: turf.circle, turf.distance, etc.
+// turf.wkt is NOT a real @turf/turf export — export.ts implements WKT inline.)
 globalThis.turf = {
   point: coords => ({
     type: "Feature",
@@ -141,25 +142,4 @@ globalThis.turf = {
       ],
     },
   }),
-  wkt: {
-    toWKT: feature => {
-      const geom = feature.geometry;
-      if (!geom) return "";
-      if (geom.type === "Point") {
-        const [lng, lat] = geom.coordinates;
-        return "POINT(" + lng + " " + lat + ")";
-      }
-      if (geom.type === "LineString") {
-        const pts = geom.coordinates.map(([lng, lat]) => lng + " " + lat).join(", ");
-        return "LINESTRING(" + pts + ")";
-      }
-      if (geom.type === "Polygon") {
-        const ring = geom.coordinates[0]
-          .map(([lng, lat]) => lng + " " + lat)
-          .join(", ");
-        return "POLYGON((" + ring + "))";
-      }
-      return "";
-    },
-  },
 };
