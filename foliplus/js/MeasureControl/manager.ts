@@ -8,8 +8,9 @@ import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
-import { registerInteractions } from "./interaction.js";
+import { registerExportClick, registerInteractions } from "./interaction.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 import * as Util from "./util.js";
 
@@ -22,6 +23,7 @@ const _ = createTranslator(CONF);
 class MeasureManager {
   map: L.Map;
   private interactionCleanup?: () => void;
+  private exportClickCleanup?: () => void;
   layers: CreateLayersAPI;
   currentMode: string | null;
   modeInstance: MeasureMode | null;
@@ -38,6 +40,16 @@ class MeasureManager {
   onMapClick!: (event: L.LeafletMouseEvent) => void;
   onKeyDown!: (event: KeyboardEvent) => void;
   onUnload!: () => void;
+
+  /** Handle export button click — delegates to the export module. */
+  onExportClick(event: Event) {
+    Export.handleExportClick(this)(event);
+  }
+
+  /** Register the export toolbar button click via the interaction manager. */
+  bindExportClick(element: HTMLElement): void {
+    this.exportClickCleanup = registerExportClick(this, element);
+  }
 
   /**
    * @param mapInstance - Leaflet map instance.
@@ -235,6 +247,7 @@ class MeasureManager {
     this.map.off("unload", this.onUnload);
     this.clearAll();
     this.interactionCleanup?.();
+    this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);
 
     this.finalizedClickHandlers.forEach(h => this.map.off("click", h));

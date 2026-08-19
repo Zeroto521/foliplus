@@ -9,7 +9,6 @@ import {
   createFoldControl,
 } from "#common/panel.js";
 import * as CONST from "./const.js";
-import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
 
@@ -39,7 +38,7 @@ class MeasureControl extends BaseControl {
       toggleSvg: SVGs.RULER,
       position: CONF.position,
     });
-    const btnConfigs = [
+    const btnConfigs: Array<{ mode?: string; title: string; svg: string }> = [
       {
         mode: CONST.MODE.MARKER,
         title: _(`${CONF.name}.tool_marker`),
@@ -60,34 +59,33 @@ class MeasureControl extends BaseControl {
         title: _(`${CONF.name}.tool_circle`),
         svg: SVGs.CIRCLE,
       },
+      // Export — no mode, so it stays out of toolBtns (no data-mode);
+      // its click is bound via the interaction manager (see manager.ts).
+      {
+        title: _(`${CONF.name}.tool_export`),
+        svg: Icons.DOWNLOAD,
+      },
       {
         mode: CONST.MODE.CLEAR,
         title: _(`${CONF.name}.tool_clear`),
         svg: SVGs.TRASH,
       },
     ];
+    let exportBtn: HTMLElement | null = null;
     btnConfigs.forEach(({ mode, title, svg }) => {
-      createIconButton({
+      const btn = createIconButton({
         class: "foliplus-tool-btn",
         title,
         svg,
         parent: toolBar,
-        data: { mode },
+        ...(mode ? { data: { mode } } : {}),
       });
-    });
-
-    // Export button (between circle and clear) — no data-mode, so it stays out
-    // of toolBtns and keeps its own onclick (see export.ts handleExportClick).
-    const exportBtn = createIconButton({
-      class: "foliplus-tool-btn",
-      title: _(`${CONF.name}.tool_export`),
-      svg: Icons.DOWNLOAD,
-      parent: toolBar,
-      onclick: Export.handleExportClick(this.m),
+      if (!mode) exportBtn = btn;
     });
 
     this.m.ctrl = ctrl;
     this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
+    this.m.bindExportClick(exportBtn!);
 
     bindFoldToggle({ container: ctrl, toggleBtn });
 
@@ -103,24 +101,6 @@ class MeasureControl extends BaseControl {
         this.m.setMode(btn.dataset.mode ?? null);
       };
     });
-
-    // Export button handler — set AFTER toolBtns.forEach (which overwrites all .foliplus-tool-btn onclick).
-    exportBtn.onclick = (event: MouseEvent) => {
-      event.stopPropagation();
-      const measurements = this.m.measurements;
-      if (!measurements || measurements.length === 0) {
-        map.foliplus?.showHint?.(CONF.name, _(`${CONF.name}.export_no_data`), 4000);
-        return;
-      }
-      // Serialization + <a download> are pure local operations; failures here are
-      // developer errors, not user-facing conditions — log instead of alerting.
-      try {
-        const format = Export.getDefaultFormat();
-        Export.exportMeasurements(measurements, format);
-      } catch (err) {
-        console.warn(`[${CONF.name}] export failed:`, err);
-      }
-    };
 
     return container;
   }
