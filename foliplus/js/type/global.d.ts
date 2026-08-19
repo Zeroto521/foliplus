@@ -153,6 +153,7 @@ declare global {
     timeout?: number;
     filename?: string;
     format?: string;
+    export_format?: string;
     schemes?: string[];
     [key: string]: unknown;
   }

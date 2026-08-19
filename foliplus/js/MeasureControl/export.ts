@@ -6,8 +6,7 @@ import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 
-// CONF is a free variable from the IIFE template wrapper.
-declare const CONF: { name: string; filename?: string; export_format?: ExportFormat };
+// CONF is a free variable from the IIFE template wrapper (see global.d.ts).
 const _ = createTranslator(CONF);
 
 /**
