@@ -125,9 +125,7 @@ const getNameForType = (data: MeasureData): string => {
 
 const toWKT = (data: MeasureData): string => {
   const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
-  if (!ModeClass) {
-    return "";
-  }
+  if (!ModeClass) return "";
   return featureToWKT(ModeClass.toGeoFeature(data));
 };
 
@@ -221,13 +219,13 @@ const getDefaultFormat = (): ExportFormat => {
 };
 
 export {
-  toGeoJSON,
-  toCSV,
   csvEscape,
-  getNameForType,
   exportMeasurements,
-  getDefaultFormat,
   formatToExtension,
   formatToMimeType,
+  getDefaultFormat,
+  getNameForType,
   handleExportClick,
+  toCSV,
+  toGeoJSON,
 };

@@ -60,7 +60,6 @@ export const CLASSES = {
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   HIDDEN: "foliplus-measure-hidden",
-  VISIBLE: "visible",
   ACTIVE: "active",
   MEASURING: "foliplus-measuring",
   COLLAPSED: "collapsed",

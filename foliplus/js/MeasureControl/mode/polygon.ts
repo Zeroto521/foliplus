@@ -23,9 +23,7 @@ class PolygonMode extends PreviewMode {
    *  @param {Object} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData) {
-    const points: L.LatLng[] = data.points!.map((p: { lng: number; lat: number }) =>
-      L.latLng(p.lat, p.lng),
-    );
+    const points = Util.pointsToLatLngs(data.points!);
     const finalPoly = manager.layers.addLayer(
       L.polygon(points, {
         className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
@@ -108,7 +106,6 @@ class PolygonMode extends PreviewMode {
       }),
     ) as L.Polygon;
     let previewDistLabel: L.Marker | null = null;
-    let isFinished = false;
 
     this._cleanup = () => {
       unbindMapEvents(this.map, polyEvents);
@@ -125,13 +122,13 @@ class PolygonMode extends PreviewMode {
     };
 
     const finishPoly = () => {
-      if (isFinished) return;
+      if (this.isFinished) return;
       if (points.length < 3) {
         this.cleanup();
         this.m.clearActiveMode();
         return;
       }
-      isFinished = true;
+      this.isFinished = true;
       this.layers.removeLayer(poly);
       this.layers.removeLayer(previewPoly);
       finalPoly.setLatLngs(points);

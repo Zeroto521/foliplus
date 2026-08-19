@@ -188,35 +188,9 @@ const recalculateSegments = (
   return { segments, totalDistance };
 };
 
-/** Calculate area from a closed polygon ring. */
-const calcArea = (points: L.LatLng[]): number => {
-  if (points.length < 3) return 0;
-  const pts: { lng: number; lat: number }[] = points.map(p => ({
-    lng: p.lng,
-    lat: p.lat,
-  }));
-  return area(pts);
-};
-
-/** Calculate centroid of a closed polygon ring. */
-const calcCentroid = (points: L.LatLng[]): { lng: number; lat: number } => {
-  if (points.length < 3) return { lng: 0, lat: 0 };
-  const pts: { lng: number; lat: number }[] = points.map(p => ({
-    lng: p.lng,
-    lat: p.lat,
-  }));
-  const c = centroid(pts);
-  return { lng: c.lng, lat: c.lat };
-};
-
-/** Calculate midpoint between two coordinates. */
-const calcMidpoint = (
-  a: { lng: number; lat: number },
-  b: { lng: number; lat: number },
-): { lng: number; lat: number } => {
-  const pt = midpoint(a, b);
-  return { lng: pt.lng, lat: pt.lat };
-};
+/** Convert persisted {lng,lat} points to Leaflet LatLng array. */
+const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[] =>
+  points.map(p => L.latLng(p.lat, p.lng));
 
 /** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
 const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
@@ -227,20 +201,18 @@ export {
   applyVisibilityToggle,
   area,
   buildPopup,
-  calcArea,
-  calcCentroid,
-  calcMidpoint,
-  getEventTarget,
-  nextToggleState,
   centroid,
   distance,
   formatArea,
   formatDistance,
   formatSegmentLabel,
+  getEventTarget,
   makeLabelDivIcon,
   makeMidLabelDivIcon,
   makeNode,
   midpoint,
+  nextToggleState,
+  pointsToLatLngs,
   recalculateSegments,
   setLabelText,
   suppressHide,
