@@ -338,14 +338,14 @@ class PolygonMode extends PreviewMode {
     const coords = data.points?.map(p => [p.lng, p.lat]) || [];
     if (coords.length > 1) coords.push(coords[0]);
     return {
-      type: "Feature",
+      type: CONST.GEOJSON.FEATURE,
       properties: {
         type: this.TYPE,
         name: this.NAME_LABEL,
         area: data.area || 0,
         segments: data.segments || [],
       },
-      geometry: { type: "Polygon", coordinates: [coords] },
+      geometry: { type: CONST.GEOJSON.POLYGON, coordinates: [coords] },
     };
   }
 }

@@ -292,7 +292,7 @@ class DistanceMode extends PreviewMode {
 
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     return {
-      type: "Feature",
+      type: CONST.GEOJSON.FEATURE,
       properties: {
         type: this.TYPE,
         name: this.NAME_LABEL,
@@ -300,7 +300,7 @@ class DistanceMode extends PreviewMode {
         segments: data.segments || [],
       },
       geometry: {
-        type: "LineString",
+        type: CONST.GEOJSON.LINE_STRING,
         coordinates: data.points?.map(p => [p.lng, p.lat]) || [],
       },
     };

@@ -91,6 +91,15 @@ export const EXPORT_FORMAT = {
 
 export type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
 
+/** Standard GeoJSON type names (RFC 7946). */
+export const GEOJSON = {
+  FEATURE: "Feature",
+  FEATURE_COLLECTION: "FeatureCollection",
+  POINT: "Point",
+  LINE_STRING: "LineString",
+  POLYGON: "Polygon",
+} as const;
+
 /** Mode names. */
 export const MODE = {
   MARKER: "marker",

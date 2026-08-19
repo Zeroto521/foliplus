@@ -18,21 +18,19 @@ if (!turf.wkt) {
       const geom = feature.geometry;
       if (!geom) return "";
       switch (geom.type) {
-        case "Point": {
+        case CONST.GEOJSON.POINT: {
           const [lng, lat] = geom.coordinates;
-          return "POINT(" + lng + " " + lat + ")";
+          return `POINT(${lng} ${lat})`;
         }
-        case "LineString": {
-          const pts = geom.coordinates.map(([lng, lat]) => lng + " " + lat).join(", ");
-          return "LINESTRING(" + pts + ")";
+        case CONST.GEOJSON.LINE_STRING: {
+          const pts = geom.coordinates.map(([lng, lat]) => `${lng} ${lat}`).join(", ");
+          return `LINESTRING(${pts})`;
         }
-        case "Polygon": {
+        case CONST.GEOJSON.POLYGON: {
           const rings = geom.coordinates
-            .map(
-              ring => "(" + ring.map(([lng, lat]) => lng + " " + lat).join(", ") + ")",
-            )
+            .map(ring => `(${ring.map(([lng, lat]) => `${lng} ${lat}`).join(", ")})`)
             .join(", ");
-          return "POLYGON(" + rings + ")";
+          return `POLYGON(${rings})`;
         }
         default:
           return "";
@@ -90,15 +88,15 @@ const geometryBBox = (
   };
 
   switch (geom.type) {
-    case "Point":
+    case CONST.GEOJSON.POINT:
       visitCoords([geom.coordinates], bounds);
       mark();
       break;
-    case "LineString":
+    case CONST.GEOJSON.LINE_STRING:
       visitCoords(geom.coordinates, bounds);
       mark();
       break;
-    case "Polygon":
+    case CONST.GEOJSON.POLYGON:
       for (const ring of geom.coordinates) {
         visitCoords(ring, bounds);
         mark();
@@ -147,12 +145,12 @@ const toGeoJSON = (measurements: MeasureData[]): string => {
     .filter((f): f is GeoJSON.Feature => Boolean(f));
 
   const collection: {
-    type: "FeatureCollection";
+    type: typeof CONST.GEOJSON.FEATURE_COLLECTION;
     features: GeoJSON.Feature[];
     bbox?: [number, number, number, number];
     crs?: { type: "name"; properties: { name: string } };
   } = {
-    type: "FeatureCollection",
+    type: CONST.GEOJSON.FEATURE_COLLECTION,
     features,
   };
 

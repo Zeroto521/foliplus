@@ -346,9 +346,12 @@ class CircleMode extends PreviewMode {
       r = data.radius || 0;
     if (!c || r <= 0) {
       return {
-        type: "Feature",
+        type: CONST.GEOJSON.FEATURE,
         properties: { type: this.TYPE, radius: r },
-        geometry: { type: "Point", coordinates: [c?.lng || 0, c?.lat || 0] },
+        geometry: {
+          type: CONST.GEOJSON.POINT,
+          coordinates: [c?.lng || 0, c?.lat || 0],
+        },
       };
     }
     const circle = turf.circle([c.lng, c.lat], r / 1000, {
@@ -356,9 +359,12 @@ class CircleMode extends PreviewMode {
       units: "kilometers",
     });
     return {
-      type: "Feature",
+      type: CONST.GEOJSON.FEATURE,
       properties: { type: this.TYPE, name: this.NAME_LABEL, radius: r, center: c },
-      geometry: { type: "Polygon", coordinates: circle.geometry.coordinates },
+      geometry: {
+        type: CONST.GEOJSON.POLYGON,
+        coordinates: circle.geometry.coordinates,
+      },
     };
   }
 }
