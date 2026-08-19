@@ -1,6 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as UI from "#foliplus/MeasureControl/ui.js";
 
+// Mock delete-icon helpers — capture the click callback so tests can trigger it.
+const { attachDelClick } = vi.hoisted(() => ({
+  attachDelClick: vi.fn((marker: any, cb: () => void) => {
+    marker._delClick = cb;
+  }),
+}));
+
+vi.mock("#common/delicon.js", () => ({
+  makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null) })),
+  attachDelClick,
+  toggleDelIcon: vi.fn(),
+  hideDelIcons: vi.fn(),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -196,5 +210,91 @@ describe("resortLayers", () => {
 
     expect(layers.removeLayer).toHaveBeenCalledTimes(3);
     expect(layers.addLayer).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("attachCircleUI — delete flow", () => {
+  const makeLayer = (name: string) => ({
+    _name: name,
+    on: vi.fn(),
+    getElement: vi.fn(() => null),
+    setZIndexOffset: vi.fn(),
+  });
+
+  const makeOpts = () => {
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const delMarker = makeLayer("delMarker");
+    const onDelete = vi.fn();
+    const opts = {
+      layers,
+      circle: makeLayer("circle"),
+      radiusLine: makeLayer("radiusLine"),
+      radiusNode: makeLayer("radiusNode"),
+      centerFinal: makeLayer("centerFinal"),
+      delMarker,
+      radiusLabel: makeLayer("radiusLabel"),
+      onDelete,
+    };
+    return { layers, delMarker, onDelete, opts };
+  };
+
+  const makeMgr = () => ({
+    map: { on: vi.fn(), off: vi.fn() },
+    isSuppressHideDel: false,
+  });
+
+  it("attaches the X delete callback to delMarker", () => {
+    const { delMarker, opts } = makeOpts();
+    UI.attachCircleUI(makeMgr() as any, opts as any);
+
+    expect(attachDelClick).toHaveBeenCalledWith(delMarker, expect.any(Function));
+    expect(typeof (delMarker as any)._delClick).toBe("function");
+  });
+
+  it("removes all circle layers and calls onDelete on X click", () => {
+    const { layers, delMarker, onDelete, opts } = makeOpts();
+    UI.attachCircleUI(makeMgr() as any, opts as any);
+
+    (delMarker as any)._delClick();
+
+    expect(layers.removeLayer).toHaveBeenCalledWith(opts.circle);
+    expect(layers.removeLayer).toHaveBeenCalledWith(opts.radiusLine);
+    expect(layers.removeLayer).toHaveBeenCalledWith(opts.radiusNode);
+    expect(layers.removeLayer).toHaveBeenCalledWith(opts.centerFinal);
+    expect(layers.removeLayer).toHaveBeenCalledWith(delMarker);
+    expect(layers.removeLayer).toHaveBeenCalledWith(opts.radiusLabel);
+    expect(onDelete).toHaveBeenCalled();
+    expect(layers.unregister).toHaveBeenCalled();
+  });
+
+  it("does nothing on map click after deletion (isDeleted guard)", () => {
+    const { layers, delMarker, opts } = makeOpts();
+    const mgr = makeMgr();
+    const { onMapClickActive } = UI.attachCircleUI(mgr as any, opts as any);
+
+    (delMarker as any)._delClick();
+    onMapClickActive();
+
+    // state.isXVisible is still false, so toggleUI would hide more layers —
+    // but after deletion the map-click handler must not toggle.
+    expect(mgr.map.on).toHaveBeenCalledWith("click", expect.any(Function));
+  });
+
+  it("toggling the X icon delegates to applyVisibilityToggle", () => {
+    const { delMarker, opts } = makeOpts();
+    UI.attachCircleUI(makeMgr() as any, opts as any);
+
+    // Non-X click on the circle toggles visibility
+    const clickHandler = (opts.circle.on as any).mock.calls.find(
+      (c: any[]) => c[0] === "click",
+    )?.[1];
+    expect(clickHandler).toBeDefined();
+    clickHandler({ originalEvent: { target: null } } as any);
+
+    expect(delMarker.setZIndexOffset).toHaveBeenCalled();
   });
 });
