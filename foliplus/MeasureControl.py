@@ -50,10 +50,17 @@ class MeasureControl(BaseControl):
 
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is
-        appended automatically: measurements.geojson or measurements.csv.
+        appended automatically: ``measurements.geojson`` or ``measurements.csv``.
 
     export_format : str, default "geojson"
-        Default export format. One of "geojson" or "csv".
+        Default export format. One of ``"geojson"`` or ``"csv"``.
+
+        - ``"geojson"`` produces a ``FeatureCollection`` where each feature's
+          ``properties`` carries the measurement ``id``, type name, and type-specific
+          fields (``address``, ``totalDistance``, ``area``, ``radius``, ``center``).
+        - ``"csv"`` produces one row per measurement with an ``id`` column and a
+          ``wkt`` column holding the Well-Known-Text geometry. CSV files use a UTF-8
+          BOM so Excel opens them with correct encoding.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
@@ -61,13 +68,9 @@ class MeasureControl(BaseControl):
 
     Notes
     -----
-    **Export.** The toolbar's download button exports all current measurements as
-    ``{filename}.{export_format}`` (a browser download). GeoJSON output is a
-    ``FeatureCollection`` where each feature's ``properties`` carries the measurement
-    ``id``, type name, and type-specific fields (``address``, ``totalDistance``,
-    ``area``, ``radius``, ``center``); CSV output has one row per measurement with an
-    ``id`` column and a ``wkt`` column holding the Well-Known-Text geometry. CSV files
-    use a UTF-8 BOM so Excel opens them with correct encoding.
+    **Export.** The toolbar's download button exports all current measurements as a
+    ``{filename}.{export_format}`` browser download — see ``export_format`` for the
+    output structure of each format.
 
     **Persistence.** Measurements survive page reloads — they are saved to ``localStorage``
     (keyed by map container id) and restored automatically. Each persisted measurement
