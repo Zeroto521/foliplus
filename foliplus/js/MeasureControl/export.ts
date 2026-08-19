@@ -334,7 +334,7 @@ const exportMeasurements = (
       content = toGeoJSON(measurements);
       break;
     case CONST.EXPORT_FORMAT.CSV:
-      content = toCSV(measurements);
+      content = "\uFEFF" + toCSV(measurements);
       break;
     default:
       content = toGeoJSON(measurements);
