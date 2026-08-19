@@ -77,6 +77,8 @@ class PolygonMode extends PreviewMode {
         data.points = points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat }));
         data.segments = segments;
         data.area = newArea;
+        const centroid = Util.centroid(points);
+        data.center = { lng: centroid.lng, lat: centroid.lat };
         manager.saveMeasurements();
       },
     });
@@ -152,12 +154,14 @@ class PolygonMode extends PreviewMode {
         distance: Util.distance(points[points.length - 1], points[0]),
       };
       segments.push(lastSeg);
+      const centroid = Util.centroid(points);
       this.m.measurements.push({
         id: polyId,
         type: this.type,
         points: points.map(p => ({ lng: p.lng, lat: p.lat })),
         segments,
         area,
+        center: { lng: centroid.lng, lat: centroid.lat },
       });
       this.m.saveMeasurements();
 
@@ -208,6 +212,8 @@ class PolygonMode extends PreviewMode {
           m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
           m.segments = segments;
           m.area = Util.area(points);
+          const centroid = Util.centroid(points);
+          m.center = { lng: centroid.lng, lat: centroid.lat };
           this.m.saveMeasurements();
         },
       });
@@ -334,6 +340,12 @@ class PolygonMode extends PreviewMode {
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     const coords = data.points?.map(p => [p.lng, p.lat]) || [];
     if (coords.length > 1) coords.push(coords[0]);
+    // Centroid — persisted on save; recompute for legacy/imported data.
+    let center = data.center;
+    if (!center && data.points && data.points.length >= 3) {
+      const centroid = Util.centroid(data.points);
+      center = { lng: centroid.lng, lat: centroid.lat };
+    }
     return {
       type: CONST.GEOJSON.FEATURE,
       properties: {
@@ -341,6 +353,7 @@ class PolygonMode extends PreviewMode {
         name: this.NAME_LABEL,
         area: data.area || 0,
         segments: data.segments || [],
+        center,
       },
       geometry: { type: CONST.GEOJSON.POLYGON, coordinates: [coords] },
     };

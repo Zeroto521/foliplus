@@ -63,11 +63,11 @@ interface CsvRow {
  * Escape a CSV field value.
  */
 const csvEscape = (value: string | number): string => {
-  const s = String(value ?? "");
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return '"' + s.replace(/"/g, '""') + '"';
+  const str = String(value ?? "");
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return '"' + str.replace(/"/g, '""') + '"';
   }
-  return s;
+  return str;
 };
 
 /**
@@ -178,11 +178,11 @@ const exportMeasurements = (
   }
 
   const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
 };
 
 /**

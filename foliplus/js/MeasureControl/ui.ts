@@ -27,14 +27,14 @@ const createToggleUI = (
   render: (state: MeasureToggleState) => void,
 ): ((showX?: boolean, toggleLabels?: boolean | string) => void) => {
   return (showX?: boolean, toggleLabels?: boolean | string) => {
-    const s = Util.nextToggleState(
+    const next = Util.nextToggleState(
       state.isXVisible,
       state.isLabelsVisible,
       showX,
       toggleLabels,
     );
-    state.isXVisible = s.isXVisible;
-    state.isLabelsVisible = s.isLabelsVisible;
+    state.isXVisible = next.isXVisible;
+    state.isLabelsVisible = next.isLabelsVisible;
     render(state);
   };
 };
@@ -210,10 +210,7 @@ interface CircleAttachOpts {
   onDelete: () => void;
 }
 
-const attachCircleUI = (
-  mgr: MeasureManager,
-  opts: CircleAttachOpts,
-): { onMapClickActive: () => void } => {
+const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => void) => {
   const {
     layers,
     circle,
@@ -290,9 +287,7 @@ const attachCircleUI = (
     toggleCircleToggle();
   });
 
-  const onMapClickActive = setupMapClickActive(mgr, state, toggleUI, () => isDeleted);
-
-  return { onMapClickActive };
+  return setupMapClickActive(mgr, state, toggleUI, () => isDeleted);
 };
 
 /** Options for attachPolygonUI. */

@@ -84,7 +84,7 @@ class CircleMode extends PreviewMode {
       true,
     ) as L.Marker;
 
-    const { onMapClickActive } = attachCircleUI(manager, {
+    const onMapClickActive = attachCircleUI(manager, {
       layers: manager.layers,
       circle,
       radiusLine,
@@ -102,7 +102,7 @@ class CircleMode extends PreviewMode {
 
   start() {
     let center: L.LatLng | null = null;
-    let state = 0;
+    let phase = 0;
     let lastFinishTime = 0;
     let isFinalizing = false;
     const previews: CirclePreviews = {
@@ -126,7 +126,7 @@ class CircleMode extends PreviewMode {
       if (
         isFinalizing ||
         this.m.currentMode !== this.type ||
-        (state !== 0 && state !== 1)
+        (phase !== 0 && phase !== 1)
       )
         return;
       // Stop Leaflet propagation so clicking a data layer while drawing does
@@ -135,7 +135,7 @@ class CircleMode extends PreviewMode {
 
       if (Date.now() - lastFinishTime < CONST.TIMING.CLICK_COOLDOWN) return;
 
-      if (state === 0) {
+      if (phase === 0) {
         center = event.latlng;
         previews.center = this.addPreview(
           L.marker(center, {
@@ -149,32 +149,32 @@ class CircleMode extends PreviewMode {
             interactive: false,
           }),
         );
-        state = 1;
+        phase = 1;
         map.foliplus!.showHint(
           CONF.name,
           _(`${CONF.name}.hint_circle_radius`),
           HINT_DURATION.PERSIST,
         );
-      } else if (state === 1) {
+      } else if (phase === 1) {
         const r = Util.distance(center!, event.latlng);
         // Ignore clicks too close to center — radius 0 creates an invisible
         // circle that cannot be interacted with and has no visual effect.
         if (r < 1) return;
-        state = 2;
+        phase = 2;
         lastFinishTime = Date.now();
         const savedCenter = center;
         this.cleanup();
         this.m.clearActiveMode();
         isFinalizing = true;
         setTimeout(() => {
-          finalizeCircle(savedCenter!, r, event.latlng);
+          finishCircle(savedCenter!, r, event.latlng);
           isFinalizing = false;
         }, CONST.TIMING.FINALIZE_DELAY);
       }
     };
 
     const onMouseMove = (event: L.LeafletMouseEvent) => {
-      if (state !== 1 || !center || this.m.currentMode !== this.type) return;
+      if (phase !== 1 || !center || this.m.currentMode !== this.type) return;
       const r = Util.distance(center!, event.latlng);
 
       if (!previews.circle) {
@@ -230,7 +230,7 @@ class CircleMode extends PreviewMode {
       this.m.clearActiveMode();
     };
 
-    const finalizeCircle = (
+    const finishCircle = (
       centerLatLng: L.LatLng,
       r: number,
       targetLatLng: L.LatLng,
@@ -310,7 +310,7 @@ class CircleMode extends PreviewMode {
       });
       this.m.saveMeasurements();
 
-      const { onMapClickActive } = attachCircleUI(this.m, {
+      const onMapClickActive = attachCircleUI(this.m, {
         layers: this.layers,
         circle: circle as L.Circle,
         radiusLine: radiusLine as L.Polyline,
@@ -342,25 +342,25 @@ class CircleMode extends PreviewMode {
   }
 
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
-    const c = data.center,
-      r = data.radius || 0;
-    if (!c || r <= 0) {
+    const center = data.center;
+    const r = data.radius || 0;
+    if (!center || r <= 0) {
       return {
         type: CONST.GEOJSON.FEATURE,
         properties: { type: this.TYPE, radius: r },
         geometry: {
           type: CONST.GEOJSON.POINT,
-          coordinates: [c?.lng || 0, c?.lat || 0],
+          coordinates: [center?.lng || 0, center?.lat || 0],
         },
       };
     }
-    const circle = turf.circle([c.lng, c.lat], r / 1000, {
+    const circle = turf.circle([center.lng, center.lat], r / 1000, {
       steps: 64,
       units: "kilometers",
     });
     return {
       type: CONST.GEOJSON.FEATURE,
-      properties: { type: this.TYPE, name: this.NAME_LABEL, radius: r, center: c },
+      properties: { type: this.TYPE, name: this.NAME_LABEL, radius: r, center },
       geometry: {
         type: CONST.GEOJSON.POLYGON,
         coordinates: circle.geometry.coordinates,

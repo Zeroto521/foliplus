@@ -70,14 +70,14 @@ class MarkerMode extends MeasureMode {
       toggleDelIcon(delMarker, false);
     });
 
-    const deleteMarker = () => {
+    const deleteMeasurement = () => {
       manager.layers.removeLayer(marker);
       manager.layers.removeLayer(delMarker);
       manager.measurements = manager.measurements.filter(x => x.id !== data.id);
       manager.saveMeasurements();
       manager.layers.unregister();
     };
-    attachDelClick(delMarker, deleteMarker);
+    attachDelClick(delMarker, deleteMeasurement);
   }
 
   start() {
@@ -143,14 +143,14 @@ class MarkerMode extends MeasureMode {
 
     // Bind delete + popup events BEFORE async geocode so the X works even
     // while the address lookup is still in flight.
-    const deleteMarker = () => {
+    const deleteMeasurement = () => {
       this.layers.removeLayer(marker);
       this.layers.removeLayer(delMarker);
       this.m.measurements = this.m.measurements.filter(x => x.id !== markerId);
       this.m.saveMeasurements();
       this.layers.unregister();
     };
-    attachDelClick(delMarker, deleteMarker);
+    attachDelClick(delMarker, deleteMeasurement);
 
     // Bind popup events BEFORE async geocode so X appears on first popup open
     marker.on("popupopen", () => {
