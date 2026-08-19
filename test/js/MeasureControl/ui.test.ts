@@ -2,18 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as UI from "#foliplus/MeasureControl/ui.js";
 
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
+// Keep the original exports (DEL_ICON_* constants) via importOriginal and
+// override the function helpers.
 const { attachDelClick } = vi.hoisted(() => ({
   attachDelClick: vi.fn((marker: any, cb: () => void) => {
     marker._delClick = cb;
   }),
 }));
 
-vi.mock("#common/delicon.js", () => ({
-  makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null) })),
-  attachDelClick,
-  toggleDelIcon: vi.fn(),
-  hideDelIcons: vi.fn(),
-}));
+vi.mock("#common/delicon.js", async importOriginal => {
+  const actual = await importOriginal<typeof import("#common/delicon.js")>();
+  return {
+    ...actual,
+    makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null) })),
+    attachDelClick,
+    toggleDelIcon: vi.fn(),
+    hideDelIcons: vi.fn(),
+  };
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

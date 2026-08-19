@@ -20,6 +20,7 @@ export function initMocks() {
 
   window.L.polygon = vi.fn(() => ({
     setLatLngs: vi.fn(),
+    getElement: vi.fn(() => null),
   }));
 
   window.L.circle = vi.fn(() => ({
