@@ -6,7 +6,7 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
   const im = ensureInteraction(mgr.map);
   const container = mgr.map.getContainer();
   // Escape: global, no container restriction
-  im.register(CONF.name + "-escape", [
+  im.register(`${CONF.name}-escape`, [
     { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
   ]);
   // Enter / Ctrl+Z / Ctrl+Shift+Z: require map container focus
