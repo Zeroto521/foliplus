@@ -21,95 +21,6 @@ const CRS_WGS84 = {
   },
 };
 
-/**
- * Recursively visit all coordinate pairs in a geometry and update bbox bounds.
- * Mutates the given bounds accumulator.
- */
-const visitCoords = (
-  coords: GeoJSON.Position[],
-  bounds: { minLng: number; minLat: number; maxLng: number; maxLat: number },
-) => {
-  for (const [lng, lat] of coords) {
-    if (lng < bounds.minLng) bounds.minLng = lng;
-    if (lat < bounds.minLat) bounds.minLat = lat;
-    if (lng > bounds.maxLng) bounds.maxLng = lng;
-    if (lat > bounds.maxLat) bounds.maxLat = lat;
-  }
-};
-
-/**
- * Walk a GeoJSON geometry and extract the bounding box [minLng, minLat, maxLng, maxLat].
- * Returns null when the geometry has no coordinates.
- */
-const geometryBBox = (
-  geom: GeoJSON.Geometry | null,
-): [number, number, number, number] | null => {
-  if (!geom) return null;
-
-  const bounds: {
-    minLng: number;
-    minLat: number;
-    maxLng: number;
-    maxLat: number;
-  } = { minLng: Infinity, minLat: Infinity, maxLng: -Infinity, maxLat: -Infinity };
-  let hasPoint = false;
-
-  const mark = () => {
-    if (!hasPoint) hasPoint = true;
-  };
-
-  switch (geom.type) {
-    case CONST.GEOJSON.POINT:
-      visitCoords([geom.coordinates], bounds);
-      mark();
-      break;
-    case CONST.GEOJSON.LINE_STRING:
-      visitCoords(geom.coordinates, bounds);
-      mark();
-      break;
-    case CONST.GEOJSON.POLYGON:
-      for (const ring of geom.coordinates) {
-        visitCoords(ring, bounds);
-        mark();
-      }
-      break;
-    default:
-      return null;
-  }
-
-  return hasPoint ? [bounds.minLng, bounds.minLat, bounds.maxLng, bounds.maxLat] : null;
-};
-
-/**
- * Compute the combined bounding box from an array of GeoJSON features.
- * Returns null when no features contain coordinates.
- */
-const featuresBBox = (
-  features: GeoJSON.Feature[],
-): [number, number, number, number] | null => {
-  let result: [number, number, number, number] | null = null;
-
-  for (const f of features) {
-    const bbox = geometryBBox(f.geometry);
-    if (!bbox) continue;
-    // Reject NaN/infinity boxes (e.g. empty geometry that slipped through)
-    if (!bbox.every(v => Number.isFinite(v))) continue;
-    if (!result) {
-      result = bbox;
-    } else {
-      // Merge: expand result to include bbox
-      result = [
-        Math.min(result[0], bbox[0]),
-        Math.min(result[1], bbox[1]),
-        Math.max(result[2], bbox[2]),
-        Math.max(result[3], bbox[3]),
-      ];
-    }
-  }
-
-  return result;
-};
-
 const toGeoJSON = (measurements: MeasureData[]): string => {
   const features = measurements
     .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]?.toGeoFeature(m))
@@ -118,15 +29,12 @@ const toGeoJSON = (measurements: MeasureData[]): string => {
   const collection: {
     type: typeof CONST.GEOJSON.FEATURE_COLLECTION;
     features: GeoJSON.Feature[];
-    bbox?: [number, number, number, number];
     crs?: { type: "name"; properties: { name: string } };
   } = {
     type: CONST.GEOJSON.FEATURE_COLLECTION,
     features,
   };
 
-  const bbox = featuresBBox(features);
-  if (bbox) collection.bbox = bbox;
   const leafletCrs = map.options?.crs as
     | {
         toDefinition?: () => { type: "name"; properties: { name: string } } | undefined;
