@@ -43,9 +43,8 @@ type Turf = {
     radius: number,
     options: { steps?: number; units?: "kilometers" },
   ) => GeoJSON.Feature<GeoJSON.Polygon>;
-  /** WKT serialization — not bundled in @turf/turf main (separate @turf/turf-wkt
-   *  package). export.ts injects an inline fallback if missing. */
-  wkt?: {
+  /** WKT serialization — from @turf/turf-wkt CDN (separate from turf main). */
+  wkt: {
     toWKT: (feature: GeoJSON.Feature) => string;
   };
 };

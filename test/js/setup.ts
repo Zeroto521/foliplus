@@ -110,7 +110,7 @@ window.map = {
 };
 
 // Mock turf (needed by MeasureControl: turf.circle, turf.distance, etc.
-// turf.wkt is NOT a real @turf/turf export — export.ts implements WKT inline.)
+// turf.wkt comes from the @turf/turf-wkt CDN — mock it for tests.
 globalThis.turf = {
   point: coords => ({
     type: "Feature",
@@ -122,6 +122,20 @@ globalThis.turf = {
   midpoint: () => ({ geometry: { coordinates: [0, 0] } }),
   area: () => 1000,
   polygon: () => ({ type: "Feature", geometry: { type: "Polygon" } }),
+  wkt: {
+    toWKT: feature => {
+      const geom = feature.geometry;
+      if (!geom) return "";
+      if (geom.type === "Point") return "POINT(" + geom.coordinates.join(" ") + ")";
+      if (geom.type === "LineString")
+        return "LINESTRING(" + geom.coordinates.map(c => c.join(" ")).join(", ") + ")";
+      if (geom.type === "Polygon")
+        return (
+          "POLYGON((" + geom.coordinates[0].map(c => c.join(" ")).join(", ") + "))"
+        );
+      return "";
+    },
+  },
   circle: () => ({
     type: "Feature",
     properties: {},

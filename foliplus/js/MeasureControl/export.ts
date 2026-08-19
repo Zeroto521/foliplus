@@ -9,36 +9,6 @@ declare const CONF: { name: string; filename?: string; export_format?: ExportFor
 
 const _ = createTranslator(CONF);
 
-// Ensure turf.wkt is available — @turf/turf main bundle does NOT include the
-// @turf/turf-wkt plugin, so we inject an inline implementation.  If the user
-// loads the plugin separately, the real turf.wkt takes precedence.
-if (!turf.wkt) {
-  turf.wkt = {
-    toWKT: (feature: GeoJSON.Feature): string => {
-      const geom = feature.geometry;
-      if (!geom) return "";
-      switch (geom.type) {
-        case CONST.GEOJSON.POINT: {
-          const [lng, lat] = geom.coordinates;
-          return `POINT(${lng} ${lat})`;
-        }
-        case CONST.GEOJSON.LINE_STRING: {
-          const pts = geom.coordinates.map(([lng, lat]) => `${lng} ${lat}`).join(", ");
-          return `LINESTRING(${pts})`;
-        }
-        case CONST.GEOJSON.POLYGON: {
-          const rings = geom.coordinates
-            .map(ring => `(${ring.map(([lng, lat]) => `${lng} ${lat}`).join(", ")})`)
-            .join(", ");
-          return `POLYGON(${rings})`;
-        }
-        default:
-          return "";
-      }
-    },
-  };
-}
-
 /**
  * Convert a single measurement to a GeoJSON feature.
  */
@@ -172,8 +142,6 @@ const toGeoJSON = (measurements: MeasureData[]): string => {
 interface CsvRow {
   type: string;
   name: string;
-  longitude: string;
-  latitude: string;
   center: string;
   totalDistance: string;
   area: string;
@@ -200,8 +168,6 @@ const toCSV = (measurements: MeasureData[]): string => {
   const headers = [
     "type",
     "name",
-    "longitude",
-    "latitude",
     "center",
     "totalDistance",
     "area",
@@ -214,14 +180,9 @@ const toCSV = (measurements: MeasureData[]): string => {
   for (const data of measurements) {
     if (!data.type) continue;
 
-    const lat = getLat(data);
-    const lng = getLng(data);
-
     const row: CsvRow = {
       type: data.type,
       name: getNameForType(data),
-      longitude: lng !== null ? lng.toFixed(6) : "",
-      latitude: lat !== null ? lat.toFixed(6) : "",
       center: data.center
         ? `${data.center.lat.toFixed(6)},${data.center.lng.toFixed(6)}`
         : "",
@@ -253,35 +214,6 @@ const getNameForType = (data: MeasureData): string => {
   return translated === key ? ModeClass.NAME_LABEL || data.type : translated;
 };
 
-/**
- * Get the first coordinate point from any measurement type.
- * This avoids repeating the type-switch logic in getLat and getLng.
- */
-const getBasePoint = (data: MeasureData): { lat: number; lng: number } | null => {
-  if (data.type === CONST.MODE.MARKER)
-    return data.lat !== undefined && data.lng !== undefined
-      ? { lat: data.lat, lng: data.lng }
-      : null;
-
-  if (
-    (data.type === CONST.MODE.DISTANCE || data.type === CONST.MODE.POLYGON) &&
-    data.points &&
-    data.points.length > 0
-  )
-    return data.points[0];
-
-  if (data.type === CONST.MODE.CIRCLE) return data.center ?? null;
-  return null;
-};
-
-const getLat = (data: MeasureData): number | null => {
-  return getBasePoint(data)?.lat ?? null;
-};
-
-const getLng = (data: MeasureData): number | null => {
-  return getBasePoint(data)?.lng ?? null;
-};
-
 const toWKT = (data: MeasureData): string => {
   const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
   if (!ModeClass) {
@@ -293,7 +225,7 @@ const toWKT = (data: MeasureData): string => {
 /** Convert a GeoJSON Feature to a WKT string via turf.wkt. */
 const featureToWKT = (feature: GeoJSON.Feature): string => {
   if (!feature.geometry) return "";
-  return turf.wkt!.toWKT(feature).replace("\n", "");
+  return turf.wkt.toWKT(feature).replace("\n", "");
 };
 
 /**
@@ -364,7 +296,6 @@ export {
   getNameForType,
   exportMeasurements,
   getDefaultFormat,
-  getBasePoint,
   formatToExtension,
   formatToMimeType,
 };
