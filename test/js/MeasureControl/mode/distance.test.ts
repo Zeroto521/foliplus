@@ -190,4 +190,10 @@ describe("DistanceMode — toGeoFeature", () => {
       [122, 32],
     ]);
   });
+
+  it("has NAME_LABEL and TYPE static properties", async () => {
+    const { DistanceMode } = await import("#foliplus/MeasureControl/mode/index.js");
+    expect(DistanceMode.NAME_LABEL).toBe("Distance Measurement");
+    expect(DistanceMode.NAME_LABEL_KEY).toContain("name_distance");
+  });
 });

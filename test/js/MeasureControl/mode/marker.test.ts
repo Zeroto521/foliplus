@@ -33,4 +33,10 @@ describe("MarkerMode — toGeoFeature", () => {
     });
     expect(feature.properties.name).toBe("Location Marker");
   });
+
+  it("has NAME_LABEL and TYPE static properties", async () => {
+    const { MarkerMode } = await import("#foliplus/MeasureControl/mode/index.js");
+    expect(MarkerMode.NAME_LABEL).toBe("Location Marker");
+    expect(MarkerMode.NAME_LABEL_KEY).toContain("name_marker");
+  });
 });

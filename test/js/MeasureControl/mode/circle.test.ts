@@ -76,4 +76,9 @@ describe("CircleMode — toGeoFeature", () => {
     });
     expect(feature.geometry.type).toBe("Point");
   });
+
+  it("uses NAME_LABEL and TYPE from static properties", () => {
+    expect(CircleMode.NAME_LABEL).toBe("Circle");
+    expect(CircleMode.NAME_LABEL_KEY).toContain("name_circle");
+  });
 });

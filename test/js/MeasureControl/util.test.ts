@@ -347,3 +347,18 @@ describe("toggleVisibility edge cases", () => {
     expect(el2.classList.contains("foliplus-measure-hidden")).toBe(true);
   });
 });
+
+describe("getEventTarget", () => {
+  it("returns the target from a LeafletMouseEvent", () => {
+    const el = document.createElement("div");
+    const event = {
+      originalEvent: { target: el },
+    } as unknown as L.LeafletMouseEvent;
+    expect(Util.getEventTarget(event)).toBe(el);
+  });
+
+  it("returns null when originalEvent is missing", () => {
+    const event = {} as L.LeafletMouseEvent;
+    expect(Util.getEventTarget(event)).toBeNull();
+  });
+});

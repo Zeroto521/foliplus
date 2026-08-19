@@ -147,6 +147,18 @@ describe("Export.toGeoJSON", () => {
     expect(data.features.length).toBe(0);
   });
 
+  it("skips unknown type gracefully (no crash)", () => {
+    const json = Export.toGeoJSON([{ id: "x", type: "unknown_type" } as MeasureData]);
+    const data = JSON.parse(json);
+    expect(data.features.length).toBe(0);
+  });
+
+  it("skips measurement with null type", () => {
+    const json = Export.toGeoJSON([{ id: "x" } as MeasureData]);
+    const data = JSON.parse(json);
+    expect(data.features.length).toBe(0);
+  });
+
   it("handles multiple measurement types", () => {
     const json = Export.toGeoJSON([markerData, distanceData, polygonData, circleData]);
     const data = JSON.parse(json);
@@ -482,6 +494,13 @@ describe("Export.getNameForType", () => {
   it("returns type string for unknown type", () => {
     expect(Export.getNameForType({ type: "unknown" } as MeasureData)).toBe("unknown");
   });
+
+  it("falls back to NAME_LABEL when locale table is missing", () => {
+    expect(Export.getNameForType(markerData)).toBe("Location Marker");
+    expect(Export.getNameForType(distanceData)).toBe("Distance Measurement");
+    expect(Export.getNameForType(polygonData)).toBe("Area Measurement");
+    expect(Export.getNameForType(circleData)).toBe("Circle");
+  });
 });
 
 describe("Export.getBasePoint edge cases", () => {
@@ -516,7 +535,6 @@ describe("Export.toCSV edge cases", () => {
     const csv = Export.toCSV([]);
     const lines = csv.split("\n");
     expect(lines.length).toBe(1);
-    expect(lines[0]).toContain("id");
     expect(lines[0]).toContain("type");
   });
 

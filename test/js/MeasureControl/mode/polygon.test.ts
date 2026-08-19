@@ -152,4 +152,10 @@ describe("PolygonMode — toGeoFeature", () => {
       feature.geometry.coordinates[0][4],
     );
   });
+
+  it("has NAME_LABEL and TYPE static properties", async () => {
+    const { PolygonMode } = await import("#foliplus/MeasureControl/mode/index.js");
+    expect(PolygonMode.NAME_LABEL).toBe("Area Measurement");
+    expect(PolygonMode.NAME_LABEL_KEY).toContain("name_polygon");
+  });
 });

@@ -161,9 +161,6 @@ const attachDistanceUI = (
         if (points.length === 2 && nodeDelIcons.length === 2) {
           const lastDel = nodeDelIcons[1];
           if (lastDel) {
-            // After deleting an intermediate node only two nodes remain:
-            // rebind the last node's delete icon to delete the whole
-            // measurement (same behavior as the first node).
             lastDel.off("click");
             attachDelClick(lastDel, deleteMeasurement);
             const iconEl = lastDel.getElement();
@@ -189,7 +186,7 @@ const attachDistanceUI = (
       });
 
     delMarker.on("click", (event: L.LeafletMouseEvent) => {
-      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+      const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       handleItemClick(event);
     });
@@ -230,6 +227,18 @@ const attachCircleUI = (
   const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
   let isDeleted = false;
 
+  const deleteMeasurement = () => {
+    isDeleted = true;
+    layers.removeLayer(circle);
+    if (radiusLine) layers.removeLayer(radiusLine);
+    if (radiusNode) layers.removeLayer(radiusNode);
+    if (centerFinal) layers.removeLayer(centerFinal);
+    layers.removeLayer(delMarker);
+    if (radiusLabel) layers.removeLayer(radiusLabel);
+    onDelete();
+    layers.unregister();
+  };
+
   const toggleUI = createToggleUI(state, () => {
     Util.applyVisibilityToggle(
       delMarker,
@@ -259,19 +268,27 @@ const attachCircleUI = (
 
   const attachInteraction = (layer: L.Layer) => {
     layer.on("click", (event: L.LeafletMouseEvent) => {
-      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+      const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       stopEvent(event);
       toggleCircleToggle();
     });
   };
 
-  attachInteraction(delMarker);
   attachInteraction(circle);
   if (radiusLine) attachInteraction(radiusLine);
   if (radiusNode) attachInteraction(radiusNode);
   if (centerFinal) attachInteraction(centerFinal);
   if (radiusLabel) attachInteraction(radiusLabel);
+
+  // delMarker: separate handlers — X icon deletes, rest toggles visibility
+  attachDelClick(delMarker, deleteMeasurement);
+  delMarker.on("click", (event: L.LeafletMouseEvent) => {
+    const t = Util.getEventTarget(event);
+    if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
+    stopEvent(event);
+    toggleCircleToggle();
+  });
 
   const onMapClickActive = setupMapClickActive(mgr, state, toggleUI, () => isDeleted);
 
@@ -432,8 +449,7 @@ const attachPolygonUI = (
           nodeDelIcons.forEach(d => {
             d.off("click");
             d.on("click", (event: L.LeafletMouseEvent) => {
-              const t = (event.originalEvent as MouseEvent)
-                ?.target as HTMLElement | null;
+              const t = Util.getEventTarget(event);
               if (t?.closest?.(CONST.SEL.DEL_ICON)) {
                 stopEvent(event);
                 deleteMeasurement();
@@ -474,7 +490,7 @@ const attachPolygonUI = (
       });
 
     delMarker.on("click", (event: L.LeafletMouseEvent) => {
-      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+      const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       handleItemClick(event);
     });

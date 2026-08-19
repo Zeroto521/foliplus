@@ -10,14 +10,8 @@ import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { registerInteractions } from "./interaction.js";
-import {
-  CircleMode,
-  DistanceMode,
-  MODE_MAP,
-  MarkerMode,
-  MeasureMode,
-  PolygonMode,
-} from "./mode/index.js";
+import { MODE_MAP, MeasureMode } from "./mode/index.js";
+import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;
@@ -119,7 +113,7 @@ class MeasureManager {
   bindGlobalEvents() {
     this.onMapClick = (event: L.LeafletMouseEvent) => {
       if (this.isSuppressHideDel) return;
-      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+      const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       hideDelIcons();
     };

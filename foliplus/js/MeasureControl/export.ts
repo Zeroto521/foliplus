@@ -5,7 +5,7 @@ import * as CONST from "./const.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 
 // CONF is a free variable from the IIFE template wrapper.
-declare const CONF: { name: string; filename: string; export_format: ExportFormat };
+declare const CONF: { name: string; filename?: string; export_format?: ExportFormat };
 
 const _ = createTranslator(CONF);
 
@@ -123,6 +123,8 @@ const featuresBBox = (
   for (const f of features) {
     const bbox = geometryBBox(f.geometry);
     if (!bbox) continue;
+    // Reject NaN/infinity boxes (e.g. empty geometry that slipped through)
+    if (!bbox.every(v => Number.isFinite(v))) continue;
     if (!result) {
       result = bbox;
     } else {
@@ -141,8 +143,8 @@ const featuresBBox = (
 
 const toGeoJSON = (measurements: MeasureData[]): string => {
   const features = measurements
-    .filter(m => m.type)
-    .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]!.toGeoFeature(m));
+    .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]?.toGeoFeature(m))
+    .filter((f): f is GeoJSON.Feature => Boolean(f));
 
   const collection: {
     type: "FeatureCollection";
@@ -283,11 +285,11 @@ const getLng = (data: MeasureData): number | null => {
 };
 
 const toWKT = (data: MeasureData): string => {
-  const Feature = MODE_MAP[data.type as keyof typeof MODE_MAP];
-  if (!Feature) {
+  const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
+  if (!ModeClass) {
     return "";
   }
-  return featureToWKT(Feature.toGeoFeature(data));
+  return featureToWKT(ModeClass.toGeoFeature(data));
 };
 
 /** Convert a GeoJSON Feature to a WKT string via turf.wkt. */
