@@ -48,6 +48,7 @@ const toGeoJSON = (measurements: MeasureData[]): string => {
  * CSV row type for flattened measurement data.
  */
 interface CsvRow {
+  id: string;
   type: string;
   name: string;
   center: string;
@@ -74,6 +75,7 @@ const csvEscape = (value: string | number): string => {
  */
 const toCSV = (measurements: MeasureData[]): string => {
   const headers = [
+    "id",
     "type",
     "name",
     "center",
@@ -89,6 +91,7 @@ const toCSV = (measurements: MeasureData[]): string => {
     if (!data.type) continue;
 
     const row: CsvRow = {
+      id: data.id || "",
       type: data.type,
       name: getNameForType(data),
       center: data.center

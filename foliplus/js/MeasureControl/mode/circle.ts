@@ -347,7 +347,7 @@ class CircleMode extends PreviewMode {
     if (!center || r <= 0) {
       return {
         type: CONST.GEOJSON.FEATURE,
-        properties: { type: this.TYPE, radius: r },
+        properties: { id: data.id, type: this.TYPE, radius: r },
         geometry: {
           type: CONST.GEOJSON.POINT,
           coordinates: [center?.lng || 0, center?.lat || 0],
@@ -360,7 +360,13 @@ class CircleMode extends PreviewMode {
     });
     return {
       type: CONST.GEOJSON.FEATURE,
-      properties: { type: this.TYPE, name: this.NAME_LABEL, radius: r, center },
+      properties: {
+        id: data.id,
+        type: this.TYPE,
+        name: this.NAME_LABEL,
+        radius: r,
+        center,
+      },
       geometry: {
         type: CONST.GEOJSON.POLYGON,
         coordinates: circle.geometry.coordinates,

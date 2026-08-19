@@ -168,7 +168,12 @@ class MarkerMode extends MeasureMode {
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     return {
       type: CONST.GEOJSON.FEATURE,
-      properties: { type: this.TYPE, name: this.NAME_LABEL, address: data.address },
+      properties: {
+        id: data.id,
+        type: this.TYPE,
+        name: this.NAME_LABEL,
+        address: data.address,
+      },
       geometry: {
         type: CONST.GEOJSON.POINT,
         coordinates: [data.lng || 0, data.lat || 0],

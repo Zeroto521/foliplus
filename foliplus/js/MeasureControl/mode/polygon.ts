@@ -343,6 +343,7 @@ class PolygonMode extends PreviewMode {
     return {
       type: CONST.GEOJSON.FEATURE,
       properties: {
+        id: data.id,
         type: this.TYPE,
         name: this.NAME_LABEL,
         area: data.area || 0,

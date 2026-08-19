@@ -34,6 +34,16 @@ describe("MarkerMode — toGeoFeature", () => {
     expect(feature.properties.name).toBe("Location Marker");
   });
 
+  it("includes id in properties", () => {
+    const feature = MarkerMode.toGeoFeature({
+      id: "m3",
+      type: "marker",
+      lng: 0,
+      lat: 0,
+    });
+    expect(feature.properties.id).toBe("m3");
+  });
+
   it("has NAME_LABEL and TYPE static properties", async () => {
     const { MarkerMode } = await import("#foliplus/MeasureControl/mode/index.js");
     expect(MarkerMode.NAME_LABEL).toBe("Location Marker");

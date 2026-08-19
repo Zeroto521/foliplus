@@ -102,6 +102,7 @@ describe("Export.toGeoJSON", () => {
     expect(data.features[0].geometry.coordinates).toEqual([119.3, 26.08]);
     expect(data.features[0].properties.type).toBe("marker");
     expect(data.features[0].properties.address).toBe("Taiwan");
+    expect(data.features[0].properties.id).toBe("foliplus_measure_marker_1000_1");
   });
 
   it("converts distance to LineString feature", () => {
@@ -194,6 +195,7 @@ describe("Export.toCSV", () => {
     const lines = csv.split("\n");
     expect(lines.length).toBe(3); // header + 2 data rows
     const header = lines[0].split(",");
+    expect(header).toContain("id");
     expect(header).toContain("type");
     expect(header).toContain("name");
     expect(header).toContain("center");
@@ -202,6 +204,13 @@ describe("Export.toCSV", () => {
     expect(header).toContain("radius");
     expect(header).toContain("address");
     expect(header).toContain("wkt");
+  });
+
+  it("marker row includes id", () => {
+    const csv = Export.toCSV([markerData]);
+    const lines = csv.split("\n");
+    const markerRow = lines[1];
+    expect(markerRow).toContain(markerData.id!);
   });
 
   it("marker row includes address", () => {
@@ -493,7 +502,7 @@ describe("Export.toCSV edge cases", () => {
     expect(lines.length).toBe(2);
     const row = lines[1].split(",");
     // center should be an empty string when the marker has no center
-    expect(row[2]).toBe("");
+    expect(row[3]).toBe("");
   });
 
   it("handles marker with address containing comma", () => {
@@ -520,7 +529,7 @@ describe("Export.toCSV edge cases", () => {
     expect(lines.length).toBe(2);
     const row = lines[1].split(",");
     // center column is empty for a null-center circle
-    expect(row[2]).toBe("");
+    expect(row[3]).toBe("");
   });
 
   it("handles distance with empty points", () => {

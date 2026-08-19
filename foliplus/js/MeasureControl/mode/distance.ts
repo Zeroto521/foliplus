@@ -292,6 +292,7 @@ class DistanceMode extends PreviewMode {
     return {
       type: CONST.GEOJSON.FEATURE,
       properties: {
+        id: data.id,
         type: this.TYPE,
         name: this.NAME_LABEL,
         totalDistance: data.totalDistance || 0,
