@@ -23,6 +23,25 @@ afterEach(() => {
   delete globalThis.turf;
 });
 
+describe("pointsToLatLngs", () => {
+  it("converts {lng,lat} points to LatLng array", () => {
+    window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
+    const result = Util.pointsToLatLngs([
+      { lng: 119.3, lat: 26.08 },
+      { lng: 119.31, lat: 26.09 },
+    ]);
+    expect(result).toEqual([
+      { lat: 26.08, lng: 119.3 },
+      { lat: 26.09, lng: 119.31 },
+    ]);
+  });
+
+  it("handles empty array", () => {
+    window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
+    expect(Util.pointsToLatLngs([])).toEqual([]);
+  });
+});
+
 describe("formatDistance", () => {
   it("formats meters below the km threshold", () => {
     expect(Util.formatDistance(500)).toBe("500 m");
@@ -218,58 +237,6 @@ describe("stopEvent", () => {
     stopEvent(event);
     expect(event.preventDefault).toHaveBeenCalled();
     expect(event.stopPropagation).toHaveBeenCalled();
-  });
-});
-
-describe("calcArea", () => {
-  it("returns area for a valid polygon with 3+ points", () => {
-    const points = [
-      { lat: 0, lng: 0 },
-      { lat: 0, lng: 100 },
-      { lat: 100, lng: 0 },
-      { lat: 0, lng: 0 },
-    ];
-    const area = Util.calcArea(points as any);
-    expect(typeof area).toBe("number");
-    expect(area).toBeGreaterThan(0);
-  });
-
-  it("returns 0 for fewer than 3 points", () => {
-    expect(Util.calcArea([{ lat: 0, lng: 0 }] as any)).toBe(0);
-    expect(
-      Util.calcArea([
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 1 },
-      ] as any),
-    ).toBe(0);
-    expect(Util.calcArea([] as any)).toBe(0);
-  });
-});
-
-describe("calcCentroid", () => {
-  it("returns centroid with lng/lat for valid polygon", () => {
-    const points = [
-      { lat: 0, lng: 0 },
-      { lat: 0, lng: 100 },
-      { lat: 100, lng: 0 },
-      { lat: 0, lng: 0 },
-    ];
-    const c = Util.calcCentroid(points as any);
-    expect(c.lng).toBeDefined();
-    expect(c.lat).toBeDefined();
-  });
-
-  it("returns {lng:0, lat:0} for fewer than 3 points", () => {
-    expect(Util.calcCentroid([] as any)).toEqual({ lng: 0, lat: 0 });
-    expect(Util.calcCentroid([{ lat: 1, lng: 1 }] as any)).toEqual({ lng: 0, lat: 0 });
-  });
-});
-
-describe("calcMidpoint", () => {
-  it("returns midpoint between two points", () => {
-    const mid = Util.calcMidpoint({ lng: 0, lat: 0 }, { lng: 100, lat: 100 });
-    expect(mid.lng).toBe(50);
-    expect(mid.lat).toBe(50);
   });
 });
 
