@@ -60,6 +60,11 @@ class MeasureControl extends BaseControl {
         title: _(`${CONF.name}.tool_circle`),
         svg: SVGs.CIRCLE,
       },
+      {
+        mode: CONST.MODE.CLEAR,
+        title: _(`${CONF.name}.tool_clear`),
+        svg: SVGs.TRASH,
+      },
     ];
     btnConfigs.forEach(({ mode, title, svg }) => {
       createIconButton({
@@ -78,14 +83,6 @@ class MeasureControl extends BaseControl {
       svg: Icons.DOWNLOAD,
       parent: toolBar,
       data: {},
-    });
-
-    createIconButton({
-      class: "foliplus-tool-btn",
-      title: _(`${CONF.name}.tool_clear`),
-      svg: SVGs.TRASH,
-      parent: toolBar,
-      data: { mode: CONST.MODE.CLEAR },
     });
 
     this.m.ctrl = ctrl;

@@ -11,7 +11,7 @@
   "MeasureControl.name_marker": "Location Marker",
   "MeasureControl.name_distance": "Distance Measurement",
   "MeasureControl.name_polygon": "Area Measurement",
-  "MeasureControl.name_circle": "Circle",
+  "MeasureControl.name_circle": "Circle Measurement",
   "MeasureControl.hint_marker": "Click the map to place a location marker",
   "MeasureControl.hint_dist_start": "Click to start measuring distance, double-click / right-click / click last point to finish",
   "MeasureControl.hint_polygon": "Click to start measuring area, double-click / right-click / click first/last point to finish",
