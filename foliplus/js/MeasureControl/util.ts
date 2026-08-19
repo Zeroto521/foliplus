@@ -220,7 +220,7 @@ const calcMidpoint = (
 
 /** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
 const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
-  (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+  ((event.originalEvent as MouseEvent)?.target as HTMLElement | null) ?? null;
 
 export {
   animateDashSweep,
