@@ -172,7 +172,7 @@ class MarkerMode extends MeasureMode {
       properties: {
         id: data.id,
         type: this.TYPE,
-        name: this.NAME_LABEL,
+        name: this.getNameLabel(),
         address: data.address,
       },
       geometry: {

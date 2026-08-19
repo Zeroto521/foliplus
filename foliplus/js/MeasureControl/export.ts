@@ -1,4 +1,13 @@
 // MeasureControl export module — convert measurements to GeoJSON and CSV.
+//
+// Units of exported numeric fields:
+//   - totalDistance, segments[].distance  -> meters (m)
+//   - segments[].bearing                   -> degrees (0-360, clockwise from north)
+//   - area                                 -> square meters (m²)
+//   - radius                               -> meters (m)
+//   - coordinates ([lng, lat])             -> longitude/latitude in degrees
+// The measurement type label (properties.name / CSV name column) is i18n-
+// translated via each mode's getNameLabel(), falling back to English.
 import { HINT_DURATION } from "#core/hint.js";
 import { createTranslator } from "#common/locale.js";
 import type { ExportFormat } from "./const.js";
@@ -116,18 +125,14 @@ const toCSV = (measurements: MeasureData[]): string => {
 };
 
 /**
- * Get the human-readable measurement-type label for a CSV row.
- * Uses the mode's i18n key when translated; falls back to the English
- * NAME_LABEL default (e.g. in tests where no locale table is loaded).
+ * Human-readable measurement-type label for a CSV row — delegates to the
+ * mode's getNameLabel (i18n translation with English fallback), matching
+ * GeoJSON properties.name.
  */
 const getNameForType = (data: MeasureData): string => {
-  const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP] as
-    (typeof MeasureMode & { NAME_LABEL_KEY?: string; NAME_LABEL?: string }) | undefined;
+  const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
   if (!ModeClass) return data.type;
-  const key = ModeClass.NAME_LABEL_KEY;
-  if (!key) return data.type;
-  const translated = _(key);
-  return translated === key ? ModeClass.NAME_LABEL || data.type : translated;
+  return ModeClass.getNameLabel();
 };
 
 /** Convert a single measurement to a WKT string (empty when unknown type). */

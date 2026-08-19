@@ -1,4 +1,8 @@
+import { createTranslator } from "#common/locale.js";
 import type { MeasureManager } from "../manager.js";
+
+// CONF is a free variable from the IIFE template wrapper (see global.d.ts).
+const _ = createTranslator(CONF);
 
 class MeasureMode {
   static TYPE: string = "";
@@ -7,6 +11,15 @@ class MeasureMode {
   static NAME_LABEL: string = "";
   /** Locale key for the CSV display name (human-readable). Subclasses override. */
   static NAME_LABEL_KEY: string = "";
+  /**
+   * Human-readable label: the i18n translation of NAME_LABEL_KEY when the
+   * locale table has it, otherwise the English NAME_LABEL fallback.
+   * Shared by CSV export (getNameForType) and GeoJSON properties.name.
+   */
+  static getNameLabel(): string {
+    const label = _(this.NAME_LABEL_KEY);
+    return label === this.NAME_LABEL_KEY ? this.NAME_LABEL : label;
+  }
   manager: MeasureManager;
   map: L.Map;
   layers: CreateLayersAPI;

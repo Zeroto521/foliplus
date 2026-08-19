@@ -28,7 +28,7 @@ interface CirclePreviews {
 /** Circle radius measurement mode. Click center, then click edge. */
 class CircleMode extends PreviewMode {
   static TYPE = CONST.MODE.CIRCLE;
-  static NAME_LABEL = "Circle";
+  static NAME_LABEL = "Circle Measurement";
   static NAME_LABEL_KEY = `${CONF.name}.name_circle`;
 
   /** Rebuild a persisted circle measurement.
@@ -364,7 +364,7 @@ class CircleMode extends PreviewMode {
       properties: {
         id: data.id,
         type: this.TYPE,
-        name: this.NAME_LABEL,
+        name: this.getNameLabel(),
         radius: r,
         center,
       },

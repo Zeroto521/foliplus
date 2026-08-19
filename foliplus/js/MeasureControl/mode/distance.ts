@@ -123,6 +123,7 @@ class DistanceMode extends PreviewMode {
         lng: p.lng,
         lat: p.lat,
         distance: Util.distance(points[i], points[i + 1]),
+        bearing: Util.bearing(points[i], points[i + 1]),
       }));
       this.m.measurements.push({
         id: distId,
@@ -295,7 +296,7 @@ class DistanceMode extends PreviewMode {
       properties: {
         id: data.id,
         type: this.TYPE,
-        name: this.NAME_LABEL,
+        name: this.getNameLabel(),
         totalDistance: data.totalDistance || 0,
         segments: data.segments || [],
       },

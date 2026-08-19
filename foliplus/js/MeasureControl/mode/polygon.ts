@@ -73,6 +73,7 @@ class PolygonMode extends PreviewMode {
           lng: points[0].lng,
           lat: points[0].lat,
           distance: Util.distance(points[points.length - 1], points[0]),
+          bearing: Util.bearing(points[points.length - 1], points[0]),
         });
         data.points = points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat }));
         data.segments = segments;
@@ -146,12 +147,14 @@ class PolygonMode extends PreviewMode {
         lng: p.lng,
         lat: p.lat,
         distance: Util.distance(points[i], points[i + 1]),
+        bearing: Util.bearing(points[i], points[i + 1]),
       }));
       // Add closing segment
       const lastSeg = {
         lng: points[0].lng,
         lat: points[0].lat,
         distance: Util.distance(points[points.length - 1], points[0]),
+        bearing: Util.bearing(points[points.length - 1], points[0]),
       };
       segments.push(lastSeg);
       const centroid = Util.centroid(points);
@@ -208,6 +211,7 @@ class PolygonMode extends PreviewMode {
             lng: points[0].lng,
             lat: points[0].lat,
             distance: Util.distance(points[n - 1], points[0]),
+            bearing: Util.bearing(points[n - 1], points[0]),
           });
           m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
           m.segments = segments;
@@ -347,7 +351,7 @@ class PolygonMode extends PreviewMode {
       properties: {
         id: data.id,
         type: this.TYPE,
-        name: this.NAME_LABEL,
+        name: this.getNameLabel(),
         area: data.area || 0,
         segments: data.segments || [],
         // Centroid persisted on finish; absent only for data created before

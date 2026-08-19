@@ -62,6 +62,10 @@ class MeasureControl(BaseControl):
           ``wkt`` column holding the Well-Known-Text geometry. CSV files use a UTF-8
           BOM so Excel opens them with correct encoding.
 
+          Exported numeric fields use metric units: distances and radius in meters,
+          area in square meters, segment bearing in degrees (0-360, clockwise from
+          north), and coordinates in longitude/latitude degrees.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.

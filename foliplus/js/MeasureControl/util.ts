@@ -167,11 +167,12 @@ const animateDashSweep = (path: SVGElement | null) => {
   path.addEventListener("animationend", onEnd);
 };
 
-/** A single segment with distance. */
+/** A single segment with distance and initial bearing (degrees, 0-360). */
 interface Segment {
   lng: number;
   lat: number;
   distance: number;
+  bearing: number;
 }
 
 /** Recalculate segments and total distance from a points array. */
@@ -182,7 +183,8 @@ const recalculateSegments = (
   let totalDistance = 0;
   for (let i = 1; i < points.length; i++) {
     const d = distance(points[i - 1], points[i]);
-    segments.push({ lng: points[i].lng, lat: points[i].lat, distance: d });
+    const b = bearing(points[i - 1], points[i]);
+    segments.push({ lng: points[i].lng, lat: points[i].lat, distance: d, bearing: b });
     totalDistance += d;
   }
   return { segments, totalDistance };
@@ -200,6 +202,7 @@ export {
   animateDashSweep,
   applyVisibilityToggle,
   area,
+  bearing,
   buildPopup,
   centroid,
   distance,
