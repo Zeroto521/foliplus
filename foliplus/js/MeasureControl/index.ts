@@ -78,7 +78,7 @@ class MeasureControl extends BaseControl {
 
     // Export button (between circle and clear)
     const exportBtn = createIconButton({
-      class: "foliplus-tool-btn foliplus-measure-export-btn",
+      class: "foliplus-tool-btn",
       title: _(`${CONF.name}.tool_export`),
       svg: Icons.DOWNLOAD,
       parent: toolBar,

@@ -77,7 +77,7 @@ export const STYLE = { SWEEP_LENGTH: "--sweep-length" };
 export const SEL = {
   LABEL: ".foliplus-measure-label",
   DEL_ICON: DEL_ICON_SELECTOR,
-  TOOL_BTN: ".foliplus-tool-btn",
+  TOOL_BTN: ".foliplus-tool-btn[data-mode]",
 };
 
 /** Persistent storage key. */
