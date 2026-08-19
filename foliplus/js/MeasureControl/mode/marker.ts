@@ -19,6 +19,8 @@ const _ = createTranslator(CONF);
 /** Marker placement mode. Places a geocoded marker on click. */
 class MarkerMode extends MeasureMode {
   static TYPE = CONST.MODE.MARKER;
+  static NAME_LABEL = "Location Marker";
+  static NAME_LABEL_KEY = `${CONF.name}.name_marker`;
 
   onMarkerClickRef!: (event: L.LeafletMouseEvent) => void;
 
@@ -166,7 +168,7 @@ class MarkerMode extends MeasureMode {
   static toGeoFeature(data: MeasureData): GeoJSON.Feature {
     return {
       type: "Feature",
-      properties: { type: "marker", name: "Location Marker", address: data.address },
+      properties: { type: this.TYPE, name: this.NAME_LABEL, address: data.address },
       geometry: { type: "Point", coordinates: [data.lng || 0, data.lat || 0] },
     };
   }

@@ -6,6 +6,11 @@ const _ = createTranslator(CONF);
 
 class MeasureMode {
   static TYPE: string = "";
+  /** English display name — used in exported GeoJSON properties.name (data stays
+   *  portable for external GIS tools). Subclasses override. */
+  static NAME_LABEL: string = "";
+  /** Locale key for the CSV display name (human-readable). Subclasses override. */
+  static NAME_LABEL_KEY: string = "";
   manager: MeasureManager;
   map: L.Map;
   layers: CreateLayersAPI;
@@ -28,9 +33,9 @@ class MeasureMode {
     return (this.constructor as typeof MeasureMode).TYPE;
   }
 
-  /** Start the mode — bind events, create UI. */
+  /** Start the mode — bind events, create UI. Subclasses must override. */
   start(): void {
-    console.warn(`[${CONF.name}] start not implemented for ${this.type}`);
+    throw new Error(`[${CONF.name}] start not implemented for ${this.type}`);
   }
 
   /** Cleanup — unbind events, remove temporary elements. */
@@ -51,7 +56,7 @@ class MeasureMode {
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData): void {
-    console.warn(`[${CONF.name}] restore not implemented for ${this.TYPE}`);
+    throw new Error(`[${CONF.name}] restore not implemented for ${this.TYPE}`);
   }
 
   /** Convert a persisted measurement to a GeoJSON Feature.

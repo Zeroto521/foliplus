@@ -16,6 +16,8 @@ import { PreviewMode } from "./base.js";
 /** Polygon area measurement mode. Click to place nodes, closes on first/last node click. */
 class PolygonMode extends PreviewMode {
   static TYPE = CONST.MODE.POLYGON;
+  static NAME_LABEL = "Area Measurement";
+  static NAME_LABEL_KEY = `${CONF.name}.name_polygon`;
 
   /** Rebuild a persisted polygon measurement.
    *  @param {Object} manager - MeasureManager instance.
@@ -338,8 +340,8 @@ class PolygonMode extends PreviewMode {
     return {
       type: "Feature",
       properties: {
-        type: "polygon",
-        name: "Area Measurement",
+        type: this.TYPE,
+        name: this.NAME_LABEL,
         area: data.area || 0,
         segments: data.segments || [],
       },

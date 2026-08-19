@@ -28,6 +28,8 @@ interface CirclePreviews {
 /** Circle radius measurement mode. Click center, then click edge. */
 class CircleMode extends PreviewMode {
   static TYPE = CONST.MODE.CIRCLE;
+  static NAME_LABEL = "Circle";
+  static NAME_LABEL_KEY = `${CONF.name}.name_circle`;
 
   /** Rebuild a persisted circle measurement.
    *  @param {Object} manager - MeasureManager instance.
@@ -345,7 +347,7 @@ class CircleMode extends PreviewMode {
     if (!c || r <= 0) {
       return {
         type: "Feature",
-        properties: { type: "circle", radius: r },
+        properties: { type: this.TYPE, radius: r },
         geometry: { type: "Point", coordinates: [c?.lng || 0, c?.lat || 0] },
       };
     }
@@ -355,7 +357,7 @@ class CircleMode extends PreviewMode {
     });
     return {
       type: "Feature",
-      properties: { type: "circle", name: "Circle Measurement", radius: r, center: c },
+      properties: { type: this.TYPE, name: this.NAME_LABEL, radius: r, center: c },
       geometry: { type: "Polygon", coordinates: circle.geometry.coordinates },
     };
   }

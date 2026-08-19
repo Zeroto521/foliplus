@@ -109,30 +109,18 @@ class MeasureControl extends BaseControl {
     // Export button handler — set AFTER toolBtns.forEach (which overwrites all .foliplus-tool-btn onclick).
     exportBtn.onclick = (event: MouseEvent) => {
       event.stopPropagation();
-      if (!this.m) {
-        alert("测量功能不可用，请刷新页面重试。");
-        return;
-      }
       const measurements = this.m.measurements;
       if (!measurements || measurements.length === 0) {
-        const msg = _(`${CONF.name}.export_no_data`);
-        try {
-          map.foliplus?.showHint?.(CONF.name, msg, 4000);
-        } catch (err) {
-          alert(msg);
-        }
+        map.foliplus?.showHint?.(CONF.name, _(`${CONF.name}.export_no_data`), 4000);
         return;
       }
+      // Serialization + <a download> are pure local operations; failures here are
+      // developer errors, not user-facing conditions — log instead of alerting.
       try {
         const format = Export.getDefaultFormat();
         Export.exportMeasurements(measurements, format);
       } catch (err) {
-        const msg = (err as Error).message || "导出失败";
-        try {
-          map.foliplus?.showHint?.(CONF.name, msg, 4000);
-        } catch {
-          alert(msg);
-        }
+        console.warn(`[${CONF.name}] export failed:`, err);
       }
     };
 

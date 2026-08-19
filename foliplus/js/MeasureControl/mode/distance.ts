@@ -16,6 +16,8 @@ import { PreviewMode } from "./base.js";
 /** Distance measurement mode. Click to place nodes, double-click/context to finish. */
 class DistanceMode extends PreviewMode {
   static TYPE = CONST.MODE.DISTANCE;
+  static NAME_LABEL = "Distance Measurement";
+  static NAME_LABEL_KEY = `${CONF.name}.name_distance`;
 
   static restore(manager: MeasureManager, data: MeasureData) {
     const points: L.LatLng[] = data.points!.map((p: { lng: number; lat: number }) =>
@@ -292,8 +294,8 @@ class DistanceMode extends PreviewMode {
     return {
       type: "Feature",
       properties: {
-        type: "distance",
-        name: "Distance Measurement",
+        type: this.TYPE,
+        name: this.NAME_LABEL,
         totalDistance: data.totalDistance || 0,
         segments: data.segments || [],
       },
