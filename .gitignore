@@ -48,16 +48,17 @@ doc/source/map.html
 .ipynb_checkpoints
 
 # Environments
+uv.lock
+.conda
 .env
 .venv
-venv/
 env.bak/
+venv/
 venv.bak/
 
 # Tooling
 .mypy_cache/
 .ruff_cache/
-.conda
 .playwright-mcp
 
 # Node / npm
