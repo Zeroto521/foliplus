@@ -74,9 +74,7 @@ class MeasureControl extends BaseControl {
     let exportBtn: HTMLElement | null = null;
     btnConfigs.forEach(({ mode, title, svg }) => {
       const btn = createIconButton({
-        class: mode
-          ? "foliplus-tool-btn"
-          : "foliplus-tool-btn foliplus-measure-export-btn",
+        class: "foliplus-tool-btn",
         title,
         svg,
         parent: toolBar,
