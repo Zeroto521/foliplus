@@ -91,5 +91,6 @@ export function makeManagerMock() {
     cleanMapEvents: vi.fn(),
     currentMode: null,
     measurements: [],
+    finalizedClickHandlers: [],
   };
 }
