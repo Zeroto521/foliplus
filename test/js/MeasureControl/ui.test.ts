@@ -220,6 +220,11 @@ describe("resortLayers", () => {
   });
 });
 
+const makeMgr = () => ({
+  map: { on: vi.fn(), off: vi.fn() },
+  isSuppressHideDel: false,
+});
+
 describe("attachCircleUI — delete flow", () => {
   const makeLayer = (name: string) => ({
     _name: name,
@@ -248,11 +253,6 @@ describe("attachCircleUI — delete flow", () => {
     };
     return { layers, delMarker, onDelete, opts };
   };
-
-  const makeMgr = () => ({
-    map: { on: vi.fn(), off: vi.fn() },
-    isSuppressHideDel: false,
-  });
 
   it("attaches the X delete callback to delMarker", () => {
     const { delMarker, opts } = makeOpts();
