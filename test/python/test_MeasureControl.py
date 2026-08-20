@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import pathlib
 import re
-from pathlib import Path
 
 import folium
 import pytest
@@ -14,7 +12,6 @@ from conftest import (
     assert_config_value,
     make_browser_page,
     read_css,
-    render,
     render_control,
     use_page,
 )
