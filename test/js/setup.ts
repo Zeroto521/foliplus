@@ -110,7 +110,7 @@ window.map = {
 };
 
 // Mock turf (needed by MeasureControl: turf.circle, turf.distance, etc.
-// turf.wkt comes from the @turf/turf-wkt CDN — mock it for tests.
+// export.ts implements WKT inline (no turf.wkt dependency).
 globalThis.turf = {
   point: coords => ({
     type: "Feature",
