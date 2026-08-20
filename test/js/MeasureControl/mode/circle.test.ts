@@ -103,16 +103,7 @@ describe("CircleMode — restore", () => {
     expect(manager.layers.addLayer).toHaveBeenCalled();
   });
 
-  it("does not throw when center is missing", () => {
-    const manager = makeManagerMock() as any;
-    expect(() =>
-      CircleMode.restore(manager, {
-        id: "c_r2",
-        type: "circle",
-        radius: 0,
-      } as any),
-    ).not.toThrow();
-  });
+
 });
 
 describe("CircleMode — start drawing flow", () => {

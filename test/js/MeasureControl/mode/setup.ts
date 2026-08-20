@@ -34,6 +34,7 @@ export function initMocks() {
     on: vi.fn(),
     bringToFront: vi.fn(),
     getElement: vi.fn(() => null),
+    setZIndexOffset: vi.fn(),
     bindPopup: vi.fn(() => ({})),
     openPopup: vi.fn(),
     getPopup: vi.fn(() => null),
