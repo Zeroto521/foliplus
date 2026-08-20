@@ -28,6 +28,7 @@ export function initMocks() {
   window.L.circle = vi.fn(() => ({
     setRadius: vi.fn(),
     getElement: vi.fn(() => null),
+    on: vi.fn(),
   }));
 
   window.L.marker = vi.fn(() => ({
