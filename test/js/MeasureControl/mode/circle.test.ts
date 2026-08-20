@@ -84,3 +84,33 @@ describe("CircleMode — toGeoFeature", () => {
     expect(CircleMode.NAME_LABEL_KEY).toContain("name_circle");
   });
 });
+
+describe("CircleMode — restore", () => {
+  it("rebuilds a circle and its radius line from persisted data", () => {
+    const manager = makeManagerMock() as any;
+    manager.currentMode = null;
+    CircleMode.restore(manager, {
+      id: "c_r1",
+      type: "circle",
+      center: { lng: 121.5, lat: 31.2 },
+      target: { lng: 121.51, lat: 31.2 },
+      radius: 5000,
+    });
+
+    expect(window.L.circle).toHaveBeenCalled();
+    expect(window.L.polyline).toHaveBeenCalled();
+    expect(window.L.marker).toHaveBeenCalled(); // center dot + labels + del icons
+    expect(manager.layers.addLayer).toHaveBeenCalled();
+  });
+
+  it("does not throw when center is missing", () => {
+    const manager = makeManagerMock() as any;
+    expect(() =>
+      CircleMode.restore(manager, {
+        id: "c_r2",
+        type: "circle",
+        radius: 0,
+      } as any),
+    ).not.toThrow();
+  });
+});

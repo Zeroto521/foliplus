@@ -212,3 +212,42 @@ describe("PolygonMode — toGeoFeature", () => {
     expect(feature.properties.center).toBeUndefined();
   });
 });
+
+describe("PolygonMode — restore", () => {
+  it("rebuilds a polygon with nodes and labels from persisted data", () => {
+    const manager = makeManagerMock() as any;
+    PolygonMode.restore(manager, {
+      id: "p_r1",
+      type: "polygon",
+      points: [
+        { lng: 121, lat: 31 },
+        { lng: 122, lat: 31 },
+        { lng: 121.5, lat: 32 },
+      ],
+      segments: [
+        { lng: 122, lat: 31, distance: 1500, bearing: 90 },
+        { lng: 121.5, lat: 32, distance: 1500, bearing: 45 },
+      ],
+      area: 50000,
+    });
+
+    expect(window.L.polygon).toHaveBeenCalled();
+    expect(window.L.circleMarker).toHaveBeenCalled(); // nodes
+    expect(window.L.marker).toHaveBeenCalled(); // labels + del icons
+    expect(manager.layers.addLayer).toHaveBeenCalled();
+  });
+
+  it("restores polygon without segments", () => {
+    const manager = makeManagerMock() as any;
+    PolygonMode.restore(manager, {
+      id: "p_r2",
+      type: "polygon",
+      points: [
+        { lng: 121, lat: 31 },
+        { lng: 122, lat: 31 },
+        { lng: 121.5, lat: 32 },
+      ],
+    });
+    expect(window.L.polygon).toHaveBeenCalled();
+  });
+});

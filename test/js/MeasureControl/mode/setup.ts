@@ -34,6 +34,12 @@ export function initMocks() {
     on: vi.fn(),
     bringToFront: vi.fn(),
     getElement: vi.fn(() => null),
+    bindPopup: vi.fn(() => ({})),
+    openPopup: vi.fn(),
+    getPopup: vi.fn(() => null),
+    setPopupContent: vi.fn(),
+    addTo: vi.fn(),
+    getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
   }));
 
   window.L.divIcon = vi.fn(opts => ({ _mockDivIconHtml: opts?.html }));
@@ -82,9 +88,14 @@ export function makeManagerMock() {
     map: {
       on: vi.fn(),
       off: vi.fn(),
+      removeLayer: vi.fn(),
       getContainer: () => document.createElement("div"),
     },
-    layers: { addLayer: vi.fn(l => l), removeLayer: vi.fn() },
+    layers: {
+      addLayer: vi.fn(l => l),
+      removeLayer: vi.fn(),
+      mainLayer: { addLayer: vi.fn(l => l) },
+    },
     nextMeasurementId: vi.fn(() => "test-id"),
     saveMeasurements: vi.fn(),
     clearActiveMode: vi.fn(),
