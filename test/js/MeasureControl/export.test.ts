@@ -247,7 +247,7 @@ describe("Export.toCSV", () => {
     ]);
     const lines = csv.split("\n");
     const polyRow = lines[1];
-    expect(polyRow).toContain("26.085000,119.315000");
+    expect(polyRow).toContain("119.315000,26.085000");
   });
 
   it("wkt column contains WKT geometry", () => {
