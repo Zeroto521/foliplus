@@ -74,10 +74,10 @@ class MeasureControl(BaseControl):
     output structure of each format.
 
     **Units.** Exported numeric fields use metric units:
-    - distances and radius in meters
-    - area in square meters
-    - segment bearing in degrees (0-360, clockwise from north)
-    - coordinates in longitude/latitude degrees
+        - distances and radius in meters
+        - area in square meters
+        - segment bearing in degrees (0-360, clockwise from north)
+        - coordinates in longitude/latitude degrees
 
     **Persistence.** Measurements survive page reloads — they are saved to ``localStorage``
     (keyed by map container id) and restored automatically. Each persisted measurement
