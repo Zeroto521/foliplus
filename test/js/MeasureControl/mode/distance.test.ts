@@ -205,12 +205,8 @@ describe("DistanceMode — finish saves measurement", () => {
     manager.currentMode = CONST.MODE.DISTANCE;
     mode.start();
 
-    const clickHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "click",
-    )?.[1];
-    const dblHandler = manager.map.on.mock.calls.find(
-      ([ev]) => ev === "dblclick",
-    )?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    const dblHandler = manager.map.on.mock.calls.find(([ev]) => ev === "dblclick")?.[1];
 
     clickHandler({ latlng: { lat: 30, lng: 120 } });
     clickHandler({ latlng: { lat: 31, lng: 121 } });
