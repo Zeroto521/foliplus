@@ -443,7 +443,7 @@ describe("Export.getNameForType", () => {
   });
 
   it("returns Circle for circle type", () => {
-    expect(Export.getNameForType(circleData)).toBe("Circle");
+    expect(Export.getNameForType(circleData)).toBe("Circle Measurement");
   });
 
   it("returns type string for unknown type", () => {
@@ -454,7 +454,7 @@ describe("Export.getNameForType", () => {
     expect(Export.getNameForType(markerData)).toBe("Location Marker");
     expect(Export.getNameForType(distanceData)).toBe("Distance Measurement");
     expect(Export.getNameForType(polygonData)).toBe("Area Measurement");
-    expect(Export.getNameForType(circleData)).toBe("Circle");
+    expect(Export.getNameForType(circleData)).toBe("Circle Measurement");
   });
 });
 
