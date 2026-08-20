@@ -4,17 +4,18 @@ import * as UI from "#foliplus/MeasureControl/ui.js";
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
 // Keep the original exports (DEL_ICON_* constants) via importOriginal and
 // override the function helpers.
-const { attachDelClick } = vi.hoisted(() => ({
+const { attachDelClick, makeDelIcon } = vi.hoisted(() => ({
   attachDelClick: vi.fn((marker: any, cb: () => void) => {
     marker._delClick = cb;
   }),
+  makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null) })),
 }));
 
 vi.mock("#common/delicon.js", async importOriginal => {
   const actual = await importOriginal<typeof import("#common/delicon.js")>();
   return {
     ...actual,
-    makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null) })),
+    makeDelIcon,
     attachDelClick,
     toggleDelIcon: vi.fn(),
     hideDelIcons: vi.fn(),
@@ -302,5 +303,88 @@ describe("attachCircleUI — delete flow", () => {
     clickHandler({ originalEvent: { target: null } } as any);
 
     expect(delMarker.setZIndexOffset).toHaveBeenCalled();
+  });
+});
+
+describe("attachDistanceUI", () => {
+  const makeLayer = (name: string) => ({
+    _name: name,
+    on: vi.fn(),
+    getElement: vi.fn(() => null),
+    getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
+  });
+
+  const makeOpts = () => {
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const nodeMarkers = [makeLayer("n1") as any, makeLayer("n2") as any];
+    const segLabels = [makeLayer("s1") as any];
+    const finalPoly = makeLayer("poly") as any;
+    return {
+      layers, nodeMarkers, segLabels, finalPoly,
+      points: [{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }],
+      onDelete: vi.fn(),
+      onUpdate: vi.fn(),
+    };
+  };
+
+  it("binds click handlers on the polyline and nodes", () => {
+    const opts = makeOpts();
+    const onMapClickActive = UI.attachDistanceUI(makeMgr() as any, opts as any);
+    expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
+    expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
+    expect(typeof onMapClickActive).toBe("function");
+  });
+
+  it("creates a delete icon per node", () => {
+    const opts = makeOpts();
+    UI.attachDistanceUI(makeMgr() as any, opts as any);
+    expect(makeDelIcon).toHaveBeenCalled();
+  });
+});
+
+describe("attachPolygonUI", () => {
+  const makeLayer = (name: string) => ({
+    _name: name,
+    on: vi.fn(),
+    getElement: vi.fn(() => null),
+    getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
+  });
+
+  const makeOpts = () => {
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const nodeMarkers = [
+      makeLayer("n1") as any,
+      makeLayer("n2") as any,
+      makeLayer("n3") as any,
+    ];
+    const segLabels = [makeLayer("s1") as any];
+    const finalPoly = makeLayer("poly") as any;
+    return {
+      layers, nodeMarkers, segLabels, finalPoly,
+      points: [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+        { lat: 2, lng: 0 },
+      ],
+      onDelete: vi.fn(),
+      onUpdate: vi.fn(),
+      area: 5000,
+    };
+  };
+
+  it("binds handlers and returns a map-click cleanup", () => {
+    const opts = makeOpts();
+    const onMapClickActive = UI.attachPolygonUI(makeMgr() as any, opts as any);
+    expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
+    expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
+    expect(typeof onMapClickActive).toBe("function");
   });
 });
