@@ -324,8 +324,14 @@ describe("attachDistanceUI", () => {
     const segLabels = [makeLayer("s1") as any];
     const finalPoly = makeLayer("poly") as any;
     return {
-      layers, nodeMarkers, segLabels, finalPoly,
-      points: [{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }],
+      layers,
+      nodeMarkers,
+      segLabels,
+      finalPoly,
+      points: [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+      ],
       onDelete: vi.fn(),
       onUpdate: vi.fn(),
     };
@@ -368,7 +374,10 @@ describe("attachPolygonUI", () => {
     const segLabels = [makeLayer("s1") as any];
     const finalPoly = makeLayer("poly") as any;
     return {
-      layers, nodeMarkers, segLabels, finalPoly,
+      layers,
+      nodeMarkers,
+      segLabels,
+      finalPoly,
       points: [
         { lat: 0, lng: 0 },
         { lat: 1, lng: 1 },
