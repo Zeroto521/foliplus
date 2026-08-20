@@ -155,6 +155,10 @@ describe("PolygonMode — finish saves centroid", () => {
     expect(saved.center).toBeDefined();
     expect(typeof saved.center!.lng).toBe("number");
     expect(typeof saved.center!.lat).toBe("number");
+    expect(saved.area).toBeGreaterThan(0); // Util.area computed at finish
+    expect(saved.segments).toBeDefined();
+    expect(saved.segments!.length).toBe(3); // 3 sides incl. closing
+    expect(saved.segments![0].bearing).toBeDefined(); // bearing added
   });
 });
 

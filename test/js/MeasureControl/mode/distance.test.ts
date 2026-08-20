@@ -197,3 +197,48 @@ describe("DistanceMode — toGeoFeature", () => {
     expect(DistanceMode.NAME_LABEL_KEY).toContain("name_distance");
   });
 });
+
+describe("DistanceMode — finish saves measurement", () => {
+  it("persists a distance measurement on double-click finish", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]) => ev === "click",
+    )?.[1];
+    const dblHandler = manager.map.on.mock.calls.find(
+      ([ev]) => ev === "dblclick",
+    )?.[1];
+
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 122 } });
+    // double-click finishes
+    dblHandler({ latlng: { lat: 32, lng: 122 } });
+
+    expect(manager.saveMeasurements).toHaveBeenCalled();
+    const saved = manager.measurements[0] as MeasureData;
+    expect(saved.type).toBe("distance");
+    expect(saved.points).toHaveLength(3);
+    expect(saved.totalDistance).toBeGreaterThan(0);
+    expect(saved.segments).toBeDefined();
+    expect(saved.segments![0].bearing).toBeDefined();
+  });
+});
+
+describe("DistanceMode — cleanup", () => {
+  it("runs the registered cleanup callback", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+    mode.cleanup();
+
+    // start() binds map events; cleanup() unbinds via _cleanup
+    expect(mode._cleanup).toBeNull(); // cleanup consumed the callback
+    // next cleanup is a safe no-op
+    expect(() => mode.cleanup()).not.toThrow();
+  });
+});
