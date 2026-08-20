@@ -21,14 +21,6 @@ const _ = createTranslator(CONF);
 /**
  * Convert a single measurement to a GeoJSON feature.
  */
-/** WGS 84 CRS descriptor — fallback when map.options.crs is unavailable (e.g. tests). */
-const CRS_WGS84 = {
-  type: "name" as const,
-  properties: {
-    name: "urn:ogc:def:crs:OGC:1.3:CRS84",
-  },
-};
-
 /**
  * Serialize measurements as a GeoJSON FeatureCollection string.
  * Each feature carries the measurement id and type-specific fields in
@@ -42,18 +34,7 @@ const toGeoJSON = (measurements: MeasureData[]): string => {
   const collection: {
     type: typeof CONST.GEOJSON.FEATURE_COLLECTION;
     features: GeoJSON.Feature[];
-    crs?: { type: "name"; properties: { name: string } };
-  } = {
-    type: CONST.GEOJSON.FEATURE_COLLECTION,
-    features,
-  };
-
-  const leafletCrs = map.options?.crs as
-    | {
-        toDefinition?: () => { type: "name"; properties: { name: string } } | undefined;
-      }
-    | undefined;
-  collection.crs = leafletCrs?.toDefinition?.() || CRS_WGS84;
+  } = { type: CONST.GEOJSON.FEATURE_COLLECTION, features };
 
   return JSON.stringify(collection, null, 2);
 };

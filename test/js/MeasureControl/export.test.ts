@@ -173,12 +173,10 @@ describe("Export.toGeoJSON", () => {
     ]);
   });
 
-  it("includes crs with WGS 84 name", () => {
+  it("omits crs member (RFC 7946 — coordinates are always WGS 84)", () => {
     const json = Export.toGeoJSON([markerData]);
     const data = JSON.parse(json);
-    expect(data.crs).toBeDefined();
-    expect(data.crs.type).toBe("name");
-    expect(data.crs.properties.name).toBe("urn:ogc:def:crs:OGC:1.3:CRS84");
+    expect(data.crs).toBeUndefined();
   });
 
   it("omits bbox (optional per RFC 7946)", () => {
