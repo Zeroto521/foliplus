@@ -244,25 +244,19 @@ class TestMeasureControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_export_button_present(self, browser, tmp_path):
-        """Export button is rendered with the correct tooltip title.
-
-        The export button has no dedicated CSS class (it shares .foliplus-tool-btn);
-        locate it via its tooltip title instead.
-        """
+        """Export button is the only tool button without data-mode."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            title = page.evaluate(
-                "document.querySelector('button[title=Export Data]')?.title"
+            count = page.evaluate(
+                "document.querySelectorAll('.foliplus-tool-btn:not([data-mode])').length"
             )
-            assert title == "Export Data", (
-                f"Expected export button with tooltip, got {title!r}"
-            )
+            assert count == 1, f"Expected exactly 1 export button, got {count}"
             assert not errors, f"JS errors: {errors}"
 
     def test_export_no_data_hint_when_empty(self, browser, tmp_path):
         """Clicking export button with no measurements shows a hint, not an error."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(
-                "document.querySelector('button[title=Export Data]')?.click()"
+                "document.querySelector('.foliplus-tool-btn:not([data-mode])')?.click()"
             )
             page.wait_for_timeout(500)
             assert not errors, f"JS errors: {errors}"
