@@ -11,7 +11,9 @@ ExportFormat = Literal["geojson", "csv"]
 
 
 class MeasureControl(BaseControl):
-    """Distance measurement, area measurement, circle drawing, and GPS marker with geocoding.
+    """
+    Distance measurement, area measurement, circle drawing, and location marker with
+    geocoding.
 
     - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
       address. Click the popup or the × on the marker to delete it.
