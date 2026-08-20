@@ -7,7 +7,7 @@
   "MeasureControl.tool_polygon": "Measure Area",
   "MeasureControl.tool_circle": "Draw Circle",
   "MeasureControl.tool_clear": "Clear All",
-  "MeasureControl.tool_export": "Export measurements",
+  "MeasureControl.tool_export": "Export Data",
   "MeasureControl.name_marker": "Location Marker",
   "MeasureControl.name_distance": "Distance Measurement",
   "MeasureControl.name_polygon": "Area Measurement",

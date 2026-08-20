@@ -254,9 +254,9 @@ class TestMeasureControlBrowser:
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             title = page.evaluate(
-                "document.querySelector('button[title=Export measurements]')?.title"
+                "document.querySelector('button[title=Export Data]')?.title"
             )
-            assert title == "Export measurements", (
+            assert title == "Export Data", (
                 f"Expected export button with tooltip, got {title!r}"
             )
             assert not errors, f"JS errors: {errors}"
@@ -265,7 +265,7 @@ class TestMeasureControlBrowser:
         """Clicking export button with no measurements shows a hint, not an error."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(
-                "document.querySelector('button[title=Export measurements]')?.click()"
+                "document.querySelector('button[title=Export Data]')?.click()"
             )
             page.wait_for_timeout(500)
             assert not errors, f"JS errors: {errors}"
