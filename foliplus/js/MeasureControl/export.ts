@@ -142,10 +142,34 @@ const toWKT = (data: MeasureData): string => {
   return featureToWKT(ModeClass.toGeoFeature(data));
 };
 
-/** Convert a GeoJSON Feature to a WKT string via turf.wkt. */
+/**
+ * Convert a GeoJSON Feature to a WKT string (Point/LineString/Polygon).
+ * Implemented inline — @turf/turf-wkt CDN does not expose a UMD global,
+ * and @turf/turf main bundle excludes wkt.
+ */
 const featureToWKT = (feature: GeoJSON.Feature): string => {
-  if (!feature.geometry) return "";
-  return turf.wkt.toWKT(feature).replace("\n", "");
+  const geom = feature.geometry;
+  if (!geom) return "";
+  switch (geom.type) {
+    case CONST.GEOJSON.POINT: {
+      const [lng, lat] = geom.coordinates as [number, number];
+      return `POINT(${lng} ${lat})`;
+    }
+    case CONST.GEOJSON.LINE_STRING: {
+      const pts = (geom.coordinates as number[][])
+        .map(([lng, lat]) => `${lng} ${lat}`)
+        .join(", ");
+      return `LINESTRING(${pts})`;
+    }
+    case CONST.GEOJSON.POLYGON: {
+      const rings = (geom.coordinates as number[][][])
+        .map(ring => `(${ring.map(([lng, lat]) => `${lng} ${lat}`).join(", ")})`)
+        .join(", ");
+      return `POLYGON(${rings})`;
+    }
+    default:
+      return "";
+  }
 };
 
 /**

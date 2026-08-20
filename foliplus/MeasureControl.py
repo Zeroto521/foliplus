@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, get_args
 
-from ._cdn import GCOORD, TURF, TURF_WKT
+from ._cdn import GCOORD, TURF
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -103,10 +103,6 @@ class MeasureControl(BaseControl):
         (
             "turf",
             f"https://cdn.jsdelivr.net/npm/@turf/turf@{TURF}/turf.min.js",
-        ),
-        (
-            "turf_wkt",
-            f"https://cdn.jsdelivr.net/npm/@turf/turf-wkt@{TURF_WKT}/turf-wkt.min.js",
         ),
     ]
 

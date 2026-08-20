@@ -280,7 +280,7 @@ describe("attachCircleUI — delete flow", () => {
   it("does nothing on map click after deletion (isDeleted guard)", () => {
     const { layers, delMarker, opts } = makeOpts();
     const mgr = makeMgr();
-    const { onMapClickActive } = UI.attachCircleUI(mgr as any, opts as any);
+    const onMapClickActive = UI.attachCircleUI(mgr as any, opts as any);
 
     (delMarker as any)._delClick();
     onMapClickActive();

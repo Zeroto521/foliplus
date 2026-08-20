@@ -43,10 +43,6 @@ type Turf = {
     radius: number,
     options: { steps?: number; units?: "kilometers" },
   ) => GeoJSON.Feature<GeoJSON.Polygon>;
-  /** WKT serialization — from @turf/turf-wkt CDN (separate from turf main). */
-  wkt: {
-    toWKT: (feature: GeoJSON.Feature) => string;
-  };
 };
 
 /** gcoord (CDN). */
