@@ -61,12 +61,7 @@ class MeasureControl(BaseControl):
           ``properties`` carries the measurement ``id``, type name, and type-specific
           fields (``address``, ``totalDistance``, ``area``, ``radius``, ``center``).
         - ``"csv"`` produces one row per measurement with an ``id`` column and a
-          ``wkt`` column holding the Well-Known-Text geometry. CSV files use a UTF-8
-          BOM so Excel opens them with correct encoding.
-
-          Exported numeric fields use metric units: distances and radius in meters,
-          area in square meters, segment bearing in degrees (0-360, clockwise from
-          north), and coordinates in longitude/latitude degrees.
+          ``wkt`` column holding the Well-Known-Text geometry.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
@@ -77,6 +72,12 @@ class MeasureControl(BaseControl):
     **Export.** The toolbar's download button exports all current measurements as a
     ``{filename}.{export_format}`` browser download — see ``export_format`` for the
     output structure of each format.
+
+    **Units.** Exported numeric fields use metric units:
+    - distances and radius in meters
+    - area in square meters
+    - segment bearing in degrees (0-360, clockwise from north)
+    - coordinates in longitude/latitude degrees
 
     **Persistence.** Measurements survive page reloads — they are saved to ``localStorage``
     (keyed by map container id) and restored automatically. Each persisted measurement
