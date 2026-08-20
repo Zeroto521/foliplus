@@ -55,6 +55,7 @@ describe("CircleMode — toGeoFeature", () => {
       center: { lng: 121, lat: 31 },
       target: { lng: 122, lat: 31 },
       radius: 5000,
+      area: Math.PI * 5000 * 5000,
     });
 
     expect(globalThis.turf.circle).toHaveBeenCalledWith([121, 31], 5, {
@@ -64,6 +65,7 @@ describe("CircleMode — toGeoFeature", () => {
     expect(feature.type).toBe("Feature");
     expect(feature.properties.type).toBe("circle");
     expect(feature.properties.radius).toBe(5000);
+    expect(feature.properties.area).toBe(Math.PI * 5000 * 5000);
     expect(feature.geometry.type).toBe("Polygon");
     expect(feature.geometry.coordinates[0]).toHaveLength(9);
   });

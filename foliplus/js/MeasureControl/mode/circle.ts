@@ -307,6 +307,7 @@ class CircleMode extends PreviewMode {
         center: { lng: centerLatLng.lng, lat: centerLatLng.lat },
         target: { lng: finalTargetLatLng.lng, lat: finalTargetLatLng.lat },
         radius: r,
+        area: Math.PI * r * r,
       });
       this.m.saveMeasurements();
 
@@ -367,6 +368,7 @@ class CircleMode extends PreviewMode {
         name: this.getNameLabel(),
         radius: r,
         center,
+        area: data.area,
       },
       geometry: {
         type: CONST.GEOJSON.POLYGON,
