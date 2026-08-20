@@ -114,3 +114,38 @@ describe("CircleMode — restore", () => {
     ).not.toThrow();
   });
 });
+
+describe("CircleMode — start drawing flow", () => {
+  it("places center on first click, finishes on second click", () => {
+    vi.useFakeTimers();
+    try {
+      const manager = makeManagerMock() as any;
+      manager.currentMode = CONST.MODE.CIRCLE;
+      const mode = new CircleMode(manager);
+      mode.start();
+
+      const clickHandler = manager.map.on.mock.calls.find(
+        ([ev]) => ev === "click",
+      )?.[1];
+      const moveHandler = manager.map.on.mock.calls.find(
+        ([ev]) => ev === "mousemove",
+      )?.[1];
+
+      clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
+      expect(window.L.marker).toHaveBeenCalled(); // center dot
+
+      moveHandler({ latlng: { lat: 31.21, lng: 121.51 } });
+      expect(window.L.circle).toHaveBeenCalled(); // preview circle
+
+      // second click completes the circle (scheduled via setTimeout)
+      clickHandler({ latlng: { lat: 31.21, lng: 121.51 } });
+      vi.runAllTimers();
+
+      expect(manager.measurements.length).toBe(1);
+      expect(manager.measurements[0].radius).toBeGreaterThan(0);
+      expect(manager.saveMeasurements).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

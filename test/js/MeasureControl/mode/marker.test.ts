@@ -85,3 +85,29 @@ describe("MarkerMode — restore", () => {
     expect(markerCalls.length).toBeGreaterThan(1); // pin + delete icon
   });
 });
+
+describe("MarkerMode — start + click", () => {
+  it("binds a map click handler on start", () => {
+    const manager = makeManagerMock() as any;
+    manager.currentMode = CONST.MODE.MARKER;
+    const mode = new MarkerMode(manager);
+    mode.start();
+
+    expect(manager.map.on).toHaveBeenCalledWith("click", expect.any(Function));
+  });
+
+  it("places a marker and persists measurement on click", () => {
+    const manager = makeManagerMock() as any;
+    manager.currentMode = CONST.MODE.MARKER;
+    const mode = new MarkerMode(manager);
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
+
+    expect(manager.measurements.length).toBe(1);
+    expect(manager.measurements[0].type).toBe("marker");
+    expect(manager.saveMeasurements).toHaveBeenCalled();
+    expect(window.L.marker).toHaveBeenCalled();
+  });
+});
