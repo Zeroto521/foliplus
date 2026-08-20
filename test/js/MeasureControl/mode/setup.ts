@@ -9,6 +9,7 @@ export function initMocks() {
     bringToFront: vi.fn(),
     on: vi.fn(),
     getLatLng: vi.fn(() => ({ lat: 31, lng: 121 })),
+    getElement: vi.fn(() => null),
   }));
 
   window.L.polyline = vi.fn(() => ({
@@ -26,6 +27,7 @@ export function initMocks() {
 
   window.L.circle = vi.fn(() => ({
     setRadius: vi.fn(),
+    getElement: vi.fn(() => null),
   }));
 
   window.L.marker = vi.fn(() => ({
