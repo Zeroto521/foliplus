@@ -122,7 +122,6 @@ globalThis.turf = {
   midpoint: () => ({ geometry: { coordinates: [0, 0] } }),
   area: () => 1000,
   polygon: () => ({ type: "Feature", geometry: { type: "Polygon" } }),
-  },
   circle: () => ({
     type: "Feature",
     properties: {},
