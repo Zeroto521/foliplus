@@ -102,8 +102,6 @@ describe("CircleMode — restore", () => {
     expect(window.L.marker).toHaveBeenCalled(); // center dot + labels + del icons
     expect(manager.layers.addLayer).toHaveBeenCalled();
   });
-
-
 });
 
 describe("CircleMode — start drawing flow", () => {
