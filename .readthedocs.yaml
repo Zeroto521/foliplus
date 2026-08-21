@@ -19,7 +19,7 @@ build:
       - python -m pip install --upgrade uv
     post_install:
       # Install doc deps from dependency-groups
-      - uv sync --system --group doc
+      - uv sync --group doc
 
 sphinx:
   configuration: doc/source/conf.py
