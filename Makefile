@@ -62,7 +62,6 @@ build-python:
 
 # Parallel test workers. Use CPU count by default, override with JOBS=N.
 JOBS ?= auto
-PYTHON_VERSION := $(file < .python-version)
 
 test: build-js-dev test-js
 	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
@@ -88,7 +87,7 @@ info:
 
 env:
 	@command -v uv >/dev/null 2>&1 || { echo "uv not found: https://docs.astral.sh/uv/getting-started/installation"; exit 1; }
-	uv venv -p $(PYTHON_VERSION)
+	uv venv
 	uv sync --group dev
 	@echo "Done. Then: source .venv/bin/activate"
 	@echo "For browser tests also run: playwright install chromium"
