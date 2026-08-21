@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   test:
-    name: py${{ matrix.python }} / folium-${{ matrix.folium }}
+    name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -61,4 +61,4 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          flags: py${{ matrix.python }}-folium${{ matrix.folium }}
+          flags: py${{ matrix.python }}-folium-${{ matrix.folium }}
