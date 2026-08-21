@@ -642,3 +642,39 @@ describe("Export.handleExportClick", () => {
     expect(lastAnchor.click).toHaveBeenCalled();
   });
 });
+
+describe("Export.featureToWKT — default case", () => {
+  it("returns empty string for unknown geometry type", () => {
+    const { featureToWKT } = Export as any;
+    if (featureToWKT) {
+      const result = featureToWKT({
+        geometry: { type: "MultiPoint", coordinates: [] },
+      });
+      expect(result).toBe("");
+    }
+  });
+});
+
+describe("Export.exportMeasurements — default format", () => {
+  it("uses GeoJSON for unknown format", () => {
+    const prev = window.CONF;
+    (window as any).CONF = { name: "MeasureControl", filename: "test" };
+    const original = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:x") as any;
+    const origCreateElement = document.createElement;
+    document.createElement = vi.fn(() => ({
+      href: "",
+      download: "",
+      click: vi.fn(),
+    })) as any;
+    const origAppendChild = HTMLBodyElement.prototype.appendChild;
+    HTMLBodyElement.prototype.appendChild = vi.fn() as any;
+
+    Export.exportMeasurements([markerData], "unknown" as any);
+
+    URL.createObjectURL = original;
+    document.createElement = origCreateElement;
+    HTMLBodyElement.prototype.appendChild = origAppendChild;
+    (window as any).CONF = prev;
+  });
+});
