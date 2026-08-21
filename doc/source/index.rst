@@ -41,7 +41,7 @@ data itself.
       :padding: 2
       :link: api/foliplus.MeasureControl.html
 
-      Distance measurement, area measurement, circle drawing, and GPS marker with
+      Distance measurement, area measurement, circle drawing, and location marker with
       geocoding.
 
    .. grid-item-card:: 📐 ScaleControl

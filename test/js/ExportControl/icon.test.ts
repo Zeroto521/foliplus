@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as SVGs from "#foliplus/ExportControl/icon.js";
+import * as CommonIcons from "#common/icon.js";
 
 describe("CAMERA", () => {
   it("is an SVG string", () => {
@@ -18,7 +19,7 @@ describe("CHECK", () => {
 
 describe("DOWNLOAD", () => {
   it("is an SVG string", () => {
-    expect(SVGs.DOWNLOAD).toContain("<svg");
-    expect(SVGs.DOWNLOAD).toContain("path");
+    expect(CommonIcons.DOWNLOAD).toContain("<svg");
+    expect(CommonIcons.DOWNLOAD).toContain("path");
   });
 });

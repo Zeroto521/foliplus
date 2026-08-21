@@ -40,7 +40,7 @@ export default defineConfig({
         "foliplus/js/LayerControl/ui.ts",
         "foliplus/js/MeasureControl/ui.ts",
         // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle
-        "foliplus/js/MeasureControl/mode.ts",
+        "foliplus/js/MeasureControl/mode/index.ts",
       ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",

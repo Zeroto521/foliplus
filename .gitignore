@@ -48,16 +48,18 @@ doc/source/map.html
 .ipynb_checkpoints
 
 # Environments
+uv.lock
+.uv-cache
+.conda
 .env
 .venv
-venv/
 env.bak/
+venv/
 venv.bak/
 
 # Tooling
 .mypy_cache/
 .ruff_cache/
-
 .playwright-mcp
 
 # Node / npm
@@ -76,6 +78,3 @@ package-lock.json
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
-
-# uv cache
-.uv-cache

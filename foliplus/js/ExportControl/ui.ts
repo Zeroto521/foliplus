@@ -214,7 +214,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   renderToolbarActions(mgr, {
     confirm: {
       title: _(`${CONF.name}.btn_export`),
-      svg: SVGs.DOWNLOAD,
+      svg: Icons.DOWNLOAD,
       onclick: () => mgr.doExport(),
     },
     cancel: {
@@ -273,7 +273,7 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
   }
-  ensureInteraction(mgr.map).unregister(CONF.name + "-escape");
+  ensureInteraction(mgr.map).unregister(`${CONF.name}-escape`);
   mgr.interactionCleanup?.();
   if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();

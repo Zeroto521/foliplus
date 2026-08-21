@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import json
-import pathlib
 import re
-from pathlib import Path
 
 import folium
+import pytest
 from conftest import (
     _js,
     assert_config_value,
     make_browser_page,
     read_css,
-    render,
     render_control,
     use_page,
 )
@@ -44,6 +42,36 @@ class TestMeasureControlPython:
 
     def test_custom_show_bearing(self):
         assert MeasureControl(show_bearing=False).show_bearing is False
+
+    def test_default_export_format(self):
+        assert MeasureControl().export_format == "geojson"
+
+    def test_custom_export_format_csv(self):
+        assert MeasureControl(export_format="csv").export_format == "csv"
+
+    def test_export_format_in_export_fields(self):
+        assert "export_format" in MeasureControl._export_fields
+
+    def test_export_format_combined_with_other_params(self):
+        mc = MeasureControl(
+            position="topleft",
+            show_bearing=False,
+            export_format="csv",
+        )
+        assert mc.position == "topleft"
+        assert mc.show_bearing is False
+        assert mc.export_format == "csv"
+
+    def test_invalid_export_format_raises(self):
+        """Unsupported export_format raises ValueError."""
+        with pytest.raises(ValueError, match="export_format"):
+            MeasureControl(export_format="invalid")
+
+    def test_export_format_geojson_is_valid(self):
+        MeasureControl(export_format="geojson")
+
+    def test_export_format_csv_is_valid(self):
+        MeasureControl(export_format="csv")
 
 
 class TestMeasureControlRendering:
@@ -91,6 +119,24 @@ class TestMeasureControlRendering:
         """Tool buttons use the tool-btn class."""
         html = render_control(MeasureControl())
         assert "tool-btn" in html
+
+    # ── export_format rendering ──
+
+    def test_export_format_default_geojson(self):
+        """export_format defaults to 'geojson' in rendered HTML."""
+        html = render_control(MeasureControl())
+        assert_config_value(html, "export_format", "geojson")
+
+    def test_export_format_csv(self):
+        """export_format='csv' renders the correct value in CONF."""
+        html = render_control(MeasureControl(export_format="csv"))
+        assert_config_value(html, "export_format", "csv")
+
+    def test_export_locale_zh(self):
+        """zh locale renders export translation."""
+        html = render_control(MeasureControl(locale="zh"))
+        assert "tool_export" in html
+        assert "导出" in html
 
     # ── Finish animation tests ──
 
@@ -188,12 +234,31 @@ class TestMeasureControlBrowser:
         return page, errors
 
     def test_tool_buttons_render(self, browser, tmp_path):
-        """Tool buttons are present in the DOM."""
+        """Tool buttons are present in the DOM, including the export button."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             btns = page.evaluate(
                 "document.querySelectorAll('.foliplus-measure-ctrl .foliplus-tool-btn').length"
             )
-            assert btns >= 3
+            # 5 original buttons (marker/distance/polygon/circle/clear) + 1 export
+            assert btns >= 6
+            assert not errors, f"JS errors: {errors}"
+
+    def test_export_button_present(self, browser, tmp_path):
+        """Export button is the only tool button without data-mode."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            count = page.evaluate(
+                "document.querySelectorAll('.foliplus-tool-btn:not([data-mode])').length"
+            )
+            assert count == 1, f"Expected exactly 1 export button, got {count}"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_export_no_data_hint_when_empty(self, browser, tmp_path):
+        """Clicking export button with no measurements shows a hint, not an error."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-tool-btn:not([data-mode])')?.click()"
+            )
+            page.wait_for_timeout(500)
             assert not errors, f"JS errors: {errors}"
 
     def test_distance_labels_show_bearing(self, browser, tmp_path):
@@ -447,10 +512,14 @@ class TestMeasureControlBrowser:
         # reload mid-lookup does not lose the marker. Search for the
         # save-then-create pattern within a small window (not the global
         # first occurrence, which may be in a different mode's restore()).
-        save_pos = html.find("this.m.saveMeasurements();")
-        create_pos = html.find("createLocationMarker(", save_pos)
-        assert save_pos != -1, "saveMeasurements() should exist"
-        assert create_pos != -1, "createLocationMarker should exist after save"
+        create_pos = html.find("createLocationMarker(")
+        assert create_pos != -1, "createLocationMarker should exist"
+        # Search for saveMeasurements() within 200 chars BEFORE createLocationMarker
+        search_start = max(0, create_pos - 200)
+        save_pos = html.find("this.m.saveMeasurements();", search_start)
+        assert save_pos != -1, (
+            "saveMeasurements() should exist before createLocationMarker"
+        )
         gap = create_pos - save_pos
         assert gap < 200, (
             "measurement must be saved right before triggering geocode so a "
