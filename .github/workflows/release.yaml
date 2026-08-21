@@ -40,8 +40,7 @@ jobs:
           node-version-file: "package.json"
 
       - run: npm install
-      - name: Install build tooling with uv
-        run: uv pip install --system build twine
+      - run: uv pip install --system build twine
 
       - name: Build dist for main TestPyPI (.postN)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -53,10 +52,8 @@ jobs:
         if: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         run: make dist
 
-      - name: Install built wheel and run sanity info
-        run: |
-          python -m pip install --force-reinstall dist/*.whl
-          make info
+      - run: python -m pip install --force-reinstall dist/*.whl
+      - run: make info
 
       - uses: actions/upload-artifact@v7
         with:
