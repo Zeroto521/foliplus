@@ -45,7 +45,7 @@ clean-html:
 clean: clean-build clean-pyc clean-cov clean-html
 
 lint:
-	uv run pre-commit run -a -v
+	pre-commit run -a -v
 
 dist: build-js build-python
 
@@ -77,7 +77,7 @@ test-js:
 	npm test
 
 html:
-	uv run make -C doc/source html
+	make -C doc/source html
 
 info:
 	@python -c "import platform,sys,os; print(f'Python: {sys.version.split()[0]}'); print(f'Platform: {platform.platform(terse=True)}')"
