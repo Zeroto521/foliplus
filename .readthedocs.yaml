@@ -18,8 +18,10 @@ build:
       - make build-js
       - python -m pip install --upgrade uv
     post_install:
-      # Install doc deps from dependency-groups
-      - uv sync --group doc
+      # Install doc deps into RTD's system venv (not a separate .venv)
+      - run: uv sync --group doc
+        env:
+          UV_PROJECT_ENVIRONMENT: $READTHEDOCS_VIRTUALENV_PATH
 
 sphinx:
   configuration: doc/source/conf.py
