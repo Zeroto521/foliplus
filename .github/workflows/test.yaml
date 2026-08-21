@@ -25,8 +25,6 @@ jobs:
             folium: "0.14.0"
           - python: "3.14"
             folium: "latest"
-    env: {}
-
     steps:
       - uses: actions/checkout@v6
         with:
@@ -44,11 +42,11 @@ jobs:
       - run: npm run typecheck
 
       - run: uv sync --group test
-      - run: source .venv/bin/activate && uv pip install --force-reinstall "folium==${{ matrix.folium }}"
+      - run: uv pip install --force-reinstall "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}
-      - run: source .venv/bin/activate && playwright install chromium
-      - run: source .venv/bin/activate && make info
-      - run: source .venv/bin/activate && make test
+      - run: uv run playwright install chromium
+      - run: uv run make info
+      - run: uv run make test
 
       - uses: codecov/codecov-action@v6
         with:
