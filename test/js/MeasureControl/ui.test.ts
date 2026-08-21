@@ -8,7 +8,7 @@ const { attachDelClick, makeDelIcon } = vi.hoisted(() => ({
   attachDelClick: vi.fn((marker: any, cb: () => void) => {
     marker._delClick = cb;
   }),
-  makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null) })),
+  makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null), on: vi.fn() })),
 }));
 
 vi.mock("#common/delicon.js", async importOriginal => {
@@ -24,6 +24,12 @@ vi.mock("#common/delicon.js", async importOriginal => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.L = {
+    marker: vi.fn(() => ({ getElement: vi.fn(() => null), on: vi.fn() })),
+    latLng: vi.fn((lat, lng) => ({ lat, lng })),
+    divIcon: vi.fn(() => ({})),
+    DomEvent: { stopPropagation: vi.fn() },
+  };
 });
 
 afterEach(() => {
