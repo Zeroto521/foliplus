@@ -30,6 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          # Keep tags/history available for setuptools_scm versioning
           fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
