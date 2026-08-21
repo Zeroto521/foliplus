@@ -18,7 +18,6 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
-import { generateWorldFile } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);

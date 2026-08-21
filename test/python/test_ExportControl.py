@@ -75,6 +75,9 @@ class TestExportControlPython:
     def test_format_webp(self):
         assert ExportControl(format="webp").format == "webp"
 
+    def test_format_geotiff(self):
+        assert ExportControl(format="geotiff").format == "geotiff"
+
     def test_format_invalid_raises(self):
         with pytest.raises(ValueError, match="format must be one of"):
             ExportControl(format="gif")
@@ -121,6 +124,11 @@ class TestExportControlRendering:
         )
         assert "custom" in html
         assert "jpeg" in html
+
+    def test_geotiff_format_in_html(self):
+        """geotiff format is passed through to the HTML template."""
+        html = render_control(ExportControl(format="geotiff"))
+        assert "geotiff" in html
 
     def test_css_loaded(self):
         """ExportControl CSS classes are present."""

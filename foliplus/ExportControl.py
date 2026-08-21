@@ -71,7 +71,6 @@ class ExportControl(BaseControl):
     timeout : int, default 7500
         Maximum time (ms) to wait for map tiles to finish loading before capture.
 
-
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
