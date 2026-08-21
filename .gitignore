@@ -73,6 +73,7 @@ package-lock.json
 *.db
 .DS_Store
 .claude/
+memory/
 
 # Auto-generated
 foliplus/dist/

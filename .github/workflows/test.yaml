@@ -25,6 +25,8 @@ jobs:
             folium: "0.14.0"
           - python: "3.14"
             folium: "latest"
+    env:
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v6
         with:
