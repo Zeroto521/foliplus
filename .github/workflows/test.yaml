@@ -41,10 +41,10 @@ jobs:
       - run: npm install
       - run: npm run typecheck
 
-      - run: uv venv
-      - run: uv pip install --python .venv/bin/python "folium==${{ matrix.folium }}"
+      - run: uv sync --group test --upgrade-package "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}
       - run: uv sync --group test
+        if: ${{ matrix.folium == 'latest' }}
       - run: uv run playwright install chromium
       - run: uv run make info
       - run: uv run make test
