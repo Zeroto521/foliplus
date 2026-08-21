@@ -108,7 +108,9 @@ jobs:
         with:
           name: release
           path: dist/
+
       - run: ls dist/ -l
+
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
