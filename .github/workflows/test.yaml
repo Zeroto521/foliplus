@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   test:
-    name: py${{ matrix.python }}-folium${{ matrix.folium }}
+    name: py${{ matrix.python }} / folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -44,13 +44,15 @@ jobs:
       - run: npm install
       - run: npm run typecheck
 
-      - run: uv sync --group test
-      - run: uv pip install --force-reinstall "folium==${{ matrix.folium }}"
-        if: ${{ matrix.folium != 'latest' }}
-      - run: uv run playwright install chromium
-
-      - run: uv run make info
-      - run: uv run make test
+      - run: |
+          uv sync --group test
+          if [ "${{ matrix.folium }}" != "latest" ]; then
+            uv pip install --force-reinstall "folium==${{ matrix.folium }}"
+          fi
+          source .venv/bin/activate
+          playwright install chromium
+          make info
+          make test
 
       - uses: codecov/codecov-action@v6
         with:
@@ -62,4 +64,4 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          flags: py${{ matrix.python }}-folium${{ matrix.folium }}
+          flags: py${{ matrix.python }} / folium-${{ matrix.folium }}
