@@ -56,13 +56,12 @@ build-js-dev:
 	npm run build:dev
 
 build-python:
-	python -m build
-	twine check --strict dist/*
+	uv build
+	uvx twine check --strict dist/*
 	ls -l dist
 
 # Parallel test workers. Use CPU count by default, override with JOBS=N.
 JOBS ?= auto
-PYTHON_VERSION := $(file < .python-version)
 
 test: build-js-dev test-js
 	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
@@ -77,7 +76,7 @@ test-js:
 	npm test
 
 html:
-	cd doc/source && make html
+	make -C doc/source html
 
 info:
 	@python -c "import platform,sys,os; print(f'Python: {sys.version.split()[0]}'); print(f'Platform: {platform.platform(terse=True)}')"
@@ -88,7 +87,7 @@ info:
 
 env:
 	@command -v uv >/dev/null 2>&1 || { echo "uv not found: https://docs.astral.sh/uv/getting-started/installation"; exit 1; }
-	uv venv -p $(PYTHON_VERSION)
-	uv pip install -e ".[dev]"
+	uv venv
+	uv sync --group dev
 	@echo "Done. Then: source .venv/bin/activate"
 	@echo "For browser tests also run: playwright install chromium"
