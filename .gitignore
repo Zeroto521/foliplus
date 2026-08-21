@@ -44,13 +44,12 @@ doc/source/_build/
 doc/source/api/
 doc/source/map.html
 
-# Jupyter
-.ipynb_checkpoints
 
 # Environments
-uv.lock
-.uv-cache
+.ipynb_checkpoints
 .conda
+.uv-cache
+uv.lock
 .env
 .venv
 env.bak/
@@ -73,6 +72,7 @@ package-lock.json
 .history
 *.db
 .DS_Store
+.claude/
 
 # Auto-generated
 foliplus/dist/
