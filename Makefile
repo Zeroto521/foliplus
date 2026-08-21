@@ -89,6 +89,6 @@ info:
 env:
 	@command -v uv >/dev/null 2>&1 || { echo "uv not found: https://docs.astral.sh/uv/getting-started/installation"; exit 1; }
 	uv venv -p $(PYTHON_VERSION)
-	uv pip install -e ".[dev]"
+	uv sync --group dev
 	@echo "Done. Then: source .venv/bin/activate"
 	@echo "For browser tests also run: playwright install chromium"

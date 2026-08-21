@@ -35,8 +35,8 @@ Issues = "https://github.com/Zeroto521/foliplus/issues"
 
 [dependency-groups]
 test = ["pytest", "pytest-cov", "pytest-xdist", "pytest-playwright", "codecov"]
-dev = ["build", "twine"]
-doc = ["sphinx", "pydata-sphinx-theme", "myst-nb", "sphinx-copybutton", "sphinx-design", "geopandas", "my-data-toolkit"]
+doc = [{include-group = "test"}, "sphinx", "pydata-sphinx-theme", "myst-nb", "sphinx-copybutton", "sphinx-design", "geopandas", "my-data-toolkit"]
+dev = [{include-group = "test"}, "build", "twine"]
 
 [tool.setuptools_scm]
 write_to = "foliplus/_version.py"
