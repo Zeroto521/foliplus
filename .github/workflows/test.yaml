@@ -20,11 +20,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.14"]
-        folium: ["latest"]
         include:
           - python: "3.10"
             folium: "0.14.0"
+          - python: "3.14"
+            folium: "latest"
     steps:
       - uses: actions/checkout@v6
         with:
@@ -42,9 +42,8 @@ jobs:
       - run: npm run typecheck
 
       - run: uv sync --group test
-      - name: Pin folium version
+      - run: uv pip install --force-reinstall "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}
-        run: uv pip install --force-reinstall "folium==${{ matrix.folium }}"
       - run: uv run playwright install chromium
 
       - run: uv run make info
