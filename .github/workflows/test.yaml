@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   test:
-    name: py${{ matrix.python }} / folium-${{ matrix.folium }}
+    name: py${{ matrix.python }}-folium${{ matrix.folium }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -27,6 +27,7 @@ jobs:
             folium: "latest"
     env:
       UV_PYTHON: ${{ matrix.python }}
+
     steps:
       - uses: actions/checkout@v6
         with:
@@ -44,8 +45,9 @@ jobs:
       - run: npm run typecheck
 
       - run: uv sync --group test
-      - run: uv run pip install --force-reinstall "folium==${{ matrix.folium }}"
+      - name: Pin folium to minimum version on Python 3.10
         if: ${{ matrix.folium != 'latest' }}
+        run: uv pip install --force-reinstall "folium==${{ matrix.folium }}"
       - run: uv run playwright install chromium
 
       - run: uv run make info
