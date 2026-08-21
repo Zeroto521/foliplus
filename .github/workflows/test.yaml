@@ -48,8 +48,8 @@ jobs:
         if: ${{ matrix.folium != 'latest' }}
       - run: uv run playwright install chromium
 
-      - run: uv run make info
-      - run: uv run make test
+      - run: make info
+      - run: make test
 
       - uses: codecov/codecov-action@v6
         with:

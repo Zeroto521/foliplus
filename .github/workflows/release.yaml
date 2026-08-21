@@ -41,7 +41,6 @@ jobs:
           node-version-file: "package.json"
 
       - run: npm install
-      - run: uv pip install --system build twine
 
       - name: Build dist for main TestPyPI (.postN)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -53,6 +52,7 @@ jobs:
         if: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         run: make dist
 
+      - run: uv sync
       - run: uv run pip install --force-reinstall dist/*.whl
       - run: make info
 
@@ -81,13 +81,7 @@ jobs:
 
       - run: ls dist/ -l
 
-      - uses: pypa/gh-action-pypi-publish@v1.14.0
-        with:
-          user: __token__
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-          repository-url: https://test.pypi.org/legacy/
-          skip-existing: true
-          verbose: true
+      - run: uv publish --publish-url https://test.pypi.org/legacy/ --token ${{ secrets.TEST_PYPI_API_TOKEN }}
 
   PyPI:
     needs: TestPyPI
@@ -101,11 +95,7 @@ jobs:
 
       - run: ls dist/ -l
 
-      - uses: pypa/gh-action-pypi-publish@v1.14.0
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          verbose: true
+      - run: uv publish --token ${{ secrets.PYPI_API_TOKEN }}
 
   GitHub:
     needs: sdist
