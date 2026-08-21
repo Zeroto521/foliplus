@@ -15,12 +15,16 @@ concurrency:
 
 jobs:
   test:
-    name: py${{ matrix.python }}
+    name: py${{ matrix.python }} / folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python: ["3.10", "3.14"]
+        folium: ["latest"]
+        include:
+          - python: "3.10"
+            folium: "0.14.0"
     steps:
       - uses: actions/checkout@v6
         with:
@@ -38,6 +42,9 @@ jobs:
       - run: npm run typecheck
 
       - run: uv sync --group test
+      - name: Pin folium version
+        if: ${{ matrix.folium != 'latest' }}
+        run: uv pip install --force-reinstall "folium==${{ matrix.folium }}"
       - run: uv run playwright install chromium
 
       - run: uv run make info
@@ -53,4 +60,4 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          flags: py${{ matrix.python }}
+          flags: py${{ matrix.python }}-folium${{ matrix.folium }}

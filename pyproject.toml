@@ -26,7 +26,7 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "Intended Audience :: Developers",
 ]
-dependencies = ["folium>=0.14.0", "folium==0.14.0; python_version < '3.11'"]
+dependencies = ["folium>=0.14.0"]
 
 [project.urls]
 Documentation = "https://foliplus.readthedocs.io"
