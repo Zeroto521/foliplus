@@ -44,15 +44,12 @@ jobs:
       - run: npm install
       - run: npm run typecheck
 
-      - run: |
-          uv sync --group test
-          if [ "${{ matrix.folium }}" != "latest" ]; then
-            uv pip install --force-reinstall "folium==${{ matrix.folium }}"
-          fi
-          source .venv/bin/activate
-          playwright install chromium
-          make info
-          make test
+      - run: uv sync --group test
+      - run: source .venv/bin/activate && uv pip install --force-reinstall "folium==${{ matrix.folium }}"
+        if: ${{ matrix.folium != 'latest' }}
+      - run: source .venv/bin/activate && playwright install chromium
+      - run: source .venv/bin/activate && make info
+      - run: source .venv/bin/activate && make test
 
       - uses: codecov/codecov-action@v6
         with:
