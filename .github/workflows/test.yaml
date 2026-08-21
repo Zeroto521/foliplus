@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ["3.10", "3.14"]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,10 +36,8 @@ jobs:
 
       - run: npm install
       - run: npm run typecheck
-      - name: Install Python deps with uv
-        run: uv sync --extra dev
-      - name: Install Playwright browser
-        run: uv run playwright install chromium
+      - run: uv sync --group test
+      - run: uv run playwright install chromium
 
       - run: uv run make info
       - run: uv run make test

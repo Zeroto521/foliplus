@@ -7,7 +7,7 @@ build:
   os: ubuntu-lts-latest
   tools:
     nodejs: "24"
-    python: "3.13"
+    python: "3.14"
   jobs:
     post_checkout:
       - git fetch --unshallow || true
@@ -17,6 +17,9 @@ build:
       - npm install
       - make build-js
       - python -m pip install --upgrade uv
+    post_install:
+      # Install doc deps from dependency-groups
+      - uv sync --system --group doc
 
 sphinx:
   configuration: doc/source/conf.py
@@ -24,10 +27,7 @@ sphinx:
   fail_on_warning: false
 
 python:
-  # Install foliplus + docs deps directly into RTD's Python 3.13 environment
-  # using uv. --system tells uv to install into the interpreter running it
-  # (RTD's env), not a fresh .venv.
   install:
-    - method: command
+    - method: pip
       path: .
-      command: uv pip install --system -e ".[docs]"
+
