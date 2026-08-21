@@ -80,11 +80,11 @@ html:
 	uv run make -C doc/source html
 
 info:
-	@uv run python -c "import platform,sys,os; print(f'Python: {sys.version.split()[0]}'); print(f'Platform: {platform.platform(terse=True)}')"
-	@uv run python -c "from foliplus import __version__; print(f'foliplus: {__version__}')"
-	@uv run python -c "import folium; print(f'folium: {folium.__version__}')"
-	@uv run python -c "import folium, os, re; folium_dir = os.path.dirname(folium.__file__); fp = os.path.join(folium_dir, 'folium.py'); c = open(fp).read(); m = re.search(r'leaflet@([\d.]+)', c); print(f'Leaflet: {m.group(1)}' if m else 'Leaflet: unknown')"
-	@uv run python -c "from foliplus._cdn import H3,CHROMA,GCOORD,SS; print(f'CDN: h3={H3} ss={SS} chroma={CHROMA} gcoord={GCOORD}')"
+	@python -c "import platform,sys,os; print(f'Python: {sys.version.split()[0]}'); print(f'Platform: {platform.platform(terse=True)}')"
+	@python -c "from foliplus import __version__; print(f'foliplus: {__version__}')"
+	@python -c "import folium; print(f'folium: {folium.__version__}')"
+	@python -c "import folium, os, re; folium_dir = os.path.dirname(folium.__file__); fp = os.path.join(folium_dir, 'folium.py'); c = open(fp).read(); m = re.search(r'leaflet@([\d.]+)', c); print(f'Leaflet: {m.group(1)}' if m else 'Leaflet: unknown')"
+	@python -c "from foliplus._cdn import H3,CHROMA,GCOORD,SS; print(f'CDN: h3={H3} ss={SS} chroma={CHROMA} gcoord={GCOORD}')"
 
 env:
 	@command -v uv >/dev/null 2>&1 || { echo "uv not found: https://docs.astral.sh/uv/getting-started/installation"; exit 1; }

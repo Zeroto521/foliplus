@@ -54,7 +54,7 @@ jobs:
 
       - run: uv sync
       - run: uv run pip install --force-reinstall dist/*.whl
-      - run: make info
+      - run: uv run make info
 
       - uses: actions/upload-artifact@v7
         with:
