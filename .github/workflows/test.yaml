@@ -42,12 +42,12 @@ jobs:
       - run: npm run typecheck
 
       - run: uv venv
-      - run: source .venv/bin/activate && uv pip install "folium==${{ matrix.folium }}"
+      - run: uv pip install --python .venv/bin/python "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}
       - run: uv sync --group test
-      - run: source .venv/bin/activate && playwright install chromium
-      - run: source .venv/bin/activate && make info
-      - run: source .venv/bin/activate && make test
+      - run: uv run playwright install chromium
+      - run: uv run make info
+      - run: uv run make test
 
       - uses: codecov/codecov-action@v6
         with:
