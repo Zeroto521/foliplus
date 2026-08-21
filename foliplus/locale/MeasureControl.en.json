@@ -7,6 +7,11 @@
   "MeasureControl.tool_polygon": "Measure Area",
   "MeasureControl.tool_circle": "Draw Circle",
   "MeasureControl.tool_clear": "Clear All",
+  "MeasureControl.tool_export": "Export Data",
+  "MeasureControl.name_marker": "Location Marker",
+  "MeasureControl.name_distance": "Distance Measurement",
+  "MeasureControl.name_polygon": "Area Measurement",
+  "MeasureControl.name_circle": "Circle Measurement",
   "MeasureControl.hint_marker": "Click the map to place a location marker",
   "MeasureControl.hint_dist_start": "Click to start measuring distance, double-click / right-click / click last point to finish",
   "MeasureControl.hint_polygon": "Click to start measuring area, double-click / right-click / click first/last point to finish",
@@ -21,5 +26,6 @@
   "MeasureControl.del_tooltip": "Delete",
   "MeasureControl.del_node": "Delete this point",
   "MeasureControl.del_all": "Delete all",
-  "MeasureControl.export_paused": "Export in progress, measurement paused"
+  "MeasureControl.export_paused": "Export in progress, measurement paused",
+  "MeasureControl.export_no_data": "No data to export"
 }

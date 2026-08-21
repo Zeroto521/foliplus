@@ -15,7 +15,6 @@ from __future__ import annotations
 import os
 import re
 import tempfile
-import urllib.error
 import urllib.request
 from collections.abc import Generator
 from contextlib import contextmanager

@@ -16,7 +16,6 @@ from conftest import (
     read_css,
     render_control,
     use_page,
-    use_raw_page,
 )
 
 from foliplus import HeatmapControl

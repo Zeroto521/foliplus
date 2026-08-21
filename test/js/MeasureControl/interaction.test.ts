@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { registerInteractions } from "#foliplus/MeasureControl/interaction.js";
+import {
+  registerExportClick,
+  registerInteractions,
+} from "#foliplus/MeasureControl/interaction.js";
 
 function makeMgr(): any {
   const map: any = {
@@ -32,5 +35,17 @@ describe("MeasureControl interaction", () => {
     );
     expect(mgr.onKeyDown).toHaveBeenCalled();
     handler();
+  });
+});
+
+describe("registerExportClick", () => {
+  it("binds a click handler to the given element", () => {
+    const mgr = makeMgr() as any;
+    mgr.onExportClick = vi.fn();
+    const el = document.createElement("button");
+    const cleanup = registerExportClick(mgr, el);
+    el.click();
+    expect(mgr.onExportClick).toHaveBeenCalled();
+    cleanup();
   });
 });

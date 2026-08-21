@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import re
-
 import foliplus
 from foliplus._cdn import (
     CHROMA,

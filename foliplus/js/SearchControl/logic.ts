@@ -7,8 +7,8 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
   attachDelClick,
+  bindDelIconToPopup,
   makeDelIcon,
-  toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
@@ -75,8 +75,7 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
 
   // The ✕ is hidden by default and only appears while the popup is open,
   // matching MeasureControl / LocateControl marker UX.
-  ctrl.marker?.on("popupopen", () => toggleDelIcon(delIcon, true));
-  ctrl.marker?.on("popupclose", () => toggleDelIcon(delIcon, false));
+  bindDelIconToPopup(ctrl.marker, delIcon);
 };
 
 /**

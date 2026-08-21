@@ -5,8 +5,8 @@ import { fromWgs84 } from "#common/coord.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
   attachDelClick,
+  bindDelIconToPopup,
   makeDelIcon,
-  toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
@@ -63,8 +63,7 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 
   const delIcon = ctrl.delIcon;
   attachDelClick(delIcon, () => removeMarker(ctrl));
-  ctrl.marker.on("popupopen", () => toggleDelIcon(delIcon, true));
-  ctrl.marker.on("popupclose", () => toggleDelIcon(delIcon, false));
+  bindDelIconToPopup(ctrl.marker, delIcon);
 };
 
 /** Locate me via the browser geolocation API. */
