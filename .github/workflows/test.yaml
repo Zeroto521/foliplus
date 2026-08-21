@@ -42,7 +42,7 @@ jobs:
       - run: npm run typecheck
 
       - run: uv sync --group test
-      - run: uv pip install --force-reinstall "folium==${{ matrix.folium }}"
+      - run: uv run pip install --force-reinstall "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}
       - run: uv run playwright install chromium
       - run: uv run make info
