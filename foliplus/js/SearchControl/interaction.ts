@@ -5,8 +5,8 @@ import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
 import {
   fetchSuggestions,
-  positionSuggestions,
-  removeSuggestions,
+  positionPanel,
+  removePanel,
   searchAddress,
   searchCoord,
 } from "./logic.js";
@@ -33,7 +33,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     onExpand: () => ctrl.inp.focus(),
     onCollapse: () => {
       map.foliplus!.hideHint(CONF.name);
-      removeSuggestions(ctrl);
+      removePanel(ctrl);
     },
   });
 
@@ -59,7 +59,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     if (ctrl.mode === MODE.ADDR) ctrl.debouncedFetch();
     else {
       ctrl.debouncedFetch.cancel();
-      removeSuggestions(ctrl);
+      removePanel(ctrl);
     }
   });
 
@@ -69,7 +69,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       element: ctrl.inp,
       handler: () => {
         if (ctrl.suggestionsWrap) {
-          removeSuggestions(ctrl);
+          removePanel(ctrl);
           return;
         }
         ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
@@ -126,14 +126,14 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       element: ctrl.inp,
       handler: () => {
         const raw = ctrl.inp.value.trim();
-        removeSuggestions(ctrl);
+        removePanel(ctrl);
         if (!raw) return;
         ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
       },
     },
   ]);
 
-  ctrl.inp.addEventListener("blur", () => setTimeout(() => removeSuggestions(ctrl), 0));
+  ctrl.inp.addEventListener("blur", () => setTimeout(() => removePanel(ctrl), 0));
 
   ctrl.inp.addEventListener("focus", () => {
     const val = ctrl.inp.value.trim();
@@ -143,7 +143,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     else if (ctrl.mode === MODE.ADDR) fetchSuggestions(ctrl, val);
   });
 
-  ctrl.repositionHandler = () => positionSuggestions(ctrl);
+  ctrl.repositionHandler = () => positionPanel(ctrl);
   const leafletContainer = document.querySelector(".leaflet-container");
   ctrl.scrollTargets = leafletContainer ? [window, leafletContainer] : [window];
   ctrl.scrollTargets.forEach((t: Element | Window) =>

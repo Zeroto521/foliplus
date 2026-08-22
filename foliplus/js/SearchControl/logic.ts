@@ -206,7 +206,16 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   attachSearchDelIcon(ctrl, [lat, lng]);
 
   const coordDisplay = `${lng.toFixed(4)}, ${lat.toFixed(4)}`;
-  recordHistorySearch(ctrl, raw, "coord", coordDisplay, "", lng, lat);
+  // Reverse geocode to get address for history entry
+  window.foliplus
+    .reverseGeocode(map, lng, lat, CONF.locale_code)
+    .then(addr => {
+      recordHistorySearch(ctrl, raw, "coord", coordDisplay, addr, lng, lat);
+    })
+    .catch(() => {
+      // Reverse geocode failed — store coord-only entry
+      recordHistorySearch(ctrl, raw, "coord", coordDisplay, "", lng, lat);
+    });
 };
 
 /**
@@ -306,7 +315,7 @@ const renderAddressResult = (
 
 // ── Suggestions / History Panel ──────────────────────────────────
 
-const removeSuggestions = (ctrl: SearchControlState) => {
+const removePanel = (ctrl: SearchControlState) => {
   if (ctrl.suggestionsThrottleTimer) {
     clearTimeout(ctrl.suggestionsThrottleTimer);
     ctrl.suggestionsThrottleTimer = null;
@@ -318,7 +327,7 @@ const removeSuggestions = (ctrl: SearchControlState) => {
   ctrl.selectedSuggestionIdx = -1;
 };
 
-const positionSuggestions = (ctrl: SearchControlState) => {
+const positionPanel = (ctrl: SearchControlState) => {
   if (!ctrl.suggestionsWrap) return;
   const rect = ctrl.ctrl.getBoundingClientRect();
   let left = rect.left + window.scrollX;
@@ -330,7 +339,7 @@ const positionSuggestions = (ctrl: SearchControlState) => {
 
 const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   if (!results || results.length === 0) {
-    removeSuggestions(ctrl);
+    removePanel(ctrl);
     return;
   }
 
@@ -344,7 +353,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
 
   ctrl.suggestionsWrap.innerHTML = "";
   ctrl.selectedSuggestionIdx = -1;
-  positionSuggestions(ctrl);
+  positionPanel(ctrl);
 
   results.forEach((item: ResultItem, idx: number) => {
     dom.el(
@@ -356,7 +365,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
         onmousedown: (event: Event) => {
           event.stopPropagation();
           event.preventDefault();
-          removeSuggestions(ctrl);
+          removePanel(ctrl);
           item.onClick();
         },
       },
@@ -379,7 +388,7 @@ const renderSuggestions = (
   query: string,
 ) => {
   if (!results || results.length === 0) {
-    removeSuggestions(ctrl);
+    removePanel(ctrl);
     return;
   }
 
@@ -416,7 +425,7 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
   const entries = ctrl.searchHistory;
   const targetType = mode === "addr" ? "addr" : "coord";
   if (entries.length === 0 || !entries.some(e => e.type === targetType)) {
-    removeSuggestions(ctrl);
+    removePanel(ctrl);
     return;
   }
 
@@ -426,7 +435,7 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
     .filter(e => e.type === targetType)
     .slice(0, HISTORY.MAX_DISPLAY);
   if (sectionEntries.length === 0) {
-    removeSuggestions(ctrl);
+    removePanel(ctrl);
     return;
   }
 
@@ -472,17 +481,17 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
 
   if (query.length === 0) {
     if (ctrl.searchHistory.length > 0) renderHistory(ctrl, ctrl.mode);
-    else removeSuggestions(ctrl);
+    else removePanel(ctrl);
     return;
   }
 
   if (ctrl.mode !== MODE.ADDR) {
-    removeSuggestions(ctrl);
+    removePanel(ctrl);
     return;
   }
 
   if (query.length < AUTOCOMPLETE.MIN_CHARS) {
-    removeSuggestions(ctrl);
+    removePanel(ctrl);
     return;
   }
   const cached = ctrl.cachedSuggestions.get(query);
@@ -528,7 +537,7 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     })
     .catch(err => {
       if (err.name === "AbortError") return;
-      removeSuggestions(ctrl);
+      removePanel(ctrl);
     });
 };
 
@@ -557,9 +566,9 @@ export {
   fetchSuggestions,
   initDebouncedFetch,
   loadHistory,
-  positionSuggestions,
+  positionPanel,
   recordHistorySearch,
-  removeSuggestions,
+  removePanel,
   renderHistory,
   renderResults,
   renderSuggestions,

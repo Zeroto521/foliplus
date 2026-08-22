@@ -5,8 +5,8 @@ import {
   buildSearchUrl,
   fetchSuggestions,
   initDebouncedFetch,
-  positionSuggestions,
-  removeSuggestions,
+  positionPanel,
+  removePanel,
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/logic.js";
@@ -19,7 +19,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("removeSuggestions", () => {
+describe("removePanel", () => {
   it("removes suggestionsWrap and resets state", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
@@ -29,7 +29,7 @@ describe("removeSuggestions", () => {
       selectedSuggestionIdx: 2,
     };
 
-    removeSuggestions(ctrl);
+    removePanel(ctrl);
 
     expect(document.body.contains(el)).toBe(false);
     expect(ctrl.suggestionsWrap).toBeNull();
@@ -43,7 +43,7 @@ describe("removeSuggestions", () => {
       suggestionsThrottleTimer: null,
       selectedSuggestionIdx: -1,
     };
-    expect(() => removeSuggestions(ctrl)).not.toThrow();
+    expect(() => removePanel(ctrl)).not.toThrow();
   });
 });
 
@@ -149,7 +149,7 @@ describe("searchCoord", () => {
     expect(ctrl.inp.value).toBe("");
   });
 
-  it("flies to valid coordinates", () => {
+  it("flies to valid coordinates", async () => {
     const ctrl: any = {
       inp: { value: "121.47,31.23" },
       marker: null,
@@ -157,6 +157,8 @@ describe("searchCoord", () => {
     };
     searchCoord(ctrl, "121.47,31.23");
     expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 16);
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
     expect(ctrl.searchHistory).toHaveLength(1);
   });
 });
@@ -231,7 +233,7 @@ describe("searchAddress", () => {
   });
 });
 
-describe("positionSuggestions", () => {
+describe("positionPanel", () => {
   it("places wrap below the control", () => {
     const ctrl: any = {
       suggestionsWrap: { style: {} },
@@ -244,7 +246,7 @@ describe("positionSuggestions", () => {
         }),
       },
     };
-    positionSuggestions(ctrl);
+    positionPanel(ctrl);
     expect(ctrl.suggestionsWrap.style.left).toBe("10px");
     expect(ctrl.suggestionsWrap.style.top).toBe("100px");
   });
@@ -268,7 +270,7 @@ describe("positionSuggestions", () => {
           }),
         },
       };
-      positionSuggestions(ctrl);
+      positionPanel(ctrl);
       // Would normally be left=250, but clipped to 300-200=100
       expect(ctrl.suggestionsWrap.style.left).toBe("100px");
       expect(ctrl.suggestionsWrap.style.top).toBe("100px");
@@ -514,13 +516,15 @@ describe("attachSearchDelIcon", () => {
 // ── Search history integration tests ──────────────────────────────
 
 describe("searchCoord — history recording", () => {
-  it("records a coord search entry after successful search", () => {
+  it("records a coord search entry after successful search", async () => {
     const ctrl: any = {
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
     };
     searchCoord(ctrl, "121.47,31.23");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].query).toBe("121.47,31.23");
     expect(ctrl.searchHistory[0].type).toBe("coord");

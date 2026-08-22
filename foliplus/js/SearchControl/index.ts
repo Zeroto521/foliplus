@@ -9,7 +9,7 @@ import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { CLASSES, MODE } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
-import { initDebouncedFetch, loadHistory, removeSuggestions } from "./logic.js";
+import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
 import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
 
 const { _ } = createControlEnv(CONF, SVGs.SEARCH);
@@ -52,7 +52,7 @@ export class SearchControl extends BaseControl {
 
   destroy() {
     (this as any).interactionCleanup?.();
-    removeSuggestions(this);
+    removePanel(this);
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();
@@ -148,7 +148,7 @@ export class SearchControl extends BaseControl {
     }
     if (this.suggestAbortController) this.suggestAbortController.abort();
     map.foliplus!.hideHint(CONF.name);
-    removeSuggestions(this);
+    removePanel(this);
     this.inp.focus();
   }
 }
