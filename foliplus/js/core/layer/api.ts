@@ -42,6 +42,7 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
   });
 
   map.foliplus!.LayerAPI = {
+    _isLayerControl: false,
     layers: Object.freeze([]) as unknown as LayerInfo[],
     registerLayer: () => null,
     unregisterLayer: () => false,
@@ -56,21 +57,28 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
 };
 
 /**
- * Guard that the LayerControl (map.foliplus.LayerAPI) is available.
- * Shows a persistent hint and throws when the required API is missing.
- * Used by components that depend on LayerControl (Export, Heatmap).
+ * Guard that a real LayerControl (not ensureLayerAPI's lightweight stub)
+ * is present.  Shows a persistent hint and throws when the dependency is
+ * missing.  Used by components that hard-depend on LayerControl (Export,
+ * Heatmap).
+ *
+ * We can't just test `map.foliplus?.LayerAPI` — other foliplus subsystems
+ * (hint/mode/interaction) install a lightweight LayerAPI stub that is
+ * always truthy even when LayerControl was never added.  The lightweight
+ * stub marks itself `_isLayerControl: false`; only LayerManager sets
+ * `_isLayerControl: true`.  This guard only accepts the real thing.
  *
  * @param componentName - CONF.name, used as hint key and error prefix.
  * @param _ - Translator function (from createTranslator).
  * @param map - Leaflet map instance (per-map LayerAPI namespace).
- * @returns The LayerAPI instance (throws if missing).
+ * @returns The LayerAPI instance (throws if not a real LayerControl).
  */
 export const requireLayerAPI = (
   componentName: string,
   _: (key: string) => string,
   map: L.Map,
 ): LayerAPI => {
-  if (!map.foliplus?.LayerAPI) {
+  if (map.foliplus?.LayerAPI?._isLayerControl !== true) {
     const msg = _(`${componentName}.no_layercontrol`);
     if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
     throw new Error(`[${componentName}] ${msg}`);

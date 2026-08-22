@@ -107,6 +107,12 @@ export interface CreateLayersAPI {
  *     registry/query methods are no-ops returning empty results)
  */
 export interface LayerAPI {
+  /** Internal marker: `true` only when LayerControl (LayerManager) installed
+   * this LayerAPI.  ensureLayerAPI's lightweight stub sets this to `false`.
+   * @internal Used by requireLayerAPI to distinguish a real LayerControl from
+   * the lightweight default.
+   */
+  _isLayerControl: boolean;
   /** Ordered array of layers (frozen read-only snapshot of the registry). */
   layers: readonly LayerInfo[];
   /** Register a layer; returns its row element (or null on failure). */
