@@ -85,9 +85,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         if (!ctrl.suggestionsWrap) return;
         // Only selectable items — skip non-item children like the history
         // group header.
-        const items = ctrl.suggestionsWrap.querySelectorAll(
-          `.${CLASSES.RESULT_ITEM}`,
-        );
+        const items = ctrl.suggestionsWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
         if (items.length === 0) return;
         ctrl.selectedSuggestionIdx = Math.min(
           ctrl.selectedSuggestionIdx + 1,
@@ -106,9 +104,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       element: ctrl.inp,
       handler: () => {
         if (!ctrl.suggestionsWrap) return;
-        const items = ctrl.suggestionsWrap.querySelectorAll(
-          `.${CLASSES.RESULT_ITEM}`,
-        );
+        const items = ctrl.suggestionsWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
         if (items.length === 0) return;
         ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
         items.forEach((el: Element, i: number) =>
@@ -116,9 +112,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         );
         if (ctrl.selectedSuggestionIdx >= 0)
           ctrl.inp.value =
-            items[ctrl.selectedSuggestionIdx].querySelector(
-              `.${CLASSES.RESULT_TEXT}`,
-            )?.textContent ?? "";
+            items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
+              ?.textContent ?? "";
       },
     },
     {
