@@ -49,9 +49,8 @@ class ExportControl(BaseControl):
         Image format for the export. One of ``"png"``, ``"jpeg"``, ``"webp"``, or
         ``"geotiff"``. JPEG and WebP are lossy and much smaller than PNG; PNG preserves
         transparency (recommended when ``background`` is None). ``"geotiff"`` writes a
-        GeoTIFF with embedded georeferencing (WGS84 / EPSG:4326), suitable for GIS
-        software; it requires the crop area to have geographic bounds and falls back
-        to PNG when they are unavailable.
+        DEFLATE-compressed GeoTIFF (TIFF code 8) with embedded georeferencing (WGS84 /
+        EPSG:4326), suitable for GIS software.
 
     quality : float, default 0.92
         Compression quality for ``"jpeg"`` and ``"webp"`` formats, ranging from

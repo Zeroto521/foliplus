@@ -1,5 +1,6 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { writeArrayBuffer } from "geotiff";
+import { deflateSync } from "fflate";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
@@ -629,13 +630,21 @@ class ExportManager {
     const pixelWidth = (geoBounds.se.lng - geoBounds.nw.lng) / canvas.width;
     const pixelHeight = (geoBounds.se.lat - geoBounds.nw.lat) / canvas.height;
 
-    const tiffBuffer = writeArrayBuffer(rgb, {
+    // geotiff.js 3.x's writeArrayBuffer writes pixel data verbatim — the
+    // Compression tag is stored but the data is not actually encoded, so
+    // raw RGB GeoTIFFs are 3 bytes/pixel and very large for HD exports
+    // (e.g. 1920×1080 ≈ 6 MB).  Compress the RGB buffer ourselves with
+    // DEFLATE (TIFF code 8, native in QGIS/GDAL/ArcGIS) and hand the
+    // pre-compressed bytes to writeArrayBuffer, which treats them as the
+    // image's strip data.
+    const compressed = deflateSync(rgb);
+    const tiffBuffer = writeArrayBuffer(compressed, {
       width: canvas.width,
       height: canvas.height,
       ModelTiepoint: [0, 0, 0, geoBounds.nw.lng, geoBounds.nw.lat, 0],
       ModelPixelScale: [pixelWidth, pixelHeight, 0],
       GeographicTypeGeoKey: 4326,
-      Compression: 1,
+      Compression: 8,
       SamplesPerPixel: [3],
       BitsPerSample: [8, 8, 8],
       PhotometricInterpretation: 2,

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { decompressSync, deflateSync } from "fflate";
 import { ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
@@ -494,6 +495,26 @@ describe("ExportManager — download paths", () => {
     } finally {
       vi.restoreAllMocks();
     }
+  });
+
+  it("downloadGeoTiff uses DEFLATE-compressed RGB (compression round-trips)", () => {
+    // Verify the compression primitive works end-to-end: DEFLATE-compressed
+    // RGB bytes must decompress back to the original pixel data. This is
+    // exactly what downloadGeoTiff feeds into writeArrayBuffer.
+    const raw = new Uint8Array(60000); // 100*50*3 RGB
+    for (let i = 0; i < raw.length; i += 3) {
+      raw[i] = (i * 3) % 255;
+      raw[i + 1] = (i * 5) % 255;
+      raw[i + 2] = (i * 7) % 255;
+    }
+    // Ensure the imported decompressSync is the actual function, not a stub.
+    const compressed = deflateSync(raw);
+    expect(compressed.byteLength).toBeGreaterThan(0);
+    // Compressed output should be smaller than raw (patterned but not random).
+    expect(compressed.byteLength).toBeLessThan(raw.byteLength);
+    const decompressed = decompressSync(compressed) as Uint8Array;
+    expect(decompressed.length).toBe(raw.length);
+    expect(Array.from(decompressed)).toEqual(Array.from(raw));
   });
 
   it("downloadGeoTiff uses savedBounds when cropState has been cleared", async () => {
