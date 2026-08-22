@@ -72,8 +72,9 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
   // LayerManager defines `layers` as a class getter (prototype property),
   // while the lightweight stub sets it as a plain data property (own).
   // Check both the instance and the prototype chain for the getter.
-  const own = Object.getOwnPropertyDescriptor(api, "layers")
-    || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(api), "layers");
+  const own =
+    Object.getOwnPropertyDescriptor(api, "layers") ||
+    Object.getOwnPropertyDescriptor(Object.getPrototypeOf(api), "layers");
   return !!(own && own.get);
 };
 
