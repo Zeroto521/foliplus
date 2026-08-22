@@ -97,9 +97,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
           el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
         );
         ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(
-            `.${CLASSES.SUGGESTION_TEXT}`,
-          )?.textContent ?? "";
+          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
+            ?.textContent ?? "";
       },
     },
     {

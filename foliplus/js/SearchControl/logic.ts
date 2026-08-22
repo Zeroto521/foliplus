@@ -1,4 +1,6 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
+import { HINT_DURATION } from "#core/hint.js";
+import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
 import { fromWgs84, toWgs84 } from "#common/coord.js";
 import { type Debounced, debounce } from "#common/debounce.js";
@@ -14,8 +16,6 @@ import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import * as Storage from "#common/storage.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { guardBlocked } from "#core/mode.js";
 import { AUTOCOMPLETE, CLASSES, HISTORY, MODE, ZOOM } from "./const.js";
 import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
 
@@ -541,6 +541,5 @@ export {
   renderSuggestions,
   saveHistory,
   searchAddress,
-  searchCoord
+  searchCoord,
 };
-
