@@ -17,7 +17,12 @@ import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import * as Storage from "#common/storage.js";
 import { AUTOCOMPLETE, CLASSES, HISTORY, MODE, ZOOM } from "./const.js";
-import type { AddressResult, NominatimItem, ResultItem, SearchHistoryEntry } from "./type.js";
+import type {
+  AddressResult,
+  NominatimItem,
+  ResultItem,
+  SearchHistoryEntry,
+} from "./type.js";
 
 const { _ } = createControlEnv(CONF);
 

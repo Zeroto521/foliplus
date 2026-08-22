@@ -468,7 +468,9 @@ describe("renderHistory", () => {
     );
     expect(items).toHaveLength(1);
     expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
-    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe("2.3, 48.8");
+    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe(
+      "2.3, 48.8",
+    );
   });
 
   it("renders coordinate history in coord mode", () => {
@@ -510,9 +512,36 @@ describe("renderHistory", () => {
 
   it("sorts by count desc then ts desc", () => {
     const ctrl = makeHistoryCtrl([
-      { query: "A", type: "addr", coordDisplay: "", addrDisplay: "A", lat: 0, lng: 0, ts: 100, count: 1 },
-      { query: "B", type: "addr", coordDisplay: "", addrDisplay: "B", lat: 0, lng: 0, ts: 200, count: 5 },
-      { query: "C", type: "addr", coordDisplay: "", addrDisplay: "C", lat: 0, lng: 0, ts: 300, count: 5 },
+      {
+        query: "A",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "A",
+        lat: 0,
+        lng: 0,
+        ts: 100,
+        count: 1,
+      },
+      {
+        query: "B",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "B",
+        lat: 0,
+        lng: 0,
+        ts: 200,
+        count: 5,
+      },
+      {
+        query: "C",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "C",
+        lat: 0,
+        lng: 0,
+        ts: 300,
+        count: 5,
+      },
     ]);
     renderHistory(ctrl, "addr");
     const items = ctrl.suggestionsWrap.querySelectorAll(
@@ -526,9 +555,14 @@ describe("renderHistory", () => {
   it("clicking a history entry navigates to the saved coordinates", () => {
     const ctrl = makeHistoryCtrl([
       {
-        query: "Paris", type: "addr",
-        coordDisplay: "2.3, 48.8", addrDisplay: "Paris, France",
-        lat: 48.8, lng: 2.3, ts: 1000, count: 1,
+        query: "Paris",
+        type: "addr",
+        coordDisplay: "2.3, 48.8",
+        addrDisplay: "Paris, France",
+        lat: 48.8,
+        lng: 2.3,
+        ts: 1000,
+        count: 1,
       },
     ]);
     renderHistory(ctrl, "addr");
@@ -544,9 +578,14 @@ describe("renderHistory", () => {
   it("renders only coord entries in coord mode", () => {
     const ctrl = makeHistoryCtrl([
       {
-        query: "121.47,31.23", type: "coord",
-        coordDisplay: "121.4700, 31.2300", addrDisplay: "",
-        lat: 31.23, lng: 121.47, ts: 1000, count: 1,
+        query: "121.47,31.23",
+        type: "coord",
+        coordDisplay: "121.4700, 31.2300",
+        addrDisplay: "",
+        lat: 31.23,
+        lng: 121.47,
+        ts: 1000,
+        count: 1,
       },
     ]);
     renderHistory(ctrl, "coord");
@@ -560,9 +599,14 @@ describe("renderHistory", () => {
   it("shows nothing when no history matches the current mode", () => {
     const ctrl = makeHistoryCtrl([
       {
-        query: "Paris", type: "addr",
-        coordDisplay: "2.3, 48.8", addrDisplay: "Paris, France",
-        lat: 48.8, lng: 2.3, ts: 1000, count: 1,
+        query: "Paris",
+        type: "addr",
+        coordDisplay: "2.3, 48.8",
+        addrDisplay: "Paris, France",
+        lat: 48.8,
+        lng: 2.3,
+        ts: 1000,
+        count: 1,
       },
     ]);
     renderHistory(ctrl, "coord");
