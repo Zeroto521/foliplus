@@ -52,7 +52,7 @@ jobs:
         if: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         run: make dist
 
-      - run: uv sync
+      - run: uv sync --frozen --no-dev
       - run: uv run pip install --force-reinstall dist/*.whl
       - run: uv run make info
 
