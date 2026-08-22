@@ -107,10 +107,10 @@ export interface CreateLayersAPI {
  *     registry/query methods are no-ops returning empty results)
  */
 export interface LayerAPI {
-  /** `true` only when LayerControl (LayerManager) installed this LayerAPI.
-   * ensureLayerAPI's lightweight stub sets this to `false`.
-   * Used by requireLayerAPI to distinguish a real LayerControl from the
-   * lightweight default.
+  /** Diagnostic marker (true = LayerManager, false = lightweight stub).
+   * Not authoritative for dependency checks — use isRealLayerControl, which
+   * asserts the registry-delegating `layers` getter that only LayerManager
+   * has.  Kept for ad-hoc logging / debugging convenience.
    */
   isLayerControl: boolean;
   /** Ordered array of layers (frozen read-only snapshot of the registry). */
