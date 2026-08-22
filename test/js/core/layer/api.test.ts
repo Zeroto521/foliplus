@@ -154,7 +154,11 @@ describe("requireLayerAPI", () => {
   });
 
   it("accepts a real LayerControl (layers is a getter, like LayerManager)", () => {
-    const api = { get layers() { return []; } } as any;
+    const api = {
+      get layers() {
+        return [];
+      },
+    } as any;
     const map = { foliplus: { LayerAPI: api } };
     expect(requireLayerAPI("Test", _, map as any)).toBe(api);
   });
