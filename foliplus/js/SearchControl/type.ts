@@ -41,6 +41,8 @@ export interface SearchHistoryEntry {
 
 /** A rendered result item in the suggestions/history panel, shared by both sources. */
 export interface ResultItem {
+  /** Source: "suggestion" for live Nominatim results, "history" for saved entries. */
+  source: "suggestion" | "history";
   /** Icon SVG to display. */
   icon: string;
   /** Primary display text (shown in SUGGESTION_TEXT). */

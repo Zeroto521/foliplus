@@ -385,7 +385,8 @@ const renderSuggestions = (
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
     const coordDisplay = `${parseFloat(item.lon).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
     return {
-      icon: Icons.GLOBE,
+      icon: Icons.LOCATE,
+      source: "suggestion",
       primaryText: displayName,
       coordDisplay,
       onClick: () => {
@@ -426,9 +427,10 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
 
   const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
     const isAddr = entry.type === "addr";
-    const primaryText = isAddr ? (entry.addrDisplay || entry.coordDisplay || "") : (entry.coordDisplay || "");
+    const primaryText = isAddr ? (entry.addrDisplay || "") : (entry.coordDisplay || "");
     return {
-      icon: isAddr ? Icons.GLOBE : Icons.LOCATE,
+      icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
+      source: "history",
       primaryText,
       coordDisplay: entry.coordDisplay || null,
       onClick: () => {
