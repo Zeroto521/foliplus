@@ -1,5 +1,38 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+
+// CDN URLs for GeoTIFF and pako libraries.  These are loaded dynamically
+// (on-demand) rather than via blocking <script> tags because geotiff.js is
+// ~550 KB and would otherwise delay page rendering.  The URLs are embedded
+// here so the JS runtime is self-contained; the same entries are recorded
+// in foliplus/cdn.json for centralized version management.
+const GEOTIFF_CDN =
+  "https://cdn.jsdelivr.net/npm/geotiff@3.0.5/dist-browser/geotiff.js";
+const PAKO_CDN = "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js";
+
+let _libsPromise: Promise<void> | null = null;
+
+/**
+ * Ensure GeoTIFF and pako globals are available, loading them from CDN
+ * on demand if not already present (e.g. when called outside the normal
+ * export flow or when the page was rendered without blocking script tags).
+ */
+const ensureGeoTiffLibs = async (): Promise<void> => {
+  if (typeof GeoTIFF !== "undefined" && typeof pako !== "undefined") return;
+  if (_libsPromise) return _libsPromise;
+  _libsPromise = (async () => {
+    const load = (url: string): Promise<void> =>
+      new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = url;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error(`Failed to load ${url}`));
+        document.head.appendChild(s);
+      });
+    await Promise.all([load(GEOTIFF_CDN), load(PAKO_CDN)]);
+  })();
+  return _libsPromise;
+};
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { dom } from "#common/dom.js";
@@ -631,6 +664,15 @@ class ExportManager {
     const pixelWidth = (geoBounds.se.lng - geoBounds.nw.lng) / canvas.width;
     const pixelHeight = (geoBounds.se.lat - geoBounds.nw.lat) / canvas.height;
 
+    // Ensure GeoTIFF and pako globals are loaded (dynamic CDN fetch).
+    // This is a no-op if they are already available.
+    try {
+      await ensureGeoTiffLibs();
+    } catch {
+      this.showGlobalHint(_(`${CONF.name}.err_gen_fail`), HINT_DURATION.LONG);
+      return;
+    }
+
     // geotiff.js 3.x's writeArrayBuffer writes pixel data verbatim — the
     // Compression tag is stored but the data is not actually encoded, so
     // raw RGB GeoTIFFs are 3 bytes/pixel and very large for HD exports
@@ -638,8 +680,6 @@ class ExportManager {
     // DEFLATE (TIFF code 8, native in QGIS/GDAL/ArcGIS) and hand the
     // pre-compressed bytes to writeArrayBuffer, which treats them as the
     // image's strip data.
-    // image's strip data.  geotiff and pako are loaded from CDN via
-    // default_js (ExportControl.py) and exposed as global GeoTIFF / pako.
     const compressed = pako.deflateRaw(rgb);
     const tiffBuffer = GeoTIFF.writeArrayBuffer(compressed, {
       width: canvas.width,

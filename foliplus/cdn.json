@@ -1,14 +1,5 @@
 {
-  "ExportControl": [
-    [
-      "geotiff",
-      "https://cdn.jsdelivr.net/npm/geotiff@3/dist-browser/geotiff.js"
-    ],
-    [
-      "pako",
-      "https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"
-    ]
-  ],
+  "ExportControl": [],
   "HeatmapControl": [
     [
       "h3-js",
