@@ -27,10 +27,10 @@ export interface SearchHistoryEntry {
   type: "coord" | "addr";
   /** Human-readable label displayed in the history list (formatted address or coord). */
   label: string;
-  /** Result latitude (WGS84). */
-  lat: number;
   /** Result longitude (WGS84). */
   lng: number;
+  /** Result latitude (WGS84). */
+  lat: number;
   /** Timestamp when this search was completed. */
   ts: number;
 }
