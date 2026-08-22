@@ -1,11 +1,12 @@
 // LocateControl locate logic — locate me via the browser geolocation API.
 import { HINT_DURATION } from "#core/hint.js";
+import { guardBlocked } from "#core/mode.js";
 import { fromWgs84 } from "#common/coord.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
   attachDelClick,
+  bindDelIconToPopup,
   makeDelIcon,
-  toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
@@ -62,16 +63,12 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 
   const delIcon = ctrl.delIcon;
   attachDelClick(delIcon, () => removeMarker(ctrl));
-  ctrl.marker.on("popupopen", () => toggleDelIcon(delIcon, true));
-  ctrl.marker.on("popupclose", () => toggleDelIcon(delIcon, false));
+  bindDelIconToPopup(ctrl.marker, delIcon);
 };
 
 /** Locate me via the browser geolocation API. */
 const locateMe = (ctrl: LocateCtrl) => {
-  if (map.foliplus?.modes?.isBlocked(CONF.name)) {
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.blocked`), HINT_DURATION.SHORT);
-    return;
-  }
+  if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
   const geo = navigator.geolocation;
   if (!geo) {
     map.foliplus!.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);

@@ -6,6 +6,7 @@ import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+import { registerDrag, registerInteractions } from "./interaction.js";
 import { ExportRenderer } from "./renderer.js";
 import {
   lockCropBox,
@@ -72,6 +73,10 @@ interface SavedBounds {
 
 class ExportManager {
   map: L.Map;
+  dragCleanup?: () => void;
+  interactionCleanup?: () => void;
+  escapeCleanup?: () => void;
+  cropMousedownCleanup?: () => void;
   mapContainer: HTMLElement;
   cropState: CropState | null;
   exportCtrl: HTMLElement | null;
@@ -127,10 +132,6 @@ class ExportManager {
     this.undoStack = [];
     this.redoStack = [];
 
-    this.onMouseDown = this.onMouseDown.bind(this);
-    this.onMouseMove = this.onMouseMove.bind(this);
-    this.onMouseUp = this.onMouseUp.bind(this);
-    this.onKeyDown = this.onKeyDown.bind(this);
     this.onMapChange = this.onMapChange.bind(this);
 
     // Mount UI functions directly on this instance
@@ -224,8 +225,7 @@ class ExportManager {
     this.dragState.lastX = event.clientX;
     this.dragState.lastY = event.clientY;
     this.dragState.startRect = Object.assign({}, st.rect);
-    document.addEventListener("mousemove", this.onMouseMove);
-    document.addEventListener("mouseup", this.onMouseUp);
+    this.dragCleanup = registerDrag(this);
   }
 
   onMouseMove(event: MouseEvent) {
@@ -311,13 +311,16 @@ class ExportManager {
   onMouseUp() {
     this.dragState.dragging = false;
     this.dragState.dragType = null;
-    document.removeEventListener("mousemove", this.onMouseMove);
-    document.removeEventListener("mouseup", this.onMouseUp);
+    // mousemove/mouseup auto-cleaned by dragCleanup
     // Re-enable transition so the box animates smoothly to its final position
     // on the next non-drag style update (e.g. after unlock).
     if (this.cropState?.box)
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
     this.pushUndoState();
+  }
+
+  registerShortcuts(): void {
+    const cleanup = registerInteractions(this);
   }
 
   onKeyDown(event: KeyboardEvent) {
@@ -521,7 +524,7 @@ class ExportManager {
     });
   }
 
-  /** Handle successful render: show preview and trigger download. */
+  /** Handle successful render: show preview and trigger downloads. */
   onRenderSuccess(canvas: HTMLCanvasElement, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
@@ -539,12 +542,11 @@ class ExportManager {
       prevImg.remove();
     }, HINT_DURATION.SHORT);
     canvas.toBlob(
-      blob => {
+      async blob => {
         if (!blob) {
           this.showGlobalHint(
             _(`${CONF.name}.status_fail`) + _(`${CONF.name}.err_gen_fail`),
             HINT_DURATION.LONG,
-            false,
           );
           this.isExporting = false;
           ensureModes(this.map).setMode(CONF.name, null);
@@ -552,21 +554,22 @@ class ExportManager {
           this.removeExportOverlay();
           return;
         }
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        // Append the format extension to the base filename.
-        link.download = `${CONF.filename}.${CONF.format}`;
-        link.href = url;
-        link.rel = "noopener";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
-        this.showGlobalHint(
-          _(`${CONF.name}.status_success`),
-          HINT_DURATION.LONG,
-          false,
-        );
+        const name = CONF.filename || "map";
+        if (CONF.format === "geotiff") {
+          // Export as a single GeoTIFF file with embedded georeferencing.
+          await this.downloadGeoTiff(canvas, name);
+        } else {
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          link.download = `${name}.${CONF.format}`;
+          link.href = url;
+          link.rel = "noopener";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+        }
+        this.showGlobalHint(_(`${CONF.name}.status_success`), HINT_DURATION.LONG);
         this.isExporting = false;
         ensureModes(this.map).setMode(CONF.name, null);
         ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
@@ -575,6 +578,89 @@ class ExportManager {
       mimeType,
       CONF.quality,
     );
+  }
+
+  /**
+   * Export a GeoTIFF file with embedded georeferencing.
+   * Canvas pixel data is written as an RGB GeoTIFF with ModelTiepoint
+   * and ModelPixelScale tags for WGS84 (EPSG:4326).
+   * Falls back to a plain image download if geo bounds are unavailable.
+   */
+  async downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
+    // doExport() clears cropState via removeCropBox() before the render
+    // callback fires, so cropState.geoBounds is gone by the time we
+    // reach downloadGeoTiff.  Use the geoBounds saved in doExport
+    // (this.savedBounds) as the primary source, falling back to
+    // cropState.geoBounds for programmatic/called-outside-export use.
+    const geoBounds = this.savedBounds ?? this.cropState?.geoBounds;
+    if (!geoBounds?.nw || !geoBounds?.se) {
+      // GeoTIFF requires geo bounds — without them we can't embed
+      // georeferencing.  Show a hint instead of silently falling back.
+      this.showGlobalHint(_(`${CONF.name}.err_geotiff_geo`), HINT_DURATION.LONG);
+      return;
+    }
+    if (canvas.width <= 0 || canvas.height <= 0) {
+      this.showGlobalHint(_(`${CONF.name}.err_gen_fail`), HINT_DURATION.LONG);
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      this.showGlobalHint(_(`${CONF.name}.err_gen_fail`), HINT_DURATION.LONG);
+      return;
+    }
+    let imageData;
+    try {
+      imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    } catch {
+      // Canvas may be tainted by cross-origin images (e.g. tiles from a
+      // server without CORS headers).  getImageData throws SecurityError
+      // and we cannot extract pixel data for the GeoTIFF.
+      this.showGlobalHint(_(`${CONF.name}.err_geotiff_canvas`), HINT_DURATION.LONG);
+      return;
+    }
+    const rgba = imageData.data;
+
+    const rgb = new Uint8Array(canvas.width * canvas.height * 3);
+    for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+      rgb[j] = rgba[i];
+      rgb[j + 1] = rgba[i + 1];
+      rgb[j + 2] = rgba[i + 2];
+    }
+
+    const pixelWidth = (geoBounds.se.lng - geoBounds.nw.lng) / canvas.width;
+    const pixelHeight = (geoBounds.se.lat - geoBounds.nw.lat) / canvas.height;
+
+    // geotiff.js 3.x's writeArrayBuffer writes pixel data verbatim — the
+    // Compression tag is stored but the data is not actually encoded, so
+    // raw RGB GeoTIFFs are 3 bytes/pixel and very large for HD exports
+    // (e.g. 1920×1080 ≈ 6 MB).  Compress the RGB buffer ourselves with
+    // DEFLATE (TIFF code 8, native in QGIS/GDAL/ArcGIS) and hand the
+    // pre-compressed bytes to writeArrayBuffer, which treats them as the
+    // image's strip data.
+    const compressed = pako.deflateRaw(rgb);
+    const tiffBuffer = GeoTIFF.writeArrayBuffer(compressed, {
+      width: canvas.width,
+      height: canvas.height,
+      ModelTiepoint: [0, 0, 0, geoBounds.nw.lng, geoBounds.nw.lat, 0],
+      ModelPixelScale: [pixelWidth, pixelHeight, 0],
+      GeographicTypeGeoKey: 4326,
+      Compression: 8,
+      SamplesPerPixel: [3],
+      BitsPerSample: [8, 8, 8],
+      PhotometricInterpretation: 2,
+    });
+
+    const blob = new Blob([tiffBuffer], { type: "image/tiff" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = `${name}.tif`;
+    link.href = url;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
   }
 
   /** Handle render failure. */
@@ -588,7 +674,6 @@ class ExportManager {
     this.showGlobalHint(
       _(`${CONF.name}.status_fail`) + (err.message || ""),
       HINT_DURATION.LONG,
-      false,
     );
     this.isExporting = false;
   }

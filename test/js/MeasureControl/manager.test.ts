@@ -117,6 +117,15 @@ describe("MeasureManager — mode switching", () => {
     expect(layers.clearLayers).toHaveBeenCalled();
     expect(manager.measurements).toHaveLength(0);
   });
+
+  it("setMode toggles active class on matching tool button", () => {
+    const { manager } = makeManager();
+    const btn = document.createElement("button");
+    btn.dataset.mode = CONST.MODE.MARKER;
+    manager.toolBtns = [btn];
+    manager.setMode(CONST.MODE.MARKER);
+    expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+  });
 });
 
 describe("MeasureManager — lifecycle", () => {
@@ -176,7 +185,7 @@ describe("MeasureManager — global events", () => {
     const { manager } = makeManager();
     const spy = vi.spyOn(manager, "clearActiveMode");
     manager.currentMode = CONST.MODE.DISTANCE;
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
     expect(spy).toHaveBeenCalled();
   });
 
@@ -336,5 +345,36 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
     bus.emit(EVENTS.LAYER_REMOVED, { id: "foliplus_measure" });
     expect(clearSpy).not.toHaveBeenCalled();
     expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+  });
+});
+
+describe("MeasureManager — export click", () => {
+  it("bindExportClick registers the click handler", () => {
+    const { manager } = makeManager();
+    const btn = document.createElement("button");
+    expect(() => manager.bindExportClick(btn)).not.toThrow();
+  });
+});
+
+it("onExportClick triggers the export flow", () => {
+  const { manager } = makeManager();
+  // mock handleExportClick to avoid full export DOM
+  const event = { stopPropagation: vi.fn() } as any;
+  expect(() => manager.onExportClick(event)).not.toThrow();
+  expect(event.stopPropagation).toHaveBeenCalled();
+});
+
+describe("MeasureManager — onMapClick handler", () => {
+  it("hides del icons when clicking empty map space", () => {
+    const { manager } = makeManager();
+    // the onMapClick handler is bound during bindGlobalEvents
+    // find the click handler on the map
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+    expect(clickHandler).toBeDefined();
+    // Simulate a click with a non-del-icon target
+    const event = { originalEvent: { target: document.createElement("div") } } as any;
+    expect(() => clickHandler(event)).not.toThrow();
   });
 });

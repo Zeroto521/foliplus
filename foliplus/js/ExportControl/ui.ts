@@ -1,6 +1,7 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureInteraction } from "#core/interaction.js";
 import { ensureModes } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
@@ -9,6 +10,7 @@ import { createTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
+import { registerCropMouseDown } from "./interaction.js";
 import type { ExportManager, Rect } from "./manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -194,8 +196,8 @@ const showCropBox = (mgr: ExportManager) => {
   updateBoxStyle(mgr, cropBox, box);
   mgr.pushUndoState();
   showHintWithInfo(mgr, box, _(`${CONF.name}.hint_unlocked`));
-  cropBox.addEventListener("mousedown", mgr.onMouseDown);
-  document.addEventListener("keydown", mgr.onKeyDown);
+  mgr.cropMousedownCleanup = registerCropMouseDown(mgr, cropBox);
+  mgr.registerShortcuts();
 };
 
 /** Update toolbar for locked state (export button). */
@@ -212,7 +214,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   renderToolbarActions(mgr, {
     confirm: {
       title: _(`${CONF.name}.btn_export`),
-      svg: SVGs.DOWNLOAD,
+      svg: Icons.DOWNLOAD,
       onclick: () => mgr.doExport(),
     },
     cancel: {
@@ -263,17 +265,17 @@ const removeCropBox = (mgr: ExportManager) => {
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);
   document.body.classList.remove(CONST.CLASSES.MODE);
-  document.removeEventListener("keydown", mgr.onKeyDown);
-  document.removeEventListener("mousemove", mgr.onMouseMove);
-  document.removeEventListener("mouseup", mgr.onMouseUp);
+  mgr.registerShortcuts();
+  mgr.dragCleanup?.();
   mgr.dragState.dragging = false;
   mgr.dragState.dragType = null;
   if (mgr.mapMoveCleanup) {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
   }
-  if (mgr.cropState.box)
-    mgr.cropState.box.removeEventListener("mousedown", mgr.onMouseDown);
+  ensureInteraction(mgr.map).unregister(`${CONF.name}-escape`);
+  mgr.interactionCleanup?.();
+  if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
   if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";

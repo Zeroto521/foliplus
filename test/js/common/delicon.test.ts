@@ -5,6 +5,7 @@ import {
   DEL_ICON_SELECTOR,
   DEL_ICON_Z_OFFSET,
   attachDelClick,
+  bindDelIconToPopup,
   hideDelIcons,
   makeDelIcon,
   toggleDelIcon,
@@ -121,5 +122,34 @@ describe("hideDelIcons", () => {
     hideDelIcons();
     expect(shown.classList.contains("visible")).toBe(false);
     expect(hidden.classList.contains("visible")).toBe(false);
+  });
+});
+
+describe("bindDelIconToPopup", () => {
+  it("binds handlers to popupopen and popupclose", () => {
+    const markerDom = document.createElement("div");
+    const delSpan = document.createElement("span");
+    delSpan.setAttribute("data-del-icon", "");
+    markerDom.appendChild(delSpan);
+    const delIcon = { _id: "del", getElement: () => markerDom };
+    const marker = { on: vi.fn() };
+
+    bindDelIconToPopup(marker, delIcon);
+
+    expect(marker.on).toHaveBeenCalledWith("popupopen", expect.any(Function));
+    expect(marker.on).toHaveBeenCalledWith("popupclose", expect.any(Function));
+
+    const openHandler = marker.on.mock.calls[0][1];
+    const closeHandler = marker.on.mock.calls[1][1];
+
+    openHandler();
+    expect(delSpan.classList.contains("visible")).toBe(true);
+    closeHandler();
+    expect(delSpan.classList.contains("visible")).toBe(false);
+  });
+
+  it("does nothing when marker is null", () => {
+    const delIcon = { _id: "del" };
+    expect(() => bindDelIconToPopup(null, delIcon)).not.toThrow();
   });
 });

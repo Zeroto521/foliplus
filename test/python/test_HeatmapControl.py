@@ -16,7 +16,6 @@ from conftest import (
     read_css,
     render_control,
     use_page,
-    use_raw_page,
 )
 
 from foliplus import HeatmapControl
@@ -59,7 +58,8 @@ class TestHeatmapControlPython:
                 n_classes=4,
                 agg="sum",
                 schemes=["Reds", "Blues"],
-                style={"border_weight": 2.0, "label_show": False},
+                border_weight=2.0,
+                label_show=False,
             )
         )
         assert_config_value(html, "color_scheme", "Reds")
@@ -124,9 +124,9 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl(locale="zh"))
         assert_locale(html, "网格聚合")
 
-    def test_style_field(self):
-        """style.field is injected into JS template."""
-        html = render_control(HeatmapControl(style={"field": "value"}))
+    def test_field_kwarg(self):
+        """Direct field kwarg is injected into JS template."""
+        html = render_control(HeatmapControl(field="value"))
         assert_config_value(html, "field", "value")
 
     def test_scheme_names_inline(self):

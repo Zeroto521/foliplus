@@ -7,10 +7,18 @@ import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { CLASSES, MODE } from "./const.js";
-import { bindEvents, initFromUrl } from "./event.js";
 import * as SVGs from "./icon.js";
-import { initDebouncedFetch, loadHistory, removeSuggestions } from "./logic.js";
-import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
+import { bindEvents, initFromUrl } from "./interaction.js";
+import {
+  initDebouncedFetch,
+  loadHistory,
+  removeSuggestions,
+} from "./logic.js";
+import type {
+  AddressResult,
+  NominatimItem,
+  SearchHistoryEntry,
+} from "./type.js";
 
 const { _ } = createControlEnv(CONF, SVGs.SEARCH);
 ensureHint(map);
@@ -45,13 +53,14 @@ export class SearchControl extends BaseControl {
     this.createDOM();
     this.initState();
     initDebouncedFetch(this);
-    bindEvents(this);
+    (this as any).interactionCleanup = bindEvents(this);
     initFromUrl(this);
     bindOutsideCollapse({ container: this.ctrl });
     return this.container;
   }
 
   destroy() {
+    (this as any).interactionCleanup?.();
     removeSuggestions(this);
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();

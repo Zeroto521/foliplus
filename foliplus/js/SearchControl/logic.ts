@@ -1,20 +1,22 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
 import { HINT_DURATION } from "#core/hint.js";
+import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
 import { fromWgs84 } from "#common/coord.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
   attachDelClick,
+  bindDelIconToPopup,
   makeDelIcon,
-  toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
+import { fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import * as Storage from "#common/storage.js";
-import { AUTOCOMPLETE, CLASSES, HISTORY, MODE, SEARCH, ZOOM } from "./const.js";
+import { AUTOCOMPLETE, CLASSES, HISTORY, MODE, ZOOM } from "./const.js";
 import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
 
 const { _ } = createControlEnv(CONF);
@@ -108,17 +110,16 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
     ctrl.inp.focus();
   };
   attachDelClick(delIcon, clearSearch);
-  ctrl.marker?.on("popupopen", () => toggleDelIcon(delIcon, true));
-  ctrl.marker?.on("popupclose", () => toggleDelIcon(delIcon, false));
+
+  // The ✕ is hidden by default and only appears while the popup is open,
+  // matching MeasureControl / LocateControl marker UX.
+  bindDelIconToPopup(ctrl.marker, delIcon);
 };
 
 // ── Search execution ─────────────────────────────────────────────
 
 const searchCoord = (ctrl: SearchControlState, raw: string) => {
-  if (map.foliplus?.modes?.isBlocked(CONF.name)) {
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.blocked`), HINT_DURATION.SHORT);
-    return;
-  }
+  if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
   const parts = raw
     .replace(/\uff0c/g, ",")
     .replace(/\s+/g, "")
@@ -169,39 +170,19 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
 };
 
 const searchAddress = (ctrl: SearchControlState, query: string) => {
-  if (map.foliplus?.modes?.isBlocked(CONF.name)) {
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.blocked`), HINT_DURATION.SHORT);
-    return;
-  }
-  if (ctrl.cachedAddress[query]) {
-    renderAddressResult(ctrl, ctrl.cachedAddress[query]);
-    const r = ctrl.cachedAddress[query];
-    recordHistorySearch(
-      ctrl,
-      query,
-      "addr",
-      r.displayName,
-      parseFloat(r.item.lat),
-      parseFloat(r.item.lon),
-    );
-    return;
-  }
-
+  if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
+  // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
   map.foliplus!.showHint(
     CONF.name,
     `${Icons.LOADING} ${_(`${CONF.name}.popup_loading`)}`,
     HINT_DURATION.PERSIST,
   );
 
-  if (ctrl.addrAbortController) ctrl.addrAbortController.abort();
-  ctrl.addrAbortController = new AbortController();
-  const signal = ctrl.addrAbortController.signal;
-
-  fetch(buildSearchUrl(ctrl, query, SEARCH.LIMIT), { signal })
-    .then(r => r.json())
-    .then(results => {
+  window.foliplus
+    .geocode(map, query, CONF.locale_code)
+    .then(result => {
       map.foliplus!.hideHint(CONF.name);
-      if (!results || results.length === 0) {
+      if (!result) {
         map.foliplus!.showHint(
           CONF.name,
           _(`${CONF.name}.addr_not_found`),
@@ -210,24 +191,18 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
         ctrl.inp.value = "";
         return;
       }
-
-      const item = results[0];
-      const displayName =
-        formatAddress(item.display_name, map, CONF.locale_code) || query;
-      ctrl.cachedAddress[query] = { item, displayName };
-      renderAddressResult(ctrl, { item, displayName });
+      // result is already in map CRS — skip fromWgs84 in renderAddressResult.
+      renderAddressResult(ctrl, result, true);
       recordHistorySearch(
         ctrl,
         query,
         "addr",
-        displayName,
-        parseFloat(item.lat),
-        parseFloat(item.lon),
+        result.display_name,
+        result.lat,
+        result.lng,
       );
     })
-    .catch(err => {
-      if (err.name === "AbortError") return;
-      console.error(`[${CONF.name}] Address lookup failed, check network`);
+    .catch(() => {
       map.foliplus!.hideHint(CONF.name);
       map.foliplus!.showHint(
         CONF.name,
@@ -237,14 +212,28 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
     });
 };
 
-const renderAddressResult = (ctrl: SearchControlState, result: AddressResult) => {
-  const { item, displayName } = result;
-  let lat = parseFloat(item.lat);
-  let lng = parseFloat(item.lon);
+const renderAddressResult = (
+  ctrl: SearchControlState,
+  result: AddressResult | { lat: number; lng: number; display_name: string },
+  alreadyConverted = false,
+) => {
+  const displayName =
+    "display_name" in result
+      ? result.display_name
+      : ((result as AddressResult).displayName ?? "");
+  let lng =
+    "lng" in result ? result.lng : parseFloat((result as AddressResult).item.lon);
+  let lat =
+    "lat" in result ? result.lat : parseFloat((result as AddressResult).item.lat);
 
-  const converted = fromWgs84(map, lng, lat);
-  lng = converted[0];
-  lat = converted[1];
+  if (!alreadyConverted) {
+    const item = (result as AddressResult).item;
+    lng = parseFloat(item.lon);
+    lat = parseFloat(item.lat);
+    const converted = fromWgs84(map, lng, lat);
+    lng = converted[0];
+    lat = converted[1];
+  }
 
   const zoom = Math.min(
     ZOOM.MAX,
@@ -328,7 +317,6 @@ const renderSuggestions = (
           event.stopPropagation();
           event.preventDefault();
           removeSuggestions(ctrl);
-          ctrl.cachedAddress[displayName] = { item, displayName };
           renderAddressResult(ctrl, { item, displayName });
           recordHistorySearch(
             ctrl,
@@ -451,10 +439,7 @@ const renderHistory = (ctrl: SearchControlState) => {
 };
 
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
-  if (map.foliplus?.modes?.isBlocked(CONF.name)) {
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.blocked`), HINT_DURATION.SHORT);
-    return;
-  }
+  if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
   if (ctrl.mode !== MODE.ADDR) {
     removeSuggestions(ctrl);
     return;
@@ -494,13 +479,24 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   ctrl.suggestSeq += 1;
   const reqSeq = ctrl.suggestSeq;
 
-  fetch(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
+  fetchWithTimeout(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
     signal: ctrl.suggestAbortController.signal,
   })
     .then(r => r.json())
     .then(results => {
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
+      // Cache first result so searchAddress can serve it from geoCache
+      const first = Array.isArray(results) ? results[0] : null;
+      if (first) {
+        window.foliplus.cacheSuggestion(
+          map,
+          query,
+          parseFloat(first.lat),
+          parseFloat(first.lon),
+          formatAddress(first.display_name, map, CONF.locale_code) || query,
+        );
+      }
       renderSuggestions(ctrl, results, query);
     })
     .catch(err => {

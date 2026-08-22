@@ -15,45 +15,48 @@ concurrency:
 
 jobs:
   test:
-    name: py${{ matrix.python }}
+    name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash -l {0}
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        env: [ci/env/latest.yaml]
+        include:
+          - python: "3.10"
+            folium: "0.14.0"
+          - python: "3.14"
+            folium: "latest"
     steps:
       - uses: actions/checkout@v6
-      - uses: mamba-org/setup-micromamba@v3.0.0
         with:
-          environment-file: ${{ matrix.env }}
-          create-args: python=${{ matrix.python }}
+          # Full history needed for setuptools_scm to derive __version__ from tags.
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "${{ matrix.python }}"
+      - uses: astral-sh/setup-uv@v5
       - uses: actions/setup-node@v6
         with:
           node-version-file: "package.json"
 
       - run: npm install
       - run: npm run typecheck
-      - run: pip install -e ".[test]"
-      - run: playwright install chromium
 
-      - run: make info
-      - run: make test
+      - run: uv sync --group test --upgrade-package "folium==${{ matrix.folium }}"
+        if: ${{ matrix.folium != 'latest' }}
+      - run: uv sync --group test
+        if: ${{ matrix.folium == 'latest' }}
+      - run: uv run playwright install chromium
+      - run: uv run make info
+      - run: uv run make test
 
       - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
-      # Upload test results (Codecov Test Analytics) even when tests fail.
-      # codecov/test-results-action is deprecated → use codecov-action with
-      # report_type: test_results. https://docs.codecov.com/docs/test-analytics
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          flags: py${{ matrix.python }}
+          flags: py${{ matrix.python }}-folium-${{ matrix.folium }}

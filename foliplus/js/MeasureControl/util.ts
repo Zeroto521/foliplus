@@ -50,7 +50,7 @@ const suppressHide = (manager: { isSuppressHideDel: boolean }) => {
 };
 
 /** Calculate next toggle state for X icons and labels. */
-const calcToggle = (
+const nextToggleState = (
   curX: boolean,
   curLabels: boolean,
   showX: boolean | undefined,
@@ -65,7 +65,7 @@ const calcToggle = (
 };
 
 /** Apply toggle visibility state to del icon, labels, and optional extra label. */
-const applyToggle = (
+const applyVisibilityToggle = (
   delMarker: L.Layer | undefined,
   isXVisible: boolean,
   labels: L.Layer[],
@@ -127,7 +127,9 @@ const makeLabelDivIcon = (
 ): L.DivIcon => {
   return L.divIcon({
     className: "",
-    html: `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}" data-foliplus-export="label">${html}</div>`,
+    html:
+      `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}" ` +
+      `data-foliplus-export="label">${html}</div>`,
     iconSize: CONST.LABEL.SIZE as [number, number],
     iconAnchor: (iconAnchor || CONST.LABEL.DEFAULT_ANCHOR) as [number, number],
   });
@@ -165,11 +167,12 @@ const animateDashSweep = (path: SVGElement | null) => {
   path.addEventListener("animationend", onEnd);
 };
 
-/** A single segment with distance. */
+/** A single segment with distance and initial bearing (degrees, 0-360). */
 interface Segment {
   lng: number;
   lat: number;
   distance: number;
+  bearing: number;
 }
 
 /** Recalculate segments and total distance from a points array. */
@@ -180,60 +183,39 @@ const recalculateSegments = (
   let totalDistance = 0;
   for (let i = 1; i < points.length; i++) {
     const d = distance(points[i - 1], points[i]);
-    segments.push({ lng: points[i].lng, lat: points[i].lat, distance: d });
+    const b = bearing(points[i - 1], points[i]);
+    segments.push({ lng: points[i].lng, lat: points[i].lat, distance: d, bearing: b });
     totalDistance += d;
   }
   return { segments, totalDistance };
 };
 
-/** Calculate area from a closed polygon ring. */
-const calcArea = (points: L.LatLng[]): number => {
-  if (points.length < 3) return 0;
-  const pts: { lng: number; lat: number }[] = points.map(p => ({
-    lng: p.lng,
-    lat: p.lat,
-  }));
-  return area(pts);
-};
+/** Convert persisted {lng,lat} points to Leaflet LatLng array. */
+const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[] =>
+  points.map(p => L.latLng(p.lat, p.lng));
 
-/** Calculate centroid of a closed polygon ring. */
-const calcCentroid = (points: L.LatLng[]): { lng: number; lat: number } => {
-  if (points.length < 3) return { lng: 0, lat: 0 };
-  const pts: { lng: number; lat: number }[] = points.map(p => ({
-    lng: p.lng,
-    lat: p.lat,
-  }));
-  const c = centroid(pts);
-  return { lng: c.lng, lat: c.lat };
-};
-
-/** Calculate midpoint between two coordinates. */
-const calcMidpoint = (
-  a: { lng: number; lat: number },
-  b: { lng: number; lat: number },
-): { lng: number; lat: number } => {
-  const pt = midpoint(a, b);
-  return { lng: pt.lng, lat: pt.lat };
-};
+/** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
+const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
+  ((event.originalEvent as MouseEvent)?.target as HTMLElement | null) ?? null;
 
 export {
   animateDashSweep,
-  applyToggle,
+  applyVisibilityToggle,
   area,
+  bearing,
   buildPopup,
-  calcArea,
-  calcCentroid,
-  calcMidpoint,
-  calcToggle,
   centroid,
   distance,
   formatArea,
   formatDistance,
   formatSegmentLabel,
+  getEventTarget,
   makeLabelDivIcon,
   makeMidLabelDivIcon,
   makeNode,
   midpoint,
+  nextToggleState,
+  pointsToLatLngs,
   recalculateSegments,
   setLabelText,
   suppressHide,

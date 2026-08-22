@@ -21,6 +21,8 @@
   "ExportControl.err_load_bounds": "Failed to load export bounds",
   "ExportControl.err_save_bounds": "Failed to save export bounds",
   "ExportControl.err_render": "Export render failed",
+  "ExportControl.err_geotiff_geo": "GeoTIFF export requires geographic bounds, please select the export area again",
+  "ExportControl.err_geotiff_canvas": "Cross-origin map tiles prevent GeoTIFF export, try switching to a different tile source",
   "ExportControl.label_size_prefix": "Map size: ",
   "ExportControl.label_size_suffix": "px",
   "ExportControl.no_layercontrol": "ExportControl requires LayerControl, please add LayerControl to the map first"
