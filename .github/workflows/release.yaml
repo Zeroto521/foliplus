@@ -81,7 +81,13 @@ jobs:
 
       - run: ls dist/ -l
 
-      - run: uv publish --publish-url https://test.pypi.org/legacy/ --token ${{ secrets.TEST_PYPI_API_TOKEN }}
+      - uses: pypa/gh-action-pypi-publish@v1.14.0
+        with:
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          verbose: true
 
   PyPI:
     needs: TestPyPI
@@ -95,7 +101,11 @@ jobs:
 
       - run: ls dist/ -l
 
-      - run: uv publish --token ${{ secrets.PYPI_API_TOKEN }}
+      - uses: pypa/gh-action-pypi-publish@v1.14.0
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          verbose: true
 
   GitHub:
     needs: sdist
