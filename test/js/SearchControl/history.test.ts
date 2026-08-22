@@ -431,11 +431,11 @@ describe("renderHistory", () => {
 
   it("removes suggestions when history is empty", () => {
     const ctrl = makeHistoryCtrl([]);
-    renderHistory(ctrl);
+    renderHistory(ctrl, "addr");
     expect(ctrl.suggestionsWrap).toBeNull();
   });
 
-  it("renders address and coord sections separately", () => {
+  it("renders address history in addr mode", () => {
     const ctrl = makeHistoryCtrl([
       {
         query: "Paris",
@@ -458,81 +458,20 @@ describe("renderHistory", () => {
         count: 1,
       },
     ]);
-    renderHistory(ctrl);
+    renderHistory(ctrl, "addr");
     expect(ctrl.suggestionsWrap).not.toBeNull();
     expect(ctrl.suggestionsWrap.innerHTML).toContain("Paris, France");
-    expect(ctrl.suggestionsWrap.innerHTML).toContain("121.4700, 31.2300");
-    // No title text
-    expect(ctrl.suggestionsWrap.innerHTML).not.toContain("Search History");
-    // No clear-all button
-    expect(
-      ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-clear"),
-    ).toBeNull();
-    // History items present
+    // Only addr items shown, coord items filtered out
+    expect(ctrl.suggestionsWrap.innerHTML).not.toContain("121.4700, 31.2300");
     const items = ctrl.suggestionsWrap.querySelectorAll(
       ".foliplus-search-suggestion-item",
     );
-    expect(items).toHaveLength(2);
-    // Each history item has icon + text content
-    expect(items[0].querySelector(".foliplus-search-suggestion-icon")).not.toBeNull();
-    expect(
-      items[0].querySelector(".foliplus-search-suggestion-text")?.textContent,
-    ).toBe("Paris, France");
-    // Address entries have coord-display below the text
+    expect(items).toHaveLength(1);
     expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
-    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe(
-      "2.3, 48.8",
-    );
-    // Coord entries do NOT have coord-display
-    expect(items[1].querySelector(".foliplus-search-result-coord")).toBeNull();
-    // No delete button
-    expect(items[0].querySelector(".foliplus-search-history-item-del")).toBeNull();
+    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe("2.3, 48.8");
   });
 
-  it("sorts by count desc then ts desc", () => {
-    const ctrl = makeHistoryCtrl([
-      {
-        query: "A",
-        type: "addr",
-        coordDisplay: "",
-        addrDisplay: "A",
-        lat: 0,
-        lng: 0,
-        ts: 100,
-        count: 1,
-      },
-      {
-        query: "B",
-        type: "addr",
-        coordDisplay: "",
-        addrDisplay: "B",
-        lat: 0,
-        lng: 0,
-        ts: 200,
-        count: 5,
-      },
-      {
-        query: "C",
-        type: "addr",
-        coordDisplay: "",
-        addrDisplay: "C",
-        lat: 0,
-        lng: 0,
-        ts: 300,
-        count: 5,
-      },
-    ]);
-    renderHistory(ctrl);
-    const items = ctrl.suggestionsWrap.querySelectorAll(
-      ".foliplus-search-suggestion-text",
-    );
-    // C (count 5, ts 300) before B (count 5, ts 200) before A (count 1, ts 100)
-    expect(items[0].textContent).toBe("C");
-    expect(items[1].textContent).toBe("B");
-    expect(items[2].textContent).toBe("A");
-  });
-
-  it("clicking a history entry navigates to the saved coordinates", () => {
+  it("renders coordinate history in coord mode", () => {
     const ctrl = makeHistoryCtrl([
       {
         query: "Paris",
@@ -544,8 +483,54 @@ describe("renderHistory", () => {
         ts: 1000,
         count: 1,
       },
+      {
+        query: "121.47,31.23",
+        type: "coord",
+        coordDisplay: "121.4700, 31.2300",
+        addrDisplay: "",
+        lat: 31.23,
+        lng: 121.47,
+        ts: 2000,
+        count: 1,
+      },
     ]);
-    renderHistory(ctrl);
+    renderHistory(ctrl, "coord");
+    expect(ctrl.suggestionsWrap).not.toBeNull();
+    expect(ctrl.suggestionsWrap.innerHTML).toContain("121.4700, 31.2300");
+    // Only coord items shown, addr items filtered out
+    expect(ctrl.suggestionsWrap.innerHTML).not.toContain("Paris, France");
+    const items = ctrl.suggestionsWrap.querySelectorAll(
+      ".foliplus-search-suggestion-item",
+    );
+    expect(items).toHaveLength(1);
+    // Coord entries do NOT have coord-display
+    expect(items[0].querySelector(".foliplus-search-result-coord")).toBeNull();
+  });
+
+  it("sorts by count desc then ts desc", () => {
+    const ctrl = makeHistoryCtrl([
+      { query: "A", type: "addr", coordDisplay: "", addrDisplay: "A", lat: 0, lng: 0, ts: 100, count: 1 },
+      { query: "B", type: "addr", coordDisplay: "", addrDisplay: "B", lat: 0, lng: 0, ts: 200, count: 5 },
+      { query: "C", type: "addr", coordDisplay: "", addrDisplay: "C", lat: 0, lng: 0, ts: 300, count: 5 },
+    ]);
+    renderHistory(ctrl, "addr");
+    const items = ctrl.suggestionsWrap.querySelectorAll(
+      ".foliplus-search-suggestion-text",
+    );
+    expect(items[0].textContent).toBe("C");
+    expect(items[1].textContent).toBe("B");
+    expect(items[2].textContent).toBe("A");
+  });
+
+  it("clicking a history entry navigates to the saved coordinates", () => {
+    const ctrl = makeHistoryCtrl([
+      {
+        query: "Paris", type: "addr",
+        coordDisplay: "2.3, 48.8", addrDisplay: "Paris, France",
+        lat: 48.8, lng: 2.3, ts: 1000, count: 1,
+      },
+    ]);
+    renderHistory(ctrl, "addr");
     const item = ctrl.suggestionsWrap.querySelector(
       ".foliplus-search-suggestion-item",
     )!;
@@ -555,24 +540,31 @@ describe("renderHistory", () => {
     expect(ctrl.inp.value).toBe("Paris, France");
   });
 
-  it("renders only coord entries when no addr history exists", () => {
+  it("renders only coord entries in coord mode", () => {
     const ctrl = makeHistoryCtrl([
       {
-        query: "121.47,31.23",
-        type: "coord",
-        coordDisplay: "121.4700, 31.2300",
-        addrDisplay: "",
-        lat: 31.23,
-        lng: 121.47,
-        ts: 1000,
-        count: 1,
+        query: "121.47,31.23", type: "coord",
+        coordDisplay: "121.4700, 31.2300", addrDisplay: "",
+        lat: 31.23, lng: 121.47, ts: 1000, count: 1,
       },
     ]);
-    renderHistory(ctrl);
+    renderHistory(ctrl, "coord");
     const items = ctrl.suggestionsWrap.querySelectorAll(
       ".foliplus-search-suggestion-text",
     );
     expect(items).toHaveLength(1);
     expect(items[0].textContent).toBe("121.4700, 31.2300");
+  });
+
+  it("shows nothing when no history matches the current mode", () => {
+    const ctrl = makeHistoryCtrl([
+      {
+        query: "Paris", type: "addr",
+        coordDisplay: "2.3, 48.8", addrDisplay: "Paris, France",
+        lat: 48.8, lng: 2.3, ts: 1000, count: 1,
+      },
+    ]);
+    renderHistory(ctrl, "coord");
+    expect(ctrl.suggestionsWrap).toBeNull();
   });
 });

@@ -384,9 +384,10 @@ const renderSuggestions = (
   });
 };
 
-const renderHistory = (ctrl: SearchControlState) => {
+const renderHistory = (ctrl: SearchControlState, mode: string) => {
   const entries = ctrl.searchHistory;
-  if (entries.length === 0) {
+  const targetType = mode === "addr" ? "addr" : "coord";
+  if (entries.length === 0 || !entries.some(e => e.type === targetType)) {
     removeSuggestions(ctrl);
     return;
   }
@@ -466,20 +467,20 @@ const renderHistory = (ctrl: SearchControlState) => {
     });
   };
 
-  renderSection("addr");
-  renderSection("coord");
+  renderSection(targetType);
 };
 
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
-  if (ctrl.mode !== MODE.ADDR) {
-    removeSuggestions(ctrl);
+
+  if (query.length === 0) {
+    if (ctrl.searchHistory.length > 0) renderHistory(ctrl, ctrl.mode);
+    else removeSuggestions(ctrl);
     return;
   }
 
-  if (query.length === 0) {
-    if (ctrl.searchHistory.length > 0) renderHistory(ctrl);
-    else removeSuggestions(ctrl);
+  if (ctrl.mode !== MODE.ADDR) {
+    removeSuggestions(ctrl);
     return;
   }
 

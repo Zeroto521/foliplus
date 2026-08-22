@@ -136,11 +136,11 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
   ctrl.inp.addEventListener("blur", () => setTimeout(() => removeSuggestions(ctrl), 0));
 
   ctrl.inp.addEventListener("focus", () => {
-    if (ctrl.mode === MODE.ADDR) {
-      const val = ctrl.inp.value.trim();
-      // Empty input → show search history; non-empty → fetch suggestions
-      fetchSuggestions(ctrl, val);
-    }
+    const val = ctrl.inp.value.trim();
+    // Empty input → show search history for current mode;
+    // non-empty → fetch suggestions (addr mode only)
+    if (val.length === 0) fetchSuggestions(ctrl, "");
+    else if (ctrl.mode === MODE.ADDR) fetchSuggestions(ctrl, val);
   });
 
   ctrl.repositionHandler = () => positionSuggestions(ctrl);
