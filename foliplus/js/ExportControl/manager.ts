@@ -606,10 +606,7 @@ class ExportManager {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      this.showGlobalHint(
-        _(`${CONF.name}.err_gen_fail`),
-        HINT_DURATION.LONG,
-      );
+      this.showGlobalHint(_(`${CONF.name}.err_gen_fail`), HINT_DURATION.LONG);
       return;
     }
     let imageData;
