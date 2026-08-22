@@ -85,6 +85,11 @@ const recordHistorySearch = (
 
 // ── Marker ───────────────────────────────────────────────────────
 
+/**
+ * Attach a floating ✕ delete icon to the search marker.
+ * The ✕ shows while the popup is open; clicking it removes the pin and
+ * clears the search input, mirroring MeasureControl / LocateControl UX.
+ */
 const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpression) => {
   if (ctrl.delIcon) {
     map.removeLayer(ctrl.delIcon);
