@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, get_args
 
-from ._cdn import GCOORD, TURF
+from ._cdn_loader import load_cdn
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -97,16 +97,7 @@ class MeasureControl(BaseControl):
 
     _export_fields = ("show_bearing", "filename", "export_format")
 
-    default_js = [
-        (
-            "gcoord",
-            f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD}/dist/gcoord.global.prod.js",
-        ),
-        (
-            "turf",
-            f"https://cdn.jsdelivr.net/npm/@turf/turf@{TURF}/turf.min.js",
-        ),
-    ]
+    default_js = load_cdn("MeasureControl")
 
     def __init__(
         self,

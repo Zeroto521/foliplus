@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, get_args
 
-from ._cdn import GEOTIFF, PAKO
+from ._cdn_loader import load_cdn
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -105,16 +105,7 @@ class ExportControl(BaseControl):
     >>> ExportControl(scale=3.0, filename="print").add_to(m)
     """
 
-    default_js = [
-        (
-            "geotiff",
-            f"https://cdn.jsdelivr.net/npm/geotiff@{GEOTIFF}/dist-browser/geotiff.js",
-        ),
-        (
-            "pako",
-            f"https://cdn.jsdelivr.net/npm/pako@{PAKO}/dist/pako.min.js",
-        ),
-    ]
+    default_js = load_cdn("ExportControl")
 
     _export_fields = (
         "filename",

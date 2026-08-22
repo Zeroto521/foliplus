@@ -48,7 +48,7 @@ include-package-data = false
 include = ["foliplus*"]
 
 [tool.setuptools.package-data]
-foliplus = ["locale/*.json", "dist/*.min.js", "dist/*.min.css"]
+foliplus = ["cdn.json", "locale/*.json", "dist/*.min.js", "dist/*.min.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["test/python"]
