@@ -79,3 +79,4 @@ memory/
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
+.claude/plans/myagents/
