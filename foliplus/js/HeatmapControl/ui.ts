@@ -438,7 +438,14 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
 };
 
 const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
-  ctrl.m.scanMapLayers();
+  try {
+    ctrl.m.scanMapLayers();
+  } catch {
+    // scanMapLayers may throw when LayerControl is missing (e.g.
+    // map.foliplus.LayerAPI is the lightweight stub that lacks the
+    // full registry methods).  The error is harmless — we just
+    // treat it as "no layers found" and continue to the hint logic.
+  }
   if (ctrl.m.pointLayers.length === 0 && attempt > 0)
     setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
   else if (ctrl.m.pointLayers.length === 0) {
