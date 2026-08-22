@@ -26,7 +26,6 @@ export class SearchControl extends BaseControl {
   declare clearBtn: HTMLElement;
   declare debouncedFetch: Debounced;
   declare cachedSuggestions: Cache<string, NominatimItem[]>;
-  declare cachedAddress: Record<string, AddressResult>;
   declare searchHistory: SearchHistoryEntry[];
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
@@ -115,7 +114,6 @@ export class SearchControl extends BaseControl {
     this.lastSuggestFetch = 0;
     this.suggestionsThrottleTimer = null;
     this.cachedSuggestions = new Cache<string, NominatimItem[]>(50);
-    this.cachedAddress = {};
     this.searchHistory = loadHistory();
     this.suggestAbortController = null;
     this.suggestSeq = 0;

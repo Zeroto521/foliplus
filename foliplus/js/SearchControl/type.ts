@@ -46,7 +46,6 @@ export interface SearchControl extends BaseControl {
   clearBtn: HTMLElement;
   debouncedFetch: Debounced;
   cachedSuggestions: Cache<string, NominatimItem[]>;
-  cachedAddress: Record<string, AddressResult>;
   searchHistory: SearchHistoryEntry[];
   scrollTargets: Array<Element | Window>;
   repositionHandler: () => void;

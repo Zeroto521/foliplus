@@ -83,7 +83,12 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       element: ctrl.inp,
       handler: () => {
         if (!ctrl.suggestionsWrap) return;
-        const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
+        // Only selectable items — skip non-item children like the history
+        // group header.
+        const items = ctrl.suggestionsWrap.querySelectorAll(
+          `.${CLASSES.SUGGESTION_ITEM}`,
+        );
+        if (items.length === 0) return;
         ctrl.selectedSuggestionIdx = Math.min(
           ctrl.selectedSuggestionIdx + 1,
           items.length - 1,
@@ -91,11 +96,10 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         items.forEach((el: Element, i: number) =>
           el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
         );
-        if (items[ctrl.selectedSuggestionIdx])
-          ctrl.inp.value =
-            items[ctrl.selectedSuggestionIdx].querySelector(
-              `.${CLASSES.SUGGESTION_TEXT}`,
-            )?.textContent ?? "";
+        ctrl.inp.value =
+          items[ctrl.selectedSuggestionIdx].querySelector(
+            `.${CLASSES.SUGGESTION_TEXT}`,
+          )?.textContent ?? "";
       },
     },
     {
@@ -103,12 +107,15 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       element: ctrl.inp,
       handler: () => {
         if (!ctrl.suggestionsWrap) return;
-        const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
+        const items = ctrl.suggestionsWrap.querySelectorAll(
+          `.${CLASSES.SUGGESTION_ITEM}`,
+        );
+        if (items.length === 0) return;
         ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
         items.forEach((el: Element, i: number) =>
           el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
         );
-        if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
+        if (ctrl.selectedSuggestionIdx >= 0)
           ctrl.inp.value =
             items[ctrl.selectedSuggestionIdx].querySelector(
               `.${CLASSES.SUGGESTION_TEXT}`,

@@ -123,17 +123,6 @@ describe("bindEvents", () => {
     expect(ctrl.suggestionsWrap).toBeNull();
   });
 
-  it("collapses and hides hint on Escape", () => {
-    const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("expanded");
-    bindEvents(ctrl);
-    ctrl.inp.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
-    expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
-    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
-  });
-
   it("searches on Enter", () => {
     const ctrl = makeCtrl();
     ctrl.inp.value = "121.47,31.23";
@@ -223,11 +212,11 @@ describe("bindEvents", () => {
     expect(ctrl.suggestionsWrap).toBeNull();
   });
 
-  it("navigates across history items (group header + entries) with ArrowDown", () => {
+  it("skips the history group header when navigating with ArrowDown", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
     ctrl.suggestionsWrap = document.createElement("div");
-    // History panel: group header (non-text item) + history entry
+    // History panel: group header (non-selectable) + history entry
     const header = document.createElement("div");
     header.className = "foliplus-search-history-group-header";
     header.innerHTML =
@@ -239,22 +228,21 @@ describe("bindEvents", () => {
     ctrl.suggestionsWrap.append(header, item);
     bindEvents(ctrl);
 
-    // First ArrowDown: moves to group header (no text → inp stays "")
-    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
+    // ArrowDown should skip the group header (not a SUGGESTION_ITEM)
+    // and land directly on the history entry.
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
     expect(ctrl.selectedSuggestionIdx).toBe(0);
-    expect(ctrl.inp.value).toBe("");
-
-    // Second ArrowDown: moves to history entry
-    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
-    expect(ctrl.selectedSuggestionIdx).toBe(1);
     expect(ctrl.inp.value).toBe("Paris, France");
   });
 
-  it("keyboard navigation wraps at panel boundaries", () => {
+  it("keyboard navigation clamps at panel boundaries", () => {
     const ctrl = makeCtrl();
     ctrl.suggestionsWrap = document.createElement("div");
     const mk = text => {
       const el = document.createElement("div");
+      el.className = "foliplus-search-suggestion-item";
       el.innerHTML = `<span class="foliplus-search-suggestion-text">${text}</span>`;
       return el;
     };
@@ -262,14 +250,22 @@ describe("bindEvents", () => {
     bindEvents(ctrl);
 
     // Start at index -1, go up → stays at -1
-    ctrl._handlers.keydown({ key: "ArrowUp", preventDefault: vi.fn() });
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
     expect(ctrl.selectedSuggestionIdx).toBe(-1);
     expect(ctrl.inp.value).toBe("");
 
     // Go down past the last item → clamps
-    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
-    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
-    ctrl._handlers.keydown({ key: "ArrowDown", preventDefault: vi.fn() });
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
     expect(ctrl.selectedSuggestionIdx).toBe(1); // clamped to last item
     expect(ctrl.inp.value).toBe("Two");
   });

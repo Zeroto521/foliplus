@@ -1,8 +1,6 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
-import { HINT_DURATION } from "#core/hint.js";
-import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
-import { fromWgs84 } from "#common/coord.js";
+import { fromWgs84, toWgs84 } from "#common/coord.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
@@ -16,6 +14,8 @@ import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import * as Storage from "#common/storage.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { guardBlocked } from "#core/mode.js";
 import { AUTOCOMPLETE, CLASSES, HISTORY, MODE, ZOOM } from "./const.js";
 import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
 
@@ -206,16 +206,11 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
         ctrl.inp.value = "";
         return;
       }
-      // result is already in map CRS — skip fromWgs84 in renderAddressResult.
-      renderAddressResult(ctrl, result, true);
-      recordHistorySearch(
-        ctrl,
-        query,
-        "addr",
-        result.display_name,
-        result.lng,
-        result.lat,
-      );
+      // result is already in map CRS — render directly; convert back to
+      // WGS84 for history storage (history entries are stored in WGS84).
+      renderAddressResult(ctrl, result);
+      const wgs = toWgs84(map, result.lng, result.lat);
+      recordHistorySearch(ctrl, query, "addr", result.display_name, wgs[1], wgs[0]);
     })
     .catch(() => {
       map.foliplus!.hideHint(CONF.name);
@@ -230,22 +225,19 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
 const renderAddressResult = (
   ctrl: SearchControlState,
   result: AddressResult | { lat: number; lng: number; display_name: string },
-  alreadyConverted = false,
 ) => {
-  const displayName =
-    "display_name" in result
-      ? result.display_name
-      : ((result as AddressResult).displayName ?? "");
-  let lng =
-    "lng" in result ? result.lng : parseFloat((result as AddressResult).item.lon);
-  let lat =
-    "lat" in result ? result.lat : parseFloat((result as AddressResult).item.lat);
+  let displayName: string;
+  let lng: number;
+  let lat: number;
 
-  if (!alreadyConverted) {
+  if ("display_name" in result) {
+    displayName = result.display_name;
+    lng = result.lng;
+    lat = result.lat;
+  } else {
     const item = (result as AddressResult).item;
-    lng = parseFloat(item.lon);
-    lat = parseFloat(item.lat);
-    const converted = fromWgs84(map, lng, lat);
+    displayName = (result as AddressResult).displayName ?? "";
+    const converted = fromWgs84(map, parseFloat(item.lon), parseFloat(item.lat));
     lng = converted[0];
     lat = converted[1];
   }
@@ -549,5 +541,6 @@ export {
   renderSuggestions,
   saveHistory,
   searchAddress,
-  searchCoord,
+  searchCoord
 };
+
