@@ -25,14 +25,18 @@ export interface SearchHistoryEntry {
   query: string;
   /** Search type: "coord" for coordinate, "addr" for address keyword. */
   type: "coord" | "addr";
-  /** Human-readable label displayed in the history list (formatted address or coord). */
-  label: string;
+  /** Formatted coordinate display, e.g. "121.4700, 31.2300". */
+  coordDisplay: string;
+  /** Formatted address display, e.g. "Paris, France". */
+  addrDisplay: string;
   /** Result longitude (WGS84). */
   lng: number;
   /** Result latitude (WGS84). */
   lat: number;
   /** Timestamp when this search was completed. */
   ts: number;
+  /** Number of times this query has been searched (for popularity sorting). */
+  count: number;
 }
 
 /** Public shape of the SearchControl instance, shared across sub-modules. */

@@ -26,8 +26,10 @@ export const CLASSES = {
 
 /** Search history configuration. */
 export const HISTORY = {
-  /** Maximum number of history entries to retain. */
+  /** Maximum number of history entries to retain in storage. */
   MAX_ENTRIES: 20,
+  /** Maximum entries to display per section (matches autocomplete limit). */
+  MAX_DISPLAY: AUTOCOMPLETE.MAX_ITEMS,
   /** localStorage key for search history. */
   STORAGE_KEY: "foliplus.search_history",
 };

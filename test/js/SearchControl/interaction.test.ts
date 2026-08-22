@@ -195,10 +195,12 @@ describe("bindEvents", () => {
       {
         query: "Paris",
         type: "addr",
-        label: "Paris, France",
+        coordDisplay: "2.3, 48.8",
+        addrDisplay: "Paris, France",
         lat: 48.8,
         lng: 2.3,
         ts: 1000,
+        count: 1,
       },
     ];
     bindEvents(ctrl);

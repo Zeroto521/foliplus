@@ -524,7 +524,7 @@ describe("searchCoord — history recording", () => {
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].query).toBe("121.47,31.23");
     expect(ctrl.searchHistory[0].type).toBe("coord");
-    expect(ctrl.searchHistory[0].label).toBe("121.4700, 31.2300");
+    expect(ctrl.searchHistory[0].coordDisplay).toBe("121.4700, 31.2300");
     expect(ctrl.searchHistory[0].lat).toBe(31.23);
     expect(ctrl.searchHistory[0].lng).toBe(121.47);
     expect(ctrl.searchHistory[0].ts).toBeGreaterThan(0);
@@ -929,7 +929,8 @@ describe("fetchSuggestions — empty input renders history", () => {
         {
           query: "Paris",
           type: "addr",
-          label: "Paris, France",
+          coordDisplay: "2.3, 48.8",
+          addrDisplay: "Paris, France",
           lat: 48.8,
           lng: 2.3,
           ts: 1000,
@@ -940,7 +941,7 @@ describe("fetchSuggestions — empty input renders history", () => {
     expect(ctrl.suggestionsWrap).not.toBeNull();
     expect(ctrl.suggestionsWrap.innerHTML).toContain("Paris, France");
     expect(
-      ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-header"),
+      ctrl.suggestionsWrap.querySelector(".foliplus-search-history-content"),
     ).not.toBeNull();
   });
 
@@ -966,7 +967,7 @@ describe("fetchSuggestions — empty input renders history", () => {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
       inp: { value: "" },
-      searchHistory: [{ query: "A", type: "addr", label: "A", lat: 0, lng: 0, ts: 1 }],
+      searchHistory: [{ query: "A", type: "addr", coordDisplay: "", addrDisplay: "A", lat: 0, lng: 0, ts: 1, count: 1 }],
     };
     fetchSuggestions(ctrl, "");
     expect(ctrl.suggestionsWrap).not.toBeNull();
@@ -991,7 +992,7 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
       },
       inp: { value: "abc" },
       searchHistory: [
-        { query: "Old", type: "addr", label: "Old", lat: 0, lng: 0, ts: 1 },
+        { query: "Old", type: "addr", coordDisplay: "", addrDisplay: "Old", lat: 0, lng: 0, ts: 1, count: 1 },
       ],
     };
     fetchSuggestions(ctrl, "abc");

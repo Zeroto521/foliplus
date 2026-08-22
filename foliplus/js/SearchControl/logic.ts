@@ -26,7 +26,6 @@ interface SearchControlState {
   inp: HTMLInputElement;
   mode: string;
   modeBtn: HTMLElement;
-  cachedAddress: Record<string, AddressResult>;
   cachedSuggestions: Cache<string, NominatimItem[]>;
   searchHistory: SearchHistoryEntry[];
   suggestionsWrap: HTMLElement | null;
@@ -55,8 +54,24 @@ const saveHistory = (entries: SearchHistoryEntry[]): void => {
 
 const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): void => {
   const { query } = entry;
-  const filtered = ctrl.searchHistory.filter(e => e.query !== query);
-  const updated = [entry, ...filtered].slice(0, HISTORY.MAX_ENTRIES);
+  const existing = ctrl.searchHistory.find(e => e.query === query);
+  if (existing) {
+    // Increment count and update displays/timestamp, move to front
+    existing.count += 1;
+    existing.ts = entry.ts;
+    existing.coordDisplay = entry.coordDisplay || existing.coordDisplay;
+    existing.addrDisplay = entry.addrDisplay || existing.addrDisplay;
+    existing.lng = entry.lng;
+    existing.lat = entry.lat;
+    const updated = [existing, ...ctrl.searchHistory.filter(e => e.query !== query)].slice(
+      0,
+      HISTORY.MAX_ENTRIES,
+    );
+    ctrl.searchHistory = updated;
+    saveHistory(updated);
+    return;
+  }
+  const updated = [entry, ...ctrl.searchHistory].slice(0, HISTORY.MAX_ENTRIES);
   ctrl.searchHistory = updated;
   saveHistory(updated);
 };
@@ -76,11 +91,21 @@ const recordHistorySearch = (
   ctrl: SearchControlState,
   query: string,
   type: "coord" | "addr",
-  label: string,
+  coordDisplay: string,
+  addrDisplay: string,
   lng: number,
   lat: number,
 ): void => {
-  addHistoryEntry(ctrl, { query, type, label, lng, lat, ts: Date.now() });
+  addHistoryEntry(ctrl, {
+    query,
+    type,
+    coordDisplay,
+    addrDisplay,
+    lng,
+    lat,
+    ts: Date.now(),
+    count: 1,
+  });
 };
 
 // ── Marker ───────────────────────────────────────────────────────
@@ -175,8 +200,8 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
 
-  const coordLabel = `${lng.toFixed(4)}, ${lat.toFixed(4)}`;
-  recordHistorySearch(ctrl, raw, "coord", coordLabel, lng, lat);
+  const coordDisplay = `${lng.toFixed(4)}, ${lat.toFixed(4)}`;
+  recordHistorySearch(ctrl, raw, "coord", coordDisplay, "", lng, lat);
 };
 
 /**
@@ -210,7 +235,9 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       // WGS84 for history storage (history entries are stored in WGS84).
       renderAddressResult(ctrl, result);
       const wgs = toWgs84(map, result.lng, result.lat);
-      recordHistorySearch(ctrl, query, "addr", result.display_name, wgs[0], wgs[1]);
+      const coordDisplay = `${wgs[0].toFixed(4)}, ${wgs[1].toFixed(4)}`;
+      const addrDisplay = formatAddress(result.display_name, map, CONF.locale_code) || query;
+      recordHistorySearch(ctrl, query, "addr", coordDisplay, addrDisplay, wgs[0], wgs[1]);
     })
     .catch(() => {
       map.foliplus!.hideHint(CONF.name);
@@ -325,17 +352,19 @@ const renderSuggestions = (
           event.preventDefault();
           removeSuggestions(ctrl);
           renderAddressResult(ctrl, { item, displayName });
+          const coordDisplay = `${parseFloat(item.lon).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
           recordHistorySearch(
             ctrl,
             query,
             "addr",
+            coordDisplay,
             displayName,
             parseFloat(item.lon),
             parseFloat(item.lat),
           );
         },
       },
-      dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: Icons.LOCATE }),
+      dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: Icons.GLOBE }),
       dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, displayName),
     );
   });
@@ -360,89 +389,67 @@ const renderHistory = (ctrl: SearchControlState) => {
   ctrl.selectedSuggestionIdx = -1;
   positionSuggestions(ctrl);
 
-  const groupHeader = dom.el("div", {
-    class: CLASSES.HISTORY_GROUP_HEADER,
-    parent: ctrl.suggestionsWrap,
-  });
-  dom.el(
-    "span",
-    { class: CLASSES.HISTORY_GROUP_TITLE, parent: groupHeader },
-    { html: _(`${CONF.name}.history_title`) },
-  );
-  dom.el(
-    "button",
-    {
-      class: CLASSES.HISTORY_GROUP_CLEAR,
-      parent: groupHeader,
-      title: _(`${CONF.name}.history_clear_all`),
-      onclick: (event: Event) => {
-        event.stopPropagation();
-        event.preventDefault();
-        clearHistory(ctrl);
-        removeSuggestions(ctrl);
-      },
-    },
-    { html: _(`${CONF.name}.history_clear_all`) },
-  );
+  // Sort by search count (desc), then recency (desc) as tiebreaker
+  const sorted = [...entries].sort((a, b) => b.count - a.count || b.ts - a.ts);
 
-  entries.forEach((entry: SearchHistoryEntry, idx: number) => {
-    // History entries reuse the same suggestion-item classes as address
-    // suggestions, plus a history-specific ✕ delete button inside.
-    const item = dom.el(
-      "div",
-      {
-        class: CLASSES.SUGGESTION_ITEM,
-        "data-index": String(idx),
-        onmousedown: (event: Event) => {
-          event.stopPropagation();
-          event.preventDefault();
-          removeSuggestions(ctrl);
-          ctrl.inp.value = entry.label;
-          const converted = fromWgs84(map, entry.lng, entry.lat);
-          const lng = converted[0];
-          const lat = converted[1];
-          map.flyTo([lat, lng], CONF.zoom || 16);
-          ctrl.marker = createLocationMarker(
-            map,
-            lng,
-            lat,
-            entry.label,
-            entry.type === "coord"
-              ? _(`${CONF.name}.popup_title_coord`)
-              : _(`${CONF.name}.popup_title_addr`),
-            _(`${CONF.name}.popup_loading`),
-            _(`${CONF.name}.popup_loc_label`),
-            _(`${CONF.name}.popup_addr_label`),
-            _("foliplus.close_label"),
-            CONF.locale_code,
-            ctrl.marker,
-          );
-          attachSearchDelIcon(ctrl, [lat, lng]);
-        },
-      },
-      dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: Icons.LOCATE }),
-      dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, entry.label),
-      dom.el(
-        "span",
+  // Render addr section first, then coord section
+  const renderSection = (type: "addr" | "coord") => {
+    const sectionEntries = sorted
+      .filter(e => e.type === type)
+      .slice(0, HISTORY.MAX_DISPLAY);
+    if (sectionEntries.length === 0) return;
+
+    sectionEntries.forEach((entry: SearchHistoryEntry) => {
+      const isAddr = entry.type === "addr";
+      const primaryText = isAddr ? entry.addrDisplay : entry.coordDisplay;
+
+      const item = dom.el(
+        "div",
         {
-          class: CLASSES.HISTORY_ITEM_DEL,
-          title: _(`${CONF.name}.history_delete`),
+          class: CLASSES.SUGGESTION_ITEM,
           onmousedown: (event: Event) => {
             event.stopPropagation();
             event.preventDefault();
-            deleteHistoryEntry(ctrl, entry.query);
-            if (ctrl.searchHistory.length > 0) {
-              renderHistory(ctrl);
-            } else {
-              removeSuggestions(ctrl);
-            }
+            removeSuggestions(ctrl);
+            ctrl.inp.value = primaryText;
+            const converted = fromWgs84(map, entry.lng, entry.lat);
+            const lng = converted[0];
+            const lat = converted[1];
+            map.flyTo([lat, lng], CONF.zoom || 16);
+            ctrl.marker = createLocationMarker(
+              map,
+              lng,
+              lat,
+              entry.addrDisplay || entry.coordDisplay,
+              isAddr
+                ? _(`${CONF.name}.popup_title_addr`)
+                : _(`${CONF.name}.popup_title_coord`),
+              _(`${CONF.name}.popup_loading`),
+              _(`${CONF.name}.popup_loc_label`),
+              _(`${CONF.name}.popup_addr_label`),
+              _("foliplus.close_label"),
+              CONF.locale_code,
+              ctrl.marker,
+            );
+            attachSearchDelIcon(ctrl, [lat, lng]);
           },
         },
-        { html: "\u2715" },
-      ),
-    );
-    ctrl.suggestionsWrap!.appendChild(item);
-  });
+        dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: isAddr ? Icons.GLOBE : Icons.LOCATE }),
+        dom.el(
+          "div",
+          { class: "foliplus-search-history-content" },
+          dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, primaryText),
+          isAddr && entry.coordDisplay
+            ? dom.el("div", { class: "foliplus-search-history-coord-display" }, entry.coordDisplay)
+            : null,
+        ),
+      );
+      ctrl.suggestionsWrap!.appendChild(item);
+    });
+  };
+
+  renderSection("addr");
+  renderSection("coord");
 };
 
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
