@@ -56,8 +56,13 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         ? _(`${CONF.name}.coord_placeholder`)
         : _(`${CONF.name}.addr_placeholder`);
 
-    if (ctrl.mode === MODE.ADDR) ctrl.debouncedFetch();
-    else {
+    if (ctrl.inp.value.trim().length === 0) {
+      // Input cleared — show history immediately
+      ctrl.debouncedFetch.cancel();
+      fetchSuggestions(ctrl, "");
+    } else if (ctrl.mode === MODE.ADDR) {
+      ctrl.debouncedFetch();
+    } else {
       ctrl.debouncedFetch.cancel();
       removePanel(ctrl);
     }

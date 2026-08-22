@@ -154,18 +154,20 @@ describe("bindEvents", () => {
     expect(ctrl.delIcon).toBeNull();
   });
 
-  it("debounce-fetches on addr input", () => {
+  it("debounce-fetches on addr input with non-empty value", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
+    ctrl.inp.value = "abc";
     ctrl.debouncedFetch = vi.fn();
     bindEvents(ctrl);
     ctrl._handlers.input();
     expect(ctrl.debouncedFetch).toHaveBeenCalled();
   });
 
-  it("cancels debounced fetch on coord input", () => {
+  it("cancels debounced fetch on coord input with non-empty value", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "coord";
+    ctrl.inp.value = "abc";
     ctrl.debouncedFetch = { cancel: vi.fn() };
     bindEvents(ctrl);
     ctrl._handlers.input();
