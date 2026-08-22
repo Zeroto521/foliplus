@@ -54,6 +54,7 @@ uv.lock
 env.bak/
 venv/
 venv.bak/
+tmp/
 
 # Tooling
 .mypy_cache/
@@ -79,6 +80,3 @@ memory/
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
-.foliplus/
-test.py
-tmp/
