@@ -77,10 +77,10 @@ const recordHistorySearch = (
   query: string,
   type: "coord" | "addr",
   label: string,
-  lat: number,
   lng: number,
+  lat: number,
 ): void => {
-  addHistoryEntry(ctrl, { query, type, label, lat, lng, ts: Date.now() });
+  addHistoryEntry(ctrl, { query, type, label, lng, lat, ts: Date.now() });
 };
 
 // ── Marker ───────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   attachSearchDelIcon(ctrl, [lat, lng]);
 
   const coordLabel = `${lng.toFixed(4)}, ${lat.toFixed(4)}`;
-  recordHistorySearch(ctrl, raw, "coord", coordLabel, lat, lng);
+  recordHistorySearch(ctrl, raw, "coord", coordLabel, lng, lat);
 };
 
 const searchAddress = (ctrl: SearchControlState, query: string) => {
@@ -198,8 +198,8 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
         query,
         "addr",
         result.display_name,
-        result.lat,
         result.lng,
+        result.lat,
       );
     })
     .catch(() => {
