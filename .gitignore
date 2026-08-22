@@ -44,7 +44,6 @@ doc/source/_build/
 doc/source/api/
 doc/source/map.html
 
-
 # Environments
 .ipynb_checkpoints
 .conda
@@ -73,6 +72,7 @@ package-lock.json
 *.db
 .DS_Store
 .claude/
+.task/
 memory/
 
 # Auto-generated
