@@ -46,12 +46,19 @@ class TestCDN:
 
     def test_cdn_urls_in_default_js(self):
         """All default_js URLs in controls with external dependencies follow expected format."""
-        from foliplus import FullscreenControl, HeatmapControl, MeasureControl, ExportControl
+        from foliplus import (
+            ExportControl,
+            FullscreenControl,
+            HeatmapControl,
+            MeasureControl,
+        )
 
         for ctrl in (HeatmapControl, MeasureControl, ExportControl):
             assert len(ctrl.default_js) > 0, f"{ctrl.__name__} has no CDN deps"
             for _, url in ctrl.default_js:
-                assert url.startswith("https://cdn.jsdelivr.net/npm/"), f"Bad URL: {url}"
+                assert url.startswith("https://cdn.jsdelivr.net/npm/"), (
+                    f"Bad URL: {url}"
+                )
                 assert "@" in url, f"Version missing in {url}"
 
         # Controls without external dependencies have empty default_js/css lists
