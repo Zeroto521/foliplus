@@ -448,11 +448,7 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
     const missingLayerControl = map.foliplus!.LayerAPI!.isLayerControl === false;
     map.foliplus!.showHint(
       CONF.name,
-      _(
-        missingLayerControl
-          ? `${CONF.name}.no_layercontrol`
-          : `${CONF.name}.no_layer`,
-      ),
+      _(missingLayerControl ? `${CONF.name}.no_layercontrol` : `${CONF.name}.no_layer`),
       HINT_DURATION.LONG,
     );
   } else rebuildLayerDropdown(ctrl);
