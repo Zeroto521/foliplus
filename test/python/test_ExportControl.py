@@ -178,6 +178,28 @@ class TestExportControlBrowser:
     """Browser-level tests for ExportControl."""
 
     @staticmethod
+    def _stub_html(html: str) -> str:
+        """Remove blocking CDN <script> tags and inject stubs for GeoTIFF/pako."""
+        for cdn in (
+            "geotiff@3.0.5/dist-browser/geotiff.js",
+            "pako@2.1.0/dist/pako.min.js",
+        ):
+            html = html.replace(
+                f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
+            )
+        marker = 'CONF = {"name": "ExportControl"'
+        idx = html.find(marker)
+        if idx > 0:
+            semi = html.find(";", idx)
+            if semi > 0:
+                stub = (
+                    "window.GeoTIFF={writeArrayBuffer:function(){return new ArrayBuffer(0)}};"
+                    "window.pako={deflateRaw:function(a){return a}};"
+                )
+                html = html[: semi + 1] + stub + html[semi + 1 :]
+        return html
+
+    @staticmethod
     def _make_page(browser, tmp_path, *layers, slug="export"):
         from foliplus import LayerControl
 
@@ -186,7 +208,8 @@ class TestExportControlBrowser:
         ExportControl().add_to(m)
         for layer in layers:
             layer.add_to(m)
-        page, errors = make_browser_page(browser, tmp_path, m.get_root().render(), slug)
+        html = TestExportControlBrowser._stub_html(m.get_root().render())
+        page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
         return page, errors
 
