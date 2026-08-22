@@ -425,7 +425,6 @@ describe("ExportManager — download paths", () => {
       expect(manager.showGlobalHint).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Number),
-        false,
       );
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
@@ -538,11 +537,6 @@ describe("ExportManager — download paths", () => {
     Object.defineProperty(canvas, "width", { value: 0 });
     Object.defineProperty(canvas, "height", { value: 50 });
 
-    const mockWrite = vi.fn();
-    const originalM = await import("geotiff");
-    // Stub writeArrayBuffer directly on the imported module
-    // We cannot easily replace it, so we test the early-return path differently
-    // by checking that no download link is created
     const links: HTMLAnchorElement[] = [];
     const origCreate = document.createElement.bind(document);
     vi.spyOn(document, "createElement").mockImplementation(tag => {

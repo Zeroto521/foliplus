@@ -548,7 +548,6 @@ class ExportManager {
           this.showGlobalHint(
             _(`${CONF.name}.status_fail`) + _(`${CONF.name}.err_gen_fail`),
             HINT_DURATION.LONG,
-            false,
           );
           this.isExporting = false;
           ensureModes(this.map).setMode(CONF.name, null);
@@ -571,11 +570,7 @@ class ExportManager {
           document.body.removeChild(link);
           setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
         }
-        this.showGlobalHint(
-          _(`${CONF.name}.status_success`),
-          HINT_DURATION.LONG,
-          false,
-        );
+        this.showGlobalHint(_(`${CONF.name}.status_success`), HINT_DURATION.LONG);
         this.isExporting = false;
         ensureModes(this.map).setMode(CONF.name, null);
         ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
@@ -664,7 +659,6 @@ class ExportManager {
     this.showGlobalHint(
       _(`${CONF.name}.status_fail`) + (err.message || ""),
       HINT_DURATION.LONG,
-      false,
     );
     this.isExporting = false;
   }
