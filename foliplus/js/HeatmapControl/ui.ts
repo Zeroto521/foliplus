@@ -1,7 +1,6 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { HINT_DURATION } from "#core/hint.js";
-import { isRealLayerControl } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -438,7 +437,14 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
 };
 
 const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
-  ctrl.m.scanMapLayers();
+  try {
+    ctrl.m.scanMapLayers();
+  } catch {
+    // scanMapLayers may throw when LayerControl is missing (e.g.
+    // map.foliplus.LayerAPI is the lightweight stub that lacks the
+    // full registry methods).  The error is harmless — we just
+    // treat it as "no layers found" and continue to the hint logic.
+  }
   if (ctrl.m.pointLayers.length === 0 && attempt > 0)
     setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
   else if (ctrl.m.pointLayers.length === 0) {
@@ -447,7 +453,7 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
     // lightweight LayerAPI stub is installed (no LayerControl added),
     // whereas a real LayerControl present with no point data means the
     // user needs to add a GeoJson/Marker layer with .feature.
-    const missingLayerControl = !isRealLayerControl(map.foliplus!.LayerAPI);
+    const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
     map.foliplus!.showHint(
       CONF.name,
       _(

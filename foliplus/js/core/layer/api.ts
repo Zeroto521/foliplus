@@ -67,7 +67,7 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
  * Object.getOwnPropertyDescriptor distinguishes the two reliably even if
  * isLayerControl were manually tampered with.
  */
-export const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
+const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
   if (!api) return false;
   // LayerManager defines `layers` as a class getter (prototype property),
   // while the lightweight stub sets it as a plain data property (own).
