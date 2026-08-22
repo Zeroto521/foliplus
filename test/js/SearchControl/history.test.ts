@@ -464,7 +464,7 @@ describe("renderHistory", () => {
     // Only addr items shown, coord items filtered out
     expect(ctrl.suggestionsWrap.innerHTML).not.toContain("121.4700, 31.2300");
     const items = ctrl.suggestionsWrap.querySelectorAll(
-      ".foliplus-search-suggestion-item",
+      ".foliplus-search-result-item",
     );
     expect(items).toHaveLength(1);
     expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
@@ -502,7 +502,7 @@ describe("renderHistory", () => {
     // Only coord items shown, addr items filtered out
     expect(ctrl.suggestionsWrap.innerHTML).not.toContain("Paris, France");
     const items = ctrl.suggestionsWrap.querySelectorAll(
-      ".foliplus-search-suggestion-item",
+      ".foliplus-search-result-item",
     );
     expect(items).toHaveLength(1);
     // Coord entries also show coord-display for consistent two-line layout
@@ -545,7 +545,7 @@ describe("renderHistory", () => {
     ]);
     renderHistory(ctrl, "addr");
     const items = ctrl.suggestionsWrap.querySelectorAll(
-      ".foliplus-search-suggestion-text",
+      ".foliplus-search-result-text",
     );
     expect(items[0].textContent).toBe("C");
     expect(items[1].textContent).toBe("B");
@@ -567,7 +567,7 @@ describe("renderHistory", () => {
     ]);
     renderHistory(ctrl, "addr");
     const item = ctrl.suggestionsWrap.querySelector(
-      ".foliplus-search-suggestion-item",
+      ".foliplus-search-result-item",
     )!;
     const mouseEvent = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
     item.dispatchEvent(mouseEvent);
@@ -590,7 +590,7 @@ describe("renderHistory", () => {
     ]);
     renderHistory(ctrl, "coord");
     const items = ctrl.suggestionsWrap.querySelectorAll(
-      ".foliplus-search-suggestion-text",
+      ".foliplus-search-result-text",
     );
     expect(items).toHaveLength(1);
     expect(items[0].textContent).toBe("121.4700, 31.2300");

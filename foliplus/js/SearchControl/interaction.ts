@@ -20,7 +20,7 @@ const { _ } = createControlEnv(CONF);
  * expose their label via the same `.SUGGESTION_TEXT` span.
  */
 const getItemText = (item: Element): string | null => {
-  return item.querySelector(`.${CLASSES.SUGGESTION_TEXT}`)?.textContent ?? null;
+  return item.querySelector(`.${CLASSES.RESULT_TEXT}`)?.textContent ?? null;
 };
 
 /**
@@ -86,7 +86,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         // Only selectable items — skip non-item children like the history
         // group header.
         const items = ctrl.suggestionsWrap.querySelectorAll(
-          `.${CLASSES.SUGGESTION_ITEM}`,
+          `.${CLASSES.RESULT_ITEM}`,
         );
         if (items.length === 0) return;
         ctrl.selectedSuggestionIdx = Math.min(
@@ -97,7 +97,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
           el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
         );
         ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.SUGGESTION_TEXT}`)
+          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
             ?.textContent ?? "";
       },
     },
@@ -107,7 +107,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       handler: () => {
         if (!ctrl.suggestionsWrap) return;
         const items = ctrl.suggestionsWrap.querySelectorAll(
-          `.${CLASSES.SUGGESTION_ITEM}`,
+          `.${CLASSES.RESULT_ITEM}`,
         );
         if (items.length === 0) return;
         ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
@@ -117,7 +117,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         if (ctrl.selectedSuggestionIdx >= 0)
           ctrl.inp.value =
             items[ctrl.selectedSuggestionIdx].querySelector(
-              `.${CLASSES.SUGGESTION_TEXT}`,
+              `.${CLASSES.RESULT_TEXT}`,
             )?.textContent ?? "";
       },
     },

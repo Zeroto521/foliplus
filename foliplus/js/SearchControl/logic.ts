@@ -16,7 +16,7 @@ import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import * as Storage from "#common/storage.js";
-import { AUTOCOMPLETE, CLASSES, HISTORY, MODE, ZOOM } from "./const.js";
+import { AUTOCOMPLETE, CLASSES, HISTORY, MODE, SOURCE, ZOOM } from "./const.js";
 import type {
   AddressResult,
   NominatimItem,
@@ -336,7 +336,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
 
   if (!ctrl.suggestionsWrap) {
     ctrl.suggestionsWrap = dom.el("div", {
-      class: CLASSES.SUGGESTIONS,
+      class: CLASSES.RESULT_PANEL,
       parent: document.body,
       onclick: (event: Event) => event.stopPropagation(),
     });
@@ -350,7 +350,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
     dom.el(
       "div",
       {
-        class: CLASSES.SUGGESTION_ITEM,
+        class: CLASSES.RESULT_ITEM,
         "data-index": String(idx),
         parent: ctrl.suggestionsWrap,
         onmousedown: (event: Event) => {
@@ -360,11 +360,11 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
           item.onClick();
         },
       },
-      dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: item.icon }),
+      dom.el("span", { class: CLASSES.RESULT_ICON }, { html: item.icon }),
       dom.el(
         "div",
         { class: CLASSES.RESULT_CONTENT },
-        dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, item.primaryText),
+        dom.el("span", { class: CLASSES.RESULT_TEXT }, item.primaryText),
         item.coordDisplay
           ? dom.el("div", { class: CLASSES.RESULT_COORD }, item.coordDisplay)
           : null,
@@ -391,7 +391,7 @@ const renderSuggestions = (
     const coordDisplay = `${parseFloat(item.lon).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
     return {
       icon: Icons.LOCATE,
-      source: "suggestion",
+      source: SOURCE.SUGGESTION,
       primaryText: displayName,
       coordDisplay,
       onClick: () => {
@@ -435,7 +435,7 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
     const primaryText = isAddr ? (entry.addrDisplay || "") : (entry.coordDisplay || "");
     return {
       icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
-      source: "history",
+      source: SOURCE.HISTORY,
       primaryText,
       coordDisplay: entry.coordDisplay || null,
       onClick: () => {

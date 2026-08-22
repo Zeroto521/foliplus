@@ -1,6 +1,7 @@
 // SearchControl constants — CSS classes, search parameters, zoom levels.
 
 export const MODE = { COORD: "coord", ADDR: "addr" };
+export const SOURCE = { SUGGESTION: "suggestion", HISTORY: "history" };
 export const SEARCH = { LIMIT: 5 };
 export const ZOOM = { MAX: 16, MIN: 12, BASE: 18, DIVISOR: 20 };
 export const AUTOCOMPLETE = { DEBOUNCE_MS: 300, MIN_CHARS: 3, MAX_ITEMS: 5 };
@@ -11,10 +12,10 @@ export const CLASSES = {
   MAP_SEARCH: "foliplus-search",
   SEARCH_MODE_BTN: "foliplus-search-mode-btn",
   CLEAR: "clear",
-  SUGGESTIONS: "foliplus-search-suggestions",
-  SUGGESTION_ITEM: "foliplus-search-suggestion-item",
-  SUGGESTION_ICON: "foliplus-search-suggestion-icon",
-  SUGGESTION_TEXT: "foliplus-search-suggestion-text",
+  RESULT_PANEL: "foliplus-search-result-panel",
+  RESULT_ITEM: "foliplus-search-result-item",
+  RESULT_ICON: "foliplus-search-result-icon",
+  RESULT_TEXT: "foliplus-search-result-text",
   ACTIVE: "active",
   /** Content wrapper inside a result item (address + coord display). */
   RESULT_CONTENT: "foliplus-search-result-content",

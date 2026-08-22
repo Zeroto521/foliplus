@@ -45,7 +45,7 @@ export interface ResultItem {
   source: "suggestion" | "history";
   /** Icon SVG to display. */
   icon: string;
-  /** Primary display text (shown in SUGGESTION_TEXT). */
+  /** Primary display text (shown in RESULT_TEXT). */
   primaryText: string;
   /** Secondary coordinate display (shown in RESULT_COORD, null to hide). */
   coordDisplay: string | null;

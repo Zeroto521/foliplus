@@ -77,8 +77,8 @@ describe("bindEvents", () => {
     const mk = text =>
       dom.el(
         "div",
-        { class: "foliplus-search-suggestion-item" },
-        dom.el("span", { class: "foliplus-search-suggestion-text" }, text),
+        { class: "foliplus-search-result-item" },
+        dom.el("span", { class: "foliplus-search-result-text" }, text),
       );
     ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
@@ -95,8 +95,8 @@ describe("bindEvents", () => {
     const mk = text =>
       dom.el(
         "div",
-        { class: "foliplus-search-suggestion-item" },
-        dom.el("span", { class: "foliplus-search-suggestion-text" }, text),
+        { class: "foliplus-search-result-item" },
+        dom.el("span", { class: "foliplus-search-result-text" }, text),
       );
     ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
@@ -119,7 +119,7 @@ describe("bindEvents", () => {
     ctrl.suggestionsWrap = dom.el(
       "div",
       null,
-      dom.el("div", { class: "foliplus-search-suggestion" }, "One"),
+      dom.el("div", { class: "foliplus-search-result" }, "One"),
     );
     bindEvents(ctrl);
     ctrl.inp.dispatchEvent(
@@ -235,14 +235,14 @@ describe("bindEvents", () => {
     );
     const item = dom.el(
       "div",
-      { class: "foliplus-search-suggestion-item" },
-      dom.el("span", { class: "foliplus-search-suggestion-icon" }, "📍"),
-      dom.el("span", { class: "foliplus-search-suggestion-text" }, "Paris, France"),
+      { class: "foliplus-search-result-item" },
+      dom.el("span", { class: "foliplus-search-result-icon" }, "📍"),
+      dom.el("span", { class: "foliplus-search-result-text" }, "Paris, France"),
     );
     ctrl.suggestionsWrap.append(header, item);
     bindEvents(ctrl);
 
-    // ArrowDown should skip the group header (not a SUGGESTION_ITEM)
+    // ArrowDown should skip the group header (not a RESULT_ITEM)
     // and land directly on the history entry.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
@@ -257,8 +257,8 @@ describe("bindEvents", () => {
     const mk = text =>
       dom.el(
         "div",
-        { class: "foliplus-search-suggestion-item" },
-        dom.el("span", { class: "foliplus-search-suggestion-text" }, text),
+        { class: "foliplus-search-result-item" },
+        dom.el("span", { class: "foliplus-search-result-text" }, text),
       );
     ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);

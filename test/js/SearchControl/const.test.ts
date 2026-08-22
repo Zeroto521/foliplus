@@ -41,7 +41,7 @@ describe("PARAM", () => {
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
     expect(CONST.CLASSES.MAP_SEARCH).toBe("foliplus-search");
-    expect(CONST.CLASSES.SUGGESTIONS).toBe("foliplus-search-suggestions");
+    expect(CONST.CLASSES.RESULT_PANEL).toBe("foliplus-search-result-panel");
     expect(CONST.CLASSES.ACTIVE).toBe("active");
   });
 });
