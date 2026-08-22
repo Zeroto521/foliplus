@@ -42,6 +42,7 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
   });
 
   map.foliplus!.LayerAPI = {
+    isLayerControl: false,
     layers: Object.freeze([]) as unknown as LayerInfo[],
     registerLayer: () => null,
     unregisterLayer: () => false,
@@ -56,24 +57,55 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
 };
 
 /**
- * Guard that the LayerControl (map.foliplus.LayerAPI) is available.
- * Shows a persistent hint and throws when the required API is missing.
- * Used by components that depend on LayerControl (Export, Heatmap).
+ * True when the LayerAPI is LayerManager (the real LayerControl), false
+ * when it is ensureLayerAPI's lightweight stub.
+ *
+ * We use a capability assertion rather than trusting the isLayerControl
+ * self-report flag: LayerManager exposes `layers` as a getter that
+ * delegates to its layerRegistry, while the lightweight stub sets `layers`
+ * as a plain frozen empty array (a data property with no getter).
+ * Object.getOwnPropertyDescriptor distinguishes the two reliably even if
+ * isLayerControl were manually tampered with.
+ */
+const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
+  if (!api) return false;
+  // LayerManager defines `layers` as a class getter (prototype property),
+  // while the lightweight stub sets it as a plain data property (own).
+  // Check both the instance and the prototype chain for the getter.
+  const own =
+    Object.getOwnPropertyDescriptor(api, "layers") ||
+    Object.getOwnPropertyDescriptor(Object.getPrototypeOf(api), "layers");
+  return !!(own && own.get);
+};
+
+/**
+ * Guard that a real LayerControl (not ensureLayerAPI's lightweight stub)
+ * is present.  Shows a persistent hint and throws when the dependency is
+ * missing.  Used by components that hard-depend on LayerControl (Export).
+ *
+ * We can't just test `map.foliplus?.LayerAPI` — other foliplus subsystems
+ * (hint/mode/interaction) install a lightweight LayerAPI stub that is
+ * always truthy even when LayerControl was never added.  isRealLayerControl
+ * asserts the registry-delegating `layers` getter that only LayerManager
+ * has, so the guard only accepts a real LayerControl.
  *
  * @param componentName - CONF.name, used as hint key and error prefix.
  * @param _ - Translator function (from createTranslator).
  * @param map - Leaflet map instance (per-map LayerAPI namespace).
- * @returns The LayerAPI instance (throws if missing).
+ * @returns The LayerAPI instance (throws if not a real LayerControl).
  */
 export const requireLayerAPI = (
   componentName: string,
   _: (key: string) => string,
   map: L.Map,
 ): LayerAPI => {
-  if (!map.foliplus?.LayerAPI) {
+  const api = map.foliplus?.LayerAPI;
+  if (!isRealLayerControl(api)) {
     const msg = _(`${componentName}.no_layercontrol`);
     if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
     throw new Error(`[${componentName}] ${msg}`);
   }
-  return map.foliplus.LayerAPI;
+  // isRealLayerControl returned true, so `api` is non-null (a real
+  // LayerManager).  Use the narrowed local to satisfy TS control-flow.
+  return api!;
 };

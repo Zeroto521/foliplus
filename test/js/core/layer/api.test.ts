@@ -153,9 +153,31 @@ describe("requireLayerAPI", () => {
     expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
   });
 
-  it("uses map.foliplus.LayerAPI when present", () => {
-    const api = { layers: [] } as any;
+  it("accepts a real LayerControl (layers is a getter, like LayerManager)", () => {
+    const api = {
+      get layers() {
+        return [];
+      },
+    } as any;
     const map = { foliplus: { LayerAPI: api } };
     expect(requireLayerAPI("Test", _, map as any)).toBe(api);
+  });
+
+  it("throws for ensureLayerAPI's lightweight stub (layers is a data property)", () => {
+    // Without this capability check, a lightweight stub installed by another
+    // foliplus subsystem (hint/mode/interaction) would silently pass
+    // requireLayerAPI, letting Export run without a real LayerControl.
+    const api = { layers: [] } as any; // data property, no getter
+    const map = { foliplus: { showHint: mockShowHint, LayerAPI: api } } as any;
+    expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
+    expect(mockShowHint).toHaveBeenCalled();
+  });
+
+  it("throws even when isLayerControl flag is tampered to true", () => {
+    // Capability assertion is the authority; the self-report flag alone
+    // cannot bypass the guard.
+    const api = { layers: [], isLayerControl: true } as any;
+    const map = { foliplus: { showHint: mockShowHint, LayerAPI: api } } as any;
+    expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
   });
 });
