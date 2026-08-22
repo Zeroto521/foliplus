@@ -1,5 +1,22 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes } from "#core/mode.js";
+import { dom } from "#common/dom.js";
+import { createTranslator } from "#common/locale.js";
+import * as Storage from "#common/storage.js";
+import * as CONST from "./const.js";
+import { registerDrag, registerInteractions } from "./interaction.js";
+import { ExportRenderer } from "./renderer.js";
+import {
+  lockCropBox,
+  removeCropBox,
+  showCropBox,
+  showGlobalHint,
+  showHintWithInfo,
+  unlockCropBox,
+  updateBoxStyle,
+} from "./ui.js";
 
 // CDN URLs for GeoTIFF and pako libraries.  These are loaded dynamically
 // (on-demand) rather than via blocking <script> tags because geotiff.js is
@@ -33,23 +50,6 @@ const ensureGeoTiffLibs = async (): Promise<void> => {
   })();
   return _libsPromise;
 };
-import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes } from "#core/mode.js";
-import { dom } from "#common/dom.js";
-import { createTranslator } from "#common/locale.js";
-import * as Storage from "#common/storage.js";
-import * as CONST from "./const.js";
-import { registerDrag, registerInteractions } from "./interaction.js";
-import { ExportRenderer } from "./renderer.js";
-import {
-  lockCropBox,
-  removeCropBox,
-  showCropBox,
-  showGlobalHint,
-  showHintWithInfo,
-  unlockCropBox,
-  updateBoxStyle,
-} from "./ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
