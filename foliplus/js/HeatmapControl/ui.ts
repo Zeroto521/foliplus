@@ -1,7 +1,7 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { HINT_DURATION } from "#core/hint.js";
-import { isRealLayerControl } from "#core/layer/api.js";
+import { isRealLayerControl } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";

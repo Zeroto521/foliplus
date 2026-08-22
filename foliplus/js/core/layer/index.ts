@@ -12,7 +12,7 @@ export { LayerFactory } from "./LayerFactory.js";
 export { LayerRegistry } from "./LayerRegistry.js";
 export { PaneManager } from "./PaneManager.js";
 export { findLayer, forEachLayer, forEachLeaf, getGeometryType } from "./util.js";
-export { ensureLayerAPI, requireLayerAPI } from "./api.js";
+export { ensureLayerAPI, isRealLayerControl, requireLayerAPI } from "./api.js";
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
