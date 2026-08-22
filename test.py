@@ -1,4 +1,5 @@
 import json
+
 import dtoolkit.geoaccessor  # noqa: F401
 import folium
 import geopandas as gpd
