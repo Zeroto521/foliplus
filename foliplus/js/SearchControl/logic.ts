@@ -385,7 +385,7 @@ const renderSuggestions = (
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
     const coordDisplay = `${parseFloat(item.lon).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
     return {
-      icon: Icons.LOCATE,
+      icon: Icons.GLOBE,
       primaryText: displayName,
       coordDisplay,
       onClick: () => {
@@ -426,11 +426,11 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
 
   const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
     const isAddr = entry.type === "addr";
-    const primaryText = isAddr ? entry.addrDisplay : entry.coordDisplay;
+    const primaryText = isAddr ? (entry.addrDisplay || entry.coordDisplay || "") : (entry.coordDisplay || "");
     return {
-      icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
+      icon: isAddr ? Icons.GLOBE : Icons.LOCATE,
       primaryText,
-      coordDisplay: isAddr ? entry.coordDisplay : null,
+      coordDisplay: entry.coordDisplay || null,
       onClick: () => {
         ctrl.inp.value = primaryText;
         const converted = fromWgs84(map, entry.lng, entry.lat);

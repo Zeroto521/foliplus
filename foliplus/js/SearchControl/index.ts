@@ -84,7 +84,7 @@ export class SearchControl extends BaseControl {
     const modeBtn = createIconButton({
       class: CLASSES.SEARCH_MODE_BTN,
       title: _(`${CONF.name}.mode_coord`),
-      svg: Icons.GLOBE,
+      svg: Icons.LOCATE,
       parent: toolBar,
     });
     const inp = dom.el("input", {
@@ -129,11 +129,11 @@ export class SearchControl extends BaseControl {
   setMode(newMode: string) {
     this.mode = newMode;
     if (this.mode === MODE.COORD) {
-      this.modeBtn.innerHTML = Icons.GLOBE;
+      this.modeBtn.innerHTML = Icons.LOCATE;
       this.modeBtn.title = _(`${CONF.name}.mode_coord`);
       this.inp.placeholder = _(`${CONF.name}.coord_placeholder`);
     } else {
-      this.modeBtn.innerHTML = Icons.LOCATE;
+      this.modeBtn.innerHTML = Icons.GLOBE;
       this.modeBtn.title = _(`${CONF.name}.mode_addr`);
       this.inp.placeholder = _(`${CONF.name}.addr_placeholder`);
     }

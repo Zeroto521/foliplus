@@ -503,8 +503,9 @@ describe("renderHistory", () => {
       ".foliplus-search-suggestion-item",
     );
     expect(items).toHaveLength(1);
-    // Coord entries do NOT have coord-display
-    expect(items[0].querySelector(".foliplus-search-result-coord")).toBeNull();
+    // Coord entries also show coord-display for consistent two-line layout
+    expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
+    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe("121.4700, 31.2300");
   });
 
   it("sorts by count desc then ts desc", () => {
