@@ -57,7 +57,6 @@ export class SearchControl extends BaseControl {
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();
     this.cachedSuggestions.clear();
-    this.cachedAddress = {};
     this.searchHistory = [];
     this.scrollTargets.forEach(t =>
       t.removeEventListener("scroll", this.repositionHandler, true),
