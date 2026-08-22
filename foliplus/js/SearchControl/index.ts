@@ -9,16 +9,8 @@ import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { CLASSES, MODE } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
-import {
-  initDebouncedFetch,
-  loadHistory,
-  removeSuggestions,
-} from "./logic.js";
-import type {
-  AddressResult,
-  NominatimItem,
-  SearchHistoryEntry,
-} from "./type.js";
+import { initDebouncedFetch, loadHistory, removeSuggestions } from "./logic.js";
+import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
 
 const { _ } = createControlEnv(CONF, SVGs.SEARCH);
 ensureHint(map);
