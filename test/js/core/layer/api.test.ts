@@ -153,17 +153,17 @@ describe("requireLayerAPI", () => {
     expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
   });
 
-  it("accepts a real LayerControl (LayerAPI._isLayerControl === true)", () => {
-    const api = { layers: [], _isLayerControl: true } as any;
+  it("accepts a real LayerControl (LayerAPI.isLayerControl === true)", () => {
+    const api = { layers: [], isLayerControl: true } as any;
     const map = { foliplus: { LayerAPI: api } };
     expect(requireLayerAPI("Test", _, map as any)).toBe(api);
   });
 
-  it("throws for ensureLayerAPI's lightweight stub (_isLayerControl === false)", () => {
+  it("throws for ensureLayerAPI's lightweight stub (isLayerControl === false)", () => {
     // Without this check, a lightweight stub installed by another foliplus
     // subsystem (hint/mode/interaction) would silently pass requireLayerAPI,
     // letting Export/Heatmap run without a real LayerControl.
-    const api = { layers: [], _isLayerControl: false } as any;
+    const api = { layers: [], isLayerControl: false } as any;
     const map = { foliplus: { showHint: mockShowHint, LayerAPI: api } } as any;
     expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
     expect(mockShowHint).toHaveBeenCalled();
