@@ -1,6 +1,4 @@
 // ExportControl manager — crop box state machine, export orchestration.
-import { writeArrayBuffer } from "geotiff";
-import { deflateSync } from "fflate";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
@@ -637,8 +635,10 @@ class ExportManager {
     // DEFLATE (TIFF code 8, native in QGIS/GDAL/ArcGIS) and hand the
     // pre-compressed bytes to writeArrayBuffer, which treats them as the
     // image's strip data.
-    const compressed = deflateSync(rgb);
-    const tiffBuffer = writeArrayBuffer(compressed, {
+    // image's strip data.  geotiff and pako are loaded from CDN via
+    // default_js (ExportControl.py) and exposed as global GeoTIFF / pako.
+    const compressed = pako.deflateRaw(rgb);
+    const tiffBuffer = GeoTIFF.writeArrayBuffer(compressed, {
       width: canvas.width,
       height: canvas.height,
       ModelTiepoint: [0, 0, 0, geoBounds.nw.lng, geoBounds.nw.lat, 0],

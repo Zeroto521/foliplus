@@ -302,6 +302,11 @@ declare global {
   const ss: SimpleStats;
   const h3: typeof import("h3-js");
 
+  /** geotiff.js (CDN, ExportControl). Provides GeoTIFF.writeArrayBuffer. */
+  const GeoTIFF: typeof import("geotiff");
+  /** pako (CDN, ExportControl). Deflate/inflate for GeoTIFF compression. */
+  const pako: typeof import("pako");
+
   interface Window {
     foliplus: Foliplus;
     CONF: ComponentConfig;

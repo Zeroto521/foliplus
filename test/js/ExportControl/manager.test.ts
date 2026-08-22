@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { decompressSync, deflateSync } from "fflate";
+import * as GeoTIFF from "geotiff";
+import * as pako from "pako";
 import { ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
@@ -403,6 +404,14 @@ describe("ExportManager — export events", () => {
 describe("ExportManager — download paths", () => {
   let manager;
 
+  beforeAll(() => {
+    // manager.ts uses GeoTIFF and pako as globals (loaded from CDN at runtime);
+    // in the test environment (vitest/jsdom) we inject them from the installed
+    // npm packages so the real compression chain is exercised.
+    (globalThis as any).GeoTIFF = GeoTIFF;
+    (globalThis as any).pako = pako;
+  });
+
   beforeEach(() => {
     manager = makeManager();
     setCropState(manager);
@@ -507,12 +516,12 @@ describe("ExportManager — download paths", () => {
       raw[i + 1] = (i * 5) % 255;
       raw[i + 2] = (i * 7) % 255;
     }
-    // Ensure the imported decompressSync is the actual function, not a stub.
-    const compressed = deflateSync(raw);
+    // pako.deflateRaw matches the raw DEFLATE (RFC 1951) used by GeoTIFF code 8.
+    const compressed = pako.deflateRaw(raw);
     expect(compressed.byteLength).toBeGreaterThan(0);
     // Compressed output should be smaller than raw (patterned but not random).
     expect(compressed.byteLength).toBeLessThan(raw.byteLength);
-    const decompressed = decompressSync(compressed) as Uint8Array;
+    const decompressed = pako.inflateRaw(compressed) as Uint8Array;
     expect(decompressed.length).toBe(raw.length);
     expect(Array.from(decompressed)).toEqual(Array.from(raw));
   });

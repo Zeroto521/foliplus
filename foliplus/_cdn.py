@@ -11,3 +11,7 @@ CHROMA = "2"
 
 GCOORD = "1"  # MeasureControl / LocateControl / SearchControl
 TURF = "7"  # MeasureControl
+
+# ExportControl
+GEOTIFF = "3.0.5"
+PAKO = "2.1.0"

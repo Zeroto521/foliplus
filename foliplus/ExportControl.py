@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, get_args
 
+from ._cdn import GEOTIFF, PAKO
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -103,6 +104,17 @@ class ExportControl(BaseControl):
     >>> ExportControl(format="geotiff", filename="raster").add_to(m)
     >>> ExportControl(scale=3.0, filename="print").add_to(m)
     """
+
+    default_js = [
+        (
+            "geotiff",
+            f"https://cdn.jsdelivr.net/npm/geotiff@{GEOTIFF}/dist-browser/geotiff.js",
+        ),
+        (
+            "pako",
+            f"https://cdn.jsdelivr.net/npm/pako@{PAKO}/dist/pako.min.js",
+        ),
+    ]
 
     _export_fields = (
         "filename",
