@@ -376,10 +376,10 @@ describe("renderHistory", () => {
       items[0].querySelector(".foliplus-search-suggestion-text")?.textContent,
     ).toBe("Paris, France");
     // Address entries have coord-display below the text
-    expect(items[0].querySelector(".foliplus-search-history-coord-display")).not.toBeNull();
-    expect(items[0].querySelector(".foliplus-search-history-coord-display")?.textContent).toBe("2.3, 48.8");
+    expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
+    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe("2.3, 48.8");
     // Coord entries do NOT have coord-display
-    expect(items[1].querySelector(".foliplus-search-history-coord-display")).toBeNull();
+    expect(items[1].querySelector(".foliplus-search-result-coord")).toBeNull();
     // No delete button
     expect(items[0].querySelector(".foliplus-search-history-item-del")).toBeNull();
   });

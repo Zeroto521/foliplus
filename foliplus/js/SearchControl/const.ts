@@ -16,12 +16,10 @@ export const CLASSES = {
   SUGGESTION_ICON: "foliplus-search-suggestion-icon",
   SUGGESTION_TEXT: "foliplus-search-suggestion-text",
   ACTIVE: "active",
-  HISTORY_GROUP: "foliplus-search-history-group",
-  HISTORY_GROUP_HEADER: "foliplus-search-history-group-header",
-  HISTORY_GROUP_TITLE: "foliplus-search-history-group-title",
-  HISTORY_GROUP_CLEAR: "foliplus-search-history-group-clear",
-  /** Delete button inside a history entry suggestion item. */
-  HISTORY_ITEM_DEL: "foliplus-search-history-item-del",
+  /** Content wrapper inside a result item (address + coord display). */
+  RESULT_CONTENT: "foliplus-search-result-content",
+  /** Secondary coordinate display line inside a result item. */
+  RESULT_COORD: "foliplus-search-result-coord",
 };
 
 /** Search history configuration. */

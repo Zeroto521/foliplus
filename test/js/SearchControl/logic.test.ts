@@ -941,7 +941,7 @@ describe("fetchSuggestions — empty input renders history", () => {
     expect(ctrl.suggestionsWrap).not.toBeNull();
     expect(ctrl.suggestionsWrap.innerHTML).toContain("Paris, France");
     expect(
-      ctrl.suggestionsWrap.querySelector(".foliplus-search-history-content"),
+      ctrl.suggestionsWrap.querySelector(".foliplus-search-result-content"),
     ).not.toBeNull();
   });
 

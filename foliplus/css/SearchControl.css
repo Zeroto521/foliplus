@@ -93,17 +93,17 @@
   overflow-wrap: break-word;
 }
 
-/* ── Search History Panel ── */
-.foliplus-search-history-content {
+/* ── Result Item Content (shared by suggestions and history) ── */
+.foliplus-search-result-content {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
-.foliplus-search-history-content .foliplus-search-suggestion-text {
+.foliplus-search-result-content .foliplus-search-suggestion-text {
   flex: none;
 }
-.foliplus-search-history-coord-display {
+.foliplus-search-result-coord {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
   line-height: 1.4;

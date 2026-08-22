@@ -341,6 +341,7 @@ const renderSuggestions = (
   results.forEach((item: NominatimItem, idx: number) => {
     const displayName =
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
+    const coordDisplay = `${parseFloat(item.lon).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
     dom.el(
       "div",
       {
@@ -352,7 +353,6 @@ const renderSuggestions = (
           event.preventDefault();
           removeSuggestions(ctrl);
           renderAddressResult(ctrl, { item, displayName });
-          const coordDisplay = `${parseFloat(item.lon).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
           recordHistorySearch(
             ctrl,
             query,
@@ -365,7 +365,12 @@ const renderSuggestions = (
         },
       },
       dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: Icons.GLOBE }),
-      dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, displayName),
+      dom.el(
+        "div",
+        { class: CLASSES.RESULT_CONTENT },
+        dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, displayName),
+        dom.el("div", { class: CLASSES.RESULT_COORD }, coordDisplay),
+      ),
     );
   });
 };
@@ -437,10 +442,10 @@ const renderHistory = (ctrl: SearchControlState) => {
         dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: isAddr ? Icons.GLOBE : Icons.LOCATE }),
         dom.el(
           "div",
-          { class: "foliplus-search-history-content" },
+          { class: CLASSES.RESULT_CONTENT },
           dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, primaryText),
           isAddr && entry.coordDisplay
-            ? dom.el("div", { class: "foliplus-search-history-coord-display" }, entry.coordDisplay)
+            ? dom.el("div", { class: CLASSES.RESULT_COORD }, entry.coordDisplay)
             : null,
         ),
       );
