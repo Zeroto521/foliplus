@@ -50,7 +50,18 @@ interface SearchControlState {
 
 const loadHistory = (): SearchHistoryEntry[] => {
   const data = Storage.load<SearchHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name);
-  return Array.isArray(data) ? data : [];
+  if (!Array.isArray(data)) return [];
+  // Migrate old entries (pre-refactor with `label` field) to the new format
+  return data.map(e => ({
+    query: e.query ?? "",
+    type: (e.type === "coord" || e.type === "addr" ? e.type : "addr") as "coord" | "addr",
+    coordDisplay: e.coordDisplay ?? (e.type === "coord" ? (e as any).label ?? "" : ""),
+    addrDisplay: e.addrDisplay ?? (e.type === "addr" ? (e as any).label ?? "" : ""),
+    lng: e.lng ?? 0,
+    lat: e.lat ?? 0,
+    ts: e.ts ?? Date.now(),
+    count: e.count ?? 1,
+  }));
 };
 
 const saveHistory = (entries: SearchHistoryEntry[]): void => {

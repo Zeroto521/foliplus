@@ -63,6 +63,26 @@ describe("loadHistory / saveHistory", () => {
     expect(loadHistory()).toEqual([]);
   });
 
+  it("migrates old entries with label field to new format", () => {
+    localStorage.setItem(
+      HISTORY.STORAGE_KEY,
+      JSON.stringify([
+        { query: "Paris", type: "addr", label: "Paris, France", lat: 48.8, lng: 2.3, ts: 1000 },
+        { query: "121.47,31.23", type: "coord", label: "121.4700, 31.2300", lat: 31.23, lng: 121.47, ts: 2000 },
+      ]),
+    );
+    const loaded = loadHistory();
+    expect(loaded).toHaveLength(2);
+    expect(loaded[0].query).toBe("Paris");
+    expect(loaded[0].addrDisplay).toBe("Paris, France");
+    expect(loaded[0].coordDisplay).toBe("");
+    expect(loaded[0].count).toBe(1);
+    expect(loaded[1].query).toBe("121.47,31.23");
+    expect(loaded[1].coordDisplay).toBe("121.4700, 31.2300");
+    expect(loaded[1].addrDisplay).toBe("");
+    expect(loaded[1].count).toBe(1);
+  });
+
   it("saves an empty array when history is cleared", () => {
     const entries: SearchHistoryEntry[] = [
       {
