@@ -1,7 +1,6 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { HINT_DURATION } from "#core/hint.js";
-import { isRealLayerControl } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -450,11 +449,10 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
     setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
   else if (ctrl.m.pointLayers.length === 0) {
     // Distinguish the two "no point layers" causes so the hint points the
-    // user at the right fix:  not a real LayerControl means only the
+    // user at the right fix:  isLayerControl===false means only the
     // lightweight LayerAPI stub is installed (no LayerControl added),
-    // whereas a real LayerControl present with no point data means the
-    // user needs to add a GeoJson/Marker layer with .feature.
-    const missingLayerControl = !isRealLayerControl(map.foliplus!.LayerAPI);
+    // whereas true means LayerControl is present but has no point data.
+    const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
     map.foliplus!.showHint(
       CONF.name,
       _(missingLayerControl ? `${CONF.name}.no_layercontrol` : `${CONF.name}.no_layer`),
