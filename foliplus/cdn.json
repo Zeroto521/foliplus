@@ -2,11 +2,11 @@
   "ExportControl": [
     [
       "geotiff",
-      "https://cdn.jsdelivr.net/npm/geotiff@3.0.5/dist-browser/geotiff.js"
+      "https://cdn.jsdelivr.net/npm/geotiff@3/dist-browser/geotiff.js"
     ],
     [
       "pako",
-      "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"
+      "https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"
     ]
   ],
   "HeatmapControl": [
