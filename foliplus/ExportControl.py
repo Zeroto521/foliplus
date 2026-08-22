@@ -34,7 +34,6 @@ class ExportControl(BaseControl):
        * - Mouse drag (inside crop box)
          - Move the crop box
 
-
     Parameters
     ----------
     position : str, default "bottomright"

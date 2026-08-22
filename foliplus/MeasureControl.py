@@ -39,7 +39,6 @@ class MeasureControl(BaseControl):
        * - Escape
          - Exit the current measurement mode
 
-
     Parameters
     ----------
     position : str, default "bottomright"
