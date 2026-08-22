@@ -79,3 +79,6 @@ memory/
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
+.foliplus/
+test.py
+tmp/
