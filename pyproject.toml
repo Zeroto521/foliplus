@@ -33,9 +33,10 @@ Documentation = "https://foliplus.readthedocs.io"
 Source = "https://github.com/Zeroto521/foliplus"
 Issues = "https://github.com/Zeroto521/foliplus/issues"
 
-[project.optional-dependencies]
+[dependency-groups]
 test = ["pytest", "pytest-cov", "pytest-xdist", "pytest-playwright", "codecov"]
-dev = ["foliplus[test]", "build", "twine"]
+doc = ["sphinx", "pydata-sphinx-theme", "myst-nb", "sphinx-copybutton", "sphinx-design", "geopandas", "my-data-toolkit"]
+dev = [{include-group = "test"}, {include-group = "doc"}, "build", "twine"]
 
 [tool.setuptools_scm]
 write_to = "foliplus/_version.py"
@@ -47,7 +48,7 @@ include-package-data = false
 include = ["foliplus*"]
 
 [tool.setuptools.package-data]
-foliplus = ["locale/*.json", "dist/*.min.js", "dist/*.min.css"]
+foliplus = ["cdn.json", "locale/*.json", "dist/*.min.js", "dist/*.min.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["test/python"]

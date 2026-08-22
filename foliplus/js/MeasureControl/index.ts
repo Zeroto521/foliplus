@@ -38,7 +38,7 @@ class MeasureControl extends BaseControl {
       toggleSvg: SVGs.RULER,
       position: CONF.position,
     });
-    const btnConfigs = [
+    const btnConfigs: Array<{ mode?: string; title: string; svg: string }> = [
       {
         mode: CONST.MODE.MARKER,
         title: _(`${CONF.name}.tool_marker`),
@@ -59,23 +59,33 @@ class MeasureControl extends BaseControl {
         title: _(`${CONF.name}.tool_circle`),
         svg: SVGs.CIRCLE,
       },
+      // Export — no mode, so it stays out of toolBtns (no data-mode);
+      // its click is bound via the interaction manager (see manager.ts).
+      {
+        title: _(`${CONF.name}.tool_export`),
+        svg: Icons.DOWNLOAD,
+      },
       {
         mode: CONST.MODE.CLEAR,
         title: _(`${CONF.name}.tool_clear`),
         svg: SVGs.TRASH,
       },
     ];
+    let exportBtn: HTMLElement | null = null;
     btnConfigs.forEach(({ mode, title, svg }) => {
-      createIconButton({
+      const btn = createIconButton({
         class: "foliplus-tool-btn",
         title,
         svg,
         parent: toolBar,
-        data: { mode },
+        ...(mode ? { data: { mode } } : {}),
       });
+      if (!mode) exportBtn = btn;
     });
+
     this.m.ctrl = ctrl;
     this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
+    this.m.bindExportClick(exportBtn!);
 
     bindFoldToggle({ container: ctrl, toggleBtn });
 

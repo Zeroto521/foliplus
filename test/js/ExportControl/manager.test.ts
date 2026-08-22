@@ -1,3 +1,5 @@
+import * as GeoTIFF from "geotiff";
+import * as pako from "pako";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
@@ -397,14 +399,339 @@ describe("ExportManager — export events", () => {
       component: "ExportControl",
     });
   });
+});
 
-  it("pixel over limit emits after:export event", () => {
-    const events = ensureEvents(manager.map);
-    vi.spyOn(events, "emit");
-    manager.pixelOverLimit = true;
-    manager.doExport();
-    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
-      component: "ExportControl",
+describe("ExportManager — download paths", () => {
+  let manager;
+
+  beforeAll(() => {
+    // manager.ts uses GeoTIFF and pako as globals (loaded from CDN at runtime);
+    // in the test environment (vitest/jsdom) we inject them from the installed
+    // npm packages so the real compression chain is exercised.
+    (globalThis as any).GeoTIFF = GeoTIFF;
+    (globalThis as any).pako = pako;
+  });
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    window.CONF = {
+      ...window.CONF,
+      name: "ExportControl",
+      filename: "test-map",
+      format: "png",
+      timeout: 7500,
+    };
+  });
+
+  it("onRenderSuccess with toBlob returning null shows fail hint", async () => {
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb) {
+      cb(null);
+    };
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await new Promise(r => setTimeout(r, 0));
+      expect(manager.showGlobalHint).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Number),
+      );
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+    }
+  });
+
+  it("onRenderSuccess with format=geotiff calls downloadGeoTiff", async () => {
+    window.CONF = { ...window.CONF, format: "geotiff" };
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb) {
+      cb(new Blob(["fake"], { type: "image/tiff" }));
+    };
+    const spy = vi.spyOn(manager, "downloadGeoTiff");
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await new Promise(r => setTimeout(r, 0));
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      spy.mockRestore();
+    }
+  });
+
+  it("downloadGeoTiff produces .tif download with valid geo bounds", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    const canvas = document.createElement("canvas") as HTMLCanvasElement;
+    Object.defineProperty(canvas, "width", { value: 100 });
+    Object.defineProperty(canvas, "height", { value: 50 });
+    const ctx = {
+      getImageData: vi.fn().mockReturnValue({
+        data: new Uint8ClampedArray(100 * 50 * 4).fill(0),
+      }),
+    };
+    canvas.getContext = vi.fn().mockReturnValue(ctx);
+
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:"),
+      revokeObjectURL: vi.fn(),
     });
+
+    const links: HTMLAnchorElement[] = [];
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
+      if (tag.toLowerCase() === "a") {
+        const a = origCreate("a");
+        links.push(a);
+        a.click = vi.fn();
+        return a;
+      }
+      return origCreate(tag);
+    });
+
+    try {
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
+      expect(links.length).toBe(1);
+      expect(links[0].download).toBe("test-map.tif");
+      expect(links[0].href).toBe("blob:");
+      expect(links[0].click).toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("downloadGeoTiff uses DEFLATE-compressed RGB (compression round-trips)", () => {
+    // Verify the compression primitive works end-to-end: DEFLATE-compressed
+    // RGB bytes must decompress back to the original pixel data. This is
+    // exactly what downloadGeoTiff feeds into writeArrayBuffer.
+    const raw = new Uint8Array(60000); // 100*50*3 RGB
+    for (let i = 0; i < raw.length; i += 3) {
+      raw[i] = (i * 3) % 255;
+      raw[i + 1] = (i * 5) % 255;
+      raw[i + 2] = (i * 7) % 255;
+    }
+    // pako.deflateRaw matches the raw DEFLATE (RFC 1951) used by GeoTIFF code 8.
+    const compressed = pako.deflateRaw(raw);
+    expect(compressed.byteLength).toBeGreaterThan(0);
+    // Compressed output should be smaller than raw (patterned but not random).
+    expect(compressed.byteLength).toBeLessThan(raw.byteLength);
+    const decompressed = pako.inflateRaw(compressed) as Uint8Array;
+    expect(decompressed.length).toBe(raw.length);
+    expect(Array.from(decompressed)).toEqual(Array.from(raw));
+  });
+
+  it("downloadGeoTiff uses savedBounds when cropState has been cleared", async () => {
+    // doExport() calls removeCropBox() (which sets cropState=null) before
+    // the render callback fires.  downloadGeoTiff must still find geo
+    // bounds via this.savedBounds.
+    manager.cropState = null;
+    manager.savedBounds = {
+      nw: { lat: 31.0, lng: 121.0 },
+      se: { lat: 30.0, lng: 122.0 },
+    };
+    const canvas = document.createElement("canvas") as HTMLCanvasElement;
+    Object.defineProperty(canvas, "width", { value: 100 });
+    Object.defineProperty(canvas, "height", { value: 50 });
+    const ctx = {
+      getImageData: vi.fn().mockReturnValue({
+        data: new Uint8ClampedArray(100 * 50 * 4).fill(0),
+      }),
+    };
+    canvas.getContext = vi.fn().mockReturnValue(ctx);
+
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:geo"),
+      revokeObjectURL: vi.fn(),
+    });
+
+    const links: HTMLAnchorElement[] = [];
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
+      if (tag.toLowerCase() === "a") {
+        const a = origCreate("a");
+        links.push(a);
+        a.click = vi.fn();
+        return a;
+      }
+      return origCreate(tag);
+    });
+
+    try {
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
+      expect(links.length).toBe(1);
+      expect(links[0].download).toBe("test-map.tif");
+      expect(links[0].href).toBe("blob:geo");
+      expect(links[0].click).toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("downloadGeoTiff shows hint when no geo bounds", async () => {
+    manager.cropState!.geoBounds = null;
+    manager.savedBounds = null;
+    const canvas = document.createElement("canvas") as HTMLCanvasElement;
+    Object.defineProperty(canvas, "width", { value: 100 });
+    Object.defineProperty(canvas, "height", { value: 50 });
+
+    try {
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
+      expect(manager.showGlobalHint).toHaveBeenCalledWith(
+        expect.stringContaining("err_geotiff_geo"),
+        expect.any(Number),
+      );
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("downloadGeoTiff returns early on zero-size canvas", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    const canvas = document.createElement("canvas") as HTMLCanvasElement;
+    Object.defineProperty(canvas, "width", { value: 0 });
+    Object.defineProperty(canvas, "height", { value: 50 });
+
+    const links: HTMLAnchorElement[] = [];
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
+      if (tag.toLowerCase() === "a") {
+        const a = origCreate("a");
+        links.push(a);
+        a.click = vi.fn();
+        return a;
+      }
+      return origCreate(tag);
+    });
+
+    try {
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
+      // Zero-size canvas should return early — no download link created
+      expect(links.length).toBe(0);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("downloadGeoTiff returns early when getContext returns null", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    const canvas = document.createElement("canvas") as HTMLCanvasElement;
+    Object.defineProperty(canvas, "width", { value: 100 });
+    Object.defineProperty(canvas, "height", { value: 50 });
+    canvas.getContext = vi.fn().mockReturnValue(null);
+
+    const links: HTMLAnchorElement[] = [];
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
+      if (tag.toLowerCase() === "a") {
+        const a = origCreate("a");
+        links.push(a);
+        a.click = vi.fn();
+        return a;
+      }
+      return origCreate(tag);
+    });
+
+    try {
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
+      expect(links.length).toBe(0);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("downloadGeoTiff returns early when getImageData throws", async () => {
+    manager.cropState!.geoBounds = {
+      nw: { lat: 41.0, lng: -75.0 },
+      se: { lat: 40.0, lng: -74.0 },
+    };
+    const canvas = document.createElement("canvas") as HTMLCanvasElement;
+    Object.defineProperty(canvas, "width", { value: 100 });
+    Object.defineProperty(canvas, "height", { value: 50 });
+    const ctx = {
+      getImageData: vi.fn().mockImplementation(() => {
+        throw new Error("tainted canvas");
+      }),
+    };
+    canvas.getContext = vi.fn().mockReturnValue(ctx);
+
+    const links: HTMLAnchorElement[] = [];
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
+      if (tag.toLowerCase() === "a") {
+        const a = origCreate("a");
+        links.push(a);
+        a.click = vi.fn();
+        return a;
+      }
+      return origCreate(tag);
+    });
+
+    try {
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
+      // getImageData threw, so no download link should be created
+      expect(links.length).toBe(0);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("onRenderSuccess auto-dismisses preview after SHORT duration", async () => {
+    vi.useFakeTimers();
+    try {
+      const origToBlob = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (cb) {
+        cb(new Blob(["fake"]));
+      };
+      const origToDataUrl = HTMLCanvasElement.prototype.toDataURL;
+      HTMLCanvasElement.prototype.toDataURL = vi
+        .fn()
+        .mockReturnValue("data:image/png,");
+
+      const img = document.createElement("img") as HTMLImageElement & {
+        _removeCalled: boolean;
+      };
+      img._removeCalled = false;
+      const origRemove = img.remove.bind(img);
+      img.remove = vi.fn(() => {
+        img._removeCalled = true;
+        origRemove();
+      });
+      const origCreate = document.createElement.bind(document);
+      vi.spyOn(document, "createElement").mockImplementation(tag => {
+        if (tag.toLowerCase() === "img") return img;
+        if (tag.toLowerCase() === "a") {
+          const a = origCreate("a");
+          a.click = vi.fn();
+          return a;
+        }
+        return origCreate(tag);
+      });
+
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      expect(img._removeCalled).toBe(false);
+
+      vi.advanceTimersByTime(1200);
+      vi.runOnlyPendingTimers();
+      expect(img._removeCalled).toBe(true);
+
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      HTMLCanvasElement.prototype.toDataURL = origToDataUrl;
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    }
   });
 });

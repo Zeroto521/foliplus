@@ -437,12 +437,28 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
 };
 
 const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
-  ctrl.m.scanMapLayers();
+  try {
+    ctrl.m.scanMapLayers();
+  } catch {
+    // scanMapLayers may throw when LayerControl is missing (e.g.
+    // map.foliplus.LayerAPI is the lightweight stub that lacks the
+    // full registry methods).  The error is harmless — we just
+    // treat it as "no layers found" and continue to the hint logic.
+  }
   if (ctrl.m.pointLayers.length === 0 && attempt > 0)
     setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
-  else if (ctrl.m.pointLayers.length === 0)
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.no_layer`), HINT_DURATION.LONG);
-  else rebuildLayerDropdown(ctrl);
+  else if (ctrl.m.pointLayers.length === 0) {
+    // Distinguish the two "no point layers" causes so the hint points the
+    // user at the right fix:  isLayerControl===false means only the
+    // lightweight LayerAPI stub is installed (no LayerControl added),
+    // whereas true means LayerControl is present but has no point data.
+    const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
+    map.foliplus!.showHint(
+      CONF.name,
+      _(missingLayerControl ? `${CONF.name}.no_layercontrol` : `${CONF.name}.no_layer`),
+      HINT_DURATION.LONG,
+    );
+  } else rebuildLayerDropdown(ctrl);
 };
 
 const resetAll = (ctrl: HeatmapControlUI) => {

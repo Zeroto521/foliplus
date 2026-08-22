@@ -44,20 +44,21 @@ doc/source/_build/
 doc/source/api/
 doc/source/map.html
 
-# Jupyter
-.ipynb_checkpoints
-
 # Environments
+.ipynb_checkpoints
+.conda
+.uv-cache
+uv.lock
 .env
 .venv
-venv/
 env.bak/
+venv/
 venv.bak/
+tmp/
 
 # Tooling
 .mypy_cache/
 .ruff_cache/
-.conda
 .playwright-mcp
 
 # Node / npm
@@ -71,6 +72,9 @@ package-lock.json
 .history
 *.db
 .DS_Store
+.claude/
+.task/
+memory/
 
 # Auto-generated
 foliplus/dist/

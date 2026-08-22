@@ -75,6 +75,9 @@ class TestExportControlPython:
     def test_format_webp(self):
         assert ExportControl(format="webp").format == "webp"
 
+    def test_format_geotiff(self):
+        assert ExportControl(format="geotiff").format == "geotiff"
+
     def test_format_invalid_raises(self):
         with pytest.raises(ValueError, match="format must be one of"):
             ExportControl(format="gif")
@@ -121,6 +124,11 @@ class TestExportControlRendering:
         )
         assert "custom" in html
         assert "jpeg" in html
+
+    def test_geotiff_format_in_html(self):
+        """geotiff format is passed through to the HTML template."""
+        html = render_control(ExportControl(format="geotiff"))
+        assert "geotiff" in html
 
     def test_css_loaded(self):
         """ExportControl CSS classes are present."""
@@ -170,6 +178,28 @@ class TestExportControlBrowser:
     """Browser-level tests for ExportControl."""
 
     @staticmethod
+    def _stub_html(html: str) -> str:
+        """Remove blocking CDN <script> tags and inject stubs for GeoTIFF/pako."""
+        for cdn in (
+            "geotiff@3/dist-browser/geotiff.js",
+            "pako@2/dist/pako.min.js",
+        ):
+            html = html.replace(
+                f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
+            )
+        marker = 'CONF = {"name": "ExportControl"'
+        idx = html.find(marker)
+        if idx > 0:
+            semi = html.find(";", idx)
+            if semi > 0:
+                stub = (
+                    "window.GeoTIFF={writeArrayBuffer:function(){return new ArrayBuffer(0)}};"
+                    "window.pako={deflateRaw:function(a){return a}};"
+                )
+                html = html[: semi + 1] + stub + html[semi + 1 :]
+        return html
+
+    @staticmethod
     def _make_page(browser, tmp_path, *layers, slug="export"):
         from foliplus import LayerControl
 
@@ -178,7 +208,8 @@ class TestExportControlBrowser:
         ExportControl().add_to(m)
         for layer in layers:
             layer.add_to(m)
-        page, errors = make_browser_page(browser, tmp_path, m.get_root().render(), slug)
+        html = TestExportControlBrowser._stub_html(m.get_root().render())
+        page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
         return page, errors
 

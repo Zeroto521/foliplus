@@ -51,7 +51,7 @@ const registerDropdownEvents = (
   ctrl: any,
   items: HTMLElement[],
 ): (() => void) => {
-  return ensureInteraction(map).register(CONF.name + "-dropdown", [
+  return ensureInteraction(map).register(`${CONF.name}-dropdown`, [
     {
       key: "ArrowDown",
       element: ctrl.schemeDropdown,

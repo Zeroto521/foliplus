@@ -56,13 +56,12 @@ build-js-dev:
 	npm run build:dev
 
 build-python:
-	python -m build
-	twine check --strict dist/*
+	uv build
+	uvx twine check --strict dist/*
 	ls -l dist
 
 # Parallel test workers. Use CPU count by default, override with JOBS=N.
 JOBS ?= auto
-PYTHON_VERSION := $(shell cat .python-version)
 
 test: build-js-dev test-js
 	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
@@ -77,18 +76,18 @@ test-js:
 	npm test
 
 html:
-	cd doc/source && make html
+	make -C doc/source html
 
 info:
 	@python -c "import platform,sys,os; print(f'Python: {sys.version.split()[0]}'); print(f'Platform: {platform.platform(terse=True)}')"
 	@python -c "from foliplus import __version__; print(f'foliplus: {__version__}')"
 	@python -c "import folium; print(f'folium: {folium.__version__}')"
 	@python -c "import folium, os, re; folium_dir = os.path.dirname(folium.__file__); fp = os.path.join(folium_dir, 'folium.py'); c = open(fp).read(); m = re.search(r'leaflet@([\d.]+)', c); print(f'Leaflet: {m.group(1)}' if m else 'Leaflet: unknown')"
-	@python -c "from foliplus._cdn import H3,CHROMA,GCOORD,SS; print(f'CDN: h3={H3} ss={SS} chroma={CHROMA} gcoord={GCOORD}')"
+	@python -c "import json, re; d = json.load(open('foliplus/cdn.json')); [print(('{:<20s} {:<20s} {}'.format(c, n, re.search(r'@([\d.]+)', u).group(1) if re.search(r'@([\d.]+)', u) else '?'))) for c, s in sorted(d.items()) for n, u in s]"
 
 env:
 	@command -v uv >/dev/null 2>&1 || { echo "uv not found: https://docs.astral.sh/uv/getting-started/installation"; exit 1; }
-	uv venv -p $(PYTHON_VERSION)
-	uv pip install -e ".[dev]"
+	uv venv
+	uv sync --group dev
 	@echo "Done. Then: source .venv/bin/activate"
 	@echo "For browser tests also run: playwright install chromium"

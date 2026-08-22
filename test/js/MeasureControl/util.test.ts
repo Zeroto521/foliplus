@@ -11,6 +11,9 @@ beforeEach(() => {
   };
   globalThis.turf = {
     point: coords => ({ coords }),
+    polygon: vi.fn(rings => ({ type: "Polygon", coordinates: rings })),
+    area: vi.fn(() => 5000),
+    midpoint: vi.fn(() => ({ geometry: { coordinates: [50, 50] } })),
     distance: vi.fn(() => 100),
     bearing: vi.fn(() => 45),
   };
@@ -18,6 +21,25 @@ beforeEach(() => {
 
 afterEach(() => {
   delete globalThis.turf;
+});
+
+describe("pointsToLatLngs", () => {
+  it("converts {lng,lat} points to LatLng array", () => {
+    window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
+    const result = Util.pointsToLatLngs([
+      { lng: 119.3, lat: 26.08 },
+      { lng: 119.31, lat: 26.09 },
+    ]);
+    expect(result).toEqual([
+      { lat: 26.08, lng: 119.3 },
+      { lat: 26.09, lng: 119.31 },
+    ]);
+  });
+
+  it("handles empty array", () => {
+    window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
+    expect(Util.pointsToLatLngs([])).toEqual([]);
+  });
 });
 
 describe("formatDistance", () => {
@@ -40,23 +62,23 @@ describe("formatArea", () => {
   });
 });
 
-describe("calcToggle", () => {
+describe("nextToggleState", () => {
   it("defaults to toggling X when showX is undefined", () => {
-    expect(Util.calcToggle(false, true, undefined, undefined)).toEqual({
+    expect(Util.nextToggleState(false, true, undefined, undefined)).toEqual({
       isXVisible: true,
       isLabelsVisible: true,
     });
   });
 
   it("honors explicit showX and label toggles", () => {
-    expect(Util.calcToggle(true, true, false, false)).toEqual({
+    expect(Util.nextToggleState(true, true, false, false)).toEqual({
       isXVisible: false,
       isLabelsVisible: false,
     });
   });
 
   it("resets labels when toggleLbl is reset", () => {
-    expect(Util.calcToggle(true, false, undefined, "reset")).toEqual({
+    expect(Util.nextToggleState(true, false, undefined, "reset")).toEqual({
       isXVisible: false,
       isLabelsVisible: true,
     });
@@ -186,14 +208,14 @@ describe("suppressHide", () => {
   });
 });
 
-describe("applyToggle", () => {
+describe("applyVisibilityToggle", () => {
   it("toggles labels and calls onToggle", () => {
     const labelEl = document.createElement("span");
     labelEl.classList.add("foliplus-measure-label");
     const marker = { getElement: () => ({ querySelector: () => labelEl }) };
     const delMarker = { getElement: () => ({ querySelector: () => null }) };
     const onToggle = vi.fn();
-    Util.applyToggle(delMarker, true, [marker], false, null, onToggle);
+    Util.applyVisibilityToggle(delMarker, true, [marker], false, null, onToggle);
     expect(labelEl.classList.contains("foliplus-measure-hidden")).toBe(true);
     expect(onToggle).toHaveBeenCalledWith(true, false);
   });
@@ -215,5 +237,95 @@ describe("stopEvent", () => {
     stopEvent(event);
     expect(event.preventDefault).toHaveBeenCalled();
     expect(event.stopPropagation).toHaveBeenCalled();
+  });
+});
+
+describe("formatDistance boundary", () => {
+  it("formats exactly 1000m as '1 km'", () => {
+    expect(Util.formatDistance(1000)).toBe("1.0 km");
+  });
+
+  it("formats 999m as '999 m'", () => {
+    expect(Util.formatDistance(999)).toBe("999 m");
+  });
+});
+
+describe("formatArea boundary", () => {
+  it("formats exactly 1e6 m² as '1.00 km²'", () => {
+    expect(Util.formatArea(1_000_000)).toBe("1.00 km²");
+  });
+
+  it("formats 999999 m² with locale thousands separator", () => {
+    expect(Util.formatArea(999_999)).toBe("999,999 m²");
+  });
+});
+
+describe("recalculateSegments edge cases", () => {
+  it("returns empty segments for single point", () => {
+    const result = Util.recalculateSegments([{ lat: 0, lng: 0 }] as any);
+    expect(result.segments).toHaveLength(0);
+    expect(result.totalDistance).toBe(0);
+  });
+
+  it("returns empty segments for empty array", () => {
+    const result = Util.recalculateSegments([] as any);
+    expect(result.segments).toHaveLength(0);
+    expect(result.totalDistance).toBe(0);
+  });
+
+  it("computes one segment for two points", () => {
+    const result = Util.recalculateSegments([
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+    ] as any);
+    expect(result.segments).toHaveLength(1);
+    expect(result.totalDistance).toBe(result.segments[0].distance);
+  });
+});
+
+describe("applyVisibilityToggle edge cases", () => {
+  it("handles null delMarker gracefully", () => {
+    expect(() =>
+      Util.applyVisibilityToggle(null, true, [], false, null, undefined),
+    ).not.toThrow();
+  });
+
+  it("applies visibility to extra label", () => {
+    const extraEl = document.createElement("span");
+    extraEl.classList.add("foliplus-measure-label");
+    const extraLabel = { getElement: () => ({ querySelector: () => extraEl }) };
+    const onToggle = vi.fn();
+    Util.applyVisibilityToggle(undefined, true, [], false, extraLabel as any, onToggle);
+    expect(extraEl.classList.contains("foliplus-measure-hidden")).toBe(true);
+    expect(onToggle).toHaveBeenCalledWith(true, false);
+  });
+});
+
+describe("toggleVisibility edge cases", () => {
+  it("handles empty array", () => {
+    expect(() => Util.toggleVisibility([], true)).not.toThrow();
+  });
+
+  it("toggles multiple elements", () => {
+    const el1 = document.createElement("div");
+    const el2 = document.createElement("div");
+    Util.toggleVisibility([el1, el2], false);
+    expect(el1.classList.contains("foliplus-measure-hidden")).toBe(true);
+    expect(el2.classList.contains("foliplus-measure-hidden")).toBe(true);
+  });
+});
+
+describe("getEventTarget", () => {
+  it("returns the target from a LeafletMouseEvent", () => {
+    const el = document.createElement("div");
+    const event = {
+      originalEvent: { target: el },
+    } as unknown as L.LeafletMouseEvent;
+    expect(Util.getEventTarget(event)).toBe(el);
+  });
+
+  it("returns null when originalEvent is missing", () => {
+    const event = {} as L.LeafletMouseEvent;
+    expect(Util.getEventTarget(event)).toBeNull();
   });
 });

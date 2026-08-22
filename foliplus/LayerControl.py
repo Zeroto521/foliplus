@@ -57,7 +57,6 @@ class LayerControl(BaseControl):
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
-
     Examples
     --------
     >>> import folium

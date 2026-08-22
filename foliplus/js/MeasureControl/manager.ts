@@ -8,16 +8,11 @@ import { createTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
-import { registerInteractions } from "./interaction.js";
-import {
-  CircleMode,
-  DistanceMode,
-  MODE_MAP,
-  MarkerMode,
-  MeasureMode,
-  PolygonMode,
-} from "./mode.js";
+import { registerExportClick, registerInteractions } from "./interaction.js";
+import { MODE_MAP, MeasureMode } from "./mode/index.js";
+import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;
@@ -28,6 +23,7 @@ const _ = createTranslator(CONF);
 class MeasureManager {
   map: L.Map;
   private interactionCleanup?: () => void;
+  private exportClickCleanup?: () => void;
   layers: CreateLayersAPI;
   currentMode: string | null;
   modeInstance: MeasureMode | null;
@@ -44,6 +40,16 @@ class MeasureManager {
   onMapClick!: (event: L.LeafletMouseEvent) => void;
   onKeyDown!: (event: KeyboardEvent) => void;
   onUnload!: () => void;
+
+  /** Handle export button click — delegates to the export module. */
+  onExportClick(event: Event) {
+    Export.handleExportClick(this)(event);
+  }
+
+  /** Register the export toolbar button click via the interaction manager. */
+  bindExportClick(element: HTMLElement): void {
+    this.exportClickCleanup = registerExportClick(this, element);
+  }
 
   /**
    * @param mapInstance - Leaflet map instance.
@@ -102,6 +108,8 @@ class MeasureManager {
   }
 
   /** Generate a unique measurement ID. */
+  /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
+   * The id is persisted with the measurement and exported (CSV / GeoJSON). */
   nextMeasurementId(type: string): string {
     this.measurementIdCounter += 1;
     return `${CONST.ID}_${type}_${Date.now()}_${this.measurementIdCounter}`;
@@ -119,7 +127,7 @@ class MeasureManager {
   bindGlobalEvents() {
     this.onMapClick = (event: L.LeafletMouseEvent) => {
       if (this.isSuppressHideDel) return;
-      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+      const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       hideDelIcons();
     };
@@ -165,6 +173,7 @@ class MeasureManager {
       this.clearActiveMode();
       return;
     }
+    if (!mode) return;
 
     // Re-register the measure layer so it's visible and on top when the user
     // activates a measurement tool, even if the layer was previously
@@ -181,39 +190,21 @@ class MeasureManager {
 
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
 
-    if (mode === CONST.MODE.MARKER) {
-      this.map.foliplus!.showHint(
-        CONF.name,
-        _(`${CONF.name}.hint_marker`),
-        HINT_DURATION.PERSIST,
-      );
-      this.modeInstance = new MarkerMode(this);
-      this.modeInstance.start();
-    } else if (mode === CONST.MODE.DISTANCE) {
-      this.map.foliplus!.showHint(
-        CONF.name,
-        _(`${CONF.name}.hint_dist_start`),
-        HINT_DURATION.PERSIST,
-      );
-      this.modeInstance = new DistanceMode(this);
-      this.modeInstance.start();
-    } else if (mode === CONST.MODE.POLYGON) {
-      this.map.foliplus!.showHint(
-        CONF.name,
-        _(`${CONF.name}.hint_polygon`),
-        HINT_DURATION.PERSIST,
-      );
-      this.modeInstance = new PolygonMode(this);
-      this.modeInstance.start();
-    } else if (mode === CONST.MODE.CIRCLE) {
-      this.map.foliplus!.showHint(
-        CONF.name,
-        _(`${CONF.name}.hint_circle_start`),
-        HINT_DURATION.PERSIST,
-      );
-      this.modeInstance = new CircleMode(this);
-      this.modeInstance.start();
+    const hintKey = {
+      [CONST.MODE.MARKER]: _(`${CONF.name}.hint_marker`),
+      [CONST.MODE.DISTANCE]: _(`${CONF.name}.hint_dist_start`),
+      [CONST.MODE.POLYGON]: _(`${CONF.name}.hint_polygon`),
+      [CONST.MODE.CIRCLE]: _(`${CONF.name}.hint_circle_start`),
+    }[mode];
+
+    if (hintKey) {
+      this.map.foliplus!.showHint(CONF.name, hintKey, HINT_DURATION.PERSIST);
     }
+
+    const ModeClass = MODE_MAP[mode as keyof typeof MODE_MAP];
+    this.modeInstance = ModeClass ? new ModeClass(this) : null;
+    this.modeInstance?.start();
+    this.map.foliplus!.hideHint(CONF.name);
   }
 
   /** Deactivate current mode, clean up events, and hide hints. */
@@ -258,6 +249,7 @@ class MeasureManager {
     this.map.off("unload", this.onUnload);
     this.clearAll();
     this.interactionCleanup?.();
+    this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);
 
     this.finalizedClickHandlers.forEach(h => this.map.off("click", h));

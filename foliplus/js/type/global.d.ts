@@ -38,6 +38,11 @@ type Turf = {
   area: (polygon: GeoJSON.Feature) => number;
   point: (coords: number[]) => GeoJSON.Feature;
   polygon: (rings: number[][][]) => GeoJSON.Feature;
+  circle: (
+    coord: [number, number],
+    radius: number,
+    options: { steps?: number; units?: "kilometers" },
+  ) => GeoJSON.Feature<GeoJSON.Polygon>;
 };
 
 /** gcoord (CDN). */
@@ -144,6 +149,7 @@ declare global {
     timeout?: number;
     filename?: string;
     format?: string;
+    export_format?: string;
     schemes?: string[];
     [key: string]: unknown;
   }
@@ -226,7 +232,10 @@ declare global {
   /** A layer entry in the LayerControl ordered registry (read-only view). */
   type LayerInfo = CoreLayerInfo;
 
-  /** A persisted MeasureControl measurement. */
+  /** A persisted MeasureControl measurement.
+   * Unit conventions: | totalDistance / radius / segments[].distance => meters;
+   * segments[].bearing => degrees (0-360, clockwise from north);
+   * area => square meters; coordinates => longitude/latitude in degrees. */
   interface MeasureData {
     id?: string;
     type: string;
@@ -234,7 +243,7 @@ declare global {
     lat?: number;
     address?: string | null;
     points?: Array<{ lng: number; lat: number }>;
-    segments?: Array<{ lng: number; lat: number; distance: number }>;
+    segments?: Array<{ lng: number; lat: number; distance: number; bearing: number }>;
     totalDistance?: number;
     area?: number;
     center?: { lng: number; lat: number };
@@ -292,6 +301,11 @@ declare global {
   const chroma: ChromaJs;
   const ss: SimpleStats;
   const h3: typeof import("h3-js");
+
+  /** geotiff.js (CDN, ExportControl). Provides GeoTIFF.writeArrayBuffer. */
+  const GeoTIFF: typeof import("geotiff");
+  /** pako (CDN, ExportControl). Deflate/inflate for GeoTIFF compression. */
+  const pako: typeof import("pako");
 
   interface Window {
     foliplus: Foliplus;

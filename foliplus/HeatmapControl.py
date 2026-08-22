@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, get_args
 
-from ._cdn import CHROMA, H3, SS
+from ._cdn_loader import load_cdn
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -109,17 +109,7 @@ class HeatmapControl(BaseControl):
     >>> HeatmapControl(field="value", border_weight=2.0, label_show=False).add_to(m)
     """
 
-    default_js = [
-        ("h3-js", f"https://cdn.jsdelivr.net/npm/h3-js@{H3}/dist/h3-js.umd.js"),
-        (
-            "simple-statistics",
-            f"https://cdn.jsdelivr.net/npm/simple-statistics@{SS}/dist/simple-statistics.min.js",
-        ),
-        (
-            "chroma-js",
-            f"https://cdn.jsdelivr.net/npm/chroma-js@{CHROMA}/chroma.min.js",
-        ),
-    ]
+    default_js = load_cdn("HeatmapControl")
 
     _export_fields = (
         "field",

@@ -1,0 +1,48 @@
+{
+  "ExportControl": [
+    [
+      "geotiff",
+      "https://cdn.jsdelivr.net/npm/geotiff@3/dist-browser/geotiff.js"
+    ],
+    [
+      "pako",
+      "https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"
+    ]
+  ],
+  "HeatmapControl": [
+    [
+      "h3-js",
+      "https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js"
+    ],
+    [
+      "simple-statistics",
+      "https://cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js"
+    ],
+    [
+      "chroma-js",
+      "https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"
+    ]
+  ],
+  "LocateControl": [
+    [
+      "gcoord",
+      "https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"
+    ]
+  ],
+  "MeasureControl": [
+    [
+      "gcoord",
+      "https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"
+    ],
+    [
+      "turf",
+      "https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"
+    ]
+  ],
+  "SearchControl": [
+    [
+      "gcoord",
+      "https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"
+    ]
+  ]
+}

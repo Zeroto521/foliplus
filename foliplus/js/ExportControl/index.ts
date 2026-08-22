@@ -28,6 +28,7 @@ map.eachLayer((layer: L.Layer) => {
     }
   }
 });
+
 map.on("layeradd", (event: L.LeafletEvent) => {
   const layer = (event as L.LayerEvent).layer;
   if (layer instanceof L.GridLayer) {
@@ -67,10 +68,11 @@ class ExportControl extends BaseControl {
     };
     return container;
   }
+
   destroy() {
     if (this.m.cropState) this.m.removeCropBox();
     this.m.interactionCleanup?.();
-    ensureInteraction(this.m.map).unregister(CONF.name + "-escape");
+    ensureInteraction(this.m.map).unregister(`${CONF.name}-escape`);
   }
 }
 

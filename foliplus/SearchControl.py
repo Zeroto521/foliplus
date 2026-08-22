@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, get_args
 
-from ._cdn import GCOORD
+from ._cdn_loader import load_cdn
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -58,12 +58,7 @@ class SearchControl(BaseControl):
 
     _export_fields = ("mode", "zoom")
 
-    default_js = [
-        (
-            "gcoord",
-            f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD}/dist/gcoord.global.prod.js",
-        ),
-    ]
+    default_js = load_cdn("SearchControl")
 
     def __init__(
         self,
