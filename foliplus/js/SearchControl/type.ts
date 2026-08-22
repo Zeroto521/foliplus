@@ -39,6 +39,18 @@ export interface SearchHistoryEntry {
   count: number;
 }
 
+/** A rendered result item in the suggestions/history panel, shared by both sources. */
+export interface ResultItem {
+  /** Icon SVG to display. */
+  icon: string;
+  /** Primary display text (shown in SUGGESTION_TEXT). */
+  primaryText: string;
+  /** Secondary coordinate display (shown in RESULT_COORD, null to hide). */
+  coordDisplay: string | null;
+  /** Click handler — called after the panel is removed. */
+  onClick: () => void;
+}
+
 /** Public shape of the SearchControl instance, shared across sub-modules. */
 export interface SearchControl extends BaseControl {
   container: HTMLElement;

@@ -17,7 +17,7 @@ import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import * as Storage from "#common/storage.js";
 import { AUTOCOMPLETE, CLASSES, HISTORY, MODE, ZOOM } from "./const.js";
-import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
+import type { AddressResult, NominatimItem, ResultItem, SearchHistoryEntry } from "./type.js";
 
 const { _ } = createControlEnv(CONF);
 
@@ -323,6 +323,51 @@ const positionSuggestions = (ctrl: SearchControlState) => {
   ctrl.suggestionsWrap.style.top = `${rect.bottom + window.scrollY}px`;
 };
 
+const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
+  if (!results || results.length === 0) {
+    removeSuggestions(ctrl);
+    return;
+  }
+
+  if (!ctrl.suggestionsWrap) {
+    ctrl.suggestionsWrap = dom.el("div", {
+      class: CLASSES.SUGGESTIONS,
+      parent: document.body,
+      onclick: (event: Event) => event.stopPropagation(),
+    });
+  }
+
+  ctrl.suggestionsWrap.innerHTML = "";
+  ctrl.selectedSuggestionIdx = -1;
+  positionSuggestions(ctrl);
+
+  results.forEach((item: ResultItem, idx: number) => {
+    dom.el(
+      "div",
+      {
+        class: CLASSES.SUGGESTION_ITEM,
+        "data-index": String(idx),
+        parent: ctrl.suggestionsWrap,
+        onmousedown: (event: Event) => {
+          event.stopPropagation();
+          event.preventDefault();
+          removeSuggestions(ctrl);
+          item.onClick();
+        },
+      },
+      dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: item.icon }),
+      dom.el(
+        "div",
+        { class: CLASSES.RESULT_CONTENT },
+        dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, item.primaryText),
+        item.coordDisplay
+          ? dom.el("div", { class: CLASSES.RESULT_COORD }, item.coordDisplay)
+          : null,
+      ),
+    );
+  });
+};
+
 const renderSuggestions = (
   ctrl: SearchControlState,
   results: NominatimItem[],
@@ -335,53 +380,30 @@ const renderSuggestions = (
 
   ctrl.cachedSuggestions.set(query, results);
 
-  if (!ctrl.suggestionsWrap) {
-    ctrl.suggestionsWrap = dom.el("div", {
-      class: CLASSES.SUGGESTIONS,
-      parent: document.body,
-      onclick: (event: Event) => event.stopPropagation(),
-    });
-  }
-
-  ctrl.suggestionsWrap.innerHTML = "";
-  ctrl.selectedSuggestionIdx = -1;
-  positionSuggestions(ctrl);
-
-  results.forEach((item: NominatimItem, idx: number) => {
+  const items: ResultItem[] = results.map((item: NominatimItem) => {
     const displayName =
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
     const coordDisplay = `${parseFloat(item.lon).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
-    dom.el(
-      "div",
-      {
-        class: CLASSES.SUGGESTION_ITEM,
-        "data-index": String(idx),
-        parent: ctrl.suggestionsWrap,
-        onmousedown: (event: Event) => {
-          event.stopPropagation();
-          event.preventDefault();
-          removeSuggestions(ctrl);
-          renderAddressResult(ctrl, { item, displayName });
-          recordHistorySearch(
-            ctrl,
-            query,
-            "addr",
-            coordDisplay,
-            displayName,
-            parseFloat(item.lon),
-            parseFloat(item.lat),
-          );
-        },
+    return {
+      icon: Icons.LOCATE,
+      primaryText: displayName,
+      coordDisplay,
+      onClick: () => {
+        renderAddressResult(ctrl, { item, displayName });
+        recordHistorySearch(
+          ctrl,
+          query,
+          "addr",
+          coordDisplay,
+          displayName,
+          parseFloat(item.lon),
+          parseFloat(item.lat),
+        );
       },
-      dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: Icons.LOCATE }),
-      dom.el(
-        "div",
-        { class: CLASSES.RESULT_CONTENT },
-        dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, displayName),
-        dom.el("div", { class: CLASSES.RESULT_COORD }, coordDisplay),
-      ),
-    );
+    };
   });
+
+  renderResults(ctrl, items);
 };
 
 const renderHistory = (ctrl: SearchControlState, mode: string) => {
@@ -392,82 +414,50 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
     return;
   }
 
-  if (!ctrl.suggestionsWrap) {
-    ctrl.suggestionsWrap = dom.el("div", {
-      class: CLASSES.SUGGESTIONS,
-      parent: document.body,
-      onclick: (event: Event) => event.stopPropagation(),
-    });
-  }
-
-  ctrl.suggestionsWrap.innerHTML = "";
-  ctrl.selectedSuggestionIdx = -1;
-  positionSuggestions(ctrl);
-
   // Sort by search count (desc), then recency (desc) as tiebreaker
   const sorted = [...entries].sort((a, b) => b.count - a.count || b.ts - a.ts);
+  const sectionEntries = sorted
+    .filter(e => e.type === targetType)
+    .slice(0, HISTORY.MAX_DISPLAY);
+  if (sectionEntries.length === 0) {
+    removeSuggestions(ctrl);
+    return;
+  }
 
-  // Render addr section first, then coord section
-  const renderSection = (type: "addr" | "coord") => {
-    const sectionEntries = sorted
-      .filter(e => e.type === type)
-      .slice(0, HISTORY.MAX_DISPLAY);
-    if (sectionEntries.length === 0) return;
+  const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
+    const isAddr = entry.type === "addr";
+    const primaryText = isAddr ? entry.addrDisplay : entry.coordDisplay;
+    return {
+      icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
+      primaryText,
+      coordDisplay: isAddr ? entry.coordDisplay : null,
+      onClick: () => {
+        ctrl.inp.value = primaryText;
+        const converted = fromWgs84(map, entry.lng, entry.lat);
+        const lng = converted[0];
+        const lat = converted[1];
+        map.flyTo([lat, lng], CONF.zoom || 16);
+        ctrl.marker = createLocationMarker(
+          map,
+          lng,
+          lat,
+          entry.addrDisplay || entry.coordDisplay,
+          isAddr
+            ? _(`${CONF.name}.popup_title_addr`)
+            : _(`${CONF.name}.popup_title_coord`),
+          _(`${CONF.name}.popup_loading`),
+          _(`${CONF.name}.popup_loc_label`),
+          _(`${CONF.name}.popup_addr_label`),
+          _("foliplus.close_label"),
+          CONF.locale_code,
+          ctrl.marker,
+        );
+        attachSearchDelIcon(ctrl, [lat, lng]);
+      },
+    };
+  });
 
-    sectionEntries.forEach((entry: SearchHistoryEntry) => {
-      const isAddr = entry.type === "addr";
-      const primaryText = isAddr ? entry.addrDisplay : entry.coordDisplay;
-
-      const item = dom.el(
-        "div",
-        {
-          class: CLASSES.SUGGESTION_ITEM,
-          onmousedown: (event: Event) => {
-            event.stopPropagation();
-            event.preventDefault();
-            removeSuggestions(ctrl);
-            ctrl.inp.value = primaryText;
-            const converted = fromWgs84(map, entry.lng, entry.lat);
-            const lng = converted[0];
-            const lat = converted[1];
-            map.flyTo([lat, lng], CONF.zoom || 16);
-            ctrl.marker = createLocationMarker(
-              map,
-              lng,
-              lat,
-              entry.addrDisplay || entry.coordDisplay,
-              isAddr
-                ? _(`${CONF.name}.popup_title_addr`)
-                : _(`${CONF.name}.popup_title_coord`),
-              _(`${CONF.name}.popup_loading`),
-              _(`${CONF.name}.popup_loc_label`),
-              _(`${CONF.name}.popup_addr_label`),
-              _("foliplus.close_label"),
-              CONF.locale_code,
-              ctrl.marker,
-            );
-            attachSearchDelIcon(ctrl, [lat, lng]);
-          },
-        },
-        dom.el(
-          "span",
-          { class: CLASSES.SUGGESTION_ICON },
-          { html: isAddr ? Icons.GLOBE : Icons.LOCATE },
-        ),
-        dom.el(
-          "div",
-          { class: CLASSES.RESULT_CONTENT },
-          dom.el("span", { class: CLASSES.SUGGESTION_TEXT }, primaryText),
-          isAddr && entry.coordDisplay
-            ? dom.el("div", { class: CLASSES.RESULT_COORD }, entry.coordDisplay)
-            : null,
-        ),
-      );
-      ctrl.suggestionsWrap!.appendChild(item);
-    });
-  };
-
-  renderSection(targetType);
+  renderResults(ctrl, items);
 };
 
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
@@ -564,6 +554,7 @@ export {
   recordHistorySearch,
   removeSuggestions,
   renderHistory,
+  renderResults,
   renderSuggestions,
   saveHistory,
   searchAddress,
