@@ -20,28 +20,28 @@ beforeEach(() => {
 });
 
 describe("removePanel", () => {
-  it("removes suggestionsWrap and resets state", () => {
+  it("removes panelWrap and resets state", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
     const ctrl: any = {
-      suggestionsWrap: el,
-      suggestionsThrottleTimer: setTimeout(() => {}, 1000),
-      selectedSuggestionIdx: 2,
+      panelWrap: el,
+      throttleTimer: setTimeout(() => {}, 1000),
+      selectedIdx: 2,
     };
 
     removePanel(ctrl);
 
     expect(document.body.contains(el)).toBe(false);
-    expect(ctrl.suggestionsWrap).toBeNull();
-    expect(ctrl.suggestionsThrottleTimer).toBeNull();
-    expect(ctrl.selectedSuggestionIdx).toBe(-1);
+    expect(ctrl.panelWrap).toBeNull();
+    expect(ctrl.throttleTimer).toBeNull();
+    expect(ctrl.selectedIdx).toBe(-1);
   });
 
-  it("handles null suggestionsWrap without error", () => {
+  it("handles null panelWrap without error", () => {
     const ctrl: any = {
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
     };
     expect(() => removePanel(ctrl)).not.toThrow();
   });
@@ -70,9 +70,9 @@ describe("initDebouncedFetch", () => {
         inp: { value: "search" },
         debouncedFetch: null,
         cachedSuggestions: new Cache<string, object>(50),
-        suggestionsWrap: null,
-        suggestionsThrottleTimer: null,
-        selectedSuggestionIdx: -1,
+        panelWrap: null,
+        throttleTimer: null,
+        selectedIdx: -1,
         lastSuggestFetch: 0,
         suggestSeq: 0,
         suggestAbortController: null,
@@ -236,7 +236,7 @@ describe("searchAddress", () => {
 describe("positionPanel", () => {
   it("places wrap below the control", () => {
     const ctrl: any = {
-      suggestionsWrap: { style: {} },
+      panelWrap: { style: {} },
       ctrl: {
         getBoundingClientRect: () => ({
           left: 10,
@@ -247,8 +247,8 @@ describe("positionPanel", () => {
       },
     };
     positionPanel(ctrl);
-    expect(ctrl.suggestionsWrap.style.left).toBe("10px");
-    expect(ctrl.suggestionsWrap.style.top).toBe("100px");
+    expect(ctrl.panelWrap.style.left).toBe("10px");
+    expect(ctrl.panelWrap.style.top).toBe("100px");
   });
 
   it("clips suggestions wrap to the right edge when it would overflow", () => {
@@ -260,7 +260,7 @@ describe("positionPanel", () => {
         configurable: true,
       });
       const ctrl: any = {
-        suggestionsWrap: { style: {} },
+        panelWrap: { style: {} },
         ctrl: {
           getBoundingClientRect: () => ({
             left: 250,
@@ -272,8 +272,8 @@ describe("positionPanel", () => {
       };
       positionPanel(ctrl);
       // Would normally be left=250, but clipped to 300-200=100
-      expect(ctrl.suggestionsWrap.style.left).toBe("100px");
-      expect(ctrl.suggestionsWrap.style.top).toBe("100px");
+      expect(ctrl.panelWrap.style.left).toBe("100px");
+      expect(ctrl.panelWrap.style.top).toBe("100px");
     } finally {
       Object.defineProperty(window, "innerWidth", {
         value: originalWidth,
@@ -287,23 +287,23 @@ describe("fetchSuggestions", () => {
   it("removes suggestions when not in ADDR mode", () => {
     const ctrl: any = {
       mode: "coord",
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
     };
     fetchSuggestions(ctrl, "abc");
-    expect(ctrl.suggestionsWrap).toBeNull();
+    expect(ctrl.panelWrap).toBeNull();
   });
 
   it("ignores queries below min chars", () => {
     const ctrl: any = {
       mode: "addr",
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
     };
     fetchSuggestions(ctrl, "ab");
-    expect(ctrl.suggestionsWrap).toBeNull();
+    expect(ctrl.panelWrap).toBeNull();
   });
 
   it("renders cached suggestions without fetching", () => {
@@ -313,9 +313,9 @@ describe("fetchSuggestions", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: cache,
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
@@ -323,7 +323,7 @@ describe("fetchSuggestions", () => {
     };
     fetchSuggestions(ctrl, "abc");
     expect(globalThis.fetch).not.toHaveBeenCalled();
-    expect(ctrl.suggestionsWrap).not.toBeNull();
+    expect(ctrl.panelWrap).not.toBeNull();
   });
 
   it("is blocked by MeasureControl active mode", () => {
@@ -333,9 +333,9 @@ describe("fetchSuggestions", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
@@ -343,7 +343,7 @@ describe("fetchSuggestions", () => {
     };
     fetchSuggestions(ctrl, "Paris");
     expect(globalThis.fetch).not.toHaveBeenCalled();
-    expect(ctrl.suggestionsWrap).toBeNull();
+    expect(ctrl.panelWrap).toBeNull();
     ensureModes(window.map).setMode("MeasureControl", null);
   });
 
@@ -359,9 +359,9 @@ describe("fetchSuggestions", () => {
           c.set("abc", [{ display_name: "Rue de Rivoli, 75001, Paris, France" }]);
           return c;
         })(),
-        suggestionsWrap: null,
-        suggestionsThrottleTimer: null,
-        selectedSuggestionIdx: -1,
+        panelWrap: null,
+        throttleTimer: null,
+        selectedIdx: -1,
         ctrl: {
           getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
         },
@@ -369,7 +369,7 @@ describe("fetchSuggestions", () => {
       };
       fetchSuggestions(ctrl, "abc");
       // zh: reverse order (large → small), postal code filtered
-      expect(ctrl.suggestionsWrap.textContent).toContain("France,Paris,Rue de Rivoli");
+      expect(ctrl.panelWrap.textContent).toContain("France,Paris,Rue de Rivoli");
     } finally {
       window.CONF = { ...window.CONF, locale_code: original };
     }
@@ -385,9 +385,9 @@ describe("fetchSuggestions", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
       suggestAbortController: null,
@@ -401,7 +401,7 @@ describe("fetchSuggestions", () => {
     await new Promise(r => setTimeout(r, 0));
     expect(globalThis.fetch).toHaveBeenCalled();
     expect(ctrl.cachedSuggestions.get("abc")).toHaveLength(1);
-    expect(ctrl.suggestionsWrap).not.toBeNull();
+    expect(ctrl.panelWrap).not.toBeNull();
     // First suggestion is written into global geocode cache
     expect(window.foliplus.cacheSuggestion).toHaveBeenCalledWith(
       map,
@@ -699,9 +699,9 @@ describe("fetchSuggestions: throttle and abort", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
       suggestAbortController: null,
@@ -722,9 +722,9 @@ describe("fetchSuggestions: throttle and abort", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
       suggestAbortController: null,
@@ -745,9 +745,9 @@ describe("fetchSuggestions: throttle and abort", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
       suggestAbortController: null,
@@ -759,7 +759,7 @@ describe("fetchSuggestions: throttle and abort", () => {
     fetchSuggestions(ctrl, "abc");
     ctrl.suggestSeq += 1;
     ctrl.inp.value = "xyz";
-    expect(ctrl.suggestionsWrap).toBeNull();
+    expect(ctrl.panelWrap).toBeNull();
   });
 });
 
@@ -777,9 +777,9 @@ describe("fetchSuggestions: render behavior", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
       suggestAbortController: null,
@@ -790,8 +790,8 @@ describe("fetchSuggestions: render behavior", () => {
     };
     fetchSuggestions(ctrl, "abc");
     await new Promise(r => setTimeout(r, 0));
-    expect(ctrl.suggestionsWrap.querySelectorAll("[data-index='0']")).toHaveLength(1);
-    expect(ctrl.suggestionsWrap.querySelectorAll("[data-index='1']")).toHaveLength(1);
+    expect(ctrl.panelWrap.querySelectorAll("[data-index='0']")).toHaveLength(1);
+    expect(ctrl.panelWrap.querySelectorAll("[data-index='1']")).toHaveLength(1);
   });
 
   it("onmousedown on suggestion item triggers renderAddressResult and records history", async () => {
@@ -811,9 +811,9 @@ describe("fetchSuggestions: render behavior", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
       suggestAbortController: null,
@@ -826,7 +826,7 @@ describe("fetchSuggestions: render behavior", () => {
     };
     fetchSuggestions(ctrl, "abc");
     await new Promise(r => setTimeout(r, 0));
-    const item = ctrl.suggestionsWrap.querySelector("[data-index='0']");
+    const item = ctrl.panelWrap.querySelector("[data-index='0']");
     expect(item).not.toBeNull();
     const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
     (item as HTMLElement).onmousedown!(evt);
@@ -848,9 +848,9 @@ describe("fetchSuggestions: render behavior", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: el,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: el,
+      throttleTimer: null,
+      selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
       suggestAbortController: null,
@@ -861,10 +861,10 @@ describe("fetchSuggestions: render behavior", () => {
     };
     fetchSuggestions(ctrl, "abc");
     await new Promise(r => setTimeout(r, 0));
-    expect(ctrl.suggestionsWrap).toBeNull();
+    expect(ctrl.panelWrap).toBeNull();
   });
 
-  it("clears suggestionsWrap when results are empty", async () => {
+  it("clears panelWrap when results are empty", async () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ json: () => Promise.resolve([]) }),
     ) as unknown as typeof fetch;
@@ -873,9 +873,9 @@ describe("fetchSuggestions: render behavior", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: el,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: el,
+      throttleTimer: null,
+      selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
       suggestAbortController: null,
@@ -886,7 +886,7 @@ describe("fetchSuggestions: render behavior", () => {
     };
     fetchSuggestions(ctrl, "abc");
     await new Promise(r => setTimeout(r, 0));
-    expect(ctrl.suggestionsWrap).toBeNull();
+    expect(ctrl.panelWrap).toBeNull();
   });
 
   it("stops click events on suggestions wrap from bubbling", async () => {
@@ -905,9 +905,9 @@ describe("fetchSuggestions: render behavior", () => {
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
       suggestAbortController: null,
@@ -918,10 +918,10 @@ describe("fetchSuggestions: render behavior", () => {
     };
     fetchSuggestions(ctrl, "abc");
     await new Promise(r => setTimeout(r, 0));
-    expect(ctrl.suggestionsWrap).not.toBeNull();
+    expect(ctrl.panelWrap).not.toBeNull();
     const evt = new MouseEvent("click", { bubbles: true });
     const stopSpy = vi.spyOn(evt, "stopPropagation");
-    ctrl.suggestionsWrap.dispatchEvent(evt);
+    ctrl.panelWrap.dispatchEvent(evt);
     expect(stopSpy).toHaveBeenCalled();
   });
 });
@@ -930,9 +930,9 @@ describe("fetchSuggestions — empty input renders history", () => {
   it("renders search history when input is empty and history exists", () => {
     const ctrl: any = {
       mode: "addr",
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
@@ -950,31 +950,31 @@ describe("fetchSuggestions — empty input renders history", () => {
       ],
     };
     fetchSuggestions(ctrl, "");
-    expect(ctrl.suggestionsWrap).not.toBeNull();
-    expect(ctrl.suggestionsWrap.innerHTML).toContain("Paris, France");
+    expect(ctrl.panelWrap).not.toBeNull();
+    expect(ctrl.panelWrap.innerHTML).toContain("Paris, France");
     expect(
-      ctrl.suggestionsWrap.querySelector(".foliplus-search-result-content"),
+      ctrl.panelWrap.querySelector(".foliplus-search-result-content"),
     ).not.toBeNull();
   });
 
   it("removes suggestions when input is empty and history is empty", () => {
     const ctrl: any = {
       mode: "addr",
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       searchHistory: [],
     };
     fetchSuggestions(ctrl, "");
-    expect(ctrl.suggestionsWrap).toBeNull();
+    expect(ctrl.panelWrap).toBeNull();
   });
 
   it("removes history panel when switching to coord mode", () => {
     const ctrl: any = {
       mode: "addr",
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
@@ -993,10 +993,10 @@ describe("fetchSuggestions — empty input renders history", () => {
       ],
     };
     fetchSuggestions(ctrl, "");
-    expect(ctrl.suggestionsWrap).not.toBeNull();
+    expect(ctrl.panelWrap).not.toBeNull();
     ctrl.mode = "coord";
     fetchSuggestions(ctrl, "");
-    expect(ctrl.suggestionsWrap).toBeNull();
+    expect(ctrl.panelWrap).toBeNull();
   });
 });
 
@@ -1007,9 +1007,9 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: cache,
-      suggestionsWrap: null,
-      suggestionsThrottleTimer: null,
-      selectedSuggestionIdx: -1,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
@@ -1028,9 +1028,9 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
       ],
     };
     fetchSuggestions(ctrl, "abc");
-    expect(ctrl.suggestionsWrap.innerHTML).toContain("Result");
+    expect(ctrl.panelWrap.innerHTML).toContain("Result");
     expect(
-      ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-header"),
+      ctrl.panelWrap.querySelector(".foliplus-search-history-group-header"),
     ).toBeNull();
   });
 });

@@ -17,7 +17,7 @@ const { _ } = createControlEnv(CONF);
 /**
  * Read the text label from any item in the suggestions/history panel.
  * Both suggestion items and history items (which reuse suggestion classes)
- * expose their label via the same `.SUGGESTION_TEXT` span.
+ * expose their label via the same `.RESULT_TEXT` span.
  */
 const getItemText = (item: Element): string | null => {
   return item.querySelector(`.${CLASSES.RESULT_TEXT}`)?.textContent ?? null;
@@ -68,7 +68,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       key: "Escape",
       element: ctrl.inp,
       handler: () => {
-        if (ctrl.suggestionsWrap) {
+        if (ctrl.panelWrap) {
           removePanel(ctrl);
           return;
         }
@@ -82,22 +82,22 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       key: "ArrowDown",
       element: ctrl.inp,
       handler: () => {
-        if (!ctrl.suggestionsWrap) return;
+        if (!ctrl.panelWrap) return;
         // Only selectable items — skip non-item children like the history
         // group header.
-        const items = ctrl.suggestionsWrap.querySelectorAll(
+        const items = ctrl.panelWrap.querySelectorAll(
           `.${CLASSES.RESULT_ITEM}`,
         );
         if (items.length === 0) return;
-        ctrl.selectedSuggestionIdx = Math.min(
-          ctrl.selectedSuggestionIdx + 1,
+        ctrl.selectedIdx = Math.min(
+          ctrl.selectedIdx + 1,
           items.length - 1,
         );
         items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
+          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
         );
         ctrl.inp.value =
-          items[ctrl.selectedSuggestionIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
+          items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
             ?.textContent ?? "";
       },
     },
@@ -105,18 +105,18 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       key: "ArrowUp",
       element: ctrl.inp,
       handler: () => {
-        if (!ctrl.suggestionsWrap) return;
-        const items = ctrl.suggestionsWrap.querySelectorAll(
+        if (!ctrl.panelWrap) return;
+        const items = ctrl.panelWrap.querySelectorAll(
           `.${CLASSES.RESULT_ITEM}`,
         );
         if (items.length === 0) return;
-        ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
+        ctrl.selectedIdx = Math.max(ctrl.selectedIdx - 1, -1);
         items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
+          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
         );
-        if (ctrl.selectedSuggestionIdx >= 0)
+        if (ctrl.selectedIdx >= 0)
           ctrl.inp.value =
-            items[ctrl.selectedSuggestionIdx].querySelector(
+            items[ctrl.selectedIdx].querySelector(
               `.${CLASSES.RESULT_TEXT}`,
             )?.textContent ?? "";
       },

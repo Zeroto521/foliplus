@@ -72,10 +72,10 @@ export interface SearchControl extends BaseControl {
   marker: L.Marker | null;
   delIcon: L.Marker | null;
   mode: string;
-  suggestionsWrap: HTMLElement | null;
-  selectedSuggestionIdx: number;
+  panelWrap: HTMLElement | null;
+  selectedIdx: number;
   lastSuggestFetch: number;
-  suggestionsThrottleTimer: ReturnType<typeof setTimeout> | null;
+  throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestSeq: number;
   setMode(newMode: string): void;
 }

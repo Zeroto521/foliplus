@@ -34,10 +34,10 @@ export class SearchControl extends BaseControl {
   declare marker: L.Marker | null;
   declare delIcon: L.Marker | null;
   declare mode: string;
-  declare suggestionsWrap: HTMLElement | null;
-  declare selectedSuggestionIdx: number;
+  declare panelWrap: HTMLElement | null;
+  declare selectedIdx: number;
   declare lastSuggestFetch: number;
-  declare suggestionsThrottleTimer: ReturnType<typeof setTimeout> | null;
+  declare throttleTimer: ReturnType<typeof setTimeout> | null;
   declare suggestSeq: number;
 
   buildDOM() {
@@ -109,10 +109,10 @@ export class SearchControl extends BaseControl {
     this.delIcon = null;
     this.mode = CONF.mode ?? "";
     if (this.mode !== MODE.COORD && this.mode !== MODE.ADDR) this.mode = MODE.COORD;
-    this.suggestionsWrap = null;
-    this.selectedSuggestionIdx = -1;
+    this.panelWrap = null;
+    this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
-    this.suggestionsThrottleTimer = null;
+    this.throttleTimer = null;
     this.cachedSuggestions = new Cache<string, NominatimItem[]>(50);
     this.searchHistory = loadHistory();
     this.suggestAbortController = null;

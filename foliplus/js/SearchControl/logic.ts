@@ -33,10 +33,10 @@ interface SearchControlState {
   modeBtn: HTMLElement;
   cachedSuggestions: Cache<string, NominatimItem[]>;
   searchHistory: SearchHistoryEntry[];
-  suggestionsWrap: HTMLElement | null;
-  selectedSuggestionIdx: number;
+  panelWrap: HTMLElement | null;
+  selectedIdx: number;
   lastSuggestFetch: number;
-  suggestionsThrottleTimer: ReturnType<typeof setTimeout> | null;
+  throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestAbortController: AbortController | null;
   addrAbortController: AbortController | null;
   suggestSeq: number;
@@ -316,25 +316,25 @@ const renderAddressResult = (
 // ── Suggestions / History Panel ──────────────────────────────────
 
 const removePanel = (ctrl: SearchControlState) => {
-  if (ctrl.suggestionsThrottleTimer) {
-    clearTimeout(ctrl.suggestionsThrottleTimer);
-    ctrl.suggestionsThrottleTimer = null;
+  if (ctrl.throttleTimer) {
+    clearTimeout(ctrl.throttleTimer);
+    ctrl.throttleTimer = null;
   }
-  if (ctrl.suggestionsWrap) {
-    ctrl.suggestionsWrap.remove();
-    ctrl.suggestionsWrap = null;
+  if (ctrl.panelWrap) {
+    ctrl.panelWrap.remove();
+    ctrl.panelWrap = null;
   }
-  ctrl.selectedSuggestionIdx = -1;
+  ctrl.selectedIdx = -1;
 };
 
 const positionPanel = (ctrl: SearchControlState) => {
-  if (!ctrl.suggestionsWrap) return;
+  if (!ctrl.panelWrap) return;
   const rect = ctrl.ctrl.getBoundingClientRect();
   let left = rect.left + window.scrollX;
   if (left + rect.width > window.innerWidth)
     left = window.innerWidth - rect.width + window.scrollX;
-  ctrl.suggestionsWrap.style.left = `${left}px`;
-  ctrl.suggestionsWrap.style.top = `${rect.bottom + window.scrollY}px`;
+  ctrl.panelWrap.style.left = `${left}px`;
+  ctrl.panelWrap.style.top = `${rect.bottom + window.scrollY}px`;
 };
 
 const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
@@ -343,16 +343,16 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
     return;
   }
 
-  if (!ctrl.suggestionsWrap) {
-    ctrl.suggestionsWrap = dom.el("div", {
+  if (!ctrl.panelWrap) {
+    ctrl.panelWrap = dom.el("div", {
       class: CLASSES.RESULT_PANEL,
       parent: document.body,
       onclick: (event: Event) => event.stopPropagation(),
     });
   }
 
-  ctrl.suggestionsWrap.innerHTML = "";
-  ctrl.selectedSuggestionIdx = -1;
+  ctrl.panelWrap.innerHTML = "";
+  ctrl.selectedIdx = -1;
   positionPanel(ctrl);
 
   results.forEach((item: ResultItem, idx: number) => {
@@ -361,7 +361,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
       {
         class: CLASSES.RESULT_ITEM,
         "data-index": String(idx),
-        parent: ctrl.suggestionsWrap,
+        parent: ctrl.panelWrap,
         onmousedown: (event: Event) => {
           event.stopPropagation();
           event.preventDefault();
@@ -502,8 +502,8 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
 
   const now = Date.now();
   if (now - ctrl.lastSuggestFetch < NOMINATIM.THROTTLE_MS) {
-    if (ctrl.suggestionsThrottleTimer) clearTimeout(ctrl.suggestionsThrottleTimer);
-    ctrl.suggestionsThrottleTimer = setTimeout(
+    if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
+    ctrl.throttleTimer = setTimeout(
       () => fetchSuggestions(ctrl, query),
       NOMINATIM.THROTTLE_MS - (now - ctrl.lastSuggestFetch),
     );
