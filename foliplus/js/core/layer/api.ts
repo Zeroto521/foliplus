@@ -21,7 +21,7 @@ import type { LayerAPI, LayerInfo } from "./type.js";
  * @param map - Leaflet map instance.
  * @returns The LayerAPI instance (always a valid object).
  */
-export const ensureLayerAPI = (map: L.Map): LayerAPI => {
+const ensureLayerAPI = (map: L.Map): LayerAPI => {
   // Ensure per-map hint system (creates map.foliplus if needed, idempotent).
   ensureHint(map);
   if (map.foliplus!.LayerAPI) return map.foliplus!.LayerAPI;
@@ -94,7 +94,7 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
  * @param map - Leaflet map instance (per-map LayerAPI namespace).
  * @returns The LayerAPI instance (throws if not a real LayerControl).
  */
-export const requireLayerAPI = (
+const requireLayerAPI = (
   componentName: string,
   _: (key: string) => string,
   map: L.Map,
@@ -109,3 +109,5 @@ export const requireLayerAPI = (
   // LayerManager).  Use the narrowed local to satisfy TS control-flow.
   return api!;
 };
+
+export { ensureLayerAPI, requireLayerAPI };

@@ -21,6 +21,8 @@
   "ExportControl.err_load_bounds": "导出区域加载失败",
   "ExportControl.err_save_bounds": "导出区域保存失败",
   "ExportControl.err_render": "导出渲染失败",
+  "ExportControl.err_geotiff_geo": "GeoTIFF 导出需要地理范围，请重新选择导出区域",
+  "ExportControl.err_geotiff_canvas": "跨域瓦片导致无法导出 GeoTIFF，请更换无跨域限制的底图",
   "ExportControl.label_size_prefix": "地图尺寸：",
   "ExportControl.label_size_suffix": "px",
   "ExportControl.no_layercontrol": "ExportControl 依赖 LayerControl，请先添加 LayerControl 组件"

@@ -44,7 +44,6 @@ doc/source/_build/
 doc/source/api/
 doc/source/map.html
 
-
 # Environments
 .ipynb_checkpoints
 .conda
@@ -55,6 +54,7 @@ uv.lock
 env.bak/
 venv/
 venv.bak/
+tmp/
 
 # Tooling
 .mypy_cache/
@@ -73,6 +73,7 @@ package-lock.json
 *.db
 .DS_Store
 .claude/
+.task/
 memory/
 
 # Auto-generated

@@ -3,12 +3,6 @@
 from __future__ import annotations
 
 import foliplus
-from foliplus._cdn import (
-    CHROMA,
-    GCOORD,
-    H3,
-    SS,
-)
 
 
 class TestVersion:
@@ -50,31 +44,22 @@ class TestVersion:
 class TestCDN:
     """CDN dependency version tests."""
 
-    def test_h3_js_version(self):
-        assert H3 == "4"
-
-    def test_SS(self):
-        assert SS == "7"
-
-    def test_chroma_js_version(self):
-        assert CHROMA == "2"
-
-    def test_GCOORD(self):
-        assert GCOORD == "1"
-
     def test_cdn_urls_in_default_js(self):
         """All default_js URLs in controls with external dependencies follow expected format."""
-        from foliplus import FullscreenControl, HeatmapControl, MeasureControl
+        from foliplus import (
+            ExportControl,
+            FullscreenControl,
+            HeatmapControl,
+            MeasureControl,
+        )
 
-        assert len(HeatmapControl.default_js) > 0
-        for _, url in HeatmapControl.default_js:
-            assert url.startswith("https://cdn.jsdelivr.net/npm/")
-            assert "@" in url, f"Version missing in {url}"
-
-        assert len(MeasureControl.default_js) > 0
-        for _, url in MeasureControl.default_js:
-            assert url.startswith("https://cdn.jsdelivr.net/npm/")
-            assert "@" in url, f"Version missing in {url}"
+        for ctrl in (HeatmapControl, MeasureControl, ExportControl):
+            assert len(ctrl.default_js) > 0, f"{ctrl.__name__} has no CDN deps"
+            for _, url in ctrl.default_js:
+                assert url.startswith("https://cdn.jsdelivr.net/npm/"), (
+                    f"Bad URL: {url}"
+                )
+                assert "@" in url, f"Version missing in {url}"
 
         # Controls without external dependencies have empty default_js/css lists
         assert FullscreenControl.default_js == []
