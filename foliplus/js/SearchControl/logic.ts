@@ -123,6 +123,11 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
 
 // ── Search execution ─────────────────────────────────────────────
 
+/**
+ * Coordinate search: parse raw input, validate, fly to location, place marker.
+ * @param {Object} ctrl - SearchControl instance
+ * @param {string} raw - User input (e.g. "121.47,31.23")
+ */
 const searchCoord = (ctrl: SearchControlState, raw: string) => {
   if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
   const parts = raw
@@ -174,6 +179,11 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   recordHistorySearch(ctrl, raw, "coord", coordLabel, lng, lat);
 };
 
+/**
+ * Address search: fetch from Nominatim, cache result, render marker.
+ * @param {Object} ctrl - SearchControl instance
+ * @param {string} query - Address query string
+ */
 const searchAddress = (ctrl: SearchControlState, query: string) => {
   if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
   // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
@@ -451,11 +461,8 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   }
 
   if (query.length === 0) {
-    if (ctrl.searchHistory.length > 0) {
-      renderHistory(ctrl);
-    } else {
-      removeSuggestions(ctrl);
-    }
+    if (ctrl.searchHistory.length > 0) renderHistory(ctrl);
+    else removeSuggestions(ctrl);
     return;
   }
 
