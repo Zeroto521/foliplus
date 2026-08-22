@@ -244,8 +244,8 @@ describe("recordHistorySearch", () => {
       "121.47,31.23",
       "coord",
       "121.4700, 31.2300",
-      31.23,
       121.47,
+      31.23,
     );
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].type).toBe("coord");
@@ -255,7 +255,7 @@ describe("recordHistorySearch", () => {
 
   it("records a completed addr search", () => {
     const ctrl: any = { searchHistory: [] };
-    recordHistorySearch(ctrl, "Paris", "addr", "Paris, France", 48.8, 2.3);
+    recordHistorySearch(ctrl, "Paris", "addr", "Paris, France", 2.3, 48.8);
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].type).toBe("addr");
     expect(ctrl.searchHistory[0].label).toBe("Paris, France");
@@ -272,10 +272,10 @@ describe("recordHistorySearch", () => {
 
   it("stores raw query as key for deduplication", () => {
     const ctrl: any = { searchHistory: [] };
-    recordHistorySearch(ctrl, "Paris", "addr", "Paris, France", 48.8, 2.3);
+    recordHistorySearch(ctrl, "Paris", "addr", "Paris, France", 2.3, 48.8);
     expect(ctrl.searchHistory[0].query).toBe("Paris");
     // Re-record with same query — dedup should apply
-    recordHistorySearch(ctrl, "Paris", "addr", "Paris, Île-de-France", 48.8, 2.3);
+    recordHistorySearch(ctrl, "Paris", "addr", "Paris, Île-de-France", 2.3, 48.8);
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].label).toBe("Paris, Île-de-France");
   });

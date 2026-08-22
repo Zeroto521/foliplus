@@ -210,7 +210,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       // WGS84 for history storage (history entries are stored in WGS84).
       renderAddressResult(ctrl, result);
       const wgs = toWgs84(map, result.lng, result.lat);
-      recordHistorySearch(ctrl, query, "addr", result.display_name, wgs[1], wgs[0]);
+      recordHistorySearch(ctrl, query, "addr", result.display_name, wgs[0], wgs[1]);
     })
     .catch(() => {
       map.foliplus!.hideHint(CONF.name);
@@ -330,8 +330,8 @@ const renderSuggestions = (
             query,
             "addr",
             displayName,
-            parseFloat(item.lat),
             parseFloat(item.lon),
+            parseFloat(item.lat),
           );
         },
       },

@@ -590,7 +590,7 @@ describe("searchCoord edge cases", () => {
   });
 
   it("converts fullwidth comma to halfwidth", () => {
-    const ctrl: any = { inp: { value: "" }, marker: null };
+    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "121，31");
     expect(map.flyTo).toHaveBeenCalledWith([31, 121], 16);
   });
@@ -599,7 +599,7 @@ describe("searchCoord edge cases", () => {
     const original = window.CONF.zoom;
     try {
       window.CONF = { ...window.CONF, zoom: 14 };
-      const ctrl: any = { inp: { value: "121.47,31.23" }, marker: null };
+      const ctrl: any = { inp: { value: "121.47,31.23" }, marker: null, searchHistory: [] };
       searchCoord(ctrl, "121.47,31.23");
       expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 14);
     } finally {
@@ -609,7 +609,7 @@ describe("searchCoord edge cases", () => {
 
   it("is blocked when MeasureControl is active", () => {
     ensureModes(window.map).setMode("MeasureControl", "distance");
-    const ctrl: any = { inp: { value: "121.47,31.23" }, marker: null };
+    const ctrl: any = { inp: { value: "121.47,31.23" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "121.47,31.23");
     expect(map.flyTo).not.toHaveBeenCalled();
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
