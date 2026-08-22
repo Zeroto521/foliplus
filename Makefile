@@ -83,14 +83,7 @@ info:
 	@python -c "from foliplus import __version__; print(f'foliplus: {__version__}')"
 	@python -c "import folium; print(f'folium: {folium.__version__}')"
 	@python -c "import folium, os, re; folium_dir = os.path.dirname(folium.__file__); fp = os.path.join(folium_dir, 'folium.py'); c = open(fp).read(); m = re.search(r'leaflet@([\d.]+)', c); print(f'Leaflet: {m.group(1)}' if m else 'Leaflet: unknown')"
-	@python -c "
-import json, re
-d = json.load(open('foliplus/cdn.json'))
-for ctrl, scripts in sorted(d.items()):
-    for name, url in scripts:
-        ver = re.search(r'@([\d.]+)', url)
-        print(f'{ctrl:20s} {name:20s} {ver.group(1) if ver else \"?\"}')
-"
+	@python -c "import json, re; d = json.load(open('foliplus/cdn.json')); [print(f'{c:20s} {n:20s} {re.search(chr(64)+r'([\d.]+)',u).group(1)}') for c,s in sorted(d.items()) for n,u in s]"
 
 env:
 	@command -v uv >/dev/null 2>&1 || { echo "uv not found: https://docs.astral.sh/uv/getting-started/installation"; exit 1; }
