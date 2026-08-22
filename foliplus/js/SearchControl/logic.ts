@@ -364,7 +364,7 @@ const renderSuggestions = (
           );
         },
       },
-      dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: Icons.GLOBE }),
+      dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: Icons.LOCATE }),
       dom.el(
         "div",
         { class: CLASSES.RESULT_CONTENT },
@@ -439,7 +439,7 @@ const renderHistory = (ctrl: SearchControlState) => {
             attachSearchDelIcon(ctrl, [lat, lng]);
           },
         },
-        dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: isAddr ? Icons.GLOBE : Icons.LOCATE }),
+        dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: isAddr ? Icons.LOCATE : Icons.GLOBE }),
         dom.el(
           "div",
           { class: CLASSES.RESULT_CONTENT },
