@@ -42,7 +42,7 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
   });
 
   map.foliplus!.LayerAPI = {
-    _isLayerControl: false,
+    isLayerControl: false,
     layers: Object.freeze([]) as unknown as LayerInfo[],
     registerLayer: () => null,
     unregisterLayer: () => false,
@@ -65,8 +65,8 @@ export const ensureLayerAPI = (map: L.Map): LayerAPI => {
  * We can't just test `map.foliplus?.LayerAPI` — other foliplus subsystems
  * (hint/mode/interaction) install a lightweight LayerAPI stub that is
  * always truthy even when LayerControl was never added.  The lightweight
- * stub marks itself `_isLayerControl: false`; only LayerManager sets
- * `_isLayerControl: true`.  This guard only accepts the real thing.
+ * stub marks itself `isLayerControl: false`; only LayerManager sets
+ * `isLayerControl: true`.  This guard only accepts the real thing.
  *
  * @param componentName - CONF.name, used as hint key and error prefix.
  * @param _ - Translator function (from createTranslator).
@@ -78,7 +78,7 @@ export const requireLayerAPI = (
   _: (key: string) => string,
   map: L.Map,
 ): LayerAPI => {
-  if (map.foliplus?.LayerAPI?._isLayerControl !== true) {
+  if (map.foliplus?.LayerAPI?.isLayerControl !== true) {
     const msg = _(`${componentName}.no_layercontrol`);
     if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
     throw new Error(`[${componentName}] ${msg}`);

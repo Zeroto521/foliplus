@@ -440,9 +440,22 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
   ctrl.m.scanMapLayers();
   if (ctrl.m.pointLayers.length === 0 && attempt > 0)
     setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
-  else if (ctrl.m.pointLayers.length === 0)
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.no_layer`), HINT_DURATION.LONG);
-  else rebuildLayerDropdown(ctrl);
+  else if (ctrl.m.pointLayers.length === 0) {
+    // Distinguish the two "no point layers" causes so the hint points the
+    // user at the right fix:  isLayerControl===false means only the
+    // lightweight LayerAPI stub is installed (no LayerControl added),
+    // whereas true means LayerControl is present but has no point data.
+    const missingLayerControl = map.foliplus!.LayerAPI!.isLayerControl === false;
+    map.foliplus!.showHint(
+      CONF.name,
+      _(
+        missingLayerControl
+          ? `${CONF.name}.no_layercontrol`
+          : `${CONF.name}.no_layer`,
+      ),
+      HINT_DURATION.LONG,
+    );
+  } else rebuildLayerDropdown(ctrl);
 };
 
 const resetAll = (ctrl: HeatmapControlUI) => {
