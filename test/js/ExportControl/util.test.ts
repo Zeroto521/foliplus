@@ -213,4 +213,3 @@ describe("loadImage", () => {
     revokeSpy.mockRestore();
   });
 });
-
