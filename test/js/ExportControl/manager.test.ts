@@ -574,35 +574,20 @@ describe("ExportManager — download paths", () => {
     }
   });
 
-  it("downloadGeoTiff falls back to PNG when no geo bounds", async () => {
+  it("downloadGeoTiff shows hint when no geo bounds", async () => {
     manager.cropState!.geoBounds = null;
     manager.savedBounds = null;
     const canvas = document.createElement("canvas") as HTMLCanvasElement;
     Object.defineProperty(canvas, "width", { value: 100 });
     Object.defineProperty(canvas, "height", { value: 50 });
-    const origToDataUrl = canvas.toDataURL.bind(canvas);
-    canvas.toDataURL = vi.fn().mockReturnValue("data:image/png;base64,fake");
-
-    const links: HTMLAnchorElement[] = [];
-    const origCreate = document.createElement.bind(document);
-    vi.spyOn(document, "createElement").mockImplementation(tag => {
-      if (tag.toLowerCase() === "a") {
-        const a = origCreate("a");
-        links.push(a);
-        a.click = vi.fn();
-        return a;
-      }
-      return origCreate(tag);
-    });
 
     try {
       (await manager.downloadGeoTiff(canvas, "test-map")) as any;
-      expect(links.length).toBe(1);
-      expect(links[0].download).toBe("test-map.png");
-      expect(links[0].href).toBe("data:image/png;base64,fake");
-      expect(links[0].click).toHaveBeenCalled();
+      expect(manager.showGlobalHint).toHaveBeenCalledWith(
+        expect.stringContaining("err_geotiff_geo"),
+        expect.any(Number),
+      );
     } finally {
-      canvas.toDataURL = origToDataUrl;
       vi.restoreAllMocks();
     }
   });

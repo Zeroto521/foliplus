@@ -594,26 +594,32 @@ class ExportManager {
     // cropState.geoBounds for programmatic/called-outside-export use.
     const geoBounds = this.savedBounds ?? this.cropState?.geoBounds;
     if (!geoBounds?.nw || !geoBounds?.se) {
-      // No geo bounds — fall back to plain PNG download.
-      const blob = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = `${name}.png`;
-      link.href = blob;
-      link.rel = "noopener";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // GeoTIFF requires geo bounds — without them we can't embed
+      // georeferencing.  Show a hint instead of silently falling back.
+      this.showGlobalHint(_(`${CONF.name}.err_geotiff_geo`), HINT_DURATION.LONG);
       return;
     }
-    if (canvas.width <= 0 || canvas.height <= 0) return;
+    if (canvas.width <= 0 || canvas.height <= 0) {
+      this.showGlobalHint(_(`${CONF.name}.err_gen_fail`), HINT_DURATION.LONG);
+      return;
+    }
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      this.showGlobalHint(
+        _(`${CONF.name}.err_gen_fail`),
+        HINT_DURATION.LONG,
+      );
+      return;
+    }
     let imageData;
     try {
       imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     } catch {
-      // Canvas may be tainted by cross-origin images; skip GeoTIFF.
+      // Canvas may be tainted by cross-origin images (e.g. tiles from a
+      // server without CORS headers).  getImageData throws SecurityError
+      // and we cannot extract pixel data for the GeoTIFF.
+      this.showGlobalHint(_(`${CONF.name}.err_geotiff_canvas`), HINT_DURATION.LONG);
       return;
     }
     const rgba = imageData.data;
