@@ -128,7 +128,7 @@ function makeEPSG3857Mock() {
       const w = worldSize(zoom);
       const d = Math.PI / 180;
       const x = ((ll.lng + 180) / 360) * w;
-      const y = (1 - Math.log(Math.tan(Math.PI / 4 + ll.lat * d / 2)) / Math.PI) * w;
+      const y = (1 - Math.log(Math.tan(Math.PI / 4 + (ll.lat * d) / 2)) / Math.PI) * w;
       return { x, y };
     },
   };
@@ -168,10 +168,15 @@ describe("calcTiles", () => {
   it("throws without a valid CRS", () => {
     const renderer = makeRenderer({ latLngToPoint: undefined });
     expect(() =>
-      renderer.calcTiles(makeTileLayer(), {
-        nw: { lat: 10, lng: 10 },
-        se: { lat: 5, lng: 15 },
-      }, 5, 1),
+      renderer.calcTiles(
+        makeTileLayer(),
+        {
+          nw: { lat: 10, lng: 10 },
+          se: { lat: 5, lng: 15 },
+        },
+        5,
+        1,
+      ),
     ).toThrow();
   });
 
@@ -184,38 +189,58 @@ describe("calcTiles", () => {
       foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
     };
     const renderer = new ExportRenderer(map as any);
-    const tiles = renderer.calcTiles(makeTileLayer(), {
-      nw: { lat: 10, lng: 10 },
-      se: { lat: 5, lng: 15 },
-    }, 5, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer(),
+      {
+        nw: { lat: 10, lng: 10 },
+        se: { lat: 5, lng: 15 },
+      },
+      5,
+      1,
+    );
     expect(Array.isArray(tiles)).toBe(true);
   });
 
   it("produces one tile for a zoom-0 full-extent bounding box", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer(), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer(),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
     expect(tiles.length).toBe(1);
     expect(tiles[0]).toMatchObject({ x: 0, y: 0, z: 0 });
   });
 
   it("produces 4 tiles for zoom-1 full extent", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer(), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 1, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer(),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      1,
+      1,
+    );
     expect(tiles.length).toBe(4);
   });
 
   it("clamps tile coords to maxTile for finite CRS", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer(), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 1, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer(),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      1,
+      1,
+    );
     for (const t of tiles) {
       expect(t.x).toBeLessThan(2);
       expect(t.y).toBeLessThan(2);
@@ -228,10 +253,15 @@ describe("calcTiles", () => {
     const renderer = makeRenderer();
     // Very small lat/lng box that falls between tile boundaries — no negative
     // coords should leak through the filter.
-    const tiles = renderer.calcTiles(makeTileLayer(), {
-      nw: { lat: 45, lng: -180 },
-      se: { lat: 44, lng: -179 },
-    }, 5, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer(),
+      {
+        nw: { lat: 45, lng: -180 },
+        se: { lat: 44, lng: -179 },
+      },
+      5,
+      1,
+    );
     for (const t of tiles) {
       expect(t.x).toBeGreaterThanOrEqual(0);
       expect(t.y).toBeGreaterThanOrEqual(0);
@@ -240,113 +270,173 @@ describe("calcTiles", () => {
 
   it("substitutes {s} from subdomains string", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ subdomains: "abc" }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ subdomains: "abc" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
     expect(tiles.length).toBe(1);
     expect(tiles[0].url).toMatch(/^https:\/\/[a-c]\.tile\.example\.com\/0\/0\/0\.png$/);
   });
 
   it("substitutes {s} from subdomains array", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ subdomains: ["a", "b", "c"] }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ subdomains: ["a", "b", "c"] }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
     expect(tiles[0].url).toMatch(/^https:\/\/[a-c]\.tile\.example\.com\/0\/0\/0\.png$/);
   });
 
   it("uses 256 default tileSize when not specified", () => {
     const renderer = makeRenderer();
     // TileLayer with options but no tileSize → defaults to 256
-    const tiles = renderer.calcTiles(makeTileLayer({ subdomains: "abc" }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ subdomains: "abc" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
     expect(tiles[0].size).toBe(256);
   });
 
   it("uses numeric tileSize from options", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ tileSize: 512 }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ tileSize: 512 }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
     expect(tiles[0].size).toBe(512);
   });
 
   it("uses empty string urlTemplate when _url is missing", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ _url: "" }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ _url: "" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
     expect(tiles[0].url).toBe("");
   });
 
   it("substitutes {z} with zoom value", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}.png" }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 7, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}.png" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      7,
+      1,
+    );
     expect(tiles[0].url).toMatch(/\/7\/0\/0\.png$/);
   });
 
   it("appends @2x to {r} when scale > 1", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 2);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      2,
+    );
     expect(tiles[0].url).toContain("@2x");
   });
 
   it("replaces {r} with empty string when scale is 1", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
     expect(tiles[0].url).toBe("https://tile.example.com/0/0/0.png");
     expect(tiles[0].url).not.toContain("@2x");
   });
 
   it("sets left and top to tile pixel positions", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ tileSize: 256 }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ tileSize: 256 }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
     expect(tiles[0].left).toBe(0);
     expect(tiles[0].top).toBe(0);
   });
 
   it("produces 16 tiles for zoom 2 full extent", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer(), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 2, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer(),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      2,
+      1,
+    );
     expect(tiles.length).toBe(16);
   });
 
   it("uses subdomains[0] when subdomains array has single entry", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ subdomains: ["x"] }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 0, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ subdomains: ["x"] }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
     expect(tiles[0].url).toBe("https://x.tile.example.com/0/0/0.png");
   });
 
   it("cycles subdomains deterministically via (x+y) % len", () => {
     const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(makeTileLayer({ subdomains: "ab" }), {
-      nw: { lat: 85.051129, lng: -180 },
-      se: { lat: -85.051129, lng: 180 },
-    }, 1, 1);
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ subdomains: "ab" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      1,
+      1,
+    );
     const subdomainSets = new Set(tiles.map(t => t.url.match(/\/\/([ab])\./)![1]));
     expect(subdomainSets).toEqual(new Set(["a", "b"]));
   });
@@ -382,13 +472,23 @@ describe("ExportRenderer.render — canvas creation", () => {
 
   it("throws when scaled width < 1", async () => {
     await expect(
-      renderer.render({ left: 0, top: 0, width: 0, height: 100 }, 1, undefined, undefined),
+      renderer.render(
+        { left: 0, top: 0, width: 0, height: 100 },
+        1,
+        undefined,
+        undefined,
+      ),
     ).rejects.toThrow();
   });
 
   it("throws when scaled height < 1", async () => {
     await expect(
-      renderer.render({ left: 0, top: 0, width: 100, height: 0 }, 1, undefined, undefined),
+      renderer.render(
+        { left: 0, top: 0, width: 100, height: 0 },
+        1,
+        undefined,
+        undefined,
+      ),
     ).rejects.toThrow();
   });
 
