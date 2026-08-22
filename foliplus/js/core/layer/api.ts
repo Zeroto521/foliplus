@@ -110,4 +110,4 @@ const requireLayerAPI = (
   return api!;
 };
 
-export { ensureLayerAPI, isRealLayerControl, requireLayerAPI };
+export { ensureLayerAPI, requireLayerAPI };
