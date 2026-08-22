@@ -588,7 +588,12 @@ class ExportManager {
    * Falls back to a plain image download if geo bounds are unavailable.
    */
   async downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
-    const geoBounds = this.cropState?.geoBounds;
+    // doExport() clears cropState via removeCropBox() before the render
+    // callback fires, so cropState.geoBounds is gone by the time we
+    // reach downloadGeoTiff.  Use the geoBounds saved in doExport
+    // (this.savedBounds) as the primary source, falling back to
+    // cropState.geoBounds for programmatic/called-outside-export use.
+    const geoBounds = this.savedBounds ?? this.cropState?.geoBounds;
     if (!geoBounds?.nw || !geoBounds?.se) {
       // No geo bounds — fall back to plain PNG download.
       const blob = canvas.toDataURL("image/png");

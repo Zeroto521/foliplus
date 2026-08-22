@@ -496,8 +496,57 @@ describe("ExportManager — download paths", () => {
     }
   });
 
+  it("downloadGeoTiff uses savedBounds when cropState has been cleared", async () => {
+    // doExport() calls removeCropBox() (which sets cropState=null) before
+    // the render callback fires.  downloadGeoTiff must still find geo
+    // bounds via this.savedBounds.
+    manager.cropState = null;
+    manager.savedBounds = {
+      nw: { lat: 31.0, lng: 121.0 },
+      se: { lat: 30.0, lng: 122.0 },
+    };
+    const canvas = document.createElement("canvas") as HTMLCanvasElement;
+    Object.defineProperty(canvas, "width", { value: 100 });
+    Object.defineProperty(canvas, "height", { value: 50 });
+    const ctx = {
+      getImageData: vi.fn().mockReturnValue({
+        data: new Uint8ClampedArray(100 * 50 * 4).fill(0),
+      }),
+    };
+    canvas.getContext = vi.fn().mockReturnValue(ctx);
+
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:geo"),
+      revokeObjectURL: vi.fn(),
+    });
+
+    const links: HTMLAnchorElement[] = [];
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
+      if (tag.toLowerCase() === "a") {
+        const a = origCreate("a");
+        links.push(a);
+        a.click = vi.fn();
+        return a;
+      }
+      return origCreate(tag);
+    });
+
+    try {
+      (await manager.downloadGeoTiff(canvas, "test-map")) as any;
+      expect(links.length).toBe(1);
+      expect(links[0].download).toBe("test-map.tif");
+      expect(links[0].href).toBe("blob:geo");
+      expect(links[0].click).toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it("downloadGeoTiff falls back to PNG when no geo bounds", async () => {
     manager.cropState!.geoBounds = null;
+    manager.savedBounds = null;
     const canvas = document.createElement("canvas") as HTMLCanvasElement;
     Object.defineProperty(canvas, "width", { value: 100 });
     Object.defineProperty(canvas, "height", { value: 50 });
