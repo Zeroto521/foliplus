@@ -227,7 +227,11 @@ describe("bindEvents", () => {
     const header = dom.el(
       "div",
       { class: "foliplus-search-history-group-header" },
-      dom.el("span", { class: "foliplus-search-history-group-title" }, "Search History"),
+      dom.el(
+        "span",
+        { class: "foliplus-search-history-group-title" },
+        "Search History",
+      ),
     );
     const item = dom.el(
       "div",
