@@ -599,7 +599,11 @@ describe("searchCoord edge cases", () => {
     const original = window.CONF.zoom;
     try {
       window.CONF = { ...window.CONF, zoom: 14 };
-      const ctrl: any = { inp: { value: "121.47,31.23" }, marker: null, searchHistory: [] };
+      const ctrl: any = {
+        inp: { value: "121.47,31.23" },
+        marker: null,
+        searchHistory: [],
+      };
       searchCoord(ctrl, "121.47,31.23");
       expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 14);
     } finally {
@@ -609,7 +613,11 @@ describe("searchCoord edge cases", () => {
 
   it("is blocked when MeasureControl is active", () => {
     ensureModes(window.map).setMode("MeasureControl", "distance");
-    const ctrl: any = { inp: { value: "121.47,31.23" }, marker: null, searchHistory: [] };
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
     searchCoord(ctrl, "121.47,31.23");
     expect(map.flyTo).not.toHaveBeenCalled();
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
@@ -967,7 +975,18 @@ describe("fetchSuggestions — empty input renders history", () => {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
       inp: { value: "" },
-      searchHistory: [{ query: "A", type: "addr", coordDisplay: "", addrDisplay: "A", lat: 0, lng: 0, ts: 1, count: 1 }],
+      searchHistory: [
+        {
+          query: "A",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "A",
+          lat: 0,
+          lng: 0,
+          ts: 1,
+          count: 1,
+        },
+      ],
     };
     fetchSuggestions(ctrl, "");
     expect(ctrl.suggestionsWrap).not.toBeNull();
@@ -992,7 +1011,16 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
       },
       inp: { value: "abc" },
       searchHistory: [
-        { query: "Old", type: "addr", coordDisplay: "", addrDisplay: "Old", lat: 0, lng: 0, ts: 1, count: 1 },
+        {
+          query: "Old",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "Old",
+          lat: 0,
+          lng: 0,
+          ts: 1,
+          count: 1,
+        },
       ],
     };
     fetchSuggestions(ctrl, "abc");

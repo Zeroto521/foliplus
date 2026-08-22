@@ -63,10 +63,10 @@ const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): v
     existing.addrDisplay = entry.addrDisplay || existing.addrDisplay;
     existing.lng = entry.lng;
     existing.lat = entry.lat;
-    const updated = [existing, ...ctrl.searchHistory.filter(e => e.query !== query)].slice(
-      0,
-      HISTORY.MAX_ENTRIES,
-    );
+    const updated = [
+      existing,
+      ...ctrl.searchHistory.filter(e => e.query !== query),
+    ].slice(0, HISTORY.MAX_ENTRIES);
     ctrl.searchHistory = updated;
     saveHistory(updated);
     return;
@@ -236,8 +236,17 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       renderAddressResult(ctrl, result);
       const wgs = toWgs84(map, result.lng, result.lat);
       const coordDisplay = `${wgs[0].toFixed(4)}, ${wgs[1].toFixed(4)}`;
-      const addrDisplay = formatAddress(result.display_name, map, CONF.locale_code) || query;
-      recordHistorySearch(ctrl, query, "addr", coordDisplay, addrDisplay, wgs[0], wgs[1]);
+      const addrDisplay =
+        formatAddress(result.display_name, map, CONF.locale_code) || query;
+      recordHistorySearch(
+        ctrl,
+        query,
+        "addr",
+        coordDisplay,
+        addrDisplay,
+        wgs[0],
+        wgs[1],
+      );
     })
     .catch(() => {
       map.foliplus!.hideHint(CONF.name);
@@ -439,7 +448,11 @@ const renderHistory = (ctrl: SearchControlState) => {
             attachSearchDelIcon(ctrl, [lat, lng]);
           },
         },
-        dom.el("span", { class: CLASSES.SUGGESTION_ICON }, { html: isAddr ? Icons.LOCATE : Icons.GLOBE }),
+        dom.el(
+          "span",
+          { class: CLASSES.SUGGESTION_ICON },
+          { html: isAddr ? Icons.GLOBE : Icons.LOCATE },
+        ),
         dom.el(
           "div",
           { class: CLASSES.RESULT_CONTENT },

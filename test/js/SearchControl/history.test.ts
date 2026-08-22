@@ -65,7 +65,16 @@ describe("loadHistory / saveHistory", () => {
 
   it("saves an empty array when history is cleared", () => {
     const entries: SearchHistoryEntry[] = [
-      { query: "A", type: "addr", coordDisplay: "", addrDisplay: "A", lat: 0, lng: 0, ts: 1, count: 1 },
+      {
+        query: "A",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "A",
+        lat: 0,
+        lng: 0,
+        ts: 1,
+        count: 1,
+      },
     ];
     saveHistory(entries);
     expect(loadHistory()).toHaveLength(1);
@@ -96,9 +105,36 @@ describe("addHistoryEntry", () => {
   it("increments count on duplicate query and updates displays", () => {
     const ctrl: any = {
       searchHistory: [
-        { query: "A", type: "addr", coordDisplay: "", addrDisplay: "A", lat: 0, lng: 0, ts: 100, count: 1 },
-        { query: "Paris", type: "addr", coordDisplay: "1.0, 2.0", addrDisplay: "Paris", lat: 2.0, lng: 1.0, ts: 200, count: 3 },
-        { query: "B", type: "addr", coordDisplay: "", addrDisplay: "B", lat: 0, lng: 0, ts: 300, count: 1 },
+        {
+          query: "A",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "A",
+          lat: 0,
+          lng: 0,
+          ts: 100,
+          count: 1,
+        },
+        {
+          query: "Paris",
+          type: "addr",
+          coordDisplay: "1.0, 2.0",
+          addrDisplay: "Paris",
+          lat: 2.0,
+          lng: 1.0,
+          ts: 200,
+          count: 3,
+        },
+        {
+          query: "B",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "B",
+          lat: 0,
+          lng: 0,
+          ts: 300,
+          count: 1,
+        },
       ],
     };
     addHistoryEntry(ctrl, {
@@ -125,7 +161,16 @@ describe("addHistoryEntry", () => {
   it("persists after deduplication", () => {
     const ctrl: any = {
       searchHistory: [
-        { query: "Paris", type: "addr", coordDisplay: "", addrDisplay: "Paris", lat: 48.8, lng: 2.3, ts: 1000, count: 2 },
+        {
+          query: "Paris",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "Paris",
+          lat: 48.8,
+          lng: 2.3,
+          ts: 1000,
+          count: 2,
+        },
       ],
     };
     addHistoryEntry(ctrl, {
@@ -210,8 +255,26 @@ describe("deleteHistoryEntry", () => {
   it("removes a matching entry and persists", () => {
     const ctrl: any = {
       searchHistory: [
-        { query: "A", type: "addr", coordDisplay: "", addrDisplay: "A", lat: 0, lng: 0, ts: 1, count: 1 },
-        { query: "B", type: "addr", coordDisplay: "", addrDisplay: "B", lat: 0, lng: 0, ts: 2, count: 1 },
+        {
+          query: "A",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "A",
+          lat: 0,
+          lng: 0,
+          ts: 1,
+          count: 1,
+        },
+        {
+          query: "B",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "B",
+          lat: 0,
+          lng: 0,
+          ts: 2,
+          count: 1,
+        },
       ],
     };
     deleteHistoryEntry(ctrl, "A");
@@ -224,7 +287,18 @@ describe("deleteHistoryEntry", () => {
 
   it("does nothing for unknown query", () => {
     const ctrl: any = {
-      searchHistory: [{ query: "A", type: "addr", coordDisplay: "", addrDisplay: "A", lat: 0, lng: 0, ts: 1, count: 1 }],
+      searchHistory: [
+        {
+          query: "A",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "A",
+          lat: 0,
+          lng: 0,
+          ts: 1,
+          count: 1,
+        },
+      ],
     };
     deleteHistoryEntry(ctrl, "Z");
     expect(ctrl.searchHistory).toHaveLength(1);
@@ -233,7 +307,16 @@ describe("deleteHistoryEntry", () => {
   it("empties history when last entry is deleted", () => {
     const ctrl: any = {
       searchHistory: [
-        { query: "Only", type: "addr", coordDisplay: "", addrDisplay: "Only", lat: 0, lng: 0, ts: 1, count: 1 },
+        {
+          query: "Only",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "Only",
+          lat: 0,
+          lng: 0,
+          ts: 1,
+          count: 1,
+        },
       ],
     };
     deleteHistoryEntry(ctrl, "Only");
@@ -247,8 +330,26 @@ describe("clearHistory", () => {
   it("empties the history array and persists", () => {
     const ctrl: any = {
       searchHistory: [
-        { query: "A", type: "addr", coordDisplay: "", addrDisplay: "A", lat: 0, lng: 0, ts: 1, count: 1 },
-        { query: "B", type: "addr", coordDisplay: "", addrDisplay: "B", lat: 0, lng: 0, ts: 2, count: 1 },
+        {
+          query: "A",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "A",
+          lat: 0,
+          lng: 0,
+          ts: 1,
+          count: 1,
+        },
+        {
+          query: "B",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "B",
+          lat: 0,
+          lng: 0,
+          ts: 2,
+          count: 1,
+        },
       ],
     };
     clearHistory(ctrl);
@@ -364,7 +465,9 @@ describe("renderHistory", () => {
     // No title text
     expect(ctrl.suggestionsWrap.innerHTML).not.toContain("Search History");
     // No clear-all button
-    expect(ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-clear")).toBeNull();
+    expect(
+      ctrl.suggestionsWrap.querySelector(".foliplus-search-history-group-clear"),
+    ).toBeNull();
     // History items present
     const items = ctrl.suggestionsWrap.querySelectorAll(
       ".foliplus-search-suggestion-item",
@@ -377,7 +480,9 @@ describe("renderHistory", () => {
     ).toBe("Paris, France");
     // Address entries have coord-display below the text
     expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
-    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe("2.3, 48.8");
+    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe(
+      "2.3, 48.8",
+    );
     // Coord entries do NOT have coord-display
     expect(items[1].querySelector(".foliplus-search-result-coord")).toBeNull();
     // No delete button
@@ -387,16 +492,34 @@ describe("renderHistory", () => {
   it("sorts by count desc then ts desc", () => {
     const ctrl = makeHistoryCtrl([
       {
-        query: "A", type: "addr", coordDisplay: "", addrDisplay: "A",
-        lat: 0, lng: 0, ts: 100, count: 1,
+        query: "A",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "A",
+        lat: 0,
+        lng: 0,
+        ts: 100,
+        count: 1,
       },
       {
-        query: "B", type: "addr", coordDisplay: "", addrDisplay: "B",
-        lat: 0, lng: 0, ts: 200, count: 5,
+        query: "B",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "B",
+        lat: 0,
+        lng: 0,
+        ts: 200,
+        count: 5,
       },
       {
-        query: "C", type: "addr", coordDisplay: "", addrDisplay: "C",
-        lat: 0, lng: 0, ts: 300, count: 5,
+        query: "C",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "C",
+        lat: 0,
+        lng: 0,
+        ts: 300,
+        count: 5,
       },
     ]);
     renderHistory(ctrl);
