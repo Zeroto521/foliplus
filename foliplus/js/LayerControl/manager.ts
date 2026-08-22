@@ -54,6 +54,8 @@ const unpatchBringToFront = () => {
 
 // ==================== Core Manager: LayerManager ====================
 class LayerManager implements LayerAPI {
+  /** Marks this as a real LayerControl (requireLayerAPI filter). */
+  _isLayerControl = true;
   map: L.Map;
   layerRegistry: LayerRegistry;
   pendingRegistrations: LayerInfo[];
