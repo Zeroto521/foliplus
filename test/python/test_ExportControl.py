@@ -181,8 +181,8 @@ class TestExportControlBrowser:
     def _stub_html(html: str) -> str:
         """Remove blocking CDN <script> tags and inject stubs for GeoTIFF/pako."""
         for cdn in (
-            "geotiff@3.0.5/dist-browser/geotiff.js",
-            "pako@2.1.0/dist/pako.min.js",
+            "geotiff@3/dist-browser/geotiff.js",
+            "pako@2/dist/pako.min.js",
         ):
             html = html.replace(
                 f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
