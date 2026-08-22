@@ -54,7 +54,11 @@ const unpatchBringToFront = () => {
 
 // ==================== Core Manager: LayerManager ====================
 class LayerManager implements LayerAPI {
-  /** Marks this as a real LayerControl (requireLayerAPI filter). */
+  /** Diagnostic marker: set by LayerManager (true).  The lightweight stub
+   * sets this to false.  For the actual LayerControl check, prefer
+   * isRealLayerControl — a capability assertion that cannot be bypassed
+   * by flag tampering — but this flag is convenient for ad-hoc logging.
+   */
   isLayerControl = true;
   map: L.Map;
   layerRegistry: LayerRegistry;
