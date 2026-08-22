@@ -69,47 +69,6 @@ const loadImage = (src: string, crossOrigin?: string) =>
     i.src = src;
   });
 
-type LatLngPoint = { lat: number; lng: number };
-
-/**
- * Compute a six-line World File ( / ) for a raster image.
- *
- * World File format (per ESRI spec):
- *   Line 1: pixel size in x
- *   Line 2: row rotation term (usually 0)
- *   Line 3: column rotation term (usually 0)
- *   Line 4: pixel size in y (negative — image y is top-down)
- *   Line 5: x coordinate of the CENTER of the top-left pixel
- *   Line 6: y coordinate of the CENTER of the top-left pixel
- *
- * Coordinates are expressed in the same units as  /  (typically
- * WGS84 degrees, but also works for projected CRS like EPSG:3857 meters).
- */
-const generateWorldFile = (
-  nw: { lat: number; lng: number },
-  se: { lat: number; lng: number },
-  width: number,
-  height: number,
-): string => {
-  if (width <= 0 || height <= 0) return "";
-
-  const pixelWidth = (se.lng - nw.lng) / width;
-  const pixelHeight = (se.lat - nw.lat) / height;
-
-  const ulx = nw.lng + pixelWidth / 2;
-  const uly = nw.lat + pixelHeight / 2;
-
-  return [
-    pixelWidth.toPrecision(12),
-    "0",
-    "0",
-    pixelHeight.toPrecision(12),
-    ulx.toPrecision(15),
-    uly.toPrecision(15),
-    "",
-  ].join("\n");
-};
-
 /** Wait for a font spec to be ready for canvas text rendering. */
 const ensureFont = async (fontSpec: string) => {
   try {
@@ -126,4 +85,4 @@ const ensureFont = async (fontSpec: string) => {
   }
 };
 
-export { isVisible, loadImageBitmap, loadImage, ensureFont, generateWorldFile };
+export { isVisible, loadImageBitmap, loadImage, ensureFont };
