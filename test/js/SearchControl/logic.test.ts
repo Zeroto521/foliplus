@@ -528,7 +528,7 @@ describe("searchCoord — history recording", () => {
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].query).toBe("121.47,31.23");
     expect(ctrl.searchHistory[0].type).toBe("coord");
-    expect(ctrl.searchHistory[0].coordDisplay).toBe("121.4700, 31.2300");
+    expect(ctrl.searchHistory[0].coordDisplay).toBe("121.470000, 31.230000");
     expect(ctrl.searchHistory[0].lat).toBe(31.23);
     expect(ctrl.searchHistory[0].lng).toBe(121.47);
     expect(ctrl.searchHistory[0].ts).toBeGreaterThan(0);

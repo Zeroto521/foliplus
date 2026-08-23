@@ -16,7 +16,15 @@ import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import * as Storage from "#common/storage.js";
-import { AUTOCOMPLETE, CLASSES, HISTORY, MODE, SOURCE, ZOOM } from "./const.js";
+import {
+  AUTOCOMPLETE,
+  CLASSES,
+  FORMAT,
+  HISTORY,
+  MODE,
+  SOURCE,
+  ZOOM,
+} from "./const.js";
 import type {
   AddressResult,
   NominatimItem,
@@ -219,7 +227,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
 
-  const coordDisplay = `${lng.toFixed(4)}, ${lat.toFixed(4)}`;
+  const coordDisplay = `${lng.toFixed(FORMAT.LAT_LNG_PRECISION)}, ${lat.toFixed(FORMAT.LAT_LNG_PRECISION)}`;
   // Save coord entry immediately, then update address via reverse geocode.
   // NOTE: reverse-geocode updates the existing entry in-place to avoid
   // incrementing the count (addHistoryEntry treats same-query as a repeat).
@@ -271,7 +279,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       // WGS84 for history storage (history entries are stored in WGS84).
       renderAddressResult(ctrl, result);
       const wgs = toWgs84(map, result.lng, result.lat);
-      const coordDisplay = `${wgs[0].toFixed(4)}, ${wgs[1].toFixed(4)}`;
+      const coordDisplay = `${wgs[0].toFixed(FORMAT.LAT_LNG_PRECISION)}, ${wgs[1].toFixed(FORMAT.LAT_LNG_PRECISION)}`;
       const addrDisplay =
         formatAddress(result.display_name, map, CONF.locale_code) || query;
       recordHistorySearch(
@@ -419,7 +427,7 @@ const renderSuggestions = (
   const items: ResultItem[] = results.map((item: NominatimItem) => {
     const displayName =
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
-    const coordDisplay = `${parseFloat(item.lng).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
+    const coordDisplay = `${parseFloat(item.lng).toFixed(FORMAT.LAT_LNG_PRECISION)}, ${parseFloat(item.lat).toFixed(FORMAT.LAT_LNG_PRECISION)}`;
     return {
       icon: Icons.LOCATE,
       source: SOURCE.SUGGESTION,
