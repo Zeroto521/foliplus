@@ -61,8 +61,8 @@ class TestSearchControlRendering:
         html = render_control(SearchControl())
         assert "foliplus-search" in html
         assert "foliplus-search-mode-btn" in html
-        assert "foliplus-search-suggestions" in html
-        assert "foliplus-search-suggestion-item" in html
+        assert "foliplus-search-result-panel" in html
+        assert "foliplus-search-result-item" in html
         assert "ctrl-fold" in html
         assert "align-right" in html
 
@@ -86,8 +86,8 @@ class TestSearchControlRendering:
 
     def test_suggestion_item_classes(self):
         html = render_control(SearchControl())
-        assert "foliplus-search-suggestion-icon" in html
-        assert "foliplus-search-suggestion-text" in html
+        assert "foliplus-search-result-icon" in html
+        assert "foliplus-search-result-text" in html
 
 
 class TestSearchControlBrowser:
@@ -291,10 +291,10 @@ class TestSearchControlBrowser:
 
             # Suggestions container should be on body, not inside toolBar
             on_body = page.evaluate(
-                "document.body.querySelector('.foliplus-search-suggestions') !== null"
+                "document.body.querySelector('.foliplus-search-result-panel') !== null"
             )
             in_toolbar = page.evaluate(
-                "document.querySelector('.foliplus-tool-bar .foliplus-search-suggestions') !== null"
+                "document.querySelector('.foliplus-tool-bar .foliplus-search-result-panel') !== null"
             )
             # The suggestions may or may not appear (depends on network), but
             # the key test is that they're NOT in toolBar
