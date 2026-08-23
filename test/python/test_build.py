@@ -44,6 +44,17 @@ class TestBuildArtifacts:
         assert (dist / "foliplus-common.min.js").exists()
         assert (dist / "foliplus-common.min.css").exists()
 
+    def test_common_css_merges_panel_css(self):
+        """Guard for the merged-CSS chain: common.min.css must include real
+        content from BOTH common.css and panel.css, not just a bare banner.
+        We assert on selectors that exist in exactly one source each."""
+        dist = _dist()
+        if not dist.exists():
+            pytest.skip("dist/ not built")
+        merged = (dist / "foliplus-common.min.css").read_text(encoding="utf-8")
+        assert "foliplus-panel-header" in merged, "panel.css content missing from merge"
+        assert "foliplus-hint" in merged, "common.css content missing from merge"
+
     def test_shared_bundle_contains_layer_code(self):
         """P5: core/layer lives in foliplus-common.min.js, not per-component."""
         dist = _dist()

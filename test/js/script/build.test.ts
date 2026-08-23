@@ -103,6 +103,16 @@ describe("build artifacts", () => {
     }
   });
 
+  it("common CSS merges both common.css and panel.css", () => {
+    // Guard for the merged-CSS @import chain: the merged artifact must pull
+    // in real content from BOTH source files, not just one (a broken chain
+    // would emit only a bare entry banner). Assert on selectors that exist
+    // in exactly one source each, so a missing merge is detectable.
+    const merged = readFileSync(resolve(distDir, "foliplus-common.min.css"), "utf-8");
+    expect(merged, "must include panel.css content").toContain("foliplus-panel-header");
+    expect(merged, "must include common.css content").toContain("foliplus-hint");
+  });
+
   it("has correct number of JS artifacts", () => {
     const jsFiles = readdirSync(distDir).filter(f => f.endsWith(".min.js"));
     expect(jsFiles.length).toBeGreaterThanOrEqual(JS_ARTIFACTS.length);
