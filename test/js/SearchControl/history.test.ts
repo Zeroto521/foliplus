@@ -71,16 +71,16 @@ describe("loadHistory / saveHistory", () => {
           query: "Paris",
           type: "addr",
           label: "Paris, France",
-          lat: 48.8,
           lng: 2.3,
+          lat: 48.8,
           ts: 1000,
         },
         {
           query: "121.47,31.23",
           type: "coord",
           label: "121.4700, 31.2300",
-          lat: 31.23,
           lng: 121.47,
+          lat: 31.23,
           ts: 2000,
         },
       ]),
@@ -104,8 +104,8 @@ describe("loadHistory / saveHistory", () => {
         type: "addr",
         coordDisplay: "",
         addrDisplay: "A",
-        lat: 0,
         lng: 0,
+        lat: 0,
         ts: 1,
         count: 1,
       },
@@ -144,8 +144,8 @@ describe("addHistoryEntry", () => {
           type: "addr",
           coordDisplay: "",
           addrDisplay: "A",
-          lat: 0,
           lng: 0,
+          lat: 0,
           ts: 100,
           count: 1,
         },
@@ -154,8 +154,8 @@ describe("addHistoryEntry", () => {
           type: "addr",
           coordDisplay: "1.0, 2.0",
           addrDisplay: "Paris",
-          lat: 2.0,
           lng: 1.0,
+          lat: 2.0,
           ts: 200,
           count: 3,
         },
@@ -164,8 +164,8 @@ describe("addHistoryEntry", () => {
           type: "addr",
           coordDisplay: "",
           addrDisplay: "B",
-          lat: 0,
           lng: 0,
+          lat: 0,
           ts: 300,
           count: 1,
         },
@@ -200,8 +200,8 @@ describe("addHistoryEntry", () => {
           type: "addr",
           coordDisplay: "",
           addrDisplay: "Paris",
-          lat: 48.8,
           lng: 2.3,
+          lat: 48.8,
           ts: 1000,
           count: 2,
         },
@@ -230,8 +230,8 @@ describe("addHistoryEntry", () => {
         type: "addr" as const,
         coordDisplay: "",
         addrDisplay: `L${i}`,
-        lat: 0,
         lng: 0,
+        lat: 0,
         ts: i,
         count: 1,
       })),
@@ -263,8 +263,8 @@ describe("addHistoryEntry", () => {
         type: "addr" as const,
         coordDisplay: "",
         addrDisplay: `L${i}`,
-        lat: 0,
         lng: 0,
+        lat: 0,
         ts: i,
         count: 1,
       })),
@@ -294,8 +294,8 @@ describe("deleteHistoryEntry", () => {
           type: "addr",
           coordDisplay: "",
           addrDisplay: "A",
-          lat: 0,
           lng: 0,
+          lat: 0,
           ts: 1,
           count: 1,
         },
@@ -304,8 +304,8 @@ describe("deleteHistoryEntry", () => {
           type: "addr",
           coordDisplay: "",
           addrDisplay: "B",
-          lat: 0,
           lng: 0,
+          lat: 0,
           ts: 2,
           count: 1,
         },
@@ -327,8 +327,8 @@ describe("deleteHistoryEntry", () => {
           type: "addr",
           coordDisplay: "",
           addrDisplay: "A",
-          lat: 0,
           lng: 0,
+          lat: 0,
           ts: 1,
           count: 1,
         },
@@ -346,8 +346,8 @@ describe("deleteHistoryEntry", () => {
           type: "addr",
           coordDisplay: "",
           addrDisplay: "Only",
-          lat: 0,
           lng: 0,
+          lat: 0,
           ts: 1,
           count: 1,
         },
@@ -369,8 +369,8 @@ describe("clearHistory", () => {
           type: "addr",
           coordDisplay: "",
           addrDisplay: "A",
-          lat: 0,
           lng: 0,
+          lat: 0,
           ts: 1,
           count: 1,
         },
@@ -379,8 +379,8 @@ describe("clearHistory", () => {
           type: "addr",
           coordDisplay: "",
           addrDisplay: "B",
-          lat: 0,
           lng: 0,
+          lat: 0,
           ts: 2,
           count: 1,
         },
@@ -476,8 +476,8 @@ describe("renderHistory", () => {
         type: "addr",
         coordDisplay: "2.3, 48.8",
         addrDisplay: "Paris, France",
-        lat: 48.8,
         lng: 2.3,
+        lat: 48.8,
         ts: 1000,
         count: 1,
       },
@@ -486,8 +486,8 @@ describe("renderHistory", () => {
         type: "coord",
         coordDisplay: "121.4700, 31.2300",
         addrDisplay: "",
-        lat: 31.23,
         lng: 121.47,
+        lat: 31.23,
         ts: 2000,
         count: 1,
       },
@@ -512,8 +512,8 @@ describe("renderHistory", () => {
         type: "addr",
         coordDisplay: "2.3, 48.8",
         addrDisplay: "Paris, France",
-        lat: 48.8,
         lng: 2.3,
+        lat: 48.8,
         ts: 1000,
         count: 1,
       },
@@ -522,8 +522,8 @@ describe("renderHistory", () => {
         type: "coord",
         coordDisplay: "121.4700, 31.2300",
         addrDisplay: "",
-        lat: 31.23,
         lng: 121.47,
+        lat: 31.23,
         ts: 2000,
         count: 1,
       },
@@ -549,8 +549,8 @@ describe("renderHistory", () => {
         type: "addr",
         coordDisplay: "",
         addrDisplay: "A",
-        lat: 0,
         lng: 0,
+        lat: 0,
         ts: 100,
         count: 1,
       },
@@ -559,8 +559,8 @@ describe("renderHistory", () => {
         type: "addr",
         coordDisplay: "",
         addrDisplay: "B",
-        lat: 0,
         lng: 0,
+        lat: 0,
         ts: 200,
         count: 5,
       },
@@ -569,8 +569,8 @@ describe("renderHistory", () => {
         type: "addr",
         coordDisplay: "",
         addrDisplay: "C",
-        lat: 0,
         lng: 0,
+        lat: 0,
         ts: 300,
         count: 5,
       },
@@ -589,8 +589,8 @@ describe("renderHistory", () => {
         type: "addr",
         coordDisplay: "2.3, 48.8",
         addrDisplay: "Paris, France",
-        lat: 48.8,
         lng: 2.3,
+        lat: 48.8,
         ts: 1000,
         count: 1,
       },
@@ -610,8 +610,8 @@ describe("renderHistory", () => {
         type: "coord",
         coordDisplay: "121.4700, 31.2300",
         addrDisplay: "",
-        lat: 31.23,
         lng: 121.47,
+        lat: 31.23,
         ts: 1000,
         count: 1,
       },
@@ -629,8 +629,8 @@ describe("renderHistory", () => {
         type: "addr",
         coordDisplay: "2.3, 48.8",
         addrDisplay: "Paris, France",
-        lat: 48.8,
         lng: 2.3,
+        lat: 48.8,
         ts: 1000,
         count: 1,
       },
@@ -645,8 +645,8 @@ describe("renderHistory", () => {
       type: "addr" as const,
       coordDisplay: `${i}.0, ${i}.0`,
       addrDisplay: `Addr ${i}`,
-      lat: i,
       lng: i,
+      lat: i,
       ts: i,
       count: 1,
     }));
@@ -654,5 +654,65 @@ describe("renderHistory", () => {
     renderHistory(ctrl, "addr");
     const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
     expect(items.length).toBeLessThanOrEqual(5);
+  });
+
+  it("coord entry with reverse-geocoded address: primary=address, coord=coords", () => {
+    const ctrl = makeHistoryCtrl([
+      {
+        query: "121.47,31.23",
+        type: "coord",
+        coordDisplay: "121.4700, 31.2300",
+        addrDisplay: "Shanghai, China",
+        lng: 121.47,
+        lat: 31.23,
+        ts: 1000,
+        count: 1,
+      },
+    ]);
+    renderHistory(ctrl, "coord");
+    const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
+    // Primary (title) shows address when available
+    expect(items[0].textContent).toBe("Shanghai, China");
+    const coord = ctrl.panelWrap.querySelector(".foliplus-search-result-coord");
+    expect(coord?.textContent).toBe("121.4700, 31.2300");
+  });
+
+  it("coord entry without address: primary=coordDisplay", () => {
+    const ctrl = makeHistoryCtrl([
+      {
+        query: "121.47,31.23",
+        type: "coord",
+        coordDisplay: "121.4700, 31.2300",
+        addrDisplay: "",
+        lat: 31.23,
+        lng: 121.47,
+        ts: 1000,
+        count: 1,
+      },
+    ]);
+    renderHistory(ctrl, "coord");
+    const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
+    // No address → primary falls back to coord display
+    expect(items[0].textContent).toBe("121.4700, 31.2300");
+  });
+
+  it("addr entry: primary=addrDisplay, secondary=coordDisplay", () => {
+    const ctrl = makeHistoryCtrl([
+      {
+        query: "Paris",
+        type: "addr",
+        coordDisplay: "2.3, 48.8",
+        addrDisplay: "Paris, France",
+        lng: 2.3,
+        lat: 48.8,
+        ts: 1000,
+        count: 1,
+      },
+    ]);
+    renderHistory(ctrl, "addr");
+    const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
+    expect(items[0].textContent).toBe("Paris, France");
+    const coord = ctrl.panelWrap.querySelector(".foliplus-search-result-coord");
+    expect(coord?.textContent).toBe("2.3, 48.8");
   });
 });
