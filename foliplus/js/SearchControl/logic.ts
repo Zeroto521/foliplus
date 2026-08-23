@@ -452,7 +452,7 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
 
   const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
     const isAddr = entry.type === "addr";
-    const primaryText = isAddr ? (entry.addrDisplay || "") : (entry.coordDisplay || "");
+    const primaryText = isAddr ? entry.addrDisplay || "" : entry.coordDisplay || "";
     return {
       icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
       source: SOURCE.HISTORY,
