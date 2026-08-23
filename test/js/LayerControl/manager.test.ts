@@ -663,14 +663,19 @@ describe("LayerManager", () => {
       ({
         options: {},
         eachLayer: (cb: (l: unknown) => void) => leaves.forEach(cb),
-      } as any);
+      }) as any;
 
     beforeEach(() => {
       manager.map.hasLayer.mockReturnValue(false);
     });
 
     it("returns null for base layers", () => {
-      manager.registerLayer({ id: "b1", name: "B", layer: { options: {} }, isBase: true });
+      manager.registerLayer({
+        id: "b1",
+        name: "B",
+        layer: { options: {} },
+        isBase: true,
+      });
       expect(manager.getFeatureCount("b1")).toBe(null);
     });
 
@@ -758,7 +763,12 @@ describe("LayerManager", () => {
 
     it("does not emit for a base layer", () => {
       manager.map.hasLayer.mockReturnValue(false);
-      manager.registerLayer({ id: "b1", name: "B", layer: { options: {} }, isBase: true });
+      manager.registerLayer({
+        id: "b1",
+        name: "B",
+        layer: { options: {} },
+        isBase: true,
+      });
       const bus = map.foliplus!.events;
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
