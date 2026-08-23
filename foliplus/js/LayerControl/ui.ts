@@ -82,10 +82,19 @@ class LayerUI {
     }
     this.reindexItems();
 
-    setTimeout(() => {
-      this.initTypesAndVisibility();
-      this.refreshAllCounts();
-    }, CONST.INIT_DELAY_MS);
+    // Refresh counts synchronously now. Counts are cheap to compute (the
+    // provider is invoked on demand; a missing Canvas just returns null),
+    // and the user should not see an empty count column while we wait.
+    // Heatmap in particular publishes its final count during initScan, so the
+    // column may update a second time — that is driven by the event bus.
+    this.refreshAllCounts();
+
+    // initTypesAndVisibility needs a short delay so that Heatmap/Measure and
+    // other components finish their own attach/onAdd before we finalize type
+    // icons and checkbox visibility. Counts are refreshed synchronously
+    // above so the user sees them immediately; Heatmap publishes its final
+    // count during initScan, which re-runs the refresh via the event bus.
+    setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
   }
 
   /** Load fold state from localStorage. */
@@ -532,11 +541,9 @@ class LayerUI {
       if (!id) return;
       const count = this.mgmt.getFeatureCount(id);
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
-      if (countCol && count !== null && count !== undefined) {
+      if (countCol && count !== null && count !== undefined)
         countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
-      } else if (countCol) {
-        countCol.textContent = "";
-      }
+      else if (countCol) countCol.textContent = "";
     });
   }
 

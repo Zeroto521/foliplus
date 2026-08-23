@@ -80,6 +80,7 @@ package-lock.json
 .claude/plans/myagents/
 .foliplus/
 memory/
+myagents_files/
 CLAUDE.md
 UPDATE_MEMORY.md
 

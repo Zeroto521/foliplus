@@ -123,6 +123,10 @@ class MeasureManager {
     this.measurements.forEach(m => {
       MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
     });
+    // Notify LayerControl to refresh the count column now that the
+    // persisted measurements are back, so the count is correct on page load
+    // rather than only after the next user action.
+    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   /** Bind global map click, keydown, and unload events. */
