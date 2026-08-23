@@ -138,6 +138,13 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     else if (ctrl.mode === MODE.ADDR) fetchSuggestions(ctrl, val);
   });
 
+  // Watch for collapse state changes (via toggle, Escape, or outside click)
+  // to remove the floating history/suggestions panel.
+  const collapseObserver = new MutationObserver(() => {
+    if (ctrl.ctrl.classList.contains(CLASSES.COLLAPSED)) removePanel(ctrl);
+  });
+  collapseObserver.observe(ctrl.ctrl, { attributes: true, attributeFilter: ["class"] });
+
   ctrl.repositionHandler = () => positionPanel(ctrl);
   const leafletContainer = document.querySelector(".leaflet-container");
   ctrl.scrollTargets = leafletContainer ? [window, leafletContainer] : [window];
@@ -146,7 +153,10 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
   );
   window.addEventListener("resize", ctrl.repositionHandler);
 
-  return () => ensureInteraction(map).unregister(CONF.name);
+  return () => {
+    collapseObserver.disconnect();
+    ensureInteraction(map).unregister(CONF.name);
+  };
 };
 
 /**
