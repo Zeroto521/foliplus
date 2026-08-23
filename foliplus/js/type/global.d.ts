@@ -144,7 +144,6 @@ declare global {
     max_pixels?: number;
     quality?: number;
     scale?: string | number;
-    isMetric?: boolean;
     background?: string;
     timeout?: number;
     filename?: string;
