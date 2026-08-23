@@ -11,14 +11,21 @@
 
 /* ── Layer Control ── */
 .foliplus-layer-ctrl {
-  /* ── Drag & Drop Variables ── */
+  /* ── Drag & Drop Variables ──
+     Used by .foliplus-layer-item.{drag-over-top|drag-over-bottom} rules below. */
   --drag-border-width: var(--border-thick);
+
+  /* Drop-position glow (top/bottom) */
   --drag-top-shadow: 0 calc(-1 * var(--size-2)) var(--size-6) calc(-1 * var(--size-2))
     var(--accent-primary);
   --drag-bottom-shadow: 0 var(--size-2) var(--size-6) calc(-1 * var(--size-2))
     var(--accent-primary);
+
+  /* Pulse animation timing */
   --drag-pulse-duration: 0.8s;
   --drag-pulse-count: 3;
+
+  /* Pulse border/shadow start and end states */
   --drag-border-from: var(--accent-primary);
   --drag-border-to: var(--accent-hover);
   --drag-shadow-from: 0 0 var(--size-4) -1px var(--accent-primary);
@@ -95,7 +102,9 @@
     flex-shrink: 0;
   }
 
-  /* ── Toggle-all item ── */
+  /* ── Toggle-all item (section header row) ──
+     Right padding tighter than regular items to align the left border with
+     items, since toggle-all has no checkbox column. */
   .foliplus-layer-sep.foliplus-layer-toggle-all {
     gap: var(--space-sm);
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
@@ -272,23 +281,15 @@
         var(--drag-pulse-count);
     }
 
-    label {
-      cursor: inherit;
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin: 0;
-      font-weight: var(--font-weight-normal);
-    }
-
     /* ── Feature count column ──
        Position: immediately before the type-icon column.  Right-aligned so
        digits align across rows; fixed-width slot keeps the icon column stable.
        Dimmed by default, brightens on hover/active to match other row content. */
     .foliplus-layer-count {
+      position: relative;
       flex-shrink: 0;
       min-width: calc(var(--icon-size-md) + var(--space-xs));
+      /* 7px = 5px dot + 2px breathing room; matches --count-dot-diameter */
       padding: 0 var(--space-xs) 0 calc(var(--space-xs) + 7px);
       margin-left: var(--space-sm);
       font-variant-numeric: tabular-nums;
@@ -324,6 +325,7 @@
     &.active .foliplus-layer-count {
       color: var(--text-primary);
     }
+
     /* Reveal the count dot only when the row is hovered or checked,
        mirroring the checkbox state without cluttering the default view. */
     &:hover .foliplus-layer-count::before,
@@ -331,7 +333,6 @@
       opacity: 1;
     }
 
-    /* Existing label selector kept for backward compatibility. */
     label {
       cursor: inherit;
       flex: 1;
@@ -342,7 +343,8 @@
       font-weight: var(--font-weight-normal);
     }
   }
-  /* ── Color layer item overrides: pointer cursor (not draggable) ── */
+  /* ── Color layer item overrides ──
+     Pointer cursor (not draggable) */
   .foliplus-color-layer-item {
     cursor: pointer;
   }
@@ -356,20 +358,20 @@
     flex-shrink: 0;
   }
   input[type="checkbox"] {
+    position: relative;
     appearance: none;
+    margin: 0;
     width: var(--space-xl);
     height: var(--space-xl);
+    flex-shrink: 0;
     border: var(--border-thin) solid var(--input-border);
-    background: var(--input-bg);
-    margin: 0;
-    cursor: pointer;
-    position: relative;
     border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    cursor: pointer;
     transition:
       border-color var(--transition-fast),
       box-shadow var(--transition-fast),
       background-color var(--transition-fast);
-    flex-shrink: 0;
 
     /* ── Checked & indeterminate (partial selection) share active bg ── */
     &:is(:checked, :indeterminate) {
