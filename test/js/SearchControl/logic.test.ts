@@ -7,6 +7,7 @@ import {
   initDebouncedFetch,
   positionPanel,
   removePanel,
+  renderResults,
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/logic.js";
@@ -44,6 +45,21 @@ describe("removePanel", () => {
       selectedIdx: -1,
     };
     expect(() => removePanel(ctrl)).not.toThrow();
+  });
+});
+
+describe("renderResults", () => {
+  it("removes panel when results are empty", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const ctrl: any = {
+      panelWrap: el,
+      throttleTimer: null,
+      selectedIdx: 0,
+    };
+    renderResults(ctrl, []);
+    expect(ctrl.panelWrap).toBeNull();
+    expect(ctrl.selectedIdx).toBe(-1);
   });
 });
 

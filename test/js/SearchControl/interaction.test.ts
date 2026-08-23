@@ -299,6 +299,21 @@ describe("bindEvents", () => {
     expect(ctrl.selectedIdx).toBe(1); // clamped to last item
     expect(ctrl.inp.value).toBe("Two");
   });
+
+  it("uses window-only scroll target when no leaflet-container exists", () => {
+    document.querySelectorAll(".leaflet-container").forEach(el => el.remove());
+    const ctrl = makeCtrl();
+    bindEvents(ctrl);
+    expect(ctrl.scrollTargets).toEqual([window]);
+  });
+
+  it("returns cleanup function that disconnects observer", () => {
+    const ctrl = makeCtrl();
+    const cleanup = bindEvents(ctrl);
+    expect(typeof cleanup).toBe("function");
+    cleanup();
+    expect(typeof cleanup).toBe("function");
+  });
 });
 
 describe("initFromUrl", () => {
@@ -326,5 +341,17 @@ describe("initFromUrl", () => {
     initFromUrl(ctrl);
     expect(ctrl.setMode).toHaveBeenCalledWith("addr");
     expect(ctrl.inp.value).toBe("hello");
+  });
+
+  it("silently ignores URL parsing errors", () => {
+    // Make map.flyTo throw to trigger the catch block in initFromUrl
+    const ctrl = makeCtrl();
+    ctrl.setMode = vi.fn();
+    vi.spyOn(map, "flyTo").mockImplementation(() => {
+      throw new Error("simulated parse error");
+    });
+    window.history.replaceState(null, "", "?q=121.47,31.23");
+    expect(() => initFromUrl(ctrl)).not.toThrow();
+    vi.restoreAllMocks();
   });
 });

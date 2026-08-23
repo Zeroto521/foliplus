@@ -456,10 +456,6 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
   const sectionEntries = sorted
     .filter(e => e.type === targetType)
     .slice(0, HISTORY.MAX_DISPLAY);
-  if (sectionEntries.length === 0) {
-    removePanel(ctrl);
-    return;
-  }
 
   const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
     const isAddr = entry.type === MODE.ADDR;
