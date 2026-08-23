@@ -220,22 +220,19 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   attachSearchDelIcon(ctrl, [lat, lng]);
 
   const coordDisplay = `${lng.toFixed(4)}, ${lat.toFixed(4)}`;
-  // Save coord entry immediately, then update address via reverse geocode
+  // Save coord entry immediately, then update address via reverse geocode.
+  // NOTE: reverse-geocode updates the existing entry in-place to avoid
+  // incrementing the count (addHistoryEntry treats same-query as a repeat).
   recordHistorySearch(ctrl, raw, MODE.COORD, coordDisplay, "", lng, lat);
   window.foliplus
     .reverseGeocode(map, lng, lat, CONF.locale_code)
     .then(addr => {
       if (addr) {
-        addHistoryEntry(ctrl, {
-          query: raw,
-          type: MODE.COORD,
-          coordDisplay,
-          addrDisplay: addr,
-          lng,
-          lat,
-          ts: Date.now(),
-          count: 1,
-        });
+        const entry = ctrl.searchHistory.find(e => e.query === raw);
+        if (entry) {
+          entry.addrDisplay = addr;
+          saveHistory(ctrl.searchHistory);
+        }
       }
     })
     .catch(() => {
@@ -466,6 +463,7 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
 
   const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
     const isAddr = entry.type === MODE.ADDR;
+    // Unified display: primary=address (fallback to coord), secondary=coord
     const primaryText = entry.addrDisplay || entry.coordDisplay || "";
     return {
       icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
