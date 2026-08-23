@@ -10,8 +10,8 @@ import type { Debounced } from "#common/debounce.js";
  * The API returns `lon`; we map to `lng` at the fetch boundary.
  */
 export interface NominatimItem {
-  lat: string;
   lng: string;
+  lat: string;
   name?: string;
   display_name: string;
 }
