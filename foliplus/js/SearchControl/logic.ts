@@ -54,7 +54,7 @@ const loadHistory = (): SearchHistoryEntry[] => {
   // Migrate old entries (pre-refactor with `label` field) to the new format
   return data.map(e => ({
     query: e.query ?? "",
-    type: (e.type === "coord" || e.type === "addr" ? e.type : "addr") as
+    type: (e.type === MODE.COORD || e.type === MODE.ADDR ? e.type : "addr") as
       "coord" | "addr",
     coordDisplay:
       e.coordDisplay ?? (e.type === MODE.COORD ? ((e as any).label ?? "") : ""),
@@ -224,11 +224,11 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   window.foliplus
     .reverseGeocode(map, lng, lat, CONF.locale_code)
     .then(addr => {
-      recordHistorySearch(ctrl, raw, "coord", coordDisplay, addr, lng, lat);
+      recordHistorySearch(ctrl, raw, MODE.COORD, coordDisplay, addr, lng, lat);
     })
     .catch(() => {
       // Reverse geocode failed — store coord-only entry
-      recordHistorySearch(ctrl, raw, "coord", coordDisplay, "", lng, lat);
+      recordHistorySearch(ctrl, raw, MODE.COORD, coordDisplay, "", lng, lat);
     });
 };
 
@@ -422,7 +422,7 @@ const renderSuggestions = (
         recordHistorySearch(
           ctrl,
           query,
-          "addr",
+          MODE.ADDR,
           coordDisplay,
           displayName,
           parseFloat(item.lng),
@@ -437,7 +437,7 @@ const renderSuggestions = (
 
 const renderHistory = (ctrl: SearchControlState, mode: string) => {
   const entries = ctrl.searchHistory;
-  const targetType = mode === "addr" ? "addr" : "coord";
+  const targetType = mode === MODE.ADDR ? MODE.ADDR : MODE.COORD;
   if (entries.length === 0 || !entries.some(e => e.type === targetType)) {
     removePanel(ctrl);
     return;
@@ -454,7 +454,7 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
   }
 
   const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
-    const isAddr = entry.type === "addr";
+    const isAddr = entry.type === MODE.ADDR;
     const primaryText = isAddr ? entry.addrDisplay || "" : entry.coordDisplay || "";
     return {
       icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
