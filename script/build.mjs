@@ -108,8 +108,7 @@ const mergedCssEntryPlugin = {
     });
     build.onLoad({ filter: /\.css$/, namespace: "merged-css" }, () => {
       const lines = [`@import "${basename(commonCssPath)}";`];
-      if (existsSync(panelCssPath))
-        lines.push(`@import "${basename(panelCssPath)}";`);
+      if (existsSync(panelCssPath)) lines.push(`@import "${basename(panelCssPath)}";`);
       // Use bare @import names with resolveDir pointing at the css source dir.
       // esbuild's CSS loader handles bare/./ names correctly but corrupts ".."
       // relative paths, so we resolve from cssDir rather than buildCss.
@@ -293,7 +292,9 @@ const buildEntries = components => {
     // Write a harmless stub — the plugin replaces its contents at bundle time.
     writeFileSync(entryCss, "/* merged css entry; rewritten by plugin */", "utf-8");
     entries.push(
-      artifact([entryCss], out("foliplus-common.min.css"), "common", [mergedCssEntryPlugin]),
+      artifact([entryCss], out("foliplus-common.min.css"), "common", [
+        mergedCssEntryPlugin,
+      ]),
     );
   }
   return entries;

@@ -14,8 +14,8 @@
  *  - `watch()` returns a never-resolving promise → forked off the stack so
  *    SIGINT reaches our handler (awaiting it blocks signal delivery).
  */
-import { basename } from "path";
 import { context } from "esbuild";
+import { basename } from "path";
 
 /** esbuild plugin that logs success/failure on each rebuild. Because
  *  esbuild 0.24 has no `onRebuild`, `onEnd` (fires after every build,
@@ -64,7 +64,9 @@ async function runWatch(entries) {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log("\nStopping watcher...");
-    disposeAll().then(() => process.exit(0)).catch(() => process.exit(0));
+    disposeAll()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(0));
   };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
@@ -82,14 +84,20 @@ async function runWatch(entries) {
     }
   }
 
-  console.log(`Watching for changes (${entries.length} artifacts) — press Ctrl+C to stop.`);
+  console.log(
+    `Watching for changes (${entries.length} artifacts) — press Ctrl+C to stop.`,
+  );
   // watch() returns a never-resolving promise; fork each off the stack so
   // SIGINT reaches the handler. With logLevel:"error" a fatal watch()
   // failure wouldn't surface, so we catch and log it with the artifact name.
   for (let i = 0; i < entries.length; i++) {
-    contexts[i].watch().catch(err =>
-      console.error(`  ✗ ${basename(entries[i].outfile)}: watch failed: ${err.message}`),
-    );
+    contexts[i]
+      .watch()
+      .catch(err =>
+        console.error(
+          `  ✗ ${basename(entries[i].outfile)}: watch failed: ${err.message}`,
+        ),
+      );
   }
 }
 
