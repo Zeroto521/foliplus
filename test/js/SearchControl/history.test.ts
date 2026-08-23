@@ -638,4 +638,16 @@ describe("renderHistory", () => {
     renderHistory(ctrl, "coord");
     expect(ctrl.panelWrap).toBeNull();
   });
+
+  it("limits display to 5 entries per section", () => {
+    const entries = Array.from({ length: 10 }, (_, i) => ({
+      query: `q${i}`, type: "addr" as const,
+      coordDisplay: `${i}.0, ${i}.0`, addrDisplay: `Addr ${i}`,
+      lat: i, lng: i, ts: i, count: 1,
+    }));
+    const ctrl = makeHistoryCtrl(entries);
+    renderHistory(ctrl, "addr");
+    const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
+    expect(items.length).toBeLessThanOrEqual(5);
+  });
 });

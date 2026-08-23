@@ -71,6 +71,20 @@ describe("bindEvents", () => {
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
   });
 
+  it("removes floating panel when container is collapsed", async () => {
+    const ctrl = makeCtrl();
+    ctrl.ctrl.classList.add("expanded");
+    ctrl.panelWrap = document.createElement("div");
+    document.body.appendChild(ctrl.panelWrap);
+    bindEvents(ctrl);
+    // Simulate collapse via outside click (class toggle without calling onCollapse)
+    ctrl.ctrl.classList.remove("expanded");
+    ctrl.ctrl.classList.add("collapsed");
+    // MutationObserver fires asynchronously; flush microtasks
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.panelWrap).toBeNull();
+  });
+
   it("navigates suggestions with ArrowDown", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
