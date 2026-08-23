@@ -29,6 +29,7 @@ coverage.xml
 .coverage
 .coverage.*
 *.cover
+junit.xml
 *.junit.xml
 coverage/
 htmlcov/
