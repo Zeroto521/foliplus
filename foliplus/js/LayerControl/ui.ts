@@ -491,7 +491,11 @@ class LayerUI {
     container.addEventListener("dragleave", this.onDragLeave);
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
-    container.addEventListener("keydown", this.onKeyDown);
+    // Keyboard dispatch is handled by InteractionManager via registerInteractions()
+    // above — do NOT add a separate container keydown listener, as that would
+    // cause every keydown event to fire handleKeyDown twice (once via the
+    // container listener, once via the document-level InteractionManager),
+    // double-toggling checkboxes and double-moving focus.
 
     // Subscribe to feature-count change events so a third-party provider
     // (Canvas layers) can update a single row without a full re-render.
