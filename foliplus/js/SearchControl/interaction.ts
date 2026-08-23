@@ -15,15 +15,6 @@ import type { SearchControl } from "./type.js";
 const { _ } = createControlEnv(CONF);
 
 /**
- * Read the text label from any item in the suggestions/history panel.
- * Both suggestion items and history items (which reuse suggestion classes)
- * expose their label via the same `.RESULT_TEXT` span.
- */
-const getItemText = (item: Element): string | null => {
-  return item.querySelector(`.${CLASSES.RESULT_TEXT}`)?.textContent ?? null;
-};
-
-/**
  * Bind all DOM events for the SearchControl.
  */
 const bindEvents = (ctrl: SearchControl): (() => void) => {
@@ -88,8 +79,6 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       element: ctrl.inp,
       handler: () => {
         if (!ctrl.panelWrap) return;
-        // Only selectable items — skip non-item children like the history
-        // group header.
         const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
         if (items.length === 0) return;
         ctrl.selectedIdx = Math.min(ctrl.selectedIdx + 1, items.length - 1);
