@@ -9,6 +9,66 @@ import * as Util from "./util.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
+/**
+ * Mutable toggle state shared between createToggleUI and setupMapClickActive.
+ */
+interface MeasureToggleState {
+  isXVisible: boolean;
+  isLabelsVisible: boolean;
+}
+
+/**
+ * Create a toggle function that manages X/label visibility state via the
+ * state machine, then delegates rendering to a callback. This eliminates
+ * the repeated let + state-machine boilerplate in each attach*UI function.
+ */
+const createToggleUI = (
+  state: MeasureToggleState,
+  render: (state: MeasureToggleState) => void,
+): ((showX?: boolean, toggleLabels?: boolean | string) => void) => {
+  return (showX?: boolean, toggleLabels?: boolean | string) => {
+    const next = Util.nextToggleState(
+      state.isXVisible,
+      state.isLabelsVisible,
+      showX,
+      toggleLabels,
+    );
+    state.isXVisible = next.isXVisible;
+    state.isLabelsVisible = next.isLabelsVisible;
+    render(state);
+  };
+};
+
+/**
+ * Wire a map-click handler that hides the X icon when the user clicks empty
+ * map space, respecting suppress-hide and optional extra guards (e.g. isDeleted).
+ */
+const setupMapClickActive = (
+  mgr: MeasureManager,
+  state: MeasureToggleState,
+  toggleUI: (showX?: boolean, toggleLabels?: boolean | string) => void,
+  extraGuard?: () => boolean,
+): (() => void) => {
+  const onMapClickActive = () => {
+    if (mgr.isSuppressHideDel) return;
+    if (extraGuard?.()) return;
+    if (state.isXVisible) {
+      toggleUI(false, CONST.TOGGLE.RESET);
+    }
+  };
+  mgr.map.on("click", onMapClickActive);
+  return onMapClickActive;
+};
+
+/**
+ * Re-order layers so they render in the correct z-order.
+ * Removes and re-adds each collection in sequence.
+ */
+const resortLayers = (layers: CreateLayersAPI, ...collections: L.Layer[][]): void => {
+  collections.forEach(c => c.forEach(l => layers.removeLayer(l)));
+  collections.forEach(c => c.forEach(l => layers.addLayer(l)));
+};
+
 /** Options for attachDistanceUI. */
 interface AttachOpts {
   layers: CreateLayersAPI;
@@ -26,17 +86,18 @@ const attachDistanceUI = (
 ): ((event: L.LeafletMouseEvent) => void) => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
     opts;
-  let isLabelsVisible = true;
-  let isXVisible = false;
+  const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
   const nodeDelIcons: L.Marker[] = [];
 
-  const toggleUI = (showX?: boolean, toggleLabels?: boolean | string) => {
-    const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
-    isXVisible = s.isXVisible;
-    isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach(m => toggleDelIcon(m, isXVisible));
-    Util.applyToggle(undefined, isXVisible, segLabels, isLabelsVisible);
-  };
+  const toggleUI = createToggleUI(state, () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, state.isXVisible));
+    Util.applyVisibilityToggle(
+      undefined,
+      state.isXVisible,
+      segLabels,
+      state.isLabelsVisible,
+    );
+  });
 
   const handleItemClick = (event: L.LeafletMouseEvent) => {
     stopEvent(event);
@@ -49,13 +110,9 @@ const attachDistanceUI = (
   segLabels.forEach(l => l.on("click", handleItemClick));
   toggleUI(false, CONST.TOGGLE.RESET);
 
-  const onMapClickActive = () => {
-    if (mgr.isSuppressHideDel) return;
-    if (isXVisible) toggleUI(false, CONST.TOGGLE.RESET);
-  };
-  mgr.map.on("click", onMapClickActive);
+  const onMapClickActive = setupMapClickActive(mgr, state, toggleUI);
 
-  const deleteMeas = () => {
+  const deleteMeasurement = () => {
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
     mgr.map.off("click", onMapClickActive);
     onDelete();
@@ -76,7 +133,7 @@ const attachDistanceUI = (
     ) as L.Marker;
     nodeDelIcons.push(delMarker);
 
-    if (isFirst || isLastWhenTwo) attachDelClick(delMarker, deleteMeas);
+    if (isFirst || isLastWhenTwo) attachDelClick(delMarker, deleteMeasurement);
     else
       attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
@@ -97,18 +154,15 @@ const attachDistanceUI = (
         nodeDelIcons.splice(ptIdx, 1);
 
         if (points.length < 2) {
-          deleteMeas();
+          deleteMeasurement();
           return;
         }
 
         if (points.length === 2 && nodeDelIcons.length === 2) {
           const lastDel = nodeDelIcons[1];
           if (lastDel) {
-            // After deleting an intermediate node only two nodes remain:
-            // rebind the last node's delete icon to delete the whole
-            // measurement (same behavior as the first node).
             lastDel.off("click");
-            attachDelClick(lastDel, deleteMeas);
+            attachDelClick(lastDel, deleteMeasurement);
             const iconEl = lastDel.getElement();
             if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
           }
@@ -132,19 +186,14 @@ const attachDistanceUI = (
       });
 
     delMarker.on("click", (event: L.LeafletMouseEvent) => {
-      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+      const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       handleItemClick(event);
     });
   });
 
   // Re-sort to ensure correct ordering
-  nodeMarkers.forEach(m => layers.removeLayer(m));
-  nodeDelIcons.forEach(m => layers.removeLayer(m));
-  segLabels.forEach(l => layers.removeLayer(l));
-  nodeMarkers.forEach(m => layers.addLayer(m));
-  nodeDelIcons.forEach(m => layers.addLayer(m));
-  segLabels.forEach(l => layers.addLayer(l));
+  resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
 
   return onMapClickActive;
 };
@@ -161,10 +210,7 @@ interface CircleAttachOpts {
   onDelete: () => void;
 }
 
-const attachCircleUI = (
-  mgr: MeasureManager,
-  opts: CircleAttachOpts,
-): { onMapClickActive: () => void; deleteCircle: () => void } => {
+const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => void) => {
   const {
     layers,
     circle,
@@ -175,19 +221,27 @@ const attachCircleUI = (
     radiusLabel,
     onDelete,
   } = opts;
-  let isLabelsVisible = true;
-  let isXVisible = false;
+  const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
   let isDeleted = false;
 
-  const toggleUI = (showX?: boolean, toggleLabels?: boolean | string) => {
-    const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
-    isXVisible = s.isXVisible;
-    isLabelsVisible = s.isLabelsVisible;
-    Util.applyToggle(
+  const deleteMeasurement = () => {
+    isDeleted = true;
+    layers.removeLayer(circle);
+    if (radiusLine) layers.removeLayer(radiusLine);
+    if (radiusNode) layers.removeLayer(radiusNode);
+    if (centerFinal) layers.removeLayer(centerFinal);
+    layers.removeLayer(delMarker);
+    if (radiusLabel) layers.removeLayer(radiusLabel);
+    onDelete();
+    layers.unregister();
+  };
+
+  const toggleUI = createToggleUI(state, () => {
+    Util.applyVisibilityToggle(
       delMarker,
-      isXVisible,
+      state.isXVisible,
       radiusLabel ? [radiusLabel] : [],
-      isLabelsVisible,
+      state.isLabelsVisible,
       undefined,
       xv => {
         delMarker.setZIndexOffset(xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET);
@@ -196,11 +250,11 @@ const attachCircleUI = (
             radiusLine?.getElement() as HTMLElement | null,
             radiusNode?.getElement() as HTMLElement | null,
           ],
-          isLabelsVisible,
+          state.isLabelsVisible,
         );
       },
     );
-  };
+  });
   toggleUI(false, CONST.TOGGLE.RESET);
 
   const toggleCircleToggle = () => {
@@ -211,46 +265,29 @@ const attachCircleUI = (
 
   const attachInteraction = (layer: L.Layer) => {
     layer.on("click", (event: L.LeafletMouseEvent) => {
-      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+      const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       stopEvent(event);
       toggleCircleToggle();
     });
   };
 
-  attachInteraction(delMarker);
   attachInteraction(circle);
   if (radiusLine) attachInteraction(radiusLine);
   if (radiusNode) attachInteraction(radiusNode);
   if (centerFinal) attachInteraction(centerFinal);
   if (radiusLabel) attachInteraction(radiusLabel);
 
-  const onMapClickActive = () => {
-    if (mgr.isSuppressHideDel || isDeleted) return;
-    if (isXVisible) toggleUI(false, CONST.TOGGLE.RESET);
-  };
-  mgr.map.on("click", onMapClickActive);
+  // delMarker: separate handlers — X icon deletes, rest toggles visibility
+  attachDelClick(delMarker, deleteMeasurement);
+  delMarker.on("click", (event: L.LeafletMouseEvent) => {
+    const t = Util.getEventTarget(event);
+    if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
+    stopEvent(event);
+    toggleCircleToggle();
+  });
 
-  const deleteCircle = () => {
-    if (isDeleted) return;
-    isDeleted = true;
-    layers.removeLayer(
-      delMarker,
-      circle,
-      centerFinal,
-      ...(radiusLine ? [radiusLine] : []),
-      ...(radiusNode ? [radiusNode] : []),
-      ...(radiusLabel ? [radiusLabel] : []),
-    );
-    mgr.map.off("click", onMapClickActive);
-    const idx = mgr.finalizedClickHandlers.indexOf(onMapClickActive);
-    if (idx !== -1) mgr.finalizedClickHandlers.splice(idx, 1);
-    onDelete();
-    layers.unregister();
-  };
-  attachDelClick(delMarker, deleteCircle);
-
-  return { onMapClickActive, deleteCircle };
+  return setupMapClickActive(mgr, state, toggleUI, () => isDeleted);
 };
 
 /** Options for attachPolygonUI. */
@@ -279,8 +316,7 @@ const attachPolygonUI = (
     points,
     area: initArea,
   } = opts;
-  let isLabelsVisible = true;
-  let isXVisible = false;
+  const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
   const nodeDelIcons: L.Marker[] = [];
   let centroidLabel: L.Marker | null = null;
   let centroidDot: L.Marker | null = null;
@@ -322,12 +358,12 @@ const attachPolygonUI = (
     centroidDel = layers.addLayer(
       makeDelIcon(centroid, { title: _(`${CONF.name}.del_all`) }),
     ) as L.Marker;
-    attachDelClick(centroidDel, deleteMeas);
+    attachDelClick(centroidDel, deleteMeasurement);
 
     if (showX !== undefined) toggleDelIcon(centroidDel, showX);
   };
 
-  const deleteMeas = () => {
+  const deleteMeasurement = () => {
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
     if (centroidDot) layers.removeLayer(centroidDot);
     if (centroidLabel) layers.removeLayer(centroidLabel);
@@ -336,21 +372,23 @@ const attachPolygonUI = (
     layers.unregister();
   };
 
-  const toggleUI = (showX?: boolean, toggleLabels?: boolean | string) => {
-    const s = Util.calcToggle(isXVisible, isLabelsVisible, showX, toggleLabels);
-    isXVisible = s.isXVisible;
-    isLabelsVisible = s.isLabelsVisible;
-    nodeDelIcons.forEach(m => toggleDelIcon(m, isXVisible));
-    if (centroidDel) toggleDelIcon(centroidDel, isXVisible);
-    Util.applyToggle(undefined, isXVisible, segLabels, isLabelsVisible);
+  const toggleUI = createToggleUI(state, () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, state.isXVisible));
+    if (centroidDel) toggleDelIcon(centroidDel, state.isXVisible);
+    Util.applyVisibilityToggle(
+      undefined,
+      state.isXVisible,
+      segLabels,
+      state.isLabelsVisible,
+    );
     if (centroidLabel) {
       const el = centroidLabel.getElement();
       if (el) {
         const label = el.querySelector(CONST.SEL.LABEL);
-        if (label) label.classList.toggle(CONST.CLASSES.HIDDEN, !isLabelsVisible);
+        if (label) label.classList.toggle(CONST.CLASSES.HIDDEN, !state.isLabelsVisible);
       }
     }
-  };
+  });
 
   const handleItemClick = (event: L.LeafletMouseEvent) => {
     stopEvent(event);
@@ -368,11 +406,7 @@ const attachPolygonUI = (
 
   toggleUI(false, CONST.TOGGLE.RESET);
 
-  const onMapClickActive = () => {
-    if (mgr.isSuppressHideDel) return;
-    if (isXVisible) toggleUI(false, CONST.TOGGLE.RESET);
-  };
-  mgr.map.on("click", onMapClickActive);
+  const onMapClickActive = setupMapClickActive(mgr, state, toggleUI);
 
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
@@ -383,7 +417,7 @@ const attachPolygonUI = (
     ) as L.Marker;
     nodeDelIcons.push(delMarker);
 
-    if (is3pt) attachDelClick(delMarker, deleteMeas);
+    if (is3pt) attachDelClick(delMarker, deleteMeasurement);
     else
       attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
@@ -402,7 +436,7 @@ const attachPolygonUI = (
         segLabels.length = 0;
 
         if (points.length < 3) {
-          deleteMeas();
+          deleteMeasurement();
           return;
         }
 
@@ -410,11 +444,10 @@ const attachPolygonUI = (
           nodeDelIcons.forEach(d => {
             d.off("click");
             d.on("click", (event: L.LeafletMouseEvent) => {
-              const t = (event.originalEvent as MouseEvent)
-                ?.target as HTMLElement | null;
+              const t = Util.getEventTarget(event);
               if (t?.closest?.(CONST.SEL.DEL_ICON)) {
                 stopEvent(event);
-                deleteMeas();
+                deleteMeasurement();
               } else handleItemClick(event);
             });
             const iconEl = d.getElement();
@@ -443,7 +476,7 @@ const attachPolygonUI = (
           label.on("click", handleItemClick);
         }
 
-        rebuildCentroid(isXVisible, area);
+        rebuildCentroid(state.isXVisible, area);
 
         if (onUpdate) {
           opts.area = area;
@@ -452,20 +485,22 @@ const attachPolygonUI = (
       });
 
     delMarker.on("click", (event: L.LeafletMouseEvent) => {
-      const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
+      const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       handleItemClick(event);
     });
   });
 
-  nodeMarkers.forEach(m => layers.removeLayer(m));
-  nodeDelIcons.forEach(m => layers.removeLayer(m));
-  segLabels.forEach(l => layers.removeLayer(l));
-  nodeMarkers.forEach(m => layers.addLayer(m));
-  nodeDelIcons.forEach(m => layers.addLayer(m));
-  segLabels.forEach(l => layers.addLayer(l));
+  resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
 
   return onMapClickActive;
 };
 
-export { attachCircleUI, attachDistanceUI, attachPolygonUI };
+export {
+  attachCircleUI,
+  attachDistanceUI,
+  attachPolygonUI,
+  createToggleUI,
+  setupMapClickActive,
+  resortLayers,
+};

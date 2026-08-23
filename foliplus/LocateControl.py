@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ._cdn import GCOORD
+from ._cdn_loader import load_cdn
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -12,7 +12,7 @@ class LocateControl(BaseControl):
     Parameters
     ----------
     position : str, default "topleft"
-        One of "topleft", "topright", "bottomleft", "bottomright"\.
+        One of "topleft", "topright", "bottomleft", "bottomright".
 
     zoom : int, default 15
         Zoom level after locating. Typically 1-18.
@@ -31,12 +31,7 @@ class LocateControl(BaseControl):
 
     _export_fields = ("zoom",)
 
-    default_js = [
-        (
-            "gcoord",
-            f"https://cdn.jsdelivr.net/npm/gcoord@{GCOORD}/dist/gcoord.global.prod.js",
-        ),
-    ]
+    default_js = load_cdn("LocateControl")
 
     def __init__(
         self,

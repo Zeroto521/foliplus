@@ -4,6 +4,7 @@
 // No DOM / CONF dependency.
 import { COMPONENTS, assertComponentName } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { HINT_DURATION } from "#core/hint.js";
 
 interface ModeChangePayload {
   component: string;
@@ -64,6 +65,17 @@ const ensureModes = (map: L.Map): ModeManager => {
   if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
   map.foliplus!.modes = manager;
   return manager;
+};
+
+/** Check whether a component is blocked by an active mode and show a hint.
+ *  Caller provides the translated hint text (e.g. `_(`${CONF.name}.blocked`)`).
+ *  Returns `true` when blocked (caller should return early). */
+export const guardBlocked = (map: L.Map, name: string, hintText: string): boolean => {
+  if (map.foliplus?.modes?.isBlocked(name)) {
+    map.foliplus?.showHint?.(name, hintText, HINT_DURATION.SHORT);
+    return true;
+  }
+  return false;
 };
 
 export type { ModeChangePayload };

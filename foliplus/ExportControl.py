@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Literal, get_args
 
+from ._cdn_loader import load_cdn
 from ._typing import Position
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
-FORMAT = Literal["png", "jpeg", "webp"]
+FORMAT = Literal["png", "jpeg", "webp", "geotiff"]
 
 
 class ExportControl(BaseControl):
@@ -19,7 +20,7 @@ class ExportControl(BaseControl):
     .. list-table::
        :header-rows: 1
 
-       * - Key
+       * - Key / Event
          - Action
        * - Enter
          - Lock the current crop area, then begin export
@@ -29,27 +30,32 @@ class ExportControl(BaseControl):
          - Undo the last crop adjustment
        * - Ctrl+Shift+Z / Cmd+Shift+Z
          - Redo the last crop adjustment
-
+       * - Mouse drag (crop box edge)
+         - Resize the crop box
+       * - Mouse drag (inside crop box)
+         - Move the crop box
 
     Parameters
     ----------
     position : str, default "bottomright"
-        One of "topleft", "topright", "bottomleft", "bottomright"\.
+        One of "topleft", "topright", "bottomleft", "bottomright".
         ``"bottomright"``.
 
     filename : str, default "map"
         Base filename for the exported image, without the extension. The correct
-        extension (``.png``, ``.jpeg``, or ``.webp``) is appended automatically based on
-        ``format``.
+        extension (``.png``, ``.jpeg``, ``.webp``, ``.tif``) is appended automatically
+        based on ``format``.
 
     format : str, default "png"
-        Image format for the export. One of ``"png"``, ``"jpeg"``, or ``"webp"``. JPEG
-        and WebP are lossy and much smaller than PNG; PNG preserves transparency
-        (recommended when ``background`` is None).
+        Image format for the export. One of ``"png"``, ``"jpeg"``, ``"webp"``, or
+        ``"geotiff"``. JPEG and WebP are lossy and much smaller than PNG; PNG preserves
+        transparency (recommended when ``background`` is None). ``"geotiff"`` writes a
+        DEFLATE-compressed GeoTIFF (TIFF code 8) with embedded georeferencing (WGS84 /
+        EPSG:4326), suitable for GIS software.
 
     quality : float, default 0.92
         Compression quality for ``"jpeg"`` and ``"webp"`` formats, ranging from
-        0.0 (worst) to 1.0 (best). Ignored for ``"png"``.
+        0.0 (worst) to 1.0 (best). Ignored for ``"png"`` and ``"geotiff"``.
 
     scale : float, default 2.0
         DPI scaling. 1.0 is original resolution, 2.0 is suitable for Retina screens,
@@ -83,9 +89,10 @@ class ExportControl(BaseControl):
     fill and centered text) can be marked with  ``data-foliplus-export="label"``.
     ``MeasureControl``'s distance labels use this attribute.
 
-    **Image format.**  The download filename is ``{filename}.{format}``. For example,
-    ``filename="map"`` with ``format="jpeg"`` produces ``map.jpeg``. JPEG and WebP use
-    the ``quality`` parameter for compression; PNG is always lossless.
+    **Image format.**  Visual formats download as ``{filename}.{format}`` — for
+    example ``filename="map"`` with ``format="jpeg"`` produces ``map.jpeg`` — while
+    ``"geotiff"`` downloads ``{filename}.tif`` with embedded georeferencing. JPEG and
+    WebP use the ``quality`` parameter for compression; PNG and GeoTIFF are lossless.
 
     Examples
     --------
@@ -94,8 +101,11 @@ class ExportControl(BaseControl):
     >>> m = folium.Map()
     >>> ExportControl(position="bottomright").add_to(m)
     >>> ExportControl(format="jpeg", quality=0.8, background="#ffffff").add_to(m)
+    >>> ExportControl(format="geotiff", filename="raster").add_to(m)
     >>> ExportControl(scale=3.0, filename="print").add_to(m)
     """
+
+    default_js = load_cdn("ExportControl")
 
     _export_fields = (
         "filename",

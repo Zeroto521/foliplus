@@ -55,6 +55,8 @@ window.foliplus = {
   showHint: vi.fn(),
   hideHint: vi.fn(),
   registerHintIcon: vi.fn(),
+  geocode: vi.fn(),
+  cacheSuggestion: vi.fn(),
   HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
 };
 
@@ -105,4 +107,39 @@ window.map = {
   on: vi.fn(),
   off: vi.fn(),
   removeLayer: vi.fn(),
+};
+
+// Mock turf (needed by MeasureControl: turf.circle, turf.distance, etc.
+// export.ts implements WKT inline (no turf.wkt dependency).
+globalThis.turf = {
+  point: coords => ({
+    type: "Feature",
+    properties: {},
+    geometry: { type: "Point", coordinates: coords },
+  }),
+  distance: () => 100,
+  bearing: () => 45,
+  midpoint: () => ({ geometry: { coordinates: [0, 0] } }),
+  area: () => 1000,
+  polygon: () => ({ type: "Feature", geometry: { type: "Polygon" } }),
+  circle: () => ({
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [2, 1],
+          [1, 2],
+          [0, 2],
+          [-1, 1],
+          [-1, 0],
+          [0, 0],
+        ],
+      ],
+    },
+  }),
 };

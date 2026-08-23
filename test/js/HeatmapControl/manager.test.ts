@@ -12,7 +12,7 @@ function makeManager() {
     method: "jenks",
     n_classes: 6,
     agg: "count",
-    field: "auto",
+    field: null,
     fill_opacity: 0.7,
     border_color: "#333333",
     border_weight: 1.5,
@@ -484,7 +484,7 @@ describe("getSelectedPoints", () => {
   it("returns cached points when key matches", () => {
     const m = makeManager();
     m.selectedLayerId = "layer1";
-    m.cachedPoints = { key: "layer1|count|true|auto", pts: [{ lat: 1 }] } as any;
+    m.cachedPoints = { key: "layer1|count|true|", pts: [{ lat: 1 }] } as any;
     const pts = m.getSelectedPoints();
     expect(pts).toHaveLength(1);
   });
@@ -554,7 +554,7 @@ describe("renderHexagons", () => {
     m.map = { _container: {}, getZoom: () => 5 };
     m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 1 }];
     m.cachedAgg = {
-      key: "layer1|count|true|auto|2|jenks|Reds|6",
+      key: "layer1|count|true||2|jenks|Reds|6",
       data: {
         hexCells: {},
         getAggValue: () => 0,

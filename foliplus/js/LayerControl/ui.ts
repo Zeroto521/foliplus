@@ -8,6 +8,7 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
+import { registerInteractions } from "./interaction.js";
 import type { LayerManager } from "./manager.js";
 import * as Util from "./util.js";
 
@@ -25,6 +26,7 @@ class LayerUI {
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
   activeIdx: number | null;
+  private interactionCleanup?: () => void;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
@@ -479,6 +481,7 @@ class LayerUI {
     this.onDrop = event => this.handleDrop(event);
     this.onDragEnd = () => this.handleDragEnd();
     this.onKeyDown = event => this.handleKeyDown(event);
+    this.interactionCleanup = registerInteractions(this);
 
     container.addEventListener("change", this.onChange);
     container.addEventListener("input", this.onInput);
@@ -552,8 +555,8 @@ class LayerUI {
     if (this.onDragLeave) container.removeEventListener("dragleave", this.onDragLeave);
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
-    if (this.onKeyDown) container.removeEventListener("keydown", this.onKeyDown);
     this.clearActiveItem();
+    this.interactionCleanup?.();
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;

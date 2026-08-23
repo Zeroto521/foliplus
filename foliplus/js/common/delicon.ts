@@ -73,6 +73,16 @@ const hideDelIcons = () => {
     .forEach(el => el.classList.remove("visible"));
 };
 
+/**
+ * Bind the ✕ delete icon to a marker's popup lifecycle:
+ * show on popupopen, hide on popupclose. Used by LocateControl / SearchControl.
+ */
+const bindDelIconToPopup = (marker: L.Marker | null, delIcon: L.Layer) => {
+  if (!marker) return;
+  marker.on("popupopen", () => toggleDelIcon(delIcon, true));
+  marker.on("popupclose", () => toggleDelIcon(delIcon, false));
+};
+
 export {
   DEL_ICON_CHAR,
   DEL_ICON_MARKER_ANCHOR,
@@ -82,4 +92,5 @@ export {
   hideDelIcons,
   makeDelIcon,
   toggleDelIcon,
+  bindDelIconToPopup,
 };

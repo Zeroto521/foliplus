@@ -112,6 +112,12 @@ export interface CreateLayersAPI {
  *     registry/query methods are no-ops returning empty results)
  */
 export interface LayerAPI {
+  /** Diagnostic marker (true = LayerManager, false = lightweight stub).
+   * Not authoritative for dependency checks — use isRealLayerControl, which
+   * asserts the registry-delegating `layers` getter that only LayerManager
+   * has.  Kept for ad-hoc logging / debugging convenience.
+   */
+  isLayerControl: boolean;
   /** Ordered array of layers (frozen read-only snapshot of the registry). */
   layers: readonly LayerInfo[];
   /** Register a layer; returns its row element (or null on failure). */

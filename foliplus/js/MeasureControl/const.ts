@@ -60,7 +60,6 @@ export const CLASSES = {
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   HIDDEN: "foliplus-measure-hidden",
-  VISIBLE: "visible",
   ACTIVE: "active",
   MEASURING: "foliplus-measuring",
   COLLAPSED: "collapsed",
@@ -77,11 +76,28 @@ export const STYLE = { SWEEP_LENGTH: "--sweep-length" };
 export const SEL = {
   LABEL: ".foliplus-measure-label",
   DEL_ICON: DEL_ICON_SELECTOR,
-  TOOL_BTN: ".foliplus-tool-btn",
+  TOOL_BTN: ".foliplus-tool-btn[data-mode]",
 };
 
 /** Persistent storage key. */
 export const STORAGE = { KEY: `foliplus_measure_${map.getContainer().id}` };
+
+/** Export formats. */
+export const EXPORT_FORMAT = {
+  GEOJSON: "geojson",
+  CSV: "csv",
+} as const;
+
+export type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
+
+/** Standard GeoJSON type names (RFC 7946). */
+export const GEOJSON = {
+  FEATURE: "Feature",
+  FEATURE_COLLECTION: "FeatureCollection",
+  POINT: "Point",
+  LINE_STRING: "LineString",
+  POLYGON: "Polygon",
+} as const;
 
 /** Mode names. */
 export const MODE = {

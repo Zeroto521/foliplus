@@ -1,3 +1,4 @@
+import { ensureInteraction } from "#core/interaction.js";
 import { requireLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createControlEnv } from "#common/guard.js";
@@ -27,6 +28,7 @@ map.eachLayer((layer: L.Layer) => {
     }
   }
 });
+
 map.on("layeradd", (event: L.LeafletEvent) => {
   const layer = (event as L.LayerEvent).layer;
   if (layer instanceof L.GridLayer) {
@@ -66,9 +68,11 @@ class ExportControl extends BaseControl {
     };
     return container;
   }
+
   destroy() {
     if (this.m.cropState) this.m.removeCropBox();
-    document.removeEventListener("keydown", this.m.onKeyDown);
+    this.m.interactionCleanup?.();
+    ensureInteraction(this.m.map).unregister(`${CONF.name}-escape`);
   }
 }
 

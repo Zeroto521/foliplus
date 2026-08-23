@@ -35,12 +35,11 @@ export default defineConfig({
         "foliplus/js/SearchControl/index.ts",
         // UI modules — pure DOM builders, covered by browser tests
         "foliplus/js/ExportControl/ui.ts",
-        "foliplus/js/ExportControl/renderer.ts",
         "foliplus/js/HeatmapControl/ui.ts",
         "foliplus/js/LayerControl/ui.ts",
         "foliplus/js/MeasureControl/ui.ts",
         // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle
-        "foliplus/js/MeasureControl/mode.ts",
+        "foliplus/js/MeasureControl/mode/index.ts",
       ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",

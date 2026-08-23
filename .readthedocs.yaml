@@ -7,28 +7,24 @@ build:
   os: ubuntu-lts-latest
   tools:
     nodejs: "24"
-    python: "miniforge3-latest"
+    python: "3.14"
   jobs:
     post_checkout:
       - git fetch --unshallow || true
       - git fetch origin --tags --force
-    pre_create_environment:
-      - export CONDA_SOLVER=libmamba
     pre_install:
-      # Build bundled JS/CSS assets (foliplus/dist/) before pip install.
-      # foliplus cannot be imported without these files.
+      # Build bundled JS/CSS assets (foliplus/dist/) before Python install.
       - npm install
       - make build-js
+      - python -m pip install --upgrade uv
     post_install:
-      - make info
+      # Install doc deps into RTD's system venv (not a separate .venv)
+      - UV_PROJECT_ENVIRONMENT=$READTHEDOCS_VIRTUALENV_PATH uv sync --group doc
 
 sphinx:
   configuration: doc/source/conf.py
   builder: html
   fail_on_warning: false
-
-conda:
-  environment: doc/environment.yaml
 
 python:
   install:

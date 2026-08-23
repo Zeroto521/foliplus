@@ -2,15 +2,19 @@
 /**
  * Generate _shared-registry.ts by scanning component imports.
  *
+ * Scans component .ts files for imports from #core/*, #common/*, and
+ * #foliplus/BaseControl.js — both targeted named imports and import * as
+ * (resolved via property-access patterns).  Output registers only the
+ * exports used by components on window.foliplus.core / .common / BaseControl,
+ * enabling esbuild to tree-shake unused exports from component bundles.
+ *
+ * NOTE: core/{component,hint,mode} are SKIPPED — registered manually in
+ * runtime/index.ts (see SKIPPED_CORE_FILES in the source).
+ *
  * Usage:
  *   node script/scan-registry.mjs [--root <path>] [--silent]
  *
- * Reads <root>/foliplus/js/ (source), scans component .ts files for
- * import { ... } from "#shared/..." patterns, resolves import * as
- * to property access, and writes <root>/foliplus/.build/js/_shared-registry.ts.
- *
- * Reads common/core from the source tree directly (not .build/) — the
- * transforms (SVG/HTML) do not affect import/export statements.
+ * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { resolve } from "path";
@@ -114,9 +118,11 @@ function scanImports(dir) {
   return usedExports;
 }
 
-function generateRegistry() {
-  const commonDir = resolve(srcDir, "common");
-  const coreDir = resolve(srcDir, "core");
+function generateRegistry(srcDirParam = srcDir, buildJsParam = buildJs) {
+  const sourceDir = srcDirParam;
+  const buildDir = buildJsParam;
+  const commonDir = resolve(sourceDir, "common");
+  const coreDir = resolve(sourceDir, "core");
   const commonModules = readdirSync(commonDir)
     .filter(f => f.endsWith(".ts") && f !== "index.ts")
     .map(f => f.replace(/\.ts$/, ""))
@@ -130,11 +136,11 @@ function generateRegistry() {
     .map(f => f.name.replace(/\.ts$/, ""))
     .sort();
 
-  const componentDirs = readdirSync(srcDir, { withFileTypes: true })
+  const componentDirs = readdirSync(sourceDir, { withFileTypes: true })
     .filter(
       e => e.isDirectory() && !["core", "common", "type", "runtime"].includes(e.name),
     )
-    .map(e => resolve(srcDir, e.name));
+    .map(e => resolve(sourceDir, e.name));
 
   const usedExports = {};
   for (const dir of componentDirs) {
@@ -167,7 +173,10 @@ function generateRegistry() {
     lines.push('window.foliplus.core["' + sub + '"] = ' + alias + ";");
   }
 
+  // Skip core/{component,hint,mode} — registered in runtime/index.ts.
+  const SKIPPED_CORE_FILES = new Set(["component", "hint", "mode"]);
   for (const name of coreSingleFiles) {
+    if (SKIPPED_CORE_FILES.has(name)) continue;
     const names = usedExports["core/" + name] || [];
     if (names.length === 0) continue;
     const alias = "core" + name;
@@ -193,7 +202,7 @@ function generateRegistry() {
     lines.push("window.foliplus.BaseControl = BaseControlNS;");
   }
 
-  writeFileSync(resolve(buildJs, "_shared-registry.ts"), lines.join("\n"), "utf-8");
+  writeFileSync(resolve(buildDir, "_shared-registry.ts"), lines.join("\n"), "utf-8");
 
   if (!opts.silent) {
     console.log(
@@ -202,6 +211,6 @@ function generateRegistry() {
   }
 }
 
-export { scanImports };
+export { generateRegistry, scanImports };
 
 generateRegistry();
