@@ -12,10 +12,11 @@
  *   node script/build.mjs              # build all (minified)
  *   node script/build.mjs --dev        # unminified, keepNames (for PY identifier tests)
  *   node script/build.mjs --check      # build and verify all artifacts exist
+ *   node script/build.mjs --watch      # watch for changes and rebuild (dev hot-reload)
  */
 import autoprefixer from "autoprefixer";
 import { spawnSync } from "child_process";
-import { build } from "esbuild";
+import { build, context } from "esbuild";
 import {
   existsSync,
   mkdirSync,
@@ -46,6 +47,7 @@ const BUILD_SPEC = {
   root: { type: "string", default: ".", desc: "Project root directory" },
   dev: { type: "bool", desc: "Unminified, keepNames" },
   check: { type: "bool", desc: "Verify all artifacts exist" },
+  watch: { type: "bool", desc: "Watch for changes and rebuild" },
 };
 const _raw = parseArgs(process.argv.slice(2), BUILD_SPEC);
 if (_raw.help) {
@@ -56,6 +58,14 @@ if (_raw.errors.length) {
   console.error(_raw.errors.join("\n"));
   console.error(help(BUILD_SPEC));
   process.exit(1);
+}
+
+// --check only makes sense for a single (non-watch) build — verify and
+// exit. Running it alongside --watch would fight the persistent process,
+// so we drop it in watch mode with a hint.
+if (_raw.check && _raw.watch) {
+  console.log("Note: --check skipped in --watch mode (use without --watch to verify).");
+  _raw.check = false;
 }
 const CFG = _raw;
 CFG.root = resolve(CFG.root);
@@ -166,25 +176,28 @@ const esbuildCfg = {
   plugins: [postcssPlugin, sourceTransformPlugin],
 };
 
-const artifact = (entryPoints, outfile, name) => ({
-  entryPoints,
-  outfile,
-  ...esbuildCfg,
-  // Tree Shaking: disabled for shared entry (produces shared code),
-  // enabled for component bundles (drop unused shared exports).
-  treeShaking: name === SHARED_ENTRY ? false : true,
-  // P5: shared modules (#core/#common/#foliplus/BaseControl) are externalized
-  // in component bundles and read from the global namespace; the shared entry
-  // itself bundles them (no externalization).
-  plugins:
-    name === SHARED_ENTRY
-      ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
-      : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)],
-  banner: {
-    js: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
-    css: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
-  },
-});
+const artifact = (entryPoints, outfile, name) => {
+  const base = {
+    entryPoints,
+    outfile,
+    ...esbuildCfg,
+    // Tree Shaking: disabled for shared entry (produces shared code),
+    // enabled for component bundles (drop unused shared exports).
+    treeShaking: name === SHARED_ENTRY ? false : true,
+    // P5: shared modules (#core/#common/#foliplus/BaseControl) are externalized
+    // in component bundles and read from the global namespace; the shared entry
+    // itself bundles them (no externalization).
+    plugins:
+      name === SHARED_ENTRY
+        ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
+        : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)],
+    banner: {
+      js: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
+      css: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
+    },
+  };
+  return base;
+};
 
 /** Return the first path that exists, else null. */
 const resolveEntry = candidates => candidates.find(existsSync) ?? null;
@@ -248,8 +261,98 @@ const generateSharedRegistry = () => {
   if (genResult.stderr) console.error(genResult.stderr);
   if (genResult.status !== 0) process.exit(genResult.status);
 };
+
+// ── Watch mode helpers ──────────────────────────────────────────
+// esbuild's `context()` API gives us a long-lived build session that can
+// be rebuilt on demand and watched for source changes. This lets us
+// support `--watch` (dev hot-reload) without forking another process.
+
+/** esbuild plugin that logs success/failure on each rebuild. esbuild 0.24
+ *  has no `onRebuild` option, so `onEnd` (fires after every build, including
+ *  watch-triggered rebuilds) is the mechanism. Each artifact registers its
+ *  own plugin with its outfile, so per-artifact status is reported. */
+function rebuildLoggerPlugin(outfile) {
+  return {
+    name: "rebuild-logger",
+    setup(build) {
+      build.onEnd(result => {
+        if (result.errors.length) {
+          console.error(`  ✗ ${basename(outfile)}: rebuild error`);
+          for (const e of result.errors) console.error(`      ${e.text}`);
+        } else {
+          console.log(`  ✓ ${basename(outfile)}`);
+        }
+      });
+    },
+  };
+}
+
+/** Run all artifact builds via the synchronous build() API (single-run mode).
+ *  Returns the count of failed builds. */
+async function runOnce(entries) {
+  const results = await Promise.allSettled(entries.map(opts => build(opts)));
+  let failed = 0;
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r.status === "fulfilled") console.log(`  ✓ ${basename(entries[i].outfile)}`);
+    else {
+      failed++;
+      console.error(`  ✗ ${basename(entries[i].outfile)}: ${r.reason.message}`);
+    }
+  }
+  return failed;
+}
+
+/** Run all artifacts through per-artifact esbuild contexts and watch for changes.
+ *  Each context watches its own source tree independently; one `watch()` per
+ *  context is reliable in esbuild 0.24. `onRebuild` doesn't exist in 0.24, so
+ *  an `onEnd` plugin per artifact reports success/failure on each rebuild. */
+async function runWatch(entries) {
+  // esbuild reuses a single internal service; creating contexts in parallel
+  // over-runs it and yields "The service is no longer running" errors.
+  // We create them one at a time.
+  const contexts = [];
+  for (const opts of entries) {
+    contexts.push(
+      await context({
+        ...opts,
+        plugins: [...opts.plugins, rebuildLoggerPlugin(opts.outfile)],
+      }),
+    );
+  }
+
+  const disposeAll = async () => {
+    for (const ctx of contexts) await ctx.dispose().catch(() => { });
+  };
+
+  let shuttingDown = false;
+  const stop = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log("\nStopping watcher...");
+    disposeAll().then(() => process.exit(0)).catch(() => process.exit(0));
+  };
+  process.once("SIGINT", stop);
+  process.once("SIGTERM", stop);
+
+  // One explicit rebuild() per artifact so dist/ outputs exist on first run
+  // and errors surface immediately rather than being hidden until the first
+  // edit. Done sequentially so the shared service isn't over-run.
+  for (let i = 0; i < entries.length; i++) {
+    try {
+      await contexts[i].rebuild();
+    } catch (err) {
+      console.error(`  ✗ ${basename(entries[i].outfile)}: ${err.message}`);
+    }
+  }
+
+  console.log(`Watching for changes (${entries.length} artifacts) — press Ctrl+C to stop.`);
+  // watch() returns a never-resolving promise; fork each off the stack so SIGINT
+  // reaches the handler (an awaited never-resolving promise blocks signal delivery).
+  for (const ctx of contexts) ctx.watch().catch(() => { });
+}
+
 async function main() {
-  console.time("build");
   // ── Step 1: Create output dirs (no source mirror needed)
   // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
   mkdirSync(buildJs, { recursive: true });
@@ -267,14 +370,15 @@ async function main() {
     `Building ${entries.length} artifacts for ${components.length} components...`,
   );
 
-  // ── Step 4: esbuild bundle (parallel) ─────────────────────────
-  const results = await Promise.allSettled(entries.map(opts => build(opts)));
-  const failed = results.filter(r => r.status === "rejected").length;
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    if (r.status === "fulfilled") console.log(`  ✓ ${basename(entries[i].outfile)}`);
-    else console.error(`  ✗ ${basename(entries[i].outfile)}: ${r.reason.message}`);
+  // ── Step 4: esbuild bundle ────────────────────────────────────
+  if (CFG.watch) {
+    // Watch mode runs persistently, so skip the one-shot timer.
+    await runWatch(entries);
+    return;
   }
+
+  console.time("build");
+  const failed = await runOnce(entries);
 
   // ── Step 5: Verification (--check) ────────────────────────────
   if (CFG.check) {

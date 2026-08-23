@@ -19,6 +19,7 @@
   "scripts": {
     "build": "node script/build.mjs",
     "build:dev": "node script/build.mjs --dev",
+    "build:watch": "node script/build.mjs --watch --dev",
     "build:check": "node script/build.mjs --check",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
