@@ -58,15 +58,12 @@
   cursor: pointer;
   transition: background var(--transition-fast);
 
-  &:hover,
-  /* State modifier: no foliplus- prefix, scoped by parent class */
-  &.active {
+  &:is(:hover, .active) {
     background: var(--accent-light);
     color: var(--accent-primary);
-  }
-  &:hover .foliplus-search-result-icon,
-  &.active .foliplus-search-result-icon {
-    color: var(--accent-primary);
+    .foliplus-search-result-icon {
+      color: var(--accent-primary);
+    }
   }
 }
 .foliplus-search-result-icon {
