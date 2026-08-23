@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/core/layer/const.js";
 import {
   countFeatureGeometry,
   findLayer,
@@ -79,6 +80,36 @@ describe("core/layer util", () => {
       forEachLeaf(layer as never, l => visited.push(l));
       expect(visited).toEqual([a]);
     });
+
+    it("recurses into nested _layers (fallback branch)", () => {
+      const inner = { _layers: { leaf: {} } };
+      const outer = { _layers: { inner } };
+      const visited: L.Layer[] = [];
+      forEachLeaf(outer as never, l => visited.push(l));
+      expect(visited).toEqual([{}]);
+    });
+
+    it("respects the recursion depth limit", () => {
+      const depth = CONST.RECURSION.LAYER_DEPTH + 2;
+      // Build a chain of eachLayer containers deeper than LAYER_DEPTH.
+      let tail: L.Layer = {
+        eachLayer: (fn: (l: L.Layer) => void) => fn({} as L.Layer),
+      };
+      for (let i = 0; i < depth; i++) {
+        const next = tail;
+        tail = { eachLayer: (fn: (l: L.Layer) => void) => fn(next as L.Layer) };
+      }
+      const visited: L.Layer[] = [];
+      forEachLayer(tail as never, l => visited.push(l));
+      // Nodes beyond the depth limit must not be visited.
+      expect(visited.length).toBeLessThan(depth + 1);
+    });
+
+    it("skips a null layer", () => {
+      const visited: L.Layer[] = [];
+      forEachLayer(null as never, l => visited.push(l));
+      expect(visited).toEqual([]);
+    });
   });
 
   describe("getGeometryType", () => {
@@ -152,6 +183,29 @@ describe("core/layer util", () => {
       (polygon as unknown as { isLabel: boolean }).isLabel = true;
       const group = wrap(polygon);
       expect(countFeatureGeometry(group as never)).toBe(0);
+    });
+
+    it("excludes isLabel CircleMarker", () => {
+      const cm = new window.L.CircleMarker();
+      (cm as unknown as { isLabel: boolean }).isLabel = true;
+      const group = wrap(cm);
+      expect(countFeatureGeometry(group as never)).toBe(0);
+    });
+
+    it("counts features nested in a label sub-group (real LayerFactory structure)", () => {
+      const dataPoly = new window.L.Polygon();
+      const labelPoly = new window.L.Polygon();
+      (labelPoly as unknown as { isLabel: boolean }).isLabel = true;
+      const labelGroup = {
+        eachLayer: (fn: (l: L.Layer) => void) => fn(labelPoly),
+      };
+      const mainGroup = {
+        eachLayer: (fn: (l: L.Layer) => void) => {
+          fn(dataPoly);
+          fn(labelGroup as L.Layer);
+        },
+      };
+      expect(countFeatureGeometry(mainGroup as never)).toBe(1);
     });
 
     it("handles a mixed container", () => {

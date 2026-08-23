@@ -7,6 +7,7 @@ import {
   type CreateLayersOpts,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
+  type LabelAwareLayer,
   type LayerAPI,
   LayerFactory,
   LayerRegistry,
@@ -346,6 +347,7 @@ class LayerManager implements LayerAPI {
       [];
     const seen = new Set();
     this.forEachLeaf(id, (l: L.Layer) => {
+      if ((l as LabelAwareLayer).isLabel) return;
       if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
       if (!l.feature) return;
       const stamp = L.stamp(l);

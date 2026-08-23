@@ -13,7 +13,12 @@ const findLayer = (map: L.Map, id: string): L.Layer | null => {
     null) as L.Layer | null;
 };
 
-/** Depth-limited walk over a layer tree, invoking fn per visited node. */
+/** Depth-limited walk over a layer tree, invoking fn per visited node.
+ *  Prefer eachLayer (Leaflet's own recursion) over _layers — that keeps
+ *  nested groups like mainLayer → [graph, label] traversed correctly.
+ *  The _layers branch is a fallback for non-Leaflet containers (window
+ *  globals and ad-hoc registry wrappers) that don't implement eachLayer.
+ */
 const traverse = (
   layer: L.Layer,
   fn: (layer: L.Layer) => void,

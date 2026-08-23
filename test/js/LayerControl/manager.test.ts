@@ -620,6 +620,34 @@ describe("LayerManager", () => {
     expect(pts).toEqual([{ lat: 1, lng: 2, marker }]);
   });
 
+  it("extractPoints excludes label markers (no double-counting)", () => {
+    class Marker {}
+    window.L.Marker = Marker;
+    const data = new Marker() as any;
+    data.feature = { type: "Feature" };
+    data.getLatLng = () => ({ lat: 1, lng: 2 });
+    data.options = {};
+    const label = new Marker() as any;
+    label.feature = { type: "Feature" };
+    label.getLatLng = () => ({ lat: 9, lng: 9 });
+    label.options = {};
+    label.isLabel = true;
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({
+      id: "el",
+      name: "El",
+      layer: {
+        eachLayer: (cb: (l: unknown) => void) => {
+          cb(data);
+          cb(label);
+        },
+        options: {},
+      } as any,
+    });
+    const pts = manager.extractPoints("el");
+    expect(pts).toEqual([{ lat: 1, lng: 2, marker: data }]);
+  });
+
   it("bringLayerToFront re-renders the list when a UI is attached", () => {
     manager.map.hasLayer.mockReturnValue(false);
     // register bottom first so top lands at index 0; bottom is then movable
@@ -747,6 +775,19 @@ describe("LayerManager", () => {
     it("returns null for a container layer that is not present (findLayer null)", () => {
       manager.registerLayer({ id: "absent", name: "Absent" });
       expect(manager.getFeatureCount("absent")).toBe(null);
+    });
+
+    it("counts only data features when a label sub-group is nested under mainLayer", () => {
+      const dataPoly = makeLeaf(window.L.Polygon);
+      const labelPoly = makeLeaf(window.L.Polygon);
+      (labelPoly as unknown as { isLabel: boolean }).isLabel = true;
+      const labelGroup = {
+        options: {},
+        eachLayer: (cb: (l: unknown) => void) => cb(labelPoly),
+      };
+      const mainLayer = wrap(dataPoly, labelGroup);
+      manager.registerLayer({ id: "nested", name: "Nested", layer: mainLayer });
+      expect(manager.getFeatureCount("nested")).toBe(1);
     });
   });
 
