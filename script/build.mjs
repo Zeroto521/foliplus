@@ -16,7 +16,7 @@
  */
 import autoprefixer from "autoprefixer";
 import { spawnSync } from "child_process";
-import { build, context } from "esbuild";
+import { build } from "esbuild";
 import {
   existsSync,
   mkdirSync,
@@ -25,13 +25,14 @@ import {
   rmSync,
   writeFileSync,
 } from "fs";
-import { basename, dirname, relative, resolve } from "path";
+import { basename, dirname, resolve } from "path";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath } from "url";
 import { help, parseArgs } from "./args.mjs";
 import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
+import { runWatch } from "./watch.mjs";
 
 // ── Config ──────────────────────────────────────────────────────
 // Central path/flag config. `dev` toggles minification & identifier
@@ -85,7 +86,6 @@ const MERGED_CSS_NAME = "_common_merged.css";
 // that only merged once at startup).
 const commonCssPath = resolve(cssDir, "common.css");
 const panelCssPath = resolve(cssDir, "panel.css");
-const panelCssExists = existsSync(panelCssPath);
 
 /** Plugin that rewrites the merged common-CSS entry into an `@import` chain.
  *  It claims the entry via `onResolve` into a dedicated namespace so
@@ -312,28 +312,13 @@ const generateSharedRegistry = () => {
   if (genResult.status !== 0) process.exit(genResult.status);
 };
 
-// ── Watch mode helpers ──────────────────────────────────────────
-// esbuild's `context()` API gives us a long-lived build session that can
-// be rebuilt on demand and watched for source changes. This lets us
-// support `--watch` (dev hot-reload) without forking another process.
-
-/** esbuild plugin that logs success/failure on each rebuild. esbuild 0.24
- *  has no `onRebuild` option, so `onEnd` (fires after every build, including
- *  watch-triggered rebuilds) is the mechanism. Errors only print a marker —
- *  esbuild's own logLine already prints the full error detail, so printing
- *  e.text here would double-write. Each artifact registers its own plugin
- *  with its outfile, so per-artifact status is reported. */
-function rebuildLoggerPlugin(outfile) {
-  return {
-    name: "rebuild-logger",
-    setup(build) {
-      build.onEnd(result => {
-        if (result.errors.length) console.error(`  ✗ ${basename(outfile)}`);
-        else console.log(`  ✓ ${basename(outfile)}`);
-      });
-    },
-  };
-}
+// ── Watch mode ──────────────────────────────────────────────────
+// `--watch` (dev hot-reload) is implemented in script/watch.mjs. It is
+// intentionally decoupled: it only depends on esbuild's `context` API and a
+// pre-built list of per-artifact option objects, so the fragile esbuild 0.24
+// watch mechanics (onEnd-based logging, sequential context creation, never-
+// resolving watch() promises forked off the stack, signal handling) live in
+// their own module instead of the build config / single-run path.
 
 /** Run all artifact builds via the synchronous build() API (single-run mode).
  *  Returns the count of failed builds. */
@@ -349,66 +334,6 @@ async function runOnce(entries) {
     }
   }
   return failed;
-}
-
-/** Run all artifacts through per-artifact esbuild contexts and watch for changes.
- *  Each context watches its own source tree independently; one `watch()` per
- *  context is reliable in esbuild 0.24. `onRebuild` doesn't exist in 0.24, so
- *  an `onEnd` plugin per artifact reports success/failure on each rebuild.
- *  Watch contexts set logLevel:"error" so esbuild's own output is limited to
- *  error detail; progress/✓ status is handled by the rebuildLoggerPlugin. */
-async function runWatch(entries) {
-  // esbuild reuses a single internal service; creating contexts in parallel
-  // over-runs it and yields "The service is no longer running" errors.
-  // We create them one at a time.
-  const contexts = [];
-  for (let i = 0; i < entries.length; i++) {
-    const ctx = await context({
-      ...entries[i],
-      plugins: [...entries[i].plugins, rebuildLoggerPlugin(entries[i].outfile)],
-      logLevel: "error",
-    });
-    contexts.push(ctx);
-  }
-
-  const disposeAll = async () => {
-    for (const ctx of contexts) await ctx.dispose().catch(() => {});
-  };
-
-  let shuttingDown = false;
-  const stop = () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    console.log("\nStopping watcher...");
-    disposeAll().then(() => process.exit(0)).catch(() => process.exit(0));
-  };
-  process.once("SIGINT", stop);
-  process.once("SIGTERM", stop);
-
-  // One explicit rebuild() per artifact so dist/ outputs exist on first run
-  // and errors surface immediately rather than being hidden until the first
-  // edit. Done sequentially so the shared service isn't over-run. We don't
-  // also log per-artifact status here because the rebuildLoggerPlugin's
-  // onEnd handles it — a fatal rebuild() error is the only thing not caught
-  // there, so we log that.
-  for (let i = 0; i < entries.length; i++) {
-    try {
-      await contexts[i].rebuild();
-    } catch (err) {
-      console.error(`  ✗ ${basename(entries[i].outfile)}: ${err.message}`);
-    }
-  }
-
-  console.log(`Watching for changes (${entries.length} artifacts) — press Ctrl+C to stop.`);
-  // watch() returns a never-resolving promise; fork each off the stack so SIGINT
-  // reaches the handler (an awaited never-resolving promise blocks signal delivery).
-  // With logLevel:"error", a fatal watch() failure wouldn't surface, so we catch
-  // and log it here with the artifact name.
-  for (let i = 0; i < entries.length; i++) {
-    contexts[i].watch().catch(err =>
-      console.error(`  ✗ ${basename(entries[i].outfile)}: watch failed: ${err.message}`),
-    );
-  }
 }
 
 async function main() {
