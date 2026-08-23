@@ -43,7 +43,6 @@ describe("HISTORY", () => {
   it("defines history config", () => {
     expect(CONST.HISTORY.MAX_ENTRIES).toBe(20);
     expect(CONST.HISTORY.MAX_DISPLAY).toBe(5);
-    expect(CONST.HISTORY.BLUR_DELAY).toBe(150);
     expect(CONST.HISTORY.STORAGE_KEY).toBe("foliplus.search_history");
   });
 });

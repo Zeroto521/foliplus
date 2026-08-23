@@ -28,8 +28,6 @@ export const HISTORY = {
   MAX_ENTRIES: 20,
   /** Maximum entries to display per section (matches autocomplete limit). */
   MAX_DISPLAY: AUTOCOMPLETE.MAX_ITEMS,
-  /** Delay before hiding the panel on blur (allows click on items). */
-  BLUR_DELAY: 150,
   /** localStorage key for search history. */
   STORAGE_KEY: "foliplus.search_history",
 };
