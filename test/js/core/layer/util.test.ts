@@ -158,6 +158,33 @@ describe("core/layer util", () => {
       const group = wrap(new window.L.Polygon(), new window.L.Polyline());
       expect(getGeometryType(group as never)).toBe("unknown");
     });
+
+    it("returns point for L.CircleMarker leaves", () => {
+      const group = wrap(new window.L.CircleMarker());
+      expect(getGeometryType(group as never)).toBe("point");
+    });
+
+    it("returns unknown for a Marker without a .feature property", () => {
+      const marker = new window.L.Marker();
+      const group = wrap(marker);
+      expect(getGeometryType(group as never)).toBe("unknown");
+    });
+
+    it("returns unknown for a mix of Point + LineString + Polygon", () => {
+      const marker = new window.L.Marker();
+      marker.feature = {};
+      const group = wrap(marker, new window.L.Polyline(), new window.L.Polygon());
+      expect(getGeometryType(group as never)).toBe("unknown");
+    });
+
+    it("treats multiple Markers as point geometry (MultiPoint serialization)", () => {
+      const m1 = new window.L.Marker();
+      m1.feature = {};
+      const m2 = new window.L.Marker();
+      m2.feature = {};
+      const group = wrap(m1, m2);
+      expect(getGeometryType(group as never)).toBe("point");
+    });
   });
 
   describe("countFeatureGeometry", () => {

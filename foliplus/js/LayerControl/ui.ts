@@ -363,7 +363,7 @@ class LayerUI {
         layerInfo.type = type;
       } else if (layer) {
         const gtype = getGeometryType(layer);
-        typeCol.innerHTML = Util.getTypeSVG(layer);
+        typeCol.innerHTML = Util.getTypeSVG(layer, gtype);
         typeKey = `${CONF.name}.type_${gtype}`;
         type = gtype;
         layerInfo.type = type;
@@ -377,10 +377,10 @@ class LayerUI {
         ? (input.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | undefined)
         : (typeCol.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | undefined);
       if (item) {
+        const count = this.mgmt.getFeatureCount(layerInfo.id);
         // Update count column (right-aligned, adjacent to type icon).
         const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
         if (countCol) {
-          const count = this.mgmt.getFeatureCount(layerInfo.id);
           if (count !== null && count !== undefined)
             countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
           else countCol.textContent = "";
@@ -390,10 +390,10 @@ class LayerUI {
         // Persist the type label so onLayerItemCountChange can rebuild the
         // 'count + type' tooltip without re-running type detection.
         item.setAttribute(CONST.DATA.TITLE, typeLabel);
-        const count = this.mgmt.getFeatureCount(layerInfo.id);
-        if (count !== null && count !== undefined)
-          item.title = `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`;
-        else item.title = typeLabel;
+        item.title =
+          count !== null && count !== undefined
+            ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
+            : typeLabel;
       }
     }
 
@@ -507,27 +507,44 @@ class LayerUI {
     );
   }
 
-  /** Called when a layer's feature count changes (third-party provider). */
+  /** Called when a layer's content changes (count or type may shift at runtime).
+   *  Re-computes geometry type so a layer that mixes geometry through the
+   *  createLayers API (Point + LineString, etc.) shows the correct icon,
+   *  not the one cached at initial attach. */
   onLayerItemCountChange(id: string) {
     if (!this.uiContainer) return;
     const item = this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
     ) as HTMLElement | null;
     if (!item) return;
+    const layerInfo = this.m.layerRegistry.get(id);
+    if (!layerInfo || layerInfo.isBase) return;
     const count = this.mgmt.getFeatureCount(id);
     const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
-    const typeLabel = item.getAttribute(CONST.DATA.TITLE) ?? "";
+    const typeCol = item.querySelector(
+      `.${CONST.CLASSES.TYPE_ICON_COL}`,
+    ) as HTMLElement | null;
+
+    // Re-detect geometry type (iconSvg-only layers keep their custom SVG).
+    let typeLabel = item.getAttribute(CONST.DATA.TITLE) ?? "";
+    if (typeCol && !layerInfo.iconSvg) {
+      const layer = this.m.findLayer(layerInfo);
+      const gtype = layer ? getGeometryType(layer) : GEOM_TYPE.UNKNOWN;
+      layerInfo.type = gtype;
+      typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
+      typeLabel = _(`${CONF.name}.type_${gtype}`);
+    }
+
     if (countCol && count !== null && count !== undefined) {
       countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
     } else if (countCol) {
       countCol.textContent = "";
     }
-    if (item && typeLabel) {
-      item.title =
-        count !== null
-          ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
-          : typeLabel;
-    }
+    item.setAttribute(CONST.DATA.TITLE, typeLabel);
+    item.title =
+      count !== null
+        ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
+        : typeLabel;
   }
 
   /** Refresh count column for every overlay item (no title change). */

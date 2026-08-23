@@ -849,6 +849,24 @@ describe("LayerManager", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
+    it("invalidates the layer's cached type before emitting, so mixed geometry at runtime is re-detected", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const poly = Object.assign(Object.create(window.L.Polygon.prototype), {
+        options: {},
+      });
+      const polyLayer = {
+        options: {},
+        eachLayer: (cb: (l: unknown) => void) => cb(poly),
+      };
+      manager.registerLayer({ id: "rt", name: "RT", layer: polyLayer });
+      expect(manager.getLayerType("rt")).toBe(GEOM_TYPE.POLYGON);
+      // refreshCount must clear the cached type so a subsequent runtime geometry
+      // mix is re-detected by getLayerType/getGeometryType
+      manager.refreshCount("rt");
+      const layerInfo = manager.layerRegistry.get("rt");
+      expect(layerInfo?.type).toBeNull();
+    });
+
     it("emits for an unknown layer id (no-op subscriber; defensive)", () => {
       const bus = map.foliplus!.events;
       const handler = vi.fn();

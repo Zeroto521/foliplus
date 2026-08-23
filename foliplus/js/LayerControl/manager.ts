@@ -298,6 +298,10 @@ class LayerManager implements LayerAPI {
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
     if (this.layerRegistry.get(id)?.isBase) return;
+    // Invalidate the cached geometry type so onLayerItemCountChange can re-detect
+    // it — a layer that gains/mixes geometry at runtime (e.g. Point + LineString
+    // added via createLayers) would otherwise keep its stale type icon.
+    this.invalidateType(id);
     ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
