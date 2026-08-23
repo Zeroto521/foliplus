@@ -44,6 +44,7 @@ doc = [
   "geopandas",
   "my-data-toolkit",
   "matplotlib",
+  "mapclassify",
 ]
 dev = [{ include-group = "test" }, { include-group = "doc" }, "build", "twine"]
 
