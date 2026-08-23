@@ -9,8 +9,8 @@ import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { CLASSES, MODE } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
-import { initDebouncedFetch, removeSuggestions } from "./logic.js";
-import type { AddressResult, NominatimItem } from "./type.js";
+import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
+import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
 
 const { _ } = createControlEnv(CONF, SVGs.SEARCH);
 ensureHint(map);
@@ -26,7 +26,7 @@ export class SearchControl extends BaseControl {
   declare clearBtn: HTMLElement;
   declare debouncedFetch: Debounced;
   declare cachedSuggestions: Cache<string, NominatimItem[]>;
-  declare cachedAddress: Record<string, AddressResult>;
+  declare searchHistory: SearchHistoryEntry[];
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
   declare addrAbortController: AbortController | null;
@@ -34,10 +34,10 @@ export class SearchControl extends BaseControl {
   declare marker: L.Marker | null;
   declare delIcon: L.Marker | null;
   declare mode: string;
-  declare suggestionsWrap: HTMLElement | null;
-  declare selectedSuggestionIdx: number;
+  declare panelWrap: HTMLElement | null;
+  declare selectedIdx: number;
   declare lastSuggestFetch: number;
-  declare suggestionsThrottleTimer: ReturnType<typeof setTimeout> | null;
+  declare throttleTimer: ReturnType<typeof setTimeout> | null;
   declare suggestSeq: number;
 
   buildDOM() {
@@ -52,12 +52,12 @@ export class SearchControl extends BaseControl {
 
   destroy() {
     (this as any).interactionCleanup?.();
-    removeSuggestions(this);
+    removePanel(this);
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();
     this.cachedSuggestions.clear();
-    this.cachedAddress = {};
+    this.searchHistory = [];
     this.scrollTargets.forEach(t =>
       t.removeEventListener("scroll", this.repositionHandler, true),
     );
@@ -83,7 +83,7 @@ export class SearchControl extends BaseControl {
     const modeBtn = createIconButton({
       class: CLASSES.SEARCH_MODE_BTN,
       title: _(`${CONF.name}.mode_coord`),
-      svg: Icons.LOCATE,
+      svg: Icons.GLOBE,
       parent: toolBar,
     });
     const inp = dom.el("input", {
@@ -108,12 +108,12 @@ export class SearchControl extends BaseControl {
     this.delIcon = null;
     this.mode = CONF.mode ?? "";
     if (this.mode !== MODE.COORD && this.mode !== MODE.ADDR) this.mode = MODE.COORD;
-    this.suggestionsWrap = null;
-    this.selectedSuggestionIdx = -1;
+    this.panelWrap = null;
+    this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
-    this.suggestionsThrottleTimer = null;
+    this.throttleTimer = null;
     this.cachedSuggestions = new Cache<string, NominatimItem[]>(50);
-    this.cachedAddress = {};
+    this.searchHistory = loadHistory();
     this.suggestAbortController = null;
     this.suggestSeq = 0;
 
@@ -128,11 +128,11 @@ export class SearchControl extends BaseControl {
   setMode(newMode: string) {
     this.mode = newMode;
     if (this.mode === MODE.COORD) {
-      this.modeBtn.innerHTML = Icons.LOCATE;
+      this.modeBtn.innerHTML = Icons.GLOBE;
       this.modeBtn.title = _(`${CONF.name}.mode_coord`);
       this.inp.placeholder = _(`${CONF.name}.coord_placeholder`);
     } else {
-      this.modeBtn.innerHTML = Icons.GLOBE;
+      this.modeBtn.innerHTML = Icons.LOCATE;
       this.modeBtn.title = _(`${CONF.name}.mode_addr`);
       this.inp.placeholder = _(`${CONF.name}.addr_placeholder`);
     }
@@ -147,7 +147,7 @@ export class SearchControl extends BaseControl {
     }
     if (this.suggestAbortController) this.suggestAbortController.abort();
     map.foliplus!.hideHint(CONF.name);
-    removeSuggestions(this);
+    removePanel(this);
     this.inp.focus();
   }
 }

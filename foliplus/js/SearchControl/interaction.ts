@@ -2,11 +2,11 @@
 import { ensureInteraction } from "#core/interaction.js";
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
-import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./const.js";
+import { CLASSES, MODE, PARAM } from "./const.js";
 import {
   fetchSuggestions,
-  positionSuggestions,
-  removeSuggestions,
+  positionPanel,
+  removePanel,
   searchAddress,
   searchCoord,
 } from "./logic.js";
@@ -24,7 +24,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     onExpand: () => ctrl.inp.focus(),
     onCollapse: () => {
       map.foliplus!.hideHint(CONF.name);
-      removeSuggestions(ctrl);
+      removePanel(ctrl);
     },
   });
 
@@ -47,10 +47,15 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         ? _(`${CONF.name}.coord_placeholder`)
         : _(`${CONF.name}.addr_placeholder`);
 
-    if (ctrl.mode === MODE.ADDR) ctrl.debouncedFetch();
-    else {
+    if (ctrl.inp.value.trim().length === 0) {
+      // Input cleared — show history immediately
       ctrl.debouncedFetch.cancel();
-      removeSuggestions(ctrl);
+      fetchSuggestions(ctrl, "");
+    } else if (ctrl.mode === MODE.ADDR) {
+      ctrl.debouncedFetch();
+    } else {
+      ctrl.debouncedFetch.cancel();
+      removePanel(ctrl);
     }
   });
 
@@ -59,8 +64,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       key: "Escape",
       element: ctrl.inp,
       handler: () => {
-        if (ctrl.suggestionsWrap) {
-          removeSuggestions(ctrl);
+        if (ctrl.panelWrap) {
+          removePanel(ctrl);
           return;
         }
         ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
@@ -73,37 +78,33 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       key: "ArrowDown",
       element: ctrl.inp,
       handler: () => {
-        if (!ctrl.suggestionsWrap) return;
-        const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
-        ctrl.selectedSuggestionIdx = Math.min(
-          ctrl.selectedSuggestionIdx + 1,
-          items.length - 1,
-        );
+        if (!ctrl.panelWrap) return;
+        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
+        if (items.length === 0) return;
+        ctrl.selectedIdx = Math.min(ctrl.selectedIdx + 1, items.length - 1);
         items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
+          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
         );
-        if (items[ctrl.selectedSuggestionIdx])
-          ctrl.inp.value =
-            items[ctrl.selectedSuggestionIdx].querySelector(
-              `.${CLASSES.SUGGESTION_TEXT}`,
-            )?.textContent ?? "";
+        ctrl.inp.value =
+          items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
+            ?.textContent ?? "";
       },
     },
     {
       key: "ArrowUp",
       element: ctrl.inp,
       handler: () => {
-        if (!ctrl.suggestionsWrap) return;
-        const items = ctrl.suggestionsWrap.querySelectorAll(":scope > *");
-        ctrl.selectedSuggestionIdx = Math.max(ctrl.selectedSuggestionIdx - 1, -1);
+        if (!ctrl.panelWrap) return;
+        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
+        if (items.length === 0) return;
+        ctrl.selectedIdx = Math.max(ctrl.selectedIdx - 1, -1);
         items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedSuggestionIdx),
+          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
         );
-        if (ctrl.selectedSuggestionIdx >= 0 && items[ctrl.selectedSuggestionIdx])
+        if (ctrl.selectedIdx >= 0)
           ctrl.inp.value =
-            items[ctrl.selectedSuggestionIdx].querySelector(
-              `.${CLASSES.SUGGESTION_TEXT}`,
-            )?.textContent ?? "";
+            items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
+              ?.textContent ?? "";
       },
     },
     {
@@ -111,23 +112,29 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       element: ctrl.inp,
       handler: () => {
         const raw = ctrl.inp.value.trim();
-        removeSuggestions(ctrl);
+        removePanel(ctrl);
         if (!raw) return;
         ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
       },
     },
   ]);
 
-  ctrl.inp.addEventListener("blur", () => setTimeout(() => removeSuggestions(ctrl), 0));
-
   ctrl.inp.addEventListener("focus", () => {
-    if (ctrl.mode === MODE.ADDR) {
-      const val = ctrl.inp.value.trim();
-      if (val.length >= AUTOCOMPLETE.MIN_CHARS) fetchSuggestions(ctrl, val);
-    }
+    const val = ctrl.inp.value.trim();
+    // Empty input → show search history for current mode;
+    // non-empty → fetch suggestions (addr mode only)
+    if (val.length === 0) fetchSuggestions(ctrl, "");
+    else if (ctrl.mode === MODE.ADDR) fetchSuggestions(ctrl, val);
   });
 
-  ctrl.repositionHandler = () => positionSuggestions(ctrl);
+  // Watch for collapse state changes (via toggle, Escape, or outside click)
+  // to remove the floating history/suggestions panel.
+  const collapseObserver = new MutationObserver(() => {
+    if (ctrl.ctrl.classList.contains(CLASSES.COLLAPSED)) removePanel(ctrl);
+  });
+  collapseObserver.observe(ctrl.ctrl, { attributes: true, attributeFilter: ["class"] });
+
+  ctrl.repositionHandler = () => positionPanel(ctrl);
   const leafletContainer = document.querySelector(".leaflet-container");
   ctrl.scrollTargets = leafletContainer ? [window, leafletContainer] : [window];
   ctrl.scrollTargets.forEach((t: Element | Window) =>
@@ -135,7 +142,10 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
   );
   window.addEventListener("resize", ctrl.repositionHandler);
 
-  return () => ensureInteraction(map).unregister(CONF.name);
+  return () => {
+    collapseObserver.disconnect();
+    ensureInteraction(map).unregister(CONF.name);
+  };
 };
 
 /**

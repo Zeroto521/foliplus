@@ -61,8 +61,8 @@ class TestSearchControlRendering:
         html = render_control(SearchControl())
         assert "foliplus-search" in html
         assert "foliplus-search-mode-btn" in html
-        assert "foliplus-search-suggestions" in html
-        assert "foliplus-search-suggestion-item" in html
+        assert "foliplus-search-result-panel" in html
+        assert "foliplus-search-result-item" in html
         assert "ctrl-fold" in html
         assert "align-right" in html
 
@@ -84,10 +84,14 @@ class TestSearchControlRendering:
         html = render_control(SearchControl(locale="zh"))
         assert_locale(html, "地址搜索", "SearchControl.addr_placeholder")
 
-    def test_suggestion_item_classes(self):
+    def test_result_panel_classes(self):
         html = render_control(SearchControl())
-        assert "foliplus-search-suggestion-icon" in html
-        assert "foliplus-search-suggestion-text" in html
+        assert "foliplus-search-result-panel" in html
+        assert "foliplus-search-result-item" in html
+        assert "foliplus-search-result-icon" in html
+        assert "foliplus-search-result-text" in html
+        assert "foliplus-search-result-content" in html
+        assert "foliplus-search-result-coord" in html
 
 
 class TestSearchControlBrowser:
@@ -112,19 +116,20 @@ class TestSearchControlBrowser:
 
     def test_initial_mode_addr(self, browser, tmp_path):
         """Verify that mode='addr' renders the address-search UI
-        (globe icon, address placeholder) on first open."""
+        (pin icon, address placeholder) on first open."""
         with use_page(self._make_page, browser, tmp_path, mode="addr") as (
             page,
             errors,
         ):
             self._expand(page)
 
-            # Verify the mode button shows the globe icon (address mode)
-            globe_svg = page.evaluate(
+            # Verify the mode button shows the pin icon (LOCATE) for address mode
+            # LOCATE has a small circle at cy=9 (pin head), GLOBE has a large circle at cy=12
+            is_pin = page.evaluate(
                 """document.querySelector('.foliplus-search-mode-btn')
-                    .querySelector('svg[viewBox="0 0 24 24"] circle[cx="12"][cy="12"][r="10"]') !== null"""
+                    .querySelector('circle[cx="12"][cy="9"]') !== null"""
             )
-            assert globe_svg, "Expected globe icon for address mode"
+            assert is_pin, "Expected pin icon (LOCATE) for address mode"
 
             # Verify the placeholder is for address search
             placeholder = page.evaluate("document.querySelector('input').placeholder")
@@ -146,23 +151,31 @@ class TestSearchControlBrowser:
             ), f"Expected coordinate placeholder, got: {placeholder}"
 
     def test_mode_switch_icon(self, browser, tmp_path):
-        """Toggling mode switches icon between LOCATE (coord) and GLOBE (addr)."""
+        """Toggling mode switches from GLOBE (coord) to LOCATE (addr)."""
         with use_page(self._make_page, browser, tmp_path, mode="coord") as (
             page,
             errors,
         ):
             self._expand(page)
 
-            # Click mode switch button
+            # Coord mode starts with GLOBE (globe) icon
+            # GLOBE has a large circle at cy=12, LOCATE has a small circle at cy=9
+            is_globe = page.evaluate(
+                """document.querySelector('.foliplus-search-mode-btn')
+                    .querySelector('circle[cx="12"][cy="12"][r="10"]') !== null"""
+            )
+            assert is_globe, "Expected globe icon for coord mode"
+
+            # Click mode switch button → switches to address mode
             page.evaluate("document.querySelector('.foliplus-search-mode-btn').click()")
             page.wait_for_timeout(500)
 
-            # After switch, should be address mode with GLOBE icon
-            globe_icon = page.evaluate(
-                "document.querySelector('.foliplus-search-mode-btn').innerHTML.indexOf('GLOBE') > -1 || "
-                'document.querySelector(\'.foliplus-search-mode-btn\').querySelector(\'circle[cx="12"][cy="12"][r="10"]\') !== null'
+            # After switch, should be address mode with LOCATE (pin) icon
+            is_pin = page.evaluate(
+                """document.querySelector('.foliplus-search-mode-btn')
+                    .querySelector('circle[cx="12"][cy="9"]') !== null"""
             )
-            assert globe_icon, "Expected globe icon after mode switch"
+            assert is_pin, "Expected pin icon (LOCATE) after mode switch to address"
 
             # Also verify input placeholder was updated
             placeholder = page.evaluate("document.querySelector('input').placeholder")
@@ -277,8 +290,8 @@ class TestSearchControlBrowser:
             )
             assert ctrl_has_collapsed, "Expected control to be collapsed after Escape"
 
-    def test_autocomplete_body_mount(self, browser, tmp_path):
-        """Suggestions dropdown is mounted on document.body, not inside toolBar."""
+    def test_result_panel_body_mount(self, browser, tmp_path):
+        """Result panel (suggestions/history) is mounted on document.body, not inside toolBar."""
         with use_page(self._make_page, browser, tmp_path, mode="addr") as (
             page,
             errors,
@@ -291,17 +304,17 @@ class TestSearchControlBrowser:
 
             # Suggestions container should be on body, not inside toolBar
             on_body = page.evaluate(
-                "document.body.querySelector('.foliplus-search-suggestions') !== null"
+                "document.body.querySelector('.foliplus-search-result-panel') !== null"
             )
             in_toolbar = page.evaluate(
-                "document.querySelector('.foliplus-tool-bar .foliplus-search-suggestions') !== null"
+                "document.querySelector('.foliplus-tool-bar .foliplus-search-result-panel') !== null"
             )
             # The suggestions may or may not appear (depends on network), but
             # the key test is that they're NOT in toolBar
             if on_body:
                 assert not in_toolbar, "Suggestions must not be inside toolBar"
 
-    def test_keyboard_suggestion_navigation_structure(self, browser, tmp_path):
+    def test_keyboard_result_navigation_structure(self, browser, tmp_path):
         """ArrowDown/ArrowUp/Enter keyboard navigation structure exists in address mode."""
         with use_page(self._make_page, browser, tmp_path, mode="addr") as (
             page,

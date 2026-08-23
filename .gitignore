@@ -72,9 +72,15 @@ package-lock.json
 .history
 *.db
 .DS_Store
-.claude/
+
+# LLM
 .task/
+.claude/
+.claude/plans/myagents/
+.foliplus/
 memory/
+CLAUDE.md
+UPDATE_MEMORY.md
 
 # Auto-generated
 foliplus/dist/

@@ -34,8 +34,8 @@
   }
 }
 
-/* ── Autocomplete Suggestions (mounted on document.body) ── */
-.foliplus-search-suggestions {
+/* ── Result Panel (mounted on map container, shared by suggestions and history) ── */
+.foliplus-search-result-panel {
   position: fixed;
   box-sizing: border-box;
   margin-top: var(--space-xs);
@@ -48,7 +48,7 @@
   overflow-y: auto;
   width: var(--panel-width);
 }
-.foliplus-search-suggestion-item {
+.foliplus-search-result-item {
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
@@ -58,18 +58,15 @@
   cursor: pointer;
   transition: background var(--transition-fast);
 
-  &:hover,
-  /* State modifier: no foliplus- prefix, scoped by parent class */
-  &.active {
+  &:is(:hover, .active) {
     background: var(--accent-light);
     color: var(--accent-primary);
-  }
-  &:hover .foliplus-search-suggestion-icon,
-  &.active .foliplus-search-suggestion-icon {
-    color: var(--accent-primary);
+    .foliplus-search-result-icon {
+      color: var(--accent-primary);
+    }
   }
 }
-.foliplus-search-suggestion-icon {
+.foliplus-search-result-icon {
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -85,10 +82,22 @@
     stroke-linejoin: round;
   }
 }
-.foliplus-search-suggestion-text {
-  flex: 1;
-  min-width: 0;
+.foliplus-search-result-text {
   line-height: var(--line-height-hint);
   word-break: break-word;
   overflow-wrap: break-word;
+}
+
+/* ── Result Item Content (shared by suggestions and history) ── */
+.foliplus-search-result-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.foliplus-search-result-coord {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 1px;
 }
