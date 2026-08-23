@@ -4,7 +4,6 @@
 
 ### Added
 
-- `SearchControl`: search history panel — persist search history to localStorage, split by address/coordinate mode, sort by frequency then recency, reverse-geocode for address display, migration for old entries ([#feature/search-history-favorites](https://github.com/Zeroto521/foliplus/tree/feature/search-history-favorites))
 - `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171))
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
@@ -15,6 +14,7 @@
 - `LayerControl`: keyboard shortcuts for layer panel — `ArrowUp`/`ArrowDown`/`ArrowLeft`/`ArrowRight`/`Space`/`Enter`/`Escape` and `Ctrl+ArrowUp`/`Ctrl+ArrowDown` for reorder. Added `moveLayerUp(id)` and `moveLayerDown(id)` to `LayerAPI` ([#156](https://github.com/Zeroto521/foliplus/pull/156))
 - `InteractionManager`: per-map centralized event manager (`core/interaction.ts`) — replaces per-component `document.addEventListener` for keyboard and mouse events. Supports document-level, container-scoped, and element-level bindings with auto-cleanup on DOM removal and map unload. Each component now has a dedicated `interaction.ts` for event registration ([#165](https://github.com/Zeroto521/foliplus/pull/165))
 - `MeasureControl`: export measurements to GeoJSON / CSV (with WKT column) ([#168](https://github.com/Zeroto521/foliplus/pull/168))
+- `SearchControl`: search history panel — persist search history to localStorage, split by address/coordinate mode, sort by frequency then recency, reverse-geocode for address display ([#164](https://github.com/Zeroto521/foliplus/tree/164))
 
 ### Changed
 
