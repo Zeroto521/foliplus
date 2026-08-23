@@ -563,12 +563,16 @@ describe("searchCoord — history recording", () => {
     // Second call is from searchCoord's history update — reject it.
     let callCount = 0;
     (window.foliplus.reverseGeocode as any).mockImplementation(() =>
-      Promise.resolve(++callCount > 1 ? Promise.reject(new Error("network timeout")) : "Addr"),
+      Promise.resolve(
+        ++callCount > 1 ? Promise.reject(new Error("network timeout")) : "Addr",
+      ),
     );
     // Reset: first call resolves to "", second rejects
     callCount = 0;
     (window.foliplus.reverseGeocode as any).mockImplementation(() =>
-      callCount++ === 0 ? Promise.resolve("") : Promise.reject(new Error("network timeout")),
+      callCount++ === 0
+        ? Promise.resolve("")
+        : Promise.reject(new Error("network timeout")),
     );
     const ctrl: any = {
       inp: { value: "121.47,31.23" },
