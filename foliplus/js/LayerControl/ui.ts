@@ -297,7 +297,7 @@ class LayerUI {
     });
     const typeIconEl = dom.el("div", {
       class: CONST.CLASSES.TYPE_ICON_COL,
-      html: SVGs.COLOR,
+      innerHTML: SVGs.COLOR,
     });
     // color item uses subgrid to keep icon count/icon columns aligned with
     // other rows; count column is empty (color layers have no feature count).
