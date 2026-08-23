@@ -288,8 +288,8 @@
        Dimmed by default, brightens on hover/active to match other row content. */
     .foliplus-layer-count {
       flex-shrink: 0;
-      min-width: var(--icon-size-md);
-      padding: 0 var(--space-xs);
+      min-width: calc(var(--icon-size-md) + var(--space-xs));
+      padding: 0 var(--space-xs) 0 calc(var(--space-xs) + 7px);
       margin-left: var(--space-sm);
       font-variant-numeric: tabular-nums;
       font-size: var(--font-size-xs);
@@ -301,10 +301,34 @@
       line-height: var(--line-height-md);
       align-self: center;
       transition: color var(--transition-fast);
+
+      /* Leading accent dot — a lightweight visual anchor for "this is a count"
+        without adding a container/chip.  Positioned absolutely so the right-
+        aligned number keeps its tabular edge. */
+      &::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent-primary);
+        transform: translateY(-50%);
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+      }
+      position: relative;
     }
     &:hover .foliplus-layer-count,
     &.active .foliplus-layer-count {
       color: var(--text-primary);
+    }
+    /* Reveal the count dot only when the row is hovered or checked,
+       mirroring the checkbox state without cluttering the default view. */
+    &:hover .foliplus-layer-count::before,
+    &.active .foliplus-layer-count::before {
+      opacity: 1;
     }
 
     /* Existing label selector kept for backward compatibility. */
