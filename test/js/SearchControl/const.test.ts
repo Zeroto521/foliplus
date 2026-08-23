@@ -21,7 +21,6 @@ describe("AUTOCOMPLETE", () => {
     expect(CONST.AUTOCOMPLETE.DEBOUNCE_MS).toBe(300);
     expect(CONST.AUTOCOMPLETE.MIN_CHARS).toBe(3);
     expect(CONST.AUTOCOMPLETE.MAX_ITEMS).toBe(5);
-    expect(CONST.AUTOCOMPLETE.BLUR_DELAY).toBe(150);
   });
 });
 
@@ -44,6 +43,7 @@ describe("HISTORY", () => {
   it("defines history config", () => {
     expect(CONST.HISTORY.MAX_ENTRIES).toBe(20);
     expect(CONST.HISTORY.MAX_DISPLAY).toBe(5);
+    expect(CONST.HISTORY.BLUR_DELAY).toBe(150);
     expect(CONST.HISTORY.STORAGE_KEY).toBe("foliplus.search_history");
   });
 });

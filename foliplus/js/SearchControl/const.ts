@@ -3,12 +3,7 @@
 export const MODE = { COORD: "coord", ADDR: "addr" } as const;
 export const SOURCE = { SUGGESTION: "suggestion", HISTORY: "history" } as const;
 export const ZOOM = { MAX: 16, MIN: 12, BASE: 18, DIVISOR: 20 };
-export const AUTOCOMPLETE = {
-  DEBOUNCE_MS: 300,
-  MIN_CHARS: 3,
-  MAX_ITEMS: 5,
-  BLUR_DELAY: 150,
-};
+export const AUTOCOMPLETE = { DEBOUNCE_MS: 300, MIN_CHARS: 3, MAX_ITEMS: 5 };
 export const PARAM = { Q: "q", LNG: "lng", LAT: "lat" };
 export const CLASSES = {
   EXPANDED: "expanded",
@@ -33,6 +28,8 @@ export const HISTORY = {
   MAX_ENTRIES: 20,
   /** Maximum entries to display per section (matches autocomplete limit). */
   MAX_DISPLAY: AUTOCOMPLETE.MAX_ITEMS,
+  /** Delay before hiding the panel on blur (allows click on items). */
+  BLUR_DELAY: 150,
   /** localStorage key for search history. */
   STORAGE_KEY: "foliplus.search_history",
 };
