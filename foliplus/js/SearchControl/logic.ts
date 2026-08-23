@@ -371,7 +371,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   if (!ctrl.panelWrap) {
     ctrl.panelWrap = dom.el("div", {
       class: CLASSES.RESULT_PANEL,
-      parent: document.body,
+      parent: map.getContainer(),
       onclick: (event: Event) => event.stopPropagation(),
     });
   }
