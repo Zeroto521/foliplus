@@ -372,15 +372,9 @@ class LayerUI {
         const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
         if (countCol) {
           const count = this.mgmt.getFeatureCount(layerInfo.id);
-          if (count !== null && count !== undefined) {
-            countCol.textContent = formatNumber(
-              count,
-              "auto",
-              CONF.locale_code ?? "en",
-            );
-          } else {
-            countCol.textContent = "";
-          }
+          if (count !== null && count !== undefined)
+            countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
+          else countCol.textContent = "";
         }
         // Hover tooltip shows count + type label together.
         const typeLabel = _(typeKey);
@@ -388,11 +382,9 @@ class LayerUI {
         // 'count + type' tooltip without re-running type detection.
         item.setAttribute(CONST.DATA.TITLE, typeLabel);
         const count = this.mgmt.getFeatureCount(layerInfo.id);
-        if (count !== null && count !== undefined) {
-          item.title = `${formatNumber(count, "auto", CONF.locale_code ?? "en")} ${typeLabel}`;
-        } else {
-          item.title = typeLabel;
-        }
+        if (count !== null && count !== undefined)
+          item.title = `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`;
+        else item.title = typeLabel;
       }
     }
 
@@ -517,14 +509,14 @@ class LayerUI {
     const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
     const typeLabel = item.getAttribute(CONST.DATA.TITLE) ?? "";
     if (countCol && count !== null && count !== undefined) {
-      countCol.textContent = formatNumber(count, "auto", CONF.locale_code ?? "en");
+      countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
     } else if (countCol) {
       countCol.textContent = "";
     }
     if (item && typeLabel) {
       item.title =
         count !== null
-          ? `${formatNumber(count, "auto", CONF.locale_code ?? "en")} ${typeLabel}`
+          ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
           : typeLabel;
     }
   }
@@ -541,7 +533,7 @@ class LayerUI {
       const count = this.mgmt.getFeatureCount(id);
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
       if (countCol && count !== null && count !== undefined) {
-        countCol.textContent = formatNumber(count, "auto", CONF.locale_code ?? "en");
+        countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
       } else if (countCol) {
         countCol.textContent = "";
       }
