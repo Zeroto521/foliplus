@@ -16,15 +16,7 @@ import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import * as Storage from "#common/storage.js";
-import {
-  AUTOCOMPLETE,
-  CLASSES,
-  FORMAT,
-  HISTORY,
-  MODE,
-  SOURCE,
-  ZOOM,
-} from "./const.js";
+import { AUTOCOMPLETE, CLASSES, FORMAT, HISTORY, MODE, SOURCE, ZOOM } from "./const.js";
 import type {
   AddressResult,
   NominatimItem,
