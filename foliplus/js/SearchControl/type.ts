@@ -7,12 +7,11 @@ import type { Debounced } from "#common/debounce.js";
 
 /**
  * Nominatim search result element.
- * Note: Nominatim API uses `lon` for longitude (not `lng`).
- * Internally we convert to `lng` when storing in SearchHistoryEntry.
+ * The API returns `lon`; we map to `lng` at the fetch boundary.
  */
 export interface NominatimItem {
   lat: string;
-  lon: string;
+  lng: string;
   name?: string;
   display_name: string;
 }

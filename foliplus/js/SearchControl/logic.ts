@@ -55,8 +55,8 @@ const loadHistory = (): SearchHistoryEntry[] => {
   return data.map(e => ({
     query: e.query ?? "",
     type: (e.type === "coord" || e.type === "addr" ? e.type : "addr") as "coord" | "addr",
-    coordDisplay: e.coordDisplay ?? (e.type === "coord" ? (e as any).label ?? "" : ""),
-    addrDisplay: e.addrDisplay ?? (e.type === "addr" ? (e as any).label ?? "" : ""),
+    coordDisplay: e.coordDisplay ?? (e.type === MODE.COORD ? (e as any).label ?? "" : ""),
+    addrDisplay: e.addrDisplay ?? (e.type === MODE.ADDR ? (e as any).label ?? "" : ""),
     lng: e.lng ?? 0,
     lat: e.lat ?? 0,
     ts: e.ts ?? Date.now(),
@@ -298,7 +298,7 @@ const renderAddressResult = (
   } else {
     const item = (result as AddressResult).item;
     displayName = (result as AddressResult).displayName ?? "";
-    const converted = fromWgs84(map, parseFloat(item.lon), parseFloat(item.lat));
+    const converted = fromWgs84(map, parseFloat(item.lng), parseFloat(item.lat));
     lng = converted[0];
     lat = converted[1];
   }
@@ -408,7 +408,7 @@ const renderSuggestions = (
   const items: ResultItem[] = results.map((item: NominatimItem) => {
     const displayName =
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
-    const coordDisplay = `${parseFloat(item.lon).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
+    const coordDisplay = `${parseFloat(item.lng).toFixed(4)}, ${parseFloat(item.lat).toFixed(4)}`;
     return {
       icon: Icons.LOCATE,
       source: SOURCE.SUGGESTION,
@@ -422,7 +422,7 @@ const renderSuggestions = (
           "addr",
           coordDisplay,
           displayName,
-          parseFloat(item.lon),
+          parseFloat(item.lng),
           parseFloat(item.lat),
         );
       },
@@ -530,7 +530,14 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     signal: ctrl.suggestAbortController.signal,
   })
     .then(r => r.json())
-    .then(results => {
+    .then((raw: any[]) => {
+      // Map API field names: Nominatim returns `lon`, we use `lng`
+      const results: NominatimItem[] = raw.map((r: any) => ({
+        lat: r.lat,
+        lng: r.lon ?? r.lng,
+        name: r.name,
+        display_name: r.display_name,
+      }));
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
       // Cache first result so searchAddress can serve it from geoCache
@@ -540,7 +547,7 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
           map,
           query,
           parseFloat(first.lat),
-          parseFloat(first.lon),
+          parseFloat(first.lng),
           formatAddress(first.display_name, map, CONF.locale_code) || query,
         );
       }
