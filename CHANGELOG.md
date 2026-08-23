@@ -58,7 +58,6 @@
 - `MeasureControl`: measurement persistence via `localStorage` — markers, distances, and circles survive page refresh ([#48](https://github.com/Zeroto521/foliplus/pull/48), [#83](https://github.com/Zeroto521/foliplus/pull/83))
 - `LayerControl`: fold/unfold toggle-all rows for overlay and base groups ([#52](https://github.com/Zeroto521/foliplus/pull/52), [#55](https://github.com/Zeroto521/foliplus/pull/55))
 - `SearchControl`: address autocomplete suggestions with Nominatim integration ([#75](https://github.com/Zeroto521/foliplus/pull/75))
-- `ScaleControl`: `unit` parameter (`"metric"` / `"imperial"`) to control scale bar unit system ([#88](https://github.com/Zeroto521/foliplus/pull/88))
 - `MeasureControl`: per-node delete icons for distance measurement ([#97](https://github.com/Zeroto521/foliplus/pull/97))
 
 ### Changed

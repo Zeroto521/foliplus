@@ -38,18 +38,11 @@ class TestScaleControlPython:
 
     def test_default_params(self):
         ctrl = ScaleControl()
-        assert ctrl.unit == "metric"
         assert ctrl.show_zoom is True
 
     def test_custom_params(self):
-        ctrl = ScaleControl(unit="imperial", show_zoom=False)
-        assert ctrl.unit == "imperial"
+        ctrl = ScaleControl(show_zoom=False)
         assert ctrl.show_zoom is False
-
-    def test_invalid_unit_raises(self):
-        """Invalid unit value raises ValueError."""
-        with pytest.raises(ValueError, match="unit must be "):
-            ScaleControl(unit="invalid")
 
 
 class TestScaleControlRendering:
@@ -57,12 +50,8 @@ class TestScaleControlRendering:
         html = render_control(ScaleControl())
         assert "scale-wrap" in html
 
-    def test_metric_default(self):
+    def test_scale_line_renders(self):
         html = render_control(ScaleControl())
-        assert_config_value(html, "isMetric", True)
-
-    def test_metric_false_still_renders(self):
-        html = render_control(ScaleControl(unit="imperial"))
         assert "leaflet-control-scale-line" in html
 
     def test_show_zoom(self):
@@ -78,11 +67,6 @@ class TestScaleControlRendering:
         html = render_control(ScaleControl(locale="zh"))
         assert_locale(html, "地图级别", "ScaleControl.zoom_label")
 
-    def test_metric_false_disables_metric(self):
-        """unit='imperial' correctly passed to Leaflet."""
-        html = render_control(ScaleControl(unit="imperial"))
-        assert_config_value(html, "isMetric", False)
-
     def test_zoom_label_format(self):
         """Zoom label uses ScaleControl.zoom_label key with {zoom} placeholder."""
         html = render_control(ScaleControl())
@@ -94,11 +78,10 @@ class TestScaleControlRendering:
         html = render_control(ScaleControl())
         assert "bottomleft" in html
 
-    def test_both_disabled(self):
-        """scale still renders with unit='imperial' and show_zoom=False."""
-        html = render_control(ScaleControl(unit="imperial", show_zoom=False))
+    def test_show_zoom_false(self):
+        """scale still renders with show_zoom=False."""
+        html = render_control(ScaleControl(show_zoom=False))
         assert "foliplus-scale-wrap" in html
-        assert_config_value(html, "isMetric", False)
 
     def test_common_css_injected(self):
         """Common design tokens are injected into the page."""
@@ -110,9 +93,9 @@ class TestScaleControlRendering:
 class TestScaleControlBrowser:
     """Browser-based smoke tests for ScaleControl."""
 
-    def _make_page(self, browser, tmp_path, show_zoom=True, unit="metric"):
+    def _make_page(self, browser, tmp_path, show_zoom=True):
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        ScaleControl(show_zoom=show_zoom, unit=unit).add_to(m)
+        ScaleControl(show_zoom=show_zoom).add_to(m)
         html = m.get_root().render()
         page, errors = make_browser_page(browser, tmp_path, html, "scale")
         page.wait_for_selector(".foliplus-scale-wrap", state="attached", timeout=10000)
@@ -168,19 +151,6 @@ class TestScaleControlBrowser:
             )
             assert scale_text
             assert any(u in scale_text for u in ["km", "m"])
-            assert not errors, f"JS errors: {errors}"
-
-    def test_scale_shows_imperial_text(self, browser, tmp_path):
-        """Scale line displays imperial units (mi/ft)."""
-        with use_page(self._make_page, browser, tmp_path, unit="imperial") as (
-            page,
-            errors,
-        ):
-            scale_text = page.evaluate(
-                "document.querySelector('.leaflet-control-scale-line')?.textContent"
-            )
-            assert scale_text
-            assert any(u in scale_text for u in ["mi", "ft"])
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_label_text(self, browser, tmp_path):
