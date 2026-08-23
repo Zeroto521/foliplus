@@ -281,7 +281,13 @@ class LayerManager implements LayerAPI {
       try {
         const v = provider();
         if (typeof v === "number") return v;
-      } catch {}
+      } catch (err) {
+        // Provider threw (e.g. canvas in a failing state). Log so the failure
+        // is visible rather than silently returning a stale 0-count. For
+        // Canvas/unknown layers the forEachLeaf fallback is a no-op anyway
+        // (returns null), so this is a defensive fallback, not a real path.
+        console.error(`[${CONF.name}] featureCountProvider threw for "${id}":`, err);
+      }
     }
     // 2. Fallback via forEachLeaf — only valid for feature containers.
     const layer = this.findLayer(layerInfo);
@@ -291,6 +297,21 @@ class LayerManager implements LayerAPI {
     }
     // 3. Canvas or unknown non-container → no meaningful count.
     return null;
+  }
+
+  /** Notify subscribers that a layer's feature count may have changed.
+   *  Public API for third-party providers (e.g. Canvas layers whose data
+   *  updates independently of LayerManager) to trigger an incremental
+   *  panel refresh without a full re-render.  Publishes
+   *  EVENTS.LAYER_ITEM_COUNT_CHANGE; LayerControl subscribes to it and
+   *  refreshes the single affected row via onLayerItemCountChange.
+   *  Base layers are suppressed (their counts are null anyway). Unknown ids
+   *  are emitted defensively so the bus contract stays uniform; the
+   *  subscriber simply finds no row to update and becomes a no-op.
+   *  @param {string} id - Layer id. */
+  refreshCount(id: string) {
+    if (this.layerRegistry.get(id)?.isBase) return;
+    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
   /** Whether a layer is a feature container (LayerGroup-like) we can walk. */

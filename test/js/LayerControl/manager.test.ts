@@ -653,6 +653,128 @@ describe("LayerManager", () => {
     expect(layer.options.paneSet).toBe(true);
   });
 
+  describe("getFeatureCount", () => {
+    // Build a leaf that looks like a real Leaflet layer (has options) so
+    // registerLayer's discoverChildPanes does not fail, and that carries
+    // the constructor identity forEachLeaf's instanceof checks need.
+    const makeLeaf = (ctor: any, extra: unknown = {}) =>
+      Object.assign(Object.create(ctor.prototype), { options: {}, ...extra });
+    const wrap = (...leaves: unknown[]) =>
+      ({
+        options: {},
+        eachLayer: (cb: (l: unknown) => void) => leaves.forEach(cb),
+      } as any);
+
+    beforeEach(() => {
+      manager.map.hasLayer.mockReturnValue(false);
+    });
+
+    it("returns null for base layers", () => {
+      manager.registerLayer({ id: "b1", name: "B", layer: { options: {} }, isBase: true });
+      expect(manager.getFeatureCount("b1")).toBe(null);
+    });
+
+    it("returns null for an unknown layer id", () => {
+      expect(manager.getFeatureCount("ghost")).toBe(null);
+    });
+
+    it("returns null for a canvas/unknown layer without a provider", () => {
+      manager.registerLayer({ id: "c1", name: "Canvas", layer: { options: {} } });
+      expect(manager.getFeatureCount("c1")).toBe(null);
+    });
+
+    it("prefers the third-party featureCountProvider over forEachLeaf", () => {
+      const provider = vi.fn(() => 999);
+      manager.registerLayer({
+        id: "pv",
+        name: "PV",
+        layer: { options: {} },
+        featureCountProvider: provider,
+      });
+      expect(manager.getFeatureCount("pv")).toBe(999);
+      expect(provider).toHaveBeenCalledTimes(1);
+    });
+
+    it("passes featureCountProvider through createLayerInfo (survives registration)", () => {
+      const provider = vi.fn(() => 7);
+      manager.registerLayer({
+        id: "surv",
+        name: "Surv",
+        layer: { options: {} },
+        featureCountProvider: provider,
+      });
+      const li = manager.layerRegistry.get("surv");
+      expect(typeof li?.featureCountProvider).toBe("function");
+      expect(manager.getFeatureCount("surv")).toBe(7);
+    });
+
+    it("logs an error when featureCountProvider throws", () => {
+      const provider = vi.fn(() => {
+        throw new Error("provider boom");
+      });
+      const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      manager.registerLayer({
+        id: "boom",
+        name: "Boom",
+        layer: { options: {} },
+        featureCountProvider: provider,
+      });
+      expect(manager.getFeatureCount("boom")).toBe(null);
+      expect(logSpy).toHaveBeenCalled();
+      expect(logSpy.mock.calls[0][0]).toContain("featureCountProvider threw");
+      logSpy.mockRestore();
+    });
+
+    it("counts polygons in a feature container via forEachLeaf fallback", () => {
+      const layer = wrap(makeLeaf(window.L.Polygon), makeLeaf(window.L.Polygon));
+      manager.registerLayer({ id: "poly", name: "Poly", layer });
+      expect(manager.getFeatureCount("poly")).toBe(2);
+    });
+
+    it("counts markers with feature and ignores markers without feature", () => {
+      const m1 = makeLeaf(window.L.Marker, { feature: {} });
+      const m2 = makeLeaf(window.L.Marker);
+      const layer = wrap(m1, m2);
+      manager.registerLayer({ id: "mk", name: "Mk", layer });
+      expect(manager.getFeatureCount("mk")).toBe(1);
+    });
+
+    it("returns null for a container layer that is not present (findLayer null)", () => {
+      manager.registerLayer({ id: "absent", name: "Absent" });
+      expect(manager.getFeatureCount("absent")).toBe(null);
+    });
+  });
+
+  describe("refreshCount", () => {
+    it("emits LAYER_ITEM_COUNT_CHANGE for a registered overlay layer", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({ id: "rc1", name: "RC", layer: { options: {} } });
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+      manager.refreshCount("rc1");
+      expect(handler).toHaveBeenCalledWith({ id: "rc1" });
+    });
+
+    it("does not emit for a base layer", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({ id: "b1", name: "B", layer: { options: {} }, isBase: true });
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+      manager.refreshCount("b1");
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it("emits for an unknown layer id (no-op subscriber; defensive)", () => {
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+      manager.refreshCount("ghost");
+      expect(handler).toHaveBeenCalledWith({ id: "ghost" });
+    });
+  });
+
   it("canReorderBetween delegates to the registry", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.registerLayer({ id: "o2", name: "O2", layer: { options: {} } });
