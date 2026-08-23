@@ -289,6 +289,19 @@ class LayerUI {
   }
 
   renderColorLayerItem() {
+    const colorInput = dom.el("input", {
+      type: "color",
+      class: CONST.CLASSES.COLOR_INPUT,
+      value: this.currentColor,
+      "aria-label": _(`${CONF.name}.color_map_label`),
+    });
+    const typeIconEl = dom.el("div", {
+      class: CONST.CLASSES.TYPE_ICON_COL,
+      html: SVGs.COLOR,
+    });
+    // color item uses subgrid to keep icon count/icon columns aligned with
+    // other rows; count column is empty (color layers have no feature count).
+    const countEl = dom.el("span", { class: CONST.CLASSES.COUNT_COL });
     return dom.el(
       "div",
       {
@@ -298,18 +311,10 @@ class LayerUI {
         title: _(`${CONF.name}.color_map_label`),
       },
       { html: SVGs.DRAG_HANDLE },
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.CHECKBOX },
-        dom.el("input", {
-          type: "color",
-          class: CONST.CLASSES.COLOR_INPUT,
-          value: this.currentColor,
-          "aria-label": _(`${CONF.name}.color_map_label`),
-        }),
-      ),
+      dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
       dom.el("label", null, _(`${CONF.name}.color_map_label`)),
-      { html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${SVGs.COLOR}</div>` },
+      countEl,
+      typeIconEl,
     );
   }
 

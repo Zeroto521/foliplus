@@ -39,6 +39,15 @@
   .foliplus-panel-content {
     padding: var(--space-sm) 0;
     max-height: var(--panel-max-height);
+    display: grid;
+    grid-template-columns:
+      [drag] var(--icon-size-xs)
+      [check] var(--space-xl)
+      [label] 1fr
+      [count] 28px
+      [icon] var(--icon-size-md)
+      [more] 18px;
+    column-gap: 3px;
   }
   /* ── Layer panel container ── */
   .foliplus-layer-panel {
@@ -62,11 +71,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    grid-area: icon;
     width: var(--icon-size-md);
     height: var(--icon-size-md);
     color: var(--text-primary);
-    flex-shrink: 0;
-    margin-left: var(--space-sm);
 
     svg {
       width: 100%;
@@ -84,14 +92,16 @@
     }
   }
   .foliplus-layer-sep {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-xxl);
-    flex-shrink: 0;
+    display: subgrid;
+    align-items: center;
+    justify-items: center;
+    cursor: default;
+    user-select: none;
+    border-radius: var(--radius-sm);
 
     .foliplus-section-divider {
-      flex: 1;
+      grid-column: count / span 3;
     }
   }
   .foliplus-layer-sep-label {
@@ -100,14 +110,14 @@
     text-transform: uppercase;
     letter-spacing: var(--letter-spacing-tight);
     white-space: nowrap;
-    flex-shrink: 0;
+    grid-area: label;
   }
 
   /* ── Toggle-all item (section header row) ──
-     Right padding tighter than regular items to align the left border with
-     items, since toggle-all has no checkbox column. */
+    Right padding tighter than regular items to align the left border with
+    items, since toggle-all has no checkbox column. */
   .foliplus-layer-sep.foliplus-layer-toggle-all {
-    gap: var(--space-sm);
+    display: subgrid;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
     border-left: var(--border-thick) solid transparent;
     border-radius: var(--radius-sm);
@@ -115,6 +125,16 @@
     transition:
       background-color var(--transition-fast),
       border-color var(--transition-fast);
+
+    .foliplus-checkbox {
+      grid-area: check;
+    }
+    .foliplus-layer-sep-label {
+      grid-area: label;
+    }
+    .foliplus-section-divider {
+      grid-column: count / span 3;
+    }
   }
   /* Section label: primary color + semibold so it reads as a real header */
   .foliplus-layer-toggle-all .foliplus-layer-sep-label {
@@ -204,9 +224,10 @@
     Shared size for all drag handles in layer rows.
     Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
   .drag-handle {
-    flex-shrink: 0;
     width: var(--icon-size-xs);
     height: var(--icon-size-md);
+    grid-area: drag;
+    align-self: center;
 
     /* Circles use fill="currentColor"; add matching stroke so they stay bold,
       matching the appearance they had when .foliplus-ctrl-fold svg provided
@@ -227,6 +248,10 @@
   .foliplus-color-layer-item .drag-handle {
     visibility: hidden;
   }
+  /* Place fold-btn into the 'drag' grid column (shared with drag-handle). */
+  .foliplus-layer-toggle-all .foliplus-layer-fold-btn {
+    grid-area: drag;
+  }
 
   /* ── Layer item hover (shared with toggle-all) ── */
   .foliplus-layer-item:hover,
@@ -236,10 +261,9 @@
 
   /* ── Layer item ── */
   .foliplus-layer-item {
-    display: flex;
-    align-items: center;
+    display: subgrid;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
-    gap: var(--space-sm);
+    align-items: center;
     cursor: default;
     user-select: none;
     border-radius: var(--radius-sm);
@@ -248,6 +272,58 @@
     transition:
       background-color var(--transition-fast),
       border-color var(--transition-fast);
+
+    label {
+      grid-area: label;
+      cursor: inherit;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+      font-weight: var(--font-weight-normal);
+    }
+    .foliplus-checkbox {
+      grid-area: check;
+    }
+    .drag-handle {
+      grid-area: drag;
+    }
+    .foliplus-type-icon-col {
+      grid-area: icon;
+    }
+    /* ── Feature count column ──
+      Placed in the 'count' grid column; text right-aligned within the fixed
+      28px track so digits align across rows.  The leading accent dot uses
+      absolute positioning so the tabular edge stays stable. */
+    .foliplus-layer-count {
+      grid-area: count;
+      position: relative;
+      align-self: center;
+      font-variant-numeric: tabular-nums;
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: var(--line-height-md);
+      padding: 0 var(--space-xs) 0 calc(var(--space-xs) + 7px);
+      transition: color var(--transition-fast);
+
+      &::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent-primary);
+        transform: translateY(-50%);
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+      }
+    }
 
     &[draggable="true"] {
       cursor: move;
@@ -281,66 +357,13 @@
       animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
         var(--drag-pulse-count);
     }
-
-    /* ── Feature count column ──
-      Position: immediately before the type-icon column.  Right-aligned so
-      digits align across rows; fixed-width slot keeps the icon column stable.
-      Dimmed by default, brightens on hover/active to match other row content. */
-    .foliplus-layer-count {
-      position: relative;
-      flex-shrink: 0;
-      min-width: calc(var(--icon-size-md) + var(--space-xs));
-      /* 7px = 5px dot + 2px breathing room; matches --count-dot-diameter */
-      padding: 0 var(--space-xs) 0 calc(var(--space-xs) + 7px);
-      margin-left: var(--space-sm);
-      font-variant-numeric: tabular-nums;
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
-      text-align: right;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: var(--line-height-md);
-      align-self: center;
-      transition: color var(--transition-fast);
-
-      /* Leading accent dot — a lightweight visual anchor for "this is a count"
-        without adding a container/chip.  Positioned absolutely so the right-
-        aligned number keeps its tabular edge. */
-      &::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 50%;
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: var(--accent-primary);
-        transform: translateY(-50%);
-        opacity: 0;
-        transition: opacity var(--transition-fast);
-      }
-    }
     &:hover .foliplus-layer-count,
     &.active .foliplus-layer-count {
       color: var(--text-primary);
     }
-
-    /* Reveal the count dot only when the row is hovered or checked,
-       mirroring the checkbox state without cluttering the default view. */
     &:hover .foliplus-layer-count::before,
     &.active .foliplus-layer-count::before {
       opacity: 1;
-    }
-
-    label {
-      cursor: inherit;
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin: 0;
-      font-weight: var(--font-weight-normal);
     }
   }
   /* ── Color layer item overrides ──
@@ -355,7 +378,6 @@
     justify-content: center;
     width: var(--space-xl);
     height: var(--space-xl);
-    flex-shrink: 0;
   }
   input[type="checkbox"] {
     position: relative;
@@ -363,7 +385,6 @@
     margin: 0;
     width: var(--space-xl);
     height: var(--space-xl);
-    flex-shrink: 0;
     border: var(--border-thin) solid var(--input-border);
     border-radius: var(--radius-sm);
     background: var(--input-bg);
@@ -407,9 +428,8 @@
   }
   /* ── Solid color layer picker ── */
   .foliplus-color-layer-input {
-    width: var(--icon-size-md);
-    height: var(--icon-size-md);
-    flex-shrink: 0;
+    width: var(--space-xl);
+    height: var(--space-xl);
     border: var(--border-thick) solid var(--input-border);
     border-radius: var(--radius-round);
     padding: 0;
