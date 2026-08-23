@@ -92,6 +92,7 @@
     }
   }
   .foliplus-layer-sep {
+    grid-column: 1 / -1;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-xxl);
     display: subgrid;
     align-items: center;
@@ -256,6 +257,7 @@
 
   /* ── Layer item ── */
   .foliplus-layer-item {
+    grid-column: 1 / -1;
     display: subgrid;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
     align-items: center;
