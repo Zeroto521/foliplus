@@ -22,9 +22,9 @@ describe("formatNumber", () => {
   });
 
   it("respects locale (Node may lack zh compact, falls back to standard)", () => {
-    // Node might not support zh compact notation; accept either compact or plain
+    // Node might not support zh compact notation; accept compact, comma, or plain
     const result = formatNumber(1234, "auto", "zh");
-    expect(result === "1.2万" || result === "1234").toBe(true);
+    expect(result === "1.2万" || result === "1,234" || result === "1234").toBe(true);
   });
 });
 

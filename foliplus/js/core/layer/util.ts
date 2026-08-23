@@ -1,5 +1,6 @@
 // core layer-traversal utilities — pure functions, no DOM / CONF.
 import * as CONST from "./const.js";
+import type { LabelAwareLayer } from "./type.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {Object} map - Leaflet map.
@@ -12,7 +13,12 @@ const findLayer = (map: L.Map, id: string): L.Layer | null => {
     null) as L.Layer | null;
 };
 
-/** Depth-limited walk over a layer tree, invoking fn per visited node. */
+/** Depth-limited walk over a layer tree, invoking fn per visited node.
+ *  Prefer eachLayer (Leaflet's own recursion) over _layers — that keeps
+ *  nested groups like mainLayer → [graph, label] traversed correctly.
+ *  The _layers branch is a fallback for non-Leaflet containers (window
+ *  globals and ad-hoc registry wrappers) that don't implement eachLayer.
+ */
 const traverse = (
   layer: L.Layer,
   fn: (layer: L.Layer) => void,
@@ -43,22 +49,28 @@ const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) =
 };
 
 /** Detect the geometry type of a layer tree.
+ *  Ignores isLabel leaves — type represents the data geometry, never labels.
  *  @param {Object} layer - Leaflet layer.
  *  @returns {string} Geometry type constant from GEOM_TYPE. */
 const getGeometryType = (layer: L.Layer): string => {
   const leaves: L.Layer[] = [];
   forEachLeaf(layer, l => leaves.push(l));
-  if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY;
 
+  let hasData = false; // any non-label leaf — labels are not data geometry
   let hasPoly = false,
     hasLine = false,
     hasPoint = false;
   for (const leaf of leaves) {
+    // Labels are non-geometry nodes — same rule as countFeatureGeometry.
+    if ((leaf as LabelAwareLayer).isLabel) continue;
+    hasData = true;
     if (leaf instanceof L.Polygon) hasPoly = true;
     else if (leaf instanceof L.Polyline) hasLine = true;
     else if (leaf instanceof L.CircleMarker) hasPoint = true;
     else if (leaf instanceof L.Marker && leaf.feature) hasPoint = true;
   }
+  // Empty container or all-label layer → no data geometry.
+  if (!hasData) return CONST.GEOM_TYPE.EMPTY;
   if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN;
   const typeCount = Number(hasPoly) + Number(hasLine) + Number(hasPoint);
   if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN;
@@ -69,4 +81,21 @@ const getGeometryType = (layer: L.Layer): string => {
       : CONST.GEOM_TYPE.POINT;
 };
 
-export { findLayer, forEachLayer, forEachLeaf, getGeometryType };
+/** Count geometric features in a layer tree.
+ *  Only counts geometry-producing leaves (Polygon / Polyline / CircleMarker / Markers with feature).
+ *  Excludes label layers and non-geometric nodes.
+ *  @param {Object} layer - Leaflet layer (container or leaf).
+ *  @returns {number} Number of geometric features. */
+const countFeatureGeometry = (layer: L.Layer): number => {
+  let count = 0;
+  forEachLeaf(layer, (leaf: L.Layer) => {
+    if ((leaf as LabelAwareLayer).isLabel) return;
+    if (leaf instanceof L.Polygon) count++;
+    else if (leaf instanceof L.Polyline) count++;
+    else if (leaf instanceof L.CircleMarker) count++;
+    else if (leaf instanceof L.Marker && leaf.feature) count++;
+  });
+  return count;
+};
+
+export { findLayer, forEachLayer, forEachLeaf, getGeometryType, countFeatureGeometry };

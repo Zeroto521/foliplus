@@ -78,6 +78,8 @@ class LayerRegistry {
       canvas: opts.canvas ?? existingLi?.canvas ?? null,
       onToggle: opts.onToggle ?? existingLi?.onToggle ?? null,
       onZIndex: opts.onZIndex ?? existingLi?.onZIndex ?? null,
+      featureCountProvider:
+        opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
     };
   }
 

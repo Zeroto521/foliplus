@@ -4,14 +4,17 @@
 import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import * as SVGs from "./icon.js";
 
-/** Geometry-type SVG icon (UI concern; type detection lives in core/layer). */
-const getTypeSVG = (layer: L.Layer): string => {
-  const type = getGeometryType(layer);
-  if (type === GEOM_TYPE.POLYGON) return SVGs.POLYGON;
-  if (type === GEOM_TYPE.LINE) return SVGs.LINE;
-  if (type === GEOM_TYPE.POINT) return SVGs.POINT;
-  if (type === GEOM_TYPE.EMPTY) return SVGs.EMPTY;
-  return SVGs.UNKNOWN;
+/** Geometry-type SVG icon (UI concern; type detection lives in core/layer).
+ *  If type is provided, it's used directly (avoids re-running getGeometryType).
+ *  @param {Object} layer - Leaflet layer.
+ *  @param {string|null} [type] - Pre-computed geometry type, from GEOM_TYPE. */
+const getTypeSVG = (layer: L.Layer, type?: string | null): string => {
+  const gtype = type ?? getGeometryType(layer);
+  if (gtype === GEOM_TYPE.POINT) return SVGs.POINT;
+  else if (gtype === GEOM_TYPE.LINE) return SVGs.LINE;
+  else if (gtype === GEOM_TYPE.POLYGON) return SVGs.POLYGON;
+  else if (gtype === GEOM_TYPE.EMPTY) return SVGs.EMPTY;
+  else return SVGs.UNKNOWN;
 };
 
 export { getTypeSVG };
