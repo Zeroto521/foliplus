@@ -536,8 +536,8 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     .then((raw: any[]) => {
       // Map API field names: Nominatim returns `lon`, we use `lng`
       const results: NominatimItem[] = raw.map((r: any) => ({
-        lat: r.lat,
         lng: r.lon ?? r.lng,
+        lat: r.lat,
         name: r.name,
         display_name: r.display_name,
       }));
