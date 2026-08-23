@@ -3,7 +3,7 @@
 export const MODE = { COORD: "coord", ADDR: "addr" } as const;
 export const SOURCE = { SUGGESTION: "suggestion", HISTORY: "history" } as const;
 export const ZOOM = { MAX: 16, MIN: 12, BASE: 18, DIVISOR: 20 };
-export const AUTOCOMPLETE = { DEBOUNCE_MS: 300, MIN_CHARS: 3, MAX_ITEMS: 5 };
+export const AUTOCOMPLETE = { DEBOUNCE_MS: 300, MIN_CHARS: 3, MAX_ITEMS: 5, BLUR_DELAY: 150 };
 export const PARAM = { Q: "q", LNG: "lng", LAT: "lat" };
 export const CLASSES = {
   EXPANDED: "expanded",

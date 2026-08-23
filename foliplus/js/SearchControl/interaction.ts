@@ -2,7 +2,7 @@
 import { ensureInteraction } from "#core/interaction.js";
 import { createControlEnv } from "#common/guard.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
-import { CLASSES, MODE, PARAM } from "./const.js";
+import { AUTOCOMPLETE, CLASSES, MODE, PARAM } from "./const.js";
 import {
   fetchSuggestions,
   positionPanel,
@@ -132,7 +132,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
 
   let blurTimer: ReturnType<typeof setTimeout> | null = null;
   ctrl.inp.addEventListener("blur", () => {
-    blurTimer = setTimeout(() => removePanel(ctrl), 120);
+    blurTimer = setTimeout(() => removePanel(ctrl), AUTOCOMPLETE.BLUR_DELAY);
   });
 
   ctrl.inp.addEventListener("focus", () => {

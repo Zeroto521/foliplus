@@ -21,6 +21,7 @@ describe("AUTOCOMPLETE", () => {
     expect(CONST.AUTOCOMPLETE.DEBOUNCE_MS).toBe(300);
     expect(CONST.AUTOCOMPLETE.MIN_CHARS).toBe(3);
     expect(CONST.AUTOCOMPLETE.MAX_ITEMS).toBe(5);
+    expect(CONST.AUTOCOMPLETE.BLUR_DELAY).toBe(150);
   });
 });
 
