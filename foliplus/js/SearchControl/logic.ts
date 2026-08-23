@@ -227,8 +227,14 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
     .then(addr => {
       if (addr) {
         addHistoryEntry(ctrl, {
-          query: raw, type: MODE.COORD, coordDisplay, addrDisplay: addr,
-          lng, lat, ts: Date.now(), count: 1,
+          query: raw,
+          type: MODE.COORD,
+          coordDisplay,
+          addrDisplay: addr,
+          lng,
+          lat,
+          ts: Date.now(),
+          count: 1,
         });
       }
     })
