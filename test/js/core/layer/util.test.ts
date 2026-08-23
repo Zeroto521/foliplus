@@ -139,6 +139,21 @@ describe("core/layer util", () => {
       expect(getGeometryType(emptyGroup as never)).toBe("empty");
     });
 
+    it("ignores isLabel leaves when inferring type", () => {
+      const label = new window.L.Polygon();
+      (label as unknown as { isLabel: boolean }).isLabel = true;
+      const group = wrap(label);
+      expect(getGeometryType(group as never)).toBe("empty");
+    });
+
+    it("infers type from data leaves even when labels are present", () => {
+      const dataPoly = new window.L.Polygon();
+      const labelPoly = new window.L.Polyline();
+      (labelPoly as unknown as { isLabel: boolean }).isLabel = true;
+      const group = wrap(dataPoly, labelPoly);
+      expect(getGeometryType(group as never)).toBe("polygon");
+    });
+
     it("returns unknown for mixed geometry", () => {
       const group = wrap(new window.L.Polygon(), new window.L.Polyline());
       expect(getGeometryType(group as never)).toBe("unknown");

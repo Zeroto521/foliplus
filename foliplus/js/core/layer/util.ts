@@ -49,22 +49,28 @@ const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) =
 };
 
 /** Detect the geometry type of a layer tree.
+ *  Ignores isLabel leaves — type represents the data geometry, never labels.
  *  @param {Object} layer - Leaflet layer.
  *  @returns {string} Geometry type constant from GEOM_TYPE. */
 const getGeometryType = (layer: L.Layer): string => {
   const leaves: L.Layer[] = [];
   forEachLeaf(layer, l => leaves.push(l));
-  if (leaves.length === 0) return CONST.GEOM_TYPE.EMPTY;
 
+  let hasData = false; // any non-label leaf — labels are not data geometry
   let hasPoly = false,
     hasLine = false,
     hasPoint = false;
   for (const leaf of leaves) {
+    // Labels are non-geometry nodes — same rule as countFeatureGeometry.
+    if ((leaf as LabelAwareLayer).isLabel) continue;
+    hasData = true;
     if (leaf instanceof L.Polygon) hasPoly = true;
     else if (leaf instanceof L.Polyline) hasLine = true;
     else if (leaf instanceof L.CircleMarker) hasPoint = true;
     else if (leaf instanceof L.Marker && leaf.feature) hasPoint = true;
   }
+  // Empty container or all-label layer → no data geometry.
+  if (!hasData) return CONST.GEOM_TYPE.EMPTY;
   if (!hasPoly && !hasLine && !hasPoint) return CONST.GEOM_TYPE.UNKNOWN;
   const typeCount = Number(hasPoly) + Number(hasLine) + Number(hasPoint);
   if (typeCount > 1) return CONST.GEOM_TYPE.UNKNOWN;

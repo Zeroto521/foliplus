@@ -16,7 +16,6 @@ import {
   Z_INDEX,
   countFeatureGeometry,
   findLayer,
-  forEachLayer,
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
@@ -105,6 +104,9 @@ class LayerManager implements LayerAPI {
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
       invalidateType: id => this.invalidateType(id),
+      // Runtime content changes (createLayers add/remove/clear) refresh the
+      // count column live. No-op until a UI row subscribes.
+      onDataChange: id => this.refreshCount(id),
     });
 
     this.lastAttribution = null;
@@ -125,7 +127,8 @@ class LayerManager implements LayerAPI {
     //
     // Once every registered layer is resolved, unrelated layeradds (e.g.
     // ExportControl's crossOrigin re-adds or user-added layers) must NOT
-    // trigger a full enforceOrder — only layers belonging to the registry do.
+    // trigger a full enforceOrder — hasUnresolvedLayers() being false
+    // naturally stops scheduling new passes.
     this.onLayerAdd = event => {
       if (
         this.isDestroyed ||
@@ -173,21 +176,6 @@ class LayerManager implements LayerAPI {
   private hasUnresolvedLayers(): boolean {
     for (const layerInfo of this.layers) {
       if (!layerInfo.layer) return true;
-    }
-    return false;
-  }
-
-  /** Whether a just-added layer belongs to a registered layer's tree. */
-  private isManagedLayer(layer: L.Layer): boolean {
-    for (const layerInfo of this.layers) {
-      if (layerInfo.layer === layer) return true;
-      if (layerInfo.layer) {
-        let found = false;
-        forEachLayer(layerInfo.layer, (c: L.Layer) => {
-          if (c === layer) found = true;
-        });
-        if (found) return true;
-      }
     }
     return false;
   }

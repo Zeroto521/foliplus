@@ -433,6 +433,38 @@ describe("LayerManager", () => {
     vi.useRealTimers();
   });
 
+  describe("loadSavedOrder", () => {
+    it("restores a persisted overlay/base order", () => {
+      const spy = vi.spyOn(Storage, "load").mockReturnValue(["overlay1", "base1"]);
+      const m = new LayerManager(map, [
+        { id: "base1", name: "B", isBase: true },
+        { id: "overlay1", name: "O", isBase: false },
+      ]);
+      expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
+      spy.mockRestore();
+    });
+
+    it("drops unknown ids from persisted order and keeps the rest", () => {
+      const spy = vi
+        .spyOn(Storage, "load")
+        .mockReturnValue(["ghost", "overlay1", "gone", "base1"]);
+      const m = new LayerManager(map, [
+        { id: "base1", name: "B", isBase: true },
+        { id: "overlay1", name: "O", isBase: false },
+      ]);
+      expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
+      spy.mockRestore();
+    });
+
+    it("ignores non-array storage data", () => {
+      const spy = vi.spyOn(Storage, "load").mockReturnValue("nope");
+      const m = new LayerManager(map, [{ id: "overlay1", name: "O", isBase: false }]);
+      // falls back to the initial (insertion) order
+      expect(m.layers.map(l => l.id)).toEqual(["overlay1"]);
+      spy.mockRestore();
+    });
+  });
+
   it("normalizes initial data into the full layerInfo field set", () => {
     const m2 = new LayerManager(map, [
       { id: "a", name: "A", visible: true, isBase: false },

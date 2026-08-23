@@ -22,6 +22,12 @@ interface LayerFactoryDeps {
   bringLayerToFront: (id: string) => void;
   /** Drop a registered layer's cached geometry type when its content changes. */
   invalidateType: (id: string) => void;
+  /**
+   * Optional: notify on runtime layer content changes (add/remove/clear).
+   * Lets LayerControl refresh a layer's feature count column live when a
+   * third party mutates the layer tree through the createLayers API.
+   */
+  onDataChange?: (id: string) => void;
 }
 
 class LayerFactory {
@@ -39,6 +45,7 @@ class LayerFactory {
       unregisterLayer,
       bringLayerToFront,
       invalidateType,
+      onDataChange,
     } = this.deps;
     const mainLayer = L.layerGroup();
     const graphLayer = opts.graphPane
@@ -101,6 +108,7 @@ class LayerFactory {
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
         invalidateType(opts.id);
+        onDataChange?.(opts.id);
         return result;
       }
       return origAddLayer(layer);
@@ -112,6 +120,7 @@ class LayerFactory {
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
         invalidateType(opts.id);
+        onDataChange?.(opts.id);
         return result;
       }
       if (labelLayer && labelLayer.hasLayer(layer)) {
@@ -119,14 +128,25 @@ class LayerFactory {
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
         invalidateType(opts.id);
+        onDataChange?.(opts.id);
         return result;
       }
       return origRemoveLayer(layer);
     };
 
     mainLayer.clearLayers = () => {
+      // mainLayer always holds the (possibly empty) graph/label sub-layers as
+      // children; content may also be added directly (no pane configured).
+      // Count only actual content, not the sub-layer containers themselves.
+      const directCount =
+        mainLayer.getLayers().length - (graphLayer ? 1 : 0) - (labelLayer ? 1 : 0);
+      const hadContent =
+        directCount > 0 ||
+        (graphLayer ? graphLayer.getLayers().length > 0 : false) ||
+        (labelLayer ? labelLayer.getLayers().length > 0 : false);
       if (graphLayer) graphLayer.clearLayers();
       if (labelLayer) labelLayer.clearLayers();
+      if (hadContent) onDataChange?.(opts.id);
       if (map.hasLayer(mainLayer)) map.removeLayer(mainLayer);
       unregister();
       return mainLayer;
