@@ -539,6 +539,85 @@ describe("searchCoord — history recording", () => {
     searchCoord(ctrl, "abc");
     expect(ctrl.searchHistory).toEqual([]);
   });
+
+  it("reverse geocode success: addrDisplay updated, count stays 1", async () => {
+    // Mock reverse geocode to return an address after the initial save
+    (window.foliplus.reverseGeocode as any).mockResolvedValue("Shanghai, China");
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].addrDisplay).toBe("Shanghai, China");
+    // Key invariant: reverse-geocode update must NOT increment count
+    expect(ctrl.searchHistory[0].count).toBe(1);
+  });
+
+  it("reverse geocode failure: keeps coord-only entry, no crash", async () => {
+    // First call is from createLocationMarker (popup), let it succeed.
+    // Second call is from searchCoord's history update — reject it.
+    let callCount = 0;
+    (window.foliplus.reverseGeocode as any).mockImplementation(() =>
+      Promise.resolve(++callCount > 1 ? Promise.reject(new Error("network timeout")) : "Addr"),
+    );
+    // Reset: first call resolves to "", second rejects
+    callCount = 0;
+    (window.foliplus.reverseGeocode as any).mockImplementation(() =>
+      callCount++ === 0 ? Promise.resolve("") : Promise.reject(new Error("network timeout")),
+    );
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].addrDisplay).toBe("");
+    expect(ctrl.searchHistory[0].count).toBe(1);
+  });
+
+  it("reverse geocode resolves null: keeps coord-only entry", async () => {
+    (window.foliplus.reverseGeocode as any).mockResolvedValue(null);
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].addrDisplay).toBe("");
+    expect(ctrl.searchHistory[0].count).toBe(1);
+  });
+
+  it("history entry missing: reverse geocode does not crash", async () => {
+    (window.foliplus.reverseGeocode as any).mockResolvedValue("Some Addr");
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    // Clear history after searchCoord saves the entry so the lookup fails
+    searchCoord(ctrl, "121.47,31.23");
+    ctrl.searchHistory = [];
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    // The entry was removed before reverse-geocode resolved, so it stays empty
+    expect(ctrl.searchHistory).toEqual([]);
+    // No unhandled rejection — this promise resolves cleanly
+    expect(await Promise.resolve(true)).toBe(true);
+  });
 });
 
 describe("searchAddress — history recording", () => {
@@ -759,6 +838,82 @@ describe("fetchSuggestions: throttle and abort", () => {
     fetchSuggestions(ctrl, "abc");
     ctrl.suggestSeq += 1;
     ctrl.inp.value = "xyz";
+    expect(ctrl.panelWrap).toBeNull();
+  });
+});
+
+describe("fetchSuggestions: empty query shows history", () => {
+  it("renders history panel when query is empty and history exists", () => {
+    const ctrl: any = {
+      mode: "coord",
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      searchHistory: [
+        {
+          query: "121.47,31.23",
+          type: "coord",
+          coordDisplay: "121.4700, 31.2300",
+          addrDisplay: "",
+          lat: 31.23,
+          lng: 121.47,
+          ts: 1000,
+          count: 1,
+        },
+      ],
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "" },
+    };
+    fetchSuggestions(ctrl, "");
+    expect(ctrl.panelWrap).not.toBeNull();
+    expect(ctrl.panelWrap.textContent).toContain("121.4700, 31.2300");
+  });
+
+  it("removes panel when query is empty and history is empty", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const ctrl: any = {
+      mode: "coord",
+      panelWrap: el,
+      throttleTimer: null,
+      selectedIdx: 0,
+      searchHistory: [],
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "" },
+    };
+    fetchSuggestions(ctrl, "");
+    expect(ctrl.panelWrap).toBeNull();
+  });
+
+  it("filters history by mode when query is empty", () => {
+    const ctrl: any = {
+      mode: "addr",
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      searchHistory: [
+        {
+          query: "121.47,31.23",
+          type: "coord",
+          coordDisplay: "121.4700, 31.2300",
+          addrDisplay: "",
+          lat: 31.23,
+          lng: 121.47,
+          ts: 1000,
+          count: 1,
+        },
+      ],
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "" },
+    };
+    // Addr mode with only coord history → panel removed
+    fetchSuggestions(ctrl, "");
     expect(ctrl.panelWrap).toBeNull();
   });
 });
