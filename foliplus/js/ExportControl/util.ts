@@ -85,30 +85,4 @@ const ensureFont = async (fontSpec: string) => {
   }
 };
 
-/** Generate a GeoTIFF world file (.jgw/.tfw) for the given geo bounds.
- *  Converts NW/SE lat-lng points + pixel dimensions into the 6-line format:
- *  px_width, px_rotation, row_rotation, px_height, x_origin, y_origin.
- *  @param nw - North-west corner.
- *  @param se - South-east corner.
- *  @param width - Raster width in pixels.
- *  @param height - Raster height in pixels.
- *  @returns {string} Newline-terminated world-file text. */
-const generateWorldFile = (
-  nw: { lat: number; lng: number },
-  se: { lat: number; lng: number },
-  width: number,
-  height: number,
-): string => {
-  const pxW = (se.lng - nw.lng) / width;
-  const pxH = (se.lat - nw.lat) / height;
-  return [pxW, 0, 0, pxH, nw.lng, se.lat].join("\n") + "\n";
-};
-
-export {
-  isVisible,
-  loadImageBitmap,
-  loadImage,
-  ensureFont,
-  clearBitmapCache,
-  generateWorldFile,
-};
+export { isVisible, loadImageBitmap, loadImage, ensureFont };

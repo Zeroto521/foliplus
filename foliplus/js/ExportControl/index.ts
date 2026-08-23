@@ -63,7 +63,7 @@ class ExportControl extends BaseControl {
     this.m.attachUI(ctrl, toolBar);
     toggleBtn.onclick = () => {
       if (this.m.cropState) this.m.removeCropBox();
-      else if (this.m.savedGeoBounds) this.m.restoreFromSavedBounds();
+      else if (this.m.savedBounds) this.m.restoreFromSavedBounds();
       else this.m.showCropBox();
     };
     return container;

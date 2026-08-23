@@ -3,7 +3,6 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { dom } from "#common/dom.js";
-import type { LatLngPoint } from "#common/geo.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
@@ -18,7 +17,6 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
-import { generateWorldFile } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
@@ -31,19 +29,22 @@ export interface Rect {
   height: number;
 }
 
+/** A lat/lng point. */
+interface LatLngPoint {
+  lat: number;
+  lng: number;
+}
+
 /** Geo bounds for the crop area. */
 interface GeoBounds {
   nw: LatLngPoint;
   se: LatLngPoint;
 }
 
-/** Handle positions for interactive crop box drag resizing. */
-type DragHandle = "tl" | "tr" | "bl" | "br" | "t" | "b" | "l" | "r" | "move";
-
 /** Drag state for interactive crop box adjustment. */
 interface DragState {
   dragging: boolean;
-  dragType: DragHandle | null;
+  dragType: string | null;
   startX: number;
   startY: number;
   startRect: Rect | null;
@@ -59,6 +60,13 @@ interface CropState {
   locked: boolean;
   actions: HTMLElement;
   geoBounds?: GeoBounds;
+  savedGeoBounds?: GeoBounds;
+}
+
+/** Loaded saved bounds from storage. */
+interface SavedBounds {
+  nw: LatLngPoint;
+  se: LatLngPoint;
 }
 
 // ==================== ExportManager ====================
@@ -71,13 +79,13 @@ class ExportManager {
   cropMousedownCleanup?: () => void;
   mapContainer: HTMLElement;
   cropState: CropState | null;
-  exportButton: HTMLElement | null;
+  exportCtrl: HTMLElement | null;
   exportToolBar: HTMLElement | null;
   exportOverlay: HTMLElement | null;
   isExporting: boolean;
   pixelOverLimit: boolean;
-  lastCropRect: Rect | null;
-  savedGeoBounds: GeoBounds | null;
+  lastScreenRect: Rect | null;
+  savedBounds: SavedBounds | null;
   dragState: DragState;
   undoStack: Rect[];
   redoStack: Rect[];
@@ -101,13 +109,13 @@ class ExportManager {
     this.mapContainer = this.map.getContainer();
 
     this.cropState = null;
-    this.exportButton = null;
+    this.exportCtrl = null;
     this.exportToolBar = null;
     this.exportOverlay = null;
     this.isExporting = false;
     this.pixelOverLimit = false;
-    this.lastCropRect = null;
-    this.savedGeoBounds = null;
+    this.lastScreenRect = null;
+    this.savedBounds = null;
     this.loadSavedBounds();
 
     this.dragState = {
@@ -138,13 +146,13 @@ class ExportManager {
       showGlobalHint(this, text, duration, withLoadingIcon);
   }
 
-  attachUI(button: HTMLElement, toolBar: HTMLElement) {
-    this.exportButton = button;
+  attachUI(ctrl: HTMLElement, toolBar: HTMLElement) {
+    this.exportCtrl = ctrl;
     this.exportToolBar = toolBar;
   }
 
   loadSavedBounds() {
-    const data = Storage.load<GeoBounds | null>(CONST.STORAGE.KEY, CONF.name);
+    const data = Storage.load<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
     if (!data || !data.nw || !data.se) return;
     const nw = data.nw,
       se = data.se;
@@ -158,7 +166,7 @@ class ExportManager {
       nw.lng <= mapB.getEast() &&
       se.lng >= mapB.getWest();
     if (!overlap) return;
-    this.savedGeoBounds = data;
+    this.savedBounds = data;
   }
 
   saveBounds(bounds: GeoBounds) {
@@ -177,7 +185,11 @@ class ExportManager {
     this.showCropBox();
     requestAnimationFrame(() => {
       if (!this.cropState || this.cropState.locked) return;
-      if (!this.savedGeoBounds) return;
+      if (!this.savedBounds) return;
+      this.cropState.savedGeoBounds = {
+        nw: { lat: this.savedBounds.nw.lat, lng: this.savedBounds.nw.lng },
+        se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
+      };
       this.lockCropBox(true);
       map.foliplus!.showHint(
         CONF.name,
@@ -189,25 +201,14 @@ class ExportManager {
   }
 
   onMouseDown(event: MouseEvent) {
-    if (!this.cropState || this.cropState.locked) return;
+    const st = this.cropState;
+    if (!st || st.locked) return;
     event.preventDefault();
     event.stopPropagation();
     const target = event.target as HTMLElement;
-    if (target.classList.contains(CONST.CLASSES.HANDLE)) {
-      const pos = target.dataset.pos;
-      if (
-        pos === "tl" ||
-        pos === "tr" ||
-        pos === "bl" ||
-        pos === "br" ||
-        pos === "t" ||
-        pos === "b" ||
-        pos === "l" ||
-        pos === "r"
-      )
-        this.dragState.dragType = pos;
-      else this.dragState.dragType = null;
-    } else if (
+    if (target.classList.contains(CONST.CLASSES.HANDLE))
+      this.dragState.dragType = target.dataset.pos ?? null;
+    else if (
       target.classList.contains(CONST.CLASSES.CENTER) ||
       target.classList.contains(CONST.CLASSES.BOX)
     )
@@ -218,14 +219,13 @@ class ExportManager {
     // Disable the box transition during drag so it tracks the cursor
     // instantly (the 0.15s lag made the box feel "behind" the mouse and
     // caused accidental drags). Re-enabled in onMouseUp.
-    this.cropState.box.classList.add(CONST.CLASSES.DRAGGING);
+    st.box.classList.add(CONST.CLASSES.DRAGGING);
     // Track the last mouse position for incremental deltas (avoids
     // sudden jumps from cumulative errors or stale startRect).
     this.dragState.lastX = event.clientX;
     this.dragState.lastY = event.clientY;
-    this.dragState.startRect = Object.assign({}, this.cropState.rect);
-    document.addEventListener("mousemove", this.onMouseMove);
-    document.addEventListener("mouseup", this.onMouseUp);
+    this.dragState.startRect = Object.assign({}, st.rect);
+    this.dragCleanup = registerDrag(this);
   }
 
   onMouseMove(event: MouseEvent) {
@@ -238,8 +238,9 @@ class ExportManager {
     this.dragState.lastX = event.clientX;
     this.dragState.lastY = event.clientY;
     const mapRect = this.mapContainer.getBoundingClientRect();
-    if (!this.cropState) return;
-    const cur = this.cropState.rect;
+    const st = this.cropState;
+    if (!st) return;
+    const cur = st.rect;
     const r = Object.assign({}, cur);
     const type = this.dragState.dragType;
     if (type === "move") {
@@ -271,13 +272,13 @@ class ExportManager {
         r.height = cur.height + a;
       }
     }
-    this.cropState.rect = r;
-    this.updateBoxStyle(this.cropState.box, r);
+    st.rect = r;
+    this.updateBoxStyle(st.box, r);
     // Only update the hint when the size changes (resize), not on pure move
     if (type !== "move") this.showHintWithInfo(r, _(`${CONF.name}.hint_unlocked`));
   }
 
-  pushUndo() {
+  pushUndoState() {
     if (!this.cropState) return;
     this.undoStack.push(Object.assign({}, this.cropState.rect));
     if (this.undoStack.length > CONST.CACHE.UNDO_MAX) this.undoStack.shift();
@@ -315,7 +316,7 @@ class ExportManager {
     // on the next non-drag style update (e.g. after unlock).
     if (this.cropState?.box)
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
-    this.pushUndo();
+    this.pushUndoState();
   }
 
   registerShortcuts(): void {
@@ -380,7 +381,7 @@ class ExportManager {
     const geoBounds = this.cropState.geoBounds;
     if (geoBounds) {
       this.saveBounds(geoBounds);
-      this.savedGeoBounds = geoBounds;
+      this.savedBounds = geoBounds;
     }
     this.removeCropBox();
 
@@ -540,10 +541,6 @@ class ExportManager {
       prevImg.removeEventListener("click", dismissPreview);
       prevImg.remove();
     }, HINT_DURATION.SHORT);
-    // Trigger World File (`.pgw`) download immediately — it is pure
-    // computation from the canvas pixel dimensions and the geo bounds
-    // saved in cropState, so it does not depend on the toBlob() callback.
-    this.downloadWorldFile(canvas);
     canvas.toBlob(
       async blob => {
         if (!blob) {
@@ -584,32 +581,6 @@ class ExportManager {
   }
 
   /**
-   * Build and trigger a download for the companion World File (`.pgw`)
-   * that makes the exported raster georeferenced.  Uses the geo bounds
-   * stored in cropState (captured when the crop box was locked) and the
-   * actual bitmap dimensions of the rendered canvas.
-   *
-   * A zero-cost no-op when there is no geo bounds data.
-   */
-  downloadWorldFile(canvas: HTMLCanvasElement) {
-    const geoBounds = this.cropState?.geoBounds;
-    if (!geoBounds?.nw || !geoBounds?.se) return;
-    if (canvas.width <= 0 || canvas.height <= 0) return;
-
-    const content = generateWorldFile(
-      geoBounds.nw,
-      geoBounds.se,
-      canvas.width,
-      canvas.height,
-    );
-    if (!content) return;
-
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = `${CONF.filename}.pgw`;
-
-  /**
    * Export a GeoTIFF file with embedded georeferencing.
    * Canvas pixel data is written as an RGB GeoTIFF with ModelTiepoint
    * and ModelPixelScale tags for WGS84 (EPSG:4326).
@@ -619,9 +590,9 @@ class ExportManager {
     // doExport() clears cropState via removeCropBox() before the render
     // callback fires, so cropState.geoBounds is gone by the time we
     // reach downloadGeoTiff.  Use the geoBounds saved in doExport
-    // (this.savedGeoBounds) as the primary source, falling back to
+    // (this.savedBounds) as the primary source, falling back to
     // cropState.geoBounds for programmatic/called-outside-export use.
-    const geoBounds = this.savedGeoBounds ?? this.cropState?.geoBounds;
+    const geoBounds = this.savedBounds ?? this.cropState?.geoBounds;
     if (!geoBounds?.nw || !geoBounds?.se) {
       // GeoTIFF requires geo bounds — without them we can't embed
       // georeferencing.  Show a hint instead of silently falling back.
