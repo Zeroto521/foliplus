@@ -16,7 +16,6 @@ build:
       # Build bundled JS/CSS assets (foliplus/dist/) before Python install.
       - npm install
       - make build-js
-      - python -m pip install --upgrade uv
     post_install:
       - uv run make info
 
