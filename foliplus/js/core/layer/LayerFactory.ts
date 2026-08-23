@@ -60,6 +60,7 @@ class LayerFactory {
       paneName: opts.graphPane || null,
       labelPane: opts.labelPane || null,
       iconSvg: opts.iconSvg || null,
+      featureCountProvider: opts.featureCountProvider ?? null,
     };
     const register = () => {
       if (!registered) {
@@ -229,6 +230,7 @@ class LayerFactory {
       canvas,
       onToggle,
       onZIndex,
+      featureCountProvider: opts.featureCountProvider ?? null,
     };
     const register = () => {
       if (registered) return;

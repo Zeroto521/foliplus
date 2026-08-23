@@ -66,6 +66,7 @@ class MeasureManager {
       graphPane: CONST.PANES.GRAPH,
       labelPane: CONST.PANES.LABEL,
       iconSvg: SVGs.RULER,
+      featureCountProvider: () => this.measurements.length,
     });
     this.currentMode = null;
     this.modeInstance = null;
@@ -95,9 +96,12 @@ class MeasureManager {
 
   // ── Persistence ──
 
-  /** Persist all measurements to localStorage. */
+  /** Persist all measurements to localStorage and refresh the count column. */
   saveMeasurements() {
     Storage.save(CONST.STORAGE.KEY, this.measurements, CONF.name);
+    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: this.layerId,
+    });
   }
 
   /** Load measurements from localStorage.

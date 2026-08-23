@@ -134,6 +134,7 @@ class HeatmapManager {
       id: this.layerId,
       name: _(`${CONF.name}.title`),
       iconSvg: SVGs.HEXAGON,
+      featureCountProvider: () => this.cachedFeatures?.length ?? 0,
     });
     // Subscribe to export events for full-content capture (ExportControl).
     ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
@@ -562,6 +563,10 @@ class HeatmapManager {
     this.cachedFeatures = features;
     this.overlay.register();
     this.redrawHeatmap();
+    // Notify LayerControl to refresh the count column for this layer.
+    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: this.layerId,
+    });
   }
 
   clearHeatmapCanvas() {
@@ -570,6 +575,10 @@ class HeatmapManager {
     if (this.overlay) this.overlay.unregister();
     (this.ui as any)?.schemeBarCleanup?.();
     (this.ui as any)?.dropdownCleanup?.();
+    // Notify LayerControl to refresh the count column (now 0).
+    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: this.layerId,
+    });
   }
 }
 

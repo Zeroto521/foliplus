@@ -64,6 +64,10 @@ export interface CreateLayersOpts {
   graphPane?: string;
   labelPane?: string;
   iconSvg?: string;
+  /** Optional callback returning the number of features in this layer.
+   *  When set, LayerControl's count column uses this instead of the default
+   *  countFeatureGeometry (which walks all leaf geometries). */
+  featureCountProvider?: (() => number) | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
@@ -74,6 +78,10 @@ export interface CreateCanvasOpts {
   iconSvg?: string;
   onToggle?: ((visible: boolean) => void) | null;
   onZIndex?: ((z: number) => void) | null;
+  /** Optional callback returning the number of features in this layer.
+   *  When set, LayerControl's count column uses this instead of returning
+   *  null (the default for Canvas layers). */
+  featureCountProvider?: (() => number) | null;
 }
 
 /** Return type of `LayerAPI.createCanvas`. */
