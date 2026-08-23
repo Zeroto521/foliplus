@@ -63,9 +63,6 @@ export const SEL = {
   SKIP_EXPORT: '[data-foliplus-export="exclude"]',
 };
 
-/** Cache limits. */
-export const CACHE = { UNDO_MAX: 20 };
-
 // ============================================================================
 // Auto-detected tile download concurrency.
 //
