@@ -25,9 +25,10 @@
   --drag-pulse-duration: 0.8s;
   --drag-pulse-count: 3;
 
-  /* Pulse border/shadow start and end states */
+  /* Pulse border: start (from) and end (to) colors during the pulse */
   --drag-border-from: var(--accent-primary);
   --drag-border-to: var(--accent-hover);
+  /* Pulse shadow: start (from, tight) and end (to, diffuse) states */
   --drag-shadow-from: 0 0 var(--size-4) -1px var(--accent-primary);
   --drag-shadow-to: 0 0 var(--size-8) 0 var(--accent-primary);
 
@@ -282,9 +283,9 @@
     }
 
     /* ── Feature count column ──
-       Position: immediately before the type-icon column.  Right-aligned so
-       digits align across rows; fixed-width slot keeps the icon column stable.
-       Dimmed by default, brightens on hover/active to match other row content. */
+      Position: immediately before the type-icon column.  Right-aligned so
+      digits align across rows; fixed-width slot keeps the icon column stable.
+      Dimmed by default, brightens on hover/active to match other row content. */
     .foliplus-layer-count {
       position: relative;
       flex-shrink: 0;
@@ -319,7 +320,6 @@
         opacity: 0;
         transition: opacity var(--transition-fast);
       }
-      position: relative;
     }
     &:hover .foliplus-layer-count,
     &.active .foliplus-layer-count {
@@ -409,13 +409,13 @@
   .foliplus-color-layer-input {
     width: var(--icon-size-md);
     height: var(--icon-size-md);
+    flex-shrink: 0;
     border: var(--border-thick) solid var(--input-border);
     border-radius: var(--radius-round);
-    cursor: pointer;
     padding: 0;
     background: none;
     outline: none;
-    flex-shrink: 0;
+    cursor: pointer;
     transition: var(--transition-input);
 
     &::-webkit-color-swatch-wrapper {
