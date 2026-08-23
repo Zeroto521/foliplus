@@ -99,9 +99,7 @@ class MeasureManager {
   /** Persist all measurements to localStorage and refresh the count column. */
   saveMeasurements() {
     Storage.save(CONST.STORAGE.KEY, this.measurements, CONF.name);
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
-      id: this.layerId,
-    });
+    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   /** Load measurements from localStorage.

@@ -292,9 +292,7 @@ class LayerManager implements LayerAPI {
     // 2. Fallback via forEachLeaf — only valid for feature containers.
     const layer = this.findLayer(layerInfo);
     if (!layer) return null;
-    if (this.isFeatureContainer(layer)) {
-      return countFeatureGeometry(layer);
-    }
+    if (this.isFeatureContainer(layer)) return countFeatureGeometry(layer);
     // 3. Canvas or unknown non-container → no meaningful count.
     return null;
   }
