@@ -173,6 +173,33 @@ describe("LayerFactory", () => {
       expect(onDataChange).toHaveBeenCalledWith("test");
     });
 
+    it("skips onDataChange when featureCountProvider is supplied", () => {
+      const onDataChange = vi.fn();
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer,
+        unregisterLayer,
+        bringLayerToFront,
+        invalidateType,
+        onDataChange,
+      });
+      const api = f.createLayers({
+        id: "measure",
+        name: "Measure",
+        graphPane: "g1",
+        featureCountProvider: () => 0,
+      });
+      const layer = new window.L.Path();
+      api.addLayer(layer);
+      expect(onDataChange).not.toHaveBeenCalled();
+      expect(invalidateType).toHaveBeenCalledWith("measure");
+      invalidateType.mockClear();
+      api.removeLayer(layer);
+      expect(onDataChange).not.toHaveBeenCalled();
+      expect(invalidateType).toHaveBeenCalledWith("measure");
+    });
+
     it("notifies onDataChange on clearLayers only when there was content", () => {
       const onDataChange = vi.fn();
       const f = new LayerFactory({
