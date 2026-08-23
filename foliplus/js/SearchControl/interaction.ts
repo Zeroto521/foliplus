@@ -130,9 +130,16 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     },
   ]);
 
-  ctrl.inp.addEventListener("blur", () => setTimeout(() => removePanel(ctrl), 0));
+  let blurTimer: ReturnType<typeof setTimeout> | null = null;
+  ctrl.inp.addEventListener("blur", () => {
+    blurTimer = setTimeout(() => removePanel(ctrl), 120);
+  });
 
   ctrl.inp.addEventListener("focus", () => {
+    if (blurTimer) {
+      clearTimeout(blurTimer);
+      blurTimer = null;
+    }
     const val = ctrl.inp.value.trim();
     // Empty input → show search history for current mode;
     // non-empty → fetch suggestions (addr mode only)

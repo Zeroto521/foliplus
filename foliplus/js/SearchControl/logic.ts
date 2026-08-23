@@ -220,15 +220,20 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   attachSearchDelIcon(ctrl, [lat, lng]);
 
   const coordDisplay = `${lng.toFixed(4)}, ${lat.toFixed(4)}`;
-  // Reverse geocode to get address for history entry
+  // Save coord entry immediately, then update address via reverse geocode
+  recordHistorySearch(ctrl, raw, MODE.COORD, coordDisplay, "", lng, lat);
   window.foliplus
     .reverseGeocode(map, lng, lat, CONF.locale_code)
     .then(addr => {
-      recordHistorySearch(ctrl, raw, MODE.COORD, coordDisplay, addr, lng, lat);
+      if (addr) {
+        addHistoryEntry(ctrl, {
+          query: raw, type: MODE.COORD, coordDisplay, addrDisplay: addr,
+          lng, lat, ts: Date.now(), count: 1,
+        });
+      }
     })
     .catch(() => {
-      // Reverse geocode failed — store coord-only entry
-      recordHistorySearch(ctrl, raw, MODE.COORD, coordDisplay, "", lng, lat);
+      // Reverse geocode failed — coord-only entry already saved above
     });
 };
 
