@@ -67,8 +67,22 @@ describe("loadHistory / saveHistory", () => {
     localStorage.setItem(
       HISTORY.STORAGE_KEY,
       JSON.stringify([
-        { query: "Paris", type: "addr", label: "Paris, France", lat: 48.8, lng: 2.3, ts: 1000 },
-        { query: "121.47,31.23", type: "coord", label: "121.4700, 31.2300", lat: 31.23, lng: 121.47, ts: 2000 },
+        {
+          query: "Paris",
+          type: "addr",
+          label: "Paris, France",
+          lat: 48.8,
+          lng: 2.3,
+          ts: 1000,
+        },
+        {
+          query: "121.47,31.23",
+          type: "coord",
+          label: "121.4700, 31.2300",
+          lat: 31.23,
+          lng: 121.47,
+          ts: 2000,
+        },
       ]),
     );
     const loaded = loadHistory();
@@ -483,9 +497,7 @@ describe("renderHistory", () => {
     expect(ctrl.panelWrap.innerHTML).toContain("Paris, France");
     // Only addr items shown, coord items filtered out
     expect(ctrl.panelWrap.innerHTML).not.toContain("121.4700, 31.2300");
-    const items = ctrl.panelWrap.querySelectorAll(
-      ".foliplus-search-result-item",
-    );
+    const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
     expect(items).toHaveLength(1);
     expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
     expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe(
@@ -521,13 +533,13 @@ describe("renderHistory", () => {
     expect(ctrl.panelWrap.innerHTML).toContain("121.4700, 31.2300");
     // Only coord items shown, addr items filtered out
     expect(ctrl.panelWrap.innerHTML).not.toContain("Paris, France");
-    const items = ctrl.panelWrap.querySelectorAll(
-      ".foliplus-search-result-item",
-    );
+    const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
     expect(items).toHaveLength(1);
     // Coord entries also show coord-display for consistent two-line layout
     expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
-    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe("121.4700, 31.2300");
+    expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe(
+      "121.4700, 31.2300",
+    );
   });
 
   it("sorts by count desc then ts desc", () => {
@@ -564,9 +576,7 @@ describe("renderHistory", () => {
       },
     ]);
     renderHistory(ctrl, "addr");
-    const items = ctrl.panelWrap.querySelectorAll(
-      ".foliplus-search-result-text",
-    );
+    const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
     expect(items[0].textContent).toBe("C");
     expect(items[1].textContent).toBe("B");
     expect(items[2].textContent).toBe("A");
@@ -586,9 +596,7 @@ describe("renderHistory", () => {
       },
     ]);
     renderHistory(ctrl, "addr");
-    const item = ctrl.panelWrap.querySelector(
-      ".foliplus-search-result-item",
-    )!;
+    const item = ctrl.panelWrap.querySelector(".foliplus-search-result-item")!;
     const mouseEvent = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
     item.dispatchEvent(mouseEvent);
     expect(map.flyTo).toHaveBeenCalled();
@@ -609,9 +617,7 @@ describe("renderHistory", () => {
       },
     ]);
     renderHistory(ctrl, "coord");
-    const items = ctrl.panelWrap.querySelectorAll(
-      ".foliplus-search-result-text",
-    );
+    const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
     expect(items).toHaveLength(1);
     expect(items[0].textContent).toBe("121.4700, 31.2300");
   });

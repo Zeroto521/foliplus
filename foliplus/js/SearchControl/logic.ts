@@ -54,9 +54,12 @@ const loadHistory = (): SearchHistoryEntry[] => {
   // Migrate old entries (pre-refactor with `label` field) to the new format
   return data.map(e => ({
     query: e.query ?? "",
-    type: (e.type === "coord" || e.type === "addr" ? e.type : "addr") as "coord" | "addr",
-    coordDisplay: e.coordDisplay ?? (e.type === MODE.COORD ? (e as any).label ?? "" : ""),
-    addrDisplay: e.addrDisplay ?? (e.type === MODE.ADDR ? (e as any).label ?? "" : ""),
+    type: (e.type === "coord" || e.type === "addr" ? e.type : "addr") as
+      "coord" | "addr",
+    coordDisplay:
+      e.coordDisplay ?? (e.type === MODE.COORD ? ((e as any).label ?? "") : ""),
+    addrDisplay:
+      e.addrDisplay ?? (e.type === MODE.ADDR ? ((e as any).label ?? "") : ""),
     lng: e.lng ?? 0,
     lat: e.lat ?? 0,
     ts: e.ts ?? Date.now(),

@@ -90,14 +90,9 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         if (!ctrl.panelWrap) return;
         // Only selectable items — skip non-item children like the history
         // group header.
-        const items = ctrl.panelWrap.querySelectorAll(
-          `.${CLASSES.RESULT_ITEM}`,
-        );
+        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
         if (items.length === 0) return;
-        ctrl.selectedIdx = Math.min(
-          ctrl.selectedIdx + 1,
-          items.length - 1,
-        );
+        ctrl.selectedIdx = Math.min(ctrl.selectedIdx + 1, items.length - 1);
         items.forEach((el: Element, i: number) =>
           el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
         );
@@ -111,9 +106,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       element: ctrl.inp,
       handler: () => {
         if (!ctrl.panelWrap) return;
-        const items = ctrl.panelWrap.querySelectorAll(
-          `.${CLASSES.RESULT_ITEM}`,
-        );
+        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
         if (items.length === 0) return;
         ctrl.selectedIdx = Math.max(ctrl.selectedIdx - 1, -1);
         items.forEach((el: Element, i: number) =>
@@ -121,9 +114,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         );
         if (ctrl.selectedIdx >= 0)
           ctrl.inp.value =
-            items[ctrl.selectedIdx].querySelector(
-              `.${CLASSES.RESULT_TEXT}`,
-            )?.textContent ?? "";
+            items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
+              ?.textContent ?? "";
       },
     },
     {
