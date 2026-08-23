@@ -34,7 +34,7 @@
   }
 }
 
-/* ── Result Panel (mounted on document.body, shared by suggestions and history) ── */
+/* ── Result Panel (mounted on map container, shared by suggestions and history) ── */
 .foliplus-search-result-panel {
   position: fixed;
   box-sizing: border-box;
