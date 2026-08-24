@@ -45,10 +45,12 @@
   /* ── Row min-height ──
      Data rows are taller than group headers only because a data label spans
      1fr at font-size-md (≈19px line box) while a header has no more-btn col.
-     Pin both to one content height so the checkbox/label columns stay on the
-     same baseline across every row type. (These rows are content-box, so this
-     is the CONTENT height; the row's own padding is added on top.) */
-  --layer-row-min-height: calc(var(--font-size-md) * var(--line-height-hint));
+     Pin both to one height so the checkbox/label columns sit on the same
+     baseline across every row type. Rows set box-sizing: border-box and this
+     value is the TOTAL box height, so it is independent of the outer context. */
+  --layer-row-min-height: calc(
+    var(--space-md) * 2 + var(--font-size-md) * var(--line-height-hint)
+  );
 
   /* ── Panel Content Overrides ── */
   .foliplus-panel-content {
@@ -150,6 +152,7 @@
     column-gap: var(--grid-layer-gap);
     align-items: center;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
+    box-sizing: border-box;
     min-height: var(--layer-row-min-height);
     border-left: var(--border-thick) solid transparent;
     border-radius: var(--radius-sm);
@@ -282,6 +285,7 @@
     column-gap: var(--grid-layer-gap);
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
     align-items: center;
+    box-sizing: border-box;
     min-height: var(--layer-row-min-height);
     cursor: default;
     user-select: none;
@@ -310,7 +314,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      line-height: var(--line-height-md);
+      line-height: var(--line-height-hint);
       padding: 0 0 0 var(--space-xs);
       transition: color var(--transition-fast);
     }
