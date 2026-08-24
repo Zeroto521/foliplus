@@ -417,12 +417,14 @@ class TestLayerControlRendering:
         assert "svg {" in css
         assert "fill: none" in css
 
-    def test_drag_handle_circle_stroke(self):
-        """drag-handle circles have explicit stroke so they appear bold."""
+    def test_drag_handle_block_and_size(self):
+        """drag-handle is a block sized to the checkbox so its dot grip centers
+        with the other row glyphs; no bold stroke (dots match MORE at 3px)."""
         css = read_css("foliplus/css/LayerControl.css")
         assert ".drag-handle" in css
-        assert "circle {" in css
-        assert "stroke: currentColor" in css
+        assert "display: block" in css
+        assert "width: var(--space-xl)" in css
+        assert "height: var(--space-xl)" in css
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""

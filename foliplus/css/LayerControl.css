@@ -185,6 +185,7 @@
       transform var(--transition-fast);
 
     svg {
+      display: block;
       width: var(--space-xl);
       height: var(--space-xl);
       fill: none;
@@ -235,16 +236,9 @@
     Shared size for all drag handles in layer rows.
     Shown on hover for draggable items; hidden for color rows. */
   .drag-handle {
+    display: block;
     width: var(--space-xl);
     height: var(--space-xl);
-
-    /* Circles use fill="currentColor"; add matching stroke so they stay bold,
-      matching the appearance they had when .foliplus-ctrl-fold svg provided
-      stroke: currentColor via inheritance. */
-    circle {
-      stroke: currentColor;
-      stroke-width: var(--stroke-icon);
-    }
   }
   .foliplus-layer-item .drag-handle {
     opacity: 0;
