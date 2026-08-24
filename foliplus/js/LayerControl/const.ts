@@ -34,6 +34,7 @@ export const CLASSES = {
   FOLDED: "foliplus-layer-folded",
   TYPE_ICON_COL: "foliplus-type-icon-col",
   COUNT_COL: "foliplus-layer-count",
+  MORE_BTN: "foliplus-layer-more-btn",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEP_LABEL: "foliplus-layer-sep-label",

@@ -285,6 +285,16 @@ class LayerUI {
       dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, en),
       countEl,
       typeIconEl,
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.MORE_BTN,
+          type: "button",
+          title: _(`${CONF.name}.more_tooltip`),
+          "aria-label": _(`${CONF.name}.more_tooltip`),
+        },
+        { html: SVGs.MORE },
+      ),
     );
   }
 
@@ -314,6 +324,16 @@ class LayerUI {
       dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, _(`${CONF.name}.color_map_label`)),
       countEl,
       typeIconEl,
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.MORE_BTN,
+          type: "button",
+          title: _(`${CONF.name}.more_tooltip`),
+          "aria-label": _(`${CONF.name}.more_tooltip`),
+        },
+        { html: SVGs.MORE },
+      ),
     );
   }
 
