@@ -35,19 +35,17 @@
   /* ── Layout ── */
   --layer-item-pad-x: calc(var(--space-md) - var(--size-2) + 1px);
 
+  /* ── Shared 6-column track for all layer rows ──
+    Each row is an independent grid container that reuses this track.
+    Using a single CSS variable keeps column widths in sync across
+    layer-item / toggle-all / color-item rows without subgrid. */
+  --grid-layer-cols: var(--icon-size-xs) var(--space-xl) 1fr 28px var(--icon-size-md)
+    18px;
+
   /* ── Panel Content Overrides ── */
   .foliplus-panel-content {
     padding: var(--space-sm) 0;
     max-height: var(--panel-max-height);
-    display: grid;
-    grid-template-columns:
-      [drag] var(--icon-size-xs)
-      [check] var(--space-xl)
-      [label] 1fr
-      [count] 28px
-      [icon] var(--icon-size-md)
-      [more] 18px;
-    column-gap: 3px;
   }
   /* ── Layer panel container ── */
   .foliplus-layer-panel {
@@ -92,10 +90,11 @@
     }
   }
   .foliplus-layer-sep {
-    grid-column: 1 / -1;
-    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-xxl);
-    display: subgrid;
+    display: grid;
+    grid-template-columns: var(--grid-layer-cols);
+    column-gap: 3px;
     align-items: center;
+    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-xxl);
     cursor: default;
     user-select: none;
     border-radius: var(--radius-sm);
@@ -113,7 +112,11 @@
     Right padding tighter than regular items to align the left border with
     items, since toggle-all has no checkbox column. */
   .foliplus-layer-sep.foliplus-layer-toggle-all {
-    display: subgrid;
+    display: grid;
+    grid-template-columns: var(--grid-layer-cols);
+    grid-template-areas: "drag check label divider divider divider";
+    column-gap: 3px;
+    align-items: center;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
     border-left: var(--border-thick) solid transparent;
     border-radius: var(--radius-sm);
@@ -122,14 +125,8 @@
       background-color var(--transition-fast),
       border-color var(--transition-fast);
 
-    .foliplus-checkbox {
-      grid-area: check;
-    }
-    .foliplus-layer-sep-label {
-      grid-area: label;
-    }
     .foliplus-section-divider {
-      grid-column: count / span 3;
+      grid-area: divider;
     }
   }
   /* Section label: primary color + semibold so it reads as a real header */
@@ -218,11 +215,10 @@
 
   /* ── Drag handle ──
     Shared size for all drag handles in layer rows.
-    Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
+    Shown on hover for draggable items; hidden for color rows. */
   .drag-handle {
     width: var(--icon-size-xs);
     height: var(--icon-size-md);
-    grid-area: drag;
     align-self: center;
 
     /* Circles use fill="currentColor"; add matching stroke so they stay bold,
@@ -240,7 +236,6 @@
   .foliplus-layer-item:hover .drag-handle {
     opacity: 1;
   }
-  .foliplus-layer-toggle-all .drag-handle,
   .foliplus-color-layer-item .drag-handle {
     visibility: hidden;
   }
@@ -257,8 +252,10 @@
 
   /* ── Layer item ── */
   .foliplus-layer-item {
-    grid-column: 1 / -1;
-    display: subgrid;
+    display: grid;
+    grid-template-columns: var(--grid-layer-cols);
+    grid-template-areas: "drag check label count icon .";
+    column-gap: 3px;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
     align-items: center;
     cursor: default;
@@ -281,9 +278,6 @@
     }
     .foliplus-checkbox {
       grid-area: check;
-    }
-    .drag-handle {
-      grid-area: drag;
     }
     .foliplus-type-icon-col {
       grid-area: icon;
@@ -366,6 +360,11 @@
   /* ── Color layer item overrides ──
      Pointer cursor (not draggable) */
   .foliplus-color-layer-item {
+    display: grid;
+    grid-template-columns: var(--grid-layer-cols);
+    grid-template-areas: "drag check label count icon .";
+    column-gap: 3px;
+    align-items: center;
     cursor: pointer;
   }
   /* ── Checkbox styles ── */
