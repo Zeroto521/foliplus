@@ -105,4 +105,66 @@ describe("InteractionManager", () => {
     ensureInteraction(map).unregister("Test");
     document.body.removeChild(container);
   });
+
+  it("tied-priority: container shortcut wins over pure document shortcut", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const input = document.createElement("input");
+    container.appendChild(input);
+
+    const docHandler = vi.fn();
+    const containerHandler = vi.fn();
+    // Pure document shortcut (no container) — acts as a global fallback
+    ensureInteraction(map).register("DocFallback", [
+      { key: "Escape", handler: docHandler },
+    ]);
+    // Container-bound shortcut — specific to focused area
+    ensureInteraction(map).register("Focused", [
+      { key: "Escape", container, handler: containerHandler },
+    ]);
+
+    input.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(containerHandler).toHaveBeenCalledTimes(1);
+    expect(docHandler).not.toHaveBeenCalled();
+
+    ensureInteraction(map).unregister("DocFallback");
+    ensureInteraction(map).unregister("Focused");
+    document.body.removeChild(container);
+  });
+
+  it("tied-priority container shortcuts: innermost container wins", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const outer = document.createElement("div");
+    document.body.appendChild(outer);
+    const inner = document.createElement("div");
+    outer.appendChild(inner);
+    const input = document.createElement("input");
+    inner.appendChild(input);
+
+    const outerHandler = vi.fn();
+    const innerHandler = vi.fn();
+    ensureInteraction(map).register("Outer", [
+      { key: "Enter", container: outer, handler: outerHandler },
+    ]);
+    ensureInteraction(map).register("Inner", [
+      { key: "Enter", container: inner, handler: innerHandler },
+    ]);
+
+    input.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(innerHandler).toHaveBeenCalledTimes(1);
+    expect(outerHandler).not.toHaveBeenCalled();
+
+    ensureInteraction(map).unregister("Outer");
+    ensureInteraction(map).unregister("Inner");
+    document.body.removeChild(outer);
+  });
 });

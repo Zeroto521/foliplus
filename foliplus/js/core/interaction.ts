@@ -201,6 +201,32 @@ export class InteractionManager {
   private handleEvent(event: Event): void {
     const eventType = event.type;
     const ke = event as KeyboardEvent;
+    // For container-bound shortcuts, the deepest (innermost) container that
+    // contains activeElement should win when priorities are tied — matches
+    // how native DOM focus/keyboard events work.
+    const active = document.activeElement;
+    const sort = (a: InteractionDef, b: InteractionDef) => {
+      const pDiff = (b.priority ?? 0) - (a.priority ?? 0);
+      if (pDiff !== 0) return pDiff;
+      // Container-bound shortcuts are more specific than pure document-
+      // level ones, so they take precedence when priorities are tied.
+      if (a.container && !b.container) return -1;
+      if (!a.container && b.container) return 1;
+      // Both containers present: innermost (closest to activeElement) wins.
+      if (a.container && b.container && active instanceof HTMLElement) {
+        const depth = (c: HTMLElement) => {
+          let n = 0;
+          let cur = active;
+          while (cur && cur !== c) {
+            if (cur instanceof HTMLElement) n++;
+            cur = cur.parentElement;
+          }
+          return n;
+        };
+        return depth(a.container) - depth(b.container);
+      }
+      return 0;
+    };
     const matches = this.shortcuts
       .filter(s => {
         // Only match document-level shortcuts (no element binding)
@@ -220,7 +246,7 @@ export class InteractionManager {
         if (s.container && !s.container.contains(document.activeElement)) return false;
         return true;
       })
-      .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+      .sort(sort);
 
     if (matches.length === 0) return;
 
