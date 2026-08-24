@@ -271,15 +271,15 @@ class TestLayerControlRendering:
         assert "var(--icon-size-xs)" not in block
         assert "var(--icon-size-md)" not in block
 
-    def test_more_column_width_9px(self):
-        """More grid column and button are 9px wide (icon diameter + breathing)."""
+    def test_more_column_width_7px(self):
+        """More grid column and button are 7px wide (3.5px dots + breathing)."""
         css = read_css("foliplus/css/LayerControl.css")
-        # grid track ends with a 9px 'more' column
+        # grid track ends with a 7px 'more' column
         idx = css.find("--grid-layer-cols:")
         assert idx != -1
         track = css[idx : css.index(";", idx)]
-        assert track.strip().endswith("9px")
-        # more-btn width is 9px, not the default icon-size-xs
+        assert track.strip().endswith("7px")
+        # more-btn width is 7px, not the default icon-size-xs
         # The .foliplus-layer-more-btn selector appears twice (grid-area and
         # width rules); assert against the one carrying the width declaration.
         blks = [
@@ -288,7 +288,7 @@ class TestLayerControlRendering:
             if css.startswith(".foliplus-layer-more-btn {", i)
         ]
         assert blks, "no .foliplus-layer-more-btn { rule found"
-        assert "width: 9px" in "\n".join(blks)
+        assert "width: 7px" in "\n".join(blks)
         assert not any("var(--icon-size-xs)" in b for b in blks)
 
     def test_color_map_id_constant(self, base_map: folium.Map):
@@ -315,13 +315,16 @@ class TestLayerControlRendering:
         # Fold toggle button SVG
         assert "foliplus-layer-fold-btn:hover svg" in html
         assert "foliplus-layer-fold-btn:active" in html
-        # Type icon column transition
+        # Type icon column: hover/active feedback is color-only. The glyph must
+        # NOT scale — scaling the 16px icon overflows its column and shrinks the
+        # adjacent 3px gaps (count↔icon, icon↔more), breaking the uniform row
+        # spacing. Only the color changes on the active row.
         assert "foliplus-type-icon-col svg" in html
         assert "transition: transform" in html
-        # Layer item hover on type icon
-        assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" in html
-        # Active state on type icon
-        assert "active .foliplus-type-icon-col svg" in html
+        assert ".foliplus-layer-item.active .foliplus-type-icon-col" in html
+        assert "color: var(--accent-primary)" in html
+        # Regression guard: no scale transform may be reintroduced on the icon
+        assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" not in html
         # Toggle button SVG inherits color
         assert "foliplus-toggle-btn svg" in html
         assert "stroke: currentColor" in html

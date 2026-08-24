@@ -7,18 +7,18 @@ export const LAYERS = `
   </svg>`;
 
 export const DRAG_HANDLE = `
-  <svg viewBox="0 0 24 24" class="drag-handle">
-    <circle cx="8" cy="4" r="2.25" fill="currentColor"/>
-    <circle cx="16" cy="4" r="2.25" fill="currentColor"/>
-    <circle cx="8" cy="12" r="2.25" fill="currentColor"/>
-    <circle cx="16" cy="12" r="2.25" fill="currentColor"/>
-    <circle cx="8" cy="20" r="2.25" fill="currentColor"/>
-    <circle cx="16" cy="20" r="2.25" fill="currentColor"/>
+  <svg viewBox="0 0 16 16" class="drag-handle">
+    <circle cx="4.5" cy="3" r="1.75" fill="currentColor"/>
+    <circle cx="11.5" cy="3" r="1.75" fill="currentColor"/>
+    <circle cx="4.5" cy="8" r="1.75" fill="currentColor"/>
+    <circle cx="11.5" cy="8" r="1.75" fill="currentColor"/>
+    <circle cx="4.5" cy="13" r="1.75" fill="currentColor"/>
+    <circle cx="11.5" cy="13" r="1.75" fill="currentColor"/>
   </svg>`;
 
 export const POINT = `
   <svg viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="4" class="solid"/>
+    <circle cx="12" cy="12" r="6" class="solid"/>
   </svg>`;
 
 export const LINE = `
@@ -62,7 +62,7 @@ export const FOLD = `
 /** Vertical three-dot "more" icon for the layer item overflow menu (reserved). */
 export const MORE = `
   <svg viewBox="9 3 6 18">
-    <circle cx="12" cy="6" r="1.5" fill="currentColor"/>
-    <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-    <circle cx="12" cy="18" r="1.5" fill="currentColor"/>
+    <circle cx="12" cy="6" r="1.75" fill="currentColor"/>
+    <circle cx="12" cy="12" r="1.75" fill="currentColor"/>
+    <circle cx="12" cy="18" r="1.75" fill="currentColor"/>
   </svg>`;
