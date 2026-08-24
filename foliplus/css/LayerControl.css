@@ -343,7 +343,7 @@
     border: none;
     padding: 0;
     margin: 0;
-    color: var(--text-muted);
+    color: var(--text-primary);
     cursor: default;
     transition: color var(--transition-fast);
 
@@ -354,13 +354,12 @@
       transition: transform var(--transition-fast);
     }
   }
-  .foliplus-layer-item:hover .foliplus-layer-more-btn,
-  .foliplus-layer-item.active .foliplus-layer-more-btn {
-    color: var(--text-primary);
-  }
   .foliplus-layer-item:hover .foliplus-layer-more-btn svg,
   .foliplus-layer-item.active .foliplus-layer-more-btn svg {
     transform: scale(var(--scale-hover));
+  }
+  .foliplus-layer-item.active .foliplus-layer-more-btn {
+    color: var(--accent-primary);
   }
 
   /* ── Color layer item overrides ──
