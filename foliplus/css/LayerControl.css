@@ -273,14 +273,13 @@
       font-weight: var(--font-weight-normal);
     }
     /* ── Feature count column ──
-      Right-aligned, capped at 5 chars. */
+      Right-aligned, the 38px column itself caps display to ~5 chars. */
     .foliplus-layer-count {
       font-variant-numeric: tabular-nums;
       font-size: var(--font-size-xs);
       color: var(--text-muted);
       text-align: right;
       white-space: nowrap;
-      max-width: 5ch;
       overflow: hidden;
       text-overflow: ellipsis;
       line-height: var(--line-height-md);

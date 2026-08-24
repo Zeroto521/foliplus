@@ -255,10 +255,9 @@ class TestLayerControlRendering:
         assert "grid-area: drag" in css
 
     def test_count_column_5_char_cap(self):
-        """Count column is 38px wide, sized for up to 5 tabular-nums characters."""
+        """Count column is 38px wide, sized for up to ~5 tabular-nums characters."""
         css = read_css("foliplus/css/LayerControl.css")
         assert "38px" in css
-        assert "max-width: 5ch" in css or "max-width" in css
 
     def test_type_icon_col_size_matches_grid(self):
         """type-icon-col is 14px (icon-size-xs) to match its 14px grid column."""
