@@ -39,8 +39,8 @@
     Each row is an independent grid container that reuses this track.
     Using a single CSS variable keeps column widths in sync across
     layer-item / toggle-all / color-item rows without subgrid. */
-  --grid-layer-cols: var(--icon-size-xs) var(--space-xl) 1fr 38px var(--icon-size-md)
-    18px;
+  --grid-layer-cols: var(--space-md) var(--icon-size-md) 1fr 44px var(--space-md)
+    var(--icon-size-xs);
   --grid-layer-gap: 3px;
 
   /* ── Panel Content Overrides ── */
@@ -337,8 +337,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--icon-size-md);
-    height: var(--icon-size-md);
+    width: var(--icon-size-xs);
+    height: var(--icon-size-xs);
     background: none;
     border: none;
     padding: 0;
