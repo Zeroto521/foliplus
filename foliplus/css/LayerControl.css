@@ -279,11 +279,8 @@
     }
 
     /* ── Feature count column ──
-      Text right-aligned within the fixed 38px track so digits align across
-      rows; the leading accent dot uses absolute positioning so the tabular
-      edge stays stable. */
+      Right-aligned so digits sit flush against the icon column. */
     .foliplus-layer-count {
-      position: relative;
       align-self: center;
       font-variant-numeric: tabular-nums;
       font-size: var(--font-size-xs);
@@ -293,22 +290,8 @@
       overflow: hidden;
       text-overflow: ellipsis;
       line-height: var(--line-height-md);
-      padding: 0 var(--space-xs) 0 calc(var(--space-xs) + 7px);
+      padding: 0 var(--space-xs);
       transition: color var(--transition-fast);
-
-      &::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 50%;
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: var(--accent-primary);
-        transform: translateY(-50%);
-        opacity: 1;
-        transition: opacity var(--transition-fast);
-      }
     }
 
     &[draggable="true"] {
@@ -347,13 +330,10 @@
     &.active .foliplus-layer-count {
       color: var(--text-primary);
     }
-    &:hover .foliplus-layer-count::before,
-    &.active .foliplus-layer-count::before {
-      opacity: 1;
-    }
   }
-  /* ── More options button (reserved slot, shows on row hover) ── */
+  /* ── More options button (reserved slot, always visible) ── */
   .foliplus-layer-more-btn {
+    align-self: center;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -365,10 +345,7 @@
     margin: 0;
     color: var(--text-muted);
     cursor: default;
-    opacity: 0;
-    transition:
-      opacity var(--transition-fast),
-      color var(--transition-fast);
+    transition: color var(--transition-fast);
 
     svg {
       width: 100%;
@@ -378,7 +355,7 @@
   }
   .foliplus-layer-item:hover .foliplus-layer-more-btn,
   .foliplus-layer-item.active .foliplus-layer-more-btn {
-    opacity: 1;
+    color: var(--text-primary);
   }
 
   /* ── Color layer item overrides ──
