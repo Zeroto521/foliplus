@@ -223,6 +223,53 @@ class TestLayerControlRendering:
         assert "foliplus-checkbox" in html
         assert "foliplus-type-icon-col" in html
 
+    def test_layer_item_6_column_grid(self, base_map: folium.Map):
+        """Layer item uses 6-column grid-template-areas with all six slots."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert '"drag check label count icon more"' in css
+
+    def test_layer_item_grid_column_classes_rendered(self, base_map: folium.Map):
+        """All 6 grid-column CSS classes appear in the rendered output."""
+        html = render_control(LayerControl())
+        assert "foliplus-drag-cell" in html
+        assert "foliplus-layer-count" in html
+        assert "foliplus-layer-more-btn" in html
+        assert "foliplus-type-icon-col" in html
+        assert "foliplus-checkbox" in html
+        assert "foliplus-layer-label" in html
+
+    def test_more_tooltip_rendered(self, base_map: folium.Map):
+        """More button has i18n more_tooltip title/aria-label."""
+        html = render_control(LayerControl())
+        assert "more_tooltip" in html
+
+    def test_more_button_grid_area(self):
+        """More button is placed in the 'more' grid area."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert "foliplus-layer-more-btn" in css
+        assert "grid-area: more" in css
+
+    def test_drag_cell_grid_area(self):
+        """Drag cell is placed in the 'drag' grid area."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert "grid-area: drag" in css
+
+    def test_count_column_5_char_cap(self):
+        """Count column is 38px wide, sized for up to 5 tabular-nums characters."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert "38px" in css
+        assert "max-width: 5ch" in css or "max-width" in css
+
+    def test_type_icon_col_size_matches_grid(self):
+        """type-icon-col is 14px (icon-size-xs) to match its 14px grid column."""
+        css = read_css("foliplus/css/LayerControl.css")
+        # type-icon-col width/height should use icon-size-xs (14px), not icon-size-md (18px)
+        idx = css.find(".foliplus-type-icon-col {")
+        assert idx != -1
+        block = css[idx : css.index("}", idx) + 1]
+        assert "var(--icon-size-xs)" in block
+        assert "var(--icon-size-md)" not in block
+
     def test_color_map_id_constant(self, base_map: folium.Map):
         """Color map uses a special constant ID for identification."""
         html = render_control(LayerControl())

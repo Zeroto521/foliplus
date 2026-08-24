@@ -49,3 +49,27 @@ describe("UNKNOWN", () => {
     expect(SVGs.UNKNOWN).toContain("</svg>");
   });
 });
+
+describe("COLOR", () => {
+  it("is an SVG string with paint-bucket path", () => {
+    expect(SVGs.COLOR).toContain("<svg");
+    expect(SVGs.COLOR).toContain("path");
+  });
+});
+
+describe("FOLD", () => {
+  it("is an SVG string with polyline", () => {
+    expect(SVGs.FOLD).toContain("<svg");
+    expect(SVGs.FOLD).toContain("polyline");
+  });
+});
+
+describe("MORE", () => {
+  it("is an SVG string with three vertical dots", () => {
+    expect(SVGs.MORE).toContain("<svg");
+    // Three circles at cy=6, 12, 18
+    expect(SVGs.MORE).toMatch(/cx="12"[^>]*cy="6"/);
+    expect(SVGs.MORE).toMatch(/cx="12"[^>]*cy="12"/);
+    expect(SVGs.MORE).toMatch(/cx="12"[^>]*cy="18"/);
+  });
+});

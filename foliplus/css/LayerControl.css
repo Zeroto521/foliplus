@@ -70,8 +70,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--icon-size-md);
-    height: var(--icon-size-md);
+    width: var(--icon-size-xs);
+    height: var(--icon-size-xs);
     color: var(--text-primary);
 
     svg {
@@ -272,21 +272,15 @@
       margin: 0;
       font-weight: var(--font-weight-normal);
     }
-    .foliplus-layer-count,
-    .foliplus-type-icon-col,
-    .foliplus-drag-cell {
-      align-self: center;
-    }
-
     /* ── Feature count column ──
-      Right-aligned so digits sit flush against the icon column. */
+      Right-aligned, capped at 5 chars. */
     .foliplus-layer-count {
-      align-self: center;
       font-variant-numeric: tabular-nums;
       font-size: var(--font-size-xs);
       color: var(--text-muted);
       text-align: right;
       white-space: nowrap;
+      max-width: 5ch;
       overflow: hidden;
       text-overflow: ellipsis;
       line-height: var(--line-height-md);
