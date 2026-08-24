@@ -39,8 +39,7 @@
     Each row is an independent grid container that reuses this track.
     Using a single CSS variable keeps column widths in sync across
     layer-item / toggle-all / color-item rows without subgrid. */
-  --grid-layer-cols: var(--icon-size-xs) var(--space-xl) 1fr 38px var(--icon-size-xs)
-    9px;
+  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr 38px var(--space-xl) 9px;
   --grid-layer-gap: 3px;
 
   /* ── Panel Content Overrides ── */
@@ -70,8 +69,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--icon-size-xs);
-    height: var(--icon-size-xs);
+    width: var(--space-xl);
+    height: var(--space-xl);
     color: var(--text-primary);
 
     svg {
@@ -106,12 +105,24 @@
 
   /* ── Shared grid placements (each row is an independent grid container,
        so these global rules apply inside all of them via grid-context evaluation). */
-  .foliplus-drag-cell { grid-area: drag; }
-  .foliplus-checkbox    { grid-area: check; }
-  .foliplus-layer-label { grid-area: label; }
-  .foliplus-layer-count { grid-area: count; }
-  .foliplus-type-icon-col { grid-area: icon; }
-  .foliplus-layer-more-btn { grid-area: more; }
+  .foliplus-drag-cell {
+    grid-area: drag;
+  }
+  .foliplus-checkbox {
+    grid-area: check;
+  }
+  .foliplus-layer-label {
+    grid-area: label;
+  }
+  .foliplus-layer-count {
+    grid-area: count;
+  }
+  .foliplus-type-icon-col {
+    grid-area: icon;
+  }
+  .foliplus-layer-more-btn {
+    grid-area: more;
+  }
 
   /* ── Toggle-all item (section header row) ──
     Right padding tighter than regular items to align the left border with
@@ -165,8 +176,8 @@
     cursor: pointer;
     padding: 0;
     margin: 0;
-    width: var(--icon-size-xs);
-    height: var(--icon-size-md);
+    width: var(--space-xl);
+    height: var(--space-xl);
     flex-shrink: 0;
     color: var(--text-primary);
     transition:
@@ -174,8 +185,8 @@
       transform var(--transition-fast);
 
     svg {
-      width: var(--icon-size-xs);
-      height: var(--icon-size-xs);
+      width: var(--space-xl);
+      height: var(--space-xl);
       fill: none;
       stroke: currentColor;
       stroke-width: var(--stroke-icon);
@@ -224,8 +235,8 @@
     Shared size for all drag handles in layer rows.
     Shown on hover for draggable items; hidden for color rows. */
   .drag-handle {
-    width: var(--icon-size-xs);
-    height: var(--icon-size-md);
+    width: var(--space-xl);
+    height: var(--space-xl);
 
     /* Circles use fill="currentColor"; add matching stroke so they stay bold,
       matching the appearance they had when .foliplus-ctrl-fold svg provided

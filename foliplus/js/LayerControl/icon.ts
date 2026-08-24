@@ -17,31 +17,31 @@ export const DRAG_HANDLE = `
   </svg>`;
 
 export const POINT = `
-  <svg viewBox="4 4 16 16">
-    <circle cx="12" cy="12" r="6"/>
+  <svg viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9"/>
   </svg>`;
 
 export const LINE = `
-  <svg viewBox="2 2 22 20">
-    <path d="M4 20 L10 6 L16 18 L22 4"/>
+  <svg viewBox="0 0 24 24">
+    <path d="M4 20 L10 6 L16 16 L20 4"/>
   </svg>`;
 
 export const POLYGON = `
-  <svg viewBox="1 1 22 22">
-    <polygon points="12,3 21,9 18,21 6,21 3,9"/>
+  <svg viewBox="0 0 24 24">
+    <polygon points="12,4 20,9 17,19 7,19 4,9"/>
   </svg>`;
 
 export const EMPTY = `
-  <svg viewBox="2 2 20 20">
+  <svg viewBox="0 0 24 24">
     <rect x="4" y="4" width="16" height="16" rx="2" class="dashed"/>
   </svg>`;
 
 export const UNKNOWN = `
   <svg viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10" class="dashed"/>
+    <circle cx="12" cy="12" r="9" class="dashed"/>
     <path d="M9.5 9.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5c0 1.5-2.5 2-2.5 4"
           fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-    <circle cx="12" cy="17" r="1.2" class="solid"/>
+    <circle cx="12" cy="17" r="1.5" class="solid"/>
   </svg>`;
 
 export const COLOR = `
@@ -62,7 +62,7 @@ export const FOLD = `
 /** Vertical three-dot "more" icon for the layer item overflow menu (reserved). */
 export const MORE = `
   <svg viewBox="9 3 6 18">
-    <circle cx="12" cy="6"  r="1.4" fill="currentColor"/>
-    <circle cx="12" cy="12" r="1.4" fill="currentColor"/>
-    <circle cx="12" cy="18" r="1.4" fill="currentColor"/>
+    <circle cx="12" cy="6"  r="1" fill="currentColor"/>
+    <circle cx="12" cy="12" r="1" fill="currentColor"/>
+    <circle cx="12" cy="18" r="1" fill="currentColor"/>
   </svg>`;

@@ -259,14 +259,16 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/LayerControl.css")
         assert "38px" in css
 
-    def test_type_icon_col_size_matches_grid(self):
-        """type-icon-col is 14px (icon-size-xs) to match its 14px grid column."""
+    def test_type_icon_col_size_anchored_to_checkbox(self):
+        """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
         css = read_css("foliplus/css/LayerControl.css")
-        # type-icon-col width/height should use icon-size-xs (14px), not icon-size-md (18px)
+        # type-icon-col width/height use the checkbox square (--space-xl = 16px),
+        # not the old 14px/18px icon-size tokens.
         idx = css.find(".foliplus-type-icon-col {")
         assert idx != -1
         block = css[idx : css.index("}", idx) + 1]
-        assert "var(--icon-size-xs)" in block
+        assert "var(--space-xl)" in block
+        assert "var(--icon-size-xs)" not in block
         assert "var(--icon-size-md)" not in block
 
     def test_more_column_width_9px(self):
