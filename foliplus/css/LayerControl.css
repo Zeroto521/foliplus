@@ -41,6 +41,7 @@
     layer-item / toggle-all / color-item rows without subgrid. */
   --grid-layer-cols: var(--icon-size-xs) var(--space-xl) 1fr 28px var(--icon-size-md)
     18px;
+  --grid-layer-gap: 3px;
 
   /* ── Panel Content Overrides ── */
   .foliplus-panel-content {
@@ -88,17 +89,9 @@
       }
     }
   }
-  .foliplus-layer-sep {
-    display: grid;
-    grid-template-columns: var(--grid-layer-cols);
-    column-gap: 3px;
-    align-items: center;
-    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-xxl);
-    cursor: default;
-    user-select: none;
-    border-radius: var(--radius-sm);
-  }
+  /* ── Section label (rendered only inside toggle-all rows) ── */
   .foliplus-layer-sep-label {
+    grid-area: label;
     font-size: var(--font-size-xs);
     color: var(--text-muted);
     text-transform: uppercase;
@@ -113,7 +106,6 @@
   .foliplus-layer-label { grid-area: label; }
   .foliplus-layer-count { grid-area: count; }
   .foliplus-type-icon-col { grid-area: icon; }
-  .foliplus-layer-sep-label { grid-area: label; }
 
   /* ── Toggle-all item (section header row) ──
     Right padding tighter than regular items to align the left border with
@@ -122,7 +114,7 @@
     display: grid;
     grid-template-columns: var(--grid-layer-cols);
     grid-template-areas: "drag check label divider divider divider";
-    column-gap: 3px;
+    column-gap: var(--grid-layer-gap);
     align-items: center;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
     border-left: var(--border-thick) solid transparent;
@@ -228,7 +220,6 @@
   .drag-handle {
     width: var(--icon-size-xs);
     height: var(--icon-size-md);
-    align-self: center;
 
     /* Circles use fill="currentColor"; add matching stroke so they stay bold,
       matching the appearance they had when .foliplus-ctrl-fold svg provided
@@ -260,7 +251,7 @@
     display: grid;
     grid-template-columns: var(--grid-layer-cols);
     grid-template-areas: "drag check label count icon .";
-    column-gap: 3px;
+    column-gap: var(--grid-layer-gap);
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
     align-items: center;
     cursor: default;
@@ -363,11 +354,6 @@
   /* ── Color layer item overrides ──
      Pointer cursor (not draggable) */
   .foliplus-color-layer-item {
-    display: grid;
-    grid-template-columns: var(--grid-layer-cols);
-    grid-template-areas: "drag check label count icon .";
-    column-gap: 3px;
-    align-items: center;
     cursor: pointer;
   }
   /* ── Checkbox styles ── */
