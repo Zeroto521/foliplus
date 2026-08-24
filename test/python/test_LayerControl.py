@@ -269,6 +269,26 @@ class TestLayerControlRendering:
         assert "var(--icon-size-xs)" in block
         assert "var(--icon-size-md)" not in block
 
+    def test_more_column_width_9px(self):
+        """More grid column and button are 9px wide (icon diameter + breathing)."""
+        css = read_css("foliplus/css/LayerControl.css")
+        # grid track ends with a 9px 'more' column
+        idx = css.find("--grid-layer-cols:")
+        assert idx != -1
+        track = css[idx : css.index(";", idx)]
+        assert track.strip().endswith("9px")
+        # more-btn width is 9px, not the default icon-size-xs
+        # The .foliplus-layer-more-btn selector appears twice (grid-area and
+        # width rules); assert against the one carrying the width declaration.
+        blks = [
+            css[i : css.index("}", i) + 1]
+            for i in range(len(css))
+            if css.startswith(".foliplus-layer-more-btn {", i)
+        ]
+        assert blks, "no .foliplus-layer-more-btn { rule found"
+        assert "width: 9px" in "\n".join(blks)
+        assert not any("var(--icon-size-xs)" in b for b in blks)
+
     def test_color_map_id_constant(self, base_map: folium.Map):
         """Color map uses a special constant ID for identification."""
         html = render_control(LayerControl())

@@ -40,7 +40,7 @@
     Using a single CSS variable keeps column widths in sync across
     layer-item / toggle-all / color-item rows without subgrid. */
   --grid-layer-cols: var(--icon-size-xs) var(--space-xl) 1fr 38px var(--icon-size-xs)
-    var(--icon-size-xs);
+    9px;
   --grid-layer-gap: 3px;
 
   /* ── Panel Content Overrides ── */
@@ -75,16 +75,21 @@
     color: var(--text-primary);
 
     svg {
+      /* Uniform visual size: every type icon fills its cell. Each viewBox is
+         inset by a small margin so the 1.8px stroke sits fully inside the box
+         (nothing clipped) and the visible icon stays consistent and legible. */
       width: 100%;
       height: 100%;
       display: block;
       transition: transform var(--transition-fast);
 
-      /* Shared dashed style for EMPTY / UNKNOWN icons */
+      /* Shared dashed style for EMPTY / UNKNOWN icons.
+         Matches --stroke-icon (1.8) so the whole type-icon family renders
+         at a single consistent weight. */
       .dashed {
         fill: none;
         stroke: currentColor;
-        stroke-width: 1.5;
+        stroke-width: var(--stroke-icon);
         stroke-dasharray: 4 3;
       }
     }
@@ -330,8 +335,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--icon-size-xs);
-    height: var(--icon-size-xs);
+    width: 9px;
+    height: var(--icon-size-md);
     background: none;
     border: none;
     padding: 0;
