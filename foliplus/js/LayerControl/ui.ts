@@ -268,7 +268,7 @@ class LayerUI {
       },
       dom.el(
         "span",
-        { title: _(`${CONF.name}.drag_tooltip`) },
+        { class: CONST.CLASSES.DRAG_CELL, title: _(`${CONF.name}.drag_tooltip`) },
         { html: SVGs.DRAG_HANDLE },
       ),
       dom.el(
@@ -299,8 +299,7 @@ class LayerUI {
       class: CONST.CLASSES.TYPE_ICON_COL,
       innerHTML: SVGs.COLOR,
     });
-    // color item uses subgrid to keep icon count/icon columns aligned with
-    // other rows; count column is empty (color layers have no feature count).
+    // count column is empty (color layers have no feature count).
     const countEl = dom.el("span", { class: CONST.CLASSES.COUNT_COL });
     return dom.el(
       "div",
@@ -310,9 +309,9 @@ class LayerUI {
         [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
         title: _(`${CONF.name}.color_map_label`),
       },
-      { html: SVGs.DRAG_HANDLE },
+      dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
       dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
-      dom.el("label", null, _(`${CONF.name}.color_map_label`)),
+      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, _(`${CONF.name}.color_map_label`)),
       countEl,
       typeIconEl,
     );

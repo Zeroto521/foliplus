@@ -20,6 +20,7 @@ export const CLASSES = {
   LAYER_ITEM: "foliplus-layer-item",
   ACTIVE: "active",
   CHECKBOX: "foliplus-checkbox",
+  DRAG_CELL: "foliplus-drag-cell",
   GROUP_FOLDED: "foliplus-layer-group-folded",
   COLOR_INPUT: "foliplus-color-layer-input",
   COLOR_ITEM: "foliplus-color-layer-item",
