@@ -351,11 +351,16 @@
       width: 100%;
       height: 100%;
       display: block;
+      transition: transform var(--transition-fast);
     }
   }
   .foliplus-layer-item:hover .foliplus-layer-more-btn,
   .foliplus-layer-item.active .foliplus-layer-more-btn {
     color: var(--text-primary);
+  }
+  .foliplus-layer-item:hover .foliplus-layer-more-btn svg,
+  .foliplus-layer-item.active .foliplus-layer-more-btn svg {
+    transform: scale(var(--scale-hover));
   }
 
   /* ── Color layer item overrides ──
