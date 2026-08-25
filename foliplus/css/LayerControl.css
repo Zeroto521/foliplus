@@ -309,7 +309,9 @@
       font-weight: var(--font-weight-normal);
     }
     /* ── Feature count column ──
-      Right-aligned, the 38px column itself caps display to ~5 chars. */
+      Right-aligned, the 38px column itself caps display to ~5 chars.
+      Stays muted gray in every state: the count is annotation, not a control,
+      so it intentionally does not join the hover/active color dance. */
     .foliplus-layer-count {
       font-variant-numeric: tabular-nums;
       font-size: var(--font-size-xs);
@@ -320,7 +322,6 @@
       text-overflow: ellipsis;
       line-height: var(--line-height-hint);
       padding: 0 0 0 var(--space-xs);
-      transition: color var(--transition-fast);
     }
 
     &[draggable="true"] {
@@ -330,11 +331,12 @@
       border-left-color: var(--accent-primary);
       background: var(--accent-light);
     }
-    &:hover .foliplus-type-icon-col {
-      color: var(--text-primary);
-    }
+    /* Identity: gray at rest, wakes to black on hover and when the row is
+       active. Accent stays reserved for actions (more) and status (border),
+       so the type icon reads as focus, not as a call-to-action. */
+    &:hover .foliplus-type-icon-col,
     &.active .foliplus-type-icon-col {
-      color: var(--accent-primary);
+      color: var(--text-primary);
     }
     &.foliplus-layer-dragging {
       background: var(--accent-light);
@@ -354,15 +356,11 @@
       animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
         var(--drag-pulse-count);
     }
-    &:hover .foliplus-layer-count,
-    &.active .foliplus-layer-count {
-      color: var(--text-primary);
-    }
   }
   /* ── More options button (reserved slot, always visible) ──
-    Black at rest/hover so the glyph never reads as "inactive" next to a
-    red-accented active row; tints accent only when the row itself is active,
-    matching the type-icon / count column hierarchy. */
+    Black at rest; tints accent on hover AND when the row is active. As the
+    row's only in-line action, it answers to the action color immediately on
+    hover, not only when selected. */
   .foliplus-layer-more-btn {
     align-self: center;
     display: flex;
@@ -376,6 +374,7 @@
     margin: 0;
     color: var(--text-primary);
     cursor: pointer;
+    transition: color var(--transition-fast);
 
     svg {
       width: 100%;
@@ -383,6 +382,7 @@
       display: block;
     }
   }
+  .foliplus-layer-item:hover .foliplus-layer-more-btn,
   .foliplus-layer-item.active .foliplus-layer-more-btn {
     color: var(--accent-primary);
   }

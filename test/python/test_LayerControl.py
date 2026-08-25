@@ -312,23 +312,61 @@ class TestLayerControlRendering:
         assert "LayerControl.base_map_label" in html
 
     def test_css_interaction_effects(self, base_map: folium.Map):
-        """CSS hover/active effects exist for interactive elements."""
+        """CSS hover/active effects exist for interactive elements, reflecting
+        the layered color hierarchy:
+            type icon : gray -> black (hover) -> black (active)
+            count     : gray in every state (annotation, not a control)
+            more      : black -> red (hover) -> red (active)  (action color)
+            checkbox  : red when checked (row status)
+        Only color changes; the type icon must NOT scale."""
         html = render_control(LayerControl())
         # Color layer picker (via :is() selector, no literal :hover string)
         assert "foliplus-color-layer-input" in html
         # Fold toggle button SVG
         assert "foliplus-layer-fold-btn:hover svg" in html
         assert "foliplus-layer-fold-btn:active" in html
-        # Type icon column: hover/active feedback is color-only. The glyph must
-        # NOT scale — scaling the 16px icon overflows its column and shrinks the
-        # adjacent 3px gaps (count↔icon, icon↔more), breaking the uniform row
-        # spacing. Only the color changes on the active row.
+
+        # Type icon: hover AND active both wake it to black (primary), never red.
         assert "foliplus-type-icon-col svg" in html
         assert "transition: transform" in html
+        assert ".foliplus-layer-item:hover .foliplus-type-icon-col" in html
         assert ".foliplus-layer-item.active .foliplus-type-icon-col" in html
-        assert "color: var(--accent-primary)" in html
+        # It is the *active* type-icon rule that carries the primary color, not
+        # an accent color (accent stays reserved for actions + status).
+        act_type = [
+            html[i : html.index("}", i)]
+            for i in range(len(html))
+            if "layer-item.active .foliplus-type-icon-col" in html[max(0, i - 60) : i + 60]
+        ]
+        assert any("color: var(--text-primary)" in b for b in act_type), (
+            "type icon on active row must be black, not accent"
+        )
+        assert not any("color: var(--accent-primary)" in b for b in act_type), (
+            "type icon must never tint accent"
+        )
         # Regression guard: no scale transform may be reintroduced on the icon
         assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" not in html
+
+        # More button: red (accent) on BOTH hover and active — the row's action.
+        more_blks = [
+            html[i : html.index("}", i)]
+            for i in range(len(html))
+            if "layer-item:hover .foliplus-layer-more-btn" in html[max(0, i - 60) : i + 60]
+        ]
+        assert any("color: var(--accent-primary)" in b for b in more_blks), (
+            "more button must tint accent on hover/active"
+        )
+
+        # Count column: stays muted in every state — no hover/active brightening.
+        count_hover = [
+            html[i : html.index("}", i)]
+            for i in range(len(html))
+            if "layer-item:hover .foliplus-layer-count" in html[max(0, i - 60) : i + 60]
+        ]
+        assert not count_hover, (
+            "count must not brighten on hover (annotation, not a control)"
+        )
+
         # Toggle button SVG inherits color
         assert "foliplus-toggle-btn svg" in html
         assert "stroke: currentColor" in html
