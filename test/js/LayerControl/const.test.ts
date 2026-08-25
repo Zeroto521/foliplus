@@ -28,11 +28,64 @@ describe("STORAGE", () => {
   });
 });
 
+describe("COLOR", () => {
+  it("defines color map id and default value", () => {
+    expect(CONST.COLOR.MAP_ID).toBe("foliplus_color_map");
+    expect(CONST.COLOR.DEFAULT).toBe("#cccccc");
+  });
+});
+
 describe("CLASSES", () => {
-  it("defines CSS class constants", () => {
+  it("defines layer item and interaction classes", () => {
     expect(CONST.CLASSES.LAYER_ITEM).toBe("foliplus-layer-item");
+    expect(CONST.CLASSES.ACTIVE).toBe("active");
     expect(CONST.CLASSES.DRAGGING).toBe("foliplus-layer-dragging");
+    expect(CONST.CLASSES.DRAG_OVER_TOP).toBe("foliplus-layer-drag-over-top");
+    expect(CONST.CLASSES.DRAG_OVER_BOTTOM).toBe("foliplus-layer-drag-over-bottom");
+  });
+
+  it("defines grid column classes", () => {
+    expect(CONST.CLASSES.DRAG_CELL).toBe("foliplus-drag-cell");
+    expect(CONST.CLASSES.CHECKBOX).toBe("foliplus-checkbox");
+    expect(CONST.CLASSES.LAYER_LABEL).toBe("foliplus-layer-label");
+    expect(CONST.CLASSES.COUNT_COL).toBe("foliplus-layer-count");
+    expect(CONST.CLASSES.TYPE_ICON_COL).toBe("foliplus-type-icon-col");
+    expect(CONST.CLASSES.MORE_BTN).toBe("foliplus-layer-more-btn");
+  });
+
+  it("defines fold and toggle-all classes", () => {
     expect(CONST.CLASSES.FOLD_BTN).toBe("foliplus-layer-fold-btn");
+    expect(CONST.CLASSES.FOLDED).toBe("foliplus-layer-folded");
+    expect(CONST.CLASSES.TOGGLE_ALL).toBe("foliplus-layer-toggle-all");
+    expect(CONST.CLASSES.FOLD_BTN_CTR).toBe("foliplus-layer-sep");
+    expect(CONST.CLASSES.SEP_LABEL).toBe("foliplus-layer-sep-label");
+    expect(CONST.CLASSES.GROUP_FOLDED).toBe("foliplus-layer-group-folded");
+  });
+
+  it("defines color and utility classes", () => {
+    expect(CONST.CLASSES.COLOR_INPUT).toBe("foliplus-color-layer-input");
+    expect(CONST.CLASSES.COLOR_ITEM).toBe("foliplus-color-layer-item");
+    expect(CONST.CLASSES.HIDDEN).toBe("hidden");
+    expect(CONST.CLASSES.FOCUSED).toBe("foliplus-layer-focused");
+  });
+});
+
+describe("DATA", () => {
+  it("defines data attribute names", () => {
+    expect(CONST.DATA.INDEX).toBe("data-index");
+    expect(CONST.DATA.LAYER_ID).toBe("data-layer-id");
+    expect(CONST.DATA.COUNT).toBe("data-item-count");
+    expect(CONST.DATA.TITLE).toBe("data-item-title");
+  });
+});
+
+describe("SEL", () => {
+  it("defines DOM selectors", () => {
+    expect(CONST.SEL.LAYER_ITEM).toBe(".foliplus-layer-item");
+    expect(CONST.SEL.COLOR_ITEM).toBe(".foliplus-color-layer-item");
+    expect(CONST.SEL.COLOR_INPUT).toBe(".foliplus-color-layer-input");
+    expect(CONST.SEL.TOGGLE_ALL).toBe(".foliplus-layer-toggle-all");
+    expect(CONST.SEL.COUNT_COL).toBe(".foliplus-layer-count");
   });
 });
 

@@ -249,10 +249,6 @@ class LayerUI {
   renderLayerItem(layerInfo: LayerInfo, idx: number) {
     const en = escapeHTML(layerInfo.name);
 
-    const countEl = dom.el("span", {
-      class: CONST.CLASSES.COUNT_COL,
-      [CONST.DATA.LAYER_ID]: layerInfo.id,
-    });
     const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
     if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
 
@@ -268,7 +264,7 @@ class LayerUI {
       },
       dom.el(
         "span",
-        { title: _(`${CONF.name}.drag_tooltip`) },
+        { class: CONST.CLASSES.DRAG_CELL, title: _(`${CONF.name}.drag_tooltip`) },
         { html: SVGs.DRAG_HANDLE },
       ),
       dom.el(
@@ -283,12 +279,32 @@ class LayerUI {
         }),
       ),
       dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, en),
-      countEl,
+      dom.el("span", {
+        class: CONST.CLASSES.COUNT_COL,
+        [CONST.DATA.LAYER_ID]: layerInfo.id,
+      }),
       typeIconEl,
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.MORE_BTN,
+          type: "button",
+          title: _(`${CONF.name}.more_tooltip`),
+          "aria-label": _(`${CONF.name}.more_tooltip`),
+        },
+        { html: SVGs.MORE },
+      ),
     );
   }
 
   renderColorLayerItem() {
+    const colorInput = dom.el("input", {
+      type: "color",
+      class: CONST.CLASSES.COLOR_INPUT,
+      value: this.currentColor,
+      "aria-label": _(`${CONF.name}.color_map_label`),
+    });
+
     return dom.el(
       "div",
       {
@@ -297,19 +313,26 @@ class LayerUI {
         [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
         title: _(`${CONF.name}.color_map_label`),
       },
-      { html: SVGs.DRAG_HANDLE },
+      dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
+      dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
       dom.el(
-        "div",
-        { class: CONST.CLASSES.CHECKBOX },
-        dom.el("input", {
-          type: "color",
-          class: CONST.CLASSES.COLOR_INPUT,
-          value: this.currentColor,
-          "aria-label": _(`${CONF.name}.color_map_label`),
-        }),
+        "label",
+        { class: CONST.CLASSES.LAYER_LABEL },
+        _(`${CONF.name}.color_map_label`),
       ),
-      dom.el("label", null, _(`${CONF.name}.color_map_label`)),
-      { html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${SVGs.COLOR}</div>` },
+      // count column is empty (color layers have no feature count).
+      dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
+      dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.MORE_BTN,
+          type: "button",
+          title: _(`${CONF.name}.more_tooltip`),
+          "aria-label": _(`${CONF.name}.more_tooltip`),
+        },
+        { html: SVGs.MORE },
+      ),
     );
   }
 

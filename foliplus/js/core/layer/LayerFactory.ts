@@ -26,6 +26,8 @@ interface LayerFactoryDeps {
    * Optional: notify on runtime layer content changes (add/remove/clear).
    * Lets LayerControl refresh a layer's feature count column live when a
    * third party mutates the layer tree through the createLayers API.
+   * NOTE: if a featureCountProvider is supplied, this is skipped — the
+   * owning component manages its own counts via emit(LAYER_ITEM_COUNT_CHANGE).
    */
   onDataChange?: (id: string) => void;
 }
@@ -47,6 +49,12 @@ class LayerFactory {
       invalidateType,
       onDataChange,
     } = this.deps;
+    // Components that supply featureCountProvider (MeasureControl, Heatmap)
+    // manage their own counts via emit(LAYER_ITEM_COUNT_CHANGE). For them,
+    // onDataChange would over-fire on every addLayer (preview layers in
+    // MeasureControl alone call addLayer 6-7 times per measurement), causing
+    // redundant UI refreshes of an unchanged count. Skip it.
+    const onDataChangeSkip = !!opts.featureCountProvider;
     const mainLayer = L.layerGroup();
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
@@ -108,7 +116,7 @@ class LayerFactory {
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
         invalidateType(opts.id);
-        onDataChange?.(opts.id);
+        if (!onDataChangeSkip) onDataChange?.(opts.id);
         return result;
       }
       return origAddLayer(layer);
@@ -120,7 +128,7 @@ class LayerFactory {
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
         invalidateType(opts.id);
-        onDataChange?.(opts.id);
+        if (!onDataChangeSkip) onDataChange?.(opts.id);
         return result;
       }
       if (labelLayer && labelLayer.hasLayer(layer)) {
@@ -128,7 +136,7 @@ class LayerFactory {
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
         invalidateType(opts.id);
-        onDataChange?.(opts.id);
+        if (!onDataChangeSkip) onDataChange?.(opts.id);
         return result;
       }
       return origRemoveLayer(layer);
@@ -146,7 +154,7 @@ class LayerFactory {
         (labelLayer ? labelLayer.getLayers().length > 0 : false);
       if (graphLayer) graphLayer.clearLayers();
       if (labelLayer) labelLayer.clearLayers();
-      if (hadContent) onDataChange?.(opts.id);
+      if (hadContent && !onDataChangeSkip) onDataChange?.(opts.id);
       if (map.hasLayer(mainLayer)) map.removeLayer(mainLayer);
       unregister();
       return mainLayer;
