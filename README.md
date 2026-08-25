@@ -7,11 +7,23 @@
   <em>foliplus: the missing piece between "see the map" and "use the map." GeoPandas handles data, Folium renders it, foliplus brings it to life.</em>
 </p>
 
-[![PyPI Version](https://img.shields.io/pypi/v/foliplus?color=%2334D058)](https://pypi.org/project/foliplus/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/foliplus?color=%2334D058)](https://pypi.org/project/foliplus/)
-[![Test Status](https://github.com/Zeroto521/foliplus/actions/workflows/test.yaml/badge.svg)](https://github.com/Zeroto521/foliplus/actions/workflows/test.yaml)
-[![Coverage Status](https://codecov.io/gh/Zeroto521/foliplus/branch/main/graph/badge.svg)](https://codecov.io/gh/Zeroto521/foliplus)
-[![Documentation Status](https://readthedocs.org/projects/foliplus/badge/?version=latest)](https://foliplus.readthedocs.io/en/latest/?badge=latest)
+<p align="center">
+  <a href="https://pypi.org/project/foliplus">
+      <img src="https://img.shields.io/pypi/v/foliplus?color=%2334D058" alt="Package Version">
+  </a>
+  <a href="https://pypi.org/project/foliplus">
+      <img src="https://img.shields.io/pypi/pyversions/foliplus.svg?color=%2334D058" alt="Supported Python">
+  </a>
+  <a href="https://github.com/Zeroto521/foliplus/actions/workflows/test.yaml">
+      <img src="https://github.com/Zeroto521/foliplus/actions/workflows/test.yaml/badge.svg" alt="Tests">
+  </a>
+  <a href="https://codecov.io/gh/Zeroto521/foliplus">
+      <img src="https://codecov.io/gh/Zeroto521/foliplus/branch/main/graph/badge.svg" alt="Codecov">
+  </a>
+  <a href="https://foliplus.readthedocs.io/en/latest/?badge=latest">
+      <img src="https://readthedocs.org/projects/foliplus/badge/?version=latest" alt="Documentation">
+  </a>
+</p>
 
 ## Features
 
