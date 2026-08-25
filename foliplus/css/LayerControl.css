@@ -29,7 +29,7 @@
   --drag-border-from: var(--accent-primary);
   --drag-border-to: var(--accent-hover);
   /* Pulse shadow: start (from, tight) and end (to, diffuse) states */
-  --drag-shadow-from: 0 0 var(--size-4) -1px var(--accent-primary);
+  --drag-shadow-from: 0 0 var(--size-4) calc(-1 * var(--border-thin)) var(--accent-primary);
   --drag-shadow-to: 0 0 var(--size-8) 0 var(--accent-primary);
 
   /* ── Layout ── */
@@ -44,7 +44,8 @@
   --count-col-width: 38px;
   --more-btn-width: 7px;
   --grid-layer-gap: 3px;
-  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-col-width) var(--space-xl) var(--more-btn-width);
+  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-col-width)
+    var(--space-xl) var(--more-btn-width);
 
   /* ── Row min-height ──
      Data rows are taller than group headers only because a data label spans
@@ -87,9 +88,10 @@
     height: var(--space-xl);
     color: var(--text-muted);
 
-    /* Same muted → primary → accent hierarchy as count, more, and drag:
-       type icons recede at rest and wake up on row hover (rule lives with the
-       row-hover group below); the active row keeps its accent emphasis. */
+    /* Four-tier role hierarchy: identity icons recede at rest and wake to
+       black (primary) on hover/active. Accent stays reserved for status
+       (checkbox + left border) and actions (more), so the type icon reads as
+       focus, not as a call-to-action. */
 
     svg {
       /* Uniform visual size: every type icon fills its cell. Each viewBox is
