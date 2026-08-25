@@ -408,6 +408,15 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.overlay.unregister).toHaveBeenCalled();
   });
 
+  it("clearHeatmapCanvas emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count to 0", () => {
+    const m = makeManager();
+    const bus = ensureEvents(m.map);
+    const handler = vi.fn();
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+    m.clearHeatmapCanvas();
+    expect(handler).toHaveBeenCalledWith({ id: m.layerId });
+  });
+
   it("renderHexagons clears canvas when no layer selected", () => {
     const m = makeManager();
     m.selectedLayerId = null;
@@ -535,6 +544,17 @@ describe("renderFeatures", () => {
     expect(m.cachedFeatures).toBe(features);
     expect(m.overlay.register).toHaveBeenCalled();
     expect(m.redrawHeatmap).toHaveBeenCalled();
+  });
+
+  it("emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes the count column", () => {
+    const m = makeManager();
+    m.overlay.register = vi.fn();
+    m.redrawHeatmap = vi.fn();
+    const bus = ensureEvents(m.map);
+    const handler = vi.fn();
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+    m.renderFeatures([{ type: "Feature" }] as any);
+    expect(handler).toHaveBeenCalledWith({ id: m.layerId });
   });
 });
 
