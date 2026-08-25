@@ -1,8 +1,11 @@
 <p align="center">
-  <a href="https://foliplus.readthedocs.io">
-    foliplus
-  </a>
+  <a href="https://foliplus.readthedocs.io">foliplus</a>
 </p>
+
+<p align="center">
+  <a href="https://foliplus.readthedocs.io/en/latest/quickstart.html#display-map"><img src="doc/source/_static/preview.png" alt="Preview"></a>
+</p>
+
 <p align="center">
   <em>foliplus: the missing piece between "see the map" and "use the map." GeoPandas handles data, Folium renders it, foliplus brings it to life.</em>
 </p>
