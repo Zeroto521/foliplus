@@ -29,7 +29,8 @@
   --drag-border-from: var(--accent-primary);
   --drag-border-to: var(--accent-hover);
   /* Pulse shadow: start (from, tight) and end (to, diffuse) states */
-  --drag-shadow-from: 0 0 var(--size-4) calc(-1 * var(--border-thin)) var(--accent-primary);
+  --drag-shadow-from: 0 0 var(--size-4) calc(-1 * var(--border-thin))
+    var(--accent-primary);
   --drag-shadow-to: 0 0 var(--size-8) 0 var(--accent-primary);
 
   /* ── Layout ── */

@@ -336,7 +336,8 @@ class TestLayerControlRendering:
         act_type = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "layer-item.active .foliplus-type-icon-col" in html[max(0, i - 60) : i + 60]
+            if "layer-item.active .foliplus-type-icon-col"
+            in html[max(0, i - 60) : i + 60]
         ]
         assert any("color: var(--text-primary)" in b for b in act_type), (
             "type icon on active row must be black, not accent"
@@ -351,7 +352,8 @@ class TestLayerControlRendering:
         more_blks = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "layer-item:hover .foliplus-layer-more-btn" in html[max(0, i - 60) : i + 60]
+            if "layer-item:hover .foliplus-layer-more-btn"
+            in html[max(0, i - 60) : i + 60]
         ]
         assert any("color: var(--accent-primary)" in b for b in more_blks), (
             "more button must tint accent on hover/active"

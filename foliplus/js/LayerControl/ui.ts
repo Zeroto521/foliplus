@@ -315,7 +315,11 @@ class LayerUI {
       },
       dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
       dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
-      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, _(`${CONF.name}.color_map_label`)),
+      dom.el(
+        "label",
+        { class: CONST.CLASSES.LAYER_LABEL },
+        _(`${CONF.name}.color_map_label`),
+      ),
       // count column is empty (color layers have no feature count).
       dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
       dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
