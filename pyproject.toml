@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "foliplus"
 dynamic = ["version"]
-description = "foliplus turns a web map into something you can actually work. It brings GIS desktop tools to the browser."
+description = 'foliplus: the missing piece between "see the map" and "use the map."'
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "40% <@Zeroto521>", email = "Zeroto521@gmail.com" }]
