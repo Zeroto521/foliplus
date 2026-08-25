@@ -124,11 +124,9 @@
        so these global rules apply inside all of them via grid-context evaluation). */
   .foliplus-drag-cell {
     grid-area: drag;
-    /* Same color hierarchy as the more button: both are small dot glyphs.
-       The grip is invisible until row hover (opacity via .drag-handle), so the
-       muted resting value only applies while hidden; on hover it wakes to
-       primary, and on an active row it tints accent — mirroring the more btn. */
-    color: var(--text-muted);
+    /* Always black. The grip is a static affordance, not a control that joins
+       the hover/active color dance, so it never tints accent. */
+    color: var(--text-primary);
   }
   .foliplus-checkbox {
     grid-area: check;
@@ -384,14 +382,6 @@
   }
   .foliplus-layer-item:hover .foliplus-layer-more-btn,
   .foliplus-layer-item.active .foliplus-layer-more-btn {
-    color: var(--accent-primary);
-  }
-  /* Drag grip follows the same hierarchy so drag ↔ more render as a matched pair */
-  .foliplus-layer-item:hover .foliplus-drag-cell,
-  .foliplus-layer-item.active .foliplus-drag-cell {
-    color: var(--text-primary);
-  }
-  .foliplus-layer-item.active .foliplus-drag-cell {
     color: var(--accent-primary);
   }
 
