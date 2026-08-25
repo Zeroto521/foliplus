@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://foliplus.readthedocs.io/en/latest/quickstart.html#display-map"><img src="doc/source/_static/preview.png" alt="Preview"></a>
+  <a href="https://foliplus.readthedocs.io/en/latest/quickstart.html#display-map"><img src="https://raw.githubusercontent.com/Zeroto521/foliplus/main/doc/source/_static/preview.png" alt="Preview"></a>
 </p>
 
 <p align="center">
