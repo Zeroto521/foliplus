@@ -38,9 +38,13 @@
   /* ── Shared 6-column track for all layer rows ──
     Each row is an independent grid container that reuses this track.
     Using a single CSS variable keeps column widths in sync across
-    layer-item / toggle-all / color-item rows without subgrid. */
-  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr 38px var(--space-xl) 7px;
+    layer-item / toggle-all / color-item rows without subgrid.
+    All track dimensions are named so the count / more columns stay
+    synchronised in --grid-layer-cols and each element's own width. */
+  --count-col-width: 38px;
+  --more-btn-width: 7px;
   --grid-layer-gap: 3px;
+  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-col-width) var(--space-xl) var(--more-btn-width);
 
   /* ── Row min-height ──
      Data rows are taller than group headers only because a data label spans
@@ -356,33 +360,28 @@
     }
   }
   /* ── More options button (reserved slot, always visible) ──
-    Color hierarchy mirrors the count column so the row reads at a single
-    muted-toned resting state that visibly wakes up on hover/active:
-      resting → muted;  row hover → primary;  active row → accent. */
+    Black at rest/hover so the glyph never reads as "inactive" next to a
+    red-accented active row; tints accent only when the row itself is active,
+    matching the type-icon / count column hierarchy. */
   .foliplus-layer-more-btn {
     align-self: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 7px;
+    width: var(--more-btn-width);
     height: var(--icon-size-md);
     background: none;
     border: none;
     padding: 0;
     margin: 0;
-    color: var(--text-muted);
+    color: var(--text-primary);
     cursor: pointer;
-    transition: color var(--transition-fast);
 
     svg {
       width: 100%;
       height: 100%;
       display: block;
     }
-  }
-  .foliplus-layer-item:hover .foliplus-layer-more-btn,
-  .foliplus-layer-item.active .foliplus-layer-more-btn {
-    color: var(--text-primary);
   }
   .foliplus-layer-item.active .foliplus-layer-more-btn {
     color: var(--accent-primary);

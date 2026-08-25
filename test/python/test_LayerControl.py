@@ -271,24 +271,28 @@ class TestLayerControlRendering:
         assert "var(--icon-size-xs)" not in block
         assert "var(--icon-size-md)" not in block
 
-    def test_more_column_width_7px(self):
-        """More grid column and button are 7px wide (3.5px dots + breathing)."""
+    def test_more_column_width_named_vars(self):
+        """More grid column and button both use --more-btn-width (7px),
+        and the count column uses --count-col-width; both keep the track and
+        each element's own width synchronised without magic numbers."""
         css = read_css("foliplus/css/LayerControl.css")
-        # grid track ends with a 7px 'more' column
+        # Named dimension vars are defined once
+        assert "--count-col-width: 38px" in css
+        assert "--more-btn-width: 7px" in css
+        # grid track references the named vars (not literals)
         idx = css.find("--grid-layer-cols:")
         assert idx != -1
         track = css[idx : css.index(";", idx)]
-        assert track.strip().endswith("7px")
-        # more-btn width is 7px, not the default icon-size-xs
-        # The .foliplus-layer-more-btn selector appears twice (grid-area and
-        # width rules); assert against the one carrying the width declaration.
+        assert "var(--more-btn-width)" in track
+        assert "var(--count-col-width)" in track
+        # more-btn width uses the named var, not icon-size-xs
         blks = [
             css[i : css.index("}", i) + 1]
             for i in range(len(css))
             if css.startswith(".foliplus-layer-more-btn {", i)
         ]
         assert blks, "no .foliplus-layer-more-btn { rule found"
-        assert "width: 7px" in "\n".join(blks)
+        assert "var(--more-btn-width)" in "\n".join(blks)
         assert not any("var(--icon-size-xs)" in b for b in blks)
 
     def test_color_map_id_constant(self, base_map: folium.Map):
