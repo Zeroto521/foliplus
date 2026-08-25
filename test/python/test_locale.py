@@ -123,6 +123,7 @@ _JS_USED_KEYS = {
     "LayerControl.select_tooltip",
     "LayerControl.deselect_tooltip",
     "LayerControl.drag_tooltip",
+    "LayerControl.more_tooltip",
     "LayerControl.readonly_error",
     "LayerControl.readonly_del_error",
     "LayerControl.readonly_method_error",

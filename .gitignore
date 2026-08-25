@@ -82,6 +82,7 @@ package-lock.json
 memory/
 myagents_files/
 CLAUDE.md
+HEARTBEAT.md
 UPDATE_MEMORY.md
 
 # Auto-generated

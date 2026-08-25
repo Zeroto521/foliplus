@@ -7,20 +7,29 @@ export const LAYERS = `
   </svg>`;
 
 export const DRAG_HANDLE = `
-  <svg viewBox="0 0 24 24" class="drag-handle">
-    <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
-    <circle cx="16" cy="6" r="1.5" fill="currentColor"/>
-    <circle cx="8" cy="12" r="1.5" fill="currentColor"/>
-    <circle cx="16" cy="12" r="1.5" fill="currentColor"/>
-    <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
-    <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
+  <svg viewBox="0 0 16 16" class="drag-handle">
+    <circle cx="4.5" cy="3" r="1.75" fill="currentColor"/>
+    <circle cx="11.5" cy="3" r="1.75" fill="currentColor"/>
+    <circle cx="4.5" cy="8" r="1.75" fill="currentColor"/>
+    <circle cx="11.5" cy="8" r="1.75" fill="currentColor"/>
+    <circle cx="4.5" cy="13" r="1.75" fill="currentColor"/>
+    <circle cx="11.5" cy="13" r="1.75" fill="currentColor"/>
   </svg>`;
 
-export const POINT = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>`;
+export const POINT = `
+  <svg viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="4" class="solid"/>
+  </svg>`;
 
-export const LINE = `<svg viewBox="0 0 24 24"><path d="M4 20 L10 6 L16 18 L22 4"/></svg>`;
+export const LINE = `
+  <svg viewBox="0 0 24 24">
+    <path d="M3 20 L9 6 L15 18 L21 4"/>
+  </svg>`;
 
-export const POLYGON = `<svg viewBox="0 0 24 24"><polygon points="12,3 21,9 18,21 6,21 3,9"/></svg>`;
+export const POLYGON = `
+  <svg viewBox="0 0 24 24">
+    <polygon points="12,4 20,9 17,19 7,19 4,9"/>
+  </svg>`;
 
 export const EMPTY = `
   <svg viewBox="0 0 24 24">
@@ -29,10 +38,10 @@ export const EMPTY = `
 
 export const UNKNOWN = `
   <svg viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10" class="dashed"/>
+    <circle cx="12" cy="12" r="9" class="dashed"/>
     <path d="M9.5 9.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5c0 1.5-2.5 2-2.5 4"
-          fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-    <circle cx="12" cy="17" r="1.2" class="solid"/>
+          fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    <circle cx="12" cy="17" r="1.5" class="solid"/>
   </svg>`;
 
 export const COLOR = `
@@ -45,4 +54,15 @@ export const COLOR = `
     <circle cx="8" cy="14" r="1" class="solid"/>
   </svg>`;
 
-export const FOLD = `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`;
+export const FOLD = `
+  <svg viewBox="0 0 24 24">
+    <polyline points="18 15 12 9 6 15"/>
+  </svg>`;
+
+/** Vertical three-dot "more" icon for the layer item overflow menu (reserved). */
+export const MORE = `
+  <svg viewBox="9 3 6 18">
+    <circle cx="12" cy="6" r="1.75" fill="currentColor"/>
+    <circle cx="12" cy="12" r="1.75" fill="currentColor"/>
+    <circle cx="12" cy="18" r="1.75" fill="currentColor"/>
+  </svg>`;
