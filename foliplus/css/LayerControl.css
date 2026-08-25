@@ -41,11 +41,13 @@
     Using a single CSS variable keeps column widths in sync across
     layer-item / toggle-all / color-item rows without subgrid.
     All track dimensions are named so the count / more columns stay
-    synchronised in --grid-layer-cols and each element's own width. */
-  --count-col-width: 38px;
+    synchronised in --grid-layer-cols and each element's own width.
+    Track width includes the count column's 4px right padding, so usable
+    content is ~34px — enough for ~5 chars at font-size-xs (caps at 999). */
+  --count-track-width: 38px;
   --more-btn-width: 7px;
   --grid-layer-gap: 3px;
-  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-col-width)
+  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-track-width)
     var(--space-xl) var(--more-btn-width);
 
   /* ── Row min-height ──
@@ -153,7 +155,12 @@
   .foliplus-layer-sep.foliplus-layer-toggle-all {
     display: grid;
     grid-template-columns: var(--grid-layer-cols);
-    grid-template-areas: "drag check label divider divider divider";
+    /* Drag/check/label are named slots (placed via item-level grid-area
+       shared with layer-item rows). Divider is 3 anonymous slots —
+       positioned by grid-column: 4 / -1 on the item, not a named area.
+       This avoids the dual-declaration coupling (template-areas + item
+       grid-area) that only the divider originally had. */
+    grid-template-areas: "drag check label . . .";
     column-gap: var(--grid-layer-gap);
     align-items: center;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
@@ -167,8 +174,7 @@
       border-color var(--transition-fast);
 
     .foliplus-section-divider {
-      grid-area: divider;
-      align-self: center;
+      grid-column: 4 / -1;
     }
   }
   /* Section label: primary color + semibold so it reads as a real header */
