@@ -18,7 +18,7 @@ export const DRAG_HANDLE = `
 
 export const POINT = `
   <svg viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="6" class="solid"/>
+    <circle cx="12" cy="12" r="4" class="solid"/>
   </svg>`;
 
 export const LINE = `
