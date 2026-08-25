@@ -12,19 +12,19 @@
 
 <p align="center">
   <a href="https://pypi.org/project/foliplus">
-      <img src="https://img.shields.io/pypi/v/foliplus?color=%2334D058" alt="Package Version">
+    <img src="https://img.shields.io/pypi/v/foliplus?color=%2334D058" alt="Package Version">
   </a>
   <a href="https://pypi.org/project/foliplus">
-      <img src="https://img.shields.io/pypi/pyversions/foliplus.svg?color=%2334D058" alt="Supported Python">
+    <img src="https://img.shields.io/pypi/pyversions/foliplus.svg?color=%2334D058" alt="Supported Python">
   </a>
   <a href="https://github.com/Zeroto521/foliplus/actions/workflows/test.yaml">
-      <img src="https://github.com/Zeroto521/foliplus/actions/workflows/test.yaml/badge.svg" alt="Tests">
+    <img src="https://github.com/Zeroto521/foliplus/actions/workflows/test.yaml/badge.svg" alt="Tests">
   </a>
   <a href="https://codecov.io/gh/Zeroto521/foliplus">
-      <img src="https://codecov.io/gh/Zeroto521/foliplus/branch/main/graph/badge.svg" alt="Codecov">
+    <img src="https://codecov.io/gh/Zeroto521/foliplus/branch/main/graph/badge.svg" alt="Codecov">
   </a>
   <a href="https://foliplus.readthedocs.io/en/latest/?badge=latest">
-      <img src="https://readthedocs.org/projects/foliplus/badge/?version=latest" alt="Documentation">
+    <img src="https://readthedocs.org/projects/foliplus/badge/?version=latest" alt="Documentation">
   </a>
 </p>
 
