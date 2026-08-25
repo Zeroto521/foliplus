@@ -17,6 +17,9 @@ export interface RegisterLayerOpts {
   canvas?: HTMLCanvasElement | null;
   onToggle?: ((visible: boolean) => void) | null;
   onZIndex?: ((z: number) => void) | null;
+  /** Third-party feature count provider (Canvas layers require this; FeatureGroup
+   *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
+  featureCountProvider?: (() => number) | null;
   [key: string]: unknown;
 }
 
@@ -39,6 +42,8 @@ export interface LayerInfo {
   onToggle?: ((visible: boolean) => void) | null;
   /** z-index callback fired by enforceOrder (e.g. heatmap canvas ordering). */
   onZIndex?: ((z: number) => void) | null;
+  /** Third-party feature count provider. Null means 'don't render count'. */
+  featureCountProvider?: (() => number) | null;
   [key: string]: unknown;
 }
 
@@ -59,6 +64,10 @@ export interface CreateLayersOpts {
   graphPane?: string;
   labelPane?: string;
   iconSvg?: string;
+  /** Optional callback returning the number of features in this layer.
+   *  When set, LayerControl's count column uses this instead of the default
+   *  countFeatureGeometry (which walks all leaf geometries). */
+  featureCountProvider?: (() => number) | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
@@ -69,6 +78,10 @@ export interface CreateCanvasOpts {
   iconSvg?: string;
   onToggle?: ((visible: boolean) => void) | null;
   onZIndex?: ((z: number) => void) | null;
+  /** Optional callback returning the number of features in this layer.
+   *  When set, LayerControl's count column uses this instead of returning
+   *  null (the default for Canvas layers). */
+  featureCountProvider?: (() => number) | null;
 }
 
 /** Return type of `LayerAPI.createCanvas`. */
@@ -130,4 +143,7 @@ export interface LayerAPI {
   getLayersByType: (
     type: string,
   ) => Array<{ id: string; name: string; layer: L.Layer | null }>;
+  /** Return the number of geometric features in a registered layer.
+   *  Null when the layer cannot be counted (e.g. Canvas without provider). */
+  getFeatureCount?: (id: string) => number | null;
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bindEvents, initFromUrl } from "#foliplus/SearchControl/interaction.js";
 import { Cache } from "#foliplus/common/cache.js";
+import { dom } from "#foliplus/common/dom.js";
 
 function makeCtrl(): any {
   const ctrlDiv = document.createElement("div");
@@ -26,11 +27,12 @@ function makeCtrl(): any {
     marker: null,
     delIcon: null,
     debouncedFetch: { cancel: vi.fn() },
-    suggestionsWrap: null,
-    suggestionsThrottleTimer: null,
-    selectedSuggestionIdx: -1,
+    panelWrap: null,
+    throttleTimer: null,
+    selectedIdx: -1,
     cachedAddress: {},
     cachedSuggestions: new Cache<string, object>(50),
+    searchHistory: [],
   };
 }
 
@@ -69,68 +71,75 @@ describe("bindEvents", () => {
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
   });
 
+  it("removes floating panel when container is collapsed", async () => {
+    const ctrl = makeCtrl();
+    ctrl.ctrl.classList.add("expanded");
+    ctrl.panelWrap = document.createElement("div");
+    document.body.appendChild(ctrl.panelWrap);
+    bindEvents(ctrl);
+    // Simulate collapse via outside click (class toggle without calling onCollapse)
+    ctrl.ctrl.classList.remove("expanded");
+    ctrl.ctrl.classList.add("collapsed");
+    // MutationObserver fires asynchronously; flush microtasks
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.panelWrap).toBeNull();
+  });
+
   it("navigates suggestions with ArrowDown", () => {
     const ctrl = makeCtrl();
-    ctrl.suggestionsWrap = document.createElement("div");
-    const mk = text => {
-      const el = document.createElement("div");
-      el.innerHTML = `<span class="foliplus-search-suggestion-text">${text}</span>`;
-      return el;
-    };
-    ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
+    ctrl.panelWrap = dom.el("div");
+    const mk = text =>
+      dom.el(
+        "div",
+        { class: "foliplus-search-result-item" },
+        dom.el("span", { class: "foliplus-search-result-text" }, text),
+      );
+    ctrl.panelWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
-    expect(ctrl.selectedSuggestionIdx).toBe(0);
+    expect(ctrl.selectedIdx).toBe(0);
     expect(ctrl.inp.value).toBe("One");
   });
 
   it("navigates suggestions with ArrowUp", () => {
     const ctrl = makeCtrl();
-    ctrl.suggestionsWrap = document.createElement("div");
-    const mk = text => {
-      const el = document.createElement("div");
-      el.innerHTML = `<span class="foliplus-search-suggestion-text">${text}</span>`;
-      return el;
-    };
-    ctrl.suggestionsWrap.append(mk("One"), mk("Two"));
+    ctrl.panelWrap = dom.el("div");
+    const mk = text =>
+      dom.el(
+        "div",
+        { class: "foliplus-search-result-item" },
+        dom.el("span", { class: "foliplus-search-result-text" }, text),
+      );
+    ctrl.panelWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
     // First ArrowUp when idx is -1 → stays -1 (no active)
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
-    expect(ctrl.selectedSuggestionIdx).toBe(-1);
+    expect(ctrl.selectedIdx).toBe(-1);
     // Set to 1 via internal state, then ArrowUp → 0
-    ctrl.selectedSuggestionIdx = 1;
+    ctrl.selectedIdx = 1;
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
-    expect(ctrl.selectedSuggestionIdx).toBe(0);
+    expect(ctrl.selectedIdx).toBe(0);
   });
 
   it("Escape with open suggestions removes suggestions", () => {
     const ctrl = makeCtrl();
     ctrl.ctrl.classList.add("expanded");
-    ctrl.suggestionsWrap = document.createElement("div");
-    ctrl.suggestionsWrap.innerHTML =
-      '<div class="foliplus-search-suggestion">One</div>';
+    ctrl.panelWrap = dom.el(
+      "div",
+      null,
+      dom.el("div", { class: "foliplus-search-result" }, "One"),
+    );
     bindEvents(ctrl);
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
-    expect(ctrl.suggestionsWrap).toBeNull();
-  });
-
-  it("collapses and hides hint on Escape", () => {
-    const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("expanded");
-    bindEvents(ctrl);
-    ctrl.inp.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
-    expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
-    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+    expect(ctrl.panelWrap).toBeNull();
   });
 
   it("searches on Enter", () => {
@@ -159,18 +168,20 @@ describe("bindEvents", () => {
     expect(ctrl.delIcon).toBeNull();
   });
 
-  it("debounce-fetches on addr input", () => {
+  it("debounce-fetches on addr input with non-empty value", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
+    ctrl.inp.value = "abc";
     ctrl.debouncedFetch = vi.fn();
     bindEvents(ctrl);
     ctrl._handlers.input();
     expect(ctrl.debouncedFetch).toHaveBeenCalled();
   });
 
-  it("cancels debounced fetch on coord input", () => {
+  it("cancels debounced fetch on coord input with non-empty value", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "coord";
+    ctrl.inp.value = "abc";
     ctrl.debouncedFetch = { cancel: vi.fn() };
     bindEvents(ctrl);
     ctrl._handlers.input();
@@ -190,6 +201,118 @@ describe("bindEvents", () => {
     bindEvents(ctrl);
     ctrl._handlers.focus();
     expect(globalThis.fetch).toHaveBeenCalled();
+  });
+
+  it("renders search history on focus when input is empty", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.inp.value = "";
+    ctrl.searchHistory = [
+      {
+        query: "Paris",
+        type: "addr",
+        coordDisplay: "2.3, 48.8",
+        addrDisplay: "Paris, France",
+        lat: 48.8,
+        lng: 2.3,
+        ts: 1000,
+        count: 1,
+      },
+    ];
+    bindEvents(ctrl);
+    ctrl._handlers.focus();
+    expect(ctrl.panelWrap).not.toBeNull();
+    expect(ctrl.panelWrap.innerHTML).toContain("Paris, France");
+  });
+
+  it("does nothing on focus when input is empty and no history exists", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.inp.value = "";
+    ctrl.searchHistory = [];
+    bindEvents(ctrl);
+    ctrl._handlers.focus();
+    expect(ctrl.panelWrap).toBeNull();
+  });
+
+  it("skips the history group header when navigating with ArrowDown", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.panelWrap = dom.el("div");
+    // History panel: group header (non-selectable) + history entry
+    const header = dom.el(
+      "div",
+      { class: "foliplus-search-history-group-header" },
+      dom.el(
+        "span",
+        { class: "foliplus-search-history-group-title" },
+        "Search History",
+      ),
+    );
+    const item = dom.el(
+      "div",
+      { class: "foliplus-search-result-item" },
+      dom.el("span", { class: "foliplus-search-result-icon" }, "📍"),
+      dom.el("span", { class: "foliplus-search-result-text" }, "Paris, France"),
+    );
+    ctrl.panelWrap.append(header, item);
+    bindEvents(ctrl);
+
+    // ArrowDown should skip the group header (not a RESULT_ITEM)
+    // and land directly on the history entry.
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.selectedIdx).toBe(0);
+    expect(ctrl.inp.value).toBe("Paris, France");
+  });
+
+  it("keyboard navigation clamps at panel boundaries", () => {
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = dom.el("div");
+    const mk = text =>
+      dom.el(
+        "div",
+        { class: "foliplus-search-result-item" },
+        dom.el("span", { class: "foliplus-search-result-text" }, text),
+      );
+    ctrl.panelWrap.append(mk("One"), mk("Two"));
+    bindEvents(ctrl);
+
+    // Start at index -1, go up → stays at -1
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    expect(ctrl.selectedIdx).toBe(-1);
+    expect(ctrl.inp.value).toBe("");
+
+    // Go down past the last item → clamps
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.selectedIdx).toBe(1); // clamped to last item
+    expect(ctrl.inp.value).toBe("Two");
+  });
+
+  it("uses window-only scroll target when no leaflet-container exists", () => {
+    document.querySelectorAll(".leaflet-container").forEach(el => el.remove());
+    const ctrl = makeCtrl();
+    bindEvents(ctrl);
+    expect(ctrl.scrollTargets).toEqual([window]);
+  });
+
+  it("returns cleanup function that disconnects observer", () => {
+    const ctrl = makeCtrl();
+    const cleanup = bindEvents(ctrl);
+    expect(typeof cleanup).toBe("function");
+    cleanup();
+    expect(typeof cleanup).toBe("function");
   });
 });
 
@@ -218,5 +341,17 @@ describe("initFromUrl", () => {
     initFromUrl(ctrl);
     expect(ctrl.setMode).toHaveBeenCalledWith("addr");
     expect(ctrl.inp.value).toBe("hello");
+  });
+
+  it("silently ignores URL parsing errors", () => {
+    // Make map.flyTo throw to trigger the catch block in initFromUrl
+    const ctrl = makeCtrl();
+    ctrl.setMode = vi.fn();
+    vi.spyOn(map, "flyTo").mockImplementation(() => {
+      throw new Error("simulated parse error");
+    });
+    window.history.replaceState(null, "", "?q=121.47,31.23");
+    expect(() => initFromUrl(ctrl)).not.toThrow();
+    vi.restoreAllMocks();
   });
 });

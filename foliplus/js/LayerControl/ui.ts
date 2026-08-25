@@ -1,6 +1,8 @@
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import { dom, escapeHTML } from "#common/dom.js";
+import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
@@ -34,6 +36,8 @@ class LayerUI {
   declare onDragEnd: ((event: DragEvent) => void) | null;
   declare onDrop: ((event: DragEvent) => void) | null;
   declare onKeyDown: ((event: KeyboardEvent) => void) | null;
+  /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
+  unsubscribeCountChange: (() => void) | null;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
@@ -44,6 +48,7 @@ class LayerUI {
     this.lastDragHintAt = 0;
     this.lastDragOverItem = null;
     this.activeIdx = null;
+    this.unsubscribeCountChange = null;
   }
 
   /** Alias for convenience */
@@ -54,6 +59,11 @@ class LayerUI {
   /** The attached panel container. Only valid after attachUI(). */
   get uiContainer(): HTMLElement {
     return this.m.uiContainer!;
+  }
+
+  /** LayerAPI typed to expose getFeatureCount (LayerManager only). */
+  get mgmt(): LayerManager & { getFeatureCount: (i: string) => number | null } {
+    return this.m as LayerManager & { getFeatureCount: (i: string) => number | null };
   }
 
   /**
@@ -72,6 +82,18 @@ class LayerUI {
     }
     this.reindexItems();
 
+    // Refresh counts synchronously now. Counts are cheap to compute (the
+    // provider is invoked on demand; a missing Canvas just returns null),
+    // and the user should not see an empty count column while we wait.
+    // Heatmap in particular publishes its final count during initScan, so the
+    // column may update a second time — that is driven by the event bus.
+    this.refreshAllCounts();
+
+    // initTypesAndVisibility needs a short delay so that Heatmap/Measure and
+    // other components finish their own attach/onAdd before we finalize type
+    // icons and checkbox visibility. Counts are refreshed synchronously
+    // above so the user sees them immediately; Heatmap publishes its final
+    // count during initScan, which re-runs the refresh via the event bus.
     setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
   }
 
@@ -215,12 +237,34 @@ class LayerUI {
     );
   }
 
+  /** Render a single layer row.
+   *  Structure: [drag-handle][checkbox][label (flex)] [count][type-icon-col].
+   *  The count column is inserted immediately before the type-icon column so
+   *  the two right-side decorations stay visually grouped.  The count value
+   *  is populated lazily by initLayerItem (layer may not be resolved yet at
+   *  render time) and refreshed by onLayerItemCountChange.
+   *  @param {Object} layerInfo - Layer metadata.
+   *  @param {number} idx - Position in the ordered registry.
+   *  @returns {HTMLElement} The row element. */
   renderLayerItem(layerInfo: LayerInfo, idx: number) {
     const en = escapeHTML(layerInfo.name);
-    const children: (HTMLElement | { html: string })[] = [
+
+    const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
+    if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
+
+    return dom.el(
+      "div",
+      {
+        class: CONST.CLASSES.LAYER_ITEM,
+        draggable: "true",
+        tabindex: "0",
+        [CONST.DATA.INDEX]: String(idx),
+        [CONST.DATA.LAYER_ID]: layerInfo.id,
+        "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+      },
       dom.el(
         "span",
-        { title: _(`${CONF.name}.drag_tooltip`) },
+        { class: CONST.CLASSES.DRAG_CELL, title: _(`${CONF.name}.drag_tooltip`) },
         { html: SVGs.DRAG_HANDLE },
       ),
       dom.el(
@@ -234,28 +278,33 @@ class LayerUI {
           title: en,
         }),
       ),
-      dom.el("label", null, en),
-    ];
-    if (layerInfo.iconSvg)
-      children.push({
-        html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${layerInfo.iconSvg}</div>`,
-      });
-    else children.push(dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }));
-    return dom.el(
-      "div",
-      {
-        class: CONST.CLASSES.LAYER_ITEM,
-        draggable: "true",
-        tabindex: "0",
-        [CONST.DATA.INDEX]: String(idx),
+      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, en),
+      dom.el("span", {
+        class: CONST.CLASSES.COUNT_COL,
         [CONST.DATA.LAYER_ID]: layerInfo.id,
-        "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
-      },
-      ...children,
+      }),
+      typeIconEl,
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.MORE_BTN,
+          type: "button",
+          title: _(`${CONF.name}.more_tooltip`),
+          "aria-label": _(`${CONF.name}.more_tooltip`),
+        },
+        { html: SVGs.MORE },
+      ),
     );
   }
 
   renderColorLayerItem() {
+    const colorInput = dom.el("input", {
+      type: "color",
+      class: CONST.CLASSES.COLOR_INPUT,
+      value: this.currentColor,
+      "aria-label": _(`${CONF.name}.color_map_label`),
+    });
+
     return dom.el(
       "div",
       {
@@ -264,19 +313,26 @@ class LayerUI {
         [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
         title: _(`${CONF.name}.color_map_label`),
       },
-      { html: SVGs.DRAG_HANDLE },
+      dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
+      dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
       dom.el(
-        "div",
-        { class: CONST.CLASSES.CHECKBOX },
-        dom.el("input", {
-          type: "color",
-          class: CONST.CLASSES.COLOR_INPUT,
-          value: this.currentColor,
-          "aria-label": _(`${CONF.name}.color_map_label`),
-        }),
+        "label",
+        { class: CONST.CLASSES.LAYER_LABEL },
+        _(`${CONF.name}.color_map_label`),
       ),
-      dom.el("label", null, _(`${CONF.name}.color_map_label`)),
-      { html: `<div class="${CONST.CLASSES.TYPE_ICON_COL}">${SVGs.COLOR}</div>` },
+      // count column is empty (color layers have no feature count).
+      dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
+      dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.MORE_BTN,
+          type: "button",
+          title: _(`${CONF.name}.more_tooltip`),
+          "aria-label": _(`${CONF.name}.more_tooltip`),
+        },
+        { html: SVGs.MORE },
+      ),
     );
   }
 
@@ -316,24 +372,52 @@ class LayerUI {
 
     if (typeCol) {
       let typeKey: string;
+      let type: string | null = null;
       if (layerInfo.isBase) {
         typeCol.innerHTML = Icons.GLOBE;
         typeKey = `${CONF.name}.type_base`;
-        layerInfo.type = CONST.GROUP.BASE;
+        type = CONST.GROUP.BASE;
+        layerInfo.type = type;
         if (input?.checked) baseVisible = true;
       } else if (layerInfo.iconSvg) {
         typeCol.innerHTML = layerInfo.iconSvg;
         typeKey = `${CONF.name}.type_custom`;
-        layerInfo.type = GEOM_TYPE.CUSTOM;
+        type = GEOM_TYPE.CUSTOM;
+        layerInfo.type = type;
       } else if (layer) {
         const gtype = getGeometryType(layer);
-        typeCol.innerHTML = Util.getTypeSVG(layer);
+        typeCol.innerHTML = Util.getTypeSVG(layer, gtype);
         typeKey = `${CONF.name}.type_${gtype}`;
-        layerInfo.type = gtype;
-      } else typeKey = `${CONF.name}.type_unknown`;
+        type = gtype;
+        layerInfo.type = type;
+      } else {
+        typeKey = `${CONF.name}.type_unknown`;
+        type = GEOM_TYPE.UNKNOWN;
+        layerInfo.type = type;
+      }
 
-      const item = input?.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | undefined;
-      if (item) item.title = _(typeKey);
+      const item = input
+        ? (input.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | undefined)
+        : (typeCol.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | undefined);
+      if (item) {
+        const count = this.mgmt.getFeatureCount(layerInfo.id);
+        // Update count column (right-aligned, adjacent to type icon).
+        const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
+        if (countCol) {
+          if (count !== null && count !== undefined)
+            countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
+          else countCol.textContent = "";
+        }
+        // Hover tooltip shows count + type label together.
+        const typeLabel = _(typeKey);
+        // Persist the type label so onLayerItemCountChange can rebuild the
+        // 'count + type' tooltip without re-running type detection.
+        item.setAttribute(CONST.DATA.TITLE, typeLabel);
+        item.title =
+          count !== null && count !== undefined
+            ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
+            : typeLabel;
+      }
     }
 
     return baseVisible;
@@ -411,6 +495,7 @@ class LayerUI {
       else this.foldedGroups.add(group);
       this.renderInitialList();
       this.initTypesAndVisibility();
+      this.refreshAllCounts();
       this.saveFoldState();
     };
 
@@ -430,6 +515,76 @@ class LayerUI {
     container.addEventListener("dragleave", this.onDragLeave);
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
+    // Keyboard dispatch is handled by InteractionManager via registerInteractions()
+    // above — do NOT add a separate container keydown listener, as that would
+    // cause every keydown event to fire handleKeyDown twice (once via the
+    // container listener, once via the document-level InteractionManager),
+    // double-toggling checkboxes and double-moving focus.
+
+    // Subscribe to feature-count change events so a third-party provider
+    // (Canvas layers) can update a single row without a full re-render.
+    const bus = ensureEvents(this.m.map);
+    this.unsubscribeCountChange = bus.on(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      (payload: { id: string }) => this.onLayerItemCountChange(payload.id),
+    );
+  }
+
+  /** Called when a layer's content changes (count or type may shift at runtime).
+   *  Re-computes geometry type so a layer that mixes geometry through the
+   *  createLayers API (Point + LineString, etc.) shows the correct icon,
+   *  not the one cached at initial attach. */
+  onLayerItemCountChange(id: string) {
+    if (!this.uiContainer) return;
+    const item = this.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
+    ) as HTMLElement | null;
+    if (!item) return;
+    const layerInfo = this.m.layerRegistry.get(id);
+    if (!layerInfo || layerInfo.isBase) return;
+    const count = this.mgmt.getFeatureCount(id);
+    const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
+    const typeCol = item.querySelector(
+      `.${CONST.CLASSES.TYPE_ICON_COL}`,
+    ) as HTMLElement | null;
+
+    // Re-detect geometry type (iconSvg-only layers keep their custom SVG).
+    let typeLabel = item.getAttribute(CONST.DATA.TITLE) ?? "";
+    if (typeCol && !layerInfo.iconSvg) {
+      const layer = this.m.findLayer(layerInfo);
+      const gtype = layer ? getGeometryType(layer) : GEOM_TYPE.UNKNOWN;
+      layerInfo.type = gtype;
+      typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
+      typeLabel = _(`${CONF.name}.type_${gtype}`);
+    }
+
+    if (countCol && count !== null && count !== undefined) {
+      countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
+    } else if (countCol) {
+      countCol.textContent = "";
+    }
+    item.setAttribute(CONST.DATA.TITLE, typeLabel);
+    item.title =
+      count !== null
+        ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
+        : typeLabel;
+  }
+
+  /** Refresh count column for every overlay item (no title change). */
+  refreshAllCounts() {
+    if (!this.uiContainer) return;
+    const items = this.uiContainer.querySelectorAll(
+      `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}):not(${CONST.SEL.TOGGLE_ALL})`,
+    );
+    items.forEach((item: Element) => {
+      const id = item.getAttribute(CONST.DATA.LAYER_ID);
+      if (!id) return;
+      const count = this.mgmt.getFeatureCount(id);
+      const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
+      if (countCol && count !== null && count !== undefined)
+        countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
+      else if (countCol) countCol.textContent = "";
+    });
   }
 
   unbindEvents() {
@@ -449,7 +604,10 @@ class LayerUI {
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
     this.onKeyDown = null;
-    this.interactionCleanup?.();
+    if (this.unsubscribeCountChange) {
+      this.unsubscribeCountChange();
+      this.unsubscribeCountChange = null;
+    }
   }
 
   getLayerItems(group: string): NodeListOf<Element> {
@@ -617,6 +775,7 @@ class LayerUI {
   reindexAfterMove(): void {
     this.renderInitialList();
     this.initTypesAndVisibility();
+    this.refreshAllCounts();
     if (this.activeIdx !== null) {
       const items = this.getNavigableItems();
       if (this.activeIdx < items.length) {

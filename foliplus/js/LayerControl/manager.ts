@@ -7,14 +7,15 @@ import {
   type CreateLayersOpts,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
+  type LabelAwareLayer,
   type LayerAPI,
   LayerFactory,
   LayerRegistry,
   PaneManager,
   type RegisterLayerOpts,
   Z_INDEX,
+  countFeatureGeometry,
   findLayer,
-  forEachLayer,
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
@@ -103,6 +104,9 @@ class LayerManager implements LayerAPI {
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
       invalidateType: id => this.invalidateType(id),
+      // Runtime content changes (createLayers add/remove/clear) refresh the
+      // count column live. No-op until a UI row subscribes.
+      onDataChange: id => this.refreshCount(id),
     });
 
     this.lastAttribution = null;
@@ -123,7 +127,8 @@ class LayerManager implements LayerAPI {
     //
     // Once every registered layer is resolved, unrelated layeradds (e.g.
     // ExportControl's crossOrigin re-adds or user-added layers) must NOT
-    // trigger a full enforceOrder — only layers belonging to the registry do.
+    // trigger a full enforceOrder — hasUnresolvedLayers() being false
+    // naturally stops scheduling new passes.
     this.onLayerAdd = event => {
       if (
         this.isDestroyed ||
@@ -171,21 +176,6 @@ class LayerManager implements LayerAPI {
   private hasUnresolvedLayers(): boolean {
     for (const layerInfo of this.layers) {
       if (!layerInfo.layer) return true;
-    }
-    return false;
-  }
-
-  /** Whether a just-added layer belongs to a registered layer's tree. */
-  private isManagedLayer(layer: L.Layer): boolean {
-    for (const layerInfo of this.layers) {
-      if (layerInfo.layer === layer) return true;
-      if (layerInfo.layer) {
-        let found = false;
-        forEachLayer(layerInfo.layer, c => {
-          if (c === layer) found = true;
-        });
-        if (found) return true;
-      }
     }
     return false;
   }
@@ -264,6 +254,65 @@ class LayerManager implements LayerAPI {
       .map(l => ({ id: l.id, name: l.name, layer: this.findLayer(l) }));
   }
 
+  /** Return the number of geometric features in a registered layer.
+   *  Third-party provider wins (Canvas layers need this). Fallback uses forEachLeaf.
+   *  Returns null when the layer cannot be meaningfully counted (Canvas without
+   *  provider, base tile layers, or unknown non-container layers).
+   *  @param {string} id - Layer id.
+   *  @returns {number|null} Feature count, or null when count is unavailable. */
+  getFeatureCount(id: string): number | null {
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return null;
+    if (layerInfo.isBase) return null;
+    // 1. Third-party provider (Canvas layers must supply this).
+    const provider = layerInfo.featureCountProvider;
+    if (typeof provider === "function") {
+      try {
+        const v = provider();
+        if (typeof v === "number") return v;
+      } catch (err) {
+        // Provider threw (e.g. canvas in a failing state). Log so the failure
+        // is visible rather than silently returning a stale 0-count. For
+        // Canvas/unknown layers the forEachLeaf fallback is a no-op anyway
+        // (returns null), so this is a defensive fallback, not a real path.
+        console.error(`[${CONF.name}] featureCountProvider threw for "${id}":`, err);
+      }
+    }
+    // 2. Fallback via forEachLeaf — only valid for feature containers.
+    const layer = this.findLayer(layerInfo);
+    if (!layer) return null;
+    if (this.isFeatureContainer(layer)) return countFeatureGeometry(layer);
+    // 3. Canvas or unknown non-container → no meaningful count.
+    return null;
+  }
+
+  /** Notify subscribers that a layer's feature count may have changed.
+   *  Public API for third-party providers (e.g. Canvas layers whose data
+   *  updates independently of LayerManager) to trigger an incremental
+   *  panel refresh without a full re-render.  Publishes
+   *  EVENTS.LAYER_ITEM_COUNT_CHANGE; LayerControl subscribes to it and
+   *  refreshes the single affected row via onLayerItemCountChange.
+   *  Base layers are suppressed (their counts are null anyway). Unknown ids
+   *  are emitted defensively so the bus contract stays uniform; the
+   *  subscriber simply finds no row to update and becomes a no-op.
+   *  @param {string} id - Layer id. */
+  refreshCount(id: string) {
+    if (this.layerRegistry.get(id)?.isBase) return;
+    // Invalidate the cached geometry type so onLayerItemCountChange can re-detect
+    // it — a layer that gains/mixes geometry at runtime (e.g. Point + LineString
+    // added via createLayers) would otherwise keep its stale type icon.
+    this.invalidateType(id);
+    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
+  }
+
+  /** Whether a layer is a feature container (LayerGroup-like) we can walk. */
+  private isFeatureContainer(layer: L.Layer): boolean {
+    return (
+      typeof (layer as L.LayerGroup).eachLayer === "function" ||
+      !!(layer as L.LayerGroup)._layers
+    );
+  }
+
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
     const layerInfo =
       typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
@@ -290,6 +339,7 @@ class LayerManager implements LayerAPI {
       [];
     const seen = new Set();
     this.forEachLeaf(id, (l: L.Layer) => {
+      if ((l as LabelAwareLayer).isLabel) return;
       if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
       if (!l.feature) return;
       const stamp = L.stamp(l);

@@ -8,10 +8,7 @@ const { _ } = createControlEnv(CONF);
 // ==================== Control Definition ====================
 class ScaleControl extends BaseControl {
   buildDOM() {
-    const scaleCtrl = L.control.scale({
-      metric: CONF.isMetric,
-      imperial: !CONF.isMetric,
-    });
+    const scaleCtrl = L.control.scale({ metric: true, imperial: false });
     Reflect.set(scaleCtrl, "_map", this._map);
     const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
     ctrl.classList.add("foliplus-scale-wrap");

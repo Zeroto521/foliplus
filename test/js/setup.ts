@@ -56,6 +56,7 @@ window.foliplus = {
   hideHint: vi.fn(),
   registerHintIcon: vi.fn(),
   geocode: vi.fn(),
+  reverseGeocode: vi.fn(() => Promise.resolve("")),
   cacheSuggestion: vi.fn(),
   HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
 };
@@ -102,7 +103,12 @@ window.map = {
   flyTo: vi.fn(),
   addLayer: vi.fn(),
   getCenter: () => ({ lng: 119.3, lat: 26.08 }),
-  getContainer: () => ({ id: "test" }),
+  getContainer: () => {
+    const el = document.createElement("div");
+    el.id = "test-map";
+    document.body.appendChild(el);
+    return el;
+  },
   eachLayer: vi.fn(),
   on: vi.fn(),
   off: vi.fn(),

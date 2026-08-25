@@ -63,6 +63,16 @@ afterEach(() => {
 });
 
 describe("MeasureManager — persistence", () => {
+  it("restoreMeasurements emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count on load", () => {
+    const { manager } = makeManager();
+    const bus = ensureEvents(manager.map);
+    const handler = vi.fn();
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+    // Direct call (after constructor already emitted once).
+    manager.restoreMeasurements();
+    expect(handler).toHaveBeenCalledWith({ id: manager.layerId });
+  });
+
   it("nextMeasurementId increments counter and includes type", () => {
     const { manager } = makeManager();
     const id1 = manager.nextMeasurementId("distance");

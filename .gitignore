@@ -29,6 +29,7 @@ coverage.xml
 .coverage
 .coverage.*
 *.cover
+junit.xml
 *.junit.xml
 coverage/
 htmlcov/
@@ -72,9 +73,17 @@ package-lock.json
 .history
 *.db
 .DS_Store
-.claude/
+
+# LLM
 .task/
+.claude/
+.claude/plans/myagents/
+.foliplus/
 memory/
+myagents_files/
+CLAUDE.md
+HEARTBEAT.md
+UPDATE_MEMORY.md
 
 # Auto-generated
 foliplus/dist/

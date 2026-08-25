@@ -8,12 +8,6 @@ describe("MODE", () => {
   });
 });
 
-describe("SEARCH", () => {
-  it("defines search limit", () => {
-    expect(CONST.SEARCH.LIMIT).toBe(5);
-  });
-});
-
 describe("ZOOM", () => {
   it("defines zoom levels", () => {
     expect(CONST.ZOOM.MAX).toBe(16);
@@ -38,10 +32,25 @@ describe("PARAM", () => {
   });
 });
 
+describe("SOURCE", () => {
+  it("defines result source types", () => {
+    expect(CONST.SOURCE.SUGGESTION).toBe("suggestion");
+    expect(CONST.SOURCE.HISTORY).toBe("history");
+  });
+});
+
+describe("HISTORY", () => {
+  it("defines history config", () => {
+    expect(CONST.HISTORY.MAX_ENTRIES).toBe(20);
+    expect(CONST.HISTORY.MAX_DISPLAY).toBe(5);
+    expect(CONST.HISTORY.STORAGE_KEY).toBe("foliplus.search_history");
+  });
+});
+
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
     expect(CONST.CLASSES.MAP_SEARCH).toBe("foliplus-search");
-    expect(CONST.CLASSES.SUGGESTIONS).toBe("foliplus-search-suggestions");
+    expect(CONST.CLASSES.RESULT_PANEL).toBe("foliplus-search-result-panel");
     expect(CONST.CLASSES.ACTIVE).toBe("active");
   });
 });

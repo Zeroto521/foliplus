@@ -153,6 +153,99 @@ describe("LayerFactory", () => {
       expect(layer.options.pane).toBeUndefined();
     });
 
+    it("notifies onDataChange when graph content changes", () => {
+      const onDataChange = vi.fn();
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer,
+        unregisterLayer,
+        bringLayerToFront,
+        invalidateType,
+        onDataChange,
+      });
+      const api = f.createLayers({ id: "test", name: "Test", graphPane: "g1" });
+      const layer = new window.L.Path();
+      api.addLayer(layer);
+      expect(onDataChange).toHaveBeenCalledWith("test");
+      onDataChange.mockClear();
+      api.removeLayer(layer);
+      expect(onDataChange).toHaveBeenCalledWith("test");
+    });
+
+    it("skips onDataChange when featureCountProvider is supplied", () => {
+      const onDataChange = vi.fn();
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer,
+        unregisterLayer,
+        bringLayerToFront,
+        invalidateType,
+        onDataChange,
+      });
+      const api = f.createLayers({
+        id: "measure",
+        name: "Measure",
+        graphPane: "g1",
+        featureCountProvider: () => 0,
+      });
+      const layer = new window.L.Path();
+      api.addLayer(layer);
+      expect(onDataChange).not.toHaveBeenCalled();
+      expect(invalidateType).toHaveBeenCalledWith("measure");
+      invalidateType.mockClear();
+      api.removeLayer(layer);
+      expect(onDataChange).not.toHaveBeenCalled();
+      expect(invalidateType).toHaveBeenCalledWith("measure");
+    });
+
+    it("notifies onDataChange on clearLayers only when there was content", () => {
+      const onDataChange = vi.fn();
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => true) },
+        panes,
+        registerLayer,
+        unregisterLayer,
+        bringLayerToFront,
+        invalidateType,
+        onDataChange,
+      });
+      const api = f.createLayers({ id: "test", name: "Test" });
+      api.register();
+      api.clearLayers();
+      expect(onDataChange).not.toHaveBeenCalled(); // nothing to clear
+      const layer = new window.L.Path();
+      api.addLayer(layer);
+      onDataChange.mockClear();
+      api.clearLayers();
+      expect(onDataChange).toHaveBeenCalledWith("test");
+    });
+
+    it("does not notify onDataChange for an empty graph-pane layer on clearLayers", () => {
+      const onDataChange = vi.fn();
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => true) },
+        panes,
+        registerLayer,
+        unregisterLayer,
+        bringLayerToFront,
+        invalidateType,
+        onDataChange,
+      });
+      const api = f.createLayers({ id: "test", name: "Test", graphPane: "g1" });
+      api.register();
+      api.clearLayers(); // graphPane configured but contains no data
+      expect(onDataChange).not.toHaveBeenCalled();
+    });
+
+    it("does not crash when onDataChange is not provided", () => {
+      const api = factory.createLayers({ id: "test", name: "Test", graphPane: "g1" });
+      const layer = new window.L.Path();
+      expect(() => api.addLayer(layer)).not.toThrow();
+      expect(() => api.removeLayer(layer)).not.toThrow();
+    });
+
     it("invalidates the cached type when graph content changes", () => {
       const api = factory.createLayers({
         id: "test",

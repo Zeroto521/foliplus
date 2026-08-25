@@ -16,10 +16,8 @@ build:
       # Build bundled JS/CSS assets (foliplus/dist/) before Python install.
       - npm install
       - make build-js
-      - python -m pip install --upgrade uv
     post_install:
-      # Install doc deps into RTD's system venv (not a separate .venv)
-      - UV_PROJECT_ENVIRONMENT=$READTHEDOCS_VIRTUALENV_PATH uv sync --group doc
+      - uv run make info
 
 sphinx:
   configuration: doc/source/conf.py
@@ -28,5 +26,6 @@ sphinx:
 
 python:
   install:
-    - method: pip
-      path: .
+    - method: uv
+      command: sync
+      groups: [doc]
