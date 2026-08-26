@@ -223,6 +223,78 @@ class TestLayerControlRendering:
         assert "foliplus-checkbox" in html
         assert "foliplus-type-icon-col" in html
 
+    def test_layer_item_6_column_grid(self, base_map: folium.Map):
+        """Layer item uses 6-column grid-template-areas with all six slots."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert '"drag check label count icon more"' in css
+
+    def test_layer_item_grid_column_classes_rendered(self, base_map: folium.Map):
+        """All 6 grid-column CSS classes appear in the rendered output."""
+        html = render_control(LayerControl())
+        assert "foliplus-drag-cell" in html
+        assert "foliplus-layer-count" in html
+        assert "foliplus-layer-more-btn" in html
+        assert "foliplus-type-icon-col" in html
+        assert "foliplus-checkbox" in html
+        assert "foliplus-layer-label" in html
+
+    def test_more_tooltip_rendered(self, base_map: folium.Map):
+        """More button has i18n more_tooltip title/aria-label."""
+        html = render_control(LayerControl())
+        assert "more_tooltip" in html
+
+    def test_more_button_grid_area(self):
+        """More button is placed in the 'more' grid area."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert "foliplus-layer-more-btn" in css
+        assert "grid-area: more" in css
+
+    def test_drag_cell_grid_area(self):
+        """Drag cell is placed in the 'drag' grid area."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert "grid-area: drag" in css
+
+    def test_count_column_5_char_cap(self):
+        """Count column is 38px wide, sized for up to ~5 tabular-nums characters."""
+        css = read_css("foliplus/css/LayerControl.css")
+        assert "38px" in css
+
+    def test_type_icon_col_size_anchored_to_checkbox(self):
+        """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
+        css = read_css("foliplus/css/LayerControl.css")
+        # type-icon-col width/height use the checkbox square (--space-xl = 16px),
+        # not the old 14px/18px icon-size tokens.
+        idx = css.find(".foliplus-type-icon-col {")
+        assert idx != -1
+        block = css[idx : css.index("}", idx) + 1]
+        assert "var(--space-xl)" in block
+        assert "var(--icon-size-xs)" not in block
+        assert "var(--icon-size-md)" not in block
+
+    def test_more_column_width_named_vars(self):
+        """More grid column and button both use --more-btn-width (7px),
+        and the count column uses --count-col-width; both keep the track and
+        each element's own width synchronised without magic numbers."""
+        css = read_css("foliplus/css/LayerControl.css")
+        # Named dimension vars are defined once
+        assert "--count-col-width: 38px" in css
+        assert "--more-btn-width: 7px" in css
+        # grid track references the named vars (not literals)
+        idx = css.find("--grid-layer-cols:")
+        assert idx != -1
+        track = css[idx : css.index(";", idx)]
+        assert "var(--more-btn-width)" in track
+        assert "var(--count-col-width)" in track
+        # more-btn width uses the named var, not icon-size-xs
+        blks = [
+            css[i : css.index("}", i) + 1]
+            for i in range(len(css))
+            if css.startswith(".foliplus-layer-more-btn {", i)
+        ]
+        assert blks, "no .foliplus-layer-more-btn { rule found"
+        assert "var(--more-btn-width)" in "\n".join(blks)
+        assert not any("var(--icon-size-xs)" in b for b in blks)
+
     def test_color_map_id_constant(self, base_map: folium.Map):
         """Color map uses a special constant ID for identification."""
         html = render_control(LayerControl())
@@ -240,20 +312,63 @@ class TestLayerControlRendering:
         assert "LayerControl.base_map_label" in html
 
     def test_css_interaction_effects(self, base_map: folium.Map):
-        """CSS hover/active effects exist for interactive elements."""
+        """CSS hover/active effects exist for interactive elements, reflecting
+        the layered color hierarchy:
+            type icon : gray -> black (hover) -> black (active)
+            count     : gray in every state (annotation, not a control)
+            more      : black -> red (hover) -> red (active)  (action color)
+            checkbox  : red when checked (row status)
+        Only color changes; the type icon must NOT scale."""
         html = render_control(LayerControl())
         # Color layer picker (via :is() selector, no literal :hover string)
         assert "foliplus-color-layer-input" in html
         # Fold toggle button SVG
         assert "foliplus-layer-fold-btn:hover svg" in html
         assert "foliplus-layer-fold-btn:active" in html
-        # Type icon column transition
+
+        # Type icon: hover AND active both wake it to black (primary), never red.
         assert "foliplus-type-icon-col svg" in html
         assert "transition: transform" in html
-        # Layer item hover on type icon
-        assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" in html
-        # Active state on type icon
-        assert "active .foliplus-type-icon-col svg" in html
+        assert ".foliplus-layer-item:hover .foliplus-type-icon-col" in html
+        assert ".foliplus-layer-item.active .foliplus-type-icon-col" in html
+        # It is the *active* type-icon rule that carries the primary color, not
+        # an accent color (accent stays reserved for actions + status).
+        act_type = [
+            html[i : html.index("}", i)]
+            for i in range(len(html))
+            if "layer-item.active .foliplus-type-icon-col"
+            in html[max(0, i - 60) : i + 60]
+        ]
+        assert any("color: var(--text-primary)" in b for b in act_type), (
+            "type icon on active row must be black, not accent"
+        )
+        assert not any("color: var(--accent-primary)" in b for b in act_type), (
+            "type icon must never tint accent"
+        )
+        # Regression guard: no scale transform may be reintroduced on the icon
+        assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" not in html
+
+        # More button: red (accent) on BOTH hover and active — the row's action.
+        more_blks = [
+            html[i : html.index("}", i)]
+            for i in range(len(html))
+            if "layer-item:hover .foliplus-layer-more-btn"
+            in html[max(0, i - 60) : i + 60]
+        ]
+        assert any("color: var(--accent-primary)" in b for b in more_blks), (
+            "more button must tint accent on hover/active"
+        )
+
+        # Count column: stays muted in every state — no hover/active brightening.
+        count_hover = [
+            html[i : html.index("}", i)]
+            for i in range(len(html))
+            if "layer-item:hover .foliplus-layer-count" in html[max(0, i - 60) : i + 60]
+        ]
+        assert not count_hover, (
+            "count must not brighten on hover (annotation, not a control)"
+        )
+
         # Toggle button SVG inherits color
         assert "foliplus-toggle-btn svg" in html
         assert "stroke: currentColor" in html
@@ -349,12 +464,14 @@ class TestLayerControlRendering:
         assert "svg {" in css
         assert "fill: none" in css
 
-    def test_drag_handle_circle_stroke(self):
-        """drag-handle circles have explicit stroke so they appear bold."""
+    def test_drag_handle_block_and_size(self):
+        """drag-handle is a block sized to the checkbox so its dot grip centers
+        with the other row glyphs; no bold stroke (dots match MORE at 3px)."""
         css = read_css("foliplus/css/LayerControl.css")
         assert ".drag-handle" in css
-        assert "circle {" in css
-        assert "stroke: currentColor" in css
+        assert "display: block" in css
+        assert "width: var(--space-xl)" in css
+        assert "height: var(--space-xl)" in css
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""

@@ -29,11 +29,34 @@
   --drag-border-from: var(--accent-primary);
   --drag-border-to: var(--accent-hover);
   /* Pulse shadow: start (from, tight) and end (to, diffuse) states */
-  --drag-shadow-from: 0 0 var(--size-4) -1px var(--accent-primary);
+  --drag-shadow-from: 0 0 var(--size-4) calc(-1 * var(--border-thin))
+    var(--accent-primary);
   --drag-shadow-to: 0 0 var(--size-8) 0 var(--accent-primary);
 
   /* ── Layout ── */
   --layer-item-pad-x: calc(var(--space-md) - var(--size-2) + 1px);
+
+  /* ── Shared 6-column track for all layer rows ──
+    Each row is an independent grid container that reuses this track.
+    Using a single CSS variable keeps column widths in sync across
+    layer-item / toggle-all / color-item rows without subgrid.
+    All track dimensions are named so the count / more columns stay
+    synchronised in --grid-layer-cols and each element's own width. */
+  --count-col-width: 38px;
+  --more-btn-width: 7px;
+  --grid-layer-gap: 3px;
+  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-col-width)
+    var(--space-xl) var(--more-btn-width);
+
+  /* ── Row min-height ──
+     Data rows are taller than group headers only because a data label spans
+     1fr at font-size-md (≈19px line box) while a header has no more-btn col.
+     Pin both to one height so the checkbox/label columns sit on the same
+     baseline across every row type. Rows set box-sizing: border-box and this
+     value is the TOTAL box height, so it is independent of the outer context. */
+  --layer-row-min-height: calc(
+    var(--space-md) * 2 + var(--font-size-md) * var(--line-height-hint)
+  );
 
   /* ── Panel Content Overrides ── */
   .foliplus-panel-content {
@@ -62,59 +85,91 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--icon-size-md);
-    height: var(--icon-size-md);
-    color: var(--text-primary);
-    flex-shrink: 0;
-    margin-left: var(--space-sm);
+    width: var(--space-xl);
+    height: var(--space-xl);
+    color: var(--text-muted);
+
+    /* Four-tier role hierarchy: identity icons recede at rest and wake to
+       black (primary) on hover/active. Accent stays reserved for status
+       (checkbox + left border) and actions (more), so the type icon reads as
+       focus, not as a call-to-action. */
 
     svg {
+      /* Uniform visual size: every type icon fills its cell. Each viewBox is
+         inset by a small margin so the 1.8px stroke sits fully inside the box
+         (nothing clipped) and the visible icon stays consistent and legible. */
       width: 100%;
       height: 100%;
       display: block;
-      transition: transform var(--transition-fast);
 
-      /* Shared dashed style for EMPTY / UNKNOWN icons */
+      /* Shared dashed style for EMPTY / UNKNOWN icons.
+         Matches --stroke-icon (1.8) so the whole type-icon family renders
+         at a single consistent weight. */
       .dashed {
         fill: none;
         stroke: currentColor;
-        stroke-width: 1.5;
+        stroke-width: var(--stroke-icon);
         stroke-dasharray: 4 3;
       }
     }
   }
-  .foliplus-layer-sep {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-xxl);
-    flex-shrink: 0;
-
-    .foliplus-section-divider {
-      flex: 1;
-    }
-  }
+  /* ── Section label (rendered only inside toggle-all rows) ── */
   .foliplus-layer-sep-label {
+    grid-area: label;
     font-size: var(--font-size-xs);
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: var(--letter-spacing-tight);
     white-space: nowrap;
-    flex-shrink: 0;
+  }
+
+  /* ── Shared grid placements (each row is an independent grid container,
+       so these global rules apply inside all of them via grid-context evaluation). */
+  .foliplus-drag-cell {
+    grid-area: drag;
+    /* Always black. The grip is a static affordance, not a control that joins
+       the hover/active color dance, so it never tints accent. */
+    color: var(--text-primary);
+  }
+  .foliplus-checkbox {
+    grid-area: check;
+  }
+  .foliplus-layer-label {
+    grid-area: label;
+  }
+  .foliplus-layer-count {
+    grid-area: count;
+  }
+  .foliplus-type-icon-col {
+    grid-area: icon;
+  }
+  .foliplus-layer-more-btn {
+    grid-area: more;
   }
 
   /* ── Toggle-all item (section header row) ──
-     Right padding tighter than regular items to align the left border with
-     items, since toggle-all has no checkbox column. */
+    Right padding tighter than regular items to align the left border with
+    items, since toggle-all has no checkbox column. */
   .foliplus-layer-sep.foliplus-layer-toggle-all {
-    gap: var(--space-sm);
+    display: grid;
+    grid-template-columns: var(--grid-layer-cols);
+    grid-template-areas: "drag check label divider divider divider";
+    column-gap: var(--grid-layer-gap);
+    align-items: center;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
+    box-sizing: border-box;
+    min-height: var(--layer-row-min-height);
     border-left: var(--border-thick) solid transparent;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition:
       background-color var(--transition-fast),
       border-color var(--transition-fast);
+
+    .foliplus-section-divider {
+      grid-area: divider;
+      align-self: center;
+    }
   }
   /* Section label: primary color + semibold so it reads as a real header */
   .foliplus-layer-toggle-all .foliplus-layer-sep-label {
@@ -137,6 +192,7 @@
 
   /* ── Fold toggle button ── */
   .foliplus-layer-fold-btn {
+    grid-area: drag;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -145,8 +201,8 @@
     cursor: pointer;
     padding: 0;
     margin: 0;
-    width: var(--icon-size-xs);
-    height: var(--icon-size-md);
+    width: var(--space-xl);
+    height: var(--space-xl);
     flex-shrink: 0;
     color: var(--text-primary);
     transition:
@@ -154,8 +210,9 @@
       transform var(--transition-fast);
 
     svg {
-      width: var(--icon-size-xs);
-      height: var(--icon-size-xs);
+      display: block;
+      width: var(--space-xl);
+      height: var(--space-xl);
       fill: none;
       stroke: currentColor;
       stroke-width: var(--stroke-icon);
@@ -202,19 +259,11 @@
 
   /* ── Drag handle ──
     Shared size for all drag handles in layer rows.
-    Shown on hover for draggable items, hidden for non-draggable (color, toggle-all). */
+    Shown on hover for draggable items; hidden for color rows. */
   .drag-handle {
-    flex-shrink: 0;
-    width: var(--icon-size-xs);
-    height: var(--icon-size-md);
-
-    /* Circles use fill="currentColor"; add matching stroke so they stay bold,
-      matching the appearance they had when .foliplus-ctrl-fold svg provided
-      stroke: currentColor via inheritance. */
-    circle {
-      stroke: currentColor;
-      stroke-width: var(--stroke-icon);
-    }
+    display: block;
+    width: var(--space-xl);
+    height: var(--space-xl);
   }
   .foliplus-layer-item .drag-handle {
     opacity: 0;
@@ -223,7 +272,6 @@
   .foliplus-layer-item:hover .drag-handle {
     opacity: 1;
   }
-  .foliplus-layer-toggle-all .drag-handle,
   .foliplus-color-layer-item .drag-handle {
     visibility: hidden;
   }
@@ -236,10 +284,14 @@
 
   /* ── Layer item ── */
   .foliplus-layer-item {
-    display: flex;
-    align-items: center;
+    display: grid;
+    grid-template-columns: var(--grid-layer-cols);
+    grid-template-areas: "drag check label count icon more";
+    column-gap: var(--grid-layer-gap);
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
-    gap: var(--space-sm);
+    align-items: center;
+    box-sizing: border-box;
+    min-height: var(--layer-row-min-height);
     cursor: default;
     user-select: none;
     border-radius: var(--radius-sm);
@@ -249,19 +301,43 @@
       background-color var(--transition-fast),
       border-color var(--transition-fast);
 
+    .foliplus-layer-label {
+      cursor: inherit;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+      font-weight: var(--font-weight-normal);
+    }
+    /* ── Feature count column ──
+      Right-aligned, the 38px column itself caps display to ~5 chars.
+      Stays muted gray in every state: the count is annotation, not a control,
+      so it intentionally does not join the hover/active color dance. */
+    .foliplus-layer-count {
+      font-variant-numeric: tabular-nums;
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: var(--line-height-hint);
+      padding: 0 0 0 var(--space-xs);
+    }
+
     &[draggable="true"] {
       cursor: move;
-    }
-    &:hover .foliplus-type-icon-col svg,
-    &.active .foliplus-type-icon-col svg {
-      transform: scale(var(--scale-hover));
     }
     &.active {
       border-left-color: var(--accent-primary);
       background: var(--accent-light);
     }
+    /* Identity: gray at rest, wakes to black on hover and when the row is
+       active. Accent stays reserved for actions (more) and status (border),
+       so the type icon reads as focus, not as a call-to-action. */
+    &:hover .foliplus-type-icon-col,
     &.active .foliplus-type-icon-col {
-      color: var(--accent-primary);
+      color: var(--text-primary);
     }
     &.foliplus-layer-dragging {
       background: var(--accent-light);
@@ -281,68 +357,37 @@
       animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
         var(--drag-pulse-count);
     }
+  }
+  /* ── More options button (reserved slot, always visible) ──
+    Black at rest; tints accent on hover AND when the row is active. As the
+    row's only in-line action, it answers to the action color immediately on
+    hover, not only when selected. */
+  .foliplus-layer-more-btn {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--more-btn-width);
+    height: var(--space-xl);
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: color var(--transition-fast);
 
-    /* ── Feature count column ──
-      Position: immediately before the type-icon column.  Right-aligned so
-      digits align across rows; fixed-width slot keeps the icon column stable.
-      Dimmed by default, brightens on hover/active to match other row content. */
-    .foliplus-layer-count {
-      position: relative;
-      flex-shrink: 0;
-      min-width: calc(var(--icon-size-md) + var(--space-xs));
-      /* 7px = 5px dot + 2px breathing room; matches --count-dot-diameter */
-      padding: 0 var(--space-xs) 0 calc(var(--space-xs) + 7px);
-      margin-left: var(--space-sm);
-      font-variant-numeric: tabular-nums;
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
-      text-align: right;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: var(--line-height-md);
-      align-self: center;
-      transition: color var(--transition-fast);
-
-      /* Leading accent dot — a lightweight visual anchor for "this is a count"
-        without adding a container/chip.  Positioned absolutely so the right-
-        aligned number keeps its tabular edge. */
-      &::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 50%;
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: var(--accent-primary);
-        transform: translateY(-50%);
-        opacity: 0;
-        transition: opacity var(--transition-fast);
-      }
-    }
-    &:hover .foliplus-layer-count,
-    &.active .foliplus-layer-count {
-      color: var(--text-primary);
-    }
-
-    /* Reveal the count dot only when the row is hovered or checked,
-       mirroring the checkbox state without cluttering the default view. */
-    &:hover .foliplus-layer-count::before,
-    &.active .foliplus-layer-count::before {
-      opacity: 1;
-    }
-
-    label {
-      cursor: inherit;
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin: 0;
-      font-weight: var(--font-weight-normal);
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
   }
+  .foliplus-layer-item:hover .foliplus-layer-more-btn,
+  .foliplus-layer-item.active .foliplus-layer-more-btn {
+    color: var(--accent-primary);
+  }
+
   /* ── Color layer item overrides ──
      Pointer cursor (not draggable) */
   .foliplus-color-layer-item {
@@ -355,7 +400,6 @@
     justify-content: center;
     width: var(--space-xl);
     height: var(--space-xl);
-    flex-shrink: 0;
   }
   input[type="checkbox"] {
     position: relative;
@@ -363,7 +407,6 @@
     margin: 0;
     width: var(--space-xl);
     height: var(--space-xl);
-    flex-shrink: 0;
     border: var(--border-thin) solid var(--input-border);
     border-radius: var(--radius-sm);
     background: var(--input-bg);
@@ -407,9 +450,8 @@
   }
   /* ── Solid color layer picker ── */
   .foliplus-color-layer-input {
-    width: var(--icon-size-md);
-    height: var(--icon-size-md);
-    flex-shrink: 0;
+    width: var(--space-xl);
+    height: var(--space-xl);
     border: var(--border-thick) solid var(--input-border);
     border-radius: var(--radius-round);
     padding: 0;
