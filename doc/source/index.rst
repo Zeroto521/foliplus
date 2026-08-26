@@ -1,9 +1,8 @@
 foliplus
 ========
 
-A pragmatic `Folium <https://python-visualization.github.io/folium>`_ toolkit built to
-streamline spatial data visualization workflows, allowing you to focus entirely on the
-data itself.
+foliplus: the missing piece between "see the map" and "use the map".
+GeoPandas handles data, Folium renders it, foliplus brings it to life.
 
 .. grid:: 1 2 2 3
 
@@ -17,7 +16,7 @@ data itself.
       :padding: 2
       :link: api/foliplus.FullscreenControl.html
 
-      FullscreenControl toggle with auto-hide for other controls.
+      Fullscreen toggle with auto-hide for other controls.
 
    .. grid-item-card:: 🔥 HeatmapControl
       :padding: 2

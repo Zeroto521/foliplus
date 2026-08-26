@@ -31,6 +31,13 @@ const formatNumber = (
       .filter(p => p.type === "integer")
       .map(p => p.value)
       .join("");
+
+    // If compact notation produced no "compact" unit part (e.g. zh-CN locale
+    // with value < 10000, where the compact unit is 万), fall back to standard
+    // formatting with thousands separator.
+    if (!parts.some(p => p.type === "compact"))
+      return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(val);
+
     if (intStr.length >= 3) return fmt(0).format(val);
 
     return nf.format(val);

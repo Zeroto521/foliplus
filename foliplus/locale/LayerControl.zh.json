@@ -28,6 +28,7 @@
   "LayerControl.select_tooltip": "显示",
   "LayerControl.deselect_tooltip": "隐藏",
   "LayerControl.drag_tooltip": "拖拽排序",
+  "LayerControl.more_tooltip": "更多选项",
   "LayerControl.readonly_error": "layers 为只读属性，请使用 LayerAPI (registerLayer / unregisterLayer / bringLayerToFront)",
   "LayerControl.readonly_del_error": "layers 为只读属性，请使用 LayerAPI",
   "LayerControl.readonly_method_error": "layers.{method}() 为只读方法，请使用 LayerAPI"

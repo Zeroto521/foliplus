@@ -29,6 +29,7 @@ coverage.xml
 .coverage
 .coverage.*
 *.cover
+junit.xml
 *.junit.xml
 coverage/
 htmlcov/
@@ -79,7 +80,9 @@ package-lock.json
 .claude/plans/myagents/
 .foliplus/
 memory/
+myagents_files/
 CLAUDE.md
+HEARTBEAT.md
 UPDATE_MEMORY.md
 
 # Auto-generated

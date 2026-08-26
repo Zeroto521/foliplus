@@ -433,6 +433,38 @@ describe("LayerManager", () => {
     vi.useRealTimers();
   });
 
+  describe("loadSavedOrder", () => {
+    it("restores a persisted overlay/base order", () => {
+      const spy = vi.spyOn(Storage, "load").mockReturnValue(["overlay1", "base1"]);
+      const m = new LayerManager(map, [
+        { id: "base1", name: "B", isBase: true },
+        { id: "overlay1", name: "O", isBase: false },
+      ]);
+      expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
+      spy.mockRestore();
+    });
+
+    it("drops unknown ids from persisted order and keeps the rest", () => {
+      const spy = vi
+        .spyOn(Storage, "load")
+        .mockReturnValue(["ghost", "overlay1", "gone", "base1"]);
+      const m = new LayerManager(map, [
+        { id: "base1", name: "B", isBase: true },
+        { id: "overlay1", name: "O", isBase: false },
+      ]);
+      expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
+      spy.mockRestore();
+    });
+
+    it("ignores non-array storage data", () => {
+      const spy = vi.spyOn(Storage, "load").mockReturnValue("nope");
+      const m = new LayerManager(map, [{ id: "overlay1", name: "O", isBase: false }]);
+      // falls back to the initial (insertion) order
+      expect(m.layers.map(l => l.id)).toEqual(["overlay1"]);
+      spy.mockRestore();
+    });
+  });
+
   it("normalizes initial data into the full layerInfo field set", () => {
     const m2 = new LayerManager(map, [
       { id: "a", name: "A", visible: true, isBase: false },
@@ -620,6 +652,34 @@ describe("LayerManager", () => {
     expect(pts).toEqual([{ lat: 1, lng: 2, marker }]);
   });
 
+  it("extractPoints excludes label markers (no double-counting)", () => {
+    class Marker {}
+    window.L.Marker = Marker;
+    const data = new Marker() as any;
+    data.feature = { type: "Feature" };
+    data.getLatLng = () => ({ lat: 1, lng: 2 });
+    data.options = {};
+    const label = new Marker() as any;
+    label.feature = { type: "Feature" };
+    label.getLatLng = () => ({ lat: 9, lng: 9 });
+    label.options = {};
+    label.isLabel = true;
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({
+      id: "el",
+      name: "El",
+      layer: {
+        eachLayer: (cb: (l: unknown) => void) => {
+          cb(data);
+          cb(label);
+        },
+        options: {},
+      } as any,
+    });
+    const pts = manager.extractPoints("el");
+    expect(pts).toEqual([{ lat: 1, lng: 2, marker: data }]);
+  });
+
   it("bringLayerToFront re-renders the list when a UI is attached", () => {
     manager.map.hasLayer.mockReturnValue(false);
     // register bottom first so top lands at index 0; bottom is then movable
@@ -651,6 +711,169 @@ describe("LayerManager", () => {
     manager.enforceOrder();
     expect(layer.options.pane).toMatch(/^foliplus_pane_/);
     expect(layer.options.paneSet).toBe(true);
+  });
+
+  describe("getFeatureCount", () => {
+    // Build a leaf that looks like a real Leaflet layer (has options) so
+    // registerLayer's discoverChildPanes does not fail, and that carries
+    // the constructor identity forEachLeaf's instanceof checks need.
+    const makeLeaf = (ctor: any, extra: unknown = {}) =>
+      Object.assign(Object.create(ctor.prototype), { options: {}, ...extra });
+    const wrap = (...leaves: unknown[]) =>
+      ({
+        options: {},
+        eachLayer: (cb: (l: unknown) => void) => leaves.forEach(cb),
+      }) as any;
+
+    beforeEach(() => {
+      manager.map.hasLayer.mockReturnValue(false);
+    });
+
+    it("returns null for base layers", () => {
+      manager.registerLayer({
+        id: "b1",
+        name: "B",
+        layer: { options: {} },
+        isBase: true,
+      });
+      expect(manager.getFeatureCount("b1")).toBe(null);
+    });
+
+    it("returns null for an unknown layer id", () => {
+      expect(manager.getFeatureCount("ghost")).toBe(null);
+    });
+
+    it("returns null for a canvas/unknown layer without a provider", () => {
+      manager.registerLayer({ id: "c1", name: "Canvas", layer: { options: {} } });
+      expect(manager.getFeatureCount("c1")).toBe(null);
+    });
+
+    it("prefers the third-party featureCountProvider over forEachLeaf", () => {
+      const provider = vi.fn(() => 999);
+      manager.registerLayer({
+        id: "pv",
+        name: "PV",
+        layer: { options: {} },
+        featureCountProvider: provider,
+      });
+      expect(manager.getFeatureCount("pv")).toBe(999);
+      expect(provider).toHaveBeenCalledTimes(1);
+    });
+
+    it("passes featureCountProvider through createLayerInfo (survives registration)", () => {
+      const provider = vi.fn(() => 7);
+      manager.registerLayer({
+        id: "surv",
+        name: "Surv",
+        layer: { options: {} },
+        featureCountProvider: provider,
+      });
+      const li = manager.layerRegistry.get("surv");
+      expect(typeof li?.featureCountProvider).toBe("function");
+      expect(manager.getFeatureCount("surv")).toBe(7);
+    });
+
+    it("logs an error when featureCountProvider throws", () => {
+      const provider = vi.fn(() => {
+        throw new Error("provider boom");
+      });
+      const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      manager.registerLayer({
+        id: "boom",
+        name: "Boom",
+        layer: { options: {} },
+        featureCountProvider: provider,
+      });
+      expect(manager.getFeatureCount("boom")).toBe(null);
+      expect(logSpy).toHaveBeenCalled();
+      expect(logSpy.mock.calls[0][0]).toContain("featureCountProvider threw");
+      logSpy.mockRestore();
+    });
+
+    it("counts polygons in a feature container via forEachLeaf fallback", () => {
+      const layer = wrap(makeLeaf(window.L.Polygon), makeLeaf(window.L.Polygon));
+      manager.registerLayer({ id: "poly", name: "Poly", layer });
+      expect(manager.getFeatureCount("poly")).toBe(2);
+    });
+
+    it("counts markers with feature and ignores markers without feature", () => {
+      const m1 = makeLeaf(window.L.Marker, { feature: {} });
+      const m2 = makeLeaf(window.L.Marker);
+      const layer = wrap(m1, m2);
+      manager.registerLayer({ id: "mk", name: "Mk", layer });
+      expect(manager.getFeatureCount("mk")).toBe(1);
+    });
+
+    it("returns null for a container layer that is not present (findLayer null)", () => {
+      manager.registerLayer({ id: "absent", name: "Absent" });
+      expect(manager.getFeatureCount("absent")).toBe(null);
+    });
+
+    it("counts only data features when a label sub-group is nested under mainLayer", () => {
+      const dataPoly = makeLeaf(window.L.Polygon);
+      const labelPoly = makeLeaf(window.L.Polygon);
+      (labelPoly as unknown as { isLabel: boolean }).isLabel = true;
+      const labelGroup = {
+        options: {},
+        eachLayer: (cb: (l: unknown) => void) => cb(labelPoly),
+      };
+      const mainLayer = wrap(dataPoly, labelGroup);
+      manager.registerLayer({ id: "nested", name: "Nested", layer: mainLayer });
+      expect(manager.getFeatureCount("nested")).toBe(1);
+    });
+  });
+
+  describe("refreshCount", () => {
+    it("emits LAYER_ITEM_COUNT_CHANGE for a registered overlay layer", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({ id: "rc1", name: "RC", layer: { options: {} } });
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+      manager.refreshCount("rc1");
+      expect(handler).toHaveBeenCalledWith({ id: "rc1" });
+    });
+
+    it("does not emit for a base layer", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: "b1",
+        name: "B",
+        layer: { options: {} },
+        isBase: true,
+      });
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+      manager.refreshCount("b1");
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it("invalidates the layer's cached type before emitting, so mixed geometry at runtime is re-detected", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const poly = Object.assign(Object.create(window.L.Polygon.prototype), {
+        options: {},
+      });
+      const polyLayer = {
+        options: {},
+        eachLayer: (cb: (l: unknown) => void) => cb(poly),
+      };
+      manager.registerLayer({ id: "rt", name: "RT", layer: polyLayer });
+      expect(manager.getLayerType("rt")).toBe(GEOM_TYPE.POLYGON);
+      // refreshCount must clear the cached type so a subsequent runtime geometry
+      // mix is re-detected by getLayerType/getGeometryType
+      manager.refreshCount("rt");
+      const layerInfo = manager.layerRegistry.get("rt");
+      expect(layerInfo?.type).toBeNull();
+    });
+
+    it("emits for an unknown layer id (no-op subscriber; defensive)", () => {
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+      manager.refreshCount("ghost");
+      expect(handler).toHaveBeenCalledWith({ id: "ghost" });
+    });
   });
 
   it("canReorderBetween delegates to the registry", () => {

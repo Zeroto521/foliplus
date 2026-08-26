@@ -2,7 +2,7 @@
 // Imported statically by components. `turf` and `L` are globals
 // provided by the page (Leaflet + turf via CDN), as before.
 
-interface LatLngPoint {
+export interface LatLngPoint {
   lng: number;
   lat: number;
 }

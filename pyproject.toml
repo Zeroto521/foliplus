@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "foliplus"
 dynamic = ["version"]
-description = "foliplus is a pragmatic Folium toolkit built to streamline spatial data visualization workflows, allowing you to focus entirely on the data itself."
+description = 'foliplus: the missing piece between "see the map" and "use the map".'
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "40% <@Zeroto521>", email = "Zeroto521@gmail.com" }]

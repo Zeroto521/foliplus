@@ -15,6 +15,8 @@ export const EVENTS = {
   BEFORE_EXPORT: "foliplus:export:before",
   /** Export completed (success / failure / abort). */
   AFTER_EXPORT: "foliplus:export:after",
+  /** A layer's feature count changed (data update / feature add/remove). */
+  LAYER_ITEM_COUNT_CHANGE: "foliplus:layer:item-count-change",
 } as const;
 
 // ── Type-safe payload map ──
@@ -25,6 +27,7 @@ export interface EventPayloadMap {
   [EVENTS.MODE_CHANGE]: { component: string; mode: string | null };
   [EVENTS.BEFORE_EXPORT]: { component: string };
   [EVENTS.AFTER_EXPORT]: { component: string };
+  [EVENTS.LAYER_ITEM_COUNT_CHANGE]: { id: string };
 }
 
 // ── Event metadata registry ──
@@ -68,5 +71,11 @@ export const EVENT_REGISTRY: Record<string, EventMeta> = {
     publisher: COMPONENTS.ExportControl,
     subscribers: [],
     payload: "{ component: string }",
+  },
+  [EVENTS.LAYER_ITEM_COUNT_CHANGE]: {
+    description: "A layer's feature count changed (data update / feature add/remove)",
+    publisher: "LayerManager",
+    subscribers: [COMPONENTS.LayerControl],
+    payload: "{ id: string }",
   },
 };
