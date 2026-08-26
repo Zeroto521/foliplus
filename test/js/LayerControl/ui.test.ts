@@ -499,6 +499,59 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ) as HTMLElement | null;
       expect(li?.getAttribute("disabled")).toBeNull();
     });
+
+    it("Enter on a visible menu item triggers focusLayer and closes the menu", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.focus();
+      expect(document.activeElement).toBe(li);
+
+      const focusSpy = vi.fn();
+      ui.focusLayer = focusSpy;
+
+      const event = new KeyboardEvent("Enter", { bubbles: true, cancelable: true });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+    });
+
+    it("Enter on a disabled menu item shows a hint and does not call focusLayer", () => {
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      if (checkbox) checkbox.checked = false;
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.focus();
+
+      const focusSpy = vi.fn();
+      ui.focusLayer = focusSpy;
+
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+
+      const event = new KeyboardEvent("Enter", { bubbles: true, cancelable: true });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      expect(focusSpy).not.toHaveBeenCalled();
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_hidden",
+        expect.any(Number),
+      );
+      // Menu stays open — user sees why focus is unavailable.
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
   });
 
   // ─────────────────── keyboard on more button ───────────────────

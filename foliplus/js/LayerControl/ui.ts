@@ -921,6 +921,25 @@ class LayerUI {
           if (item) this.openMoreMenu(item);
           break;
         }
+        // Menu item (li) is focused — trigger the focus-layer action.
+        // Skip disabled items so the hidden-layer guard applies to keyboard too.
+        const menuLi = (document.activeElement as HTMLElement | null)
+          ?.closest?.(".foliplus-layer-more-menu li");
+        if (menuLi && this.activeMenu) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (menuLi.getAttribute("disabled")) {
+            this.m.map.foliplus!.showHint(
+              CONF.name,
+              _(`${CONF.name}.focus_layer_hidden`),
+              HINT_DURATION.SHORT,
+            );
+            break;
+          }
+          this.focusLayer(this.activeMenu.layerId);
+          this.closeMoreMenu(true);
+          break;
+        }
         event.preventDefault();
         this.toggleFocusedLayer();
         break;

@@ -72,7 +72,7 @@ export const FOCUS = `
   <svg viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="8"/>
     <circle cx="12" cy="12" r="3.5"/>
-    <circle cx="12" cy="12" r="0.8" class="solid"/>
+    <circle cx="12" cy="12" r="2" class="solid"/>
     <path d="M12 2 L12 6"/>
     <path d="M12 18 L12 22"/>
     <path d="M2 12 L6 12"/>
