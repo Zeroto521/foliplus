@@ -112,4 +112,16 @@ const createTranslator = (conf: ComponentConfig): ((key: string) => string) => {
   return k => (table[k] !== undefined ? table[k] : k);
 };
 
-export { createTranslator };
+/**
+ * Create a component-scoped translator that auto-prepends the component name
+ * to every key. Callers write T("focus_layer") instead of
+ * _(`${CONF.name}.focus_layer`).
+ */
+const createScopedTranslator = (
+  conf: ComponentConfig,
+): ((key: string) => string) => {
+  const _ = createTranslator(conf);
+  return (k: string): string => _(`${conf.name}.${k}`);
+};
+
+export { createTranslator, createScopedTranslator };
