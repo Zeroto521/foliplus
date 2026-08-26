@@ -437,6 +437,14 @@
     height: var(--space-md);
     color: var(--text-muted);
   }
+  /* Disabled menu item (e.g. layer is hidden). */
+  .foliplus-layer-more-menu li[disabled] {
+    cursor: default;
+    opacity: 0.4;
+  }
+  .foliplus-layer-more-menu li[disabled]:hover {
+    background: transparent;
+  }
 
   /* ── Focus bounds rectangle (drawn on the map) ── */
   .foliplus-focus-rect {
