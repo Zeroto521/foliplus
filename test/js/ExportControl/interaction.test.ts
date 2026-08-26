@@ -189,7 +189,9 @@ describe("ExportControl interaction", () => {
     const mgr = makeMgr();
     const cleanup = registerDrag(mgr);
     // Mousemove and mouseup are registered; keydown should not dispatch to them
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
     expect(mgr.onMouseMove).not.toHaveBeenCalled();
     expect(mgr.onMouseUp).not.toHaveBeenCalled();
     cleanup();

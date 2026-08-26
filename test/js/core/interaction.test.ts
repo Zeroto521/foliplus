@@ -325,9 +325,7 @@ describe("InteractionManager", () => {
 
     // Focus in defaultContainer — only "b" (default-container-bound) fires
     input.focus();
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "b", bubbles: true }),
-    );
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "b", bubbles: true }));
     expect(unscopedHandler).toHaveBeenCalledTimes(1);
     expect(scopedHandler).not.toHaveBeenCalled();
 
