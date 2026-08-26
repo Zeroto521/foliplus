@@ -6,7 +6,7 @@ from .locale import LocaleConfig
 
 
 class FullscreenControl(BaseControl):
-    """FullscreenControl toggle with auto-hide for other controls.
+    """Fullscreen toggle with auto-hide for other controls.
 
     When toggling fullscreen, other controls (HeatmapControl, LayerControl, ScaleControl,
     SearchControl, MeasureControl, etc.), inside ``.leaflet-control-container`` are
