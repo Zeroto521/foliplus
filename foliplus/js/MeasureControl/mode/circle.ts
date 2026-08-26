@@ -1,7 +1,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { makeDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
@@ -14,7 +14,7 @@ import * as Util from "../util.js";
 import { PreviewMode } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 interface CirclePreviews {
   center: L.Marker | null;
@@ -68,7 +68,7 @@ class CircleMode extends PreviewMode {
       }),
     ) as L.Marker;
     const delMarker = manager.layers.addLayer(
-      makeDelIcon(centerLatLng, { title: _(`${CONF.name}.del_tooltip`) }),
+      makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
     ) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
@@ -152,7 +152,7 @@ class CircleMode extends PreviewMode {
         phase = 1;
         map.foliplus!.showHint(
           CONF.name,
-          _(`${CONF.name}.hint_circle_radius`),
+          T("hint_circle_radius"),
           HINT_DURATION.PERSIST,
         );
       } else if (phase === 1) {
@@ -284,7 +284,7 @@ class CircleMode extends PreviewMode {
       );
 
       const delMarker = this.layers.addLayer(
-        makeDelIcon(centerLatLng, { title: _(`${CONF.name}.del_tooltip`) }),
+        makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
       );
 
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);

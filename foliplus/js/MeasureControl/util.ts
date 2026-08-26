@@ -2,11 +2,11 @@
 import { hideDelIcons, toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** Format meters to human-readable string (e.g. "1.2 km", "500 m"). */
 const formatDistance = (meters: number): string => {
@@ -112,10 +112,10 @@ const buildPopup = (lng: number, lat: number, addr: string | null = null): strin
     lng,
     lat,
     addr,
-    _(`${CONF.name}.popup_title`),
-    _(`${CONF.name}.popup_loading`),
-    _(`${CONF.name}.popup_loc_label`),
-    _(`${CONF.name}.popup_addr_label`),
+    T("popup_title"),
+    T("popup_loading"),
+    T("popup_loc_label"),
+    T("popup_addr_label"),
   );
 };
 
