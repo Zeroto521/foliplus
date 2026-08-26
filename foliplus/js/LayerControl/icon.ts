@@ -59,10 +59,19 @@ export const FOLD = `
     <polyline points="18 15 12 9 6 15"/>
   </svg>`;
 
-/** Vertical three-dot "more" icon for the layer item overflow menu (reserved). */
+/** Vertical three-dot "more" icon for the layer item overflow menu. */
 export const MORE = `
   <svg viewBox="9 3 6 18">
     <circle cx="12" cy="6" r="1.75" fill="currentColor"/>
     <circle cx="12" cy="12" r="1.75" fill="currentColor"/>
     <circle cx="12" cy="18" r="1.75" fill="currentColor"/>
+  </svg>`;
+
+/** "Focus on layer" icon — magnifier + crosshair */
+export const FOCUS = `
+  <svg viewBox="0 0 24 24">
+    <circle cx="10.5" cy="10.5" r="6.5"/>
+    <path d="M15 15 L21 21"/>
+    <path d="M10.5 7 L10.5 14"/>
+    <path d="M7 10.5 L14 10.5"/>
   </svg>`;
