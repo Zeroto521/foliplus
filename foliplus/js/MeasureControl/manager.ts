@@ -10,7 +10,7 @@ import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
-import { registerExportClick, registerInteractions } from "./interaction.js";
+import { registerActiveEscape, registerExportClick, registerInteractions } from "./interaction.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 import * as Util from "./util.js";
 
@@ -23,6 +23,7 @@ const _ = createTranslator(CONF);
 class MeasureManager {
   map: L.Map;
   private interactionCleanup?: () => void;
+  private measureEscapeCleanup?: () => void;
   private exportClickCleanup?: () => void;
   layers: CreateLayersAPI;
   currentMode: string | null;
@@ -196,6 +197,11 @@ class MeasureManager {
 
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
 
+    // Register a high-priority Escape so it wins over all container-bound
+    // shortcuts (LayerControl/ExportControl) while a measurement is in
+    // progress. priority=1 overrides the default 0 that those use.
+    this.measureEscapeCleanup = registerActiveEscape(this);
+
     const hintKey = {
       [CONST.MODE.MARKER]: _(`${CONF.name}.hint_marker`),
       [CONST.MODE.DISTANCE]: _(`${CONF.name}.hint_dist_start`),
@@ -221,6 +227,10 @@ class MeasureManager {
     this.map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
+    // Unregister the high-priority Escape so container-bound shortcuts
+    // (LayerControl/ExportControl) can respond again.
+    this.measureEscapeCleanup?.();
+    this.measureEscapeCleanup = undefined;
     // Unregister the measure layer if it has no content left (interrupted
     // preview with no persisted measurements). Safe: unregister() is a no-op
     // when there are still completed measurements in the layer.
