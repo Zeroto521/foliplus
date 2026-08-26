@@ -1,13 +1,13 @@
-<p align="center">
+<h1 align="center">
   <a href="https://foliplus.readthedocs.io">foliplus</a>
-</p>
+</h1>
 
 <p align="center">
   <a href="https://foliplus.readthedocs.io/en/latest/quickstart.html#display-map"><img src="https://raw.githubusercontent.com/Zeroto521/foliplus/main/doc/source/_static/preview.png" alt="Preview"></a>
 </p>
 
 <p align="center">
-  <em>foliplus: the missing piece between "see the map" and "use the map." GeoPandas handles data, Folium renders it, foliplus brings it to life.</em>
+  <em>foliplus: the missing piece between "see the map" and "use the map". GeoPandas handles data, Folium renders it, foliplus brings it to life.</em>
 </p>
 
 <p align="center">

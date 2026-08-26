@@ -1,7 +1,7 @@
 foliplus
 ========
 
-foliplus: the missing piece between "see the map" and "use the map."
+foliplus: the missing piece between "see the map" and "use the map".
 GeoPandas handles data, Folium renders it, foliplus brings it to life.
 
 .. grid:: 1 2 2 3
