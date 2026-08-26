@@ -1,9 +1,11 @@
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
+import { createScopedTranslator } from "#common/locale.js";
 
 // ==================== Runtime Guard ====================
 const { _ } = createControlEnv(CONF);
+const T = createScopedTranslator(CONF);
 
 // ==================== Control Definition ====================
 class ScaleControl extends BaseControl {
@@ -20,7 +22,7 @@ class ScaleControl extends BaseControl {
         parent: ctrl,
       });
       const updateZoom = () => {
-        zoomLabel.textContent = _(`${CONF.name}.zoom_label`).replace(
+        zoomLabel.textContent = T("zoom_label").replace(
           "{zoom}",
           String(this._map.getZoom()),
         );

@@ -5,11 +5,7 @@ import * as Icons from "#common/icon.js";
 import * as SVGs from "./icon.js";
 
 /** Build the panel HTML string. */
-import { createScopedTranslator } from "#common/locale.js";
-
-const panelHTML = (): string => {
-  const T = createScopedTranslator(CONF);
-  return /* html */ `
+const panelHTML = (T: (key: string) => string): string => /* html */ `
   <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed" id="${CONF.name}_ctrl">
     <button class="foliplus-toggle-btn" title="${T("toggle_title")}" aria-label="${T("toggle_title")}">
       ${SVGs.LAYERS}
@@ -27,6 +23,5 @@ const panelHTML = (): string => {
       <div class="foliplus-panel-content"></div>
     </div>
   </div>`;
-};
 
 export { panelHTML };

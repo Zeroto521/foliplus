@@ -2,12 +2,14 @@ import { ensureHint } from "#core/hint.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
+import { createScopedTranslator } from "#common/locale.js";
 import { isEnabled, nativeAPI } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindFullscreenEvents, toggleFullscreen } from "./logic.js";
 
 const { _ } = createControlEnv(CONF, SVGs.MAXIMIZE);
+const T = createScopedTranslator(CONF);
 ensureHint(map);
 
 class FullscreenControl extends BaseControl {
@@ -31,8 +33,8 @@ class FullscreenControl extends BaseControl {
 
     createIconButton({
       class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_IN}`,
-      title: _(`${CONF.name}.zoom_in`),
-      ariaLabel: _(`${CONF.name}.zoom_in`),
+      title: T("zoom_in"),
+      ariaLabel: T("zoom_in"),
       svg: SVGs.ZOOM_IN,
       parent: container,
       onclick: event => {
@@ -43,8 +45,8 @@ class FullscreenControl extends BaseControl {
 
     createIconButton({
       class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_OUT}`,
-      title: _(`${CONF.name}.zoom_out`),
-      ariaLabel: _(`${CONF.name}.zoom_out`),
+      title: T("zoom_out"),
+      ariaLabel: T("zoom_out"),
       svg: SVGs.ZOOM_OUT,
       parent: container,
       onclick: event => {
@@ -55,8 +57,8 @@ class FullscreenControl extends BaseControl {
 
     const fsBtn = createIconButton({
       class: `${CLASSES.TOOL_BTN} ${CLASSES.TOGGLE}`,
-      title: _(`${CONF.name}.title`),
-      ariaLabel: _(`${CONF.name}.title`),
+      title: T("title"),
+      ariaLabel: T("title"),
       svg: SVGs.MAXIMIZE,
       parent: container,
       onclick: event => {
