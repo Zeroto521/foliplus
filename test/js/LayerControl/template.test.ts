@@ -3,20 +3,22 @@ import { panelHTML } from "#foliplus/LayerControl/template.js";
 
 describe("panelHTML", () => {
   beforeEach(() => {
-    vi.stubGlobal("CONF", { name: "LayerControl" });
+    vi.stubGlobal("CONF", {
+      name: "LayerControl",
+      locale_code: "en",
+      locale_tables: {
+        en: {
+          "LayerControl.toggle_title": "Toggle layers",
+          "LayerControl.panel_title": "Layers",
+          "LayerControl.close_title": "Close",
+        },
+      },
+    });
+    window.foliplus._TABLES = {};
   });
 
-  const _ = (key: string) => {
-    const map: Record<string, string> = {
-      "LayerControl.toggle_title": "Toggle layers",
-      "LayerControl.panel_title": "Layers",
-      "LayerControl.close_title": "Close",
-    };
-    return map[key] ?? key;
-  };
-
   it("returns a string containing the panel structure", () => {
-    const html = panelHTML(_);
+    const html = panelHTML();
     expect(typeof html).toBe("string");
     expect(html).toContain("foliplus-layer-ctrl");
     expect(html).toContain("foliplus-toggle-btn");
@@ -27,27 +29,27 @@ describe("panelHTML", () => {
   });
 
   it("includes the control id from CONF.name", () => {
-    const html = panelHTML(_);
+    const html = panelHTML();
     expect(html).toContain('id="LayerControl_ctrl"');
   });
 
   it("includes translated toggle title", () => {
-    const html = panelHTML(_);
+    const html = panelHTML();
     expect(html).toContain("Toggle layers");
   });
 
   it("includes translated panel title", () => {
-    const html = panelHTML(_);
+    const html = panelHTML();
     expect(html).toContain("Layers");
   });
 
   it("includes translated close title", () => {
-    const html = panelHTML(_);
+    const html = panelHTML();
     expect(html).toContain("Close");
   });
 
   it("includes the LAYERS and CLOSE SVGs", () => {
-    const html = panelHTML(_);
+    const html = panelHTML();
     expect(html).toContain("<svg");
     expect(html).toContain("</svg>");
   });

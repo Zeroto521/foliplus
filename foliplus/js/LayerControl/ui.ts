@@ -4,7 +4,7 @@ import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
@@ -13,8 +13,7 @@ import type { LayerManager } from "./manager.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
-const T = (k: string): string => _(`${CONF.name}.${k}`);
+const T = createScopedTranslator(CONF);
 const mapContainer = map.getContainer();
 
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
