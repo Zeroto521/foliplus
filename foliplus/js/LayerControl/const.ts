@@ -15,6 +15,20 @@ export const STORAGE = {
 /** Color map layer. */
 export const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
 
+/** Focus-on-layer behaviour. */
+export const FOCUS = {
+  /** How long the focus rectangle + corner markers stay visible. */
+  RECT_DURATION_MS: 3500,
+  /** fitBounds animation duration. */
+  FIT_DURATION: 0.6,
+  /** [topBottom, leftRight] padding so the rect isn't clipped at edges. */
+  PADDING: [32, 32] as [number, number],
+  /** Cap maxZoom to current + this step (prevents satellite-zoom snaps on tiny features). */
+  MAX_ZOOM_STEP: 6,
+  /** Bounds area (deg²) below which we treat the layer as a single point → flyTo center. */
+  MIN_BOUNDS_AREA: 0.0001,
+};
+
 /** CSS class names. */
 export const CLASSES = {
   LAYER_ITEM: "foliplus-layer-item",
@@ -38,6 +52,7 @@ export const CLASSES = {
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEP_LABEL: "foliplus-layer-sep-label",
+  FOCUSING: "foliplus-layer-focusing",
 };
 
 /** Data attribute names. */

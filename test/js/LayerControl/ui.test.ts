@@ -39,7 +39,12 @@ const initFixture = (options: {
     options = {};
   }
   class Marker {}
-  class CircleMarker {}
+  class CircleMarker {
+  constructor(_latlng: any, _opts: any) {}
+  addTo(_map: any) {
+    return this;
+  }
+}
   const stamp = (() => {
     let id = 0;
     return vi.fn(() => ++id);
@@ -97,6 +102,7 @@ const initFixture = (options: {
     addLayer: vi.fn(),
     removeLayer: vi.fn(),
     fitBounds: vi.fn(),
+    flyTo: vi.fn(),
     getZoom: vi.fn(() => options.initialZoom ?? 5),
     getMaxZoom: vi.fn(() => options.maxZoom ?? 18),
     getContainer: vi.fn(() => container),
@@ -169,13 +175,16 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("focusLayer()", () => {
-    it("draws a pulsing rectangle on the layer bounds", () => {
+    it("draws a dashed rectangle + 4 corner markers on the layer bounds", () => {
+      const circleSpy = vi.spyOn(window.L, "CircleMarker");
+
       ui.focusLayer("overlay1");
 
       expect(L.rectangle).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
           className: "foliplus-focus-rect",
+          fill: true,
           fillOpacity: 0,
           interactive: false,
         }),
@@ -187,6 +196,10 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
           }),
         }),
       );
+      // Corner markers are added for each of the 4 rectangle corners.
+      expect(circleSpy).toHaveBeenCalledTimes(4);
+
+      circleSpy.mockRestore();
     });
 
     it("passes the correct bounds object to L.rectangle", () => {
@@ -209,29 +222,29 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         expect.anything(),
         expect.objectContaining({
           animate: true,
-          duration: 0.6,
-          padding: [40, 40],
+          duration: CONST.FOCUS.FIT_DURATION,
+          padding: CONST.FOCUS.PADDING,
         }),
       );
     });
 
-    it("caps maxZoom at current zoom + 4", () => {
+    it("caps maxZoom at current zoom + FOCUS.MAX_ZOOM_STEP", () => {
       ui.focusLayer("overlay1");
 
       expect(map.fitBounds).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ maxZoom: 9 }), // zoom(5) + 4
+        expect.objectContaining({ maxZoom: 11 }), // zoom(5) + FOCUS.MAX_ZOOM_STEP(6)
       );
     });
 
-    it("caps maxZoom at map.getMaxZoom() when current + 4 exceeds it", () => {
+    it("caps maxZoom at map.getMaxZoom() when current + step exceeds it", () => {
       ({ manager, ui, map } = initFixture({ initialZoom: 17, maxZoom: 18 }));
 
       ui.focusLayer("overlay1");
 
       expect(map.fitBounds).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ maxZoom: 18 }), // min(18, 17 + 4)
+        expect.objectContaining({ maxZoom: 18 }), // min(18, 17 + 6)
       );
     });
 
@@ -323,13 +336,14 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.focusRect).not.toBe(firstRect);
     });
 
-    it("removes the focus rectangle after 5 seconds", () => {
+    it("removes the focus rectangle after FOCUS.RECT_DURATION_MS", () => {
       vi.useFakeTimers();
 
       ui.focusLayer("overlay1");
       const rect = ui.focusRect!;
+      const duration = CONST.FOCUS.RECT_DURATION_MS;
 
-      vi.advanceTimersByTime(4999);
+      vi.advanceTimersByTime(duration - 1);
       expect(map.removeLayer).not.toHaveBeenCalledWith(rect);
 
       vi.advanceTimersByTime(1);
@@ -345,9 +359,81 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const finalRect = ui.focusRect!;
       // The first rect was removed synchronously; the second's 5s timer
       // should only remove `finalRect`.
-      vi.advanceTimersByTime(5001);
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
 
       expect(map.removeLayer).toHaveBeenCalledWith(finalRect);
+    });
+
+    it("uses flyTo (not fitBounds) when bounds area is below MIN_BOUNDS_AREA", () => {
+      const layer = manager.findLayer(manager.layerRegistry.get("overlay1")!);
+      const tinyBounds = {
+        isValid: () => true,
+        getSouthWest: () => ({ lat: 30, lng: 100 }),
+        getNorthEast: () => ({ lat: 30.000001, lng: 100.000001 }),
+        getCenter: () => ({ lat: 30, lng: 100 }),
+      };
+      // @ts-expect-error — override mocked getBounds
+      layer.getBounds.mockReturnValue(tinyBounds);
+
+      ui.focusLayer("overlay1");
+
+      expect(map.fitBounds).not.toHaveBeenCalled();
+      expect(map.flyTo).toHaveBeenCalledWith(
+        { lat: 30, lng: 100 },
+        11, // zoom(5) + FOCUS.MAX_ZOOM_STEP(6)
+        expect.objectContaining({ duration: CONST.FOCUS.FIT_DURATION }),
+      );
+    });
+
+    it("adds foliplus-layer-focusing class to the focused row", () => {
+      ui.focusLayer("overlay1");
+
+      const item = findItem(ui, "overlay1");
+      expect(item.classList.contains("foliplus-layer-focusing")).toBe(true);
+    });
+
+    it("isFocusing() returns true while focus is in flight", () => {
+      vi.useFakeTimers();
+
+      expect(ui.isFocusing()).toBe(false);
+      ui.focusLayer("overlay1");
+      expect(ui.isFocusing()).toBe(true);
+    });
+
+    it("cancelFocus() removes rect, corners, row highlight, and map handlers", () => {
+      vi.useFakeTimers();
+
+      ui.focusLayer("overlay1");
+      const rect = ui.focusRect!;
+      const item = findItem(ui, "overlay1");
+      expect(item.classList.contains("foliplus-layer-focusing")).toBe(true);
+
+      // Cancel hint — re-attach spy after ensureEvents().
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+
+      ui.cancelFocus();
+
+      expect(map.removeLayer).toHaveBeenCalledWith(rect);
+      expect(ui.focusRect).toBeNull();
+      expect(item.classList.contains("foliplus-layer-focusing")).toBe(false);
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_cancelled",
+        expect.any(Number),
+      );
+      expect(ui.isFocusing()).toBe(false);
+    });
+
+    it("dblclick on a layer row triggers focusLayer", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+
+      const item = findItem(ui, "overlay1");
+      item.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+
+      focusSpy.mockRestore();
     });
   });
 

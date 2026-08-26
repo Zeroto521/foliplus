@@ -56,6 +56,12 @@ class LayerUI {
   } | null;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   private focusRect: L.Layer | null;
+  /** Corner markers for the focus rectangle (cleared on cancel). */
+  private focusCorners: L.Layer[];
+  /** Layer id currently being focused, or null. */
+  private focusingLayerId: string | null;
+  /** One-shot map move/zoom handler that auto-cancels focus when the user navigates. */
+  private _onFocusMapMove: (() => void) | null;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
@@ -72,6 +78,9 @@ class LayerUI {
     this.onMoreMapClick = null;
     this.activeMenu = null;
     this.focusRect = null;
+    this.focusCorners = [];
+    this.focusingLayerId = null;
+    this._onFocusMapMove = null;
   }
 
   /** Alias for convenience */
@@ -539,6 +548,11 @@ class LayerUI {
     container.addEventListener("dragleave", this.onDragLeave);
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
+    // Double-click on a layer row → focus the map on that layer.
+    container.addEventListener(
+      "dblclick",
+      event => this.handleDblClick(event as MouseEvent),
+    );
 
     // Overflow ("more") button → dropdown menu. Uses event delegation so it
     // works for rows created after bindEvents (registerLayer at runtime).
@@ -626,11 +640,8 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
     this.closeMoreMenu(false);
-    // Remove the focus rectangle if a focus animation is still in flight.
-    if (this.focusRect) {
-      this.m.map.removeLayer(this.focusRect);
-      this.focusRect = null;
-    }
+    // Remove any focus animation still in flight (rect + corners + row highlight).
+    this._cancelFocus(true);
     if (this.onChange) container.removeEventListener("change", this.onChange);
     if (this.onInput) container.removeEventListener("input", this.onInput);
     if (this.onClick) container.removeEventListener("click", this.onClick);
@@ -892,6 +903,21 @@ class LayerUI {
       return;
     }
 
+    // Alt+Enter: focus-layer on the currently navigated layer item. This
+    // is a dedicated keyboard entry point (in addition to the ⋮ menu) so
+    // power users can focus without leaving the keyboard.
+    if (event.altKey && event.key === "Enter" && this.activeIdx !== null) {
+      const item = items[this.activeIdx];
+      if (item) {
+        const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+        if (layerId) {
+          event.preventDefault();
+          this.focusLayer(layerId);
+          return;
+        }
+      }
+    }
+
     switch (event.key) {
       case "ArrowUp":
         event.preventDefault();
@@ -948,6 +974,21 @@ class LayerUI {
         else this.clearActiveItem();
         break;
     }
+  }
+
+  /** Double-click on a layer row → focus the map on that layer. */
+  handleDblClick(event: MouseEvent): void {
+    const item = (event.target as HTMLElement).closest(
+      CONST.SEL.LAYER_ITEM,
+    ) as HTMLElement | null;
+    if (!item) return;
+    // Ignore dblclick on the ⋮ button (would open the menu instead).
+    if ((event.target as HTMLElement).closest(`.${CONST.CLASSES.MORE_BTN}`)) {
+      return;
+    }
+    const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+    if (!layerId) return;
+    this.focusLayer(layerId);
   }
 
   /** Toggle visibility of the currently focused layer. */
@@ -1185,12 +1226,17 @@ class LayerUI {
    *    whose getBounds delegates to children).
    * 2. If the layer is not on the map, bring it on temporarily so the bounds
    *    and the visual highlight are consistent with the user's action.
-   * 3. Draw a pulsing rectangle on the exact bounds so the user sees exactly
-   *    what "this layer" covers.
-   * 4. Call fitBounds with `padding` so the rectangle isn't clipped at the
-   *    edges, `animate: true` for a smooth zoom (vs flyTo which would fight
-   *    the layer-panel overlay), and `maxZoom` capped to the current zoom + 4
-   *    to avoid jumping to satellite zoom on tiny features.
+   * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
+   *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` —
+   *    `fitBounds` on a degenerate box has no effect.
+   * 4. Draw a dashed rectangle on the exact bounds + 4 corner circleMarkers
+   *    so the user sees exactly what "this layer" covers.
+   * 5. Highlight the focused layer row with the `foliplus-layer-focusing`
+   *    class so the list ↔ map linkage is visible.
+   * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
+   *    `FOCUS.MAX_ZOOM_STEP` to avoid satellite-zoom snaps on small features.
+   * 7. Auto-cancel on any subsequent map `moveend`/`zoomend` so the rect
+   *    doesn't linger while the user navigates elsewhere.
    */
   focusLayer(layerId: string) {
     const layerInfo = this.m.layerRegistry.get(layerId);
@@ -1199,8 +1245,11 @@ class LayerUI {
     if (!layer) return;
 
     // Hidden layer: nothing to focus on — show a hint instead.
-    const checkbox = this.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"] input[type="checkbox"]`,
+    const itemEl = this.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+    ) as HTMLElement | null;
+    const checkbox = itemEl?.querySelector(
+      'input[type="checkbox"]',
     ) as HTMLInputElement | null;
     if (checkbox && !checkbox.checked) {
       this.m.map.foliplus!.showHint(
@@ -1211,46 +1260,189 @@ class LayerUI {
       return;
     }
 
-    // Ensure the layer is on the map so the rectangle highlight is visible.
-    const wasVisible = this.m.map.hasLayer(layer);
-    if (!wasVisible) this.m.map.addLayer(layer);
+    // Cancel any in-flight focus first.
+    this._cancelFocus(true);
 
-    // Remove any previous focus rectangle.
+    // Ensure the layer is on the map so the rectangle highlight is visible.
+    if (!this.m.map.hasLayer(layer)) this.m.map.addLayer(layer);
+
+    const bounds = (layer as L.Layer & { getBounds(): L.LatLngBounds }).getBounds();
+    if (!bounds.isValid()) return;
+
+    // Single-point / tiny bounds → flyTo the center.
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
+    const area =
+      Math.abs(northEast.lat - southWest.lat) *
+      Math.abs(northEast.lng - southWest.lng);
+    if (area < CONST.FOCUS.MIN_BOUNDS_AREA) {
+      const center = bounds.getCenter();
+      const maxZoom = Math.min(
+        this.m.map.getMaxZoom(),
+        this.m.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+      );
+      this.m.map.flyTo(center, maxZoom, {
+        duration: CONST.FOCUS.FIT_DURATION,
+      });
+      this._highlightFocusedRow(itemEl, layerId);
+      this._registerAutoCancel(layerId);
+      return;
+    }
+
+    const corners = this._drawFocusRect(bounds, layerId);
+    this.focusCorners = corners;
+    this._highlightFocusedRow(itemEl, layerId);
+
+    this.m.map.fitBounds(bounds, {
+      animate: true,
+      duration: CONST.FOCUS.FIT_DURATION,
+      padding: CONST.FOCUS.PADDING,
+      maxZoom: Math.min(
+        this.m.map.getMaxZoom(),
+        this.m.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+      ),
+    });
+
+    // Auto-remove focus visuals after the configured duration.
+    const ref = this.focusRect;
+    setTimeout(() => {
+      if (this.focusRect === ref) {
+        this._cancelFocus(true);
+      }
+    }, CONST.FOCUS.RECT_DURATION_MS);
+
+    // One-shot map move/zoom handler that auto-cancels focus when the user
+    // starts navigating elsewhere — prevents the rect from lingering.
+    this._registerAutoCancel(layerId);
+  }
+
+  /** Return true if a focus animation is currently active. */
+  isFocusing(): boolean {
+    return this.focusRect != null || this.focusingLayerId != null;
+  }
+
+  /** Cancel an in-flight focus: remove rect + corners + row highlight. */
+  cancelFocus(): void {
+    this._cancelFocus(true);
+    this.m.map.foliplus!.showHint(
+      CONF.name,
+      _(`${CONF.name}.focus_cancelled`),
+      HINT_DURATION.SHORT,
+    );
+  }
+
+  /**
+   * Internal: tear down focus visuals + state.
+   * @param silent — suppress the "focus cancelled" hint.
+   */
+  private _cancelFocus(silent = false): void {
+    this._clearAutoCancel();
+    this._clearFocusedRowHighlight();
+
     if (this.focusRect) {
       this.m.map.removeLayer(this.focusRect);
       this.focusRect = null;
     }
+    for (const corner of this.focusCorners) {
+      this.m.map.removeLayer(corner);
+    }
+    this.focusCorners = [];
 
-    const bounds = (layer as L.Layer & { getBounds(): L.LatLngBounds }).getBounds();
-    // Invalid bounds — bail out.
-    if (!bounds.isValid()) return;
+    if (!silent) {
+      map.foliplus!.showHint(
+        CONF.name,
+        _(`${CONF.name}.focus_cancelled`),
+        HINT_DURATION.SHORT,
+      );
+    }
+    this.focusingLayerId = null;
+  }
 
-    // Draw a pulsing rectangle on the exact layer bounds.
+  /** Draw a dashed focus rectangle + 4 corner circleMarkers; return the corners. */
+  private _drawFocusRect(
+    bounds: L.LatLngBounds,
+    layerId: string,
+  ): L.Layer[] {
+    const map = this.m.map;
+    const cornerRadius = 4;
+
     this.focusRect = L.rectangle(bounds, {
       className: "foliplus-focus-rect",
+      fill: true,
       fillOpacity: 0,
       interactive: false,
     });
-    this.m.map.addLayer(this.focusRect);
+    map.addLayer(this.focusRect);
 
-    // Smooth zoom to fit the layer extent. Cap maxZoom to current + 4 so a
-    // tiny feature doesn't snap the map to satellite zoom level.
-    this.m.map.fitBounds(bounds, {
-      animate: true,
-      duration: 0.6,
-      padding: [40, 40],
-      maxZoom: Math.min(this.m.map.getMaxZoom(), this.m.map.getZoom() + 4),
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
+    const corners: L.LatLngExpression[] = [
+      southWest,
+      { lat: northEast.lat, lng: southWest.lng },
+      northEast,
+      { lat: southWest.lat, lng: northEast.lng },
+    ];
+    return corners.map(latlng => {
+      const opts = {
+        radius: cornerRadius,
+        className: "foliplus-focus-corner",
+        interactive: false,
+      };
+      const corner = (typeof L.circleMarker === "function"
+        ? L.circleMarker(latlng, opts)
+        : new L.CircleMarker(latlng, opts)) as L.Layer & {
+          addTo?: (m: L.Map) => L.Layer;
+        };
+      if (corner.addTo) return corner.addTo(map);
+      map.addLayer(corner);
+      return corner;
     });
+  }
 
-    // Remove the pulse rectangle after the animation ends. The pulse animation
-    // is 2.2s * 2 = 4.4s, so 5s is a safe buffer.
-    const ref = this.focusRect;
-    setTimeout(() => {
-      if (this.focusRect === ref) {
-        this.m.map.removeLayer(this.focusRect);
-        this.focusRect = null;
-      }
-    }, 5000);
+  /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */
+  private _registerAutoCancel(layerId: string): void {
+    this.focusingLayerId = layerId;
+    const self = this;
+    const handler = () => {
+      if (self.focusingLayerId !== layerId) return;
+      // Grace period: the fitBounds/flyTo animation fires moveend/zoomend on
+      // completion, which should NOT auto-cancel. Any move/zoom *after* the
+      // grace window is a deliberate user action → cancel.
+      setTimeout(() => {
+        if (self.focusingLayerId === layerId) {
+          self._cancelFocus(true);
+        }
+      }, CONST.FOCUS.RECT_DURATION_MS * 0.3);
+    };
+    this._onFocusMapMove = () => handler();
+    this.m.map.on("moveend", this._onFocusMapMove);
+    this.m.map.on("zoomend", this._onFocusMapMove);
+  }
+
+  /** Remove the map move/zoom auto-cancel handlers. */
+  private _clearAutoCancel(): void {
+    if (this._onFocusMapMove) {
+      this.m.map.off("moveend", this._onFocusMapMove);
+      this.m.map.off("zoomend", this._onFocusMapMove);
+      this._onFocusMapMove = null;
+    }
+  }
+
+  /** Highlight the layer row that is being focused (list ↔ map linkage). */
+  private _highlightFocusedRow(
+    itemEl: HTMLElement | null,
+    layerId: string,
+  ): void {
+    this._clearFocusedRowHighlight();
+    if (!itemEl) return;
+    itemEl.classList.add(CONST.CLASSES.FOCUSING);
+    this.focusingLayerId = layerId;
+  }
+
+  /** Remove the `foliplus-layer-focusing` class from the active row. */
+  private _clearFocusedRowHighlight(): void {
+    const prev = this.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSING}`);
+    prev?.classList.remove(CONST.CLASSES.FOCUSING);
   }
 
   deselectAllBaseMaps(exceptIdx: number) {

@@ -436,6 +436,11 @@
     width: var(--space-md);
     height: var(--space-md);
     color: var(--text-muted);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--stroke-icon);
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
   /* Disabled menu item (e.g. layer is hidden). */
   .foliplus-layer-more-menu li[disabled] {
@@ -447,11 +452,21 @@
   }
 
   /* ── Focus bounds rectangle (drawn on the map) ── */
-  .foliplus-focus-rect {
-    border: 2px solid var(--accent-primary) !important;
-    background-color: color-mix(in srgb, var(--accent-primary) 18%, transparent) !important;
+  .foliplus-focus-rect polygon {
+    fill: var(--accent-primary) !important;
+    fill-opacity: 0.12 !important;
+    stroke: var(--accent-primary) !important;
+    stroke-dasharray: 6 4 !important;
+    stroke-width: 2 !important;
+    stroke-linejoin: round !important;
     animation: foliplus-focus-pulse 2.2s ease-in-out 2;
     pointer-events: none;
+  }
+  /* Corner circleMarkers for the focus rectangle */
+  .foliplus-focus-corner path {
+    fill: var(--accent-primary) !important;
+    stroke: #ffffff !important;
+    stroke-width: 1.5 !important;
   }
   @keyframes foliplus-focus-pulse {
     0%,
@@ -460,6 +475,21 @@
     }
     50% {
       opacity: 0.4;
+    }
+  }
+  /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
+  .foliplus-layer-item.foliplus-layer-focusing {
+    border-left-color: var(--accent-primary) !important;
+    background: color-mix(in srgb, var(--accent-primary) 12%, transparent) !important;
+    animation: foliplus-layer-focus-pulse 2.2s ease-in-out 2;
+  }
+  @keyframes foliplus-layer-focus-pulse {
+    0%,
+    100% {
+      background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+    }
+    50% {
+      background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
     }
   }
 
