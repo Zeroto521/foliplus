@@ -75,9 +75,15 @@ describe("MORE", () => {
 });
 
 describe("FOCUS", () => {
-  it("is an SVG string with magnifier and crosshair", () => {
+  it("is an SVG string with target crosshair (rings + center dot + ticks)", () => {
     expect(SVGs.FOCUS).toContain("<svg");
-    expect(SVGs.FOCUS).toContain("circle"); // magnifier ring
-    expect(SVGs.FOCUS).toMatch(/d="M15 15 L21 21"/); // magnifier handle
+    // Outer ring + inner ring + center dot
+    expect(SVGs.FOCUS).toContain("circle");
+    expect((SVGs.FOCUS.match(/circle/g) ?? []).length).toBe(3);
+    // Four directional ticks (N/S/E/W)
+    expect(SVGs.FOCUS).toMatch(/d="M12 2 L12 6"/);
+    expect(SVGs.FOCUS).toMatch(/d="M12 18 L12 22"/);
+    expect(SVGs.FOCUS).toMatch(/d="M2 12 L6 12"/);
+    expect(SVGs.FOCUS).toMatch(/d="M18 12 L22 12"/);
   });
 });
