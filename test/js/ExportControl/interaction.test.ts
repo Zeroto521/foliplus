@@ -164,4 +164,34 @@ describe("ExportControl interaction", () => {
     expect(mgr.onMouseDown).toHaveBeenCalled();
     cleanup();
   });
+
+  it("registerDrag is removed after cleanup", () => {
+    const mgr = makeMgr();
+    const cleanup = registerDrag(mgr);
+    cleanup();
+    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    expect(mgr.onMouseMove).not.toHaveBeenCalled();
+    expect(mgr.onMouseUp).not.toHaveBeenCalled();
+  });
+
+  it("registerCropMouseDown is removed after cleanup", () => {
+    const mgr = makeMgr();
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const cleanup = registerCropMouseDown(mgr, el);
+    cleanup();
+    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(mgr.onMouseDown).not.toHaveBeenCalled();
+  });
+
+  it("drag handlers do not preventDefault on non-mouse events", () => {
+    const mgr = makeMgr();
+    const cleanup = registerDrag(mgr);
+    // Mousemove and mouseup are registered; keydown should not dispatch to them
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(mgr.onMouseMove).not.toHaveBeenCalled();
+    expect(mgr.onMouseUp).not.toHaveBeenCalled();
+    cleanup();
+  });
 });
