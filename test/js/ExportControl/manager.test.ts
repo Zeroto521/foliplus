@@ -73,7 +73,6 @@ describe("ExportManager — onKeyDown", () => {
     manager.onKeyDown({ key: "Enter" });
     expect(manager.lockCropBox).toHaveBeenCalled();
   });
-
 });
 
 describe("ExportManager — pixel limit & storage", () => {
