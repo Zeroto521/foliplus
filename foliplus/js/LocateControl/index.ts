@@ -2,6 +2,7 @@ import { ensureHint } from "#core/hint.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
+import { createScopedTranslator } from "#common/locale.js";
 import { locateMe, removeMarker } from "./logic.js";
 
 // ── SVG Icons ──
@@ -17,6 +18,7 @@ const LOCATE = `
   </svg>`;
 
 const { _ } = createControlEnv(CONF, LOCATE);
+const T = createScopedTranslator(CONF);
 ensureHint(map);
 
 // ==================== Control Definition ====================
@@ -30,8 +32,8 @@ class LocateControl extends BaseControl {
     const container = dom.el("div", { class: "foliplus-ctrl-fold", parent: outer });
     createIconButton({
       class: "foliplus-tool-btn foliplus-locate-btn",
-      title: _(`${CONF.name}.title`),
-      ariaLabel: _(`${CONF.name}.title`),
+      title: T("title"),
+      ariaLabel: T("title"),
       svg: LOCATE,
       parent: container,
       onclick: event => {
