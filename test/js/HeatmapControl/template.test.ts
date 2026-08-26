@@ -6,34 +6,34 @@ describe("panelContentHTML", () => {
     vi.stubGlobal("CONF", { name: "HeatmapControl" });
   });
 
-  const _ = (key: string) => {
+  const T = (key: string) => {
     const map: Record<string, string> = {
-      "HeatmapControl.section_data": "Data",
-      "HeatmapControl.section_style": "Style",
-      "HeatmapControl.layer": "Layer",
-      "HeatmapControl.agg_method": "Aggregation",
-      "HeatmapControl.agg_count": "Count",
-      "HeatmapControl.agg_sum": "Sum",
-      "HeatmapControl.agg_avg": "Average",
-      "HeatmapControl.agg_min": "Min",
-      "HeatmapControl.agg_max": "Max",
-      "HeatmapControl.field": "Field",
-      "HeatmapControl.class_method": "Classify",
-      "HeatmapControl.jenks": "Jenks",
-      "HeatmapControl.quantile": "Quantile",
-      "HeatmapControl.equal": "Equal",
-      "HeatmapControl.heads": "Heads",
-      "HeatmapControl.scheme": "Color",
-      "HeatmapControl.border": "Border",
-      "HeatmapControl.label": "Label",
-      "HeatmapControl.clear": "Clear",
-      "HeatmapControl.confirm": "OK",
+      section_data: "Data",
+      section_style: "Style",
+      layer: "Layer",
+      agg_method: "Aggregation",
+      agg_count: "Count",
+      agg_sum: "Sum",
+      agg_avg: "Average",
+      agg_min: "Min",
+      agg_max: "Max",
+      field: "Field",
+      class_method: "Classify",
+      jenks: "Jenks",
+      quantile: "Quantile",
+      equal: "Equal",
+      heads: "Heads",
+      scheme: "Color",
+      border: "Border",
+      label: "Label",
+      clear: "Clear",
+      confirm: "OK",
     };
     return map[key] ?? key;
   };
 
   it("returns a string containing the heatmap panel structure", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(typeof html).toBe("string");
 
     // Section containers
@@ -50,7 +50,7 @@ describe("panelContentHTML", () => {
   });
 
   it("includes all data-hm-* query targets", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     const expectedAttrs = [
       "data-hm-layer",
       "data-hm-extra-body",
@@ -73,13 +73,13 @@ describe("panelContentHTML", () => {
   });
 
   it("includes translated section headings", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("Data");
     expect(html).toContain("Style");
   });
 
   it("includes translated form labels", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("Layer");
     expect(html).toContain("Aggregation");
     expect(html).toContain("Field");
@@ -90,13 +90,13 @@ describe("panelContentHTML", () => {
   });
 
   it("includes translated action button text", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("Clear");
     expect(html).toContain("OK");
   });
 
   it("includes aggregation method options", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain('value="count"');
     expect(html).toContain('value="sum"');
     expect(html).toContain('value="avg"');
@@ -110,7 +110,7 @@ describe("panelContentHTML", () => {
   });
 
   it("includes classification method options", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain('value="jenks"');
     expect(html).toContain('value="quantile"');
     expect(html).toContain('value="equal"');
@@ -122,14 +122,14 @@ describe("panelContentHTML", () => {
   });
 
   it("includes class count options 2-9", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     for (let i = 2; i <= 9; i++) {
       expect(html).toContain(`<option value="${i}">${i}</option>`);
     }
   });
 
   it("includes border weight input constraints", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain('type="number"');
     expect(html).toContain('min="0"');
     expect(html).toContain('max="10"');
@@ -137,7 +137,7 @@ describe("panelContentHTML", () => {
   });
 
   it("includes scheme bar with combobox role", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-scheme-bar");
     expect(html).toContain('tabindex="0"');
     expect(html).toContain('role="combobox"');
@@ -145,44 +145,44 @@ describe("panelContentHTML", () => {
   });
 
   it("includes label toggle switch structure", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-toggle-switch");
     expect(html).toContain("foliplus-heatmap-toggle-slider");
     expect(html).toContain('type="checkbox"');
   });
 
   it("includes border color picker", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-color-input");
     expect(html).toContain('type="color"');
   });
 
   it("includes border weight input", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-weight-input");
   });
 
   it("includes section divider", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("foliplus-section-divider");
   });
 
   it("includes action button row", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-btn-row");
     expect(html).toContain("foliplus-heatmap-btn-clear");
     expect(html).toContain("foliplus-heatmap-btn-confirm");
   });
 
   it("extra body has hidden class by default", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("data-hm-extra-body>");
     // The class should include "hidden"
     expect(html).toMatch(/foliplus-heatmap-extra-body\s+hidden/);
   });
 
   it("field selector has hidden class by default", () => {
-    const html = panelContentHTML(_);
+    const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-field");
     expect(html).toMatch(/foliplus-heatmap-field\s+hidden/);
   });

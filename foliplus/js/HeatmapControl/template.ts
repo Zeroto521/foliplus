@@ -5,14 +5,14 @@
 import * as CONST from "./const.js";
 
 /** Build the panel-content HTML string (data section + style section). */
-const panelContentHTML = (_: (key: string) => string): string => /* html */ `
+const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 <div class="foliplus-heatmap-config-body">
   <div class="foliplus-heatmap-section-heading">
-    ${_(`${CONF.name}.section_data`)}
+    ${T("section_data")}
   </div>
 
   <div class="foliplus-heatmap-form-row">
-    <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.layer`)}</label>
+    <label class="foliplus-heatmap-form-label">${T("layer")}</label>
     <div class="foliplus-heatmap-form-control">
       <select class="foliplus-heatmap-form-select" ${CONST.DATA_ATTR.LAYER}></select>
     </div>
@@ -21,38 +21,38 @@ const panelContentHTML = (_: (key: string) => string): string => /* html */ `
   <div class="foliplus-heatmap-extra-body hidden" ${CONST.DATA_ATTR.EXTRA_BODY}>
 
     <div class="foliplus-heatmap-form-row">
-      <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.agg_method`)}</label>
+      <label class="foliplus-heatmap-form-label">${T("agg_method")}</label>
       <div class="foliplus-heatmap-form-control">
         <select class="foliplus-heatmap-form-select" ${CONST.DATA_ATTR.AGG}>
-          <option value="${CONST.AGG.COUNT}">${_(`${CONF.name}.agg_count`)}</option>
-          <option value="${CONST.AGG.SUM}">${_(`${CONF.name}.agg_sum`)}</option>
-          <option value="${CONST.AGG.AVG}">${_(`${CONF.name}.agg_avg`)}</option>
-          <option value="${CONST.AGG.MIN}">${_(`${CONF.name}.agg_min`)}</option>
-          <option value="${CONST.AGG.MAX}">${_(`${CONF.name}.agg_max`)}</option>
+          <option value="${CONST.AGG.COUNT}">${T("agg_count")}</option>
+          <option value="${CONST.AGG.SUM}">${T("agg_sum")}</option>
+          <option value="${CONST.AGG.AVG}">${T("agg_avg")}</option>
+          <option value="${CONST.AGG.MIN}">${T("agg_min")}</option>
+          <option value="${CONST.AGG.MAX}">${T("agg_max")}</option>
         </select>
       </div>
     </div>
 
     <div class="foliplus-heatmap-form-row foliplus-heatmap-field hidden" ${CONST.DATA_ATTR.FIELD}>
-      <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.field`)}</label>
+      <label class="foliplus-heatmap-form-label">${T("field")}</label>
       <div class="foliplus-heatmap-form-control">
         <select class="foliplus-heatmap-form-select" ${CONST.DATA_ATTR.FIELD_SELECT}></select>
       </div>
     </div>
 
     <div class="foliplus-heatmap-section-heading">
-      ${_(`${CONF.name}.section_style`)}
+      ${T("section_style")}
     </div>
 
     <div class="foliplus-heatmap-section-block">
       <div class="foliplus-heatmap-form-row">
-        <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.class_method`)}</label>
+        <label class="foliplus-heatmap-form-label">${T("class_method")}</label>
         <div class="foliplus-heatmap-form-control foliplus-heatmap-form-inline">
           <select class="foliplus-heatmap-form-select" ${CONST.DATA_ATTR.METHOD}>
-            <option value="${CONST.METHOD.JENKS}">${_(`${CONF.name}.jenks`)}</option>
-            <option value="${CONST.METHOD.QUANTILE}">${_(`${CONF.name}.quantile`)}</option>
-            <option value="${CONST.METHOD.EQUAL}">${_(`${CONF.name}.equal`)}</option>
-            <option value="${CONST.METHOD.HEADS}">${_(`${CONF.name}.heads`)}</option>
+            <option value="${CONST.METHOD.JENKS}">${T("jenks")}</option>
+            <option value="${CONST.METHOD.QUANTILE}">${T("quantile")}</option>
+            <option value="${CONST.METHOD.EQUAL}">${T("equal")}</option>
+            <option value="${CONST.METHOD.HEADS}">${T("heads")}</option>
           </select>
           <select class="foliplus-heatmap-form-select foliplus-heatmap-class-select" ${CONST.DATA_ATTR.CLASS_COUNT}>
             <option value="${CONST.CLASS_COUNT.MIN}">${CONST.CLASS_COUNT.MIN}</option>
@@ -68,7 +68,7 @@ const panelContentHTML = (_: (key: string) => string): string => /* html */ `
       </div>
 
       <div class="foliplus-heatmap-form-row">
-        <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.scheme`)}</label>
+        <label class="foliplus-heatmap-form-label">${T("scheme")}</label>
         <div class="foliplus-heatmap-form-control" ${CONST.DATA_ATTR.SCHEME_CTRL}>
           <div class="foliplus-heatmap-scheme-bar" tabindex="0" role="combobox">
             <div class="foliplus-heatmap-scheme-bar-inner"></div>
@@ -78,7 +78,7 @@ const panelContentHTML = (_: (key: string) => string): string => /* html */ `
       </div>
 
       <div class="foliplus-heatmap-form-row">
-        <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.border`)}</label>
+        <label class="foliplus-heatmap-form-label">${T("border")}</label>
         <div class="foliplus-heatmap-form-control foliplus-heatmap-form-inline">
           <input class="foliplus-heatmap-color-input" type="color" ${CONST.DATA_ATTR.BORDER_COLOR}>
           <input class="foliplus-heatmap-weight-input" type="number" min="${CONST.BORDER.WEIGHT_MIN}" max="${CONST.BORDER.WEIGHT_MAX}" step="${CONST.BORDER.WEIGHT_STEP}" ${CONST.DATA_ATTR.BORDER_WEIGHT}>
@@ -86,7 +86,7 @@ const panelContentHTML = (_: (key: string) => string): string => /* html */ `
       </div>
 
       <div class="foliplus-heatmap-form-row foliplus-heatmap-section-block-last">
-        <label class="foliplus-heatmap-form-label">${_(`${CONF.name}.label`)}</label>
+        <label class="foliplus-heatmap-form-label">${T("label")}</label>
         <div class="foliplus-heatmap-form-control">
           <label class="foliplus-heatmap-toggle-switch">
             <input type="checkbox" ${CONST.DATA_ATTR.LABEL_CHK}>
@@ -100,8 +100,8 @@ const panelContentHTML = (_: (key: string) => string): string => /* html */ `
     <hr class="foliplus-section-divider">
 
     <div class="foliplus-heatmap-btn-row">
-      <button class="foliplus-heatmap-btn foliplus-heatmap-btn-clear" ${CONST.DATA_ATTR.BTN_CLEAR}>${_(`${CONF.name}.clear`)}</button>
-      <button class="foliplus-heatmap-btn foliplus-heatmap-btn-confirm" ${CONST.DATA_ATTR.BTN_CONFIRM}>${_(`${CONF.name}.confirm`)}</button>
+      <button class="foliplus-heatmap-btn foliplus-heatmap-btn-clear" ${CONST.DATA_ATTR.BTN_CLEAR}>${T("clear")}</button>
+      <button class="foliplus-heatmap-btn foliplus-heatmap-btn-confirm" ${CONST.DATA_ATTR.BTN_CONFIRM}>${T("confirm")}</button>
     </div>
 
   </div>
