@@ -73,3 +73,11 @@ describe("MORE", () => {
     expect(SVGs.MORE).toMatch(/cx="12"[^>]*cy="18"/);
   });
 });
+
+describe("FOCUS", () => {
+  it("is an SVG string with magnifier and crosshair", () => {
+    expect(SVGs.FOCUS).toContain("<svg");
+    expect(SVGs.FOCUS).toContain("circle"); // magnifier ring
+    expect(SVGs.FOCUS).toMatch(/d="M15 15 L21 21"/); // magnifier handle
+  });
+});
