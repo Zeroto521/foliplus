@@ -170,4 +170,37 @@ describe("InteractionManager", () => {
     ensureInteraction(map).unregister("Inner");
     document.body.removeChild(outer);
   });
+
+  it("explicit priority overrides container depth tie-breaking", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const outer = document.createElement("div");
+    document.body.appendChild(outer);
+    const inner = document.createElement("div");
+    outer.appendChild(inner);
+    const input = document.createElement("input");
+    inner.appendChild(input);
+
+    // Inner container (deeper) but priority=0
+    const innerHandler = vi.fn();
+    ensureInteraction(map).register("Inner", [
+      { key: "Enter", container: inner, priority: 0, handler: innerHandler },
+    ]);
+    // Outer container (shallower) but priority=1 — should win regardless of depth
+    const outerHandler = vi.fn();
+    ensureInteraction(map).register("Outer", [
+      { key: "Enter", container: outer, priority: 1, handler: outerHandler },
+    ]);
+
+    input.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(outerHandler).toHaveBeenCalledTimes(1);
+    expect(innerHandler).not.toHaveBeenCalled();
+
+    ensureInteraction(map).unregister("Inner");
+    ensureInteraction(map).unregister("Outer");
+    document.body.removeChild(outer);
+  });
 });

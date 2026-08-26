@@ -178,6 +178,134 @@ describe("ExportManager — onKeyDown", () => {
   });
 });
 
+describe("ExportManager — shortcut lifecycle", () => {
+  let manager;
+  let container;
+
+  beforeEach(() => {
+    manager = makeManager();
+    // Ensure the map container is in the document so focus-based container
+    // containment checks (s.container.contains(document.activeElement)) work.
+    container = manager.map.getContainer();
+    container.tabIndex = 0; // <div> needs tabindex to be focusable in jsdom
+    document.body.appendChild(container);
+    // Restore real removeCropBox so registerShortcuts → unregisterShortcuts
+    // (which internally calls removeCropBox) does not hit a no-op stub.
+    manager.removeCropBox = () => {
+      manager.cropState = null;
+      manager.undoStack = [];
+      manager.redoStack = [];
+    };
+    setCropState(manager);
+  });
+
+  afterEach(() => {
+    if (container && document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  });
+
+  it("starts with no interactionCleanup", () => {
+    expect(manager.interactionCleanup).toBeUndefined();
+  });
+
+  it("registerShortcuts stores cleanup in interactionCleanup", () => {
+    manager.registerShortcuts();
+    expect(typeof manager.interactionCleanup).toBe("function");
+  });
+
+  it("unregisterShortcuts clears interactionCleanup", () => {
+    manager.registerShortcuts();
+    manager.unregisterShortcuts();
+    expect(manager.interactionCleanup).toBeUndefined();
+  });
+
+  it("unregisterShortcuts after registerShortcuts prevents Enter from firing", () => {
+    manager.registerShortcuts();
+    expect(manager.interactionCleanup).toBeTypeOf("function");
+
+    // Fire Enter while map container has focus — should reach onKeyDown
+    manager.map.getContainer().focus();
+    const keydown = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
+    document.dispatchEvent(keydown);
+    expect(manager.lockCropBox).toHaveBeenCalled();
+    manager.lockCropBox.mockReset();
+
+    manager.unregisterShortcuts();
+    expect(manager.interactionCleanup).toBeUndefined();
+
+    // Same Enter after cleanup — should NOT reach onKeyDown
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(manager.lockCropBox).not.toHaveBeenCalled();
+  });
+
+  it("unregisterShortcuts prevents Ctrl+Z from firing", () => {
+    manager.registerShortcuts();
+    const spy = vi.spyOn(manager, "undoCropBox");
+
+    manager.map.getContainer().focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
+    expect(spy).toHaveBeenCalled();
+    spy.mockReset();
+
+    manager.unregisterShortcuts();
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("unregisterShortcuts prevents Escape from firing", () => {
+    manager.registerShortcuts();
+
+    // Escape is global (no container required) — fires anywhere
+    let escapeCalled = false;
+    manager.removeCropBox = () => {
+      escapeCalled = true;
+      manager.cropState = null;
+      manager.undoStack = [];
+      manager.redoStack = [];
+    };
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(escapeCalled).toBe(true);
+
+    escapeCalled = false;
+    setCropState(manager);
+    manager.registerShortcuts();
+    manager.unregisterShortcuts();
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(escapeCalled).toBe(false);
+  });
+
+  it("re-registering shortcuts after cleanup restores full set", () => {
+    manager.registerShortcuts();
+    manager.unregisterShortcuts();
+
+    // After cleanup, cropState is null — re-set it
+    setCropState(manager);
+
+    manager.registerShortcuts();
+    expect(typeof manager.interactionCleanup).toBe("function");
+
+    const spy = vi.spyOn(manager, "undoCropBox");
+    manager.map.getContainer().focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+
+    manager.unregisterShortcuts();
+    expect(manager.interactionCleanup).toBeUndefined();
+  });
+});
+
 describe("ExportManager — pixel limit & storage", () => {
   let manager;
 

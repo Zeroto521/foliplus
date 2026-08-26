@@ -34,6 +34,41 @@ describe("ExportControl interaction", () => {
     cleanup();
   });
 
+  it("cleanup unregisters all shortcuts (Escape + Enter + Ctrl+Z)", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    container.focus();
+
+    // Verify all shortcuts respond before cleanup
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
+    expect(mgr.onKeyDown).toHaveBeenCalledTimes(3);
+
+    // After cleanup, none of them should fire
+    cleanup();
+    mgr.onKeyDown.mockClear();
+    container.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
+    expect(mgr.onKeyDown).not.toHaveBeenCalled();
+  });
+
   it("Escape handler calls onKeyDown", () => {
     const mgr = makeMgr();
     const cleanup = registerInteractions(mgr);
