@@ -12,16 +12,16 @@ class GridLayer {
   options = {};
 }
 
-function makePane() {
+const makePane = () => {
   const el = document.createElement("div");
   el.style.zIndex = "0";
   return el;
-}
+};
 
-function initFixture(options: {
+const initFixture = (options: {
   initialZoom?: number;
   maxZoom?: number;
-} = {}): { manager: LayerManager; ui: LayerUI; map: any } {
+} = {}): { manager: LayerManager; ui: LayerUI; map: any } => {
   vi.stubGlobal("CONF", {
     ...window.CONF,
     name: "LayerControl",
@@ -147,11 +147,10 @@ function initFixture(options: {
   return { manager, ui, map };
 }
 
-function findItem(ui: LayerUI, id: string): HTMLElement {
-  return ui.uiContainer.querySelector(
+const findItem = (ui: LayerUI, id: string): HTMLElement =>
+  ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${id}"]`,
   ) as HTMLElement;
-}
 
 // ===========================================================================
 describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
@@ -446,6 +445,59 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       )!;
       const btn = colorItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
       expect(btn).toBeNull();
+    });
+  });
+
+  // ─────────────────── hidden layer disables focus menu item ───────────────────
+
+  describe("focus-layer menu item when layer is hidden", () => {
+    it("marks the menu item disabled when checkbox is unchecked", () => {
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      if (checkbox) checkbox.checked = false;
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement | null;
+      expect(li).not.toBeNull();
+      expect(li?.getAttribute("disabled")).toBe("disabled");
+      expect(li?.getAttribute("title")).toBeDefined();
+    });
+
+    it("clicking the disabled menu item does not call focusLayer", () => {
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      if (checkbox) checkbox.checked = false;
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const focusSpy = vi.fn();
+      ui.focusLayer = focusSpy;
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.click();
+
+      expect(focusSpy).not.toHaveBeenCalled();
+      // Menu stays open — user sees the disabled state and tooltip.
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
+
+    it("menu item is not disabled when layer is visible", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement | null;
+      expect(li?.getAttribute("disabled")).toBeNull();
     });
   });
 
