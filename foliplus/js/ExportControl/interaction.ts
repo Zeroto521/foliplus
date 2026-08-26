@@ -7,32 +7,29 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
   const container = mgr.map.getContainer();
   // All shortcuts registered under a single component name so the returned
   // cleanup function unregisters them all at once when the crop box is removed.
-  return im.register(
-    CONF.name,
-    [
-      // Escape: global — dismiss crop box from anywhere
-      { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
-      // Enter / Ctrl+Z / Ctrl+Shift+Z: require map container focus
-      {
-        key: "Enter",
-        container,
-        handler: e => mgr.onKeyDown(e as KeyboardEvent),
-      },
-      {
-        key: "z",
-        ctrl: true,
-        container,
-        handler: e => mgr.onKeyDown(e as KeyboardEvent),
-      },
-      {
-        key: "z",
-        ctrl: true,
-        shift: true,
-        container,
-        handler: e => mgr.onKeyDown(e as KeyboardEvent),
-      },
-    ],
-  );
+  return im.register(CONF.name, [
+    // Escape: global — dismiss crop box from anywhere
+    { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
+    // Enter / Ctrl+Z / Ctrl+Shift+Z: require map container focus
+    {
+      key: "Enter",
+      container,
+      handler: e => mgr.onKeyDown(e as KeyboardEvent),
+    },
+    {
+      key: "z",
+      ctrl: true,
+      container,
+      handler: e => mgr.onKeyDown(e as KeyboardEvent),
+    },
+    {
+      key: "z",
+      ctrl: true,
+      shift: true,
+      container,
+      handler: e => mgr.onKeyDown(e as KeyboardEvent),
+    },
+  ]);
 };
 
 const registerDrag = (mgr: ExportManager): (() => void) => {

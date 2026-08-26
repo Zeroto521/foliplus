@@ -10,7 +10,11 @@ import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
-import { registerActiveEscape, registerExportClick, registerInteractions } from "./interaction.js";
+import {
+  registerActiveEscape,
+  registerExportClick,
+  registerInteractions,
+} from "./interaction.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 import * as Util from "./util.js";
 
