@@ -1,10 +1,10 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 import { ensureFont, isVisible, loadImage, loadImageBitmap } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** Render context threaded through all rendering passes. */
 interface RenderCtx {
@@ -145,7 +145,7 @@ class ExportRenderer {
   ): Promise<HTMLCanvasElement> {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
-    if (sw < 1 || sh < 1) throw new Error(_(`${CONF.name}.err_crop_too_small`));
+    if (sw < 1 || sh < 1) throw new Error(T("err_crop_too_small"));
 
     const canvas = document.createElement("canvas");
     canvas.width = sw;

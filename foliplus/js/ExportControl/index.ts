@@ -7,7 +7,8 @@ import * as SVGs from "./icon.js";
 import { ExportManager } from "./manager.js";
 
 const { _ } = createControlEnv(CONF, SVGs.CAMERA);
-requireLayerAPI(CONF.name, _, map);
+const T = createScopedTranslator(CONF);
+requireLayerAPI(CONF.name, T, map);
 
 // ==================== CORS Pre-setup ====================
 // Set crossOrigin on ALL existing TileLayers so tiles load with CORS
@@ -56,7 +57,7 @@ class ExportControl extends BaseControl {
   buildDOM() {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: `foliplus-export-ctrl`,
-      toggleTitle: _(`${CONF.name}.btn_title`),
+      toggleTitle: T("btn_title"),
       toggleSvg: SVGs.CAMERA,
       position: CONF.position,
     });

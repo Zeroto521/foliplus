@@ -3,7 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { dom } from "#common/dom.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { registerDrag, registerInteractions } from "./interaction.js";
@@ -19,7 +19,7 @@ import {
 } from "./ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** A screen-space rectangle. */
 export interface Rect {
@@ -193,7 +193,7 @@ class ExportManager {
       this.lockCropBox(true);
       map.foliplus!.showHint(
         CONF.name,
-        _(`${CONF.name}.hint_restore`),
+        T("hint_restore"),
         HINT_DURATION.MEDIUM,
         true,
       );
@@ -275,7 +275,7 @@ class ExportManager {
     st.rect = r;
     this.updateBoxStyle(st.box, r);
     // Only update the hint when the size changes (resize), not on pure move
-    if (type !== "move") this.showHintWithInfo(r, _(`${CONF.name}.hint_unlocked`));
+    if (type !== "move") this.showHintWithInfo(r, T("hint_unlocked"));
   }
 
   pushUndoState() {
@@ -295,7 +295,7 @@ class ExportManager {
     if (this.cropState.locked) this.unlockCropBox();
     this.cropState.rect = this.undoStack.pop()!;
     this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-    this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
+    this.showHintWithInfo(this.cropState.rect, T("hint_unlocked"));
   }
 
   redoCropBox() {
@@ -305,7 +305,7 @@ class ExportManager {
     if (this.cropState.locked) this.unlockCropBox();
     this.cropState.rect = this.redoStack.pop()!;
     this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-    this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
+    this.showHintWithInfo(this.cropState.rect, T("hint_unlocked"));
   }
 
   onMouseUp() {
@@ -360,7 +360,7 @@ class ExportManager {
     // Always check pixel limit regardless of hint visibility.
     this.checkPixelLimit(newRect);
     // Update hint text on zoom (rect changes), skip on pan (rect unchanged).
-    if (!skipHint) this.showHintWithInfo(newRect, _(`${CONF.name}.hint_locked`));
+    if (!skipHint) this.showHintWithInfo(newRect, T("hint_locked"));
   }
 
   /** Check pixel limit and set pixelOverLimit flag. */
@@ -413,7 +413,7 @@ class ExportManager {
     }
 
     this.showGlobalHint(
-      _(`${CONF.name}.status_exporting`),
+      T("status_exporting"),
       HINT_DURATION.PERSIST,
       true,
     );
@@ -545,7 +545,7 @@ class ExportManager {
       async blob => {
         if (!blob) {
           this.showGlobalHint(
-            _(`${CONF.name}.status_fail`) + _(`${CONF.name}.err_gen_fail`),
+            T("status_fail") + T("err_gen_fail"),
             HINT_DURATION.LONG,
           );
           this.isExporting = false;
@@ -569,7 +569,7 @@ class ExportManager {
           document.body.removeChild(link);
           setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
         }
-        this.showGlobalHint(_(`${CONF.name}.status_success`), HINT_DURATION.LONG);
+        this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
         this.isExporting = false;
         ensureModes(this.map).setMode(CONF.name, null);
         ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
@@ -596,17 +596,17 @@ class ExportManager {
     if (!geoBounds?.nw || !geoBounds?.se) {
       // GeoTIFF requires geo bounds — without them we can't embed
       // georeferencing.  Show a hint instead of silently falling back.
-      this.showGlobalHint(_(`${CONF.name}.err_geotiff_geo`), HINT_DURATION.LONG);
+      this.showGlobalHint(T("err_geotiff_geo"), HINT_DURATION.LONG);
       return;
     }
     if (canvas.width <= 0 || canvas.height <= 0) {
-      this.showGlobalHint(_(`${CONF.name}.err_gen_fail`), HINT_DURATION.LONG);
+      this.showGlobalHint(T("err_gen_fail"), HINT_DURATION.LONG);
       return;
     }
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      this.showGlobalHint(_(`${CONF.name}.err_gen_fail`), HINT_DURATION.LONG);
+      this.showGlobalHint(T("err_gen_fail"), HINT_DURATION.LONG);
       return;
     }
     let imageData;
@@ -616,7 +616,7 @@ class ExportManager {
       // Canvas may be tainted by cross-origin images (e.g. tiles from a
       // server without CORS headers).  getImageData throws SecurityError
       // and we cannot extract pixel data for the GeoTIFF.
-      this.showGlobalHint(_(`${CONF.name}.err_geotiff_canvas`), HINT_DURATION.LONG);
+      this.showGlobalHint(T("err_geotiff_canvas"), HINT_DURATION.LONG);
       return;
     }
     const rgba = imageData.data;
@@ -670,9 +670,9 @@ class ExportManager {
     ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
     this.removeExportOverlay();
     this.unlockMap();
-    console.error(`[${CONF.name}] ${_(`${CONF.name}.err_render`)}:`, err);
+    console.error(`[${CONF.name}] ${T("err_render")}:`, err);
     this.showGlobalHint(
-      _(`${CONF.name}.status_fail`) + (err.message || ""),
+      T("status_fail") + (err.message || ""),
       HINT_DURATION.LONG,
     );
     this.isExporting = false;
