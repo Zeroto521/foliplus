@@ -8,7 +8,11 @@ import { createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
-import { registerInteractions } from "./interaction.js";
+import {
+  handleMoreClick,
+  handleMoreMenuClick,
+  registerInteractions,
+} from "./interaction.js";
 import type { LayerManager } from "./manager.js";
 import * as Util from "./util.js";
 
@@ -38,8 +42,6 @@ class LayerUI {
   declare onKeyDown: ((event: KeyboardEvent) => void) | null;
   /** Click handler for the "more" (⋮) button. */
   onMoreClick: ((event: Event) => void) | null;
-  /** Key handler for the "more" button (Enter/Escape). */
-  onMoreKeyDown: ((event: KeyboardEvent) => void) | null;
   /** Click handler for the dropdown menu items. */
   onMoreMenuClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
@@ -47,7 +49,7 @@ class LayerUI {
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
   /** Currently visible overflow menu (or null). */
-  private activeMenu: {
+  activeMenu: {
     item: HTMLElement;
     menu: HTMLElement;
     layerId: string;
@@ -66,7 +68,6 @@ class LayerUI {
     this.activeIdx = null;
     this.unsubscribeCountChange = null;
     this.onMoreClick = null;
-    this.onMoreKeyDown = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.activeMenu = null;
@@ -541,54 +542,19 @@ class LayerUI {
 
     // Overflow ("more") button → dropdown menu. Uses event delegation so it
     // works for rows created after bindEvents (registerLayer at runtime).
-    this.onMoreClick = event => {
-      const btn = (event.target as HTMLElement).closest(
-        `.foliplus-layer-more-btn`,
-      ) as HTMLButtonElement | null;
-      if (!btn) return;
-      event.stopPropagation();
-      event.preventDefault();
-      const item = btn.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
-      if (!item) return;
-      this.openMoreMenu(item);
-    };
-    this.onMoreMenuClick = event => {
-      const li = (event.target as HTMLElement).closest(
-        `.foliplus-layer-more-menu li`,
-      ) as HTMLElement | null;
-      if (!li) return;
-      const action = li.dataset.action ?? "";
-      if (action === "focus-layer") this.focusLayer(this.activeMenu?.layerId ?? "");
-      this.closeMoreMenu(true);
-    };
+    this.onMoreClick = event => handleMoreClick(this, event);
+    this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
     this.onMoreMapClick = () => this.closeMoreMenu(false);
-    this.onMoreKeyDown = event => {
-      const btn = (event.target as HTMLElement).closest(
-        `.foliplus-layer-more-btn`,
-      ) as HTMLButtonElement | null;
-      if (!btn) return;
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        event.stopPropagation();
-        const item = btn.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
-        if (item) this.openMoreMenu(item);
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        this.closeMoreMenu(true);
-      }
-    };
     container.addEventListener("click", this.onMoreClick);
     // Menu click must be on document because the menu is positioned absolute
     // and may visually overflow the panel bounds.
     document.addEventListener("click", this.onMoreMenuClick);
-    container.addEventListener("keydown", this.onMoreKeyDown);
     this.m.map.on("click", this.onMoreMapClick);
-    // Keyboard dispatch is handled by InteractionManager via registerInteractions()
-    // above — do NOT add a separate container keydown listener, as that would
-    // cause every keydown event to fire handleKeyDown twice (once via the
-    // container listener, once via the document-level InteractionManager),
-    // double-toggling checkboxes and double-moving focus.
+    // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
+    // by InteractionManager via registerInteractions() in interaction.ts,
+    // which routes to handleKeyDown() — that method detects when the
+    // MORE_BTN is focused and opens/closes the menu accordingly. Do NOT
+    // add a separate container keydown listener here.
 
     // Subscribe to feature-count change events so a third-party provider
     // (Canvas layers) can update a single row without a full re-render.
@@ -674,7 +640,6 @@ class LayerUI {
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
     if (this.onMoreClick) container.removeEventListener("click", this.onMoreClick);
-    if (this.onMoreKeyDown) container.removeEventListener("keydown", this.onMoreKeyDown);
     if (this.onMoreMenuClick) document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
@@ -682,7 +647,7 @@ class LayerUI {
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
-    this.onMoreClick = this.onMoreKeyDown = this.onMoreMenuClick = null;
+    this.onMoreClick = this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
@@ -960,7 +925,8 @@ class LayerUI {
         this.toggleFocusedLayer();
         break;
       case "Escape":
-        this.clearActiveItem();
+        if (this.activeMenu) this.closeMoreMenu(true);
+        else this.clearActiveItem();
         break;
     }
   }
@@ -1153,19 +1119,25 @@ class LayerUI {
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
 
+    const isHidden = (
+      item.querySelector('input[type="checkbox"]') as HTMLInputElement | null
+    )?.checked === false;
+
+    const itemAttrs = {
+      "data-action": "focus-layer",
+      role: "menuitem",
+      tabindex: "0",
+      title: isHidden
+        ? _(`${CONF.name}.focus_layer_hidden`)
+        : _(`${CONF.name}.focus_layer_tooltip`),
+      "aria-disabled": isHidden ? "true" : "false",
+    };
+
     menu.appendChild(
-      dom.el(
-        "li",
-        {
-          "data-action": "focus-layer",
-          role: "menuitem",
-          tabindex: "0",
-          title: _(`${CONF.name}.focus_layer_tooltip`),
-        },
-        { html: SVGs.FOCUS },
-        _(`${CONF.name}.focus_layer`),
-      ),
+      dom.el("li", itemAttrs, { html: SVGs.FOCUS }, _(`${CONF.name}.focus_layer`)),
     );
+
+    if (isHidden) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
     item.style.position = "relative";
     item.appendChild(menu);
