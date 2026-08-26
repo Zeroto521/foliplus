@@ -12,13 +12,84 @@ class GridLayer {
   options = {};
 }
 
-function createMap(bounds: any, polygonLayer: any): any {
-  function makePane() {
-    const el = document.createElement("div");
-    el.style.zIndex = "0";
-    return el;
+function makePane() {
+  const el = document.createElement("div");
+  el.style.zIndex = "0";
+  return el;
+}
+
+function initFixture(options: {
+  initialZoom?: number;
+  maxZoom?: number;
+} = {}): { manager: LayerManager; ui: LayerUI; map: any } {
+  vi.stubGlobal("CONF", {
+    ...window.CONF,
+    name: "LayerControl",
+    locale_code: "en",
+  });
+
+  class Renderer {}
+  class Path {
+    options = {};
   }
-  return {
+  class Polygon {
+    options = {};
+  }
+  class Polyline {
+    options = {};
+  }
+  class Marker {}
+  class CircleMarker {}
+  const stamp = (() => {
+    let id = 0;
+    return vi.fn(() => ++id);
+  })();
+
+  window.L.TileLayer = TileLayer;
+  window.L.GridLayer = GridLayer;
+  window.L.Renderer = Renderer;
+  window.L.layerGroup = vi.fn(() => ({
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(),
+    hasLayer: vi.fn(() => false),
+    getLayers: vi.fn(() => []),
+    clearLayers: vi.fn(),
+    options: {},
+  }));
+  window.L.Path = Path;
+  window.L.Polygon = Polygon;
+  window.L.Polyline = Polyline;
+  window.L.Marker = Marker;
+  window.L.CircleMarker = CircleMarker;
+  window.L.stamp = stamp;
+  window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+  window.L.rectangle = vi.fn((_bounds: any, opts: any) =>
+    ({
+      _options: opts,
+      getClassName: () => opts?.className ?? "",
+      on: vi.fn(),
+      eachLayer: vi.fn(),
+    }) as any,
+  );
+
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+
+  const sw = { lat: 30, lng: 100 };
+  const ne = { lat: 40, lng: 110 };
+  const bounds = {
+    isValid: vi.fn(() => true),
+    getSouthWest: () => sw,
+    getNorthEast: () => ne,
+  };
+
+  const polygonLayer = {
+    options: {},
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => bounds),
+  };
+
+  const map: any = {
     on: vi.fn(),
     off: vi.fn(),
     invalidateSize: vi.fn(),
@@ -26,9 +97,9 @@ function createMap(bounds: any, polygonLayer: any): any {
     addLayer: vi.fn(),
     removeLayer: vi.fn(),
     fitBounds: vi.fn(),
-    getZoom: vi.fn(() => 5),
-    getMaxZoom: vi.fn(() => 18),
-    getContainer: vi.fn(() => (createMap as any)._container),
+    getZoom: vi.fn(() => options.initialZoom ?? 5),
+    getMaxZoom: vi.fn(() => options.maxZoom ?? 18),
+    getContainer: vi.fn(() => container),
     getPane: vi.fn(() => {
       const p = makePane();
       p.style.zIndex = "0";
@@ -39,126 +110,56 @@ function createMap(bounds: any, polygonLayer: any): any {
       p.classList.add("foliplus-layer-pane");
       return p;
     }),
-    _container: document.createElement("div"),
+    _container: container,
     _layers: {},
     attributionControl: { _attributions: {}, _update: vi.fn() },
     foliplus: {
       showHint: vi.fn(),
       hideHint: vi.fn(),
     },
-    polygonLayer,
-    bounds,
   };
+
+  const manager = new LayerManager(map, [
+    { id: "overlay1", name: "Polygons", isBase: false, layer: polygonLayer },
+    {
+      id: "base1",
+      name: "OSM",
+      isBase: true,
+      layer: new TileLayer(),
+      paneName: "tilePane",
+    },
+  ]);
+  manager.enforceOrder();
+  manager.ui = new LayerUI(manager);
+
+  // Switch to fake timers BEFORE attachUI so the 300ms initTypesAndVisibility
+  // timeout from attachUI is controllable. If the timer were REAL and
+  // advanceTimersByTime didn't flush it, the callback would fire after
+  // afterEach clears the DOM and throw on the detached container.
+  vi.useFakeTimers();
+
+  manager.attachUI(container);
+  const ui = manager.ui!;
+
+  vi.advanceTimersByTime(350);
+  vi.useRealTimers();
+
+  return { manager, ui, map };
 }
 
-describe("LayerUI focus", () => {
+function findItem(ui: LayerUI, id: string): HTMLElement {
+  return ui.uiContainer.querySelector(
+    `[${CONST.DATA.LAYER_ID}="${id}"]`,
+  ) as HTMLElement;
+}
+
+// ===========================================================================
+describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   let manager: LayerManager, ui: LayerUI, map: any;
 
-  function initFixture(options: {
-    baseLayer?: boolean;
-    colorLayer?: boolean;
-    initialZoom?: number;
-    maxZoom?: number;
-  } = {}) {
-    vi.stubGlobal("CONF", {
-      ...window.CONF,
-      name: "LayerControl",
-      locale_code: "en",
-    });
-
-    class Renderer {}
-    class Path {
-      options = {};
-    }
-    class Polygon {
-      options = {};
-    }
-    class Polyline {
-      options = {};
-    }
-    class Marker {}
-    class CircleMarker {}
-    const stamp = (() => {
-      let id = 0;
-      return vi.fn(() => ++id);
-    })();
-
-    window.L.TileLayer = TileLayer;
-    window.L.GridLayer = GridLayer;
-    window.L.Renderer = Renderer;
-    window.L.layerGroup = vi.fn(() => ({
-      addLayer: vi.fn(),
-      removeLayer: vi.fn(),
-      hasLayer: vi.fn(() => false),
-      getLayers: vi.fn(() => []),
-      clearLayers: vi.fn(),
-      options: {},
-    }));
-    window.L.Path = Path;
-    window.L.Polygon = Polygon;
-    window.L.Polyline = Polyline;
-    window.L.Marker = Marker;
-    window.L.CircleMarker = CircleMarker;
-    window.L.stamp = stamp;
-    window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
-    window.L.rectangle = vi.fn((_bounds: any, opts: any) =>
-      ({
-        _options: opts,
-        getClassName: () => opts?.className ?? "",
-        on: vi.fn(),
-        eachLayer: vi.fn(),
-      }) as any,
-    );
-
-    const sw = { lat: 30, lng: 100 };
-    const ne = { lat: 40, lng: 110 };
-    const bounds = {
-      isValid: vi.fn(() => true),
-      getSouthWest: () => sw,
-      getNorthEast: () => ne,
-    };
-
-    const polygonLayer = {
-      options: {},
-      eachLayer: vi.fn(),
-      getBounds: vi.fn(() => bounds),
-    };
-
-    map = createMap(bounds, polygonLayer);
-    map.getZoom.mockReturnValue(options.initialZoom ?? 5);
-    map.getMaxZoom.mockReturnValue(options.maxZoom ?? 18);
-
-    const layerData: any[] = [
-      { id: "overlay1", name: "Polygons", isBase: false, layer: polygonLayer },
-    ];
-    if (options.baseLayer !== false) {
-      layerData.push({
-        id: "base1",
-        name: "OSM",
-        isBase: true,
-        layer: new TileLayer(),
-        paneName: "tilePane",
-      });
-    }
-
-    manager = new LayerManager(map, layerData);
-    manager.enforceOrder();
-    manager.ui = new LayerUI(manager);
-
-    // Switch to fake timers BEFORE attachUI so the 300ms
-    // initTypesAndVisibility timeout from attachUI is controllable.
-    // If the timer were REAL and advancedTimersByTime didn't flush it, the
-    // callback would fire after afterEach clears the DOM and throw.
-    vi.useFakeTimers();
-
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    manager.attachUI(container);
-    ui = manager.ui!;
-
-    vi.advanceTimersByTime(350);
-    vi.useRealTimers();
-  }
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
 
   afterEach(() => {
     document.body.innerHTML = "";
@@ -169,8 +170,6 @@ describe("LayerUI focus", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("focusLayer()", () => {
-    beforeEach(() => initFixture());
-
     it("draws a pulsing rectangle on the layer bounds", () => {
       ui.focusLayer("overlay1");
 
@@ -222,28 +221,26 @@ describe("LayerUI focus", () => {
 
       expect(map.fitBounds).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ maxZoom: 9 }), // 5 + 4
+        expect.objectContaining({ maxZoom: 9 }), // zoom(5) + 4
       );
     });
 
     it("caps maxZoom at map.getMaxZoom() when current + 4 exceeds it", () => {
-      // Setup with zoom=17, maxZoom=18
-      map.getZoom.mockReturnValue(17);
-      map.getMaxZoom.mockReturnValue(18);
+      ({ manager, ui, map } = initFixture({ initialZoom: 17, maxZoom: 18 }));
 
       ui.focusLayer("overlay1");
 
       expect(map.fitBounds).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ maxZoom: 18 }), // min(18, 17+4)
+        expect.objectContaining({ maxZoom: 18 }), // min(18, 17 + 4)
       );
     });
 
-    it("adds the layer to the map if checkbox is checked but layer is not on map", () => {
+    it("adds the layer to the map if checkbox is checked but layer is off map", () => {
       map.hasLayer.mockReturnValue(false);
 
-      const checkbox = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
       ) as HTMLInputElement;
       if (checkbox) checkbox.checked = true;
 
@@ -256,13 +253,12 @@ describe("LayerUI focus", () => {
 
     it("does not re-add the layer when it is already on the map", () => {
       map.hasLayer.mockReturnValue(true);
-      // Reset addLayer so it only records calls from focusLayer.
       map.addLayer.mockReset();
 
       ui.focusLayer("overlay1");
 
       // addLayer may be called for the rectangle overlay, but NOT for the
-      // layer itself (which is already on the map).
+      // layer itself (already on the map).
       const layerArgs = map.addLayer.mock.calls.map(c => c[0]).filter(
         (arg: any) => arg && typeof arg.getBounds === "function",
       );
@@ -280,7 +276,7 @@ describe("LayerUI focus", () => {
       expect(map.fitBounds).not.toHaveBeenCalled();
     });
 
-    it("bails out when layer is not found on the map", () => {
+    it("bails out when the layer is not found on the map", () => {
       vi.spyOn(manager, "findLayer").mockReturnValue(null);
 
       ui.focusLayer("overlay1");
@@ -295,8 +291,8 @@ describe("LayerUI focus", () => {
     });
 
     it("shows a hint when the layer is hidden (checkbox unchecked)", () => {
-      const checkbox = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
       ) as HTMLInputElement;
       if (checkbox) checkbox.checked = false;
 
@@ -348,8 +344,8 @@ describe("LayerUI focus", () => {
       ui.focusLayer("overlay1");
       ui.focusLayer("overlay1");
       const finalRect = ui.focusRect!;
-      // The first rect was already removed synchronously; the second's
-      // 5s timer should only remove `finalRect`.
+      // The first rect was removed synchronously; the second's 5s timer
+      // should only remove `finalRect`.
       vi.advanceTimersByTime(5001);
 
       expect(map.removeLayer).toHaveBeenCalledWith(finalRect);
@@ -359,12 +355,8 @@ describe("LayerUI focus", () => {
   // ─────────────────── overflow menu ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
-    beforeEach(() => initFixture());
-
     it("creates a menu with the focus-layer action", () => {
-      const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
+      const item = findItem(ui, "overlay1");
 
       ui.openMoreMenu(item);
 
@@ -378,9 +370,7 @@ describe("LayerUI focus", () => {
     });
 
     it("places the menu inside the layer row element", () => {
-      const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
+      const item = findItem(ui, "overlay1");
 
       ui.openMoreMenu(item);
 
@@ -388,9 +378,7 @@ describe("LayerUI focus", () => {
     });
 
     it("sets position:relative on the layer row", () => {
-      const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
+      const item = findItem(ui, "overlay1");
 
       ui.openMoreMenu(item);
 
@@ -398,24 +386,18 @@ describe("LayerUI focus", () => {
     });
 
     it("closes the previously open menu before opening a new one", () => {
-      const item1 = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
+      const item = findItem(ui, "overlay1");
 
-      ui.openMoreMenu(item1);
-      expect(item1.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
-
-      ui.openMoreMenu(item1);
+      ui.openMoreMenu(item);
+      ui.openMoreMenu(item);
 
       // Only one menu at a time — the new one replaced the old.
-      expect(item1.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
       expect(ui.activeMenu).not.toBeNull();
     });
 
     it("closeMoreMenu(setFocus=true) returns focus to the layer row", () => {
-      const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
+      const item = findItem(ui, "overlay1");
       const focusSpy = vi.fn();
       item.focus = focusSpy;
 
@@ -426,9 +408,7 @@ describe("LayerUI focus", () => {
     });
 
     it("closeMoreMenu(setFocus=false) does not focus the layer row", () => {
-      const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
+      const item = findItem(ui, "overlay1");
       const focusSpy = vi.fn();
       item.focus = focusSpy;
 
@@ -439,7 +419,6 @@ describe("LayerUI focus", () => {
     });
 
     it("closeMoreMenu() is a no-op when no menu is open", () => {
-      // Should not throw.
       expect(() => ui.closeMoreMenu(false)).not.toThrow();
     });
   });
@@ -448,30 +427,20 @@ describe("LayerUI focus", () => {
 
   describe("more button visibility", () => {
     it("base layer more button is hidden", () => {
-      initFixture();
-
-      const baseItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="base1"]`,
-      )!;
+      const baseItem = findItem(ui, "base1");
       const btn = baseItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
       expect(btn).not.toBeNull();
       expect(btn?.getAttribute("hidden")).toBe("hidden");
     });
 
     it("overlay layer more button is visible", () => {
-      initFixture();
-
-      const overlayItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
+      const overlayItem = findItem(ui, "overlay1");
       const btn = overlayItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
       expect(btn).not.toBeNull();
       expect(btn?.getAttribute("hidden")).toBeNull();
     });
 
     it("color layer has no more button", () => {
-      initFixture();
-
       const colorItem = ui.uiContainer.querySelector(
         `${CONST.SEL.COLOR_ITEM}`,
       )!;
@@ -480,18 +449,14 @@ describe("LayerUI focus", () => {
     });
   });
 
-  // ─────────────────── keyboard interaction ───────────────────
+  // ─────────────────── keyboard on more button ───────────────────
 
-  describe("keyboard on more button", () => {
-    beforeEach(() => initFixture());
-
+  describe("more button keyboard shortcut", () => {
     it("Enter on more button opens the menu instead of toggling the checkbox", () => {
-      const btn = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"] .${CONST.CLASSES.MORE_BTN}`,
-      ) as HTMLButtonElement;
-
-      // Simulate focus on the more button.
-      btn.focus();
+      const btn = findItem(ui, "overlay1").querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      )!;
+      const item = findItem(ui, "overlay1");
 
       // Spy on checkbox dispatchEvent to prove toggle wasn't triggered.
       const origDispatchEvent = HTMLInputElement.prototype.dispatchEvent;
@@ -502,29 +467,16 @@ describe("LayerUI focus", () => {
         return origDispatchEvent.apply(this, args);
       };
 
-      // Simulate keydown: target = more button, activeElement = more button.
-      const event = new KeyboardEvent("Enter", {
-        bubbles: true,
-        cancelable: true,
-      });
-      // Patch document.activeElement via Object.getOwnPropertyDescriptor.
-      Object.defineProperty(document, "activeElement", {
-        value: btn,
-        configurable: true,
-        writable: true,
-      });
+      // Focus the more button so document.activeElement is inside the
+      // uiContainer and the Enter/Space shortcut fires. `handleKeyDown`
+      // short-circuits on MORE_BTN without calling toggleFocusedLayer.
+      btn.focus();
+      expect(document.activeElement).toBe(btn);
 
+      const event = new KeyboardEvent("Enter", { bubbles: true, cancelable: true });
       ui.handleKeyDown(event as unknown as KeyboardEvent);
 
-      // Menu should have been opened.
-      const overlayItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
-      expect(
-        overlayItem.querySelectorAll(".foliplus-layer-more-menu").length,
-      ).toBe(1);
-
-      // Checkbox toggle should NOT have been called.
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
       expect(toggleSpy).not.toHaveBeenCalled();
 
       HTMLInputElement.prototype.dispatchEvent = origDispatchEvent;
@@ -533,9 +485,7 @@ describe("LayerUI focus", () => {
 
   // ─────────────────── destroy ───────────────────
 
-  describe("destroy cleanup", () => {
-    beforeEach(() => initFixture());
-
+  describe("destroy()", () => {
     it("removes the active focus rectangle", () => {
       vi.useFakeTimers();
       ui.focusLayer("overlay1");
@@ -548,9 +498,7 @@ describe("LayerUI focus", () => {
     });
 
     it("removes the active overflow menu", () => {
-      const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
+      const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
 
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
@@ -563,9 +511,7 @@ describe("LayerUI focus", () => {
     it("removes both focus rectangle and active menu simultaneously", () => {
       vi.useFakeTimers();
 
-      const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
-      )!;
+      const item = findItem(ui, "overlay1");
       ui.focusLayer("overlay1");
       ui.openMoreMenu(item);
 
