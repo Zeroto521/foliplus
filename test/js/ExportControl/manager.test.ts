@@ -235,7 +235,9 @@ describe("ExportManager — shortcut lifecycle", () => {
     expect(manager.interactionCleanup).toBeUndefined();
 
     // Same Enter after cleanup — should NOT reach onKeyDown
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
     expect(manager.lockCropBox).not.toHaveBeenCalled();
   });
 
@@ -271,7 +273,9 @@ describe("ExportManager — shortcut lifecycle", () => {
       manager.redoStack = [];
     };
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(escapeCalled).toBe(true);
 
     escapeCalled = false;
@@ -279,7 +283,9 @@ describe("ExportManager — shortcut lifecycle", () => {
     manager.registerShortcuts();
     manager.unregisterShortcuts();
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(escapeCalled).toBe(false);
   });
 
