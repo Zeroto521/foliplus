@@ -135,6 +135,7 @@ export class InteractionManager {
           def.once ? { once: true } : undefined,
         );
         (def as any).elementHandler = handler;
+        (def as any).elementType = eventType;
         this.trackElement(def.element, component);
       }
       if (def.container && !def.element) {
@@ -152,7 +153,8 @@ export class InteractionManager {
     const removed = this.shortcuts.filter(s => s.component === component);
     for (const s of removed) {
       if (s.element && (s as any).elementHandler) {
-        s.element.removeEventListener("keydown", (s as any).elementHandler);
+        const eventType = (s as any).elementType ?? "keydown";
+        s.element.removeEventListener(eventType, (s as any).elementHandler);
       }
     }
     this.shortcuts = this.shortcuts.filter(s => s.component !== component);
@@ -163,7 +165,8 @@ export class InteractionManager {
   clear(): void {
     for (const s of this.shortcuts) {
       if (s.element && (s as any).elementHandler) {
-        s.element.removeEventListener("keydown", (s as any).elementHandler);
+        const eventType = (s as any).elementType ?? "keydown";
+        s.element.removeEventListener(eventType, (s as any).elementHandler);
       }
     }
     this.shortcuts = [];

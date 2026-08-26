@@ -80,6 +80,9 @@ describe("InteractionManager", () => {
     el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     expect(handler).toHaveBeenCalledTimes(1);
     ensureInteraction(map).unregister("Test");
+    // Unregister must remove the correct event type, not just "keydown"
+    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("container option filters by focus", async () => {
