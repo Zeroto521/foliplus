@@ -4,6 +4,7 @@ import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as Icons from "#common/icon.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { CLASSES, MODE } from "./const.js";
@@ -13,6 +14,7 @@ import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
 import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
 
 const { _ } = createControlEnv(CONF, SVGs.SEARCH);
+const T = createScopedTranslator(CONF);
 ensureHint(map);
 
 // ==================== Control Definition ====================
@@ -70,7 +72,7 @@ export class SearchControl extends BaseControl {
   createDOM() {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: CLASSES.MAP_SEARCH,
-      toggleTitle: _(`${CONF.name}.btn_title`),
+      toggleTitle: T("btn_title"),
       toggleSvg: SVGs.SEARCH,
       position: CONF.position,
     });
@@ -82,17 +84,17 @@ export class SearchControl extends BaseControl {
 
     const modeBtn = createIconButton({
       class: CLASSES.SEARCH_MODE_BTN,
-      title: _(`${CONF.name}.mode_coord`),
+      title: T("mode_coord"),
       svg: Icons.GLOBE,
       parent: toolBar,
     });
     const inp = dom.el("input", {
       type: "text",
-      placeholder: _(`${CONF.name}.coord_placeholder`),
+      placeholder: T("coord_placeholder"),
     }) as HTMLInputElement;
     const clearBtn = createIconButton({
       class: "foliplus-ctrl-btn foliplus-close-btn",
-      title: _(`${CONF.name}.clear_title`),
+      title: T("clear_title"),
       svg: Icons.CLOSE,
     });
     this.modeBtn = modeBtn;
@@ -129,12 +131,12 @@ export class SearchControl extends BaseControl {
     this.mode = newMode;
     if (this.mode === MODE.COORD) {
       this.modeBtn.innerHTML = Icons.GLOBE;
-      this.modeBtn.title = _(`${CONF.name}.mode_coord`);
-      this.inp.placeholder = _(`${CONF.name}.coord_placeholder`);
+      this.modeBtn.title = T("mode_coord");
+      this.inp.placeholder = T("coord_placeholder");
     } else {
       this.modeBtn.innerHTML = Icons.LOCATE;
-      this.modeBtn.title = _(`${CONF.name}.mode_addr`);
-      this.inp.placeholder = _(`${CONF.name}.addr_placeholder`);
+      this.modeBtn.title = T("mode_addr");
+      this.inp.placeholder = T("addr_placeholder");
     }
     this.inp.value = "";
     if (this.marker) {

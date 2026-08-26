@@ -14,6 +14,10 @@ import { createLocationMarker, dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
+import {
+  createScopedTranslator,
+  createTranslator,
+} from "#common/locale.js";
 import * as Icons from "#common/icon.js";
 import * as Storage from "#common/storage.js";
 import { AUTOCOMPLETE, CLASSES, FORMAT, HISTORY, MODE, SOURCE, ZOOM } from "./const.js";
@@ -25,6 +29,7 @@ import type {
 } from "./type.js";
 
 const { _ } = createControlEnv(CONF);
+const T = createScopedTranslator(CONF);
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
 interface SearchControlState {
@@ -173,7 +178,7 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
  * @param {string} raw - User input (e.g. "121.47,31.23")
  */
 const searchCoord = (ctrl: SearchControlState, raw: string) => {
-  if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
+  if (guardBlocked(map, CONF.name, T("blocked"))) return;
   const parts = raw
     .replace(/\uff0c/g, ",")
     .replace(/\s+/g, "")
@@ -183,7 +188,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
     map.foliplus!.showHint(
       CONF.name,
-      _(`${CONF.name}.coord_error`),
+      T("coord_error"),
       HINT_DURATION.LONG,
     );
     ctrl.inp.value = "";
@@ -195,7 +200,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
     map.foliplus!.showHint(
       CONF.name,
-      _(`${CONF.name}.coord_error`),
+      T("coord_error"),
       HINT_DURATION.LONG,
     );
     ctrl.inp.value = "";
@@ -209,10 +214,10 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
     lng,
     lat,
     null,
-    _(`${CONF.name}.popup_title_coord`),
-    _(`${CONF.name}.popup_loading`),
-    _(`${CONF.name}.popup_loc_label`),
-    _(`${CONF.name}.popup_addr_label`),
+    T("popup_title_coord"),
+    T("popup_loading"),
+    T("popup_loc_label"),
+    T("popup_addr_label"),
     _("foliplus.close_label"),
     CONF.locale_code,
     ctrl.marker,
@@ -246,11 +251,11 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
  * @param {string} query - Address query string
  */
 const searchAddress = (ctrl: SearchControlState, query: string) => {
-  if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
+  if (guardBlocked(map, CONF.name, T("blocked"))) return;
   // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
   map.foliplus!.showHint(
     CONF.name,
-    `${Icons.LOADING} ${_(`${CONF.name}.popup_loading`)}`,
+    `${Icons.LOADING} ${T("popup_loading")}`,
     HINT_DURATION.PERSIST,
   );
 
@@ -261,7 +266,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       if (!result) {
         map.foliplus!.showHint(
           CONF.name,
-          _(`${CONF.name}.addr_not_found`),
+          T("addr_not_found"),
           HINT_DURATION.LONG,
         );
         ctrl.inp.value = "";
@@ -288,7 +293,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       map.foliplus!.hideHint(CONF.name);
       map.foliplus!.showHint(
         CONF.name,
-        _(`${CONF.name}.addr_error`),
+        T("addr_error"),
         HINT_DURATION.LONG,
       );
     });
@@ -324,10 +329,10 @@ const renderAddressResult = (
     lng,
     lat,
     displayName,
-    _(`${CONF.name}.popup_title_addr`),
-    _(`${CONF.name}.popup_loading`),
-    _(`${CONF.name}.popup_loc_label`),
-    _(`${CONF.name}.popup_addr_label`),
+    T("popup_title_addr"),
+    T("popup_loading"),
+    T("popup_loc_label"),
+    T("popup_addr_label"),
     _("foliplus.close_label"),
     CONF.locale_code,
     ctrl.marker,
@@ -478,11 +483,11 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
           lat,
           entry.addrDisplay || entry.coordDisplay,
           isAddr
-            ? _(`${CONF.name}.popup_title_addr`)
-            : _(`${CONF.name}.popup_title_coord`),
-          _(`${CONF.name}.popup_loading`),
-          _(`${CONF.name}.popup_loc_label`),
-          _(`${CONF.name}.popup_addr_label`),
+            ? T("popup_title_addr")
+            : T("popup_title_coord"),
+          T("popup_loading"),
+          T("popup_loc_label"),
+          T("popup_addr_label"),
           _("foliplus.close_label"),
           CONF.locale_code,
           ctrl.marker,
@@ -496,7 +501,7 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
 };
 
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
-  if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
+  if (guardBlocked(map, CONF.name, T("blocked"))) return;
 
   if (query.length === 0) {
     if (ctrl.searchHistory.length > 0) renderHistory(ctrl, ctrl.mode);

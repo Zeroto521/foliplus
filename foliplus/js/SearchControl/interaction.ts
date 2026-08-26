@@ -1,6 +1,7 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import { ensureInteraction } from "#core/interaction.js";
 import { createControlEnv } from "#common/guard.js";
+import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
 import {
@@ -13,6 +14,7 @@ import {
 import type { SearchControl } from "./type.js";
 
 const { _ } = createControlEnv(CONF);
+const T = createScopedTranslator(CONF);
 
 /**
  * Bind all DOM events for the SearchControl.
@@ -44,8 +46,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
   ctrl.inp.addEventListener("input", () => {
     ctrl.inp.placeholder =
       ctrl.mode === MODE.COORD
-        ? _(`${CONF.name}.coord_placeholder`)
-        : _(`${CONF.name}.addr_placeholder`);
+        ? T("coord_placeholder")
+        : T("addr_placeholder");
 
     if (ctrl.inp.value.trim().length === 0) {
       // Input cleared — show history immediately
