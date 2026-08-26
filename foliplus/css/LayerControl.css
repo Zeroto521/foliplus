@@ -394,6 +394,67 @@
     color: var(--accent-primary);
   }
 
+  /* ── Overflow dropdown menu ── */
+  .foliplus-layer-more-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: var(--z-dropdown, 2000);
+    min-width: 128px;
+    padding: var(--space-xs) 0;
+    background: var(--panel-bg, #fff);
+    border: var(--border-thin) solid var(--input-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 var(--size-3) var(--size-8) rgba(0, 0, 0, 0.12);
+    font-size: var(--font-size-sm);
+    display: none;
+    list-style: none;
+    margin: var(--border-thin) 0 0 0;
+  }
+  .foliplus-layer-more-menu.open {
+    display: block;
+  }
+  .foliplus-layer-more-menu li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    cursor: pointer;
+    color: var(--text-primary);
+    white-space: nowrap;
+    transition: background-color var(--transition-fast);
+  }
+  .foliplus-layer-more-menu li:hover {
+    background: var(--accent-light);
+  }
+  .foliplus-layer-more-menu li:focus-visible {
+    outline: var(--border-thin) solid var(--accent-primary);
+    outline-offset: calc(-1 * var(--border-thin));
+  }
+  .foliplus-layer-more-menu li svg {
+    flex-shrink: 0;
+    width: var(--space-md);
+    height: var(--space-md);
+    color: var(--text-muted);
+  }
+
+  /* ── Focus bounds rectangle (drawn on the map) ── */
+  .foliplus-focus-rect {
+    border: 2px solid var(--accent-primary) !important;
+    background-color: color-mix(in srgb, var(--accent-primary) 18%, transparent) !important;
+    animation: foliplus-focus-pulse 2.2s ease-in-out 2;
+    pointer-events: none;
+  }
+  @keyframes foliplus-focus-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
   /* ── Color layer item overrides ──
      Pointer cursor (not draggable) */
   .foliplus-color-layer-item {

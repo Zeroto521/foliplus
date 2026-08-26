@@ -36,8 +36,24 @@ class LayerUI {
   declare onDragEnd: ((event: DragEvent) => void) | null;
   declare onDrop: ((event: DragEvent) => void) | null;
   declare onKeyDown: ((event: KeyboardEvent) => void) | null;
+  /** Click handler for the "more" (⋮) button. */
+  onMoreClick: ((event: Event) => void) | null;
+  /** Key handler for the "more" button (Enter/Escape). */
+  onMoreKeyDown: ((event: KeyboardEvent) => void) | null;
+  /** Click handler for the dropdown menu items. */
+  onMoreMenuClick: ((event: Event) => void) | null;
+  /** Listen-map handler to detect clicks outside the open menu. */
+  onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
+  /** Currently visible overflow menu (or null). */
+  private activeMenu: {
+    item: HTMLElement;
+    menu: HTMLElement;
+    layerId: string;
+  } | null;
+  /** Temporary Rectangle overlay drawn while a focus is in progress. */
+  private focusRect: L.Layer | null;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
@@ -49,6 +65,12 @@ class LayerUI {
     this.lastDragOverItem = null;
     this.activeIdx = null;
     this.unsubscribeCountChange = null;
+    this.onMoreClick = null;
+    this.onMoreKeyDown = null;
+    this.onMoreMenuClick = null;
+    this.onMoreMapClick = null;
+    this.activeMenu = null;
+    this.focusRect = null;
   }
 
   /** Alias for convenience */
@@ -252,16 +274,22 @@ class LayerUI {
     const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
     if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
 
-    return dom.el(
-      "div",
+    const moreBtn = dom.el(
+      "button",
       {
-        class: CONST.CLASSES.LAYER_ITEM,
-        draggable: "true",
-        tabindex: "0",
-        [CONST.DATA.INDEX]: String(idx),
-        [CONST.DATA.LAYER_ID]: layerInfo.id,
-        "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+        class: CONST.CLASSES.MORE_BTN,
+        type: "button",
+        title: _(`${CONF.name}.more_tooltip`),
+        "aria-label": _(`${CONF.name}.more_tooltip`),
       },
+      { html: SVGs.MORE },
+    );
+    // Only overlay (data) layers get the "more" button. Base maps cover the
+    // whole world (focusing is a no-op) and solid-color layers have no
+    // meaningful bounds. `hidden="hidden"` removes it from layout + a11y tree.
+    if (layerInfo.isBase) moreBtn.setAttribute("hidden", "hidden");
+
+    const children: HTMLElement[] = [
       dom.el(
         "span",
         { class: CONST.CLASSES.DRAG_CELL, title: _(`${CONF.name}.drag_tooltip`) },
@@ -284,16 +312,20 @@ class LayerUI {
         [CONST.DATA.LAYER_ID]: layerInfo.id,
       }),
       typeIconEl,
-      dom.el(
-        "button",
-        {
-          class: CONST.CLASSES.MORE_BTN,
-          type: "button",
-          title: _(`${CONF.name}.more_tooltip`),
-          "aria-label": _(`${CONF.name}.more_tooltip`),
-        },
-        { html: SVGs.MORE },
-      ),
+      moreBtn,
+    ];
+
+    return dom.el(
+      "div",
+      {
+        class: CONST.CLASSES.LAYER_ITEM,
+        draggable: "true",
+        tabindex: "0",
+        [CONST.DATA.INDEX]: String(idx),
+        [CONST.DATA.LAYER_ID]: layerInfo.id,
+        "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+      },
+      ...children,
     );
   }
 
@@ -323,16 +355,7 @@ class LayerUI {
       // count column is empty (color layers have no feature count).
       dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
       dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
-      dom.el(
-        "button",
-        {
-          class: CONST.CLASSES.MORE_BTN,
-          type: "button",
-          title: _(`${CONF.name}.more_tooltip`),
-          "aria-label": _(`${CONF.name}.more_tooltip`),
-        },
-        { html: SVGs.MORE },
-      ),
+      // Solid-color layer has no meaningful bounds — no overflow menu.
     );
   }
 
@@ -515,6 +538,52 @@ class LayerUI {
     container.addEventListener("dragleave", this.onDragLeave);
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
+
+    // Overflow ("more") button → dropdown menu. Uses event delegation so it
+    // works for rows created after bindEvents (registerLayer at runtime).
+    this.onMoreClick = event => {
+      const btn = (event.target as HTMLElement).closest(
+        `.foliplus-layer-more-btn`,
+      ) as HTMLButtonElement | null;
+      if (!btn) return;
+      event.stopPropagation();
+      event.preventDefault();
+      const item = btn.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
+      if (!item) return;
+      this.openMoreMenu(item);
+    };
+    this.onMoreMenuClick = event => {
+      const li = (event.target as HTMLElement).closest(
+        `.foliplus-layer-more-menu li`,
+      ) as HTMLElement | null;
+      if (!li) return;
+      const action = li.dataset.action ?? "";
+      if (action === "focus-layer") this.focusLayer(this.activeMenu?.layerId ?? "");
+      this.closeMoreMenu(true);
+    };
+    this.onMoreMapClick = () => this.closeMoreMenu(false);
+    this.onMoreKeyDown = event => {
+      const btn = (event.target as HTMLElement).closest(
+        `.foliplus-layer-more-btn`,
+      ) as HTMLButtonElement | null;
+      if (!btn) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        event.stopPropagation();
+        const item = btn.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
+        if (item) this.openMoreMenu(item);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeMoreMenu(true);
+      }
+    };
+    container.addEventListener("click", this.onMoreClick);
+    // Menu click must be on document because the menu is positioned absolute
+    // and may visually overflow the panel bounds.
+    document.addEventListener("click", this.onMoreMenuClick);
+    container.addEventListener("keydown", this.onMoreKeyDown);
+    this.m.map.on("click", this.onMoreMapClick);
     // Keyboard dispatch is handled by InteractionManager via registerInteractions()
     // above — do NOT add a separate container keydown listener, as that would
     // cause every keydown event to fire handleKeyDown twice (once via the
@@ -590,6 +659,12 @@ class LayerUI {
   unbindEvents() {
     const container = this.uiContainer;
     if (!container) return;
+    this.closeMoreMenu(false);
+    // Remove the focus rectangle if a focus animation is still in flight.
+    if (this.focusRect) {
+      this.m.map.removeLayer(this.focusRect);
+      this.focusRect = null;
+    }
     if (this.onChange) container.removeEventListener("change", this.onChange);
     if (this.onInput) container.removeEventListener("input", this.onInput);
     if (this.onClick) container.removeEventListener("click", this.onClick);
@@ -598,11 +673,17 @@ class LayerUI {
     if (this.onDragLeave) container.removeEventListener("dragleave", this.onDragLeave);
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
+    if (this.onMoreClick) container.removeEventListener("click", this.onMoreClick);
+    if (this.onMoreKeyDown) container.removeEventListener("keydown", this.onMoreKeyDown);
+    if (this.onMoreMenuClick) document.removeEventListener("click", this.onMoreMenuClick);
+    if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
+    this.onMoreClick = this.onMoreKeyDown = this.onMoreMenuClick = null;
+    this.onMoreMapClick = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
@@ -861,8 +942,20 @@ class LayerUI {
         break;
       case "ArrowLeft":
       case "ArrowRight":
-      case " ":
+      case "":
       case "Enter":
+        // Do not toggle the checkbox when the more (⋮) button is focused —
+        // that key opens the overflow menu instead.
+        if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
+          event.preventDefault();
+          event.stopPropagation();
+          const item =
+            (document.activeElement as HTMLElement).closest(
+              CONST.SEL.LAYER_ITEM,
+            ) as HTMLElement | null;
+          if (item) this.openMoreMenu(item);
+          break;
+        }
         event.preventDefault();
         this.toggleFocusedLayer();
         break;
@@ -1047,6 +1140,126 @@ class LayerUI {
     this.uiContainer
       .querySelector(CONST.SEL.COLOR_ITEM)
       ?.classList.remove(CONST.CLASSES.ACTIVE);
+  }
+
+  /**
+   * Open the "more" overflow dropdown for a given layer row.
+   * Only overlay (data) layers have this button; base/color layers do not.
+   */
+  openMoreMenu(item: HTMLElement) {
+    // Close any previously open menu first.
+    this.closeMoreMenu(true);
+
+    const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+    const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
+
+    menu.appendChild(
+      dom.el(
+        "li",
+        {
+          "data-action": "focus-layer",
+          role: "menuitem",
+          tabindex: "0",
+          title: _(`${CONF.name}.focus_layer_tooltip`),
+        },
+        { html: SVGs.FOCUS },
+        _(`${CONF.name}.focus_layer`),
+      ),
+    );
+
+    item.style.position = "relative";
+    item.appendChild(menu);
+
+    this.activeMenu = { item, menu, layerId };
+
+    // Focus the first menu item so Enter/Space activate it and Escape closes.
+    const firstItem = menu.querySelector(".foliplus-layer-more-menu li") as HTMLElement;
+    if (firstItem) firstItem.focus();
+  }
+
+  /** Close the overflow menu. setFocus = true returns focus to the layer row. */
+  closeMoreMenu(setFocus: boolean) {
+    if (!this.activeMenu) return;
+    const item = this.activeMenu.item;
+    this.activeMenu.menu.remove();
+    this.activeMenu = null;
+    if (setFocus) item.focus();
+  }
+
+  /**
+   * Focus the map on a registered layer's bounding box.
+   *
+   * Best-effort approach:
+   * 1. Compute bounds from the layer (fallback: forEachLeaf for containers
+   *    whose getBounds delegates to children).
+   * 2. If the layer is not on the map, bring it on temporarily so the bounds
+   *    and the visual highlight are consistent with the user's action.
+   * 3. Draw a pulsing rectangle on the exact bounds so the user sees exactly
+   *    what "this layer" covers.
+   * 4. Call fitBounds with `padding` so the rectangle isn't clipped at the
+   *    edges, `animate: true` for a smooth zoom (vs flyTo which would fight
+   *    the layer-panel overlay), and `maxZoom` capped to the current zoom + 4
+   *    to avoid jumping to satellite zoom on tiny features.
+   */
+  focusLayer(layerId: string) {
+    const layerInfo = this.m.layerRegistry.get(layerId);
+    if (!layerInfo) return;
+    const layer = this.m.findLayer(layerInfo);
+    if (!layer) return;
+
+    // Hidden layer: nothing to focus on — show a hint instead.
+    const checkbox = this.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"] input[type="checkbox"]`,
+    ) as HTMLInputElement | null;
+    if (checkbox && !checkbox.checked) {
+      this.m.map.foliplus!.showHint(
+        CONF.name,
+        _(`${CONF.name}.focus_layer_hidden`),
+        HINT_DURATION.SHORT,
+      );
+      return;
+    }
+
+    // Ensure the layer is on the map so the rectangle highlight is visible.
+    const wasVisible = this.m.map.hasLayer(layer);
+    if (!wasVisible) this.m.map.addLayer(layer);
+
+    // Remove any previous focus rectangle.
+    if (this.focusRect) {
+      this.m.map.removeLayer(this.focusRect);
+      this.focusRect = null;
+    }
+
+    const bounds = (layer as L.Layer & { getBounds(): L.LatLngBounds }).getBounds();
+    // Invalid bounds — bail out.
+    if (!bounds.isValid()) return;
+
+    // Draw a pulsing rectangle on the exact layer bounds.
+    this.focusRect = L.rectangle(bounds, {
+      className: "foliplus-focus-rect",
+      fillOpacity: 0,
+      interactive: false,
+    });
+    this.m.map.addLayer(this.focusRect);
+
+    // Smooth zoom to fit the layer extent. Cap maxZoom to current + 4 so a
+    // tiny feature doesn't snap the map to satellite zoom level.
+    this.m.map.fitBounds(bounds, {
+      animate: true,
+      duration: 0.6,
+      padding: [40, 40],
+      maxZoom: Math.min(this.m.map.getMaxZoom(), this.m.map.getZoom() + 4),
+    });
+
+    // Remove the pulse rectangle after the animation ends. The pulse animation
+    // is 2.2s * 2 = 4.4s, so 5s is a safe buffer.
+    const ref = this.focusRect;
+    setTimeout(() => {
+      if (this.focusRect === ref) {
+        this.m.map.removeLayer(this.focusRect);
+        this.focusRect = null;
+      }
+    }, 5000);
   }
 
   deselectAllBaseMaps(exceptIdx: number) {
