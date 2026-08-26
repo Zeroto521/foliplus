@@ -14,6 +14,7 @@ import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
+const T = (k: string): string => _(`${CONF.name}.${k}`);
 const mapContainer = map.getContainer();
 
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
@@ -118,13 +119,13 @@ class LayerUI {
       if (!layerInfo.isBase && !hasOverlays) {
         hasOverlays = true;
         frag.appendChild(
-          this.renderToggleAllRow(CONST.GROUP.OVERLAY, `${CONF.name}.data_layer_label`),
+          this.renderToggleAllRow(CONST.GROUP.OVERLAY, "data_layer_label"),
         );
       }
       if (layerInfo.isBase && !hasBaseMaps) {
         hasBaseMaps = true;
         frag.appendChild(
-          this.renderToggleAllRow(CONST.GROUP.BASE, `${CONF.name}.base_map_label`),
+          this.renderToggleAllRow(CONST.GROUP.BASE, "base_map_label"),
         );
       }
       const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
@@ -162,9 +163,7 @@ class LayerUI {
       frag.appendChild(
         this.renderToggleAllRow(
           group,
-          group === CONST.GROUP.BASE
-            ? `${CONF.name}.base_map_label`
-            : `${CONF.name}.data_layer_label`,
+          group === CONST.GROUP.BASE ? "base_map_label" : "data_layer_label",
         ),
       );
     }
@@ -213,7 +212,7 @@ class LayerUI {
           (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
         tabindex: "0",
         "data-group": group,
-        title: _(`${CONF.name}.${isFolded ? "unfold_tooltip" : "fold_tooltip"}`),
+        title: T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
       },
       dom.el(
         "button",
@@ -229,10 +228,10 @@ class LayerUI {
           type: "checkbox",
           "data-role": "toggle-all",
           checked: "",
-          title: _(`${CONF.name}.toggle_all_deselect_tooltip`),
+          title: T("toggle_all_deselect_tooltip"),
         }),
       ),
-      dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, _(labelKey)),
+      dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, T(labelKey)),
       dom.el("div", { class: "foliplus-section-divider" }),
     );
   }
@@ -264,7 +263,7 @@ class LayerUI {
       },
       dom.el(
         "span",
-        { class: CONST.CLASSES.DRAG_CELL, title: _(`${CONF.name}.drag_tooltip`) },
+        { class: CONST.CLASSES.DRAG_CELL, title: T("drag_tooltip") },
         { html: SVGs.DRAG_HANDLE },
       ),
       dom.el(
@@ -289,8 +288,8 @@ class LayerUI {
         {
           class: CONST.CLASSES.MORE_BTN,
           type: "button",
-          title: _(`${CONF.name}.more_tooltip`),
-          "aria-label": _(`${CONF.name}.more_tooltip`),
+          title: T("more_tooltip"),
+          "aria-label": T("more_tooltip"),
         },
         { html: SVGs.MORE },
       ),
@@ -302,7 +301,7 @@ class LayerUI {
       type: "color",
       class: CONST.CLASSES.COLOR_INPUT,
       value: this.currentColor,
-      "aria-label": _(`${CONF.name}.color_map_label`),
+      "aria-label": T("color_map_label"),
     });
 
     return dom.el(
@@ -311,14 +310,14 @@ class LayerUI {
         class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
         draggable: "false",
         [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
-        title: _(`${CONF.name}.color_map_label`),
+        title: T("color_map_label"),
       },
       dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
       dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
       dom.el(
         "label",
         { class: CONST.CLASSES.LAYER_LABEL },
-        _(`${CONF.name}.color_map_label`),
+        T("color_map_label"),
       ),
       // count column is empty (color layers have no feature count).
       dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
@@ -328,8 +327,8 @@ class LayerUI {
         {
           class: CONST.CLASSES.MORE_BTN,
           type: "button",
-          title: _(`${CONF.name}.more_tooltip`),
-          "aria-label": _(`${CONF.name}.more_tooltip`),
+          title: T("more_tooltip"),
+          "aria-label": T("more_tooltip"),
         },
         { html: SVGs.MORE },
       ),
@@ -359,9 +358,7 @@ class LayerUI {
       else input.checked = hasLayer && this.m.map.hasLayer(layer);
       this.syncVisibility(layerInfo, layer, input.checked);
 
-      input.title = _(
-        `${CONF.name}.${input.checked ? "deselect_tooltip" : "select_tooltip"}`,
-      );
+      input.title = T(input.checked ? "deselect_tooltip" : "select_tooltip");
 
       const item = input.closest(CONST.SEL.LAYER_ITEM);
       if (item) {
@@ -375,23 +372,23 @@ class LayerUI {
       let type: string | null = null;
       if (layerInfo.isBase) {
         typeCol.innerHTML = Icons.GLOBE;
-        typeKey = `${CONF.name}.type_base`;
+        typeKey = T("type_base");
         type = CONST.GROUP.BASE;
         layerInfo.type = type;
         if (input?.checked) baseVisible = true;
       } else if (layerInfo.iconSvg) {
         typeCol.innerHTML = layerInfo.iconSvg;
-        typeKey = `${CONF.name}.type_custom`;
+        typeKey = T("type_custom");
         type = GEOM_TYPE.CUSTOM;
         layerInfo.type = type;
       } else if (layer) {
         const gtype = getGeometryType(layer);
         typeCol.innerHTML = Util.getTypeSVG(layer, gtype);
-        typeKey = `${CONF.name}.type_${gtype}`;
+        typeKey = T(`type_${gtype}`);
         type = gtype;
         layerInfo.type = type;
       } else {
-        typeKey = `${CONF.name}.type_unknown`;
+        typeKey = T("type_unknown");
         type = GEOM_TYPE.UNKNOWN;
         layerInfo.type = type;
       }
@@ -409,7 +406,7 @@ class LayerUI {
           else countCol.textContent = "";
         }
         // Hover tooltip shows count + type label together.
-        const typeLabel = _(typeKey);
+        const typeLabel = typeKey;
         // Persist the type label so onLayerItemCountChange can rebuild the
         // 'count + type' tooltip without re-running type detection.
         item.setAttribute(CONST.DATA.TITLE, typeLabel);
@@ -555,7 +552,7 @@ class LayerUI {
       const gtype = layer ? getGeometryType(layer) : GEOM_TYPE.UNKNOWN;
       layerInfo.type = gtype;
       typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
-      typeLabel = _(`${CONF.name}.type_${gtype}`);
+      typeLabel = T(`type_${gtype}`);
     }
 
     if (countCol && count !== null && count !== undefined) {
@@ -629,9 +626,7 @@ class LayerUI {
       const layer = this.m.findLayer(layerInfo);
 
       checkbox.checked = newState;
-      checkbox.title = _(
-        `${CONF.name}.${newState ? "deselect_tooltip" : "select_tooltip"}`,
-      );
+      checkbox.title = T(newState ? "deselect_tooltip" : "select_tooltip");
       if (newState) item.classList.add(CONST.CLASSES.ACTIVE);
       else item.classList.remove(CONST.CLASSES.ACTIVE);
 
@@ -670,8 +665,10 @@ class LayerUI {
     const noneChecked = checkedCount === 0;
     allCb.checked = allChecked;
     allCb.indeterminate = !allChecked && !noneChecked;
-    allCb.title = _(
-      `${CONF.name}.${allChecked || allCb.indeterminate ? "toggle_all_deselect_tooltip" : "toggle_all_select_tooltip"}`,
+    allCb.title = T(
+      allChecked || allCb.indeterminate
+        ? "toggle_all_deselect_tooltip"
+        : "toggle_all_select_tooltip",
     );
   }
 
@@ -706,9 +703,7 @@ class LayerUI {
         ? item.classList.add(CONST.CLASSES.ACTIVE)
         : item.classList.remove(CONST.CLASSES.ACTIVE);
 
-    target.title = _(
-      `${CONF.name}.${target.checked ? "deselect_tooltip" : "select_tooltip"}`,
-    );
+    target.title = T(target.checked ? "deselect_tooltip" : "select_tooltip");
 
     if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
     this.syncVisibility(layerInfo, layer, target.checked);
@@ -824,7 +819,7 @@ class LayerUI {
         if (!moved) {
           map.foliplus!.showHint(
             CONF.name,
-            _(CONF.name + ".reorder_top"),
+            T("reorder_top"),
             HINT_DURATION.SHORT,
           );
         }
@@ -834,7 +829,7 @@ class LayerUI {
         if (!moved) {
           map.foliplus!.showHint(
             CONF.name,
-            _(CONF.name + ".reorder_bottom"),
+            T("reorder_bottom"),
             HINT_DURATION.SHORT,
           );
         }
@@ -900,7 +895,7 @@ class LayerUI {
     this.lastDragHintAt = now;
     map.foliplus!.showHint(
       CONF.name,
-      _(`${CONF.name}.reorder_group_only`),
+      T("reorder_group_only"),
       HINT_DURATION.SHORT,
     );
   }
