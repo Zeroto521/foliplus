@@ -216,7 +216,7 @@ export class InteractionManager {
       if (a.container && b.container && active instanceof HTMLElement) {
         const depth = (c: HTMLElement) => {
           let n = 0;
-          let cur = active;
+          let cur: HTMLElement | null = active;
           while (cur && cur !== c) {
             if (cur instanceof HTMLElement) n++;
             cur = cur.parentElement;
