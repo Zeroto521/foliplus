@@ -12,13 +12,7 @@
  * Both run in parallel from `build.mjs --sonda`. Run standalone with:
  *   node script/bundle-report.mjs
  */
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from "fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync, gzipSync } from "zlib";
@@ -33,7 +27,9 @@ const projectRoot = resolve(__dirname, "..");
 export function generateIndexReport(root = projectRoot) {
   const distDir = resolve(root, "foliplus/dist");
   const reportDir = resolve(root, "bundle-reports");
-  const files = readdirSync(distDir).filter(f => /\.min\.(js|css)$/.test(f)).sort();
+  const files = readdirSync(distDir)
+    .filter(f => /\.min\.(js|css)$/.test(f))
+    .sort();
 
   const bundles = files.map(f => {
     const buf = readFileSync(resolve(distDir, f));
@@ -235,7 +231,9 @@ requestAnimationFrame(() => render(metric));
 
   mkdirSync(reportDir, { recursive: true });
   writeFileSync(resolve(reportDir, "index.html"), html);
-  console.log(`  📊 Overview written: ${resolve(reportDir, "index.html")} (${packKw(totalOf("gz"))} gzip, ${packKw(totalOf("raw"))} raw)`);
+  console.log(
+    `  📊 Overview written: ${resolve(reportDir, "index.html")} (${packKw(totalOf("gz"))} gzip, ${packKw(totalOf("raw"))} raw)`,
+  );
 }
 
 function packKw(bytes) {
