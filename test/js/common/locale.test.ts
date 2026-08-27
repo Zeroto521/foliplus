@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  createScopedTranslator,
-  createTranslator,
-} from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 describe("createTranslator", () => {
   beforeEach(() => {

@@ -14,11 +14,8 @@ import { createLocationMarker, dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import { createControlEnv } from "#common/guard.js";
-import {
-  createScopedTranslator,
-  createTranslator,
-} from "#common/locale.js";
 import * as Icons from "#common/icon.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { AUTOCOMPLETE, CLASSES, FORMAT, HISTORY, MODE, SOURCE, ZOOM } from "./const.js";
 import type {
@@ -186,11 +183,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
     .map(Number);
 
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-    map.foliplus!.showHint(
-      CONF.name,
-      T("coord_error"),
-      HINT_DURATION.LONG,
-    );
+    map.foliplus!.showHint(CONF.name, T("coord_error"), HINT_DURATION.LONG);
     ctrl.inp.value = "";
     return;
   }
@@ -198,11 +191,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   const lng = parts[0];
   const lat = parts[1];
   if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-    map.foliplus!.showHint(
-      CONF.name,
-      T("coord_error"),
-      HINT_DURATION.LONG,
-    );
+    map.foliplus!.showHint(CONF.name, T("coord_error"), HINT_DURATION.LONG);
     ctrl.inp.value = "";
     return;
   }
@@ -264,11 +253,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
     .then(result => {
       map.foliplus!.hideHint(CONF.name);
       if (!result) {
-        map.foliplus!.showHint(
-          CONF.name,
-          T("addr_not_found"),
-          HINT_DURATION.LONG,
-        );
+        map.foliplus!.showHint(CONF.name, T("addr_not_found"), HINT_DURATION.LONG);
         ctrl.inp.value = "";
         return;
       }
@@ -291,11 +276,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
     })
     .catch(() => {
       map.foliplus!.hideHint(CONF.name);
-      map.foliplus!.showHint(
-        CONF.name,
-        T("addr_error"),
-        HINT_DURATION.LONG,
-      );
+      map.foliplus!.showHint(CONF.name, T("addr_error"), HINT_DURATION.LONG);
     });
 };
 
@@ -482,9 +463,7 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
           lng,
           lat,
           entry.addrDisplay || entry.coordDisplay,
-          isAddr
-            ? T("popup_title_addr")
-            : T("popup_title_coord"),
+          isAddr ? T("popup_title_addr") : T("popup_title_coord"),
           T("popup_loading"),
           T("popup_loc_label"),
           T("popup_addr_label"),

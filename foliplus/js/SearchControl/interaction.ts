@@ -45,9 +45,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
 
   ctrl.inp.addEventListener("input", () => {
     ctrl.inp.placeholder =
-      ctrl.mode === MODE.COORD
-        ? T("coord_placeholder")
-        : T("addr_placeholder");
+      ctrl.mode === MODE.COORD ? T("coord_placeholder") : T("addr_placeholder");
 
     if (ctrl.inp.value.trim().length === 0) {
       // Input cleared — show history immediately
