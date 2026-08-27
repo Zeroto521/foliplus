@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { LayerManager, patchBringToFront, unpatchBringToFront } from "#foliplus/LayerControl/manager.js";
+import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import {
+  patchBringToFront,
+  unpatchBringToFront,
+} from "#foliplus/LayerControl/manager.js";
 import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
 
