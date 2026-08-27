@@ -18,10 +18,12 @@ const makePane = () => {
   return el;
 };
 
-const initFixture = (options: {
-  initialZoom?: number;
-  maxZoom?: number;
-} = {}): { manager: LayerManager; ui: LayerUI; map: any } => {
+const initFixture = (
+  options: {
+    initialZoom?: number;
+    maxZoom?: number;
+  } = {},
+): { manager: LayerManager; ui: LayerUI; map: any } => {
   vi.stubGlobal("CONF", {
     ...window.CONF,
     name: "LayerControl",
@@ -40,11 +42,11 @@ const initFixture = (options: {
   }
   class Marker {}
   class CircleMarker {
-  constructor(_latlng: any, _opts: any) {}
-  addTo(_map: any) {
-    return this;
+    constructor(_latlng: any, _opts: any) {}
+    addTo(_map: any) {
+      return this;
+    }
   }
-}
   const stamp = (() => {
     let id = 0;
     return vi.fn(() => ++id);
@@ -68,13 +70,14 @@ const initFixture = (options: {
   window.L.CircleMarker = CircleMarker;
   window.L.stamp = stamp;
   window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
-  window.L.rectangle = vi.fn((_bounds: any, opts: any) =>
-    ({
-      _options: opts,
-      getClassName: () => opts?.className ?? "",
-      on: vi.fn(),
-      eachLayer: vi.fn(),
-    }) as any,
+  window.L.rectangle = vi.fn(
+    (_bounds: any, opts: any) =>
+      ({
+        _options: opts,
+        getClassName: () => opts?.className ?? "",
+        on: vi.fn(),
+        eachLayer: vi.fn(),
+      }) as any,
   );
 
   const container = document.createElement("div");
@@ -151,12 +154,10 @@ const initFixture = (options: {
   vi.useRealTimers();
 
   return { manager, ui, map };
-}
+};
 
 const findItem = (ui: LayerUI, id: string): HTMLElement =>
-  ui.uiContainer.querySelector(
-    `[${CONST.DATA.LAYER_ID}="${id}"]`,
-  ) as HTMLElement;
+  ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
 
 // ===========================================================================
 describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
@@ -271,9 +272,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       // addLayer may be called for the rectangle overlay, but NOT for the
       // layer itself (already on the map).
-      const layerArgs = map.addLayer.mock.calls.map(c => c[0]).filter(
-        (arg: any) => arg && typeof arg.getBounds === "function",
-      );
+      const layerArgs = map.addLayer.mock.calls
+        .map(c => c[0])
+        .filter((arg: any) => arg && typeof arg.getBounds === "function");
       expect(layerArgs.length).toBe(0);
     });
 
@@ -526,9 +527,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("color layer has no more button", () => {
-      const colorItem = ui.uiContainer.querySelector(
-        `${CONST.SEL.COLOR_ITEM}`,
-      )!;
+      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       const btn = colorItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
       expect(btn).toBeNull();
     });
@@ -644,9 +643,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
   describe("more button keyboard shortcut", () => {
     it("Enter on more button opens the menu instead of toggling the checkbox", () => {
-      const btn = findItem(ui, "overlay1").querySelector(
-        `.${CONST.CLASSES.MORE_BTN}`,
-      )!;
+      const btn = findItem(ui, "overlay1").querySelector(`.${CONST.CLASSES.MORE_BTN}`)!;
       const item = findItem(ui, "overlay1");
 
       // Spy on checkbox dispatchEvent to prove toggle wasn't triggered.
@@ -671,6 +668,205 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(toggleSpy).not.toHaveBeenCalled();
 
       HTMLInputElement.prototype.dispatchEvent = origDispatchEvent;
+    });
+  });
+
+  // ─────────────────── Alt+Enter keyboard shortcut ───────────────────
+
+  describe("focusLayer via Alt+Enter keyboard shortcut", () => {
+    it("Alt+Enter on a navigated layer row triggers focusLayer", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+
+      // navigate to overlay1 by name so activeIdx matches getNavigableItems().
+      ui.setActiveItem(1); // overlay1 is index 1 (base1 is 0).
+      expect(ui.activeIdx).toBe(1);
+
+      // handleKeyDown requires the active element to be inside uiContainer.
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkbox.focus();
+      expect(document.activeElement).toBe(checkbox);
+
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Enter",
+        altKey: true,
+      });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+
+      focusSpy.mockRestore();
+    });
+
+    it("Enter (without Alt) does NOT trigger focusLayer", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+
+      ui.activeIdx = 0;
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkbox.focus();
+
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Enter",
+        altKey: false,
+      });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      expect(focusSpy).not.toHaveBeenCalled();
+
+      focusSpy.mockRestore();
+    });
+
+    it("Alt+Enter auto-resolves activeIdx from the focused element, then focuses that layer", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      ui.activeIdx = null;
+
+      // Focus overlay1's checkbox — handleKeyDown resolves activeIdx
+      // from the focused element before checking Alt+Enter, so even starting
+      // with activeIdx=null it still triggers focus on overlay1.
+      const overlayCheckbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      overlayCheckbox.focus();
+
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Enter",
+        altKey: true,
+      });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+
+      focusSpy.mockRestore();
+    });
+  });
+
+  // ─────────────────── auto-cancel on map move/zoom ───────────────────
+
+  describe("focusLayer auto-cancel on map navigation", () => {
+    // Helper: grab the moveend handler that focusLayer registered via map.on.
+    const getMoveendHandler = () =>
+      (map.on as any).mock.calls.find((c: any[]) => c[0] === "moveend")?.[1];
+
+    const getZoomendHandler = () =>
+      (map.on as any).mock.calls.find((c: any[]) => c[0] === "zoomend")?.[1];
+
+    it("registers moveend and zoomend handlers that auto-cancel after the grace window", () => {
+      vi.useFakeTimers();
+
+      ui.focusLayer("overlay1");
+      const rect = ui.focusRect!;
+
+      const moveHandler = getMoveendHandler();
+      expect(typeof moveHandler).toBe("function");
+
+      moveHandler(); // fires moveend → grace period starts
+
+      // Immediately after: still within grace, rect should NOT be removed.
+      expect(ui.focusRect).toBe(rect);
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS * 0.29);
+      expect(ui.focusRect).toBe(rect);
+
+      // After grace window: rect is auto-removed.
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS * 0.02);
+      expect(map.removeLayer).toHaveBeenCalledWith(rect);
+      expect(ui.focusRect).toBeNull();
+    });
+
+    it("does NOT auto-cancel when focusingLayerId changes (new focus started)", () => {
+      vi.useFakeTimers();
+
+      ui.focusLayer("overlay1");
+
+      // Start a new focus on overlay1 again (simulates user pressing focus
+      // twice quickly) — the new focus's focusRect and focusingLayerId
+      // replace the old ones synchronously.
+      ui.focusLayer("overlay1");
+
+      // Advance past the grace window.
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
+
+      // Verify no crash and the focusRect lifecycle is well-behaved.
+      expect(() => ui.focusLayer("overlay1")).not.toThrow();
+    });
+
+    it("zoomend triggers the same auto-cancel path as moveend", () => {
+      vi.useFakeTimers();
+
+      ui.focusLayer("overlay1");
+      const rect = ui.focusRect!;
+
+      const zoomHandler = getZoomendHandler();
+      expect(typeof zoomHandler).toBe("function");
+
+      zoomHandler(); // fires zoomend → grace period starts
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS * 0.31);
+
+      expect(map.removeLayer).toHaveBeenCalledWith(rect);
+      expect(ui.focusRect).toBeNull();
+    });
+  });
+
+  // ─────────────────── flyTo path teardown ───────────────────
+
+  describe("focusLayer flyTo path", () => {
+    it("cancelFocus() after a flyTo focus removes row highlight and map handlers", () => {
+      vi.useFakeTimers();
+
+      const layer = manager.findLayer(manager.layerRegistry.get("overlay1")!);
+      const tinyBounds = {
+        isValid: () => true,
+        getSouthWest: () => ({ lat: 30, lng: 100 }),
+        getNorthEast: () => ({ lat: 30.000001, lng: 100.000001 }),
+        getCenter: () => ({ lat: 30, lng: 100 }),
+      };
+      // @ts-expect-error — override mocked getBounds
+      layer.getBounds.mockReturnValue(tinyBounds);
+
+      ui.focusLayer("overlay1");
+      const item = findItem(ui, "overlay1");
+      expect(item.classList.contains("foliplus-layer-focusing")).toBe(true);
+
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+
+      ui.cancelFocus();
+
+      expect(item.classList.contains("foliplus-layer-focusing")).toBe(false);
+      expect(ui.isFocusing()).toBe(false);
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_cancelled",
+        expect.any(Number),
+      );
+    });
+
+    it("corner markers use L.CircleMarker when L.circleMarker is unavailable", () => {
+      vi.useFakeTimers();
+
+      // Remove the factory function to force the `new L.CircleMarker` fallback.
+      const origCircleMarker = (window.L as any).circleMarker;
+      (window.L as any).circleMarker = undefined;
+
+      try {
+        const circleClassSpy = vi.spyOn(window.L, "CircleMarker");
+
+        ui.focusLayer("overlay1");
+
+        expect(circleClassSpy).toHaveBeenCalledTimes(4);
+
+        circleClassSpy.mockRestore();
+      } finally {
+        (window.L as any).circleMarker = origCircleMarker;
+      }
     });
   });
 

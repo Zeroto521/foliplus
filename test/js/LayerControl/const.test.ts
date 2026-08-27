@@ -105,3 +105,31 @@ describe("GROUP", () => {
     expect(CONST.GROUP.BASE).toBe("base");
   });
 });
+
+describe("FOCUS", () => {
+  it("defines the focus rectangle duration in milliseconds", () => {
+    expect(CONST.FOCUS.RECT_DURATION_MS).toBe(3500);
+  });
+
+  it("defines the fitBounds animation duration", () => {
+    expect(CONST.FOCUS.FIT_DURATION).toBe(0.6);
+  });
+
+  it("defines padding as a [topBottom, leftRight] tuple", () => {
+    expect(CONST.FOCUS.PADDING).toEqual([32, 32]);
+  });
+
+  it("defines the max zoom step cap", () => {
+    expect(CONST.FOCUS.MAX_ZOOM_STEP).toBe(6);
+  });
+
+  it("defines the minimum bounds area threshold for flyTo fallback", () => {
+    expect(CONST.FOCUS.MIN_BOUNDS_AREA).toBe(0.0001);
+  });
+});
+
+describe("CLASSES.FOCUSING", () => {
+  it("defines the focusing row class", () => {
+    expect(CONST.CLASSES.FOCUSING).toBe("foliplus-layer-focusing");
+  });
+});
