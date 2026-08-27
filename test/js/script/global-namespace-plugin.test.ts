@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
   collectExports,
   sharedGlobalNamespace,
-} from "../../../script/global-namespace-plugin.mjs";
+} from "#script/global-namespace-plugin.mjs";
 
 describe("sharedGlobalNamespace", () => {
   it("maps #core/layer/* to foliplus.core.layer", () => {
