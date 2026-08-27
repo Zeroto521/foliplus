@@ -15,10 +15,7 @@ export const requireRuntime = (componentName: string): void => {
  * @param CONF - Component configuration (from IIFE).
  * @param icon - SVG icon string for the hint icon. Optional (ScaleControl omits it).
  */
-export const createControlEnv = (
-  CONF: { name: string },
-  icon?: string,
-): void => {
+export const createControlEnv = (CONF: { name: string }, icon?: string): void => {
   requireRuntime(CONF.name);
   if (icon) registerHintIcon(CONF.name, icon);
 };
