@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Util from "#foliplus/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
 
+const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+
 beforeEach(() => {
   vi.clearAllMocks();
   window.L.circleMarker = vi.fn(() => ({}));
@@ -62,29 +64,6 @@ describe("formatArea", () => {
 
   it("formats km² at or above 1e6", () => {
     expect(Util.formatArea(2_500_000)).toBe("2.50 km²");
-  });
-});
-
-describe("nextToggleState", () => {
-  it("defaults to toggling X when showX is undefined", () => {
-    expect(Util.nextToggleState(false, true, undefined, undefined)).toEqual({
-      isXVisible: true,
-      isLabelsVisible: true,
-    });
-  });
-
-  it("honors explicit showX and label toggles", () => {
-    expect(Util.nextToggleState(true, true, false, false)).toEqual({
-      isXVisible: false,
-      isLabelsVisible: false,
-    });
-  });
-
-  it("resets labels when toggleLbl is reset", () => {
-    expect(Util.nextToggleState(true, false, undefined, "reset")).toEqual({
-      isXVisible: false,
-      isLabelsVisible: true,
-    });
   });
 });
 
@@ -330,5 +309,240 @@ describe("getEventTarget", () => {
   it("returns null when originalEvent is missing", () => {
     const event = {} as L.LeafletMouseEvent;
     expect(Util.getEventTarget(event)).toBeNull();
+  });
+});
+
+describe("buildEditOverlay", () => {
+  function makeMap() {
+    return {
+      on: vi.fn(),
+      off: vi.fn(),
+    } as any;
+  }
+
+  it("exposes open and cleanup", () => {
+    const mgr = { map: makeMap(), isSuppressHideDel: false };
+    const overlay = Util.buildEditOverlay(mgr, {});
+
+    expect(typeof overlay.open).toBe("function");
+    expect(typeof overlay.cleanup).toBe("function");
+  });
+
+  it("fires onOpen and calls stopEvent on open", () => {
+    const mgr = { map: makeMap(), isSuppressHideDel: false };
+    const onOpen = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr, { onOpen });
+    const ev = { preventDefault: vi.fn(), stopPropagation: vi.fn() } as any;
+
+    overlay.open(ev);
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(ev.stopPropagation).toHaveBeenCalled();
+  });
+
+  it("does not re-open while already open", () => {
+    const mgr = { map: makeMap(), isSuppressHideDel: false };
+    const onOpen = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr, { onOpen });
+
+    overlay.open({} as any);
+    overlay.open({} as any);
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("fires onEmpty when empty space is clicked", () => {
+    const map = makeMap();
+    const mgr = { map, isSuppressHideDel: false };
+    const onEmpty = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr, { onOpen: vi.fn(), onEmpty });
+
+    // find the map-click handler registered by buildEditOverlay
+    overlay.open({} as any);
+    const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    expect(mapClickHandler).toBeDefined();
+    mapClickHandler();
+    expect(onEmpty).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not close overlay when suppress-hide is active", () => {
+    const map = makeMap();
+    const mgr = { map, isSuppressHideDel: true };
+    const onEmpty = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr, { onOpen: vi.fn(), onEmpty });
+
+    overlay.open({} as any);
+    const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    mapClickHandler();
+    expect(onEmpty).not.toHaveBeenCalled();
+  });
+
+  it("ignores a drag-synthetic click", () => {
+    const map = makeMap();
+    const mgr = { map, isSuppressHideDel: false };
+    const onEmpty = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr, { onOpen: vi.fn(), onEmpty });
+
+    overlay.open({} as any);
+    const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    Util.markDragSyntheticClick();
+    mapClickHandler();
+    expect(onEmpty).not.toHaveBeenCalled();
+  });
+
+  it("registers and cleans up the map-click listener", () => {
+    const map = makeMap();
+    const mgr = { map, isSuppressHideDel: false };
+    const overlay = Util.buildEditOverlay(mgr, { onOpen: vi.fn() });
+
+    overlay.open(fakeEv());
+    overlay.cleanup();
+
+    expect(map.off).toHaveBeenCalledWith("click", expect.any(Function));
+  });
+});
+
+describe("markDragSyntheticClick / isDragSyntheticClick", () => {
+  it("returns true once after markDragSyntheticClick", () => {
+    Util.markDragSyntheticClick();
+    expect(Util.isDragSyntheticClick()).toBe(true);
+    expect(Util.isDragSyntheticClick()).toBe(false); // consumed-on-read
+  });
+
+  it("returns false by default", () => {
+    expect(Util.isDragSyntheticClick()).toBe(false);
+  });
+});
+
+describe("bindNodeDrag", () => {
+  it("calls onDrag and onEnd through the drag lifecycle", () => {
+    const node = {
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat: 1, lng: 1 })),
+      setLatLng: vi.fn(),
+    };
+    const del = { on: vi.fn(), off: vi.fn(), setLatLng: vi.fn() };
+    const onDrag = vi.fn();
+    const onEnd = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn((raw: { clientX: number; clientY: number }) => ({
+        x: raw.clientX,
+        y: raw.clientY,
+      })),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+
+    const { setEnabled, cleanup } = Util.bindNodeDrag(
+      node as any,
+      del as any,
+      map as any,
+      { onDrag, onEnd },
+    );
+    setEnabled(true);
+
+    // find handlers
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    const onUp = (map.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 1, lng: 1 } });
+    expect(map.dragging.disable).toHaveBeenCalled();
+
+    onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+    expect(node.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+    expect(del.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+    expect(onDrag).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+
+    onUp({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+    expect(onEnd).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+    expect(map.dragging.enable).toHaveBeenCalled();
+
+    cleanup();
+    expect(node.off).toHaveBeenCalledWith("mousedown", expect.any(Function));
+  });
+
+  it("does not drag when enabled is false", () => {
+    const node = { on: vi.fn(), off: vi.fn() };
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
+      dragging: { disable: vi.fn() },
+    };
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, {});
+    // enabled defaults to false
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    onDown({});
+    expect(map.dragging.disable).not.toHaveBeenCalled();
+    setEnabled(true);
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    expect(map.dragging.disable).toHaveBeenCalled();
+  });
+
+  it("skips onEnd when movement stayed inside the tap threshold", () => {
+    const node = { on: vi.fn(), off: vi.fn() };
+    const onEnd = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onEnd });
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    const onUp = (map.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    // movement of 2px < DRAG_THRESHOLD (4px)
+    onMove({ originalEvent: { clientX: 2, clientY: 0 } });
+    onUp({ originalEvent: { clientX: 2, clientY: 0 } });
+    expect(onEnd).not.toHaveBeenCalled();
+  });
+});
+
+describe("geocodeAddress", () => {
+  it("calls reverseGeocode and returns the resolved address", async () => {
+    const resolvedAddr = "123 Main St";
+    window.foliplus = {
+      reverseGeocode: vi.fn(() => Promise.resolve(resolvedAddr)),
+    } as any;
+    const mgr = { map: {} };
+    const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", null);
+    expect(window.foliplus.reverseGeocode).toHaveBeenCalledWith({}, 121, 31, "en");
+    expect(result).toBe(resolvedAddr);
+  });
+
+  it("falls back to the previous address on geocode failure", async () => {
+    window.foliplus = {
+      reverseGeocode: vi.fn(() => Promise.reject(new Error("offline"))),
+    } as any;
+    const mgr = { map: {} };
+    const prev = "fallback address";
+    const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
+    expect(result).toBe(prev);
+  });
+
+  it("returns previous address when reverseGeocode returns null", async () => {
+    window.foliplus = {
+      reverseGeocode: vi.fn(() => Promise.resolve(null)),
+    } as any;
+    const mgr = { map: {} };
+    const prev = "fallback address";
+    const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
+    expect(result).toBe(prev);
+  });
+
+  it("returns previous when foliplus.reverseGeocode is unavailable", async () => {
+    window.foliplus = undefined as any;
+    const mgr = { map: {} };
+    const prev = "fallback address";
+    const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
+    expect(result).toBe(prev);
   });
 });

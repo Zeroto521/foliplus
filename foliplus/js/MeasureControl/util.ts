@@ -196,21 +196,6 @@ const suppressHide = (manager: {
   hideDelIcons();
 };
 
-/** Calculate next toggle state for X icons and labels. */
-const nextToggleState = (
-  curX: boolean,
-  curLabels: boolean,
-  showX: boolean | undefined,
-  toggleLbl: boolean | string | undefined,
-): { isXVisible: boolean; isLabelsVisible: boolean } => {
-  const newX = showX !== undefined ? showX : !curX;
-  let newLabel = curLabels;
-  if (toggleLbl === true) newLabel = !curLabels;
-  else if (toggleLbl === false) newLabel = false;
-  else if (toggleLbl === CONST.TOGGLE.RESET) newLabel = true;
-  return { isXVisible: newX, isLabelsVisible: newLabel };
-};
-
 /** Apply toggle visibility state to del icon, labels, and optional extra label. */
 const applyVisibilityToggle = (
   delMarker: L.Layer | undefined,
@@ -409,7 +394,6 @@ export {
   makeMidLabelDivIcon,
   makeNode,
   midpoint,
-  nextToggleState,
   pointsToLatLngs,
   recalculateSegments,
   setLabelText,

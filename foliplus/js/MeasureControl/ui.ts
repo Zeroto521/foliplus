@@ -10,57 +10,6 @@ import * as Util from "./util.js";
 const _ = createTranslator(CONF);
 
 /**
- * Mutable toggle state shared between createToggleUI and setupMapClickActive.
- */
-interface MeasureToggleState {
-  isXVisible: boolean;
-  isLabelsVisible: boolean;
-}
-
-/**
- * Create a toggle function that manages X/label visibility state via the
- * state machine, then delegates rendering to a callback. This eliminates
- * the repeated let + state-machine boilerplate in each attach*UI function.
- */
-const createToggleUI = (
-  state: MeasureToggleState,
-  render: (state: MeasureToggleState) => void,
-): ((showX?: boolean, toggleLabels?: boolean | string) => void) => {
-  return (showX?: boolean, toggleLabels?: boolean | string) => {
-    const next = Util.nextToggleState(
-      state.isXVisible,
-      state.isLabelsVisible,
-      showX,
-      toggleLabels,
-    );
-    state.isXVisible = next.isXVisible;
-    state.isLabelsVisible = next.isLabelsVisible;
-    render(state);
-  };
-};
-
-/**
- * Wire a map-click handler that hides the X icon when the user clicks empty
- * map space, respecting suppress-hide and optional extra guards (e.g. isDeleted).
- */
-const setupMapClickActive = (
-  mgr: MeasureManager,
-  state: MeasureToggleState,
-  toggleUI: (showX?: boolean, toggleLabels?: boolean | string) => void,
-  extraGuard?: () => boolean,
-): (() => void) => {
-  const onMapClickActive = () => {
-    if (mgr.isSuppressHideDel) return;
-    if (extraGuard?.()) return;
-    if (state.isXVisible) {
-      toggleUI(false, CONST.TOGGLE.RESET);
-    }
-  };
-  mgr.map.on("click", onMapClickActive);
-  return onMapClickActive;
-};
-
-/**
  * Re-order layers so they render in the correct z-order.
  * Removes and re-adds each collection in sequence.
  */
@@ -532,7 +481,5 @@ export {
   attachCircleUI,
   attachDistanceUI,
   attachPolygonUI,
-  createToggleUI,
-  setupMapClickActive,
   resortLayers,
 };
