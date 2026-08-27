@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
 import {
   collectExports,
   collectSources,
   scanSharedImports,
   sharedGlobalNamespace,
 } from "#script/global-namespace-plugin.mjs";
+import { describe, expect, it } from "vitest";
 
 describe("sharedGlobalNamespace", () => {
   it("maps BaseControl to foliplus.BaseControl", () => {

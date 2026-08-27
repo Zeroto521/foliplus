@@ -1,8 +1,8 @@
+import { generateRegistry, scanImports } from "#script/scan-registry.mjs";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { generateRegistry, scanImports } from "#script/scan-registry.mjs";
 
 const FS = require("fs");
 const PATH = require("path");

@@ -406,7 +406,7 @@ class TestLayerControlRendering:
         assert len(toggle_all_areas) == 1, (
             f"expected exactly one toggle-all template-areas line, got {toggle_all_areas}"
         )
-        assert 'drag check label . . .' in toggle_all_areas[0]
+        assert "drag check label . . ." in toggle_all_areas[0]
         # No template-areas line references 'divider' as a named area —
         # the dual-declaration coupling (container slot + item grid-area)
         # only ever applied to divider and is now avoided.
@@ -454,11 +454,11 @@ class TestLayerControlRendering:
         # evaluated against the same 6-col track).
         ta_idx = css.find(".foliplus-layer-sep.foliplus-layer-toggle-all {")
         assert ta_idx != -1
-        ta_block = css[ta_idx: css.index("}", ta_idx) + 1]
+        ta_block = css[ta_idx : css.index("}", ta_idx) + 1]
         assert "var(--grid-layer-cols)" in ta_block
         div_idx = css[ta_idx:].find(".foliplus-section-divider {")
         assert div_idx != -1, "divider rule not inside toggle-all container"
-        div_block = css[ta_idx:ta_idx + css[ta_idx:].index("}", div_idx) + 1]
+        div_block = css[ta_idx : ta_idx + css[ta_idx:].index("}", div_idx) + 1]
         assert "grid-column: 4 / -1" in div_block, (
             "divider must start at col 4 (after label slot 3) and end at -1 (col 6)"
         )

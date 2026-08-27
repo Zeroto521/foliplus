@@ -1,11 +1,11 @@
-import { mkdtempSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
-import { afterAll, describe, expect, it } from "vitest";
 import {
   collectExports,
   sharedGlobalNamespace,
 } from "#script/global-namespace-plugin.mjs";
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { afterAll, describe, expect, it } from "vitest";
 
 describe("sharedGlobalNamespace", () => {
   it("maps #core/layer/* to foliplus.core.layer", () => {

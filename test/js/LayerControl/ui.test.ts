@@ -18,10 +18,12 @@ const makePane = () => {
   return el;
 };
 
-const initFixture = (options: {
-  initialZoom?: number;
-  maxZoom?: number;
-} = {}): { manager: LayerManager; ui: LayerUI; map: any } => {
+const initFixture = (
+  options: {
+    initialZoom?: number;
+    maxZoom?: number;
+  } = {},
+): { manager: LayerManager; ui: LayerUI; map: any } => {
   vi.stubGlobal("CONF", {
     ...window.CONF,
     name: "LayerControl",
@@ -40,11 +42,11 @@ const initFixture = (options: {
   }
   class Marker {}
   class CircleMarker {
-  constructor(_latlng: any, _opts: any) {}
-  addTo(_map: any) {
-    return this;
+    constructor(_latlng: any, _opts: any) {}
+    addTo(_map: any) {
+      return this;
+    }
   }
-}
   const stamp = (() => {
     let id = 0;
     return vi.fn(() => ++id);
@@ -68,13 +70,14 @@ const initFixture = (options: {
   window.L.CircleMarker = CircleMarker;
   window.L.stamp = stamp;
   window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
-  window.L.rectangle = vi.fn((_bounds: any, opts: any) =>
-    ({
-      _options: opts,
-      getClassName: () => opts?.className ?? "",
-      on: vi.fn(),
-      eachLayer: vi.fn(),
-    }) as any,
+  window.L.rectangle = vi.fn(
+    (_bounds: any, opts: any) =>
+      ({
+        _options: opts,
+        getClassName: () => opts?.className ?? "",
+        on: vi.fn(),
+        eachLayer: vi.fn(),
+      }) as any,
   );
 
   const container = document.createElement("div");
@@ -151,12 +154,10 @@ const initFixture = (options: {
   vi.useRealTimers();
 
   return { manager, ui, map };
-}
+};
 
 const findItem = (ui: LayerUI, id: string): HTMLElement =>
-  ui.uiContainer.querySelector(
-    `[${CONST.DATA.LAYER_ID}="${id}"]`,
-  ) as HTMLElement;
+  ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
 
 // ===========================================================================
 describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
@@ -271,9 +272,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       // addLayer may be called for the rectangle overlay, but NOT for the
       // layer itself (already on the map).
-      const layerArgs = map.addLayer.mock.calls.map(c => c[0]).filter(
-        (arg: any) => arg && typeof arg.getBounds === "function",
-      );
+      const layerArgs = map.addLayer.mock.calls
+        .map(c => c[0])
+        .filter((arg: any) => arg && typeof arg.getBounds === "function");
       expect(layerArgs.length).toBe(0);
     });
 
@@ -526,9 +527,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("color layer has no more button", () => {
-      const colorItem = ui.uiContainer.querySelector(
-        `${CONST.SEL.COLOR_ITEM}`,
-      )!;
+      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       const btn = colorItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
       expect(btn).toBeNull();
     });
@@ -644,9 +643,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
   describe("more button keyboard shortcut", () => {
     it("Enter on more button opens the menu instead of toggling the checkbox", () => {
-      const btn = findItem(ui, "overlay1").querySelector(
-        `.${CONST.CLASSES.MORE_BTN}`,
-      )!;
+      const btn = findItem(ui, "overlay1").querySelector(`.${CONST.CLASSES.MORE_BTN}`)!;
       const item = findItem(ui, "overlay1");
 
       // Spy on checkbox dispatchEvent to prove toggle wasn't triggered.

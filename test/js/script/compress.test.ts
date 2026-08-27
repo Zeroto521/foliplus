@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
 import {
   compressHtmlStrings,
   compressSvgStrings,
   transformSource,
 } from "#script/compress.mjs";
+import { describe, expect, it } from "vitest";
 
 describe("compressSvgStrings", () => {
   it("compresses inline SVG template literal", () => {

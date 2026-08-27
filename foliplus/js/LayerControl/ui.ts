@@ -549,9 +549,8 @@ class LayerUI {
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
     // Double-click on a layer row → focus the map on that layer.
-    container.addEventListener(
-      "dblclick",
-      event => this.handleDblClick(event as MouseEvent),
+    container.addEventListener("dblclick", event =>
+      this.handleDblClick(event as MouseEvent),
     );
 
     // Overflow ("more") button → dropdown menu. Uses event delegation so it
@@ -651,7 +650,8 @@ class LayerUI {
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
     if (this.onMoreClick) container.removeEventListener("click", this.onMoreClick);
-    if (this.onMoreMenuClick) document.removeEventListener("click", this.onMoreMenuClick);
+    if (this.onMoreMenuClick)
+      document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
@@ -940,17 +940,17 @@ class LayerUI {
         if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
           event.preventDefault();
           event.stopPropagation();
-          const item =
-            (document.activeElement as HTMLElement).closest(
-              CONST.SEL.LAYER_ITEM,
-            ) as HTMLElement | null;
+          const item = (document.activeElement as HTMLElement).closest(
+            CONST.SEL.LAYER_ITEM,
+          ) as HTMLElement | null;
           if (item) this.openMoreMenu(item);
           break;
         }
         // Menu item (li) is focused — trigger the focus-layer action.
         // Skip disabled items so the hidden-layer guard applies to keyboard too.
-        const menuLi = (document.activeElement as HTMLElement | null)
-          ?.closest?.(".foliplus-layer-more-menu li");
+        const menuLi = (document.activeElement as HTMLElement | null)?.closest?.(
+          ".foliplus-layer-more-menu li",
+        );
         if (menuLi && this.activeMenu) {
           event.preventDefault();
           event.stopPropagation();
@@ -1179,9 +1179,9 @@ class LayerUI {
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
 
-    const isHidden = (
-      item.querySelector('input[type="checkbox"]') as HTMLInputElement | null
-    )?.checked === false;
+    const isHidden =
+      (item.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
+        ?.checked === false;
 
     const itemAttrs = {
       "data-action": "focus-layer",
@@ -1273,8 +1273,7 @@ class LayerUI {
     const southWest = bounds.getSouthWest();
     const northEast = bounds.getNorthEast();
     const area =
-      Math.abs(northEast.lat - southWest.lat) *
-      Math.abs(northEast.lng - southWest.lng);
+      Math.abs(northEast.lat - southWest.lat) * Math.abs(northEast.lng - southWest.lng);
     if (area < CONST.FOCUS.MIN_BOUNDS_AREA) {
       const center = bounds.getCenter();
       const maxZoom = Math.min(
@@ -1359,10 +1358,7 @@ class LayerUI {
   }
 
   /** Draw a dashed focus rectangle + 4 corner circleMarkers; return the corners. */
-  private _drawFocusRect(
-    bounds: L.LatLngBounds,
-    layerId: string,
-  ): L.Layer[] {
+  private _drawFocusRect(bounds: L.LatLngBounds, layerId: string): L.Layer[] {
     const map = this.m.map;
     const cornerRadius = 4;
 
@@ -1388,11 +1384,13 @@ class LayerUI {
         className: "foliplus-focus-corner",
         interactive: false,
       };
-      const corner = (typeof L.circleMarker === "function"
-        ? L.circleMarker(latlng, opts)
-        : new L.CircleMarker(latlng, opts)) as L.Layer & {
-          addTo?: (m: L.Map) => L.Layer;
-        };
+      const corner = (
+        typeof L.circleMarker === "function"
+          ? L.circleMarker(latlng, opts)
+          : new L.CircleMarker(latlng, opts)
+      ) as L.Layer & {
+        addTo?: (m: L.Map) => L.Layer;
+      };
       if (corner.addTo) return corner.addTo(map);
       map.addLayer(corner);
       return corner;
@@ -1429,10 +1427,7 @@ class LayerUI {
   }
 
   /** Highlight the layer row that is being focused (list ↔ map linkage). */
-  private _highlightFocusedRow(
-    itemEl: HTMLElement | null,
-    layerId: string,
-  ): void {
+  private _highlightFocusedRow(itemEl: HTMLElement | null, layerId: string): void {
     this._clearFocusedRowHighlight();
     if (!itemEl) return;
     itemEl.classList.add(CONST.CLASSES.FOCUSING);
