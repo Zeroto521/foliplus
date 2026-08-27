@@ -1,13 +1,15 @@
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createControlEnv } from "#common/guard.js";
+import { createScopedTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./manager.js";
 import { bindControls, initScan, setupObserver } from "./ui.js";
 
-const { _ } = createControlEnv(CONF, SVGs.HEXAGON);
+createControlEnv(CONF, SVGs.HEXAGON);
+const T = createScopedTranslator(CONF);
 ensureLayerAPI(map);
 
 const heatmapManager = new HeatmapManager(map);
@@ -51,10 +53,10 @@ class HeatmapControl extends BaseControl {
   buildDOM() {
     const { container, ctrl, panelContent } = createPanelControl({
       cssClass: CONST.CLASSES.HEATMAP_CTRL,
-      toggleTitle: _(`${CONF.name}.title`),
+      toggleTitle: T("title"),
       toggleSvg: SVGs.HEXAGON,
-      panelTitle: _(`${CONF.name}.title`),
-      closeTitle: _(`${CONF.name}.close_title`),
+      panelTitle: T("title"),
+      closeTitle: T("close_title"),
     });
     this.ctrl = ctrl;
     this.m.ui = this;

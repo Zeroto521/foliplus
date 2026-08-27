@@ -68,7 +68,7 @@ const ensureModes = (map: L.Map): ModeManager => {
 };
 
 /** Check whether a component is blocked by an active mode and show a hint.
- *  Caller provides the translated hint text (e.g. `_(`${CONF.name}.blocked`)`).
+ *  Caller provides the translated hint text (e.g. `T("blocked")`).
  *  Returns `true` when blocked (caller should return early). */
 export const guardBlocked = (map: L.Map, name: string, hintText: string): boolean => {
   if (map.foliplus?.modes?.isBlocked(name)) {

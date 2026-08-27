@@ -6,7 +6,7 @@ import { ensureModes } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
@@ -14,7 +14,7 @@ import { registerCropMouseDown } from "./interaction.js";
 import type { ExportManager, Rect } from "./manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** Toolbar action button config. */
 interface ToolbarButton {
@@ -80,8 +80,8 @@ const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => 
   mgr.checkPixelLimit(r);
   map.foliplus!.showHint(
     CONF.name,
-    `${_(`${CONF.name}.label_size_prefix`)}${Math.round(r.width)} × ${Math.round(r.height)} ` +
-      `${_(`${CONF.name}.label_size_suffix`)}${instruction ? ` — ${instruction}` : ""}`,
+    `${T("label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ` +
+      `${T("label_size_suffix")}${instruction ? ` — ${instruction}` : ""}`,
     HINT_DURATION.PERSIST,
     undefined,
     "size",
@@ -89,10 +89,7 @@ const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => 
   if (mgr.pixelOverLimit) {
     map.foliplus!.showHint(
       CONF.name,
-      _(`${CONF.name}.err_too_large`).replace(
-        "{limit}",
-        formatNumber(CONF.max_pixels!),
-      ),
+      T("err_too_large").replace("{limit}", formatNumber(CONF.max_pixels!)),
       HINT_DURATION.PERSIST,
       undefined,
       "limit",
@@ -173,12 +170,12 @@ const showCropBox = (mgr: ExportManager) => {
 
   renderToolbarActions(mgr, {
     confirm: {
-      title: _(`${CONF.name}.btn_confirm`),
+      title: T("btn_confirm"),
       svg: SVGs.CHECK,
       onclick: () => mgr.lockCropBox(),
     },
     cancel: {
-      title: _(`${CONF.name}.btn_cancel`),
+      title: T("btn_cancel"),
       svg: Icons.CLOSE,
       onclick: () => mgr.removeCropBox(),
     },
@@ -194,7 +191,7 @@ const showCropBox = (mgr: ExportManager) => {
     actions: mgr.exportToolBar!,
   };
   updateBoxStyle(mgr, cropBox, box);
-  showHintWithInfo(mgr, box, _(`${CONF.name}.hint_unlocked`));
+  showHintWithInfo(mgr, box, T("hint_unlocked"));
   mgr.cropMousedownCleanup = registerCropMouseDown(mgr, cropBox);
   mgr.registerShortcuts();
 };
@@ -212,12 +209,12 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   mgr.cropState.geoBounds = mgr.cropState.savedGeoBounds;
   renderToolbarActions(mgr, {
     confirm: {
-      title: _(`${CONF.name}.btn_export`),
+      title: T("btn_export"),
       svg: Icons.DOWNLOAD,
       onclick: () => mgr.doExport(),
     },
     cancel: {
-      title: _(`${CONF.name}.btn_cancel`),
+      title: T("btn_cancel"),
       svg: Icons.CLOSE,
       onclick: () => mgr.unlockCropBox(),
     },
@@ -233,7 +230,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
     },
   });
   mgr.onMapChange();
-  if (!skipHint) showHintWithInfo(mgr, r, _(`${CONF.name}.hint_locked`));
+  if (!skipHint) showHintWithInfo(mgr, r, T("hint_locked"));
 };
 
 /** Update toolbar for unlocked state (confirm button). */
@@ -244,18 +241,18 @@ const unlockCropBox = (mgr: ExportManager) => {
   if (mgr.mapMoveCleanup) mgr.mapMoveCleanup();
   renderToolbarActions(mgr, {
     confirm: {
-      title: _(`${CONF.name}.btn_confirm`),
+      title: T("btn_confirm"),
       svg: SVGs.CHECK,
       onclick: () => mgr.lockCropBox(),
     },
     cancel: {
-      title: _(`${CONF.name}.btn_cancel`),
+      title: T("btn_cancel"),
       svg: Icons.CLOSE,
       onclick: () => mgr.removeCropBox(),
     },
   });
   updateBoxStyle(mgr, mgr.cropState.box, mgr.cropState.rect);
-  showHintWithInfo(mgr, mgr.cropState.rect, _(`${CONF.name}.hint_unlocked`));
+  showHintWithInfo(mgr, mgr.cropState.rect, T("hint_unlocked"));
 };
 
 /** Remove crop box DOM and restore UI state. */
