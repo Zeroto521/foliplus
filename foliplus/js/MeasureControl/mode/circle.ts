@@ -29,7 +29,7 @@ interface CirclePreviews {
 class CircleMode extends PreviewMode {
   static TYPE = CONST.MODE.CIRCLE;
   static NAME_LABEL = "Circle Measurement";
-  static NAME_LABEL_KEY = `${CONF.name}.name_circle`;
+  static NAME_LABEL_KEY = "name_circle";
 
   /** Rebuild a persisted circle measurement.
    *  @param {Object} manager - MeasureManager instance.

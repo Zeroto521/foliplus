@@ -17,7 +17,7 @@ import { PreviewMode } from "./base.js";
 class PolygonMode extends PreviewMode {
   static TYPE = CONST.MODE.POLYGON;
   static NAME_LABEL = "Area Measurement";
-  static NAME_LABEL_KEY = `${CONF.name}.name_polygon`;
+  static NAME_LABEL_KEY = "name_polygon";
 
   /** Rebuild a persisted polygon measurement.
    *  @param {Object} manager - MeasureManager instance.

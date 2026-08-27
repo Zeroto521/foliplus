@@ -21,7 +21,7 @@ const T = createScopedTranslator(CONF);
 class MarkerMode extends MeasureMode {
   static TYPE = CONST.MODE.MARKER;
   static NAME_LABEL = "Location Marker";
-  static NAME_LABEL_KEY = `${CONF.name}.name_marker`;
+  static NAME_LABEL_KEY = "name_marker";
 
   onMarkerClickRef!: (event: L.LeafletMouseEvent) => void;
 

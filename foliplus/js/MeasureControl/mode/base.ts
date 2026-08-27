@@ -1,8 +1,8 @@
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import type { MeasureManager } from "../manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 class MeasureMode {
   static TYPE: string = "";
@@ -17,9 +17,10 @@ class MeasureMode {
    * Shared by CSV export (getNameForType) and GeoJSON properties.name.
    */
   static getNameLabel(): string {
-    const label = _(this.NAME_LABEL_KEY);
+    const label = T(this.NAME_LABEL_KEY);
     return label === this.NAME_LABEL_KEY ? this.NAME_LABEL : label;
   }
+
   manager: MeasureManager;
   map: L.Map;
   layers: CreateLayersAPI;
