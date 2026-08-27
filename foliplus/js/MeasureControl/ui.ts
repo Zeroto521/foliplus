@@ -6,6 +6,41 @@ import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import * as Util from "./util.js";
 
+/**
+ * Build the shared edit overlay for a finished measurement. The caller wires
+ * `result.open(ev)` onto each of the measure's layers; clicking empty map
+ * space closes the overlay (the manager's global click handler stops
+ * propagation for item clicks, so only empty-space clicks reach here).
+ */
+const buildEditOverlay = (
+  mgr: MeasureManager,
+  opts: { onOpen: () => void; onEmpty?: () => void },
+): { open: (ev: L.LeafletMouseEvent) => void; cleanup: () => void } => {
+  let open = false;
+  const { onOpen, onEmpty } = opts;
+
+  const onMapClick = () => {
+    if (mgr.isSuppressHideDel) return;
+    if (!open) return;
+    open = false;
+    onEmpty?.();
+  };
+  mgr.map.on("click", onMapClick);
+
+  const openOverlay = (ev: L.LeafletMouseEvent) => {
+    if (open) return;
+    stopEvent(ev);
+    if (Util.isDragSyntheticClick()) return;
+    open = true;
+    onOpen();
+  };
+
+  return {
+    open: openOverlay,
+    cleanup: () => mgr.map.off("click", onMapClick),
+  };
+};
+
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
@@ -86,41 +121,44 @@ const attachDistanceUI = (
 ): ((event: L.LeafletMouseEvent) => void) => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
     opts;
-  const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
   const nodeDelIcons: L.Marker[] = [];
+  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> = [];
 
-  const toggleUI = createToggleUI(state, () => {
-    nodeDelIcons.forEach(m => toggleDelIcon(m, state.isXVisible));
-    Util.applyVisibilityToggle(
-      undefined,
-      state.isXVisible,
-      segLabels,
-      state.isLabelsVisible,
-    );
-  });
-
-  const handleItemClick = (event: L.LeafletMouseEvent) => {
-    stopEvent(event);
-    Util.suppressHide(mgr);
-    toggleUI();
+  const relabel = () => {
+    let cumulative = 0;
+    segLabels.forEach((label, i) => {
+      cumulative += Util.distance(points[i], points[i + 1]);
+      const mid = Util.midpoint(points[i], points[i + 1]);
+      label.setLatLng([mid.lat, mid.lng]);
+      label.setIcon(
+        Util.makeMidLabelDivIcon(
+          Util.formatSegmentLabel(points[i], points[i + 1], cumulative),
+        ),
+      );
+    });
   };
 
-  finalPoly.on("click", handleItemClick);
-  nodeMarkers.forEach(m => m.on("click", handleItemClick));
-  segLabels.forEach(l => l.on("click", handleItemClick));
-  toggleUI(false, CONST.TOGGLE.RESET);
-
-  const onMapClickActive = setupMapClickActive(mgr, state, toggleUI);
-
   const deleteMeasurement = () => {
+    dragBinds.forEach(db => db.cleanup());
+    overlayCleanup?.();
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
-    mgr.map.off("click", onMapClickActive);
     onDelete();
     layers.unregister();
   };
+  const onOpen = () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, true));
+    dragBinds.forEach(db => db.setEnabled(true));
+  };
+  const onEmpty = () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, false));
+    dragBinds.forEach(db => db.setEnabled(false));
+  };
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const openOverlay = overlay.open;
+  const overlayCleanup = overlay.cleanup;
 
-  // Create a delete icon for each node
-  nodeMarkers.forEach((node, idx) => {
+  // Create a delete icon for each node and set up drag.
+  nodeMarkers.forEach((node, _idx) => {
     const isFirst = idx === 0;
     const isLastWhenTwo = points.length === 2 && idx === 1;
     const delMarker = layers.addLayer(
@@ -152,6 +190,7 @@ const attachDistanceUI = (
         }
         nodeMarkers.splice(ptIdx, 1);
         nodeDelIcons.splice(ptIdx, 1);
+        dragBinds.splice(ptIdx, 1);
 
         if (points.length < 2) {
           deleteMeasurement();
@@ -169,19 +208,7 @@ const attachDistanceUI = (
         }
 
         finalPoly.setLatLngs(points);
-
-        let cumulative = 0;
-        segLabels.forEach((label, i) => {
-          cumulative += Util.distance(points[i], points[i + 1]);
-          const mid = Util.midpoint(points[i], points[i + 1]);
-          label.setLatLng([mid.lat, mid.lng]);
-          label.setIcon(
-            Util.makeMidLabelDivIcon(
-              Util.formatSegmentLabel(points[i], points[i + 1], cumulative),
-            ),
-          );
-        });
-
+        relabel();
         if (onUpdate) onUpdate(points);
       });
 
@@ -190,12 +217,57 @@ const attachDistanceUI = (
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       handleItemClick(event);
     });
+
+    // Each node is individually draggable; only one point moves at a time.
+    const findPtIdx = () =>
+      points.findIndex(
+        (p: L.LatLng) =>
+          Math.abs(p.lat - node.getLatLng().lat) < 1e-9 &&
+          Math.abs(p.lng - node.getLatLng().lng) < 1e-9,
+      );
+    const db = Util.bindNodeDrag(node, delMarker, mgr.map, {
+      onDrag: (latlng: L.LatLng) => {
+        const pIdx = findPtIdx();
+        if (pIdx === -1) return;
+        points[pIdx] = latlng;
+        finalPoly.setLatLngs(points);
+        relabel();
+      },
+      onEnd: (latlng: L.LatLng) => {
+        const pIdx = findPtIdx();
+        if (pIdx === -1) return;
+        points[pIdx] = latlng;
+        if (onUpdate) onUpdate(points);
+      },
+    });
+    dragBinds.push(db);
   });
 
-  // Re-sort to ensure correct ordering
+  const onOpen = () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, true));
+    dragBinds.forEach(db => db.setEnabled(true));
+  };
+  const onEmpty = () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, false));
+    dragBinds.forEach(db => db.setEnabled(false));
+  };
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const openOverlay = overlay.open;
+
+  const deleteMeasurement = () => {
+    dragBinds.forEach(db => db.cleanup());
+    layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
+    onDelete();
+    layers.unregister();
+  };
+
+  finalPoly.on("click", openOverlay);
+  nodeMarkers.forEach(m => m.on("click", openOverlay));
+  segLabels.forEach(l => l.on("click", openOverlay));
+
   resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
 
-  return onMapClickActive;
+  return overlay.cleanup;
 };
 
 /** Options for attachCircleUI. */
@@ -208,6 +280,7 @@ interface CircleAttachOpts {
   delMarker: L.Marker;
   radiusLabel: L.Marker | null;
   onDelete: () => void;
+  onEnd?: (latlng: L.LatLng) => void;
 }
 
 const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => void) => {
@@ -226,6 +299,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
 
   const deleteMeasurement = () => {
     isDeleted = true;
+    dragBinds.forEach(db => db.cleanup());
     layers.removeLayer(circle);
     if (radiusLine) layers.removeLayer(radiusLine);
     if (radiusNode) layers.removeLayer(radiusNode);
@@ -236,39 +310,64 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
     layers.unregister();
   };
 
-  const toggleUI = createToggleUI(state, () => {
-    Util.applyVisibilityToggle(
-      delMarker,
-      state.isXVisible,
-      radiusLabel ? [radiusLabel] : [],
-      state.isLabelsVisible,
-      undefined,
-      xv => {
-        delMarker.setZIndexOffset(xv ? CONST.Z_INDEX.OFFSET * 2 : CONST.Z_INDEX.OFFSET);
-        Util.toggleVisibility(
-          [
-            radiusLine?.getElement() as HTMLElement | null,
-            radiusNode?.getElement() as HTMLElement | null,
-          ],
-          state.isLabelsVisible,
-        );
-      },
-    );
-  });
-  toggleUI(false, CONST.TOGGLE.RESET);
-
-  const toggleCircleToggle = () => {
-    if (isDeleted) return;
-    Util.suppressHide(mgr);
-    toggleUI();
+  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> = [];
+  const updateLabel = () => {
+    if (!radiusLabel) return;
+    const r = circle.getRadius();
+    const mid = Util.midpoint(circle.getLatLng(), radiusNode!.getLatLng());
+    radiusLabel.setLatLng([mid.lat, mid.lng]);
+    Util.setLabelText(radiusLabel, Util.formatDistance(r));
   };
+
+  const centerDrag = Util.bindNodeDrag(centerFinal, delMarker, mgr.map, {
+    onDrag: (latlng: L.LatLng) => {
+      const dx = latlng.lng - circle.getLatLng().lng;
+      const dy = latlng.lat - circle.getLatLng().lat;
+      circle.setLatLng(latlng);
+      centerFinal.setLatLng(latlng);
+      delMarker.setLatLng(latlng);
+      if (radiusNode)
+        radiusNode.setLatLng({ lat: radiusNode.getLatLng().lat + dy, lng: radiusNode.getLatLng().lng + dx });
+      if (radiusLine) radiusLine.setLatLngs([latlng, radiusNode!.getLatLng()]);
+      updateLabel();
+    },
+    onEnd: (latlng: L.LatLng) => {
+      Util.markDragSyntheticClick();
+      onEnd?.(latlng);
+    },
+  });
+  dragBinds.push(centerDrag);
+
+  if (radiusNode) {
+    const radiusDrag = Util.bindNodeDrag(radiusNode, null, mgr.map, {
+      onDrag: (latlng: L.LatLng) => {
+        radiusNode.setLatLng(latlng);
+        circle.setRadius(Util.distance(circle.getLatLng(), latlng));
+        if (radiusLine) radiusLine.setLatLngs([circle.getLatLng(), latlng]);
+        updateLabel();
+      },
+      onEnd: (latlng: L.LatLng) => {
+        Util.markDragSyntheticClick();
+        onEnd?.(latlng);
+      },
+    });
+    dragBinds.push(radiusDrag);
+  }
+
+  const onOpen = () => {
+    dragBinds.forEach(db => db.setEnabled(true));
+  };
+  const onEmpty = () => {
+    dragBinds.forEach(db => db.setEnabled(false));
+  };
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const openOverlay = overlay.open;
 
   const attachInteraction = (layer: L.Layer) => {
     layer.on("click", (event: L.LeafletMouseEvent) => {
       const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      stopEvent(event);
-      toggleCircleToggle();
+      openOverlay(event);
     });
   };
 
@@ -278,16 +377,14 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
   if (centerFinal) attachInteraction(centerFinal);
   if (radiusLabel) attachInteraction(radiusLabel);
 
-  // delMarker: separate handlers — X icon deletes, rest toggles visibility
   attachDelClick(delMarker, deleteMeasurement);
   delMarker.on("click", (event: L.LeafletMouseEvent) => {
     const t = Util.getEventTarget(event);
     if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-    stopEvent(event);
-    toggleCircleToggle();
+    openOverlay(event);
   });
 
-  return setupMapClickActive(mgr, state, toggleUI, () => isDeleted);
+  return overlay.cleanup;
 };
 
 /** Options for attachPolygonUI. */
@@ -316,36 +413,43 @@ const attachPolygonUI = (
     points,
     area: initArea,
   } = opts;
-  const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
   const nodeDelIcons: L.Marker[] = [];
+  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> = [];
   let centroidLabel: L.Marker | null = null;
   let centroidDot: L.Marker | null = null;
   let centroidDel: L.Marker | null = null;
 
-  const rebuildCentroid = (showX?: boolean, currentArea?: number) => {
-    if (centroidLabel) layers.removeLayer(centroidLabel);
-    if (centroidDot) layers.removeLayer(centroidDot);
-    if (centroidDel) layers.removeLayer(centroidDel);
-
-    const centroid = Util.centroid(points);
-    const area = currentArea !== undefined ? currentArea : initArea;
-
-    centroidDot = layers.addLayer(
-      L.marker(centroid, {
-        icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS,
-          html: "",
-          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
+  const relabel = () => {
+    const area = Util.area(points);
+    if (centroidLabel) Util.setLabelText(centroidLabel, Util.formatArea(area));
+    segLabels.forEach(l => layers.removeLayer(l));
+    segLabels.length = 0;
+    const n = points.length;
+    for (let i = 0; i < n; i++) {
+      const next = (i + 1) % n;
+      const mid = Util.midpoint(points[i], points[next]);
+      const label = layers.addLayer(
+        L.marker([mid.lat, mid.lng], {
+          icon: Util.makeMidLabelDivIcon(
+            Util.formatDistance(Util.distance(points[i], points[next])),
+          ),
         }),
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        interactive: true,
-      }),
-      true,
-    ) as L.Marker;
+        true,
+      ) as L.Marker;
+      segLabels.push(label);
+      label.on("click", openOverlay);
+    }
+    const centroid = Util.centroid(points);
+    if (centroidLabel) centroidLabel.setLatLng(centroid);
+    if (centroidDot) centroidDot.setLatLng(centroid);
+    if (centroidDel) centroidDel.setLatLng(centroid);
+    return area;
+  };
 
+  const rebuildCentroid = (currentArea?: number) => {
+    const area = currentArea !== undefined ? currentArea : initArea;
     centroidLabel = layers.addLayer(
-      L.marker(centroid, {
+      L.marker(Util.centroid(points), {
         icon: Util.makeLabelDivIcon(
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
@@ -354,59 +458,41 @@ const attachPolygonUI = (
       }),
       true,
     ) as L.Marker;
-
     centroidDel = layers.addLayer(
-      makeDelIcon(centroid, { title: _(`${CONF.name}.del_all`) }),
+      makeDelIcon(centroidLabel.getLatLng(), { title: _(`${CONF.name}.del_all`) }),
     ) as L.Marker;
     attachDelClick(centroidDel, deleteMeasurement);
-
-    if (showX !== undefined) toggleDelIcon(centroidDel, showX);
   };
 
   const deleteMeasurement = () => {
+    dragBinds.forEach(db => db.cleanup());
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
-    if (centroidDot) layers.removeLayer(centroidDot);
     if (centroidLabel) layers.removeLayer(centroidLabel);
     if (centroidDel) layers.removeLayer(centroidDel);
     onDelete();
     layers.unregister();
   };
 
-  const toggleUI = createToggleUI(state, () => {
-    nodeDelIcons.forEach(m => toggleDelIcon(m, state.isXVisible));
-    if (centroidDel) toggleDelIcon(centroidDel, state.isXVisible);
-    Util.applyVisibilityToggle(
-      undefined,
-      state.isXVisible,
-      segLabels,
-      state.isLabelsVisible,
-    );
-    if (centroidLabel) {
-      const el = centroidLabel.getElement();
-      if (el) {
-        const label = el.querySelector(CONST.SEL.LABEL);
-        if (label) label.classList.toggle(CONST.CLASSES.HIDDEN, !state.isLabelsVisible);
-      }
-    }
-  });
-
-  const handleItemClick = (event: L.LeafletMouseEvent) => {
-    stopEvent(event);
-    Util.suppressHide(mgr);
-    toggleUI();
+  const onOpen = () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, true));
+    if (centroidDel) toggleDelIcon(centroidDel, true);
+    dragBinds.forEach(db => db.setEnabled(true));
   };
+  const onEmpty = () => {
+    nodeDelIcons.forEach(m => toggleDelIcon(m, false));
+    if (centroidDel) toggleDelIcon(centroidDel, false);
+    dragBinds.forEach(db => db.setEnabled(false));
+  };
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const openOverlay = overlay.open;
 
-  finalPoly.on("click", handleItemClick);
-  nodeMarkers.forEach(m => m.on("click", handleItemClick));
-  segLabels.forEach(l => l.on("click", handleItemClick));
+  finalPoly.on("click", openOverlay);
+  nodeMarkers.forEach(m => m.on("click", openOverlay));
+  segLabels.forEach(l => l.on("click", openOverlay));
+  centroidDot!.on("click", openOverlay);
 
-  rebuildCentroid(false);
-  centroidDot!.on("click", handleItemClick);
-  centroidDel!.on("click", handleItemClick);
-
-  toggleUI(false, CONST.TOGGLE.RESET);
-
-  const onMapClickActive = setupMapClickActive(mgr, state, toggleUI);
+  rebuildCentroid(initArea);
+  if (centroidDel) centroidDel.on("click", openOverlay);
 
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
@@ -431,9 +517,7 @@ const attachPolygonUI = (
         layers.removeLayer(node, delMarker);
         nodeMarkers.splice(ptIdx, 1);
         nodeDelIcons.splice(ptIdx, 1);
-
-        segLabels.forEach(l => layers.removeLayer(l));
-        segLabels.length = 0;
+        dragBinds.splice(ptIdx, 1);
 
         if (points.length < 3) {
           deleteMeasurement();
@@ -448,7 +532,7 @@ const attachPolygonUI = (
               if (t?.closest?.(CONST.SEL.DEL_ICON)) {
                 stopEvent(event);
                 deleteMeasurement();
-              } else handleItemClick(event);
+              } else openOverlay(event);
             });
             const iconEl = d.getElement();
             if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
@@ -456,30 +540,9 @@ const attachPolygonUI = (
         }
 
         finalPoly.setLatLngs(points);
-
-        const area = Util.area(points);
-        if (centroidLabel) Util.setLabelText(centroidLabel, Util.formatArea(area));
-
-        const n = points.length;
-        for (let i = 0; i < n; i++) {
-          const next = (i + 1) % n;
-          const mid = Util.midpoint(points[i], points[next]);
-          const label = layers.addLayer(
-            L.marker([mid.lat, mid.lng], {
-              icon: Util.makeMidLabelDivIcon(
-                Util.formatDistance(Util.distance(points[i], points[next])),
-              ),
-            }),
-            true,
-          ) as L.Marker;
-          segLabels.push(label);
-          label.on("click", handleItemClick);
-        }
-
-        rebuildCentroid(state.isXVisible, area);
-
+        relabel();
         if (onUpdate) {
-          opts.area = area;
+          opts.area = Util.area(points);
           onUpdate();
         }
       });
@@ -487,19 +550,46 @@ const attachPolygonUI = (
     delMarker.on("click", (event: L.LeafletMouseEvent) => {
       const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      handleItemClick(event);
+      openOverlay(event);
     });
+
+    const findPtIdx = () =>
+      points.findIndex(
+        (p: L.LatLng) =>
+          Math.abs(p.lat - node.getLatLng().lat) < 1e-9 &&
+          Math.abs(p.lng - node.getLatLng().lng) < 1e-9,
+      );
+    const db = Util.bindNodeDrag(node, delMarker, mgr.map, {
+      onDrag: (latlng: L.LatLng) => {
+        const pIdx = findPtIdx();
+        if (pIdx === -1) return;
+        points[pIdx] = latlng;
+        finalPoly.setLatLngs(points);
+        relabel();
+      },
+      onEnd: (latlng: L.LatLng) => {
+        const pIdx = findPtIdx();
+        if (pIdx === -1) return;
+        points[pIdx] = latlng;
+        if (onUpdate) {
+          opts.area = Util.area(points);
+          onUpdate();
+        }
+      },
+    });
+    dragBinds.push(db);
   });
 
   resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
 
-  return onMapClickActive;
+  return overlay.cleanup;
 };
 
 export {
   attachCircleUI,
   attachDistanceUI,
   attachPolygonUI,
+  buildEditOverlay,
   createToggleUI,
   setupMapClickActive,
   resortLayers,

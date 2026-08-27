@@ -66,6 +66,11 @@ class MeasureControl extends BaseControl {
         svg: Icons.DOWNLOAD,
       },
       {
+        mode: CONST.MODE.EDIT,
+        title: _(`${CONF.name}.tool_edit`),
+        svg: SVGs.EDIT,
+      },
+      {
         mode: CONST.MODE.CLEAR,
         title: _(`${CONF.name}.tool_clear`),
         svg: SVGs.TRASH,

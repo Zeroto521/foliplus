@@ -30,3 +30,10 @@ export const TRASH = `
     <line x1="10" y1="11" x2="10" y2="17"/>
     <line x1="14" y1="11" x2="14" y2="17"/>
   </svg>`;
+
+export const EDIT = `
+  <svg viewBox="0 0 24 24">
+    <path d="M3 21h3.5L18 9.5l-2-2L4.5 19z"/>
+    <line x1="15" y1="6.5" x2="17.5" y2="9"/>
+    <line x1="3" y1="21" x2="6" y2="21"/>
+  </svg>`;

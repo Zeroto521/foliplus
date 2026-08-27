@@ -8,6 +8,7 @@
   "MeasureControl.tool_circle": "Draw Circle",
   "MeasureControl.tool_clear": "Clear All",
   "MeasureControl.tool_export": "Export Data",
+  "MeasureControl.tool_edit": "Edit",
   "MeasureControl.name_marker": "Location Marker",
   "MeasureControl.name_distance": "Distance Measurement",
   "MeasureControl.name_polygon": "Area Measurement",
@@ -27,5 +28,6 @@
   "MeasureControl.del_node": "Delete this point",
   "MeasureControl.del_all": "Delete all",
   "MeasureControl.export_paused": "Export in progress, measurement paused",
-  "MeasureControl.export_no_data": "No data to export"
+  "MeasureControl.export_no_data": "No data to export",
+  "MeasureControl.hint_edit": "Click a measurement to show delete handles; drag nodes to reposition"
 }

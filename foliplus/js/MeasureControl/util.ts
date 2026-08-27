@@ -1,7 +1,14 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { hideDelIcons, toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
-import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
+import {
+  area,
+  bearing,
+  centroid,
+  distance,
+  midpoint,
+  type LatLngPoint,
+} from "#common/geo.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
@@ -33,6 +40,83 @@ const formatArea = (sqMeters: number): string => {
   return `${Math.round(sqMeters).toLocaleString()} m²`;
 };
 
+/** Minimum container-point movement (px) to count as a drag rather than a tap. */
+const DRAG_THRESHOLD = 4;
+
+/**
+ * Bind manual drag to a finalized node (L.CircleMarker). L.CircleMarker has
+ * no built-in dragging, so we drive it from mousedown/move/up, disabling the
+ * map's own dragging while we hold, and moving a paired ✕ icon along.
+ *
+ * Returns { setEnabled, cleanup } so the binding can be toggled with the
+ * edit overlay and torn down on delete.
+ */
+const bindNodeDrag = (
+  node: L.CircleMarker,
+  delIcon: L.Marker | null,
+  map: L.Map,
+  handlers: {
+    onDrag?: (latlng: L.LatLng) => void;
+    onEnd?: (latlng: L.LatLng) => void;
+  },
+): { setEnabled: (enabled: boolean) => void; cleanup: () => void } => {
+  const svg = node.getElement() as SVGElement | null;
+  let enabled = false;
+  let dragging = false;
+  let moved = false;
+  let startPt: L.Point | null = null;
+
+  const setCursor = (cursor: string) => {
+    if (svg) svg.style.cursor = cursor;
+  };
+
+  const onDown = (ev: L.LeafletMouseEvent) => {
+    if (!enabled) return;
+    startPt = map.mouseEventToContainerPoint(ev.originalEvent);
+    dragging = true;
+    moved = false;
+    setCursor("grabbing");
+    map.dragging.disable();
+  };
+  const onMove = (ev: L.LeafletMouseEvent) => {
+    if (!dragging || !startPt) return;
+    const pt = map.mouseEventToContainerPoint(ev.originalEvent);
+    if (!moved && Math.abs(pt.x - startPt.x) + Math.abs(pt.y - startPt.y) < DRAG_THRESHOLD)
+      return;
+    moved = true;
+    node.setLatLng(ev.latlng);
+    if (delIcon) delIcon.setLatLng(ev.latlng);
+    handlers.onDrag?.(ev.latlng);
+  };
+  const onUp = (ev: L.LeafletMouseEvent) => {
+    if (!dragging) return;
+    dragging = false;
+    setCursor(enabled ? "grab" : "");
+    map.dragging.enable();
+    if (moved) handlers.onEnd?.(ev.latlng);
+  };
+  const onNodeUp = (ev: L.LeafletMouseEvent) => {
+    onUp(ev);
+  };
+
+  node.on("mousedown", onDown);
+  node.on("mouseup", onNodeUp);
+  map.on("mousemove", onMove);
+  map.on("mouseup", onUp);
+
+  const setEnabled = (v: boolean) => {
+    enabled = v;
+    setCursor(v ? "grab" : "");
+  };
+  const cleanup = () => {
+    node.off("mousedown", onDown);
+    node.off("mouseup", onNodeUp);
+    map.off("mousemove", onMove);
+    map.off("mouseup", onUp);
+  };
+  return { setEnabled, cleanup };
+};
+
 /** Toggle CSS hidden class on a list of DOM elements. */
 const toggleVisibility = (elements: (HTMLElement | null)[], visible: boolean) => {
   elements.forEach(el => {
@@ -40,8 +124,31 @@ const toggleVisibility = (elements: (HTMLElement | null)[], visible: boolean) =>
   });
 };
 
-/** Temporarily suppress map click hide of delete icons. */
-const suppressHide = (manager: { isSuppressHideDel: boolean }) => {
+/**
+ * Mark a click as drag-synthetic so handleItemClick skips the toggle.
+ * Drag ends with mouseup, which also fires the marker's click; this flag
+ * lets the click handler tell the two apart. Checked by attach*UI and reset.
+ */
+const markDragSyntheticClick = () => {
+  (window as unknown as { __foliplus_measure_drag_click: boolean }).__foliplus_measure_drag_click =
+    true;
+};
+
+const isDragSyntheticClick = (): boolean => {
+  const w = window as unknown as { __foliplus_measure_drag_click: boolean };
+  const v = w.__foliplus_measure_drag_click;
+  w.__foliplus_measure_drag_click = false;
+  return v;
+};
+
+/** Temporarily suppress map click hide of delete icons. In edit mode the ✕
+ *   handles are owned by the edit overlay and must not be hidden by a stray
+ *   map click, so the whole hide dance is skipped there. */
+const suppressHide = (manager: {
+  isSuppressHideDel: boolean;
+  isEditMode?: boolean;
+}) => {
+  if (manager.isEditMode) return;
   manager.isSuppressHideDel = true;
   setTimeout(() => {
     manager.isSuppressHideDel = false;
@@ -167,6 +274,40 @@ const animateDashSweep = (path: SVGElement | null) => {
   path.addEventListener("animationend", onEnd);
 };
 
+/**
+ * Resolve the reverse geocode address for a coordinate, returning the previous
+ * address unchanged if the lookup fails so a drag never erases a good address.
+ */
+const geocodeAddress = async (
+  manager: { map: L.Map },
+  lng: number,
+  lat: number,
+  code: string,
+  previous: string | null,
+): Promise<string | null> => {
+  const foliplus = window.foliplus;
+  if (!foliplus?.reverseGeocode) return previous;
+  try {
+    return (await foliplus.reverseGeocode(manager.map, lng, lat, code)) ?? previous;
+  } catch {
+    return previous;
+  }
+};
+
+/** Reposition a point (e.g. a circle's radius node) at the given distance
+ *   (meters) from the origin along the given bearing (degrees). */
+const repositionAlongBearing = (
+  origin: L.LatLng,
+  distanceMeters: number,
+  bearingDeg: number,
+): { lng: number; lat: number } => {
+  const coord = turf.destination([origin.lng, origin.lat], distanceMeters / 1000, bearingDeg, {
+    units: "kilometers",
+  }) as turf.Point;
+  const [lng, lat] = coord.coords as LatLngPoint;
+  return { lng, lat };
+};
+
 /** A single segment with distance and initial bearing (degrees, 0-360). */
 interface Segment {
   lng: number;
@@ -203,7 +344,12 @@ export {
   applyVisibilityToggle,
   area,
   bearing,
+  bindNodeDrag,
   buildPopup,
+  geocodeAddress,
+  isDragSyntheticClick,
+  markDragSyntheticClick,
+  repositionAlongBearing,
   centroid,
   distance,
   formatArea,

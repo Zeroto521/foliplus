@@ -33,6 +33,11 @@ class MeasureManager {
   measurements: MeasureData[];
   measurementIdCounter: number;
   ctrl: HTMLElement | null;
+  /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
+  isEditMode: boolean;
+  /** Per-measurement refresh callbacks: refresh(showX). Collected by attach*UI so
+   *   the manager can re-render ✕ handles / drag gates when edit mode toggles. */
+  editToggleCallbacks: Array<(show: boolean) => void>;
   /** The layer id used to register this manager's measure layer. */
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
@@ -88,6 +93,8 @@ class MeasureManager {
     this.measurements = [];
     this.measurementIdCounter = 0;
     this.ctrl = null;
+    this.isEditMode = false;
+    this.editToggleCallbacks = [];
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -135,7 +142,14 @@ class MeasureManager {
       if (this.isSuppressHideDel) return;
       const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      hideDelIcons();
+      // In edit mode, a click on empty map space exits edit (measurement-item
+      // clicks are intercepted by attach*UI handlers which stop propagation,
+      // so they never reach here).
+      if (this.isEditMode) {
+        this.setEditMode(false);
+      } else {
+        hideDelIcons();
+      }
     };
     this.map.on("click", this.onMapClick);
 
@@ -175,15 +189,24 @@ class MeasureManager {
       this.clearAll();
       return;
     }
+    if (mode === CONST.MODE.EDIT) {
+      if (this.isEditMode) {
+        this.setEditMode(false);
+        return;
+      }
+      this.setEditMode(true);
+      return;
+    }
     if (this.currentMode === mode) {
       this.clearActiveMode();
       return;
     }
     if (!mode) return;
 
-    // Re-register the measure layer so it's visible and on top when the user
-    // activates a measurement tool, even if the layer was previously
-    // hidden or re-ordered in the LayerControl panel.
+    // Starting a drawing mode exits edit mode so node handles / drag don't
+    // coexist with the drawing cursor.
+    if (this.isEditMode) this.setEditMode(false);
+
     this.layers.register();
 
     this.cleanMapEvents();
@@ -213,17 +236,35 @@ class MeasureManager {
     this.map.foliplus!.hideHint(CONF.name);
   }
 
+  /** Enable/disable the edit overlay: ✕ handles and node drag. */
+  setEditMode(on: boolean) {
+    if (this.isEditMode === on) return;
+    this.isEditMode = on;
+    this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
+    this.toolBtns.forEach(btn => {
+      if (btn.dataset.mode === CONST.MODE.EDIT) btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
+    });
+    if (on) {
+      this.map.foliplus!.showHint(
+        CONF.name,
+        _(`${CONF.name}.hint_edit`),
+        HINT_DURATION.PERSIST,
+      );
+    } else {
+      this.map.foliplus!.hideHint(CONF.name);
+    }
+    this.editToggleCallbacks.forEach(cb => cb(on));
+  }
+
   /** Deactivate current mode, clean up events, and hide hints. */
   clearActiveMode() {
+    if (this.isEditMode) this.setEditMode(false);
     this.currentMode = null;
     ensureModes(this.map).setMode(CONF.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
     this.map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
-    // Unregister the measure layer if it has no content left (interrupted
-    // preview with no persisted measurements). Safe: unregister() is a no-op
-    // when there are still completed measurements in the layer.
     this.interactionCleanup?.();
     this.layers.unregister();
   }
@@ -248,18 +289,15 @@ class MeasureManager {
 
   /** Full cleanup including global events. Called on control removal. */
   destroy() {
-    // Unsubscribe from EVENTS.LAYER_REMOVED first to prevent reacting to removals
-    // triggered by our own clearAll() during destroy.
     if (this.offLayerRemoved) this.offLayerRemoved();
-    // Unbind onUnload first to prevent theoretical recursion if clearAll triggers unload
     this.map.off("unload", this.onUnload);
     this.clearAll();
     this.interactionCleanup?.();
     this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);
-
     this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
     this.finalizedClickHandlers = [];
+    this.editToggleCallbacks = [];
   }
 
   /**
