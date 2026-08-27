@@ -10,10 +10,7 @@ import {
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
-import {
-  createScopedTranslator,
-  createTranslator,
-} from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 const _ = createTranslator(CONF);
 const T = createScopedTranslator(CONF);
@@ -95,11 +92,7 @@ const locateMe = (ctrl: LocateCtrl) => {
     },
     () => {
       map.foliplus!.hideHint(CONF.name);
-      map.foliplus!.showHint(
-        CONF.name,
-        T("geo_error"),
-        HINT_DURATION.LONG,
-      );
+      map.foliplus!.showHint(CONF.name, T("geo_error"), HINT_DURATION.LONG);
     },
   );
 };

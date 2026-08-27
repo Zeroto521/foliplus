@@ -6,10 +6,7 @@ import {
   toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
-import {
-  createScopedTranslator,
-  createTranslator,
-} from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";

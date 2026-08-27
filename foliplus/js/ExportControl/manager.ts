@@ -191,12 +191,7 @@ class ExportManager {
         se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
       };
       this.lockCropBox(true);
-      map.foliplus!.showHint(
-        CONF.name,
-        T("hint_restore"),
-        HINT_DURATION.MEDIUM,
-        true,
-      );
+      map.foliplus!.showHint(CONF.name, T("hint_restore"), HINT_DURATION.MEDIUM, true);
     });
   }
 
@@ -412,11 +407,7 @@ class ExportManager {
       return;
     }
 
-    this.showGlobalHint(
-      T("status_exporting"),
-      HINT_DURATION.PERSIST,
-      true,
-    );
+    this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
     const vpW = this.mapContainer.clientWidth;
     const vpH = this.mapContainer.clientHeight;
@@ -544,10 +535,7 @@ class ExportManager {
     canvas.toBlob(
       async blob => {
         if (!blob) {
-          this.showGlobalHint(
-            T("status_fail") + T("err_gen_fail"),
-            HINT_DURATION.LONG,
-          );
+          this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
           this.isExporting = false;
           ensureModes(this.map).setMode(CONF.name, null);
           ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
@@ -671,10 +659,7 @@ class ExportManager {
     this.removeExportOverlay();
     this.unlockMap();
     console.error(`[${CONF.name}] ${T("err_render")}:`, err);
-    this.showGlobalHint(
-      T("status_fail") + (err.message || ""),
-      HINT_DURATION.LONG,
-    );
+    this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
     this.isExporting = false;
   }
 

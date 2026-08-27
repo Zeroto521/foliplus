@@ -213,11 +213,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   const measurements = mgr.measurements;
   if (!measurements || measurements.length === 0) {
     // foliplus is per-map — hint via the manager's map instance.
-    mgr.map.foliplus?.showHint?.(
-      CONF.name,
-      T("export_no_data"),
-      HINT_DURATION.LONG,
-    );
+    mgr.map.foliplus?.showHint?.(CONF.name, T("export_no_data"), HINT_DURATION.LONG);
     return;
   }
   // Serialization + <a download> are pure local operations; failures here are

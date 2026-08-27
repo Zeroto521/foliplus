@@ -125,10 +125,7 @@ const attachDistanceUI = (
     const isLastWhenTwo = points.length === 2 && idx === 1;
     const delMarker = layers.addLayer(
       makeDelIcon(node.getLatLng(), {
-        title:
-          isFirst || isLastWhenTwo
-            ? T("del_all")
-            : T("del_node"),
+        title: isFirst || isLastWhenTwo ? T("del_all") : T("del_node"),
       }),
     ) as L.Marker;
     nodeDelIcons.push(delMarker);

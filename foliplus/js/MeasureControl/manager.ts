@@ -76,11 +76,7 @@ class MeasureManager {
     ensureEvents(this.map).on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
-        map.foliplus?.showHint?.(
-          CONF.name,
-          T("export_paused"),
-          HINT_DURATION.SHORT,
-        );
+        map.foliplus?.showHint?.(CONF.name, T("export_paused"), HINT_DURATION.SHORT);
       }
     });
     this.toolBtns = [];

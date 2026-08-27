@@ -123,9 +123,7 @@ class LayerUI {
       }
       if (layerInfo.isBase && !hasBaseMaps) {
         hasBaseMaps = true;
-        frag.appendChild(
-          this.renderToggleAllRow(CONST.GROUP.BASE, "base_map_label"),
-        );
+        frag.appendChild(this.renderToggleAllRow(CONST.GROUP.BASE, "base_map_label"));
       }
       const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
       const item = this.renderLayerItem(layerInfo, i);
@@ -313,11 +311,7 @@ class LayerUI {
       },
       dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
       dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
-      dom.el(
-        "label",
-        { class: CONST.CLASSES.LAYER_LABEL },
-        T("color_map_label"),
-      ),
+      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, T("color_map_label")),
       // count column is empty (color layers have no feature count).
       dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
       dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
@@ -816,21 +810,13 @@ class LayerUI {
         event.preventDefault();
         const moved = this.m.moveLayerUp(id);
         if (!moved) {
-          map.foliplus!.showHint(
-            CONF.name,
-            T("reorder_top"),
-            HINT_DURATION.SHORT,
-          );
+          map.foliplus!.showHint(CONF.name, T("reorder_top"), HINT_DURATION.SHORT);
         }
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
         const moved = this.m.moveLayerDown(id);
         if (!moved) {
-          map.foliplus!.showHint(
-            CONF.name,
-            T("reorder_bottom"),
-            HINT_DURATION.SHORT,
-          );
+          map.foliplus!.showHint(CONF.name, T("reorder_bottom"), HINT_DURATION.SHORT);
         }
       }
       const newItems = this.getNavigableItems();
@@ -892,11 +878,7 @@ class LayerUI {
     const now = Date.now();
     if (now - this.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
     this.lastDragHintAt = now;
-    map.foliplus!.showHint(
-      CONF.name,
-      T("reorder_group_only"),
-      HINT_DURATION.SHORT,
-    );
+    map.foliplus!.showHint(CONF.name, T("reorder_group_only"), HINT_DURATION.SHORT);
   }
 
   handleDragOver(event: DragEvent) {
