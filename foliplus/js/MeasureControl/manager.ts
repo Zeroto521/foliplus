@@ -29,7 +29,9 @@ class MeasureManager {
   modeInstance: MeasureMode | null;
   isSuppressHideDel: boolean;
   toolBtns: HTMLElement[];
-  finalizedClickHandlers: Array<(event: L.LeafletMouseEvent) => void>;
+  /** Cleanup callbacks for finalized measurement overlays (each removes its
+   *   overlay's map-click listener and any associated drag bindings). */
+  finalizedClickHandlers: Array<() => void>;
   measurements: MeasureData[];
   measurementIdCounter: number;
   ctrl: HTMLElement | null;
@@ -162,7 +164,7 @@ class MeasureManager {
       (this.onUnload = () => {
         this.clearActiveMode();
         this.layers.clearLayers();
-        this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
+        this.finalizedClickHandlers.forEach(h => h());
         this.finalizedClickHandlers = [];
       });
     this.map.on("unload", this.onUnload);
@@ -271,9 +273,9 @@ class MeasureManager {
     this.measurements = [];
     this.saveMeasurements();
     this.clearActiveMode();
-    // Unbind all finalized-circle map click handlers; clearLayers removed
-    // their targets so they would otherwise dangle until destroy().
-    this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
+    // Run each overlay's cleanup to unbind its map-click listener; clearLayers
+    // above removed the targets, so dangling listeners would otherwise persist.
+    this.finalizedClickHandlers.forEach(h => h());
     this.finalizedClickHandlers = [];
     // Collapse the panel after clearing all measurements
     if (this.ctrl) {
@@ -291,7 +293,7 @@ class MeasureManager {
     this.interactionCleanup?.();
     this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);
-    this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
+    this.finalizedClickHandlers.forEach(h => h());
     this.finalizedClickHandlers = [];
   }
 
