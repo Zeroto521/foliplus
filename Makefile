@@ -2,7 +2,8 @@
 .PHONY: lint html info env
 .PHONY: dist build-js build-js-dev build-python
 .PHONY: test test-browser test-python test-js
-.PHONY: clean clean-build clean-pyc clean-cov clean-html
+.PHONY: size-check
+.PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-reports
 
 help:
 	@echo "'clean'        - remove all build/cache artifacts"
@@ -42,7 +43,10 @@ clean-html:
 	rm -rf doc/_build
 	rm -rf doc/source/_build
 
-clean: clean-build clean-pyc clean-cov clean-html
+clean: clean-build clean-pyc clean-cov clean-html clean-bundle-reports
+
+clean-bundle-reports:
+	rm -rf bundle-reports/
 
 lint:
 	pre-commit run -a -v
@@ -54,6 +58,9 @@ build-js:
 
 build-js-dev:
 	npm run build:dev
+
+size-check: build-js
+	npm run size:check
 
 build-python:
 	uv build

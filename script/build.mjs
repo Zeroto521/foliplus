@@ -12,6 +12,7 @@
  *   node script/build.mjs              # build all (minified)
  *   node script/build.mjs --dev        # unminified, keepNames (for PY identifier tests)
  *   node script/build.mjs --check      # build and verify all artifacts exist
+ *   node script/build.mjs --sonda      # build + generate sonda bundle report (HTML treemap)
  */
 import autoprefixer from "autoprefixer";
 import { spawnSync } from "child_process";
@@ -29,8 +30,25 @@ import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath } from "url";
 import { help, parseArgs } from "./args.mjs";
+import { checkBundleCoverage, generateIndexReport } from "./bundle-report.mjs";
 import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
+
+// Sonda is only loaded when --sonda is passed (lazy dynamic import).
+// Returns a factory function that creates a named plugin instance per entry.
+let sondaFactory = null;
+const loadSonda = async () => {
+  if (sondaFactory) return sondaFactory;
+  const { default: sonda } = await import("sonda/esbuild");
+  sondaFactory = (name = "bundle") =>
+    sonda({
+      format: "html",
+      outputDir: "bundle-reports",
+      filename: `${name}.html`,
+      include: [/\.(js|css)$/],
+    });
+  return sondaFactory;
+};
 
 // ── Config ──────────────────────────────────────────────────────
 // Central path/flag config. `dev` toggles minification & identifier
@@ -46,6 +64,7 @@ const BUILD_SPEC = {
   root: { type: "string", default: ".", desc: "Project root directory" },
   dev: { type: "bool", desc: "Unminified, keepNames" },
   check: { type: "bool", desc: "Verify all artifacts exist" },
+  sonda: { type: "bool", desc: "Generate sonda bundle report (HTML treemap)" },
 };
 const _raw = parseArgs(process.argv.slice(2), BUILD_SPEC);
 if (_raw.help) {
@@ -212,14 +231,24 @@ const findComponents = () => {
 const out = name => resolve(distDir, name);
 
 /** Build the full list of esbuild artifacts (components + merged common CSS). */
-const buildEntries = components => {
+const buildEntries = (components, sonda) => {
   const entries = [];
   for (const { name, js, css } of components) {
     // The shared entry is exposed as "common" so the filename
     // foliplus-common.min.js pairs with the CSS.
     const outName = name === SHARED_ENTRY ? "common" : name;
-    entries.push(artifact([js], out(`foliplus-${outName}.min.js`), name));
-    if (css) entries.push(artifact([css], out(`foliplus-${outName}.min.css`), name));
+    const jsEntry = artifact([js], out(`foliplus-${outName}.min.js`), name);
+    if (sonda) {
+      jsEntry.plugins = [...jsEntry.plugins, sonda(outName)];
+    }
+    entries.push(jsEntry);
+    if (css) {
+      const cssEntry = artifact([css], out(`foliplus-${outName}.min.css`), name);
+      if (sonda) {
+        cssEntry.plugins = [...cssEntry.plugins, sonda(`${outName}.css`)];
+      }
+      entries.push(cssEntry);
+    }
   }
 
   // Merge common.css + panel.css into a single artifact
@@ -231,7 +260,11 @@ const buildEntries = components => {
     mkdirSync(buildCss, { recursive: true });
     const tmpCss = resolve(buildCss, MERGED_CSS_NAME);
     writeFileSync(tmpCss, css, "utf-8");
-    entries.push(artifact([tmpCss], out("foliplus-common.min.css"), "common"));
+    const commonCssEntry = artifact([tmpCss], out("foliplus-common.min.css"), "common");
+    if (sonda) {
+      commonCssEntry.plugins = [...commonCssEntry.plugins, sonda("common.css")];
+    }
+    entries.push(commonCssEntry);
   }
   return entries;
 };
@@ -262,7 +295,9 @@ async function main() {
 
   // ── Step 3: Discover components & build entries ───────────────
   const components = findComponents();
-  const entries = buildEntries(components);
+  const sonda = CFG.sonda ? await loadSonda() : null;
+  if (sonda) console.log("  🔍 Sonda analysis enabled (report → bundle-reports/)");
+  const entries = buildEntries(components, sonda);
   console.log(
     `Building ${entries.length} artifacts for ${components.length} components...`,
   );
@@ -274,6 +309,14 @@ async function main() {
     const r = results[i];
     if (r.status === "fulfilled") console.log(`  ✓ ${basename(entries[i].outfile)}`);
     else console.error(`  ✗ ${basename(entries[i].outfile)}: ${r.reason.message}`);
+  }
+
+  // ── Step 4.5: Summary overview + coverage check (--sonda) ────
+  // Emit an index.html aggregating all bundles and warn if any dist
+  // bundle is missing from .size-limit.mjs.
+  if (sonda) {
+    generateIndexReport(ROOT_RESOLVED);
+    await checkBundleCoverage(ROOT_RESOLVED);
   }
 
   // ── Step 5: Verification (--check) ────────────────────────────

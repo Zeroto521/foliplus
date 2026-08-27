@@ -60,3 +60,23 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           flags: py${{ matrix.python }}-folium-${{ matrix.folium }}
+
+  size-check:
+    name: bundle-size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+      - run: npm install
+      # build:sonda builds and generates reports in one pass, avoiding a duplicate build with size:check
+      - run: npm run build:sonda
+      - run: npm run size:check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bundle-reports
+          path: bundle-reports/
