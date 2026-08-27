@@ -17,7 +17,7 @@ const LOCATE = `
     <line x1="19" y1="12" x2="22.5" y2="12"/>
   </svg>`;
 
-const { _ } = createControlEnv(CONF, LOCATE);
+createControlEnv(CONF, LOCATE);
 const T = createScopedTranslator(CONF);
 ensureHint(map);
 

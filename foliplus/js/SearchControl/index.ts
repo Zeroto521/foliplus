@@ -13,7 +13,7 @@ import { bindEvents, initFromUrl } from "./interaction.js";
 import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
 import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
 
-const { _ } = createControlEnv(CONF, SVGs.SEARCH);
+createControlEnv(CONF, SVGs.SEARCH);
 const T = createScopedTranslator(CONF);
 ensureHint(map);
 

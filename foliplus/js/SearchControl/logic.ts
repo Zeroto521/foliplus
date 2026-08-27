@@ -13,7 +13,6 @@ import {
 import { createLocationMarker, dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
-import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
@@ -25,7 +24,7 @@ import type {
   SearchHistoryEntry,
 } from "./type.js";
 
-const { _ } = createControlEnv(CONF);
+const _ = createTranslator(CONF);
 const T = createScopedTranslator(CONF);
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */

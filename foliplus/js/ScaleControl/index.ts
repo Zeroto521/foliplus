@@ -4,7 +4,7 @@ import { createControlEnv } from "#common/guard.js";
 import { createScopedTranslator } from "#common/locale.js";
 
 // ==================== Runtime Guard ====================
-const { _ } = createControlEnv(CONF);
+createControlEnv(CONF);
 const T = createScopedTranslator(CONF);
 
 // ==================== Control Definition ====================
