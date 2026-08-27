@@ -453,20 +453,20 @@
 
   /* ── Focus bounds rectangle (drawn on the map) ── */
   .foliplus-focus-rect polygon {
-    fill: var(--accent-primary) !important;
-    fill-opacity: 0.12 !important;
-    stroke: var(--accent-primary) !important;
-    stroke-dasharray: 6 4 !important;
-    stroke-width: 2 !important;
-    stroke-linejoin: round !important;
+    fill: var(--accent-primary);
+    fill-opacity: 0.12;
+    stroke: var(--accent-primary);
+    stroke-dasharray: 6 4;
+    stroke-width: 2;
+    stroke-linejoin: round;
     animation: foliplus-focus-pulse 2.2s ease-in-out 2;
     pointer-events: none;
   }
   /* Corner circleMarkers for the focus rectangle */
   .foliplus-focus-corner path {
-    fill: var(--accent-primary) !important;
-    stroke: #ffffff !important;
-    stroke-width: 1.5 !important;
+    fill: var(--accent-primary);
+    stroke: #ffffff;
+    stroke-width: 1.5;
   }
   @keyframes foliplus-focus-pulse {
     0%,

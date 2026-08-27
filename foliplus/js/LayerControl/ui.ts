@@ -1384,7 +1384,7 @@ class LayerUI {
     ];
     return corners.map(latlng => {
       const opts = {
-        radius: cornerRadius,
+        radius: 4,
         className: "foliplus-focus-corner",
         interactive: false,
       };
