@@ -16,6 +16,9 @@ beforeEach(() => {
     midpoint: vi.fn(() => ({ geometry: { coordinates: [50, 50] } })),
     distance: vi.fn(() => 100),
     bearing: vi.fn(() => 45),
+    destination: vi.fn((coord, _, bearing) => ({
+      geometry: { coordinates: [coord[0] + bearing, coord[1] + bearing] },
+    })),
   };
 });
 

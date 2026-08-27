@@ -1,7 +1,6 @@
 import {
   DEL_ICON_MARKER_ANCHOR,
   attachDelClick,
-  hideDelIcons,
   makeDelIcon,
   toggleDelIcon,
 } from "#common/delicon.js";
@@ -23,6 +22,62 @@ class MarkerMode extends MeasureMode {
   static NAME_LABEL_KEY = `${CONF.name}.name_marker`;
 
   onMarkerClickRef!: (event: L.LeafletMouseEvent) => void;
+
+  /** Bind pin drag (translate) for a finished marker, gated by isEditMode. */
+/** Bind pin drag (translate) for a finished marker. Returns cleanup. */
+  private static bindPinDrag(
+    manager: MeasureManager,
+    marker: L.Marker,
+    delMarker: L.Marker,
+    measurement: { lng: number; lat: number; address: string | null },
+  ): () => void {
+    const overlay = Util.buildEditOverlay(manager, {
+      onOpen: () => {
+        if (measurement.address !== null)
+          marker.setPopupContent(Util.buildPopup(measurement.lng, measurement.lat, measurement.address));
+      },
+      onEmpty: () => {
+        marker.closePopup();
+      },
+    });
+
+    const drag = Util.bindNodeDrag(marker, delMarker, manager.map, {
+      onDrag: (latlng: L.LatLng) => {
+        delMarker.setLatLng(latlng);
+        measurement.lng = latlng.lng;
+        measurement.lat = latlng.lat;
+        manager.saveMeasurements();
+      },
+      onEnd: async (latlng: L.LatLng) => {
+        // Mark the ensuing marker click as drag-synthetic so it doesn't
+        // reopen the overlay / popup and doesn't close the overlay via the
+        // map-click gate.
+        Util.markDragSyntheticClick();
+        measurement.lng = latlng.lng;
+        measurement.lat = latlng.lat;
+        manager.saveMeasurements();
+        const code = window.CONF?.locale_code ?? "en";
+        const addr = await Util.geocodeAddress(manager, measurement.lng, measurement.lat, code, measurement.address);
+        measurement.address = addr;
+        manager.saveMeasurements();
+        if (marker.getPopup()?.isOpen())
+          marker.setPopupContent(Util.buildPopup(measurement.lng, measurement.lat, addr));
+      },
+    });
+
+    // Open the overlay on pin click in edit mode; non-edit mode leaves the
+    // default popup behavior untouched.
+    marker.on("click", (ev: L.LeafletMouseEvent) => {
+      if (!manager.isEditMode) return;
+      if (Util.isDragSyntheticClick()) return;
+      overlay.open(ev);
+    });
+
+    return () => {
+      drag.cleanup();
+      overlay.cleanup();
+    };
+  }
 
   /** Rebuild a persisted marker measurement.
    *  @param manager - MeasureManager instance.

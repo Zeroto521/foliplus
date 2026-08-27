@@ -44,15 +44,16 @@ const formatArea = (sqMeters: number): string => {
 const DRAG_THRESHOLD = 4;
 
 /**
- * Bind manual drag to a finalized node (L.CircleMarker). L.CircleMarker has
- * no built-in dragging, so we drive it from mousedown/move/up, disabling the
- * map's own dragging while we hold, and moving a paired ✕ icon along.
+ * Bind manual drag to a finalized node marker (L.CircleMarker or L.Marker).
+ * Nodes have no built-in dragging, so we drive it from mousedown/move/up,
+ * disabling the map's own dragging while we hold, and moving a paired ✕
+ * icon along. Works for both SVG circleMarkers and div-based pin markers.
  *
  * Returns { setEnabled, cleanup } so the binding can be toggled with the
  * edit overlay and torn down on delete.
  */
 const bindNodeDrag = (
-  node: L.CircleMarker,
+  node: L.Layer,
   delIcon: L.Marker | null,
   map: L.Map,
   handlers: {
@@ -60,14 +61,14 @@ const bindNodeDrag = (
     onEnd?: (latlng: L.LatLng) => void;
   },
 ): { setEnabled: (enabled: boolean) => void; cleanup: () => void } => {
-  const svg = node.getElement() as SVGElement | null;
+  const el = node.getElement() as HTMLElement | null;
   let enabled = false;
   let dragging = false;
   let moved = false;
   let startPt: L.Point | null = null;
 
   const setCursor = (cursor: string) => {
-    if (svg) svg.style.cursor = cursor;
+    if (el) el.style.cursor = cursor;
   };
 
   const onDown = (ev: L.LeafletMouseEvent) => {
@@ -84,7 +85,7 @@ const bindNodeDrag = (
     if (!moved && Math.abs(pt.x - startPt.x) + Math.abs(pt.y - startPt.y) < DRAG_THRESHOLD)
       return;
     moved = true;
-    node.setLatLng(ev.latlng);
+    (node as L.Marker).setLatLng(ev.latlng);
     if (delIcon) delIcon.setLatLng(ev.latlng);
     handlers.onDrag?.(ev.latlng);
   };

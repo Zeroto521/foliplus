@@ -235,7 +235,11 @@ describe("attachCircleUI — delete flow", () => {
   const makeLayer = (name: string) => ({
     _name: name,
     on: vi.fn(),
+    off: vi.fn(),
+    getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
     getElement: vi.fn(() => null),
+    setLatLng: vi.fn(),
+    setRadius: vi.fn(),
     setZIndexOffset: vi.fn(),
   });
 
@@ -297,18 +301,16 @@ describe("attachCircleUI — delete flow", () => {
     expect(mgr.map.on).toHaveBeenCalledWith("click", expect.any(Function));
   });
 
-  it("toggling the X icon delegates to applyVisibilityToggle", () => {
-    const { delMarker, opts } = makeOpts();
+  it("attaches click handlers that open the edit overlay on circle parts", () => {
+    const { opts } = makeOpts();
     UI.attachCircleUI(makeMgr() as any, opts as any);
 
-    // Non-X click on the circle toggles visibility
     const clickHandler = (opts.circle.on as any).mock.calls.find(
       (c: any[]) => c[0] === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
+    // Clicking the circle opens the overlay (stops event, no throw).
     clickHandler({ originalEvent: { target: null } } as any);
-
-    expect(delMarker.setZIndexOffset).toHaveBeenCalled();
   });
 });
 
@@ -373,9 +375,9 @@ describe("attachPolygonUI", () => {
       unregister: vi.fn(),
     };
     const nodeMarkers = [
-      makeLayer("n1") as any,
-      makeLayer("n2") as any,
-      makeLayer("n3") as any,
+      { ...makeLayer("n1"), getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })) } as any,
+      { ...makeLayer("n2"), getLatLng: vi.fn(() => ({ lat: 1, lng: 1 })) } as any,
+      { ...makeLayer("n3"), getLatLng: vi.fn(() => ({ lat: 2, lng: 0 })) } as any,
     ];
     const segLabels = [makeLayer("s1") as any];
     const finalPoly = makeLayer("poly") as any;

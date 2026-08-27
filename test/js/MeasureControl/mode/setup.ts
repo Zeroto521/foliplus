@@ -63,6 +63,9 @@ export function initMocks() {
     bearing: vi.fn(() => 45),
     midpoint: vi.fn(() => ({ geometry: { coordinates: [0, 0] } })),
     area: vi.fn(() => 1000),
+    destination: vi.fn((coord, _, bearing) => ({
+      geometry: { coordinates: [coord[0] + bearing, coord[1] + bearing] },
+    })),
     polygon: vi.fn(rings => ({
       type: "Feature",
       geometry: { type: "Polygon", coordinates: rings },
