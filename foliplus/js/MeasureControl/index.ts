@@ -47,12 +47,13 @@ class MeasureControl extends BaseControl {
       { mode: CONST.MODE.CIRCLE, title: T("tool_circle"), svg: SVGs.CIRCLE },
       // Export — no mode, so it stays out of toolBtns (no data-mode);
       // its click is bound via the interaction manager (see manager.ts).
-      { title: T("tool_export"), svg: Icons.DOWNLOAD},
+      { title: T("tool_export"), svg: Icons.DOWNLOAD },
       { mode: CONST.MODE.CLEAR, title: T("tool_clear"), svg: SVGs.TRASH },
     ];
     let exportBtn: HTMLElement | null = null;
     btnConfigs.forEach(({ mode, title, svg }) => {
-      const btn = createIconButton({ class: "foliplus-tool-btn",
+      const btn = createIconButton({
+        class: "foliplus-tool-btn",
         title,
         svg,
         parent: toolBar,
