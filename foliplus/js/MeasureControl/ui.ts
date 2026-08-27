@@ -29,13 +29,12 @@ interface AttachOpts {
   points: L.LatLng[];
 }
 
-const attachDistanceUI = (
-  mgr: MeasureManager,
-  opts: AttachOpts,
-): (() => void) => {
-  const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } = opts;
+const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) => {
+  const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
+    opts;
   const nodeDelIcons: L.Marker[] = [];
-  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> = [];
+  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
+    [];
 
   const relabel = () => {
     let cumulative = 0;
@@ -204,7 +203,8 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
     layers.unregister();
   };
 
-  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> = [];
+  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
+    [];
   const updateLabel = () => {
     if (!radiusLabel) return;
     const r = circle.getRadius();
@@ -221,7 +221,10 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
       centerFinal.setLatLng(latlng);
       delMarker.setLatLng(latlng);
       if (radiusNode)
-        radiusNode.setLatLng({ lat: radiusNode.getLatLng().lat + dy, lng: radiusNode.getLatLng().lng + dx });
+        radiusNode.setLatLng({
+          lat: radiusNode.getLatLng().lat + dy,
+          lng: radiusNode.getLatLng().lng + dx,
+        });
       if (radiusLine) radiusLine.setLatLngs([latlng, radiusNode!.getLatLng()]);
       updateLabel();
     },
@@ -308,7 +311,8 @@ const attachPolygonUI = (
     area: initArea,
   } = opts;
   const nodeDelIcons: L.Marker[] = [];
-  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> = [];
+  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
+    [];
   let centroidLabel: L.Marker | null = null;
   let centroidDel: L.Marker | null = null;
 
@@ -477,9 +481,4 @@ const attachPolygonUI = (
   return overlay.cleanup;
 };
 
-export {
-  attachCircleUI,
-  attachDistanceUI,
-  attachPolygonUI,
-  resortLayers,
-};
+export { attachCircleUI, attachDistanceUI, attachPolygonUI, resortLayers };
