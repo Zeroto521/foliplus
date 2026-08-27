@@ -8,7 +8,7 @@ import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindFullscreenEvents, toggleFullscreen } from "./logic.js";
 
-const { _ } = createControlEnv(CONF, SVGs.MAXIMIZE);
+createControlEnv(CONF, SVGs.MAXIMIZE);
 const T = createScopedTranslator(CONF);
 ensureHint(map);
 

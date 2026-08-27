@@ -1,6 +1,5 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import { ensureInteraction } from "#core/interaction.js";
-import { createControlEnv } from "#common/guard.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
@@ -13,7 +12,6 @@ import {
 } from "./logic.js";
 import type { SearchControl } from "./type.js";
 
-const { _ } = createControlEnv(CONF);
 const T = createScopedTranslator(CONF);
 
 /**

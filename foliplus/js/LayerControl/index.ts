@@ -1,13 +1,15 @@
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
+import { createScopedTranslator } from "#common/locale.js";
 import { bindPanelToggle } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
 import { panelHTML } from "./template.js";
 import { LayerUI } from "./ui.js";
 
-const { _ } = createControlEnv(CONF, SVGs.LAYERS);
+createControlEnv(CONF, SVGs.LAYERS);
+const T = createScopedTranslator(CONF);
 
 // ==================== Initialize Manager with Data ====================
 const layerManager = new LayerManager(map, CONF.data as LayerInfo[]);
@@ -30,7 +32,7 @@ class LayerControl extends BaseControl {
   buildDOM() {
     patchBringToFront();
     const container = dom.el("div", { class: "leaflet-bar leaflet-control" });
-    container.innerHTML = panelHTML(_);
+    container.innerHTML = panelHTML(T);
 
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);

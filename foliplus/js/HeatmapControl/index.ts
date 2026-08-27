@@ -8,7 +8,7 @@ import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./manager.js";
 import { bindControls, initScan, setupObserver } from "./ui.js";
 
-const { _ } = createControlEnv(CONF, SVGs.HEXAGON);
+createControlEnv(CONF, SVGs.HEXAGON);
 const T = createScopedTranslator(CONF);
 ensureLayerAPI(map);
 

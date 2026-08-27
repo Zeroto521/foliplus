@@ -7,7 +7,7 @@ import { createFoldControl } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import { ExportManager } from "./manager.js";
 
-const { _ } = createControlEnv(CONF, SVGs.CAMERA);
+createControlEnv(CONF, SVGs.CAMERA);
 const T = createScopedTranslator(CONF);
 requireLayerAPI(CONF.name, T, map);
 

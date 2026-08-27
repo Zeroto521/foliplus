@@ -2,7 +2,6 @@
 // Throws a clear error when runtime is missing, stopping the component early
 // rather than letting it fail later at an obscure DOM access.
 import { registerHintIcon } from "#core/hint.js";
-import { createTranslator } from "./locale.js";
 
 export const requireRuntime = (componentName: string): void => {
   if (!window.foliplus)
@@ -10,8 +9,8 @@ export const requireRuntime = (componentName: string): void => {
 };
 
 /**
- * Create the standard control environment (translator + runtime guard + hint icon).
- * Replaces the 4-line boilerplate at the top of every component entry file.
+ * Create the standard control environment (runtime guard + hint icon registration).
+ * Replaces the boilerplate at the top of every component entry file.
  *
  * @param CONF - Component configuration (from IIFE).
  * @param icon - SVG icon string for the hint icon. Optional (ScaleControl omits it).
@@ -19,9 +18,7 @@ export const requireRuntime = (componentName: string): void => {
 export const createControlEnv = (
   CONF: { name: string },
   icon?: string,
-): { _: (key: string) => string } => {
+): void => {
   requireRuntime(CONF.name);
-  const _ = createTranslator(CONF);
   if (icon) registerHintIcon(CONF.name, icon);
-  return { _ };
 };

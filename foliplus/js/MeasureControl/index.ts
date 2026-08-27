@@ -13,7 +13,7 @@ import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
 
-const { _ } = createControlEnv(CONF, SVGs.RULER);
+createControlEnv(CONF, SVGs.RULER);
 const T = createScopedTranslator(CONF);
 ensureLayerAPI(map);
 
