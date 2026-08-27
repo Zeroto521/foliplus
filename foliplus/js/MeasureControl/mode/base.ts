@@ -1,8 +1,12 @@
-import { createScopedTranslator } from "#common/locale.js";
+import { createTranslator } from "#common/locale.js";
 import type { MeasureManager } from "../manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
-const T = createScopedTranslator(CONF);
+// `getNameLabel` relies on identity comparison: when no locale table exists,
+// `_(this.NAME_LABEL_KEY)` must return the exact same short key so the
+// fallback to NAME_LABEL kicks in. createScopedTranslator prepends conf.name,
+// breaking that comparison — so base.ts deliberately uses createTranslator.
+const T = createTranslator(CONF);
 
 class MeasureMode {
   static TYPE: string = "";
