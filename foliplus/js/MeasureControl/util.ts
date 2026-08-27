@@ -1,6 +1,6 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { hideDelIcons, toggleDelIcon } from "#common/delicon.js";
-import { buildPopupHtml } from "#common/dom.js";
+import { buildPopupHtml, stopEvent } from "#common/dom.js";
 import {
   area,
   bearing,
@@ -44,6 +44,45 @@ const formatArea = (sqMeters: number): string => {
 const DRAG_THRESHOLD = 4;
 
 /**
+ * Build the shared edit overlay for a finished measurement. The caller wires
+ * `result.open(ev)` onto each of the measure's layers; clicking empty map
+ * space closes the overlay (the manager's global click handler stops
+ * propagation for item clicks, so only empty-space clicks reach here).
+ */
+const buildEditOverlay = (
+  mgr: {
+    isSuppressHideDel: boolean;
+    map: L.Map;
+  },
+  opts: { onOpen: () => void; onEmpty?: () => void },
+): { open: (ev: L.LeafletMouseEvent) => void; cleanup: () => void } => {
+  let open = false;
+  const { onOpen, onEmpty } = opts;
+
+  const onMapClick = () => {
+    if (mgr.isSuppressHideDel) return;
+    if (isDragSyntheticClick()) return;
+    if (!open) return;
+    open = false;
+    onEmpty?.();
+  };
+  mgr.map.on("click", onMapClick);
+
+  const openOverlay = (ev: L.LeafletMouseEvent) => {
+    if (open) return;
+    if (isDragSyntheticClick()) return;
+    stopEvent(ev);
+    open = true;
+    onOpen();
+  };
+
+  return {
+    open: openOverlay,
+    cleanup: () => mgr.map.off("click", onMapClick),
+  };
+};
+
+/**
  * Bind manual drag to a finalized node marker (L.CircleMarker or L.Marker).
  * Nodes have no built-in dragging, so we drive it from mousedown/move/up,
  * disabling the map's own dragging while we hold, and moving a paired ✕
@@ -54,18 +93,18 @@ const DRAG_THRESHOLD = 4;
  */
 const bindNodeDrag = (
   node: L.Layer,
-  delIcon: L.Marker | null,
+  delIcon: L.Layer | null,
   map: L.Map,
   handlers: {
     onDrag?: (latlng: L.LatLng) => void;
     onEnd?: (latlng: L.LatLng) => void;
   },
 ): { setEnabled: (enabled: boolean) => void; cleanup: () => void } => {
-  const el = node.getElement() as HTMLElement | null;
+  const el = ((node as L.Marker).getElement?.() as HTMLElement | null) ?? null;
   let enabled = false;
   let dragging = false;
   let moved = false;
-  let startPt: L.Point | null = null;
+  let startPt: { x: number; y: number } | null = null;
 
   const setCursor = (cursor: string) => {
     if (el) el.style.cursor = cursor;
@@ -86,7 +125,7 @@ const bindNodeDrag = (
       return;
     moved = true;
     (node as L.Marker).setLatLng(ev.latlng);
-    if (delIcon) delIcon.setLatLng(ev.latlng);
+    if (delIcon) (delIcon as L.Marker).setLatLng(ev.latlng);
     handlers.onDrag?.(ev.latlng);
   };
   const onUp = (ev: L.LeafletMouseEvent) => {
@@ -302,11 +341,19 @@ const repositionAlongBearing = (
   distanceMeters: number,
   bearingDeg: number,
 ): { lng: number; lat: number } => {
-  const coord = turf.destination([origin.lng, origin.lat], distanceMeters / 1000, bearingDeg, {
+  const tf = (globalThis as unknown as { turf: {
+    destination: (
+      coord: number[],
+      dist: number,
+      bearing: number,
+      opts: { units: string },
+    ) => { coords: LatLngPoint };
+  } }).turf;
+  const result = tf.destination([origin.lng, origin.lat], distanceMeters / 1000, bearingDeg, {
     units: "kilometers",
-  }) as turf.Point;
-  const [lng, lat] = coord.coords as LatLngPoint;
-  return { lng, lat };
+  });
+  const coord = result.coords;
+  return { lng: coord.lng, lat: coord.lat };
 };
 
 /** A single segment with distance and initial bearing (degrees, 0-360). */
@@ -344,6 +391,7 @@ export {
   animateDashSweep,
   applyVisibilityToggle,
   area,
+  buildEditOverlay,
   bearing,
   bindNodeDrag,
   buildPopup,

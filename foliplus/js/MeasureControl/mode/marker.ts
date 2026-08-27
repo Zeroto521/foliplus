@@ -23,8 +23,7 @@ class MarkerMode extends MeasureMode {
 
   onMarkerClickRef!: (event: L.LeafletMouseEvent) => void;
 
-  /** Bind pin drag (translate) for a finished marker, gated by isEditMode. */
-/** Bind pin drag (translate) for a finished marker. Returns cleanup. */
+  /** Bind pin drag (translate) for a finished marker. Returns cleanup. */
   private static bindPinDrag(
     manager: MeasureManager,
     marker: L.Marker,
@@ -113,16 +112,8 @@ class MarkerMode extends MeasureMode {
     );
 
     marker.on("popupopen", () => {
-      hideDelIcons();
-      // Use the latest resolved address so a marker whose geocode finished
-      // while the popup was closed still shows the real address on first open
-      // (createLocationMarker only updates an open popup).
       if (data.address !== null)
         marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
-      toggleDelIcon(delMarker, true);
-    });
-    marker.on("popupclose", () => {
-      toggleDelIcon(delMarker, false);
     });
 
     const deleteMeasurement = () => {
@@ -133,6 +124,13 @@ class MarkerMode extends MeasureMode {
       manager.layers.unregister();
     };
     attachDelClick(delMarker, deleteMeasurement);
+
+    MarkerMode.bindPinDrag(
+      manager,
+      marker as L.Marker,
+      delMarker as L.Marker,
+      { lng: data.lng!, lat: data.lat!, address: data.address ?? null },
+    );
   }
 
   start() {
@@ -207,17 +205,12 @@ class MarkerMode extends MeasureMode {
     };
     attachDelClick(delMarker, deleteMeasurement);
 
-    // Bind popup events BEFORE async geocode so X appears on first popup open
     marker.on("popupopen", () => {
-      hideDelIcons();
       if (measurement.address !== null)
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
-      toggleDelIcon(delMarker, true);
     });
 
-    marker.on("popupclose", () => {
-      toggleDelIcon(delMarker, false);
-    });
+    MarkerMode.bindPinDrag(this.m, marker as L.Marker, delMarker as L.Marker, measurement);
   }
 
   /** GeoJSON feature for a marker — properties carry id and address. */

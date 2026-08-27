@@ -6,42 +6,6 @@ import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import * as Util from "./util.js";
 
-/**
- * Build the shared edit overlay for a finished measurement. The caller wires
- * `result.open(ev)` onto each of the measure's layers; clicking empty map
- * space closes the overlay (the manager's global click handler stops
- * propagation for item clicks, so only empty-space clicks reach here).
- */
-const buildEditOverlay = (
-  mgr: MeasureManager,
-  opts: { onOpen: () => void; onEmpty?: () => void },
-): { open: (ev: L.LeafletMouseEvent) => void; cleanup: () => void } => {
-  let open = false;
-  const { onOpen, onEmpty } = opts;
-
-  const onMapClick = () => {
-    if (mgr.isSuppressHideDel) return;
-    if (Util.isDragSyntheticClick()) return;
-    if (!open) return;
-    open = false;
-    onEmpty?.();
-  };
-  mgr.map.on("click", onMapClick);
-
-  const openOverlay = (ev: L.LeafletMouseEvent) => {
-    if (open) return;
-    if (Util.isDragSyntheticClick()) return;
-    stopEvent(ev);
-    open = true;
-    onOpen();
-  };
-
-  return {
-    open: openOverlay,
-    cleanup: () => mgr.map.off("click", onMapClick),
-  };
-};
-
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const _ = createTranslator(CONF);
 
@@ -146,7 +110,7 @@ const attachDistanceUI = (
     nodeDelIcons.forEach(m => toggleDelIcon(m, false));
     dragBinds.forEach(db => db.setEnabled(false));
   };
-  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
 
   const deleteMeasurement = () => {
@@ -276,12 +240,10 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
     delMarker,
     radiusLabel,
     onDelete,
+    onEnd,
   } = opts;
-  const state: MeasureToggleState = { isXVisible: false, isLabelsVisible: true };
-  let isDeleted = false;
 
   const deleteMeasurement = () => {
-    isDeleted = true;
     dragBinds.forEach(db => db.cleanup());
     layers.removeLayer(circle);
     if (radiusLine) layers.removeLayer(radiusLine);
@@ -343,7 +305,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
   const onEmpty = () => {
     dragBinds.forEach(db => db.setEnabled(false));
   };
-  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
 
   const attachInteraction = (layer: L.Layer) => {
@@ -423,7 +385,6 @@ const attachPolygonUI = (
     }
     const centroid = Util.centroid(points);
     if (centroidLabel) centroidLabel.setLatLng(centroid);
-    if (centroidDot) centroidDot.setLatLng(centroid);
     if (centroidDel) centroidDel.setLatLng(centroid);
     return area;
   };
@@ -466,7 +427,7 @@ const attachPolygonUI = (
     if (centroidDel) toggleDelIcon(centroidDel, false);
     dragBinds.forEach(db => db.setEnabled(false));
   };
-  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
 
   finalPoly.on("click", openOverlay);
@@ -474,7 +435,7 @@ const attachPolygonUI = (
   segLabels.forEach(l => l.on("click", openOverlay));
 
   rebuildCentroid(initArea);
-  if (centroidDel) centroidDel.on("click", openOverlay);
+  (centroidDel as L.Marker | null)?.on("click", openOverlay);
 
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
@@ -571,7 +532,6 @@ export {
   attachCircleUI,
   attachDistanceUI,
   attachPolygonUI,
-  buildEditOverlay,
   createToggleUI,
   setupMapClickActive,
   resortLayers,
