@@ -194,7 +194,6 @@ const showCropBox = (mgr: ExportManager) => {
     actions: mgr.exportToolBar!,
   };
   updateBoxStyle(mgr, cropBox, box);
-  mgr.pushUndoState();
   showHintWithInfo(mgr, box, _(`${CONF.name}.hint_unlocked`));
   mgr.cropMousedownCleanup = registerCropMouseDown(mgr, cropBox);
   mgr.registerShortcuts();

@@ -87,8 +87,6 @@ class ExportManager {
   lastScreenRect: Rect | null;
   savedBounds: SavedBounds | null;
   dragState: DragState;
-  undoStack: Rect[];
-  redoStack: Rect[];
   declare mapMoveCleanup: (() => void) | null;
 
   // Mounted UI helpers (assigned in constructor).
@@ -127,10 +125,6 @@ class ExportManager {
       lastX: 0,
       lastY: 0,
     };
-
-    /** Undo / redo history for crop box adjustments. */
-    this.undoStack = [];
-    this.redoStack = [];
 
     this.onMapChange = this.onMapChange.bind(this);
 
@@ -278,36 +272,6 @@ class ExportManager {
     if (type !== "move") this.showHintWithInfo(r, _(`${CONF.name}.hint_unlocked`));
   }
 
-  pushUndoState() {
-    if (!this.cropState) return;
-    this.undoStack.push(Object.assign({}, this.cropState.rect));
-    if (this.undoStack.length > CONST.CACHE.UNDO_MAX) this.undoStack.shift();
-    // New drag invalidates the redo history
-    this.redoStack = [];
-  }
-
-  undoCropBox() {
-    if (!this.cropState || !this.undoStack.length) return;
-    // Save current rect for possible redo
-    this.redoStack.push(Object.assign({}, this.cropState.rect));
-    if (this.redoStack.length > CONST.CACHE.UNDO_MAX) this.redoStack.shift();
-    // If locked, unlock first so the user can see and continue adjusting
-    if (this.cropState.locked) this.unlockCropBox();
-    this.cropState.rect = this.undoStack.pop()!;
-    this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-    this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
-  }
-
-  redoCropBox() {
-    if (!this.cropState || !this.redoStack.length) return;
-    this.undoStack.push(Object.assign({}, this.cropState.rect));
-    if (this.undoStack.length > CONST.CACHE.UNDO_MAX) this.undoStack.shift();
-    if (this.cropState.locked) this.unlockCropBox();
-    this.cropState.rect = this.redoStack.pop()!;
-    this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-    this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
-  }
-
   onMouseUp() {
     this.dragState.dragging = false;
     this.dragState.dragType = null;
@@ -316,7 +280,6 @@ class ExportManager {
     // on the next non-drag style update (e.g. after unlock).
     if (this.cropState?.box)
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
-    this.pushUndoState();
   }
 
   registerShortcuts(): void {
@@ -330,16 +293,6 @@ class ExportManager {
     } else if (event.key === "Enter") {
       if (this.cropState && !this.cropState.locked) this.lockCropBox();
       else if (this.cropState?.locked) this.doExport();
-    } else if (
-      (event.ctrlKey || event.metaKey) &&
-      event.shiftKey &&
-      event.key.toLowerCase() === "z"
-    ) {
-      event.preventDefault();
-      this.redoCropBox();
-    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
-      event.preventDefault();
-      this.undoCropBox();
     }
   }
 
