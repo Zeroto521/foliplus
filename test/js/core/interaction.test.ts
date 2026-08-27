@@ -550,15 +550,9 @@ describe("InteractionManager", () => {
     const handler2 = vi.fn();
     const handler3 = vi.fn();
     // Register three shortcuts for the same key — only the last one should fire
-    ensureInteraction(map).register("A", [
-      { key: "Escape", handler: handler1 },
-    ]);
-    ensureInteraction(map).register("B", [
-      { key: "Escape", handler: handler2 },
-    ]);
-    ensureInteraction(map).register("C", [
-      { key: "Escape", handler: handler3 },
-    ]);
+    ensureInteraction(map).register("A", [{ key: "Escape", handler: handler1 }]);
+    ensureInteraction(map).register("B", [{ key: "Escape", handler: handler2 }]);
+    ensureInteraction(map).register("C", [{ key: "Escape", handler: handler3 }]);
 
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
