@@ -387,4 +387,45 @@ describe("MeasureManager — onMapClick handler", () => {
     const event = { originalEvent: { target: document.createElement("div") } } as any;
     expect(() => clickHandler(event)).not.toThrow();
   });
+
+  it("does NOT exit edit mode when clicking empty space", () => {
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+    expect(manager.isEditMode).toBe(true);
+
+    const handler = manager.map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+
+    // Empty-space click with a plain target
+    const event = {
+      originalEvent: { target: document.createElement("div") },
+    } as any;
+    handler(event);
+
+    // Edit mode stays on; isSuppressHideDel is set to false so the overlay
+    // can react to the click and hide its ✕ handles.
+    expect(manager.isEditMode).toBe(true);
+    expect(manager.isSuppressHideDel).toBe(false);
+  });
+
+  it("ignores a del-icon click in edit mode", () => {
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+
+    const delBtn = document.createElement("button");
+    delBtn.classList.add("foliplus-measure-delete");
+    const event = {
+      originalEvent: { target: delBtn },
+    } as any;
+    clickHandler(event);
+
+    // Even though target is a del icon, the empty-space path that would
+    // reset isSuppressHideDel must not run.
+    expect(manager.isEditMode).toBe(true);
+  });
 });

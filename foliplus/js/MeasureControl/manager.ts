@@ -35,9 +35,6 @@ class MeasureManager {
   ctrl: HTMLElement | null;
   /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
   isEditMode: boolean;
-  /** Per-measurement refresh callbacks: refresh(showX). Collected by attach*UI so
-   *   the manager can re-render ✕ handles / drag gates when edit mode toggles. */
-  editToggleCallbacks: Array<(show: boolean) => void>;
   /** The layer id used to register this manager's measure layer. */
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
@@ -94,7 +91,6 @@ class MeasureManager {
     this.measurementIdCounter = 0;
     this.ctrl = null;
     this.isEditMode = false;
-    this.editToggleCallbacks = [];
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -139,15 +135,16 @@ class MeasureManager {
   /** Bind global map click, keydown, and unload events. */
   bindGlobalEvents() {
     this.onMapClick = (event: L.LeafletMouseEvent) => {
-      if (this.isSuppressHideDel) return;
       const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      // In edit mode, a click on empty map space exits edit (measurement-item
-      // clicks are intercepted by attach*UI handlers which stop propagation,
-      // so they never reach here).
+      // In edit mode, a click on empty map space only closes the overlay
+      // (hides ✕, disables drag) via each overlay's own map-click handler —
+      // it does NOT exit edit mode. Measurement-item clicks are intercepted
+      // by attach*UI handlers (stopEvent) so they never reach here.
       if (this.isEditMode) {
-        this.setEditMode(false);
+        this.isSuppressHideDel = false;
       } else {
+        if (this.isSuppressHideDel) return;
         hideDelIcons();
       }
     };
@@ -253,7 +250,6 @@ class MeasureManager {
     } else {
       this.map.foliplus!.hideHint(CONF.name);
     }
-    this.editToggleCallbacks.forEach(cb => cb(on));
   }
 
   /** Deactivate current mode, clean up events, and hide hints. */
@@ -297,7 +293,6 @@ class MeasureManager {
     this.map.off("click", this.onMapClick);
     this.finalizedClickHandlers.forEach(h => this.map.off("click", h));
     this.finalizedClickHandlers = [];
-    this.editToggleCallbacks = [];
   }
 
   /**
