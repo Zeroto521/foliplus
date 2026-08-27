@@ -470,6 +470,108 @@ describe("InteractionManager", () => {
     expect(im["docListeners"].size).toBe(0);
   });
 
+  it("clear() removes element-bound listeners when shortcuts include element bindings", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const im = ensureInteraction(map);
+    const el = document.createElement("input");
+    const handler = vi.fn();
+
+    im.register("El", [{ key: "Enter", element: el, handler }]);
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    im.clear();
+    expect(im["shortcuts"]).toHaveLength(0);
+
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("reverse container depth sort: container-registered-first does not win over doc shortcut", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const input = document.createElement("input");
+    container.appendChild(input);
+
+    // Register container-bound shortcut BEFORE document-level — the reverse
+    // sort branch (!a.container && b.container) must still keep doc shortcut
+    // in lower priority position
+    const containerHandler = vi.fn();
+    const docHandler = vi.fn();
+    ensureInteraction(map).register("ContainerFirst", [
+      { key: "Escape", container, handler: containerHandler },
+    ]);
+    ensureInteraction(map).register("DocSecond", [
+      { key: "Escape", handler: docHandler },
+    ]);
+
+    input.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(containerHandler).toHaveBeenCalledTimes(1);
+    expect(docHandler).not.toHaveBeenCalled();
+
+    ensureInteraction(map).unregister("ContainerFirst");
+    ensureInteraction(map).unregister("DocSecond");
+    document.body.removeChild(container);
+  });
+
+  it("same-priority document-level shortcuts: last-registered wins (later registration takes priority)", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const handler1 = vi.fn();
+    const handler2 = vi.fn();
+    ensureInteraction(map).register("First", [
+      { key: "Enter", priority: 0, handler: handler1 },
+    ]);
+    ensureInteraction(map).register("Second", [
+      { key: "Enter", priority: 0, handler: handler2 },
+    ]);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    // Last-registered (handler2) wins — matches z-order / DOM overlay intuition
+    expect(handler2).toHaveBeenCalledTimes(1);
+    expect(handler1).not.toHaveBeenCalled();
+
+    ensureInteraction(map).unregister("First");
+    ensureInteraction(map).unregister("Second");
+  });
+
+  it("last-registered shortcut wins even when priorities differ only by 0", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const handler1 = vi.fn();
+    const handler2 = vi.fn();
+    const handler3 = vi.fn();
+    // Register three shortcuts for the same key — only the last one should fire
+    ensureInteraction(map).register("A", [
+      { key: "Escape", handler: handler1 },
+    ]);
+    ensureInteraction(map).register("B", [
+      { key: "Escape", handler: handler2 },
+    ]);
+    ensureInteraction(map).register("C", [
+      { key: "Escape", handler: handler3 },
+    ]);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(handler3).toHaveBeenCalledTimes(1);
+    expect(handler1).not.toHaveBeenCalled();
+    expect(handler2).not.toHaveBeenCalled();
+
+    ensureInteraction(map).unregister("A");
+    ensureInteraction(map).unregister("B");
+    ensureInteraction(map).unregister("C");
+  });
+
   it("destroy also works when map.foliplus was not pre-existing", async () => {
     const { ensureInteraction } = await import("#core/interaction.js");
     const map = makeBareMap();

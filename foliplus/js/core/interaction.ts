@@ -57,6 +57,7 @@ export const ensureInteraction = (map: L.Map): InteractionManager => {
 export class InteractionManager {
   private map: L.Map;
   private shortcuts: InteractionDef[] = [];
+  private _order = 0;
   private docListeners: Map<string, (event: Event) => void> = new Map();
   private observer: MutationObserver | null = null;
   private trackedElements: Map<HTMLElement, Set<string>> = new Map();
@@ -141,6 +142,7 @@ export class InteractionManager {
       if (def.container && !def.element) {
         this.trackElement(def.container, component);
       }
+      (def as any).order = this._order++;
       this.shortcuts.push(def);
     }
     this.ensureListener();
@@ -228,7 +230,8 @@ export class InteractionManager {
         };
         return depth(a.container) - depth(b.container);
       }
-      return 0;
+      // Same priority + same container binding: later-registered wins
+      return (b as any).order - (a as any).order;
     };
     const matches = this.shortcuts
       .filter(s => {

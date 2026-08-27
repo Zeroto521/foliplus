@@ -196,4 +196,37 @@ describe("ExportControl interaction", () => {
     expect(mgr.onMouseUp).not.toHaveBeenCalled();
     cleanup();
   });
+
+  it("Escape does not fire onKeyDown when document is in fullscreen", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    // Simulate fullscreen by setting document.fullscreenElement
+    Object.defineProperty(document, "fullscreenElement", {
+      value: document.body,
+      configurable: true,
+    });
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(mgr.onKeyDown).not.toHaveBeenCalled();
+
+    cleanup();
+    Object.defineProperty(document, "fullscreenElement", {
+      value: null,
+      configurable: true,
+    });
+  });
+
+  it("Escape fires onKeyDown when document is NOT in fullscreen", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(mgr.onKeyDown).toHaveBeenCalled();
+
+    cleanup();
+  });
 });

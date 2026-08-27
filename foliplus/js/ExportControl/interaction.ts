@@ -8,8 +8,16 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
   // All shortcuts registered under a single component name so the returned
   // cleanup function unregisters them all at once when the crop box is removed.
   return im.register(CONF.name, [
-    // Escape: global — dismiss crop box from anywhere
-    { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
+    // Escape: global — dismiss crop box from anywhere.
+    // Bail out when document is in fullscreen so the browser handles
+    // exit-fullscreen natively (JS cannot intercept Esc in fullscreen).
+    {
+      key: "Escape",
+      handler: e => {
+        if (document.fullscreenElement) return;
+        mgr.onKeyDown(e as KeyboardEvent);
+      },
+    },
     // Enter / Ctrl+Z / Ctrl+Shift+Z: require map container focus
     {
       key: "Enter",
