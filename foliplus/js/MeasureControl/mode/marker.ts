@@ -6,7 +6,7 @@ import {
   toggleDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
@@ -14,13 +14,14 @@ import { MeasureMode } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 // ==================== Marker Mode ====================
 /** Marker placement mode. Places a geocoded marker on click. */
 class MarkerMode extends MeasureMode {
   static TYPE = CONST.MODE.MARKER;
   static NAME_LABEL = "Location Marker";
-  static NAME_LABEL_KEY = `${CONF.name}.name_marker`;
+  static NAME_LABEL_KEY = "name_marker";
 
   onMarkerClickRef!: (event: L.LeafletMouseEvent) => void;
 
@@ -33,10 +34,10 @@ class MarkerMode extends MeasureMode {
       data.lng!,
       data.lat!,
       data.address ?? null,
-      _(`${CONF.name}.popup_title`),
-      _(`${CONF.name}.popup_loading`),
-      _(`${CONF.name}.popup_loc_label`),
-      _(`${CONF.name}.popup_addr_label`),
+      T("popup_title"),
+      T("popup_loading"),
+      T("popup_loc_label"),
+      T("popup_addr_label"),
       _("foliplus.close_label"),
       CONF.locale_code,
       null,
@@ -52,7 +53,7 @@ class MarkerMode extends MeasureMode {
     );
     const delMarker = manager.layers.addLayer(
       makeDelIcon(L.latLng(data.lat!, data.lng!), {
-        title: _(`${CONF.name}.del_tooltip`),
+        title: T("del_tooltip"),
         iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
       }),
     );
@@ -120,10 +121,10 @@ class MarkerMode extends MeasureMode {
       lngNum,
       latNum,
       null,
-      _(`${CONF.name}.popup_title`),
-      _(`${CONF.name}.popup_loading`),
-      _(`${CONF.name}.popup_loc_label`),
-      _(`${CONF.name}.popup_addr_label`),
+      T("popup_title"),
+      T("popup_loading"),
+      T("popup_loc_label"),
+      T("popup_addr_label"),
       _("foliplus.close_label"),
       CONF.locale_code,
       null,
@@ -136,7 +137,7 @@ class MarkerMode extends MeasureMode {
 
     const delMarker = this.layers.addLayer(
       makeDelIcon(event.latlng, {
-        title: _(`${CONF.name}.del_tooltip`),
+        title: T("del_tooltip"),
         iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
       }),
     );

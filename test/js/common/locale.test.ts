@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 describe("createTranslator", () => {
   beforeEach(() => {
@@ -201,5 +201,63 @@ describe("createTranslator", () => {
     } finally {
       document.documentElement.lang = original;
     }
+  });
+});
+
+describe("createScopedTranslator", () => {
+  beforeEach(() => {
+    window.foliplus._TABLES = {
+      en: { ok: "OK" },
+    };
+  });
+
+  it("prepends conf.name to the key", () => {
+    const conf = {
+      name: "LayerControl",
+      locale_code: "en",
+      locale_tables: { en: { "LayerControl.focus": "Focus layer" } },
+    };
+    const T = createScopedTranslator(conf);
+    expect(T("focus")).toBe("Focus layer");
+    expect(T("missing")).toBe("LayerControl.missing");
+  });
+
+  it("falls back to the prefixed key when translation is absent", () => {
+    const conf = {
+      name: "SearchControl",
+      locale_code: "en",
+      locale_tables: { en: {} },
+    };
+    const T = createScopedTranslator(conf);
+    expect(T("bar")).toBe("SearchControl.bar");
+  });
+
+  it("uses the shared common table for missing component keys", () => {
+    window.foliplus._TABLES = {
+      en: {
+        ok: "OK",
+        "LayerControl.ok": "Layer OK",
+      },
+    };
+    const conf = {
+      name: "LayerControl",
+      locale_code: "en",
+      locale_tables: { en: {} },
+    };
+    const T = createScopedTranslator(conf);
+    expect(T("ok")).toBe("Layer OK");
+  });
+
+  it("uses component table over common for same prefixed key", () => {
+    window.foliplus._TABLES = {
+      en: { "LayerControl.ok": "Layer OK" },
+    };
+    const conf = {
+      name: "LayerControl",
+      locale_code: "en",
+      locale_tables: { en: { "LayerControl.ok": "Layer Override" } },
+    };
+    const T = createScopedTranslator(conf);
+    expect(T("ok")).toBe("Layer Override");
   });
 });

@@ -3,7 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { dom } from "#common/dom.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { registerDrag, registerInteractions } from "./interaction.js";
@@ -19,7 +19,7 @@ import {
 } from "./ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** A screen-space rectangle. */
 export interface Rect {
@@ -87,8 +87,6 @@ class ExportManager {
   lastScreenRect: Rect | null;
   savedBounds: SavedBounds | null;
   dragState: DragState;
-  undoStack: Rect[];
-  redoStack: Rect[];
   declare mapMoveCleanup: (() => void) | null;
 
   // Mounted UI helpers (assigned in constructor).
@@ -127,10 +125,6 @@ class ExportManager {
       lastX: 0,
       lastY: 0,
     };
-
-    /** Undo / redo history for crop box adjustments. */
-    this.undoStack = [];
-    this.redoStack = [];
 
     this.onMapChange = this.onMapChange.bind(this);
 
@@ -191,12 +185,7 @@ class ExportManager {
         se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
       };
       this.lockCropBox(true);
-      map.foliplus!.showHint(
-        CONF.name,
-        _(`${CONF.name}.hint_restore`),
-        HINT_DURATION.MEDIUM,
-        true,
-      );
+      map.foliplus!.showHint(CONF.name, T("hint_restore"), HINT_DURATION.MEDIUM, true);
     });
   }
 
@@ -275,37 +264,7 @@ class ExportManager {
     st.rect = r;
     this.updateBoxStyle(st.box, r);
     // Only update the hint when the size changes (resize), not on pure move
-    if (type !== "move") this.showHintWithInfo(r, _(`${CONF.name}.hint_unlocked`));
-  }
-
-  pushUndoState() {
-    if (!this.cropState) return;
-    this.undoStack.push(Object.assign({}, this.cropState.rect));
-    if (this.undoStack.length > CONST.CACHE.UNDO_MAX) this.undoStack.shift();
-    // New drag invalidates the redo history
-    this.redoStack = [];
-  }
-
-  undoCropBox() {
-    if (!this.cropState || !this.undoStack.length) return;
-    // Save current rect for possible redo
-    this.redoStack.push(Object.assign({}, this.cropState.rect));
-    if (this.redoStack.length > CONST.CACHE.UNDO_MAX) this.redoStack.shift();
-    // If locked, unlock first so the user can see and continue adjusting
-    if (this.cropState.locked) this.unlockCropBox();
-    this.cropState.rect = this.undoStack.pop()!;
-    this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-    this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
-  }
-
-  redoCropBox() {
-    if (!this.cropState || !this.redoStack.length) return;
-    this.undoStack.push(Object.assign({}, this.cropState.rect));
-    if (this.undoStack.length > CONST.CACHE.UNDO_MAX) this.undoStack.shift();
-    if (this.cropState.locked) this.unlockCropBox();
-    this.cropState.rect = this.redoStack.pop()!;
-    this.updateBoxStyle(this.cropState.box, this.cropState.rect);
-    this.showHintWithInfo(this.cropState.rect, _(`${CONF.name}.hint_unlocked`));
+    if (type !== "move") this.showHintWithInfo(r, T("hint_unlocked"));
   }
 
   onMouseUp() {
@@ -316,7 +275,6 @@ class ExportManager {
     // on the next non-drag style update (e.g. after unlock).
     if (this.cropState?.box)
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
-    this.pushUndoState();
   }
 
   registerShortcuts(): void {
@@ -335,16 +293,6 @@ class ExportManager {
     } else if (event.key === "Enter") {
       if (this.cropState && !this.cropState.locked) this.lockCropBox();
       else if (this.cropState?.locked) this.doExport();
-    } else if (
-      (event.ctrlKey || event.metaKey) &&
-      event.shiftKey &&
-      event.key.toLowerCase() === "z"
-    ) {
-      event.preventDefault();
-      this.redoCropBox();
-    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
-      event.preventDefault();
-      this.undoCropBox();
     }
   }
 
@@ -365,7 +313,7 @@ class ExportManager {
     // Always check pixel limit regardless of hint visibility.
     this.checkPixelLimit(newRect);
     // Update hint text on zoom (rect changes), skip on pan (rect unchanged).
-    if (!skipHint) this.showHintWithInfo(newRect, _(`${CONF.name}.hint_locked`));
+    if (!skipHint) this.showHintWithInfo(newRect, T("hint_locked"));
   }
 
   /** Check pixel limit and set pixelOverLimit flag. */
@@ -417,11 +365,7 @@ class ExportManager {
       return;
     }
 
-    this.showGlobalHint(
-      _(`${CONF.name}.status_exporting`),
-      HINT_DURATION.PERSIST,
-      true,
-    );
+    this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
     const vpW = this.mapContainer.clientWidth;
     const vpH = this.mapContainer.clientHeight;
@@ -549,10 +493,7 @@ class ExportManager {
     canvas.toBlob(
       async blob => {
         if (!blob) {
-          this.showGlobalHint(
-            _(`${CONF.name}.status_fail`) + _(`${CONF.name}.err_gen_fail`),
-            HINT_DURATION.LONG,
-          );
+          this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
           this.isExporting = false;
           ensureModes(this.map).setMode(CONF.name, null);
           ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
@@ -574,7 +515,7 @@ class ExportManager {
           document.body.removeChild(link);
           setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
         }
-        this.showGlobalHint(_(`${CONF.name}.status_success`), HINT_DURATION.LONG);
+        this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
         this.isExporting = false;
         ensureModes(this.map).setMode(CONF.name, null);
         ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
@@ -601,17 +542,17 @@ class ExportManager {
     if (!geoBounds?.nw || !geoBounds?.se) {
       // GeoTIFF requires geo bounds — without them we can't embed
       // georeferencing.  Show a hint instead of silently falling back.
-      this.showGlobalHint(_(`${CONF.name}.err_geotiff_geo`), HINT_DURATION.LONG);
+      this.showGlobalHint(T("err_geotiff_geo"), HINT_DURATION.LONG);
       return;
     }
     if (canvas.width <= 0 || canvas.height <= 0) {
-      this.showGlobalHint(_(`${CONF.name}.err_gen_fail`), HINT_DURATION.LONG);
+      this.showGlobalHint(T("err_gen_fail"), HINT_DURATION.LONG);
       return;
     }
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      this.showGlobalHint(_(`${CONF.name}.err_gen_fail`), HINT_DURATION.LONG);
+      this.showGlobalHint(T("err_gen_fail"), HINT_DURATION.LONG);
       return;
     }
     let imageData;
@@ -621,7 +562,7 @@ class ExportManager {
       // Canvas may be tainted by cross-origin images (e.g. tiles from a
       // server without CORS headers).  getImageData throws SecurityError
       // and we cannot extract pixel data for the GeoTIFF.
-      this.showGlobalHint(_(`${CONF.name}.err_geotiff_canvas`), HINT_DURATION.LONG);
+      this.showGlobalHint(T("err_geotiff_canvas"), HINT_DURATION.LONG);
       return;
     }
     const rgba = imageData.data;
@@ -675,11 +616,8 @@ class ExportManager {
     ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
     this.removeExportOverlay();
     this.unlockMap();
-    console.error(`[${CONF.name}] ${_(`${CONF.name}.err_render`)}:`, err);
-    this.showGlobalHint(
-      _(`${CONF.name}.status_fail`) + (err.message || ""),
-      HINT_DURATION.LONG,
-    );
+    console.error(`[${CONF.name}] ${T("err_render")}:`, err);
+    this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
     this.isExporting = false;
   }
 

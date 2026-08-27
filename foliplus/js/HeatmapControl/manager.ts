@@ -4,13 +4,13 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
 
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** A point marker carrying an optional numeric value (foliplus data contract). */
 type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {
@@ -132,7 +132,7 @@ class HeatmapManager {
     // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
-      name: _(`${CONF.name}.title`),
+      name: T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
     });

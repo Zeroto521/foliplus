@@ -56,12 +56,6 @@ describe("SEL", () => {
   });
 });
 
-describe("CACHE", () => {
-  it("defines cache limits", () => {
-    expect(CONST.CACHE.UNDO_MAX).toBe(20);
-  });
-});
-
 // ===========================================================================
 // Helper: stub navigator.connection for the detectConcurrency tests.
 // Supports standard, moz- and webkit- prefixed APIs.

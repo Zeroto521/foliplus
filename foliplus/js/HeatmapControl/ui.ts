@@ -2,14 +2,14 @@
 // All internal refs use direct function calls instead of `this.`.
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 export interface HeatmapControlUI {
@@ -41,7 +41,7 @@ export interface HeatmapControlUI {
 }
 
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
-  panelContent.innerHTML = panelContentHTML(_);
+  panelContent.innerHTML = panelContentHTML(T);
 
   // Query key elements from the template using DATA_ATTR constants
   ctrl.layerSelect = panelContent.querySelector(
@@ -259,7 +259,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
       parent: sel,
       selected: !ctrl.m.selectedLayerId ? "" : undefined,
     },
-    _(`${CONF.name}.layer_placeholder`),
+    T("layer_placeholder"),
   );
 
   ctrl.m.pointLayers.forEach(info => {
@@ -319,7 +319,7 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
       class: CONST.CLASSES.PLACEHOLDER_OPTION,
       parent: ctrl.fieldSelect,
     },
-    _(`${CONF.name}.field_auto`),
+    T("field_auto"),
   );
 
   fields.forEach(f => {
@@ -455,7 +455,7 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
     const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
     map.foliplus!.showHint(
       CONF.name,
-      _(missingLayerControl ? `${CONF.name}.no_layercontrol` : `${CONF.name}.no_layer`),
+      T(missingLayerControl ? "no_layercontrol" : "no_layer"),
       HINT_DURATION.LONG,
     );
   } else rebuildLayerDropdown(ctrl);
