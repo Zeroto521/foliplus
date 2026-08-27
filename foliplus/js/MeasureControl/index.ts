@@ -41,42 +41,18 @@ class MeasureControl extends BaseControl {
       position: CONF.position,
     });
     const btnConfigs: Array<{ mode?: string; title: string; svg: string }> = [
-      {
-        mode: CONST.MODE.MARKER,
-        title: T("tool_marker"),
-        svg: Icons.LOCATE,
-      },
-      {
-        mode: CONST.MODE.DISTANCE,
-        title: T("tool_distance"),
-        svg: SVGs.RULER,
-      },
-      {
-        mode: CONST.MODE.POLYGON,
-        title: T("tool_polygon"),
-        svg: SVGs.POLYGON,
-      },
-      {
-        mode: CONST.MODE.CIRCLE,
-        title: T("tool_circle"),
-        svg: SVGs.CIRCLE,
-      },
+      { mode: CONST.MODE.MARKER, title: T("tool_marker"), svg: Icons.LOCATE },
+      { mode: CONST.MODE.DISTANCE, title: T("tool_distance"), svg: SVGs.RULER },
+      { mode: CONST.MODE.POLYGON, title: T("tool_polygon"), svg: SVGs.POLYGON },
+      { mode: CONST.MODE.CIRCLE, title: T("tool_circle"), svg: SVGs.CIRCLE },
       // Export — no mode, so it stays out of toolBtns (no data-mode);
       // its click is bound via the interaction manager (see manager.ts).
-      {
-        title: T("tool_export"),
-        svg: Icons.DOWNLOAD,
-      },
-      {
-        mode: CONST.MODE.CLEAR,
-        title: T("tool_clear"),
-        svg: SVGs.TRASH,
-      },
+      { title: T("tool_export"), svg: Icons.DOWNLOAD},
+      { mode: CONST.MODE.CLEAR, title: T("tool_clear"), svg: SVGs.TRASH },
     ];
     let exportBtn: HTMLElement | null = null;
     btnConfigs.forEach(({ mode, title, svg }) => {
-      const btn = createIconButton({
-        class: "foliplus-tool-btn",
+      const btn = createIconButton({ class: "foliplus-tool-btn",
         title,
         svg,
         parent: toolBar,
