@@ -2,12 +2,12 @@
 import { hideDelIcons, toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml, stopEvent } from "#common/dom.js";
 import {
+  type LatLngPoint,
   area,
   bearing,
   centroid,
   distance,
   midpoint,
-  type LatLngPoint,
 } from "#common/geo.js";
 import { createTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
@@ -121,7 +121,10 @@ const bindNodeDrag = (
   const onMove = (ev: L.LeafletMouseEvent) => {
     if (!dragging || !startPt) return;
     const pt = map.mouseEventToContainerPoint(ev.originalEvent);
-    if (!moved && Math.abs(pt.x - startPt.x) + Math.abs(pt.y - startPt.y) < DRAG_THRESHOLD)
+    if (
+      !moved &&
+      Math.abs(pt.x - startPt.x) + Math.abs(pt.y - startPt.y) < DRAG_THRESHOLD
+    )
       return;
     moved = true;
     (node as L.Marker).setLatLng(ev.latlng);
@@ -170,8 +173,9 @@ const toggleVisibility = (elements: (HTMLElement | null)[], visible: boolean) =>
  * lets the click handler tell the two apart. Checked by attach*UI and reset.
  */
 const markDragSyntheticClick = () => {
-  (window as unknown as { __foliplus_measure_drag_click: boolean }).__foliplus_measure_drag_click =
-    true;
+  (
+    window as unknown as { __foliplus_measure_drag_click: boolean }
+  ).__foliplus_measure_drag_click = true;
 };
 
 const isDragSyntheticClick = (): boolean => {
@@ -326,17 +330,26 @@ const repositionAlongBearing = (
   distanceMeters: number,
   bearingDeg: number,
 ): { lng: number; lat: number } => {
-  const tf = (globalThis as unknown as { turf: {
-    destination: (
-      coord: number[],
-      dist: number,
-      bearing: number,
-      opts: { units: string },
-    ) => { coords: LatLngPoint };
-  } }).turf;
-  const result = tf.destination([origin.lng, origin.lat], distanceMeters / 1000, bearingDeg, {
-    units: "kilometers",
-  });
+  const tf = (
+    globalThis as unknown as {
+      turf: {
+        destination: (
+          coord: number[],
+          dist: number,
+          bearing: number,
+          opts: { units: string },
+        ) => { coords: LatLngPoint };
+      };
+    }
+  ).turf;
+  const result = tf.destination(
+    [origin.lng, origin.lat],
+    distanceMeters / 1000,
+    bearingDeg,
+    {
+      units: "kilometers",
+    },
+  );
   const coord = result.coords;
   return { lng: coord.lng, lat: coord.lat };
 };

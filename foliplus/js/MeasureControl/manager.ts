@@ -238,7 +238,8 @@ class MeasureManager {
     if (this.isEditMode === on) return;
     this.isEditMode = on;
     this.toolBtns.forEach(btn => {
-      if (btn.dataset.mode === CONST.MODE.EDIT) btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
+      if (btn.dataset.mode === CONST.MODE.EDIT)
+        btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
     });
     if (on) {
       this.map.foliplus!.showHint(

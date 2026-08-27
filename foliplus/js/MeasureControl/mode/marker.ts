@@ -122,12 +122,11 @@ class MarkerMode extends MeasureMode {
     };
     attachDelClick(delMarker, deleteMeasurement);
 
-    MarkerMode.bindPinDrag(
-      manager,
-      marker as L.Marker,
-      delMarker as L.Marker,
-      { lng: data.lng!, lat: data.lat!, address: data.address ?? null },
-    );
+    MarkerMode.bindPinDrag(manager, marker as L.Marker, delMarker as L.Marker, {
+      lng: data.lng!,
+      lat: data.lat!,
+      address: data.address ?? null,
+    });
   }
 
   start() {
@@ -207,7 +206,12 @@ class MarkerMode extends MeasureMode {
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
     });
 
-    MarkerMode.bindPinDrag(this.m, marker as L.Marker, delMarker as L.Marker, measurement);
+    MarkerMode.bindPinDrag(
+      this.m,
+      marker as L.Marker,
+      delMarker as L.Marker,
+      measurement,
+    );
   }
 
   /** GeoJSON feature for a marker — properties carry id and address. */
