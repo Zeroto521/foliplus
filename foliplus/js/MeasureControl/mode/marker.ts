@@ -30,16 +30,6 @@ class MarkerMode extends MeasureMode {
     delMarker: L.Marker,
     measurement: { lng: number; lat: number; address: string | null },
   ): () => void {
-    const overlay = Util.buildEditOverlay(manager, {
-      onOpen: () => {
-        if (measurement.address !== null)
-          marker.setPopupContent(Util.buildPopup(measurement.lng, measurement.lat, measurement.address));
-      },
-      onEmpty: () => {
-        marker.closePopup();
-      },
-    });
-
     const drag = Util.bindNodeDrag(marker, delMarker, manager.map, {
       onDrag: (latlng: L.LatLng) => {
         delMarker.setLatLng(latlng);
@@ -48,33 +38,40 @@ class MarkerMode extends MeasureMode {
         manager.saveMeasurements();
       },
       onEnd: async (latlng: L.LatLng) => {
-        // Mark the ensuing marker click as drag-synthetic so it doesn't
-        // reopen the overlay / popup and doesn't close the overlay via the
-        // map-click gate.
         Util.markDragSyntheticClick();
         measurement.lng = latlng.lng;
         measurement.lat = latlng.lat;
         manager.saveMeasurements();
         const code = window.CONF?.locale_code ?? "en";
-        const addr = await Util.geocodeAddress(manager, measurement.lng, measurement.lat, code, measurement.address);
+        const addr = await Util.geocodeAddress(
+          manager,
+          measurement.lng,
+          measurement.lat,
+          code,
+          measurement.address,
+        );
         measurement.address = addr;
         manager.saveMeasurements();
         if (marker.getPopup()?.isOpen())
-          marker.setPopupContent(Util.buildPopup(measurement.lng, measurement.lat, addr));
+          marker.setPopupContent(
+            Util.buildPopup(measurement.lng, measurement.lat, addr),
+          );
       },
     });
 
-    // Open the overlay on pin click in edit mode; non-edit mode leaves the
-    // default popup behavior untouched.
-    marker.on("click", (ev: L.LeafletMouseEvent) => {
-      if (!manager.isEditMode) return;
-      if (Util.isDragSyntheticClick()) return;
-      overlay.open(ev);
-    });
+    // Toggle the ✕ handle with the popup open/close state (edit mode only).
+    // Content-refresh on popupopen is handled by the caller (restore /
+    // handleMarkerClick) so there's only one content source of truth.
+    const onPopupOpen = () => {
+      if (manager.isEditMode) toggleDelIcon(delMarker, true);
+    };
+    const onPopupClose = () => toggleDelIcon(delMarker, false);
+    marker.on("popupopen", onPopupOpen);
+    marker.on("popupclose", onPopupClose);
 
     return () => {
       drag.cleanup();
-      overlay.cleanup();
+      marker.off("popupopen", onPopupOpen).off("popupclose", onPopupClose);
     };
   }
 
