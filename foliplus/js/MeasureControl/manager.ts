@@ -4,7 +4,7 @@ import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
@@ -16,7 +16,7 @@ import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 // ==================== Core Manager ====================
 /** Central manager for all measurements. */
@@ -66,7 +66,7 @@ class MeasureManager {
     this.layerId = generateId(CONST.ID, opts?.id);
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
-      name: _(`${CONF.name}.tool_toggle`),
+      name: T("tool_toggle"),
       graphPane: CONST.PANES.GRAPH,
       labelPane: CONST.PANES.LABEL,
       iconSvg: SVGs.RULER,
@@ -80,11 +80,7 @@ class MeasureManager {
     ensureEvents(this.map).on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
-        map.foliplus?.showHint?.(
-          CONF.name,
-          _(`${CONF.name}.export_paused`),
-          HINT_DURATION.SHORT,
-        );
+        map.foliplus?.showHint?.(CONF.name, T("export_paused"), HINT_DURATION.SHORT);
       }
     });
     this.toolBtns = [];
@@ -219,10 +215,10 @@ class MeasureManager {
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
 
     const hintKey = {
-      [CONST.MODE.MARKER]: _(`${CONF.name}.hint_marker`),
-      [CONST.MODE.DISTANCE]: _(`${CONF.name}.hint_dist_start`),
-      [CONST.MODE.POLYGON]: _(`${CONF.name}.hint_polygon`),
-      [CONST.MODE.CIRCLE]: _(`${CONF.name}.hint_circle_start`),
+      [CONST.MODE.MARKER]: T("hint_marker"),
+      [CONST.MODE.DISTANCE]: T("hint_dist_start"),
+      [CONST.MODE.POLYGON]: T("hint_polygon"),
+      [CONST.MODE.CIRCLE]: T("hint_circle_start"),
     }[mode];
 
     if (hintKey) {
@@ -246,7 +242,7 @@ class MeasureManager {
     if (on) {
       this.map.foliplus!.showHint(
         CONF.name,
-        _(`${CONF.name}.hint_edit`),
+        T("hint_edit"),
         HINT_DURATION.PERSIST,
       );
     } else {

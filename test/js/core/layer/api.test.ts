@@ -140,17 +140,17 @@ describe("ensureLayerAPI", () => {
 });
 
 describe("requireLayerAPI", () => {
-  const _ = (s: string) => s;
+  const T = (s: string) => s;
 
   it("throws when LayerAPI is missing", () => {
     const map = { foliplus: { showHint: mockShowHint } } as any;
-    expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
+    expect(() => requireLayerAPI("Test", T, map)).toThrow("no_layercontrol");
     expect(mockShowHint).toHaveBeenCalled();
   });
 
   it("throws when LayerAPI is missing even without showHint", () => {
     const map = { foliplus: {} } as any;
-    expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
+    expect(() => requireLayerAPI("Test", T, map)).toThrow("no_layercontrol");
   });
 
   it("accepts a real LayerControl (layers is a getter, like LayerManager)", () => {
@@ -160,7 +160,7 @@ describe("requireLayerAPI", () => {
       },
     } as any;
     const map = { foliplus: { LayerAPI: api } };
-    expect(requireLayerAPI("Test", _, map as any)).toBe(api);
+    expect(requireLayerAPI("Test", T, map as any)).toBe(api);
   });
 
   it("throws for ensureLayerAPI's lightweight stub (layers is a data property)", () => {
@@ -169,7 +169,7 @@ describe("requireLayerAPI", () => {
     // requireLayerAPI, letting Export run without a real LayerControl.
     const api = { layers: [] } as any; // data property, no getter
     const map = { foliplus: { showHint: mockShowHint, LayerAPI: api } } as any;
-    expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
+    expect(() => requireLayerAPI("Test", T, map)).toThrow("no_layercontrol");
     expect(mockShowHint).toHaveBeenCalled();
   });
 
@@ -178,6 +178,6 @@ describe("requireLayerAPI", () => {
     // cannot bypass the guard.
     const api = { layers: [], isLayerControl: true } as any;
     const map = { foliplus: { showHint: mockShowHint, LayerAPI: api } } as any;
-    expect(() => requireLayerAPI("Test", _, map)).toThrow("Test.no_layercontrol");
+    expect(() => requireLayerAPI("Test", T, map)).toThrow("no_layercontrol");
   });
 });
