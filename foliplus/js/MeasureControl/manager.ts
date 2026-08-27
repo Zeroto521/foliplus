@@ -237,7 +237,6 @@ class MeasureManager {
   setEditMode(on: boolean) {
     if (this.isEditMode === on) return;
     this.isEditMode = on;
-    this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
       if (btn.dataset.mode === CONST.MODE.EDIT) btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
     });
