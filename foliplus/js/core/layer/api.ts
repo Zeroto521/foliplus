@@ -90,18 +90,18 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
  * has, so the guard only accepts a real LayerControl.
  *
  * @param componentName - CONF.name, used as hint key and error prefix.
- * @param _ - Translator function (from createTranslator).
+ * @param T - Component-scoped translator (from createScopedTranslator).
  * @param map - Leaflet map instance (per-map LayerAPI namespace).
  * @returns The LayerAPI instance (throws if not a real LayerControl).
  */
 const requireLayerAPI = (
   componentName: string,
-  _: (key: string) => string,
+  T: (key: string) => string,
   map: L.Map,
 ): LayerAPI => {
   const api = map.foliplus?.LayerAPI;
   if (!isRealLayerControl(api)) {
-    const msg = _(`${componentName}.no_layercontrol`);
+    const msg = T("no_layercontrol");
     if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
     throw new Error(`[${componentName}] ${msg}`);
   }

@@ -5,18 +5,18 @@ import * as Icons from "#common/icon.js";
 import * as SVGs from "./icon.js";
 
 /** Build the panel HTML string. */
-const panelHTML = (_: (key: string) => string): string => /* html */ `
+const panelHTML = (T: (key: string) => string): string => /* html */ `
   <div class="foliplus-panel foliplus-ctrl-fold foliplus-layer-ctrl collapsed" id="${CONF.name}_ctrl">
-    <button class="foliplus-toggle-btn" title="${_(`${CONF.name}.toggle_title`)}" aria-label="${_(`${CONF.name}.toggle_title`)}">
+    <button class="foliplus-toggle-btn" title="${T("toggle_title")}" aria-label="${T("toggle_title")}">
       ${SVGs.LAYERS}
     </button>
-    <div class="foliplus-layer-panel" role="dialog" aria-label="${_(`${CONF.name}.panel_title`)}">
-      <div class="foliplus-panel-header" title="${_(`${CONF.name}.close_title`)}">
+    <div class="foliplus-layer-panel" role="dialog" aria-label="${T("panel_title")}">
+      <div class="foliplus-panel-header" title="${T("close_title")}">
         <span class="foliplus-header-title">
           <span class="foliplus-header-icon">${SVGs.LAYERS}</span>
-          ${_(`${CONF.name}.panel_title`)}
+          ${T("panel_title")}
         </span>
-        <button class="foliplus-ctrl-btn foliplus-close-btn" title="${_(`${CONF.name}.close_title`)}" aria-label="${_(`${CONF.name}.close_title`)}">
+        <button class="foliplus-ctrl-btn foliplus-close-btn" title="${T("close_title")}" aria-label="${T("close_title")}">
           ${Icons.CLOSE}
         </button>
       </div>
