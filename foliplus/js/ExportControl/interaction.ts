@@ -18,22 +18,9 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
         mgr.onKeyDown(e as KeyboardEvent);
       },
     },
-    // Enter / Ctrl+Z / Ctrl+Shift+Z: require map container focus
+    // Enter: require map container focus — confirm export / lock crop box
     {
       key: "Enter",
-      container,
-      handler: e => mgr.onKeyDown(e as KeyboardEvent),
-    },
-    {
-      key: "z",
-      ctrl: true,
-      container,
-      handler: e => mgr.onKeyDown(e as KeyboardEvent),
-    },
-    {
-      key: "z",
-      ctrl: true,
-      shift: true,
       container,
       handler: e => mgr.onKeyDown(e as KeyboardEvent),
     },

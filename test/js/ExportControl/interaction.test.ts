@@ -34,24 +34,21 @@ describe("ExportControl interaction", () => {
     cleanup();
   });
 
-  it("cleanup unregisters all shortcuts (Escape + Enter + Ctrl+Z)", () => {
+  it("cleanup unregisters all shortcuts (Escape + Enter)", () => {
     const mgr = makeMgr();
     const cleanup = registerInteractions(mgr);
     const container = mgr.map.getContainer();
     container.setAttribute("tabindex", "-1");
     container.focus();
 
-    // Verify all shortcuts respond before cleanup
+    // Verify both shortcuts respond before cleanup
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
     container.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
-    container.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
-    );
-    expect(mgr.onKeyDown).toHaveBeenCalledTimes(3);
+    expect(mgr.onKeyDown).toHaveBeenCalledTimes(2);
 
     // After cleanup, none of them should fire
     cleanup();
@@ -62,9 +59,6 @@ describe("ExportControl interaction", () => {
     );
     container.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-    );
-    container.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
     );
     expect(mgr.onKeyDown).not.toHaveBeenCalled();
   });
@@ -78,20 +72,6 @@ describe("ExportControl interaction", () => {
     container.focus();
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
-    expect(mgr.onKeyDown).toHaveBeenCalled();
-    cleanup();
-  });
-
-  it("Ctrl+Z handler calls onKeyDown", () => {
-    const mgr = makeMgr();
-    const cleanup = registerInteractions(mgr);
-    const container = mgr.map.getContainer();
-    container.setAttribute("tabindex", "-1");
-    document.body.appendChild(container);
-    container.focus();
-    container.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
     );
     expect(mgr.onKeyDown).toHaveBeenCalled();
     cleanup();
@@ -121,25 +101,6 @@ describe("ExportControl interaction", () => {
     container.focus();
     container.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-    );
-    expect(mgr.onKeyDown).toHaveBeenCalled();
-    cleanup();
-  });
-
-  it("Ctrl+Shift+Z handler calls onKeyDown", () => {
-    const mgr = makeMgr();
-    const cleanup = registerInteractions(mgr);
-    const container = mgr.map.getContainer();
-    container.setAttribute("tabindex", "-1");
-    document.body.appendChild(container);
-    container.focus();
-    container.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "z",
-        ctrlKey: true,
-        shiftKey: true,
-        bubbles: true,
-      }),
     );
     expect(mgr.onKeyDown).toHaveBeenCalled();
     cleanup();

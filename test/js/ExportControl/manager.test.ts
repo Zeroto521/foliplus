@@ -90,8 +90,6 @@ describe("ExportManager — shortcut lifecycle", () => {
     // (which internally calls removeCropBox) does not hit a no-op stub.
     manager.removeCropBox = () => {
       manager.cropState = null;
-      manager.undoStack = [];
-      manager.redoStack = [];
     };
     setCropState(manager);
   });
@@ -138,24 +136,22 @@ describe("ExportManager — shortcut lifecycle", () => {
     expect(manager.lockCropBox).not.toHaveBeenCalled();
   });
 
-  it("unregisterShortcuts prevents Ctrl+Z from firing", () => {
+  it("Enter reaches onKeyDown before cleanup, then suppressed after cleanup", () => {
     manager.registerShortcuts();
-    const spy = vi.spyOn(manager, "undoCropBox");
 
     manager.map.getContainer().focus();
     document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
-    expect(spy).toHaveBeenCalled();
-    spy.mockReset();
+    expect(manager.lockCropBox).toHaveBeenCalledTimes(1);
+    manager.lockCropBox.mockReset();
 
     manager.unregisterShortcuts();
 
     document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
-    expect(spy).not.toHaveBeenCalled();
-    spy.mockRestore();
+    expect(manager.lockCropBox).not.toHaveBeenCalled();
   });
 
   it("unregisterShortcuts prevents Escape from firing", () => {
@@ -166,8 +162,6 @@ describe("ExportManager — shortcut lifecycle", () => {
     manager.removeCropBox = () => {
       escapeCalled = true;
       manager.cropState = null;
-      manager.undoStack = [];
-      manager.redoStack = [];
     };
 
     document.dispatchEvent(
@@ -186,7 +180,7 @@ describe("ExportManager — shortcut lifecycle", () => {
     expect(escapeCalled).toBe(false);
   });
 
-  it("re-registering shortcuts after cleanup restores full set", () => {
+  it("re-registering shortcuts after cleanup restores Enter handler", () => {
     manager.registerShortcuts();
     manager.unregisterShortcuts();
 
@@ -196,13 +190,12 @@ describe("ExportManager — shortcut lifecycle", () => {
     manager.registerShortcuts();
     expect(typeof manager.interactionCleanup).toBe("function");
 
-    const spy = vi.spyOn(manager, "undoCropBox");
     manager.map.getContainer().focus();
     document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
-    expect(spy).toHaveBeenCalled();
-    spy.mockRestore();
+    expect(manager.lockCropBox).toHaveBeenCalledTimes(1);
+    manager.lockCropBox.mockReset();
 
     manager.unregisterShortcuts();
     expect(manager.interactionCleanup).toBeUndefined();
