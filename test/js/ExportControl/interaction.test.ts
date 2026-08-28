@@ -158,7 +158,7 @@ describe("ExportControl interaction", () => {
     cleanup();
   });
 
-  it("Escape does not fire onKeyDown when document is in fullscreen", () => {
+  it("Escape fires onKeyDown even when document is in fullscreen", () => {
     const mgr = makeMgr();
     const cleanup = registerInteractions(mgr);
     // Simulate fullscreen by setting document.fullscreenElement
@@ -170,6 +170,38 @@ describe("ExportControl interaction", () => {
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
+    expect(mgr.onKeyDown).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "Escape" }),
+    );
+
+    cleanup();
+    Object.defineProperty(document, "fullscreenElement", {
+      value: null,
+      configurable: true,
+    });
+  });
+
+  it("fullscreenchange (exit) replays Escape via onKeyDown", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(mgr.onKeyDown).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "Escape" }),
+    );
+
+    cleanup();
+  });
+
+  it("fullscreenchange (enter) does not fire onKeyDown", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    Object.defineProperty(document, "fullscreenElement", {
+      value: document.body,
+      configurable: true,
+    });
+
+    document.dispatchEvent(new Event("fullscreenchange"));
     expect(mgr.onKeyDown).not.toHaveBeenCalled();
 
     cleanup();
@@ -179,15 +211,12 @@ describe("ExportControl interaction", () => {
     });
   });
 
-  it("Escape fires onKeyDown when document is NOT in fullscreen", () => {
+  it("cleanup removes the fullscreenchange listener", () => {
     const mgr = makeMgr();
     const cleanup = registerInteractions(mgr);
-
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
-    expect(mgr.onKeyDown).toHaveBeenCalled();
-
     cleanup();
+
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(mgr.onKeyDown).not.toHaveBeenCalled();
   });
 });
