@@ -48,6 +48,66 @@ const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) =
   traverse(layer, fn, depth, false);
 };
 
+/**
+ * Enable or disable interaction on a single (leaf) layer.
+ *
+ * Leaflet registers a layer's per-element hit targets once, at add time, and
+ * only reads options.interactive live for the canvas renderer's hit test:
+ *   - SVG paths  → _addPath calls addInteractiveTarget(_path)
+ *   - Markers    → _initInteraction calls addInteractiveTarget(_icon)
+ *   - DivOverlay → onAdd calls addInteractiveTarget(_container)
+ * Flipping options.interactive alone therefore leaves those elements in
+ * map._targets, so their click handlers still fire and the pointer cursor /
+ * hover events keep going. Marker._initInteraction is also a no-op when
+ * disabling (it early-returns), so the disable side must tear targets down
+ * explicitly; the enable side re-runs _initInteraction to restore dragging.
+ *
+ * This helper sets the option and, for a layer already attached to a map,
+ * toggles the `leaflet-interactive` cursor class and the registered hit
+ * targets on the layer's icon / SVG path / overlay container. Once a target
+ * is unregistered, Leaflet's DOM dispatch (_findEventTargets) falls through
+ * to the map, so clicks land on the map as intended while measuring.
+ *
+ * A layer without _map has never registered targets — setting the option is
+ * enough; it is applied the next time the layer is added.
+ *
+ * Container layers (LayerGroup) carry no interactivity of their own — walk a
+ * tree with forEachLeaf and apply this per leaf.
+ *
+ * @param {Object} layer - Leaflet layer.
+ * @param {boolean} interactive - Desired interactivity.
+ */
+const setInteractive = (layer: L.Layer, interactive: boolean): void => {
+  const opts = layer.options as L.LayerOptions & { interactive?: boolean };
+  if (!opts || opts.interactive === interactive) return;
+  opts.interactive = interactive;
+  // _map is `protected` in @types/leaflet, so read it through a narrow cast.
+  if (!(layer as unknown as { _map?: L.Map })._map) return;
+
+  const els = [layer._icon, layer._path, layer._container].filter(
+    (el): el is HTMLElement => !!el,
+  );
+
+  if (interactive) {
+    // Marker._initInteraction re-adds the icon class, hit target, and any
+    // dragging hooks — prefer it for the icon. The explicit pass below covers
+    // SVG paths (layer._path) and DivOverlay containers (layer._container).
+    if (typeof layer._initInteraction === "function") layer._initInteraction();
+    for (const el of els) {
+      if (el === layer._icon && typeof layer._initInteraction === "function") {
+        continue;
+      }
+      el.classList.add("leaflet-interactive");
+      layer.addInteractiveTarget(el);
+    }
+  } else {
+    for (const el of els) {
+      el.classList.remove("leaflet-interactive");
+      layer.removeInteractiveTarget(el);
+    }
+  }
+};
+
 /** Detect the geometry type of a layer tree.
  *  Ignores isLabel leaves — type represents the data geometry, never labels.
  *  @param {Object} layer - Leaflet layer.
@@ -98,4 +158,11 @@ const countFeatureGeometry = (layer: L.Layer): number => {
   return count;
 };
 
-export { findLayer, forEachLayer, forEachLeaf, getGeometryType, countFeatureGeometry };
+export {
+  findLayer,
+  forEachLayer,
+  forEachLeaf,
+  setInteractive,
+  getGeometryType,
+  countFeatureGeometry,
+};

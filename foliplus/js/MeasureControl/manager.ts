@@ -2,6 +2,7 @@
 import { COMPONENTS, generateId } from "#core/component.js";
 import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { forEachLeaf, setInteractive } from "#core/layer/index.js";
 import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -24,6 +25,8 @@ class MeasureManager {
   map: L.Map;
   private interactionCleanup?: () => void;
   private exportClickCleanup?: () => void;
+  /** Restore closure for map layers made non-interactive while measuring. */
+  private disableLayerInteraction: (() => void) | null = null;
   layers: CreateLayersAPI;
   currentMode: string | null;
   modeInstance: MeasureMode | null;
@@ -183,8 +186,17 @@ class MeasureManager {
     this.layers.register();
 
     this.cleanMapEvents();
+    const wasMeasuring = this.currentMode !== null;
     this.currentMode = mode;
     ensureModes(this.map).setMode(CONF.name, mode);
+
+    // Disable interaction on every map layer while measuring so clicks fall
+    // through to the map (drawing nodes) instead of firing layer handlers.
+    // Only suspend on the null → active transition; switching between measure
+    // modes keeps the existing suspension.
+    if (!wasMeasuring) {
+      this.disableLayerInteraction = this.suspendMapInteractions();
+    }
 
     this.toolBtns.forEach(btn =>
       btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
@@ -212,6 +224,9 @@ class MeasureManager {
   /** Deactivate current mode, clean up events, and hide hints. */
   clearActiveMode() {
     this.currentMode = null;
+    // Restore interaction on the map layers disabled while measuring.
+    this.disableLayerInteraction?.();
+    this.disableLayerInteraction = null;
     ensureModes(this.map).setMode(CONF.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
     this.map.foliplus!.hideHint(CONF.name);
@@ -281,6 +296,29 @@ class MeasureManager {
       this.modeInstance = null;
     }
     this.map.foliplus!.hideHint(CONF.name);
+  }
+
+  /**
+   * Temporarily disable interaction on every interactive map layer so clicks
+   * fall through to the map (placing measurement nodes) instead of firing the
+   * layer's own handlers (popups, delete icons, feature toggles).
+   *
+   * Only the leaves that were actually interactive are collected and disabled,
+   * so the returned closure restores exactly those and leaves everything else
+   * (tiles, labels, non-interactive previews) untouched.
+   *
+   * @returns A restore closure that re-enables the disabled layers.
+   */
+  suspendMapInteractions(): () => void {
+    const disabled: L.Layer[] = [];
+    this.map.eachLayer(top => {
+      forEachLeaf(top, leaf => {
+        const opts = leaf.options as L.LayerOptions & { interactive?: boolean };
+        if (opts?.interactive) disabled.push(leaf);
+      });
+    });
+    disabled.forEach(leaf => setInteractive(leaf, false));
+    return () => disabled.forEach(leaf => setInteractive(leaf, true));
   }
 }
 

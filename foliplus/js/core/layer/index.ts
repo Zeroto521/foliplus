@@ -15,6 +15,7 @@ export {
   findLayer,
   forEachLayer,
   forEachLeaf,
+  setInteractive,
   getGeometryType,
   countFeatureGeometry,
 } from "./util.js";
