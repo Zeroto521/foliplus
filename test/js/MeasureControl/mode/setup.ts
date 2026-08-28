@@ -126,6 +126,8 @@ export function makeManagerMock() {
     saveMeasurements: vi.fn(),
     clearActiveMode: vi.fn(),
     cleanMapEvents: vi.fn(),
+    registerEditOverlayCloser: vi.fn(() => () => {}),
+    registerEditDragToggle: vi.fn(() => () => {}),
     currentMode: null,
     isEditMode: false,
     measurements: [],

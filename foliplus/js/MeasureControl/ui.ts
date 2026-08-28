@@ -52,18 +52,22 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
 
   const onOpen = () => {
     nodeDelIcons.forEach(m => toggleDelIcon(m, true));
-    dragBinds.forEach(db => db.setEnabled(true));
   };
   const onEmpty = () => {
     nodeDelIcons.forEach(m => toggleDelIcon(m, false));
-    dragBinds.forEach(db => db.setEnabled(false));
   };
   const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
+  // Drag is gated by edit mode (not the overlay), so nodes are draggable as
+  // soon as edit mode is on — no click-first required.
+  const unregisterDragToggle = mgr.registerEditDragToggle(enabled =>
+    dragBinds.forEach(db => db.setEnabled(enabled)),
+  );
 
   const deleteMeasurement = () => {
     dragBinds.forEach(db => db.cleanup());
     overlay.cleanup();
+    unregisterDragToggle();
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
     onDelete();
     layers.unregister();
@@ -159,6 +163,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
   return () => {
     dragBinds.forEach(db => db.cleanup());
     overlay.cleanup();
+    unregisterDragToggle();
   };
 };
 
@@ -188,8 +193,11 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
     onEnd,
   } = opts;
 
+  let unregisterDragToggle: () => void = () => {};
+
   const deleteMeasurement = () => {
     dragBinds.forEach(db => db.cleanup());
+    unregisterDragToggle();
     layers.removeLayer(circle);
     if (radiusLine) layers.removeLayer(radiusLine);
     if (radiusNode) layers.removeLayer(radiusNode);
@@ -250,14 +258,17 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
 
   const onOpen = () => {
     toggleDelIcon(delMarker, true);
-    dragBinds.forEach(db => db.setEnabled(true));
   };
   const onEmpty = () => {
     toggleDelIcon(delMarker, false);
-    dragBinds.forEach(db => db.setEnabled(false));
   };
   const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
+  // Drag is gated by edit mode (not the overlay), so the center/radius node
+  // are draggable as soon as edit mode is on — no click-first required.
+  unregisterDragToggle = mgr.registerEditDragToggle(enabled =>
+    dragBinds.forEach(db => db.setEnabled(enabled)),
+  );
 
   const attachInteraction = (layer: L.Layer) => {
     layer.on("click", (event: L.LeafletMouseEvent) => {
@@ -280,7 +291,11 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
     openOverlay(event);
   });
 
-  return overlay.cleanup;
+  return () => {
+    dragBinds.forEach(db => db.cleanup());
+    overlay.cleanup();
+    unregisterDragToggle();
+  };
 };
 
 /** Options for attachPolygonUI. */
@@ -312,6 +327,7 @@ const attachPolygonUI = (
   const nodeDelIcons: L.Marker[] = [];
   const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
     [];
+  let unregisterDragToggle: () => void = () => {};
   let centroidDot: L.Marker | null = null;
   let centroidLabel: L.Marker | null = null;
   let centroidDel: L.Marker | null = null;
@@ -377,6 +393,7 @@ const attachPolygonUI = (
 
   const deleteMeasurement = () => {
     dragBinds.forEach(db => db.cleanup());
+    unregisterDragToggle();
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
     if (centroidDot) layers.removeLayer(centroidDot);
     if (centroidLabel) layers.removeLayer(centroidLabel);
@@ -388,15 +405,18 @@ const attachPolygonUI = (
   const onOpen = () => {
     nodeDelIcons.forEach(m => toggleDelIcon(m, true));
     if (centroidDel) toggleDelIcon(centroidDel, true);
-    dragBinds.forEach(db => db.setEnabled(true));
   };
   const onEmpty = () => {
     nodeDelIcons.forEach(m => toggleDelIcon(m, false));
     if (centroidDel) toggleDelIcon(centroidDel, false);
-    dragBinds.forEach(db => db.setEnabled(false));
   };
   const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
+  // Drag is gated by edit mode (not the overlay), so nodes are draggable as
+  // soon as edit mode is on — no click-first required.
+  unregisterDragToggle = mgr.registerEditDragToggle(enabled =>
+    dragBinds.forEach(db => db.setEnabled(enabled)),
+  );
 
   finalPoly.on("click", openOverlay);
   nodeMarkers.forEach(m => m.on("click", openOverlay));
@@ -494,7 +514,11 @@ const attachPolygonUI = (
 
   resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
 
-  return overlay.cleanup;
+  return () => {
+    dragBinds.forEach(db => db.cleanup());
+    overlay.cleanup();
+    unregisterDragToggle();
+  };
 };
 
 export { attachCircleUI, attachDistanceUI, attachPolygonUI, resortLayers };

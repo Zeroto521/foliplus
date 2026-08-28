@@ -260,6 +260,28 @@ describe("MeasureManager — setEditMode", () => {
     expect(close).not.toHaveBeenCalled();
   });
 
+  it("toggles registered drag binds on setEditMode (nodes draggable without click-first)", () => {
+    const { manager } = makeManager();
+    const toggle = vi.fn();
+    manager.registerEditDragToggle(toggle);
+
+    manager.setEditMode(true);
+    expect(toggle).toHaveBeenCalledWith(true);
+
+    manager.setEditMode(false);
+    expect(toggle).toHaveBeenCalledWith(false);
+  });
+
+  it("unregisters a drag toggle when the returned unregister runs", () => {
+    const { manager } = makeManager();
+    const toggle = vi.fn();
+    const unregister = manager.registerEditDragToggle(toggle);
+
+    unregister();
+    manager.setEditMode(true);
+    expect(toggle).not.toHaveBeenCalled();
+  });
+
   it("setMode EDIT enters edit mode when off", () => {
     const { manager } = makeManager();
     manager.setMode(CONST.MODE.EDIT);

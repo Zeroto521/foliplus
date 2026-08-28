@@ -35,6 +35,9 @@ class MeasureManager {
   /** Close callbacks for each measurement's edit overlay, so exiting edit mode
    *   can hide all open ✕ handles and disable node drag. */
   private editOverlayClosers: Array<() => void> = [];
+  /** Toggles for each measurement's node drag binds, so entering/leaving edit
+   *   mode enables/disables dragging directly (no click-first required). */
+  private editDragToggles: Array<(enabled: boolean) => void> = [];
   measurements: MeasureData[];
   measurementIdCounter: number;
   ctrl: HTMLElement | null;
@@ -247,6 +250,15 @@ class MeasureManager {
     };
   };
 
+  /** Register a node-drag toggle so setEditMode toggles dragging directly.
+   *  Returns an unregister function so deleted measurements drop their entry. */
+  registerEditDragToggle = (toggle: (enabled: boolean) => void): (() => void) => {
+    this.editDragToggles.push(toggle);
+    return () => {
+      this.editDragToggles = this.editDragToggles.filter(t => t !== toggle);
+    };
+  };
+
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
   setEditMode(on: boolean) {
     if (this.isEditMode === on) return;
@@ -256,14 +268,16 @@ class MeasureManager {
       if (btn.dataset.mode === CONST.MODE.EDIT)
         btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
     });
+    // Node drag is tied to edit mode (not the overlay): entering edit makes
+    // nodes directly draggable, leaving disables them.
+    this.editDragToggles.forEach(t => t(on));
     if (on) {
       this.map.foliplus!.showHint(CONF.name, T("hint_edit"), HINT_DURATION.PERSIST);
     } else {
       this.map.foliplus!.hideHint(CONF.name);
-      // Close any open overlays so ✕ handles and node-drag cursors don't
-      // linger after leaving edit mode. Keep the closers registered so a
-      // later edit session can close them again; each overlay unregisters
-      // itself on delete (see buildEditOverlay.cleanup).
+      // Close any open overlays so ✕ handles don't linger after leaving edit
+      // mode. Keep the closers registered so a later edit session can close
+      // them again; each overlay unregisters itself on delete.
       this.editOverlayClosers.forEach(c => c());
     }
   }
@@ -295,6 +309,7 @@ class MeasureManager {
     this.finalizedClickHandlers.forEach(h => h());
     this.finalizedClickHandlers = [];
     this.editOverlayClosers = [];
+    this.editDragToggles = [];
     // Collapse the panel after clearing all measurements
     if (this.ctrl) {
       this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
@@ -314,6 +329,7 @@ class MeasureManager {
     this.finalizedClickHandlers.forEach(h => h());
     this.finalizedClickHandlers = [];
     this.editOverlayClosers = [];
+    this.editDragToggles = [];
   }
 
   /**
