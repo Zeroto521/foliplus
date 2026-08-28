@@ -30,4 +30,4 @@ export const assertComponentName = (name: string): void => {
         `Must be one of: ${Object.values(COMPONENTS).join(", ")}`,
     );
   }
-}
+};

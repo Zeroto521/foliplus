@@ -21,7 +21,7 @@ const hasTileUrlMatching = (map: L.Map | null, patterns: string[]): boolean => {
     // Ignore errors from layer traversal.
   }
   return false;
-}
+};
 
 /** Check if the map's CRS code contains a pattern (case-insensitive). */
 const hasCrsCode = (map: L.Map | null, codePattern: string): boolean => {
@@ -33,7 +33,7 @@ const hasCrsCode = (map: L.Map | null, codePattern: string): boolean => {
   } catch (_) {
     return false;
   }
-}
+};
 
 /**
  * Detect whether the map uses Baidu coordinate system (BD-09).
