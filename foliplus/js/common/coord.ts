@@ -9,7 +9,7 @@
 type CrsType = "BD09" | "GCJ02" | "WGS84";
 
 /** Check if any tile layer in the map has a URL matching one of the patterns. */
-function hasTileUrlMatching(map: L.Map | null, patterns: string[]): boolean {
+const hasTileUrlMatching = (map: L.Map | null, patterns: string[]): boolean => {
   try {
     const layers = map?._layers as Record<string, L.TileLayer> | undefined;
     if (!layers) return false;
@@ -21,10 +21,10 @@ function hasTileUrlMatching(map: L.Map | null, patterns: string[]): boolean {
     // Ignore errors from layer traversal.
   }
   return false;
-}
+};
 
 /** Check if the map's CRS code contains a pattern (case-insensitive). */
-function hasCrsCode(map: L.Map | null, codePattern: string): boolean {
+const hasCrsCode = (map: L.Map | null, codePattern: string): boolean => {
   try {
     const crs = map?.options?.crs;
     if (!crs) return false;
@@ -33,7 +33,7 @@ function hasCrsCode(map: L.Map | null, codePattern: string): boolean {
   } catch (_) {
     return false;
   }
-}
+};
 
 /**
  * Detect whether the map uses Baidu coordinate system (BD-09).
