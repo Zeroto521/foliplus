@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "threshold": 10,
+  "lastUpdated": "2026-08-28",
+  "updatedBy": "local",
+  "files": {
+    "foliplus-ExportControl.min.css": 884,
+    "foliplus-ExportControl.min.js": 9369,
+    "foliplus-FullscreenControl.min.css": 275,
+    "foliplus-FullscreenControl.min.js": 1418,
+    "foliplus-HeatmapControl.min.css": 1817,
+    "foliplus-HeatmapControl.min.js": 7190,
+    "foliplus-LayerControl.min.css": 1989,
+    "foliplus-LayerControl.min.js": 8309,
+    "foliplus-LocateControl.min.js": 1037,
+    "foliplus-MeasureControl.min.css": 722,
+    "foliplus-MeasureControl.min.js": 9117,
+    "foliplus-ScaleControl.min.css": 229,
+    "foliplus-ScaleControl.min.js": 396,
+    "foliplus-SearchControl.min.css": 587,
+    "foliplus-SearchControl.min.js": 4218,
+    "foliplus-common.min.css": 2363,
+    "foliplus-common.min.js": 11925
+  }
+}

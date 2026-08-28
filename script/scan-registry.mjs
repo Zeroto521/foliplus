@@ -48,7 +48,7 @@ const srcDir = resolve(ROOT, "foliplus/js");
 const buildJs = resolve(ROOT, "foliplus/.build/js");
 mkdirSync(buildJs, { recursive: true });
 
-function scanImports(dir) {
+const scanImports = dir => {
   const imported = new Map();
   const starImported = new Map();
   const allSrc = new Map();
@@ -118,7 +118,7 @@ function scanImports(dir) {
   return usedExports;
 }
 
-function generateRegistry(srcDirParam = srcDir, buildJsParam = buildJs) {
+const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   const sourceDir = srcDirParam;
   const buildDir = buildJsParam;
   const commonDir = resolve(sourceDir, "common");

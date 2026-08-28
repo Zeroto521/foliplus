@@ -24,10 +24,11 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "size:check": "size-limit"
+    "size:check": "node script/size-check.mjs",
+    "size:save": "node script/size-check.mjs --save",
+    "size:audit": "node script/size-check.mjs --audit"
   },
   "devDependencies": {
-    "@size-limit/file": "^13.0.3",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/chroma-js": "^3.1.2",
     "@types/geojson": "^7946.0.16",
@@ -44,7 +45,6 @@
     "postcss": "^8.5.26",
     "postcss-nesting": "^14.0.1",
     "prettier": "^3.9.5",
-    "size-limit": "^13.0.3",
     "sonda": "^0.14.0",
     "svgo": "^4.0.2",
     "typescript": "^7.0.2",

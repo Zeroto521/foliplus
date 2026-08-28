@@ -7,9 +7,9 @@
  *      overview listing every bundle with raw/gzip/brotli sizes, share bars and
  *      links to each bundle's sonda report.
  *   2. `checkBundleCoverage(root)` — warn if a dist bundle is not listed in
- *      `.size-limit.mjs` (so it would silently escape threshold checking).
+ *      `size-baselines.json` (so it would silently escape threshold checking).
  *
- * Both run in parallel from `build.mjs --sonda`. Run standalone with:
+ * Both run from `build.mjs --sonda` after the esbuild build. Run standalone with:
  *   node script/bundle-report.mjs
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
@@ -24,7 +24,7 @@ const projectRoot = resolve(__dirname, "..");
  *  dist bundles. Borrows sonda's treemap ideas: tile area & color ∝ size,
  *  hover shows exact size, a toolbar switches Raw/Gzip/Brotli, and clicking a
  *  tile opens that bundle's sonda report. */
-export function generateIndexReport(root = projectRoot) {
+export const generateIndexReport = (root = projectRoot) => {
   const distDir = resolve(root, "foliplus/dist");
   const reportDir = resolve(root, "bundle-reports");
   const files = readdirSync(distDir)
@@ -129,7 +129,7 @@ let metric = 'gz';
 
 const kb = n => (n / 1024) >= 1 ? (n/1024).toFixed(2) + ' KB' : n + ' B';
 // Color scale green→yellow→red across [min,max] of current metric.
-function heat(t) {
+const heat = t => {
   t = Math.max(0, Math.min(1, t));
   const r = Math.round(120 + t * (220 - 120));
   const g = Math.round(220 - t * (220 - 60));
@@ -138,7 +138,7 @@ function heat(t) {
 }
 
 // Squarified treemap (Bruls et al.). Returns [{x,y,w,h}] in the same order as input items.
-function squarify(items, x, y, w, h) {
+const squarify = (items, x, y, w, h) => {
   const total = items.reduce((a,b)=>a+b.v,0) || 1;
   const totalArea = w * h;
   const out = [];
@@ -174,7 +174,7 @@ function squarify(items, x, y, w, h) {
   return out;
 }
 // Worst aspect ratio of a row laid along a side-long edge (all tiles share row thickness).
-function worstRatio(row, side) {
+const worstRatio = (row, side) => {
   const sum = row.reduce((a,b)=>a+b,0);
   if (sum === 0) return Infinity;
   let worst = 0;
@@ -186,7 +186,7 @@ function worstRatio(row, side) {
   return worst;
 }
 
-function render(metricKey) {
+const render = metricKey => {
   const items = DATA.map(d => ({ ...d, v: d[metricKey] })).filter(d => d.v > 0);
   const total = items.reduce((a,b)=>a+b.v,0) || 1;
   const rects = squarify(items, 0, 0, map.clientWidth, map.clientHeight);
@@ -236,31 +236,29 @@ requestAnimationFrame(() => render(metric));
   );
 }
 
-function packKw(bytes) {
+const packKw = bytes => {
   return (bytes / 1024).toFixed(2) + " KB";
 }
 
-/** Warn if any dist bundle is not listed in `.size-limit.mjs` (would skip threshold checks). */
-export async function checkBundleCoverage(root = projectRoot) {
+/** Warn if any dist bundle is not listed in `size-baselines.json` (would skip threshold checks). */
+export const checkBundleCoverage = (root = projectRoot) => {
   const distDir = resolve(root, "foliplus/dist");
   const distFiles = readdirSync(distDir).filter(f => /\.min\.(js|css)$/.test(f));
-  const configPath = resolve(root, ".size-limit.mjs");
-  if (!existsSync(configPath)) return; // no config yet — nothing to cross-check
+  const configPath = resolve(root, "size-baselines.json");
+  if (!existsSync(configPath)) return; // no baseline yet — nothing to cross-check
 
-  const monitored = new Set(
-    (await import(pathToFileURL(configPath))).default.map(c => c.path.split("/").pop()),
-  );
+  const monitored = new Set(Object.keys(JSON.parse(readFileSync(configPath, "utf-8")).files));
   const unmonitored = distFiles.filter(f => !monitored.has(f));
   if (!unmonitored.length) return;
 
   console.warn(
-    `⚠️  ${unmonitored.length} bundle(s) not covered by .size-limit.mjs: ${unmonitored.join(", ")}`,
+    `⚠️  ${unmonitored.length} bundle(s) not covered by size-baselines.json: ${unmonitored.join(", ")}`,
   );
-  console.warn("   Add them to .size-limit.mjs or they will not be size-checked.");
+  console.warn("   Add them to size-baselines.json or they will not be size-checked.");
 }
 
 // CLI entry point: `node script/bundle-report.mjs`
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   generateIndexReport();
-  await checkBundleCoverage();
+  checkBundleCoverage();
 }

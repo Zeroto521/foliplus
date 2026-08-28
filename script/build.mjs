@@ -281,7 +281,7 @@ const generateSharedRegistry = () => {
   if (genResult.stderr) console.error(genResult.stderr);
   if (genResult.status !== 0) process.exit(genResult.status);
 };
-async function main() {
+const main = async () => {
   console.time("build");
   // ── Step 1: Create output dirs (no source mirror needed)
   // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
@@ -313,7 +313,7 @@ async function main() {
 
   // ── Step 4.5: Summary overview + coverage check (--sonda) ────
   // Emit an index.html aggregating all bundles and warn if any dist
-  // bundle is missing from .size-limit.mjs.
+  // bundle is missing from size-baselines.json.
   if (sonda) {
     generateIndexReport(ROOT_RESOLVED);
     await checkBundleCoverage(ROOT_RESOLVED);
