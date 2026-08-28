@@ -426,6 +426,32 @@ const attachPolygonUI = (
   centroidDot!.on("click", openOverlay);
   (centroidDel as L.Marker | null)?.on("click", openOverlay);
 
+  // Dragging the centroid translates the whole polygon (mirrors the circle
+  // center drag).
+  dragBinds.push(
+    Util.bindNodeDrag(centroidDot!, centroidDel, mgr.map, {
+      onDrag: (latlng: L.LatLng) => {
+        const dx = latlng.lng - centroidDot!.getLatLng().lng;
+        const dy = latlng.lat - centroidDot!.getLatLng().lat;
+        points.forEach((p, i) => {
+          p.lat += dy;
+          p.lng += dx;
+          nodeMarkers[i]?.setLatLng(p);
+          nodeDelIcons[i]?.setLatLng(p);
+        });
+        finalPoly.setLatLngs(points);
+        relabel();
+      },
+      onEnd: (latlng: L.LatLng) => {
+        Util.markDragSyntheticClick();
+        if (onUpdate) {
+          opts.area = Util.area(points);
+          onUpdate();
+        }
+      },
+    }),
+  );
+
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
     const delMarker = layers.addLayer(

@@ -230,6 +230,18 @@ describe("attachDistanceUI", () => {
     UI.attachDistanceUI(makeMgr() as any, opts as any);
     expect(makeDelIcon).toHaveBeenCalled();
   });
+
+  it("registers a drag toggle so edit mode enables node drag directly", () => {
+    const mgr = makeMgr();
+    const opts = makeOpts();
+    UI.attachDistanceUI(mgr as any, opts as any);
+
+    expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(expect.any(Function));
+    // The registered toggle must not throw when fired (setEditMode toggling).
+    const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
+    expect(() => toggle(true)).not.toThrow();
+    expect(() => toggle(false)).not.toThrow();
+  });
 });
 
 describe("attachPolygonUI", () => {
@@ -287,5 +299,16 @@ describe("attachPolygonUI", () => {
       ([opts]) => opts?.className === "foliplus-measure-center-dot",
     );
     expect(dotIcons.length).toBe(1);
+  });
+
+  it("registers a drag toggle (nodes + centroid drag) with the manager", () => {
+    const mgr = makeMgr();
+    const opts = makeOpts();
+    UI.attachPolygonUI(mgr as any, opts as any);
+
+    expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(expect.any(Function));
+    const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
+    expect(() => toggle(true)).not.toThrow();
+    expect(() => toggle(false)).not.toThrow();
   });
 });
