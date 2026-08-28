@@ -17,6 +17,11 @@
 .foliplus-measure-editing .leaflet-measure_label-pane .leaflet-interactive {
   cursor: pointer;
 }
+/* Location pin keeps the pointer cursor in every mode — clicking it opens the
+   location popup even outside edit mode. */
+.leaflet-measure_graph-pane .leaflet-marker-icon:has(.foliplus-pin) {
+  cursor: pointer;
+}
 
 /* ── Measurement Labels ── */
 .foliplus-measure-center-dot {
