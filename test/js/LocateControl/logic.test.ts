@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { locateMe } from "#foliplus/LocateControl/logic.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 
+vi.mock("#common/locale.js", () => ({
+  createTranslator: () => (k: string) => k,
+  createScopedTranslator: () => (k: string) => k,
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   window.CONF = { ...window.CONF, name: "LocateControl", zoom: 16 };
@@ -41,7 +46,7 @@ describe("locateMe", () => {
     locateMe(ctrl);
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "LocateControl",
-      "LocateControl.geo_error",
+      "geo_error",
       4000,
     );
   });
@@ -78,7 +83,7 @@ describe("locateMe", () => {
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "LocateControl",
-      "LocateControl.geo_error",
+      "geo_error",
       4000,
     );
   });

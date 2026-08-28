@@ -17,7 +17,7 @@ import { PreviewMode } from "./base.js";
 class DistanceMode extends PreviewMode {
   static TYPE = CONST.MODE.DISTANCE;
   static NAME_LABEL = "Distance Measurement";
-  static NAME_LABEL_KEY = `${CONF.name}.name_distance`;
+  static NAME_LABEL_KEY = "name_distance";
 
   static restore(manager: MeasureManager, data: MeasureData) {
     const points = Util.pointsToLatLngs(data.points!);

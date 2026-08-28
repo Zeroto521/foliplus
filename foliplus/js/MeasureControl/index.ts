@@ -3,6 +3,7 @@ import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
+import { createScopedTranslator } from "#common/locale.js";
 import {
   bindFoldToggle,
   bindOutsideCollapse,
@@ -12,7 +13,8 @@ import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
 
-const { _ } = createControlEnv(CONF, SVGs.RULER);
+createControlEnv(CONF, SVGs.RULER);
+const T = createScopedTranslator(CONF);
 ensureLayerAPI(map);
 
 const measureManager = new MeasureManager(map);
@@ -34,42 +36,19 @@ class MeasureControl extends BaseControl {
   buildDOM() {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: "foliplus-measure-ctrl",
-      toggleTitle: _(`${CONF.name}.tool_toggle`),
+      toggleTitle: T("tool_toggle"),
       toggleSvg: SVGs.RULER,
       position: CONF.position,
     });
     const btnConfigs: Array<{ mode?: string; title: string; svg: string }> = [
-      {
-        mode: CONST.MODE.MARKER,
-        title: _(`${CONF.name}.tool_marker`),
-        svg: Icons.LOCATE,
-      },
-      {
-        mode: CONST.MODE.DISTANCE,
-        title: _(`${CONF.name}.tool_distance`),
-        svg: SVGs.RULER,
-      },
-      {
-        mode: CONST.MODE.POLYGON,
-        title: _(`${CONF.name}.tool_polygon`),
-        svg: SVGs.POLYGON,
-      },
-      {
-        mode: CONST.MODE.CIRCLE,
-        title: _(`${CONF.name}.tool_circle`),
-        svg: SVGs.CIRCLE,
-      },
+      { mode: CONST.MODE.MARKER, title: T("tool_marker"), svg: Icons.LOCATE },
+      { mode: CONST.MODE.DISTANCE, title: T("tool_distance"), svg: SVGs.RULER },
+      { mode: CONST.MODE.POLYGON, title: T("tool_polygon"), svg: SVGs.POLYGON },
+      { mode: CONST.MODE.CIRCLE, title: T("tool_circle"), svg: SVGs.CIRCLE },
       // Export — no mode, so it stays out of toolBtns (no data-mode);
       // its click is bound via the interaction manager (see manager.ts).
-      {
-        title: _(`${CONF.name}.tool_export`),
-        svg: Icons.DOWNLOAD,
-      },
-      {
-        mode: CONST.MODE.CLEAR,
-        title: _(`${CONF.name}.tool_clear`),
-        svg: SVGs.TRASH,
-      },
+      { title: T("tool_export"), svg: Icons.DOWNLOAD },
+      { mode: CONST.MODE.CLEAR, title: T("tool_clear"), svg: SVGs.TRASH },
     ];
     let exportBtn: HTMLElement | null = null;
     btnConfigs.forEach(({ mode, title, svg }) => {

@@ -24,11 +24,11 @@ const initFixture = (
     maxZoom?: number;
   } = {},
 ): { manager: LayerManager; ui: LayerUI; map: any } => {
-  vi.stubGlobal("CONF", {
-    ...window.CONF,
-    name: "LayerControl",
-    locale_code: "en",
-  });
+  // Mutate window.CONF in place: createScopedTranslator captures the CONF
+  // object reference at module import time and reads conf.name lazily, so a
+  // fresh stub object would leave the module's T() scoped to the wrong name.
+  window.CONF.name = "LayerControl";
+  window.CONF.locale_code = "en";
 
   class Renderer {}
   class Path {
