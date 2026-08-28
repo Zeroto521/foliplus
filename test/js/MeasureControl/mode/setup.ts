@@ -102,6 +102,11 @@ export function makeManagerMock() {
       off: vi.fn(),
       removeLayer: vi.fn(),
       getContainer: () => document.createElement("div"),
+      mouseEventToContainerPoint: vi.fn((raw: { clientX: number; clientY: number }) => ({
+        x: raw.clientX,
+        y: raw.clientY,
+      })),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
     },
     layers: {
       addLayer: vi.fn(l => l),
@@ -113,6 +118,7 @@ export function makeManagerMock() {
     clearActiveMode: vi.fn(),
     cleanMapEvents: vi.fn(),
     currentMode: null,
+    isEditMode: false,
     measurements: [],
     finalizedClickHandlers: [],
   };

@@ -447,8 +447,8 @@ describe("bindNodeDrag", () => {
 
     // find handlers
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onNodeUp = (node.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
-    const onUp = (map.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 1, lng: 1 } });
     expect(map.dragging.disable).toHaveBeenCalled();
@@ -458,7 +458,8 @@ describe("bindNodeDrag", () => {
     expect(del.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
     expect(onDrag).toHaveBeenCalledWith({ lat: 2, lng: 2 });
 
-    onUp({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+    // node-level mouseup delegates to the shared onUp handler
+    onNodeUp({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
     expect(onEnd).toHaveBeenCalledWith({ lat: 2, lng: 2 });
     expect(map.dragging.enable).toHaveBeenCalled();
 

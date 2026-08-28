@@ -5,6 +5,10 @@ import { initMocks, makeManagerMock } from "./setup.js";
 
 beforeEach(initMocks);
 
+/** Flush all pending microtasks (the onEnd → geocodeAddress await chain spans
+ *  several microtask hops, so a single `await Promise.resolve()` is not enough). */
+const flushAsync = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+
 describe("MarkerMode — TYPE", () => {
   it("has correct TYPE constant", () => {
     expect(MarkerMode.TYPE).toBe(CONST.MODE.MARKER);
@@ -128,34 +132,154 @@ describe("MarkerMode — start + click", () => {
     expect(() => manager.finalizedClickHandlers[0]()).not.toThrow();
   });
 
-  it("handles concurrent drag + stale geocode without throwing", async () => {
-    const manager = makeManagerMock() as any;
-    const geocodeResolve = vi.fn((_, lng, lat, code, prev) =>
-      Promise.resolve(`${prev}(${lng},${lat})`),
+  it("drags a restored pin in edit mode: live update + geocode on end persists by reference", async () => {
+    // requestAnimationFrame is unavailable in jsdom/node — stub it to queue
+    // the throttled saveMeasurements callback.
+    let rafCb: (() => void) | null = null;
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((cb: () => void) => {
+        rafCb = cb;
+        return 1;
+      }),
     );
-    const foliplus = {
-      ...window.foliplus,
-      reverseGeocode: geocodeResolve,
-    };
-    const prevFoliplus = (window as any).foliplus;
-    (window as any).foliplus = foliplus;
-    try {
-      const mode = new MarkerMode(manager);
-      manager.currentMode = CONST.MODE.MARKER;
-      mode.start();
-      const clickHandler = manager.map.on.mock.calls.find(
-        ([ev]) => ev === "click",
-      )?.[1];
-      clickHandler({ latlng: { lat: 31, lng: 121 } });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
 
-      // Trigger the drag onEnd async path by simulating a mouseup after
-      // movement: grab the last registered map mouseup handler and fire it.
-      const mouseupCalls = manager.map.on.mock.calls.filter(([ev]) => ev === "mouseup");
-      expect(mouseupCalls.length).toBeGreaterThan(0);
-      // Just verify the click didn't blow up and a cleanup is registered;
-      // the real async race is exercised by the live browser tests.
-      expect(manager.finalizedClickHandlers.length).toBe(1);
+    const geocode = vi.fn(() => Promise.resolve("New Address"));
+    const prevFoliplus = (window as any).foliplus;
+    (window as any).foliplus = { ...prevFoliplus, reverseGeocode: geocode };
+
+    try {
+      const manager = makeManagerMock() as any;
+      manager.isEditMode = true;
+      const data: MeasureData = {
+        id: "m_drag",
+        type: "marker",
+        lng: 121,
+        lat: 31,
+        address: "Old",
+      };
+      manager.measurements = [data];
+      MarkerMode.restore(manager, data);
+
+      // restore creates the pin (L.marker #1) then the del icon (L.marker #2).
+      const pin = (window.L.marker as any).mock.results[0].value;
+      const del = (window.L.marker as any).mock.results[1].value;
+
+      // popup opens in edit mode → ✕ shown + drag enabled. There are two
+      // popupopen handlers on the pin: the content-refresh one (registered
+      // first in restore) and the drag-gate one (registered by bindPinDrag).
+      const onPopupOpen = pin.on.mock.calls
+        .filter(([ev]: [string]) => ev === "popupopen")
+        .at(-1)[1];
+      onPopupOpen();
+
+      const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
+      const onMove = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "mousemove")?.[1];
+      const onUp = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "mouseup")?.[1];
+
+      onDown({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 31, lng: 121 } });
+      expect(manager.map.dragging.disable).toHaveBeenCalled();
+
+      onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+      expect(pin.setLatLng).toHaveBeenCalledWith({ lat: 32, lng: 122 });
+      expect(del.setLatLng).toHaveBeenCalledWith({ lat: 32, lng: 122 });
+      // Live coordinate update mutates the measurement by reference
+      expect(data.lng).toBe(122);
+      expect(data.lat).toBe(32);
+
+      // Flush the RAF-throttled persist
+      expect(rafCb).toBeTruthy();
+      rafCb!();
+      expect(manager.saveMeasurements).toHaveBeenCalled();
+
+      onUp({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+      await flushAsync(); // flush the geocode await chain
+      expect(geocode).toHaveBeenCalled();
+      expect(data.address).toBe("New Address");
+      expect(manager.map.dragging.enable).toHaveBeenCalled();
     } finally {
+      vi.unstubAllGlobals();
+      (window as any).foliplus = prevFoliplus;
+    }
+  });
+
+  it("does not enable drag when popup opens outside edit mode", () => {
+    const manager = makeManagerMock() as any;
+    manager.isEditMode = false;
+    MarkerMode.restore(manager, {
+      id: "m_noedit",
+      type: "marker",
+      lng: 121,
+      lat: 31,
+      address: "Old",
+    });
+
+    const pin = (window.L.marker as any).mock.results[0].value;
+    const onPopupOpen = pin.on.mock.calls
+      .filter(([ev]: [string]) => ev === "popupopen")
+      .at(-1)[1];
+    onPopupOpen();
+
+    // Drag stays disabled: mousedown is a no-op, map dragging is not disabled.
+    const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
+    onDown({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 31, lng: 121 } });
+    expect(manager.map.dragging.disable).not.toHaveBeenCalled();
+  });
+
+  it("discards a stale geocode result when a newer drag supersedes it", async () => {
+    let rafCb: (() => void) | null = null;
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((cb: () => void) => {
+        rafCb = cb;
+        return 1;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    // Two deferred geocodes: the first resolves late, the second resolves first.
+    let resolveFirst!: (v: string) => void;
+    const first = new Promise<string>(r => (resolveFirst = r));
+    const geocode = vi
+      .fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(Promise.resolve("Second Address"));
+    const prevFoliplus = (window as any).foliplus;
+    (window as any).foliplus = { ...prevFoliplus, reverseGeocode: geocode };
+
+    try {
+      const manager = makeManagerMock() as any;
+      manager.isEditMode = true;
+      const data: MeasureData = { id: "m_race", type: "marker", lng: 121, lat: 31, address: "Old" };
+      MarkerMode.restore(manager, data);
+
+      const pin = (window.L.marker as any).mock.results[0].value;
+      pin.on.mock.calls
+        .filter(([ev]: [string]) => ev === "popupopen")
+        .at(-1)[1]();
+
+      const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
+      const onMove = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "mousemove")?.[1];
+      const onUp = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "mouseup")?.[1];
+
+      onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+      onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+      onUp({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+
+      // second drag begins (supersedes gen 1)
+      onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+      onMove({ originalEvent: { clientX: 20, clientY: 0 }, latlng: { lat: 33, lng: 123 } });
+      onUp({ originalEvent: { clientX: 20, clientY: 0 }, latlng: { lat: 33, lng: 123 } });
+      await flushAsync();
+      expect(data.address).toBe("Second Address");
+
+      // stale first geocode resolves late — must NOT overwrite
+      resolveFirst!("Stale Address");
+      await flushAsync();
+      expect(data.address).toBe("Second Address");
+    } finally {
+      vi.unstubAllGlobals();
       (window as any).foliplus = prevFoliplus;
     }
   });

@@ -146,6 +146,65 @@ describe("MeasureManager — mode switching", () => {
   });
 });
 
+describe("MeasureManager — setEditMode", () => {
+  it("shows the edit hint and activates the edit button when enabled", () => {
+    const { manager } = makeManager();
+    const editBtn = document.createElement("button");
+    editBtn.dataset.mode = CONST.MODE.EDIT;
+    const otherBtn = document.createElement("button");
+    otherBtn.dataset.mode = CONST.MODE.DISTANCE;
+    manager.toolBtns = [editBtn, otherBtn];
+
+    manager.setEditMode(true);
+
+    expect(manager.isEditMode).toBe(true);
+    expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    expect(otherBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.any(String),
+      expect.anything(),
+    );
+  });
+
+  it("hides the hint and deactivates the edit button when disabled", () => {
+    const { manager } = makeManager();
+    const editBtn = document.createElement("button");
+    editBtn.dataset.mode = CONST.MODE.EDIT;
+    manager.toolBtns = [editBtn];
+    manager.setEditMode(true);
+    manager.map.foliplus!.showHint.mockClear();
+
+    manager.setEditMode(false);
+
+    expect(manager.isEditMode).toBe(false);
+    expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
+    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent for the same state", () => {
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+    manager.map.foliplus!.showHint.mockClear();
+    manager.setEditMode(true); // no-op
+    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+  });
+
+  it("setMode EDIT enters edit mode when off", () => {
+    const { manager } = makeManager();
+    manager.setMode(CONST.MODE.EDIT);
+    expect(manager.isEditMode).toBe(true);
+  });
+
+  it("setMode EDIT exits edit mode when already on (toggle)", () => {
+    const { manager } = makeManager();
+    manager.isEditMode = true;
+    manager.setMode(CONST.MODE.EDIT);
+    expect(manager.isEditMode).toBe(false);
+  });
+});
+
 describe("MeasureManager — lifecycle", () => {
   it("destroy unbinds map events", () => {
     const { manager, map } = makeManager();
