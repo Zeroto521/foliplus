@@ -9,7 +9,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import foliplus
 from foliplus import __version__
 
 # ── Project information ──────────────────────────────────────────────
@@ -212,6 +211,7 @@ def _resolve_missing_reference(app, env, node, contnode):
             ):
                 url = url_val
                 break
+
     if url is not None:
         from docutils import nodes
 
