@@ -67,7 +67,7 @@ class MarkerMode extends MeasureMode {
           code,
           measurement.address,
         );
-        if (gen !== generation) return; // a newer drag superceded us
+        if (gen !== generation) return; // a newer drag superseded us
         measurement.address = addr;
         manager.saveMeasurements();
         if (marker.getPopup()?.isOpen())
