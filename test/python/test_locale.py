@@ -127,6 +127,7 @@ _JS_USED_KEYS = {
     "LayerControl.focus_layer",
     "LayerControl.focus_layer_tooltip",
     "LayerControl.focus_layer_hidden",
+    "LayerControl.focus_cancelled",
     "LayerControl.readonly_error",
     "LayerControl.readonly_del_error",
     "LayerControl.readonly_method_error",
