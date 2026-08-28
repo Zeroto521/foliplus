@@ -6,19 +6,9 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
   const im = ensureInteraction(mgr.map);
   const container = mgr.map.getContainer();
 
-  // Native fullscreen swallows the Escape keydown — the browser exits
-  // fullscreen and may never dispatch keydown to the page. Listen for
-  // fullscreenchange instead: when fullscreen exits while the crop box is
-  // still open, replay the swallowed Escape so it dismisses on the same press.
-  const onFullscreenChange = () => {
-    if (document.fullscreenElement) return;
-    mgr.onKeyDown({ key: "Escape" } as KeyboardEvent);
-  };
-  document.addEventListener("fullscreenchange", onFullscreenChange);
-
   // All shortcuts registered under a single component name so the returned
   // cleanup function unregisters them all at once when the crop box is removed.
-  const cleanup = im.register(CONF.name, [
+  return im.register(CONF.name, [
     // Escape: global — dismiss crop box from anywhere.
     {
       key: "Escape",
@@ -31,11 +21,6 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
       handler: e => mgr.onKeyDown(e as KeyboardEvent),
     },
   ]);
-
-  return () => {
-    cleanup();
-    document.removeEventListener("fullscreenchange", onFullscreenChange);
-  };
 };
 
 const registerDrag = (mgr: ExportManager): (() => void) => {
