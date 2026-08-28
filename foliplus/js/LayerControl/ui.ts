@@ -1245,7 +1245,7 @@ class LayerUI {
     if (!bounds.isValid()) return;
 
     // Dim every other visible layer so the focused layer stands out.
-    this._dimOtherLayers(layer);
+    this.dimOtherLayers(layer);
 
     // Single-point / tiny bounds → flyTo the center.
     const southWest = bounds.getSouthWest();
@@ -1311,7 +1311,7 @@ class LayerUI {
   private _cancelFocus(silent = false): void {
     this._clearAutoCancel();
     this._clearFocusedRowHighlight();
-    this._restoreDimmedLayers();
+    this.restoreDimmedLayers();
 
     if (this.focusRect) {
       this.m.map.removeLayer(this.focusRect);
@@ -1333,14 +1333,14 @@ class LayerUI {
    * Type-aware: vector paths use setStyle(opacity + fillOpacity), opacity
    * layers (Marker/Tile/Grid/ImageOverlay) use setOpacity, and containers
    * (LayerGroup/FeatureGroup) recurse into children. Restore callbacks are
-   * collected and replayed by _restoreDimmedLayers().
+   * collected and replayed by restoreDimmedLayers().
    */
-  private _dimOtherLayers(focusedLayer: L.Layer): void {
+  private dimOtherLayers(focusedLayer: L.Layer): void {
     for (const layerInfo of this.m.layers) {
       const layer = this.m.findLayer(layerInfo);
       if (!layer || layer === focusedLayer) continue;
       if (!this.m.map.hasLayer(layer)) continue;
-      const restore = this._dimLayer(layer, CONST.FOCUS.DIM_OPACITY);
+      const restore = this.dimLayer(layer, CONST.FOCUS.DIM_OPACITY);
       if (restore) this.dimmedLayers.push(restore);
     }
   }
@@ -1349,7 +1349,7 @@ class LayerUI {
    * Dim a single layer and return a restore callback (or null if the layer
    * has no dimmable representation).
    */
-  private _dimLayer(layer: L.Layer, opacity: number): (() => void) | null {
+  private dimLayer(layer: L.Layer, opacity: number): (() => void) | null {
     const anyLayer = layer as L.Layer & {
       setOpacity?: (o: number) => L.Layer;
       eachLayer?: (fn: (c: L.Layer) => void) => void;
@@ -1376,7 +1376,7 @@ class LayerUI {
     if (typeof anyLayer.eachLayer === "function") {
       const restores: Array<(() => void) | null> = [];
       anyLayer.eachLayer(child => {
-        restores.push(this._dimLayer(child, opacity));
+        restores.push(this.dimLayer(child, opacity));
       });
       return () => restores.forEach(r => r?.());
     }
@@ -1385,7 +1385,7 @@ class LayerUI {
   }
 
   /** Restore all layers dimmed during the current focus. */
-  private _restoreDimmedLayers(): void {
+  private restoreDimmedLayers(): void {
     for (const restore of this.dimmedLayers) restore();
     this.dimmedLayers = [];
   }

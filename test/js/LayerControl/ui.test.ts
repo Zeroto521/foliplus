@@ -442,7 +442,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
   describe("focusLayer dims other layers", () => {
     it("dims other on-map layers but not the focused layer", () => {
-      const dimSpy = vi.spyOn(ui, "_dimLayer");
+      const dimSpy = vi.spyOn(ui, "dimLayer");
       map.hasLayer.mockReturnValue(true);
 
       ui.focusLayer("overlay1");
@@ -453,7 +453,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("skips layers that are not on the map", () => {
-      const dimSpy = vi.spyOn(ui, "_dimLayer");
+      const dimSpy = vi.spyOn(ui, "dimLayer");
       map.hasLayer.mockReturnValue(false); // base1 is off-map
 
       ui.focusLayer("overlay1");
@@ -469,7 +469,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       path.options = { opacity: 1, fillOpacity: 0.8 };
       path.setStyle = vi.fn();
 
-      const restore = ui._dimLayer(path, 0.25);
+      const restore = ui.dimLayer(path, 0.25);
 
       expect(path.setStyle).toHaveBeenCalledWith({ opacity: 0.25, fillOpacity: 0.25 });
       restore();
@@ -479,7 +479,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     it("dims an opacity layer via setOpacity and restores the original opacity", () => {
       const tile = { options: { opacity: 1 }, setOpacity: vi.fn() };
 
-      const restore = ui._dimLayer(tile, 0.25);
+      const restore = ui.dimLayer(tile, 0.25);
 
       expect(tile.setOpacity).toHaveBeenCalledWith(0.25);
       restore();
@@ -498,7 +498,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         }),
       };
 
-      const restore = ui._dimLayer(group, 0.25);
+      const restore = ui.dimLayer(group, 0.25);
 
       expect(childA.setOpacity).toHaveBeenCalledWith(0.25);
       expect(childB.setStyle).toHaveBeenCalledWith({
@@ -513,7 +513,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
     it("returns null for a layer with no dimmable representation", () => {
       const plain = { options: {} };
-      expect(ui._dimLayer(plain, 0.25)).toBeNull();
+      expect(ui.dimLayer(plain, 0.25)).toBeNull();
     });
   });
 
