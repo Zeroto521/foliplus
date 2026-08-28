@@ -236,9 +236,13 @@ class MeasureManager {
     this.map.foliplus!.hideHint(CONF.name);
   }
 
-  /** Register an overlay close callback so setEditMode(false) can hide ✕. */
-  registerEditOverlayCloser = (close: () => void) => {
+  /** Register an overlay close callback so setEditMode(false) can hide ✕.
+   *  Returns an unregister function so deleted measurements drop their entry. */
+  registerEditOverlayCloser = (close: () => void): (() => void) => {
     this.editOverlayClosers.push(close);
+    return () => {
+      this.editOverlayClosers = this.editOverlayClosers.filter(c => c !== close);
+    };
   };
 
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
@@ -254,9 +258,10 @@ class MeasureManager {
     } else {
       this.map.foliplus!.hideHint(CONF.name);
       // Close any open overlays so ✕ handles and node-drag cursors don't
-      // linger after leaving edit mode.
+      // linger after leaving edit mode. Keep the closers registered so a
+      // later edit session can close them again; each overlay unregisters
+      // itself on delete (see buildEditOverlay.cleanup).
       this.editOverlayClosers.forEach(c => c());
-      this.editOverlayClosers = [];
     }
   }
 
@@ -283,6 +288,7 @@ class MeasureManager {
     // above removed the targets, so dangling listeners would otherwise persist.
     this.finalizedClickHandlers.forEach(h => h());
     this.finalizedClickHandlers = [];
+    this.editOverlayClosers = [];
     // Collapse the panel after clearing all measurements
     if (this.ctrl) {
       this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
@@ -301,6 +307,7 @@ class MeasureManager {
     this.map.off("click", this.onMapClick);
     this.finalizedClickHandlers.forEach(h => h());
     this.finalizedClickHandlers = [];
+    this.editOverlayClosers = [];
   }
 
   /**

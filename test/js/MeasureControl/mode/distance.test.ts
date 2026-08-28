@@ -75,6 +75,27 @@ describe("DistanceMode — drawing polyline uses PATH_PREVIEW", () => {
   });
 });
 
+describe("DistanceMode — restore registers overlay cleanup", () => {
+  it("pushes the overlay cleanup into finalizedClickHandlers", () => {
+    const manager = makeManagerMock() as any;
+    DistanceMode.restore(manager, {
+      id: "d_reg",
+      type: "distance",
+      points: [
+        { lng: 121, lat: 30 },
+        { lng: 122, lat: 31 },
+      ],
+      segments: [],
+      totalDistance: 0,
+    });
+
+    // Regression: restored distances leaked their overlay map-click listener
+    // because attachDistanceUI's return value was discarded.
+    expect(manager.finalizedClickHandlers.length).toBe(1);
+    expect(typeof manager.finalizedClickHandlers[0]).toBe("function");
+  });
+});
+
 describe("DistanceMode — restore first node uses NODE_SOLID", () => {
   it("creates first restored node with NODE_SOLID class", () => {
     const manager = makeManagerMock();
@@ -221,6 +242,26 @@ describe("DistanceMode — finish saves measurement", () => {
     expect(saved.totalDistance).toBeGreaterThan(0);
     expect(saved.segments).toBeDefined();
     expect(saved.segments![0].bearing).toBeDefined();
+  });
+
+  it("registers the overlay cleanup and leaves _cleanup as a no-op", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    const dblHandler = manager.map.on.mock.calls.find(([ev]) => ev === "dblclick")?.[1];
+
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    dblHandler({ latlng: { lat: 31, lng: 121 } });
+
+    // Regression: finishing overwrote _cleanup with a broken map.off(...) that
+    // never unbound the overlay, and never registered the cleanup anywhere.
+    expect(manager.finalizedClickHandlers.length).toBe(1);
+    expect(typeof manager.finalizedClickHandlers[0]).toBe("function");
+    expect(() => manager.finalizedClickHandlers[0]()).not.toThrow();
   });
 });
 

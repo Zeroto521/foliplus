@@ -249,9 +249,11 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
   }
 
   const onOpen = () => {
+    toggleDelIcon(delMarker, true);
     dragBinds.forEach(db => db.setEnabled(true));
   };
   const onEmpty = () => {
+    toggleDelIcon(delMarker, false);
     dragBinds.forEach(db => db.setEnabled(false));
   };
   const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });

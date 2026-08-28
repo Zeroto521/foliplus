@@ -421,7 +421,13 @@ describe("buildEditOverlay", () => {
       map: makeMap(),
       isSuppressHideDel: false,
       isEditMode: true,
-      registerEditOverlayCloser: (c: () => void) => closers.push(c),
+      registerEditOverlayCloser: (c: () => void) => {
+        closers.push(c);
+        return () => {
+          const i = closers.indexOf(c);
+          if (i !== -1) closers.splice(i, 1);
+        };
+      },
     };
     const onEmpty = vi.fn();
     const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
@@ -431,6 +437,27 @@ describe("buildEditOverlay", () => {
 
     closers[0]();
     expect(onEmpty).toHaveBeenCalledTimes(1);
+  });
+
+  it("cleanup unregisters the closer so deleted measurements drop their entry", () => {
+    const closers: Array<() => void> = [];
+    const mgr = {
+      map: makeMap(),
+      isSuppressHideDel: false,
+      isEditMode: true,
+      registerEditOverlayCloser: (c: () => void) => {
+        closers.push(c);
+        return () => {
+          const i = closers.indexOf(c);
+          if (i !== -1) closers.splice(i, 1);
+        };
+      },
+    };
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+    expect(closers).toHaveLength(1);
+
+    overlay.cleanup();
+    expect(closers).toHaveLength(0);
   });
 });
 

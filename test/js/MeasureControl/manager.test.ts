@@ -205,6 +205,34 @@ describe("MeasureManager — setEditMode", () => {
     expect(close2).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps closers registered so a later edit session can close them again", () => {
+    const { manager } = makeManager();
+    const close = vi.fn();
+    manager.registerEditOverlayCloser(close);
+
+    // First session: open → close
+    manager.setEditMode(true);
+    manager.setEditMode(false);
+    expect(close).toHaveBeenCalledTimes(1);
+
+    // Second session must still close (regression: closers were cleared on exit)
+    manager.setEditMode(true);
+    manager.setEditMode(false);
+    expect(close).toHaveBeenCalledTimes(2);
+  });
+
+  it("unregisters a closer when the returned unregister runs", () => {
+    const { manager } = makeManager();
+    const close = vi.fn();
+    const unregister = manager.registerEditOverlayCloser(close);
+
+    unregister();
+
+    manager.setEditMode(true);
+    manager.setEditMode(false);
+    expect(close).not.toHaveBeenCalled();
+  });
+
   it("setMode EDIT enters edit mode when off", () => {
     const { manager } = makeManager();
     manager.setMode(CONST.MODE.EDIT);

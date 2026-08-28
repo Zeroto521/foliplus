@@ -49,7 +49,7 @@ const buildEditOverlay = (
     isSuppressHideDel: boolean;
     isEditMode: boolean;
     map: L.Map;
-    registerEditOverlayCloser?: (close: () => void) => void;
+    registerEditOverlayCloser?: (close: () => void) => () => void;
   },
   opts: { onOpen: () => void; onEmpty?: () => void },
 ): { open: (ev: L.LeafletMouseEvent) => void; close: () => void; cleanup: () => void } => {
@@ -68,7 +68,7 @@ const buildEditOverlay = (
     close();
   };
   mgr.map.on("click", onMapClick);
-  mgr.registerEditOverlayCloser?.(close);
+  const unregister = mgr.registerEditOverlayCloser?.(close);
 
   const openOverlay = (ev: L.LeafletMouseEvent) => {
     if (!mgr.isEditMode) return;
@@ -82,7 +82,10 @@ const buildEditOverlay = (
   return {
     open: openOverlay,
     close,
-    cleanup: () => mgr.map.off("click", onMapClick),
+    cleanup: () => {
+      mgr.map.off("click", onMapClick);
+      unregister?.();
+    },
   };
 };
 

@@ -8,6 +8,8 @@ export function initMocks() {
   window.L.circleMarker = vi.fn(() => ({
     bringToFront: vi.fn(),
     on: vi.fn(),
+    off: vi.fn(),
+    setLatLng: vi.fn(),
     getLatLng: vi.fn(() => ({ lat: 31, lng: 121 })),
     getElement: vi.fn(() => null),
   }));
@@ -17,18 +19,22 @@ export function initMocks() {
     setLatLngs: vi.fn(),
     getElement: vi.fn(() => null),
     on: vi.fn(),
+    off: vi.fn(),
   }));
 
   window.L.polygon = vi.fn(() => ({
     setLatLngs: vi.fn(),
     getElement: vi.fn(() => null),
     on: vi.fn(),
+    off: vi.fn(),
   }));
 
   window.L.circle = vi.fn(() => ({
     setRadius: vi.fn(),
+    setLatLng: vi.fn(),
     getElement: vi.fn(() => null),
     on: vi.fn(),
+    off: vi.fn(),
   }));
 
   const markerFactory = vi.fn(() => {

@@ -221,7 +221,10 @@ class PolygonMode extends PreviewMode {
           this.m.saveMeasurements();
         },
       });
-      this._cleanup = () => this.m.map.off("click", onPolyMapClick);
+      // Replace the drawing-phase cleanup with a no-op (it would remove the
+      // finalized polygon/nodes); the overlay cleanup lives in
+      // finalizedClickHandlers so clearAll/destroy can unbind it.
+      this._cleanup = () => {};
       this.m.finalizedClickHandlers.push(onPolyMapClick);
 
       // Cleanup drawing mode

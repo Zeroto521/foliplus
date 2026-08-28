@@ -4,11 +4,12 @@ import * as UI from "#foliplus/MeasureControl/ui.js";
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
 // Keep the original exports (DEL_ICON_* constants) via importOriginal and
 // override the function helpers.
-const { attachDelClick, makeDelIcon } = vi.hoisted(() => ({
+const { attachDelClick, makeDelIcon, toggleDelIcon } = vi.hoisted(() => ({
   attachDelClick: vi.fn((marker: any, cb: () => void) => {
     marker._delClick = cb;
   }),
   makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null), on: vi.fn() })),
+  toggleDelIcon: vi.fn(),
 }));
 
 vi.mock("#common/delicon.js", async importOriginal => {
@@ -17,7 +18,7 @@ vi.mock("#common/delicon.js", async importOriginal => {
     ...actual,
     makeDelIcon,
     attachDelClick,
-    toggleDelIcon: vi.fn(),
+    toggleDelIcon,
     hideDelIcons: vi.fn(),
   };
 });
@@ -169,6 +170,18 @@ describe("attachCircleUI — delete flow", () => {
     expect(clickHandler).toBeDefined();
     // Clicking the circle opens the overlay (stops event, no throw).
     clickHandler({ originalEvent: { target: null } } as any);
+  });
+
+  it("shows the circle delete ✕ when the overlay opens (regression)", () => {
+    const { delMarker, opts } = makeOpts();
+    UI.attachCircleUI(makeMgr() as any, opts as any);
+
+    const clickHandler = (opts.circle.on as any).mock.calls.find(
+      (c: any[]) => c[0] === "click",
+    )?.[1];
+    clickHandler({ originalEvent: { target: null } } as any);
+
+    expect(toggleDelIcon).toHaveBeenCalledWith(delMarker, true);
   });
 });
 

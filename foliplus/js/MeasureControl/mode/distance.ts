@@ -55,24 +55,26 @@ class DistanceMode extends PreviewMode {
       });
     }
 
-    attachDistanceUI(manager, {
-      layers: manager.layers,
-      finalPoly,
-      nodeMarkers,
-      segLabels,
-      points: points,
-      onDelete: () => {
-        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-        manager.saveMeasurements();
-      },
-      onUpdate: () => {
-        const { segments, totalDistance } = Util.recalculateSegments(points);
-        data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-        data.segments = segments;
-        data.totalDistance = totalDistance;
-        manager.saveMeasurements();
-      },
-    });
+    manager.finalizedClickHandlers.push(
+      attachDistanceUI(manager, {
+        layers: manager.layers,
+        finalPoly,
+        nodeMarkers,
+        segLabels,
+        points: points,
+        onDelete: () => {
+          manager.measurements = manager.measurements.filter(x => x.id !== data.id);
+          manager.saveMeasurements();
+        },
+        onUpdate: () => {
+          const { segments, totalDistance } = Util.recalculateSegments(points);
+          data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
+          data.segments = segments;
+          data.totalDistance = totalDistance;
+          manager.saveMeasurements();
+        },
+      }),
+    );
   }
 
   start() {
@@ -166,7 +168,12 @@ class DistanceMode extends PreviewMode {
           this.m.saveMeasurements();
         },
       });
-      this._cleanup = () => this.m.map.off("click", onDistMapClick);
+      // The drawing-phase cleanup (set in start()) would remove the finalized
+      // polyline/nodes, so replace it with a no-op. The overlay's own cleanup
+      // is registered below so clearAll/destroy can unbind its map-click
+      // listener.
+      this._cleanup = () => {};
+      this.m.finalizedClickHandlers.push(onDistMapClick);
 
       // Cleanup drawing mode
       unbindMapEvents(this.map, distEvents);
