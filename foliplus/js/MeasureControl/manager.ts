@@ -149,7 +149,9 @@ class MeasureManager {
     this.map.on("click", this.onMapClick);
 
     this.onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && this.currentMode) this.clearActiveMode();
+      if (event.key !== "Escape") return;
+      if (this.currentMode) this.clearActiveMode();
+      else if (this.isEditMode) this.setEditMode(false);
     };
     this.interactionCleanup = registerInteractions(this);
 

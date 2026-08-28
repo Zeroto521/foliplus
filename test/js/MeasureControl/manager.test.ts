@@ -273,6 +273,15 @@ describe("MeasureManager — global events", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it("Escape keydown exits edit mode when no drawing mode is active", () => {
+    const { manager } = makeManager();
+    const spy = vi.spyOn(manager, "setEditMode");
+    manager.setEditMode(true);
+    manager.currentMode = null;
+    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
+    expect(spy).toHaveBeenCalledWith(false);
+  });
 });
 
 describe("MeasureManager — cleanMapEvents", () => {

@@ -310,6 +310,7 @@ const attachPolygonUI = (
   const nodeDelIcons: L.Marker[] = [];
   const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
     [];
+  let centroidDot: L.Marker | null = null;
   let centroidLabel: L.Marker | null = null;
   let centroidDel: L.Marker | null = null;
 
@@ -334,6 +335,7 @@ const attachPolygonUI = (
       label.on("click", openOverlay);
     }
     const centroid = Util.centroid(points);
+    if (centroidDot) centroidDot.setLatLng(centroid);
     if (centroidLabel) centroidLabel.setLatLng(centroid);
     if (centroidDel) centroidDel.setLatLng(centroid);
     return area;
@@ -342,6 +344,19 @@ const attachPolygonUI = (
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
+    centroidDot = layers.addLayer(
+      L.marker(centroid, {
+        icon: L.divIcon({
+          className: CONST.CENTER_DOT.CLASS,
+          html: "",
+          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
+          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
+        }),
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
+        interactive: true,
+      }),
+      true,
+    ) as L.Marker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
         icon: Util.makeLabelDivIcon(
@@ -361,6 +376,7 @@ const attachPolygonUI = (
   const deleteMeasurement = () => {
     dragBinds.forEach(db => db.cleanup());
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
+    if (centroidDot) layers.removeLayer(centroidDot);
     if (centroidLabel) layers.removeLayer(centroidLabel);
     if (centroidDel) layers.removeLayer(centroidDel);
     onDelete();
@@ -385,6 +401,7 @@ const attachPolygonUI = (
   segLabels.forEach(l => l.on("click", openOverlay));
 
   rebuildCentroid(initArea);
+  centroidDot!.on("click", openOverlay);
   (centroidDel as L.Marker | null)?.on("click", openOverlay);
 
   nodeMarkers.forEach(node => {

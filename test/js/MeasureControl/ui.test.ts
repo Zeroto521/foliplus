@@ -260,4 +260,16 @@ describe("attachPolygonUI", () => {
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
     expect(typeof onMapClickActive).toBe("function");
   });
+
+  it("rebuilds the centroid dot alongside the label and delete icon", () => {
+    const opts = makeOpts();
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // The centroid dot uses the shared center-dot divIcon class (regression:
+    // it was dropped during the edit-mode rewrite).
+    const dotIcons = (window.L.divIcon as any).mock.calls.filter(
+      ([opts]) => opts?.className === "foliplus-measure-center-dot",
+    );
+    expect(dotIcons.length).toBe(1);
+  });
 });
