@@ -319,19 +319,23 @@ describe("buildEditOverlay", () => {
       off: vi.fn(),
     } as any;
   }
+  function makeMgr(overrides: Record<string, unknown> = {}) {
+    return { map: makeMap(), isSuppressHideDel: false, isEditMode: true, ...overrides };
+  }
 
   it("exposes open and cleanup", () => {
-    const mgr = { map: makeMap(), isSuppressHideDel: false };
-    const overlay = Util.buildEditOverlay(mgr, {});
+    const mgr = makeMgr();
+    const overlay = Util.buildEditOverlay(mgr as any, {});
 
     expect(typeof overlay.open).toBe("function");
     expect(typeof overlay.cleanup).toBe("function");
+    expect(typeof overlay.close).toBe("function");
   });
 
   it("fires onOpen and calls stopEvent on open", () => {
-    const mgr = { map: makeMap(), isSuppressHideDel: false };
+    const mgr = makeMgr();
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr, { onOpen });
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
     const ev = { preventDefault: vi.fn(), stopPropagation: vi.fn() } as any;
 
     overlay.open(ev);
@@ -340,10 +344,20 @@ describe("buildEditOverlay", () => {
     expect(ev.stopPropagation).toHaveBeenCalled();
   });
 
-  it("does not re-open while already open", () => {
-    const mgr = { map: makeMap(), isSuppressHideDel: false };
+  it("does not open when not in edit mode", () => {
+    const mgr = makeMgr({ isEditMode: false });
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr, { onOpen });
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+
+    overlay.open({} as any);
+
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("does not re-open while already open", () => {
+    const mgr = makeMgr();
+    const onOpen = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
 
     overlay.open({} as any);
     overlay.open({} as any);
@@ -353,9 +367,9 @@ describe("buildEditOverlay", () => {
 
   it("fires onEmpty when empty space is clicked", () => {
     const map = makeMap();
-    const mgr = { map, isSuppressHideDel: false };
+    const mgr = { map, isSuppressHideDel: false, isEditMode: true };
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr, { onOpen: vi.fn(), onEmpty });
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     // find the map-click handler registered by buildEditOverlay
     overlay.open({} as any);
@@ -367,9 +381,9 @@ describe("buildEditOverlay", () => {
 
   it("does not close overlay when suppress-hide is active", () => {
     const map = makeMap();
-    const mgr = { map, isSuppressHideDel: true };
+    const mgr = { map, isSuppressHideDel: true, isEditMode: true };
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr, { onOpen: vi.fn(), onEmpty });
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     overlay.open({} as any);
     const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
@@ -379,9 +393,9 @@ describe("buildEditOverlay", () => {
 
   it("ignores a drag-synthetic click", () => {
     const map = makeMap();
-    const mgr = { map, isSuppressHideDel: false };
+    const mgr = { map, isSuppressHideDel: false, isEditMode: true };
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr, { onOpen: vi.fn(), onEmpty });
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     overlay.open({} as any);
     const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
@@ -392,13 +406,31 @@ describe("buildEditOverlay", () => {
 
   it("registers and cleans up the map-click listener", () => {
     const map = makeMap();
-    const mgr = { map, isSuppressHideDel: false };
-    const overlay = Util.buildEditOverlay(mgr, { onOpen: vi.fn() });
+    const mgr = { map, isSuppressHideDel: false, isEditMode: true };
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
 
     overlay.open(fakeEv());
     overlay.cleanup();
 
     expect(map.off).toHaveBeenCalledWith("click", expect.any(Function));
+  });
+
+  it("registers a closer and close() hides the overlay via onEmpty", () => {
+    const closers: Array<() => void> = [];
+    const mgr = {
+      map: makeMap(),
+      isSuppressHideDel: false,
+      isEditMode: true,
+      registerEditOverlayCloser: (c: () => void) => closers.push(c),
+    };
+    const onEmpty = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+
+    overlay.open({} as any);
+    expect(closers).toHaveLength(1);
+
+    closers[0]();
+    expect(onEmpty).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -468,6 +500,46 @@ describe("bindNodeDrag", () => {
 
     cleanup();
     expect(node.off).toHaveBeenCalledWith("mousedown", expect.any(Function));
+  });
+
+  it("invokes onDrag before moving the node (findPtIdx sees the old latlng)", () => {
+    // Regression: onDrag handlers in distance/polygon locate the point by
+    // node.getLatLng(); if the node is moved first, they can't find it and the
+    // drag silently no-ops.
+    let currentLatLng = { lat: 1, lng: 1 };
+    const node = {
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => currentLatLng),
+      setLatLng: vi.fn(l => {
+        currentLatLng = l;
+      }),
+    };
+    const seen: Array<{ lat: number; lng: number }> = [];
+    const onDrag = vi.fn(() => {
+      seen.push(node.getLatLng());
+    });
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn((raw: { clientX: number; clientY: number }) => ({
+        x: raw.clientX,
+        y: raw.clientY,
+      })),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onDrag });
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+
+    // During onDrag the node still reports its ORIGINAL position.
+    expect(seen).toEqual([{ lat: 1, lng: 1 }]);
+    // After onDrag, the node is moved.
+    expect(node.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
   });
 
   it("does not drag when enabled is false", () => {

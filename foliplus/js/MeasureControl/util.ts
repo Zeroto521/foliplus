@@ -47,23 +47,31 @@ const DRAG_THRESHOLD = 4;
 const buildEditOverlay = (
   mgr: {
     isSuppressHideDel: boolean;
+    isEditMode: boolean;
     map: L.Map;
+    registerEditOverlayCloser?: (close: () => void) => void;
   },
   opts: { onOpen: () => void; onEmpty?: () => void },
-): { open: (ev: L.LeafletMouseEvent) => void; cleanup: () => void } => {
+): { open: (ev: L.LeafletMouseEvent) => void; close: () => void; cleanup: () => void } => {
   let open = false;
   const { onOpen, onEmpty } = opts;
 
-  const onMapClick = () => {
-    if (mgr.isSuppressHideDel) return;
-    if (isDragSyntheticClick()) return;
+  const close = () => {
     if (!open) return;
     open = false;
     onEmpty?.();
   };
+
+  const onMapClick = () => {
+    if (mgr.isSuppressHideDel) return;
+    if (isDragSyntheticClick()) return;
+    close();
+  };
   mgr.map.on("click", onMapClick);
+  mgr.registerEditOverlayCloser?.(close);
 
   const openOverlay = (ev: L.LeafletMouseEvent) => {
+    if (!mgr.isEditMode) return;
     if (open) return;
     if (isDragSyntheticClick()) return;
     stopEvent(ev);
@@ -73,6 +81,7 @@ const buildEditOverlay = (
 
   return {
     open: openOverlay,
+    close,
     cleanup: () => mgr.map.off("click", onMapClick),
   };
 };
@@ -112,7 +121,7 @@ const bindNodeDrag = (
     startPt = map.mouseEventToContainerPoint(raw);
     dragging = true;
     moved = false;
-    setCursor("grabbing");
+    setCursor("move");
     map.dragging.disable();
   };
   const onMove = (ev: L.LeafletMouseEvent) => {
@@ -126,14 +135,17 @@ const bindNodeDrag = (
     )
       return;
     moved = true;
+    // Notify handlers BEFORE repositioning the node so handlers that locate
+    // the node by its current latlng (distance/polygon `findPtIdx`) can still
+    // find the original point before it moves.
+    handlers.onDrag?.(ev.latlng);
     (node as L.Marker).setLatLng(ev.latlng);
     if (delIcon) (delIcon as L.Marker).setLatLng(ev.latlng);
-    handlers.onDrag?.(ev.latlng);
   };
   const onUp = (ev: L.LeafletMouseEvent) => {
     if (!dragging) return;
     dragging = false;
-    setCursor(enabled ? "grab" : "");
+    setCursor(enabled ? "move" : "");
     map.dragging.enable();
     if (moved) handlers.onEnd?.(ev.latlng);
   };
@@ -148,7 +160,7 @@ const bindNodeDrag = (
 
   const setEnabled = (v: boolean) => {
     enabled = v;
-    setCursor(v ? "grab" : "");
+    setCursor(v ? "move" : "");
   };
   const cleanup = () => {
     node.off("mousedown", onDown);

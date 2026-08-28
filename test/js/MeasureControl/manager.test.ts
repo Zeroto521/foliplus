@@ -191,6 +191,20 @@ describe("MeasureManager — setEditMode", () => {
     expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
   });
 
+  it("closes registered overlays when disabled", () => {
+    const { manager } = makeManager();
+    const close1 = vi.fn();
+    const close2 = vi.fn();
+    manager.registerEditOverlayCloser(close1);
+    manager.registerEditOverlayCloser(close2);
+
+    manager.setEditMode(true);
+    manager.setEditMode(false);
+
+    expect(close1).toHaveBeenCalledTimes(1);
+    expect(close2).toHaveBeenCalledTimes(1);
+  });
+
   it("setMode EDIT enters edit mode when off", () => {
     const { manager } = makeManager();
     manager.setMode(CONST.MODE.EDIT);

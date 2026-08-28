@@ -85,6 +85,8 @@ describe("resortLayers", () => {
 const makeMgr = () => ({
   map: { on: vi.fn(), off: vi.fn() },
   isSuppressHideDel: false,
+  isEditMode: true,
+  registerEditOverlayCloser: vi.fn(),
 });
 
 describe("attachCircleUI — delete flow", () => {

@@ -32,6 +32,9 @@ class MeasureManager {
   /** Cleanup callbacks for finalized measurement overlays (each removes its
    *   overlay's map-click listener and any associated drag bindings). */
   finalizedClickHandlers: Array<() => void>;
+  /** Close callbacks for each measurement's edit overlay, so exiting edit mode
+   *   can hide all open ✕ handles and disable node drag. */
+  private editOverlayClosers: Array<() => void> = [];
   measurements: MeasureData[];
   measurementIdCounter: number;
   ctrl: HTMLElement | null;
@@ -233,6 +236,11 @@ class MeasureManager {
     this.map.foliplus!.hideHint(CONF.name);
   }
 
+  /** Register an overlay close callback so setEditMode(false) can hide ✕. */
+  registerEditOverlayCloser = (close: () => void) => {
+    this.editOverlayClosers.push(close);
+  };
+
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
   setEditMode(on: boolean) {
     if (this.isEditMode === on) return;
@@ -245,6 +253,10 @@ class MeasureManager {
       this.map.foliplus!.showHint(CONF.name, T("hint_edit"), HINT_DURATION.PERSIST);
     } else {
       this.map.foliplus!.hideHint(CONF.name);
+      // Close any open overlays so ✕ handles and node-drag cursors don't
+      // linger after leaving edit mode.
+      this.editOverlayClosers.forEach(c => c());
+      this.editOverlayClosers = [];
     }
   }
 
