@@ -325,4 +325,172 @@ describe("MarkerMode — start + click", () => {
       (window as any).foliplus = prevFoliplus;
     }
   });
+
+  it("hides ✕ and disables drag on popupclose", () => {
+    const manager = makeManagerMock() as any;
+    manager.isEditMode = true;
+    MarkerMode.restore(manager, {
+      id: "m_close",
+      type: "marker",
+      lng: 121,
+      lat: 31,
+      address: "Old",
+    });
+    const pin = (window.L.marker as any).mock.results[0].value;
+    // open popup → drag enabled
+    pin.on.mock.calls.filter(([ev]: [string]) => ev === "popupopen").at(-1)[1]();
+
+    const onPopupClose = pin.on.mock.calls.find(
+      ([ev]: [string]) => ev === "popupclose",
+    )?.[1];
+    onPopupClose();
+
+    const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    expect(manager.map.dragging.disable).not.toHaveBeenCalled();
+  });
+
+  it("refreshes popup content on popupopen when the address is resolved", () => {
+    const manager = makeManagerMock() as any;
+    MarkerMode.restore(manager, {
+      id: "m_content",
+      type: "marker",
+      lng: 121,
+      lat: 31,
+      address: "Some Address",
+    });
+    const pin = (window.L.marker as any).mock.results[0].value;
+    // the first popupopen handler is the content-refresh one from restore
+    const onPopupOpen = pin.on.mock.calls.find(([ev]: [string]) => ev === "popupopen")?.[1];
+    onPopupOpen();
+    expect(pin.setPopupContent).toHaveBeenCalled();
+  });
+
+  it("updates the open popup content after the geocode resolves", async () => {
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const geocode = vi.fn(() => Promise.resolve("New Address"));
+    const prevFoliplus = (window as any).foliplus;
+    (window as any).foliplus = { ...prevFoliplus, reverseGeocode: geocode };
+    try {
+      const manager = makeManagerMock() as any;
+      manager.isEditMode = true;
+      const data: MeasureData = {
+        id: "m_open",
+        type: "marker",
+        lng: 121,
+        lat: 31,
+        address: "Old",
+      };
+      MarkerMode.restore(manager, data);
+      const pin = (window.L.marker as any).mock.results[0].value;
+      pin.getPopup = vi.fn(() => ({ isOpen: () => true }));
+
+      pin.on.mock.calls.filter(([ev]: [string]) => ev === "popupopen").at(-1)[1]();
+      const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
+      const onMove = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousemove",
+      )?.[1];
+      const onUp = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "mouseup")?.[1];
+      onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+      onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+      onUp({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+      await flushAsync();
+      expect(pin.setPopupContent).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      (window as any).foliplus = prevFoliplus;
+    }
+  });
+
+  it("cancels a pending RAF persist on cleanup", () => {
+    let rafCb: (() => void) | null = null;
+    const cancelSpy = vi.fn();
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((cb: () => void) => {
+        rafCb = cb;
+        return 1;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", cancelSpy);
+    try {
+      const manager = makeManagerMock() as any;
+      manager.isEditMode = true;
+      MarkerMode.restore(manager, {
+        id: "m_cancel",
+        type: "marker",
+        lng: 121,
+        lat: 31,
+        address: "Old",
+      });
+      const pin = (window.L.marker as any).mock.results[0].value;
+      pin.on.mock.calls.filter(([ev]: [string]) => ev === "popupopen").at(-1)[1]();
+      const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
+      const onMove = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousemove",
+      )?.[1];
+      onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+      onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+      expect(rafCb).toBeTruthy(); // a RAF persist is pending
+      manager.finalizedClickHandlers[0]();
+      expect(cancelSpy).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("deletes a restored marker via the ✕ handle", () => {
+    const manager = makeManagerMock() as any;
+    const data: MeasureData = { id: "m_del", type: "marker", lng: 121, lat: 31, address: "Old" };
+    manager.measurements = [data];
+    MarkerMode.restore(manager, data);
+
+    const del = (window.L.marker as any).mock.results[1].value; // del icon
+    const delClickHandler = del.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
+    delClickHandler({
+      originalEvent: {
+        target: { closest: () => ({}) },
+        stopPropagation: vi.fn(),
+        preventDefault: vi.fn(),
+      },
+    });
+    expect(manager.measurements.length).toBe(0);
+    expect(manager.layers.removeLayer).toHaveBeenCalled();
+  });
+
+  it("deletes a placed marker via the ✕ handle", () => {
+    const manager = makeManagerMock() as any;
+    manager.currentMode = CONST.MODE.MARKER;
+    const mode = new MarkerMode(manager);
+    mode.start();
+    const clickHandler = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
+    clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
+
+    const del = (window.L.marker as any).mock.results[1].value;
+    const delClickHandler = del.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
+    delClickHandler({
+      originalEvent: {
+        target: { closest: () => ({}) },
+        stopPropagation: vi.fn(),
+        preventDefault: vi.fn(),
+      },
+    });
+    expect(manager.measurements.length).toBe(0);
+  });
+
+  it("refreshes placed-marker popup content when the address is set", () => {
+    const manager = makeManagerMock() as any;
+    manager.currentMode = CONST.MODE.MARKER;
+    const mode = new MarkerMode(manager);
+    mode.start();
+    const clickHandler = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
+    clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
+
+    const pin = (window.L.marker as any).mock.results[0].value;
+    manager.measurements[0].address = "Resolved";
+    const onPopupOpen = pin.on.mock.calls.find(([ev]: [string]) => ev === "popupopen")?.[1];
+    onPopupOpen();
+    expect(pin.setPopupContent).toHaveBeenCalled();
+  });
 });

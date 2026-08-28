@@ -119,6 +119,7 @@ export function makeManagerMock() {
     layers: {
       addLayer: vi.fn(l => l),
       removeLayer: vi.fn(),
+      unregister: vi.fn(),
       mainLayer: { addLayer: vi.fn(l => l) },
     },
     nextMeasurementId: vi.fn(() => "test-id"),
