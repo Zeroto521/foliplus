@@ -167,6 +167,17 @@ describe("MeasureManager — setEditMode", () => {
     );
   });
 
+  it("toggles the EDITING class on the map container for cursor styling", () => {
+    const { manager, container } = makeManager();
+    expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(false);
+
+    manager.setEditMode(true);
+    expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(true);
+
+    manager.setEditMode(false);
+    expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(false);
+  });
+
   it("hides the hint and deactivates the edit button when disabled", () => {
     const { manager } = makeManager();
     const editBtn = document.createElement("button");

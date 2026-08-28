@@ -332,16 +332,18 @@ describe("buildEditOverlay", () => {
     expect(typeof overlay.close).toBe("function");
   });
 
-  it("fires onOpen and calls stopEvent on open", () => {
+  it("fires onOpen and stops Leaflet propagation on open", () => {
     const mgr = makeMgr();
     const onOpen = vi.fn();
     const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
-    const ev = { preventDefault: vi.fn(), stopPropagation: vi.fn() } as any;
+    const ev = { originalEvent: {} } as any;
 
     overlay.open(ev);
 
     expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(ev.stopPropagation).toHaveBeenCalled();
+    // Stops layer→map propagation so the overlay's own map-click handler
+    // (which closes it) doesn't fire right after open.
+    expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(ev);
   });
 
   it("does not open when not in edit mode", () => {

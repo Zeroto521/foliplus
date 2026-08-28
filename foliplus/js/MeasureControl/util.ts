@@ -1,6 +1,6 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { hideDelIcons, toggleDelIcon } from "#common/delicon.js";
-import { buildPopupHtml, stopEvent } from "#common/dom.js";
+import { buildPopupHtml } from "#common/dom.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
@@ -78,7 +78,10 @@ const buildEditOverlay = (
     if (!mgr.isEditMode) return;
     if (open) return;
     if (isDragSyntheticClick()) return;
-    stopEvent(ev);
+    // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
+    // the map-level click handlers — including this overlay's own onMapClick
+    // which closes it — don't immediately undo the open.
+    L.DomEvent.stopPropagation(ev);
     open = true;
     onOpen();
   };

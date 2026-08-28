@@ -35,11 +35,35 @@ const activeManagers = new Set<HintManager>();
 class HintManager {
   hintIcons: Record<string, string>;
   hintMap: Map<string, HintEntry>;
+  private onFullscreenChange: () => void;
 
   constructor() {
     this.hintIcons = { ...hintIconRegistry };
     this.hintMap = new Map();
+    // When the map goes fullscreen, only the fullscreen element is visible —
+    // hints appended to document.body would disappear. Migrate them to the
+    // fullscreen element (and back again on exit).
+    this.onFullscreenChange = () => this.migrateHints();
+    document.addEventListener("fullscreenchange", this.onFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", this.onFullscreenChange);
     activeManagers.add(this);
+  }
+
+  private migrateHints() {
+    const target: HTMLElement =
+      (document.fullscreenElement as HTMLElement | null) || document.body;
+    if (target === document.documentElement) return;
+    let moved = false;
+    for (const entry of this.hintMap.values()) {
+      if (entry.element.parentElement !== target) {
+        target.appendChild(entry.element);
+        moved = true;
+      }
+    }
+    if (moved && target !== document.body) {
+      const cs = window.getComputedStyle(target);
+      if (cs.position === "static") target.style.position = "relative";
+    }
   }
 
   /** (Re)seed icons from the shared registry (called at registerHintIcon time). */
@@ -136,6 +160,8 @@ class HintManager {
       if (entry.element) entry.element.remove();
     }
     this.hintMap.clear();
+    document.removeEventListener("fullscreenchange", this.onFullscreenChange);
+    document.removeEventListener("webkitfullscreenchange", this.onFullscreenChange);
     activeManagers.delete(this);
   }
 }

@@ -3,6 +3,18 @@
   cursor: crosshair;
 }
 
+/* ── Edit-mode cursor ──
+   Measurement shapes/nodes are only interactive in edit mode. Outside edit
+   mode, override Leaflet's default pointer cursor so they don't look
+   clickable. In edit mode they read as clickable; draggable nodes get an
+   inline `move` cursor once an overlay is open (bindNodeDrag). */
+.leaflet-measure_graph-pane .leaflet-interactive {
+  cursor: default;
+}
+.foliplus-measure-editing .leaflet-measure_graph-pane .leaflet-interactive {
+  cursor: pointer;
+}
+
 /* ── Measurement Labels ── */
 .foliplus-measure-center-dot {
   width: var(--size-12);

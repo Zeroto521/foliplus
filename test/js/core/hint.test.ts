@@ -72,6 +72,33 @@ describe("HintManager", () => {
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
     vi.useRealTimers();
   });
+
+  it("migrates hints to the fullscreen element on fullscreenchange", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 0);
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(document.body);
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => container,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+
+    expect(el.parentElement).toBe(container);
+
+    // Exit fullscreen → back to body
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => null,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(el.parentElement).toBe(document.body);
+
+    mgr.destroy();
+  });
 });
 
 describe("ensureHint", () => {
