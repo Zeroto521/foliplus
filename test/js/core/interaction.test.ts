@@ -585,6 +585,7 @@ describe("InteractionManager", () => {
     ensureInteraction(map).register("CtrlMod", [
       { key: "z", ctrl: true, handler },
     ]);
+    // Fire z without ctrlKey — should NOT match (s.ctrl && !ke.ctrlKey && !ke.metaKey returns false)
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "z", bubbles: true }));
     expect(handler).not.toHaveBeenCalled();
     document.dispatchEvent(
