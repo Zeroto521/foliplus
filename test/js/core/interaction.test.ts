@@ -582,9 +582,7 @@ describe("InteractionManager", () => {
 
     // Register a ctrl modifier shortcut at the document level — handleEvent
     // (not element listener) processes the modifier guards
-    ensureInteraction(map).register("CtrlMod", [
-      { key: "z", ctrl: true, handler },
-    ]);
+    ensureInteraction(map).register("CtrlMod", [{ key: "z", ctrl: true, handler }]);
     // Fire z without ctrlKey — should NOT match (s.ctrl && !ke.ctrlKey && !ke.metaKey returns false)
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "z", bubbles: true }));
     expect(handler).not.toHaveBeenCalled();
@@ -601,9 +599,7 @@ describe("InteractionManager", () => {
     const map = makeMap();
     const handler = vi.fn();
 
-    ensureInteraction(map).register("MetaMod", [
-      { key: "z", meta: true, handler },
-    ]);
+    ensureInteraction(map).register("MetaMod", [{ key: "z", meta: true, handler }]);
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
     );
@@ -621,9 +617,7 @@ describe("InteractionManager", () => {
     const map = makeMap();
     const handler = vi.fn();
 
-    ensureInteraction(map).register("ShiftMod", [
-      { key: "z", shift: true, handler },
-    ]);
+    ensureInteraction(map).register("ShiftMod", [{ key: "z", shift: true, handler }]);
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
     );
@@ -641,9 +635,7 @@ describe("InteractionManager", () => {
     const map = makeMap();
     const handler = vi.fn();
 
-    ensureInteraction(map).register("AltMod", [
-      { key: "z", alt: true, handler },
-    ]);
+    ensureInteraction(map).register("AltMod", [{ key: "z", alt: true, handler }]);
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
     );
