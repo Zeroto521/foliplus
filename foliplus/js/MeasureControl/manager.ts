@@ -194,6 +194,9 @@ class MeasureManager {
         this.setEditMode(false);
         return;
       }
+      // Edit and drawing modes are mutually exclusive: cancel any active
+      // drawing mode before entering edit.
+      if (this.currentMode) this.clearActiveMode();
       this.setEditMode(true);
       return;
     }
@@ -274,7 +277,10 @@ class MeasureManager {
     this.map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
-    this.interactionCleanup?.();
+    // NOTE: the Escape shortcut stays registered for the manager's lifetime
+    // (unregistered only in destroy()); clearActiveMode runs after every
+    // finished measurement, so unregistering here would permanently break
+    // Escape after the first measurement.
     this.layers.unregister();
   }
 

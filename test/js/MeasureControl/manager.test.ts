@@ -245,6 +245,27 @@ describe("MeasureManager — setEditMode", () => {
     manager.setMode(CONST.MODE.EDIT);
     expect(manager.isEditMode).toBe(false);
   });
+
+  it("setMode EDIT cancels an active drawing mode (mutual exclusivity)", () => {
+    const { manager } = makeManager();
+    manager.currentMode = CONST.MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    manager.setMode(CONST.MODE.EDIT);
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(manager.isEditMode).toBe(true);
+  });
+
+  it("setMode drawing cancels edit mode (mutual exclusivity)", () => {
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+
+    manager.setMode(CONST.MODE.DISTANCE);
+
+    expect(manager.isEditMode).toBe(false);
+    expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+  });
 });
 
 describe("MeasureManager — lifecycle", () => {
