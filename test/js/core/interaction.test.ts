@@ -585,16 +585,74 @@ describe("InteractionManager", () => {
     ensureInteraction(map).register("CtrlMod", [
       { key: "z", ctrl: true, handler },
     ]);
-    // Fire z without ctrlKey — should NOT match (s.ctrl && !ke.ctrlKey && !ke.metaKey returns false)
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "z", bubbles: true }));
     expect(handler).not.toHaveBeenCalled();
-    // Fire z with ctrlKey — should match
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
     );
     expect(handler).toHaveBeenCalledTimes(1);
 
     ensureInteraction(map).unregister("CtrlMod");
+  });
+
+  it("handleEvent filters document-level meta modifier", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const handler = vi.fn();
+
+    ensureInteraction(map).register("MetaMod", [
+      { key: "z", meta: true, handler },
+    ]);
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
+    expect(handler).not.toHaveBeenCalled();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", metaKey: true, bubbles: true }),
+    );
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    ensureInteraction(map).unregister("MetaMod");
+  });
+
+  it("handleEvent filters document-level shift modifier", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const handler = vi.fn();
+
+    ensureInteraction(map).register("ShiftMod", [
+      { key: "z", shift: true, handler },
+    ]);
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
+    expect(handler).not.toHaveBeenCalled();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", shiftKey: true, bubbles: true }),
+    );
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    ensureInteraction(map).unregister("ShiftMod");
+  });
+
+  it("handleEvent filters document-level alt modifier", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const handler = vi.fn();
+
+    ensureInteraction(map).register("AltMod", [
+      { key: "z", alt: true, handler },
+    ]);
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
+    expect(handler).not.toHaveBeenCalled();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", altKey: true, bubbles: true }),
+    );
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    ensureInteraction(map).unregister("AltMod");
   });
 
   it("handleEvent dispatches to only the highest-priority matching shortcut", async () => {
