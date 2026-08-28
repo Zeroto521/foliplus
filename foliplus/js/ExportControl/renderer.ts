@@ -63,6 +63,7 @@ const pooledEach = async <T, R>(
   await Promise.all(Array.from({ length: cap }, enqueue));
   return results;
 };
+
 class ExportRenderer {
   map: L.Map;
   container: HTMLElement;
