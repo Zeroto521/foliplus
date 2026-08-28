@@ -136,7 +136,9 @@ class BaseControl(JSCSSMixin, MacroElement):
     #:
     #: Subclasses declare their public configuration fields here. Each name is looked
     #: up via ``getattr(self, name)`` during :meth:`_build_config`, so the attribute
-    #: must be set in ``__init__`` before the template is rendered.
+    #: must be set in ``__init__`` before the template is rendered. A name that does
+    #: not resolve raises ``ValueError`` from :meth:`_build_config` (fail-fast) rather
+    #: than failing later as a bare ``AttributeError``.
     _export_fields: tuple[str, ...] = ()
 
     def __init__(
@@ -194,7 +196,9 @@ class BaseControl(JSCSSMixin, MacroElement):
         The merge order is:
 
         1. Shared keys — ``name`` and ``position`` (always present).
-        2. Exported fields — every attribute named in :attr:`_export_fields`.
+        2. Exported fields — every attribute named in :attr:`_export_fields`. A name
+           that does not resolve to a real instance attribute raises ``ValueError``
+           (fail-fast, naming the control and the offending field).
         3. Dynamic data — whatever :meth:`_extra_config` returns (render-time only,
            e.g. LayerControl's layer list).
 
@@ -204,7 +208,13 @@ class BaseControl(JSCSSMixin, MacroElement):
         the cache is never polluted with render-time keys.
         """
         config = {"name": self._name, "position": self.position}
-        config.update({f: getattr(self, f) for f in self._export_fields})
+        for f in self._export_fields:
+            try:
+                config[f] = getattr(self, f)
+            except AttributeError:
+                raise ValueError(
+                    f"{self._name}._export_fields: '{f}' not set in __init__"
+                ) from None
         config.update(self._extra_config())
         self._config = config
         return config
