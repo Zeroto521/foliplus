@@ -174,14 +174,26 @@ describe("MarkerMode — start + click", () => {
         .at(-1)[1];
       onPopupOpen();
 
-      const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
-      const onMove = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "mousemove")?.[1];
-      const onUp = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "mouseup")?.[1];
+      const onDown = pin.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousedown",
+      )?.[1];
+      const onMove = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousemove",
+      )?.[1];
+      const onUp = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mouseup",
+      )?.[1];
 
-      onDown({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 31, lng: 121 } });
+      onDown({
+        originalEvent: { clientX: 0, clientY: 0 },
+        latlng: { lat: 31, lng: 121 },
+      });
       expect(manager.map.dragging.disable).toHaveBeenCalled();
 
-      onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+      onMove({
+        originalEvent: { clientX: 10, clientY: 0 },
+        latlng: { lat: 32, lng: 122 },
+      });
       expect(pin.setLatLng).toHaveBeenCalledWith({ lat: 32, lng: 122 });
       expect(del.setLatLng).toHaveBeenCalledWith({ lat: 32, lng: 122 });
       // Live coordinate update mutates the measurement by reference
@@ -193,7 +205,10 @@ describe("MarkerMode — start + click", () => {
       rafCb!();
       expect(manager.saveMeasurements).toHaveBeenCalled();
 
-      onUp({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+      onUp({
+        originalEvent: { clientX: 10, clientY: 0 },
+        latlng: { lat: 32, lng: 122 },
+      });
       await flushAsync(); // flush the geocode await chain
       expect(geocode).toHaveBeenCalled();
       expect(data.address).toBe("New Address");
@@ -223,7 +238,10 @@ describe("MarkerMode — start + click", () => {
 
     // Drag stays disabled: mousedown is a no-op, map dragging is not disabled.
     const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
-    onDown({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 31, lng: 121 } });
+    onDown({
+      originalEvent: { clientX: 0, clientY: 0 },
+      latlng: { lat: 31, lng: 121 },
+    });
     expect(manager.map.dragging.disable).not.toHaveBeenCalled();
   });
 
@@ -251,7 +269,13 @@ describe("MarkerMode — start + click", () => {
     try {
       const manager = makeManagerMock() as any;
       manager.isEditMode = true;
-      const data: MeasureData = { id: "m_race", type: "marker", lng: 121, lat: 31, address: "Old" };
+      const data: MeasureData = {
+        id: "m_race",
+        type: "marker",
+        lng: 121,
+        lat: 31,
+        address: "Old",
+      };
       MarkerMode.restore(manager, data);
 
       const pin = (window.L.marker as any).mock.results[0].value;
@@ -259,18 +283,36 @@ describe("MarkerMode — start + click", () => {
         .filter(([ev]: [string]) => ev === "popupopen")
         .at(-1)[1]();
 
-      const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
-      const onMove = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "mousemove")?.[1];
-      const onUp = manager.map.on.mock.calls.find(([ev]: [string]) => ev === "mouseup")?.[1];
+      const onDown = pin.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousedown",
+      )?.[1];
+      const onMove = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousemove",
+      )?.[1];
+      const onUp = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mouseup",
+      )?.[1];
 
       onDown({ originalEvent: { clientX: 0, clientY: 0 } });
-      onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
-      onUp({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 32, lng: 122 } });
+      onMove({
+        originalEvent: { clientX: 10, clientY: 0 },
+        latlng: { lat: 32, lng: 122 },
+      });
+      onUp({
+        originalEvent: { clientX: 10, clientY: 0 },
+        latlng: { lat: 32, lng: 122 },
+      });
 
       // second drag begins (supersedes gen 1)
       onDown({ originalEvent: { clientX: 0, clientY: 0 } });
-      onMove({ originalEvent: { clientX: 20, clientY: 0 }, latlng: { lat: 33, lng: 123 } });
-      onUp({ originalEvent: { clientX: 20, clientY: 0 }, latlng: { lat: 33, lng: 123 } });
+      onMove({
+        originalEvent: { clientX: 20, clientY: 0 },
+        latlng: { lat: 33, lng: 123 },
+      });
+      onUp({
+        originalEvent: { clientX: 20, clientY: 0 },
+        latlng: { lat: 33, lng: 123 },
+      });
       await flushAsync();
       expect(data.address).toBe("Second Address");
 
