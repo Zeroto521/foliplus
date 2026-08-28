@@ -459,7 +459,10 @@ describe("bindNodeDrag", () => {
     expect(onDrag).toHaveBeenCalledWith({ lat: 2, lng: 2 });
 
     // node-level mouseup delegates to the shared onUp handler
-    onNodeUp({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+    onNodeUp({
+      originalEvent: { clientX: 10, clientY: 0 },
+      latlng: { lat: 2, lng: 2 },
+    });
     expect(onEnd).toHaveBeenCalledWith({ lat: 2, lng: 2 });
     expect(map.dragging.enable).toHaveBeenCalled();
 
