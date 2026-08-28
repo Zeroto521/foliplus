@@ -39,7 +39,7 @@ interface TileDesc {
 //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome →
 //   6. text labels → 7. remaining (img, inline SVG, bg-color)
 // Load items with a bounded in-flight count (preserves array order on resolve).
-async function pooledEach<T, R>(
+const pooledEach = async <T, R>(
   items: T[],
   maxConcurrency: number,
   fn: (item: T, index: number) => Promise<R | null> | R | null,
