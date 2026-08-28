@@ -575,6 +575,28 @@ describe("InteractionManager", () => {
     expect(im["shortcuts"]).toHaveLength(0);
   });
 
+  it("handleEvent filters document-level shortcuts by ctrl/meta/shift modifiers", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const handler = vi.fn();
+
+    // Register a ctrl modifier shortcut at the document level — handleEvent
+    // (not element listener) processes the modifier guards
+    ensureInteraction(map).register("CtrlMod", [
+      { key: "z", ctrl: true, handler },
+    ]);
+    // Fire z without ctrlKey — should NOT match (s.ctrl && !ke.ctrlKey && !ke.metaKey returns false)
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "z", bubbles: true }));
+    expect(handler).not.toHaveBeenCalled();
+    // Fire z with ctrlKey — should match
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    ensureInteraction(map).unregister("CtrlMod");
+  });
+
   it("handleEvent dispatches to only the highest-priority matching shortcut", async () => {
     const { ensureInteraction } = await import("#core/interaction.js");
     const map = makeMap();
