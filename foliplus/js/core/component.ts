@@ -23,11 +23,11 @@ export const generateId = (prefix: string, namespace?: string): string =>
 
 /** Runtime assertion that a CONF.name matches a known component.
  *  Call early in component initialisation (constructor / onAdd). */
-export function assertComponentName(name: string): void {
+export const assertComponentName = (name: string): void => {
   if (!(Object.values(COMPONENTS) as string[]).includes(name)) {
     console.error(
       `[foliplus] Invalid component name: "${name}". ` +
         `Must be one of: ${Object.values(COMPONENTS).join(", ")}`,
     );
   }
-}
+};
