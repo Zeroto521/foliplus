@@ -52,11 +52,34 @@ describe("formatNumber", () => {
     expect(formatNumber(12000, "auto", "en")).toBe("12K");
   });
 
-  it("user-explicit comma style keeps grouping regardless of locale (6000 -> 6,000 in zh)", () => {
-    // comma/int are user-requested; the locale is not consulted for grouping.
+  it("comma style keeps grouping regardless of locale (6000 -> 6,000 in zh)", () => {
+    // comma is user-requested; the locale is not consulted for grouping.
     expect(formatNumber(6000, "comma", "zh")).toBe("6,000");
-    expect(formatNumber(6000, "int", "zh")).toBe("6,000");
     expect(formatNumber(6000, "comma", "en")).toBe("6,000");
+  });
+
+  it("int style is a plain integer with no grouping (6000 in zh)", () => {
+    // int strips the grouping separator and fractional digits.
+    expect(formatNumber(6000, "int", "zh")).toBe("6000");
+    expect(formatNumber(1234.5, "int", "zh")).toBe("1235");
+    expect(formatNumber(6000, "int", "en")).toBe("6000");
+  });
+
+  it("comma style keeps one decimal below 100", () => {
+    expect(formatNumber(42.7, "comma")).toBe("42.7");
+    expect(formatNumber(99.9, "comma")).toBe("99.9");
+  });
+
+  it("handles zero and negative values", () => {
+    expect(formatNumber(0, "auto")).toBe("0");
+    expect(formatNumber(-6000, "auto", "zh")).toBe("-6000");
+    expect(formatNumber(-6000, "comma", "en")).toBe("-6,000");
+    expect(formatNumber(-1234.5, "int", "zh")).toBe("-1235");
+  });
+
+  it("auto rounds up across the grouping boundary (999.9 -> 1,000)", () => {
+    expect(formatNumber(999.9, "auto", "en")).toBe("1,000");
+    expect(formatNumber(999.5, "auto", "en")).toBe("1,000");
   });
 });
 

@@ -6,8 +6,9 @@ export type NumberStyle = "auto" | "comma" | "int";
 /**
  * Format a number for display.
  * @param val Value to format
- * @param style 'auto' (compact: 1.2K/1.2W/1.2M),
- *              'comma' or 'int' (user-requested thousands separator)
+ * @param style 'auto' (compact: en 1.2K, zh 1.2万 — locale-native units),
+ *              'comma' (thousands separator: 6,000),
+ *              'int' (plain integer, no grouping: 6000)
  * @param locale Locale code, defaults to 'en'
  */
 const formatNumber = (
@@ -32,17 +33,25 @@ const formatNumber = (
       .map(p => p.value)
       .join("");
 
-    // Compact notation formats below its unit boundary (e.g. zh < 10000 has
-    // no 万 unit) without a grouping separator, which is exactly right for
-    // those locales (6000, not 6,000). So no special fallback is needed —
-    // just round to 0 fraction digits when the integer part is >= 3 digits.
+    // Compact notation already renders below its unit boundary without a
+    // grouping separator — zh < 10000 has no 万 unit, so 6000 comes out
+    // as "6000", not "6,000", which is exactly right for zh/ja 4-digit
+    // grouping. No special fallback is needed; just trim fractional digits
+    // once the integer part reaches 3 digits.
     if (intStr.length >= 3) return fmt(0).format(val);
 
     return nf.format(val);
   }
 
-  // comma/int are user-explicit — always keep grouping (千分位) regardless
-  // of locale.
+  // int: plain integer, no grouping separator (6000) — distinct from comma's
+  // thousands separator (6,000). Both are locale-agnostic.
+  if (style === "int")
+    return new Intl.NumberFormat(locale, {
+      maximumFractionDigits: 0,
+      useGrouping: false,
+    }).format(val);
+
+  // comma: user-requested thousands separator (6,000 / 1,234.5).
   return fmt(absVal >= 100 ? 0 : 1).format(val);
 };
 
