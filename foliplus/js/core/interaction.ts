@@ -223,7 +223,7 @@ export class InteractionManager {
           let n = 0;
           let cur: HTMLElement | null = active;
           while (cur && cur !== c) {
-            if (cur instanceof HTMLElement) n++;
+            n++;
             cur = cur.parentElement;
           }
           return n;
@@ -233,10 +233,11 @@ export class InteractionManager {
       // Same priority + same container binding: later-registered wins
       return (b as any).order - (a as any).order;
     };
-    const matches = this.shortcuts
+    // Separate element-bound shortcuts (they use direct element listeners,
+    // not document-level dispatch) from document-level ones.
+    const docShortcuts = this.shortcuts.filter(s => !s.element);
+    const matches = docShortcuts
       .filter(s => {
-        // Only match document-level shortcuts (no element binding)
-        if (s.element) return false;
         // Match event type
         const sType = s.event ?? "keydown";
         if (sType !== eventType) return false;
