@@ -27,11 +27,10 @@ const assertComponentName = (name: string): void => {
   if (!(Object.values(COMPONENTS) as string[]).includes(name)) {
     console.error(
       `[foliplus] Invalid component name: "${name}". ` +
-      `Must be one of: ${Object.values(COMPONENTS).join(", ")}`,
+        `Must be one of: ${Object.values(COMPONENTS).join(", ")}`,
     );
   }
 };
 
 export { assertComponentName, COMPONENTS, generateId };
 export type { ComponentName };
-
