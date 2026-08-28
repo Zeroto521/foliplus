@@ -236,7 +236,6 @@ class MeasureManager {
     const ModeClass = MODE_MAP[mode as keyof typeof MODE_MAP];
     this.modeInstance = ModeClass ? new ModeClass(this) : null;
     this.modeInstance?.start();
-    this.map.foliplus!.hideHint(CONF.name);
   }
 
   /** Register an overlay close callback so setEditMode(false) can hide ✕.

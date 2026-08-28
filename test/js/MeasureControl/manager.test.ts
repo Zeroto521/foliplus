@@ -144,6 +144,22 @@ describe("MeasureManager — mode switching", () => {
     manager.setMode(CONST.MODE.MARKER);
     expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
+
+  it("keeps the mode hint visible after entering a drawing mode (regression)", () => {
+    const { manager } = makeManager();
+    manager.setMode(CONST.MODE.DISTANCE);
+    // The start hint must persist until the mode is cleared. setMode shows it
+    // AFTER cleanMapEvents hides any previous hint, so showHint must be the
+    // last hint operation (previously a trailing hideHint swallowed it).
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.any(String),
+      expect.anything(),
+    );
+    const showOrder = manager.map.foliplus!.showHint.mock.invocationCallOrder[0];
+    const hideOrder = manager.map.foliplus!.hideHint.mock.invocationCallOrder[0];
+    expect(showOrder).toBeGreaterThan(hideOrder);
+  });
 });
 
 describe("MeasureManager — setEditMode", () => {
