@@ -93,8 +93,15 @@ class HeatmapControl(BaseControl):
         Label text color.
 
     label_format : Literal["auto", "int", "comma"], default "auto"
-        Number format for labels: ``"auto"`` (10K/1K suffix), ``"int"``,
-        or ``"comma"`` (thousands separator).
+        Number format for hexagon value labels:
+
+        - ``"auto"``: locale-native compact notation (en ``10K``, zh ``1.2万``);
+          zh values below 1万 render ungrouped (``6000``). Follows the plugin
+          locale.
+        - ``"int"``: plain integer with no grouping (``6000``).
+        - ``"comma"``: thousands separator (``6,000``).
+
+        ``"int"`` and ``"comma"`` are locale-agnostic.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.

@@ -88,7 +88,10 @@ const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => 
   if (mgr.pixelOverLimit) {
     map.foliplus!.showHint(
       CONF.name,
-      T("err_too_large").replace("{limit}", formatNumber(CONF.max_pixels!)),
+      T("err_too_large").replace(
+        "{limit}",
+        formatNumber(CONF.max_pixels!, "auto", CONF.locale_code),
+      ),
       HINT_DURATION.PERSIST,
       undefined,
       "limit",
