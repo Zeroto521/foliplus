@@ -29,7 +29,7 @@ class MarkerMode extends MeasureMode {
     manager: MeasureManager,
     marker: L.Marker,
     delMarker: L.Marker,
-    measurement: { lng: number; lat: number; address: string | null },
+    measurement: MeasureData,
   ): () => void {
     // Guard against overlapping reverse-geocode races: if a new drag starts
     // before the previous geocode resolves, the stale result must not
@@ -62,28 +62,35 @@ class MarkerMode extends MeasureMode {
         const code = window.CONF?.locale_code ?? "en";
         const addr = await Util.geocodeAddress(
           manager,
-          measurement.lng,
-          measurement.lat,
+          measurement.lng!,
+          measurement.lat!,
           code,
-          measurement.address,
+          measurement.address ?? null,
         );
         if (gen !== generation) return; // a newer drag superseded us
         measurement.address = addr;
         manager.saveMeasurements();
         if (marker.getPopup()?.isOpen())
           marker.setPopupContent(
-            Util.buildPopup(measurement.lng, measurement.lat, addr),
+            Util.buildPopup(measurement.lng!, measurement.lat!, addr),
           );
       },
     });
 
-    // Toggle the ✕ handle with the popup open/close state (edit mode only).
-    // Content-refresh on popupopen is handled by the caller (restore /
-    // handleMarkerClick) so there's only one content source of truth.
+    // In edit mode, opening the popup shows the ✕ handle AND enables drag;
+    // closing it disables both. (The pin has no edit overlay, so the popup
+    // open/close state is what gates drag — mirroring distance/polygon/circle
+    // whose overlay onOpen/onEmpty toggles the same bindings.)
     const onPopupOpen = () => {
-      if (manager.isEditMode) toggleDelIcon(delMarker, true);
+      if (manager.isEditMode) {
+        toggleDelIcon(delMarker, true);
+        drag.setEnabled(true);
+      }
     };
-    const onPopupClose = () => toggleDelIcon(delMarker, false);
+    const onPopupClose = () => {
+      toggleDelIcon(delMarker, false);
+      drag.setEnabled(false);
+    };
     marker.on("popupopen", onPopupOpen);
     marker.on("popupclose", onPopupClose);
 
@@ -145,12 +152,10 @@ class MarkerMode extends MeasureMode {
     };
     attachDelClick(delMarker, deleteMeasurement);
 
+    // Pass `data` by reference so drag mutations persist to the manager's
+    // measurements (a copy would be discarded by saveMeasurements()).
     manager.finalizedClickHandlers.push(
-      MarkerMode.bindPinDrag(manager, marker as L.Marker, delMarker as L.Marker, {
-        lng: data.lng!,
-        lat: data.lat!,
-        address: data.address ?? null,
-      }),
+      MarkerMode.bindPinDrag(manager, marker as L.Marker, delMarker as L.Marker, data),
     );
   }
 

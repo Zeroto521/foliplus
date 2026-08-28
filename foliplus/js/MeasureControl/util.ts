@@ -1,14 +1,7 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { hideDelIcons, toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml, stopEvent } from "#common/dom.js";
-import {
-  type LatLngPoint,
-  area,
-  bearing,
-  centroid,
-  distance,
-  midpoint,
-} from "#common/geo.js";
+import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
@@ -329,37 +322,6 @@ const geocodeAddress = async (
   }
 };
 
-/** Reposition a point (e.g. a circle's radius node) at the given distance
- *   (meters) from the origin along the given bearing (degrees). */
-const repositionAlongBearing = (
-  origin: L.LatLng,
-  distanceMeters: number,
-  bearingDeg: number,
-): { lng: number; lat: number } => {
-  const tf = (
-    globalThis as unknown as {
-      turf: {
-        destination: (
-          coord: number[],
-          dist: number,
-          bearing: number,
-          opts: { units: string },
-        ) => { coords: LatLngPoint };
-      };
-    }
-  ).turf;
-  const result = tf.destination(
-    [origin.lng, origin.lat],
-    distanceMeters / 1000,
-    bearingDeg,
-    {
-      units: "kilometers",
-    },
-  );
-  const coord = result.coords;
-  return { lng: coord.lng, lat: coord.lat };
-};
-
 /** A single segment with distance and initial bearing (degrees, 0-360). */
 interface Segment {
   lng: number;
@@ -402,7 +364,6 @@ export {
   geocodeAddress,
   isDragSyntheticClick,
   markDragSyntheticClick,
-  repositionAlongBearing,
   centroid,
   distance,
   formatArea,
