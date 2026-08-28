@@ -1350,7 +1350,7 @@ class LayerUI {
    * has no dimmable representation).
    */
   private dimLayer(layer: L.Layer, opacity: number): (() => void) | null {
-    const anyLayer = layer as L.Layer & {
+    const dimmable = layer as L.Layer & {
       setOpacity?: (o: number) => L.Layer;
       eachLayer?: (fn: (c: L.Layer) => void) => void;
       options?: { opacity?: number; fillOpacity?: number };
@@ -1366,16 +1366,16 @@ class LayerUI {
     }
 
     // Opacity-bearing layers (Marker, TileLayer, GridLayer, ImageOverlay).
-    if (typeof anyLayer.setOpacity === "function") {
-      const orig = anyLayer.options?.opacity ?? 1;
-      anyLayer.setOpacity(opacity);
-      return () => anyLayer.setOpacity!(orig);
+    if (typeof dimmable.setOpacity === "function") {
+      const orig = dimmable.options?.opacity ?? 1;
+      dimmable.setOpacity(opacity);
+      return () => dimmable.setOpacity!(orig);
     }
 
     // Container (LayerGroup/FeatureGroup): dim each child.
-    if (typeof anyLayer.eachLayer === "function") {
+    if (typeof dimmable.eachLayer === "function") {
       const restores: Array<(() => void) | null> = [];
-      anyLayer.eachLayer(child => {
+      dimmable.eachLayer(child => {
         restores.push(this.dimLayer(child, opacity));
       });
       return () => restores.forEach(r => r?.());

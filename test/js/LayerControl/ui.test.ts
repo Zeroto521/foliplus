@@ -464,56 +464,55 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   });
 
   describe("dimming by layer type", () => {
+    const DIM = CONST.FOCUS.DIM_OPACITY;
+
     it("dims a vector path via setStyle and restores the original style", () => {
-      const path = new (window.L.Path as any)();
+      const path = new window.L.Path();
       path.options = { opacity: 1, fillOpacity: 0.8 };
-      path.setStyle = vi.fn();
+      const setStyle = (path.setStyle = vi.fn());
 
-      const restore = ui.dimLayer(path, 0.25);
+      const restore = ui.dimLayer(path, DIM);
 
-      expect(path.setStyle).toHaveBeenCalledWith({ opacity: 0.25, fillOpacity: 0.25 });
+      expect(setStyle).toHaveBeenCalledWith({ opacity: DIM, fillOpacity: DIM });
       restore();
-      expect(path.setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 0.8 });
+      expect(setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 0.8 });
     });
 
     it("dims an opacity layer via setOpacity and restores the original opacity", () => {
       const tile = { options: { opacity: 1 }, setOpacity: vi.fn() };
 
-      const restore = ui.dimLayer(tile, 0.25);
+      const restore = ui.dimLayer(tile, DIM);
 
-      expect(tile.setOpacity).toHaveBeenCalledWith(0.25);
+      expect(tile.setOpacity).toHaveBeenCalledWith(DIM);
       restore();
       expect(tile.setOpacity).toHaveBeenLastCalledWith(1);
     });
 
     it("recurses into a container and dims each child", () => {
       const childA = { options: { opacity: 1 }, setOpacity: vi.fn() };
-      const childB = new (window.L.Path as any)();
+      const childB = new window.L.Path();
       childB.options = { opacity: 1, fillOpacity: 1 };
-      childB.setStyle = vi.fn();
+      const childBSetStyle = (childB.setStyle = vi.fn());
       const group = {
-        eachLayer: vi.fn((fn: (c: any) => void) => {
+        eachLayer: vi.fn((fn: (c: unknown) => void) => {
           fn(childA);
           fn(childB);
         }),
       };
 
-      const restore = ui.dimLayer(group, 0.25);
+      const restore = ui.dimLayer(group, DIM);
 
-      expect(childA.setOpacity).toHaveBeenCalledWith(0.25);
-      expect(childB.setStyle).toHaveBeenCalledWith({
-        opacity: 0.25,
-        fillOpacity: 0.25,
-      });
+      expect(childA.setOpacity).toHaveBeenCalledWith(DIM);
+      expect(childBSetStyle).toHaveBeenCalledWith({ opacity: DIM, fillOpacity: DIM });
 
       restore();
       expect(childA.setOpacity).toHaveBeenLastCalledWith(1);
-      expect(childB.setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 1 });
+      expect(childBSetStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 1 });
     });
 
     it("returns null for a layer with no dimmable representation", () => {
       const plain = { options: {} };
-      expect(ui.dimLayer(plain, 0.25)).toBeNull();
+      expect(ui.dimLayer(plain, DIM)).toBeNull();
     });
   });
 

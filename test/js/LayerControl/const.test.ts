@@ -128,7 +128,7 @@ describe("FOCUS", () => {
   });
 
   it("defines the opacity applied to non-focused layers while focusing", () => {
-    expect(CONST.FOCUS.DIM_OPACITY).toBe(0.25);
+    expect(CONST.FOCUS.DIM_OPACITY).toBe(0.3);
   });
 });
 
