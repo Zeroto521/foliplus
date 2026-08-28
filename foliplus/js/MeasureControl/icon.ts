@@ -33,7 +33,5 @@ export const TRASH = `
 
 export const EDIT = `
   <svg viewBox="0 0 24 24">
-    <path d="M3 21h3.5L18 9.5l-2-2L4.5 19z"/>
-    <line x1="15" y1="6.5" x2="17.5" y2="9"/>
-    <line x1="3" y1="21" x2="6" y2="21"/>
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
   </svg>`;
