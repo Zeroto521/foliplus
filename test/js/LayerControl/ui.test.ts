@@ -598,7 +598,11 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const focusSpy = vi.fn();
       ui.focusLayer = focusSpy;
 
-      const event = new KeyboardEvent("Enter", { bubbles: true, cancelable: true });
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
       ui.handleKeyDown(event as unknown as KeyboardEvent);
 
       expect(focusSpy).toHaveBeenCalledWith("overlay1");
@@ -625,7 +629,11 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const hintSpy = vi.fn();
       map.foliplus.showHint = hintSpy;
 
-      const event = new KeyboardEvent("Enter", { bubbles: true, cancelable: true });
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
       ui.handleKeyDown(event as unknown as KeyboardEvent);
 
       expect(focusSpy).not.toHaveBeenCalled();
@@ -661,7 +669,11 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       btn.focus();
       expect(document.activeElement).toBe(btn);
 
-      const event = new KeyboardEvent("Enter", { bubbles: true, cancelable: true });
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
       ui.handleKeyDown(event as unknown as KeyboardEvent);
 
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);

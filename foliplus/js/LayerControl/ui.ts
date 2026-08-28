@@ -913,7 +913,7 @@ class LayerUI {
         break;
       case "ArrowLeft":
       case "ArrowRight":
-      case "":
+      case " ":
       case "Enter":
         // Do not toggle the checkbox when the more (⋮) button is focused —
         // that key opens the overflow menu instead.
@@ -1167,9 +1167,7 @@ class LayerUI {
       "aria-disabled": isHidden ? "true" : "false",
     };
 
-    menu.appendChild(
-      dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")),
-    );
+    menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
 
     if (isHidden) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
@@ -1297,11 +1295,7 @@ class LayerUI {
   /** Cancel an in-flight focus: remove rect + corners + row highlight. */
   cancelFocus(): void {
     this._cancelFocus(true);
-    this.m.map.foliplus!.showHint(
-      CONF.name,
-      T("focus_cancelled"),
-      HINT_DURATION.SHORT,
-    );
+    this.m.map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
   }
 
   /**
@@ -1322,11 +1316,7 @@ class LayerUI {
     this.focusCorners = [];
 
     if (!silent) {
-      map.foliplus!.showHint(
-        CONF.name,
-        T("focus_cancelled"),
-        HINT_DURATION.SHORT,
-      );
+      map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
     }
     this.focusingLayerId = null;
   }
