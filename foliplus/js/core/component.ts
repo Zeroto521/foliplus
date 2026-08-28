@@ -3,7 +3,7 @@
 // Components use CONF.name (runtime, from Python) for self-reference;
 // cross-component references use COMPONENTS.xxx (compile-time constant).
 
-export const COMPONENTS = {
+const COMPONENTS = {
   MeasureControl: "MeasureControl",
   ExportControl: "ExportControl",
   SearchControl: "SearchControl",
@@ -14,20 +14,23 @@ export const COMPONENTS = {
   HeatmapControl: "HeatmapControl",
 } as const;
 
-export type ComponentName = (typeof COMPONENTS)[keyof typeof COMPONENTS];
+type ComponentName = (typeof COMPONENTS)[keyof typeof COMPONENTS];
 
 /** Generate a namespaced ID for multi-instance support.
  *  e.g. generateId("foliplus_measure", "a") → "foliplus_measure_a". */
-export const generateId = (prefix: string, namespace?: string): string =>
+const generateId = (prefix: string, namespace?: string): string =>
   namespace ? `${prefix}_${namespace}` : prefix;
 
 /** Runtime assertion that a CONF.name matches a known component.
  *  Call early in component initialisation (constructor / onAdd). */
-export function assertComponentName(name: string): void {
+const assertComponentName = (name: string): void => {
   if (!(Object.values(COMPONENTS) as string[]).includes(name)) {
     console.error(
       `[foliplus] Invalid component name: "${name}". ` +
         `Must be one of: ${Object.values(COMPONENTS).join(", ")}`,
     );
   }
-}
+};
+
+export { assertComponentName, COMPONENTS, generateId };
+export type { ComponentName };
