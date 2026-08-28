@@ -506,6 +506,27 @@ describe("bindNodeDrag", () => {
     onUp({ originalEvent: { clientX: 2, clientY: 0 } });
     expect(onEnd).not.toHaveBeenCalled();
   });
+
+  it("gracefully ignores a synthesized mousedown with no originalEvent", () => {
+    const node = { on: vi.fn(), off: vi.fn() };
+    const onDrag = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onDrag });
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+
+    onDown({ originalEvent: undefined, latlng: { lat: 1, lng: 1 } });
+    expect(map.dragging.disable).not.toHaveBeenCalled();
+    // No startPt was set, so a later move must not drag
+    onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+    expect(onDrag).not.toHaveBeenCalled();
+  });
 });
 
 describe("geocodeAddress", () => {

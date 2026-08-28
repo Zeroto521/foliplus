@@ -44,10 +44,12 @@ const formatArea = (sqMeters: number): string => {
 const DRAG_THRESHOLD = 4;
 
 /**
- * Build the shared edit overlay for a finished measurement. The caller wires
- * `result.open(ev)` onto each of the measure's layers; clicking empty map
- * space closes the overlay (the manager's global click handler stops
- * propagation for item clicks, so only empty-space clicks reach here).
+ * Build the shared edit overlay for a finalized distance / polygon / circle
+ * measurement. The caller wires `result.open(ev)` onto each of the measure's
+ * layers; clicking empty map space closes the overlay (the manager's global
+ * click handler stops propagation for item clicks, so only empty-space clicks
+ * reach here). Pin markers use popup coupling instead of an overlay, so they
+ * don't call this.
  */
 const buildEditOverlay = (
   mgr: {
@@ -112,7 +114,9 @@ const bindNodeDrag = (
 
   const onDown = (ev: L.LeafletMouseEvent) => {
     if (!enabled) return;
-    startPt = map.mouseEventToContainerPoint(ev.originalEvent);
+    const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
+    if (!raw) return;
+    startPt = map.mouseEventToContainerPoint(raw);
     dragging = true;
     moved = false;
     setCursor("grabbing");
@@ -120,7 +124,9 @@ const bindNodeDrag = (
   };
   const onMove = (ev: L.LeafletMouseEvent) => {
     if (!dragging || !startPt) return;
-    const pt = map.mouseEventToContainerPoint(ev.originalEvent);
+    const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
+    if (!raw) return;
+    const pt = map.mouseEventToContainerPoint(raw);
     if (
       !moved &&
       Math.abs(pt.x - startPt.x) + Math.abs(pt.y - startPt.y) < DRAG_THRESHOLD

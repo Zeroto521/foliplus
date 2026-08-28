@@ -31,20 +31,25 @@ export function initMocks() {
     on: vi.fn(),
   }));
 
-  window.L.marker = vi.fn(() => ({
-    setLatLng: vi.fn(),
-    setIcon: vi.fn(),
-    on: vi.fn(),
-    bringToFront: vi.fn(),
-    getElement: vi.fn(() => null),
-    setZIndexOffset: vi.fn(),
-    bindPopup: vi.fn(() => ({})),
-    openPopup: vi.fn(),
-    getPopup: vi.fn(() => null),
-    setPopupContent: vi.fn(),
-    addTo: vi.fn(),
-    getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
-  }));
+  const markerFactory = vi.fn(() => {
+    const m: any = {
+      setLatLng: vi.fn(),
+      setIcon: vi.fn(),
+      bringToFront: vi.fn(),
+      getElement: vi.fn(() => null),
+      setZIndexOffset: vi.fn(),
+      bindPopup: vi.fn(() => ({})),
+      openPopup: vi.fn(),
+      getPopup: vi.fn(() => null),
+      setPopupContent: vi.fn(),
+      addTo: vi.fn(() => m),
+      getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
+    };
+    m.on = vi.fn(() => m);
+    m.off = vi.fn(() => m);
+    return m;
+  });
+  window.L.marker = markerFactory;
 
   window.L.divIcon = vi.fn(opts => ({ _mockDivIconHtml: opts?.html }));
 

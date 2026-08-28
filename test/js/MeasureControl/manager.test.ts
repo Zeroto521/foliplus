@@ -26,15 +26,23 @@ function makeManager(opts?: { id?: string }) {
   const layers = mockLayerAPI();
 
   // Mock L marker / circleMarker / divIcon for mode.ts side effects
-  window.L.marker = vi.fn(() => ({
-    bindPopup: vi.fn(),
-    openPopup: vi.fn(),
-    addTo: vi.fn(),
-    getPopup: () => null,
-    on: vi.fn(),
-    setPopupContent: vi.fn(),
-    closePopup: vi.fn(),
-  }));
+  const mkMarker = () => {
+    const m: any = {
+      bindPopup: vi.fn(() => m),
+      openPopup: vi.fn(),
+      addTo: vi.fn(() => m),
+      getPopup: () => null,
+      setPopupContent: vi.fn(),
+      closePopup: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
+      setLatLng: vi.fn(),
+      getElement: vi.fn(() => null),
+    };
+    m.on = vi.fn(() => m);
+    m.off = vi.fn(() => m);
+    return m;
+  };
+  window.L.marker = vi.fn(mkMarker);
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.divIcon = vi.fn(() => ({}));
   window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));

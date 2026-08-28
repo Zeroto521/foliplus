@@ -31,18 +31,34 @@ class MarkerMode extends MeasureMode {
     delMarker: L.Marker,
     measurement: { lng: number; lat: number; address: string | null },
   ): () => void {
+    // Guard against overlapping reverse-geocode races: if a new drag starts
+    // before the previous geocode resolves, the stale result must not
+    // overwrite the newer coordinates/address.
+    let generation = 0;
+    let rafId: number | null = null;
+
     const drag = Util.bindNodeDrag(marker, delMarker, manager.map, {
       onDrag: (latlng: L.LatLng) => {
         delMarker.setLatLng(latlng);
         measurement.lng = latlng.lng;
         measurement.lat = latlng.lat;
-        manager.saveMeasurements();
+        // Throttle persists: live-update the coords but batch the write so
+        // each mousemove doesn't do its own localStorage round-trip.
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          manager.saveMeasurements();
+        });
       },
       onEnd: async (latlng: L.LatLng) => {
         Util.markDragSyntheticClick();
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        const gen = ++generation;
         measurement.lng = latlng.lng;
         measurement.lat = latlng.lat;
-        manager.saveMeasurements();
         const code = window.CONF?.locale_code ?? "en";
         const addr = await Util.geocodeAddress(
           manager,
@@ -51,6 +67,7 @@ class MarkerMode extends MeasureMode {
           code,
           measurement.address,
         );
+        if (gen !== generation) return; // a newer drag superceded us
         measurement.address = addr;
         manager.saveMeasurements();
         if (marker.getPopup()?.isOpen())
@@ -71,6 +88,11 @@ class MarkerMode extends MeasureMode {
     marker.on("popupclose", onPopupClose);
 
     return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      generation += 1; // invalidate any in-flight geocode
       drag.cleanup();
       marker.off("popupopen", onPopupOpen).off("popupclose", onPopupClose);
     };
@@ -123,11 +145,13 @@ class MarkerMode extends MeasureMode {
     };
     attachDelClick(delMarker, deleteMeasurement);
 
-    MarkerMode.bindPinDrag(manager, marker as L.Marker, delMarker as L.Marker, {
-      lng: data.lng!,
-      lat: data.lat!,
-      address: data.address ?? null,
-    });
+    manager.finalizedClickHandlers.push(
+      MarkerMode.bindPinDrag(manager, marker as L.Marker, delMarker as L.Marker, {
+        lng: data.lng!,
+        lat: data.lat!,
+        address: data.address ?? null,
+      }),
+    );
   }
 
   start() {
@@ -207,11 +231,13 @@ class MarkerMode extends MeasureMode {
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
     });
 
-    MarkerMode.bindPinDrag(
-      this.m,
-      marker as L.Marker,
-      delMarker as L.Marker,
-      measurement,
+    this.m.finalizedClickHandlers.push(
+      MarkerMode.bindPinDrag(
+        this.m,
+        marker as L.Marker,
+        delMarker as L.Marker,
+        measurement,
+      ),
     );
   }
 
