@@ -240,11 +240,7 @@ class MeasureManager {
         btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
     });
     if (on) {
-      this.map.foliplus!.showHint(
-        CONF.name,
-        T("hint_edit"),
-        HINT_DURATION.PERSIST,
-      );
+      this.map.foliplus!.showHint(CONF.name, T("hint_edit"), HINT_DURATION.PERSIST);
     } else {
       this.map.foliplus!.hideHint(CONF.name);
     }
