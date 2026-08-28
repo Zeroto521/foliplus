@@ -12,7 +12,7 @@
  *   node script/build.mjs              # build all (minified)
  *   node script/build.mjs --dev        # unminified, keepNames (for PY identifier tests)
  *   node script/build.mjs --check      # build and verify all artifacts exist
- *   node script/build.mjs --sonda      # build + generate sonda bundle report (HTML treemap)
+ *   node script/build.mjs --sonda      # build + generate one combined sonda report (HTML treemap)
  */
 import autoprefixer from "autoprefixer";
 import { spawnSync } from "child_process";
@@ -30,24 +30,18 @@ import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath } from "url";
 import { help, parseArgs } from "./args.mjs";
-import { checkBundleCoverage, generateIndexReport } from "./bundle-report.mjs";
+import { checkBundleCoverage } from "./bundle-report.mjs";
 import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
-// Returns a factory function that creates a named plugin instance per entry.
-let sondaFactory = null;
+// Returns the API used to merge per-build metafiles into one combined report.
+let sondaApi = null;
 const loadSonda = async () => {
-  if (sondaFactory) return sondaFactory;
-  const { default: sonda } = await import("sonda/esbuild");
-  sondaFactory = (name = "bundle") =>
-    sonda({
-      format: "html",
-      outputDir: "bundle-reports",
-      filename: `${name}.html`,
-      include: [/\.(js|css)$/],
-    });
-  return sondaFactory;
+  if (sondaApi) return sondaApi;
+  const { Config, processEsbuildMetafile } = await import("sonda");
+  sondaApi = { Config, processEsbuildMetafile };
+  return sondaApi;
 };
 
 // ── Config ──────────────────────────────────────────────────────
@@ -230,23 +224,21 @@ const findComponents = () => {
 /** Shorthand for a path under dist/. */
 const out = name => resolve(distDir, name);
 
-/** Build the full list of esbuild artifacts (components + merged common CSS). */
-const buildEntries = (components, sonda) => {
+/** Build the full list of esbuild artifacts (components + merged common CSS).
+ *  `withSonda` only enables metafile output per build — the metafiles are
+ *  merged into a single sonda report after all builds complete. */
+const buildEntries = (components, withSonda) => {
   const entries = [];
   for (const { name, js, css } of components) {
     // The shared entry is exposed as "common" so the filename
     // foliplus-common.min.js pairs with the CSS.
     const outName = name === SHARED_ENTRY ? "common" : name;
     const jsEntry = artifact([js], out(`foliplus-${outName}.min.js`), name);
-    if (sonda) {
-      jsEntry.plugins = [...jsEntry.plugins, sonda(outName)];
-    }
+    if (withSonda) jsEntry.metafile = true;
     entries.push(jsEntry);
     if (css) {
       const cssEntry = artifact([css], out(`foliplus-${outName}.min.css`), name);
-      if (sonda) {
-        cssEntry.plugins = [...cssEntry.plugins, sonda(`${outName}.css`)];
-      }
+      if (withSonda) cssEntry.metafile = true;
       entries.push(cssEntry);
     }
   }
@@ -261,12 +253,22 @@ const buildEntries = (components, sonda) => {
     const tmpCss = resolve(buildCss, MERGED_CSS_NAME);
     writeFileSync(tmpCss, css, "utf-8");
     const commonCssEntry = artifact([tmpCss], out("foliplus-common.min.css"), "common");
-    if (sonda) {
-      commonCssEntry.plugins = [...commonCssEntry.plugins, sonda("common.css")];
-    }
+    if (withSonda) commonCssEntry.metafile = true;
     entries.push(commonCssEntry);
   }
   return entries;
+};
+
+/** Merge per-build esbuild metafiles into one. Input/output paths are disjoint
+ *  across builds (each build emits one artifact), so a shallow merge suffices. */
+const mergeMetafiles = metafiles => {
+  const merged = { inputs: {}, outputs: {} };
+  for (const mf of metafiles) {
+    if (!mf) continue;
+    Object.assign(merged.inputs, mf.inputs);
+    Object.assign(merged.outputs, mf.outputs);
+  }
+  return merged;
 };
 
 /** Generate .build/js/_shared-registry.ts via external script.
@@ -296,8 +298,9 @@ const main = async () => {
   // ── Step 3: Discover components & build entries ───────────────
   const components = findComponents();
   const sonda = CFG.sonda ? await loadSonda() : null;
-  if (sonda) console.log("  🔍 Sonda analysis enabled (report → bundle-reports/)");
-  const entries = buildEntries(components, sonda);
+  if (sonda)
+    console.log("  🔍 Sonda analysis enabled (combined report → bundle-reports/)");
+  const entries = buildEntries(components, CFG.sonda);
   console.log(
     `Building ${entries.length} artifacts for ${components.length} components...`,
   );
@@ -311,12 +314,28 @@ const main = async () => {
     else console.error(`  ✗ ${basename(entries[i].outfile)}: ${r.reason.message}`);
   }
 
-  // ── Step 4.5: Summary overview + coverage check (--sonda) ────
-  // Emit an index.html aggregating all bundles and warn if any dist
-  // bundle is missing from size-baselines.json.
+  // ── Step 4.5: Combined sonda report + coverage check (--sonda) ──
+  // Merge per-build metafiles into one sonda treemap (index.html) and
+  // warn if any dist bundle is missing from size-baselines.json.
   if (sonda) {
-    generateIndexReport(ROOT_RESOLVED);
-    await checkBundleCoverage(ROOT_RESOLVED);
+    const metafiles = results
+      .filter(r => r.status === "fulfilled")
+      .map(r => r.value?.metafile)
+      .filter(Boolean);
+    const reportDir = resolve(ROOT_RESOLVED, "bundle-reports");
+    rmSync(reportDir, { recursive: true, force: true });
+    const config = new sonda.Config(
+      {
+        format: "html",
+        outputDir: reportDir,
+        filename: "index.html",
+        open: false,
+        include: [/\.(js|css)$/],
+      },
+      { integration: "esbuild" },
+    );
+    await sonda.processEsbuildMetafile(mergeMetafiles(metafiles), config);
+    checkBundleCoverage(ROOT_RESOLVED);
   }
 
   // ── Step 5: Verification (--check) ────────────────────────────
