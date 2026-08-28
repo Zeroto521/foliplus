@@ -116,7 +116,7 @@ const scanImports = dir => {
     usedExports[spec] = [...names].sort();
   }
   return usedExports;
-}
+};
 
 const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   const sourceDir = srcDirParam;
@@ -209,7 +209,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
       `_shared-registry.ts written (${lines.length} lines, ${Object.keys(usedExports).length} specs)`,
     );
   }
-}
+};
 
 export { generateRegistry, scanImports };
 

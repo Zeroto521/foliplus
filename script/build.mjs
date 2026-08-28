@@ -330,7 +330,7 @@ const main = async () => {
   }
   if (failed) process.exit(1);
   console.timeEnd("build");
-}
+};
 
 main().catch(e => {
   console.error(e);

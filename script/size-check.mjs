@@ -34,16 +34,20 @@ const parseArgs = argv => {
   for (const a of argv) {
     if (a === "--save") args.save = true;
     else if (a === "--audit") args.audit = true;
-    else if (a.startsWith("--threshold=")) args.threshold = parseInt(a.split("=")[1], 10);
+    else if (a.startsWith("--threshold="))
+      args.threshold = parseInt(a.split("=")[1], 10);
   }
   if (args.save) args.check = false;
   return args;
 };
 
 const readSizes = () => {
-  const files = readdirSync(DIST).filter(f => /\.min\.(js|css)$/.test(f)).sort();
+  const files = readdirSync(DIST)
+    .filter(f => /\.min\.(js|css)$/.test(f))
+    .sort();
   const sizes = {};
-  for (const f of files) sizes[f] = brotliCompressSync(readFileSync(resolve(DIST, f))).length;
+  for (const f of files)
+    sizes[f] = brotliCompressSync(readFileSync(resolve(DIST, f))).length;
   return sizes;
 };
 
@@ -75,32 +79,67 @@ const fmtPct = (curr, prev) => {
   return (p > 0 ? "+" : "") + p.toFixed(1) + "%";
 };
 
-const ICONS = { over: "🔴", up: "🟡", down: "🟢", same: "⚪", new: "🆕", missing: "⚠️" };
+const ICONS = {
+  over: "🔴",
+  up: "🟡",
+  down: "🟢",
+  same: "⚪",
+  new: "🆕",
+  missing: "⚠️",
+};
 
 const buildRows = (current, baseline, threshold) => {
-  const allFiles = [...new Set([...Object.keys(current), ...(baseline ? Object.keys(baseline.files || {}) : [])])].sort();
+  const allFiles = [
+    ...new Set([
+      ...Object.keys(current),
+      ...(baseline ? Object.keys(baseline.files || {}) : []),
+    ]),
+  ].sort();
   return allFiles.map(f => {
     const curr = current[f] ?? null;
-    const prev = baseline ? baseline.files[f] ?? null : null;
+    const prev = baseline ? (baseline.files[f] ?? null) : null;
     if (curr === null) return { file: f, status: "missing", over: false };
-    if (prev === null) return { file: f, curr, prev: null, delta: null, pct: null, status: "new", over: false };
+    if (prev === null)
+      return {
+        file: f,
+        curr,
+        prev: null,
+        delta: null,
+        pct: null,
+        status: "new",
+        over: false,
+      };
     const delta = curr - prev;
     const pct = prev > 0 ? (delta / prev) * 100 : null;
     const over = pct > threshold;
-    return { file: f, curr, prev, delta, pct, status: over ? "over" : delta > 0 ? "up" : delta < 0 ? "down" : "same", over };
+    return {
+      file: f,
+      curr,
+      prev,
+      delta,
+      pct,
+      status: over ? "over" : delta > 0 ? "up" : delta < 0 ? "down" : "same",
+      over,
+    };
   });
 };
 
 const renderTable = (rows, threshold) => {
-  const lines = ["", `## 📦 Bundle Size Check (threshold: ${threshold}%)`, "",
+  const lines = [
+    "",
+    `## 📦 Bundle Size Check (threshold: ${threshold}%)`,
+    "",
     "| File | Current | Baseline | Δ | Δ% | Status |",
-    "|------|---------|----------|------|-----|--------|"];
+    "|------|---------|----------|------|-----|--------|",
+  ];
   for (const r of rows) {
     const currStr = r.curr != null ? fmtKB(r.curr) : "—";
     const prevStr = r.prev != null ? fmtKB(r.prev) : "—";
     const icon = ICONS[r.status] || "⚪";
     const label = r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status;
-    lines.push(`| ${r.file} | ${currStr} | ${prevStr} | ${fmtDelta(r.curr, r.prev)} | ${fmtPct(r.curr, r.prev)} | ${icon} ${label} |`);
+    lines.push(
+      `| ${r.file} | ${currStr} | ${prevStr} | ${fmtDelta(r.curr, r.prev)} | ${fmtPct(r.curr, r.prev)} | ${icon} ${label} |`,
+    );
   }
   return lines.join("\n");
 };
@@ -112,7 +151,9 @@ const renderConsole = rows => {
     const currStr = r.curr != null ? fmtKB(r.curr) : "—";
     const prevStr = r.prev != null ? fmtKB(r.prev) : "—";
     const label = r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status;
-    lines.push(`  ${icon} ${r.file.padEnd(42)} ${currStr.padStart(10)}  ←  ${prevStr.padStart(10)}  ${fmtDelta(r.curr, r.prev).padStart(9)}  ${fmtPct(r.curr, r.prev).padStart(6)}  ${label}`);
+    lines.push(
+      `  ${icon} ${r.file.padEnd(42)} ${currStr.padStart(10)}  ←  ${prevStr.padStart(10)}  ${fmtDelta(r.curr, r.prev).padStart(9)}  ${fmtPct(r.curr, r.prev).padStart(6)}  ${label}`,
+    );
   }
   return lines.join("\n");
 };
@@ -143,14 +184,19 @@ const check = ({ threshold }) => {
 
   if (failures.length > 0) {
     console.error(`\n❌ ${failures.length} bundle(s) exceeded threshold:`);
-    for (const f of failures) console.error(`  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`);
+    for (const f of failures)
+      console.error(
+        `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
+      );
     console.error("\nUpdate baseline: node script/size-check.mjs --save");
     process.exit(1);
   }
   if (lowMargin.length > 0) {
-    console.warn(`\n⚠️  ${lowMargin.length} bundle(s) with <${LOW_MARGIN_PCT}% margin:`);
+    console.warn(
+      `\n⚠️  ${lowMargin.length} bundle(s) with <${LOW_MARGIN_PCT}% margin:`,
+    );
     for (const m of lowMargin) {
-      const g = ((m.curr - m.prev) / m.prev * 100).toFixed(1);
+      const g = (((m.curr - m.prev) / m.prev) * 100).toFixed(1);
       const remaining = (threshold - parseFloat(g)).toFixed(1);
       console.warn(`  ${m.file}: ${g}% growth (${remaining}% margin left)`);
     }
@@ -171,8 +217,11 @@ const save = ({ threshold }) => {
   }
   writeBaseline(current, threshold);
   const totalKB = Object.values(current).reduce((a, b) => a + b, 0) / 1024;
-  console.log(`✓ Baseline saved: ${Object.keys(current).length} bundles, ${totalKB.toFixed(2)} KB total`);
-  for (const [f, s] of Object.entries(current)) console.log(`  ${fmtKB(s).padStart(10)}  ${f}`);
+  console.log(
+    `✓ Baseline saved: ${Object.keys(current).length} bundles, ${totalKB.toFixed(2)} KB total`,
+  );
+  for (const [f, s] of Object.entries(current))
+    console.log(`  ${fmtKB(s).padStart(10)}  ${f}`);
 };
 
 const audit = () => {
@@ -183,23 +232,51 @@ const audit = () => {
     return;
   }
   const threshold = baseline.threshold;
-  console.log(`\nBundle Size Audit (baseline: ${baseline.lastUpdated}, threshold: ${threshold}%)`);
+  console.log(
+    `\nBundle Size Audit (baseline: ${baseline.lastUpdated}, threshold: ${threshold}%)`,
+  );
   console.log("─".repeat(78));
-  console.log("  " + "File".padEnd(40) + "Current".padStart(10) + "Baseline".padStart(10) + "Growth".padStart(9) + "Margin".padStart(9) + "  Status");
+  console.log(
+    "  " +
+      "File".padEnd(40) +
+      "Current".padStart(10) +
+      "Baseline".padStart(10) +
+      "Growth".padStart(9) +
+      "Margin".padStart(9) +
+      "  Status",
+  );
 
   const files = Object.keys(current).sort();
   for (const f of files) {
     const curr = current[f];
     const prev = baseline.files[f];
     if (prev == null) {
-      console.log("  " + f.padEnd(40) + fmtKB(curr).padStart(10) + "  NEW".padStart(10) + " ".padStart(18) + "  🆕 new");
+      console.log(
+        "  " +
+          f.padEnd(40) +
+          fmtKB(curr).padStart(10) +
+          "  NEW".padStart(10) +
+          " ".padStart(18) +
+          "  🆕 new",
+      );
       continue;
     }
-    const growth = ((curr - prev) / prev * 100).toFixed(1);
+    const growth = (((curr - prev) / prev) * 100).toFixed(1);
     const remaining = threshold - parseFloat(growth);
     const marginStr = (remaining >= 0 ? "" : "⚠️ ") + remaining.toFixed(1) + "%";
-    const status = remaining <= 0 ? "🔴 OVER" : remaining < LOW_MARGIN_PCT ? "🟡 LOW" : "🟢 OK";
-    console.log("  " + f.padEnd(40) + fmtKB(curr).padStart(10) + fmtKB(prev).padStart(10) + growth.padStart(8) + "%" + marginStr.padStart(9) + "  " + status);
+    const status =
+      remaining <= 0 ? "🔴 OVER" : remaining < LOW_MARGIN_PCT ? "🟡 LOW" : "🟢 OK";
+    console.log(
+      "  " +
+        f.padEnd(40) +
+        fmtKB(curr).padStart(10) +
+        fmtKB(prev).padStart(10) +
+        growth.padStart(8) +
+        "%" +
+        marginStr.padStart(9) +
+        "  " +
+        status,
+    );
   }
 };
 

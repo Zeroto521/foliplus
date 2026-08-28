@@ -135,7 +135,7 @@ export const parseArgs = (argv, spec) => {
   }
 
   return result;
-}
+};
 
 /**
  * Print a usage string with descriptions.
@@ -155,4 +155,4 @@ export const help = spec => {
     lines.push(prefix);
   }
   return lines.join("\n");
-}
+};

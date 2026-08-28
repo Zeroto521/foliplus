@@ -234,11 +234,11 @@ requestAnimationFrame(() => render(metric));
   console.log(
     `  📊 Overview written: ${resolve(reportDir, "index.html")} (${packKw(totalOf("gz"))} gzip, ${packKw(totalOf("raw"))} raw)`,
   );
-}
+};
 
 const packKw = bytes => {
   return (bytes / 1024).toFixed(2) + " KB";
-}
+};
 
 /** Warn if any dist bundle is not listed in `size-baselines.json` (would skip threshold checks). */
 export const checkBundleCoverage = (root = projectRoot) => {
@@ -247,7 +247,9 @@ export const checkBundleCoverage = (root = projectRoot) => {
   const configPath = resolve(root, "size-baselines.json");
   if (!existsSync(configPath)) return; // no baseline yet — nothing to cross-check
 
-  const monitored = new Set(Object.keys(JSON.parse(readFileSync(configPath, "utf-8")).files));
+  const monitored = new Set(
+    Object.keys(JSON.parse(readFileSync(configPath, "utf-8")).files),
+  );
   const unmonitored = distFiles.filter(f => !monitored.has(f));
   if (!unmonitored.length) return;
 
@@ -255,7 +257,7 @@ export const checkBundleCoverage = (root = projectRoot) => {
     `⚠️  ${unmonitored.length} bundle(s) not covered by size-baselines.json: ${unmonitored.join(", ")}`,
   );
   console.warn("   Add them to size-baselines.json or they will not be size-checked.");
-}
+};
 
 // CLI entry point: `node script/bundle-report.mjs`
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
