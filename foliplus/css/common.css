@@ -508,9 +508,13 @@
   box-shadow: var(--shadow-xs);
 }
 
-/* ── Floating Delete Icon (shared by MeasureControl / LocateControl) ── */
+/* ── Floating Delete Icon (shared by MeasureControl / LocateControl) ──
+   Must stay `absolute` (Leaflet's marker-icon default): a `relative` marker
+   icon would have its translate3d position measured from its in-flow slot in
+   the pane, so a del icon could render far from its anchor depending on pane
+   content / render order. */
 .foliplus-del-icon {
-  position: relative;
+  position: absolute;
   width: 0;
   height: 0;
 }
