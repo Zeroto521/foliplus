@@ -52,7 +52,11 @@ const buildEditOverlay = (
     registerEditOverlayCloser?: (close: () => void) => void;
   },
   opts: { onOpen: () => void; onEmpty?: () => void },
-): { open: (ev: L.LeafletMouseEvent) => void; close: () => void; cleanup: () => void } => {
+): {
+  open: (ev: L.LeafletMouseEvent) => void;
+  close: () => void;
+  cleanup: () => void;
+} => {
   let open = false;
   const { onOpen, onEmpty } = opts;
 

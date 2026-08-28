@@ -522,10 +522,12 @@ describe("bindNodeDrag", () => {
     const map = {
       on: vi.fn(),
       off: vi.fn(),
-      mouseEventToContainerPoint: vi.fn((raw: { clientX: number; clientY: number }) => ({
-        x: raw.clientX,
-        y: raw.clientY,
-      })),
+      mouseEventToContainerPoint: vi.fn(
+        (raw: { clientX: number; clientY: number }) => ({
+          x: raw.clientX,
+          y: raw.clientY,
+        }),
+      ),
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
     const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onDrag });
