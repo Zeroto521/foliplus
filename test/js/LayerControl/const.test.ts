@@ -126,6 +126,10 @@ describe("FOCUS", () => {
   it("defines the minimum bounds area threshold for flyTo fallback", () => {
     expect(CONST.FOCUS.MIN_BOUNDS_AREA).toBe(0.0001);
   });
+
+  it("defines the opacity applied to non-focused layers while focusing", () => {
+    expect(CONST.FOCUS.DIM_OPACITY).toBe(0.25);
+  });
 });
 
 describe("CLASSES.FOCUSING", () => {

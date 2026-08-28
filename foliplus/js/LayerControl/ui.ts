@@ -62,6 +62,8 @@ class LayerUI {
   private focusingLayerId: string | null;
   /** One-shot map move/zoom handler that auto-cancels focus when the user navigates. */
   private _onFocusMapMove: (() => void) | null;
+  /** Restore callbacks for layers dimmed during focus (cleared on cancel). */
+  private dimmedLayers: Array<() => void>;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
@@ -81,6 +83,7 @@ class LayerUI {
     this.focusCorners = [];
     this.focusingLayerId = null;
     this._onFocusMapMove = null;
+    this.dimmedLayers = [];
   }
 
   /** Alias for convenience */
@@ -1241,6 +1244,9 @@ class LayerUI {
     const bounds = (layer as L.Layer & { getBounds(): L.LatLngBounds }).getBounds();
     if (!bounds.isValid()) return;
 
+    // Dim every other visible layer so the focused layer stands out.
+    this._dimOtherLayers(layer);
+
     // Single-point / tiny bounds → flyTo the center.
     const southWest = bounds.getSouthWest();
     const northEast = bounds.getNorthEast();
@@ -1305,6 +1311,7 @@ class LayerUI {
   private _cancelFocus(silent = false): void {
     this._clearAutoCancel();
     this._clearFocusedRowHighlight();
+    this._restoreDimmedLayers();
 
     if (this.focusRect) {
       this.m.map.removeLayer(this.focusRect);
@@ -1319,6 +1326,68 @@ class LayerUI {
       map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
     }
     this.focusingLayerId = null;
+  }
+
+  /**
+   * Dim every other visible registered layer so the focused layer stands out.
+   * Type-aware: vector paths use setStyle(opacity + fillOpacity), opacity
+   * layers (Marker/Tile/Grid/ImageOverlay) use setOpacity, and containers
+   * (LayerGroup/FeatureGroup) recurse into children. Restore callbacks are
+   * collected and replayed by _restoreDimmedLayers().
+   */
+  private _dimOtherLayers(focusedLayer: L.Layer): void {
+    for (const layerInfo of this.m.layers) {
+      const layer = this.m.findLayer(layerInfo);
+      if (!layer || layer === focusedLayer) continue;
+      if (!this.m.map.hasLayer(layer)) continue;
+      const restore = this._dimLayer(layer, CONST.FOCUS.DIM_OPACITY);
+      if (restore) this.dimmedLayers.push(restore);
+    }
+  }
+
+  /**
+   * Dim a single layer and return a restore callback (or null if the layer
+   * has no dimmable representation).
+   */
+  private _dimLayer(layer: L.Layer, opacity: number): (() => void) | null {
+    const anyLayer = layer as L.Layer & {
+      setOpacity?: (o: number) => L.Layer;
+      eachLayer?: (fn: (c: L.Layer) => void) => void;
+      options?: { opacity?: number; fillOpacity?: number };
+    };
+
+    // Vector path: dim stroke + fill together.
+    if (layer instanceof L.Path) {
+      const opts = layer.options as L.PathOptions;
+      const origOpacity = opts.opacity ?? 1;
+      const origFill = opts.fillOpacity ?? origOpacity;
+      layer.setStyle({ opacity, fillOpacity: opacity });
+      return () => layer.setStyle({ opacity: origOpacity, fillOpacity: origFill });
+    }
+
+    // Opacity-bearing layers (Marker, TileLayer, GridLayer, ImageOverlay).
+    if (typeof anyLayer.setOpacity === "function") {
+      const orig = anyLayer.options?.opacity ?? 1;
+      anyLayer.setOpacity(opacity);
+      return () => anyLayer.setOpacity!(orig);
+    }
+
+    // Container (LayerGroup/FeatureGroup): dim each child.
+    if (typeof anyLayer.eachLayer === "function") {
+      const restores: Array<(() => void) | null> = [];
+      anyLayer.eachLayer(child => {
+        restores.push(this._dimLayer(child, opacity));
+      });
+      return () => restores.forEach(r => r?.());
+    }
+
+    return null;
+  }
+
+  /** Restore all layers dimmed during the current focus. */
+  private _restoreDimmedLayers(): void {
+    for (const restore of this.dimmedLayers) restore();
+    this.dimmedLayers = [];
   }
 
   /** Draw a dashed focus rectangle + 4 corner circleMarkers; return the corners. */

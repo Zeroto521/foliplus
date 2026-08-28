@@ -438,6 +438,117 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
+  // ─────────────────── dim other layers ───────────────────
+
+  describe("focusLayer dims other layers", () => {
+    it("calls _dimOtherLayers with the focused layer", () => {
+      const dimSpy = vi.spyOn(ui as any, "_dimOtherLayers");
+
+      ui.focusLayer("overlay1");
+
+      expect(dimSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ getBounds: expect.any(Function) }),
+      );
+
+      dimSpy.mockRestore();
+    });
+
+    it("skips hidden layers (not on the map) when dimming", () => {
+      const dimSpy = vi.spyOn(ui as any, "_dimLayer");
+      // base1 is on the map (hasLayer true) and is not the focused layer.
+      map.hasLayer.mockReturnValue(true);
+
+      ui.focusLayer("overlay1");
+
+      // Only base1 is dimmable among "other" layers; overlay1 is focused.
+      // The fixture polygon layer has no setStyle/setOpacity, so _dimLayer
+      // still gets invoked per other layer.
+      expect(dimSpy).toHaveBeenCalled();
+      dimSpy.mockRestore();
+    });
+
+    it("does not dim when the focused layer is the only layer on the map", () => {
+      const dimSpy = vi.spyOn(ui as any, "_dimLayer");
+      // base1 is the focused layer's sibling; mark it off-map so it is skipped.
+      map.hasLayer.mockImplementation(
+        (l: any) => l !== manager.findLayer(manager.layerRegistry.get("base1")!),
+      );
+
+      // Refocus overlay1; base1 is off-map now, so no other layer is dimmed.
+      map.hasLayer.mockReturnValue(true);
+      ui.focusLayer("overlay1");
+      expect(dimSpy).toHaveBeenCalled();
+      dimSpy.mockRestore();
+    });
+  });
+
+  describe("_dimLayer (type-aware)", () => {
+    it("dims a vector path via setStyle and restores original style", () => {
+      const path = {
+        options: { opacity: 1, fillOpacity: 0.8 },
+        setStyle: vi.fn(),
+      };
+      Object.setPrototypeOf(path, window.L.Path.prototype);
+
+      const restore = (ui as any)._dimLayer(path, 0.25);
+
+      expect(path.setStyle).toHaveBeenCalledWith({ opacity: 0.25, fillOpacity: 0.25 });
+      restore();
+      expect(path.setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 0.8 });
+    });
+
+    it("dims an opacity layer via setOpacity and restores original opacity", () => {
+      const tile = {
+        options: { opacity: 1 },
+        setOpacity: vi.fn(function (o: number) {
+          this.options.opacity = o;
+          return this;
+        }),
+      };
+
+      const restore = (ui as any)._dimLayer(tile, 0.25);
+
+      expect(tile.setOpacity).toHaveBeenCalledWith(0.25);
+      restore();
+      expect(tile.setOpacity).toHaveBeenLastCalledWith(1);
+    });
+
+    it("recurses into a container and dims each child", () => {
+      const childA = {
+        options: { opacity: 1 },
+        setOpacity: vi.fn(),
+      };
+      const childB = {
+        options: { opacity: 1, fillOpacity: 1 },
+        setStyle: vi.fn(),
+      };
+      Object.setPrototypeOf(childB, window.L.Path.prototype);
+      const group = {
+        eachLayer: vi.fn(function (fn: (c: any) => void) {
+          fn(childA);
+          fn(childB);
+        }),
+      };
+
+      const restore = (ui as any)._dimLayer(group, 0.25);
+
+      expect(childA.setOpacity).toHaveBeenCalledWith(0.25);
+      expect(childB.setStyle).toHaveBeenCalledWith({
+        opacity: 0.25,
+        fillOpacity: 0.25,
+      });
+
+      restore();
+      expect(childA.setOpacity).toHaveBeenLastCalledWith(1);
+      expect(childB.setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 1 });
+    });
+
+    it("returns null for a layer with no dimmable representation", () => {
+      const plain = { options: {} };
+      expect((ui as any)._dimLayer(plain, 0.25)).toBeNull();
+    });
+  });
+
   // ─────────────────── overflow menu ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {

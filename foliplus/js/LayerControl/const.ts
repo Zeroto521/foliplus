@@ -27,6 +27,8 @@ export const FOCUS = {
   MAX_ZOOM_STEP: 6,
   /** Bounds area (deg²) below which we treat the layer as a single point → flyTo center. */
   MIN_BOUNDS_AREA: 0.0001,
+  /** Opacity applied to non-focused layers while a focus is in progress. */
+  DIM_OPACITY: 0.25,
 };
 
 /** CSS class names. */
