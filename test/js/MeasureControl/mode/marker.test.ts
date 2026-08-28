@@ -150,9 +150,7 @@ describe("MarkerMode — start + click", () => {
 
       // Trigger the drag onEnd async path by simulating a mouseup after
       // movement: grab the last registered map mouseup handler and fire it.
-      const mouseupCalls = manager.map.on.mock.calls.filter(
-        ([ev]) => ev === "mouseup",
-      );
+      const mouseupCalls = manager.map.on.mock.calls.filter(([ev]) => ev === "mouseup");
       expect(mouseupCalls.length).toBeGreaterThan(0);
       // Just verify the click didn't blow up and a cleanup is registered;
       // the real async race is exercised by the live browser tests.
