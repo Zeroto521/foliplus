@@ -15,7 +15,7 @@ from foliplus import __version__
 # ── Project information ──────────────────────────────────────────────
 project = "foliplus"
 author = "@Zeroto521"
-copyright = f"2021-{datetime.now().year} {author}"
+copyright = f"2026-{datetime.now().year} {author}"
 version = release = __version__
 github_url = f"https://github.com/Zeroto521/{project}"
 _readthedocs_version = os.environ.get("READTHEDOCS_VERSION", "latest")
