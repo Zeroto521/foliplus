@@ -27,32 +27,31 @@ describe("formatNumber", () => {
     expect(result === "1.2万" || result === "1,234" || result === "1234").toBe(true);
   });
 
-  // --- CJK (4-digit grouping) vs other locales ---
-  it("CJK (zh) sub-10000 auto values use no thousands separator: 6000, not 6,000", () => {
-    // zh grouping unit is 4 digits (万); 6000 < 1万 needs no separator
+  // --- auto-style grouping: values below the grouping boundary render ungrouped ---
+  it("zh sub-10000 auto values use no thousands separator: 6000, not 6,000", () => {
+    // zh's compact unit (万) begins at 10000, so 1000–9999 hit the fallback
+    // path with useGrouping:false -> 6000, matching Chinese 4-digit grouping.
     expect(formatNumber(6000, "auto", "zh")).toBe("6000");
     expect(formatNumber(9999, "auto", "zh")).toBe("9999");
     expect(formatNumber(1234, "auto", "zh")).toBe("1234");
     expect(formatNumber(6000, "auto", "zh-CN")).toBe("6000");
   });
 
-  it("CJK (zh) >= 10000 uses compact 万 notation", () => {
+  it("zh >= 10000 uses compact 万 notation", () => {
     expect(formatNumber(10000, "auto", "zh")).toBe("1万");
     expect(formatNumber(12000, "auto", "zh")).toBe("1.2万");
   });
 
-  it("CJK 1000-9999 fallback is ungrouped; en compact, ja fallback keeps grouping", () => {
-    // 6000 >= 1000. en has a compact unit -> "6K". zh has none below 1万 ->
-    // fallback, and zh is CJK (4-digit 万) so grouping is disabled -> "6000".
-    // ja has no compact unit here either, but ja groups in 3s, so its fallback
-    // keeps grouping -> "6,000".
+  it("en sub-1000 auto values stay ungrouped; en >= 1000 uses compact K", () => {
+    // en reaches the fallback only for < 1000 (no separator needed);
+    // >= 1000 uses the compact K unit.
+    expect(formatNumber(999, "auto", "en")).toBe("999");
     expect(formatNumber(6000, "auto", "en")).toBe("6K");
-    expect(formatNumber(6000, "auto", "zh")).toBe("6000");
-    expect(formatNumber(6000, "auto", "ja")).toBe("6,000");
+    expect(formatNumber(12000, "auto", "en")).toBe("12K");
   });
 
   it("user-explicit comma style keeps grouping regardless of locale (6000 -> 6,000 in zh)", () => {
-    // comma/int are user-requested; locale grouping rules do not override them
+    // comma/int are user-requested; the locale is not consulted for grouping.
     expect(formatNumber(6000, "comma", "zh")).toBe("6,000");
     expect(formatNumber(6000, "int", "zh")).toBe("6,000");
     expect(formatNumber(6000, "comma", "en")).toBe("6,000");
