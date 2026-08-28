@@ -57,7 +57,7 @@ export const ensureInteraction = (map: L.Map): InteractionManager => {
 export class InteractionManager {
   private map: L.Map;
   private shortcuts: InteractionDef[] = [];
-  private _order = 0;
+  private order = 0;
   private docListeners: Map<string, (event: Event) => void> = new Map();
   private observer: MutationObserver | null = null;
   private trackedElements: Map<HTMLElement, Set<string>> = new Map();
@@ -142,7 +142,7 @@ export class InteractionManager {
       if (def.container && !def.element) {
         this.trackElement(def.container, component);
       }
-      (def as any).order = this._order++;
+      (def as any).order = this.order++;
       this.shortcuts.push(def);
     }
     this.ensureListener();
