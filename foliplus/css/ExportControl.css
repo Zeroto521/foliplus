@@ -135,6 +135,10 @@
     left bottom,
     left top,
     right top;
+  /* Position the dashes against the border box (outer edge), not the default
+     padding box — otherwise the 2px border pushes them inward and leaves a
+     gap between the dashes and the ::before dim boundary. */
+  background-origin: border-box;
   background-repeat: no-repeat;
   cursor: move;
   z-index: calc(var(--z-export-base) + 1);
