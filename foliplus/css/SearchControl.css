@@ -41,6 +41,7 @@
   /* Above other floating controls: the panel is mounted on the map container. */
   z-index: calc(var(--z-index-floating) + 9);
   width: var(--panel-width);
+  max-height: 240px;
 }
 .foliplus-search-result-item {
   display: flex;

@@ -102,9 +102,6 @@
   --toggle-size: 36px;
   --panel-width: 280px;
   --panel-max-height: 400px;
-  /* 240px matches the original SearchControl result-panel height; Heatmap's
-     scheme picker was 200px and gains a little headroom, which is harmless. */
-  --dropdown-max-height: 240px;
   --panel-header-padding-left: var(--size-6);
   --panel-header-padding-right: var(--ctrl-size);
 
@@ -384,10 +381,10 @@
 /* ══════════════════════════════════════════════════════════════════════
   Unified Dropdown / Menu
   Floating menus in SearchControl (result panel) and HeatmapControl (scheme
-  picker) share one visual recipe. Position/width/item-layout stay
-  per-component; this block owns the shell + hover/active item states.
+  picker) share one visual recipe. Position, width, max-height and item
+  layout stay per-component; this block owns the shell + hover/active states.
   When LayerControl's overflow menu (foliplus-layer-more-menu) lands from
-  the layer/focus branch, add it to these two :is() groups and drop its
+  the layer/focus branch, add it to these :is() groups and drop its
   duplicated shell/item-hover properties.
   ══════════════════════════════════════════════════════════════════════ */
 
@@ -400,23 +397,35 @@
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
   z-index: var(--z-index-floating);
-  max-height: var(--dropdown-max-height);
   overflow-y: auto;
 }
 
-/* ── Item base + hover/active ── */
+/* ── Item base ── */
 :is(.foliplus-search-result-item, .foliplus-heatmap-scheme-dropdown-item) {
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: var(--text-primary);
   transition: background var(--transition-fast);
 }
-:is(.foliplus-search-result-item, .foliplus-heatmap-scheme-dropdown-item):is(
-  :hover,
-  .active
-) {
+
+/* ── Hover: dropdown items are actions, so they answer with accent (same
+     language as the LayerControl "more" button hover). ── */
+:is(
+  .foliplus-search-result-item,
+  .foliplus-heatmap-scheme-dropdown-item
+):hover {
   background: var(--accent-light);
   color: var(--accent-primary);
+}
+
+/* ── Active: the layer-item "selected" language — accent light background,
+     text stays text-primary (the accent left border is added per-component
+     where a persistent selection exists, e.g. the Heatmap scheme picker). ── */
+:is(
+  .foliplus-search-result-item,
+  .foliplus-heatmap-scheme-dropdown-item
+).active {
+  background: var(--accent-light);
 }
 
 .foliplus-ctrl-btn {
