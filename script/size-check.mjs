@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Bundle size baseline checker — compares each dist bundle's brotli size
- * against a committed baseline (`size-baselines.json`). Fails when a bundle
+ * against a committed baseline (`size-baseline.json`). Fails when a bundle
  * grows beyond the configured threshold (default 10%).
  *
  * Modes:
@@ -29,7 +29,7 @@ const DEFAULT_THRESHOLD = 10;
 const LOW_MARGIN_PCT = 5;
 
 const distDir = root => resolve(root, "foliplus/dist");
-const baselinePath = root => resolve(root, "size-baselines.json");
+const baselinePath = root => resolve(root, "size-baseline.json");
 
 const parseArgs = argv => {
   const args = {

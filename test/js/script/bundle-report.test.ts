@@ -26,7 +26,7 @@ const mkDist = (root: string, files: Record<string, string>) => {
 const writeBaselineJson = (root: string, files: Record<string, number>) => {
   mkdirSync(root, { recursive: true });
   writeFileSync(
-    join(root, "size-baselines.json"),
+    join(root, "size-baseline.json"),
     JSON.stringify({ version: 1, threshold: 10, files }),
     "utf-8",
   );

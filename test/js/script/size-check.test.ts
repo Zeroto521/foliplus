@@ -38,7 +38,7 @@ const mkDist = (root: string, files: Record<string, string>) => {
 
 const writeBaselineJson = (root: string, data: unknown) => {
   mkdirSync(root, { recursive: true });
-  writeFileSync(join(root, "size-baselines.json"), JSON.stringify(data), "utf-8");
+  writeFileSync(join(root, "size-baseline.json"), JSON.stringify(data), "utf-8");
 };
 
 afterEach(() => {
@@ -196,7 +196,7 @@ describe("save", () => {
     mkDist(root, { "a.min.js": content });
     expect(save(parseArgs([]), root)).toBe(0);
     const baseline = JSON.parse(
-      readFileSync(join(root, "size-baselines.json"), "utf-8"),
+      readFileSync(join(root, "size-baseline.json"), "utf-8"),
     );
     expect(baseline.files["a.min.js"]).toBe(brotli(content));
     expect(baseline.threshold).toBe(10);
