@@ -12,13 +12,17 @@
 /* ── Focus bounds rectangle (drawn on the map) ──
    Added via map.addLayer(), so it lives OUTSIDE .foliplus-layer-ctrl and
    needs a top-level selector. Leaflet renders L.rectangle as a <path> with
-   className applied directly (no polygon child). */
+   className applied directly (no polygon child).
+   Shares the "selection border" language with ExportControl's crop box:
+   accent dashed outline, --border-thick (2px). The focus rect is transient
+   (marching ants), the crop box is interactive (static), so animation
+   differs. */
 path.foliplus-focus-rect {
   fill: var(--accent-primary);
-  fill-opacity: 0.12;
+  fill-opacity: var(--alpha-15);
   stroke: var(--accent-primary);
   stroke-dasharray: 6 4;
-  stroke-width: 2;
+  stroke-width: var(--border-thick);
   stroke-linejoin: round;
   /* "Marching ants" selection marquee — the dashes flow along the border. */
   animation: foliplus-focus-march 0.8s linear infinite;
@@ -27,7 +31,7 @@ path.foliplus-focus-rect {
 /* Corner circleMarkers for the focus rectangle */
 path.foliplus-focus-corner {
   fill: var(--accent-primary);
-  stroke: #ffffff;
+  stroke: var(--neutral-0);
   stroke-width: 1.5;
 }
 @keyframes foliplus-focus-march {
