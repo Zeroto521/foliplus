@@ -433,6 +433,11 @@
     stroke-linecap: round;
     stroke-linejoin: round;
   }
+  /* Icon answers with accent on hover, matching the search result icon and
+     the "actions accent on hover" language. Disabled stays muted. */
+  .foliplus-layer-more-menu li:not([disabled]):hover svg {
+    color: var(--accent-primary);
+  }
   /* Disabled menu item (e.g. layer is hidden). */
   .foliplus-layer-more-menu li[disabled] {
     cursor: default;
@@ -455,7 +460,8 @@
     stroke-dasharray: 6 4;
     stroke-width: 2;
     stroke-linejoin: round;
-    animation: foliplus-focus-pulse 2.2s ease-in-out 2;
+    /* "Marching ants" selection marquee — the dashes flow along the border. */
+    animation: foliplus-focus-march 0.8s linear infinite;
     pointer-events: none;
   }
   /* Corner circleMarkers for the focus rectangle */
@@ -464,13 +470,14 @@
     stroke: #ffffff;
     stroke-width: 1.5;
   }
-  @keyframes foliplus-focus-pulse {
-    0%,
-    100% {
-      opacity: 1;
+  @keyframes foliplus-focus-march {
+    to {
+      stroke-dashoffset: -10;
     }
-    50% {
-      opacity: 0.4;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    path.foliplus-focus-rect {
+      animation: none;
     }
   }
   /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
