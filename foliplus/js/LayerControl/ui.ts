@@ -1332,12 +1332,15 @@ class LayerUI {
   }
 
   /**
-   * Dim every other visible registered layer so the focused layer stands out.
-   * Works alongside the inverse mask (which only dims outside the bounds) to
-   * also recede layers that overlap the focused bounds.
+   * Dim every other visible overlay layer so the focused layer stands out.
+   * Works alongside the inverse mask (which dims the basemap + everything
+   * outside the bounds). Base maps are skipped — dimming them would grey out
+   * the whole basemap, including inside the hole, killing the spotlight and
+   * making inside as dark as outside.
    */
   private dimOtherLayers(focusedLayer: L.Layer): void {
     for (const layerInfo of this.m.layers) {
+      if (layerInfo.isBase) continue;
       const layer = this.m.findLayer(layerInfo);
       if (!layer || layer === focusedLayer) continue;
       if (!this.m.map.hasLayer(layer)) continue;

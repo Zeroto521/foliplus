@@ -554,13 +554,14 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(child.style.filter).toBe("");
     });
 
-    it("focusLayer dims other on-map layers but skips the focused layer", () => {
+    it("focusLayer dims other overlays but skips base maps and the focused layer", () => {
       const dimSpy = vi.spyOn(ui, "dimLayer");
 
       ui.focusLayer("overlay1");
 
-      // overlay1 is focused (skipped); base1 is the only other on-map layer.
-      expect(dimSpy).toHaveBeenCalledTimes(1);
+      // overlay1 is focused (skipped); base1 is a base map (skipped — dimming
+      // the basemap would grey it out inside the hole and kill the spotlight).
+      expect(dimSpy).not.toHaveBeenCalled();
 
       dimSpy.mockRestore();
     });
