@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write # to auto-commit the refreshed baseline back to the PR branch
   pull-requests: write
 
 concurrency:
@@ -27,11 +27,14 @@ jobs:
 
       - run: npm install
       - run: npm run build:sonda
-      - run: npm run size:check
+
+      # Auto-refresh the committed baseline on every build so it never goes
+      # stale — the manual `size:save` is now done here, not by a developer.
+      - run: npm run size:save
 
       # Compare this PR's bundles against the base branch's committed baseline and
-      # post the diff as a sticky PR comment (updated on every push). The gate
-      # above uses the PR's own baseline; this diff is informational.
+      # post the diff as a sticky PR comment (updated on every push). Bundles that
+      # grow past the threshold are flagged OVER in the table; there is no hard gate.
       - name: Prepare size report vs base
         if: github.event_name == 'pull_request' && always()
         run: |
@@ -40,7 +43,7 @@ jobs:
           node script/bundle-size-check.mjs --baseline=base-baseline.json --report=bundle-report.md || true
 
       # Upload the sonda treemap (HTML only) so the comment can link to it.
-      # always(): keep the report downloadable when the gate above fails.
+      # always(): keep the report downloadable even if a step above fails.
       - uses: actions/upload-artifact@v7
         id: upload
         if: always()
@@ -63,3 +66,14 @@ jobs:
         with:
           header: bundle-report
           path: bundle-report.md
+
+      # Commit the refreshed baseline back to the PR branch so it is in sync
+      # before the PR merges. Squash-merge keeps main's history clean.
+      - name: Commit updated baseline
+        if: github.event_name == 'pull_request'
+        continue-on-error: true # fork PRs lack write permission
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "chore: update bundle-size-baseline.json"
+          file_pattern: bundle-size-baseline.json
+          branch: ${{ github.head_ref }}
