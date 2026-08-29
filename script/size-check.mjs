@@ -59,7 +59,8 @@ const parseArgs = argv => {
  *  later plain `check`), else the default. */
 const resolveThreshold = (args, baseline) => {
   if (args.thresholdSet) return args.threshold;
-  if (baseline && Number.isFinite(baseline.threshold)) return baseline.threshold;
+  const stored = Number(baseline?.threshold);
+  if (Number.isFinite(stored)) return stored;
   return DEFAULT_THRESHOLD;
 };
 
@@ -117,7 +118,16 @@ const buildRows = (current, baseline, threshold) => {
   return allFiles.map(f => {
     const curr = current[f] ?? null;
     const prev = baseline ? (baseline.files[f] ?? null) : null;
-    if (curr === null) return { file: f, status: "missing", over: false };
+    if (curr === null)
+      return {
+        file: f,
+        curr: null,
+        prev,
+        delta: null,
+        pct: null,
+        status: "missing",
+        over: false,
+      };
     if (prev === null)
       return {
         file: f,
@@ -143,19 +153,24 @@ const buildRows = (current, baseline, threshold) => {
   });
 };
 
+/** Shared per-row formatting for both the console and Markdown renderers. */
+const rowCells = r => ({
+  icon: STATUS[r.status] || "·",
+  currStr: r.curr != null ? fmtKB(r.curr) : "—",
+  prevStr: r.prev != null ? fmtKB(r.prev) : "—",
+  label: r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status,
+});
+
 const renderTable = (rows, threshold) => {
   const lines = [
     "",
-    `## 📦 Bundle Size Check (threshold: ${threshold}%)`,
+    `## Bundle Size Check (threshold: ${threshold}%)`,
     "",
     "| File | Current | Baseline | Δ | Δ% | Status |",
     "|------|---------|----------|------|-----|--------|",
   ];
   for (const r of rows) {
-    const currStr = r.curr != null ? fmtKB(r.curr) : "—";
-    const prevStr = r.prev != null ? fmtKB(r.prev) : "—";
-    const icon = STATUS[r.status] || "·";
-    const label = r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status;
+    const { icon, currStr, prevStr, label } = rowCells(r);
     lines.push(
       `| ${r.file} | ${currStr} | ${prevStr} | ${fmtDelta(r.curr, r.prev)} | ${fmtPct(r.curr, r.prev)} | ${icon} ${label} |`,
     );
@@ -166,10 +181,7 @@ const renderTable = (rows, threshold) => {
 const renderConsole = rows => {
   const lines = ["", "Bundle Size Check", "─".repeat(70)];
   for (const r of rows) {
-    const icon = STATUS[r.status] || "·";
-    const currStr = r.curr != null ? fmtKB(r.curr) : "—";
-    const prevStr = r.prev != null ? fmtKB(r.prev) : "—";
-    const label = r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status;
+    const { icon, currStr, prevStr, label } = rowCells(r);
     lines.push(
       `  ${icon} ${r.file.padEnd(42)} ${currStr.padStart(10)}  ←  ${prevStr.padStart(10)}  ${fmtDelta(r.curr, r.prev).padStart(9)}  ${fmtPct(r.curr, r.prev).padStart(6)}  ${label}`,
     );
@@ -193,11 +205,9 @@ const check = (args, root = ROOT) => {
   const threshold = resolveThreshold(args, baseline);
   const rows = buildRows(current, baseline, threshold);
   const failures = rows.filter(r => r.over);
-  const lowMargin = rows.filter(r => {
-    if (r.over || r.curr == null || r.prev == null || r.prev <= 0) return false;
-    const growth = ((r.curr - r.prev) / r.prev) * 100;
-    return growth > threshold - LOW_MARGIN_PCT;
-  });
+  const lowMargin = rows.filter(
+    r => !r.over && r.pct != null && r.pct > threshold - LOW_MARGIN_PCT,
+  );
 
   console.log(renderConsole(rows));
   appendSummary(renderTable(rows, threshold));
@@ -216,8 +226,8 @@ const check = (args, root = ROOT) => {
       `\n${WARN}  ${lowMargin.length} bundle(s) with <${LOW_MARGIN_PCT}% margin:`,
     );
     for (const m of lowMargin) {
-      const g = (((m.curr - m.prev) / m.prev) * 100).toFixed(1);
-      const remaining = (threshold - parseFloat(g)).toFixed(1);
+      const g = m.pct.toFixed(1);
+      const remaining = (threshold - m.pct).toFixed(1);
       console.warn(`  ${m.file}: ${g}% growth (${remaining}% margin left)`);
     }
   }
