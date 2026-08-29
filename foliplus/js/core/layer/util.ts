@@ -108,6 +108,31 @@ const setInteractive = (layer: L.Layer, interactive: boolean): void => {
   }
 };
 
+/**
+ * Suspend interaction on every interactive leaf of a map and return a
+ * restore closure. Centralizes the "exclusive map interaction" policy shared
+ * by measure modes and export crop selection: while a component owns the map,
+ * clicks must fall through to the map instead of firing feature handlers.
+ *
+ * Only leaves whose options.interactive is currently true are collected and
+ * disabled, so the restore closure re-enables exactly those and leaves
+ * everything else (tiles, labels, non-interactive previews) untouched.
+ *
+ * @param {Object} map - Leaflet map.
+ * @returns {Function} Restore closure re-enabling the disabled leaves.
+ */
+const suspendMapInteractions = (map: L.Map): (() => void) => {
+  const disabled: L.Layer[] = [];
+  map.eachLayer(top => {
+    forEachLeaf(top, leaf => {
+      const opts = leaf.options as L.LayerOptions & { interactive?: boolean };
+      if (opts?.interactive) disabled.push(leaf);
+    });
+  });
+  disabled.forEach(leaf => setInteractive(leaf, false));
+  return () => disabled.forEach(leaf => setInteractive(leaf, true));
+};
+
 /** Detect the geometry type of a layer tree.
  *  Ignores isLabel leaves — type represents the data geometry, never labels.
  *  @param {Object} layer - Leaflet layer.
@@ -163,6 +188,7 @@ export {
   forEachLayer,
   forEachLeaf,
   setInteractive,
+  suspendMapInteractions,
   getGeometryType,
   countFeatureGeometry,
 };

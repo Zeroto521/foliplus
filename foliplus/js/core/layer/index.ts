@@ -16,6 +16,7 @@ export {
   forEachLayer,
   forEachLeaf,
   setInteractive,
+  suspendMapInteractions,
   getGeometryType,
   countFeatureGeometry,
 } from "./util.js";
