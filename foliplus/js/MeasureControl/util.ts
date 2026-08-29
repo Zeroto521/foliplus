@@ -46,7 +46,6 @@ const DRAG_THRESHOLD = 4;
  */
 const buildEditOverlay = (
   mgr: {
-    isSuppressHideDel: boolean;
     isEditMode: boolean;
     map: L.Map;
     registerEditOverlayCloser?: (close: () => void) => () => void;
@@ -68,7 +67,6 @@ const buildEditOverlay = (
   };
 
   const onMapClick = () => {
-    if (mgr.isSuppressHideDel) return;
     if (isDragSyntheticClick()) return;
     close();
   };
@@ -105,8 +103,8 @@ const buildEditOverlay = (
  * disabling the map's own dragging while we hold, and moving a paired ✕
  * icon along. Works for both SVG circleMarkers and div-based pin markers.
  *
- * Returns { setEnabled, cleanup } so the binding can be toggled with the
- * edit overlay and torn down on delete.
+ * Returns { setEnabled, cleanup }: the caller enables the binding on edit-mode
+ * enter (or popup open for pins) and cleans it up on delete.
  */
 const bindNodeDrag = (
   node: L.Layer,

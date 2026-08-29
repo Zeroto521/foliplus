@@ -8,7 +8,6 @@ import {
 export const TIMING = {
   CLICK_COOLDOWN: 300,
   FINALIZE_DELAY: 50,
-  SUPPRESS_HIDE_DELAY: 100,
 };
 
 /** Measure node marker. */
@@ -59,16 +58,12 @@ export const CLASSES = {
   NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
-  HIDDEN: "foliplus-measure-hidden",
   ACTIVE: "active",
   MEASURING: "foliplus-measuring",
   EDITING: "foliplus-measure-editing",
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
 };
-
-/** Toggle constants. */
-export const TOGGLE = { RESET: "reset" };
 
 /** Style property names. */
 export const STYLE = { SWEEP_LENGTH: "--sweep-length" };

@@ -32,13 +32,12 @@ class MeasureManager {
   layers: CreateLayersAPI;
   currentMode: string | null;
   modeInstance: MeasureMode | null;
-  isSuppressHideDel: boolean;
   toolBtns: HTMLElement[];
   /** Cleanup callbacks for finalized measurement overlays (each removes its
    *   overlay's map-click listener and any associated drag bindings). */
   finalizedClickHandlers: Array<() => void>;
   /** Close callbacks for each measurement's edit overlay, so exiting edit mode
-   *   can hide all open ✕ handles and disable node drag. */
+   *   hides any open ✕ handles. */
   private editOverlayClosers: Array<() => void> = [];
   /** Toggles for each measurement's node drag binds, so entering/leaving edit
    *   mode enables/disables dragging directly (no click-first required). */
@@ -85,7 +84,6 @@ class MeasureManager {
     });
     this.currentMode = null;
     this.modeInstance = null;
-    this.isSuppressHideDel = false;
     // When ExportControl enters crop interaction or export, interrupt the
     // active measurement so map clicks are not captured while exporting.
     ensureEvents(this.map).on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
@@ -146,16 +144,12 @@ class MeasureManager {
     this.onMapClick = (event: L.LeafletMouseEvent) => {
       const t = Util.getEventTarget(event);
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      // In edit mode, a click on empty map space only closes the overlay
-      // (hides ✕, disables drag) via each overlay's own map-click handler —
-      // it does NOT exit edit mode. Measurement-item clicks are intercepted
-      // by attach*UI handlers (stopEvent) so they never reach here.
-      if (this.isEditMode) {
-        this.isSuppressHideDel = false;
-      } else {
-        if (this.isSuppressHideDel) return;
-        hideDelIcons();
-      }
+      // In edit mode, a click on empty map space is handled by each overlay's
+      // own map-click handler (which closes it) — it does NOT exit edit mode.
+      // Measurement-item clicks are intercepted by attach*UI handlers
+      // (stopEvent) so they never reach here.
+      if (this.isEditMode) return;
+      hideDelIcons();
     };
     this.map.on("click", this.onMapClick);
 
@@ -179,19 +173,7 @@ class MeasureManager {
     this.map.on("unload", this.onUnload);
   }
 
-  /**
-   * Attach toggle/delete UI to a completed distance measurement.
-   * Shared by finishDist (DistanceMode) and restoreDistance (MeasureManager).
-   * @param {Object} opts
-   * @param {Object} opts.layers     - createLayers API object
-   * @param {Object} opts.finalPoly  - L.Polyline
-   * @param {Array}  opts.nodeMarkers - L.CircleMarker[]
-   * @param {Array}  opts.segLabels   - Label L.Marker[]
-   * @param {Array}  opts.points     - LatLng array
-   * @param {Function} opts.onDelete - Called when user deletes the measurement
-   * @param {Function} opts.onUpdate - Called when points are modified (node deletion)
-   * @returns {Function} cleanup(mapClickHandler) to remove map click listener
-   */
+  /** Activate a measurement mode, or toggle the edit / clear modes. */
   setMode(mode: string | null) {
     if (mode === CONST.MODE.CLEAR) {
       this.clearAll();

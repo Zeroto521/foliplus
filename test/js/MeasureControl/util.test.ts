@@ -249,7 +249,7 @@ describe("buildEditOverlay", () => {
     } as any;
   }
   function makeMgr(overrides: Record<string, unknown> = {}) {
-    return { map: makeMap(), isSuppressHideDel: false, isEditMode: true, ...overrides };
+    return { map: makeMap(), isEditMode: true, ...overrides };
   }
 
   it("exposes open and cleanup", () => {
@@ -309,7 +309,7 @@ describe("buildEditOverlay", () => {
 
   it("fires onEmpty when empty space is clicked", () => {
     const map = makeMap();
-    const mgr = { map, isSuppressHideDel: false, isEditMode: true };
+    const mgr = { map, isEditMode: true };
     const onEmpty = vi.fn();
     const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
@@ -321,21 +321,9 @@ describe("buildEditOverlay", () => {
     expect(onEmpty).toHaveBeenCalledTimes(1);
   });
 
-  it("does not close overlay when suppress-hide is active", () => {
-    const map = makeMap();
-    const mgr = { map, isSuppressHideDel: true, isEditMode: true };
-    const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
-
-    overlay.open({} as any);
-    const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
-    mapClickHandler();
-    expect(onEmpty).not.toHaveBeenCalled();
-  });
-
   it("ignores a drag-synthetic click", () => {
     const map = makeMap();
-    const mgr = { map, isSuppressHideDel: false, isEditMode: true };
+    const mgr = { map, isEditMode: true };
     const onEmpty = vi.fn();
     const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
@@ -348,7 +336,7 @@ describe("buildEditOverlay", () => {
 
   it("registers and cleans up the map-click listener", () => {
     const map = makeMap();
-    const mgr = { map, isSuppressHideDel: false, isEditMode: true };
+    const mgr = { map, isEditMode: true };
     const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
 
     overlay.open(fakeEv());
@@ -361,7 +349,6 @@ describe("buildEditOverlay", () => {
     const closers: Array<() => void> = [];
     const mgr = {
       map: makeMap(),
-      isSuppressHideDel: false,
       isEditMode: true,
       registerEditOverlayCloser: (c: () => void) => {
         closers.push(c);
@@ -385,7 +372,6 @@ describe("buildEditOverlay", () => {
     const closers: Array<() => void> = [];
     const mgr = {
       map: makeMap(),
-      isSuppressHideDel: false,
       isEditMode: true,
       registerEditOverlayCloser: (c: () => void) => {
         closers.push(c);

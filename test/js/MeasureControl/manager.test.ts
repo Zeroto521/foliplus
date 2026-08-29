@@ -716,10 +716,9 @@ describe("MeasureManager — onMapClick handler", () => {
     } as any;
     handler(event);
 
-    // Edit mode stays on; isSuppressHideDel is set to false so the overlay
-    // can react to the click and hide its ✕ handles.
+    // Edit mode stays on; the click is handled by each overlay's own
+    // map-click handler, not the manager.
     expect(manager.isEditMode).toBe(true);
-    expect(manager.isSuppressHideDel).toBe(false);
   });
 
   it("ignores a del-icon click in edit mode", () => {
@@ -737,8 +736,7 @@ describe("MeasureManager — onMapClick handler", () => {
     } as any;
     clickHandler(event);
 
-    // Even though target is a del icon, the empty-space path that would
-    // reset isSuppressHideDel must not run.
+    // A del-icon click must not reach the empty-space path.
     expect(manager.isEditMode).toBe(true);
   });
 });
