@@ -190,7 +190,11 @@ class MeasureManager {
       // Nothing to edit yet — keep out of edit mode and explain instead of
       // entering a dead state with no clickable measurements.
       if (this.measurements.length === 0) {
-        this.map.foliplus!.showHint(CONF.name, T("hint_edit_empty"), HINT_DURATION.SHORT);
+        this.map.foliplus!.showHint(
+          CONF.name,
+          T("hint_edit_empty"),
+          HINT_DURATION.SHORT,
+        );
         return;
       }
       this.setEditMode(true);
