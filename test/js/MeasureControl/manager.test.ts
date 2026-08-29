@@ -38,6 +38,7 @@ function makeManager(opts?: { id?: string }) {
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.divIcon = vi.fn(() => ({}));
   window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
+  window.L.polygon = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
   window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
 
   const container = document.createElement("div");
@@ -221,6 +222,48 @@ describe("MeasureManager — cleanMapEvents", () => {
   it("cleanMapEvents is safe when no modeInstance", () => {
     const { manager } = makeManager();
     expect(() => manager.cleanMapEvents()).not.toThrow();
+  });
+});
+
+describe("MeasureManager — active Escape shortcut lifecycle", () => {
+  it("setMode registers high-priority active-escape shortcut", () => {
+    const { manager, map } = makeManager();
+    manager.setMode(CONST.MODE.DISTANCE);
+
+    const im = map.foliplus.interaction;
+    // After setMode, the interaction manager has an active-escape registration
+    const activeReg = im.shortcuts.find(
+      (s: any) => s.component === "MeasureControl-escape-active",
+    );
+    expect(activeReg).toBeDefined();
+    expect(activeReg.priority).toBe(1);
+    expect(activeReg.key).toBe("Escape");
+  });
+
+  it("clearActiveMode unregisters active-escape shortcut", () => {
+    const { manager, map } = makeManager();
+    manager.setMode(CONST.MODE.DISTANCE);
+    manager.clearActiveMode();
+
+    const im = map.foliplus.interaction;
+    const activeReg = im.shortcuts.find(
+      (s: any) => s.component === "MeasureControl-escape-active",
+    );
+    expect(activeReg).toBeUndefined();
+  });
+
+  it("re-entering mode re-registers active-escape shortcut", () => {
+    const { manager, map } = makeManager();
+    manager.setMode(CONST.MODE.MARKER);
+    manager.clearActiveMode();
+    manager.setMode(CONST.MODE.POLYGON);
+
+    const im = map.foliplus.interaction;
+    const activeRegs = im.shortcuts.filter(
+      (s: any) => s.component === "MeasureControl-escape-active",
+    );
+    expect(activeRegs).toHaveLength(1);
+    expect(activeRegs[0].priority).toBe(1);
   });
 });
 

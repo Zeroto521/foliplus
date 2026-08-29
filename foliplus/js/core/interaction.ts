@@ -57,6 +57,7 @@ export const ensureInteraction = (map: L.Map): InteractionManager => {
 export class InteractionManager {
   private map: L.Map;
   private shortcuts: InteractionDef[] = [];
+  private order = 0;
   private docListeners: Map<string, (event: Event) => void> = new Map();
   private observer: MutationObserver | null = null;
   private trackedElements: Map<HTMLElement, Set<string>> = new Map();
@@ -135,11 +136,13 @@ export class InteractionManager {
           def.once ? { once: true } : undefined,
         );
         (def as any).elementHandler = handler;
+        (def as any).elementType = eventType;
         this.trackElement(def.element, component);
       }
       if (def.container && !def.element) {
         this.trackElement(def.container, component);
       }
+      (def as any).order = this.order++;
       this.shortcuts.push(def);
     }
     this.ensureListener();
@@ -152,7 +155,8 @@ export class InteractionManager {
     const removed = this.shortcuts.filter(s => s.component === component);
     for (const s of removed) {
       if (s.element && (s as any).elementHandler) {
-        s.element.removeEventListener("keydown", (s as any).elementHandler);
+        const eventType = (s as any).elementType ?? "keydown";
+        s.element.removeEventListener(eventType, (s as any).elementHandler);
       }
     }
     this.shortcuts = this.shortcuts.filter(s => s.component !== component);
@@ -163,7 +167,8 @@ export class InteractionManager {
   clear(): void {
     for (const s of this.shortcuts) {
       if (s.element && (s as any).elementHandler) {
-        s.element.removeEventListener("keydown", (s as any).elementHandler);
+        const eventType = (s as any).elementType ?? "keydown";
+        s.element.removeEventListener(eventType, (s as any).elementHandler);
       }
     }
     this.shortcuts = [];
@@ -201,10 +206,38 @@ export class InteractionManager {
   private handleEvent(event: Event): void {
     const eventType = event.type;
     const ke = event as KeyboardEvent;
-    const matches = this.shortcuts
+    // For container-bound shortcuts, the deepest (innermost) container that
+    // contains activeElement should win when priorities are tied — matches
+    // how native DOM focus/keyboard events work.
+    const active = document.activeElement;
+    const sort = (a: InteractionDef, b: InteractionDef) => {
+      const pDiff = (b.priority ?? 0) - (a.priority ?? 0);
+      if (pDiff !== 0) return pDiff;
+      // Container-bound shortcuts are more specific than pure document-
+      // level ones, so they take precedence when priorities are tied.
+      if (a.container && !b.container) return -1;
+      if (!a.container && b.container) return 1;
+      // Both containers present: innermost (closest to activeElement) wins.
+      if (a.container && b.container && active instanceof HTMLElement) {
+        const depth = (c: HTMLElement) => {
+          let n = 0;
+          let cur: HTMLElement | null = active;
+          while (cur && cur !== c) {
+            n++;
+            cur = cur.parentElement;
+          }
+          return n;
+        };
+        return depth(a.container) - depth(b.container);
+      }
+      // Same priority + same container binding: later-registered wins
+      return (b as any).order - (a as any).order;
+    };
+    // Separate element-bound shortcuts (they use direct element listeners,
+    // not document-level dispatch) from document-level ones.
+    const docShortcuts = this.shortcuts.filter(s => !s.element);
+    const matches = docShortcuts
       .filter(s => {
-        // Only match document-level shortcuts (no element binding)
-        if (s.element) return false;
         // Match event type
         const sType = s.event ?? "keydown";
         if (sType !== eventType) return false;
@@ -220,7 +253,7 @@ export class InteractionManager {
         if (s.container && !s.container.contains(document.activeElement)) return false;
         return true;
       })
-      .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+      .sort(sort);
 
     if (matches.length === 0) return;
 
