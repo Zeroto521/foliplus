@@ -166,6 +166,22 @@ const rowCells = r => ({
   label: r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status,
 });
 
+/** Aggregate totals across all rows (current vs baseline, in bytes). */
+const summarize = rows => {
+  let curr = 0;
+  let prev = 0;
+  for (const r of rows) {
+    if (r.curr != null) curr += r.curr;
+    if (r.prev != null) prev += r.prev;
+  }
+  return {
+    curr,
+    prev,
+    delta: curr - prev,
+    pct: prev > 0 ? ((curr - prev) / prev) * 100 : null,
+  };
+};
+
 const renderTable = (rows, threshold) => {
   const lines = [
     "",
@@ -180,6 +196,10 @@ const renderTable = (rows, threshold) => {
       `| ${r.file} | ${currStr} | ${prevStr} | ${fmtDelta(r.curr, r.prev)} | ${fmtPct(r.curr, r.prev)} | ${icon} ${label} |`,
     );
   }
+  const t = summarize(rows);
+  lines.push(
+    `| **Total** | ${fmtKB(t.curr)} | ${fmtKB(t.prev)} | ${fmtDelta(t.curr, t.prev)} | ${fmtPct(t.curr, t.prev)} | |`,
+  );
   return lines.join("\n");
 };
 
@@ -191,6 +211,10 @@ const renderConsole = rows => {
       `  ${icon} ${r.file.padEnd(42)} ${currStr.padStart(10)}  ←  ${prevStr.padStart(10)}  ${fmtDelta(r.curr, r.prev).padStart(9)}  ${fmtPct(r.curr, r.prev).padStart(6)}  ${label}`,
     );
   }
+  const t = summarize(rows);
+  lines.push(
+    `  ${"Total".padEnd(44)} ${fmtKB(t.curr).padStart(10)}  ←  ${fmtKB(t.prev).padStart(10)}  ${fmtDelta(t.curr, t.prev).padStart(9)}  ${fmtPct(t.curr, t.prev).padStart(6)}`,
+  );
   return lines.join("\n");
 };
 
@@ -344,6 +368,7 @@ export {
   parseArgs,
   resolveThreshold,
   save,
+  summarize,
 };
 
 // CLI entry point: `node script/size-check.mjs [--save|--audit] [--threshold=N]`.

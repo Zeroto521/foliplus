@@ -13,6 +13,7 @@ import {
   parseArgs,
   resolveThreshold,
   save,
+  summarize,
 } from "../../../script/size-check.mjs";
 
 const brotli = (s: string) => brotliCompressSync(Buffer.from(s)).length;
@@ -131,6 +132,33 @@ describe("buildRows", () => {
     expect(byFile["new.min.js"].status).toBe("new");
     expect(byFile["gone.min.js"].status).toBe("missing");
     expect(byFile["gone.min.js"].over).toBe(false);
+  });
+});
+
+describe("summarize", () => {
+  it("aggregates current and baseline totals", () => {
+    const rows = buildRows(
+      { "a.min.js": 100, "b.min.js": 200 },
+      { files: { "a.min.js": 80, "b.min.js": 250 } },
+      10,
+    );
+    const t = summarize(rows);
+    expect(t.curr).toBe(300);
+    expect(t.prev).toBe(330);
+    expect(t.delta).toBe(-30);
+    expect(t.pct).toBeCloseTo(-9.09, 1);
+  });
+
+  it("counts new bundles into current and missing into baseline", () => {
+    const rows = buildRows(
+      { "a.min.js": 100, "new.min.js": 50 },
+      { files: { "a.min.js": 100, "gone.min.js": 10 } },
+      10,
+    );
+    const t = summarize(rows);
+    expect(t.curr).toBe(150);
+    expect(t.prev).toBe(110);
+    expect(t.delta).toBe(40);
   });
 });
 
