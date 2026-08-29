@@ -82,8 +82,8 @@ const buildCss = resolve(CFG.root, "foliplus/.build/css");
 const MERGED_CSS_NAME = "_common_merged.css";
 
 // ── Version banner ────────────────────────────────────────────────────────────
-// Prefer the installed package version (foliplus.__version__), falling back to
-// `git describe` — resolved once and cached by script/version.mjs.
+// `git describe` (tag + distance + commit) — identical in local dev and CI,
+// resolved once and cached by script/version.mjs.
 const BUILD_VERSION = resolveVersion();
 
 // ── PostCSS pipeline ────────────────────────────────────────────

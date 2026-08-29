@@ -18,35 +18,24 @@ const mockChildProcess = (
 };
 
 describe("resolveVersion", () => {
-  it("returns the installed foliplus.__version__", async () => {
-    const { resolveVersion } = await importFresh();
-    const v = resolveVersion();
-    expect(typeof v).toBe("string");
-    expect(v.length).toBeGreaterThan(0);
-  });
-
-  it("falls back to git describe when python import fails", async () => {
-    mockChildProcess(cmd =>
-      cmd === "git"
-        ? { status: 0, stdout: "v0.3.1-85-gabcdef" }
-        : { status: 1, stdout: "" },
-    );
+  it("returns git describe", async () => {
+    mockChildProcess(() => ({ status: 0, stdout: "v0.3.1-85-gabcdef\n" }));
     const { resolveVersion } = await importFresh();
     expect(resolveVersion()).toBe("v0.3.1-85-gabcdef");
   });
 
-  it("returns unknown when neither python nor git resolve", async () => {
+  it("returns unknown when git describe fails", async () => {
     mockChildProcess(() => ({ status: 1, stdout: "" }));
     const { resolveVersion } = await importFresh();
     expect(resolveVersion()).toBe("unknown");
   });
 
   it("caches the resolved version (no repeat subprocess)", async () => {
-    const spawnSync = vi.fn(() => ({ status: 0, stdout: "0.3.2.dev1\n" }));
+    const spawnSync = vi.fn(() => ({ status: 0, stdout: "v0.3.1-85-gabcdef\n" }));
     vi.doMock("child_process", () => ({ default: { spawnSync }, spawnSync }));
     const { resolveVersion } = await importFresh();
-    expect(resolveVersion()).toBe("0.3.2.dev1");
-    expect(resolveVersion()).toBe("0.3.2.dev1"); // served from the module cache
+    expect(resolveVersion()).toBe("v0.3.1-85-gabcdef");
+    expect(resolveVersion()).toBe("v0.3.1-85-gabcdef"); // served from the module cache
     expect(spawnSync).toHaveBeenCalledTimes(1);
   });
 });
