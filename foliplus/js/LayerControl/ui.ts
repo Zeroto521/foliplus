@@ -64,6 +64,8 @@ class LayerUI {
   private focusMask: L.Polygon | null;
   /** SVG renderer hosting the focus overlay (mask + rectangle + corners). */
   private focusRenderer: L.SVG | null;
+  /** Restore callbacks for layers dimmed during focus (cleared on cancel). */
+  private dimmedLayers: Array<() => void>;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
@@ -84,6 +86,7 @@ class LayerUI {
     this.onFocusMapMove = null;
     this.focusMask = null;
     this.focusRenderer = null;
+    this.dimmedLayers = [];
   }
 
   /** Alias for convenience */
@@ -1244,6 +1247,10 @@ class LayerUI {
     const bounds = (layer as L.Layer & { getBounds(): L.LatLngBounds }).getBounds();
     if (!bounds.isValid()) return;
 
+    // Dim every other visible layer so the focused one stands out — including
+    // layers that overlap the focused bounds (the mask only dims outside).
+    this.dimOtherLayers(layer);
+
     // Single-point / tiny bounds → flyTo the center.
     const southWest = bounds.getSouthWest();
     const northEast = bounds.getNorthEast();
@@ -1305,6 +1312,7 @@ class LayerUI {
   private dismissFocus(): void {
     this.clearAutoCancel();
     this.clearFocusedRowHighlight();
+    this.restoreDimmedLayers();
 
     if (this.focusRect) {
       this.m.map.removeLayer(this.focusRect);
@@ -1321,6 +1329,63 @@ class LayerUI {
     }
 
     this.focusingLayerId = null;
+  }
+
+  /**
+   * Dim every other visible registered layer so the focused layer stands out.
+   * Works alongside the inverse mask (which only dims outside the bounds) to
+   * also recede layers that overlap the focused bounds.
+   */
+  private dimOtherLayers(focusedLayer: L.Layer): void {
+    for (const layerInfo of this.m.layers) {
+      const layer = this.m.findLayer(layerInfo);
+      if (!layer || layer === focusedLayer) continue;
+      if (!this.m.map.hasLayer(layer)) continue;
+      const restore = this.dimLayer(layer);
+      if (restore) this.dimmedLayers.push(restore);
+    }
+  }
+
+  /**
+   * Dim a single layer by darkening its rendered element with a brightness
+   * filter, returning a restore callback (or null if it has no element).
+   * Brightness keeps the layer opaque but darker — unlike opacity, which
+   * fades to the light basemap and reads as brighter.
+   */
+  private dimLayer(layer: L.Layer): (() => void) | null {
+    const apply = (el: HTMLElement): (() => void) | null => {
+      if (!el) return null;
+      const orig = el.style.filter;
+      el.style.filter = `brightness(${CONST.FOCUS.DIM_BRIGHTNESS})`;
+      return () => {
+        el.style.filter = orig;
+      };
+    };
+
+    // Vector path or marker: the SVG path / icon element.
+    const el = (layer as L.Layer & { getElement?: () => HTMLElement | null }).getElement?.();
+    if (el) return apply(el);
+
+    // Tile / Grid layer: the tile container div.
+    const container = (layer as L.Layer & { getContainer?: () => HTMLElement }).getContainer?.();
+    if (container) return apply(container);
+
+    // LayerGroup / FeatureGroup: recurse into children.
+    if (typeof (layer as L.LayerGroup).eachLayer === "function") {
+      const restores: Array<(() => void) | null> = [];
+      (layer as L.LayerGroup).eachLayer(child => {
+        restores.push(this.dimLayer(child));
+      });
+      return () => restores.forEach(r => r?.());
+    }
+
+    return null;
+  }
+
+  /** Restore all layers dimmed during the current focus. */
+  private restoreDimmedLayers(): void {
+    for (const restore of this.dimmedLayers) restore();
+    this.dimmedLayers = [];
   }
 
   /**

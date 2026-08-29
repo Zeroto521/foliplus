@@ -130,6 +130,10 @@ describe("FOCUS", () => {
   it("defines the opacity of the dim-outside mask", () => {
     expect(CONST.FOCUS.MASK_OPACITY).toBe(0.4);
   });
+
+  it("defines the brightness applied to non-focused layers", () => {
+    expect(CONST.FOCUS.DIM_BRIGHTNESS).toBe(0.5);
+  });
 });
 
 describe("CLASSES.FOCUSING", () => {

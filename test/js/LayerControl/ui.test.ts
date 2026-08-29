@@ -513,6 +513,59 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
+  // ─────────────────── dim other layers (brightness) ───────────────────
+
+  describe("focusLayer dims other layers", () => {
+    it("darkens an element via brightness filter and restores it", () => {
+      const el = document.createElement("path");
+      el.style.filter = "";
+      const layer = { getElement: () => el } as unknown as L.Layer;
+
+      const restore = ui.dimLayer(layer);
+
+      expect(el.style.filter).toBe(`brightness(${CONST.FOCUS.DIM_BRIGHTNESS})`);
+      restore!();
+      expect(el.style.filter).toBe("");
+    });
+
+    it("darkens a tile layer's container", () => {
+      const container = document.createElement("div");
+      container.style.filter = "";
+      const layer = { getContainer: () => container } as unknown as L.Layer;
+
+      const restore = ui.dimLayer(layer);
+
+      expect(container.style.filter).toBe(`brightness(${CONST.FOCUS.DIM_BRIGHTNESS})`);
+      restore!();
+      expect(container.style.filter).toBe("");
+    });
+
+    it("recurse into a group's children", () => {
+      const child = document.createElement("path");
+      child.style.filter = "";
+      const group = {
+        eachLayer: (fn: (c: unknown) => void) => fn({ getElement: () => child }),
+      } as unknown as L.Layer;
+
+      const restore = ui.dimLayer(group);
+
+      expect(child.style.filter).toBe(`brightness(${CONST.FOCUS.DIM_BRIGHTNESS})`);
+      restore!();
+      expect(child.style.filter).toBe("");
+    });
+
+    it("focusLayer dims other on-map layers but skips the focused layer", () => {
+      const dimSpy = vi.spyOn(ui, "dimLayer");
+
+      ui.focusLayer("overlay1");
+
+      // overlay1 is focused (skipped); base1 is the only other on-map layer.
+      expect(dimSpy).toHaveBeenCalledTimes(1);
+
+      dimSpy.mockRestore();
+    });
+  });
+
   // ─────────────────── overflow menu ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
