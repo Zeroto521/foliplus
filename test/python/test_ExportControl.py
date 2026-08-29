@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import folium
 import pytest
 from conftest import _js, make_browser_page, render_control, use_page, use_raw_page
@@ -209,6 +211,14 @@ class TestExportControlBrowser:
         for layer in layers:
             layer.add_to(m)
         html = TestExportControlBrowser._stub_html(m.get_root().render())
+        # Inject test hooks right after the manager is created (dev bundle).
+        html, n = re.subn(
+            r"var exportManager = new ExportManager\(map\);",
+            r"var exportManager = new ExportManager(map); window.__map = map; window.__exportManager = exportManager;",
+            html,
+            count=1,
+        )
+        assert n == 1, "exportManager instantiation not found in rendered HTML"
         page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
         return page, errors
@@ -258,6 +268,49 @@ class TestExportControlBrowser:
                 state="hidden",
                 timeout=5000,
             )
+
+    def test_crop_selecting_disables_other_layer_interaction(self, browser, tmp_path):
+        """Crop selection suspends interaction on other map layers (clicks fall
+        through to drag the crop box instead of firing feature handlers), and
+        closing the crop box restores it."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(
+                "window.__featureMarker = L.marker([26.08, 119.30]).addTo(window.__map).bindPopup('x');"
+            )
+            page.wait_for_timeout(300)
+            assert page.evaluate("window.__featureMarker.options.interactive") is True
+
+            # Open crop selection → the centralized ModeManager lock disables the marker.
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(300)
+            assert (
+                page.evaluate(
+                    "window.__exportManager.map.foliplus.modes.getMode('ExportControl')"
+                )
+                == "selecting"
+            )
+            assert page.evaluate("window.__featureMarker.options.interactive") is False
+
+            # A DOM click on the marker's icon must NOT open its popup while the
+            # crop box owns the map.
+            page.evaluate(
+                "window.__featureMarker.getElement().dispatchEvent(new MouseEvent('click', { bubbles: true }))"
+            )
+            page.wait_for_timeout(300)
+            popup_open = page.evaluate("!!document.querySelector('.leaflet-popup')")
+            assert not popup_open, "feature popup opened during crop selection"
+
+            # Close the crop box (Escape) → interaction restored.
+            page.keyboard.press("Escape")
+            page.wait_for_selector(
+                ".foliplus-export-box", state="hidden", timeout=5000
+            )
+            page.wait_for_timeout(300)
+            assert page.evaluate("window.__featureMarker.options.interactive") is True
+            assert not errors, f"JS errors: {errors}"
 
     def test_enter_locks_crop_box(self, browser, tmp_path):
         """Pressing Enter locks the crop box (dashed > solid border)."""

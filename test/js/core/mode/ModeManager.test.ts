@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ModeManager, ensureModes } from "#foliplus/core/mode.js";
+import { ModeManager, ensureModes, guardBlocked } from "#foliplus/core/mode.js";
 
 // Shared mocks for the ModeManager constructor (bus + map).
 const makeBus = (): any => ({
@@ -30,6 +30,7 @@ const makeMapWithLeaf = (interactive = true) => {
     eachLayer: vi.fn((fn: (l: unknown) => void) =>
       fn({ eachLayer: (c: (l: unknown) => void) => c(leaf) }),
     ),
+    on: vi.fn(),
   };
   (leaf as unknown as { _map: unknown })._map = map;
   return { map, leaf, el };
@@ -141,7 +142,7 @@ describe("ModeManager", () => {
 
 describe("ensureModes", () => {
   it("attaches a ModeManager to map.foliplus.modes and is idempotent", () => {
-    const map = {} as any;
+    const map = { on: vi.fn() } as any;
     const m1 = ensureModes(map);
     const m2 = ensureModes(map);
     expect(m2).toBe(m1);
@@ -149,9 +150,54 @@ describe("ensureModes", () => {
   });
 
   it("is per-map — separate maps get separate managers", () => {
-    const mapA = {} as any;
-    const mapB = {} as any;
+    const mapA = { on: vi.fn() } as any;
+    const mapB = { on: vi.fn() } as any;
     expect(ensureModes(mapA)).not.toBe(ensureModes(mapB));
+  });
+
+  it("releases modes and the interaction lock on map unload", () => {
+    const { map, leaf } = makeMapWithLeaf();
+    const mm = ensureModes(map as any);
+    mm.setMode("MeasureControl", "distance");
+    expect(leaf.options.interactive).toBe(false);
+
+    const unloadHandler = (map.on as any).mock.calls.find(
+      ([event]: [string]) => event === "unload",
+    )?.[1];
+    expect(unloadHandler).toBeDefined();
+    unloadHandler();
+
+    expect(mm.keys()).toHaveLength(0);
+    expect(leaf.options.interactive).toBe(true);
+  });
+});
+
+describe("guardBlocked", () => {
+  const makeGuardedMap = () => {
+    const { map } = makeMapWithLeaf();
+    const showHint = vi.fn();
+    ensureModes(map as any);
+    map.foliplus!.showHint = showHint;
+    return { map, showHint };
+  };
+
+  it("shows a hint and returns true when blocked by an active mode", () => {
+    const { map, showHint } = makeGuardedMap();
+    ensureModes(map as any).setMode("MeasureControl", "distance");
+
+    expect(guardBlocked(map as any, "SearchControl", "blocked hint")).toBe(true);
+    expect(showHint).toHaveBeenCalledWith(
+      "SearchControl",
+      "blocked hint",
+      expect.any(Number),
+    );
+  });
+
+  it("returns false when nothing blocks the component", () => {
+    const { map, showHint } = makeGuardedMap();
+
+    expect(guardBlocked(map as any, "FullscreenControl", "hint")).toBe(false);
+    expect(showHint).not.toHaveBeenCalled();
   });
 });
 

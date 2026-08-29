@@ -90,6 +90,10 @@ const ensureModes = (map: L.Map): ModeManager => {
   instances.set(map, manager);
   if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
   map.foliplus!.modes = manager;
+  // On map unload, clear modes and release the interaction lock so manager
+  // state and the disabled-layers closure do not outlive the map (mirrors the
+  // per-map cleanup pattern used by core/interaction).
+  map.on("unload" as any, () => manager.clear());
   return manager;
 };
 
