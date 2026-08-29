@@ -37,8 +37,17 @@ jobs:
       - name: Compare bundles vs base
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
-          git show "origin/${{ github.base_ref }}:bundle-size-baseline.json" > base-baseline.json 2>/dev/null || echo '{"files":{}}' > base-baseline.json
-          node script/bundle-size-check.mjs --baseline=base-baseline.json --report=bundle-report.md || true
+          # First PR to introduce the baseline: main has nothing to diff against,
+          # so post a note instead of a misleading "all new" table.
+          if git show "origin/${{ github.base_ref }}:bundle-size-baseline.json" > base-baseline.json 2>/dev/null; then
+            node script/bundle-size-check.mjs --baseline=base-baseline.json --report=bundle-report.md || true
+          else
+            {
+              echo "## Bundle Size"
+              echo ""
+              echo "**No baseline on main yet** — this is the first PR to introduce bundle-size tracking. Bundle sizes will be diffed against main from the next PR onward."
+            } > bundle-report.md
+          fi
 
       # Upload the sonda treemap (HTML only) so the comment can link to it.
       - uses: actions/upload-artifact@v7
