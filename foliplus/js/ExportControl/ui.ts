@@ -1,7 +1,6 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureInteraction } from "#core/interaction.js";
 import { ensureModes } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
@@ -264,7 +263,7 @@ const removeCropBox = (mgr: ExportManager) => {
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);
   document.body.classList.remove(CONST.CLASSES.MODE);
-  mgr.registerShortcuts();
+  mgr.unregisterShortcuts();
   mgr.dragCleanup?.();
   mgr.dragState.dragging = false;
   mgr.dragState.dragType = null;
@@ -272,8 +271,6 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
   }
-  ensureInteraction(mgr.map).unregister(`${CONF.name}-escape`);
-  mgr.interactionCleanup?.();
   if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
   if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();

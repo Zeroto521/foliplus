@@ -3,7 +3,7 @@ import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { isEnabled, nativeAPI } from "./api.js";
+import { FULLSCREEN_CHANGE, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindFullscreenEvents, toggleFullscreen } from "./logic.js";
@@ -76,7 +76,7 @@ class FullscreenControl extends BaseControl {
 
   destroy() {
     if (this.fsHandler && isEnabled) {
-      document.removeEventListener(nativeAPI!.fullscreenchange, this.fsHandler);
+      document.removeEventListener(FULLSCREEN_CHANGE, this.fsHandler);
     }
   }
 }
