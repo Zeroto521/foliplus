@@ -200,6 +200,8 @@ describe("save", () => {
     );
     expect(baseline.files["a.min.js"]).toBe(brotli(content));
     expect(baseline.threshold).toBe(10);
+    expect(typeof baseline.version).toBe("string");
+    expect(baseline.version.length).toBeGreaterThan(0);
   });
 
   it("returns 1 when the dist directory has no bundles", () => {

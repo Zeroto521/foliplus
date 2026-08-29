@@ -1,7 +1,7 @@
 {
-  "version": 1,
+  "version": "0.3.2.dev89+g530d90a71",
   "threshold": 10,
-  "lastUpdated": "2026-08-28",
+  "lastUpdated": "2026-08-29",
   "updatedBy": "local",
   "files": {
     "foliplus-ExportControl.min.css": 884,

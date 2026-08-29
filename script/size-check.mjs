@@ -22,6 +22,7 @@ import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync } from "zlib";
 import { OK, STATUS, WARN } from "./glyphs.mjs";
+import { resolveVersion } from "./version.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -81,7 +82,7 @@ const readBaseline = (root = ROOT) => {
 
 const writeBaseline = (files, threshold, root = ROOT) => {
   const data = {
-    version: 1,
+    version: resolveVersion(),
     threshold,
     lastUpdated: new Date().toISOString().split("T")[0],
     updatedBy: process.env.GITHUB_ACTOR || "local",
