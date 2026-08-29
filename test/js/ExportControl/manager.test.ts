@@ -26,6 +26,7 @@ function makeMapMock() {
     touchZoom: { disable: vi.fn(), enable: vi.fn() },
     on: vi.fn(),
     off: vi.fn(),
+    eachLayer: vi.fn(),
   };
 }
 

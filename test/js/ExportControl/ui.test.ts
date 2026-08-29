@@ -26,6 +26,7 @@ function makeMapMock() {
     latLngToContainerPoint: vi.fn(({ lat, lng }) => ({ x: lng, y: lat })),
     on: vi.fn(),
     off: vi.fn(),
+    eachLayer: vi.fn(),
   };
 }
 

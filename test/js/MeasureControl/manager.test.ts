@@ -367,8 +367,14 @@ describe("MeasureManager — export click", () => {
   });
 });
 
-// ==================== Measure-mode layer interaction suspension ====================
-describe("MeasureManager — suspendMapInteractions", () => {
+// ==================== Measure-mode layer interaction lock (mode-driven) ====================
+// The lock lives in core/mode ModeManager; these tests pin the MeasureManager
+// integration: setMode/clearActiveMode flow through the centralized lock.
+describe("MeasureManager — mode-driven layer interaction lock", () => {
+  const makeTop = (leaf: unknown) => ({
+    eachLayer: (fn: (l: unknown) => void) => fn(leaf),
+  });
+
   const makeLeaf = (map: unknown, interactive = true) => {
     const el = document.createElement("path");
     if (interactive) el.classList.add("leaflet-interactive");
@@ -386,39 +392,6 @@ describe("MeasureManager — suspendMapInteractions", () => {
     };
   };
 
-  const makeTop = (leaf: unknown) => ({
-    eachLayer: (fn: (l: unknown) => void) => fn(leaf),
-  });
-
-  it("disables interactive leaves and restores exactly those via the closure", () => {
-    const { manager, map } = makeManager();
-    const { leaf, el } = makeLeaf(map);
-    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
-
-    const restore = manager.suspendMapInteractions();
-    expect(leaf.options.interactive).toBe(false);
-    expect(el.classList.contains("leaflet-interactive")).toBe(false);
-    expect(leaf.removeInteractiveTarget).toHaveBeenCalledWith(el);
-
-    restore();
-    expect(leaf.options.interactive).toBe(true);
-    expect(el.classList.contains("leaflet-interactive")).toBe(true);
-    expect(leaf.addInteractiveTarget).toHaveBeenCalledWith(el);
-  });
-
-  it("leaves already non-interactive layers untouched", () => {
-    const { manager, map } = makeManager();
-    const { leaf, el } = makeLeaf(map, false);
-    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
-
-    const restore = manager.suspendMapInteractions();
-    expect(leaf.options.interactive).toBe(false);
-    expect(leaf.removeInteractiveTarget).not.toHaveBeenCalled();
-    // Restoring is a no-op for layers that were never disabled.
-    expect(() => restore()).not.toThrow();
-    expect(el.classList.contains("leaflet-interactive")).toBe(false);
-  });
-
   it("setMode suspends layer interaction and clearActiveMode restores it", () => {
     const { manager, map } = makeManager();
     const { leaf } = makeLeaf(map);
@@ -426,9 +399,11 @@ describe("MeasureManager — suspendMapInteractions", () => {
 
     manager.setMode(CONST.MODE.MARKER);
     expect(leaf.options.interactive).toBe(false);
+    expect(leaf.removeInteractiveTarget).toHaveBeenCalled();
 
     manager.clearActiveMode();
     expect(leaf.options.interactive).toBe(true);
+    expect(leaf.addInteractiveTarget).toHaveBeenCalled();
   });
 
   it("switching measure modes keeps the existing suspension (no double walk)", () => {
@@ -441,9 +416,19 @@ describe("MeasureManager — suspendMapInteractions", () => {
     expect(callsAfterFirst).toBe(1);
 
     manager.setMode(CONST.MODE.DISTANCE);
-    // currentMode was already non-null → no second suspend walk.
+    // Already suspended by ModeManager → no second walk.
     expect(map.eachLayer.mock.calls.length).toBe(callsAfterFirst);
     expect(leaf.options.interactive).toBe(false);
+  });
+
+  it("a non-interactive layer is left untouched", () => {
+    const { manager, map } = makeManager();
+    const { leaf } = makeLeaf(map, false);
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
+
+    manager.setMode(CONST.MODE.MARKER);
+    expect(leaf.removeInteractiveTarget).not.toHaveBeenCalled();
+    expect(() => manager.clearActiveMode()).not.toThrow();
   });
 });
 
