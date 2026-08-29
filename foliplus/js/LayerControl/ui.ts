@@ -61,7 +61,7 @@ class LayerUI {
   /** Layer id currently being focused, or null. */
   private focusingLayerId: string | null;
   /** One-shot map move/zoom handler that auto-cancels focus when the user navigates. */
-  private _onFocusMapMove: (() => void) | null;
+  private onFocusMapMove: (() => void) | null;
   /** Restore callbacks for layers dimmed during focus (cleared on cancel). */
   private dimmedLayers: Array<() => void>;
 
@@ -82,7 +82,7 @@ class LayerUI {
     this.focusRect = null;
     this.focusCorners = [];
     this.focusingLayerId = null;
-    this._onFocusMapMove = null;
+    this.onFocusMapMove = null;
     this.dimmedLayers = [];
   }
 
@@ -633,7 +633,7 @@ class LayerUI {
     if (!container) return;
     this.closeMoreMenu(false);
     // Remove any focus animation still in flight (rect + corners + row highlight).
-    this._cancelFocus(true);
+    this.dismissFocus();
     if (this.onChange) container.removeEventListener("change", this.onChange);
     if (this.onInput) container.removeEventListener("input", this.onInput);
     if (this.onClick) container.removeEventListener("click", this.onClick);
@@ -1236,7 +1236,7 @@ class LayerUI {
     }
 
     // Cancel any in-flight focus first.
-    this._cancelFocus(true);
+    this.dismissFocus();
 
     // Ensure the layer is on the map so the rectangle highlight is visible.
     if (!this.m.map.hasLayer(layer)) this.m.map.addLayer(layer);
@@ -1261,14 +1261,14 @@ class LayerUI {
       this.m.map.flyTo(center, maxZoom, {
         duration: CONST.FOCUS.FIT_DURATION,
       });
-      this._highlightFocusedRow(itemEl, layerId);
-      this._registerAutoCancel(layerId);
+      this.highlightFocusedRow(itemEl, layerId);
+      this.registerAutoCancel(layerId);
       return;
     }
 
-    const corners = this._drawFocusRect(bounds, layerId);
+    const corners = this.drawFocusRect(bounds, layerId);
     this.focusCorners = corners;
-    this._highlightFocusedRow(itemEl, layerId);
+    this.highlightFocusedRow(itemEl, layerId);
 
     this.m.map.fitBounds(bounds, {
       animate: true,
@@ -1284,13 +1284,13 @@ class LayerUI {
     const ref = this.focusRect;
     setTimeout(() => {
       if (this.focusRect === ref) {
-        this._cancelFocus(true);
+        this.dismissFocus();
       }
     }, CONST.FOCUS.RECT_DURATION_MS);
 
     // One-shot map move/zoom handler that auto-cancels focus when the user
     // starts navigating elsewhere — prevents the rect from lingering.
-    this._registerAutoCancel(layerId);
+    this.registerAutoCancel(layerId);
   }
 
   /** Return true if a focus animation is currently active. */
@@ -1300,17 +1300,14 @@ class LayerUI {
 
   /** Cancel an in-flight focus: remove rect + corners + row highlight. */
   cancelFocus(): void {
-    this._cancelFocus(true);
+    this.dismissFocus();
     this.m.map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
   }
 
-  /**
-   * Internal: tear down focus visuals + state.
-   * @param silent — suppress the "focus cancelled" hint.
-   */
-  private _cancelFocus(silent = false): void {
-    this._clearAutoCancel();
-    this._clearFocusedRowHighlight();
+  /** Internal: tear down focus visuals + state (no hint). */
+  private dismissFocus(): void {
+    this.clearAutoCancel();
+    this.clearFocusedRowHighlight();
     this.restoreDimmedLayers();
 
     if (this.focusRect) {
@@ -1322,9 +1319,6 @@ class LayerUI {
     }
     this.focusCorners = [];
 
-    if (!silent) {
-      map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
-    }
     this.focusingLayerId = null;
   }
 
@@ -1391,7 +1385,7 @@ class LayerUI {
   }
 
   /** Draw a dashed focus rectangle + 4 corner circleMarkers; return the corners. */
-  private _drawFocusRect(bounds: L.LatLngBounds, layerId: string): L.Layer[] {
+  private drawFocusRect(bounds: L.LatLngBounds, layerId: string): L.Layer[] {
     const map = this.m.map;
     const cornerRadius = 4;
 
@@ -1431,7 +1425,7 @@ class LayerUI {
   }
 
   /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */
-  private _registerAutoCancel(layerId: string): void {
+  private registerAutoCancel(layerId: string): void {
     this.focusingLayerId = layerId;
     const self = this;
     const handler = () => {
@@ -1441,34 +1435,34 @@ class LayerUI {
       // grace window is a deliberate user action → cancel.
       setTimeout(() => {
         if (self.focusingLayerId === layerId) {
-          self._cancelFocus(true);
+          self.dismissFocus();
         }
       }, CONST.FOCUS.RECT_DURATION_MS * 0.3);
     };
-    this._onFocusMapMove = () => handler();
-    this.m.map.on("moveend", this._onFocusMapMove);
-    this.m.map.on("zoomend", this._onFocusMapMove);
+    this.onFocusMapMove = () => handler();
+    this.m.map.on("moveend", this.onFocusMapMove);
+    this.m.map.on("zoomend", this.onFocusMapMove);
   }
 
   /** Remove the map move/zoom auto-cancel handlers. */
-  private _clearAutoCancel(): void {
-    if (this._onFocusMapMove) {
-      this.m.map.off("moveend", this._onFocusMapMove);
-      this.m.map.off("zoomend", this._onFocusMapMove);
-      this._onFocusMapMove = null;
+  private clearAutoCancel(): void {
+    if (this.onFocusMapMove) {
+      this.m.map.off("moveend", this.onFocusMapMove);
+      this.m.map.off("zoomend", this.onFocusMapMove);
+      this.onFocusMapMove = null;
     }
   }
 
   /** Highlight the layer row that is being focused (list ↔ map linkage). */
-  private _highlightFocusedRow(itemEl: HTMLElement | null, layerId: string): void {
-    this._clearFocusedRowHighlight();
+  private highlightFocusedRow(itemEl: HTMLElement | null, layerId: string): void {
+    this.clearFocusedRowHighlight();
     if (!itemEl) return;
     itemEl.classList.add(CONST.CLASSES.FOCUSING);
     this.focusingLayerId = layerId;
   }
 
   /** Remove the `foliplus-layer-focusing` class from the active row. */
-  private _clearFocusedRowHighlight(): void {
+  private clearFocusedRowHighlight(): void {
     const prev = this.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSING}`);
     prev?.classList.remove(CONST.CLASSES.FOCUSING);
   }
