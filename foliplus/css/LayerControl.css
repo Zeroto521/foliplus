@@ -394,22 +394,17 @@
     color: var(--accent-primary);
   }
 
-  /* ── Overflow dropdown menu ── */
+  /* ── Overflow dropdown menu ──
+     Shell + item hover/active live in common.css (Unified Dropdown / Menu);
+     this block owns position/size and the action-menu specifics. */
   .foliplus-layer-more-menu {
     position: absolute;
     top: 100%;
     right: 0;
-    z-index: var(--z-dropdown, 2000);
     min-width: 128px;
     padding: var(--space-xs) 0;
-    background: var(--panel-bg, #fff);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    box-shadow: 0 var(--size-3) var(--size-8) rgba(0, 0, 0, 0.12);
-    font-size: var(--font-size-sm);
     display: none;
     list-style: none;
-    margin: var(--border-thin) 0 0 0;
   }
   .foliplus-layer-more-menu.open {
     display: block;
@@ -419,13 +414,7 @@
     align-items: center;
     gap: var(--space-xs);
     padding: var(--space-xs) var(--space-sm);
-    cursor: pointer;
-    color: var(--text-primary);
     white-space: nowrap;
-    transition: background-color var(--transition-fast);
-  }
-  .foliplus-layer-more-menu li:hover {
-    background: var(--accent-light);
   }
   .foliplus-layer-more-menu li:focus-visible {
     outline: var(--border-thin) solid var(--accent-primary);
@@ -449,6 +438,9 @@
   }
   .foliplus-layer-more-menu li[disabled]:hover {
     background: transparent;
+    /* Keep text muted: the unified hover tints text accent, but a disabled
+       item must not answer with accent. */
+    color: var(--text-primary);
   }
 
   /* ── Focus bounds rectangle (drawn on the map) ── */
