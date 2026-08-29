@@ -69,10 +69,9 @@ jobs:
 
       # Commit the refreshed baseline back to the PR branch so it is in sync
       # before the PR merges. Squash-merge keeps main's history clean.
-      - name: Commit updated baseline
+      - uses: stefanzweifel/git-auto-commit-action@v7
         if: github.event_name == 'pull_request'
         continue-on-error: true # fork PRs lack write permission
-        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: update bundle-size-baseline.json"
           file_pattern: bundle-size-baseline.json
