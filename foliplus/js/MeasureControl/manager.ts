@@ -275,10 +275,6 @@ class MeasureManager {
   setEditMode(on: boolean) {
     if (this.isEditMode === on) return;
     this.isEditMode = on;
-    // Edit mode is an exclusive map state like a drawing mode: register it
-    // with the ModeManager so map-layer interaction is suspended while editing
-    // (and restored on exit), matching setMode's drawing branches.
-    ensureModes(this.map).setMode(CONF.name, on ? CONST.MODE.EDIT : null);
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
       if (btn.dataset.mode === CONST.MODE.EDIT)

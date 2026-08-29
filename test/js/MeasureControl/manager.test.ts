@@ -702,20 +702,6 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
     expect(leaf.removeInteractiveTarget).not.toHaveBeenCalled();
     expect(() => manager.clearActiveMode()).not.toThrow();
   });
-
-  it("edit mode suspends layer interaction and exiting restores it", () => {
-    const { manager, map } = makeManager();
-    const { leaf } = makeLeaf(map);
-    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
-
-    manager.setEditMode(true);
-    expect(leaf.options.interactive).toBe(false);
-    expect(leaf.removeInteractiveTarget).toHaveBeenCalled();
-
-    manager.setEditMode(false);
-    expect(leaf.options.interactive).toBe(true);
-    expect(leaf.addInteractiveTarget).toHaveBeenCalled();
-  });
 });
 
 it("onExportClick triggers the export flow", () => {
