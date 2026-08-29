@@ -45,7 +45,7 @@ jobs:
         id: upload
         with:
           name: bundle-report
-          path: bundle-report/
+          path: bundle-report.html
 
       - name: Append report link
         run: |

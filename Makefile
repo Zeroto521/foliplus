@@ -46,7 +46,7 @@ clean-html:
 	rm -rf doc/source/_build
 
 clean-bundle-report:
-	rm -rf bundle-report/
+	rm -f bundle-report.html
 
 clean: clean-build clean-pyc clean-cov clean-html clean-bundle-report
 
