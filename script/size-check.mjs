@@ -30,15 +30,33 @@ const DEFAULT_THRESHOLD = 10;
 const LOW_MARGIN_PCT = 5;
 
 const parseArgs = argv => {
-  const args = { check: true, save: false, audit: false, threshold: DEFAULT_THRESHOLD };
+  const args = {
+    check: true,
+    save: false,
+    audit: false,
+    threshold: DEFAULT_THRESHOLD,
+    thresholdSet: false,
+  };
   for (const a of argv) {
     if (a === "--save") args.save = true;
     else if (a === "--audit") args.audit = true;
-    else if (a.startsWith("--threshold="))
-      args.threshold = parseInt(a.split("=")[1], 10);
+    else if (a.startsWith("--threshold=")) {
+      const v = parseInt(a.split("=")[1], 10);
+      args.threshold = Number.isFinite(v) ? v : DEFAULT_THRESHOLD;
+      args.thresholdSet = true;
+    }
   }
   if (args.save) args.check = false;
   return args;
+};
+
+/** Resolve the effective threshold: explicit --threshold wins, else the
+ *  baseline's stored threshold (so `--save --threshold=15` is honored by a
+ *  later plain `check`), else the default. */
+const resolveThreshold = (args, baseline) => {
+  if (args.thresholdSet) return args.threshold;
+  if (baseline && Number.isFinite(baseline.threshold)) return baseline.threshold;
+  return DEFAULT_THRESHOLD;
 };
 
 const readSizes = () => {
@@ -70,11 +88,12 @@ const writeBaseline = (files, threshold) => {
 
 const fmtKB = n => (n / 1024).toFixed(2) + " KB";
 const fmtDelta = (curr, prev) => {
+  if (curr == null || prev == null) return "—";
   const d = curr - prev;
   return (d > 0 ? "+" : "") + (d / 1024).toFixed(2) + " KB";
 };
 const fmtPct = (curr, prev) => {
-  if (!prev) return "—";
+  if (curr == null || !prev) return "—";
   const p = ((curr - prev) / prev) * 100;
   return (p > 0 ? "+" : "") + p.toFixed(1) + "%";
 };
@@ -168,9 +187,10 @@ const appendSummary = text => {
   }
 };
 
-const check = ({ threshold }) => {
+const check = args => {
   const current = readSizes();
   const baseline = readBaseline();
+  const threshold = resolveThreshold(args, baseline);
   const rows = buildRows(current, baseline, threshold);
   const failures = rows.filter(r => r.over);
   const lowMargin = rows.filter(r => {
@@ -209,13 +229,13 @@ const check = ({ threshold }) => {
   }
 };
 
-const save = ({ threshold }) => {
+const save = args => {
   const current = readSizes();
   if (!Object.keys(current).length) {
     console.error("No bundles found in foliplus/dist/. Run build first.");
     process.exit(1);
   }
-  writeBaseline(current, threshold);
+  writeBaseline(current, resolveThreshold(args, readBaseline()));
   const totalKB = Object.values(current).reduce((a, b) => a + b, 0) / 1024;
   console.log(
     `✓ Baseline saved: ${Object.keys(current).length} bundles, ${totalKB.toFixed(2)} KB total`,
@@ -231,7 +251,7 @@ const audit = () => {
     console.log("No baseline found. Run: node script/size-check.mjs --save");
     return;
   }
-  const threshold = baseline.threshold;
+  const threshold = baseline.threshold ?? DEFAULT_THRESHOLD;
   console.log(
     `\nBundle Size Audit (baseline: ${baseline.lastUpdated}, threshold: ${threshold}%)`,
   );

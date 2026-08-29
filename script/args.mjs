@@ -73,7 +73,7 @@ export const parseArgs = (argv, spec) => {
       continue;
     }
 
-    if (token === "--help" || token === "-h") {
+    if (token === "--help") {
       result.help = true;
       return result;
     }
@@ -150,7 +150,6 @@ export const help = spec => {
     prefix += "--" + name;
     if (meta.type === "array") prefix += " [repeated]";
     else if (meta.type !== "bool") prefix += " <" + typeHint + ">";
-    else if (meta.type !== "bool") prefix += " <value>";
     if (meta.desc) prefix += "  # " + meta.desc;
     lines.push(prefix);
   }

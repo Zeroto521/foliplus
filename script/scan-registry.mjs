@@ -17,11 +17,11 @@
  * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
-import { resolve } from "path";
-import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
 
-const __dirname = resolve(fileURLToPath(import.meta.url), "..");
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SCAN_SPEC = {
   root: {
@@ -53,7 +53,7 @@ const scanImports = dir => {
   const starImported = new Map();
   const allSrc = new Map();
 
-  function walk(d) {
+  const walk = d => {
     for (const entry of readdirSync(d, { withFileTypes: true })) {
       const full = resolve(d, entry.name);
       if (entry.isDirectory()) walk(full);
@@ -91,7 +91,7 @@ const scanImports = dir => {
         }
       }
     }
-  }
+  };
 
   walk(dir);
 
@@ -213,4 +213,8 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
 
 export { generateRegistry, scanImports };
 
-generateRegistry();
+// CLI entry point: `node script/scan-registry.mjs [--root <path>] [--silent]`.
+// Guarded so importing this module (e.g. for tests) has no side effects.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  generateRegistry();
+}
