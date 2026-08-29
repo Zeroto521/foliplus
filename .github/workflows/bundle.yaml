@@ -34,7 +34,7 @@ jobs:
       - run: npm install
       - run: npm run build:sonda
 
-      - name: Prepare size report vs base
+      - name: Compare bundles vs base
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git show "origin/${{ github.base_ref }}:bundle-size-baseline.json" > base-baseline.json 2>/dev/null || echo '{"files":{}}' > base-baseline.json
@@ -47,7 +47,7 @@ jobs:
           name: bundle-report
           path: bundle-report.html
 
-      - name: Append report link
+      - name: Link treemap report
         run: |
           {
             echo ""
