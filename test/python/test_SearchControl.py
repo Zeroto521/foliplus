@@ -144,10 +144,20 @@ class TestSearchControlBrowser:
 
             # Verify the placeholder is for coordinate search
             placeholder = page.evaluate("document.querySelector('input').placeholder")
-            # Coordinate placeholders contain numbers or "coord"/"坐标"
+            # Coordinate placeholders contain lat/lng terms (en: "latitude/longitude",
+            # zh: "经度/纬度").
             assert any(
                 kw in placeholder.lower()
-                for kw in ("lat", "lng", "coord", "坐标", "latitude", "longitude")
+                for kw in (
+                    "lat",
+                    "lng",
+                    "coord",
+                    "坐标",
+                    "latitude",
+                    "longitude",
+                    "经度",
+                    "纬度",
+                )
             ), f"Expected coordinate placeholder, got: {placeholder}"
 
     def test_mode_switch_icon(self, browser, tmp_path):
