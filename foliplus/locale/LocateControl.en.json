@@ -2,7 +2,7 @@
   "locale.name": "English",
   "locale.code": "en",
   "LocateControl.locating": "Locating…",
-  "LocateControl.geo_error": "Unable to get your location — check browser permission",
+  "LocateControl.geo_error": "Unable to get your location, check browser permission",
   "LocateControl.popup_title_geo": "📍 My Location",
   "LocateControl.popup_loc_label": "📌 Location: ",
   "LocateControl.popup_addr_label": "📌 Address: ",
