@@ -3,7 +3,7 @@
  * Bundle coverage check — warn if a dist bundle is not size-tracked.
  *
  * Reads the built artifacts in `foliplus/dist/` and cross-checks them against
- * the `size-baseline.json` manifest. Any bundle missing from the manifest
+ * the `bundle-size-baseline.json` manifest. Any bundle missing from the manifest
  * would silently escape threshold checking, so it is reported here.
  *
  * Runs from `build.mjs --sonda` after the esbuild build + combined sonda
@@ -18,11 +18,11 @@ import { WARN } from "./glyphs.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
 
-/** Warn if any dist bundle is not listed in `size-baseline.json` (would skip threshold checks). */
+/** Warn if any dist bundle is not listed in `bundle-size-baseline.json` (would skip threshold checks). */
 export const checkBundleCoverage = (root = projectRoot) => {
   const distDir = resolve(root, "foliplus/dist");
   const distFiles = readdirSync(distDir).filter(f => /\.min\.(js|css)$/.test(f));
-  const configPath = resolve(root, "size-baseline.json");
+  const configPath = resolve(root, "bundle-size-baseline.json");
   if (!existsSync(configPath)) return; // no baseline yet — nothing to cross-check
 
   const monitored = new Set(
@@ -32,9 +32,9 @@ export const checkBundleCoverage = (root = projectRoot) => {
   if (!unmonitored.length) return;
 
   console.warn(
-    `${WARN}  ${unmonitored.length} bundle(s) not covered by size-baseline.json: ${unmonitored.join(", ")}`,
+    `${WARN}  ${unmonitored.length} bundle(s) not covered by bundle-size-baseline.json: ${unmonitored.join(", ")}`,
   );
-  console.warn("   Add them to size-baseline.json or they will not be size-checked.");
+  console.warn("   Add them to bundle-size-baseline.json or they will not be size-checked.");
 };
 
 // CLI entry point: `node script/bundle-report.mjs`

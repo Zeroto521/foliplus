@@ -295,7 +295,7 @@ const main = async () => {
 
   // ── Step 4.5: Combined sonda report + coverage check (--sonda) ──
   // Merge per-build metafiles into one sonda treemap (index.html) and
-  // warn if any dist bundle is missing from size-baseline.json.
+  // warn if any dist bundle is missing from bundle-size-baseline.json.
   if (sonda) {
     const metafiles = results
       .filter(r => r.status === "fulfilled")

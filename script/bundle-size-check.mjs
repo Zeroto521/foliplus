@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Bundle size baseline checker — compares each dist bundle's brotli size
- * against a committed baseline (`size-baseline.json`). Fails when a bundle
+ * against a committed baseline (`bundle-size-baseline.json`). Fails when a bundle
  * grows beyond the configured threshold (default 10%).
  *
  * Modes:
@@ -10,12 +10,12 @@
  *   --audit      Show utilization report (current / baseline / margin).
  *
  * Usage:
- *   node script/size-check.mjs            # check (CI / local)
- *   node script/size-check.mjs --save     # update baseline
- *   node script/size-check.mjs --audit    # utilization report
- *   node script/size-check.mjs --threshold=15  # override threshold
- *   node script/size-check.mjs --baseline=<path>  # compare against a custom baseline
- *   node script/size-check.mjs --report=<path>    # also write the Markdown table to a file
+ *   node script/bundle-size-check.mjs            # check (CI / local)
+ *   node script/bundle-size-check.mjs --save     # update baseline
+ *   node script/bundle-size-check.mjs --audit    # utilization report
+ *   node script/bundle-size-check.mjs --threshold=15  # override threshold
+ *   node script/bundle-size-check.mjs --baseline=<path>  # compare against a custom baseline
+ *   node script/bundle-size-check.mjs --report=<path>    # also write the Markdown table to a file
  *
  * When GITHUB_STEP_SUMMARY is set, also writes a Markdown summary.
  */
@@ -32,7 +32,7 @@ const DEFAULT_THRESHOLD = 10;
 const LOW_MARGIN_PCT = 5;
 
 const distDir = root => resolve(root, "foliplus/dist");
-const baselinePath = root => resolve(root, "size-baseline.json");
+const baselinePath = root => resolve(root, "bundle-size-baseline.json");
 
 const parseArgs = argv => {
   const args = {
@@ -130,7 +130,7 @@ const buildRows = (current, baseline, threshold) => {
   });
   return allFiles.map(f => {
     const curr = current[f] ?? null;
-    const prev = baseline ? (baseline.files[f] ?? null) : null;
+    const prev = baseline ? (baseline.files?.[f] ?? null) : null;
     if (curr === null) return absent(f, null, prev, "missing");
     if (prev === null) return absent(f, curr, null, "new");
     const delta = curr - prev;
@@ -261,7 +261,7 @@ const check = (args, root = ROOT) => {
       console.error(
         `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
       );
-    console.error("\nUpdate baseline: node script/size-check.mjs --save");
+    console.error("\nUpdate baseline: node script/bundle-size-check.mjs --save");
     return 1;
   }
   if (lowMargin.length > 0) {
@@ -276,7 +276,7 @@ const check = (args, root = ROOT) => {
   }
   if (!baseline) {
     console.warn(`\n${WARN}  No baseline found. Create one:`);
-    console.warn("  node script/size-check.mjs --save");
+    console.warn("  node script/bundle-size-check.mjs --save");
   } else console.log(`\n${OK} All bundles within threshold.`);
   return 0;
 };
@@ -305,7 +305,7 @@ const audit = (root = ROOT) => {
   const current = readSizes(root);
   const baseline = readBaseline(baselinePath(root));
   if (!baseline) {
-    console.log("No baseline found. Run: node script/size-check.mjs --save");
+    console.log("No baseline found. Run: node script/bundle-size-check.mjs --save");
     return 0;
   }
   const threshold = baseline.threshold ?? DEFAULT_THRESHOLD;
@@ -373,11 +373,12 @@ export {
   fmtPct,
   parseArgs,
   resolveThreshold,
+  rowCells,
   save,
   summarize,
 };
 
-// CLI entry point: `node script/size-check.mjs [--save|--audit] [--threshold=N]`.
+// CLI entry point: `node script/bundle-size-check.mjs [--save|--audit] [--threshold=N]`.
 // Guarded so importing this module (for tests) has no side effects.
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {

@@ -21,7 +21,7 @@ help:
 	@echo "'test-js'      - run JS tests (skip Python)"
 	@echo "'size-check'   - check bundle sizes vs baseline (fail > 10%)"
 	@echo "'size-audit'   - show bundle size utilization report"
-	@echo "'size-save'    - update size-baseline.json from current build"
+	@echo "'size-save'    - update bundle-size-baseline.json from current build"
 	@echo "'clean-build'  - remove build artifacts"
 	@echo "'clean-pyc'    - remove Python cache files"
 	@echo "'clean-cov'    - remove coverage files"
