@@ -10,7 +10,11 @@ import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
-import { registerExportClick, registerInteractions } from "./interaction.js";
+import {
+  registerActiveEscape,
+  registerExportClick,
+  registerInteractions,
+} from "./interaction.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 import * as Util from "./util.js";
 
@@ -23,6 +27,7 @@ const T = createScopedTranslator(CONF);
 class MeasureManager {
   map: L.Map;
   private interactionCleanup?: () => void;
+  private measureEscapeCleanup?: () => void;
   private exportClickCleanup?: () => void;
   layers: CreateLayersAPI;
   currentMode: string | null;
@@ -184,6 +189,9 @@ class MeasureManager {
 
     this.cleanMapEvents();
     this.currentMode = mode;
+    // Registering a mode in the ModeManager also suspends map-layer interaction
+    // while measuring (see core/mode syncInteractionLock), so clicks fall
+    // through to the map for node placement instead of firing layer handlers.
     ensureModes(this.map).setMode(CONF.name, mode);
 
     this.toolBtns.forEach(btn =>
@@ -191,6 +199,11 @@ class MeasureManager {
     );
 
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
+
+    // Register a high-priority Escape so it wins over all container-bound
+    // shortcuts (LayerControl/ExportControl) while a measurement is in
+    // progress. priority=1 overrides the default 0 that those use.
+    this.measureEscapeCleanup = registerActiveEscape(this);
 
     const hintKey = {
       [CONST.MODE.MARKER]: T("hint_marker"),
@@ -212,11 +225,16 @@ class MeasureManager {
   /** Deactivate current mode, clean up events, and hide hints. */
   clearActiveMode() {
     this.currentMode = null;
+    // Clearing the mode restores map-layer interaction (core/mode lock).
     ensureModes(this.map).setMode(CONF.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
     this.map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
+    // Unregister the high-priority Escape so container-bound shortcuts
+    // (LayerControl/ExportControl) can respond again.
+    this.measureEscapeCleanup?.();
+    this.measureEscapeCleanup = undefined;
     // Unregister the measure layer if it has no content left (interrupted
     // preview with no persisted measurements). Safe: unregister() is a no-op
     // when there are still completed measurements in the layer.

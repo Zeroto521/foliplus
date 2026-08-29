@@ -26,6 +26,7 @@ function makeMapMock() {
     latLngToContainerPoint: vi.fn(({ lat, lng }) => ({ x: lng, y: lat })),
     on: vi.fn(),
     off: vi.fn(),
+    eachLayer: vi.fn(),
   };
 }
 
@@ -68,5 +69,36 @@ describe("ExportControl ui — crop mode via ModeManager", () => {
     expect(manager.map.foliplus.modes.getMode("ExportControl")).toBe("selecting");
     removeCropBox(manager);
     expect(manager.map.foliplus.modes.getMode("ExportControl")).toBeNull();
+  });
+
+  it("crop 'selecting' mode suspends layer interaction, removeCropBox restores it", () => {
+    const el = document.createElement("path");
+    el.classList.add("leaflet-interactive");
+    const leaf = {
+      options: { interactive: true },
+      _map: manager.map,
+      _path: el,
+      _icon: undefined,
+      _container: undefined,
+      addInteractiveTarget: vi.fn(),
+      removeInteractiveTarget: vi.fn(),
+    };
+    manager.map.eachLayer.mockImplementation((fn: (l: unknown) => void) =>
+      fn({ eachLayer: (c: (l: unknown) => void) => c(leaf) }),
+    );
+
+    // Entering crop selection registers "selecting" → the centralized
+    // ModeManager lock disables the feature layer so the crop drag isn't
+    // interrupted by popups / feature handlers.
+    showCropBox(manager);
+    expect(leaf.options.interactive).toBe(false);
+    expect(el.classList.contains("leaflet-interactive")).toBe(false);
+    expect(leaf.removeInteractiveTarget).toHaveBeenCalledWith(el);
+
+    // Cancelling / finishing the crop restores interaction.
+    removeCropBox(manager);
+    expect(leaf.options.interactive).toBe(true);
+    expect(el.classList.contains("leaflet-interactive")).toBe(true);
+    expect(leaf.addInteractiveTarget).toHaveBeenCalledWith(el);
   });
 });

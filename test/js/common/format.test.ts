@@ -21,10 +21,65 @@ describe("formatNumber", () => {
     expect(formatNumber(1234.5, "comma")).toBe("1,235");
   });
 
-  it("respects locale (Node may lack zh compact, falls back to standard)", () => {
-    // Node might not support zh compact notation; accept compact, comma, or plain
-    const result = formatNumber(1234, "auto", "zh");
-    expect(result === "1.2万" || result === "1,234" || result === "1234").toBe(true);
+  it("respects locale (auto style)", () => {
+    expect(formatNumber(1234, "auto", "zh")).toBe("1234");
+    expect(formatNumber(1234, "auto", "ja")).toBe("1234");
+  });
+
+  // --- auto style: compact below its unit boundary renders ungrouped ---
+  it("zh sub-10000 auto values use no thousands separator: 6000, not 6,000", () => {
+    // zh's compact unit (万) begins at 10000, so 1000–9999 format without a
+    // grouping separator -> 6000, matching Chinese 4-digit grouping.
+    expect(formatNumber(6000, "auto", "zh")).toBe("6000");
+    expect(formatNumber(9999, "auto", "zh")).toBe("9999");
+    expect(formatNumber(1234, "auto", "zh")).toBe("1234");
+    expect(formatNumber(6000, "auto", "zh-CN")).toBe("6000");
+  });
+
+  it("zh >= 10000 uses compact 万 notation", () => {
+    expect(formatNumber(10000, "auto", "zh")).toBe("1万");
+    expect(formatNumber(12000, "auto", "zh")).toBe("1.2万");
+  });
+
+  it("ja shares the 4-digit 万 grouping and is also ungrouped below 10000", () => {
+    expect(formatNumber(6000, "auto", "ja")).toBe("6000");
+    expect(formatNumber(12000, "auto", "ja")).toBe("1.2万");
+  });
+
+  it("en sub-1000 auto values stay ungrouped; en >= 1000 uses compact K", () => {
+    expect(formatNumber(999, "auto", "en")).toBe("999");
+    expect(formatNumber(6000, "auto", "en")).toBe("6K");
+    expect(formatNumber(12000, "auto", "en")).toBe("12K");
+  });
+
+  it("comma style keeps grouping regardless of locale (6000 -> 6,000 in zh)", () => {
+    // comma is user-requested; the locale is not consulted for grouping.
+    expect(formatNumber(6000, "comma", "zh")).toBe("6,000");
+    expect(formatNumber(6000, "comma", "en")).toBe("6,000");
+  });
+
+  it("int style is a plain integer with no grouping (6000 in zh)", () => {
+    // int strips the grouping separator and fractional digits.
+    expect(formatNumber(6000, "int", "zh")).toBe("6000");
+    expect(formatNumber(1234.5, "int", "zh")).toBe("1235");
+    expect(formatNumber(6000, "int", "en")).toBe("6000");
+  });
+
+  it("comma style keeps one decimal below 100", () => {
+    expect(formatNumber(42.7, "comma")).toBe("42.7");
+    expect(formatNumber(99.9, "comma")).toBe("99.9");
+  });
+
+  it("handles zero and negative values", () => {
+    expect(formatNumber(0, "auto")).toBe("0");
+    expect(formatNumber(-6000, "auto", "zh")).toBe("-6000");
+    expect(formatNumber(-6000, "comma", "en")).toBe("-6,000");
+    expect(formatNumber(-1234.5, "int", "zh")).toBe("-1235");
+  });
+
+  it("auto rounds up across the grouping boundary (999.9 -> 1,000)", () => {
+    expect(formatNumber(999.9, "auto", "en")).toBe("1,000");
+    expect(formatNumber(999.5, "auto", "en")).toBe("1,000");
   });
 });
 

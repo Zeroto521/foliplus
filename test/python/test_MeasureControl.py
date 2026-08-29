@@ -645,6 +645,28 @@ class TestMeasureControlBrowser:
             assert mode is None, f"expected mode to be None after Escape, got {mode}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_measure_mode_disables_other_layer_interaction(self, browser, tmp_path):
+        """Activating a measure mode disables interactivity on other map layers
+        (so clicks fall through to the map), and exiting restores it."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("MeasureControl/read_marker_interactive_state"))
+            assert state["before"] is True, (
+                f"marker should start interactive, got {state!r}"
+            )
+            assert state["during"] is False, (
+                f"marker should be non-interactive while measuring, got {state!r}"
+            )
+            assert state["iconDuring"] is False, (
+                f"leaflet-interactive class removed while measuring: {state!r}"
+            )
+            assert state["after"] is True, (
+                f"marker should be interactive again after exit, got {state!r}"
+            )
+            assert state["iconAfter"] is True, (
+                f"leaflet-interactive class restored after exit: {state!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_clear_button_empties_everything(self, browser, tmp_path):
         """Clicking the CLEAR tool button removes all measurements and layers."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):

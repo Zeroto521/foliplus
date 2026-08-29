@@ -1,4 +1,3 @@
-import { ensureInteraction } from "#core/interaction.js";
 import { requireLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createControlEnv } from "#common/guard.js";
@@ -73,8 +72,7 @@ class ExportControl extends BaseControl {
 
   destroy() {
     if (this.m.cropState) this.m.removeCropBox();
-    this.m.interactionCleanup?.();
-    ensureInteraction(this.m.map).unregister(`${CONF.name}-escape`);
+    this.m.unregisterShortcuts();
   }
 }
 

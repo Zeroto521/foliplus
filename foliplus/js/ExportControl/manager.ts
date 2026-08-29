@@ -278,7 +278,12 @@ class ExportManager {
   }
 
   registerShortcuts(): void {
-    const cleanup = registerInteractions(this);
+    this.interactionCleanup = registerInteractions(this);
+  }
+
+  unregisterShortcuts(): void {
+    this.interactionCleanup?.();
+    this.interactionCleanup = undefined;
   }
 
   onKeyDown(event: KeyboardEvent) {
