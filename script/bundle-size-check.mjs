@@ -80,6 +80,14 @@ const readBaseline = path => {
   return JSON.parse(readFileSync(path, "utf-8"));
 };
 
+/** True when two size maps have identical keys and values. */
+const sameFiles = (a, b) => {
+  const keysA = Object.keys(a || {}).sort();
+  const keysB = Object.keys(b || {}).sort();
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((k, i) => k === keysB[i] && a[k] === b[k]);
+};
+
 const writeBaseline = (files, threshold, root = ROOT) => {
   const data = {
     version: resolveVersion(),
@@ -295,11 +303,16 @@ const save = (args, root = ROOT) => {
     console.error("No bundles found in foliplus/dist/. Run build first.");
     return 1;
   }
-  writeBaseline(
-    current,
-    resolveThreshold(args, readBaseline(baselinePath(root))),
-    root,
-  );
+  const existing = readBaseline(baselinePath(root));
+  // Skip the write when the sizes already match — otherwise every push to main
+  // rewrites the version field and produces a useless bot commit.
+  if (existing && !args.thresholdSet && sameFiles(existing.files, current)) {
+    console.log(
+      `${OK} Baseline unchanged: ${Object.keys(current).length} bundles already match.`,
+    );
+    return 0;
+  }
+  writeBaseline(current, resolveThreshold(args, existing), root);
   const totalKB = Object.values(current).reduce((a, b) => a + b, 0) / 1024;
   console.log(
     `${OK} Baseline saved: ${Object.keys(current).length} bundles, ${totalKB.toFixed(2)} KB total`,

@@ -3,6 +3,9 @@ name: bundle
 on:
   push:
     branches: [main]
+    # The bot's baseline commit must not re-trigger this workflow.
+    paths-ignore:
+      - bundle-size-baseline.json
   pull_request:
     branches: [main]
 

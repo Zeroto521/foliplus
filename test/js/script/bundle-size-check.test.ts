@@ -387,4 +387,33 @@ describe("save", () => {
     mkdirSync(join(root, "foliplus", "dist"), { recursive: true });
     expect(save(parseArgs([]), root)).toBe(1);
   });
+
+  it("skips the write when the sizes are unchanged", () => {
+    const root = mkTmp();
+    const content = "export const a = 1;".repeat(50);
+    mkDist(root, { "a.min.js": content });
+    expect(save(parseArgs([]), root)).toBe(0);
+
+    // Tamper with the version to detect a rewrite: a skipped save must leave it.
+    const path = join(root, "bundle-size-baseline.json");
+    const baseline = JSON.parse(readFileSync(path, "utf-8"));
+    baseline.version = "sentinel";
+    writeFileSync(path, JSON.stringify(baseline, null, 2) + "\n");
+
+    expect(save(parseArgs([]), root)).toBe(0);
+    expect(JSON.parse(readFileSync(path, "utf-8")).version).toBe("sentinel");
+  });
+
+  it("still rewrites when --threshold is explicitly set", () => {
+    const root = mkTmp();
+    const content = "export const a = 1;".repeat(50);
+    mkDist(root, { "a.min.js": content });
+    expect(save(parseArgs([]), root)).toBe(0);
+    // Same sizes, but an explicit --threshold forces the write.
+    expect(save(parseArgs(["--threshold=20"]), root)).toBe(0);
+    const baseline = JSON.parse(
+      readFileSync(join(root, "bundle-size-baseline.json"), "utf-8"),
+    );
+    expect(baseline.threshold).toBe(20);
+  });
 });
