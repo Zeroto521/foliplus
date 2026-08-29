@@ -92,11 +92,46 @@
   cursor: wait;
 }
 
-/* Crop box: dashed border + ::before creates 9999px shadow to dim outside */
+/* Crop box: 6/4 dashed border (matches the LayerControl focus rect) + ::before
+   creates 9999px shadow to dim outside. Dashes are drawn with background
+   gradients because CSS `border: dashed` uses a browser-defined pattern that
+   cannot match the SVG stroke-dasharray `6 4` used by the focus rect. */
 .foliplus-export-box {
   position: absolute;
-  border: var(--border-thick) dashed var(--accent-primary);
-  background: transparent;
+  border: none;
+  background-color: transparent;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      var(--accent-primary) 0 var(--size-6),
+      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+    ),
+    repeating-linear-gradient(
+      to right,
+      var(--accent-primary) 0 var(--size-6),
+      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--accent-primary) 0 var(--size-6),
+      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--accent-primary) 0 var(--size-6),
+      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+    );
+  background-size:
+    100% var(--border-thick),
+    100% var(--border-thick),
+    var(--border-thick) 100%,
+    var(--border-thick) 100%;
+  background-position:
+    left top,
+    left bottom,
+    left top,
+    right top;
+  background-repeat: no-repeat;
   cursor: move;
   z-index: calc(var(--z-export-base) + 1);
   box-sizing: border-box;
@@ -115,6 +150,7 @@
   &.locked {
     cursor: default;
     border: var(--border-thick) solid var(--input-focus-border);
+    background-image: none;
     pointer-events: none;
     box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
     transition: none;
