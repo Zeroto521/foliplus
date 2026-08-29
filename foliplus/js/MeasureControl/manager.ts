@@ -187,6 +187,12 @@ class MeasureManager {
       // Edit and drawing modes are mutually exclusive: cancel any active
       // drawing mode before entering edit.
       if (this.currentMode) this.clearActiveMode();
+      // Nothing to edit yet — keep out of edit mode and explain instead of
+      // entering a dead state with no clickable measurements.
+      if (this.measurements.length === 0) {
+        this.map.foliplus!.showHint(CONF.name, T("hint_edit_empty"), HINT_DURATION.SHORT);
+        return;
+      }
       this.setEditMode(true);
       return;
     }

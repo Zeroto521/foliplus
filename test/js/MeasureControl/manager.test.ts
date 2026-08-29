@@ -302,6 +302,7 @@ describe("MeasureManager — setEditMode", () => {
 
   it("setMode EDIT enters edit mode when off", () => {
     const { manager } = makeManager();
+    manager.measurements = [{ id: "m1", type: "marker" }];
     manager.setMode(CONST.MODE.EDIT);
     expect(manager.isEditMode).toBe(true);
   });
@@ -315,6 +316,7 @@ describe("MeasureManager — setEditMode", () => {
 
   it("setMode EDIT cancels an active drawing mode (mutual exclusivity)", () => {
     const { manager } = makeManager();
+    manager.measurements = [{ id: "m1", type: "marker" }];
     manager.currentMode = CONST.MODE.DISTANCE;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
 
@@ -322,6 +324,20 @@ describe("MeasureManager — setEditMode", () => {
 
     expect(clearSpy).toHaveBeenCalledTimes(1);
     expect(manager.isEditMode).toBe(true);
+  });
+
+  it("setMode EDIT does not enter edit mode when there is nothing to edit", () => {
+    const { manager } = makeManager();
+    manager.measurements = [];
+
+    manager.setMode(CONST.MODE.EDIT);
+
+    expect(manager.isEditMode).toBe(false);
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.any(String),
+      expect.anything(),
+    );
   });
 
   it("setMode drawing cancels edit mode (mutual exclusivity)", () => {

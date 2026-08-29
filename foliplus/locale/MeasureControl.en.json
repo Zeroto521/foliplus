@@ -29,5 +29,6 @@
   "MeasureControl.del_all": "Delete all",
   "MeasureControl.export_paused": "Export in progress, measurement paused",
   "MeasureControl.export_no_data": "No data to export",
-  "MeasureControl.hint_edit": "Click a measurement to show delete handles; drag nodes to reposition"
+  "MeasureControl.hint_edit": "Click a measurement to show delete handles; drag nodes to reposition",
+  "MeasureControl.hint_edit_empty": "No measurements to edit — draw one first"
 }

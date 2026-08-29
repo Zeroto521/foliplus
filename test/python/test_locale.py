@@ -129,6 +129,7 @@ _JS_USED_KEYS = {
     "LayerControl.readonly_method_error",
     "MeasureControl.tool_edit",
     "MeasureControl.hint_edit",
+    "MeasureControl.hint_edit_empty",
     # LocateControl
     "LocateControl.title",
     "LocateControl.locating",
