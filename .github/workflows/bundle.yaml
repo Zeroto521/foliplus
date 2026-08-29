@@ -54,8 +54,7 @@ jobs:
             echo "[<kbd>&nbsp;📊&nbsp;View treemap report&nbsp;</kbd>](${{ steps.upload.outputs.artifact-url }})"
           } >> bundle-report.md
 
-      - name: Comment bundle size changes on PR
-        uses: marocchino/sticky-pull-request-comment@v2
+      - uses: marocchino/sticky-pull-request-comment@v2
         continue-on-error: true # fork PRs lack comment permission
         with:
           header: bundle-report
@@ -80,8 +79,7 @@ jobs:
       - run: npm run build
       - run: npm run size:save
 
-      - name: Commit refreshed baseline
-        uses: stefanzweifel/git-auto-commit-action@v7
+      - uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: update bundle-size-baseline.json"
           file_pattern: bundle-size-baseline.json
