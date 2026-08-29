@@ -145,6 +145,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
         relabel();
       },
       onEnd: (latlng: L.LatLng) => {
+        Util.markDragSyntheticClick();
         const pIdx = findPtIdx();
         if (pIdx === -1) return;
         points[pIdx] = latlng;
@@ -526,6 +527,7 @@ const attachPolygonUI = (
         relabel();
       },
       onEnd: (latlng: L.LatLng) => {
+        Util.markDragSyntheticClick();
         const pIdx = findPtIdx();
         if (pIdx === -1) return;
         points[pIdx] = latlng;
