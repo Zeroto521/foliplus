@@ -23,10 +23,17 @@ class MeasureControl(BaseControl):
       labelled. Double-click / right-click / click the first or last node to finish.
     - ⭕ **Circle**: first click sets the center; move the mouse to set the radius;
       second click confirms.
+    - ✏️ **Edit**: enter edit mode to reposition finished measurements. Click a
+      measurement to reveal its × delete handles, then drag its nodes to reshape it —
+      labels update live and changes persist on release. Drag the circle center or the
+      area centroid to translate the whole shape, the circle radius node to resize, or
+      a marker to move it (its address is re-resolved on drop).
     - 🗑️ **Clear**: remove all measurement layers at once.
 
-    After drawing a line, polygon, circle, or placing a marker: click the object to
-    toggle labels and × buttons; click empty map space to hide × buttons.
+    **Editing.** The pencil toolbar button toggles edit mode. Outside edit mode,
+    clicking a measurement does not reveal its × handles. Edit mode and the drawing
+    modes are mutually exclusive: entering one exits the other. Only one measurement
+    shows × handles at a time — clicking another measurement closes the previous one.
 
     Shortcuts
     ---------
@@ -37,7 +44,7 @@ class MeasureControl(BaseControl):
        * - Key
          - Action
        * - Escape
-         - Exit the current measurement mode
+         - Exit the current measurement mode, or exit edit mode
 
     Parameters
     ----------

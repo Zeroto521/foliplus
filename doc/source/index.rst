@@ -40,8 +40,8 @@ GeoPandas handles data, Folium renders it, foliplus brings it to life.
       :padding: 2
       :link: api/foliplus.MeasureControl.html
 
-      Distance measurement, area measurement, circle drawing, and location marker with
-      geocoding.
+      Distance measurement, area measurement, circle drawing, location marker with
+      geocoding, and node-drag edit mode.
 
    .. grid-item-card:: 📐 ScaleControl
       :padding: 2
