@@ -209,7 +209,7 @@ describe("loadHistory / saveHistory", () => {
     expect(loaded).toHaveLength(2);
     // Stored in insertion order, as loadHistory preserves it
     expect(loaded.map(e => e.lng)).toEqual([1, 2]);
-    // Unparseable keys are never rewritten
+    // Keys that fail to parse are never rewritten
     expect(loaded.map(e => e.query)).toEqual(["200,32", "999,32"]);
   });
 
