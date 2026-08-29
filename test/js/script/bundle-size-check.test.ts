@@ -4,7 +4,6 @@ import { join } from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { brotliCompressSync } from "zlib";
 import {
-  audit,
   buildRows,
   check,
   fmtDelta,
@@ -56,15 +55,13 @@ describe("parseArgs", () => {
   it("defaults to check mode with threshold 10", () => {
     const a = parseArgs([]);
     expect(a.save).toBe(false);
-    expect(a.audit).toBe(false);
     expect(a.threshold).toBe(10);
     expect(a.thresholdSet).toBe(false);
     expect(a.unknown).toEqual([]);
   });
 
-  it("parses --save and --audit", () => {
+  it("parses --save", () => {
     expect(parseArgs(["--save"]).save).toBe(true);
-    expect(parseArgs(["--audit"]).audit).toBe(true);
   });
 
   it("parses --threshold=N", () => {
@@ -113,15 +110,22 @@ describe("resolveThreshold", () => {
 });
 
 describe("buildRows", () => {
-  it("classifies over/up/down/same/new/missing", () => {
+  it("classifies over/low/up/down/same/new/missing", () => {
     const current = {
       "a.min.js": 100,
       "b.min.js": 90,
       "c.min.js": 100,
+      "d.min.js": 108,
       "new.min.js": 50,
     };
     const baseline = {
-      files: { "a.min.js": 80, "b.min.js": 100, "c.min.js": 100, "gone.min.js": 10 },
+      files: {
+        "a.min.js": 80,
+        "b.min.js": 100,
+        "c.min.js": 100,
+        "d.min.js": 100,
+        "gone.min.js": 10,
+      },
     };
     const byFile = Object.fromEntries(
       buildRows(current, baseline, 10).map(r => [r.file, r]),
@@ -129,6 +133,7 @@ describe("buildRows", () => {
     expect(byFile["a.min.js"].status).toBe("over"); // +25% > 10%
     expect(byFile["b.min.js"].status).toBe("down"); // -10%
     expect(byFile["c.min.js"].status).toBe("same");
+    expect(byFile["d.min.js"].status).toBe("low"); // +8% within the 5% low-margin band
     expect(byFile["new.min.js"].status).toBe("new");
     expect(byFile["gone.min.js"].status).toBe("missing");
     expect(byFile["gone.min.js"].over).toBe(false);
@@ -219,7 +224,7 @@ describe("formatters", () => {
   });
 
   it("falls back to · for an unknown status marker", () => {
-    // buildRows only emits the six known statuses, but the marker lookup is
+    // buildRows only emits the seven known statuses, but the marker lookup is
     // defensive — an unmapped status must still render as "·" not undefined.
     expect(rowCells({ status: "bogus", curr: null, prev: null }).icon).toBe("·");
   });
@@ -246,6 +251,19 @@ describe("check", () => {
       threshold: 10,
     });
     expect(check(parseArgs([]), root)).toBe(1);
+  });
+
+  it("warns but returns 0 when a bundle is in the low-margin band", () => {
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "a.min.js": content });
+    // baseline 7% smaller → ~7.5% growth, inside the 5% low-margin band (not over)
+    writeBaselineJson(root, {
+      files: { "a.min.js": Math.round(size * 0.93) },
+      threshold: 10,
+    });
+    expect(check(parseArgs([]), root)).toBe(0);
   });
 
   it("honors the baseline threshold when --threshold is not given", () => {
@@ -368,63 +386,5 @@ describe("save", () => {
     const root = mkTmp();
     mkdirSync(join(root, "foliplus", "dist"), { recursive: true });
     expect(save(parseArgs([]), root)).toBe(1);
-  });
-});
-
-describe("audit", () => {
-  it("returns 0 with no baseline", () => {
-    const root = mkTmp();
-    mkDist(root, { "a.min.js": "const a = 1;" });
-    expect(audit(root)).toBe(0);
-  });
-
-  it("returns 0 with a baseline", () => {
-    const root = mkTmp();
-    const content = "const a = 1;".repeat(20);
-    mkDist(root, { "a.min.js": content });
-    writeBaselineJson(root, { files: { "a.min.js": brotli(content) }, threshold: 10 });
-    expect(audit(root)).toBe(0);
-  });
-
-  it("reports a bundle that is missing from the baseline", () => {
-    const root = mkTmp();
-    const content = "const a = 1;".repeat(20);
-    mkDist(root, { "a.min.js": content, "b.min.js": content });
-    writeBaselineJson(root, { files: { "a.min.js": brotli(content) }, threshold: 10 });
-    expect(audit(root)).toBe(0);
-  });
-
-  it("defaults to a 10% threshold when the baseline omits it", () => {
-    const root = mkTmp();
-    const content = "const a = 1;".repeat(20);
-    mkDist(root, { "a.min.js": content });
-    writeBaselineJson(root, { files: { "a.min.js": brotli(content) } });
-    expect(audit(root)).toBe(0);
-  });
-
-  it("flags a bundle that exceeds the threshold (negative margin)", () => {
-    const root = mkTmp();
-    const content = "const a = 1;".repeat(100);
-    const size = brotli(content);
-    mkDist(root, { "a.min.js": content });
-    // baseline 20% smaller → 25% growth, margin = -15%
-    writeBaselineJson(root, {
-      files: { "a.min.js": Math.round(size * 0.8) },
-      threshold: 10,
-    });
-    expect(audit(root)).toBe(0);
-  });
-
-  it("flags a bundle approaching the threshold (low margin)", () => {
-    const root = mkTmp();
-    const content = "const a = 1;".repeat(100);
-    const size = brotli(content);
-    mkDist(root, { "a.min.js": content });
-    // baseline 7% smaller → ~7.5% growth, margin ~2.5% (< 5%)
-    writeBaselineJson(root, {
-      files: { "a.min.js": Math.round(size * 0.93) },
-      threshold: 10,
-    });
-    expect(audit(root)).toBe(0);
   });
 });

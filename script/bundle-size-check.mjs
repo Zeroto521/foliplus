@@ -7,12 +7,10 @@
  * Modes:
  *   (default)    Check current sizes vs baseline, fail on exceedance.
  *   --save       Update baseline from current sizes.
- *   --audit      Show utilization report (current / baseline / margin).
  *
  * Usage:
  *   node script/bundle-size-check.mjs            # check (CI / local)
  *   node script/bundle-size-check.mjs --save     # update baseline
- *   node script/bundle-size-check.mjs --audit    # utilization report
  *   node script/bundle-size-check.mjs --threshold=15  # override threshold
  *   node script/bundle-size-check.mjs --baseline=<path>  # compare against a custom baseline
  *   node script/bundle-size-check.mjs --report=<path>    # also write the Markdown table to a file
@@ -37,7 +35,6 @@ const baselinePath = root => resolve(root, "bundle-size-baseline.json");
 const parseArgs = argv => {
   const args = {
     save: false,
-    audit: false,
     threshold: DEFAULT_THRESHOLD,
     thresholdSet: false,
     baseline: null,
@@ -46,7 +43,6 @@ const parseArgs = argv => {
   };
   for (const a of argv) {
     if (a === "--save") args.save = true;
-    else if (a === "--audit") args.audit = true;
     else if (a.startsWith("--threshold=")) {
       const v = parseInt(a.split("=")[1], 10);
       args.threshold = Number.isFinite(v) ? v : DEFAULT_THRESHOLD;
@@ -111,6 +107,15 @@ const fmtPct = (curr, prev) => {
   return (p > 0 ? "+" : "") + p.toFixed(1) + "%";
 };
 
+/** Map the comparison numbers to a display status, most severe first. */
+const statusOf = (over, low, delta) => {
+  if (over) return "over";
+  if (low) return "low";
+  if (delta > 0) return "up";
+  if (delta < 0) return "down";
+  return "same";
+};
+
 const buildRows = (current, baseline, threshold) => {
   const allFiles = [
     ...new Set([
@@ -136,13 +141,14 @@ const buildRows = (current, baseline, threshold) => {
     const delta = curr - prev;
     const pct = prev > 0 ? (delta / prev) * 100 : null;
     const over = pct > threshold;
+    const low = !over && pct > threshold - LOW_MARGIN_PCT;
     return {
       file: f,
       curr,
       prev,
       delta,
       pct,
-      status: over ? "over" : delta > 0 ? "up" : delta < 0 ? "down" : "same",
+      status: statusOf(over, low, delta),
       over,
     };
   });
@@ -246,9 +252,7 @@ const check = (args, root = ROOT) => {
   const threshold = resolveThreshold(args, baseline);
   const rows = buildRows(current, baseline, threshold);
   const failures = rows.filter(r => r.over);
-  const lowMargin = rows.filter(
-    r => !r.over && r.pct != null && r.pct > threshold - LOW_MARGIN_PCT,
-  );
+  const lowMargin = rows.filter(r => r.status === "low");
 
   const table = renderTable(rows, threshold);
   console.log(renderConsole(rows));
@@ -305,71 +309,7 @@ const save = (args, root = ROOT) => {
   return 0;
 };
 
-const audit = (root = ROOT) => {
-  const current = readSizes(root);
-  const baseline = readBaseline(baselinePath(root));
-  if (!baseline) {
-    console.log("No baseline found. Run: node script/bundle-size-check.mjs --save");
-    return 0;
-  }
-  const threshold = baseline.threshold ?? DEFAULT_THRESHOLD;
-  console.log(
-    `\nBundle Size Audit (baseline: ${baseline.lastUpdated ?? "unknown"}, threshold: ${threshold}%)`,
-  );
-  console.log("─".repeat(78));
-  console.log(
-    "  " +
-      "File".padEnd(40) +
-      "Current".padStart(10) +
-      "Baseline".padStart(10) +
-      "Growth".padStart(9) +
-      "Margin".padStart(9) +
-      "  Status",
-  );
-
-  const files = Object.keys(current).sort();
-  for (const f of files) {
-    const curr = current[f];
-    const prev = baseline.files[f];
-    if (prev == null) {
-      console.log(
-        "  " +
-          f.padEnd(40) +
-          fmtKB(curr).padStart(10) +
-          "  NEW".padStart(10) +
-          " ".padStart(18) +
-          "  " +
-          STATUS.new +
-          " new",
-      );
-      continue;
-    }
-    const growth = (((curr - prev) / prev) * 100).toFixed(1);
-    const remaining = threshold - parseFloat(growth);
-    const marginStr = (remaining >= 0 ? "" : WARN + " ") + remaining.toFixed(1) + "%";
-    const status =
-      remaining <= 0
-        ? `${STATUS.over} OVER`
-        : remaining < LOW_MARGIN_PCT
-          ? `${WARN} LOW`
-          : `${OK} OK`;
-    console.log(
-      "  " +
-        f.padEnd(40) +
-        fmtKB(curr).padStart(10) +
-        fmtKB(prev).padStart(10) +
-        growth.padStart(8) +
-        "%" +
-        marginStr.padStart(9) +
-        "  " +
-        status,
-    );
-  }
-  return 0;
-};
-
 export {
-  audit,
   buildRows,
   check,
   fmtDelta,
@@ -382,14 +322,14 @@ export {
   summarize,
 };
 
-// CLI entry point: `node script/bundle-size-check.mjs [--save|--audit] [--threshold=N]`.
+// CLI entry point: `node script/bundle-size-check.mjs [--save] [--threshold=N]`.
 // Guarded so importing this module (for tests) has no side effects.
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   const args = parseArgs(process.argv.slice(2));
   if (args.unknown.length)
     console.warn(`${WARN}  Unknown argument(s) ignored: ${args.unknown.join(", ")}`);
-  const code = args.save ? save(args) : args.audit ? audit() : check(args);
+  const code = args.save ? save(args) : check(args);
   process.exit(code ?? 0);
 }
 /* v8 ignore stop */
