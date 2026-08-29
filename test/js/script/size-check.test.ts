@@ -84,6 +84,12 @@ describe("parseArgs", () => {
       "positional",
     ]);
   });
+
+  it("parses --baseline and --report", () => {
+    const a = parseArgs(["--baseline=/tmp/base.json", "--report=/tmp/report.md"]);
+    expect(a.baseline).toBe("/tmp/base.json");
+    expect(a.report).toBe("/tmp/report.md");
+  });
 });
 
 describe("resolveThreshold", () => {
@@ -207,9 +213,39 @@ describe("check", () => {
       expect(check(parseArgs([]), root)).toBe(0);
       expect(check(parseArgs([]), root)).toBe(0);
     } finally {
-      process.env.GITHUB_STEP_SUMMARY = prev;
+      if (prev === undefined) delete process.env.GITHUB_STEP_SUMMARY;
+      else process.env.GITHUB_STEP_SUMMARY = prev;
     }
     expect(readFileSync(summary, "utf-8")).toContain("Bundle Size Check");
+  });
+
+  it("compares against a custom baseline via --baseline", () => {
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "a.min.js": content });
+    // custom baseline 20% smaller → 25% growth > 10%; default baseline absent.
+    const customBaseline = join(root, "base-baseline.json");
+    writeFileSync(
+      customBaseline,
+      JSON.stringify({
+        files: { "a.min.js": Math.round(size * 0.8) },
+        threshold: 10,
+      }),
+      "utf-8",
+    );
+    expect(check(parseArgs(["--baseline=" + customBaseline]), root)).toBe(1);
+  });
+
+  it("writes a report file via --report", () => {
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "a.min.js": content });
+    writeBaselineJson(root, { files: { "a.min.js": size }, threshold: 10 });
+    const report = join(root, "report.md");
+    expect(check(parseArgs(["--report=" + report]), root)).toBe(0);
+    expect(readFileSync(report, "utf-8")).toContain("Bundle Size Check");
   });
 });
 

@@ -14,6 +14,8 @@
  *   node script/size-check.mjs --save     # update baseline
  *   node script/size-check.mjs --audit    # utilization report
  *   node script/size-check.mjs --threshold=15  # override threshold
+ *   node script/size-check.mjs --baseline=<path>  # compare against a custom baseline
+ *   node script/size-check.mjs --report=<path>    # also write the Markdown table to a file
  *
  * When GITHUB_STEP_SUMMARY is set, also writes a Markdown summary.
  */
@@ -39,6 +41,8 @@ const parseArgs = argv => {
     audit: false,
     threshold: DEFAULT_THRESHOLD,
     thresholdSet: false,
+    baseline: null,
+    report: null,
     unknown: [],
   };
   for (const a of argv) {
@@ -48,7 +52,9 @@ const parseArgs = argv => {
       const v = parseInt(a.split("=")[1], 10);
       args.threshold = Number.isFinite(v) ? v : DEFAULT_THRESHOLD;
       args.thresholdSet = true;
-    } else args.unknown.push(a);
+    } else if (a.startsWith("--baseline=")) args.baseline = a.split("=")[1];
+    else if (a.startsWith("--report=")) args.report = a.split("=")[1];
+    else args.unknown.push(a);
   }
   if (args.save) args.check = false;
   return args;
@@ -75,8 +81,7 @@ const readSizes = (root = ROOT) => {
   return sizes;
 };
 
-const readBaseline = (root = ROOT) => {
-  const path = baselinePath(root);
+const readBaseline = path => {
   if (!existsSync(path)) return null;
   return JSON.parse(readFileSync(path, "utf-8"));
 };
@@ -201,7 +206,7 @@ const appendSummary = text => {
 
 const check = (args, root = ROOT) => {
   const current = readSizes(root);
-  const baseline = readBaseline(root);
+  const baseline = readBaseline(args.baseline || baselinePath(root));
   const threshold = resolveThreshold(args, baseline);
   const rows = buildRows(current, baseline, threshold);
   const failures = rows.filter(r => r.over);
@@ -209,8 +214,14 @@ const check = (args, root = ROOT) => {
     r => !r.over && r.pct != null && r.pct > threshold - LOW_MARGIN_PCT,
   );
 
+  const table = renderTable(rows, threshold);
   console.log(renderConsole(rows));
-  appendSummary(renderTable(rows, threshold));
+  appendSummary(table);
+  if (args.report) {
+    const reportPath = resolve(args.report);
+    mkdirSync(dirname(reportPath), { recursive: true });
+    writeFileSync(reportPath, table + "\n");
+  }
 
   if (failures.length > 0) {
     console.error(`\n${STATUS.over} ${failures.length} bundle(s) exceeded threshold:`);
@@ -246,7 +257,11 @@ const save = (args, root = ROOT) => {
     console.error("No bundles found in foliplus/dist/. Run build first.");
     return 1;
   }
-  writeBaseline(current, resolveThreshold(args, readBaseline(root)), root);
+  writeBaseline(
+    current,
+    resolveThreshold(args, readBaseline(baselinePath(root))),
+    root,
+  );
   const totalKB = Object.values(current).reduce((a, b) => a + b, 0) / 1024;
   console.log(
     `${OK} Baseline saved: ${Object.keys(current).length} bundles, ${totalKB.toFixed(2)} KB total`,
@@ -258,7 +273,7 @@ const save = (args, root = ROOT) => {
 
 const audit = (root = ROOT) => {
   const current = readSizes(root);
-  const baseline = readBaseline(root);
+  const baseline = readBaseline(baselinePath(root));
   if (!baseline) {
     console.log("No baseline found. Run: node script/size-check.mjs --save");
     return 0;
