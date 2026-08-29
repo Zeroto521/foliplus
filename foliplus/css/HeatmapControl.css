@@ -18,7 +18,6 @@
 .foliplus-heatmap-ctrl {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
-  --dropdown-max-height: 200px;
   --toggle-off-bg: var(--neutral-300);
   --accent-shadow-sm: 0 var(--size-2) var(--size-8)
     rgba(var(--red-rgb), var(--alpha-30));
@@ -165,21 +164,15 @@
     overflow: hidden;
   }
 
-  /* Scheme dropdown */
+  /* Scheme dropdown — shell + item hover/active live in common.css
+     (Unified Dropdown / Menu); this block owns position/width/max-height
+     and the selection border (the one persistent single-select dropdown). */
   .foliplus-heatmap-scheme-dropdown {
     position: absolute;
     top: 100%;
     left: 0;
     width: 100%;
-    box-sizing: border-box;
-    margin-top: var(--space-xs);
-    background: var(--input-bg);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-md);
-    z-index: var(--z-index-floating);
-    max-height: var(--dropdown-max-height);
-    overflow-y: auto;
+    max-height: 200px;
     padding: var(--space-sm) 0;
   }
   .foliplus-heatmap-scheme-dropdown-item {
@@ -189,20 +182,13 @@
     padding: 0 var(--space-lg);
     height: var(--ctrl-size);
     box-sizing: border-box;
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-    transition: background var(--transition-fast);
+    /* Reserved border: same "selected" language as layer items — a permanent
+       transparent left border, .active only recolors it. No layout shift and
+       the border-color can transition. */
+    border-left: var(--border-thick) solid transparent;
 
-    &:hover {
-      background: var(--accent-light);
-    }
     &.active {
-      background: var(--accent-light);
-      color: var(--accent-primary);
-      font-weight: var(--font-weight-semibold);
-      border-left: var(--border-thick) solid var(--accent-primary);
-      padding-left: calc(var(--space-lg) - var(--border-thick));
+      border-left-color: var(--accent-primary);
     }
   }
   .foliplus-heatmap-scheme-dropdown-bar {

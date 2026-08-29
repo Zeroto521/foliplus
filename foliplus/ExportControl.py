@@ -26,10 +26,6 @@ class ExportControl(BaseControl):
          - Lock the current crop area, then begin export
        * - Escape
          - Unlock or dismiss the crop box
-       * - Ctrl+Z / Cmd+Z
-         - Undo the last crop adjustment
-       * - Ctrl+Shift+Z / Cmd+Shift+Z
-         - Redo the last crop adjustment
        * - Mouse drag (crop box edge)
          - Resize the crop box
        * - Mouse drag (inside crop box)

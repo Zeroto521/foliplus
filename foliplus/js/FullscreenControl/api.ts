@@ -1,4 +1,9 @@
-// Fullscreen API detection re-export — the shared implementation lives in
-// common/fullscreen.ts (also used by the hint system). Kept here so
-// FullscreenControl-internal imports stay stable.
-export { nativeAPI, isEnabled, getFullscreenEl } from "#common/fullscreen.js";
+// Fullscreen API — standard names. All modern browsers ship the unprefixed
+// Fullscreen API; the webkit prefix (last needed by Safari < 16.4, 2023) is
+// dropped, so the standard DOM properties are used directly.
+const FULLSCREEN_CHANGE = "fullscreenchange";
+
+const isEnabled = Boolean(document.fullscreenEnabled);
+const getFullscreenEl = (): Element | null => document.fullscreenElement ?? null;
+
+export { FULLSCREEN_CHANGE, isEnabled, getFullscreenEl };

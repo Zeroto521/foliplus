@@ -9,20 +9,13 @@ import {
 // Mutable state controlled by each describe's beforeEach to switch between the
 // native API path (isEnabled=true) and the pseudo path (isEnabled=false).
 const mocks = vi.hoisted(() => ({
-  nativeAPI: {
-    requestFullscreen: "requestFullscreen",
-    exitFullscreen: "exitFullscreen",
-    fullscreenElement: "fullscreenElement",
-    fullscreenEnabled: "fullscreenEnabled",
-    fullscreenchange: "fullscreenchange",
-    fullscreenerror: "fullscreenerror",
-  },
+  FULLSCREEN_CHANGE: "fullscreenchange",
   isEnabled: false,
   getFullscreenEl: vi.fn(() => null),
 }));
 
 vi.mock("#foliplus/FullscreenControl/api.js", () => ({
-  nativeAPI: mocks.nativeAPI,
+  FULLSCREEN_CHANGE: mocks.FULLSCREEN_CHANGE,
   get isEnabled() {
     return mocks.isEnabled;
   },

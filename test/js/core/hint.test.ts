@@ -6,18 +6,6 @@ import {
   registerHintIcon,
 } from "#core/hint.js";
 
-// jsdom has no Fullscreen API, so stub the shared detection with the standard
-// names — the fullscreen-migration test below drives it via a manual
-// document.fullscreenElement override + a dispatched fullscreenchange event.
-vi.mock("#common/fullscreen.js", () => ({
-  nativeAPI: {
-    fullscreenchange: "fullscreenchange",
-    fullscreenElement: "fullscreenElement",
-  },
-  isEnabled: true,
-  getFullscreenEl: () => (document as any).fullscreenElement ?? null,
-}));
-
 beforeEach(() => {
   document.body.innerHTML = "";
 });

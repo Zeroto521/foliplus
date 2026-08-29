@@ -271,7 +271,11 @@ class HeatmapManager {
     const centroid = feat.properties.centroid;
     if (!centroid) return;
     const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
-    const text = formatNumber(feat.properties.value ?? 0, CONF.label_format);
+    const text = formatNumber(
+      feat.properties.value ?? 0,
+      CONF.label_format,
+      CONF.locale_code,
+    );
     if (ctx.font !== font) ctx.font = font;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";

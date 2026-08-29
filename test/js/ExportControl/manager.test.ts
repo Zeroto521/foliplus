@@ -26,6 +26,7 @@ function makeMapMock() {
     touchZoom: { disable: vi.fn(), enable: vi.fn() },
     on: vi.fn(),
     off: vi.fn(),
+    eachLayer: vi.fn(),
   };
 }
 
@@ -72,6 +73,133 @@ describe("ExportManager — onKeyDown", () => {
   it("Enter with unlocked crop box calls lockCropBox", () => {
     manager.onKeyDown({ key: "Enter" });
     expect(manager.lockCropBox).toHaveBeenCalled();
+  });
+});
+
+describe("ExportManager — shortcut lifecycle", () => {
+  let manager;
+  let container;
+
+  beforeEach(() => {
+    manager = makeManager();
+    // Ensure the map container is in the document so focus-based container
+    // containment checks (s.container.contains(document.activeElement)) work.
+    container = manager.map.getContainer();
+    container.tabIndex = 0; // <div> needs tabindex to be focusable in jsdom
+    document.body.appendChild(container);
+    // Restore real removeCropBox so registerShortcuts → unregisterShortcuts
+    // (which internally calls removeCropBox) does not hit a no-op stub.
+    manager.removeCropBox = () => {
+      manager.cropState = null;
+    };
+    setCropState(manager);
+  });
+
+  afterEach(() => {
+    if (container && document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  });
+
+  it("starts with no interactionCleanup", () => {
+    expect(manager.interactionCleanup).toBeUndefined();
+  });
+
+  it("registerShortcuts stores cleanup in interactionCleanup", () => {
+    manager.registerShortcuts();
+    expect(typeof manager.interactionCleanup).toBe("function");
+  });
+
+  it("unregisterShortcuts clears interactionCleanup", () => {
+    manager.registerShortcuts();
+    manager.unregisterShortcuts();
+    expect(manager.interactionCleanup).toBeUndefined();
+  });
+
+  it("unregisterShortcuts after registerShortcuts prevents Enter from firing", () => {
+    manager.registerShortcuts();
+    expect(manager.interactionCleanup).toBeTypeOf("function");
+
+    // Fire Enter while map container has focus — should reach onKeyDown
+    manager.map.getContainer().focus();
+    const keydown = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
+    document.dispatchEvent(keydown);
+    expect(manager.lockCropBox).toHaveBeenCalled();
+    manager.lockCropBox.mockReset();
+
+    manager.unregisterShortcuts();
+    expect(manager.interactionCleanup).toBeUndefined();
+
+    // Same Enter after cleanup — should NOT reach onKeyDown
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(manager.lockCropBox).not.toHaveBeenCalled();
+  });
+
+  it("Enter reaches onKeyDown before cleanup, then suppressed after cleanup", () => {
+    manager.registerShortcuts();
+
+    manager.map.getContainer().focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(manager.lockCropBox).toHaveBeenCalledTimes(1);
+    manager.lockCropBox.mockReset();
+
+    manager.unregisterShortcuts();
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(manager.lockCropBox).not.toHaveBeenCalled();
+  });
+
+  it("unregisterShortcuts prevents Escape from firing", () => {
+    manager.registerShortcuts();
+
+    // Escape is global (no container required) — fires anywhere
+    let escapeCalled = false;
+    manager.removeCropBox = () => {
+      escapeCalled = true;
+      manager.cropState = null;
+    };
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(escapeCalled).toBe(true);
+
+    escapeCalled = false;
+    setCropState(manager);
+    manager.registerShortcuts();
+    manager.unregisterShortcuts();
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(escapeCalled).toBe(false);
+  });
+
+  it("re-registering shortcuts after cleanup restores Enter handler", () => {
+    manager.registerShortcuts();
+    manager.unregisterShortcuts();
+
+    // After cleanup, cropState is null — re-set it
+    setCropState(manager);
+
+    manager.registerShortcuts();
+    expect(typeof manager.interactionCleanup).toBe("function");
+
+    manager.map.getContainer().focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(manager.lockCropBox).toHaveBeenCalledTimes(1);
+    manager.lockCropBox.mockReset();
+
+    manager.unregisterShortcuts();
+    expect(manager.interactionCleanup).toBeUndefined();
   });
 });
 
