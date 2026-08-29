@@ -1363,11 +1363,15 @@ class LayerUI {
     };
 
     // Vector path or marker: the SVG path / icon element.
-    const el = (layer as L.Layer & { getElement?: () => HTMLElement | null }).getElement?.();
+    const el = (
+      layer as L.Layer & { getElement?: () => HTMLElement | null }
+    ).getElement?.();
     if (el) return apply(el);
 
     // Tile / Grid layer: the tile container div.
-    const container = (layer as L.Layer & { getContainer?: () => HTMLElement }).getContainer?.();
+    const container = (
+      layer as L.Layer & { getContainer?: () => HTMLElement }
+    ).getContainer?.();
     if (container) return apply(container);
 
     // LayerGroup / FeatureGroup: recurse into children.
