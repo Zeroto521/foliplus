@@ -197,7 +197,9 @@ const markDragSyntheticClick = () => {
 
 const isDragSyntheticClick = (): boolean => {
   const w = window as unknown as { __foliplus_measure_drag_click: boolean };
-  const v = w.__foliplus_measure_drag_click;
+  // Coalesce the absent flag to false so the return value matches the declared
+  // boolean type even on the first read (before any drag has marked a click).
+  const v = w.__foliplus_measure_drag_click ?? false;
   w.__foliplus_measure_drag_click = false;
   return v;
 };
