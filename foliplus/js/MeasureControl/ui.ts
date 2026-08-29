@@ -18,6 +18,22 @@ const resortLayers = (layers: CreateLayersAPI, ...collections: L.Layer[][]): voi
   collections.forEach(c => c.forEach(l => layers.addLayer(l)));
 };
 
+/**
+ * Bind a click handler that opens the edit overlay, unless the click landed on
+ * the layer's own ✕ handle (attachDelClick handles deletion there, so opening
+ * the overlay would fight it).
+ */
+const bindOpenOverlay = (
+  layer: L.Layer,
+  openOverlay: (event: L.LeafletMouseEvent) => void,
+): void => {
+  layer.on("click", (event: L.LeafletMouseEvent) => {
+    const t = Util.getEventTarget(event);
+    if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
+    openOverlay(event);
+  });
+};
+
 /** Options for attachDistanceUI. */
 interface AttachOpts {
   layers: CreateLayersAPI;
@@ -102,7 +118,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
         }
         nodeMarkers.splice(ptIdx, 1);
         nodeDelIcons.splice(ptIdx, 1);
-        dragBinds.splice(ptIdx, 1);
+        dragBinds.splice(ptIdx, 1)[0]?.cleanup();
 
         if (points.length < 2) {
           deleteMeasurement();
@@ -124,11 +140,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
         if (onUpdate) onUpdate(points);
       });
 
-    delMarker.on("click", (event: L.LeafletMouseEvent) => {
-      const t = Util.getEventTarget(event);
-      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      openOverlay(event);
-    });
+    bindOpenOverlay(delMarker, openOverlay);
 
     const findPtIdx = () =>
       points.findIndex(
@@ -220,6 +232,8 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
   } = opts;
 
   let unregisterDragToggle: () => void = () => {};
+  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
+    [];
 
   const deleteMeasurement = () => {
     dragBinds.forEach(db => db.cleanup());
@@ -234,8 +248,6 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
     layers.unregister();
   };
 
-  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
-    [];
   const updateLabel = () => {
     if (!radiusLabel) return;
     const r = circle.getRadius();
@@ -296,13 +308,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
     dragBinds.forEach(db => db.setEnabled(enabled)),
   );
 
-  const attachInteraction = (layer: L.Layer) => {
-    layer.on("click", (event: L.LeafletMouseEvent) => {
-      const t = Util.getEventTarget(event);
-      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      openOverlay(event);
-    });
-  };
+  const attachInteraction = (layer: L.Layer) => bindOpenOverlay(layer, openOverlay);
 
   attachInteraction(circle);
   if (radiusLine) attachInteraction(radiusLine);
@@ -311,11 +317,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
   if (radiusLabel) attachInteraction(radiusLabel);
 
   attachDelClick(delMarker, deleteMeasurement);
-  delMarker.on("click", (event: L.LeafletMouseEvent) => {
-    const t = Util.getEventTarget(event);
-    if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-    openOverlay(event);
-  });
+  bindOpenOverlay(delMarker, openOverlay);
 
   return () => {
     dragBinds.forEach(db => db.cleanup());
@@ -452,32 +454,6 @@ const attachPolygonUI = (
   centroidDot!.on("click", openOverlay);
   (centroidDel as L.Marker | null)?.on("click", openOverlay);
 
-  // Dragging the centroid translates the whole polygon (mirrors the circle
-  // center drag).
-  dragBinds.push(
-    Util.bindNodeDrag(centroidDot!, centroidDel, mgr.map, {
-      onDrag: (latlng: L.LatLng) => {
-        const dx = latlng.lng - centroidDot!.getLatLng().lng;
-        const dy = latlng.lat - centroidDot!.getLatLng().lat;
-        points.forEach((p, i) => {
-          p.lat += dy;
-          p.lng += dx;
-          nodeMarkers[i]?.setLatLng(p);
-          nodeDelIcons[i]?.setLatLng(p);
-        });
-        finalPoly.setLatLngs(points);
-        relabel();
-      },
-      onEnd: (latlng: L.LatLng) => {
-        Util.markDragSyntheticClick();
-        if (onUpdate) {
-          opts.area = Util.area(points);
-          onUpdate();
-        }
-      },
-    }),
-  );
-
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
     const delMarker = layers.addLayer(
@@ -501,7 +477,7 @@ const attachPolygonUI = (
         layers.removeLayer(node, delMarker);
         nodeMarkers.splice(ptIdx, 1);
         nodeDelIcons.splice(ptIdx, 1);
-        dragBinds.splice(ptIdx, 1);
+        dragBinds.splice(ptIdx, 1)[0]?.cleanup();
 
         if (points.length < 3) {
           deleteMeasurement();
@@ -531,11 +507,7 @@ const attachPolygonUI = (
         }
       });
 
-    delMarker.on("click", (event: L.LeafletMouseEvent) => {
-      const t = Util.getEventTarget(event);
-      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
-      openOverlay(event);
-    });
+    bindOpenOverlay(delMarker, openOverlay);
 
     const findPtIdx = () =>
       points.findIndex(
@@ -564,6 +536,33 @@ const attachPolygonUI = (
     });
     dragBinds.push(db);
   });
+
+  // Dragging the centroid translates the whole polygon (mirrors the circle
+  // center drag). Pushed AFTER the node binds so dragBinds[i] lines up with
+  // nodeMarkers[i] — the node-delete handler splices by node index.
+  dragBinds.push(
+    Util.bindNodeDrag(centroidDot!, centroidDel, mgr.map, {
+      onDrag: (latlng: L.LatLng) => {
+        const dx = latlng.lng - centroidDot!.getLatLng().lng;
+        const dy = latlng.lat - centroidDot!.getLatLng().lat;
+        points.forEach((p, i) => {
+          p.lat += dy;
+          p.lng += dx;
+          nodeMarkers[i]?.setLatLng(p);
+          nodeDelIcons[i]?.setLatLng(p);
+        });
+        finalPoly.setLatLngs(points);
+        relabel();
+      },
+      onEnd: (latlng: L.LatLng) => {
+        Util.markDragSyntheticClick();
+        if (onUpdate) {
+          opts.area = Util.area(points);
+          onUpdate();
+        }
+      },
+    }),
+  );
 
   resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
 

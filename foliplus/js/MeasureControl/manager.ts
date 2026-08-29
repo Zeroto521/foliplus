@@ -119,7 +119,6 @@ class MeasureManager {
     return Array.isArray(data) ? data : [];
   }
 
-  /** Generate a unique measurement ID. */
   /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
    * The id is persisted with the measurement and exported (CSV / GeoJSON). */
   nextMeasurementId(type: string): string {
