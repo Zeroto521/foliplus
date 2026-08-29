@@ -8,6 +8,22 @@ const registerInteractions = (mgr: MeasureManager): (() => void) => {
   ]);
 };
 
+/**
+ * Register a high-priority Escape so it wins over all container-bound
+ * shortcuts (LayerControl/ExportControl) while a measurement is in
+ * progress. priority=1 overrides the default 0 that those use.
+ * Returns a cleanup function to unregister when the mode ends.
+ */
+const registerActiveEscape = (mgr: MeasureManager): (() => void) => {
+  return ensureInteraction(mgr.map).register(`${CONF.name}-escape-active`, [
+    {
+      key: "Escape",
+      priority: 1,
+      handler: () => mgr.clearActiveMode(),
+    },
+  ]);
+};
+
 /** Bind the export toolbar button's click via the shared interaction manager. */
 const registerExportClick = (
   mgr: MeasureManager,
@@ -18,4 +34,4 @@ const registerExportClick = (
   ]);
 };
 
-export { registerExportClick, registerInteractions };
+export { registerActiveEscape, registerExportClick, registerInteractions };

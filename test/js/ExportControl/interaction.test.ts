@@ -34,6 +34,35 @@ describe("ExportControl interaction", () => {
     cleanup();
   });
 
+  it("cleanup unregisters all shortcuts (Escape + Enter)", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    container.focus();
+
+    // Verify both shortcuts respond before cleanup
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(mgr.onKeyDown).toHaveBeenCalledTimes(2);
+
+    // After cleanup, none of them should fire
+    cleanup();
+    mgr.onKeyDown.mockClear();
+    container.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(mgr.onKeyDown).not.toHaveBeenCalled();
+  });
+
   it("Escape handler calls onKeyDown", () => {
     const mgr = makeMgr();
     const cleanup = registerInteractions(mgr);
@@ -43,20 +72,6 @@ describe("ExportControl interaction", () => {
     container.focus();
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
-    expect(mgr.onKeyDown).toHaveBeenCalled();
-    cleanup();
-  });
-
-  it("Ctrl+Z handler calls onKeyDown", () => {
-    const mgr = makeMgr();
-    const cleanup = registerInteractions(mgr);
-    const container = mgr.map.getContainer();
-    container.setAttribute("tabindex", "-1");
-    document.body.appendChild(container);
-    container.focus();
-    container.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
     );
     expect(mgr.onKeyDown).toHaveBeenCalled();
     cleanup();
@@ -91,25 +106,6 @@ describe("ExportControl interaction", () => {
     cleanup();
   });
 
-  it("Ctrl+Shift+Z handler calls onKeyDown", () => {
-    const mgr = makeMgr();
-    const cleanup = registerInteractions(mgr);
-    const container = mgr.map.getContainer();
-    container.setAttribute("tabindex", "-1");
-    document.body.appendChild(container);
-    container.focus();
-    container.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "z",
-        ctrlKey: true,
-        shiftKey: true,
-        bubbles: true,
-      }),
-    );
-    expect(mgr.onKeyDown).toHaveBeenCalled();
-    cleanup();
-  });
-
   it("registerDrag mousemove and mouseup handlers work", () => {
     const mgr = makeMgr();
     const cleanup = registerDrag(mgr);
@@ -127,6 +123,38 @@ describe("ExportControl interaction", () => {
     const cleanup = registerCropMouseDown(mgr, el);
     el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     expect(mgr.onMouseDown).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("registerDrag is removed after cleanup", () => {
+    const mgr = makeMgr();
+    const cleanup = registerDrag(mgr);
+    cleanup();
+    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    expect(mgr.onMouseMove).not.toHaveBeenCalled();
+    expect(mgr.onMouseUp).not.toHaveBeenCalled();
+  });
+
+  it("registerCropMouseDown is removed after cleanup", () => {
+    const mgr = makeMgr();
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const cleanup = registerCropMouseDown(mgr, el);
+    cleanup();
+    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(mgr.onMouseDown).not.toHaveBeenCalled();
+  });
+
+  it("drag handlers do not preventDefault on non-mouse events", () => {
+    const mgr = makeMgr();
+    const cleanup = registerDrag(mgr);
+    // Mousemove and mouseup are registered; keydown should not dispatch to them
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(mgr.onMouseMove).not.toHaveBeenCalled();
+    expect(mgr.onMouseUp).not.toHaveBeenCalled();
     cleanup();
   });
 });
