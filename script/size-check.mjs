@@ -84,6 +84,8 @@ const writeBaseline = (files, threshold, root = ROOT) => {
   const data = {
     version: resolveVersion(),
     threshold,
+    // `files` values are brotli-compressed sizes in bytes (see readSizes).
+    unit: "brotli bytes",
     lastUpdated: new Date().toISOString().split("T")[0],
     updatedBy: process.env.GITHUB_ACTOR || "local",
     files,

@@ -1,6 +1,7 @@
 {
   "version": "0.3.2.dev89+g530d90a71",
   "threshold": 10,
+  "unit": "brotli bytes",
   "lastUpdated": "2026-08-29",
   "updatedBy": "local",
   "files": {
