@@ -33,6 +33,7 @@ import { help, parseArgs } from "./args.mjs";
 import { checkBundleCoverage } from "./bundle-report.mjs";
 import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
+import { FAIL, OK } from "./glyphs.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
 // Returns the API used to merge per-build metafiles into one combined report.
@@ -299,7 +300,7 @@ const main = async () => {
   const components = findComponents();
   const sonda = CFG.sonda ? await loadSonda() : null;
   if (sonda)
-    console.log("  🔍 Sonda analysis enabled (combined report → bundle-reports/)");
+    console.log("  Sonda analysis enabled (combined report → bundle-reports/)");
   const entries = buildEntries(components, CFG.sonda);
   console.log(
     `Building ${entries.length} artifacts for ${components.length} components...`,
@@ -310,8 +311,10 @@ const main = async () => {
   const failed = results.filter(r => r.status === "rejected").length;
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
-    if (r.status === "fulfilled") console.log(`  ✓ ${basename(entries[i].outfile)}`);
-    else console.error(`  ✗ ${basename(entries[i].outfile)}: ${r.reason.message}`);
+    if (r.status === "fulfilled")
+      console.log(`  ${OK} ${basename(entries[i].outfile)}`);
+    else
+      console.error(`  ${FAIL} ${basename(entries[i].outfile)}: ${r.reason.message}`);
   }
 
   // ── Step 4.5: Combined sonda report + coverage check (--sonda) ──

@@ -13,6 +13,7 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { WARN } from "./glyphs.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
@@ -31,7 +32,7 @@ export const checkBundleCoverage = (root = projectRoot) => {
   if (!unmonitored.length) return;
 
   console.warn(
-    `⚠️  ${unmonitored.length} bundle(s) not covered by size-baselines.json: ${unmonitored.join(", ")}`,
+    `${WARN}  ${unmonitored.length} bundle(s) not covered by size-baselines.json: ${unmonitored.join(", ")}`,
   );
   console.warn("   Add them to size-baselines.json or they will not be size-checked.");
 };

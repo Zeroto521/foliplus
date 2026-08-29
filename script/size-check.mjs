@@ -21,6 +21,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync } from "zlib";
+import { OK, STATUS, WARN } from "./glyphs.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -103,15 +104,6 @@ const fmtPct = (curr, prev) => {
   return (p > 0 ? "+" : "") + p.toFixed(1) + "%";
 };
 
-const ICONS = {
-  over: "🔴",
-  up: "🟡",
-  down: "🟢",
-  same: "⚪",
-  new: "🆕",
-  missing: "⚠️",
-};
-
 const buildRows = (current, baseline, threshold) => {
   const allFiles = [
     ...new Set([
@@ -159,7 +151,7 @@ const renderTable = (rows, threshold) => {
   for (const r of rows) {
     const currStr = r.curr != null ? fmtKB(r.curr) : "—";
     const prevStr = r.prev != null ? fmtKB(r.prev) : "—";
-    const icon = ICONS[r.status] || "⚪";
+    const icon = STATUS[r.status] || "·";
     const label = r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status;
     lines.push(
       `| ${r.file} | ${currStr} | ${prevStr} | ${fmtDelta(r.curr, r.prev)} | ${fmtPct(r.curr, r.prev)} | ${icon} ${label} |`,
@@ -171,7 +163,7 @@ const renderTable = (rows, threshold) => {
 const renderConsole = rows => {
   const lines = ["", "Bundle Size Check", "─".repeat(70)];
   for (const r of rows) {
-    const icon = ICONS[r.status] || "⚪";
+    const icon = STATUS[r.status] || "·";
     const currStr = r.curr != null ? fmtKB(r.curr) : "—";
     const prevStr = r.prev != null ? fmtKB(r.prev) : "—";
     const label = r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status;
@@ -208,7 +200,7 @@ const check = (args, root = ROOT) => {
   appendSummary(renderTable(rows, threshold));
 
   if (failures.length > 0) {
-    console.error(`\n❌ ${failures.length} bundle(s) exceeded threshold:`);
+    console.error(`\n${STATUS.over} ${failures.length} bundle(s) exceeded threshold:`);
     for (const f of failures)
       console.error(
         `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
@@ -218,7 +210,7 @@ const check = (args, root = ROOT) => {
   }
   if (lowMargin.length > 0) {
     console.warn(
-      `\n⚠️  ${lowMargin.length} bundle(s) with <${LOW_MARGIN_PCT}% margin:`,
+      `\n${WARN}  ${lowMargin.length} bundle(s) with <${LOW_MARGIN_PCT}% margin:`,
     );
     for (const m of lowMargin) {
       const g = (((m.curr - m.prev) / m.prev) * 100).toFixed(1);
@@ -227,10 +219,10 @@ const check = (args, root = ROOT) => {
     }
   }
   if (!baseline) {
-    console.warn("\n⚠️  No baseline found. Create one:");
+    console.warn(`\n${WARN}  No baseline found. Create one:`);
     console.warn("  node script/size-check.mjs --save");
   } else {
-    console.log("\n✓ All bundles within threshold.");
+    console.log(`\n${OK} All bundles within threshold.`);
   }
   return 0;
 };
@@ -244,7 +236,7 @@ const save = (args, root = ROOT) => {
   writeBaseline(current, resolveThreshold(args, readBaseline(root)), root);
   const totalKB = Object.values(current).reduce((a, b) => a + b, 0) / 1024;
   console.log(
-    `✓ Baseline saved: ${Object.keys(current).length} bundles, ${totalKB.toFixed(2)} KB total`,
+    `${OK} Baseline saved: ${Object.keys(current).length} bundles, ${totalKB.toFixed(2)} KB total`,
   );
   for (const [f, s] of Object.entries(current))
     console.log(`  ${fmtKB(s).padStart(10)}  ${f}`);
@@ -284,15 +276,21 @@ const audit = (root = ROOT) => {
           fmtKB(curr).padStart(10) +
           "  NEW".padStart(10) +
           " ".padStart(18) +
-          "  🆕 new",
+          "  " +
+          STATUS.new +
+          " new",
       );
       continue;
     }
     const growth = (((curr - prev) / prev) * 100).toFixed(1);
     const remaining = threshold - parseFloat(growth);
-    const marginStr = (remaining >= 0 ? "" : "⚠️ ") + remaining.toFixed(1) + "%";
+    const marginStr = (remaining >= 0 ? "" : WARN + " ") + remaining.toFixed(1) + "%";
     const status =
-      remaining <= 0 ? "🔴 OVER" : remaining < LOW_MARGIN_PCT ? "🟡 LOW" : "🟢 OK";
+      remaining <= 0
+        ? `${STATUS.over} OVER`
+        : remaining < LOW_MARGIN_PCT
+          ? `${WARN} LOW`
+          : `${OK} OK`;
     console.log(
       "  " +
         f.padEnd(40) +
@@ -325,7 +323,7 @@ export {
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   const args = parseArgs(process.argv.slice(2));
   if (args.unknown.length)
-    console.warn(`⚠️  Unknown argument(s) ignored: ${args.unknown.join(", ")}`);
+    console.warn(`${WARN}  Unknown argument(s) ignored: ${args.unknown.join(", ")}`);
   const code = args.save ? save(args) : args.audit ? audit() : check(args);
   process.exit(code ?? 0);
 }
