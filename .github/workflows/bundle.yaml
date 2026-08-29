@@ -6,17 +6,20 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write # to auto-commit the refreshed baseline back to the PR branch
-  pull-requests: write
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  bundle:
+  # PR: build, compare against main's committed baseline, and post the diff as a
+  # sticky comment. Read-only — the baseline is never written on a PR push, so
+  # the "standard" stays anchored to main until the PR actually merges.
+  report:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # post/update the sticky comment
     steps:
       - uses: actions/checkout@v6
         with:
@@ -28,51 +31,54 @@ jobs:
       - run: npm install
       - run: npm run build:sonda
 
-      # Auto-refresh the committed baseline on every build so it never goes
-      # stale — the manual `size:save` is now done here, not by a developer.
-      - run: npm run size:save
-
-      # Compare this PR's bundles against the base branch's committed baseline and
-      # post the diff as a sticky PR comment (updated on every push). Bundles that
-      # grow past the threshold are flagged OVER in the table; there is no hard gate.
       - name: Prepare size report vs base
-        if: github.event_name == 'pull_request' && always()
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git show "origin/${{ github.base_ref }}:bundle-size-baseline.json" > base-baseline.json 2>/dev/null || echo '{"files":{}}' > base-baseline.json
           node script/bundle-size-check.mjs --baseline=base-baseline.json --report=bundle-report.md || true
 
       # Upload the sonda treemap (HTML only) so the comment can link to it.
-      # always(): keep the report downloadable even if a step above fails.
       - uses: actions/upload-artifact@v7
         id: upload
-        if: always()
         with:
           name: bundle-report
           path: bundle-report/
 
-      # Append a link to the uploaded treemap, then post the comment.
       - name: Append report link
-        if: github.event_name == 'pull_request' && always()
         run: |
           {
             echo ""
             echo "[<kbd>&nbsp;📊&nbsp;View treemap report&nbsp;</kbd>](${{ steps.upload.outputs.artifact-url }})"
           } >> bundle-report.md
 
-      - uses: marocchino/sticky-pull-request-comment@v2
-        if: github.event_name == 'pull_request' && always()
+      - name: Comment bundle size changes on PR
+        uses: marocchino/sticky-pull-request-comment@v2
         continue-on-error: true # fork PRs lack comment permission
         with:
           header: bundle-report
           path: bundle-report.md
 
-      # Commit the refreshed baseline back to the PR branch so it is in sync
-      # before the PR merges. Squash-merge keeps main's history clean.
-      - uses: stefanzweifel/git-auto-commit-action@v7
-        if: github.event_name == 'pull_request'
-        continue-on-error: true # fork PRs lack write permission
+  # Main: refresh the canonical baseline once per merge so the standard tracks
+  # main's actual bundle sizes. The bot commits straight to main.
+  baseline:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit the refreshed baseline to main
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+
+      - run: npm install
+      - run: npm run build
+      - run: npm run size:save
+
+      - name: Commit refreshed baseline
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: update bundle-size-baseline.json"
           file_pattern: bundle-size-baseline.json
-          branch: ${{ github.head_ref }}
