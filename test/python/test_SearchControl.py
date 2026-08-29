@@ -75,7 +75,9 @@ class TestSearchControlPython:
             SearchControl(provider="bogus")
 
     def test_provider_config_passthrough(self):
-        ctrl = SearchControl(provider="photon", provider_config={"baseUrl": "https://x"})
+        ctrl = SearchControl(
+            provider="photon", provider_config={"baseUrl": "https://x"}
+        )
         assert ctrl.provider_config == {"baseUrl": "https://x"}
 
     def test_provider_config_non_dict_raises(self):
@@ -108,7 +110,8 @@ class TestSearchControlProviderConfig:
 
     def test_provider_config_serialized_in_config(self):
         ctrl = SearchControl(
-            provider="pelias", provider_config={"baseUrl": "https://geocode.example.com"}
+            provider="pelias",
+            provider_config={"baseUrl": "https://geocode.example.com"},
         )
         assert_config_block(
             ctrl,
