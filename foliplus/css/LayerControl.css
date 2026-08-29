@@ -9,6 +9,38 @@
   pointer-events: auto;
 }
 
+/* ── Focus bounds rectangle (drawn on the map) ──
+   Added via map.addLayer(), so it lives OUTSIDE .foliplus-layer-ctrl and
+   needs a top-level selector. Leaflet renders L.rectangle as a <path> with
+   className applied directly (no polygon child). */
+path.foliplus-focus-rect {
+  fill: var(--accent-primary);
+  fill-opacity: 0.12;
+  stroke: var(--accent-primary);
+  stroke-dasharray: 6 4;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  /* "Marching ants" selection marquee — the dashes flow along the border. */
+  animation: foliplus-focus-march 0.8s linear infinite;
+  pointer-events: none;
+}
+/* Corner circleMarkers for the focus rectangle */
+path.foliplus-focus-corner {
+  fill: var(--accent-primary);
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+@keyframes foliplus-focus-march {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  path.foliplus-focus-rect {
+    animation: none;
+  }
+}
+
 /* ── Layer Control ── */
 .foliplus-layer-ctrl {
   /* ── Drag & Drop Variables ──
@@ -450,36 +482,6 @@
     color: var(--text-primary);
   }
 
-  /* ── Focus bounds rectangle (drawn on the map) ──
-     Leaflet renders L.rectangle as a <path> with className applied directly,
-     so the selector targets path.foliplus-focus-rect (not a polygon child). */
-  path.foliplus-focus-rect {
-    fill: var(--accent-primary);
-    fill-opacity: 0.12;
-    stroke: var(--accent-primary);
-    stroke-dasharray: 6 4;
-    stroke-width: 2;
-    stroke-linejoin: round;
-    /* "Marching ants" selection marquee — the dashes flow along the border. */
-    animation: foliplus-focus-march 0.8s linear infinite;
-    pointer-events: none;
-  }
-  /* Corner circleMarkers for the focus rectangle */
-  path.foliplus-focus-corner {
-    fill: var(--accent-primary);
-    stroke: #ffffff;
-    stroke-width: 1.5;
-  }
-  @keyframes foliplus-focus-march {
-    to {
-      stroke-dashoffset: -10;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    path.foliplus-focus-rect {
-      animation: none;
-    }
-  }
   /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
   .foliplus-layer-item.foliplus-layer-focusing {
     border-left-color: var(--accent-primary);
